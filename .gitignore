@@ -53,5 +53,5 @@ app-example
 /.claude/worktrees
 /src/coverage
 
-# Lume (if added later)
+# Lume build output
 _site

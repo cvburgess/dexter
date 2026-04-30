@@ -61,6 +61,7 @@ Launch two sonnet subagents **in parallel** to build context:
 Prompt with the full issue JSON. Ask it to:
 - Read `docs/backend.md` if the issue affects `supabase/` (DB schema, RLS, edge functions, storage) — use it as primary context for backend patterns
 - Read `docs/frontend.md` if the issue affects `src/` (routing, hooks, patterns, paywall, navigation) — use it as primary context for app patterns
+- Read `docs/website.md` if the issue affects `www/` (landing pages, marketing copy, SEO, Lume templates, or website deploy behavior) — use it as primary context for website patterns
 - Map each plan step to specific files, components, hooks, utilities, or edge functions in the codebase
 - Identify existing patterns the implementation should follow (similar features, conventions, naming)
 - Find relevant types, schemas, database tables, and edge functions
@@ -75,9 +76,9 @@ Prompt with the issue title and body. Ask it to:
 - Find existing tests related to the areas being changed (search `__tests__/` directories)
 - Identify which test patterns to follow (unit, hook, route — see `docs/testing.md`)
 - Identify which docs in `docs/` may need updating based on the issue (use the mapping from the open-pr skill: features.md, pricing.md, personas.md, brand.md, appstore.md, backend.md, frontend.md)
-- Check if feature changes warrant updates to `docs/features.md` and the marketing website in `www/` (feature data lives in `www/src/_data/features.json` — read `docs/website.md` for website patterns)
-- Check if the change affects user-visible behavior covered by an existing help article in `www/src/help/` (one article per major feature — importing recipes, recipe library, collections, boxes, cook mode, grocery shopping, sharing, nutrition, dietary preferences, MCP server). If so, the matching article needs an update; if the feature is new, a new article should be added and linked from `www/src/help/index.vto`.
-- Return: relevant test files, test patterns to follow, and docs/website/help-center files that may need updates
+- Check if feature changes warrant updates to `docs/features.md`, `docs/positioning.md`, and the marketing website in `www/` (feature data lives in `www/src/_data/features.json`; tips pages live in `www/src/tips/`; read `docs/website.md` for website patterns)
+- Check if the change affects user-visible behavior covered by an existing tip page in `www/src/tips/`, FAQ copy in `www/src/_data/faqs.json`, or release notes in `www/src/_data/releases.ts`.
+- Return: relevant test files, test patterns to follow, and docs/website files that may need updates
 
 Set `subagent_type: "Explore"`.
 
@@ -126,13 +127,13 @@ Use the branch naming convention: `<issue-number>-<short-description>`
 
 Work through the plan step by step. For each step:
 
-1. **Read architecture docs first** — read `docs/backend.md` before modifying `supabase/` and `docs/frontend.md` before modifying `src/` to follow established patterns
+1. **Read architecture docs first** — read `docs/backend.md` before modifying `supabase/`, `docs/frontend.md` before modifying `src/`, and `docs/website.md` before modifying `www/` to follow established patterns
 2. **Read before writing** — always read files before modifying them
 3. **Follow existing patterns** — match the codebase's style, naming, and conventions
 4. **Keep changes focused** — only change what's needed for this issue
 5. **Use TypeScript** — avoid `any` types
 
-Linting and formatting run automatically via hooks after every file edit. If you need to manually verify, use the project's npm scripts (e.g., `cd src && npm run lint`) — never use `npx tsc`, `npx eslint`, or `npx expo lint` directly.
+Linting and formatting run automatically via hooks after every file edit. If you need to manually verify, use the project's scripts (e.g., `cd src && npm run lint` or `cd www && deno task build`) — never use `npx tsc`, `npx eslint`, or `npx expo lint` directly.
 
 Commit logical units of work as you go with clear commit messages referencing the issue number.
 
@@ -151,8 +152,8 @@ Review which docs need updating based on what changed:
 
 | If you changed... | Update these |
 |---|---|
-| App features, feature status | `docs/features.md`, `docs/positioning.md` AND `www/` website (feature data in `www/src/_data/features.json` — see `docs/website.md` for patterns) AND the matching `www/src/help/<feature>.md` article (creating a new one and linking it from `www/src/help/index.md` if the feature is new) |
-| User-facing behavior covered by an existing help article | The matching `www/src/help/<feature>.md` article |
+| App features, feature status | `docs/features.md`, `docs/positioning.md` AND `www/` website content when marketing claims change (feature data in `www/src/_data/features.json`, tips in `www/src/tips/` — see `docs/website.md` for patterns) |
+| User-facing behavior covered by an existing tip page or FAQ | The matching `www/src/tips/<feature>.md` page or `www/src/_data/faqs.json` entry |
 | Pricing, subscriptions, paywall | `docs/pricing.md` |
 | User-facing flows | `docs/personas.md` |
 | UI copy, colors, branding | `docs/brand.md` |

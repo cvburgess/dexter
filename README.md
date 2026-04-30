@@ -1,10 +1,10 @@
 # Dexter
 
-Monorepo for the Dexter planner product: Expo app (`/src`), Supabase backend (`/supabase`), and engineering docs (`/docs`).
+Monorepo for the Dexter planner product: Expo app (`/src`), Supabase backend (`/supabase`), marketing website (`/www`), and engineering docs (`/docs`).
 
 ## Marketing website
 
-The marketing site is maintained in **[cvburgess/dexter-www](https://github.com/cvburgess/dexter-www)** and deploys to **[dexterplanner.com](https://dexterplanner.com)**. It is not built from this repository. See [`docs/website.md`](docs/website.md).
+The marketing site for **[dexterplanner.com](https://dexterplanner.com)** lives in [`www/`](www/). See [`docs/website.md`](docs/website.md) for local commands and deployment notes.
 
 ## Quick start
 
@@ -12,6 +12,7 @@ The marketing site is maintained in **[cvburgess/dexter-www](https://github.com/
 |------|---------|
 | App | `cd src && npm install --legacy-peer-deps && npm start` |
 | Backend | See [`supabase/README.md`](supabase/README.md) |
+| Website | `cd www && deno task serve` |
 | Docs | Start with [`docs/frontend.md`](docs/frontend.md) and [`docs/backend.md`](docs/backend.md) |
 
 ## Repository
