@@ -6,10 +6,10 @@ All backend config and migrations live under `/supabase`.
 
 ## Directory layout
 
-- `functions/` — Edge Functions (Deno); one folder per function with `index.ts` and usually `deno.json`
-- `migrations/` — SQL migrations (timestamped filenames)
+- `functions/ics-proxy/` — production Edge Function for proxying public `.ics` calendar URLs
+- `migrations/` — SQL migrations (timestamped filenames), including the production baseline
 - `config.toml` — Local Supabase CLI configuration
-- `seed.sql` — Optional seed data for local dev (add when needed)
+- `seed.sql` — Optional seed data for local dev; the production baseline currently requires none
 
 For query optimization, schema design, and RLS guidance, see the repo skill at [`.claude/skills/supabase-postgres-best-practices/SKILL.md`](../.claude/skills/supabase-postgres-best-practices/SKILL.md).
 
@@ -17,6 +17,7 @@ For query optimization, schema design, and RLS guidance, see the repo skill at [
 
 - Runtime is **Deno**, not Node: avoid Node-only built-ins and npm packages that assume Node.
 - Prefer JSR / `npm:` specifiers compatible with Supabase’s Edge runtime, as in each function’s `deno.json`.
+- `ics-proxy` has JWT verification disabled and requires no configured function secrets.
 
 ## Local commands
 
@@ -32,3 +33,5 @@ deno fmt
 ## Secrets
 
 Configure secrets via Supabase dashboard or CLI for deployed projects; reference them from function code with `Deno.env.get(...)`. Do not commit real keys.
+
+Current production Edge Functions do not require committed secret names.
