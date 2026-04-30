@@ -1,0 +1,34 @@
+name: Website
+
+on:
+  pull_request:
+    paths:
+      - "www/**"
+      - ".github/workflows/www.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "www/**"
+      - ".github/workflows/www.yml"
+
+jobs:
+  build:
+    name: Build website
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: www
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Build
+        run: deno task build

@@ -1,19 +1,39 @@
-# Marketing website
+# Marketing Website
 
-The public marketing site for Dexter is **not** built from the `cvburgess/dexter` monorepo.
+The public marketing site for Dexter is built from [`www/`](../www) in the `cvburgess/dexter` monorepo and deploys to **https://dexterplanner.com**.
 
-## Canonical repository
+## Stack
 
-- **GitHub:** [cvburgess/dexter-www](https://github.com/cvburgess/dexter-www) (`main`)
+The site uses **Lume** (Deno static site generator), **Vento** templates, and **Tailwind CSS**.
 
-## Production URL
+Important paths:
 
-- **https://dexterplanner.com**
+- `www/_config.ts` — Lume configuration
+- `www/deno.json` — Deno imports and tasks
+- `www/src/` — site pages, templates, data, CSS, and assets
+- `www/netlify.toml` — Netlify build configuration
+- `www/netlify/functions/rebuild.ts` — scheduled Netlify rebuild function
 
-## Stack (in dexter-www)
+Generated output goes to `www/_site/` and local cache files go to `www/_cache/`; both are ignored.
 
-The marketing site uses **Lume** (Deno static site generator), **Vento** templates, and **Tailwind CSS** (see that repo for exact versions and plugins). Build and serve commands are defined there (typically `deno task serve` and `deno task build`).
+## Local Commands
 
-## Editing policy for this monorepo
+Run website commands from `www/`:
 
-**Do not** add a parallel Lume `/www` tree here unless the team explicitly merges marketing into this repository. Website issues and PRs belong in **dexter-www**.
+```bash
+cd www
+deno task serve
+deno task build
+```
+
+`deno task serve` starts the local Lume dev server. `deno task build` writes the static site to `www/_site/`.
+
+## Deployment
+
+Netlify should build the `cvburgess/dexter` monorepo with `www` as the base directory. The website's `www/netlify.toml` publishes `_site` and runs `deno task build` after installing Deno in the Netlify build image.
+
+The scheduled rebuild function reads the `REBUILD_URL` environment variable. Keep that secret configured in Netlify, not in this repository.
+
+## Legacy Repository
+
+The former standalone `cvburgess/dexter-www` repository is deprecated. New marketing-site changes belong in `www/` in this monorepo.

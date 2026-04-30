@@ -36,10 +36,10 @@ Create a GitHub pull request for the current branch.
    |---|---|
    | `src/` app code (routes, hooks, components, contexts, utils) | `AGENTS.md` |
    | `supabase/` (edge functions, config, migrations, types) | `docs/backend.md`, `AGENTS.md` |
-   | `www/` (website code) | `AGENTS.md` |
+   | `www/` (website code) | `docs/website.md`, `AGENTS.md` |
    | Pricing, subscription, paywall, RevenueCat | `docs/pricing.md` |
-   | New features, feature removal, status changes | `docs/features.md`, `docs/positioning.md` AND the matching `www/src/help/<feature>.md` article (create a new one and link it from `www/src/help/index.md` if the feature is new) |
-   | User-facing behavior covered by an existing help article | The matching `www/src/help/<feature>.md` article |
+   | New features, feature removal, status changes | `docs/features.md`, `docs/positioning.md` AND relevant marketing content in `www/src/_data/features.json`, `www/src/tips/`, or `www/src/_data/faqs.json` |
+   | User-facing behavior covered by existing website content | The matching `www/src/tips/<feature>.md` page or `www/src/_data/faqs.json` entry |
    | UI copy, tone, colors, typography, branding | `docs/brand.md` |
    | App Store metadata, screenshots, keywords | `docs/appstore.md` |
    | User-facing flows that change who/how | `docs/personas.md` |
