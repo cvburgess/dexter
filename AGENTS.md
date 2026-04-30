@@ -11,15 +11,16 @@ This file is the working guide for AI/code agents in this monorepo.
 - **GitHub**: `cvburgess/dexter`
 - `/src` — Expo (React Native) application
 - `/supabase` — Supabase backend (Edge Functions + config + migrations)
+- `/www` — Lume marketing website for `dexterplanner.com`
 - `/docs` — Engineering documentation
 
-**Marketing website:** Not in this repo. Source lives in **[cvburgess/dexter-www](https://github.com/cvburgess/dexter-www)** and deploys to **[https://dexterplanner.com](https://dexterplanner.com)**. See `docs/website.md`.
+**Marketing website:** Source lives in `/www` and deploys to **[https://dexterplanner.com](https://dexterplanner.com)**. See `docs/website.md`.
 
 ## Task routing
 
 - If work is mobile app UX, screens, hooks, navigation, or client data flow, start in `/src`.
 - If work is schema, RLS, auth, storage, or API/function behavior, start in `/supabase`.
-- If work is landing pages, marketing copy, SEO, or the Lume marketing site, work in the **dexter-www** repository (see `docs/website.md`), not in this monorepo.
+- If work is landing pages, marketing copy, SEO, or the Lume marketing site, start in `/www`.
 - If requirements are unclear, read the matching docs under `/docs` before changing code.
 
 ## MCP servers
@@ -78,13 +79,16 @@ Common local commands:
 
 Primary reference: `docs/website.md`
 
-Develop and run the site from **[cvburgess/dexter-www](https://github.com/cvburgess/dexter-www)**. Do not add a duplicate Lume tree under this repo unless the team explicitly consolidates repositories.
+Common local commands:
+
+- `cd www && deno task serve`
+- `cd www && deno task build`
 
 ## Documentation map (`/docs`)
 
 - `frontend.md` — **Read first for any `/src` work.** App architecture and commands
 - `backend.md` — **Read first for any `/supabase` work.** Backend layout and operations
-- `website.md` — Marketing site (dexter-www) and **dexterplanner.com**
+- `website.md` — Marketing site in `/www` and **dexterplanner.com**
 - `testing.md` — Testing conventions
 
 ## Definition of done for agent changes
@@ -97,14 +101,14 @@ Develop and run the site from **[cvburgess/dexter-www](https://github.com/cvburg
 ## Runtime requirements
 
 - **Node.js >= 24** for `/src` (see `src/package.json` `engines`).
-- **Deno v2.x** for `/supabase` Edge Functions. Ensure `deno` is on your PATH.
+- **Deno v2.x** for `/supabase` Edge Functions and `/www`. Ensure `deno` is on your PATH.
 
 ## Running services
 
 | Service | Command | Port | Notes |
 |---------|---------|------|------|
 | Expo (app + web) | `cd src && npm start` (or `npm run web`) | 8081 | Default Expo dev server |
-| Marketing site | Clone **dexter-www** and use `deno task serve` there | (see dexter-www) | Not started from this repo |
+| Marketing site | `cd www && deno task serve` | Lume default | Static marketing site |
 
 ## Gotchas
 

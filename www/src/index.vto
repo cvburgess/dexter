@@ -1,0 +1,78 @@
+---
+title: ""
+layout: layouts/base.vto
+---
+<h1 class="text-4xl font-black mt-4 text-center text-balanced">
+  The day planner that fixes <span class="italic">everything</span>
+</h1>
+<p class="text-md text-center text-balanced">
+  ... just kidding, but it will help you <span class="font-semibold">get and stay organized</span> - and it's
+  pretty, too!
+</p>
+<picture width="2550px" height="1624px">
+  <!-- User prefers light mode: -->
+  <source srcset="/assets/screenshot-light.png" media="(prefers-color-scheme: light)"/>
+  <!-- User prefers dark mode: -->
+  <source srcset="/assets/screenshot-dark.png"  media="(prefers-color-scheme: dark)"/>
+  <!-- User has no color preference: -->
+  <img src="/assets/screenshot-light.png" alt="Dexter app screenshot" width="2550px" height="1624px"/>
+</picture>
+
+<h2 id="features" class="text-3xl font-black text-center text-balanced pt-16 mb-8">
+  Features
+</h2>
+
+<div class="flex gap-8 w-screen pb-16 overflow-scroll auto-scroll">
+  <div class="card-group flex gap-8">
+    {{ for feature of features }}
+      {{ comp.feature(feature) }}
+    {{ /for }}
+  </div>
+  <!-- Duplicate for continuous scroll effect -->
+  <div class="card-group flex gap-8">
+    {{ for feature of features }}
+      {{ comp.feature(feature) }}
+    {{ /for }}
+  </div>
+</div>
+
+<h2 id="faq" class="text-3xl font-black text-center text-balanced pt-16 mb-8">
+  Frequently Asked Questions
+</h2>
+
+<div class="flex flex-col gap-4 max-w-3xl w-full">
+  {{ for faq of faqs }}
+    {{ comp.faq(faq) }}
+  {{ /for }}
+</div>
+
+<h2 id="support" class="text-3xl font-black text-center text-balanced pt-16 mb-4">
+  Support Dexter
+</h2>
+
+<p class="text-center text-balanced max-w-3xl w-full mb-8">
+  Dexter is free to use, but if you find it useful, please consider supporting the project.
+  <br />
+  <a href="https://cvburgess.com">I am an indie developer</a>, so your support helps pay for for hosting and the occasional matcha latte.
+  <br />
+  <br />
+  It currently costs about <a href="/expenses" class="font-semibold">$515 a year</a> to keep Dexter running.
+</p>
+
+<div class="flex flex-col md:flex-row gap-8 max-w-3xl w-full justify-center items-center">
+  <div class="card bg-base-100 min-w-90 w-90 shadow-xl !pt-4">
+    <div class="card-body text-center !gap-6">
+      <i class="text-5xl ph-bold ph-github-logo"></i>
+      <h2 class="text-2xl font-black">GitHub</h2>
+      <a href="https://github.com/sponsors/cvburgess" class="btn btn-primary">Give Once or Subscribe</a>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 min-w-90 w-90 shadow-xl !pt-4">
+    <div class="card-body text-center !gap-6">
+      <i class="text-5xl ph-bold ph-patreon-logo"></i>
+      <h2 class="text-2xl font-black">Patreon</h2>
+      <a href="https://www.patreon.com/cvburgess" class="btn btn-primary">Subscribe</a>
+    </div>
+  </div>
+</div>

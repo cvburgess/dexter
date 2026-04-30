@@ -1,10 +1,13 @@
-# Marketing site
+# Dexter Marketing Site
 
-The Dexter marketing website is **not** built from this directory.
+Lume site for https://dexterplanner.com.
 
-- **Repository:**
-  [cvburgess/dexter-www](https://github.com/cvburgess/dexter-www)
-- **Production:** [dexterplanner.com](https://dexterplanner.com)
+## Commands
 
-Clone **dexter-www** and use the commands documented there (`deno task serve`,
-`deno task build`).
+```bash
+deno task serve
+deno task build
+```
+
+Run commands from this `www/` directory. `deno task build` writes the generated
+site to `_site/`.

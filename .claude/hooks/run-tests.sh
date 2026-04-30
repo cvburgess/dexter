@@ -38,8 +38,9 @@ if [[ "$HAS_SUPABASE_CHANGES" == true ]]; then
 fi
 
 if [[ "$HAS_WWW_CHANGES" == true ]]; then
-  cd "$PROJECT_DIR"
-  deno fmt www 2>/dev/null || true
+  cd "$PROJECT_DIR/www"
+  deno fmt .
+  deno task build 2>&1 | tail -20 >&2
 fi
 
 if [[ "$HAS_SRC_CHANGES" == true ]]; then
