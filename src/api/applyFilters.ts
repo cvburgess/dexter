@@ -21,17 +21,24 @@ export type TQueryFilter = [
 ];
 
 // Supabase's fluent filter builder is not exposed as a reusable table-agnostic type.
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
-export const applyFilters = (query: any, filters: TQueryFilter[] = []) => {
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
+export const applyFilters = <TQuery>(
+  query: TQuery,
+  filters: TQueryFilter[] = [],
+): TQuery => {
+  let filteredQuery = query as any;
+
   for (const [column, operation, value] of filters) {
     if (operation === "or") {
-      query.or(String(value));
+      filteredQuery = filteredQuery.or(String(value));
     } else {
-      query = query[operation](snakeCase(column), value);
+      filteredQuery = filteredQuery[operation](snakeCase(column), value);
     }
   }
+
+  return filteredQuery;
 };
-/* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
+/* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
 
 export const makeOrFilter = (filters: TQueryFilter[]): TQueryFilter => {
   return [

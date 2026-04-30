@@ -19,10 +19,10 @@ export const getHabits = async (
   supabase: SupabaseClient<Database>,
   filters: TQueryFilter[] = [],
 ) => {
-  const query = supabase.from("habits").select("*").eq("is_archived", false);
-
-  applyFilters(query, filters);
-  query.order("title");
+  const query = applyFilters(
+    supabase.from("habits").select("*").eq("is_archived", false),
+    filters,
+  ).order("title");
 
   const { data, error } = await query;
   if (error) throw error;

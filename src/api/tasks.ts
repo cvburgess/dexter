@@ -36,10 +36,10 @@ export const getTasks = async (
   supabase: SupabaseClient<Database>,
   filters: TQueryFilter[] = [],
 ) => {
-  const query = supabase.from("tasks").select("*");
-
-  applyFilters(query, filters);
-  query.order("status").order("priority").order("due_on");
+  const query = applyFilters(supabase.from("tasks").select("*"), filters)
+    .order("status")
+    .order("priority")
+    .order("due_on");
 
   const { data, error } = await query;
 
