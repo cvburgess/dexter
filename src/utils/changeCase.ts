@@ -15,4 +15,6 @@ const camelCaseString = (str: string) =>
 export const camelCase = (
   value: string | Record<string, unknown> | readonly Record<string, unknown>[],
 ) =>
-  typeof value === "string" ? camelCaseString(value) : camelCaseKeys(value);
+  typeof value === "string"
+    ? camelCaseString(value)
+    : camelCaseKeys(value, { deep: true });

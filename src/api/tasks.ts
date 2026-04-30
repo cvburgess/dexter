@@ -39,7 +39,7 @@ export const getTasks = async (
   const query = supabase.from("tasks").select("*");
 
   applyFilters(query, filters);
-  query.order("status, priority, due_on");
+  query.order("status").order("priority").order("due_on");
 
   const { data, error } = await query;
 
