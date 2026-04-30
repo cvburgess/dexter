@@ -47,8 +47,22 @@ export const makeOrFilter = (filters: TQueryFilter[]): TQueryFilter => {
     filters
       .map((filter) => {
         const [column, operation, value] = filter;
-        return `${snakeCase(column) as string}.${operation}.${String(value)}`;
+        return `${snakeCase(column) as string}.${operation}.${formatOrFilterValue(
+          operation,
+          value,
+        )}`;
       })
       .join(","),
   ];
+};
+
+const formatOrFilterValue = (
+  operation: TQueryFilter[1],
+  value: unknown,
+): string => {
+  if (operation === "in" && Array.isArray(value)) {
+    return `(${value.map(String).join(",")})`;
+  }
+
+  return String(value);
 };

@@ -39,6 +39,7 @@ export type TUpdatePreferences = {
   calendarEndTime?: string;
   calendarStartTime?: string;
   calendarUrls?: string[];
+  darkTheme?: string;
   enableCalendar?: boolean;
   enableHabits?: boolean;
   enableJournal?: boolean;

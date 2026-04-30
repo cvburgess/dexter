@@ -1,4 +1,4 @@
-import { applyFilters } from "@/api/applyFilters";
+import { applyFilters, makeOrFilter } from "@/api/applyFilters";
 
 type QueryMock = {
   calls: string[];
@@ -27,5 +27,16 @@ describe("applyFilters", () => {
       "eq:scheduled_for:2026-04-30",
       "or:status.eq.1,status.eq.2",
     ]);
+  });
+});
+
+describe("makeOrFilter", () => {
+  it("wraps in-filter arrays in PostgREST parentheses", () => {
+    expect(
+      makeOrFilter([
+        ["status", "in", [0, 1]],
+        ["scheduledFor", "is", null],
+      ]),
+    ).toEqual(["", "or", "status.in.(0,1),scheduled_for.is.null"]);
   });
 });
