@@ -66,7 +66,13 @@ const handleAuthCallbackUrl = async (url: string) => {
     throw new Error(errorDescription);
   }
 
-  await supabase.auth.exchangeCodeForSession(url);
+  const code = parsedUrl.queryParams?.code;
+
+  if (typeof code !== "string") {
+    return;
+  }
+
+  await supabase.auth.exchangeCodeForSession(code);
 };
 
 export const signInWithEmail = (email: string) =>
