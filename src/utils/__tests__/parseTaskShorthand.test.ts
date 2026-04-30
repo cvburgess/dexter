@@ -17,7 +17,7 @@ const lists: TList[] = [
 describe("parseTaskShorthand", () => {
   it("parses priority, list, and due-date shorthand", () => {
     const result = parseTaskShorthand(
-      "Write proposal !! #my-first-list due:2",
+      "Write proposal !! #My-First-List due:2",
       lists,
     );
 

@@ -49,7 +49,7 @@ export const parseTaskShorthand = (
 
   const listMatch = workingInput.match(/#([a-zA-Z0-9-]+)(?:\s|$)/);
   if (listMatch && availableLists.length > 0) {
-    const listShorthand = listMatch[1];
+    const listShorthand = listMatch[1].toLowerCase();
     const matchingList = availableLists.find(
       (list) => normalizeListTitle(list.title) === listShorthand,
     );

@@ -7,7 +7,9 @@ const snakeCaseString = (str: string) =>
 export const snakeCase = (
   value: string | Record<string, unknown> | readonly Record<string, unknown>[],
 ) =>
-  typeof value === "string" ? snakeCaseString(value) : snakeCaseKeys(value);
+  typeof value === "string"
+    ? snakeCaseString(value)
+    : snakeCaseKeys(value, { deep: true });
 
 const camelCaseString = (str: string) =>
   str.replace(/_./g, (letter) => letter[1].toUpperCase());
