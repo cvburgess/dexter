@@ -1,1 +1,1 @@
--- Optional seed data for local development (add INSERTs as needed).
+-- The production baseline does not require committed local seed data.
