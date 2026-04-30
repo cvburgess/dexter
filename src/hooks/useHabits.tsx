@@ -113,7 +113,9 @@ export const useDailyHabits = (date: string): TUseDailyHabits => {
       const today = Temporal.Now.plainDateISO();
       const isFutureDate = Temporal.PlainDate.compare(date, today) > 0;
 
-      if (isLoading || isFutureDate) return;
+      if (isLoading || isFutureDate) {
+        throw new Error("Cannot create daily habits for this date");
+      }
 
       const getDailyHabit = (habit: THabit) => {
         return dailyHabits.find(
