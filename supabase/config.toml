@@ -51,3 +51,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/ics-proxy/deno.json"
 entrypoint = "./functions/ics-proxy/index.ts"
+
+[functions.mcp-server]
+enabled = true
+verify_jwt = false
+import_map = "./functions/mcp-server/deno.json"
+entrypoint = "./functions/mcp-server/index.ts"
