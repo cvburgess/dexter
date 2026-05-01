@@ -1,3 +1,5 @@
+import process from "node:process";
+
 export default async function () {
   await fetch(process.env.REBUILD_URL, { method: "POST" });
   return { statusCode: 200 };

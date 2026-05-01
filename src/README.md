@@ -12,13 +12,13 @@ Use `--legacy-peer-deps` if npm reports peer dependency conflicts (common with R
 
 ## Commands
 
-| Script | Description |
-|--------|-------------|
-| `npm start` | Dev server |
-| `npm run web` | Web only |
+| Script                            | Description             |
+| --------------------------------- | ----------------------- |
+| `npm start`                       | Dev server              |
+| `npm run web`                     | Web only                |
 | `npm run ios` / `npm run android` | Open simulator / device |
-| `npm run lint` | ESLint |
-| `npm run format` | Prettier |
-| `npm test` | Jest |
+| `npm run lint`                    | ESLint                  |
+| `npm run format`                  | Prettier                |
+| `npm test`                        | Jest                    |
 
 See [`../docs/frontend.md`](../docs/frontend.md) for conventions.

@@ -13,8 +13,9 @@ export class WebTransport implements Transport {
 
   async close(): Promise<void> {}
 
-  async send(message: JSONRPCMessage): Promise<void> {
+  send(message: JSONRPCMessage): Promise<void> {
     this.responseResolve?.(message);
+    return Promise.resolve();
   }
 
   handleMessage(message: JSONRPCMessage): Promise<JSONRPCMessage | null> {
