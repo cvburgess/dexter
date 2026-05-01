@@ -9,13 +9,62 @@ export const taskPrioritySchema = z.number().int().min(0).max(4);
 export const taskStatusSchema = z.number().int().min(0).max(3);
 export const themeModeSchema = z.number().int().min(0).max(2);
 
-export const cronScheduleRegex =
-  /^0 0 (\*|([1-9]|1[0-9]|2[0-9]|3[0-1])|\*\/[0-9]+|[0-9]+-[0-9]+|[0-9]+(,[0-9]+)*) (\*|([1-9]|1[0-2])|\*\/[0-9]+|[0-9]+-[0-9]+|[0-9]+(,[0-9]+)*) (\*|([0-7])|\*\/[0-9]+|[0-9]+-[0-9]+|[0-9]+(,[0-9]+)*)$/;
+export const cronScheduleRegex = /^0 0 (\S+) (\S+) (\S+)$/;
 
-export const cronScheduleSchema = z.string().regex(
-  cronScheduleRegex,
-  "Schedule must be a midnight cron expression: 0 0 <day-of-month> <month> <day-of-week>",
-);
+export const cronScheduleSchema = z.string()
+  .regex(
+    cronScheduleRegex,
+    "Schedule must be a midnight cron expression: 0 0 <day-of-month> <month> <day-of-week>",
+  )
+  .refine(isValidCronSchedule, {
+    message:
+      "Schedule fields must use *, */n, n, n-m, or n,n values within valid day/month ranges",
+  });
+
+function isValidCronSchedule(schedule: string): boolean {
+  const match = cronScheduleRegex.exec(schedule);
+  if (!match) return false;
+
+  const [, dayOfMonth, month, dayOfWeek] = match;
+  return (
+    isValidCronField(dayOfMonth, 1, 31) &&
+    isValidCronField(month, 1, 12) &&
+    isValidCronField(dayOfWeek, 0, 7)
+  );
+}
+
+function isValidCronField(field: string, min: number, max: number): boolean {
+  if (field === "*") return true;
+
+  if (field.startsWith("*/")) {
+    return isIntegerInRange(field.slice(2), 1, max);
+  }
+
+  if (field.includes(",")) {
+    return field.split(",").every((value) => isIntegerInRange(value, min, max));
+  }
+
+  if (field.includes("-")) {
+    const [start, end, ...extra] = field.split("-");
+    if (extra.length > 0) return false;
+    if (
+      !isIntegerInRange(start, min, max) || !isIntegerInRange(end, min, max)
+    ) {
+      return false;
+    }
+
+    return Number(start) <= Number(end);
+  }
+
+  return isIntegerInRange(field, min, max);
+}
+
+function isIntegerInRange(value: string, min: number, max: number): boolean {
+  if (!/^\d+$/.test(value)) return false;
+
+  const number = Number(value);
+  return Number.isInteger(number) && number >= min && number <= max;
+}
 
 export type ToolResult = {
   content: Array<{ type: "text"; text: string }>;

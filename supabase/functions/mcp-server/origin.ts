@@ -8,8 +8,6 @@ const ALLOWED_HOSTS: readonly string[] = [
   "platform.openai.com",
   "gemini.google.com",
   "aistudio.google.com",
-  "magicmealkit.com",
-  "app.magicmealkit.com",
   "dexterplanner.com",
   "app.dexterplanner.com",
   "localhost",
@@ -22,7 +20,6 @@ const SUFFIX_MATCH_HOSTS: readonly string[] = [
   "anthropic.com",
   "cursor.sh",
   "cursor.com",
-  "magicmealkit.com",
 ];
 
 export function isOriginAllowed(origin: string | null | undefined): boolean {

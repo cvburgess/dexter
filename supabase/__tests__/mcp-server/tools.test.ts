@@ -168,11 +168,18 @@ Deno.test("task filters default date ranges to scheduled_for", () => {
   ]);
 });
 
-Deno.test("repeat task schedule validation mirrors database cron constraint", () => {
+Deno.test("repeat task schedule validation enforces valid midnight cron fields", () => {
   assertEquals(cronScheduleSchema.safeParse("0 0 * * *").success, true);
   assertEquals(cronScheduleSchema.safeParse("0 0 1,15 * 1-5").success, true);
+  assertEquals(cronScheduleSchema.safeParse("0 0 */2 * 0").success, true);
   assertEquals(cronScheduleSchema.safeParse("* * * * *").success, false);
   assertEquals(cronScheduleSchema.safeParse("0 12 * * *").success, false);
+  assertEquals(cronScheduleSchema.safeParse("0 0 0 * *").success, false);
+  assertEquals(cronScheduleSchema.safeParse("0 0 99 * *").success, false);
+  assertEquals(cronScheduleSchema.safeParse("0 0 * 99 *").success, false);
+  assertEquals(cronScheduleSchema.safeParse("0 0 * * 8").success, false);
+  assertEquals(cronScheduleSchema.safeParse("0 0 5-3 * *").success, false);
+  assertEquals(cronScheduleSchema.safeParse("0 0 1,99 * *").success, false);
 });
 
 Deno.test("daily habit writes only expose stepsComplete", () => {

@@ -26,8 +26,8 @@ For query optimization, schema design, and RLS guidance, see the repo skill at [
   policies remain the enforcement layer. The service role key is not used.
 - `mcp-server` validates browser `Origin` headers for MCP DNS-rebinding
   protection. Requests without an `Origin` are allowed for desktop MCP clients.
-  Trusted origins include localhost/dev clients, Magic Meal Kit AI client
-  origins, `https://dexterplanner.com`, and `https://app.dexterplanner.com`.
+  Trusted origins include localhost/dev clients, common AI client origins,
+  `https://dexterplanner.com`, and `https://app.dexterplanner.com`.
 - MCP tool groups cover tasks, goals, lists, habits and daily habit progress,
   days, repeat task templates, and preferences. Tool inputs never accept
   `user_id`; user ownership is derived from the validated bearer token.
