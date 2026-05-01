@@ -37,4 +37,24 @@ npm test           # Jest (jest-expo)
 
 ## Environment
 
-Copy patterns from team docs when adding Supabase or other clients. Uncommitted `.env` / `.env.local` files are normal; never commit secrets.
+Supabase client code reads the public Expo environment variables below from local, uncommitted `.env` files:
+
+```bash
+EXPO_PUBLIC_SUPABASE_URL=...
+EXPO_PUBLIC_SUPABASE_ANON_KEY=...
+```
+
+Generated Supabase database types live at `src/types/database.types.ts`. Regenerate them from `/src` with:
+
+```bash
+npm run supabase:types
+```
+
+Uncommitted `.env` / `.env.local` files are normal; never commit secrets.
+
+## Data Layer
+
+- `api/` contains typed Supabase query modules.
+- `hooks/` contains React Query hooks and the Expo-compatible `useAuth` provider.
+- `utils/` contains data helpers shared by the query layer and hooks.
+- `providers/QueryProvider.tsx` exports the React Query provider. Route wiring in `app/` is intentionally separate from the data layer.

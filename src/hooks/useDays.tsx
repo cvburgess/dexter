@@ -1,0 +1,52 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import {
+  getDay,
+  TDay,
+  TJournalPrompt,
+  TUpsertDay,
+  upsertDay,
+} from "@/api/days";
+
+import { supabase } from "./useAuth";
+import { usePreferences } from "./usePreferences";
+
+type TUseDays = [
+  TDay & { prompts: TJournalPrompt[] },
+  {
+    isLoading: boolean;
+    upsertDay: (diff: Omit<TUpsertDay, "date">) => void;
+  },
+];
+
+export const useDays = (date: string): TUseDays => {
+  const queryClient = useQueryClient();
+  const [preferences] = usePreferences();
+
+  const defaultDay: TDay = {
+    date,
+    notes: preferences.templateNote,
+    prompts: preferences.templatePrompts.map((prompt) => ({
+      prompt,
+      response: "",
+    })),
+  };
+
+  const { data: day = defaultDay, isLoading } = useQuery({
+    queryKey: ["days", date],
+    queryFn: () => getDay(supabase, date),
+    retry: false,
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const { mutate: upsert } = useMutation<TDay, Error, Omit<TUpsertDay, "date">>(
+    {
+      mutationFn: (diff) => upsertDay(supabase, { ...diff, date }),
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: ["days", date] });
+      },
+    },
+  );
+
+  return [day, { isLoading, upsertDay: upsert }];
+};

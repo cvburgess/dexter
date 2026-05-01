@@ -1,0 +1,176 @@
+import { Temporal } from "@js-temporal/polyfill";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import { TQueryFilter } from "@/api/applyFilters";
+import {
+  createDailyHabit,
+  createHabit,
+  deleteHabit,
+  getDailyHabits,
+  getHabits,
+  TCreateHabit,
+  TDailyHabit,
+  THabit,
+  TUpdateDailyHabit,
+  TUpdateHabit,
+  updateDailyHabit,
+  updateHabit,
+} from "@/api/habits";
+
+import { supabase } from "./useAuth";
+
+type TUseHabits = [
+  THabit[],
+  {
+    createHabit: (habit: TCreateHabit) => void;
+    deleteHabit: (id: string) => void;
+    getHabitById: (id: string | null) => THabit | undefined;
+    isLoading: boolean;
+    updateHabit: (habit: TUpdateHabit) => void;
+  },
+];
+
+type TSupabaseHookOptions = {
+  skipQuery?: boolean;
+  filters?: TQueryFilter[];
+};
+
+export const useHabits = (options?: TSupabaseHookOptions): TUseHabits => {
+  const queryClient = useQueryClient();
+
+  const { data: habits = [], isLoading } = useQuery({
+    enabled: !options?.skipQuery,
+    queryKey: ["habits", options?.filters],
+    queryFn: () => getHabits(supabase, options?.filters),
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const { mutate: create } = useMutation<THabit, Error, TCreateHabit>({
+    mutationFn: (habit) => createHabit(supabase, habit),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["habits"] });
+    },
+  });
+
+  const { mutate: update } = useMutation<THabit, Error, TUpdateHabit>({
+    mutationFn: (diff) => updateHabit(supabase, diff),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["habits"] });
+    },
+  });
+
+  const { mutate: remove } = useMutation<void, Error, string>({
+    mutationFn: (id) => deleteHabit(supabase, id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["habits"] });
+    },
+  });
+
+  const getHabitById = (id: string | null) => {
+    if (!id) return undefined;
+    return habits.find((habit) => habit.id === id);
+  };
+
+  return [
+    habits,
+    {
+      createHabit: create,
+      deleteHabit: remove,
+      getHabitById,
+      isLoading,
+      updateHabit: update,
+    },
+  ];
+};
+
+type TUseDailyHabits = [
+  TDailyHabit[],
+  {
+    createDailyHabits: () => void;
+    incrementDailyHabit: (dailyHabit: TDailyHabit) => void;
+    isLoading: boolean;
+  },
+];
+
+export const useDailyHabits = (date: string): TUseDailyHabits => {
+  const queryClient = useQueryClient();
+  const [habits] = useHabits({
+    filters: [
+      ...habitFilters.notPaused,
+      ...habitFilters.activeForDay(Temporal.PlainDate.from(date).dayOfWeek),
+    ],
+  });
+
+  const { data: dailyHabits = [], isLoading } = useQuery({
+    queryKey: ["dailyHabits", date],
+    queryFn: () => getDailyHabits(supabase, date),
+    retry: false,
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const { mutate: create } = useMutation<void, Error>({
+    mutationFn: async () => {
+      const today = Temporal.Now.plainDateISO();
+      const isFutureDate = Temporal.PlainDate.compare(date, today) > 0;
+
+      if (isLoading || isFutureDate) {
+        throw new Error("Cannot create daily habits for this date");
+      }
+
+      const getDailyHabit = (habit: THabit) => {
+        return dailyHabits.find(
+          (dailyHabit) => dailyHabit.habitId === habit.id,
+        );
+      };
+
+      const missingHabits = habits.filter((habit) => !getDailyHabit(habit));
+
+      if (missingHabits.length === 0) throw new Error("No missing habits");
+
+      await Promise.all(
+        missingHabits.map((habit) =>
+          createDailyHabit(supabase, {
+            date: date.toString(),
+            habitId: habit.id,
+            steps: habit.steps,
+            stepsComplete: 0,
+          }),
+        ),
+      );
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["dailyHabits", date],
+      });
+    },
+  });
+
+  const { mutate: update } = useMutation<TDailyHabit, Error, TUpdateDailyHabit>(
+    {
+      mutationFn: (diff) => updateDailyHabit(supabase, diff),
+      onSuccess: () => {
+        void queryClient.invalidateQueries({
+          queryKey: ["dailyHabits", date],
+        });
+      },
+    },
+  );
+
+  const incrementDailyHabit = (dailyHabit: TDailyHabit) => {
+    const { date: dailyHabitDate, habitId, steps, stepsComplete } = dailyHabit;
+    const next = stepsComplete === steps ? 0 : stepsComplete + 1;
+
+    update({ date: dailyHabitDate, habitId, stepsComplete: next });
+  };
+
+  return [
+    dailyHabits,
+    { createDailyHabits: create, incrementDailyHabit, isLoading },
+  ];
+};
+
+export const habitFilters = {
+  notPaused: [["isPaused", "eq", false]] as TQueryFilter[],
+  activeForDay: (day: number) =>
+    [["daysActive", "contains", [day]]] as TQueryFilter[],
+};
