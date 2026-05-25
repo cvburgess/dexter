@@ -1,2 +1,2 @@
-declare module "*.css";
-declare module "*.module.css";
+// Reserved for project-wide ambient type declarations.
+export {};
