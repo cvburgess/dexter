@@ -29,6 +29,7 @@ Agents may have access to MCP servers for common tasks (configure per environmen
 
 - **Supabase** — Database, migrations, RLS, Edge Functions
 - **Expo** — Builds, EAS, metadata
+- **Linear** — Issue tracking via the Linear MCP server. All product issue tracking uses Linear; GitHub (`gh`) is for pull requests, releases, and repository metadata only. Default Linear team for this repo: **`DEX`** — pass `team: "DEX"` in `save_issue` unless the user specifies otherwise. Board: https://linear.app/cvburgess/team/DEX/all
 
 ## Global standards
 

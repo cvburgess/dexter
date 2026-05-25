@@ -2,7 +2,7 @@
 name: open-pr
 description: Open a GitHub pull request for the current branch. Use when the user wants to create a PR, submit a pull request, or open a merge request.
 argument-hint: [optional additional context for the PR]
-allowed-tools: Bash(git *), Bash(gh *), Read, Grep, Glob, Edit, Write
+allowed-tools: Bash(git *), Bash(gh *), Read, Grep, Glob, Edit, Write, mcp__linear-server__get_issue
 ---
 
 # Open a Pull Request
@@ -21,12 +21,11 @@ Create a GitHub pull request for the current branch.
 
 2. **Commit any uncommitted changes** automatically. Stage all modified and untracked files relevant to the branch's work and commit with a descriptive message. Do not ask — just commit.
 
-3. **Determine the linked GitHub issue:**
+3. **Determine the linked Linear issue:**
 
-   - Check the branch name for an issue number (e.g., `feature/123-add-login`, `fix-42-bug`, `issue-7`). Extract the number.
-   - Check `$ARGUMENTS` for a mentioned issue number (e.g., `#55`).
-   - If an issue number is found, fetch its title with `gh issue view <number> --json title -q .title` to confirm it exists.
-   - If no issue number is found in the branch name or arguments, skip the closing reference.
+   - Check `$ARGUMENTS` for a Linear identifier (`DEX-294`) or URL. If present, call `get_issue` and use the returned `title` and `url`.
+   - Else, if the branch matches `^([a-z]+)-(\d+)-` (e.g., `dex-294-integrate-linear`), uppercase the prefix to build the identifier and call `get_issue` to confirm.
+   - If no Linear issue is found, skip the `Closes` line in the PR body.
 
 4. **Review and update documentation:**
 
@@ -70,7 +69,7 @@ Create a GitHub pull request for the current branch.
 
 7. **Analyze all commits** on the branch (not just the latest) using `git diff main...HEAD` and draft the PR:
 
-   - **Title**: Short (under 70 characters), describes the change. Do not include the issue number in the title.
+   - **Title**: Short (under 70 characters), describes the change starting with a verb like "Fix", "Refactor", "Add", etc. Prefix with the Linear issue key. `DEX-XXX: <short summary>`
    - **Body**: Use the template below.
 
 8. **Create the PR** using the GitHub CLI with a HEREDOC for the body to avoid shell escaping issues:
@@ -91,16 +90,16 @@ Create a GitHub pull request for the current branch.
 - Bullet point describing the change
 - Another bullet point if needed
 
+Closes [DEX-XXX](linear-issue-url)
+
 ## Documentation updates
 - List any docs/skills updated, or "No documentation changes needed"
 
 ## Test plan
 - [ ] How to verify this works
-
-Closes #<issue-number>
 ```
 
-If no linked issue was found, omit the `Closes #<issue-number>` line entirely.
+If a Linear issue was found, replace `DEX-XXX` in the `Closes` line with the actual identifier and link the URL (e.g. `Closes [DEX-294](https://linear.app/cvburgess/issue/DEX-294)`). This triggers Linear's GitHub integration to move the issue to Done when the PR merges. If no Linear issue was found, omit the `Closes` line entirely.
 
 ## Important
 
@@ -108,7 +107,6 @@ If no linked issue was found, omit the `Closes #<issue-number>` line entirely.
 - Never force-push or amend commits as part of this skill
 - If the branch has no commits ahead of main, inform the user and do not create a PR
 - Keep the summary focused on **what changed and why**, not listing every file
-- The `Closes #<number>` line must be on its own line in the body to trigger GitHub's auto-close
 - Documentation updates should be factual and minimal
 - `CLAUDE.md` and `AGENTS.md` must always have identical content — update both if either changes
 - Do not update docs for purely cosmetic code changes

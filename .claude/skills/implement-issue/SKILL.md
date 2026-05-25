@@ -1,26 +1,22 @@
 ---
 name: implement-issue
-description: Implement a GitHub issue end-to-end. Use when the user wants to build a feature, fix a bug, or complete work described in a GitHub issue.
-argument-hint: [issue number or URL]
+description: Implement a Linear issue end-to-end. Use when the user wants to build a feature, fix a bug, or complete work described in a Linear issue.
+argument-hint: [Linear issue id (e.g. DEX-294) or Linear issue URL]
 disable-model-invocation: true
-allowed-tools: Bash, Read, Edit, Write, Glob, Grep, Agent, Skill, AskUserQuestion
+allowed-tools: Bash, Read, Edit, Write, Glob, Grep, Agent, Skill, AskUserQuestion, mcp__linear-server__get_issue, mcp__linear-server__list_comments, mcp__linear-server__save_comment, mcp__linear-server__save_issue
 ---
 
-# Implement GitHub Issue
+# Implement Linear Issue
 
-Act as a staff-level engineer to implement a GitHub issue end-to-end: understand the problem, plan the approach, write the code, add tests, update docs, and open a PR.
+Act as a staff-level engineer to implement a Linear issue end-to-end: understand the problem, plan the approach, write the code, add tests, update docs, and open a PR.
 
 ## Instructions
 
 ### Step 1: Fetch and understand the issue
 
-Parse the issue number from `$ARGUMENTS`. Accept either a number (`80`), a hash reference (`#80`), or a full GitHub URL.
+Parse `$ARGUMENTS` for a Linear identifier (`DEX-294`) or issue URL. If only a bare numeric id is given, ask for the identifier or URL — do not guess.
 
-```bash
-gh issue view <number> --json title,body,labels,comments,assignees
-```
-
-Read the issue title, body, plan, and any comments carefully.
+Call `get_issue` with that `id`. Optionally call `list_comments` for discussion context. Read `title`, `description`, `labels`, `state`, and comments carefully.
 
 ### Step 2: Evaluate issue readiness
 
@@ -29,13 +25,13 @@ Determine whether the issue is **implementation-ready** — meaning it has alrea
 - Has a **Plan** section with concrete, actionable steps (not vague bullets like "update the UI")
 - Plan steps reference specific files, components, hooks, or patterns in the codebase
 - Has **Test Cases** or clear testing guidance
-- No unanswered questions in the comments (no open threads asking for clarification that lack a response)
-- No labels indicating it needs more work (e.g., `needs-refinement`, `needs-triage`)
+- No unanswered questions in the Linear comments that block implementation
+- No labels indicating it needs more work (e.g., `needs-refinement`, `needs-triage`) if your team uses them
 
 **If the issue IS implementation-ready:** skip Steps 3–4 entirely. Use the issue's plan as-is. Present it to the user and ask for approval before proceeding, using AskUserQuestion:
 
 ```
-Issue #<number> is well-refined — I'll use it directly as the implementation plan:
+Linear issue DEX-XXX is well-refined — I'll use it directly as the implementation plan:
 
 1. [Plan step from issue]
 2. [Plan step from issue]
@@ -58,7 +54,8 @@ Launch two sonnet subagents **in parallel** to build context:
 
 #### Agent A — Issue & Codebase Analysis
 
-Prompt with the full issue JSON. Ask it to:
+Prompt with the full issue payload from `get_issue` (and comments if loaded). Ask it to:
+
 - Read `docs/backend.md` if the issue affects `supabase/` (DB schema, RLS, edge functions, storage) — use it as primary context for backend patterns
 - Read `docs/frontend.md` if the issue affects `src/` (routing, hooks, patterns, paywall, navigation) — use it as primary context for app patterns
 - Read `docs/website.md` if the issue affects `www/` (landing pages, marketing copy, SEO, Lume templates, or website deploy behavior) — use it as primary context for website patterns
@@ -72,7 +69,8 @@ Set `subagent_type: "Explore"`.
 
 #### Agent B — Test & Doc Landscape
 
-Prompt with the issue title and body. Ask it to:
+Prompt with the issue title and description. Ask it to:
+
 - Find existing tests related to the areas being changed (search `__tests__/` directories)
 - Identify which test patterns to follow (unit, hook, route — see `docs/testing.md`)
 - Identify which docs in `docs/` may need updating based on the issue (use the mapping from the open-pr skill: features.md, pricing.md, personas.md, brand.md, appstore.md, backend.md, frontend.md)
@@ -103,7 +101,7 @@ Synthesize findings from both agents into a concrete implementation plan. The pl
 Once shared understanding is reached, present the final plan to the user and wait for approval before proceeding. Use the AskUserQuestion tool with a summary like:
 
 ```
-Here's my implementation plan for #<number>:
+Here's my implementation plan for DEX-XXX:
 
 1. [Step] — [files to change]
 2. [Step] — [files to change]
@@ -117,11 +115,11 @@ Does this look right, or should I adjust anything?
 
 ### Step 5: Create a feature branch
 
-```bash
-git checkout -b <branch-name> main
-```
+Use Linear's suggested branch name from `get_issue` (`gitBranchName`) when present; otherwise fall back to `<identifier-lowercase>-<short-slug>` (e.g. `dex-294-fix-login`).
 
-Use the branch naming convention: `<issue-number>-<short-description>`
+```bash
+git checkout -b <gitBranchName> main
+```
 
 ### Step 6: Implement the changes
 
@@ -135,7 +133,7 @@ Work through the plan step by step. For each step:
 
 Linting and formatting run automatically via hooks after every file edit. If you need to manually verify, use the project's scripts (e.g., `cd src && npm run lint` or `cd www && deno task build`) — never use `npx tsc`, `npx eslint`, or `npx expo lint` directly.
 
-Commit logical units of work as you go with clear commit messages referencing the issue number.
+Commit logical units of work as you go with clear commit messages referencing the Linear identifier (e.g. `DEX-294`). Optionally post a progress comment via `save_comment` when it helps collaborators.
 
 ### Step 7: Add or update tests
 
@@ -176,16 +174,16 @@ If the review surfaces substantive issues, fix them and commit before proceeding
 
 ### Step 10: Open a Pull Request
 
-Use the `/open-pr` skill to create the pull request. Pass the issue number so it gets linked:
+Use the `/open-pr` skill, passing the Linear identifier so the PR body links to Linear:
 
 ```
-/open-pr #<issue-number>
+/open-pr DEX-294
 ```
 
 ## Important
 
 - **Ask before coding** — always present the plan and get approval before writing code
-- **Follow the issue's plan** — the issue body is the primary guide; don't freelance
+- **Follow the issue's plan** — the issue description is the primary guide; don't freelance
 - **Staff-level judgment** — if the issue's plan has gaps or problems, flag them rather than blindly implementing
 - **Tests are required** — every implementation must include test coverage
 - **Don't over-engineer** — implement what's asked, nothing more

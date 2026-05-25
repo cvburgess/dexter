@@ -1,23 +1,23 @@
 ---
 name: refine-issue
-description: Refine an existing GitHub issue by filling gaps and adding codebase references. Use when the user wants to improve an existing issue's clarity, detail, or technical context.
-argument-hint: [issue number or URL]
-allowed-tools: Bash(gh issue:*), Agent
+description: Refine an existing Linear issue by filling gaps and adding codebase references. Use when the user wants to improve an issue's clarity, detail, or technical context.
+argument-hint: [Linear issue id (e.g. DEX-294) or Linear issue URL]
+allowed-tools: Agent, mcp__linear-server__get_issue, mcp__linear-server__list_comments, mcp__linear-server__save_issue, mcp__linear-server__save_comment
 ---
 
-# Refine GitHub Issue
+# Refine Linear Issue
 
-Act as a technical business analyst to refine an existing GitHub issue. Fill in gaps, enhance with codebase and documentation references, and improve clarity — without modifying any code.
+Act as a technical business analyst to refine an existing Linear issue. Fill in gaps, enhance with codebase and documentation references, and improve clarity — without modifying any code.
 
 ## Instructions
 
-You are the orchestrator. Delegate research and writing to sonnet subagents and use `gh` CLI commands yourself.
+You are the orchestrator. Delegate research and writing to sonnet subagents. Use Linear MCP for reads and writes.
 
 ### Step 1: Fetch the issue
 
-```bash
-gh issue view <number> --json title,body,labels,comments
-```
+Parse `$ARGUMENTS` for a Linear identifier (`DEX-294`) or issue URL. Call `get_issue` with that `id`. Optionally call `list_comments` for context.
+
+Build a compact summary for subagents: `title`, `description`, `labels`, `state`, `url`, and recent comment bodies if fetched.
 
 ### Step 2: Launch research agents in parallel
 
@@ -25,7 +25,8 @@ Launch these two sonnet subagents **in parallel** (single message, two Agent too
 
 #### Agent A — Issue Analysis
 
-Prompt the agent with the full issue JSON from step 1. Ask it to:
+Prompt the agent with the issue summary from step 1. Ask it to:
+
 - Identify gaps: vague/missing **Why**, unclear **Goal**, missing/shallow **Plan** steps, missing **Test Cases**, no code/doc references
 - List specific questions or areas that need enhancement
 - Return a structured list of gaps and suggestions
@@ -34,7 +35,8 @@ Set `model: "sonnet"` and `subagent_type: "general-purpose"`.
 
 #### Agent B — Codebase Exploration
 
-Prompt the agent with the issue title and body. Ask it to:
+Prompt the agent with the issue title and description. Ask it to:
+
 - Check `docs/` first for product/implementation context (personas, features, pricing, brand, backend architecture)
 - Find relevant source files, components, hooks, utilities
 - Find existing patterns the issue should follow or reference
@@ -58,31 +60,31 @@ Once both research agents complete, launch a single sonnet subagent to draft the
 #### Agent C — Issue Author
 
 Prompt the agent with:
-- The original issue title and body
+
+- The original issue title and description
 - The gap analysis from Agent A
 - The codebase findings from Agent B
 
 Ask it to:
-- Rewrite/augment the issue body using the standard template (Why, Goal, Plan, Test Cases, Notes)
+
+- Rewrite/augment the issue **description** using the standard template (Why, Goal, Plan, Test Cases, Notes)
 - Fill in missing sections identified by Agent A
 - Add file path references and library doc links from Agent B's findings
 - Preserve the original author's intent — enhance, don't replace
-- Also draft a short summary comment listing what was changed/added
+- Also draft a short summary **comment** listing what was changed/added
 
-Return two things: the enhanced issue body and the summary comment.
+Return two things: the enhanced Markdown **description** and the summary comment body.
 
 Set `model: "sonnet"` and `subagent_type: "general-purpose"`.
 
-### Step 5: Update the issue
+### Step 5: Update the issue and add a summary comment
 
-Apply the enhanced body and leave the summary comment:
+1. Call `save_issue` with `id` set to the Linear identifier, `description` set to the enhanced body, and `state: "Ready"` so the refined issue moves out of `In Refinement` into the `Ready` column.
+2. Call `save_comment` with `issueId` set to the same identifier and `body` set to the summary comment (create path: do not pass `id` on the comment).
 
-```bash
-gh issue edit <number> --body "<enhanced body>"
-gh issue comment <number> --body "<summary of refinements>"
-```
+### Step 6: Return the Linear issue URL to the user
 
-### Step 6: Return the issue URL to the user.
+Return the issue `url` from `get_issue` / `save_issue`.
 
 ## Important
 
