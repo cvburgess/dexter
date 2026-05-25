@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "app",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "web"],
+      "cwd": "src",
+      "port": 8081
+    },
+    {
+      "name": "www",
+      "runtimeExecutable": "deno",
+      "runtimeArgs": ["task", "serve"],
+      "cwd": "www",
+      "port": 3000
+    }
+  ]
+}
