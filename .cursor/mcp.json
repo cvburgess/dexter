@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "url": "https://mcp.supabase.com/mcp?project_ref=isreileykodwkyedcewv"
+    },
+    "expo": {
+      "url": "https://mcp.expo.dev/mcp"
+    },
+    "linear-server": {
+      "url": "https://mcp.linear.app/mcp"
+    }
+  }
+}
