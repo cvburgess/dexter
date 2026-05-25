@@ -18,22 +18,25 @@ From repository root:
 
 ```bash
 cd src
-npm install --legacy-peer-deps
+npm install
 npm start          # dev server (QR / simulator / press w for web)
 npm run web        # web only
 npm run ios        # native build + run iOS
 npm run android    # native build + run Android
-npm run lint       # ESLint (includes type-aware rules)
+npm run lint       # expo lint
 npm run format     # Prettier
 npm test           # Jest (jest-expo)
+npm run typecheck  # tsc --noEmit
 ```
 
 ## Stack
 
-- **Expo SDK 54** (see `src/package.json` for exact versions)
-- **React 19** / **React Native** with **react-native-web** for web
-- **TypeScript** — `tsconfig.json` extends `expo/tsconfig.base`
-- **ESLint** — flat config with `eslint-config-expo` and `typescript-eslint`
+- **Expo SDK 56** (see `src/package.json` for exact versions)
+- **React 19.2** / **React Native 0.85** with **react-native-web** for web
+- **React Compiler** enabled via `experiments.reactCompiler` in `app.json`
+- **TypeScript 6** — `tsconfig.json` extends `expo/tsconfig.base`
+- **ESLint** — `expo lint` (bootstraps `eslint-config-expo` on first run)
+- **Web render mode** — `web.output: "single"` (SPA) so the Supabase-backed `AuthProvider` doesn't have to run under Node SSR.
 
 ## Environment
 

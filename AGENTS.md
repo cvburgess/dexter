@@ -61,7 +61,7 @@ Primary reference: `docs/frontend.md`
 
 Common local commands:
 
-- `cd src && npm install --legacy-peer-deps`
+- `cd src && npm install`
 - `cd src && npm start`
 - `cd src && npm test`
 - `cd src && npm run lint`
@@ -113,6 +113,5 @@ Common local commands:
 
 ## Gotchas
 
-- **`npm install` may require `--legacy-peer-deps`** in `/src` when peer dependencies conflict (e.g. React 19 with test tooling). Use the same flag as documented in `docs/frontend.md` if install fails.
 - **No `.env` files are committed.** Use local env files or your host's secret manager; document new `EXPO_PUBLIC_*` or function secrets in the relevant README or `docs/backend.md`.
 - **Supabase local dev** (`supabase start`) requires Docker.
