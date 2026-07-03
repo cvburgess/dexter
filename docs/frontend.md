@@ -29,6 +29,18 @@ npm test           # Jest (jest-expo)
 npm run typecheck  # tsc --noEmit
 ```
 
+### EAS builds (development client)
+
+Native development uses an [EAS](https://docs.expo.dev/eas/)-built [development client](https://docs.expo.dev/develop/development-builds/introduction/) rather than Expo Go. Build profiles are defined in `src/eas.json` (`development`, `simulator`, `e2e-test`, `preview`, `production`), and `expo-dev-client` is a dependency.
+
+```bash
+npm run dev:simulator   # eas build --platform ios --profile simulator (iOS Simulator)
+npm run dev:ios         # eas build --platform ios --profile development (on-device)
+npm run dev:android     # eas build --platform android --profile development
+```
+
+The EAS project is wired up via `extra.eas.projectId` and `owner` in `app.json`. `appVersionSource` is `remote`, so build/version numbers are managed by EAS.
+
 ## Stack
 
 - **Expo SDK 56** (see `src/package.json` for exact versions)
