@@ -1,20 +1,7 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Redirect } from "expo-router";
 
+// TODO(auth): branch on useAuth().session — redirect signed-out users to
+// /(auth)/login once the auth routes land.
 export default function Index() {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.text}>Hello, Dexter</Text>
-    </View>
-  );
+  return <Redirect href="/(app)/(tabs)/today" />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  text: {
-    fontSize: 24,
-  },
-});
