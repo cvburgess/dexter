@@ -12,6 +12,26 @@ The Dexter app is built with [Expo](https://docs.expo.dev/) (React Native) and [
 
 Place tests in `__tests__/` next to source files. **Do not** put `*.test.ts(x)` under `app/` (phantom routes).
 
+## Navigation
+
+The route tree is grouped so authenticated screens sit behind an auth boundary:
+
+```
+app/
+  _layout.tsx              # Providers (QueryProvider + AuthProvider) + a headerless root Stack
+  index.tsx                # Redirects to the default tab (/(app)/(tabs)/today)
+  (app)/
+    _layout.tsx            # Stack for the authenticated group
+    (tabs)/
+      _layout.tsx          # Expo Router native tabs (expo-router/unstable-native-tabs)
+      today/               # "Today" tab — sun icon
+      settings/            # "Settings" tab — gear icon
+```
+
+Tabs use **native tabs** (`NativeTabs` from `expo-router/unstable-native-tabs`), so they render with the platform tab bar. Icons are set per platform on `NativeTabs.Trigger.Icon` via `sf` (iOS SF Symbol) and `md` (Android Material) — no vector-icon dependency. Native tabs require a dev client / native build (they do **not** appear in Expo Go); web has its own implementation.
+
+Each tab is its own folder with a nested `_layout.tsx` Stack (headers/titles, room for pushed detail screens) and an `index.tsx` screen. An `(auth)` group and auth-gating on `app/index.tsx` and `(app)/_layout.tsx` (via `useAuth`) will be added in a later issue.
+
 ## Commands
 
 From repository root:
