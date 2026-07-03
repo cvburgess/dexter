@@ -1,0 +1,47 @@
+{
+  "cli": {
+    "version": ">= 16.28.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "node": "24.3.0",
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "buildConfiguration": "Debug"
+      }
+    },
+    "simulator": {
+      "node": "24.3.0",
+      "developmentClient": true,
+      "ios": {
+        "simulator": true,
+        "buildConfiguration": "Debug"
+      }
+    },
+    "e2e-test": {
+      "node": "24.3.0",
+      "withoutCredentials": true,
+      "ios": {
+        "simulator": true
+      }
+    },
+    "preview": {
+      "node": "24.3.0",
+      "distribution": "internal",
+      "channel": "preview",
+      "ios": {
+        "buildConfiguration": "Release"
+      }
+    },
+    "production": {
+      "node": "24.3.0",
+      "autoIncrement": true,
+      "channel": "production",
+      "ios": {
+        "buildConfiguration": "Release"
+      }
+    }
+  }
+}
