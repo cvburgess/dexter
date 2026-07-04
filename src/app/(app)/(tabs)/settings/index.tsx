@@ -1,5 +1,4 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { router } from "expo-router";
 import { useState } from "react";
 import { Alert, Platform, StyleSheet, View } from "react-native";
 
@@ -35,7 +34,9 @@ export default function SettingsScreen() {
       await signOut();
       // Drop cached data so nothing leaks to the next signed-in user.
       queryClient.clear();
-      router.replace("/(auth)/login");
+      // No manual navigation: the (app)/_layout guard redirects to login once
+      // the session state flips to null. Navigating here would race that state
+      // update and (auth)/_layout could bounce a stale session back into the app.
     } finally {
       setLoading(false);
     }

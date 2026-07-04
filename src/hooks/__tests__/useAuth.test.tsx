@@ -95,6 +95,7 @@ describe("AuthProvider", () => {
 
   it("clears corrupted auth storage on an invalid refresh token", async () => {
     await AsyncStorage.setItem("sb-test-auth-token", "corrupted");
+    await AsyncStorage.setItem("sb-test-auth-token-code-verifier", "verifier");
     await AsyncStorage.setItem("unrelated-key", "keep-me");
     mockGetSession.mockResolvedValue({
       data: { session: null },
@@ -108,6 +109,11 @@ describe("AuthProvider", () => {
     });
     expect(result.current.session).toBeNull();
     expect(await AsyncStorage.getItem("sb-test-auth-token")).toBeNull();
+    // The PKCE code verifier must survive so a concurrent callback exchange
+    // still works.
+    expect(await AsyncStorage.getItem("sb-test-auth-token-code-verifier")).toBe(
+      "verifier",
+    );
     expect(await AsyncStorage.getItem("unrelated-key")).toBe("keep-me");
   });
 

@@ -20,6 +20,10 @@ export function isInvalidRefreshTokenError(error: unknown): boolean {
 }
 
 function isAuthStorageKey(key: string): boolean {
+  // Never remove the PKCE code verifier: session bootstrap can run this while
+  // a magic-link/OAuth callback is being exchanged, and deleting the verifier
+  // would fail that exchange and discard a valid login.
+  if (key.endsWith("-code-verifier")) return false;
   return key.startsWith("sb-") || key.includes("supabase");
 }
 
