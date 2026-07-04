@@ -32,6 +32,73 @@ For query optimization, schema design, and RLS guidance, see the repo skill at [
   days, repeat task templates, and preferences. Tool inputs never accept
   `user_id`; user ownership is derived from the validated bearer token.
 
+## OAuth server (MCP authorization)
+
+The `mcp-server` function validates bearer tokens but does not issue them —
+authorization is handled by Supabase Auth's built-in **OAuth 2.1 server**,
+enabled in `config.toml`:
+
+```toml
+[auth.oauth_server]
+enabled = true
+authorization_url_path = "/oauth/consent"
+allow_dynamic_registration = false
+```
+
+When an MCP client (Claude, ChatGPT, Cursor, …) starts the OAuth flow, Supabase
+redirects the browser to `{site_url}{authorization_url_path}` —
+`http://localhost:8081/oauth/consent?authorization_id=…` locally, or
+`https://app.dexterplanner.com/oauth/consent?authorization_id=…` in production.
+That route is the Expo screen at `src/app/oauth/consent.tsx`, which reads the
+`authorization_id`, shows which client is requesting access, and calls
+`supabase.auth.oauth.approveAuthorization` / `denyAuthorization` to finish the
+handshake. An unauthenticated visitor is bounced to sign-in with the
+`authorization_id` stashed and returned afterward.
+
+> **`site_url` must match the Expo web port.** The consent URL is built as
+> `{site_url}{authorization_url_path}`, so `[auth].site_url` (`http://localhost:8081`)
+> has to point at wherever the Expo web dev server actually serves. 8081 is
+> Expo's default; if you remap the port, update `site_url` or the redirect 404s.
+
+### Pre-registering clients
+
+`allow_dynamic_registration = false`, so every client must be registered ahead
+of time with its exact redirect URI — an unregistered `redirect_uri` fails the
+authorization before the consent screen is ever reached. Register clients with
+the Auth Admin OAuth API using the **service-role** key (never ship this key to
+a client):
+
+```bash
+curl -X POST "$SUPABASE_URL/auth/v1/admin/oauth/clients" \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_name": "Claude",
+    "redirect_uris": ["https://claude.ai/api/mcp/auth_callback"],
+    "grant_types": ["authorization_code", "refresh_token"]
+  }'
+```
+
+The response returns a `client_id` (and, for confidential clients, a
+`client_secret`). Confirm the exact request shape against the
+[Supabase Auth OAuth server docs](https://supabase.com/docs/guides/auth), as the
+admin API is still evolving.
+
+Redirect URIs to register for the initial clients:
+
+| Client | Redirect URI |
+| --- | --- |
+| Claude.ai / Claude Desktop | `https://claude.ai/api/mcp/auth_callback` |
+| ChatGPT | Per ChatGPT's connector docs (confirm at registration time) |
+| Cursor / Gemini | Per each client's docs |
+
+**Claude Code** uses a dynamic loopback port (`http://localhost:<random>/…`),
+which a fixed pre-registered redirect URI cannot match. Enabling
+`allow_dynamic_registration` for the flows that need it (or registering a
+loopback pattern if/when Supabase supports one) is the path for Claude Code;
+track this before advertising Claude Code support.
+
 ## Local commands
 
 ```bash

@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { render } from "@testing-library/react-native";
 import { Session } from "@supabase/supabase-js";
 
@@ -6,6 +7,7 @@ import AuthLayout from "@/app/(auth)/_layout";
 import AuthCallback from "@/app/auth-callback";
 import Index from "@/app/index";
 import { useAuth } from "@/hooks/useAuth";
+import { setPendingOAuthAuthorizationId } from "@/utils/oauthReturn";
 
 jest.mock("@/hooks/useAuth", () => ({
   useAuth: jest.fn(),
@@ -18,11 +20,19 @@ jest.mock("@/components/LoadingScreen", () => {
   };
 });
 
+type Href =
+  | string
+  | { pathname: string; params?: Record<string, string | undefined> };
+
 jest.mock("expo-router", () => {
   const { Text } = require("react-native");
-  const Redirect = ({ href }: { href: string }) => (
-    <Text>{`redirect:${href}`}</Text>
-  );
+  const Redirect = ({ href }: { href: Href }) => {
+    const label =
+      typeof href === "string"
+        ? href
+        : `${href.pathname}?authorization_id=${href.params?.authorization_id ?? ""}`;
+    return <Text>{`redirect:${label}`}</Text>;
+  };
   const Stack = ({ children }: { children?: React.ReactNode }) => (
     <Text>stack{children}</Text>
   );
@@ -82,10 +92,26 @@ describe("auth guards", () => {
   });
 
   describe("AuthLayout ((auth)/_layout.tsx)", () => {
-    it("redirects signed-in users into the app", () => {
+    beforeEach(async () => {
+      await AsyncStorage.clear();
+    });
+
+    it("redirects signed-in users into the app", async () => {
       mockUseAuth.mockReturnValue(authStates.signedIn);
       expect(
-        render(<AuthLayout />).getByText("redirect:/(app)/(tabs)/today"),
+        await render(<AuthLayout />).findByText("redirect:/(app)/(tabs)/today"),
+      ).toBeTruthy();
+    });
+
+    it("returns signed-in users to a pending OAuth consent", async () => {
+      // Covers native Google sign-in, which lands the session on the login
+      // screen rather than routing through auth-callback.
+      await setPendingOAuthAuthorizationId("auth-123");
+      mockUseAuth.mockReturnValue(authStates.signedIn);
+      expect(
+        await render(<AuthLayout />).findByText(
+          "redirect:/oauth/consent?authorization_id=auth-123",
+        ),
       ).toBeTruthy();
     });
 
@@ -101,16 +127,36 @@ describe("auth guards", () => {
   });
 
   describe("AuthCallback (app/auth-callback.tsx)", () => {
+    beforeEach(async () => {
+      await AsyncStorage.clear();
+    });
+
     it("shows the loading screen while initializing", () => {
       mockUseAuth.mockReturnValue(authStates.initializing);
       expect(render(<AuthCallback />).getByText("loading")).toBeTruthy();
     });
 
-    it("redirects signed-in users to today", () => {
+    it("redirects signed-in users to today", async () => {
       mockUseAuth.mockReturnValue(authStates.signedIn);
       expect(
-        render(<AuthCallback />).getByText("redirect:/(app)/(tabs)/today"),
+        await render(<AuthCallback />).findByText(
+          "redirect:/(app)/(tabs)/today",
+        ),
       ).toBeTruthy();
+    });
+
+    it("returns signed-in users to a pending OAuth consent", async () => {
+      await setPendingOAuthAuthorizationId("auth-123");
+      mockUseAuth.mockReturnValue(authStates.signedIn);
+      expect(
+        await render(<AuthCallback />).findByText(
+          "redirect:/oauth/consent?authorization_id=auth-123",
+        ),
+      ).toBeTruthy();
+      // Consumed once, so a later sign-in is not hijacked by the stale id.
+      expect(
+        await AsyncStorage.getItem("dexter-pending-oauth-authorization-id"),
+      ).toBeNull();
     });
 
     it("falls back to login when there is no session", () => {

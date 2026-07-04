@@ -77,6 +77,11 @@ URL above.
 ## Authorizing
 
 You'll need a [Dexter account](https://app.dexterplanner.com). The first time
-your assistant calls a tool, it'll open a sign-in page where you approve access.
+your assistant calls a tool, it opens Dexter in your browser. Sign in if you
+aren't already, then you'll land on a consent screen that names the app
+requesting access and lists what it can reach — your tasks, lists, goals, days,
+habits, and journals. Choose **Approve** to connect (or **Deny** to cancel), and
+your browser returns you to the assistant.
+
 After that, your assistant can use the connector until you revoke it from its
 settings.
