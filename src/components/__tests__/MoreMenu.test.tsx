@@ -41,15 +41,15 @@ describe("MoreMenu", () => {
 });
 
 describe("getPrioritySections", () => {
-  it("lists priorities in Important & Urgent / Important / Urgent / Neither order", () => {
+  it("lists priorities in shorthand token order (! → !!!!)", () => {
     const [section] = getPrioritySections(ETaskPriority.NEITHER, jest.fn());
 
     expect(section.title).toBe("Priority");
     expect(section.isSubmenu).toBe(true);
     expect(section.options.map((option) => option.title)).toEqual([
-      "Important & Urgent",
-      "Important",
       "Urgent",
+      "Important",
+      "Important & Urgent",
       "Neither",
     ]);
     expect(section.options.map((option) => option.isSelected)).toEqual([
