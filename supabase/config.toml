@@ -32,6 +32,16 @@ additional_redirect_urls = [
 jwt_expiry = 3600
 enable_signup = true
 
+# OAuth 2.1 authorization server for MCP / third-party integrations. Supabase
+# redirects authorizing clients to {site_url}{authorization_url_path} (the
+# Expo web route at src/app/oauth/consent.tsx). Dynamic client registration is
+# off, so every MCP client must be pre-registered with its redirect URI before
+# authorization succeeds (see docs/backend.md).
+[auth.oauth_server]
+enabled = true
+authorization_url_path = "/oauth/consent"
+allow_dynamic_registration = false
+
 [auth.email]
 enable_signup = true
 double_confirm_changes = false

@@ -1,7 +1,4 @@
-import "react-native-url-polyfill/auto";
-
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createClient, Session } from "@supabase/supabase-js";
+import { Session } from "@supabase/supabase-js";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import {
@@ -12,31 +9,17 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
-import { AppState, Platform } from "react-native";
+import { Platform } from "react-native";
 
-import { Database } from "@/types/database.types";
 import {
   clearSupabaseAuthStorage,
   isInvalidRefreshTokenError,
 } from "@/utils/authStorage";
+import { supabase } from "@/utils/supabase";
 
-const getSupabaseEnv = () => {
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      "Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY",
-    );
-  }
-
-  return {
-    supabaseAnonKey,
-    supabaseUrl,
-  };
-};
-
-const { supabaseAnonKey, supabaseUrl } = getSupabaseEnv();
+// Re-exported so existing `import { supabase } from "@/hooks/useAuth"` call
+// sites keep working; the singleton itself now lives in @/utils/supabase.
+export { supabase };
 
 // Platform-adaptive callback: dexter://auth-callback on native, the web
 // origin's /auth-callback route on web (see app/auth-callback.tsx).
@@ -47,32 +30,6 @@ type AuthContextType = {
   session: Session | null;
   userId?: string;
 };
-
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    detectSessionInUrl: false,
-    // PKCE makes magic-link and OAuth callbacks return a ?code= param that
-    // handleAuthCallbackUrl exchanges for a session.
-    flowType: "pkce",
-    persistSession: true,
-    storage: AsyncStorage,
-  },
-});
-
-// On native, the auto-refresh timer is suspended while the app is
-// backgrounded, so the access token can silently expire. Tie the timer to
-// AppState so the token is eagerly refreshed when the app returns to the
-// foreground. The browser keeps timers running, so this is unnecessary on web.
-if (Platform.OS !== "web") {
-  AppState.addEventListener("change", (state) => {
-    if (state === "active") {
-      void supabase.auth.startAutoRefresh();
-    } else {
-      void supabase.auth.stopAutoRefresh();
-    }
-  });
-}
 
 const handleAuthCallbackUrl = async (url: string) => {
   const parsedUrl = Linking.parse(url);

@@ -1,7 +1,9 @@
 import { Redirect } from "expo-router";
+import { useEffect, useState } from "react";
 
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useAuth } from "@/hooks/useAuth";
+import { consumePendingOAuthAuthorizationId } from "@/utils/oauthReturn";
 
 /**
  * Landing route for auth redirects. On web the browser actually navigates to
@@ -10,17 +12,51 @@ import { useAuth } from "@/hooks/useAuth";
  * exchanges the code; this screen waits for the session to land. If there is
  * no session (yet), it falls back to the login screen, which redirects into
  * the app the moment the exchange completes.
+ *
+ * If the user was bounced here from the OAuth consent screen before signing
+ * in, we return them to consent (preserving `authorization_id`) instead of
+ * dropping them on Today.
  */
 export default function AuthCallback() {
   const { initializing, session } = useAuth();
+  const [pending, setPending] = useState<{
+    resolving: boolean;
+    authorizationId: string | null;
+  }>({ resolving: true, authorizationId: null });
+
+  useEffect(() => {
+    if (initializing || !session) return;
+    let active = true;
+    void consumePendingOAuthAuthorizationId().then((authorizationId) => {
+      if (active) setPending({ resolving: false, authorizationId });
+    });
+    return () => {
+      active = false;
+    };
+  }, [initializing, session]);
 
   if (initializing) {
     return <LoadingScreen />;
   }
 
-  if (session) {
-    return <Redirect href="/(app)/(tabs)/today" />;
+  if (!session) {
+    return <Redirect href="/(auth)/login" />;
   }
 
-  return <Redirect href="/(auth)/login" />;
+  if (pending.resolving) {
+    return <LoadingScreen />;
+  }
+
+  if (pending.authorizationId) {
+    return (
+      <Redirect
+        href={{
+          pathname: "/oauth/consent",
+          params: { authorization_id: pending.authorizationId },
+        }}
+      />
+    );
+  }
+
+  return <Redirect href="/(app)/(tabs)/today" />;
 }
