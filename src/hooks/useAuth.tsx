@@ -12,8 +12,13 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
+import { AppState, Platform } from "react-native";
 
 import { Database } from "@/types/database.types";
+import {
+  clearSupabaseAuthStorage,
+  isInvalidRefreshTokenError,
+} from "@/utils/authStorage";
 
 const getSupabaseEnv = () => {
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -32,16 +37,10 @@ const getSupabaseEnv = () => {
 };
 
 const { supabaseAnonKey, supabaseUrl } = getSupabaseEnv();
-const redirectTo = Linking.createURL("auth-callback");
 
-export type TToken = {
-  access_token: string;
-  refresh_token: string;
-  type: string;
-  user?: {
-    email: string;
-  };
-};
+// Platform-adaptive callback: dexter://auth-callback on native, the web
+// origin's /auth-callback route on web (see app/auth-callback.tsx).
+const redirectTo = Linking.createURL("auth-callback");
 
 type AuthContextType = {
   initializing: boolean;
@@ -53,10 +52,27 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     detectSessionInUrl: false,
+    // PKCE makes magic-link and OAuth callbacks return a ?code= param that
+    // handleAuthCallbackUrl exchanges for a session.
+    flowType: "pkce",
     persistSession: true,
     storage: AsyncStorage,
   },
 });
+
+// On native, the auto-refresh timer is suspended while the app is
+// backgrounded, so the access token can silently expire. Tie the timer to
+// AppState so the token is eagerly refreshed when the app returns to the
+// foreground. The browser keeps timers running, so this is unnecessary on web.
+if (Platform.OS !== "web") {
+  AppState.addEventListener("change", (state) => {
+    if (state === "active") {
+      void supabase.auth.startAutoRefresh();
+    } else {
+      void supabase.auth.stopAutoRefresh();
+    }
+  });
+}
 
 const handleAuthCallbackUrl = async (url: string) => {
   const parsedUrl = Linking.parse(url);
@@ -82,12 +98,17 @@ export const signInWithEmail = (email: string) =>
   });
 
 export const signInWithGoogle = async () => {
+  // On web, let Supabase do a full-page redirect; the /auth-callback route
+  // completes the exchange when the browser returns. On native, open an auth
+  // session in the browser and exchange the code from the returned URL.
+  const skipBrowserRedirect = Platform.OS !== "web";
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo, skipBrowserRedirect: true },
+    options: { redirectTo, skipBrowserRedirect },
   });
 
-  if (error || !data.url) {
+  if (error || !data.url || !skipBrowserRedirect) {
     return { data, error };
   }
 
@@ -124,14 +145,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    void supabase.auth
-      .getSession()
-      .then(({ data: { session } }) => {
-        setSession(session);
-      })
-      .finally(() => {
-        setInitializing(false);
-      });
+    let isMounted = true;
+
+    const finishBootstrap = (nextSession: Session | null) => {
+      if (!isMounted) return;
+      setSession(nextSession);
+      setInitializing(false);
+    };
+
+    const loadSession = async () => {
+      try {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
+
+        if (error) throw error;
+
+        finishBootstrap(session);
+      } catch (error) {
+        // A corrupted or revoked refresh token would otherwise fail every
+        // bootstrap; clear it so the user can sign in again.
+        if (isInvalidRefreshTokenError(error)) {
+          await clearSupabaseAuthStorage().catch(() => {});
+        }
+        finishBootstrap(null);
+      }
+    };
+
+    void loadSession();
 
     const {
       data: { subscription },
@@ -139,7 +181,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(session);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
