@@ -45,7 +45,8 @@ export const useNewTaskForm = (lists: TList[]): TNewTaskForm => {
     priorityOverride ?? parsed.priority ?? ETaskPriority.UNPRIORITIZED;
   const listId =
     listOverride !== undefined ? listOverride : (parsed.listId ?? null);
-  const dueOn = dueOnOverride !== undefined ? dueOnOverride : (parsed.dueOn ?? null);
+  const dueOn =
+    dueOnOverride !== undefined ? dueOnOverride : (parsed.dueOn ?? null);
 
   const cleanTitle = parsed.title.trim();
 

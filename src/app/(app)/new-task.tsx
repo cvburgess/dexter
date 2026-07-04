@@ -24,18 +24,21 @@ import { useTheme } from "@/utils/theme";
  * Segments mirror the shorthand tokens (`!` = Urgent … `!!!!` = Neither) so
  * the control doubles as a legend for the syntax.
  */
-const PRIORITY_SEGMENTS: { label: string; name: string; value: ETaskPriority }[] =
-  [
-    { label: "None", name: "Unprioritized", value: ETaskPriority.UNPRIORITIZED },
-    { label: "!", name: "Urgent", value: ETaskPriority.URGENT },
-    { label: "!!", name: "Important", value: ETaskPriority.IMPORTANT },
-    {
-      label: "!!!",
-      name: "Important & Urgent",
-      value: ETaskPriority.IMPORTANT_AND_URGENT,
-    },
-    { label: "!!!!", name: "Neither", value: ETaskPriority.NEITHER },
-  ];
+const PRIORITY_SEGMENTS: {
+  label: string;
+  name: string;
+  value: ETaskPriority;
+}[] = [
+  { label: "None", name: "Unprioritized", value: ETaskPriority.UNPRIORITIZED },
+  { label: "!", name: "Urgent", value: ETaskPriority.URGENT },
+  { label: "!!", name: "Important", value: ETaskPriority.IMPORTANT },
+  {
+    label: "!!!",
+    name: "Important & Urgent",
+    value: ETaskPriority.IMPORTANT_AND_URGENT,
+  },
+  { label: "!!!!", name: "Neither", value: ETaskPriority.NEITHER },
+];
 
 const plainDateToDate = (iso: string): Date => {
   const date = Temporal.PlainDate.from(iso);
@@ -90,7 +93,9 @@ export default function NewTaskScreen() {
         <Text style={[styles.label, { color: theme.colors.text }]}>
           Priority
         </Text>
-        <Text style={[styles.labelDetail, { color: theme.colors.textSecondary }]}>
+        <Text
+          style={[styles.labelDetail, { color: theme.colors.textSecondary }]}
+        >
           {PRIORITY_SEGMENTS[selectedSegment].name}
         </Text>
       </View>
@@ -161,7 +166,10 @@ export default function NewTaskScreen() {
               onPress={() => form.setDueOn(null)}
             >
               <Text
-                style={[styles.labelDetail, { color: theme.colors.textSecondary }]}
+                style={[
+                  styles.labelDetail,
+                  { color: theme.colors.textSecondary },
+                ]}
               >
                 Clear
               </Text>
