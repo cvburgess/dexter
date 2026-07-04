@@ -24,7 +24,11 @@ max_rows = 1000
 [auth]
 enabled = true
 site_url = "http://localhost:8081"
-additional_redirect_urls = ["exp://localhost:8081"]
+additional_redirect_urls = [
+  "exp://localhost:8081",
+  "dexter://auth-callback",
+  "http://localhost:8081/auth-callback",
+]
 jwt_expiry = 3600
 enable_signup = true
 
@@ -32,6 +36,14 @@ enable_signup = true
 enable_signup = true
 double_confirm_changes = false
 enable_confirmations = false
+
+# Mirrors the hosted project's Google provider (see the Supabase dashboard).
+# DO NOT commit the OAuth secret — it is read from the environment.
+[auth.external.google]
+enabled = true
+client_id = "218947795156-k6ov628icbb021i4e0src54p2j5v798b.apps.googleusercontent.com"
+secret = "env(SUPABASE_AUTH_GOOGLE_SECRET)"
+redirect_uri = "https://api.dexterplanner.com/auth/v1/callback"
 
 # ---------- Storage ----------
 

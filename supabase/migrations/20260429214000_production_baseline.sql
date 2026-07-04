@@ -92,24 +92,27 @@ create table if not exists "public"."tasks" (
   "template_id" uuid
 );
 
+-- Primary keys first: foreign keys below reference them, and Postgres
+-- requires the referenced unique constraint to exist before the FK is added.
 alter table only "public"."daily_habits" add constraint "daily_habits_pkey" PRIMARY KEY (date, habit_id);
+alter table only "public"."days" add constraint "days_pkey" PRIMARY KEY (date, user_id);
+alter table only "public"."goals" add constraint "goal_pkey" PRIMARY KEY (id);
+alter table only "public"."habits" add constraint "habits_pkey" PRIMARY KEY (id);
+alter table only "public"."lists" add constraint "list_pkey" PRIMARY KEY (id);
+alter table only "public"."preferences" add constraint "preferences_pkey" PRIMARY KEY (user_id);
+alter table only "public"."repeat_task_templates" add constraint "repeat_task_templates_pkey" PRIMARY KEY (id);
+alter table only "public"."tasks" add constraint "task_pkey" PRIMARY KEY (id);
+
 alter table only "public"."daily_habits" add constraint "daily_habits_habit_id_fkey" FOREIGN KEY (habit_id) REFERENCES habits(id) ON UPDATE CASCADE ON DELETE CASCADE;
 alter table only "public"."daily_habits" add constraint "daily_habits_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-alter table only "public"."days" add constraint "days_pkey" PRIMARY KEY (date, user_id);
 alter table only "public"."days" add constraint "days_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-alter table only "public"."goals" add constraint "goal_pkey" PRIMARY KEY (id);
 alter table only "public"."goals" add constraint "goal_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON UPDATE CASCADE ON DELETE CASCADE;
-alter table only "public"."habits" add constraint "habits_pkey" PRIMARY KEY (id);
 alter table only "public"."habits" add constraint "habits_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-alter table only "public"."lists" add constraint "list_pkey" PRIMARY KEY (id);
 alter table only "public"."lists" add constraint "list_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON UPDATE CASCADE ON DELETE CASCADE;
-alter table only "public"."preferences" add constraint "preferences_pkey" PRIMARY KEY (user_id);
 alter table only "public"."preferences" add constraint "preferences_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-alter table only "public"."repeat_task_templates" add constraint "repeat_task_templates_pkey" PRIMARY KEY (id);
 alter table only "public"."repeat_task_templates" add constraint "repeat_task_templates_goal_id_fkey" FOREIGN KEY (goal_id) REFERENCES goals(id) ON UPDATE CASCADE ON DELETE SET NULL;
 alter table only "public"."repeat_task_templates" add constraint "repeat_task_templates_list_id_fkey" FOREIGN KEY (list_id) REFERENCES lists(id) ON UPDATE CASCADE ON DELETE SET NULL;
 alter table only "public"."repeat_task_templates" add constraint "repeat_task_templates_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON UPDATE CASCADE ON DELETE CASCADE;
-alter table only "public"."tasks" add constraint "task_pkey" PRIMARY KEY (id);
 alter table only "public"."tasks" add constraint "tasks_goal_id_fkey" FOREIGN KEY (goal_id) REFERENCES goals(id) ON UPDATE CASCADE ON DELETE SET NULL;
 alter table only "public"."tasks" add constraint "tasks_list_id_fkey" FOREIGN KEY (list_id) REFERENCES lists(id) ON UPDATE CASCADE ON DELETE SET NULL;
 alter table only "public"."tasks" add constraint "tasks_subtask_of_fkey" FOREIGN KEY (subtask_of) REFERENCES tasks(id) ON UPDATE CASCADE ON DELETE CASCADE;

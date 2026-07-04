@@ -19,18 +19,31 @@ The route tree is grouped so authenticated screens sit behind an auth boundary:
 ```
 app/
   _layout.tsx              # Providers (QueryProvider + AuthProvider) + a headerless root Stack
-  index.tsx                # Redirects to the default tab (/(app)/(tabs)/today)
+  index.tsx                # Branches on useAuth(): login when signed out, /(app)/(tabs)/today when signed in
+  auth-callback.tsx        # Landing route for magic-link / OAuth redirects (required on web)
+  (auth)/
+    _layout.tsx            # Redirects signed-in users into the app
+    login.tsx              # Single login/signup screen: magic-link email + "Continue with Google"
   (app)/
-    _layout.tsx            # Stack for the authenticated group
+    _layout.tsx            # Stack for the authenticated group; redirects signed-out users to login
     (tabs)/
       _layout.tsx          # Expo Router native tabs (expo-router/unstable-native-tabs)
       today/               # "Today" tab — sun icon
-      settings/            # "Settings" tab — gear icon
+      settings/            # "Settings" tab — gear icon (includes log out)
 ```
 
 Tabs use **native tabs** (`NativeTabs` from `expo-router/unstable-native-tabs`), so they render with the platform tab bar. Icons are set per platform on `NativeTabs.Trigger.Icon` via `sf` (iOS SF Symbol) and `md` (Android Material) — no vector-icon dependency. Native tabs require a dev client / native build (they do **not** appear in Expo Go); web has its own implementation.
 
-Each tab is its own folder with a nested `_layout.tsx` Stack (headers/titles, room for pushed detail screens) and an `index.tsx` screen. An `(auth)` group and auth-gating on `app/index.tsx` and `(app)/_layout.tsx` (via `useAuth`) will be added in a later issue.
+Each tab is its own folder with a nested `_layout.tsx` Stack (headers/titles, room for pushed detail screens) and an `index.tsx` screen.
+
+## Auth
+
+Auth is Supabase-backed (magic-link email + Google OAuth, PKCE flow) via `hooks/useAuth.tsx`, which exports the `supabase` client, `AuthProvider`/`useAuth` (`{ initializing, session, userId }`), and `signInWithEmail` / `signInWithGoogle` / `signOut` helpers.
+
+- **Guards live in the layouts**: `(app)/_layout.tsx` redirects signed-out users to `/(auth)/login`; `(auth)/_layout.tsx` redirects signed-in users to the app; `app/index.tsx` branches on session at boot.
+- **Callback URL** is `Linking.createURL("auth-callback")` — platform-adaptive: `dexter://auth-callback` on native (scheme set in `app.json`), `https://<origin>/auth-callback` on web. `app/auth-callback.tsx` exists so the web navigation doesn't 404; `AuthProvider` picks the URL up and exchanges the `?code=` param for a session.
+- **Redirect allowlist**: both callback forms must be registered in `supabase/config.toml` (`additional_redirect_urls`) and the hosted Supabase project's Auth URL allowlist.
+- On native, token auto-refresh is tied to `AppState` (refresh on foreground), and a corrupted/revoked refresh token clears persisted auth storage (`utils/authStorage.ts`) so the user can sign in again.
 
 ## Commands
 
