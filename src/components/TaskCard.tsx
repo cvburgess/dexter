@@ -25,6 +25,12 @@ export function TaskCard({ task, onUpdate }: TTaskCardProps) {
   const isComplete =
     task.status === ETaskStatus.DONE || task.status === ETaskStatus.WONT_DO;
   const priorityColor = theme.colors.priority[task.priority];
+  // The color everything on the card (title, button outlines/icons, border)
+  // is drawn in — matches dexter-app's Card.tsx, which derives all of it
+  // from the priority's "-content" color, muted to `text` when done.
+  const contentColor = isComplete
+    ? withOpacity(theme.colors.text, COMPLETE_TEXT_OPACITY)
+    : theme.colors.priorityContent[task.priority];
 
   return (
     <View
@@ -35,12 +41,14 @@ export function TaskCard({ task, onUpdate }: TTaskCardProps) {
             priorityColor,
             isComplete ? COMPLETE_OPACITY : INCOMPLETE_OPACITY,
           ),
+          borderColor: withOpacity(contentColor, 0.1),
         },
       ]}
       testID={`task-card-${task.id}`}
     >
       <StatusButton
         status={task.status}
+        contentColor={contentColor}
         onChangeStatus={(status) => onUpdate({ status })}
       />
       <Text
@@ -48,9 +56,7 @@ export function TaskCard({ task, onUpdate }: TTaskCardProps) {
         style={[
           styles.title,
           {
-            color: isComplete
-              ? withOpacity(theme.colors.text, COMPLETE_TEXT_OPACITY)
-              : theme.colors.priorityContent[task.priority],
+            color: contentColor,
             textDecorationLine: isComplete ? "line-through" : "none",
           },
         ]}
@@ -59,14 +65,16 @@ export function TaskCard({ task, onUpdate }: TTaskCardProps) {
       </Text>
       {!isComplete && (
         <>
-          <DueDateButton dueOn={task.dueOn} />
+          <DueDateButton dueOn={task.dueOn} contentColor={contentColor} />
           <ListButton
             listId={task.listId}
+            contentColor={contentColor}
             onChangeList={(listId) => onUpdate({ listId })}
           />
           <MoreButton
             priority={task.priority}
             scheduledFor={task.scheduledFor}
+            contentColor={contentColor}
             onChangePriority={(priority) => onUpdate({ priority })}
             onChangeSchedule={(scheduledFor) => onUpdate({ scheduledFor })}
           />
@@ -80,6 +88,7 @@ const styles = StyleSheet.create({
   container: {
     alignItems: "center",
     borderRadius: 12,
+    borderWidth: 1,
     flexDirection: "row",
     gap: 8,
     overflow: "hidden",

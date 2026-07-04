@@ -2,17 +2,21 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { TList } from "@/api/lists";
 import { useLists } from "@/hooks/useLists";
-import { useTheme } from "@/utils/theme";
+import { withOpacity } from "@/utils/theme";
 
 import { IconMenu, TIconMenuSection } from "./IconMenu";
 
 type TListButtonProps = {
   listId: string | null;
+  contentColor: string;
   onChangeList: (listId: string | null) => void;
 };
 
-export function ListButton({ listId, onChangeList }: TListButtonProps) {
-  const theme = useTheme();
+export function ListButton({
+  listId,
+  contentColor,
+  onChangeList,
+}: TListButtonProps) {
   const [lists, { getListById }] = useLists();
   const selectedList = getListById(listId);
   const sections = getListSections(lists, listId, onChangeList);
@@ -20,7 +24,10 @@ export function ListButton({ listId, onChangeList }: TListButtonProps) {
   return (
     <IconMenu accessibilityLabel="List" menuTitle="List" sections={sections}>
       <View
-        style={[styles.button, { backgroundColor: theme.colors.background }]}
+        style={[
+          styles.button,
+          { borderColor: withOpacity(contentColor, 0.25) },
+        ]}
       >
         <Text style={styles.glyph}>
           {selectedList ? selectedList.emoji : "🚫"}
@@ -57,6 +64,7 @@ const styles = StyleSheet.create({
   button: {
     alignItems: "center",
     borderRadius: 999,
+    borderWidth: 1,
     height: 32,
     justifyContent: "center",
     width: 32,

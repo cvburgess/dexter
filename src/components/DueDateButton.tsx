@@ -1,14 +1,20 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { StyleSheet, Text, View } from "react-native";
 
-import { useTheme } from "@/utils/theme";
+import { useTheme, withOpacity } from "@/utils/theme";
 
 type TDueDateButtonProps = {
   dueOn: string | null;
+  contentColor: string;
 };
 
-/** Display-only day countdown; hidden when `dueOn` is unset. Setting/changing the due date is not supported here. */
-export function DueDateButton({ dueOn }: TDueDateButtonProps) {
+/**
+ * Display-only day countdown; hidden when `dueOn` is unset. Setting/changing
+ * the due date is not supported here. Matches the other card buttons'
+ * outline style, except when overdue/due-soon, when it swaps to a solid
+ * warning fill for emphasis (dexter-app's `overdueClasses`).
+ */
+export function DueDateButton({ dueOn, contentColor }: TDueDateButtonProps) {
   const theme = useTheme();
   if (!dueOn) return null;
 
@@ -22,17 +28,15 @@ export function DueDateButton({ dueOn }: TDueDateButtonProps) {
       testID="due-date-badge"
       style={[
         styles.badge,
-        {
-          backgroundColor: shouldWarn
-            ? theme.colors.error
-            : theme.colors.background,
-        },
+        shouldWarn
+          ? { backgroundColor: theme.colors.error }
+          : { borderWidth: 1, borderColor: withOpacity(contentColor, 0.25) },
       ]}
     >
       <Text
         style={[
           styles.text,
-          { color: shouldWarn ? theme.colors.errorContent : theme.colors.text },
+          { color: shouldWarn ? theme.colors.errorContent : contentColor },
         ]}
       >
         {daysUntilDue}

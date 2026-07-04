@@ -1,17 +1,21 @@
 import { StyleSheet, Text, View } from "react-native";
 
 import { ETaskStatus } from "@/api/tasks";
-import { useTheme } from "@/utils/theme";
+import { withOpacity } from "@/utils/theme";
 
 import { IconMenu, TIconMenuSection } from "./IconMenu";
 
 type TStatusButtonProps = {
   status: ETaskStatus;
+  contentColor: string;
   onChangeStatus: (status: ETaskStatus) => void;
 };
 
-export function StatusButton({ status, onChangeStatus }: TStatusButtonProps) {
-  const theme = useTheme();
+export function StatusButton({
+  status,
+  contentColor,
+  onChangeStatus,
+}: TStatusButtonProps) {
   const sections = getStatusSections(status, onChangeStatus);
 
   return (
@@ -21,9 +25,12 @@ export function StatusButton({ status, onChangeStatus }: TStatusButtonProps) {
       sections={sections}
     >
       <View
-        style={[styles.button, { backgroundColor: theme.colors.background }]}
+        style={[
+          styles.button,
+          { borderColor: withOpacity(contentColor, 0.25) },
+        ]}
       >
-        <Text style={[styles.glyph, { color: theme.colors.text }]}>
+        <Text style={[styles.glyph, { color: contentColor }]}>
           {glyphForStatus(status)}
         </Text>
       </View>
@@ -71,6 +78,7 @@ const styles = StyleSheet.create({
   button: {
     alignItems: "center",
     borderRadius: 999,
+    borderWidth: 1,
     height: 32,
     justifyContent: "center",
     width: 32,

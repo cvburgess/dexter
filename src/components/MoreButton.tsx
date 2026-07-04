@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { ETaskPriority } from "@/api/tasks";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
-import { useTheme } from "@/utils/theme";
+import { withOpacity } from "@/utils/theme";
 import { weekStartEnd } from "@/utils/weekStartEnd";
 
 import { IconMenu, TIconMenuSection } from "./IconMenu";
@@ -11,6 +11,7 @@ import { IconMenu, TIconMenuSection } from "./IconMenu";
 type TMoreButtonProps = {
   priority: ETaskPriority;
   scheduledFor: string | null;
+  contentColor: string;
   onChangePriority: (priority: ETaskPriority) => void;
   onChangeSchedule: (scheduledFor: string | null) => void;
 };
@@ -18,10 +19,10 @@ type TMoreButtonProps = {
 export function MoreButton({
   priority,
   scheduledFor,
+  contentColor,
   onChangePriority,
   onChangeSchedule,
 }: TMoreButtonProps) {
-  const theme = useTheme();
   const sections = [
     ...getPrioritySections(priority, onChangePriority),
     ...getScheduleSections(scheduledFor, onChangeSchedule),
@@ -30,9 +31,12 @@ export function MoreButton({
   return (
     <IconMenu accessibilityLabel="More" menuTitle="More" sections={sections}>
       <View
-        style={[styles.button, { backgroundColor: theme.colors.background }]}
+        style={[
+          styles.button,
+          { borderColor: withOpacity(contentColor, 0.25) },
+        ]}
       >
-        <Text style={[styles.glyph, { color: theme.colors.text }]}>⋯</Text>
+        <Text style={[styles.glyph, { color: contentColor }]}>⋯</Text>
       </View>
     </IconMenu>
   );
@@ -130,6 +134,7 @@ const styles = StyleSheet.create({
   button: {
     alignItems: "center",
     borderRadius: 999,
+    borderWidth: 1,
     height: 32,
     justifyContent: "center",
     width: 32,

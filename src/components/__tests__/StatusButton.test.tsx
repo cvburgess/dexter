@@ -39,7 +39,11 @@ describe("getStatusSections", () => {
 describe("StatusButton", () => {
   it("renders a glyph representing the current status", () => {
     const screen = render(
-      <StatusButton status={ETaskStatus.DONE} onChangeStatus={jest.fn()} />,
+      <StatusButton
+        status={ETaskStatus.DONE}
+        contentColor="#000000"
+        onChangeStatus={jest.fn()}
+      />,
     );
 
     expect(screen.getByText("✓")).toBeTruthy();

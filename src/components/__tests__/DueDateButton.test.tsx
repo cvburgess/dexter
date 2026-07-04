@@ -9,40 +9,51 @@ const daysFromNow = (days: number) =>
 
 describe("DueDateButton", () => {
   it("renders nothing when dueOn is unset", () => {
-    const screen = render(<DueDateButton dueOn={null} />);
+    const screen = render(
+      <DueDateButton dueOn={null} contentColor="#000000" />,
+    );
 
     expect(screen.toJSON()).toBeNull();
   });
 
   it("shows the integer days remaining for a future due date", () => {
-    const screen = render(<DueDateButton dueOn={daysFromNow(5)} />);
+    const screen = render(
+      <DueDateButton dueOn={daysFromNow(5)} contentColor="#000000" />,
+    );
 
     expect(screen.getByText("5")).toBeTruthy();
   });
 
   it("shows 0 when due today", () => {
-    const screen = render(<DueDateButton dueOn={daysFromNow(0)} />);
+    const screen = render(
+      <DueDateButton dueOn={daysFromNow(0)} contentColor="#000000" />,
+    );
 
     expect(screen.getByText("0")).toBeTruthy();
   });
 
   it("shows a negative count when overdue", () => {
-    const screen = render(<DueDateButton dueOn={daysFromNow(-3)} />);
+    const screen = render(
+      <DueDateButton dueOn={daysFromNow(-3)} contentColor="#000000" />,
+    );
 
     expect(screen.getByText("-3")).toBeTruthy();
   });
 
-  it("applies warn styling when due today or tomorrow but not further out", () => {
-    const flattenBackground = (dueOn: string) => {
-      const screen = render(<DueDateButton dueOn={dueOn} />);
+  it("is outline-only normally, but fills solid when due today or tomorrow", () => {
+    const badgeStyle = (dueOn: string) => {
+      const screen = render(
+        <DueDateButton dueOn={dueOn} contentColor="#000000" />,
+      );
       const badge = screen.getByTestId("due-date-badge");
-      const style = StyleSheet.flatten(badge.props.style as ViewStyle[]);
-      return style.backgroundColor;
+      return StyleSheet.flatten(badge.props.style as ViewStyle[]);
     };
 
-    const warnColor = flattenBackground(daysFromNow(1));
-    const normalColor = flattenBackground(daysFromNow(5));
+    const warnStyle = badgeStyle(daysFromNow(1));
+    const normalStyle = badgeStyle(daysFromNow(5));
 
-    expect(warnColor).not.toEqual(normalColor);
+    expect(normalStyle.backgroundColor).toBeUndefined();
+    expect(normalStyle.borderWidth).toBe(1);
+    expect(warnStyle.backgroundColor).toBeDefined();
   });
 });

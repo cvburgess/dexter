@@ -109,10 +109,24 @@ export function useTheme(): Theme {
   return useResolvedColorScheme() === "dark" ? darkTheme : lightTheme;
 }
 
-/** Applies an alpha channel to a `#rrggbb` color, e.g. for a tinted background that doesn't fade its content. */
-export function withOpacity(hex: string, alpha: number): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
+/**
+ * Applies an alpha channel to a color, e.g. for a tinted background that
+ * doesn't fade its content. Accepts a `#rrggbb` hex color or an existing
+ * `rgba(...)` string — in the latter case, `alpha` multiplies the color's
+ * existing alpha, matching how nested opacity modifiers compose in CSS.
+ */
+export function withOpacity(color: string, alpha: number): string {
+  const rgbaMatch = color.match(
+    /^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/,
+  );
+  if (rgbaMatch) {
+    const [, r, g, b, existingAlpha] = rgbaMatch;
+    const combinedAlpha = (existingAlpha ? Number(existingAlpha) : 1) * alpha;
+    return `rgba(${r}, ${g}, ${b}, ${combinedAlpha})`;
+  }
+
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }

@@ -75,7 +75,11 @@ describe("ListButton", () => {
     ]);
 
     const screen = render(
-      <ListButton listId="list-2" onChangeList={jest.fn()} />,
+      <ListButton
+        listId="list-2"
+        contentColor="#000000"
+        onChangeList={jest.fn()}
+      />,
     );
 
     expect(screen.getByText("🏠")).toBeTruthy();
@@ -93,7 +97,11 @@ describe("ListButton", () => {
     ]);
 
     const screen = render(
-      <ListButton listId={null} onChangeList={jest.fn()} />,
+      <ListButton
+        listId={null}
+        contentColor="#000000"
+        onChangeList={jest.fn()}
+      />,
     );
 
     expect(screen.getByText("🚫")).toBeTruthy();
