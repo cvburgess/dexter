@@ -106,3 +106,14 @@ Uncommitted `.env` / `.env.local` files are normal; never commit secrets.
 - `hooks/` contains React Query hooks and the Expo-compatible `useAuth` provider.
 - `utils/` contains data helpers shared by the query layer and hooks.
 - `providers/QueryProvider.tsx` exports the React Query provider. Route wiring in `app/` is intentionally separate from the data layer.
+
+## Platform-split components
+
+Components that need a native module unavailable on web (e.g. `@expo/ui`'s `MenuView`) follow a four-file pattern, e.g. `IconMenu` (`components/IconMenu.*`):
+
+- `Component.types.ts` — shared prop types.
+- `Component.native.tsx` — the native implementation.
+- `Component.web.tsx` — the web fallback.
+- `Component.tsx` — re-exports the native file. Metro/Jest resolve `.native`/`.web` automatically per platform and ignore this file at runtime; it exists only so `tsc` (which doesn't do platform-extension resolution) can resolve `@/components/Component`.
+
+`components/IconMenu` is a tap-to-open icon menu (sections of selectable options) built this way: `@expo/ui`'s community `MenuView` on native, a custom modal on web. `StatusButton`, `ListButton`, and `MoreButton` (`components/`) build their menu sections and render through it.
