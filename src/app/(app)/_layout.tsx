@@ -1,8 +1,19 @@
-import { Stack } from "expo-router";
+import { Redirect, Stack } from "expo-router";
 
-// TODO(auth): gate this group with useAuth() — redirect to /(auth)/login when
-// there is no session once the auth routes land.
+import { LoadingScreen } from "@/components/LoadingScreen";
+import { useAuth } from "@/hooks/useAuth";
+
 export default function AppLayout() {
+  const { initializing, session } = useAuth();
+
+  if (initializing) {
+    return <LoadingScreen />;
+  }
+
+  if (!session) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
