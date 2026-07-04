@@ -5,7 +5,7 @@ import { useTheme, withOpacity } from "@/utils/theme";
 
 import { DueDateButton } from "./DueDateButton";
 import { ListButton } from "./ListButton";
-import { MoreButton } from "./MoreButton";
+import { MoreMenu } from "./MoreMenu";
 import { StatusButton } from "./StatusButton";
 
 // Matches dexter-app's cardColors: incomplete cards sit on the priority color
@@ -32,7 +32,7 @@ export function TaskCard({ task, onUpdate }: TTaskCardProps) {
     ? withOpacity(theme.colors.text, COMPLETE_TEXT_OPACITY)
     : theme.colors.priorityContent[task.priority];
 
-  return (
+  const card = (
     <View
       style={[
         styles.container,
@@ -71,20 +71,32 @@ export function TaskCard({ task, onUpdate }: TTaskCardProps) {
             contentColor={contentColor}
             onChangeList={(listId) => onUpdate({ listId })}
           />
-          <MoreButton
-            priority={task.priority}
-            scheduledFor={task.scheduledFor}
-            contentColor={contentColor}
-            onChangePriority={(priority) => onUpdate({ priority })}
-            onChangeSchedule={(scheduledFor) => onUpdate({ scheduledFor })}
-          />
         </>
       )}
     </View>
   );
+
+  // Priority/schedule editing (and the long-press that opens it) isn't
+  // available once a task is done or won't-do, matching the buttons above.
+  if (isComplete) return card;
+
+  return (
+    <MoreMenu
+      priority={task.priority}
+      scheduledFor={task.scheduledFor}
+      onChangePriority={(priority) => onUpdate({ priority })}
+      onChangeSchedule={(scheduledFor) => onUpdate({ scheduledFor })}
+      style={styles.moreMenuWrapper}
+    >
+      {card}
+    </MoreMenu>
+  );
 }
 
 const styles = StyleSheet.create({
+  moreMenuWrapper: {
+    alignSelf: "stretch",
+  },
   container: {
     alignItems: "center",
     borderRadius: 12,

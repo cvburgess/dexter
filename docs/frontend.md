@@ -116,4 +116,4 @@ Components that need a native module unavailable on web (e.g. `@expo/ui`'s `Menu
 - `Component.web.tsx` — the web fallback.
 - `Component.tsx` — re-exports the native file. Metro/Jest resolve `.native`/`.web` automatically per platform and ignore this file at runtime; it exists only so `tsc` (which doesn't do platform-extension resolution) can resolve `@/components/Component`.
 
-`components/IconMenu` is a tap-to-open icon menu (sections of selectable options) built this way: `@expo/ui`'s community `MenuView` on native, a custom modal on web. `StatusButton`, `ListButton`, and `MoreButton` (`components/`) build their menu sections and render through it.
+`components/IconMenu` is an icon menu (sections of selectable options, opened by a tap or a long-press per its `trigger` prop) built this way: `@expo/ui`'s community `MenuView` on native, a custom modal on web. `StatusButton` and `ListButton` build their sections and render through it as a small tap-to-open trigger; `MoreMenu` wraps an entire task card instead, opening on long-press with no menu title.

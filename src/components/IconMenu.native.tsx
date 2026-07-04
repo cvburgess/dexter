@@ -3,17 +3,19 @@ import { MenuView } from "@expo/ui/community/menu";
 import type { IconMenuProps, TIconMenuOption } from "./IconMenu.types";
 
 /**
- * Tap-to-open icon menu backed by `@expo/ui`'s community `MenuView`
- * (`shouldOpenOnLongPress={false}`: a SwiftUI `Menu` on iOS, an anchored
- * Compose `DropdownMenu` on Android). A plain section renders as an inline
- * group (always visible, with a divider between groups); a section with
- * `isSubmenu` renders as a nested submenu that expands on tap.
+ * Icon menu backed by `@expo/ui`'s community `MenuView` (a SwiftUI `Menu`/
+ * `ContextMenu` on iOS, an anchored Compose `DropdownMenu` on Android),
+ * opened by a tap or a long-press per `trigger`. A plain section renders as
+ * an inline group (always visible, with a divider between groups); a
+ * section with `isSubmenu` renders as a nested submenu that expands on tap.
  */
 export function IconMenu({
   menuTitle,
   accessibilityLabel,
+  trigger = "tap",
   sections,
   children,
+  style,
 }: IconMenuProps) {
   const optionsById = new Map<string, TIconMenuOption>();
   for (const section of sections) {
@@ -22,9 +24,10 @@ export function IconMenu({
 
   return (
     <MenuView
-      title={menuTitle}
+      title={menuTitle || undefined}
       testID={accessibilityLabel}
-      shouldOpenOnLongPress={false}
+      style={style}
+      shouldOpenOnLongPress={trigger === "longPress"}
       actions={sections.map((section, index) => ({
         id: `section-${index}`,
         title: section.title ?? "",

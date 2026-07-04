@@ -139,4 +139,26 @@ describe("IconMenu (web)", () => {
 
     expect(onSelect).toHaveBeenCalled();
   });
+
+  it("opens on long-press instead of a regular press when configured for it", () => {
+    const screen = render(
+      <IconMenu
+        accessibilityLabel="More"
+        trigger="longPress"
+        sections={sections}
+      >
+        <Text>Trigger</Text>
+      </IconMenu>,
+    );
+
+    fireEvent.press(screen.getByLabelText("More"), {
+      nativeEvent: { clientX: 10, clientY: 10 },
+    });
+    expect(screen.queryByText("To Do")).toBeNull();
+
+    fireEvent(screen.getByLabelText("More"), "longPress", {
+      nativeEvent: { clientX: 10, clientY: 10 },
+    });
+    expect(screen.getByText("To Do")).toBeTruthy();
+  });
 });

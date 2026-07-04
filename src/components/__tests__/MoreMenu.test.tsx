@@ -1,9 +1,44 @@
 import { Temporal } from "@js-temporal/polyfill";
+import { render } from "@testing-library/react-native";
+import type { ReactNode } from "react";
+import { Text } from "react-native";
 
 import { ETaskPriority } from "@/api/tasks";
 import { weekStartEnd } from "@/utils/weekStartEnd";
 
-import { getPrioritySections, getScheduleSections } from "../MoreButton";
+import {
+  getPrioritySections,
+  getScheduleSections,
+  MoreMenu,
+} from "../MoreMenu";
+
+const mockIconMenu = jest.fn(
+  (props: { children: ReactNode }) => props.children,
+);
+jest.mock("../IconMenu", () => ({
+  IconMenu: (props: Parameters<typeof mockIconMenu>[0]) => mockIconMenu(props),
+}));
+
+describe("MoreMenu", () => {
+  it("opens on long-press with no menu title, wrapping its children", () => {
+    const screen = render(
+      <MoreMenu
+        priority={ETaskPriority.NEITHER}
+        scheduledFor={null}
+        onChangePriority={jest.fn()}
+        onChangeSchedule={jest.fn()}
+      >
+        <Text>Task row</Text>
+      </MoreMenu>,
+    );
+
+    expect(screen.getByText("Task row")).toBeTruthy();
+    expect(mockIconMenu).toHaveBeenCalledWith(
+      expect.objectContaining({ trigger: "longPress" }),
+    );
+    expect(mockIconMenu.mock.calls[0][0]).not.toHaveProperty("menuTitle");
+  });
+});
 
 describe("getPrioritySections", () => {
   it("lists priorities in Important & Urgent / Important / Urgent / Neither order", () => {

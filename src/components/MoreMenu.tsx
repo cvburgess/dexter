@@ -1,43 +1,44 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { StyleSheet, Text, View } from "react-native";
+import type { ReactNode } from "react";
+import type { StyleProp, ViewStyle } from "react-native";
 
 import { ETaskPriority } from "@/api/tasks";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
-import { withOpacity } from "@/utils/theme";
 import { weekStartEnd } from "@/utils/weekStartEnd";
 
 import { IconMenu, TIconMenuSection } from "./IconMenu";
 
-type TMoreButtonProps = {
+type TMoreMenuProps = {
   priority: ETaskPriority;
   scheduledFor: string | null;
-  contentColor: string;
   onChangePriority: (priority: ETaskPriority) => void;
   onChangeSchedule: (scheduledFor: string | null) => void;
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
 };
 
-export function MoreButton({
+/** Wraps `children` (the whole task card) with a long-press menu for priority and schedule. */
+export function MoreMenu({
   priority,
   scheduledFor,
-  contentColor,
   onChangePriority,
   onChangeSchedule,
-}: TMoreButtonProps) {
+  children,
+  style,
+}: TMoreMenuProps) {
   const sections = [
     ...getPrioritySections(priority, onChangePriority),
     ...getScheduleSections(scheduledFor, onChangeSchedule),
   ];
 
   return (
-    <IconMenu accessibilityLabel="More" menuTitle="More" sections={sections}>
-      <View
-        style={[
-          styles.button,
-          { borderColor: withOpacity(contentColor, 0.25) },
-        ]}
-      >
-        <Text style={[styles.glyph, { color: contentColor }]}>⋯</Text>
-      </View>
+    <IconMenu
+      accessibilityLabel="More"
+      trigger="longPress"
+      sections={sections}
+      style={style}
+    >
+      {children}
     </IconMenu>
   );
 }
@@ -129,17 +130,3 @@ export const getScheduleSections = (
 
   return [{ title: "Schedule", isSubmenu: true, options }];
 };
-
-const styles = StyleSheet.create({
-  button: {
-    alignItems: "center",
-    borderRadius: 999,
-    borderWidth: 1,
-    height: 32,
-    justifyContent: "center",
-    width: 32,
-  },
-  glyph: {
-    fontSize: 18,
-  },
-});

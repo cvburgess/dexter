@@ -19,16 +19,19 @@ const MENU_MARGIN = 8;
 
 /**
  * Web fallback for `IconMenu`: `@expo/ui`'s `MenuView` doesn't fire actions on
- * web, so a click on the trigger opens this modal, anchored near the cursor,
- * with the same sections/options as the native menu. A plain section is
- * always visible; a section with `isSubmenu` collapses behind a tappable
- * header row that expands it, one at a time.
+ * web, so a click (or long-press, per `trigger`) on the trigger opens this
+ * modal, anchored near the cursor, with the same sections/options as the
+ * native menu. A plain section is always visible; a section with
+ * `isSubmenu` collapses behind a tappable header row that expands it, one
+ * at a time.
  */
 export function IconMenu({
   menuTitle,
   accessibilityLabel,
+  trigger = "tap",
   sections,
   children,
+  style,
 }: IconMenuProps) {
   const theme = useTheme();
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
@@ -59,7 +62,13 @@ export function IconMenu({
 
   return (
     <>
-      <Pressable accessibilityLabel={accessibilityLabel} onPress={handlePress}>
+      <Pressable
+        accessibilityLabel={accessibilityLabel}
+        style={style}
+        {...(trigger === "longPress"
+          ? { onLongPress: handlePress }
+          : { onPress: handlePress })}
+      >
         {children}
       </Pressable>
       {anchor ? (

@@ -1,4 +1,5 @@
 import { render } from "@testing-library/react-native";
+import type { ReactNode } from "react";
 import { StyleSheet, type TextStyle, type ViewStyle } from "react-native";
 
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
@@ -17,6 +18,13 @@ jest.mock("@/hooks/useLists", () => ({
   ],
 }));
 
+const mockMoreMenu = jest.fn(
+  (props: { children: ReactNode }) => props.children,
+);
+jest.mock("../MoreMenu", () => ({
+  MoreMenu: (props: Parameters<typeof mockMoreMenu>[0]) => mockMoreMenu(props),
+}));
+
 const baseTask: TTask = {
   id: "task-1",
   title: "Write the report",
@@ -30,33 +38,36 @@ const baseTask: TTask = {
 };
 
 describe("TaskCard", () => {
-  it("renders the title and the due date, list, and more buttons for an incomplete task", () => {
+  beforeEach(() => {
+    mockMoreMenu.mockClear();
+  });
+
+  it("renders the title, due date, and list button, wrapped in the long-press priority/schedule menu, for an incomplete task", () => {
     const task = { ...baseTask, dueOn: "2026-07-05" };
     const screen = render(<TaskCard task={task} onUpdate={jest.fn()} />);
 
     expect(screen.getByText("Write the report")).toBeTruthy();
-    // DueDateButton, ListButton, MoreButton glyphs.
-    expect(screen.getByText("🚫")).toBeTruthy();
-    expect(screen.getByText("⋯")).toBeTruthy();
+    expect(screen.getByText("🚫")).toBeTruthy(); // ListButton placeholder.
+    expect(mockMoreMenu).toHaveBeenCalled();
   });
 
-  it("hides the due date, list, and more buttons and mutes the title for a done task", () => {
+  it("hides the due date and list button, skips the more menu, and mutes the title for a done task", () => {
     const task = { ...baseTask, status: ETaskStatus.DONE, dueOn: "2026-07-05" };
     const screen = render(<TaskCard task={task} onUpdate={jest.fn()} />);
 
     expect(screen.queryByText("🚫")).toBeNull();
-    expect(screen.queryByText("⋯")).toBeNull();
+    expect(mockMoreMenu).not.toHaveBeenCalled();
 
     const title = screen.getByText("Write the report");
     const flatStyle = StyleSheet.flatten(title.props.style as TextStyle[]);
     expect(flatStyle.textDecorationLine).toBe("line-through");
   });
 
-  it("hides the buttons for a won't-do task too", () => {
+  it("skips the more menu for a won't-do task too", () => {
     const task = { ...baseTask, status: ETaskStatus.WONT_DO };
-    const screen = render(<TaskCard task={task} onUpdate={jest.fn()} />);
+    render(<TaskCard task={task} onUpdate={jest.fn()} />);
 
-    expect(screen.queryByText("⋯")).toBeNull();
+    expect(mockMoreMenu).not.toHaveBeenCalled();
   });
 
   it("colors the whole card background by priority", () => {
