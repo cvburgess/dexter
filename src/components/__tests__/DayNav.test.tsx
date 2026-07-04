@@ -33,4 +33,15 @@ describe("DayNav", () => {
       Temporal.PlainDate.from("2026-07-04"),
     );
   });
+
+  it("jumps to today when the date is pressed", () => {
+    const onChangeDate = jest.fn();
+    const screen = render(
+      <DayNav date={date.add({ days: 10 })} onChangeDate={onChangeDate} />,
+    );
+
+    fireEvent.press(screen.getByLabelText("Go to today"));
+
+    expect(onChangeDate).toHaveBeenCalledWith(Temporal.Now.plainDateISO());
+  });
 });

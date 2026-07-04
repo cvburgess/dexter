@@ -21,9 +21,14 @@ export function DayNav({ date, onChangeDate }: TDayNavProps) {
       >
         <Text style={[styles.arrowText, { color: theme.colors.text }]}>‹</Text>
       </TouchableOpacity>
-      <Text style={[styles.date, { color: theme.colors.text }]}>
-        {formatWeekdayMonthDay(date)}
-      </Text>
+      <TouchableOpacity
+        accessibilityLabel="Go to today"
+        onPress={() => onChangeDate(Temporal.Now.plainDateISO())}
+      >
+        <Text style={[styles.date, { color: theme.colors.text }]}>
+          {formatWeekdayMonthDay(date)}
+        </Text>
+      </TouchableOpacity>
       <TouchableOpacity
         accessibilityLabel="Next day"
         onPress={() => onChangeDate(date.add({ days: 1 }))}
