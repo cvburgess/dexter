@@ -59,26 +59,39 @@ describe("TaskCard", () => {
     expect(screen.queryByText("⋯")).toBeNull();
   });
 
-  it("colors the accent bar by priority", () => {
-    const urgent = render(
-      <TaskCard
-        task={{ ...baseTask, priority: ETaskPriority.URGENT }}
-        onUpdate={jest.fn()}
-      />,
-    );
-    const neither = render(
-      <TaskCard
-        task={{ ...baseTask, priority: ETaskPriority.NEITHER }}
-        onUpdate={jest.fn()}
-      />,
-    );
-
-    const accentColor = (screen: ReturnType<typeof render>) => {
-      const accent = screen.getByTestId("task-card-accent");
-      return StyleSheet.flatten(accent.props.style as ViewStyle[])
+  it("colors the whole card background by priority", () => {
+    const cardBackground = (priority: ETaskPriority) => {
+      const screen = render(
+        <TaskCard task={{ ...baseTask, priority }} onUpdate={jest.fn()} />,
+      );
+      const card = screen.getByTestId("task-card-task-1");
+      return StyleSheet.flatten(card.props.style as ViewStyle[])
         .backgroundColor;
     };
 
-    expect(accentColor(urgent)).not.toEqual(accentColor(neither));
+    expect(cardBackground(ETaskPriority.URGENT)).not.toEqual(
+      cardBackground(ETaskPriority.NEITHER),
+    );
+  });
+
+  it("fades the card to a faint tint and mutes the text when done", () => {
+    const incomplete = render(
+      <TaskCard task={baseTask} onUpdate={jest.fn()} />,
+    );
+    const done = render(
+      <TaskCard
+        task={{ ...baseTask, status: ETaskStatus.DONE }}
+        onUpdate={jest.fn()}
+      />,
+    );
+
+    const backgroundAlpha = (screen: ReturnType<typeof render>) => {
+      const card = screen.getByTestId("task-card-task-1");
+      const background = StyleSheet.flatten(card.props.style as ViewStyle[])
+        .backgroundColor as string;
+      return Number(background.match(/[\d.]+(?=\)$)/)?.[0]);
+    };
+
+    expect(backgroundAlpha(done)).toBeLessThan(backgroundAlpha(incomplete));
   });
 });

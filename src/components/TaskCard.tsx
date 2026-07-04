@@ -1,12 +1,19 @@
 import { StyleSheet, Text, View } from "react-native";
 
 import { ETaskStatus, TTask, TUpdateTask } from "@/api/tasks";
-import { useTheme } from "@/utils/theme";
+import { useTheme, withOpacity } from "@/utils/theme";
 
 import { DueDateButton } from "./DueDateButton";
 import { ListButton } from "./ListButton";
 import { MoreButton } from "./MoreButton";
 import { StatusButton } from "./StatusButton";
+
+// Matches dexter-app's cardColors: incomplete cards sit on the priority color
+// at 80% opacity; complete cards fade the same color to a 3% tint with muted
+// (25% opacity) text, regardless of priority.
+const INCOMPLETE_OPACITY = 0.8;
+const COMPLETE_OPACITY = 0.03;
+const COMPLETE_TEXT_OPACITY = 0.25;
 
 type TTaskCardProps = {
   task: TTask;
@@ -17,22 +24,21 @@ export function TaskCard({ task, onUpdate }: TTaskCardProps) {
   const theme = useTheme();
   const isComplete =
     task.status === ETaskStatus.DONE || task.status === ETaskStatus.WONT_DO;
+  const priorityColor = theme.colors.priority[task.priority];
 
   return (
     <View
-      style={[styles.container, { backgroundColor: theme.colors.card }]}
+      style={[
+        styles.container,
+        {
+          backgroundColor: withOpacity(
+            priorityColor,
+            isComplete ? COMPLETE_OPACITY : INCOMPLETE_OPACITY,
+          ),
+        },
+      ]}
       testID={`task-card-${task.id}`}
     >
-      <View
-        testID="task-card-accent"
-        style={[
-          styles.accent,
-          {
-            backgroundColor: theme.colors.priority[task.priority],
-            opacity: isComplete ? 0.3 : 1,
-          },
-        ]}
-      />
       <StatusButton
         status={task.status}
         onChangeStatus={(status) => onUpdate({ status })}
@@ -42,7 +48,9 @@ export function TaskCard({ task, onUpdate }: TTaskCardProps) {
         style={[
           styles.title,
           {
-            color: isComplete ? theme.colors.textSecondary : theme.colors.text,
+            color: isComplete
+              ? withOpacity(theme.colors.text, COMPLETE_TEXT_OPACITY)
+              : theme.colors.priorityContent[task.priority],
             textDecorationLine: isComplete ? "line-through" : "none",
           },
         ]}
@@ -76,11 +84,6 @@ const styles = StyleSheet.create({
     gap: 8,
     overflow: "hidden",
     padding: 8,
-  },
-  accent: {
-    alignSelf: "stretch",
-    borderRadius: 2,
-    width: 4,
   },
   title: {
     flex: 1,
