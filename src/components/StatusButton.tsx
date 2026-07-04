@@ -43,7 +43,7 @@ export const getStatusSections = (
   onChangeStatus: (status: ETaskStatus) => void,
 ): TIconMenuSection[] => [
   {
-    options: [
+    options: ([
       {
         id: "todo",
         title: "To Do",
@@ -72,7 +72,7 @@ export const getStatusSections = (
         status: ETaskStatus.WONT_DO,
         icon: { ios: "xmark", android: "close", web: "close" },
       },
-    ].map(({ status: optionStatus, ...option }) => ({
+    ] as const).map(({ status: optionStatus, ...option }) => ({
       ...option,
       isSelected: status === optionStatus,
       onSelect: () => onChangeStatus(optionStatus),
