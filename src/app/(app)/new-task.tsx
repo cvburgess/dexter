@@ -91,6 +91,9 @@ export default function NewTaskScreen() {
         onSave={handleSave}
       />
       <ScrollView
+        // Keeps the content below the native header, which floats over the
+        // form sheet on iOS.
+        contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={[
           styles.container,
           { gap: theme.gap, padding: theme.spacing },
