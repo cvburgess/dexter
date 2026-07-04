@@ -7,7 +7,10 @@ export default function TabsLayout() {
   const theme = useTheme();
 
   return (
-    <NativeTabs minimizeBehavior="onScrollDown" tintColor={theme.colors.primary}>
+    <NativeTabs
+      minimizeBehavior="onScrollDown"
+      tintColor={theme.colors.primary}
+    >
       <NativeTabs.BottomAccessory>
         <NewTaskButton />
       </NativeTabs.BottomAccessory>

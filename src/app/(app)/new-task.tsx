@@ -1,5 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { useRouter } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
+import { useLayoutEffect } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -10,10 +11,11 @@ import {
 
 import { Host, Picker } from "@expo/ui";
 
-import { Button } from "@/components/Button";
 import { DateField } from "@/components/DateField";
+import { CloseButton, DoneButton } from "@/components/ModalHeaderButtons";
 import { PriorityControl } from "@/components/PriorityControl";
 import { TextInput } from "@/components/TextInput";
+import { WebModalHeader } from "@/components/WebModalHeader";
 import { useLists } from "@/hooks/useLists";
 import { useNewTaskForm } from "@/hooks/useNewTaskForm";
 import { useTasks } from "@/hooks/useTasks";
@@ -37,133 +39,167 @@ const dateToPlainDateISO = (date: Date): string =>
 
 export default function NewTaskScreen() {
   const theme = useTheme();
+  const navigation = useNavigation();
   const router = useRouter();
   const [lists] = useLists();
   const [, { createTask }] = useTasks({ skipQuery: true });
   const form = useNewTaskForm(lists);
+
+  const handleClose = () => router.back();
 
   const handleSave = () => {
     createTask(form.task);
     router.back();
   };
 
+  // No dependency array: the handlers close over the latest form state, so
+  // the header must be re-wired on every render.
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerLeft: () => <CloseButton onPress={handleClose} />,
+      headerRight: () => (
+        <DoneButton disabled={!form.canSave} onPress={handleSave} />
+      ),
+      unstable_headerLeftItems: () => [
+        {
+          type: "button",
+          label: "Cancel",
+          icon: { type: "sfSymbol", name: "xmark" },
+          tintColor: theme.colors.text,
+          onPress: handleClose,
+        },
+      ],
+      unstable_headerRightItems: () => [
+        {
+          type: "button",
+          label: "Save",
+          icon: { type: "sfSymbol", name: "checkmark" },
+          variant: "done",
+          tintColor: theme.colors.primary,
+          disabled: !form.canSave,
+          onPress: handleSave,
+        },
+      ],
+    });
+  });
+
   return (
-    <ScrollView
-      contentContainerStyle={[
-        styles.container,
-        { gap: theme.gap, padding: theme.spacing },
-      ]}
-      keyboardShouldPersistTaps="handled"
-      style={{ backgroundColor: theme.colors.background }}
-    >
-      <TextInput
-        autoFocus
-        placeholder="What needs to be done?"
-        returnKeyType="done"
-        testID="new-task-title"
-        value={form.title}
-        onChangeText={form.setTitle}
-        onSubmitEditing={() => {
-          if (form.canSave) handleSave();
-        }}
+    <>
+      <WebModalHeader
+        isDisabled={!form.canSave}
+        onClose={handleClose}
+        onSave={handleSave}
       />
-
-      <View style={styles.labelRow}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>
-          Priority
-        </Text>
-        <PriorityControl
-          priority={form.priority}
-          onChangePriority={form.setPriority}
+      <ScrollView
+        contentContainerStyle={[
+          styles.container,
+          { gap: theme.gap, padding: theme.spacing },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        style={{ backgroundColor: theme.colors.background }}
+      >
+        <TextInput
+          autoFocus
+          placeholder="What needs to be done?"
+          returnKeyType="done"
+          testID="new-task-title"
+          value={form.title}
+          onChangeText={form.setTitle}
+          onSubmitEditing={() => {
+            if (form.canSave) handleSave();
+          }}
         />
-      </View>
 
-      <View style={styles.labelRow}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>List</Text>
-        <Host matchContents>
-          <Picker
-            appearance="menu"
-            selectedValue={form.listId ?? NO_LIST}
-            testID="new-task-list"
-            onValueChange={(listId) =>
-              form.setListId(listId === NO_LIST ? null : String(listId))
-            }
-          >
-            <Picker.Item label="None" value={NO_LIST} />
-            {lists.map((list) => (
-              <Picker.Item
-                key={list.id}
-                label={`${list.emoji} ${list.title}`}
-                value={list.id}
-              />
-            ))}
-          </Picker>
-        </Host>
-      </View>
+        <View style={styles.labelRow}>
+          <Text style={[styles.label, { color: theme.colors.text }]}>
+            Priority
+          </Text>
+          <PriorityControl
+            priority={form.priority}
+            onChangePriority={form.setPriority}
+          />
+        </View>
 
-      <View style={styles.labelRow}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>
-          Schedule
-        </Text>
-        <DateField
-          accentColor={theme.colors.primary}
-          testID="new-task-schedule"
-          value={plainDateToDate(form.scheduledFor)}
-          onChange={(date) => form.setScheduledFor(dateToPlainDateISO(date))}
-        />
-      </View>
+        <View style={styles.labelRow}>
+          <Text style={[styles.label, { color: theme.colors.text }]}>List</Text>
+          <Host matchContents>
+            <Picker
+              appearance="menu"
+              selectedValue={form.listId ?? NO_LIST}
+              testID="new-task-list"
+              onValueChange={(listId) =>
+                form.setListId(listId === NO_LIST ? null : String(listId))
+              }
+            >
+              <Picker.Item label="None" value={NO_LIST} />
+              {lists.map((list) => (
+                <Picker.Item
+                  key={list.id}
+                  label={`${list.emoji} ${list.title}`}
+                  value={list.id}
+                />
+              ))}
+            </Picker>
+          </Host>
+        </View>
 
-      <View style={styles.labelRow}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>
-          Deadline
-        </Text>
-        {form.dueOn === null ? (
-          <TouchableOpacity
-            accessibilityRole="button"
-            testID="new-task-add-deadline"
-            onPress={() =>
-              form.setDueOn(Temporal.Now.plainDateISO().toString())
-            }
-          >
-            <Text style={[styles.labelDetail, { color: theme.colors.primary }]}>
-              Add deadline
-            </Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={[styles.deadlineControls, { gap: theme.gap }]}>
-            <DateField
-              accentColor={theme.colors.primary}
-              testID="new-task-deadline"
-              value={plainDateToDate(form.dueOn)}
-              onChange={(date) => form.setDueOn(dateToPlainDateISO(date))}
-            />
+        <View style={styles.labelRow}>
+          <Text style={[styles.label, { color: theme.colors.text }]}>
+            Schedule
+          </Text>
+          <DateField
+            accentColor={theme.colors.primary}
+            testID="new-task-schedule"
+            value={plainDateToDate(form.scheduledFor)}
+            onChange={(date) => form.setScheduledFor(dateToPlainDateISO(date))}
+          />
+        </View>
+
+        <View style={styles.labelRow}>
+          <Text style={[styles.label, { color: theme.colors.text }]}>
+            Deadline
+          </Text>
+          {form.dueOn === null ? (
             <TouchableOpacity
               accessibilityRole="button"
-              testID="new-task-clear-deadline"
-              onPress={() => form.setDueOn(null)}
+              testID="new-task-add-deadline"
+              onPress={() =>
+                form.setDueOn(Temporal.Now.plainDateISO().toString())
+              }
             >
               <Text
-                style={[
-                  styles.labelDetail,
-                  { color: theme.colors.textSecondary },
-                ]}
+                style={[styles.labelDetail, { color: theme.colors.primary }]}
               >
-                Clear
+                Add deadline
               </Text>
             </TouchableOpacity>
-          </View>
-        )}
-      </View>
-
-      <Button
-        disabled={!form.canSave}
-        testID="new-task-save"
-        variant="primary"
-        onPress={handleSave}
-      >
-        Save
-      </Button>
-    </ScrollView>
+          ) : (
+            <View style={[styles.deadlineControls, { gap: theme.gap }]}>
+              <DateField
+                accentColor={theme.colors.primary}
+                testID="new-task-deadline"
+                value={plainDateToDate(form.dueOn)}
+                onChange={(date) => form.setDueOn(dateToPlainDateISO(date))}
+              />
+              <TouchableOpacity
+                accessibilityRole="button"
+                testID="new-task-clear-deadline"
+                onPress={() => form.setDueOn(null)}
+              >
+                <Text
+                  style={[
+                    styles.labelDetail,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  Clear
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </>
   );
 }
 

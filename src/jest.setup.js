@@ -33,6 +33,14 @@ jest.mock("@expo/ui", () => {
 // expo-symbols renders a native SF Symbol / Material Symbol view.
 jest.mock("expo-symbols", () => ({ SymbolView: () => null }));
 
+// Vector icons render glyphs from a bundled font; render the icon name as
+// text so tests can assert on presence without the native font.
+jest.mock("@react-native-vector-icons/ionicons/static", () => {
+  const { Text } = require("react-native");
+  const Ionicons = ({ name, ...props }) => <Text {...props}>{name}</Text>;
+  return { __esModule: true, default: Ionicons };
+});
+
 // @expo/ui's SwiftUI primitives (used by DateField.ios) are native views.
 jest.mock("@expo/ui/swift-ui", () => ({
   DatePicker: () => null,

@@ -30,7 +30,15 @@ jest.mock("@/hooks/useLists", () => ({
 }));
 
 const mockRouter = { back: jest.fn(), push: jest.fn() };
-jest.mock("expo-router", () => ({ useRouter: () => mockRouter }));
+const mockNavigation = { setOptions: jest.fn() };
+jest.mock("expo-router", () => ({
+  useNavigation: () => mockNavigation,
+  useRouter: () => mockRouter,
+}));
+
+// The header buttons are wired via navigation.setOptions on every render;
+// grab the latest options to interact with them like the header would.
+const headerOptions = () => mockNavigation.setOptions.mock.calls.at(-1)?.[0];
 
 // The @expo/ui form controls are native components with no test doubles;
 // control state logic is covered by the useNewTaskForm hook tests. They are
@@ -54,13 +62,25 @@ describe("NewTaskScreen", () => {
     ]);
   });
 
-  it("does not create a task while the title is empty", () => {
-    const screen = render(<NewTaskScreen />);
+  it("disables the header save button while the title is empty", () => {
+    render(<NewTaskScreen />);
 
-    fireEvent.press(screen.getByTestId("new-task-save"));
+    const save = render(headerOptions().headerRight());
+    fireEvent.press(save.getByTestId("modal-done-button"));
 
     expect(mockCreateTask).not.toHaveBeenCalled();
     expect(mockRouter.back).not.toHaveBeenCalled();
+    expect(headerOptions().unstable_headerRightItems()[0].disabled).toBe(true);
+  });
+
+  it("cancels from the header close button without creating a task", () => {
+    render(<NewTaskScreen />);
+
+    const close = render(headerOptions().headerLeft());
+    fireEvent.press(close.getByTestId("modal-close-button"));
+
+    expect(mockRouter.back).toHaveBeenCalled();
+    expect(mockCreateTask).not.toHaveBeenCalled();
   });
 
   it("creates a task from the parsed title and dismisses the modal", () => {
@@ -71,7 +91,8 @@ describe("NewTaskScreen", () => {
       screen.getByTestId("new-task-title"),
       "!! Write the spec #home due:2",
     );
-    fireEvent.press(screen.getByTestId("new-task-save"));
+    const save = render(headerOptions().headerRight());
+    fireEvent.press(save.getByTestId("modal-done-button"));
 
     expect(mockCreateTask).toHaveBeenCalledWith({
       title: "Write the spec",
@@ -88,7 +109,8 @@ describe("NewTaskScreen", () => {
 
     fireEvent.changeText(screen.getByTestId("new-task-title"), "! Pay bills");
     fireEvent.press(screen.getByLabelText("Important"));
-    fireEvent.press(screen.getByTestId("new-task-save"));
+    const save = render(headerOptions().headerRight());
+    fireEvent.press(save.getByTestId("modal-done-button"));
 
     expect(mockCreateTask).toHaveBeenCalledWith(
       expect.objectContaining({
