@@ -84,9 +84,13 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
 
 const getToday = () => Temporal.Now.plainDateISO();
 
+export const taskFiltersForDate = (
+  date: Temporal.PlainDate,
+): TQueryFilter[] => [["scheduledFor", "eq", date.toString()]];
+
 export const taskFilters: Record<string, TQueryFilter[]> = {
   get today(): TQueryFilter[] {
-    return [["scheduledFor", "eq", getToday().toString()]];
+    return taskFiltersForDate(getToday());
   },
   incomplete: [["status", "in", [ETaskStatus.TODO, ETaskStatus.IN_PROGRESS]]],
   get unprioritized(): TQueryFilter[] {
