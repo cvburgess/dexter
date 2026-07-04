@@ -1,6 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useState } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import { FlatList, StyleSheet, Text } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { DayNav } from "@/components/DayNav";
 import { TaskCard } from "@/components/TaskCard";
@@ -15,7 +16,8 @@ export default function TodayScreen() {
   });
 
   return (
-    <View
+    <SafeAreaView
+      edges={["top", "left", "right"]}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <DayNav date={date} onChangeDate={setDate} />
@@ -37,7 +39,7 @@ export default function TodayScreen() {
           />
         )}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
