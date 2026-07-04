@@ -30,6 +30,7 @@
     "camelcase-keys": "^10.0.2",
     "decamelize-keys": "^2.0.1",
     "expo": "~56.0.4",
+    "expo-build-properties": "~56.0.21",
     "expo-constants": "~56.0.15",
     "expo-dev-client": "~56.0.22",
     "expo-linking": "~56.0.11",
