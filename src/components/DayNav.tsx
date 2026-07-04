@@ -1,6 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
+import { formatWeekdayMonthDay } from "@/utils/formatPlainDate";
 import { useTheme } from "@/utils/theme";
 
 type TDayNavProps = {
@@ -21,7 +22,7 @@ export function DayNav({ date, onChangeDate }: TDayNavProps) {
         <Text style={[styles.arrowText, { color: theme.colors.text }]}>‹</Text>
       </TouchableOpacity>
       <Text style={[styles.date, { color: theme.colors.text }]}>
-        {formatDate(date)}
+        {formatWeekdayMonthDay(date)}
       </Text>
       <TouchableOpacity
         accessibilityLabel="Next day"
@@ -33,13 +34,6 @@ export function DayNav({ date, onChangeDate }: TDayNavProps) {
     </View>
   );
 }
-
-const formatDate = (date: Temporal.PlainDate) =>
-  date.toLocaleString("en-US", {
-    weekday: "long",
-    month: "short",
-    day: "numeric",
-  });
 
 const styles = StyleSheet.create({
   container: {

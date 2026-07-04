@@ -2,6 +2,7 @@ import { Temporal } from "@js-temporal/polyfill";
 import { StyleSheet, Text, View } from "react-native";
 
 import { ETaskPriority } from "@/api/tasks";
+import { formatMonthDayYear } from "@/utils/formatPlainDate";
 import { useTheme } from "@/utils/theme";
 import { weekStartEnd } from "@/utils/weekStartEnd";
 
@@ -105,11 +106,7 @@ export const getScheduleSections = (
     if (scheduledFor !== today && scheduledFor !== tomorrow) {
       options.push({
         id: scheduledFor,
-        title: scheduledDate.toLocaleString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        }),
+        title: formatMonthDayYear(scheduledDate),
         isSelected: true,
         onSelect: () => {
           // Already scheduled for this custom date; no-op.
