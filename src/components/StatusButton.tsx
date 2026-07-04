@@ -16,7 +16,7 @@ export function StatusButton({
   contentColor,
   onChangeStatus,
 }: TStatusButtonProps) {
-  const sections = getStatusSections(status, onChangeStatus);
+  const sections = getStatusSections(onChangeStatus);
 
   return (
     <IconMenu
@@ -39,7 +39,6 @@ export function StatusButton({
 }
 
 export const getStatusSections = (
-  status: ETaskStatus,
   onChangeStatus: (status: ETaskStatus) => void,
 ): TIconMenuSection[] => [
   {
@@ -74,7 +73,8 @@ export const getStatusSections = (
       },
     ] as const).map(({ status: optionStatus, ...option }) => ({
       ...option,
-      isSelected: status === optionStatus,
+      // No isSelected: the icons say it all, and the trigger glyph already
+      // reflects the current status — skip the menu checkmark.
       onSelect: () => onChangeStatus(optionStatus),
     })),
   },
