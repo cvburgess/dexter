@@ -9,9 +9,9 @@ import {
 } from "react-native";
 
 import { Host, Picker } from "@expo/ui";
-import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 
 import { Button } from "@/components/Button";
+import { DateField } from "@/components/DateField";
 import { PriorityControl } from "@/components/PriorityControl";
 import { TextInput } from "@/components/TextInput";
 import { useLists } from "@/hooks/useLists";
@@ -105,15 +105,11 @@ export default function NewTaskScreen() {
         <Text style={[styles.label, { color: theme.colors.text }]}>
           Schedule
         </Text>
-        <DateTimePicker
+        <DateField
           accentColor={theme.colors.primary}
-          mode="date"
-          style={styles.datePicker}
           testID="new-task-schedule"
           value={plainDateToDate(form.scheduledFor)}
-          onValueChange={(_event, date) =>
-            form.setScheduledFor(dateToPlainDateISO(date))
-          }
+          onChange={(date) => form.setScheduledFor(dateToPlainDateISO(date))}
         />
       </View>
 
@@ -135,15 +131,11 @@ export default function NewTaskScreen() {
           </TouchableOpacity>
         ) : (
           <View style={[styles.deadlineControls, { gap: theme.gap }]}>
-            <DateTimePicker
+            <DateField
               accentColor={theme.colors.primary}
-              mode="date"
-              style={styles.datePicker}
               testID="new-task-deadline"
               value={plainDateToDate(form.dueOn)}
-              onValueChange={(_event, date) =>
-                form.setDueOn(dateToPlainDateISO(date))
-              }
+              onChange={(date) => form.setDueOn(dateToPlainDateISO(date))}
             />
             <TouchableOpacity
               accessibilityRole="button"
@@ -179,15 +171,8 @@ const styles = StyleSheet.create({
   container: {
     paddingBottom: 32,
   },
-  // The SwiftUI date picker expands to its proposed width, so it must be
-  // bounded by the row (flex) or it runs past the screen edge; the compact
-  // chip trailing-aligns inside the flexed area.
-  datePicker: {
-    flex: 1,
-  },
   deadlineControls: {
     alignItems: "center",
-    flex: 1,
     flexDirection: "row",
   },
   label: {

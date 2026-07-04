@@ -32,12 +32,9 @@ jest.mock("@/hooks/useLists", () => ({
 const mockRouter = { back: jest.fn(), push: jest.fn() };
 jest.mock("expo-router", () => ({ useRouter: () => mockRouter }));
 
-// The @expo/ui date pickers are native components with no test doubles;
-// control state logic is covered by the useNewTaskForm hook tests. The
-// universal Host/Picker and expo-symbols are mocked globally in jest.setup.js.
-jest.mock("@expo/ui/community/datetime-picker", () => ({
-  DateTimePicker: () => null,
-}));
+// The @expo/ui form controls are native components with no test doubles;
+// control state logic is covered by the useNewTaskForm hook tests. They are
+// mocked globally in jest.setup.js.
 
 const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
 const mockCreateTask = jest.fn();

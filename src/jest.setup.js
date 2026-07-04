@@ -32,3 +32,13 @@ jest.mock("@expo/ui", () => {
 
 // expo-symbols renders a native SF Symbol / Material Symbol view.
 jest.mock("expo-symbols", () => ({ SymbolView: () => null }));
+
+// @expo/ui's SwiftUI primitives (used by DateField.ios) are native views.
+jest.mock("@expo/ui/swift-ui", () => ({
+  DatePicker: () => null,
+  Host: ({ children }) => children,
+}));
+jest.mock("@expo/ui/swift-ui/modifiers", () => ({
+  datePickerStyle: () => ({}),
+  tint: () => ({}),
+}));
