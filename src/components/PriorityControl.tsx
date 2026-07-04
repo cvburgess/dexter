@@ -2,7 +2,7 @@ import { SymbolView } from "expo-symbols";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { ETaskPriority } from "@/api/tasks";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 type TPriorityControlProps = {
   priority: ETaskPriority;
@@ -52,10 +52,12 @@ export function PriorityControl({
     <View style={styles.row}>
       {OPTIONS.map((option) => {
         const isSelected = option.value === priority;
-        // NEITHER's priority color is the card color (invisible on the
-        // background), so it renders in the text color instead.
-        const iconColor =
-          option.value === ETaskPriority.NEITHER
+        // Selected options fill with the priority color and use its matching
+        // content color. Unselected NEITHER renders in the text color, since
+        // its priority color is the card color (invisible on the background).
+        const iconColor = isSelected
+          ? theme.colors.priorityContent[option.value]
+          : option.value === ETaskPriority.NEITHER
             ? theme.colors.text
             : theme.colors.priority[option.value];
 
@@ -68,7 +70,7 @@ export function PriorityControl({
             style={[
               styles.option,
               isSelected && {
-                backgroundColor: withOpacity(theme.colors.text, 0.1),
+                backgroundColor: theme.colors.priority[option.value],
               },
             ]}
             onPress={() =>
