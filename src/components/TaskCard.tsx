@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     overflow: "hidden",
-    padding: 8,
+    padding: 16,
   },
   title: {
     flex: 1,
