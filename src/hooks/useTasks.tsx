@@ -22,6 +22,7 @@ type TUseTasks = [
   {
     createTask: (task: TCreateTask) => void;
     deleteTask: (id: string) => void;
+    isLoading: boolean;
     updateTask: (task: TUpdateTask) => void;
     updateTasks: (tasks: TUpdateTask[]) => void;
   },
@@ -35,7 +36,7 @@ type TSupabaseHookOptions = {
 export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
   const queryClient = useQueryClient();
 
-  const { data: tasks = [] } = useQuery({
+  const { data: tasks = [], isPlaceholderData } = useQuery({
     enabled: !options?.skipQuery,
     placeholderData: [],
     queryKey: ["tasks", options?.filters],
@@ -76,6 +77,7 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
     {
       createTask: create,
       deleteTask: remove,
+      isLoading: isPlaceholderData,
       updateTask: update,
       updateTasks: bulkUpdate,
     },
@@ -84,9 +86,13 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
 
 const getToday = () => Temporal.Now.plainDateISO();
 
+export const taskFiltersForDate = (
+  date: Temporal.PlainDate,
+): TQueryFilter[] => [["scheduledFor", "eq", date.toString()]];
+
 export const taskFilters: Record<string, TQueryFilter[]> = {
   get today(): TQueryFilter[] {
-    return [["scheduledFor", "eq", getToday().toString()]];
+    return taskFiltersForDate(getToday());
   },
   incomplete: [["status", "in", [ETaskStatus.TODO, ETaskStatus.IN_PROGRESS]]],
   get unprioritized(): TQueryFilter[] {

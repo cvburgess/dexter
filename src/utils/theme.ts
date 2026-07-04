@@ -14,6 +14,16 @@ export interface Theme {
     errorContent: string;
     success: string;
     successContent: string;
+    /**
+     * Task priority accent colors, indexed by `ETaskPriority` (`api/tasks.ts`):
+     * [IMPORTANT_AND_URGENT, URGENT, IMPORTANT, NEITHER, UNPRIORITIZED]. Ported
+     * from dexter-app's `cardColors` (`src/components/Card.tsx`), which maps
+     * those same priorities to the daisyUI `warning` / `error` / `info` /
+     * `base-100` / `neutral` tokens respectively.
+     */
+    priority: string[];
+    /** Text color readable on top of the matching `priority` color (the daisyUI tokens' `-content` pair). */
+    priorityContent: string[];
   };
   fonts: {
     heading: {
@@ -51,6 +61,8 @@ const lightTheme: Theme = {
     errorContent: "#4d0218",
     success: "#00d390",
     successContent: "#004c39",
+    priority: ["#fcb700", "#ff627d", "#00bafe", "#fffbf4", "#593d31"],
+    priorityContent: ["#793205", "#4d0218", "#042e49", "#593d31", "#fffbf4"],
   },
 };
 
@@ -67,6 +79,8 @@ const darkTheme: Theme = {
     errorContent: "#4d0218",
     success: "#00d390",
     successContent: "#004c39",
+    priority: ["#fcb700", "#ff627d", "#00bafe", "#1d232a", "#09090b"],
+    priorityContent: ["#793205", "#4d0218", "#042e49", "#ecf9ff", "#e4e4e7"],
   },
 };
 
@@ -93,4 +107,26 @@ export function useResolvedColorScheme(): "light" | "dark" {
 
 export function useTheme(): Theme {
   return useResolvedColorScheme() === "dark" ? darkTheme : lightTheme;
+}
+
+/**
+ * Applies an alpha channel to a color, e.g. for a tinted background that
+ * doesn't fade its content. Accepts a `#rrggbb` hex color or an existing
+ * `rgba(...)` string — in the latter case, `alpha` multiplies the color's
+ * existing alpha, matching how nested opacity modifiers compose in CSS.
+ */
+export function withOpacity(color: string, alpha: number): string {
+  const rgbaMatch = color.match(
+    /^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/,
+  );
+  if (rgbaMatch) {
+    const [, r, g, b, existingAlpha] = rgbaMatch;
+    const combinedAlpha = (existingAlpha ? Number(existingAlpha) : 1) * alpha;
+    return `rgba(${r}, ${g}, ${b}, ${combinedAlpha})`;
+  }
+
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
