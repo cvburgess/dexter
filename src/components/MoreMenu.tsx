@@ -3,35 +3,48 @@ import type { ReactNode } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
 
 import { ETaskPriority } from "@/api/tasks";
+import { useLists } from "@/hooks/useLists";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
 import { Theme, useTheme } from "@/utils/theme";
 import { weekStartEnd } from "@/utils/weekStartEnd";
 
 import { IconMenu, TIconMenuSection } from "./IconMenu";
+import { getListSections } from "./ListButton";
 import { PRIORITY_OPTIONS, priorityIconColor } from "./PriorityControl";
 
 type TMoreMenuProps = {
   priority: ETaskPriority;
   scheduledFor: string | null;
+  listId: string | null;
   onChangePriority: (priority: ETaskPriority) => void;
   onChangeSchedule: (scheduledFor: string | null) => void;
+  onChangeList: (listId: string | null) => void;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
 };
 
-/** Wraps `children` (the whole task card) with a long-press menu for priority and schedule. */
+/** Wraps `children` (the whole task card) with a long-press menu for priority, schedule, and list. */
 export function MoreMenu({
   priority,
   scheduledFor,
+  listId,
   onChangePriority,
   onChangeSchedule,
+  onChangeList,
   children,
   style,
 }: TMoreMenuProps) {
   const theme = useTheme();
+  const [lists] = useLists();
   const sections = [
     ...getPrioritySections(priority, onChangePriority, theme),
     ...getScheduleSections(scheduledFor, onChangeSchedule),
+    // ListButton's sections, collapsed into a titled submenu like the others.
+    ...getListSections(lists, listId, onChangeList).map((section) => ({
+      ...section,
+      title: "List",
+      isSubmenu: true,
+    })),
   ];
 
   return (

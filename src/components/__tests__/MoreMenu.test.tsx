@@ -8,6 +8,7 @@ import { PRIORITY_OPTIONS } from "@/components/PriorityControl";
 import { useTheme } from "@/utils/theme";
 import { weekStartEnd } from "@/utils/weekStartEnd";
 
+import type { TIconMenuSection } from "../IconMenu.types";
 import {
   getPrioritySections,
   getScheduleSections,
@@ -17,10 +18,23 @@ import {
 const theme = renderHook(() => useTheme()).result.current;
 
 const mockIconMenu = jest.fn(
-  (props: { children: ReactNode }) => props.children,
+  (props: { children: ReactNode; sections: TIconMenuSection[] }) =>
+    props.children,
 );
 jest.mock("../IconMenu", () => ({
   IconMenu: (props: Parameters<typeof mockIconMenu>[0]) => mockIconMenu(props),
+}));
+
+jest.mock("@/hooks/useLists", () => ({
+  useLists: () => [
+    [],
+    {
+      createList: jest.fn(),
+      deleteList: jest.fn(),
+      updateList: jest.fn(),
+      getListById: () => undefined,
+    },
+  ],
 }));
 
 describe("MoreMenu", () => {
@@ -29,8 +43,10 @@ describe("MoreMenu", () => {
       <MoreMenu
         priority={ETaskPriority.NEITHER}
         scheduledFor={null}
+        listId={null}
         onChangePriority={jest.fn()}
         onChangeSchedule={jest.fn()}
+        onChangeList={jest.fn()}
       >
         <Text>Task row</Text>
       </MoreMenu>,
@@ -41,6 +57,14 @@ describe("MoreMenu", () => {
       expect.objectContaining({ trigger: "longPress" }),
     );
     expect(mockIconMenu.mock.calls[0][0]).not.toHaveProperty("menuTitle");
+
+    const { sections } = mockIconMenu.mock.calls[0][0];
+    expect(sections.map((section) => section.title)).toEqual([
+      "Priority",
+      "Schedule",
+      "List",
+    ]);
+    expect(sections.every((section) => section.isSubmenu)).toBe(true);
   });
 });
 
