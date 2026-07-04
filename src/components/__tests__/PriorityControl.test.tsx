@@ -45,12 +45,8 @@ describe("PriorityControl", () => {
       />,
     );
 
-    expect(
-      screen.getByLabelText("Important").props.accessibilityState.selected,
-    ).toBe(true);
-    expect(
-      screen.getByLabelText("Urgent").props.accessibilityState.selected,
-    ).toBe(false);
+    expect(screen.getByLabelText("Important")).toBeSelected();
+    expect(screen.getByLabelText("Urgent")).not.toBeSelected();
   });
 
   it("clears back to unprioritized when the selected option is tapped again", () => {
