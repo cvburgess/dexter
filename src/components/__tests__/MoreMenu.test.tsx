@@ -1,9 +1,11 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { render } from "@testing-library/react-native";
+import { render, renderHook } from "@testing-library/react-native";
 import type { ReactNode } from "react";
 import { Text } from "react-native";
 
 import { ETaskPriority } from "@/api/tasks";
+import { PRIORITY_OPTIONS } from "@/components/PriorityControl";
+import { useTheme } from "@/utils/theme";
 import { weekStartEnd } from "@/utils/weekStartEnd";
 
 import {
@@ -11,6 +13,8 @@ import {
   getScheduleSections,
   MoreMenu,
 } from "../MoreMenu";
+
+const theme = renderHook(() => useTheme()).result.current;
 
 const mockIconMenu = jest.fn(
   (props: { children: ReactNode }) => props.children,
@@ -42,7 +46,11 @@ describe("MoreMenu", () => {
 
 describe("getPrioritySections", () => {
   it("lists priorities in shorthand token order (! → !!!!)", () => {
-    const [section] = getPrioritySections(ETaskPriority.NEITHER, jest.fn());
+    const [section] = getPrioritySections(
+      ETaskPriority.NEITHER,
+      jest.fn(),
+      theme,
+    );
 
     expect(section.title).toBe("Priority");
     expect(section.isSubmenu).toBe(true);
@@ -51,6 +59,15 @@ describe("getPrioritySections", () => {
       "Important",
       "Important & Urgent",
       "Neither",
+    ]);
+    expect(section.options.map((option) => option.icon)).toEqual(
+      PRIORITY_OPTIONS.map((option) => option.icon),
+    );
+    expect(section.options.map((option) => option.iconColor)).toEqual([
+      theme.colors.priority[ETaskPriority.URGENT],
+      theme.colors.priority[ETaskPriority.IMPORTANT],
+      theme.colors.priority[ETaskPriority.IMPORTANT_AND_URGENT],
+      theme.colors.text,
     ]);
     expect(section.options.map((option) => option.isSelected)).toEqual([
       false,
@@ -65,6 +82,7 @@ describe("getPrioritySections", () => {
     const [section] = getPrioritySections(
       ETaskPriority.NEITHER,
       onChangePriority,
+      theme,
     );
 
     section.options.find((option) => option.title === "Urgent")?.onSelect();

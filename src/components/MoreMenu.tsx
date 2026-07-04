@@ -4,9 +4,11 @@ import type { StyleProp, ViewStyle } from "react-native";
 
 import { ETaskPriority } from "@/api/tasks";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
+import { Theme, useTheme } from "@/utils/theme";
 import { weekStartEnd } from "@/utils/weekStartEnd";
 
 import { IconMenu, TIconMenuSection } from "./IconMenu";
+import { PRIORITY_OPTIONS, priorityIconColor } from "./PriorityControl";
 
 type TMoreMenuProps = {
   priority: ETaskPriority;
@@ -26,8 +28,9 @@ export function MoreMenu({
   children,
   style,
 }: TMoreMenuProps) {
+  const theme = useTheme();
   const sections = [
-    ...getPrioritySections(priority, onChangePriority),
+    ...getPrioritySections(priority, onChangePriority, theme),
     ...getScheduleSections(scheduledFor, onChangeSchedule),
   ];
 
@@ -46,22 +49,17 @@ export function MoreMenu({
 export const getPrioritySections = (
   priority: ETaskPriority,
   onChangePriority: (priority: ETaskPriority) => void,
+  theme: Theme,
 ): TIconMenuSection[] => [
   {
     title: "Priority",
     isSubmenu: true,
-    // Ordered to match the shorthand tokens: `!` → `!!!!`.
-    options: [
-      { id: "urgent", title: "Urgent", value: ETaskPriority.URGENT },
-      { id: "important", title: "Important", value: ETaskPriority.IMPORTANT },
-      {
-        id: "important-and-urgent",
-        title: "Important & Urgent",
-        value: ETaskPriority.IMPORTANT_AND_URGENT,
-      },
-      { id: "neither", title: "Neither", value: ETaskPriority.NEITHER },
-    ].map(({ value, ...option }) => ({
-      ...option,
+    // `PRIORITY_OPTIONS` is ordered to match the shorthand tokens: `!` → `!!!!`.
+    options: PRIORITY_OPTIONS.map(({ label, value, icon }) => ({
+      id: label.toLowerCase().replace(/[^a-z]+/g, "-"),
+      title: label,
+      icon,
+      iconColor: priorityIconColor(value, theme),
       isSelected: priority === value,
       onSelect: () => onChangePriority(value),
     })),

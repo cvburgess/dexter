@@ -35,6 +35,9 @@ export function IconMenu({
         subactions: section.options.map((option) => ({
           id: option.id,
           title: option.title,
+          image:
+            typeof option.icon === "string" ? option.icon : option.icon?.ios,
+          imageColor: option.iconColor,
           state: option.isSelected ? "on" : "off",
           attributes: option.isDestructive ? { destructive: true } : undefined,
         })),

@@ -2,7 +2,7 @@ import { SymbolView } from "expo-symbols";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { ETaskPriority } from "@/api/tasks";
-import { useTheme } from "@/utils/theme";
+import { Theme, useTheme } from "@/utils/theme";
 
 type TPriorityControlProps = {
   priority: ETaskPriority;
@@ -13,32 +13,45 @@ type TPriorityControlProps = {
  * Ported from dexter-app's `PriorityButton` icons (Fire/Star/Alarm/Umbrella),
  * ordered to match the shorthand tokens: `!` → `!!!!`.
  */
-const OPTIONS = [
+export const PRIORITY_OPTIONS = [
   {
     label: "Urgent",
     value: ETaskPriority.URGENT,
-    ios: "alarm",
-    material: "alarm",
+    icon: { ios: "alarm", android: "alarm", web: "alarm" },
   },
   {
     label: "Important",
     value: ETaskPriority.IMPORTANT,
-    ios: "star",
-    material: "star",
+    icon: { ios: "star", android: "star", web: "star" },
   },
   {
     label: "Important & Urgent",
     value: ETaskPriority.IMPORTANT_AND_URGENT,
-    ios: "flame",
-    material: "local_fire_department",
+    icon: {
+      ios: "flame",
+      android: "local_fire_department",
+      web: "local_fire_department",
+    },
   },
   {
     label: "Neither",
     value: ETaskPriority.NEITHER,
-    ios: "umbrella",
-    material: "umbrella",
+    icon: { ios: "umbrella", android: "umbrella", web: "umbrella" },
   },
 ] as const;
+
+/**
+ * The accent color for a priority's icon. NEITHER's priority color is the
+ * card color (invisible on the background), so it renders in the text color
+ * instead.
+ */
+export const priorityIconColor = (
+  value: ETaskPriority,
+  theme: Theme,
+): string =>
+  value === ETaskPriority.NEITHER
+    ? theme.colors.text
+    : theme.colors.priority[value];
 
 /**
  * A segmented-control-style row of priority icons tinted with the theme's
@@ -53,16 +66,13 @@ export function PriorityControl({
 
   return (
     <View style={styles.row}>
-      {OPTIONS.map((option) => {
+      {PRIORITY_OPTIONS.map((option) => {
         const isSelected = option.value === priority;
         // Selected options fill with the priority color and use its matching
-        // content color. Unselected NEITHER renders in the text color, since
-        // its priority color is the card color (invisible on the background).
+        // content color.
         const iconColor = isSelected
           ? theme.colors.priorityContent[option.value]
-          : option.value === ETaskPriority.NEITHER
-            ? theme.colors.text
-            : theme.colors.priority[option.value];
+          : priorityIconColor(option.value, theme);
 
         return (
           <TouchableOpacity
@@ -82,15 +92,7 @@ export function PriorityControl({
               )
             }
           >
-            <SymbolView
-              name={{
-                ios: option.ios,
-                android: option.material,
-                web: option.material,
-              }}
-              size={20}
-              tintColor={iconColor}
-            />
+            <SymbolView name={option.icon} size={20} tintColor={iconColor} />
           </TouchableOpacity>
         );
       })}
