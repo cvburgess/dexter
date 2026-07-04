@@ -16,10 +16,13 @@ export interface Theme {
     successContent: string;
     /**
      * Task priority accent colors, indexed by `ETaskPriority` (`api/tasks.ts`):
-     * [IMPORTANT_AND_URGENT, URGENT, IMPORTANT, NEITHER, UNPRIORITIZED].
+     * [IMPORTANT_AND_URGENT, URGENT, IMPORTANT, NEITHER, UNPRIORITIZED]. Ported
+     * from dexter-app's `cardColors` (`src/components/Card.tsx`), which maps
+     * those same priorities to the daisyUI `warning` / `error` / `info` /
+     * `base-100` / `neutral` tokens respectively.
      */
     priority: string[];
-    /** Text color readable on top of the matching `priority` color. */
+    /** Text color readable on top of the matching `priority` color (the daisyUI tokens' `-content` pair). */
     priorityContent: string[];
   };
   fonts: {
@@ -58,8 +61,8 @@ const lightTheme: Theme = {
     errorContent: "#4d0218",
     success: "#00d390",
     successContent: "#004c39",
-    priority: ["#f5a623", "#ff627d", "#4a90d9", "#9aa0a6", "#d8d3c8"],
-    priorityContent: ["#4d3300", "#4d0218", "#0d2b47", "#2b2e31", "#593d31"],
+    priority: ["#fcb700", "#ff627d", "#00bafe", "#fffbf4", "#593d31"],
+    priorityContent: ["#793205", "#4d0218", "#042e49", "#593d31", "#fffbf4"],
   },
 };
 
@@ -76,8 +79,8 @@ const darkTheme: Theme = {
     errorContent: "#4d0218",
     success: "#00d390",
     successContent: "#004c39",
-    priority: ["#f5a623", "#ff627d", "#4a90d9", "#9aa0a6", "#454b52"],
-    priorityContent: ["#3a2700", "#4d0218", "#0a1f33", "#1c1e20", "#ecf9ff"],
+    priority: ["#fcb700", "#ff627d", "#00bafe", "#1d232a", "#09090b"],
+    priorityContent: ["#793205", "#4d0218", "#042e49", "#ecf9ff", "#e4e4e7"],
   },
 };
 
