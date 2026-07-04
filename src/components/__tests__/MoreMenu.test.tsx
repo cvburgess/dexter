@@ -65,6 +65,11 @@ describe("MoreMenu", () => {
       "List",
     ]);
     expect(sections.every((section) => section.isSubmenu)).toBe(true);
+    expect(
+      sections.map((section) =>
+        typeof section.icon === "object" ? section.icon.ios : section.icon,
+      ),
+    ).toEqual(["exclamationmark", "calendar", "face.smiling"]);
   });
 });
 

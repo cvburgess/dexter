@@ -25,6 +25,8 @@ export type TIconMenuOption = {
  */
 export type TIconMenuSection = {
   title?: string;
+  /** Icon rendered beside the section title (SF Symbol / Material Symbol names). */
+  icon?: SymbolViewProps["name"];
   isSubmenu?: boolean;
   options: TIconMenuOption[];
 };

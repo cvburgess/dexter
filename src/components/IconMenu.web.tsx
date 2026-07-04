@@ -163,6 +163,13 @@ export function IconMenu({
                       style={styles.option}
                       onPress={() => setExpandedSection(expanded ? null : key)}
                     >
+                      {section.icon ? (
+                        <SymbolView
+                          name={section.icon}
+                          size={18}
+                          tintColor={theme.colors.text}
+                        />
+                      ) : null}
                       <Text style={{ color: theme.colors.text }}>
                         {section.title}
                       </Text>

@@ -43,6 +43,7 @@ export function MoreMenu({
     ...getListSections(lists, listId, onChangeList).map((section) => ({
       ...section,
       title: "List",
+      icon: { ios: "face.smiling", android: "mood", web: "mood" } as const,
       isSubmenu: true,
     })),
   ];
@@ -66,6 +67,11 @@ export const getPrioritySections = (
 ): TIconMenuSection[] => [
   {
     title: "Priority",
+    icon: {
+      ios: "exclamationmark",
+      android: "priority_high",
+      web: "priority_high",
+    },
     isSubmenu: true,
     // `PRIORITY_OPTIONS` is ordered to match the shorthand tokens: `!` → `!!!!`.
     options: PRIORITY_OPTIONS.map(({ label, value, icon }) => ({
@@ -140,5 +146,16 @@ export const getScheduleSections = (
     });
   }
 
-  return [{ title: "Schedule", isSubmenu: true, options }];
+  return [
+    {
+      title: "Schedule",
+      icon: {
+        ios: "calendar",
+        android: "calendar_today",
+        web: "calendar_today",
+      } as const,
+      isSubmenu: true,
+      options,
+    },
+  ];
 };
