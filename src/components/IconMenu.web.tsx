@@ -130,6 +130,7 @@ export function IconMenu({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.15)",
   },
   menu: {
     minWidth: MENU_WIDTH,

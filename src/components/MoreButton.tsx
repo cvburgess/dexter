@@ -69,10 +69,13 @@ export const getScheduleSections = (
   const { monday } = weekStartEnd(1);
   const nextMonday = monday.toString();
 
+  const scheduledDate = scheduledFor
+    ? Temporal.PlainDate.from(scheduledFor)
+    : null;
   const isScheduledForNextWeek =
-    Boolean(scheduledFor) &&
-    Temporal.PlainDate.from(scheduledFor as string).until(monday).days <= 0 &&
-    Temporal.PlainDate.from(scheduledFor as string).until(monday).days >= -6;
+    scheduledDate !== null &&
+    scheduledDate.until(monday).days <= 0 &&
+    scheduledDate.until(monday).days >= -6;
 
   const options = [
     {
@@ -98,11 +101,11 @@ export const getScheduleSections = (
     });
   }
 
-  if (scheduledFor) {
+  if (scheduledFor && scheduledDate) {
     if (scheduledFor !== today && scheduledFor !== tomorrow) {
       options.push({
         id: scheduledFor,
-        title: Temporal.PlainDate.from(scheduledFor).toLocaleString("en-US", {
+        title: scheduledDate.toLocaleString("en-US", {
           month: "short",
           day: "numeric",
           year: "numeric",
