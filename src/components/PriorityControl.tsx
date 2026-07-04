@@ -9,13 +9,16 @@ type TPriorityControlProps = {
   onChangePriority: (priority: ETaskPriority) => void;
 };
 
-/** Ported from dexter-app's `PriorityButton` icons (Fire/Star/Alarm/Umbrella). */
+/**
+ * Ported from dexter-app's `PriorityButton` icons (Fire/Star/Alarm/Umbrella),
+ * ordered to match the shorthand tokens: `!` → `!!!!`.
+ */
 const OPTIONS = [
   {
-    label: "Important & Urgent",
-    value: ETaskPriority.IMPORTANT_AND_URGENT,
-    ios: "flame",
-    material: "local_fire_department",
+    label: "Urgent",
+    value: ETaskPriority.URGENT,
+    ios: "alarm",
+    material: "alarm",
   },
   {
     label: "Important",
@@ -24,10 +27,10 @@ const OPTIONS = [
     material: "star",
   },
   {
-    label: "Urgent",
-    value: ETaskPriority.URGENT,
-    ios: "alarm",
-    material: "alarm",
+    label: "Important & Urgent",
+    value: ETaskPriority.IMPORTANT_AND_URGENT,
+    ios: "flame",
+    material: "local_fire_department",
   },
   {
     label: "Neither",
