@@ -50,14 +50,15 @@ export const getPrioritySections = (
   {
     title: "Priority",
     isSubmenu: true,
+    // Ordered to match the shorthand tokens: `!` → `!!!!`.
     options: [
+      { id: "urgent", title: "Urgent", value: ETaskPriority.URGENT },
+      { id: "important", title: "Important", value: ETaskPriority.IMPORTANT },
       {
         id: "important-and-urgent",
         title: "Important & Urgent",
         value: ETaskPriority.IMPORTANT_AND_URGENT,
       },
-      { id: "important", title: "Important", value: ETaskPriority.IMPORTANT },
-      { id: "urgent", title: "Urgent", value: ETaskPriority.URGENT },
       { id: "neither", title: "Neither", value: ETaskPriority.NEITHER },
     ].map(({ value, ...option }) => ({
       ...option,
