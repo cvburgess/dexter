@@ -44,6 +44,7 @@ export const getPrioritySections = (
 ): TIconMenuSection[] => [
   {
     title: "Priority",
+    isSubmenu: true,
     options: [
       {
         id: "important-and-urgent",
@@ -122,7 +123,7 @@ export const getScheduleSections = (
     });
   }
 
-  return [{ title: "Schedule", options }];
+  return [{ title: "Schedule", isSubmenu: true, options }];
 };
 
 const styles = StyleSheet.create({

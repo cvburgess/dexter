@@ -73,4 +73,70 @@ describe("IconMenu (web)", () => {
     expect(onSelect).toHaveBeenCalled();
     expect(screen.queryByText("To Do")).toBeNull();
   });
+
+  it("keeps a submenu section's options collapsed until its header is pressed", () => {
+    const submenuSections: TIconMenuSection[] = [
+      {
+        title: "Priority",
+        isSubmenu: true,
+        options: [
+          {
+            id: "urgent",
+            title: "Urgent",
+            isSelected: false,
+            onSelect: jest.fn(),
+          },
+        ],
+      },
+    ];
+    const screen = render(
+      <IconMenu
+        accessibilityLabel="More"
+        menuTitle="More"
+        sections={submenuSections}
+      >
+        <Text>Trigger</Text>
+      </IconMenu>,
+    );
+
+    fireEvent.press(screen.getByLabelText("More"), {
+      nativeEvent: { clientX: 10, clientY: 10 },
+    });
+    expect(screen.getByText("Priority")).toBeTruthy();
+    expect(screen.queryByText("Urgent")).toBeNull();
+
+    fireEvent.press(screen.getByText("Priority"));
+
+    expect(screen.getByText("Urgent")).toBeTruthy();
+  });
+
+  it("calls onSelect for an option inside an expanded submenu", () => {
+    const onSelect = jest.fn();
+    const submenuSections: TIconMenuSection[] = [
+      {
+        title: "Priority",
+        isSubmenu: true,
+        options: [
+          { id: "urgent", title: "Urgent", isSelected: false, onSelect },
+        ],
+      },
+    ];
+    const screen = render(
+      <IconMenu
+        accessibilityLabel="More"
+        menuTitle="More"
+        sections={submenuSections}
+      >
+        <Text>Trigger</Text>
+      </IconMenu>,
+    );
+
+    fireEvent.press(screen.getByLabelText("More"), {
+      nativeEvent: { clientX: 10, clientY: 10 },
+    });
+    fireEvent.press(screen.getByText("Priority"));
+    fireEvent.press(screen.getByText("Urgent"));
+
+    expect(onSelect).toHaveBeenCalled();
+  });
 });

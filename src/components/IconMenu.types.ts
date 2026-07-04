@@ -9,9 +9,14 @@ export type TIconMenuOption = {
   onSelect: () => void;
 };
 
-/** A titled group of options, rendered as an inline section on native and a divided group on web. */
+/**
+ * A titled group of options. By default, rendered as an inline section
+ * (native) / a divided group (web) — always visible. With `isSubmenu: true`,
+ * rendered as a collapsed submenu that expands on tap.
+ */
 export type TIconMenuSection = {
   title?: string;
+  isSubmenu?: boolean;
   options: TIconMenuOption[];
 };
 

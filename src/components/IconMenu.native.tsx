@@ -5,8 +5,9 @@ import type { IconMenuProps, TIconMenuOption } from "./IconMenu.types";
 /**
  * Tap-to-open icon menu backed by `@expo/ui`'s community `MenuView`
  * (`shouldOpenOnLongPress={false}`: a SwiftUI `Menu` on iOS, an anchored
- * Compose `DropdownMenu` on Android). Each section renders as an inline
- * group so iOS draws a divider (and the section title) between them.
+ * Compose `DropdownMenu` on Android). A plain section renders as an inline
+ * group (always visible, with a divider between groups); a section with
+ * `isSubmenu` renders as a nested submenu that expands on tap.
  */
 export function IconMenu({
   menuTitle,
@@ -27,7 +28,7 @@ export function IconMenu({
       actions={sections.map((section, index) => ({
         id: `section-${index}`,
         title: section.title ?? "",
-        displayInline: true,
+        displayInline: !section.isSubmenu,
         subactions: section.options.map((option) => ({
           id: option.id,
           title: option.title,

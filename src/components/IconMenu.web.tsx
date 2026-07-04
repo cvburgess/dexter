@@ -12,7 +12,7 @@ import {
 
 import { useTheme } from "@/utils/theme";
 
-import type { IconMenuProps } from "./IconMenu.types";
+import type { IconMenuProps, TIconMenuSection } from "./IconMenu.types";
 
 const MENU_WIDTH = 220;
 const MENU_MARGIN = 8;
@@ -20,7 +20,9 @@ const MENU_MARGIN = 8;
 /**
  * Web fallback for `IconMenu`: `@expo/ui`'s `MenuView` doesn't fire actions on
  * web, so a click on the trigger opens this modal, anchored near the cursor,
- * with the same sections/options as the native menu.
+ * with the same sections/options as the native menu. A plain section is
+ * always visible; a section with `isSubmenu` collapses behind a tappable
+ * header row that expands it, one at a time.
  */
 export function IconMenu({
   menuTitle,
@@ -30,6 +32,7 @@ export function IconMenu({
 }: IconMenuProps) {
   const theme = useTheme();
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   const handlePress = (event: GestureResponderEvent) => {
     const { clientX, clientY } = event.nativeEvent as unknown as {
@@ -46,7 +49,13 @@ export function IconMenu({
     });
   };
 
-  const close = () => setAnchor(null);
+  const close = () => {
+    setAnchor(null);
+    setExpandedSection(null);
+  };
+
+  const sectionKey = (section: TIconMenuSection, index: number) =>
+    section.title ?? `${index}`;
 
   return (
     <>
@@ -79,46 +88,104 @@ export function IconMenu({
                   {menuTitle}
                 </Text>
               ) : null}
-              {sections.map((section, sectionIndex) => (
-                <View
-                  key={section.title ?? sectionIndex}
-                  style={sectionIndex > 0 ? styles.sectionDivider : undefined}
-                >
-                  {section.title ? (
-                    <Text
-                      style={[
-                        styles.sectionTitle,
-                        { color: theme.colors.textSecondary },
-                      ]}
+              {sections.map((section, sectionIndex) => {
+                const key = sectionKey(section, sectionIndex);
+
+                if (!section.isSubmenu) {
+                  return (
+                    <View
+                      key={key}
+                      style={
+                        sectionIndex > 0 ? styles.sectionDivider : undefined
+                      }
                     >
-                      {section.title}
-                    </Text>
-                  ) : null}
-                  {section.options.map((option) => (
+                      {section.title ? (
+                        <Text
+                          style={[
+                            styles.sectionTitle,
+                            { color: theme.colors.textSecondary },
+                          ]}
+                        >
+                          {section.title}
+                        </Text>
+                      ) : null}
+                      {section.options.map((option) => (
+                        <Pressable
+                          key={option.id}
+                          style={styles.option}
+                          onPress={() => {
+                            close();
+                            option.onSelect();
+                          }}
+                        >
+                          <Text style={styles.checkmark}>
+                            {option.isSelected ? "✓" : ""}
+                          </Text>
+                          <Text
+                            style={{
+                              color: option.isDestructive
+                                ? theme.colors.error
+                                : theme.colors.text,
+                            }}
+                          >
+                            {option.title}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  );
+                }
+
+                const expanded = expandedSection === key;
+                return (
+                  <View
+                    key={key}
+                    style={sectionIndex > 0 ? styles.sectionDivider : undefined}
+                  >
                     <Pressable
-                      key={option.id}
                       style={styles.option}
-                      onPress={() => {
-                        close();
-                        option.onSelect();
-                      }}
+                      onPress={() => setExpandedSection(expanded ? null : key)}
                     >
-                      <Text style={styles.checkmark}>
-                        {option.isSelected ? "✓" : ""}
+                      <Text style={{ color: theme.colors.text }}>
+                        {section.title}
                       </Text>
                       <Text
-                        style={{
-                          color: option.isDestructive
-                            ? theme.colors.error
-                            : theme.colors.text,
-                        }}
+                        style={[
+                          styles.chevron,
+                          { color: theme.colors.textSecondary },
+                        ]}
                       >
-                        {option.title}
+                        {expanded ? "⌄" : "›"}
                       </Text>
                     </Pressable>
-                  ))}
-                </View>
-              ))}
+                    {expanded
+                      ? section.options.map((option) => (
+                          <Pressable
+                            key={option.id}
+                            style={[styles.option, styles.optionIndented]}
+                            onPress={() => {
+                              close();
+                              option.onSelect();
+                            }}
+                          >
+                            <Text style={styles.checkmark}>
+                              {option.isSelected ? "✓" : ""}
+                            </Text>
+                            <Text
+                              style={{
+                                color: option.isDestructive
+                                  ? theme.colors.error
+                                  : theme.colors.text,
+                              }}
+                            >
+                              {option.title}
+                            </Text>
+                          </Pressable>
+                        ))
+                      : null}
+                  </View>
+                );
+              })}
             </ScrollView>
           </Pressable>
         </Modal>
@@ -159,12 +226,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 4,
   },
+  chevron: {
+    fontSize: 14,
+    marginLeft: "auto",
+    paddingRight: 16,
+  },
   option: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     paddingHorizontal: 16,
     paddingVertical: 10,
+  },
+  optionIndented: {
+    paddingLeft: 28,
   },
   checkmark: {
     width: 16,

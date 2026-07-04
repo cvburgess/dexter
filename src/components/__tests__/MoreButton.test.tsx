@@ -10,6 +10,7 @@ describe("getPrioritySections", () => {
     const [section] = getPrioritySections(ETaskPriority.NEITHER, jest.fn());
 
     expect(section.title).toBe("Priority");
+    expect(section.isSubmenu).toBe(true);
     expect(section.options.map((option) => option.title)).toEqual([
       "Important & Urgent",
       "Important",
@@ -47,6 +48,7 @@ describe("getScheduleSections", () => {
     const [section] = getScheduleSections(null, jest.fn());
 
     expect(section.title).toBe("Schedule");
+    expect(section.isSubmenu).toBe(true);
     const titles = section.options.map((option) => option.title);
     expect(titles).toEqual(expect.arrayContaining(["Today", "Tomorrow"]));
     expect(titles).not.toContain("Unschedule");
