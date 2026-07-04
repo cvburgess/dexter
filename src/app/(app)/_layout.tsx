@@ -17,6 +17,7 @@ export default function AppLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="new-task" options={{ presentation: "formSheet" }} />
     </Stack>
   );
 }
