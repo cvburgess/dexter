@@ -19,3 +19,16 @@ jest.mock(
 jest.mock("@expo/ui/community/menu", () => ({
   MenuView: ({ children }) => children,
 }));
+
+// @expo/ui's universal components (SwiftUI/Compose hosts) have no test
+// doubles either; selection logic is exercised through the props of the
+// components that render them.
+jest.mock("@expo/ui", () => {
+  const Host = ({ children }) => children;
+  const Picker = () => null;
+  Picker.Item = () => null;
+  return { Host, Picker };
+});
+
+// expo-symbols renders a native SF Symbol / Material Symbol view.
+jest.mock("expo-symbols", () => ({ SymbolView: () => null }));

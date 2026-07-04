@@ -8,37 +8,20 @@ import {
   View,
 } from "react-native";
 
+import { Host, Picker } from "@expo/ui";
 import { DateTimePicker } from "@expo/ui/community/datetime-picker";
-import { Picker } from "@expo/ui/community/picker";
-import { SegmentedControl } from "@expo/ui/community/segmented-control";
 
-import { ETaskPriority } from "@/api/tasks";
 import { Button } from "@/components/Button";
+import { PriorityControl } from "@/components/PriorityControl";
 import { TextInput } from "@/components/TextInput";
 import { useLists } from "@/hooks/useLists";
 import { useNewTaskForm } from "@/hooks/useNewTaskForm";
 import { useTasks } from "@/hooks/useTasks";
 import { useTheme } from "@/utils/theme";
 
-/**
- * Segments mirror the shorthand tokens (`!` = Urgent … `!!!!` = Neither) so
- * the control doubles as a legend for the syntax.
- */
-const PRIORITY_SEGMENTS: {
-  label: string;
-  name: string;
-  value: ETaskPriority;
-}[] = [
-  { label: "None", name: "Unprioritized", value: ETaskPriority.UNPRIORITIZED },
-  { label: "!", name: "Urgent", value: ETaskPriority.URGENT },
-  { label: "!!", name: "Important", value: ETaskPriority.IMPORTANT },
-  {
-    label: "!!!",
-    name: "Important & Urgent",
-    value: ETaskPriority.IMPORTANT_AND_URGENT,
-  },
-  { label: "!!!!", name: "Neither", value: ETaskPriority.NEITHER },
-];
+// The universal Picker's item values cannot be null, so "no list" gets a
+// sentinel that can never collide with a list id.
+const NO_LIST = "";
 
 const plainDateToDate = (iso: string): Date => {
   const date = Temporal.PlainDate.from(iso);
@@ -58,10 +41,6 @@ export default function NewTaskScreen() {
   const [lists] = useLists();
   const [, { createTask }] = useTasks({ skipQuery: true });
   const form = useNewTaskForm(lists);
-
-  const selectedSegment = PRIORITY_SEGMENTS.findIndex(
-    (segment) => segment.value === form.priority,
-  );
 
   const handleSave = () => {
     createTask(form.task);
@@ -93,39 +72,34 @@ export default function NewTaskScreen() {
         <Text style={[styles.label, { color: theme.colors.text }]}>
           Priority
         </Text>
-        <Text
-          style={[styles.labelDetail, { color: theme.colors.textSecondary }]}
-        >
-          {PRIORITY_SEGMENTS[selectedSegment].name}
-        </Text>
+        <PriorityControl
+          priority={form.priority}
+          onChangePriority={form.setPriority}
+        />
       </View>
-      <SegmentedControl
-        selectedIndex={selectedSegment}
-        testID="new-task-priority"
-        tintColor={theme.colors.primary}
-        values={PRIORITY_SEGMENTS.map((segment) => segment.label)}
-        onChange={(event) => {
-          form.setPriority(
-            PRIORITY_SEGMENTS[event.nativeEvent.selectedSegmentIndex].value,
-          );
-        }}
-      />
 
-      <Text style={[styles.label, { color: theme.colors.text }]}>List</Text>
-      <Picker
-        selectedValue={form.listId}
-        testID="new-task-list"
-        onValueChange={(listId) => form.setListId(listId)}
-      >
-        <Picker.Item label="None" value={null} />
-        {lists.map((list) => (
-          <Picker.Item
-            key={list.id}
-            label={`${list.emoji} ${list.title}`}
-            value={list.id}
-          />
-        ))}
-      </Picker>
+      <View style={styles.labelRow}>
+        <Text style={[styles.label, { color: theme.colors.text }]}>List</Text>
+        <Host matchContents>
+          <Picker
+            appearance="menu"
+            selectedValue={form.listId ?? NO_LIST}
+            testID="new-task-list"
+            onValueChange={(listId) =>
+              form.setListId(listId === NO_LIST ? null : String(listId))
+            }
+          >
+            <Picker.Item label="None" value={NO_LIST} />
+            {lists.map((list) => (
+              <Picker.Item
+                key={list.id}
+                label={`${list.emoji} ${list.title}`}
+                value={list.id}
+              />
+            ))}
+          </Picker>
+        </Host>
+      </View>
 
       <View style={styles.labelRow}>
         <Text style={[styles.label, { color: theme.colors.text }]}>
