@@ -85,6 +85,26 @@ describe("OAuthConsentScreen", () => {
     expect(await findByText("Authorized")).toBeTruthy();
   });
 
+  it("follows the redirect url when consent was already granted", async () => {
+    mockParams = { authorization_id: "auth-1" };
+    mockUseAuth.mockReturnValue(signedIn);
+    mockGetAuthorizationDetails.mockResolvedValue({
+      data: { redirect_url: "https://claude.ai/api/mcp/auth_callback?code=y" },
+      error: null,
+    });
+    const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
+
+    const { queryByTestId } = render(<OAuthConsentScreen />);
+
+    await waitFor(() => {
+      expect(openURL).toHaveBeenCalledWith(
+        "https://claude.ai/api/mcp/auth_callback?code=y",
+      );
+    });
+    // The consent UI is skipped entirely.
+    expect(queryByTestId("oauth-consent-approve-button")).toBeNull();
+  });
+
   it("redirects an authenticated visit with no authorization_id into the app", () => {
     mockParams = {};
     mockUseAuth.mockReturnValue(signedIn);

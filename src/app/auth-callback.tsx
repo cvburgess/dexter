@@ -1,9 +1,8 @@
 import { Redirect } from "expo-router";
-import { useEffect, useState } from "react";
 
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useAuth } from "@/hooks/useAuth";
-import { consumePendingOAuthAuthorizationId } from "@/utils/oauthReturn";
+import { usePendingOAuthConsent } from "@/hooks/usePendingOAuthConsent";
 
 /**
  * Landing route for auth redirects. On web the browser actually navigates to
@@ -19,21 +18,7 @@ import { consumePendingOAuthAuthorizationId } from "@/utils/oauthReturn";
  */
 export default function AuthCallback() {
   const { initializing, session } = useAuth();
-  const [pending, setPending] = useState<{
-    resolving: boolean;
-    authorizationId: string | null;
-  }>({ resolving: true, authorizationId: null });
-
-  useEffect(() => {
-    if (initializing || !session) return;
-    let active = true;
-    void consumePendingOAuthAuthorizationId().then((authorizationId) => {
-      if (active) setPending({ resolving: false, authorizationId });
-    });
-    return () => {
-      active = false;
-    };
-  }, [initializing, session]);
+  const pending = usePendingOAuthConsent(!initializing && !!session);
 
   if (initializing) {
     return <LoadingScreen />;

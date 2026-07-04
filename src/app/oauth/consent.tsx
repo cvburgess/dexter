@@ -1,5 +1,5 @@
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -39,6 +39,19 @@ export default function OAuthConsentScreen() {
   const [step, setStep] = useState<"consent" | "done">("consent");
   const [error, setError] = useState<string | null>(null);
 
+  // Hand the browser back to the MCP client. On web this is a full-page
+  // navigation; on native we open the URL and pop this screen.
+  const followRedirect = useCallback(
+    (url: string) => {
+      if (Platform.OS === "web") {
+        window.location.href = url;
+      } else {
+        void Linking.openURL(url).then(() => router.back());
+      }
+    },
+    [router],
+  );
+
   // Unauthenticated → stash the pending authorization and bounce to sign-in.
   // The stash happens before the redirect so auth-callback can return here.
   useEffect(() => {
@@ -66,12 +79,17 @@ export default function OAuthConsentScreen() {
           setLoading(false);
           return;
         }
-        // result.data is a union (redirect vs. authorization details); only
-        // the latter carries `client`, so read it through a narrowed shape.
+        // result.data is a union: a redirect (consent already granted for a
+        // trusted client) or the authorization details carrying `client`.
         const data = result.data as
-          | { client?: { name?: string } }
+          | { redirect_url?: string; client?: { name?: string } }
           | null
           | undefined;
+        if (data?.redirect_url) {
+          // Nothing to consent to — hand straight back to the MCP client.
+          followRedirect(data.redirect_url);
+          return;
+        }
         setAppName(data?.client?.name ?? "An application");
         setLoading(false);
       } catch {
@@ -80,7 +98,7 @@ export default function OAuthConsentScreen() {
         setLoading(false);
       }
     })();
-  }, [initializing, session, authorizationId]);
+  }, [initializing, session, authorizationId, followRedirect]);
 
   const approve = async () => {
     if (!authorizationId) return;
@@ -101,12 +119,7 @@ export default function OAuthConsentScreen() {
         return;
       }
 
-      if (Platform.OS === "web") {
-        window.location.href = redirectTo;
-      } else {
-        await Linking.openURL(redirectTo);
-        router.back();
-      }
+      followRedirect(redirectTo);
     } catch (err) {
       console.warn("OAuth approve failed", err);
       setError("Authorization failed. Please try again.");
@@ -125,12 +138,7 @@ export default function OAuthConsentScreen() {
       const redirectTo = result.data?.redirect_url;
 
       if (redirectTo) {
-        if (Platform.OS === "web") {
-          window.location.href = redirectTo;
-        } else {
-          await Linking.openURL(redirectTo);
-          router.back();
-        }
+        followRedirect(redirectTo);
       } else {
         router.back();
       }

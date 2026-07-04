@@ -92,10 +92,26 @@ describe("auth guards", () => {
   });
 
   describe("AuthLayout ((auth)/_layout.tsx)", () => {
-    it("redirects signed-in users into the app", () => {
+    beforeEach(async () => {
+      await AsyncStorage.clear();
+    });
+
+    it("redirects signed-in users into the app", async () => {
       mockUseAuth.mockReturnValue(authStates.signedIn);
       expect(
-        render(<AuthLayout />).getByText("redirect:/(app)/(tabs)/today"),
+        await render(<AuthLayout />).findByText("redirect:/(app)/(tabs)/today"),
+      ).toBeTruthy();
+    });
+
+    it("returns signed-in users to a pending OAuth consent", async () => {
+      // Covers native Google sign-in, which lands the session on the login
+      // screen rather than routing through auth-callback.
+      await setPendingOAuthAuthorizationId("auth-123");
+      mockUseAuth.mockReturnValue(authStates.signedIn);
+      expect(
+        await render(<AuthLayout />).findByText(
+          "redirect:/oauth/consent?authorization_id=auth-123",
+        ),
       ).toBeTruthy();
     });
 
