@@ -9,22 +9,24 @@ import { useTasks } from "@/hooks/useTasks";
 // URI scheme at module scope — not available under Jest.
 jest.mock("@/hooks/useAuth", () => ({ supabase: {} }));
 jest.mock("@/hooks/useTasks", () => ({ useTasks: jest.fn() }));
+
+const homeList = {
+  id: "list-home",
+  title: "Home",
+  emoji: "🏠",
+  isArchived: false,
+  createdAt: "2026-01-01T00:00:00Z",
+};
+const listsState = { isLoading: false };
 jest.mock("@/hooks/useLists", () => ({
   useLists: () => [
-    [
-      {
-        id: "list-home",
-        title: "Home",
-        emoji: "🏠",
-        isArchived: false,
-        createdAt: "2026-01-01T00:00:00Z",
-      },
-    ],
+    listsState.isLoading ? [] : [homeList],
     {
       createList: jest.fn(),
       deleteList: jest.fn(),
       updateList: jest.fn(),
       getListById: () => undefined,
+      isLoading: listsState.isLoading,
     },
   ],
 }));
@@ -50,6 +52,7 @@ const mockCreateTask = jest.fn();
 describe("NewTaskScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    listsState.isLoading = false;
     mockUseTasks.mockReturnValue([
       [],
       {
@@ -118,6 +121,31 @@ describe("NewTaskScreen", () => {
         priority: ETaskPriority.IMPORTANT,
       }),
     );
+  });
+
+  it("only creates one task when save is pressed twice", () => {
+    const screen = render(<NewTaskScreen />);
+
+    fireEvent.changeText(screen.getByTestId("new-task-title"), "Pay bills");
+    const save = render(headerOptions().headerRight());
+    fireEvent.press(save.getByTestId("modal-done-button"));
+    fireEvent.press(save.getByTestId("modal-done-button"));
+    fireEvent(screen.getByTestId("new-task-title"), "submitEditing");
+
+    expect(mockCreateTask).toHaveBeenCalledTimes(1);
+    expect(mockRouter.back).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not save while lists are still loading", () => {
+    listsState.isLoading = true;
+    const screen = render(<NewTaskScreen />);
+
+    fireEvent.changeText(screen.getByTestId("new-task-title"), "Pay #home");
+    const save = render(headerOptions().headerRight());
+    fireEvent.press(save.getByTestId("modal-done-button"));
+
+    expect(mockCreateTask).not.toHaveBeenCalled();
+    expect(headerOptions().unstable_headerRightItems()[0].disabled).toBe(true);
   });
 
   it("saves when the title input is submitted from the keyboard", () => {

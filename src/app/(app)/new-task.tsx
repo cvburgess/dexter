@@ -1,6 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useNavigation, useRouter } from "expo-router";
-import { useLayoutEffect } from "react";
+import { useLayoutEffect, useRef } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -41,13 +41,20 @@ export default function NewTaskScreen() {
   const theme = useTheme();
   const navigation = useNavigation();
   const router = useRouter();
-  const [lists] = useLists();
+  const [lists, { isLoading: isLoadingLists }] = useLists();
   const [, { createTask }] = useTasks({ skipQuery: true });
   const form = useNewTaskForm(lists);
+  const hasSaved = useRef(false);
+
+  // Saving waits for lists so `#list` tokens in the title can resolve, and
+  // is one-shot so a double tap can't create duplicate tasks.
+  const canSave = form.canSave && !isLoadingLists;
 
   const handleClose = () => router.back();
 
   const handleSave = () => {
+    if (hasSaved.current || !canSave) return;
+    hasSaved.current = true;
     createTask(form.task);
     router.back();
   };
@@ -57,9 +64,7 @@ export default function NewTaskScreen() {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerLeft: () => <CloseButton onPress={handleClose} />,
-      headerRight: () => (
-        <DoneButton disabled={!form.canSave} onPress={handleSave} />
-      ),
+      headerRight: () => <DoneButton disabled={!canSave} onPress={handleSave} />,
       unstable_headerLeftItems: () => [
         {
           type: "button",
@@ -76,7 +81,7 @@ export default function NewTaskScreen() {
           icon: { type: "sfSymbol", name: "checkmark" },
           variant: "done",
           tintColor: theme.colors.primary,
-          disabled: !form.canSave,
+          disabled: !canSave,
           onPress: handleSave,
         },
       ],
@@ -86,7 +91,7 @@ export default function NewTaskScreen() {
   return (
     <>
       <WebModalHeader
-        isDisabled={!form.canSave}
+        isDisabled={!canSave}
         onClose={handleClose}
         onSave={handleSave}
       />
@@ -108,9 +113,7 @@ export default function NewTaskScreen() {
           testID="new-task-title"
           value={form.title}
           onChangeText={form.setTitle}
-          onSubmitEditing={() => {
-            if (form.canSave) handleSave();
-          }}
+          onSubmitEditing={handleSave}
         />
 
         <View style={styles.labelRow}>
