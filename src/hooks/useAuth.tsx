@@ -141,7 +141,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [initializing, setInitializing] = useState(true);
 
   const handleUrl = useCallback((url: string) => {
-    void handleAuthCallbackUrl(url);
+    // Errors here (denied consent, expired link, missing PKCE verifier) leave
+    // the user on the login screen; log instead of rejecting unhandled.
+    handleAuthCallbackUrl(url).catch((error: unknown) => {
+      console.warn("Auth callback failed", error);
+    });
   }, []);
 
   useEffect(() => {
