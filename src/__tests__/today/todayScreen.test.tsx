@@ -46,6 +46,7 @@ describe("TodayScreen", () => {
       {
         createTask: jest.fn(),
         deleteTask: jest.fn(),
+        isLoading: false,
         updateTask: jest.fn(),
         updateTasks: jest.fn(),
       },
@@ -66,12 +67,30 @@ describe("TodayScreen", () => {
     expect(screen.getByText("No tasks scheduled for this day.")).toBeTruthy();
   });
 
+  it("does not show the empty state while the day's tasks are still loading", () => {
+    mockUseTasks.mockReturnValue([
+      [],
+      {
+        createTask: jest.fn(),
+        deleteTask: jest.fn(),
+        isLoading: true,
+        updateTask: jest.fn(),
+        updateTasks: jest.fn(),
+      },
+    ]);
+
+    const screen = render(<TodayScreen />);
+
+    expect(screen.queryByText("No tasks scheduled for this day.")).toBeNull();
+  });
+
   it("renders a card for every task returned for the day", () => {
     mockUseTasks.mockReturnValue([
       [task],
       {
         createTask: jest.fn(),
         deleteTask: jest.fn(),
+        isLoading: false,
         updateTask: jest.fn(),
         updateTasks: jest.fn(),
       },

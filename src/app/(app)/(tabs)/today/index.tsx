@@ -11,7 +11,7 @@ import { useTheme } from "@/utils/theme";
 export default function TodayScreen() {
   const theme = useTheme();
   const [date, setDate] = useState(() => Temporal.Now.plainDateISO());
-  const [tasks, { updateTask }] = useTasks({
+  const [tasks, { isLoading, updateTask }] = useTasks({
     filters: taskFiltersForDate(date),
   });
 
@@ -26,11 +26,13 @@ export default function TodayScreen() {
         data={tasks}
         keyExtractor={(task) => task.id}
         ListEmptyComponent={
-          <Text
-            style={[styles.emptyText, { color: theme.colors.textSecondary }]}
-          >
-            No tasks scheduled for this day.
-          </Text>
+          isLoading ? null : (
+            <Text
+              style={[styles.emptyText, { color: theme.colors.textSecondary }]}
+            >
+              No tasks scheduled for this day.
+            </Text>
+          )
         }
         renderItem={({ item }) => (
           <TaskCard
