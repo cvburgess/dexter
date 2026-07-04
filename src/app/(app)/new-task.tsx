@@ -108,6 +108,7 @@ export default function NewTaskScreen() {
         <DateTimePicker
           accentColor={theme.colors.primary}
           mode="date"
+          style={styles.datePicker}
           testID="new-task-schedule"
           value={plainDateToDate(form.scheduledFor)}
           onValueChange={(_event, date) =>
@@ -134,6 +135,16 @@ export default function NewTaskScreen() {
           </TouchableOpacity>
         ) : (
           <View style={[styles.deadlineControls, { gap: theme.gap }]}>
+            <DateTimePicker
+              accentColor={theme.colors.primary}
+              mode="date"
+              style={styles.datePicker}
+              testID="new-task-deadline"
+              value={plainDateToDate(form.dueOn)}
+              onValueChange={(_event, date) =>
+                form.setDueOn(dateToPlainDateISO(date))
+              }
+            />
             <TouchableOpacity
               accessibilityRole="button"
               testID="new-task-clear-deadline"
@@ -148,15 +159,6 @@ export default function NewTaskScreen() {
                 Clear
               </Text>
             </TouchableOpacity>
-            <DateTimePicker
-              accentColor={theme.colors.primary}
-              mode="date"
-              testID="new-task-deadline"
-              value={plainDateToDate(form.dueOn)}
-              onValueChange={(_event, date) =>
-                form.setDueOn(dateToPlainDateISO(date))
-              }
-            />
           </View>
         )}
       </View>
@@ -177,8 +179,15 @@ const styles = StyleSheet.create({
   container: {
     paddingBottom: 32,
   },
+  // The SwiftUI date picker expands to its proposed width, so it must be
+  // bounded by the row (flex) or it runs past the screen edge; the compact
+  // chip trailing-aligns inside the flexed area.
+  datePicker: {
+    flex: 1,
+  },
   deadlineControls: {
     alignItems: "center",
+    flex: 1,
     flexDirection: "row",
   },
   label: {
