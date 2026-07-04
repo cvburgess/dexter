@@ -38,7 +38,9 @@ Each tab is its own folder with a nested `_layout.tsx` Stack (headers/titles, ro
 
 ## Auth
 
-Auth is Supabase-backed (magic-link email + Google OAuth, PKCE flow) via `hooks/useAuth.tsx`, which exports the `supabase` client, `AuthProvider`/`useAuth` (`{ initializing, session, userId }`), and `signInWithEmail` / `signInWithGoogle` / `signOut` helpers.
+Auth is Supabase-backed (magic-link email + Google OAuth, PKCE flow) via `hooks/useAuth.tsx`, which exports `AuthProvider`/`useAuth` (`{ initializing, session, userId }`) and `signInWithEmail` / `signInWithGoogle` / `signOut` helpers. The singleton `supabase` client lives in `utils/supabase.ts` (env validation + native `AppState` auto-refresh) and is re-exported from `hooks/useAuth.tsx` for existing call sites.
+
+- **MCP / OAuth consent**: `app/oauth/consent.tsx` renders the Supabase OAuth-server consent screen (`{site_url}/oauth/consent?authorization_id=…`). It sits outside the `(app)` group, so it guards itself — an unauthenticated visitor's `authorization_id` is stashed (`utils/oauthReturn.ts`) and replayed by `auth-callback.tsx` after sign-in. See `docs/backend.md` for the server-side config and client registration.
 
 - **Guards live in the layouts**: `(app)/_layout.tsx` redirects signed-out users to `/(auth)/login`; `(auth)/_layout.tsx` redirects signed-in users to the app; `app/index.tsx` branches on session at boot.
 - **Callback URL** is `Linking.createURL("auth-callback")` — platform-adaptive: `dexter://auth-callback` on native (scheme set in `app.json`), `https://<origin>/auth-callback` on web. `app/auth-callback.tsx` exists so the web navigation doesn't 404; `AuthProvider` picks the URL up and exchanges the `?code=` param for a session.
