@@ -14,6 +14,11 @@ export interface Theme {
     errorContent: string;
     success: string;
     successContent: string;
+    /**
+     * Task priority accent colors, indexed by `ETaskPriority` (`api/tasks.ts`):
+     * [IMPORTANT_AND_URGENT, URGENT, IMPORTANT, NEITHER, UNPRIORITIZED].
+     */
+    priority: string[];
   };
   fonts: {
     heading: {
@@ -51,6 +56,7 @@ const lightTheme: Theme = {
     errorContent: "#4d0218",
     success: "#00d390",
     successContent: "#004c39",
+    priority: ["#f5a623", "#ff627d", "#4a90d9", "#9aa0a6", "#d8d3c8"],
   },
 };
 
@@ -67,6 +73,7 @@ const darkTheme: Theme = {
     errorContent: "#4d0218",
     success: "#00d390",
     successContent: "#004c39",
+    priority: ["#f5a623", "#ff627d", "#4a90d9", "#9aa0a6", "#454b52"],
   },
 };
 
