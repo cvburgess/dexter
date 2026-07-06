@@ -1,5 +1,9 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { fireEvent, render } from "@testing-library/react-native";
+import { act, fireEvent, render } from "@testing-library/react-native";
+import {
+  fireGestureHandler,
+  getByGestureTestId,
+} from "react-native-gesture-handler/jest-utils";
 
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 
@@ -12,6 +16,9 @@ jest.mock("@/hooks/useAuth", () => ({ supabase: {} }));
 jest.mock("@/hooks/useTasks", () => ({
   ...jest.requireActual("@/hooks/useTasks"),
   useTasks: jest.fn(),
+  // The screen renders without a QueryClientProvider, so the real
+  // prefetch hook's useQueryClient() would throw.
+  usePrefetchAdjacentTasks: jest.fn(),
 }));
 jest.mock("@/hooks/useLists", () => ({
   useLists: () => [
@@ -109,6 +116,36 @@ describe("TodayScreen", () => {
 
     expect(mockUseTasks).toHaveBeenLastCalledWith({
       filters: taskFiltersForDate(Temporal.Now.plainDateISO().add({ days: 1 })),
+    });
+  });
+
+  it("re-queries tasks for the next day after swiping left", () => {
+    render(<TodayScreen />);
+
+    act(() => {
+      fireGestureHandler(getByGestureTestId("day-swipe"), [
+        { translationX: -200, velocityX: -900 },
+      ]);
+    });
+
+    expect(mockUseTasks).toHaveBeenLastCalledWith({
+      filters: taskFiltersForDate(Temporal.Now.plainDateISO().add({ days: 1 })),
+    });
+  });
+
+  it("re-queries tasks for the previous day after swiping right", () => {
+    render(<TodayScreen />);
+
+    act(() => {
+      fireGestureHandler(getByGestureTestId("day-swipe"), [
+        { translationX: 200, velocityX: 900 },
+      ]);
+    });
+
+    expect(mockUseTasks).toHaveBeenLastCalledWith({
+      filters: taskFiltersForDate(
+        Temporal.Now.plainDateISO().subtract({ days: 1 }),
+      ),
     });
   });
 });
