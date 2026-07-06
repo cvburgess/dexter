@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 
-import { useTheme } from "@/utils/theme";
+import { useTheme, withOpacity } from "@/utils/theme";
 
 import type { IconMenuProps, TIconMenuSection } from "./IconMenu.types";
 
@@ -35,6 +35,11 @@ export function IconMenu({
   style,
 }: IconMenuProps) {
   const theme = useTheme();
+  // Divider tint derived from the text color so it reads on both schemes,
+  // rather than a fixed gray that washes out on dark backgrounds.
+  const dividerBorder = {
+    borderTopColor: withOpacity(theme.colors.text, 0.15),
+  };
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
@@ -106,7 +111,9 @@ export function IconMenu({
                     <View
                       key={key}
                       style={
-                        sectionIndex > 0 ? styles.sectionDivider : undefined
+                        sectionIndex > 0
+                          ? [styles.sectionDivider, dividerBorder]
+                          : undefined
                       }
                     >
                       {section.title ? (
@@ -157,7 +164,11 @@ export function IconMenu({
                 return (
                   <View
                     key={key}
-                    style={sectionIndex > 0 ? styles.sectionDivider : undefined}
+                    style={
+                      sectionIndex > 0
+                        ? [styles.sectionDivider, dividerBorder]
+                        : undefined
+                    }
                   >
                     <Pressable
                       style={styles.option}
@@ -249,7 +260,6 @@ const styles = StyleSheet.create({
   },
   sectionDivider: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(128, 128, 128, 0.3)",
     marginTop: 4,
     paddingTop: 4,
   },
