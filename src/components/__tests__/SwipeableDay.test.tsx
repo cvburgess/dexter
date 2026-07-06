@@ -26,6 +26,15 @@ describe("getSwipeCommitDirection", () => {
     expect(getSwipeCommitDirection(-20, -900, WIDTH)).toBe(1);
     expect(getSwipeCommitDirection(20, 900, WIDTH)).toBe(-1);
   });
+
+  it("uses velocity's sign, not translation's, when a flick nets near-zero or opposite displacement", () => {
+    // Fast leftward flick that nets out with zero net displacement.
+    expect(getSwipeCommitDirection(0, -900, WIDTH)).toBe(1);
+    // Fast leftward flick despite a slight rightward net translation.
+    expect(getSwipeCommitDirection(3, -900, WIDTH)).toBe(1);
+    // Fast rightward flick despite a slight leftward net translation.
+    expect(getSwipeCommitDirection(-3, 900, WIDTH)).toBe(-1);
+  });
 });
 
 describe("SwipeableDay", () => {

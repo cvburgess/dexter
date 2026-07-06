@@ -148,4 +148,21 @@ describe("TodayScreen", () => {
       ),
     });
   });
+
+  it("advances two days when two swipes fire before a re-render settles", () => {
+    render(<TodayScreen />);
+
+    act(() => {
+      fireGestureHandler(getByGestureTestId("day-swipe"), [
+        { translationX: -200, velocityX: -900 },
+      ]);
+      fireGestureHandler(getByGestureTestId("day-swipe"), [
+        { translationX: -200, velocityX: -900 },
+      ]);
+    });
+
+    expect(mockUseTasks).toHaveBeenLastCalledWith({
+      filters: taskFiltersForDate(Temporal.Now.plainDateISO().add({ days: 2 })),
+    });
+  });
 });

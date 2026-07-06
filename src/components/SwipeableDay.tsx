@@ -21,13 +21,16 @@ export function getSwipeCommitDirection(
   width: number,
 ): -1 | 0 | 1 {
   "worklet";
-  if (
-    Math.abs(translationX) < width * COMMIT_DISTANCE_RATIO &&
-    Math.abs(velocityX) < COMMIT_VELOCITY_THRESHOLD
-  ) {
+  const passesDistance = Math.abs(translationX) >= width * COMMIT_DISTANCE_RATIO;
+  const passesVelocity = Math.abs(velocityX) >= COMMIT_VELOCITY_THRESHOLD;
+  if (!passesDistance && !passesVelocity) {
     return 0;
   }
-  return translationX < 0 ? 1 : -1;
+  // A fast flick can commit on velocity alone with a tiny (or even
+  // opposite-signed) net translation, so prefer velocity's sign whenever
+  // it's the signal that crossed its threshold.
+  const sign = passesVelocity ? velocityX : translationX;
+  return sign < 0 ? 1 : -1;
 }
 
 type TSwipeableDayProps = {

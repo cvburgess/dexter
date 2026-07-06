@@ -35,6 +35,12 @@ export default function TodayScreen() {
       direction: Temporal.PlainDate.compare(next, date),
     }));
 
+  const changeDateBy = (days: 1 | -1) =>
+    setDay(({ date }) => {
+      const next = date.add({ days });
+      return { date: next, direction: Temporal.PlainDate.compare(next, date) };
+    });
+
   return (
     <SafeAreaView
       edges={["top", "left", "right"]}
@@ -44,7 +50,7 @@ export default function TodayScreen() {
       <SwipeableDay
         dateKey={day.date.toString()}
         direction={day.direction}
-        onSwipe={(direction) => changeDate(day.date.add({ days: direction }))}
+        onSwipe={changeDateBy}
       >
         <FlatList
           contentContainerStyle={styles.list}
