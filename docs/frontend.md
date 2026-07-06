@@ -42,6 +42,8 @@ The create-task modal (`app/(app)/new-task.tsx`) pairs a `useNewTaskForm` hook (
 
 Each tab is its own folder with a nested `_layout.tsx` Stack (headers/titles, room for pushed detail screens) and an `index.tsx` screen.
 
+The Today tab (`app/(app)/(tabs)/today/index.tsx`) pairs `components/DayNav.tsx` (prev/today/next arrows) with `components/SwipeableDay.tsx`, which wraps the task list in a `react-native-gesture-handler` pan so swiping left/right also pages a day forward/back. Both arrows and swipes drive the same `{date, direction}` state, so either interaction slides the new day's list in from the direction of travel (`react-native-reanimated`'s `FadeInRight`/`FadeInLeft` on a keyed remount). `hooks/useTasks.tsx`'s `usePrefetchAdjacentTasks` warms the React Query cache for the neighboring day so paging feels instant.
+
 ## Theming
 
 `utils/theme.ts` is the single source of truth for colors and spacing. It defines a `lightTheme` and a `darkTheme` (colors ported from the legacy `dexter-app`'s daisyUI tokens, oklch → hex) sharing one `baseTheme` for non-color tokens (`borderRadius`, `fonts`, `gap`, `spacing`).
@@ -98,6 +100,7 @@ The EAS project is wired up via `extra.eas.projectId` and `owner` in `app.json`.
 - **iOS deployment target 26.0** — set via the `expo-build-properties` plugin in `app.json`; the tab bar's bottom accessory (and other planned features) require iOS 26+
 - **React 19.2** / **React Native 0.85** with **react-native-web** for web
 - **React Compiler** enabled via `experiments.reactCompiler` in `app.json`
+- **`react-native-gesture-handler`** / **`react-native-reanimated`** back the Today tab's swipe-to-change-days gesture (`components/SwipeableDay.tsx`). `GestureHandlerRootView` is mounted once at the root in `app/_layout.tsx`, which any future gesture-driven feature (e.g. task drag-and-drop) can build on.
 - **TypeScript 6** — `tsconfig.json` extends `expo/tsconfig.base`
 - **ESLint** — `expo lint` (bootstraps `eslint-config-expo` on first run)
 - **Web render mode** — `web.output: "single"` (SPA) so the Supabase-backed `AuthProvider` doesn't have to run under Node SSR.
