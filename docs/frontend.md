@@ -42,6 +42,16 @@ The create-task modal (`app/(app)/new-task.tsx`) pairs a `useNewTaskForm` hook (
 
 Each tab is its own folder with a nested `_layout.tsx` Stack (headers/titles, room for pushed detail screens) and an `index.tsx` screen.
 
+## Theming
+
+`utils/theme.ts` is the single source of truth for colors and spacing. It defines a `lightTheme` and a `darkTheme` (colors ported from the legacy `dexter-app`'s daisyUI tokens, oklch → hex) sharing one `baseTheme` for non-color tokens (`borderRadius`, `fonts`, `gap`, `spacing`).
+
+- **`useTheme()`** returns the active `Theme` and is the only way components should read colors. There is **no `ThemeProvider`** — theming is per-component: read `theme` from the hook and inject color values inline (`style={[styles.card, { backgroundColor: theme.colors.card }]}`), keeping static layout in `StyleSheet.create`. Don't hardcode hex/rgba colors in a `StyleSheet`.
+- **Dark mode is automatic.** `useResolvedColorScheme()` (backing `useTheme`) reads React Native's `useColorScheme()`, so the app follows the OS appearance and re-renders live when the device switches light/dark. `app.json` sets `userInterfaceStyle: "automatic"` so the native chrome (status bar, tab bar) adapts too. There is no in-app light/dark toggle — appearance follows the device.
+- On **web**, the first paint has no reliable `prefers-color-scheme` signal, so `useResolvedColorScheme` renders `light` then resolves the real scheme in a layout effect (before paint, no visible flash).
+- **Navigation surfaces must be themed explicitly.** A bare `<Stack>` renders a default (light) header even in dark mode, so nested tab layouts pass their screens through `createListScreenOptions(theme, title)` and modals through `createModalScreenOptions(theme, title)` (both from `utils/stackOptions.ts`, with `.web.ts` variants). The root Stack sets a themed `contentStyle` background so the gap before a screen paints (cold start, auth redirects) matches the scheme.
+- **`withOpacity(color, alpha)`** applies/compounds an alpha channel on a hex or `rgba()` color — use it to derive tints from theme colors (e.g. dividers, pressed states) instead of hardcoding gray rgba.
+
 ## Auth
 
 Auth is Supabase-backed (magic-link email + Google OAuth, PKCE flow) via `hooks/useAuth.tsx`, which exports `AuthProvider`/`useAuth` (`{ initializing, session, userId }`) and `signInWithEmail` / `signInWithGoogle` / `signOut` helpers. The singleton `supabase` client lives in `utils/supabase.ts` (env validation + native `AppState` auto-refresh) and is re-exported from `hooks/useAuth.tsx` for existing call sites.
