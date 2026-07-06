@@ -75,7 +75,7 @@ export function SwipeableDay({
     transform: [{ translateX: translateX.value }],
     opacity: interpolate(
       Math.abs(translateX.value),
-      [0, width.value || 1],
+      [0, width.value],
       [1, 0.25],
       "clamp",
     ),

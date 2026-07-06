@@ -39,6 +39,8 @@ type TSupabaseHookOptions = {
   filters?: TQueryFilter[];
 };
 
+const TASKS_STALE_TIME_MS = 1000 * 60 * 10;
+
 export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
   const queryClient = useQueryClient();
 
@@ -47,7 +49,7 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
     placeholderData: [],
     queryKey: ["tasks", options?.filters],
     queryFn: () => getTasks(supabase, options?.filters),
-    staleTime: 1000 * 60 * 10,
+    staleTime: TASKS_STALE_TIME_MS,
   });
 
   const { mutate: create } = useMutation<TTask[], Error, TCreateTask>({
@@ -107,7 +109,7 @@ export const usePrefetchAdjacentTasks = (date: Temporal.PlainDate): void => {
       void queryClient.prefetchQuery({
         queryKey: ["tasks", filters],
         queryFn: () => getTasks(supabase, filters),
-        staleTime: 1000 * 60 * 10,
+        staleTime: TASKS_STALE_TIME_MS,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
