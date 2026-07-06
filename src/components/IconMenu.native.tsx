@@ -31,10 +31,15 @@ export function IconMenu({
       actions={sections.map((section, index) => ({
         id: `section-${index}`,
         title: section.title ?? "",
+        image:
+          typeof section.icon === "string" ? section.icon : section.icon?.ios,
         displayInline: !section.isSubmenu,
         subactions: section.options.map((option) => ({
           id: option.id,
           title: option.title,
+          image:
+            typeof option.icon === "string" ? option.icon : option.icon?.ios,
+          imageColor: option.iconColor,
           state: option.isSelected ? "on" : "off",
           attributes: option.isDestructive ? { destructive: true } : undefined,
         })),

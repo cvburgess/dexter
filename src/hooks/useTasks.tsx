@@ -17,10 +17,15 @@ import {
 
 import { supabase } from "./useAuth";
 
+type TMutateCallbacks = {
+  onError?: (error: Error) => void;
+  onSuccess?: () => void;
+};
+
 type TUseTasks = [
   TTask[],
   {
-    createTask: (task: TCreateTask) => void;
+    createTask: (task: TCreateTask, callbacks?: TMutateCallbacks) => void;
     deleteTask: (id: string) => void;
     isLoading: boolean;
     updateTask: (task: TUpdateTask) => void;

@@ -26,13 +26,19 @@ app/
     login.tsx              # Single login/signup screen: magic-link email + "Continue with Google"
   (app)/
     _layout.tsx            # Stack for the authenticated group; redirects signed-out users to login
+    new-task.tsx           # Create-task modal (formSheet presentation)
     (tabs)/
       _layout.tsx          # Expo Router native tabs (expo-router/unstable-native-tabs)
       today/               # "Today" tab — sun icon
       settings/            # "Settings" tab — gear icon (includes log out)
+      search/              # "Search" tab — placeholder (role="search"); search itself is not implemented yet
 ```
 
-Tabs use **native tabs** (`NativeTabs` from `expo-router/unstable-native-tabs`), so they render with the platform tab bar. Icons are set per platform on `NativeTabs.Trigger.Icon` via `sf` (iOS SF Symbol) and `md` (Android Material) — no vector-icon dependency. Native tabs require a dev client / native build (they do **not** appear in Expo Go); web has its own implementation.
+Tabs use **native tabs** (`NativeTabs` from `expo-router/unstable-native-tabs`), so they render with the platform tab bar. Icons are set per platform on `NativeTabs.Trigger.Icon` via `sf` (iOS SF Symbol) and `md` (Android Material). Elsewhere in the app, icons come from `expo-symbols` (`SymbolView`) or `@react-native-vector-icons/ionicons`. Native tabs require a dev client / native build (they do **not** appear in Expo Go); web has its own implementation. The tab bar is tinted with the theme's primary color, and a `NativeTabs.BottomAccessory` (iOS 26+ only) hosts the "+ New Task" button (`components/NewTaskButton.tsx`) that opens the create-task modal — Android/web have no create entry point yet.
+
+Modal screens get their options from `utils/stackOptions.ts` (`createModalScreenOptions` — form-sheet presentation with a native header; the `.web.ts` variant hides the header and screens render `components/WebModalHeader` instead). Modal headers put Cancel (✕) on the left and Save (✓, tinted with the primary color) on the right, wired via `navigation.setOptions` with `unstable_headerLeftItems`/`unstable_headerRightItems` (native iOS bar items) plus `headerLeft`/`headerRight` fallbacks from `components/ModalHeaderButtons.tsx`.
+
+The create-task modal (`app/(app)/new-task.tsx`) pairs a `useNewTaskForm` hook (`hooks/useNewTaskForm.ts`) with a priority icon row (`components/PriorityControl.tsx`, `expo-symbols` icons tinted with the theme's priority colors), a menu-appearance list picker (`@expo/ui` universal `Picker` inside a `Host`), and `DateField` date chips (`components/DateField.*` — the SwiftUI compact date picker hosted with `matchContents` on iOS so it sizes to its chip, the community `DateTimePicker` on Android/web). Shorthand tokens typed into the title (`!` priority, `#list-slug`, `due:N` — parsed by `utils/parseTaskShorthand.ts`) drive the controls live; a manually changed control wins over tokens, and tokens are stripped from the title on save.
 
 Each tab is its own folder with a nested `_layout.tsx` Stack (headers/titles, room for pushed detail screens) and an `index.tsx` screen.
 
@@ -79,6 +85,7 @@ The EAS project is wired up via `extra.eas.projectId` and `owner` in `app.json`.
 ## Stack
 
 - **Expo SDK 56** (see `src/package.json` for exact versions)
+- **iOS deployment target 26.0** — set via the `expo-build-properties` plugin in `app.json`; the tab bar's bottom accessory (and other planned features) require iOS 26+
 - **React 19.2** / **React Native 0.85** with **react-native-web** for web
 - **React Compiler** enabled via `experiments.reactCompiler` in `app.json`
 - **TypeScript 6** — `tsconfig.json` extends `expo/tsconfig.base`

@@ -18,6 +18,7 @@ type TUseLists = [
     createList: (list: TCreateList) => void;
     deleteList: (id: string) => void;
     getListById: (id: string | null) => TList | undefined;
+    isLoading: boolean;
     updateList: (list: TUpdateList) => void;
   },
 ];
@@ -29,7 +30,7 @@ type THookOptions = {
 export const useLists = (options?: THookOptions): TUseLists => {
   const queryClient = useQueryClient();
 
-  const { data: lists = [] } = useQuery({
+  const { data: lists = [], isPending } = useQuery({
     enabled: !options?.skipQuery,
     queryKey: ["lists"],
     queryFn: () => getLists(supabase),
@@ -64,6 +65,12 @@ export const useLists = (options?: THookOptions): TUseLists => {
 
   return [
     lists,
-    { createList: create, deleteList: remove, getListById, updateList: update },
+    {
+      createList: create,
+      deleteList: remove,
+      getListById,
+      isLoading: isPending,
+      updateList: update,
+    },
   ];
 };

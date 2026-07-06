@@ -1,3 +1,4 @@
+import { SymbolView } from "expo-symbols";
 import { useState } from "react";
 import {
   Dimensions,
@@ -130,6 +131,13 @@ export function IconMenu({
                           <Text style={styles.checkmark}>
                             {option.isSelected ? "✓" : ""}
                           </Text>
+                          {option.icon ? (
+                            <SymbolView
+                              name={option.icon}
+                              size={18}
+                              tintColor={option.iconColor ?? theme.colors.text}
+                            />
+                          ) : null}
                           <Text
                             style={{
                               color: option.isDestructive
@@ -155,6 +163,13 @@ export function IconMenu({
                       style={styles.option}
                       onPress={() => setExpandedSection(expanded ? null : key)}
                     >
+                      {section.icon ? (
+                        <SymbolView
+                          name={section.icon}
+                          size={18}
+                          tintColor={theme.colors.text}
+                        />
+                      ) : null}
                       <Text style={{ color: theme.colors.text }}>
                         {section.title}
                       </Text>
@@ -180,6 +195,15 @@ export function IconMenu({
                             <Text style={styles.checkmark}>
                               {option.isSelected ? "✓" : ""}
                             </Text>
+                            {option.icon ? (
+                              <SymbolView
+                                name={option.icon}
+                                size={18}
+                                tintColor={
+                                  option.iconColor ?? theme.colors.text
+                                }
+                              />
+                            ) : null}
                             <Text
                               style={{
                                 color: option.isDestructive

@@ -66,17 +66,19 @@ export function TaskCard({ task, onUpdate }: TTaskCardProps) {
       {!isComplete && (
         <>
           <DueDateButton dueOn={task.dueOn} contentColor={contentColor} />
-          <ListButton
-            listId={task.listId}
-            contentColor={contentColor}
-            onChangeList={(listId) => onUpdate({ listId })}
-          />
+          {task.listId !== null && (
+            <ListButton
+              listId={task.listId}
+              contentColor={contentColor}
+              onChangeList={(listId) => onUpdate({ listId })}
+            />
+          )}
         </>
       )}
     </View>
   );
 
-  // Priority/schedule editing (and the long-press that opens it) isn't
+  // Priority/schedule/list editing (and the long-press that opens it) isn't
   // available once a task is done or won't-do, matching the buttons above.
   if (isComplete) return card;
 
@@ -84,8 +86,10 @@ export function TaskCard({ task, onUpdate }: TTaskCardProps) {
     <MoreMenu
       priority={task.priority}
       scheduledFor={task.scheduledFor}
+      listId={task.listId}
       onChangePriority={(priority) => onUpdate({ priority })}
       onChangeSchedule={(scheduledFor) => onUpdate({ scheduledFor })}
+      onChangeList={(listId) => onUpdate({ listId })}
       style={styles.moreMenuWrapper}
     >
       {card}

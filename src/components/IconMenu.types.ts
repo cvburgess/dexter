@@ -1,3 +1,4 @@
+import type { SymbolViewProps } from "expo-symbols";
 import type { ReactNode } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
 
@@ -5,6 +6,13 @@ import type { StyleProp, ViewStyle } from "react-native";
 export type TIconMenuOption = {
   id: string;
   title: string;
+  /** Icon rendered beside the label (SF Symbol / Material Symbol names). */
+  icon?: SymbolViewProps["name"];
+  /**
+   * Tint for the icon. Applied on Android and web; iOS system menus draw
+   * their own item icons and may ignore it.
+   */
+  iconColor?: string;
   isSelected?: boolean;
   isDestructive?: boolean;
   onSelect: () => void;
@@ -17,6 +25,8 @@ export type TIconMenuOption = {
  */
 export type TIconMenuSection = {
   title?: string;
+  /** Icon rendered beside the section title (SF Symbol / Material Symbol names). */
+  icon?: SymbolViewProps["name"];
   isSubmenu?: boolean;
   options: TIconMenuOption[];
 };

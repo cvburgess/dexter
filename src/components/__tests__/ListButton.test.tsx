@@ -68,6 +68,7 @@ describe("ListButton", () => {
       lists,
       {
         createList: jest.fn(),
+        isLoading: false,
         deleteList: jest.fn(),
         updateList: jest.fn(),
         getListById: (id) => lists.find((list) => list.id === id),
@@ -90,6 +91,7 @@ describe("ListButton", () => {
       lists,
       {
         createList: jest.fn(),
+        isLoading: false,
         deleteList: jest.fn(),
         updateList: jest.fn(),
         getListById: () => undefined,

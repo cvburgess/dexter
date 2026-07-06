@@ -16,7 +16,7 @@ export function StatusButton({
   contentColor,
   onChangeStatus,
 }: TStatusButtonProps) {
-  const sections = getStatusSections(status, onChangeStatus);
+  const sections = getStatusSections(onChangeStatus);
 
   return (
     <IconMenu
@@ -39,22 +39,42 @@ export function StatusButton({
 }
 
 export const getStatusSections = (
-  status: ETaskStatus,
   onChangeStatus: (status: ETaskStatus) => void,
 ): TIconMenuSection[] => [
   {
-    options: [
-      { id: "todo", title: "To Do", status: ETaskStatus.TODO },
+    options: ([
+      {
+        id: "todo",
+        title: "To Do",
+        status: ETaskStatus.TODO,
+        icon: { ios: "circle", android: "circle", web: "circle" },
+      },
       {
         id: "in-progress",
         title: "In Progress",
         status: ETaskStatus.IN_PROGRESS,
+        icon: {
+          ios: "circle.lefthalf.filled",
+          android: "contrast",
+          web: "contrast",
+        },
       },
-      { id: "done", title: "Done", status: ETaskStatus.DONE },
-      { id: "wont-do", title: "Won't Do", status: ETaskStatus.WONT_DO },
-    ].map(({ status: optionStatus, ...option }) => ({
+      {
+        id: "done",
+        title: "Done",
+        status: ETaskStatus.DONE,
+        icon: { ios: "checkmark", android: "check", web: "check" },
+      },
+      {
+        id: "wont-do",
+        title: "Won't Do",
+        status: ETaskStatus.WONT_DO,
+        icon: { ios: "xmark", android: "close", web: "close" },
+      },
+    ] as const).map(({ status: optionStatus, ...option }) => ({
       ...option,
-      isSelected: status === optionStatus,
+      // No isSelected: the icons say it all, and the trigger glyph already
+      // reflects the current status — skip the menu checkmark.
       onSelect: () => onChangeStatus(optionStatus),
     })),
   },

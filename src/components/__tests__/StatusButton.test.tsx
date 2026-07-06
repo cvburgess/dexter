@@ -5,12 +5,9 @@ import { ETaskStatus } from "@/api/tasks";
 import { getStatusSections, StatusButton } from "../StatusButton";
 
 describe("getStatusSections", () => {
-  it("lists all 4 statuses with the current one selected", () => {
+  it("lists all 4 statuses with icons and no selection checkmark", () => {
     const onChangeStatus = jest.fn();
-    const [section] = getStatusSections(
-      ETaskStatus.IN_PROGRESS,
-      onChangeStatus,
-    );
+    const [section] = getStatusSections(onChangeStatus);
 
     expect(section.options.map((option) => option.title)).toEqual([
       "To Do",
@@ -18,17 +15,15 @@ describe("getStatusSections", () => {
       "Done",
       "Won't Do",
     ]);
-    expect(section.options.map((option) => option.isSelected)).toEqual([
-      false,
-      true,
-      false,
-      false,
-    ]);
+    expect(section.options.every((option) => option.icon)).toBe(true);
+    expect(
+      section.options.every((option) => option.isSelected === undefined),
+    ).toBe(true);
   });
 
   it("calls onChangeStatus with the selected status", () => {
     const onChangeStatus = jest.fn();
-    const [section] = getStatusSections(ETaskStatus.TODO, onChangeStatus);
+    const [section] = getStatusSections(onChangeStatus);
 
     section.options.find((option) => option.title === "Done")?.onSelect();
 

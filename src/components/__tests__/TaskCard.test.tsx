@@ -13,7 +13,16 @@ jest.mock("@/hooks/useLists", () => ({
       createList: jest.fn(),
       deleteList: jest.fn(),
       updateList: jest.fn(),
-      getListById: () => undefined,
+      getListById: (id: string | null) =>
+        id === "list-1"
+          ? {
+              id: "list-1",
+              title: "Home",
+              emoji: "🏠",
+              isArchived: false,
+              createdAt: "2026-01-01T00:00:00Z",
+            }
+          : undefined,
     },
   ],
 }));
@@ -42,20 +51,32 @@ describe("TaskCard", () => {
     mockMoreMenu.mockClear();
   });
 
-  it("renders the title, due date, and list button, wrapped in the long-press priority/schedule menu, for an incomplete task", () => {
+  it("renders the title and due date, wrapped in the long-press menu, with no list button when no list is chosen", () => {
     const task = { ...baseTask, dueOn: "2026-07-05" };
     const screen = render(<TaskCard task={task} onUpdate={jest.fn()} />);
 
     expect(screen.getByText("Write the report")).toBeTruthy();
-    expect(screen.getByText("🚫")).toBeTruthy(); // ListButton placeholder.
+    expect(screen.queryByLabelText("List")).toBeNull();
     expect(mockMoreMenu).toHaveBeenCalled();
   });
 
-  it("hides the due date and list button, skips the more menu, and mutes the title for a done task", () => {
-    const task = { ...baseTask, status: ETaskStatus.DONE, dueOn: "2026-07-05" };
+  it("shows the list button when the task has a list", () => {
+    const task = { ...baseTask, listId: "list-1" };
     const screen = render(<TaskCard task={task} onUpdate={jest.fn()} />);
 
-    expect(screen.queryByText("🚫")).toBeNull();
+    expect(screen.getByText("🏠")).toBeTruthy();
+  });
+
+  it("hides the due date and list button, skips the more menu, and mutes the title for a done task", () => {
+    const task = {
+      ...baseTask,
+      status: ETaskStatus.DONE,
+      dueOn: "2026-07-05",
+      listId: "list-1",
+    };
+    const screen = render(<TaskCard task={task} onUpdate={jest.fn()} />);
+
+    expect(screen.queryByText("🏠")).toBeNull();
     expect(mockMoreMenu).not.toHaveBeenCalled();
 
     const title = screen.getByText("Write the report");

@@ -3,32 +3,49 @@ import type { ReactNode } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
 
 import { ETaskPriority } from "@/api/tasks";
+import { useLists } from "@/hooks/useLists";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
+import { Theme, useTheme } from "@/utils/theme";
 import { weekStartEnd } from "@/utils/weekStartEnd";
 
 import { IconMenu, TIconMenuSection } from "./IconMenu";
+import { getListSections } from "./ListButton";
+import { PRIORITY_OPTIONS, priorityIconColor } from "./PriorityControl";
 
 type TMoreMenuProps = {
   priority: ETaskPriority;
   scheduledFor: string | null;
+  listId: string | null;
   onChangePriority: (priority: ETaskPriority) => void;
   onChangeSchedule: (scheduledFor: string | null) => void;
+  onChangeList: (listId: string | null) => void;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
 };
 
-/** Wraps `children` (the whole task card) with a long-press menu for priority and schedule. */
+/** Wraps `children` (the whole task card) with a long-press menu for priority, schedule, and list. */
 export function MoreMenu({
   priority,
   scheduledFor,
+  listId,
   onChangePriority,
   onChangeSchedule,
+  onChangeList,
   children,
   style,
 }: TMoreMenuProps) {
+  const theme = useTheme();
+  const [lists] = useLists();
   const sections = [
-    ...getPrioritySections(priority, onChangePriority),
+    ...getPrioritySections(priority, onChangePriority, theme),
     ...getScheduleSections(scheduledFor, onChangeSchedule),
+    // ListButton's sections, collapsed into a titled submenu like the others.
+    ...getListSections(lists, listId, onChangeList).map((section) => ({
+      ...section,
+      title: "List",
+      icon: { ios: "face.smiling", android: "mood", web: "mood" } as const,
+      isSubmenu: true,
+    })),
   ];
 
   return (
@@ -46,21 +63,22 @@ export function MoreMenu({
 export const getPrioritySections = (
   priority: ETaskPriority,
   onChangePriority: (priority: ETaskPriority) => void,
+  theme: Theme,
 ): TIconMenuSection[] => [
   {
     title: "Priority",
+    icon: {
+      ios: "exclamationmark",
+      android: "priority_high",
+      web: "priority_high",
+    },
     isSubmenu: true,
-    options: [
-      {
-        id: "important-and-urgent",
-        title: "Important & Urgent",
-        value: ETaskPriority.IMPORTANT_AND_URGENT,
-      },
-      { id: "important", title: "Important", value: ETaskPriority.IMPORTANT },
-      { id: "urgent", title: "Urgent", value: ETaskPriority.URGENT },
-      { id: "neither", title: "Neither", value: ETaskPriority.NEITHER },
-    ].map(({ value, ...option }) => ({
-      ...option,
+    // `PRIORITY_OPTIONS` is ordered to match the shorthand tokens: `!` → `!!!!`.
+    options: PRIORITY_OPTIONS.map(({ label, value, icon }) => ({
+      id: label.toLowerCase().replace(/[^a-z]+/g, "-"),
+      title: label,
+      icon,
+      iconColor: priorityIconColor(value, theme),
       isSelected: priority === value,
       onSelect: () => onChangePriority(value),
     })),
@@ -128,5 +146,16 @@ export const getScheduleSections = (
     });
   }
 
-  return [{ title: "Schedule", isSubmenu: true, options }];
+  return [
+    {
+      title: "Schedule",
+      icon: {
+        ios: "calendar",
+        android: "calendar_today",
+        web: "calendar_today",
+      } as const,
+      isSubmenu: true,
+      options,
+    },
+  ];
 };
