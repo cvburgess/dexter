@@ -1,5 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 import { makeOrFilter, TQueryFilter } from "@/api/applyFilters";
 import {
@@ -94,6 +95,24 @@ const getToday = () => Temporal.Now.plainDateISO();
 export const taskFiltersForDate = (
   date: Temporal.PlainDate,
 ): TQueryFilter[] => [["scheduledFor", "eq", date.toString()]];
+
+/** Warms the React Query cache for the day before and after `date` so swiping between them feels instant. */
+export const usePrefetchAdjacentTasks = (date: Temporal.PlainDate): void => {
+  const queryClient = useQueryClient();
+  const iso = date.toString();
+
+  useEffect(() => {
+    for (const day of [date.add({ days: 1 }), date.subtract({ days: 1 })]) {
+      const filters = taskFiltersForDate(day);
+      void queryClient.prefetchQuery({
+        queryKey: ["tasks", filters],
+        queryFn: () => getTasks(supabase, filters),
+        staleTime: 1000 * 60 * 10,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [iso]);
+};
 
 export const taskFilters: Record<string, TQueryFilter[]> = {
   get today(): TQueryFilter[] {
