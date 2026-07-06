@@ -53,6 +53,9 @@ describe("NewTaskScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     listsState.isLoading = false;
+    mockCreateTask.mockImplementation((_task, callbacks) => {
+      callbacks?.onSuccess?.();
+    });
     mockUseTasks.mockReturnValue([
       [],
       {
@@ -97,13 +100,16 @@ describe("NewTaskScreen", () => {
     const save = render(headerOptions().headerRight());
     fireEvent.press(save.getByTestId("modal-done-button"));
 
-    expect(mockCreateTask).toHaveBeenCalledWith({
-      title: "Write the spec",
-      priority: ETaskPriority.IMPORTANT,
-      listId: "list-home",
-      scheduledFor: today.toString(),
-      dueOn: today.add({ days: 2 }).toString(),
-    });
+    expect(mockCreateTask).toHaveBeenCalledWith(
+      {
+        title: "Write the spec",
+        priority: ETaskPriority.IMPORTANT,
+        listId: "list-home",
+        scheduledFor: today.toString(),
+        dueOn: today.add({ days: 2 }).toString(),
+      },
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
     expect(mockRouter.back).toHaveBeenCalled();
   });
 
@@ -120,7 +126,25 @@ describe("NewTaskScreen", () => {
         title: "Pay bills",
         priority: ETaskPriority.IMPORTANT,
       }),
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
+  });
+
+  it("keeps the modal open and allows retrying when the save fails", () => {
+    mockCreateTask.mockImplementation((_task, callbacks) => {
+      callbacks?.onError?.(new Error("network error"));
+    });
+    const screen = render(<NewTaskScreen />);
+
+    fireEvent.changeText(screen.getByTestId("new-task-title"), "Pay bills");
+    const save = render(headerOptions().headerRight());
+    fireEvent.press(save.getByTestId("modal-done-button"));
+
+    expect(mockCreateTask).toHaveBeenCalledTimes(1);
+    expect(mockRouter.back).not.toHaveBeenCalled();
+
+    fireEvent.press(save.getByTestId("modal-done-button"));
+    expect(mockCreateTask).toHaveBeenCalledTimes(2);
   });
 
   it("only creates one task when save is pressed twice", () => {
@@ -156,6 +180,7 @@ describe("NewTaskScreen", () => {
 
     expect(mockCreateTask).toHaveBeenCalledWith(
       expect.objectContaining({ title: "Pay bills" }),
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
     expect(mockRouter.back).toHaveBeenCalled();
   });

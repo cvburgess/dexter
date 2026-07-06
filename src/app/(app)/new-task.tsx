@@ -2,6 +2,8 @@ import { Temporal } from "@js-temporal/polyfill";
 import { useNavigation, useRouter } from "expo-router";
 import { useLayoutEffect, useRef } from "react";
 import {
+  Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -37,6 +39,17 @@ const dateToPlainDateISO = (date: Date): string =>
     day: date.getDate(),
   }).toString();
 
+// RN's Alert is a no-op on web, so fall back to the browser's alert there.
+const showSaveError = () => {
+  const message = "We couldn't save your task. Please try again.";
+
+  if (Platform.OS === "web") {
+    window.alert(message);
+  } else {
+    Alert.alert("Something went wrong", message);
+  }
+};
+
 export default function NewTaskScreen() {
   const theme = useTheme();
   const navigation = useNavigation();
@@ -55,8 +68,13 @@ export default function NewTaskScreen() {
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;
     hasSaved.current = true;
-    createTask(form.task);
-    router.back();
+    createTask(form.task, {
+      onSuccess: () => router.back(),
+      onError: () => {
+        hasSaved.current = false;
+        showSaveError();
+      },
+    });
   };
 
   // No dependency array: the handlers close over the latest form state, so
@@ -64,7 +82,9 @@ export default function NewTaskScreen() {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerLeft: () => <CloseButton onPress={handleClose} />,
-      headerRight: () => <DoneButton disabled={!canSave} onPress={handleSave} />,
+      headerRight: () => (
+        <DoneButton disabled={!canSave} onPress={handleSave} />
+      ),
       unstable_headerLeftItems: () => [
         {
           type: "button",
