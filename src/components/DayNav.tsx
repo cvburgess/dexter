@@ -40,7 +40,11 @@ export function DayNav({ date, onChangeDate }: TDayNavProps) {
         <Text style={[styles.arrowText, { color: theme.colors.text }]}>‹</Text>
       </TouchableOpacity>
       {isToday ? (
-        <View accessibilityLabel="Open date picker" style={styles.picker}>
+        <View
+          accessible
+          accessibilityLabel="Open date picker"
+          style={styles.picker}
+        >
           <DateField
             accentColor={theme.colors.primary}
             value={plainDateToDate(date)}
