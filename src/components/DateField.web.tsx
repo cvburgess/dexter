@@ -122,19 +122,10 @@ export function DateField({
           }}
           showOutsideDays
           weekStartsOn={1}
+          // Theme react-day-picker's native styling via CSS variables (accent
+          // drives the selected day's circular ring and today's color) rather
+          // than overriding the day shape ourselves — keeps the native circle.
           style={calendarVars}
-          modifiersStyles={{
-            today: {
-              outline: `1px solid ${accent}`,
-              outlineOffset: "-1px",
-              borderRadius: theme.borderRadius,
-            },
-            selected: {
-              backgroundColor: withOpacity(accent, 0.2),
-              color: theme.colors.text,
-              borderRadius: theme.borderRadius,
-            },
-          }}
         />
       </div>
     </>
