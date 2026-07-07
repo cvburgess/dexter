@@ -65,7 +65,11 @@ export function TaskCard({ task, onUpdate }: TTaskCardProps) {
       </Text>
       {!isComplete && (
         <>
-          <DueDateButton dueOn={task.dueOn} contentColor={contentColor} />
+          <DueDateButton
+            dueOn={task.dueOn}
+            priorityColor={priorityColor}
+            contentColor={contentColor}
+          />
           {task.listId !== null && (
             <ListButton
               listId={task.listId}

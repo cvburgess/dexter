@@ -1,59 +1,87 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { render } from "@testing-library/react-native";
-import { StyleSheet, type ViewStyle } from "react-native";
+import { StyleSheet, type TextStyle, type ViewStyle } from "react-native";
 
 import { DueDateButton } from "../DueDateButton";
 
 const daysFromNow = (days: number) =>
   Temporal.Now.plainDateISO().add({ days }).toString();
 
+const PRIORITY = "#111111";
+const CONTENT = "#eeeeee";
+
+const renderBadge = (dueOn: string) =>
+  render(
+    <DueDateButton
+      dueOn={dueOn}
+      priorityColor={PRIORITY}
+      contentColor={CONTENT}
+    />,
+  );
+
+const colors = (dueOn: string) => {
+  const screen = renderBadge(dueOn);
+  const badge = screen.getByTestId("due-date-badge");
+  const badgeStyle = StyleSheet.flatten(badge.props.style as ViewStyle[]);
+  const text = screen.getByText(
+    Temporal.Now.plainDateISO()
+      .until(Temporal.PlainDate.from(dueOn))
+      .days.toString(),
+  );
+  const textStyle = StyleSheet.flatten(text.props.style as TextStyle[]);
+  return {
+    background: badgeStyle.backgroundColor,
+    border: badgeStyle.borderColor,
+    borderWidth: badgeStyle.borderWidth,
+    text: textStyle.color,
+  };
+};
+
 describe("DueDateButton", () => {
   it("renders nothing when dueOn is unset", () => {
     const screen = render(
-      <DueDateButton dueOn={null} contentColor="#000000" />,
+      <DueDateButton
+        dueOn={null}
+        priorityColor={PRIORITY}
+        contentColor={CONTENT}
+      />,
     );
 
     expect(screen.toJSON()).toBeNull();
   });
 
   it("shows the integer days remaining for a future due date", () => {
-    const screen = render(
-      <DueDateButton dueOn={daysFromNow(5)} contentColor="#000000" />,
-    );
-
-    expect(screen.getByText("5")).toBeTruthy();
+    expect(renderBadge(daysFromNow(5)).getByText("5")).toBeTruthy();
   });
 
   it("shows 0 when due today", () => {
-    const screen = render(
-      <DueDateButton dueOn={daysFromNow(0)} contentColor="#000000" />,
-    );
-
-    expect(screen.getByText("0")).toBeTruthy();
+    expect(renderBadge(daysFromNow(0)).getByText("0")).toBeTruthy();
   });
 
   it("shows a negative count when overdue", () => {
-    const screen = render(
-      <DueDateButton dueOn={daysFromNow(-3)} contentColor="#000000" />,
-    );
-
-    expect(screen.getByText("-3")).toBeTruthy();
+    expect(renderBadge(daysFromNow(-3)).getByText("-3")).toBeTruthy();
   });
 
-  it("is outline-only normally, but fills solid when due today or tomorrow", () => {
-    const badgeStyle = (dueOn: string) => {
-      const screen = render(
-        <DueDateButton dueOn={dueOn} contentColor="#000000" />,
-      );
-      const badge = screen.getByTestId("due-date-badge");
-      return StyleSheet.flatten(badge.props.style as ViewStyle[]);
-    };
+  it("sits on the priority color with priority-content text/outline when not overdue", () => {
+    const style = colors(daysFromNow(5));
 
-    const warnStyle = badgeStyle(daysFromNow(1));
-    const normalStyle = badgeStyle(daysFromNow(5));
+    expect(style.background).toBe(PRIORITY);
+    expect(style.text).toBe(CONTENT);
+    expect(style.border).toBe(CONTENT);
+    expect(style.borderWidth).toBe(1);
+  });
 
-    expect(normalStyle.backgroundColor).toBeUndefined();
-    expect(normalStyle.borderWidth).toBe(1);
-    expect(warnStyle.backgroundColor).toBeDefined();
+  it("inverts to a solid priority-content fill with priority-color text/outline once overdue", () => {
+    const style = colors(daysFromNow(-3));
+
+    expect(style.background).toBe(CONTENT);
+    expect(style.text).toBe(PRIORITY);
+    expect(style.border).toBe(PRIORITY);
+  });
+
+  it("treats due-today as overdue but tomorrow as not overdue", () => {
+    // Threshold is `daysUntilDue <= 0`: today inverts, tomorrow stays normal.
+    expect(colors(daysFromNow(0)).background).toBe(CONTENT);
+    expect(colors(daysFromNow(1)).background).toBe(PRIORITY);
   });
 });
