@@ -21,7 +21,8 @@ export function getSwipeCommitDirection(
   width: number,
 ): -1 | 0 | 1 {
   "worklet";
-  const passesDistance = Math.abs(translationX) >= width * COMMIT_DISTANCE_RATIO;
+  const passesDistance =
+    Math.abs(translationX) >= width * COMMIT_DISTANCE_RATIO;
   const passesVelocity = Math.abs(velocityX) >= COMMIT_VELOCITY_THRESHOLD;
   if (!passesDistance && !passesVelocity) {
     return 0;
@@ -40,12 +41,21 @@ type TSwipeableDayProps = {
   children: ReactNode;
 };
 
-export function SwipeableDay({
-  dateKey,
+// Remount the swipeable surface whenever the day changes. A fresh mount starts
+// with translateX back at 0, so the just-swiped-away day is never snapped back
+// to center — which is what caused the old content to flash before the new day
+// faded in. Resetting the drag offset by remounting (rather than mutating the
+// shared value from a React hook) also keeps the reset off the render path and
+// avoids the React Compiler flagging shared-value writes as immutable mutations.
+export function SwipeableDay(props: TSwipeableDayProps) {
+  return <SwipeableDayContent key={props.dateKey} {...props} />;
+}
+
+function SwipeableDayContent({
   direction,
   onSwipe,
   children,
-}: TSwipeableDayProps) {
+}: Omit<TSwipeableDayProps, "dateKey">) {
   const translateX = useSharedValue(0);
   const width = useSharedValue(Dimensions.get("window").width);
 
@@ -70,7 +80,10 @@ export function SwipeableDay({
         translateX.value = withSpring(0);
         return;
       }
-      translateX.value = 0;
+      // Don't reset translateX here. Doing so on the UI thread snaps the old
+      // day's content back to center before React swaps in the new day a few
+      // frames later, which is the flash we're fixing. Instead the drag offset
+      // resets naturally when SwipeableDay remounts this content on the new day.
       runOnJS(onSwipe)(commit);
     });
 
@@ -92,7 +105,6 @@ export function SwipeableDay({
         collapsable={false}
       >
         <Animated.View
-          key={dateKey}
           entering={
             direction === 1
               ? FadeInRight
