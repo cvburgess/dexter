@@ -42,36 +42,38 @@ export const getStatusSections = (
   onChangeStatus: (status: ETaskStatus) => void,
 ): TIconMenuSection[] => [
   {
-    options: ([
-      {
-        id: "todo",
-        title: "To Do",
-        status: ETaskStatus.TODO,
-        icon: { ios: "circle", android: "circle", web: "circle" },
-      },
-      {
-        id: "in-progress",
-        title: "In Progress",
-        status: ETaskStatus.IN_PROGRESS,
-        icon: {
-          ios: "circle.lefthalf.filled",
-          android: "contrast",
-          web: "contrast",
+    options: (
+      [
+        {
+          id: "todo",
+          title: "To Do",
+          status: ETaskStatus.TODO,
+          icon: { ios: "circle", android: "circle", web: "circle" },
         },
-      },
-      {
-        id: "done",
-        title: "Done",
-        status: ETaskStatus.DONE,
-        icon: { ios: "checkmark", android: "check", web: "check" },
-      },
-      {
-        id: "wont-do",
-        title: "Won't Do",
-        status: ETaskStatus.WONT_DO,
-        icon: { ios: "xmark", android: "close", web: "close" },
-      },
-    ] as const).map(({ status: optionStatus, ...option }) => ({
+        {
+          id: "in-progress",
+          title: "In Progress",
+          status: ETaskStatus.IN_PROGRESS,
+          icon: {
+            ios: "circle.lefthalf.filled",
+            android: "contrast",
+            web: "contrast",
+          },
+        },
+        {
+          id: "done",
+          title: "Done",
+          status: ETaskStatus.DONE,
+          icon: { ios: "checkmark", android: "check", web: "check" },
+        },
+        {
+          id: "wont-do",
+          title: "Won't Do",
+          status: ETaskStatus.WONT_DO,
+          icon: { ios: "xmark", android: "close", web: "close" },
+        },
+      ] as const
+    ).map(({ status: optionStatus, ...option }) => ({
       ...option,
       // No isSelected: the icons say it all, and the trigger glyph already
       // reflects the current status — skip the menu checkmark.
