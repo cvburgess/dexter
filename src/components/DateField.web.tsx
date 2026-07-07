@@ -19,6 +19,13 @@ const toPlainDate = (date: Date): Temporal.PlainDate =>
 const POPOVER_WIDTH = 280;
 const VIEWPORT_MARGIN = 8;
 
+// react-native-web renders `<Text>` (the non-today day labels) with its "System"
+// font token, which expands to this stack. A raw `<button>` and react-day-picker
+// default to their own UA fonts, so set this explicitly to match the rest of the
+// app. (Kept in sync with RNW's SYSTEM_FONT_STACK.)
+const SYSTEM_FONT =
+  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+
 type TAnchor = { top: number; left: number };
 
 // Center the popover under the trigger, clamped so it never runs off the edge
@@ -90,6 +97,7 @@ export function DateField({
     "--rdp-outside-opacity": "0.4",
     margin: 0,
     color: theme.colors.text,
+    fontFamily: SYSTEM_FONT,
   } as React.CSSProperties;
 
   const popover = anchor && (
@@ -142,7 +150,7 @@ export function DateField({
           border: "none",
           color: theme.colors.text,
           cursor: "pointer",
-          fontFamily: "inherit",
+          fontFamily: SYSTEM_FONT,
           fontSize: 16,
           fontWeight: 600,
           padding: 0,
