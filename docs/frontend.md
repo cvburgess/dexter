@@ -28,13 +28,14 @@ app/
     _layout.tsx            # Stack for the authenticated group; redirects signed-out users to login
     new-task.tsx           # Create-task modal (formSheet presentation)
     (tabs)/
-      _layout.tsx          # Expo Router native tabs (expo-router/unstable-native-tabs)
+      _layout.tsx          # Expo Router native tabs (expo-router/unstable-native-tabs) — iOS/Android
+      _layout.web.tsx      # Web override: classic JS Tabs with the tab bar hidden
       today/               # "Today" tab — sun icon
       settings/            # "Settings" tab — gear icon (includes log out)
       search/              # "Search" tab — placeholder (role="search"); search itself is not implemented yet
 ```
 
-Tabs use **native tabs** (`NativeTabs` from `expo-router/unstable-native-tabs`), so they render with the platform tab bar. Icons are set per platform on `NativeTabs.Trigger.Icon` via `sf` (iOS SF Symbol) and `md` (Android Material). Elsewhere in the app, icons come from `expo-symbols` (`SymbolView`) or `@react-native-vector-icons/ionicons`. Native tabs require a dev client / native build (they do **not** appear in Expo Go); web has its own implementation. The tab bar is tinted with the theme's primary color, and a `NativeTabs.BottomAccessory` (iOS 26+ only) hosts the "+ New Task" button (`components/NewTaskButton.tsx`) that opens the create-task modal — Android/web have no create entry point yet.
+Tabs use **native tabs** (`NativeTabs` from `expo-router/unstable-native-tabs`), so they render with the platform tab bar. Icons are set per platform on `NativeTabs.Trigger.Icon` via `sf` (iOS SF Symbol) and `md` (Android Material). Elsewhere in the app, icons come from `expo-symbols` (`SymbolView`) or `@react-native-vector-icons/ionicons`. Native tabs require a dev client / native build (they do **not** appear in Expo Go). On **web**, `NativeTabs` renders a Radix tab bar with no supported way to hide it, so web uses a platform-specific `_layout.web.tsx` (the required non-extension `_layout.tsx` sibling is the native fallback) that renders the classic JS `Tabs` navigator with its bar hidden via `tabBarStyle: { display: "none" }` — the same three routes stay reachable by URL, just without an on-screen tab bar. The tab bar is tinted with the theme's primary color, and a `NativeTabs.BottomAccessory` (iOS 26+ only) hosts the "+ New Task" button (`components/NewTaskButton.tsx`) that opens the create-task modal — Android/web have no create entry point yet.
 
 Modal screens get their options from `utils/stackOptions.ts` (`createModalScreenOptions` — form-sheet presentation with a native header; the `.web.ts` variant hides the header and screens render `components/WebModalHeader` instead). Modal headers put Cancel (✕) on the left and Save (✓, tinted with the primary color) on the right, wired via `navigation.setOptions` with `unstable_headerLeftItems`/`unstable_headerRightItems` (native iOS bar items) plus `headerLeft`/`headerRight` fallbacks from `components/ModalHeaderButtons.tsx`.
 
