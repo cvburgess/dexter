@@ -1,9 +1,17 @@
 import { fireEvent, render } from "@testing-library/react-native";
+import type { ReactNode } from "react";
 import { Pressable, Text } from "react-native";
 
 import { DateField } from "../DateField.web";
 
 const SELECTED_DATE = new Date(2026, 11, 25); // Dec 25, 2026 (month is 0-based)
+
+// The popover is portalled to `document.body` at runtime; render it inline here
+// so react-test-renderer keeps it in the tree for RNTL queries.
+jest.mock("react-dom", () => ({
+  ...jest.requireActual<typeof import("react-dom")>("react-dom"),
+  createPortal: (children: ReactNode) => children,
+}));
 
 // react-day-picker is a DOM calendar with no test double; stand it in with a
 // pressable that fires `onSelect` so we can exercise the field's wiring. Its
