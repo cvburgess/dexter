@@ -39,6 +39,7 @@
     "expo-symbols": "~56.0.6",
     "expo-web-browser": "~56.0.5",
     "react": "19.2.3",
+    "react-day-picker": "^10.0.1",
     "react-dom": "19.2.3",
     "react-native": "0.85.3",
     "react-native-gesture-handler": "~2.31.1",

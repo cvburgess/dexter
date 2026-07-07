@@ -1,27 +1,28 @@
-import { useResolvedColorScheme, useTheme } from "@/utils/theme";
+import { Temporal } from "@js-temporal/polyfill";
+import { useState } from "react";
+import { DayPicker } from "react-day-picker";
+import "react-day-picker/style.css";
+
+import { formatWeekdayMonthDay } from "@/utils/formatPlainDate";
+import { useTheme, withOpacity } from "@/utils/theme";
 
 import { TDateFieldProps } from "./DateField.types";
 
-// `input[type="date"]` speaks "YYYY-MM-DD" in local time. Build and parse the
-// string from local date parts (not `Date`'s UTC-based ISO output) so the value
-// round-trips without a timezone shift.
-const toInputValue = (date: Date): string => {
-  const year = String(date.getFullYear()).padStart(4, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const fromInputValue = (value: string): Date | null => {
-  const [year, month, day] = value.split("-").map(Number);
-  if (!year || !month || !day) return null;
-  return new Date(year, month - 1, day);
-};
+const toPlainDate = (date: Date): Temporal.PlainDate =>
+  Temporal.PlainDate.from({
+    year: date.getFullYear(),
+    month: date.getMonth() + 1,
+    day: date.getDate(),
+  });
 
 /**
  * Web implementation of the date field. The community `DateTimePicker` renders
- * nothing on web, so web gets the browser's native `input[type="date"]` — a
- * real calendar popover, themed to match via `accentColor`/`colorScheme`.
+ * nothing on web and the browser's native `input[type="date"]` can't match our
+ * label styling, so — following the legacy dexter-app's `ButtonWithPopover` —
+ * web renders the date as a plain button that opens a themed `react-day-picker`
+ * calendar. The trigger uses the same `"Weekday, Mon D"` format as the rest of
+ * the app, and the calendar is themed from `useTheme` (daisyUI tokens in the
+ * legacy app map to our theme colors here).
  */
 export function DateField({
   accentColor,
@@ -30,30 +31,84 @@ export function DateField({
   value,
 }: TDateFieldProps) {
   const theme = useTheme();
-  const scheme = useResolvedColorScheme();
+  const [open, setOpen] = useState(false);
+  const accent = accentColor ?? theme.colors.primary;
+
+  const calendarVars = {
+    "--rdp-accent-color": accent,
+    "--rdp-accent-background-color": withOpacity(accent, 0.15),
+    "--rdp-today-color": accent,
+    "--rdp-day-width": "36px",
+    "--rdp-day-height": "36px",
+    margin: 0,
+    color: theme.colors.text,
+  } as React.CSSProperties;
 
   return (
-    <input
-      type="date"
-      data-testid={testID}
-      value={toInputValue(value)}
-      onChange={(event) => {
-        // The field can be cleared to "", which we ignore — `DayNav` and the
-        // task form always want a concrete date.
-        const next = fromInputValue(event.target.value);
-        if (next) onChange(next);
-      }}
-      style={{
-        accentColor: accentColor ?? theme.colors.primary,
-        background: "transparent",
-        border: "none",
-        color: theme.colors.text,
-        colorScheme: scheme,
-        cursor: "pointer",
-        fontFamily: "inherit",
-        fontSize: 16,
-        fontWeight: 600,
-      }}
-    />
+    <div style={{ position: "relative", display: "inline-flex" }}>
+      <button
+        data-testid={testID}
+        onClick={() => setOpen((prev) => !prev)}
+        style={{
+          background: "transparent",
+          border: "none",
+          color: theme.colors.text,
+          cursor: "pointer",
+          fontFamily: "inherit",
+          fontSize: 16,
+          fontWeight: 600,
+          padding: 0,
+        }}
+      >
+        {formatWeekdayMonthDay(toPlainDate(value))}
+      </button>
+      {open && (
+        <>
+          {/* Full-screen catcher so a click anywhere else dismisses the popover. */}
+          <div
+            onClick={() => setOpen(false)}
+            style={{ position: "fixed", inset: 0, zIndex: 998 }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: "calc(100% + 4px)",
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 999,
+              backgroundColor: theme.colors.card,
+              border: `1px solid ${withOpacity(theme.colors.text, 0.15)}`,
+              borderRadius: theme.borderRadius,
+              boxShadow: "0 4px 16px rgba(0, 0, 0, 0.2)",
+              padding: 8,
+            }}
+          >
+            <DayPicker
+              mode="single"
+              selected={value}
+              onSelect={(next) => {
+                if (next) onChange(next);
+                setOpen(false);
+              }}
+              showOutsideDays
+              weekStartsOn={1}
+              style={calendarVars}
+              modifiersStyles={{
+                today: {
+                  outline: `1px solid ${accent}`,
+                  outlineOffset: "-1px",
+                  borderRadius: theme.borderRadius,
+                },
+                selected: {
+                  backgroundColor: withOpacity(accent, 0.2),
+                  color: theme.colors.text,
+                  borderRadius: theme.borderRadius,
+                },
+              }}
+            />
+          </div>
+        </>
+      )}
+    </div>
   );
 }

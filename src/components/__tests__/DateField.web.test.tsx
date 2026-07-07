@@ -1,46 +1,71 @@
 import { fireEvent, render } from "@testing-library/react-native";
+import { Pressable, Text } from "react-native";
 
 import { DateField } from "../DateField.web";
 
-// The web field is a raw `<input type="date">`, which RNTL's TextInput-oriented
-// queries don't recognize; reach it through the test-renderer tree instead.
-const getDateInput = (screen: ReturnType<typeof render>) =>
-  screen.UNSAFE_root.findByProps({ type: "date" });
+const SELECTED_DATE = new Date(2026, 11, 25); // Dec 25, 2026 (month is 0-based)
+
+// react-day-picker is a DOM calendar with no test double; stand it in with a
+// pressable that fires `onSelect` so we can exercise the field's wiring. Its
+// stylesheet import is stubbed so Jest doesn't try to parse CSS as JS.
+const mockDayPicker = jest.fn((props: { onSelect: (date: Date) => void }) => (
+  <Pressable testID="rdp-day" onPress={() => props.onSelect(SELECTED_DATE)}>
+    <Text>25</Text>
+  </Pressable>
+));
+jest.mock("react-day-picker/style.css", () => ({}));
+jest.mock("react-day-picker", () => ({
+  DayPicker: (props: Parameters<typeof mockDayPicker>[0]) =>
+    mockDayPicker(props),
+}));
+
+const getTrigger = (screen: ReturnType<typeof render>) =>
+  screen.UNSAFE_root.findByProps({ "data-testid": "field" });
 
 describe("DateField (web)", () => {
-  it("renders the value as a YYYY-MM-DD input value in local time", () => {
+  it("renders the value as a Weekday, Mon D label", () => {
     const screen = render(
-      <DateField value={new Date(2026, 6, 3)} onChange={jest.fn()} />,
+      <DateField
+        testID="field"
+        value={new Date(2026, 6, 3)}
+        onChange={jest.fn()}
+      />,
     );
 
-    expect(getDateInput(screen).props.value).toBe("2026-07-03");
+    expect(getTrigger(screen).props.children).toBe("Friday, Jul 3");
   });
 
-  it("parses the picked YYYY-MM-DD string into a local Date", () => {
+  it("does not open the calendar until the trigger is pressed", () => {
+    const screen = render(
+      <DateField
+        testID="field"
+        value={new Date(2026, 6, 3)}
+        onChange={jest.fn()}
+      />,
+    );
+
+    expect(screen.queryByTestId("rdp-day")).toBeNull();
+
+    fireEvent(getTrigger(screen), "click");
+
+    expect(screen.queryByTestId("rdp-day")).not.toBeNull();
+  });
+
+  it("calls onChange with the picked Date and closes the calendar", () => {
     const onChange = jest.fn<void, [Date]>();
     const screen = render(
-      <DateField value={new Date(2026, 6, 3)} onChange={onChange} />,
+      <DateField
+        testID="field"
+        value={new Date(2026, 6, 3)}
+        onChange={onChange}
+      />,
     );
 
-    fireEvent(getDateInput(screen), "change", {
-      target: { value: "2026-12-25" },
-    });
+    fireEvent(getTrigger(screen), "click");
+    fireEvent.press(screen.getByTestId("rdp-day"));
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    const picked = onChange.mock.calls[0][0];
-    expect(picked.getFullYear()).toBe(2026);
-    expect(picked.getMonth()).toBe(11); // December (0-based)
-    expect(picked.getDate()).toBe(25);
-  });
-
-  it("ignores a cleared input instead of emitting an invalid date", () => {
-    const onChange = jest.fn();
-    const screen = render(
-      <DateField value={new Date(2026, 6, 3)} onChange={onChange} />,
-    );
-
-    fireEvent(getDateInput(screen), "change", { target: { value: "" } });
-
-    expect(onChange).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalledWith(SELECTED_DATE);
+    expect(screen.queryByTestId("rdp-day")).toBeNull();
   });
 });
