@@ -2,8 +2,10 @@
 name: review-bugbot
 description: Review and fix BugBot feedback on a pull request. Use when BugBot (cursor[bot]) has left review comments on a PR and you want to address them.
 argument-hint: [optional PR number, e.g. 149]
-allowed-tools: Bash(git *), Bash(gh *), Read, Grep, Glob, Edit, Write, Agent, AskUserQuestion
+allowed-tools: Bash(.claude/skills/review-bugbot/scripts/*), Bash(git *), Bash(gh *), Read, Grep, Glob, Edit, Write, Agent, AskUserQuestion
 network-access: required
+model: sonnet
+effort: medium
 ---
 
 # Review BugBot Feedback
@@ -30,67 +32,28 @@ If no PR is found, inform the user and stop.
 
 ### Step 2: Fetch BugBot comments
 
-BugBot comments are review comments attached to specific reviews. On the **pull request reviews** REST API, the reviewer is `cursor[bot]`. On **GraphQL** review threads, inline comment authors are typically `cursor`. Match both where needed.
-
-**Step 2a:** Find the latest BugBot review:
+Run the fetch script with the PR number:
 
 ```bash
-gh api repos/cvburgess/dexter/pulls/{number}/reviews \
-  --jq '[.[] | select(.user.login == "cursor[bot]" or .user.login == "cursor")] | last | .id'
+.claude/skills/review-bugbot/scripts/fetch-bugbot-threads.sh {number}
 ```
 
-**Step 2b:** Fetch comments from that review:
+It finds the latest BugBot review (handling the author-name discrepancy: `cursor[bot]` on the REST reviews API, `cursor` on GraphQL review threads), fetches that review's comments, matches each to its GraphQL review thread, and prints one JSON array of `{comment_id, thread_id, path, line, body, resolved}` objects.
 
-```bash
-gh api repos/cvburgess/dexter/pulls/{number}/reviews/{review_id}/comments \
-  --jq '[.[] | {id: .id, path: .path, line: .line, body: .body}]'
-```
+Note: threads may show as `resolved: true` in GraphQL after new commits push, but still need to be addressed if they appear in the latest review.
 
-**Step 2c:** Get the thread IDs for each comment (needed for resolving):
-
-```bash
-gh api graphql \
-  -F owner='cvburgess' -F repo='dexter' -F number={number} \
-  -f query='
-    query($owner: String!, $repo: String!, $number: Int!) {
-      repository(owner: $owner, name: $repo) {
-        pullRequest(number: $number) {
-          reviewThreads(first: 100) {
-            nodes {
-              isResolved
-              id
-              comments(first: 5) {
-                nodes {
-                  databaseId
-                  author { login }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  ' --jq '
-    [.data.repository.pullRequest.reviewThreads.nodes[]
-     | {threadId: .id, resolved: .isResolved, comments: [.comments.nodes[] | {id: .databaseId, author: .author.login}]}
-     | select(.comments | any(.author == "cursor" or .author == "cursor[bot]"))]
-  '
-```
-
-Match thread IDs to comment IDs from step 2b. Note: threads may show as `resolved: true` in GraphQL after new commits push, but still need to be addressed if they appear in the latest review.
-
-If there are no BugBot comments, inform the user and stop.
+If the script reports no BugBot review, inform the user and stop.
 
 ### Step 3: Parse each comment
 
-For each BugBot comment (inside each thread's `comments` array), extract:
+For each entry in the script's output, extract from `body`:
 
-- **Thread ID** from the parent object's `threadId` field (needed to resolve dismissed threads)
 - **Severity** (High / Medium / Low) from the markdown heading
 - **Description** from between `<!-- DESCRIPTION START -->` and `<!-- DESCRIPTION END -->`
-- **File path and lines** from the `diffHunk` and `path` fields
 - **Bug ID** from `<!-- BUGBOT_BUG_ID: ... -->`
-- **Comment ID** from the `databaseId` field (needed for replies)
+- **Exact lines** from the `LOCATIONS START/END` block (e.g. `path#L148-L167`) — the JSON `line` field is often null on BugBot comments
+
+The `comment_id` (for replies) and `thread_id` (for resolving) come directly from the JSON.
 
 ### Step 4: Evaluate and fix
 
@@ -102,13 +65,13 @@ For each comment, read the flagged file and surrounding context. Determine if th
 3. Track the comment_id and threadId for later resolution
 4. Move to the next comment
 
-**Noise** — The comment is a false positive (e.g., flagging an intentional change, misunderstanding context). Flag it to the user with a brief explanation of why it's a false positive. Draft a reply comment and offer to post it and resolve the thread. If the user approves, reply using **`in_reply_to`** (the `/comments/{id}/replies` sub-route often returns **404**):
+**Noise** — The comment is a false positive (e.g., flagging an intentional change, misunderstanding context). Flag it to the user with a brief explanation of why it's a false positive. Draft a reply comment and offer to post it and resolve the thread. If the user approves:
 
 ```bash
-gh api repos/cvburgess/dexter/pulls/{number}/comments \
-  -f body="<reply>" -F in_reply_to={comment_id}
-gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "{threadId}"}) { thread { isResolved } } }'
+.claude/skills/review-bugbot/scripts/reply-and-resolve.sh {number} {comment_id} {thread_id} "<reply>"
 ```
+
+(The script posts the reply via `in_reply_to` — the `/comments/{id}/replies` sub-route often returns **404** — then resolves the thread via GraphQL.)
 
 Process comments in order of severity: High first, then Medium, then Low.
 
@@ -130,7 +93,9 @@ Skip this step if fixes were cosmetic and the PR description is still accurate.
 If any fixes were applied:
 
 ```bash
-git add -A
+# stage only the files you fixed — avoid `git add -A`, which would sweep in
+# unrelated local edits or untracked files
+git add <files you edited>
 git commit -m "Address BugBot feedback"
 git push
 COMMIT_SHA=$(git rev-parse HEAD)
@@ -138,16 +103,14 @@ COMMIT_SHA=$(git rev-parse HEAD)
 
 ### Step 7: Resolve fixed issues
 
-For each valid issue that was fixed, reply to the BugBot comment with a link to the fixing commit and resolve the thread. Use **`POST .../pulls/{number}/comments`** with **`in_reply_to`** (same as Step 4 noise path); do not rely on `/comments/{comment_id}/replies` alone.
+For each valid issue that was fixed, reply to the BugBot comment with a link to the fixing commit and resolve the thread:
 
 ```bash
-gh api repos/cvburgess/dexter/pulls/{number}/comments \
-  -f body="Fixed in https://github.com/cvburgess/dexter/commit/{COMMIT_SHA}" \
-  -F in_reply_to={comment_id}
-gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "{threadId}"}) { thread { isResolved } } }'
+.claude/skills/review-bugbot/scripts/reply-and-resolve.sh {number} {comment_id} {thread_id} \
+  "Fixed in https://github.com/cvburgess/dexter/commit/{COMMIT_SHA}"
 ```
 
-`{comment_id}` is the numeric REST review comment id from Step 2b; it matches GraphQL `databaseId` on the same comment.
+`{comment_id}` and `{thread_id}` come from the Step 2 script output.
 
 ### Step 8: Report
 
