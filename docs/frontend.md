@@ -97,9 +97,9 @@ The EAS project is wired up via `extra.eas.projectId` and `owner` in `app.json`.
 
 ## Stack
 
-- **Expo SDK 56** (see `src/package.json` for exact versions)
+- **Expo SDK 57** (see `src/package.json` for exact versions)
 - **iOS deployment target 26.0** — set via the `expo-build-properties` plugin in `app.json`; the tab bar's bottom accessory (and other planned features) require iOS 26+
-- **React 19.2** / **React Native 0.85** with **react-native-web** for web
+- **React 19.2** / **React Native 0.86** with **react-native-web** for web
 - **React Compiler** enabled via `experiments.reactCompiler` in `app.json`
 - **`react-native-gesture-handler`** / **`react-native-reanimated`** back the Today tab's swipe-to-change-days gesture (`components/SwipeableDay.tsx`). `GestureHandlerRootView` is mounted once at the root in `app/_layout.tsx`, which any future gesture-driven feature (e.g. task drag-and-drop) can build on.
 - **TypeScript 6** — `tsconfig.json` extends `expo/tsconfig.base`
