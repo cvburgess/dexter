@@ -129,7 +129,7 @@ function Section({
 }: {
   title: string;
   theme: Theme;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <View style={styles.section}>
