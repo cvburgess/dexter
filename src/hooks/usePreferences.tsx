@@ -28,7 +28,10 @@ export const usePreferences = (options?: THookOptions): TUsePreferences => {
   const queryClient = useQueryClient();
 
   const { data: preferences = defaultPreferences } = useQuery({
-    enabled: !options?.skipQuery,
+    // Gate on `userId` so unauthenticated screens (e.g. login, which still call
+    // `useTheme` → `ThemeProvider`) don't fire a preferences query that RLS
+    // would reject; they fall back to `defaultPreferences`.
+    enabled: !!userId && !options?.skipQuery,
     placeholderData: defaultPreferences,
     queryKey: ["preferences"],
     queryFn: () => getPreferences(supabase),
