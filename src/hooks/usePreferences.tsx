@@ -49,13 +49,31 @@ export const usePreferences = (options?: THookOptions): TUsePreferences => {
   const { mutate: update } = useMutation<
     TPreferences,
     Error,
-    Omit<TUpdatePreferences, "userId">
+    Omit<TUpdatePreferences, "userId">,
+    { previous?: TPreferences }
   >({
     mutationFn: (diff) => {
       if (!userId) throw new Error("Cannot update preferences without a user");
       return updatePreferences(supabase, { userId, ...diff });
     },
-    onSuccess: () => {
+    // Optimistically write the change into the cache so the app re-themes
+    // immediately instead of waiting for the round-trip + refetch; roll back if
+    // the save fails.
+    onMutate: async (diff) => {
+      await queryClient.cancelQueries({ queryKey: ["preferences"] });
+      const previous = queryClient.getQueryData<TPreferences>(["preferences"]);
+      queryClient.setQueryData<TPreferences>(["preferences"], {
+        ...(previous ?? defaultPreferences),
+        ...diff,
+      });
+      return { previous };
+    },
+    onError: (_error, _diff, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["preferences"], context.previous);
+      }
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["preferences"] });
     },
   });
