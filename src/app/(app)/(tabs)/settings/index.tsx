@@ -89,12 +89,19 @@ export default function SettingsScreen() {
         ]}
         data={SETTINGS_ITEMS}
         keyExtractor={(item) => item.slug}
-        renderItem={({ item, index }) => (
+        ItemSeparatorComponent={() => (
+          <View
+            style={[
+              styles.divider,
+              { backgroundColor: withOpacity(theme.colors.text, 0.1) },
+            ]}
+          />
+        )}
+        renderItem={({ item }) => (
           <SettingsRow
             icon={item.icon}
             title={item.title}
             subtitle={item.subtitle}
-            isLast={index === SETTINGS_ITEMS.length - 1}
             onPress={() => router.push(`/settings/${item.slug}`)}
             testID={`settings-row-${item.slug}`}
           />
@@ -108,6 +115,9 @@ const styles = StyleSheet.create({
   card: {
     borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
   },
   screen: {
     flex: 1,

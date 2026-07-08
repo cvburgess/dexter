@@ -1,29 +1,5 @@
-import { StyleSheet, Text, View } from "react-native";
+import { PlaceholderScreen } from "@/components/PlaceholderScreen";
 
-import { useTheme } from "@/utils/theme";
-
-// Placeholder — habit settings are tracked separately.
 export default function HabitsScreen() {
-  const theme = useTheme();
-
-  return (
-    <View
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-    >
-      <Text style={[styles.text, { color: theme.colors.textSecondary }]}>
-        Habits are coming soon.
-      </Text>
-    </View>
-  );
+  return <PlaceholderScreen message="Habits are coming soon." />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    alignItems: "center",
-    flex: 1,
-    justifyContent: "center",
-  },
-  text: {
-    fontSize: 14,
-  },
-});

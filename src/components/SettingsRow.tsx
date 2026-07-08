@@ -1,15 +1,13 @@
 import { SymbolView, SymbolViewProps } from "expo-symbols";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 type TSettingsRowProps = {
   icon: SymbolViewProps["name"];
   title: string;
   subtitle: string;
   onPress: () => void;
-  /** Hides the bottom divider on the last row of a grouped card. */
-  isLast?: boolean;
   testID?: string;
 };
 
@@ -18,7 +16,6 @@ export function SettingsRow({
   title,
   subtitle,
   onPress,
-  isLast = false,
   testID,
 }: TSettingsRowProps) {
   const theme = useTheme();
@@ -27,13 +24,7 @@ export function SettingsRow({
     <TouchableOpacity
       accessibilityRole="button"
       onPress={onPress}
-      style={[
-        styles.container,
-        {
-          borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
-          borderBottomColor: withOpacity(theme.colors.text, 0.1),
-        },
-      ]}
+      style={styles.container}
       testID={testID}
     >
       <SymbolView name={icon} size={22} tintColor={theme.colors.primary} />
