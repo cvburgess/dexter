@@ -21,8 +21,7 @@ jest.mock("@/components/LoadingScreen", () => {
 });
 
 type Href =
-  | string
-  | { pathname: string; params?: Record<string, string | undefined> };
+  string | { pathname: string; params?: Record<string, string | undefined> };
 
 jest.mock("expo-router", () => {
   const { Text } = require("react-native");
