@@ -25,7 +25,7 @@
 
 -- daily_habits: ownership + habit_id must reference a habit owned by the caller
 -- (habit_id is NOT NULL, so no null guard is needed).
-drop policy "Users can update their own daily habits" on "public"."daily_habits";
+drop policy if exists "Users can update their own daily habits" on "public"."daily_habits";
 create policy "Users can update their own daily habits" on "public"."daily_habits"
   as permissive
   for update
@@ -39,7 +39,7 @@ create policy "Users can update their own daily habits" on "public"."daily_habit
   );
 
 -- days: ownership only (no tenant-scoped foreign keys).
-drop policy "Users can update their own days" on "public"."days";
+drop policy if exists "Users can update their own days" on "public"."days";
 create policy "Users can update their own days" on "public"."days"
   as permissive
   for update
@@ -48,7 +48,7 @@ create policy "Users can update their own days" on "public"."days"
   with check ((( SELECT auth.uid() AS uid) = user_id));
 
 -- goals: ownership only.
-drop policy "Users can update their own goals" on "public"."goals";
+drop policy if exists "Users can update their own goals" on "public"."goals";
 create policy "Users can update their own goals" on "public"."goals"
   as permissive
   for update
@@ -57,7 +57,7 @@ create policy "Users can update their own goals" on "public"."goals"
   with check ((( SELECT auth.uid() AS uid) = user_id));
 
 -- habits: ownership only.
-drop policy "Users can update their own habits" on "public"."habits";
+drop policy if exists "Users can update their own habits" on "public"."habits";
 create policy "Users can update their own habits" on "public"."habits"
   as permissive
   for update
@@ -66,7 +66,7 @@ create policy "Users can update their own habits" on "public"."habits"
   with check ((( SELECT auth.uid() AS uid) = user_id));
 
 -- lists: ownership only.
-drop policy "Users can update their own lists" on "public"."lists";
+drop policy if exists "Users can update their own lists" on "public"."lists";
 create policy "Users can update their own lists" on "public"."lists"
   as permissive
   for update
@@ -75,7 +75,7 @@ create policy "Users can update their own lists" on "public"."lists"
   with check ((( SELECT auth.uid() AS uid) = user_id));
 
 -- preferences: ownership only.
-drop policy "Users can update their own preferences" on "public"."preferences";
+drop policy if exists "Users can update their own preferences" on "public"."preferences";
 create policy "Users can update their own preferences" on "public"."preferences"
   as permissive
   for update
@@ -86,7 +86,7 @@ create policy "Users can update their own preferences" on "public"."preferences"
 -- repeat_task_templates: ownership + preserve the cron schedule validation
 -- (including its NULL tolerance, matching the INSERT policy) + list_id/goal_id
 -- must reference rows owned by the caller (both nullable).
-drop policy "Users can update their own valid repeat task templates" on "public"."repeat_task_templates";
+drop policy if exists "Users can update their own valid repeat task templates" on "public"."repeat_task_templates";
 create policy "Users can update their own valid repeat task templates" on "public"."repeat_task_templates"
   as permissive
   for update
@@ -105,7 +105,7 @@ create policy "Users can update their own valid repeat task templates" on "publi
 
 -- tasks: ownership + list_id/goal_id/template_id/subtask_of must reference rows
 -- owned by the caller (all nullable).
-drop policy "Users can update their own tasks" on "public"."tasks";
+drop policy if exists "Users can update their own tasks" on "public"."tasks";
 create policy "Users can update their own tasks" on "public"."tasks"
   as permissive
   for update
