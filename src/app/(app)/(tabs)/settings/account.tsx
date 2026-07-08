@@ -1,13 +1,7 @@
+import { Session } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import {
-  Alert,
-  Image,
-  Platform,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Alert, Image, Platform, StyleSheet, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
 import { deleteAccount, signOut, useAuth } from "@/hooks/useAuth";
@@ -117,11 +111,7 @@ export default function AccountScreen() {
   );
 }
 
-function UserProfile({
-  session,
-}: {
-  session: NonNullable<ReturnType<typeof useAuth>["session"]>;
-}) {
+function UserProfile({ session }: { session: Session }) {
   const theme = useTheme();
   const { user } = session;
 
@@ -161,7 +151,12 @@ function UserProfile({
             { backgroundColor: theme.colors.primary },
           ]}
         >
-          <Text style={[styles.avatarInitial, { color: theme.colors.primaryContent }]}>
+          <Text
+            style={[
+              styles.avatarInitial,
+              { color: theme.colors.primaryContent },
+            ]}
+          >
             {initial}
           </Text>
         </View>
