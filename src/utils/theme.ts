@@ -1,5 +1,13 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useState,
+} from "react";
 import { Platform, useColorScheme } from "react-native";
+
+import { EThemeMode } from "@/api/preferences";
 
 export interface Theme {
   borderRadius: number;
@@ -47,8 +55,13 @@ const baseTheme: Omit<Theme, "colors"> = {
   spacing: 16,
 };
 
-// Brand colors converted from the daisyUI "dexter" theme (oklch → hex).
-const lightTheme: Theme = {
+// Each theme is a daisyUI theme ported oklch → hex. The Theme fields map onto
+// daisyUI tokens as: background = base-200, card = base-100, text = base-content,
+// primary/error/success = the matching token + its `-content` pair, and the
+// priority arrays = [warning, error, info, base-100, neutral] with their
+// `-content` pairs. "dexter" is Dexter's custom brand theme (green primary on a
+// warm base); the rest are faithful ports of the daisyUI themes of the same name.
+const dexter: Theme = {
   ...baseTheme,
   colors: {
     primary: "#00674f",
@@ -66,11 +79,49 @@ const lightTheme: Theme = {
   },
 };
 
-const darkTheme: Theme = {
+const light: Theme = {
   ...baseTheme,
   colors: {
-    primary: "#00674f",
-    primaryContent: "#c3ffcf",
+    primary: "#422ad5",
+    primaryContent: "#e0e7ff",
+    background: "#f8f8f8",
+    card: "#ffffff",
+    text: "#18181b",
+    textSecondary: "rgba(24, 24, 27, 0.6)",
+    error: "#ff627d",
+    errorContent: "#4d0218",
+    success: "#00d390",
+    successContent: "#004c39",
+    priority: ["#fcb700", "#ff627d", "#00bafe", "#ffffff", "#09090b"],
+    priorityContent: ["#793205", "#4d0218", "#042e49", "#18181b", "#e4e4e7"],
+  },
+};
+
+// daisyUI "dim" — muted dark accents (the look DEX-23 shipped as the app's
+// original single dark theme).
+const dim: Theme = {
+  ...baseTheme,
+  colors: {
+    primary: "#9fe88d",
+    primaryContent: "#091307",
+    background: "#242933",
+    card: "#2a303c",
+    text: "#b2ccd6",
+    textSecondary: "rgba(178, 204, 214, 0.6)",
+    error: "#ffae9b",
+    errorContent: "#160b09",
+    success: "#62efbd",
+    successContent: "#03140d",
+    priority: ["#efd057", "#ffae9b", "#28ebff", "#2a303c", "#1c212b"],
+    priorityContent: ["#141003", "#160b09", "#011316", "#b2ccd6", "#b2ccd6"],
+  },
+};
+
+const dark: Theme = {
+  ...baseTheme,
+  colors: {
+    primary: "#605dff",
+    primaryContent: "#edf1fe",
     background: "#191e24",
     card: "#1d232a",
     text: "#ecf9ff",
@@ -79,14 +130,56 @@ const darkTheme: Theme = {
     errorContent: "#4d0218",
     success: "#00d390",
     successContent: "#004c39",
-    // Priority accents in dark mode come from daisyUI's muted "dim" theme
-    // (warning / error / info / base-100 / neutral, oklch → hex), matching how
-    // dexter-app rendered dark mode. The light theme keeps the bolder "dexter"
-    // theme accents above.
-    priority: ["#efd057", "#ffae9b", "#28ebff", "#2a303c", "#1c212b"],
-    priorityContent: ["#141003", "#160b09", "#011316", "#b2ccd6", "#b2ccd6"],
+    priority: ["#fcb700", "#ff627d", "#00bafe", "#1d232a", "#09090b"],
+    priorityContent: ["#793205", "#4d0218", "#042e49", "#ecf9ff", "#e4e4e7"],
   },
 };
+
+const abyss: Theme = {
+  ...baseTheme,
+  colors: {
+    primary: "#bdff00",
+    primaryContent: "#427600",
+    background: "#00111d",
+    card: "#001e29",
+    text: "#ffd6a7",
+    textSecondary: "rgba(255, 214, 167, 0.6)",
+    error: "#f04e4f",
+    errorContent: "#690000",
+    success: "#01df72",
+    successContent: "#022d14",
+    priority: ["#ffbf00", "#f04e4f", "#00bafe", "#001e29", "#003843"],
+    priorityContent: ["#854200", "#690000", "#042e49", "#ffd6a7", "#ffd6a7"],
+  },
+};
+
+/** All selectable themes, keyed by the value stored in `preferences.light_theme` / `dark_theme`. */
+export const themes: Record<string, Theme> = {
+  dexter,
+  light,
+  dim,
+  dark,
+  abyss,
+};
+
+/** Fallbacks when a stored theme name is missing or unknown. */
+const DEFAULT_LIGHT_THEME = "dexter";
+const DEFAULT_DARK_THEME = "dark";
+
+export type TThemeMeta = {
+  name: string;
+  label: string;
+  mode: "light" | "dark";
+};
+
+/** Themes offered in the Appearance picker, grouped by the mode they belong to. */
+export const THEMES: TThemeMeta[] = [
+  { name: "dexter", label: "Dexter", mode: "light" },
+  { name: "light", label: "Light", mode: "light" },
+  { name: "dim", label: "Dim", mode: "dark" },
+  { name: "dark", label: "Dark", mode: "dark" },
+  { name: "abyss", label: "Abyss", mode: "dark" },
+];
 
 // useLayoutEffect logs a warning when there is no DOM, so fall back to
 // useEffect off-client. On the client it fires before paint.
@@ -109,8 +202,56 @@ export function useResolvedColorScheme(): "light" | "dark" {
   return systemScheme === "dark" ? "dark" : "light";
 }
 
+/** The subset of preferences that drives theme resolution. */
+type TThemePreferences = {
+  themeMode: EThemeMode;
+  lightTheme: string;
+  darkTheme: string;
+};
+
+/**
+ * Resolves the active theme from the user's preferences and the OS color
+ * scheme. `SYSTEM` mode follows the OS; `LIGHT`/`DARK` force the scheme. An
+ * unknown stored theme name falls back to the default for the resolved scheme.
+ */
+export function resolveTheme(
+  preferences: TThemePreferences,
+  systemScheme: "light" | "dark",
+): Theme {
+  const scheme =
+    preferences.themeMode === EThemeMode.LIGHT
+      ? "light"
+      : preferences.themeMode === EThemeMode.DARK
+        ? "dark"
+        : systemScheme;
+
+  const name =
+    scheme === "dark" ? preferences.darkTheme : preferences.lightTheme;
+  const fallback =
+    scheme === "dark"
+      ? themes[DEFAULT_DARK_THEME]
+      : themes[DEFAULT_LIGHT_THEME];
+
+  return themes[name] ?? fallback;
+}
+
+/**
+ * Holds the theme resolved from the user's saved preferences. Supplied by
+ * `ThemeProvider` (mounted inside the auth + query providers). `null` outside a
+ * provider — e.g. the root layout above those providers, unauthenticated
+ * screens, or tests — where `useTheme` falls back to an OS-driven default.
+ */
+export const ThemeContext = createContext<Theme | null>(null);
+
 export function useTheme(): Theme {
-  return useResolvedColorScheme() === "dark" ? darkTheme : lightTheme;
+  const provided = useContext(ThemeContext);
+  const scheme = useResolvedColorScheme();
+  return (
+    provided ??
+    (scheme === "dark"
+      ? themes[DEFAULT_DARK_THEME]
+      : themes[DEFAULT_LIGHT_THEME])
+  );
 }
 
 /**
