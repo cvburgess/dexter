@@ -5,6 +5,13 @@
 // Setup type definitions for built-in Supabase Runtime APIs
 import "@supabase/functions-js/edge-runtime.d.ts";
 
+import {
+  buildOutboundHeaders,
+  checkTargetSafety,
+  type TargetError,
+  validateIcsUrl,
+} from "./validation.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -12,16 +19,95 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, OPTIONS",
 };
 
-// Function to check if the URL ends with .ics
-function isIcsFile(url: string): boolean {
-  try {
-    return url.toLowerCase().endsWith(".ics");
-  } catch {
-    return false;
-  }
+// Abort the upstream fetch if it does not complete within this window.
+const FETCH_TIMEOUT_MS = 10_000;
+
+// Cap the proxied feed size. Calendar feeds are text and typically well under
+// 1 MB; this bounds memory use and prevents the proxy being used to relay large
+// payloads.
+const MAX_BODY_BYTES = 5 * 1024 * 1024;
+
+// Follow at most this many redirects, re-validating each hop.
+const MAX_REDIRECTS = 5;
+
+function jsonResponse(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    status,
+  });
 }
 
-// Main handler function using Deno.serve
+// Fetches the target, following redirects manually so each hop is re-checked
+// against the SSRF/scheme rules. Deno (unlike browsers) exposes the Location
+// header on a `redirect: "manual"` response, which lets us validate the next
+// hop before following it — closing the redirect-to-private-host bypass.
+async function fetchSafely(
+  initialUrl: URL,
+  signal: AbortSignal,
+): Promise<Response | TargetError> {
+  let target = initialUrl;
+
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    const response = await fetch(target, {
+      headers: buildOutboundHeaders(),
+      redirect: "manual",
+      signal,
+    });
+
+    const isRedirect = response.status >= 300 && response.status < 400;
+    if (!isRedirect) return response;
+
+    const location = response.headers.get("location");
+    await response.body?.cancel();
+    if (!location) {
+      return { status: 502, error: "Upstream returned an invalid redirect" };
+    }
+
+    let next: URL;
+    try {
+      next = new URL(location, target);
+    } catch {
+      return { status: 502, error: "Upstream returned an invalid redirect" };
+    }
+
+    const unsafe = checkTargetSafety(next);
+    if (unsafe) return unsafe;
+    target = next;
+  }
+
+  return { status: 502, error: "Too many redirects" };
+}
+
+// Reads the response body as UTF-8 text, aborting if it exceeds maxBytes.
+// Calendar feeds are always text, so decoding here is safe and lets us return a
+// plain string. Returns null when the cap is exceeded.
+async function readCappedBody(
+  response: Response,
+  maxBytes: number,
+): Promise<string | null> {
+  if (!response.body) return "";
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let text = "";
+  let total = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      return null;
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+
+  text += decoder.decode();
+  return text;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -30,81 +116,64 @@ Deno.serve(async (req) => {
 
   // Only support GET requests
   if (req.method !== "GET") {
-    return new Response(
-      JSON.stringify({ error: "Only GET requests are supported" }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 405,
-      },
-    );
+    return jsonResponse({ error: "Only GET requests are supported" }, 405);
   }
 
+  const rawUrl = new URL(req.url).searchParams.get("url");
+  if (!rawUrl) {
+    return jsonResponse({ error: "URL parameter is required" }, 400);
+  }
+
+  const validation = validateIcsUrl(rawUrl);
+  if (!validation.ok) {
+    return jsonResponse({ error: validation.error }, validation.status);
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
   try {
-    // Get the URL from query params
-    const url = new URL(req.url).searchParams.get("url");
+    const result = await fetchSafely(validation.url, controller.signal);
+    if (!(result instanceof Response)) {
+      return jsonResponse({ error: result.error }, result.status);
+    }
 
-    // Validate that we have a URL
-    if (!url) {
-      return new Response(
-        JSON.stringify({ error: "URL parameter is required" }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 400,
-        },
+    if (!result.ok) {
+      await result.body?.cancel();
+      return jsonResponse(
+        { error: `Upstream request failed with status ${result.status}` },
+        502,
       );
     }
 
-    // Check if the URL is an .ics file
-    if (!isIcsFile(url)) {
-      return new Response(
-        JSON.stringify({ error: "Only .ics file URLs are allowed" }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 403,
-        },
-      );
+    // Reject oversized feeds up front when the upstream advertises a size.
+    const contentLength = Number(result.headers.get("Content-Length"));
+    if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
+      await result.body?.cancel();
+      return jsonResponse({ error: "Calendar feed is too large" }, 413);
     }
 
-    // Prepare headers to forward to the target URL
-    const headers = new Headers();
-
-    // Forward relevant headers from the original request
-    req.headers.forEach((value, key) => {
-      // Skip some headers that should be set by the fetch call itself
-      if (
-        !["host", "connection", "content-length"].includes(key.toLowerCase())
-      ) {
-        headers.set(key, value);
-      }
-    });
-
-    // Make the GET request to the target URL
-    const response = await fetch(url, { headers });
-
-    // Prepare response headers, including CORS headers
-    const responseHeaders = new Headers(corsHeaders);
-
-    // Forward relevant response headers from the proxied response
-    response.headers.forEach((value, key) => {
-      responseHeaders.set(key, value);
-    });
-
-    // Set proper content type for .ics files if not already set
-    if (!responseHeaders.has("Content-Type")) {
-      responseHeaders.set("Content-Type", "text/calendar");
+    const body = await readCappedBody(result, MAX_BODY_BYTES);
+    if (body === null) {
+      return jsonResponse({ error: "Calendar feed is too large" }, 413);
     }
 
-    // Return the proxied response with status and headers
-    return new Response(response.body, {
-      headers: responseHeaders,
-      status: response.status,
-      statusText: response.statusText,
+    // Return only the calendar payload with our own headers. Upstream response
+    // headers (set-cookie, etc.) are intentionally not forwarded.
+    return new Response(body, {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/calendar; charset=utf-8",
+      },
+      status: 200,
     });
   } catch (error) {
-    // Handle any errors that occurred during the proxy request
-    return new Response(JSON.stringify({ error: error?.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return jsonResponse({ error: "Upstream request timed out" }, 504);
+    }
+    // Do not leak internal error details to the caller.
+    return jsonResponse({ error: "Failed to fetch calendar feed" }, 502);
+  } finally {
+    clearTimeout(timeout);
   }
 });
