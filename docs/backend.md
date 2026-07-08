@@ -1,18 +1,25 @@
 # Backend (`/supabase`)
 
-The Dexter backend is hosted on [Supabase](https://supabase.com/docs): PostgreSQL (with RLS), Auth, Storage as needed, and **Edge Functions** (Deno/TypeScript).
+The Dexter backend is hosted on [Supabase](https://supabase.com/docs):
+PostgreSQL (with RLS), Auth, Storage as needed, and **Edge Functions**
+(Deno/TypeScript).
 
 All backend config and migrations live under `/supabase`.
 
 ## Directory layout
 
-- `functions/ics-proxy/` — production Edge Function for proxying public `.ics` calendar URLs
-- `functions/mcp-server/` — MCP-compatible planning data server for authenticated AI clients
-- `migrations/` — SQL migrations (timestamped filenames), including the production baseline
+- `functions/ics-proxy/` — production Edge Function for proxying public `.ics`
+  calendar URLs
+- `functions/mcp-server/` — MCP-compatible planning data server for
+  authenticated AI clients
+- `migrations/` — SQL migrations (timestamped filenames), including the
+  production baseline
 - `config.toml` — Local Supabase CLI configuration
-- `seed.sql` — Optional seed data for local dev; the production baseline currently requires none
+- `seed.sql` — Optional seed data for local dev; the production baseline
+  currently requires none
 
-For query optimization, schema design, and RLS guidance, see the repo skill at [`.claude/skills/supabase-postgres-best-practices/SKILL.md`](../.claude/skills/supabase-postgres-best-practices/SKILL.md).
+For query optimization, schema design, and RLS guidance, see the repo skill at
+[`.claude/skills/supabase-postgres-best-practices/SKILL.md`](../.claude/skills/supabase-postgres-best-practices/SKILL.md).
 
 ## RLS policy invariants
 
@@ -33,9 +40,20 @@ Every user-owned table enables RLS with per-operation policies keyed on
 
 ## Edge Functions
 
-- Runtime is **Deno**, not Node: avoid Node-only built-ins and npm packages that assume Node.
-- Prefer JSR / `npm:` specifiers compatible with Supabase’s Edge runtime, as in each function’s `deno.json`.
-- `ics-proxy` has JWT verification disabled and requires no configured function secrets.
+- Runtime is **Deno**, not Node: avoid Node-only built-ins and npm packages that
+  assume Node.
+- Prefer JSR / `npm:` specifiers compatible with Supabase’s Edge runtime, as in
+  each function’s `deno.json`.
+- `ics-proxy` has JWT verification disabled and requires no configured function
+  secrets. Since it is publicly callable, target URLs are hardened against
+  open-proxy/SSRF abuse in `functions/ics-proxy/validation.ts`: only `http`/
+  `https` schemes are allowed, the pathname must end in `.ics` (query params
+  such as feed tokens are preserved), embedded credentials are rejected, and
+  private/ loopback/link-local/cloud-metadata hosts are blocked — including
+  across manually-followed redirect hops. Inbound headers are never forwarded
+  upstream (an explicit outbound allowlist is used) so caller credentials cannot
+  leak to the target host, and responses are bounded by a 5 MB size cap and a
+  10s timeout.
 - `mcp-server` also has Supabase JWT verification disabled at the function
   gateway so it can validate bearer tokens inline. It creates an anon-key
   Supabase client with the incoming `Authorization: Bearer <token>` header,
@@ -73,9 +91,10 @@ handshake. An unauthenticated visitor is bounced to sign-in with the
 `authorization_id` stashed and returned afterward.
 
 > **`site_url` must match the Expo web port.** The consent URL is built as
-> `{site_url}{authorization_url_path}`, so `[auth].site_url` (`http://localhost:8081`)
-> has to point at wherever the Expo web dev server actually serves. 8081 is
-> Expo's default; if you remap the port, update `site_url` or the redirect 404s.
+> `{site_url}{authorization_url_path}`, so `[auth].site_url`
+> (`http://localhost:8081`) has to point at wherever the Expo web dev server
+> actually serves. 8081 is Expo's default; if you remap the port, update
+> `site_url` or the redirect 404s.
 
 ### Pre-registering clients
 
@@ -104,11 +123,11 @@ admin API is still evolving.
 
 Redirect URIs to register for the initial clients:
 
-| Client | Redirect URI |
-| --- | --- |
-| Claude.ai / Claude Desktop | `https://claude.ai/api/mcp/auth_callback` |
-| ChatGPT | Per ChatGPT's connector docs (confirm at registration time) |
-| Cursor / Gemini | Per each client's docs |
+| Client                     | Redirect URI                                                |
+| -------------------------- | ----------------------------------------------------------- |
+| Claude.ai / Claude Desktop | `https://claude.ai/api/mcp/auth_callback`                   |
+| ChatGPT                    | Per ChatGPT's connector docs (confirm at registration time) |
+| Cursor / Gemini            | Per each client's docs                                      |
 
 **Claude Code** uses a dynamic loopback port (`http://localhost:<random>/…`),
 which a fixed pre-registered redirect URI cannot match. Enabling
@@ -125,10 +144,12 @@ deno fmt
 # deno test --allow-all --config __tests__/deno.json __tests__/
 ```
 
-**Supabase CLI** (`supabase start`, migrations, deploy) requires Docker and CLI setup; see [Supabase CLI docs](https://supabase.com/docs/guides/cli).
+**Supabase CLI** (`supabase start`, migrations, deploy) requires Docker and CLI
+setup; see [Supabase CLI docs](https://supabase.com/docs/guides/cli).
 
 ## Secrets
 
-Configure secrets via Supabase dashboard or CLI for deployed projects; reference them from function code with `Deno.env.get(...)`. Do not commit real keys.
+Configure secrets via Supabase dashboard or CLI for deployed projects; reference
+them from function code with `Deno.env.get(...)`. Do not commit real keys.
 
 Current production Edge Functions do not require committed secret names.
