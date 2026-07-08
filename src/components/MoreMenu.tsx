@@ -19,11 +19,13 @@ type TMoreMenuProps = {
   onChangePriority: (priority: ETaskPriority) => void;
   onChangeSchedule: (scheduledFor: string | null) => void;
   onChangeList: (listId: string | null) => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
 };
 
-/** Wraps `children` (the whole task card) with a long-press menu for priority, schedule, and list. */
+/** Wraps `children` (the whole task card) with a long-press menu for priority, schedule, list, and task actions. */
 export function MoreMenu({
   priority,
   scheduledFor,
@@ -31,6 +33,8 @@ export function MoreMenu({
   onChangePriority,
   onChangeSchedule,
   onChangeList,
+  onDuplicate,
+  onDelete,
   children,
   style,
 }: TMoreMenuProps) {
@@ -46,6 +50,7 @@ export function MoreMenu({
       icon: { ios: "face.smiling", android: "mood", web: "mood" } as const,
       isSubmenu: true,
     })),
+    ...getOtherSections(onDuplicate, onDelete),
   ];
 
   return (
@@ -159,3 +164,36 @@ export const getScheduleSections = (
     },
   ];
 };
+
+/**
+ * Task-management actions (Duplicate / Delete), rendered as an inline "Other"
+ * group so the actions are directly tappable rather than nested in a submenu.
+ * Delete is marked destructive so `IconMenu` styles it accordingly.
+ */
+export const getOtherSections = (
+  onDuplicate: () => void,
+  onDelete: () => void,
+): TIconMenuSection[] => [
+  {
+    title: "Other",
+    options: [
+      {
+        id: "duplicate",
+        title: "Duplicate",
+        icon: {
+          ios: "plus.square.on.square",
+          android: "content_copy",
+          web: "content_copy",
+        } as const,
+        onSelect: onDuplicate,
+      },
+      {
+        id: "delete",
+        title: "Delete",
+        icon: { ios: "trash", android: "delete", web: "delete" } as const,
+        isDestructive: true,
+        onSelect: onDelete,
+      },
+    ],
+  },
+];

@@ -1,8 +1,9 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useState } from "react";
-import { FlatList, StyleSheet, Text } from "react-native";
+import { Alert, FlatList, Platform, StyleSheet, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { duplicateTaskInput } from "@/api/tasks";
 import { DayNav } from "@/components/DayNav";
 import { SwipeableDay } from "@/components/SwipeableDay";
 import { TaskCard } from "@/components/TaskCard";
@@ -18,16 +19,36 @@ type TDayState = {
   direction: -1 | 0 | 1;
 };
 
+const confirmDeleteTask = (): Promise<boolean> => {
+  // RN's Alert is a no-op on web, so use the browser's confirm dialog there.
+  if (Platform.OS === "web") {
+    return Promise.resolve(window.confirm("Delete this task?"));
+  }
+
+  return new Promise((resolve) => {
+    Alert.alert("Delete Task", "Delete this task?", [
+      { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+      { text: "Delete", style: "destructive", onPress: () => resolve(true) },
+    ]);
+  });
+};
+
 export default function TodayScreen() {
   const theme = useTheme();
   const [day, setDay] = useState<TDayState>(() => ({
     date: Temporal.Now.plainDateISO(),
     direction: 0,
   }));
-  const [tasks, { isLoading, updateTask }] = useTasks({
+  const [tasks, { isLoading, updateTask, createTask, deleteTask }] = useTasks({
     filters: taskFiltersForDate(day.date),
   });
   usePrefetchAdjacentTasks(day.date);
+
+  const handleDelete = async (id: string) => {
+    const confirmed = await confirmDeleteTask();
+    if (!confirmed) return;
+    deleteTask(id);
+  };
 
   const changeDate = (next: Temporal.PlainDate) =>
     setDay(({ date }) => ({
@@ -72,6 +93,8 @@ export default function TodayScreen() {
             <TaskCard
               task={item}
               onUpdate={(diff) => updateTask({ id: item.id, ...diff })}
+              onDuplicate={() => createTask(duplicateTaskInput(item))}
+              onDelete={() => handleDelete(item.id)}
             />
           )}
         />

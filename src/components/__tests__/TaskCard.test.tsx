@@ -53,16 +53,47 @@ describe("TaskCard", () => {
 
   it("renders the title and due date, wrapped in the long-press menu, with no list button when no list is chosen", () => {
     const task = { ...baseTask, dueOn: "2026-07-05" };
-    const screen = render(<TaskCard task={task} onUpdate={jest.fn()} />);
+    const screen = render(
+      <TaskCard
+        task={task}
+        onUpdate={jest.fn()}
+        onDuplicate={jest.fn()}
+        onDelete={jest.fn()}
+      />,
+    );
 
     expect(screen.getByText("Write the report")).toBeTruthy();
     expect(screen.queryByLabelText("List")).toBeNull();
     expect(mockMoreMenu).toHaveBeenCalled();
   });
 
+  it("forwards duplicate and delete handlers to the more menu", () => {
+    const onDuplicate = jest.fn();
+    const onDelete = jest.fn();
+    render(
+      <TaskCard
+        task={baseTask}
+        onUpdate={jest.fn()}
+        onDuplicate={onDuplicate}
+        onDelete={onDelete}
+      />,
+    );
+
+    expect(mockMoreMenu).toHaveBeenCalledWith(
+      expect.objectContaining({ onDuplicate, onDelete }),
+    );
+  });
+
   it("shows the list button when the task has a list", () => {
     const task = { ...baseTask, listId: "list-1" };
-    const screen = render(<TaskCard task={task} onUpdate={jest.fn()} />);
+    const screen = render(
+      <TaskCard
+        task={task}
+        onUpdate={jest.fn()}
+        onDuplicate={jest.fn()}
+        onDelete={jest.fn()}
+      />,
+    );
 
     expect(screen.getByText("🏠")).toBeTruthy();
   });
@@ -74,7 +105,14 @@ describe("TaskCard", () => {
       dueOn: "2026-07-05",
       listId: "list-1",
     };
-    const screen = render(<TaskCard task={task} onUpdate={jest.fn()} />);
+    const screen = render(
+      <TaskCard
+        task={task}
+        onUpdate={jest.fn()}
+        onDuplicate={jest.fn()}
+        onDelete={jest.fn()}
+      />,
+    );
 
     expect(screen.queryByText("🏠")).toBeNull();
     expect(mockMoreMenu).not.toHaveBeenCalled();
@@ -86,7 +124,14 @@ describe("TaskCard", () => {
 
   it("skips the more menu for a won't-do task too", () => {
     const task = { ...baseTask, status: ETaskStatus.WONT_DO };
-    render(<TaskCard task={task} onUpdate={jest.fn()} />);
+    render(
+      <TaskCard
+        task={task}
+        onUpdate={jest.fn()}
+        onDuplicate={jest.fn()}
+        onDelete={jest.fn()}
+      />,
+    );
 
     expect(mockMoreMenu).not.toHaveBeenCalled();
   });
@@ -94,7 +139,12 @@ describe("TaskCard", () => {
   it("colors the whole card background by priority", () => {
     const cardBackground = (priority: ETaskPriority) => {
       const screen = render(
-        <TaskCard task={{ ...baseTask, priority }} onUpdate={jest.fn()} />,
+        <TaskCard
+          task={{ ...baseTask, priority }}
+          onUpdate={jest.fn()}
+          onDuplicate={jest.fn()}
+          onDelete={jest.fn()}
+        />,
       );
       const card = screen.getByTestId("task-card-task-1");
       return StyleSheet.flatten(card.props.style as ViewStyle[])
@@ -108,12 +158,19 @@ describe("TaskCard", () => {
 
   it("fades the card to a faint tint and mutes the text when done", () => {
     const incomplete = render(
-      <TaskCard task={baseTask} onUpdate={jest.fn()} />,
+      <TaskCard
+        task={baseTask}
+        onUpdate={jest.fn()}
+        onDuplicate={jest.fn()}
+        onDelete={jest.fn()}
+      />,
     );
     const done = render(
       <TaskCard
         task={{ ...baseTask, status: ETaskStatus.DONE }}
         onUpdate={jest.fn()}
+        onDuplicate={jest.fn()}
+        onDelete={jest.fn()}
       />,
     );
 
