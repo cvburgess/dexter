@@ -14,6 +14,23 @@ All backend config and migrations live under `/supabase`.
 
 For query optimization, schema design, and RLS guidance, see the repo skill at [`.claude/skills/supabase-postgres-best-practices/SKILL.md`](../.claude/skills/supabase-postgres-best-practices/SKILL.md).
 
+## RLS policy invariants
+
+Every user-owned table enables RLS with per-operation policies keyed on
+`auth.uid() = user_id`. Two invariants must hold for every table:
+
+- **UPDATE policies must constrain `WITH CHECK`, not just `USING`.** `USING`
+  gates the pre-update row; `WITH CHECK` gates the post-update row. An UPDATE
+  policy with `with check (true)` lets a user reassign `user_id` to another user
+  (ownership transfer). Always require `(select auth.uid()) = user_id` in
+  `WITH CHECK` so ownership is preserved across updates.
+- **Tenant-scoped foreign keys must reference rows the caller owns.** Where a
+  row points at another user-owned row (e.g. `tasks.list_id`/`goal_id`/
+  `template_id`/`subtask_of`, `repeat_task_templates.list_id`/`goal_id`,
+  `daily_habits.habit_id`), the `WITH CHECK` clause should confirm the
+  referenced row belongs to `auth.uid()` (`is null or exists (...)` for nullable
+  FKs) so a user cannot attach another user's records.
+
 ## Edge Functions
 
 - Runtime is **Deno**, not Node: avoid Node-only built-ins and npm packages that assume Node.
