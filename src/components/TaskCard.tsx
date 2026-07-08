@@ -18,9 +18,16 @@ const COMPLETE_TEXT_OPACITY = 0.25;
 type TTaskCardProps = {
   task: TTask;
   onUpdate: (diff: Omit<TUpdateTask, "id">) => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
 };
 
-export function TaskCard({ task, onUpdate }: TTaskCardProps) {
+export function TaskCard({
+  task,
+  onUpdate,
+  onDuplicate,
+  onDelete,
+}: TTaskCardProps) {
   const theme = useTheme();
   const isComplete =
     task.status === ETaskStatus.DONE || task.status === ETaskStatus.WONT_DO;
@@ -94,6 +101,8 @@ export function TaskCard({ task, onUpdate }: TTaskCardProps) {
       onChangePriority={(priority) => onUpdate({ priority })}
       onChangeSchedule={(scheduledFor) => onUpdate({ scheduledFor })}
       onChangeList={(listId) => onUpdate({ listId })}
+      onDuplicate={onDuplicate}
+      onDelete={onDelete}
       style={styles.moreMenuWrapper}
     >
       {card}

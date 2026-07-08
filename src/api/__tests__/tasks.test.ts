@@ -1,6 +1,13 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
-import { getTasks } from "@/api/tasks";
+import {
+  deleteTask,
+  duplicateTaskInput,
+  ETaskPriority,
+  ETaskStatus,
+  getTasks,
+  TTask,
+} from "@/api/tasks";
 import { Database } from "@/types/database.types";
 
 type QueryMock = Promise<{ data: unknown[]; error: null }> & {
@@ -31,5 +38,58 @@ describe("getTasks", () => {
     expect(query.order).toHaveBeenNthCalledWith(1, "status");
     expect(query.order).toHaveBeenNthCalledWith(2, "priority");
     expect(query.order).toHaveBeenNthCalledWith(3, "due_on");
+  });
+});
+
+describe("duplicateTaskInput", () => {
+  const source: TTask = {
+    id: "task-1",
+    title: "Write the report",
+    dueOn: "2026-07-05",
+    goalId: "goal-1",
+    listId: "list-1",
+    priority: ETaskPriority.URGENT,
+    scheduledFor: "2026-07-03",
+    status: ETaskStatus.IN_PROGRESS,
+    templateId: "template-1",
+  };
+
+  it("copies every copyable field, keeping status, without an id", () => {
+    expect(duplicateTaskInput(source)).toEqual({
+      title: "Write the report",
+      dueOn: "2026-07-05",
+      goalId: "goal-1",
+      listId: "list-1",
+      priority: ETaskPriority.URGENT,
+      scheduledFor: "2026-07-03",
+      status: ETaskStatus.IN_PROGRESS,
+      templateId: "template-1",
+    });
+    expect(duplicateTaskInput(source)).not.toHaveProperty("id");
+  });
+});
+
+describe("deleteTask", () => {
+  it("deletes the row matching the given id", async () => {
+    const eq = jest.fn(() => Promise.resolve({ error: null }));
+    const del = jest.fn(() => ({ eq }));
+    const from = jest.fn(() => ({ delete: del }));
+    const supabase = { from } as unknown as SupabaseClient<Database>;
+
+    await deleteTask(supabase, "task-1");
+
+    expect(from).toHaveBeenCalledWith("tasks");
+    expect(del).toHaveBeenCalled();
+    expect(eq).toHaveBeenCalledWith("id", "task-1");
+  });
+
+  it("throws when Supabase returns an error", async () => {
+    const error = new Error("delete failed");
+    const eq = jest.fn(() => Promise.resolve({ error }));
+    const del = jest.fn(() => ({ eq }));
+    const from = jest.fn(() => ({ delete: del }));
+    const supabase = { from } as unknown as SupabaseClient<Database>;
+
+    await expect(deleteTask(supabase, "task-1")).rejects.toBe(error);
   });
 });

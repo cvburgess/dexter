@@ -10,6 +10,7 @@ import { weekStartEnd } from "@/utils/weekStartEnd";
 
 import type { TIconMenuSection } from "../IconMenu.types";
 import {
+  getOtherSections,
   getPrioritySections,
   getScheduleSections,
   MoreMenu,
@@ -47,6 +48,8 @@ describe("MoreMenu", () => {
         onChangePriority={jest.fn()}
         onChangeSchedule={jest.fn()}
         onChangeList={jest.fn()}
+        onDuplicate={jest.fn()}
+        onDelete={jest.fn()}
       >
         <Text>Task row</Text>
       </MoreMenu>,
@@ -63,13 +66,57 @@ describe("MoreMenu", () => {
       "Priority",
       "Schedule",
       "List",
+      "Other",
     ]);
-    expect(sections.every((section) => section.isSubmenu)).toBe(true);
+    // Priority/Schedule/List collapse into submenus; the Other action group is
+    // inline so its actions are directly tappable.
+    expect(sections.map((section) => Boolean(section.isSubmenu))).toEqual([
+      true,
+      true,
+      true,
+      false,
+    ]);
     expect(
       sections.map((section) =>
         typeof section.icon === "object" ? section.icon.ios : section.icon,
       ),
-    ).toEqual(["exclamationmark", "calendar", "face.smiling"]);
+    ).toEqual(["exclamationmark", "calendar", "face.smiling", undefined]);
+  });
+});
+
+describe("getOtherSections", () => {
+  it("offers Duplicate and Delete as an inline group, with Delete destructive", () => {
+    const [section] = getOtherSections(jest.fn(), jest.fn());
+
+    expect(section.title).toBe("Other");
+    expect(section.isSubmenu).toBeUndefined();
+    expect(section.options.map((option) => option.title)).toEqual([
+      "Duplicate",
+      "Delete",
+    ]);
+
+    const deleteOption = section.options.find(
+      (option) => option.title === "Delete",
+    );
+    expect(deleteOption?.isDestructive).toBe(true);
+
+    const duplicateOption = section.options.find(
+      (option) => option.title === "Duplicate",
+    );
+    expect(duplicateOption?.isDestructive).toBeFalsy();
+  });
+
+  it("calls onDuplicate and onDelete when their options are selected", () => {
+    const onDuplicate = jest.fn();
+    const onDelete = jest.fn();
+    const [section] = getOtherSections(onDuplicate, onDelete);
+
+    section.options.find((option) => option.title === "Duplicate")?.onSelect();
+    expect(onDuplicate).toHaveBeenCalledTimes(1);
+    expect(onDelete).not.toHaveBeenCalled();
+
+    section.options.find((option) => option.title === "Delete")?.onSelect();
+    expect(onDelete).toHaveBeenCalledTimes(1);
   });
 });
 

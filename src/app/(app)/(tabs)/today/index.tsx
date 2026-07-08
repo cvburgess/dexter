@@ -3,9 +3,12 @@ import { useState } from "react";
 import { FlatList, StyleSheet, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { duplicateTaskInput } from "@/api/tasks";
+import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { DayNav } from "@/components/DayNav";
 import { SwipeableDay } from "@/components/SwipeableDay";
 import { TaskCard } from "@/components/TaskCard";
+import { useConfirmation } from "@/hooks/useConfirmation";
 import {
   taskFiltersForDate,
   usePrefetchAdjacentTasks,
@@ -20,14 +23,26 @@ type TDayState = {
 
 export default function TodayScreen() {
   const theme = useTheme();
+  const { confirm, confirmationProps } = useConfirmation();
   const [day, setDay] = useState<TDayState>(() => ({
     date: Temporal.Now.plainDateISO(),
     direction: 0,
   }));
-  const [tasks, { isLoading, updateTask }] = useTasks({
+  const [tasks, { isLoading, updateTask, createTask, deleteTask }] = useTasks({
     filters: taskFiltersForDate(day.date),
   });
   usePrefetchAdjacentTasks(day.date);
+
+  const handleDelete = async (id: string) => {
+    const confirmed = await confirm({
+      title: "Delete Task",
+      message: "Delete this task?",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!confirmed) return;
+    deleteTask(id);
+  };
 
   const changeDate = (next: Temporal.PlainDate) =>
     setDay(({ date }) => ({
@@ -72,10 +87,13 @@ export default function TodayScreen() {
             <TaskCard
               task={item}
               onUpdate={(diff) => updateTask({ id: item.id, ...diff })}
+              onDuplicate={() => createTask(duplicateTaskInput(item))}
+              onDelete={() => handleDelete(item.id)}
             />
           )}
         />
       </SwipeableDay>
+      <ConfirmationModal {...confirmationProps} />
     </SafeAreaView>
   );
 }

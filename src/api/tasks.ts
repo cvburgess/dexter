@@ -58,6 +58,21 @@ export type TCreateTask = {
   title: string;
 };
 
+/**
+ * Builds the `createTask` input for duplicating an existing task: copies every
+ * copyable field (including `status`) and omits the DB-generated `id`.
+ */
+export const duplicateTaskInput = (task: TTask): TCreateTask => ({
+  title: task.title,
+  dueOn: task.dueOn,
+  goalId: task.goalId,
+  listId: task.listId,
+  priority: task.priority,
+  scheduledFor: task.scheduledFor,
+  status: task.status,
+  templateId: task.templateId,
+});
+
 export const createTask = async (
   supabase: SupabaseClient<Database>,
   task: TCreateTask,
