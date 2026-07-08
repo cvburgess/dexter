@@ -44,31 +44,78 @@ function isBlockedIpv4([a, b]: [number, number, number, number]): boolean {
   return false;
 }
 
-// True when an IPv6 literal is loopback, unspecified, unique-local (fc00::/7),
-// or link-local (fe80::/10). Also unwraps IPv4-mapped addresses so an attacker
-// cannot smuggle a private IPv4 target through "::ffff:127.0.0.1" — note the URL
-// parser normalizes the embedded IPv4 to hex, e.g. "::ffff:7f00:1".
-function isBlockedIpv6(host: string): boolean {
-  if (host === "::1" || host === "::") return true;
+// Expands an IPv6 literal into its eight 16-bit hextets, resolving "::" zero
+// compression and any trailing embedded IPv4 (e.g. "::ffff:127.0.0.1"). Returns
+// null when the string is not a valid IPv6 literal. Working on the fully
+// expanded form makes range checks representation-independent — a compressed
+// literal cannot hide the leading hextet.
+function expandIpv6(input: string): number[] | null {
+  let str = input;
 
-  // IPv4-mapped address as two hex groups: ::ffff:7f00:1 => 127.0.0.1
-  const hexMapped = host.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i);
-  if (hexMapped) {
-    const hi = parseInt(hexMapped[1], 16);
-    const lo = parseInt(hexMapped[2], 16);
+  // Split off an embedded IPv4 tail; it occupies the final two hextets.
+  let ipv4Tail: number[] | null = null;
+  if (str.includes(".")) {
+    const lastColon = str.lastIndexOf(":");
+    if (lastColon === -1) return null;
+    const ipv4 = parseIpv4(str.slice(lastColon + 1));
+    if (!ipv4) return null;
+    ipv4Tail = [(ipv4[0] << 8) | ipv4[1], (ipv4[2] << 8) | ipv4[3]];
+    str = str.slice(0, lastColon);
+  }
+
+  const parseGroups = (segment: string): number[] | null => {
+    if (segment === "") return [];
+    const groups: number[] = [];
+    for (const group of segment.split(":")) {
+      if (!/^[0-9a-f]{1,4}$/.test(group)) return null;
+      groups.push(parseInt(group, 16));
+    }
+    return groups;
+  };
+
+  const halves = str.split("::");
+  if (halves.length > 2) return null;
+
+  let groups: number[];
+  if (halves.length === 2) {
+    const head = parseGroups(halves[0]);
+    const tail = parseGroups(halves[1]);
+    if (head === null || tail === null) return null;
+    const explicit = head.length + tail.length + (ipv4Tail ? 2 : 0);
+    if (explicit > 7) return null; // "::" must stand in for at least one hextet
+    const zeros = new Array(8 - explicit).fill(0);
+    groups = [...head, ...zeros, ...tail, ...(ipv4Tail ?? [])];
+  } else {
+    const head = parseGroups(halves[0]);
+    if (head === null) return null;
+    groups = [...head, ...(ipv4Tail ?? [])];
+  }
+
+  return groups.length === 8 ? groups : null;
+}
+
+// True when an IPv6 literal is loopback, unspecified, unique-local (fc00::/7),
+// or link-local (fe80::/10), or an IPv4-mapped address (::ffff:a.b.c.d) whose
+// embedded IPv4 is itself blocked. Unparseable literals are blocked defensively.
+function isBlockedIpv6(host: string): boolean {
+  const groups = expandIpv6(host);
+  if (!groups) return true;
+
+  if (groups.every((g) => g === 0)) return true; // :: unspecified
+  if (groups.slice(0, 7).every((g) => g === 0) && groups[7] === 1) return true; // ::1 loopback
+
+  const first = groups[0];
+  if ((first & 0xfe00) === 0xfc00) return true; // fc00::/7 unique-local
+  if ((first & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
+
+  // IPv4-mapped address ::ffff:a.b.c.d — check the embedded IPv4.
+  const isIpv4Mapped = groups.slice(0, 5).every((g) => g === 0) &&
+    groups[5] === 0xffff;
+  if (isIpv4Mapped) {
+    const [hi, lo] = [groups[6], groups[7]];
     return isBlockedIpv4([hi >> 8, hi & 0xff, lo >> 8, lo & 0xff]);
   }
 
-  // IPv4-mapped address kept in dotted form: ::ffff:127.0.0.1
-  const dotMapped = host.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i);
-  if (dotMapped) {
-    const ipv4 = parseIpv4(dotMapped[1]);
-    return ipv4 ? isBlockedIpv4(ipv4) : true;
-  }
-
-  const prefix = host.slice(0, 4);
-  if (prefix.startsWith("fc") || prefix.startsWith("fd")) return true; // fc00::/7
-  if (/^fe[89ab]/.test(prefix)) return true; // fe80::/10 link-local
   return false;
 }
 

@@ -84,6 +84,20 @@ Deno.test("isBlockedHostname allows public hosts", () => {
   assertEquals(isBlockedHostname("8.8.8.8"), false);
   assertEquals(isBlockedHostname("172.15.0.1"), false); // just outside 172.16/12
   assertEquals(isBlockedHostname("172.32.0.1"), false); // just outside 172.16/12
+  assertEquals(isBlockedHostname("[2606:4700::1111]"), false); // public IPv6
+});
+
+Deno.test("isBlockedHostname classifies IPv6 by expanded form", () => {
+  // Private ranges are caught regardless of how the literal is written.
+  assertEquals(isBlockedHostname("[fd12:3456:789a::1]"), true); // fc00::/7 ULA
+  assertEquals(isBlockedHostname("[fe80::abcd]"), true); // fe80::/10 link-local
+  assertEquals(isBlockedHostname("[febf::1]"), true); // fe80::/10 upper bound
+  assertEquals(isBlockedHostname("[::ffff:10.0.0.1]"), true); // IPv4-mapped private
+  // Addresses that merely *look* like a private prefix mid-word are not ULAs.
+  assertEquals(isBlockedHostname("[::fd00:1]"), false); // fd00 is not the leading hextet
+  assertEquals(isBlockedHostname("[2001:fd00::1]"), false); // global unicast
+  // Malformed literals are blocked defensively.
+  assertEquals(isBlockedHostname("[fe80::zz]"), true);
 });
 
 Deno.test("checkTargetSafety re-validates redirect hops", () => {
