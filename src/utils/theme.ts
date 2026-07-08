@@ -79,8 +79,12 @@ const darkTheme: Theme = {
     errorContent: "#4d0218",
     success: "#00d390",
     successContent: "#004c39",
-    priority: ["#fcb700", "#ff627d", "#00bafe", "#1d232a", "#09090b"],
-    priorityContent: ["#793205", "#4d0218", "#042e49", "#ecf9ff", "#e4e4e7"],
+    // Priority accents in dark mode come from daisyUI's muted "dim" theme
+    // (warning / error / info / base-100 / neutral, oklch → hex), matching how
+    // dexter-app rendered dark mode. The light theme keeps the bolder "dexter"
+    // theme accents above.
+    priority: ["#efd057", "#ffae9b", "#28ebff", "#2a303c", "#1c212b"],
+    priorityContent: ["#141003", "#160b09", "#011316", "#b2ccd6", "#b2ccd6"],
   },
 };
 

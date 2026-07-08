@@ -45,6 +45,41 @@ describe("useTheme", () => {
     expect(result.current.colors.text).toBe("#ecf9ff");
   });
 
+  it("uses the muted daisyUI 'dim' priority accents in dark mode", () => {
+    mockUseColorScheme.mockReturnValue("dark");
+
+    const { result } = renderHook(() => useTheme());
+
+    expect(result.current.colors.priority).toEqual([
+      "#efd057",
+      "#ffae9b",
+      "#28ebff",
+      "#2a303c",
+      "#1c212b",
+    ]);
+    expect(result.current.colors.priorityContent).toEqual([
+      "#141003",
+      "#160b09",
+      "#011316",
+      "#b2ccd6",
+      "#b2ccd6",
+    ]);
+  });
+
+  it("keeps the bolder 'dexter' priority accents in light mode", () => {
+    mockUseColorScheme.mockReturnValue("light");
+
+    const { result } = renderHook(() => useTheme());
+
+    expect(result.current.colors.priority).toEqual([
+      "#fcb700",
+      "#ff627d",
+      "#00bafe",
+      "#fffbf4",
+      "#593d31",
+    ]);
+  });
+
   it("returns the light theme when the device reports a light scheme", () => {
     mockUseColorScheme.mockReturnValue("light");
 
