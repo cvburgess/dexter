@@ -89,34 +89,44 @@ export function TaskCard({
     </View>
   );
 
+  // Keep the FlatList cell's root a plain, stretched View in both states.
   // Priority/schedule/list editing (and the long-press that opens it) isn't
-  // available once a task is done or won't-do, matching the buttons above.
-  if (isComplete) return card;
-
+  // available once a task is done or won't-do, so the native MoreMenu (a
+  // SwiftUI/UIKit view) is only nested in for active tasks — never swapped in
+  // as the cell root, which otherwise remeasures late and overlaps neighbours.
   return (
-    <MoreMenu
-      priority={task.priority}
-      scheduledFor={task.scheduledFor}
-      listId={task.listId}
-      onChangePriority={(priority) => onUpdate({ priority })}
-      onChangeSchedule={(scheduledFor) => onUpdate({ scheduledFor })}
-      onChangeList={(listId) => onUpdate({ listId })}
-      onDuplicate={onDuplicate}
-      onDelete={onDelete}
-      style={styles.moreMenuWrapper}
-    >
-      {card}
-    </MoreMenu>
+    <View style={styles.cardWrapper}>
+      {isComplete ? (
+        card
+      ) : (
+        <MoreMenu
+          priority={task.priority}
+          scheduledFor={task.scheduledFor}
+          listId={task.listId}
+          onChangePriority={(priority) => onUpdate({ priority })}
+          onChangeSchedule={(scheduledFor) => onUpdate({ scheduledFor })}
+          onChangeList={(listId) => onUpdate({ listId })}
+          onDuplicate={onDuplicate}
+          onDelete={onDelete}
+          style={styles.moreMenu}
+        >
+          {card}
+        </MoreMenu>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  moreMenuWrapper: {
+  // The stable cell root. Stretches to the list width so the row inside always
+  // measures its natural (single-line) height regardless of complete state.
+  cardWrapper: {
+    alignSelf: "stretch",
+  },
+  moreMenu: {
     alignSelf: "stretch",
   },
   container: {
-    // Complete cards render bare (no MoreMenu wrapper); without this they don't
-    // fill the list width and the flex row mis-measures into an oversized cell.
     alignSelf: "stretch",
     alignItems: "center",
     borderRadius: 12,
