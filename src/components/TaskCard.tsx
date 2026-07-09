@@ -124,6 +124,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: "row",
     gap: 8,
+    // Floor of padding (16×2) + button height (32). A completed card's only
+    // height-defining child is the StatusButton's native menu host, whose
+    // async sizing can transiently report 0 — without this floor the row
+    // (or a whole list of completed tasks) collapses blank. A floor, not a
+    // fixed height, so multi-line titles can still grow the card.
+    minHeight: 64,
     overflow: "hidden",
     padding: 16,
   },

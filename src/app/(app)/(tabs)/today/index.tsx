@@ -70,10 +70,11 @@ export default function TodayScreen() {
         direction={day.direction}
         onSwipe={changeDateBy}
       >
-        {/* A plain ScrollView (not FlatList) lays every card out in normal flow
-            so heights — including the native long-press menu wrapper, which
-            reports its size late — are always measured correctly. A single
-            day's task list is small, so virtualization isn't needed. */}
+        {/* A plain ScrollView (not FlatList): a day's list is small, so
+            virtualization buys nothing — and the cards contain @expo/ui menu
+            hosts that size asynchronously, which virtualized off-viewport
+            mounting makes worse (expo/expo#42576). The cards themselves pin
+            their heights (see TaskCard/StatusButton) so layout stays stable. */}
         <ScrollView style={styles.scroll} contentContainerStyle={styles.list}>
           {tasks.length === 0
             ? !isLoading && (

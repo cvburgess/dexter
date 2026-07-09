@@ -22,7 +22,14 @@ export function ListButton({
   const sections = getListSections(lists, listId, onChangeList);
 
   return (
-    <IconMenu accessibilityLabel="List" menuTitle="List" sections={sections}>
+    <IconMenu
+      accessibilityLabel="List"
+      menuTitle="List"
+      sections={sections}
+      // Pin the native menu host to the trigger's size — see StatusButton for
+      // why the async Host sizing must not drive the task card row's height.
+      style={styles.menu}
+    >
       <View
         style={[
           styles.button,
@@ -61,6 +68,10 @@ export const getListSections = (
 ];
 
 const styles = StyleSheet.create({
+  menu: {
+    height: 32,
+    width: 32,
+  },
   button: {
     alignItems: "center",
     borderRadius: 999,

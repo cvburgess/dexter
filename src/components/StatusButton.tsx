@@ -23,6 +23,11 @@ export function StatusButton({
       accessibilityLabel="Status"
       menuTitle="Status"
       sections={sections}
+      // Pin the native menu host to the trigger's size. Without explicit
+      // dimensions, @expo/ui's Host sizes itself asynchronously from SwiftUI
+      // (matchContents), and on the new architecture that late report can
+      // momentarily be 0 or wrong — collapsing or ballooning the task card row.
+      style={styles.menu}
     >
       <View
         style={[
@@ -97,6 +102,10 @@ const glyphForStatus = (status: ETaskStatus) => {
 };
 
 const styles = StyleSheet.create({
+  menu: {
+    height: 32,
+    width: 32,
+  },
   button: {
     alignItems: "center",
     borderRadius: 999,

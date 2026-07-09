@@ -136,22 +136,30 @@ describe("TaskCard", () => {
     expect(mockMoreMenu).not.toHaveBeenCalled();
   });
 
-  it("stretches a completed card to full width so it keeps its normal height", () => {
-    // The done card renders bare (no MoreMenu wrapper); without alignSelf it
-    // mis-measures into an oversized cell that overlaps the cards below it.
-    const screen = render(
-      <TaskCard
-        task={{ ...baseTask, status: ETaskStatus.DONE }}
-        onUpdate={jest.fn()}
-        onDuplicate={jest.fn()}
-        onDelete={jest.fn()}
-      />,
-    );
+  it.each([
+    ["completed", ETaskStatus.DONE],
+    ["incomplete", ETaskStatus.TODO],
+  ])(
+    "stretches a %s card to full width with a height floor so async native sizing can't collapse or balloon it",
+    (_label, status) => {
+      // A completed card's only height-defining child is the StatusButton's
+      // native menu host, which sizes asynchronously — without alignSelf +
+      // minHeight the row can render blank or oversized and overlap others.
+      const screen = render(
+        <TaskCard
+          task={{ ...baseTask, status }}
+          onUpdate={jest.fn()}
+          onDuplicate={jest.fn()}
+          onDelete={jest.fn()}
+        />,
+      );
 
-    const card = screen.getByTestId("task-card-task-1");
-    const flatStyle = StyleSheet.flatten(card.props.style as ViewStyle[]);
-    expect(flatStyle.alignSelf).toBe("stretch");
-  });
+      const card = screen.getByTestId("task-card-task-1");
+      const flatStyle = StyleSheet.flatten(card.props.style as ViewStyle[]);
+      expect(flatStyle.alignSelf).toBe("stretch");
+      expect(flatStyle.minHeight).toBe(64);
+    },
+  );
 
   it("colors the whole card background by priority", () => {
     const cardBackground = (priority: ETaskPriority) => {
