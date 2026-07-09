@@ -33,9 +33,12 @@ jest.mock("@/hooks/useLists", () => ({
 
 const mockRouter = { back: jest.fn(), push: jest.fn() };
 const mockNavigation = { setOptions: jest.fn() };
+// Holds the route params NewTaskButton passes (e.g. the viewed day); reset per test.
+const mockSearchParams: { current: Record<string, string> } = { current: {} };
 jest.mock("expo-router", () => ({
   useNavigation: () => mockNavigation,
   useRouter: () => mockRouter,
+  useLocalSearchParams: () => mockSearchParams.current,
 }));
 
 // The header buttons are wired via navigation.setOptions on every render;
@@ -53,6 +56,7 @@ describe("NewTaskScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     listsState.isLoading = false;
+    mockSearchParams.current = {};
     mockCreateTask.mockImplementation((_task, callbacks) => {
       callbacks?.onSuccess?.();
     });
@@ -111,6 +115,23 @@ describe("NewTaskScreen", () => {
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
     expect(mockRouter.back).toHaveBeenCalled();
+  });
+
+  it("schedules the task for the viewed day passed as a route param", () => {
+    mockSearchParams.current = { scheduledFor: "2026-07-08" };
+    const screen = render(<NewTaskScreen />);
+
+    fireEvent.changeText(screen.getByTestId("new-task-title"), "Plan the week");
+    const save = render(headerOptions().headerRight());
+    fireEvent.press(save.getByTestId("modal-done-button"));
+
+    expect(mockCreateTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Plan the week",
+        scheduledFor: "2026-07-08",
+      }),
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
   });
 
   it("saves a manually selected priority over a typed token", () => {

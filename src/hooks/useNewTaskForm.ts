@@ -28,10 +28,14 @@ export type TNewTaskForm = {
  * (`!` priority, `#list-slug`, `due:N`) drive the matching controls live;
  * once a control is changed manually, the manual value wins over tokens.
  */
-export const useNewTaskForm = (lists: TList[]): TNewTaskForm => {
+export const useNewTaskForm = (
+  lists: TList[],
+  /** ISO date to schedule the task for; defaults to today when omitted. */
+  defaultScheduledFor?: string,
+): TNewTaskForm => {
   const [title, setTitle] = useState("");
-  const [scheduledFor, setScheduledFor] = useState(() =>
-    Temporal.Now.plainDateISO().toString(),
+  const [scheduledFor, setScheduledFor] = useState(
+    () => defaultScheduledFor ?? Temporal.Now.plainDateISO().toString(),
   );
 
   // `undefined` means "no manual override yet — follow the shorthand tokens".

@@ -1,5 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { useNavigation, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useLayoutEffect, useRef } from "react";
 import {
   Alert,
@@ -56,7 +56,9 @@ export default function NewTaskScreen() {
   const router = useRouter();
   const [lists, { isLoading: isLoadingLists }] = useLists();
   const [, { createTask }] = useTasks({ skipQuery: true });
-  const form = useNewTaskForm(lists);
+  // Set by NewTaskButton to the day the user was viewing; absent → today.
+  const { scheduledFor } = useLocalSearchParams<{ scheduledFor?: string }>();
+  const form = useNewTaskForm(lists, scheduledFor);
   const hasSaved = useRef(false);
 
   // Saving waits for lists so `#list` tokens in the title can resolve, and

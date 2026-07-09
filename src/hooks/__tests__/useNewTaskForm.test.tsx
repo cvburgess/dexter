@@ -26,6 +26,19 @@ describe("useNewTaskForm", () => {
     expect(result.current.canSave).toBe(false);
   });
 
+  it("schedules for the provided default date instead of today", () => {
+    const { result } = renderHook(() => useNewTaskForm([], "2026-07-08"));
+
+    expect(result.current.scheduledFor).toBe("2026-07-08");
+    expect(result.current.task.scheduledFor).toBe("2026-07-08");
+  });
+
+  it("falls back to today when no default date is provided", () => {
+    const { result } = renderHook(() => useNewTaskForm([], undefined));
+
+    expect(result.current.scheduledFor).toBe(today().toString());
+  });
+
   it("cannot save a whitespace-only title", () => {
     const { result } = renderHook(() => useNewTaskForm([]));
 

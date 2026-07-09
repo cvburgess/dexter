@@ -14,6 +14,7 @@ import {
   usePrefetchAdjacentTasks,
   useTasks,
 } from "@/hooks/useTasks";
+import { usePublishViewedDay } from "@/hooks/useViewedDay";
 import { useTheme } from "@/utils/theme";
 
 type TDayState = {
@@ -32,6 +33,8 @@ export default function TodayScreen() {
     filters: taskFiltersForDate(day.date),
   });
   usePrefetchAdjacentTasks(day.date);
+  // So "New Task" opened from this tab defaults its schedule to the viewed day.
+  usePublishViewedDay(day.date);
 
   const handleDelete = async (id: string) => {
     const confirmed = await confirm({
