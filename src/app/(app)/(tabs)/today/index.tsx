@@ -74,7 +74,7 @@ export default function TodayScreen() {
             so heights — including the native long-press menu wrapper, which
             reports its size late — are always measured correctly. A single
             day's task list is small, so virtualization isn't needed. */}
-        <ScrollView contentContainerStyle={styles.list}>
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.list}>
           {tasks.length === 0
             ? !isLoading && (
                 <Text
@@ -104,6 +104,11 @@ export default function TodayScreen() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  // Bound the scroll view's height to its flex parent so the day's tasks
+  // scroll when they overflow, instead of being clipped.
+  scroll: {
     flex: 1,
   },
   list: {
