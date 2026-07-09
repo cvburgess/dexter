@@ -1,6 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useState } from "react";
-import { FlatList, StyleSheet, Text } from "react-native";
+import { ScrollView, StyleSheet, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { duplicateTaskInput } from "@/api/tasks";
@@ -70,31 +70,32 @@ export default function TodayScreen() {
         direction={day.direction}
         onSwipe={changeDateBy}
       >
-        <FlatList
-          contentContainerStyle={styles.list}
-          data={tasks}
-          keyExtractor={(task) => task.id}
-          ListEmptyComponent={
-            isLoading ? null : (
-              <Text
-                style={[
-                  styles.emptyText,
-                  { color: theme.colors.textSecondary },
-                ]}
-              >
-                No tasks scheduled for this day.
-              </Text>
-            )
-          }
-          renderItem={({ item }) => (
-            <TaskCard
-              task={item}
-              onUpdate={(diff) => updateTask({ id: item.id, ...diff })}
-              onDuplicate={() => createTask(duplicateTaskInput(item))}
-              onDelete={() => handleDelete(item.id)}
-            />
-          )}
-        />
+        {/* A plain ScrollView (not FlatList) lays every card out in normal flow
+            so heights — including the native long-press menu wrapper, which
+            reports its size late — are always measured correctly. A single
+            day's task list is small, so virtualization isn't needed. */}
+        <ScrollView contentContainerStyle={styles.list}>
+          {tasks.length === 0
+            ? !isLoading && (
+                <Text
+                  style={[
+                    styles.emptyText,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  No tasks scheduled for this day.
+                </Text>
+              )
+            : tasks.map((item) => (
+                <TaskCard
+                  key={item.id}
+                  task={item}
+                  onUpdate={(diff) => updateTask({ id: item.id, ...diff })}
+                  onDuplicate={() => createTask(duplicateTaskInput(item))}
+                  onDelete={() => handleDelete(item.id)}
+                />
+              ))}
+        </ScrollView>
       </SwipeableDay>
       <ConfirmationModal {...confirmationProps} />
     </SafeAreaView>

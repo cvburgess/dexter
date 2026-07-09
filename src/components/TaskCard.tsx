@@ -89,44 +89,35 @@ export function TaskCard({
     </View>
   );
 
-  // Keep the FlatList cell's root a plain, stretched View in both states.
   // Priority/schedule/list editing (and the long-press that opens it) isn't
-  // available once a task is done or won't-do, so the native MoreMenu (a
-  // SwiftUI/UIKit view) is only nested in for active tasks — never swapped in
-  // as the cell root, which otherwise remeasures late and overlaps neighbours.
+  // available once a task is done or won't-do, matching the buttons above.
+  if (isComplete) return card;
+
   return (
-    <View style={styles.cardWrapper}>
-      {isComplete ? (
-        card
-      ) : (
-        <MoreMenu
-          priority={task.priority}
-          scheduledFor={task.scheduledFor}
-          listId={task.listId}
-          onChangePriority={(priority) => onUpdate({ priority })}
-          onChangeSchedule={(scheduledFor) => onUpdate({ scheduledFor })}
-          onChangeList={(listId) => onUpdate({ listId })}
-          onDuplicate={onDuplicate}
-          onDelete={onDelete}
-          style={styles.moreMenu}
-        >
-          {card}
-        </MoreMenu>
-      )}
-    </View>
+    <MoreMenu
+      priority={task.priority}
+      scheduledFor={task.scheduledFor}
+      listId={task.listId}
+      onChangePriority={(priority) => onUpdate({ priority })}
+      onChangeSchedule={(scheduledFor) => onUpdate({ scheduledFor })}
+      onChangeList={(listId) => onUpdate({ listId })}
+      onDuplicate={onDuplicate}
+      onDelete={onDelete}
+      style={styles.moreMenuWrapper}
+    >
+      {card}
+    </MoreMenu>
   );
 }
 
 const styles = StyleSheet.create({
-  // The stable cell root. Stretches to the list width so the row inside always
-  // measures its natural (single-line) height regardless of complete state.
-  cardWrapper: {
-    alignSelf: "stretch",
-  },
-  moreMenu: {
+  moreMenuWrapper: {
     alignSelf: "stretch",
   },
   container: {
+    // Both branches stretch to the list width so the row measures its natural
+    // single-line height (the complete branch renders without the MoreMenu
+    // wrapper that would otherwise supply the stretch).
     alignSelf: "stretch",
     alignItems: "center",
     borderRadius: 12,
