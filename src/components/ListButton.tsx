@@ -22,25 +22,27 @@ export function ListButton({
   const sections = getListSections(lists, listId, onChangeList);
 
   return (
-    <IconMenu
-      accessibilityLabel="List"
-      menuTitle="List"
-      sections={sections}
-      // Pin the native menu host to the trigger's size — see StatusButton for
-      // why the async Host sizing must not drive the task card row's height.
-      style={styles.menu}
-    >
-      <View
-        style={[
-          styles.button,
-          { borderColor: withOpacity(contentColor, 0.25) },
-        ]}
+    // Cage the native menu host in a fixed-size plain View — see StatusButton
+    // for why the host's async self-sizing must never drive the card row.
+    <View style={styles.menuFrame} testID="list-menu-frame">
+      <IconMenu
+        accessibilityLabel="List"
+        menuTitle="List"
+        sections={sections}
+        style={styles.menu}
       >
-        <Text style={styles.glyph}>
-          {selectedList ? selectedList.emoji : "🚫"}
-        </Text>
-      </View>
-    </IconMenu>
+        <View
+          style={[
+            styles.button,
+            { borderColor: withOpacity(contentColor, 0.25) },
+          ]}
+        >
+          <Text style={styles.glyph}>
+            {selectedList ? selectedList.emoji : "🚫"}
+          </Text>
+        </View>
+      </IconMenu>
+    </View>
   );
 }
 
@@ -68,6 +70,13 @@ export const getListSections = (
 ];
 
 const styles = StyleSheet.create({
+  menuFrame: {
+    alignItems: "center",
+    height: 32,
+    justifyContent: "center",
+    overflow: "hidden",
+    width: 32,
+  },
   menu: {
     height: 32,
     width: 32,

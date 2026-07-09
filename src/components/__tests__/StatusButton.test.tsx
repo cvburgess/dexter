@@ -1,5 +1,6 @@
 import { render } from "@testing-library/react-native";
 import type { ReactNode } from "react";
+import { StyleSheet } from "react-native";
 
 import { ETaskStatus } from "@/api/tasks";
 
@@ -52,10 +53,11 @@ describe("StatusButton", () => {
     expect(screen.getByText("✓")).toBeTruthy();
   });
 
-  it("pins the native menu host to the trigger's 32×32 size", () => {
-    // Without explicit dimensions the @expo/ui Host sizes asynchronously and
-    // can transiently collapse or balloon the task card row it sits in.
-    render(
+  it("cages the native menu host in a fixed 32×32 frame", () => {
+    // The @expo/ui Host writes its async SwiftUI measurement back into its own
+    // layout node, overriding any style passed to it — only a plain fixed-size
+    // wrapper View keeps it from collapsing or ballooning the task card row.
+    const screen = render(
       <StatusButton
         status={ETaskStatus.TODO}
         contentColor="#000000"
@@ -63,6 +65,12 @@ describe("StatusButton", () => {
       />,
     );
 
+    const frame = screen.getByTestId("status-menu-frame");
+    expect(StyleSheet.flatten(frame.props.style)).toMatchObject({
+      height: 32,
+      width: 32,
+      overflow: "hidden",
+    });
     expect(mockIconMenu).toHaveBeenCalledWith(
       expect.objectContaining({ style: { height: 32, width: 32 } }),
     );

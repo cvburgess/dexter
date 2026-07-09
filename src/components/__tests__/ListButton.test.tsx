@@ -1,5 +1,6 @@
 import { render } from "@testing-library/react-native";
 import type { ReactNode } from "react";
+import { StyleSheet } from "react-native";
 
 import { TList } from "@/api/lists";
 
@@ -117,8 +118,9 @@ describe("ListButton", () => {
     expect(screen.getByText("🚫")).toBeTruthy();
   });
 
-  it("pins the native menu host to the trigger's 32×32 size", () => {
-    // See StatusButton: the async Host sizing must not drive the card row.
+  it("cages the native menu host in a fixed 32×32 frame", () => {
+    // See StatusButton: the host overrides styles passed to it, so only a
+    // plain fixed-size wrapper keeps it from resizing the task card row.
     mockUseLists.mockReturnValue([
       lists,
       {
@@ -130,7 +132,7 @@ describe("ListButton", () => {
       },
     ]);
 
-    render(
+    const screen = render(
       <ListButton
         listId={null}
         contentColor="#000000"
@@ -138,6 +140,12 @@ describe("ListButton", () => {
       />,
     );
 
+    const frame = screen.getByTestId("list-menu-frame");
+    expect(StyleSheet.flatten(frame.props.style)).toMatchObject({
+      height: 32,
+      width: 32,
+      overflow: "hidden",
+    });
     expect(mockIconMenu).toHaveBeenCalledWith(
       expect.objectContaining({ style: { height: 32, width: 32 } }),
     );
