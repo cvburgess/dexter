@@ -115,6 +115,9 @@ const styles = StyleSheet.create({
     alignSelf: "stretch",
   },
   container: {
+    // Complete cards render bare (no MoreMenu wrapper); without this they don't
+    // fill the list width and the flex row mis-measures into an oversized cell.
+    alignSelf: "stretch",
     alignItems: "center",
     borderRadius: 12,
     borderWidth: 1,

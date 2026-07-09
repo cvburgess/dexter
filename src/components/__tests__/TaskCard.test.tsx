@@ -136,6 +136,23 @@ describe("TaskCard", () => {
     expect(mockMoreMenu).not.toHaveBeenCalled();
   });
 
+  it("stretches a completed card to full width so it keeps its normal height", () => {
+    // The done card renders bare (no MoreMenu wrapper); without alignSelf it
+    // mis-measures into an oversized cell that overlaps the cards below it.
+    const screen = render(
+      <TaskCard
+        task={{ ...baseTask, status: ETaskStatus.DONE }}
+        onUpdate={jest.fn()}
+        onDuplicate={jest.fn()}
+        onDelete={jest.fn()}
+      />,
+    );
+
+    const card = screen.getByTestId("task-card-task-1");
+    const flatStyle = StyleSheet.flatten(card.props.style as ViewStyle[]);
+    expect(flatStyle.alignSelf).toBe("stretch");
+  });
+
   it("colors the whole card background by priority", () => {
     const cardBackground = (priority: ETaskPriority) => {
       const screen = render(
