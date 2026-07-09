@@ -1,13 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { render, renderHook } from "@testing-library/react-native";
-import type { ReactNode } from "react";
-import { Text } from "react-native";
+import { render } from "@testing-library/react-native";
 
-import {
-  ViewedDayProvider,
-  usePublishViewedDay,
-  useViewedDay,
-} from "@/hooks/useViewedDay";
+import { getViewedDay, usePublishViewedDay } from "@/hooks/useViewedDay";
 
 // Stand in for react-navigation's focus lifecycle: run the effect on mount
 // (focus) and its cleanup on unmount (blur). usePublishViewedDay memoizes the
@@ -21,10 +15,6 @@ jest.mock("expo-router", () => {
   };
 });
 
-const wrapper = ({ children }: { children: ReactNode }) => (
-  <ViewedDayProvider>{children}</ViewedDayProvider>
-);
-
 const day = Temporal.PlainDate.from("2026-07-08");
 
 function Publisher({ date }: { date: Temporal.PlainDate }) {
@@ -32,44 +22,23 @@ function Publisher({ date }: { date: Temporal.PlainDate }) {
   return null;
 }
 
-function Reader() {
-  const viewedDay = useViewedDay();
-  return (
-    <Text testID="viewed">{viewedDay ? viewedDay.toString() : "none"}</Text>
-  );
-}
-
-function Harness({ focused }: { focused: boolean }) {
-  return (
-    <ViewedDayProvider>
-      {focused && <Publisher date={day} />}
-      <Reader />
-    </ViewedDayProvider>
-  );
-}
-
-const readerText = (screen: ReturnType<typeof render>) =>
-  screen.getByTestId("viewed").props.children;
-
 describe("useViewedDay", () => {
   it("has no viewed day by default", () => {
-    const { result } = renderHook(() => useViewedDay(), { wrapper });
-
-    expect(result.current).toBeNull();
+    expect(getViewedDay()).toBeNull();
   });
 
   it("exposes the day a focused screen publishes", () => {
-    const screen = render(<Harness focused />);
+    render(<Publisher date={day} />);
 
-    expect(readerText(screen)).toBe("2026-07-08");
+    expect(getViewedDay()?.toString()).toBe("2026-07-08");
   });
 
   it("clears the viewed day when the publishing screen blurs", () => {
-    const screen = render(<Harness focused />);
-    expect(readerText(screen)).toBe("2026-07-08");
+    const screen = render(<Publisher date={day} />);
+    expect(getViewedDay()?.toString()).toBe("2026-07-08");
 
-    screen.rerender(<Harness focused={false} />);
+    screen.unmount();
 
-    expect(readerText(screen)).toBe("none");
+    expect(getViewedDay()).toBeNull();
   });
 });

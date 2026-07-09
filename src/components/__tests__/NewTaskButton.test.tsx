@@ -11,7 +11,7 @@ jest.mock("expo-router/unstable-native-tabs", () => ({
 
 const mockViewedDay: { current: Temporal.PlainDate | null } = { current: null };
 jest.mock("@/hooks/useViewedDay", () => ({
-  useViewedDay: () => mockViewedDay.current,
+  getViewedDay: () => mockViewedDay.current,
 }));
 
 describe("NewTaskButton", () => {
