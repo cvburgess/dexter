@@ -39,6 +39,13 @@ describe("useNewTaskForm", () => {
     expect(result.current.scheduledFor).toBe(today().toString());
   });
 
+  it("falls back to today when the default date is malformed", () => {
+    // e.g. a deep link like /new-task?scheduledFor=garbage
+    const { result } = renderHook(() => useNewTaskForm([], "not-a-date"));
+
+    expect(result.current.scheduledFor).toBe(today().toString());
+  });
+
   it("cannot save a whitespace-only title", () => {
     const { result } = renderHook(() => useNewTaskForm([]));
 

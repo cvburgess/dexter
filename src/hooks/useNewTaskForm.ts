@@ -23,6 +23,19 @@ export type TNewTaskForm = {
   canSave: boolean;
 };
 
+// The default can arrive from an untrusted route param (deep link), so normalize
+// it and fall back to today rather than letting a bad value throw downstream in
+// Temporal.PlainDate.from when the date chip renders.
+const resolveScheduledFor = (value?: string): string => {
+  const today = Temporal.Now.plainDateISO().toString();
+  if (!value) return today;
+  try {
+    return Temporal.PlainDate.from(value).toString();
+  } catch {
+    return today;
+  }
+};
+
 /**
  * State for the create-task form. Shorthand tokens typed into the title
  * (`!` priority, `#list-slug`, `due:N`) drive the matching controls live;
@@ -34,8 +47,8 @@ export const useNewTaskForm = (
   defaultScheduledFor?: string,
 ): TNewTaskForm => {
   const [title, setTitle] = useState("");
-  const [scheduledFor, setScheduledFor] = useState(
-    () => defaultScheduledFor ?? Temporal.Now.plainDateISO().toString(),
+  const [scheduledFor, setScheduledFor] = useState(() =>
+    resolveScheduledFor(defaultScheduledFor),
   );
 
   // `undefined` means "no manual override yet — follow the shorthand tokens".
