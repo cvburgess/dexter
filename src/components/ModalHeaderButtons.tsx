@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { Platform, TouchableOpacity } from "react-native";
 
 import { useTheme } from "@/utils/theme";

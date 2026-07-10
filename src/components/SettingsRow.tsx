@@ -1,10 +1,10 @@
-import { SymbolView, SymbolViewProps } from "expo-symbols";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
+import { SettingsIcon, TSettingsIconName } from "@/components/SettingsIcon";
 import { useTheme } from "@/utils/theme";
 
 type TSettingsRowProps = {
-  icon: SymbolViewProps["name"];
+  icon: TSettingsIconName;
   title: string;
   subtitle: string;
   onPress: () => void;
@@ -27,7 +27,7 @@ export function SettingsRow({
       style={styles.container}
       testID={testID}
     >
-      <SymbolView name={icon} size={22} tintColor={theme.colors.primary} />
+      <SettingsIcon name={icon} size={22} color={theme.colors.primary} />
       <View style={styles.labels}>
         <Text style={[styles.title, { color: theme.colors.text }]}>
           {title}
@@ -36,10 +36,10 @@ export function SettingsRow({
           {subtitle}
         </Text>
       </View>
-      <SymbolView
-        name="chevron.right"
+      <SettingsIcon
+        name="chevron-forward-outline"
         size={14}
-        tintColor={theme.colors.textSecondary}
+        color={theme.colors.textSecondary}
       />
     </TouchableOpacity>
   );

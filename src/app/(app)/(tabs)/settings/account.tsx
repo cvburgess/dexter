@@ -2,6 +2,7 @@ import { Session } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Alert, Image, Platform, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "@/components/Button";
 import { deleteAccount, signOut, useAuth } from "@/hooks/useAuth";
@@ -76,7 +77,8 @@ export default function AccountScreen() {
   };
 
   return (
-    <View
+    <SafeAreaView
+      edges={["bottom", "left", "right"]}
       style={[
         styles.container,
         {
@@ -107,7 +109,7 @@ export default function AccountScreen() {
           Delete Account
         </Button>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 

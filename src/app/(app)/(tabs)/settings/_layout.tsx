@@ -1,12 +1,17 @@
 import { Stack } from "expo-router";
+import { useWindowDimensions, View } from "react-native";
 
+import { SettingsSidebar } from "@/components/SettingsSidebar";
+import { SETTINGS_TWO_PANE_MIN_WIDTH } from "@/utils/settingsItems";
 import { createListScreenOptions } from "@/utils/stackOptions";
 import { useTheme } from "@/utils/theme";
 
 export default function SettingsLayout() {
   const theme = useTheme();
+  const { width } = useWindowDimensions();
+  const twoPane = width >= SETTINGS_TWO_PANE_MIN_WIDTH;
 
-  return (
+  const stack = (
     <Stack>
       <Stack.Screen
         name="index"
@@ -45,5 +50,15 @@ export default function SettingsLayout() {
         options={createListScreenOptions(theme, "Licenses")}
       />
     </Stack>
+  );
+
+  if (!twoPane) return stack;
+
+  // Large screens: persistent sidebar (master list) beside the detail pane.
+  return (
+    <View style={{ flex: 1, flexDirection: "row" }}>
+      <SettingsSidebar />
+      <View style={{ flex: 1 }}>{stack}</View>
+    </View>
   );
 }
