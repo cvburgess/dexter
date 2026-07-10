@@ -1,7 +1,303 @@
-// Platform-specific implementations live in IconMenu.{native,web}.tsx and the
-// bundler selects one per platform. This base file exists so TypeScript
-// (which does not resolve platform extensions) can resolve
-// `@/components/IconMenu`; at runtime a platform variant is always bundled
-// instead. It falls back to the native `@expo/ui` implementation.
+import { SymbolView } from "expo-symbols";
+import { useState } from "react";
+import {
+  Dimensions,
+  type GestureResponderEvent,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+
+import { useTheme, withOpacity } from "@/utils/theme";
+
+import type { IconMenuProps, TIconMenuSection } from "./IconMenu.types";
+
 export * from "./IconMenu.types";
-export { IconMenu } from "./IconMenu.native";
+
+const MENU_WIDTH = 220;
+const MENU_MARGIN = 8;
+
+/**
+ * A tap- or long-press-triggered menu (sections of selectable options),
+ * rendered as a plain React Native modal anchored near the touch point on
+ * every platform. A plain section is always visible; a section with
+ * `isSubmenu` collapses behind a tappable header row that expands it, one at
+ * a time.
+ *
+ * Deliberately NOT `@expo/ui`'s `MenuView`: hosting RN children inside a
+ * SwiftUI Menu corrupts Fabric's view-recycling pool when the subtree
+ * unmounts (e.g. paging the Today screen to another day) — recycled views
+ * are reused in a hidden/detached state, so unrelated components render
+ * invisible or mis-sized (DEX-28; verified in the simulator, related to
+ * expo/expo#42225). Revisit if the upstream Host lifecycle is fixed.
+ */
+export function IconMenu({
+  menuTitle,
+  accessibilityLabel,
+  trigger = "tap",
+  sections,
+  children,
+  style,
+}: IconMenuProps) {
+  const theme = useTheme();
+  // Divider tint derived from the text color so it reads on both schemes,
+  // rather than a fixed gray that washes out on dark backgrounds.
+  const dividerBorder = {
+    borderTopColor: withOpacity(theme.colors.text, 0.15),
+  };
+  const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+
+  const handlePress = (event: GestureResponderEvent) => {
+    // Web (DOM) events carry clientX/clientY; native touches carry pageX/pageY.
+    const { pageX, pageY, clientX, clientY } = event.nativeEvent as {
+      pageX?: number;
+      pageY?: number;
+      clientX?: number;
+      clientY?: number;
+    };
+    const touchX = clientX ?? pageX ?? 0;
+    const touchY = clientY ?? pageY ?? 0;
+    const { width } = Dimensions.get("window");
+    setAnchor({
+      x: Math.max(
+        MENU_MARGIN,
+        Math.min(touchX, width - MENU_WIDTH - MENU_MARGIN),
+      ),
+      y: touchY + MENU_MARGIN,
+    });
+  };
+
+  const close = () => {
+    setAnchor(null);
+    setExpandedSection(null);
+  };
+
+  const sectionKey = (section: TIconMenuSection, index: number) =>
+    section.title ?? `${index}`;
+
+  return (
+    <>
+      <Pressable
+        accessibilityLabel={accessibilityLabel}
+        style={style}
+        {...(trigger === "longPress"
+          ? { onLongPress: handlePress }
+          : { onPress: handlePress })}
+      >
+        {children}
+      </Pressable>
+      {anchor ? (
+        <Modal visible transparent animationType="fade" onRequestClose={close}>
+          <Pressable style={styles.overlay} onPress={close}>
+            <ScrollView
+              style={[
+                styles.menu,
+                {
+                  backgroundColor: theme.colors.card,
+                  borderRadius: theme.borderRadius,
+                  position: "absolute",
+                  top: anchor.y,
+                  left: anchor.x,
+                },
+              ]}
+              contentContainerStyle={styles.menuContent}
+            >
+              {menuTitle ? (
+                <Text
+                  style={[
+                    styles.menuTitle,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  {menuTitle}
+                </Text>
+              ) : null}
+              {sections.map((section, sectionIndex) => {
+                const key = sectionKey(section, sectionIndex);
+
+                if (!section.isSubmenu) {
+                  return (
+                    <View
+                      key={key}
+                      style={
+                        sectionIndex > 0
+                          ? [styles.sectionDivider, dividerBorder]
+                          : undefined
+                      }
+                    >
+                      {section.title ? (
+                        <Text
+                          style={[
+                            styles.sectionTitle,
+                            { color: theme.colors.textSecondary },
+                          ]}
+                        >
+                          {section.title}
+                        </Text>
+                      ) : null}
+                      {section.options.map((option) => (
+                        <Pressable
+                          key={option.id}
+                          style={styles.option}
+                          onPress={() => {
+                            close();
+                            option.onSelect();
+                          }}
+                        >
+                          <Text style={styles.checkmark}>
+                            {option.isSelected ? "✓" : ""}
+                          </Text>
+                          {option.icon ? (
+                            <SymbolView
+                              name={option.icon}
+                              size={18}
+                              tintColor={option.iconColor ?? theme.colors.text}
+                            />
+                          ) : null}
+                          <Text
+                            style={{
+                              color: option.isDestructive
+                                ? theme.colors.error
+                                : theme.colors.text,
+                            }}
+                          >
+                            {option.title}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  );
+                }
+
+                const expanded = expandedSection === key;
+                return (
+                  <View
+                    key={key}
+                    style={
+                      sectionIndex > 0
+                        ? [styles.sectionDivider, dividerBorder]
+                        : undefined
+                    }
+                  >
+                    <Pressable
+                      style={styles.option}
+                      onPress={() => setExpandedSection(expanded ? null : key)}
+                    >
+                      {section.icon ? (
+                        <SymbolView
+                          name={section.icon}
+                          size={18}
+                          tintColor={theme.colors.text}
+                        />
+                      ) : null}
+                      <Text style={{ color: theme.colors.text }}>
+                        {section.title}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.chevron,
+                          { color: theme.colors.textSecondary },
+                        ]}
+                      >
+                        {expanded ? "⌄" : "›"}
+                      </Text>
+                    </Pressable>
+                    {expanded
+                      ? section.options.map((option) => (
+                          <Pressable
+                            key={option.id}
+                            style={[styles.option, styles.optionIndented]}
+                            onPress={() => {
+                              close();
+                              option.onSelect();
+                            }}
+                          >
+                            <Text style={styles.checkmark}>
+                              {option.isSelected ? "✓" : ""}
+                            </Text>
+                            {option.icon ? (
+                              <SymbolView
+                                name={option.icon}
+                                size={18}
+                                tintColor={
+                                  option.iconColor ?? theme.colors.text
+                                }
+                              />
+                            ) : null}
+                            <Text
+                              style={{
+                                color: option.isDestructive
+                                  ? theme.colors.error
+                                  : theme.colors.text,
+                              }}
+                            >
+                              {option.title}
+                            </Text>
+                          </Pressable>
+                        ))
+                      : null}
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Modal>
+      ) : null}
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.15)",
+  },
+  menu: {
+    minWidth: MENU_WIDTH,
+    maxHeight: 320,
+    boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.25)",
+    elevation: 5,
+  },
+  menuContent: {
+    paddingVertical: 8,
+  },
+  menuTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+  },
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+  },
+  sectionDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    marginTop: 4,
+    paddingTop: 4,
+  },
+  chevron: {
+    fontSize: 14,
+    marginLeft: "auto",
+    paddingRight: 16,
+  },
+  option: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  optionIndented: {
+    paddingLeft: 28,
+  },
+  checkmark: {
+    width: 16,
+  },
+});

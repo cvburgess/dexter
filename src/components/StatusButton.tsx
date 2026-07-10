@@ -19,31 +19,23 @@ export function StatusButton({
   const sections = getStatusSections(onChangeStatus);
 
   return (
-    // Cage the native menu host in a fixed-size plain View. @expo/ui's Host
-    // measures itself in SwiftUI and writes that size back into its own Yoga
-    // node after layout (matchContents → setStyleSize in HostView.swift),
-    // overriding any style we pass — so the row must never take its height
-    // from the host. A plain View's size is independent of its children, so
-    // the card row stays anchored no matter what the host reports.
-    <View style={styles.menuFrame} testID="status-menu-frame">
-      <IconMenu
-        accessibilityLabel="Status"
-        menuTitle="Status"
-        sections={sections}
-        style={styles.menu}
+    <IconMenu
+      accessibilityLabel="Status"
+      menuTitle="Status"
+      sections={sections}
+      style={styles.menu}
+    >
+      <View
+        style={[
+          styles.button,
+          { borderColor: withOpacity(contentColor, 0.25) },
+        ]}
       >
-        <View
-          style={[
-            styles.button,
-            { borderColor: withOpacity(contentColor, 0.25) },
-          ]}
-        >
-          <Text style={[styles.glyph, { color: contentColor }]}>
-            {glyphForStatus(status)}
-          </Text>
-        </View>
-      </IconMenu>
-    </View>
+        <Text style={[styles.glyph, { color: contentColor }]}>
+          {glyphForStatus(status)}
+        </Text>
+      </View>
+    </IconMenu>
   );
 }
 
@@ -106,13 +98,8 @@ const glyphForStatus = (status: ETaskStatus) => {
 };
 
 const styles = StyleSheet.create({
-  menuFrame: {
-    alignItems: "center",
-    height: 32,
-    justifyContent: "center",
-    overflow: "hidden",
-    width: 32,
-  },
+  // Pin the trigger to the button's size so the menu wrapper can never
+  // influence the task card row's height.
   menu: {
     height: 32,
     width: 32,
