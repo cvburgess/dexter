@@ -10,7 +10,7 @@ import { HabitRing } from "./HabitRing";
 
 // Reserve a stable height whether the row is loading, empty, or full so the
 // task list below it never jumps as habits resolve.
-const TRACKER_HEIGHT = 48;
+const TRACKER_HEIGHT = 56;
 
 type THabitTrackerProps = {
   date: Temporal.PlainDate;
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   content: {
     alignItems: "center",
     flexGrow: 1,
-    gap: 8,
+    gap: 14,
     justifyContent: "center",
     paddingHorizontal: 16,
   },

@@ -3,7 +3,9 @@ import Svg, { Circle } from "react-native-svg";
 
 import { useTheme, withOpacity } from "@/utils/theme";
 
-const SIZE = 32;
+// A larger ring than the emoji needs leaves breathing room between the ring
+// and the glyph; the emoji font size stays fixed (see styles.emoji).
+const SIZE = 40;
 const STROKE = 4;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
