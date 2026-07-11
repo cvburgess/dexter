@@ -24,10 +24,6 @@ export default function AppLayout() {
         name="new-task"
         options={createModalScreenOptions(theme, "New Task")}
       />
-      <Stack.Screen
-        name="habit"
-        options={createModalScreenOptions(theme, "Habit")}
-      />
     </Stack>
   );
 }

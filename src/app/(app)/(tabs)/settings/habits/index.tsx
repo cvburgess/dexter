@@ -38,7 +38,12 @@ export default function HabitsScreen() {
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityLabel="New habit"
-          onPress={() => router.push("/habit")}
+          onPress={() =>
+            router.push({
+              pathname: "/settings/habits/[id]",
+              params: { id: "new" },
+            })
+          }
           style={Platform.OS === "web" ? styles.headerButtonWeb : undefined}
         >
           <Ionicons color={theme.colors.primary} name="add" size={28} />

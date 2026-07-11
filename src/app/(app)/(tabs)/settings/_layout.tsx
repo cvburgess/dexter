@@ -3,7 +3,10 @@ import { useWindowDimensions, View } from "react-native";
 
 import { SettingsSidebar } from "@/components/SettingsSidebar";
 import { SETTINGS_TWO_PANE_MIN_WIDTH } from "@/utils/settingsItems";
-import { createListScreenOptions } from "@/utils/stackOptions";
+import {
+  createListScreenOptions,
+  createModalScreenOptions,
+} from "@/utils/stackOptions";
 import { useTheme } from "@/utils/theme";
 
 export default function SettingsLayout() {
@@ -34,8 +37,12 @@ export default function SettingsLayout() {
         options={createListScreenOptions(theme, "Calendars")}
       />
       <Stack.Screen
-        name="habits"
+        name="habits/index"
         options={createListScreenOptions(theme, "Habits")}
+      />
+      <Stack.Screen
+        name="habits/[id]"
+        options={createModalScreenOptions(theme, "Habit")}
       />
       <Stack.Screen
         name="journal"

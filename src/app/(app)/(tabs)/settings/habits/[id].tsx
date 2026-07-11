@@ -39,13 +39,14 @@ export default function HabitScreen() {
   const theme = useTheme();
   const navigation = useNavigation();
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  // "/settings/habits/new" is the create route; any other id edits that habit.
+  const { id } = useLocalSearchParams<{ id: string }>();
 
   const [, { createHabit, updateHabit, deleteHabit, getHabitById }] =
     useHabits();
   const { confirm, confirmationProps } = useConfirmation();
 
-  const existing = getHabitById(id ?? null);
+  const existing = getHabitById(id === "new" ? null : id);
   const isEditing = !!existing;
 
   const [emoji, setEmoji] = useState(existing?.emoji ?? DEFAULT_EMOJI);

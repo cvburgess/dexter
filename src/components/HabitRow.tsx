@@ -30,7 +30,10 @@ export function HabitRow({ habit, updateHabit }: THabitRowProps) {
         accessibilityRole="button"
         accessibilityLabel={`Edit ${habit.title}`}
         onPress={() =>
-          router.push({ pathname: "/habit", params: { id: habit.id } })
+          router.push({
+            pathname: "/settings/habits/[id]",
+            params: { id: habit.id },
+          })
         }
         style={styles.main}
       >
