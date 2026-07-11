@@ -4,6 +4,7 @@ import { validateBearerToken } from "./auth.ts";
 import { isOriginAllowed } from "./origin.ts";
 import { createMcpServer } from "./server.ts";
 import { WebTransport } from "./transport.ts";
+import { captureException, withSentry } from "../_shared/sentry.ts";
 
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,7 +25,7 @@ function protectedResourceMetadataUrl(req: Request): string {
   return `${publicOrigin}/functions/v1/mcp-server/.well-known/oauth-protected-resource`;
 }
 
-Deno.serve(async (req: Request): Promise<Response> => {
+Deno.serve(withSentry(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -88,7 +89,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
 
     return jsonResponse(response);
-  } catch (_error) {
+  } catch (error) {
+    captureException(error);
     return jsonResponse(
       {
         jsonrpc: "2.0",
@@ -98,4 +100,4 @@ Deno.serve(async (req: Request): Promise<Response> => {
       500,
     );
   }
-});
+}));

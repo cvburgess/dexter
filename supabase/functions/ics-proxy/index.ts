@@ -11,6 +11,7 @@ import {
   type TargetError,
   validateIcsUrl,
 } from "./validation.ts";
+import { captureException, withSentry } from "../_shared/sentry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -108,7 +109,7 @@ async function readCappedBody(
   return text;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -172,8 +173,9 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Upstream request timed out" }, 504);
     }
     // Do not leak internal error details to the caller.
+    captureException(error);
     return jsonResponse({ error: "Failed to fetch calendar feed" }, 502);
   } finally {
     clearTimeout(timeout);
   }
-});
+}));

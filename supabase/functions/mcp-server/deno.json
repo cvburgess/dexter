@@ -2,6 +2,7 @@
   "lock": false,
   "imports": {
     "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@1.22.0",
+    "@sentry/deno": "npm:@sentry/deno@^10",
     "@src/": "../../../src/",
     "@/": "../../../src/",
     "@supabase/functions-js/edge-runtime.d.ts": "jsr:@supabase/functions-js@2.93.3/edge-runtime.d.ts",

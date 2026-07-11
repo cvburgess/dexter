@@ -66,6 +66,16 @@ Every user-owned table enables RLS with per-operation policies keyed on
 - MCP tool groups cover tasks, goals, lists, habits and daily habit progress,
   days, repeat task templates, and preferences. Tool inputs never accept
   `user_id`; user ownership is derived from the validated bearer token.
+- Both functions report errors to **Sentry** via `functions/_shared/sentry.ts`
+  (`npm:@sentry/deno`, aliased in each function's `deno.json` import map since
+  there is no shared import map across functions today). `initSentry`/
+  `captureException` are graceful no-ops when `SENTRY_DSN` is unset, so local
+  dev and tests never need the secret or network access. `mcp-server` wraps
+  its `Deno.serve` handler with `withSentry` and captures the previously-
+  swallowed top-level error, and every `toolError(...)` result (the shape MCP
+  tools return instead of throwing) also reports to Sentry. `ics-proxy` wraps
+  its handler the same way and captures unexpected upstream-fetch failures
+  without leaking internal error details in the sanitized client response.
 
 ## OAuth server (MCP authorization)
 
@@ -188,4 +198,6 @@ script (`expo export --platform web`), the `expo-updates` dependency, and the
 Configure secrets via Supabase dashboard or CLI for deployed projects; reference
 them from function code with `Deno.env.get(...)`. Do not commit real keys.
 
-Current production Edge Functions do not require committed secret names.
+| Secret       | Used by                        | Required?                                             |
+| ------------ | ------------------------------- | ------------------------------------------------------ |
+| `SENTRY_DSN` | `mcp-server`, `ics-proxy` | Optional — Sentry reporting no-ops gracefully if unset |
