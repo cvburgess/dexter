@@ -28,6 +28,10 @@ export function HabitTracker({ date }: THabitTrackerProps) {
   const today = Temporal.Now.plainDateISO();
   const isFutureDate = Temporal.PlainDate.compare(date, today) > 0;
 
+  // Every non-archived habit — used only to tell "no habits at all" (show the
+  // create nudge) apart from "none scheduled for this weekday" (show nothing).
+  const [allHabits, { isLoading: allHabitsLoading }] = useHabits();
+
   // Active, unpaused habits for this weekday — the source of truth for future
   // dates, and what `createDailyHabits` bootstraps against for today/past.
   const [habits, { isLoading: habitsLoading }] = useHabits({
@@ -42,25 +46,45 @@ export function HabitTracker({ date }: THabitTrackerProps) {
     { createDailyHabits, incrementDailyHabit, isLoading: dailyHabitsLoading },
   ] = useDailyHabits(date.toString());
 
-  // Instantiate today's rows for any active habit not yet tracked. Wait for
-  // BOTH queries: bootstrapping while habits is still loading (empty) would
-  // create nothing and, without habits in the deps, never retry. Re-running on
-  // `habits.length` also picks up a newly-created habit. The mutation itself
-  // no-ops on future dates and when nothing is missing.
+  // Drop rings for habits that have since been paused or archived: the DB
+  // trigger removes today's daily row on pause/archive, but the client's
+  // dailyHabits cache isn't invalidated by a habit edit, so filter defensively
+  // (this also keeps today/past consistent with the filtered future path).
+  const activeDailyHabits = dailyHabits.filter(
+    (dailyHabit) =>
+      !dailyHabit.habits.isPaused && !dailyHabit.habits.isArchived,
+  );
+
+  // Whether any active habit for this day still lacks a daily_habits row.
+  const hasMissingHabit = habits.some(
+    (habit) =>
+      !dailyHabits.some((dailyHabit) => dailyHabit.habitId === habit.id),
+  );
+
+  // Instantiate this day's rows for any active habit not yet tracked. Guarded
+  // on `hasMissingHabit` so the mutation (which throws when nothing is missing)
+  // is only called when there's work to do, and on both queries being loaded so
+  // it never runs against a still-loading (empty) habits list. Re-runs when a
+  // habit is added (hasMissingHabit flips true) and settles once rows exist.
   useEffect(() => {
-    if (!isFutureDate && !dailyHabitsLoading && !habitsLoading) {
+    if (
+      !isFutureDate &&
+      !dailyHabitsLoading &&
+      !habitsLoading &&
+      hasMissingHabit
+    ) {
       createDailyHabits();
     }
     // createDailyHabits reads the latest habits/dailyHabits via react-query.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, dailyHabitsLoading, habitsLoading, isFutureDate, habits.length]);
+  }, [date, dailyHabitsLoading, habitsLoading, isFutureDate, hasMissingHabit]);
 
-  if (habitsLoading || dailyHabitsLoading) {
+  if (habitsLoading || dailyHabitsLoading || allHabitsLoading) {
     return <ScrollView horizontal style={styles.container} />;
   }
 
-  // First-run nudge (today/past only): no habits at all yet.
-  if (!isFutureDate && dailyHabits.length === 0 && habits.length === 0) {
+  // First-run nudge (today/past only): the user has no habits at all yet.
+  if (!isFutureDate && allHabits.length === 0) {
     return (
       <TouchableOpacity
         accessibilityRole="link"
@@ -74,7 +98,10 @@ export function HabitTracker({ date }: THabitTrackerProps) {
     );
   }
 
-  if (isFutureDate && habits.length === 0) {
+  // Nothing scheduled for this day (e.g. weekday-only habits viewed on a
+  // weekend): render an empty row rather than the create nudge.
+  const rings = isFutureDate ? habits : activeDailyHabits;
+  if (rings.length === 0) {
     return <ScrollView horizontal style={styles.container} />;
   }
 
@@ -95,7 +122,7 @@ export function HabitTracker({ date }: THabitTrackerProps) {
               accessibilityLabel={habit.title}
             />
           ))
-        : dailyHabits.map((dailyHabit) => (
+        : activeDailyHabits.map((dailyHabit) => (
             <HabitRing
               key={dailyHabit.habitId}
               emoji={dailyHabit.habits.emoji}
