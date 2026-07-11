@@ -221,10 +221,8 @@ export default function HabitScreen() {
           </View>
         </View>
 
-        <View style={styles.daysSection}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>
-            Active days
-          </Text>
+        <View style={styles.labelRow}>
+          <Text style={[styles.label, { color: theme.colors.text }]}>Days</Text>
           <View style={styles.days}>
             {DAYS.map((day, index) => {
               const selected = daysActive.includes(day.value);
@@ -292,20 +290,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    height: 40,
+    height: 32,
     justifyContent: "center",
-    width: 40,
+    width: 32,
   },
   dayLabel: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "600",
   },
   days: {
     flexDirection: "row",
-    gap: 8,
-  },
-  daysSection: {
-    gap: 10,
+    gap: 4,
   },
   emoji: {
     borderRadius: 8,
