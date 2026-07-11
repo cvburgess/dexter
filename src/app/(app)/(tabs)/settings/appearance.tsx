@@ -9,6 +9,7 @@ import {
 } from "react-native";
 
 import { EThemeMode } from "@/api/preferences";
+import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { usePreferences } from "@/hooks/usePreferences";
 import { Theme, THEMES, themes, useTheme, withOpacity } from "@/utils/theme";
 
@@ -37,7 +38,7 @@ export default function AppearanceScreen() {
         { padding: theme.spacing, gap: theme.spacing },
       ]}
     >
-      <Section title="Mode" theme={theme}>
+      <Section title="Mode">
         <View
           style={[
             styles.segmented,
@@ -86,7 +87,7 @@ export default function AppearanceScreen() {
       </Section>
 
       {showLight && (
-        <Section title="Light theme" theme={theme}>
+        <Section title="Light theme">
           <View style={styles.cards}>
             {LIGHT_THEMES.map(({ name, label }) => (
               <ThemeCard
@@ -103,7 +104,7 @@ export default function AppearanceScreen() {
       )}
 
       {showDark && (
-        <Section title="Dark theme" theme={theme}>
+        <Section title="Dark theme">
           <View style={styles.cards}>
             {DARK_THEMES.map(({ name, label }) => (
               <ThemeCard
@@ -122,22 +123,10 @@ export default function AppearanceScreen() {
   );
 }
 
-function Section({
-  title,
-  theme,
-  children,
-}: {
-  title: string;
-  theme: Theme;
-  children: ReactNode;
-}) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <View style={styles.section}>
-      <Text
-        style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}
-      >
-        {title}
-      </Text>
+      <SettingsSectionTitle>{title}</SettingsSectionTitle>
       {children}
     </View>
   );
@@ -231,11 +220,6 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: 10,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
   },
   segment: {
     alignItems: "center",

@@ -6,7 +6,7 @@ describe("SettingsRow", () => {
   it("renders the title and subtitle", () => {
     const screen = render(
       <SettingsRow
-        icon="person.crop.circle"
+        icon="person-circle-outline"
         title="Account"
         subtitle="Manage your account and sign out"
         onPress={jest.fn()}
@@ -21,7 +21,7 @@ describe("SettingsRow", () => {
     const onPress = jest.fn();
     const screen = render(
       <SettingsRow
-        icon="paintbrush"
+        icon="color-palette-outline"
         title="Appearance"
         subtitle="Theme and display options"
         onPress={onPress}

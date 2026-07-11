@@ -1,73 +1,24 @@
-import { useRouter } from "expo-router";
-import { SymbolViewProps } from "expo-symbols";
-import { FlatList, StyleSheet, View } from "react-native";
+import { Redirect, useRouter } from "expo-router";
+import { FlatList, StyleSheet, useWindowDimensions, View } from "react-native";
 
 import { SettingsRow } from "@/components/SettingsRow";
+import {
+  SETTINGS_ITEMS,
+  SETTINGS_TWO_PANE_MIN_WIDTH,
+} from "@/utils/settingsItems";
 import { useTheme, withOpacity } from "@/utils/theme";
-
-type TSettingsItem = {
-  slug: string;
-  title: string;
-  subtitle: string;
-  icon: SymbolViewProps["name"];
-};
-
-// Each item navigates to a subview under `/settings/<slug>` (registered in
-// _layout.tsx). Most are placeholders today; Account houses Log Out.
-const SETTINGS_ITEMS: TSettingsItem[] = [
-  {
-    slug: "account",
-    title: "Account",
-    subtitle: "Manage your account and sign out",
-    icon: "person.crop.circle",
-  },
-  {
-    slug: "appearance",
-    title: "Appearance",
-    subtitle: "Theme and display options",
-    icon: "paintbrush",
-  },
-  {
-    slug: "tasks",
-    title: "Tasks",
-    subtitle: "Task defaults and behavior",
-    icon: "checklist",
-  },
-  {
-    slug: "calendars",
-    title: "Calendars",
-    subtitle: "Connected calendars",
-    icon: "calendar",
-  },
-  {
-    slug: "habits",
-    title: "Habits",
-    subtitle: "Habit tracking preferences",
-    icon: "repeat",
-  },
-  {
-    slug: "journal",
-    title: "Journal",
-    subtitle: "Journaling preferences",
-    icon: "book",
-  },
-  {
-    slug: "notes",
-    title: "Notes",
-    subtitle: "Notes preferences",
-    icon: "note.text",
-  },
-  {
-    slug: "licenses",
-    title: "Licenses",
-    subtitle: "Open source licenses",
-    icon: "doc.text",
-  },
-];
 
 export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { width } = useWindowDimensions();
+
+  // On wide screens the list becomes a persistent sidebar (SettingsSidebar) and
+  // this index would otherwise render the same list again in the detail pane, so
+  // redirect to a default subview and let the sidebar drive navigation.
+  if (width >= SETTINGS_TWO_PANE_MIN_WIDTH) {
+    return <Redirect href={`/settings/${SETTINGS_ITEMS[0].slug}`} />;
+  }
 
   return (
     <View
