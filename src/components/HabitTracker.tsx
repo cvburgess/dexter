@@ -42,14 +42,18 @@ export function HabitTracker({ date }: THabitTrackerProps) {
     { createDailyHabits, incrementDailyHabit, isLoading: dailyHabitsLoading },
   ] = useDailyHabits(date.toString());
 
-  // Instantiate today's rows for any active habit not yet tracked. The mutation
-  // itself no-ops on future dates and when nothing is missing.
+  // Instantiate today's rows for any active habit not yet tracked. Wait for
+  // BOTH queries: bootstrapping while habits is still loading (empty) would
+  // create nothing and, without habits in the deps, never retry. Re-running on
+  // `habits.length` also picks up a newly-created habit. The mutation itself
+  // no-ops on future dates and when nothing is missing.
   useEffect(() => {
-    if (!isFutureDate && !dailyHabitsLoading) createDailyHabits();
-    // createDailyHabits closes over the latest habits/dailyHabits; re-run only
-    // when the date or load state changes (matches the legacy behavior).
+    if (!isFutureDate && !dailyHabitsLoading && !habitsLoading) {
+      createDailyHabits();
+    }
+    // createDailyHabits reads the latest habits/dailyHabits via react-query.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, dailyHabitsLoading, isFutureDate]);
+  }, [date, dailyHabitsLoading, habitsLoading, isFutureDate, habits.length]);
 
   if (habitsLoading || dailyHabitsLoading) {
     return <ScrollView horizontal style={styles.container} />;
