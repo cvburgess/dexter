@@ -106,4 +106,6 @@ jobs:
 
       - name: Publish OTA Update
         working-directory: src
-        run: eas update --channel production --message "${{ github.event.head_commit.message || 'Manual deploy' }}" --non-interactive
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message || 'Manual deploy' }}
+        run: eas update --channel production --message "$COMMIT_MESSAGE" --non-interactive
