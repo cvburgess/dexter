@@ -140,12 +140,48 @@ track this before advertising Claude Code support.
 ```bash
 cd supabase
 deno fmt
-# When tests exist:
-# deno test --allow-all --config __tests__/deno.json __tests__/
+deno test --allow-all --config __tests__/deno.json __tests__/
 ```
 
 **Supabase CLI** (`supabase start`, migrations, deploy) requires Docker and CLI
 setup; see [Supabase CLI docs](https://supabase.com/docs/guides/cli).
+
+## Deployment (CI/CD)
+
+Backend and app deploys run from GitHub Actions in `.github/workflows/`:
+
+- **`deploy.yml`** — on push to `main` touching `supabase/**` or `src/**` (or
+  manual `workflow_dispatch`). Detects which paths changed, then runs, in order:
+  `migrate` (`supabase db push`), `deploy-functions`
+  (`supabase functions deploy`), and `deploy-eas` (web export → `eas deploy`
+  → OTA `eas update`). The migrate/functions jobs run only when `supabase/**`
+  changed; the EAS job runs only when `src/**` changed and the backend jobs
+  succeeded or were skipped.
+- **`test-backend.yml`** — on any `supabase/**` PR/push: `deno fmt --check` plus
+  `deno test`. Backend tests set their own env, so no secrets are required.
+- **`preview-deploy-functions.yml`** — redeploys edge functions to a PR's
+  Supabase preview branch. Supabase's native GitHub integration creates the
+  preview branch and applies its migrations, but does not reliably redeploy
+  functions on later pushes; this workflow closes that gap, gated on the
+  `Supabase Preview` check succeeding.
+- **`preview.yml`** — `workflow_dispatch` EAS preview OTA update (`eas update
+  --auto`) that comments on the PR.
+
+EAS deploys/updates rely on **EAS Update** wiring in `src/`: the `export:web`
+script (`expo export --platform web`), the `expo-updates` dependency, and the
+`updates.url` + `runtimeVersion` config in `src/app.json`.
+
+**Required GitHub repo secrets:** `SUPABASE_PROJECT_ID`, `SUPABASE_DB_PASSWORD`,
+`SUPABASE_ACCESS_TOKEN` (backend); `EXPO_TOKEN`, `EXPO_PUBLIC_SUPABASE_URL`,
+`EXPO_PUBLIC_SUPABASE_ANON_KEY` (app/EAS).
+
+> **First-run reconciliation.** Production's migration-history table was empty
+> while the schema was already live (migrations had been applied out-of-band),
+> so a naive `supabase db push` would fail replaying the baseline. Before the
+> first automated run, the applied migrations must be baselined
+> (`supabase migration repair --status applied <version>`) and deployed function
+> versions redeployed so they match `main`. Enabling the Supabase GitHub
+> integration (for preview branches) is a one-time dashboard step.
 
 ## Secrets
 
