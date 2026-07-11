@@ -1,11 +1,20 @@
 import { Session } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Alert, Image, Platform, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  Image,
+  Platform,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "@/components/Button";
 import { deleteAccount, signOut, useAuth } from "@/hooks/useAuth";
+import { SETTINGS_TWO_PANE_MIN_WIDTH } from "@/utils/settingsItems";
 import { useTheme } from "@/utils/theme";
 
 const confirm = (
@@ -35,6 +44,12 @@ export default function AccountScreen() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const [pending, setPending] = useState(false);
+  const { width } = useWindowDimensions();
+  // In two-pane mode this screen sits beside the sidebar, not at the physical
+  // left edge — but SafeAreaView applies the window's insets regardless of
+  // position, which would indent the content away from the sidebar on
+  // notched devices in landscape. The sidebar absorbs the left inset instead.
+  const twoPane = width >= SETTINGS_TWO_PANE_MIN_WIDTH;
 
   const handleLogOut = async () => {
     const confirmed = await confirm(
@@ -78,7 +93,7 @@ export default function AccountScreen() {
 
   return (
     <SafeAreaView
-      edges={["bottom", "left", "right"]}
+      edges={twoPane ? ["bottom", "right"] : ["bottom", "left", "right"]}
       style={[
         styles.container,
         {

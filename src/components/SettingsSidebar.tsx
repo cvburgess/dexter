@@ -1,5 +1,6 @@
 import { usePathname, useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SettingsIcon } from "@/components/SettingsIcon";
 import { SETTINGS_ITEMS } from "@/utils/settingsItems";
@@ -14,6 +15,10 @@ export function SettingsSidebar() {
   const theme = useTheme();
   const router = useRouter();
   const pathname = usePathname();
+  // The sidebar owns the physical left edge in two-pane mode, so it absorbs
+  // the left safe-area inset (e.g. the notch on a landscape phone); the
+  // detail screens skip theirs (see account.tsx).
+  const insets = useSafeAreaInsets();
 
   return (
     <View
@@ -23,6 +28,7 @@ export function SettingsSidebar() {
           backgroundColor: theme.colors.background,
           borderRightColor: withOpacity(theme.colors.text, 0.1),
           padding: theme.spacing,
+          paddingLeft: theme.spacing + insets.left,
           gap: theme.gap,
         },
       ]}
