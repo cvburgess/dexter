@@ -1,6 +1,8 @@
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useLayoutEffect, useRef, useState } from "react";
 import {
+  Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,10 +11,11 @@ import {
   View,
 } from "react-native";
 
-import { TCreateHabit } from "@/api/habits";
+import { TCreateHabit, THabit } from "@/api/habits";
 import { Button } from "@/components/Button";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { EmojiPicker } from "@/components/EmojiPicker";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { CloseButton, DoneButton } from "@/components/ModalHeaderButtons";
 import { TextInput } from "@/components/TextInput";
 import { WebModalHeader } from "@/components/WebModalHeader";
@@ -35,18 +38,43 @@ const ALL_DAYS = [1, 2, 3, 4, 5, 6, 7];
 const DEFAULT_EMOJI = "😄";
 const MAX_STEPS = 999;
 
+// RN's Alert is a no-op on web, so fall back to the browser's alert there.
+const showSaveError = () => {
+  const message = "We couldn't save your habit. Please try again.";
+
+  if (Platform.OS === "web") {
+    window.alert(message);
+  } else {
+    Alert.alert("Something went wrong", message);
+  }
+};
+
 export default function HabitScreen() {
+  // "/settings/habits/new" is the create route; any other id edits that habit.
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const [, { getHabitById }] = useHabits();
+
+  // Editing is decided by the route, not by whether the habit has loaded yet —
+  // otherwise a cold cache (deep link / web reload) would treat an edit as a
+  // create and save a duplicate.
+  const isEditing = id !== "new";
+  const existing = getHabitById(isEditing ? id : null);
+
+  // Wait for the habit before mounting the form so its inputs initialize from
+  // the saved values. The `key` remounts the form if the resolved habit changes.
+  if (isEditing && !existing) return <LoadingScreen />;
+
+  return <HabitForm key={existing?.id ?? "new"} existing={existing} />;
+}
+
+function HabitForm({ existing }: { existing?: THabit }) {
   const theme = useTheme();
   const navigation = useNavigation();
   const router = useRouter();
-  // "/settings/habits/new" is the create route; any other id edits that habit.
-  const { id } = useLocalSearchParams<{ id: string }>();
 
-  const [, { createHabit, updateHabit, deleteHabit, getHabitById }] =
-    useHabits();
+  const [, { createHabit, updateHabit, deleteHabit }] = useHabits();
   const { confirm, confirmationProps } = useConfirmation();
 
-  const existing = getHabitById(id === "new" ? null : id);
   const isEditing = !!existing;
 
   const [emoji, setEmoji] = useState(existing?.emoji ?? DEFAULT_EMOJI);
@@ -70,14 +98,25 @@ export default function HabitScreen() {
     if (hasSaved.current || !canSave) return;
     hasSaved.current = true;
 
-    if (isEditing) {
-      updateHabit({
-        id: existing.id,
-        emoji,
-        title: title.trim(),
-        steps: parsedSteps,
-        daysActive,
-      });
+    const callbacks = {
+      onSuccess: () => router.back(),
+      onError: () => {
+        hasSaved.current = false;
+        showSaveError();
+      },
+    };
+
+    if (isEditing && existing) {
+      updateHabit(
+        {
+          id: existing.id,
+          emoji,
+          title: title.trim(),
+          steps: parsedSteps,
+          daysActive,
+        },
+        callbacks,
+      );
     } else {
       const habit: TCreateHabit = {
         emoji,
@@ -85,9 +124,8 @@ export default function HabitScreen() {
         steps: parsedSteps,
         daysActive,
       };
-      createHabit(habit);
+      createHabit(habit, callbacks);
     }
-    router.back();
   };
 
   const handleArchive = async () => {
@@ -100,8 +138,10 @@ export default function HabitScreen() {
       destructive: true,
     });
     if (!confirmed) return;
-    updateHabit({ id: existing.id, isArchived: true });
-    router.back();
+    updateHabit(
+      { id: existing.id, isArchived: true },
+      { onSuccess: () => router.back(), onError: showSaveError },
+    );
   };
 
   const handleDelete = async () => {
@@ -113,8 +153,10 @@ export default function HabitScreen() {
       destructive: true,
     });
     if (!confirmed) return;
-    deleteHabit(existing.id);
-    router.back();
+    deleteHabit(existing.id, {
+      onSuccess: () => router.back(),
+      onError: showSaveError,
+    });
   };
 
   const toggleDay = (day: number) =>

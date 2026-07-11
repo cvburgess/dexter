@@ -19,14 +19,19 @@ import {
 
 import { supabase } from "./useAuth";
 
+type TMutateCallbacks = {
+  onError?: (error: Error) => void;
+  onSuccess?: () => void;
+};
+
 type TUseHabits = [
   THabit[],
   {
-    createHabit: (habit: TCreateHabit) => void;
-    deleteHabit: (id: string) => void;
+    createHabit: (habit: TCreateHabit, callbacks?: TMutateCallbacks) => void;
+    deleteHabit: (id: string, callbacks?: TMutateCallbacks) => void;
     getHabitById: (id: string | null) => THabit | undefined;
     isLoading: boolean;
-    updateHabit: (habit: TUpdateHabit) => void;
+    updateHabit: (habit: TUpdateHabit, callbacks?: TMutateCallbacks) => void;
   },
 ];
 
