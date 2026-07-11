@@ -18,27 +18,43 @@ export interface SentryClient {
 }
 
 let client: SentryClient | null = null;
-let initAttempted = false;
+let initPromise: Promise<void> | null = null;
 
 async function loadSentryClient(): Promise<SentryClient> {
   const mod = await import("@sentry/deno");
   return mod as unknown as SentryClient;
 }
 
-/**
- * Initializes Sentry from the `SENTRY_DSN` env var. Safe to call multiple
- * times or concurrently; only the first call does any work. No-ops (and
- * never imports the Sentry SDK) when `SENTRY_DSN` is unset.
- */
-export async function initSentry(): Promise<void> {
-  if (initAttempted) return;
-  initAttempted = true;
-
+async function doInitSentry(): Promise<void> {
   const dsn = Deno.env.get("SENTRY_DSN");
   if (!dsn) return;
 
-  client = await loadSentryClient();
-  client.init({ dsn });
+  // `client` is only assigned after the import and init both succeed, so
+  // concurrent callers awaiting this same promise never observe a half-ready
+  // client. If the SDK fails to load or init, Sentry stays disabled rather
+  // than propagating the failure into the request path.
+  try {
+    const loaded = await loadSentryClient();
+    loaded.init({ dsn });
+    client = loaded;
+  } catch (error) {
+    console.error(
+      "Sentry initialization failed; error reporting disabled",
+      error,
+    );
+  }
+}
+
+/**
+ * Initializes Sentry from the `SENTRY_DSN` env var. Safe to call multiple
+ * times or concurrently; work runs once and all callers await the same
+ * in-flight init, so none returns before the client is ready (or init has
+ * failed). No-ops (and never imports the Sentry SDK) when `SENTRY_DSN` is
+ * unset, and never rejects.
+ */
+export function initSentry(): Promise<void> {
+  if (!initPromise) initPromise = doInitSentry();
+  return initPromise;
 }
 
 /**
@@ -76,11 +92,11 @@ export function withSentry(
 /** Test-only: inject a fake Sentry client, bypassing the real SDK import. */
 export function setSentryClientForTesting(fake: SentryClient | null): void {
   client = fake;
-  initAttempted = true;
+  initPromise = Promise.resolve();
 }
 
 /** Test-only: reset module state between tests. */
 export function resetSentryForTesting(): void {
   client = null;
-  initAttempted = false;
+  initPromise = null;
 }
