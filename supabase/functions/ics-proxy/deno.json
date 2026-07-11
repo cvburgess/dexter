@@ -1,5 +1,6 @@
 {
   "imports": {
+    "@sentry/deno": "npm:@sentry/deno@^10",
     "@supabase/functions-js/edge-runtime.d.ts": "jsr:@supabase/functions-js@2.93.3/edge-runtime.d.ts"
   }
 }

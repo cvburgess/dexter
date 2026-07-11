@@ -6,6 +6,7 @@
   },
   "imports": {
     "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@latest",
+    "@sentry/deno": "npm:@sentry/deno@^10",
     "@src/": "../../src/",
     "@/": "../../src/",
     "@std/assert": "jsr:@std/assert@1",
