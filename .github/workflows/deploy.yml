@@ -9,6 +9,14 @@ on:
       - 'src/**'
   workflow_dispatch:
 
+# Serialize production deploys: never run migrations / function deploys /
+# EAS steps concurrently against the same project. Queue superseded runs
+# rather than cancel them — cancelling mid-migration could leave prod in a
+# half-applied state.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
   changes:
     name: Detect Changes
@@ -75,6 +83,7 @@ jobs:
     env:
       EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
       EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+      EXPO_PUBLIC_SENTRY_DSN: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v6

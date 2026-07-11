@@ -183,7 +183,7 @@ script (`expo export --platform web`), the `expo-updates` dependency, and the
 
 **Required GitHub repo secrets:** `SUPABASE_PROJECT_ID`, `SUPABASE_DB_PASSWORD`,
 `SUPABASE_ACCESS_TOKEN` (backend); `EXPO_TOKEN`, `EXPO_PUBLIC_SUPABASE_URL`,
-`EXPO_PUBLIC_SUPABASE_ANON_KEY` (app/EAS).
+`EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_SENTRY_DSN` (app/EAS).
 
 > **First-run reconciliation.** Production's migration-history table was empty
 > while the schema was already live (migrations had been applied out-of-band),
