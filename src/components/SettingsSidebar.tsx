@@ -1,5 +1,11 @@
 import { usePathname, useRouter } from "expo-router";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SettingsIcon } from "@/components/SettingsIcon";
@@ -29,47 +35,53 @@ export function SettingsSidebar() {
         {
           backgroundColor: theme.colors.background,
           borderRightColor: withOpacity(theme.colors.text, 0.1),
-          padding: theme.spacing,
-          paddingLeft: theme.spacing + insets.left,
-          paddingTop: theme.spacing + insets.top,
-          gap: theme.gap,
         },
       ]}
     >
-      <Text style={[styles.heading, { color: theme.colors.text }]}>
-        Settings
-      </Text>
+      <ScrollView
+        contentContainerStyle={{
+          padding: theme.spacing,
+          paddingLeft: theme.spacing + insets.left,
+          paddingTop: theme.spacing + insets.top,
+          paddingBottom: theme.spacing + insets.bottom,
+          gap: theme.gap,
+        }}
+      >
+        <Text style={[styles.heading, { color: theme.colors.text }]}>
+          Settings
+        </Text>
 
-      {SETTINGS_ITEMS.map((item) => {
-        const selected = pathname === `/settings/${item.slug}`;
-        const contentColor = selected
-          ? theme.colors.primaryContent
-          : theme.colors.text;
+        {SETTINGS_ITEMS.map((item) => {
+          const selected = pathname === `/settings/${item.slug}`;
+          const contentColor = selected
+            ? theme.colors.primaryContent
+            : theme.colors.text;
 
-        return (
-          <TouchableOpacity
-            key={item.slug}
-            accessibilityRole="button"
-            accessibilityState={{ selected }}
-            onPress={() => router.replace(`/settings/${item.slug}`)}
-            style={[
-              styles.row,
-              {
-                backgroundColor: selected
-                  ? theme.colors.primary
-                  : "transparent",
-                borderRadius: theme.borderRadius,
-              },
-            ]}
-            testID={`settings-sidebar-${item.slug}`}
-          >
-            <SettingsIcon name={item.icon} size={20} color={contentColor} />
-            <Text style={[styles.label, { color: contentColor }]}>
-              {item.title}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
+          return (
+            <TouchableOpacity
+              key={item.slug}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              onPress={() => router.replace(`/settings/${item.slug}`)}
+              style={[
+                styles.row,
+                {
+                  backgroundColor: selected
+                    ? theme.colors.primary
+                    : "transparent",
+                  borderRadius: theme.borderRadius,
+                },
+              ]}
+              testID={`settings-sidebar-${item.slug}`}
+            >
+              <SettingsIcon name={item.icon} size={20} color={contentColor} />
+              <Text style={[styles.label, { color: contentColor }]}>
+                {item.title}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }
