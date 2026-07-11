@@ -12,6 +12,7 @@ import {
 import { TCreateHabit } from "@/api/habits";
 import { Button } from "@/components/Button";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
+import { EmojiPicker } from "@/components/EmojiPicker";
 import { CloseButton, DoneButton } from "@/components/ModalHeaderButtons";
 import { TextInput } from "@/components/TextInput";
 import { WebModalHeader } from "@/components/WebModalHeader";
@@ -53,6 +54,7 @@ export default function HabitScreen() {
   const [daysActive, setDaysActive] = useState<number[]>(
     existing?.daysActive ?? ALL_DAYS,
   );
+  const [pickerOpen, setPickerOpen] = useState(false);
   const hasSaved = useRef(false);
 
   const parsedSteps = parseInt(steps, 10);
@@ -172,16 +174,14 @@ export default function HabitScreen() {
         style={{ backgroundColor: theme.colors.background }}
       >
         <View style={styles.titleRow}>
-          <NativeTextInput
-            accessibilityLabel="Habit emoji"
-            value={emoji}
-            onChangeText={setEmoji}
-            maxLength={2}
-            style={[
-              styles.emoji,
-              { borderColor: inputBorder, color: theme.colors.text },
-            ]}
-          />
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Choose emoji"
+            onPress={() => setPickerOpen(true)}
+            style={[styles.emoji, { borderColor: inputBorder }]}
+          >
+            <Text style={styles.emojiGlyph}>{emoji}</Text>
+          </TouchableOpacity>
           <TextInput
             accessibilityLabel="Habit title"
             autoFocus={!isEditing}
@@ -273,6 +273,15 @@ export default function HabitScreen() {
         )}
       </ScrollView>
 
+      <EmojiPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(next) => {
+          setEmoji(next);
+          setPickerOpen(false);
+        }}
+      />
+
       <ConfirmationModal {...confirmationProps} />
     </>
   );
@@ -303,12 +312,15 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   emoji: {
+    alignItems: "center",
     borderRadius: 8,
     borderWidth: StyleSheet.hairlineWidth,
-    fontSize: 22,
     height: 50,
-    textAlign: "center",
+    justifyContent: "center",
     width: 50,
+  },
+  emojiGlyph: {
+    fontSize: 24,
   },
   label: {
     fontSize: 16,
