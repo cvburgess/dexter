@@ -1,6 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useState } from "react";
-import { FlatList, StyleSheet, Text } from "react-native";
+import { ScrollView, StyleSheet, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { duplicateTaskInput } from "@/api/tasks";
@@ -14,6 +14,7 @@ import {
   usePrefetchAdjacentTasks,
   useTasks,
 } from "@/hooks/useTasks";
+import { usePublishViewedDay } from "@/hooks/useViewedDay";
 import { useTheme } from "@/utils/theme";
 
 type TDayState = {
@@ -32,6 +33,8 @@ export default function TodayScreen() {
     filters: taskFiltersForDate(day.date),
   });
   usePrefetchAdjacentTasks(day.date);
+  // So "New Task" opened from this tab defaults its schedule to the viewed day.
+  usePublishViewedDay(day.date);
 
   const handleDelete = async (id: string) => {
     const confirmed = await confirm({
@@ -67,31 +70,33 @@ export default function TodayScreen() {
         direction={day.direction}
         onSwipe={changeDateBy}
       >
-        <FlatList
-          contentContainerStyle={styles.list}
-          data={tasks}
-          keyExtractor={(task) => task.id}
-          ListEmptyComponent={
-            isLoading ? null : (
-              <Text
-                style={[
-                  styles.emptyText,
-                  { color: theme.colors.textSecondary },
-                ]}
-              >
-                No tasks scheduled for this day.
-              </Text>
-            )
-          }
-          renderItem={({ item }) => (
-            <TaskCard
-              task={item}
-              onUpdate={(diff) => updateTask({ id: item.id, ...diff })}
-              onDuplicate={() => createTask(duplicateTaskInput(item))}
-              onDelete={() => handleDelete(item.id)}
-            />
-          )}
-        />
+        {/* A plain ScrollView (not FlatList): a day's list is small, so
+            virtualization buys nothing — and the cards contain @expo/ui menu
+            hosts that size asynchronously, which virtualized off-viewport
+            mounting makes worse (expo/expo#42576). The cards themselves pin
+            their heights (see TaskCard/StatusButton) so layout stays stable. */}
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.list}>
+          {tasks.length === 0
+            ? !isLoading && (
+                <Text
+                  style={[
+                    styles.emptyText,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  No tasks scheduled for this day.
+                </Text>
+              )
+            : tasks.map((item) => (
+                <TaskCard
+                  key={item.id}
+                  task={item}
+                  onUpdate={(diff) => updateTask({ id: item.id, ...diff })}
+                  onDuplicate={() => createTask(duplicateTaskInput(item))}
+                  onDelete={() => handleDelete(item.id)}
+                />
+              ))}
+        </ScrollView>
       </SwipeableDay>
       <ConfirmationModal {...confirmationProps} />
     </SafeAreaView>
@@ -100,6 +105,11 @@ export default function TodayScreen() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  // Bound the scroll view's height to its flex parent so the day's tasks
+  // scroll when they overflow, instead of being clipped.
+  scroll: {
     flex: 1,
   },
   list: {

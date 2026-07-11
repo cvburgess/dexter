@@ -9,6 +9,14 @@ import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 
 import TodayScreen from "@/app/(app)/(tabs)/today";
 import { taskFiltersForDate, useTasks } from "@/hooks/useTasks";
+import { usePublishViewedDay } from "@/hooks/useViewedDay";
+
+// usePublishViewedDay uses expo-router's useFocusEffect, which needs a
+// navigation container this unit test doesn't mount; assert the wiring instead.
+jest.mock("@/hooks/useViewedDay", () => ({ usePublishViewedDay: jest.fn() }));
+const mockPublishViewedDay = usePublishViewedDay as jest.MockedFunction<
+  typeof usePublishViewedDay
+>;
 
 // useTasks imports the supabase client from useAuth, which reads the app's
 // URI scheme at module scope — not available under Jest.
@@ -66,6 +74,27 @@ describe("TodayScreen", () => {
     expect(mockUseTasks).toHaveBeenCalledWith({
       filters: taskFiltersForDate(Temporal.Now.plainDateISO()),
     });
+  });
+
+  // Temporal.PlainDate keeps its data in internal slots, so compare by ISO
+  // string rather than passing an instance to toHaveBeenCalledWith.
+  const lastPublishedDay = () =>
+    mockPublishViewedDay.mock.calls.at(-1)?.[0]?.toString();
+
+  it("publishes the viewed day so New Task defaults its schedule to it", () => {
+    render(<TodayScreen />);
+
+    expect(lastPublishedDay()).toBe(Temporal.Now.plainDateISO().toString());
+  });
+
+  it("publishes the new day after navigating a day forward", () => {
+    const screen = render(<TodayScreen />);
+
+    fireEvent.press(screen.getByLabelText("Next day"));
+
+    expect(lastPublishedDay()).toBe(
+      Temporal.Now.plainDateISO().add({ days: 1 }).toString(),
+    );
   });
 
   it("shows an empty state when there are no tasks for the day", () => {

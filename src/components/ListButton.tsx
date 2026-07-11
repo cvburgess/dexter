@@ -22,7 +22,12 @@ export function ListButton({
   const sections = getListSections(lists, listId, onChangeList);
 
   return (
-    <IconMenu accessibilityLabel="List" menuTitle="List" sections={sections}>
+    <IconMenu
+      accessibilityLabel="List"
+      menuTitle="List"
+      sections={sections}
+      style={styles.menu}
+    >
       <View
         style={[
           styles.button,
@@ -61,6 +66,12 @@ export const getListSections = (
 ];
 
 const styles = StyleSheet.create({
+  // Pin the trigger to the button's size so the menu wrapper can never
+  // influence the task card row's height.
+  menu: {
+    height: 32,
+    width: 32,
+  },
   button: {
     alignItems: "center",
     borderRadius: 999,

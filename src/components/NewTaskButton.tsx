@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { StyleSheet, Text, TouchableOpacity } from "react-native";
 
+import { getViewedDay } from "@/hooks/useViewedDay";
 import { useTheme } from "@/utils/theme";
 
 /**
@@ -15,12 +16,28 @@ export function NewTaskButton() {
   const theme = useTheme();
   const placement = NativeTabs.BottomAccessory.usePlacement();
 
+  // Read the viewed day now, while the day screen is still focused — pushing the
+  // modal blurs it, so reading later would always fall back to today. Read from
+  // the store at press time (not via a hook) because this button renders in the
+  // bottom accessory, outside the React tree where a context value would reach.
+  const openNewTask = () => {
+    const viewedDay = getViewedDay();
+    router.push(
+      viewedDay
+        ? {
+            pathname: "/new-task",
+            params: { scheduledFor: viewedDay.toString() },
+          }
+        : "/new-task",
+    );
+  };
+
   return (
     <TouchableOpacity
       accessibilityLabel="New Task"
       accessibilityRole="button"
       style={[styles.button, { backgroundColor: theme.colors.primary }]}
-      onPress={() => router.push("/new-task")}
+      onPress={openNewTask}
     >
       <Text
         style={[

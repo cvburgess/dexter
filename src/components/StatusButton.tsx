@@ -23,6 +23,7 @@ export function StatusButton({
       accessibilityLabel="Status"
       menuTitle="Status"
       sections={sections}
+      style={styles.menu}
     >
       <View
         style={[
@@ -97,6 +98,12 @@ const glyphForStatus = (status: ETaskStatus) => {
 };
 
 const styles = StyleSheet.create({
+  // Pin the trigger to the button's size so the menu wrapper can never
+  // influence the task card row's height.
+  menu: {
+    height: 32,
+    width: 32,
+  },
   button: {
     alignItems: "center",
     borderRadius: 999,

@@ -22,9 +22,8 @@ const MENU_MARGIN = 8;
  * Web fallback for `IconMenu`: `@expo/ui`'s `MenuView` doesn't fire actions on
  * web, so a click (or long-press, per `trigger`) on the trigger opens this
  * modal, anchored near the cursor, with the same sections/options as the
- * native menu. A plain section is always visible; a section with
- * `isSubmenu` collapses behind a tappable header row that expands it, one
- * at a time.
+ * native menu. A plain section is always visible; a section with `isSubmenu`
+ * collapses behind a tappable header row that expands it, one at a time.
  */
 export function IconMenu({
   menuTitle,
@@ -44,17 +43,22 @@ export function IconMenu({
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   const handlePress = (event: GestureResponderEvent) => {
-    const { clientX, clientY } = event.nativeEvent as unknown as {
+    // Web (DOM) events carry clientX/clientY; native touches carry pageX/pageY.
+    const { pageX, pageY, clientX, clientY } = event.nativeEvent as {
+      pageX?: number;
+      pageY?: number;
       clientX?: number;
       clientY?: number;
     };
+    const touchX = clientX ?? pageX ?? 0;
+    const touchY = clientY ?? pageY ?? 0;
     const { width } = Dimensions.get("window");
     setAnchor({
       x: Math.max(
         MENU_MARGIN,
-        Math.min(clientX ?? 0, width - MENU_WIDTH - MENU_MARGIN),
+        Math.min(touchX, width - MENU_WIDTH - MENU_MARGIN),
       ),
-      y: (clientY ?? 0) + MENU_MARGIN,
+      y: touchY + MENU_MARGIN,
     });
   };
 
@@ -258,16 +262,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 4,
   },
-  sectionDivider: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    marginTop: 4,
-    paddingTop: 4,
-  },
   sectionTitle: {
     fontSize: 12,
     fontWeight: "600",
     paddingHorizontal: 16,
     paddingVertical: 4,
+  },
+  sectionDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    marginTop: 4,
+    paddingTop: 4,
   },
   chevron: {
     fontSize: 14,

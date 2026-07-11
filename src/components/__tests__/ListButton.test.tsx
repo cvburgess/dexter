@@ -1,4 +1,5 @@
 import { render } from "@testing-library/react-native";
+import type { ReactNode } from "react";
 
 import { TList } from "@/api/lists";
 
@@ -7,6 +8,13 @@ import { useLists } from "@/hooks/useLists";
 import { getListSections, ListButton } from "../ListButton";
 
 jest.mock("@/hooks/useLists", () => ({ useLists: jest.fn() }));
+
+const mockIconMenu = jest.fn(
+  (props: { children: ReactNode }) => props.children,
+);
+jest.mock("../IconMenu", () => ({
+  IconMenu: (props: Parameters<typeof mockIconMenu>[0]) => mockIconMenu(props),
+}));
 
 const mockUseLists = useLists as jest.MockedFunction<typeof useLists>;
 
@@ -107,5 +115,31 @@ describe("ListButton", () => {
     );
 
     expect(screen.getByText("🚫")).toBeTruthy();
+  });
+
+  it("pins the menu trigger to the button's 32×32 size", () => {
+    // The trigger wrapper must never influence the task card row's height.
+    mockUseLists.mockReturnValue([
+      lists,
+      {
+        createList: jest.fn(),
+        isLoading: false,
+        deleteList: jest.fn(),
+        updateList: jest.fn(),
+        getListById: () => undefined,
+      },
+    ]);
+
+    render(
+      <ListButton
+        listId={null}
+        contentColor="#000000"
+        onChangeList={jest.fn()}
+      />,
+    );
+
+    expect(mockIconMenu).toHaveBeenCalledWith(
+      expect.objectContaining({ style: { height: 32, width: 32 } }),
+    );
   });
 });

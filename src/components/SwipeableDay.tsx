@@ -1,14 +1,13 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { Dimensions, LayoutChangeEvent, StyleSheet } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
-  FadeInLeft,
-  FadeInRight,
   interpolate,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from "react-native-reanimated";
 
 const COMMIT_DISTANCE_RATIO = 0.25;
@@ -58,6 +57,16 @@ function SwipeableDayContent({
 }: Omit<TSwipeableDayProps, "dateKey">) {
   const translateX = useSharedValue(0);
   const width = useSharedValue(Dimensions.get("window").width);
+  // Day-intro progress, 0 → 1: fades/slides the freshly mounted day in from
+  // the direction of travel. Driven by a plain shared value rather than an
+  // `entering` layout animation — on the new architecture, entering animations
+  // intermittently leave the mounted subtree blank or mis-measured (worse here
+  // because the task cards contain async-sizing @expo/ui menu hosts).
+  const intro = useSharedValue(direction === 0 ? 1 : 0);
+
+  useEffect(() => {
+    intro.value = withTiming(1, { duration: 300 });
+  }, [intro]);
 
   const onLayout = (e: LayoutChangeEvent) => {
     width.value = e.nativeEvent.layout.width;
@@ -97,6 +106,14 @@ function SwipeableDayContent({
     ),
   }));
 
+  // Matches the old FadeInRight/FadeInLeft look: slide in 25px from the
+  // travel direction while fading up. Purely a style animation — it never
+  // touches the subtree's layout.
+  const introStyle = useAnimatedStyle(() => ({
+    opacity: intro.value,
+    transform: [{ translateX: (1 - intro.value) * 25 * direction }],
+  }));
+
   return (
     <GestureDetector gesture={pan}>
       <Animated.View
@@ -104,16 +121,7 @@ function SwipeableDayContent({
         style={[styles.container, animatedStyle]}
         collapsable={false}
       >
-        <Animated.View
-          entering={
-            direction === 1
-              ? FadeInRight
-              : direction === -1
-                ? FadeInLeft
-                : undefined
-          }
-          style={styles.container}
-        >
+        <Animated.View style={[styles.container, introStyle]}>
           {children}
         </Animated.View>
       </Animated.View>
