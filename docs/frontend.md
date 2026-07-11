@@ -114,6 +114,7 @@ Supabase client code reads the public Expo environment variables below from loca
 ```bash
 EXPO_PUBLIC_SUPABASE_URL=...
 EXPO_PUBLIC_SUPABASE_ANON_KEY=...
+EXPO_PUBLIC_SENTRY_DSN=...
 ```
 
 Generated Supabase database types live at `src/types/database.types.ts`. Regenerate them from `/src` with:
@@ -123,6 +124,21 @@ npm run supabase:types
 ```
 
 Uncommitted `.env` / `.env.local` files are normal; never commit secrets.
+
+## Error monitoring (Sentry)
+
+The app reports errors and performance data via [`@sentry/react-native`](https://docs.sentry.io/platforms/react-native/) (not the deprecated `sentry-expo`), wired through the `@sentry/react-native/expo` config plugin in `app.json` (`organization: "cvburgess"`, `project: "dexter-app"`).
+
+- **DSN**: `utils/sentry.ts` exports `getSentryDsn()`, which reads `EXPO_PUBLIC_SENTRY_DSN` and throws if it's missing — same throw-if-missing pattern as `utils/supabase.ts`. The DSN is a public identifier, safe to expose client-side; set it in `src/.env.local` for local dev (uncommitted, see above).
+- **Init + wrap**: `app/_layout.tsx` calls `Sentry.init(...)` at module scope (before any component renders) and exports `Sentry.wrap(RootLayout)` as the default export — the earliest lifecycle hook available. `Sentry.wrap` is plain component composition (a touch-event boundary + profiler), so it's compatible with the React Compiler (`experiments.reactCompiler` in `app.json`).
+- **Navigation tracing**: a module-scoped `Sentry.reactNavigationIntegration()` instance is passed to `Sentry.init` and registered against the root `Stack`'s navigation container ref (`useNavigationContainerRef` from `expo-router`) inside `ThemedStack`, so screen transitions show up as Sentry spans/breadcrumbs.
+- **Error boundary**: `app/_layout.tsx` also exports `ErrorBoundary({ error, retry })` (Expo Router's per-layout error boundary convention), which reports the error via `Sentry.captureException` and renders a themed fallback with a retry button. Because it can render when a provider above it (e.g. `ThemeProvider`) failed to mount, it relies on `useTheme()`'s OS-resolved fallback rather than assuming providers are present.
+- **React Query**: `providers/QueryProvider.tsx` wires a `QueryCache`/`MutationCache` `onError` handler that reports failed queries and mutations to `Sentry.captureException`, in addition to React Query's normal `isError`/`error` state for UI handling.
+- **Web**: `Sentry.init` sets `enableNative`/`enableNativeCrashHandling` to `Platform.OS !== "web"` explicitly (react-native-web has no native module bridge) — the SDK itself also no-ops native-only behavior on web, but this keeps intent explicit rather than relying on an internal check.
+- **Source maps**: `src/metro.config.js` wraps Expo's default Metro config with `getSentryExpoConfig` (from `@sentry/react-native/metro`) so bundles are annotated for symbolication. Actual source-map / debug-symbol upload happens via native build-phase scripts the config plugin injects into the iOS/Android projects during `eas build`, gated on the build configuration:
+  - `preview` and `production` in `src/eas.json` build with `ios.buildConfiguration: "Release"` and upload source maps + debug symbols. This requires a `SENTRY_AUTH_TOKEN` **EAS secret** (build-time only, never `EXPO_PUBLIC_*`, never hardcoded) — set it with `eas secret:create --scope project --name SENTRY_AUTH_TOKEN --value <token>`.
+  - `development`, `simulator`, and `e2e-test` set `SENTRY_DISABLE_AUTO_UPLOAD: "true"` in their `eas.json` `env` block, since those Debug builds don't have (and don't need) a `SENTRY_AUTH_TOKEN`.
+- **Manual verification**: trigger a test error with `setTimeout(() => { throw new Error("Sentry test"); });` from anywhere in the app and confirm it appears in the Sentry dashboard for the `dexter-app` project.
 
 ## Data Layer
 
