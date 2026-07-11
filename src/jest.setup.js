@@ -40,7 +40,7 @@ jest.mock("expo-symbols", () => ({ SymbolView: () => null }));
 
 // Vector icons render glyphs from a bundled font; render the icon name as
 // text so tests can assert on presence without the native font.
-jest.mock("@react-native-vector-icons/ionicons/static", () => {
+jest.mock("@react-native-vector-icons/ionicons", () => {
   const { Text } = require("react-native");
   const Ionicons = ({ name, ...props }) => <Text {...props}>{name}</Text>;
   return { __esModule: true, default: Ionicons };

@@ -1,12 +1,17 @@
 import { Stack } from "expo-router";
+import { useWindowDimensions, View } from "react-native";
 
+import { SettingsSidebar } from "@/components/SettingsSidebar";
+import { SETTINGS_TWO_PANE_MIN_WIDTH } from "@/utils/settingsItems";
 import { createListScreenOptions } from "@/utils/stackOptions";
 import { useTheme } from "@/utils/theme";
 
 export default function SettingsLayout() {
   const theme = useTheme();
+  const { width } = useWindowDimensions();
+  const twoPane = width >= SETTINGS_TWO_PANE_MIN_WIDTH;
 
-  return (
+  const stack = (
     <Stack>
       <Stack.Screen
         name="index"
@@ -45,5 +50,17 @@ export default function SettingsLayout() {
         options={createListScreenOptions(theme, "Licenses")}
       />
     </Stack>
+  );
+
+  // The wrapper structure is identical in both modes — only the sidebar
+  // mounts/unmounts — so the Stack keeps its position in the element tree and
+  // crossing the breakpoint (resize, rotation) doesn't remount the navigator
+  // and drop its history.
+  return (
+    <View style={{ flex: 1, flexDirection: "row" }}>
+      {/* Large screens: persistent sidebar (master list) beside the detail pane. */}
+      {twoPane ? <SettingsSidebar /> : null}
+      <View style={{ flex: 1 }}>{stack}</View>
+    </View>
   );
 }
