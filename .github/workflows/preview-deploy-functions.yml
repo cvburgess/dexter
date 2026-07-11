@@ -1,0 +1,85 @@
+name: Deploy Preview Functions
+
+# Supabase preview branches deploy edge functions on creation, but the
+# branching executor does not reliably re-deploy functions on every
+# subsequent push (a function-only edit isn't a strong enough trigger
+# on its own). As a result, a function added or modified in a PR after
+# its preview branch was created returns 404 from
+# https://<preview-ref>.supabase.co/functions/v1/<name>.
+#
+# Gating: we listen for the `check_run` event from Supabase's GitHub
+# integration. When the `Supabase Preview` check finishes with
+# conclusion=success, the preview branch exists and migrations have
+# already been applied. The workflow runs only then — no polling, no
+# wasted runs on PRs that don't have a preview.
+
+on:
+  check_run:
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      git_branch:
+        description: 'PR head branch to deploy functions for (defaults to current ref)'
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-deploy-functions-${{ github.event.check_run.pull_requests[0].number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-preview-functions:
+    name: Deploy edge functions to preview branch
+    runs-on: ubuntu-latest
+    # Only run after Supabase confirms the preview branch is ready, or
+    # on explicit manual dispatch.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.check_run.app.slug == 'supabase' &&
+       github.event.check_run.name == 'Supabase Preview' &&
+       github.event.check_run.conclusion == 'success')
+    steps:
+      # For `check_run` events, GITHUB_SHA/GITHUB_REF point at the
+      # repo's default branch — checkout must be explicitly pinned to
+      # the PR head so the CLI deploys the PR's function code, not
+      # main's.
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.check_run.head_sha || github.ref }}
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Resolve preview branch project_ref
+        id: branch
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PARENT_REF: ${{ secrets.SUPABASE_PROJECT_ID }}
+          GIT_BRANCH: ${{ github.event.check_run.pull_requests[0].head.ref || inputs.git_branch || github.ref_name }}
+        run: |
+          set -euo pipefail
+          echo "Resolving preview branch for git_branch=$GIT_BRANCH under parent=$PARENT_REF..."
+          response=$(curl -fsSL \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            -H "Accept: application/json" \
+            "https://api.supabase.com/v1/projects/$PARENT_REF/branches")
+          ref=$(echo "$response" | jq -r \
+            --arg b "$GIT_BRANCH" \
+            '[.[] | select(.git_branch == $b)][0].project_ref // empty')
+          if [ -z "$ref" ]; then
+            echo "::error::No Supabase preview branch found for git_branch=$GIT_BRANCH after Supabase Preview check success."
+            exit 1
+          fi
+          echo "Resolved preview branch: $ref"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy edge functions to preview branch
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        # Deploys every function under supabase/functions/ to the
+        # preview branch. The CLI upserts by name, so re-running on
+        # subsequent pushes is idempotent and overwrites prior versions.
+        run: supabase functions deploy --project-ref ${{ steps.branch.outputs.ref }}

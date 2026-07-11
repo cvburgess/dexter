@@ -1,0 +1,29 @@
+name: Test Backend
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ["supabase/**"]
+  push:
+    branches: [main]
+    paths: ["supabase/**"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: supabase
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Format check
+        run: deno fmt --check
+
+      - name: Test
+        run: deno test --allow-all --config __tests__/deno.json __tests__/
