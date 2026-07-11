@@ -35,13 +35,13 @@ describe("HabitRing", () => {
     expect(screen.getByText("💧")).toBeTruthy();
   });
 
-  it("swaps the emoji for a checkmark once complete (clamping past 100)", () => {
+  it("renders without throwing when complete (clamping past 100)", () => {
     const screen = render(
       <HabitRing emoji="🏃" percentComplete={150} accessibilityLabel="Run" />,
     );
 
-    // At 100%+ the ring fills and the glyph becomes a checkmark, so the emoji
-    // is no longer rendered.
-    expect(screen.queryByText("🏃")).toBeNull();
+    // At 100%+ the fill and checkmark cross-fade in, but the emoji stays mounted
+    // (faded to transparent) so the swap can animate rather than pop.
+    expect(screen.getByText("🏃")).toBeTruthy();
   });
 });

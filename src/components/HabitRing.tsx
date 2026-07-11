@@ -64,62 +64,87 @@ export function HabitRing({
     }).start();
   }, [arc, dashoffset]);
 
+  // Cross-fade the completed state (solid fill + checkmark) in and out so
+  // finishing the last step doesn't pop. Opacity supports the native driver.
+  const [complete] = useState(() => new Animated.Value(isComplete ? 1 : 0));
+  useEffect(() => {
+    Animated.timing(complete, {
+      toValue: isComplete ? 1 : 0,
+      duration: FILL_DURATION_MS,
+      useNativeDriver: true,
+    }).start();
+  }, [complete, isComplete]);
+  const emojiOpacity = complete.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0],
+  });
+
   const ring = (
     <View style={[styles.container, faded && styles.faded]}>
-      {isComplete ? (
-        // Done: a solid primary disc filling the ring.
+      {/* Rotate the whole SVG with a plain RN transform so the arc appears to
+          start at 12 o'clock. react-native-svg's own rotation/transform props
+          throw on web, so this stays off the SVG element itself. */}
+      <View style={styles.svgRotate}>
         <Svg width={SIZE} height={SIZE}>
           <Circle
             cx={CENTER}
             cy={CENTER}
-            r={SIZE / 2}
-            fill={theme.colors.primary}
+            r={RADIUS}
+            fill="none"
+            stroke={withOpacity(theme.colors.text, 0.15)}
+            strokeWidth={STROKE}
           />
-        </Svg>
-      ) : (
-        // Rotate the whole SVG with a plain RN transform so the arc appears to
-        // start at 12 o'clock. react-native-svg's own rotation/transform props
-        // throw on web, so this stays off the SVG element itself.
-        <View style={styles.svgRotate}>
-          <Svg width={SIZE} height={SIZE}>
-            <Circle
+          {/* Always mounted (even at 0%, where it's fully offset and hidden)
+              so the very first step animates in rather than popping. */}
+          {!faded && (
+            <AnimatedCircle
               cx={CENTER}
               cy={CENTER}
               r={RADIUS}
               fill="none"
-              stroke={withOpacity(theme.colors.text, 0.15)}
+              stroke={theme.colors.primary}
               strokeWidth={STROKE}
+              strokeDasharray={CIRCUMFERENCE}
+              strokeDashoffset={arc}
+              strokeLinecap="round"
             />
-            {/* Always mounted (even at 0%, where it's fully offset and hidden)
-                so the very first step animates in rather than popping. */}
-            {!faded && (
-              <AnimatedCircle
-                cx={CENTER}
-                cy={CENTER}
-                r={RADIUS}
-                fill="none"
-                stroke={theme.colors.primary}
-                strokeWidth={STROKE}
-                strokeDasharray={CIRCUMFERENCE}
-                strokeDashoffset={arc}
-                strokeLinecap="round"
-              />
-            )}
+          )}
+        </Svg>
+      </View>
+
+      {/* Solid primary disc that fades in over the full ring when complete. */}
+      {!faded && (
+        <Animated.View
+          style={[styles.fill, { opacity: complete }]}
+          pointerEvents="none"
+        >
+          <Svg width={SIZE} height={SIZE}>
+            <Circle
+              cx={CENTER}
+              cy={CENTER}
+              r={SIZE / 2}
+              fill={theme.colors.primary}
+            />
           </Svg>
-        </View>
+        </Animated.View>
       )}
-      {/* Upright, centered, and clipped so a wide glyph can't bleed past the ring. */}
+
+      {/* Emoji and checkmark stack and cross-fade; clipped so a wide glyph
+          can't bleed past the ring. */}
       <View style={styles.emojiWrap} pointerEvents="none">
-        {isComplete ? (
-          <Ionicons
-            color={theme.colors.primaryContent}
-            name="checkmark"
-            size={22}
-          />
-        ) : (
+        <Animated.View style={[styles.glyph, { opacity: emojiOpacity }]}>
           <Text style={styles.emoji} numberOfLines={1}>
             {emoji}
           </Text>
+        </Animated.View>
+        {!faded && (
+          <Animated.View style={[styles.glyph, { opacity: complete }]}>
+            <Ionicons
+              color={theme.colors.primaryContent}
+              name="checkmark"
+              size={22}
+            />
+          </Animated.View>
         )}
       </View>
     </View>
@@ -131,7 +156,7 @@ export function HabitRing({
     <TouchableOpacity
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      activeOpacity={0.8}
+      activeOpacity={0.5}
       onPress={onPress}
     >
       {ring}
@@ -149,9 +174,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   emojiWrap: {
-    alignItems: "center",
     bottom: 0,
-    justifyContent: "center",
     left: 0,
     overflow: "hidden",
     position: "absolute",
@@ -160,6 +183,22 @@ const styles = StyleSheet.create({
   },
   faded: {
     opacity: 0.25,
+  },
+  fill: {
+    bottom: 0,
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
+  },
+  glyph: {
+    alignItems: "center",
+    bottom: 0,
+    justifyContent: "center",
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
   },
   svgRotate: {
     transform: [{ rotate: "-90deg" }],
