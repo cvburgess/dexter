@@ -15,7 +15,13 @@
 export interface SentryClient {
   init(options: { dsn: string }): void;
   captureException(error: unknown): string | undefined;
+  flush(timeout?: number): Promise<boolean>;
 }
+
+// Edge Function isolates can be torn down immediately after the response is
+// returned, so buffered events must be flushed before the handler resolves or
+// they may never reach Sentry.
+const FLUSH_TIMEOUT_MS = 2000;
 
 let client: SentryClient | null = null;
 let initPromise: Promise<void> | null = null;
@@ -66,6 +72,20 @@ export function captureException(error: unknown): void {
 }
 
 /**
+ * Flushes any buffered Sentry events. Call before an Edge Function handler
+ * resolves so events survive the isolate shutdown. No-ops when Sentry is not
+ * initialized, and never rejects.
+ */
+export async function flushSentry(): Promise<void> {
+  if (!client) return;
+  try {
+    await client.flush(FLUSH_TIMEOUT_MS);
+  } catch (error) {
+    console.error("Sentry flush failed", error);
+  }
+}
+
+/**
  * Wraps a `Deno.serve` handler so uncaught errors are reported to Sentry.
  * Catch blocks that already sanitize their own responses should call
  * `captureException` directly instead of relying on this wrapper; this is a
@@ -85,6 +105,11 @@ export function withSentry(
         JSON.stringify({ error: "Internal server error" }),
         { status: 500, headers: { "Content-Type": "application/json" } },
       );
+    } finally {
+      // Covers events captured anywhere in the request — the wrapper's own
+      // catch, a handler's sanitized catch, and `toolError` — since they all
+      // run before this finally.
+      await flushSentry();
     }
   };
 }
