@@ -7,6 +7,7 @@ const SIZE = 32;
 const STROKE = 4;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+const CENTER = SIZE / 2;
 
 type THabitRingProps = {
   emoji: string;
@@ -32,39 +33,45 @@ export function HabitRing({
 }: THabitRingProps) {
   const theme = useTheme();
 
-  const clamped = Math.max(0, Math.min(100, percentComplete));
+  const clamped = Math.max(0, Math.min(100, percentComplete || 0));
   const dashoffset = CIRCUMFERENCE * (1 - clamped / 100);
 
   const ring = (
     <View style={[styles.container, faded && styles.faded]}>
-      <Svg width={SIZE} height={SIZE}>
-        <Circle
-          cx={SIZE / 2}
-          cy={SIZE / 2}
-          r={RADIUS}
-          fill="none"
-          stroke={withOpacity(theme.colors.text, 0.15)}
-          strokeWidth={STROKE}
-        />
-        {!faded && clamped > 0 && (
+      {/* Rotate the whole SVG with a plain RN transform so the arc appears to
+          start at 12 o'clock. react-native-svg's own rotation/transform props
+          throw on web, so this stays off the SVG element itself. */}
+      <View style={styles.svgRotate}>
+        <Svg width={SIZE} height={SIZE}>
           <Circle
-            cx={SIZE / 2}
-            cy={SIZE / 2}
+            cx={CENTER}
+            cy={CENTER}
             r={RADIUS}
             fill="none"
-            stroke={theme.colors.primary}
+            stroke={withOpacity(theme.colors.text, 0.15)}
             strokeWidth={STROKE}
-            strokeDasharray={CIRCUMFERENCE}
-            strokeDashoffset={dashoffset}
-            strokeLinecap="round"
-            // Start the arc at 12 o'clock instead of 3 o'clock.
-            originX={SIZE / 2}
-            originY={SIZE / 2}
-            rotation={-90}
           />
-        )}
-      </Svg>
-      <Text style={styles.emoji}>{emoji}</Text>
+          {!faded && clamped > 0 && (
+            <Circle
+              cx={CENTER}
+              cy={CENTER}
+              r={RADIUS}
+              fill="none"
+              stroke={theme.colors.primary}
+              strokeWidth={STROKE}
+              strokeDasharray={CIRCUMFERENCE}
+              strokeDashoffset={dashoffset}
+              strokeLinecap="round"
+            />
+          )}
+        </Svg>
+      </View>
+      {/* Upright, centered, and clipped so a wide glyph can't bleed past the ring. */}
+      <View style={styles.emojiWrap} pointerEvents="none">
+        <Text style={styles.emoji} numberOfLines={1}>
+          {emoji}
+        </Text>
+      </View>
     </View>
   );
 
@@ -83,22 +90,27 @@ export function HabitRing({
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: "center",
     height: SIZE,
-    justifyContent: "center",
     width: SIZE,
   },
   emoji: {
-    bottom: 0,
     fontSize: 14,
+    textAlign: "center",
+  },
+  emojiWrap: {
+    alignItems: "center",
+    bottom: 0,
+    justifyContent: "center",
     left: 0,
-    lineHeight: SIZE,
+    overflow: "hidden",
     position: "absolute",
     right: 0,
-    textAlign: "center",
     top: 0,
   },
   faded: {
     opacity: 0.25,
+  },
+  svgRotate: {
+    transform: [{ rotate: "-90deg" }],
   },
 });

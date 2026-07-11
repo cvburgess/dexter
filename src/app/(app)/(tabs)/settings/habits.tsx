@@ -1,39 +1,51 @@
-import { useState } from "react";
+import Ionicons from "@react-native-vector-icons/ionicons";
+import { useNavigation, useRouter } from "expo-router";
+import { useLayoutEffect } from "react";
 import {
+  Platform,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
-  TextInput,
+  TouchableOpacity,
   useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { TCreateHabit } from "@/api/habits";
-import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { HabitRow } from "@/components/HabitRow";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
-import { useConfirmation } from "@/hooks/useConfirmation";
 import { useHabits } from "@/hooks/useHabits";
 import { usePreferences } from "@/hooks/usePreferences";
 import { SETTINGS_TWO_PANE_MIN_WIDTH } from "@/utils/settingsItems";
 import { useTheme, withOpacity } from "@/utils/theme";
 
-const DEFAULT_HABIT: Omit<TCreateHabit, "title"> = {
-  emoji: "😄",
-  daysActive: [1, 2, 3, 4, 5, 6, 7],
-  steps: 1,
-};
-
 export default function HabitsScreen() {
   const theme = useTheme();
-  const [habits, { createHabit, updateHabit, deleteHabit }] = useHabits();
+  const navigation = useNavigation();
+  const router = useRouter();
+  const [habits, { updateHabit }] = useHabits();
   const [preferences, { updatePreferences }] = usePreferences();
-  const { confirm, confirmationProps } = useConfirmation();
   const { width } = useWindowDimensions();
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = width >= SETTINGS_TWO_PANE_MIN_WIDTH;
+
+  // A "+" in the header opens the create modal (mirrors New Task). Re-wired on
+  // every render so the handler closes over the latest router.
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="New habit"
+          onPress={() => router.push("/habit")}
+          style={Platform.OS === "web" ? styles.headerButtonWeb : undefined}
+        >
+          <Ionicons color={theme.colors.primary} name="add" size={28} />
+        </TouchableOpacity>
+      ),
+    });
+  });
 
   return (
     <SafeAreaView
@@ -45,7 +57,6 @@ export default function HabitsScreen() {
           styles.content,
           { padding: theme.spacing, gap: theme.spacing },
         ]}
-        keyboardShouldPersistTaps="handled"
       >
         <View
           style={[
@@ -73,60 +84,43 @@ export default function HabitsScreen() {
         </View>
 
         {preferences.enableHabits && (
-          <View style={styles.section}>
+          <View
+            style={[
+              styles.list,
+              {
+                backgroundColor: theme.colors.card,
+                borderRadius: theme.borderRadius,
+              },
+            ]}
+          >
             <SettingsSectionTitle>Habits</SettingsSectionTitle>
-            {habits.map((habit) => (
-              <HabitRow
-                key={habit.id}
-                habit={habit}
-                updateHabit={updateHabit}
-                deleteHabit={deleteHabit}
-                confirm={confirm}
-              />
-            ))}
-            <NewHabitInput onCreate={createHabit} />
+            {habits.length === 0 ? (
+              <Text
+                style={[styles.empty, { color: theme.colors.textSecondary }]}
+              >
+                Tap ＋ to create your first habit.
+              </Text>
+            ) : (
+              habits.map((habit, index) => (
+                <View key={habit.id}>
+                  {index > 0 && (
+                    <View
+                      style={[
+                        styles.divider,
+                        {
+                          backgroundColor: withOpacity(theme.colors.text, 0.08),
+                        },
+                      ]}
+                    />
+                  )}
+                  <HabitRow habit={habit} updateHabit={updateHabit} />
+                </View>
+              ))
+            )}
           </View>
         )}
       </ScrollView>
-
-      <ConfirmationModal {...confirmationProps} />
     </SafeAreaView>
-  );
-}
-
-function NewHabitInput({
-  onCreate,
-}: {
-  onCreate: (habit: TCreateHabit) => void;
-}) {
-  const theme = useTheme();
-  const [title, setTitle] = useState("");
-
-  const submit = () => {
-    const next = title.trim();
-    if (!next) return;
-    onCreate({ ...DEFAULT_HABIT, title: next });
-    setTitle("");
-  };
-
-  return (
-    <TextInput
-      accessibilityLabel="New habit"
-      value={title}
-      onChangeText={setTitle}
-      onSubmitEditing={submit}
-      placeholder="+ New habit"
-      placeholderTextColor={theme.colors.textSecondary}
-      returnKeyType="done"
-      style={[
-        styles.newHabit,
-        {
-          backgroundColor: theme.colors.card,
-          borderRadius: theme.borderRadius,
-          color: theme.colors.text,
-        },
-      ]}
-    />
   );
 }
 
@@ -137,12 +131,19 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
   },
-  newHabit: {
-    fontSize: 16,
-    padding: 16,
+  divider: {
+    height: StyleSheet.hairlineWidth,
   },
-  section: {
-    gap: 10,
+  empty: {
+    fontSize: 14,
+    paddingVertical: 8,
+  },
+  headerButtonWeb: {
+    marginRight: 20,
+  },
+  list: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   toggle: {
     alignItems: "center",
