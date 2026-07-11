@@ -39,7 +39,14 @@
           }
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "cvburgess",
+          "project": "dexter-app"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
