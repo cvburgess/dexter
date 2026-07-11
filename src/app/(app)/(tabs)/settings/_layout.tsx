@@ -52,12 +52,14 @@ export default function SettingsLayout() {
     </Stack>
   );
 
-  if (!twoPane) return stack;
-
-  // Large screens: persistent sidebar (master list) beside the detail pane.
+  // The wrapper structure is identical in both modes — only the sidebar
+  // mounts/unmounts — so the Stack keeps its position in the element tree and
+  // crossing the breakpoint (resize, rotation) doesn't remount the navigator
+  // and drop its history.
   return (
     <View style={{ flex: 1, flexDirection: "row" }}>
-      <SettingsSidebar />
+      {/* Large screens: persistent sidebar (master list) beside the detail pane. */}
+      {twoPane ? <SettingsSidebar /> : null}
       <View style={{ flex: 1 }}>{stack}</View>
     </View>
   );
