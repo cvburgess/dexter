@@ -6,9 +6,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { duplicateTaskInput } from "@/api/tasks";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { DayNav } from "@/components/DayNav";
+import { HabitTracker } from "@/components/HabitTracker";
 import { SwipeableDay } from "@/components/SwipeableDay";
 import { TaskCard } from "@/components/TaskCard";
 import { useConfirmation } from "@/hooks/useConfirmation";
+import { usePreferences } from "@/hooks/usePreferences";
 import {
   taskFiltersForDate,
   usePrefetchAdjacentTasks,
@@ -25,6 +27,7 @@ type TDayState = {
 export default function TodayScreen() {
   const theme = useTheme();
   const { confirm, confirmationProps } = useConfirmation();
+  const [preferences] = usePreferences();
   const [day, setDay] = useState<TDayState>(() => ({
     date: Temporal.Now.plainDateISO(),
     direction: 0,
@@ -70,6 +73,7 @@ export default function TodayScreen() {
         direction={day.direction}
         onSwipe={changeDateBy}
       >
+        {preferences.enableHabits && <HabitTracker date={day.date} />}
         {/* A plain ScrollView (not FlatList): a day's list is small, so
             virtualization buys nothing — and the cards contain @expo/ui menu
             hosts that size asynchronously, which virtualized off-viewport
