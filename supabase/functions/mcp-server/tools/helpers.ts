@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { captureException } from "../../_shared/sentry.ts";
+
 export const uuidSchema = z.string().uuid();
 export const dateSchema = z.string().regex(
   /^\d{4}-\d{2}-\d{2}$/,
@@ -76,6 +78,7 @@ export function toolJson(data: unknown): ToolResult {
 }
 
 export function toolError(message: string): ToolResult {
+  captureException(new Error(message));
   return { content: [{ type: "text", text: message }], isError: true };
 }
 
