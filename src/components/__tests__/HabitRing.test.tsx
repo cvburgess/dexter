@@ -2,6 +2,14 @@ import { render } from "@testing-library/react-native";
 
 import { HabitRing } from "@/components/HabitRing";
 
+// The ring's arc animates via Animated.timing, which schedules timers. Fake
+// timers keep those from firing after the test environment tears down.
+beforeEach(() => jest.useFakeTimers());
+afterEach(() => {
+  jest.runOnlyPendingTimers();
+  jest.useRealTimers();
+});
+
 // useTheme reads from a provider in the app, but the hook falls back to a
 // default theme when unwrapped, so the ring renders standalone here.
 

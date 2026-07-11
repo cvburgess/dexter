@@ -1,8 +1,20 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useEffect, useState } from "react";
+import {
+  Animated,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
 import { useTheme, withOpacity } from "@/utils/theme";
+
+// SVG props can't run on the native driver, so the arc animates on the JS
+// thread; a short duration keeps the fill feeling responsive to each tap.
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const FILL_DURATION_MS = 300;
 
 // A larger ring than the emoji needs leaves breathing room between the ring
 // and the glyph; the emoji font size stays fixed (see styles.emoji).
@@ -40,6 +52,18 @@ export function HabitRing({
   const dashoffset = CIRCUMFERENCE * (1 - clamped / 100);
   const isComplete = !faded && clamped >= 100;
 
+  // Animate the arc toward its new length on each change so a tap glides to the
+  // next step instead of jumping. Seeded at the current offset so a ring that
+  // mounts already-partway-done doesn't sweep in on first render.
+  const [arc] = useState(() => new Animated.Value(dashoffset));
+  useEffect(() => {
+    Animated.timing(arc, {
+      toValue: dashoffset,
+      duration: FILL_DURATION_MS,
+      useNativeDriver: false,
+    }).start();
+  }, [arc, dashoffset]);
+
   const ring = (
     <View style={[styles.container, faded && styles.faded]}>
       {isComplete ? (
@@ -66,8 +90,10 @@ export function HabitRing({
               stroke={withOpacity(theme.colors.text, 0.15)}
               strokeWidth={STROKE}
             />
-            {!faded && clamped > 0 && (
-              <Circle
+            {/* Always mounted (even at 0%, where it's fully offset and hidden)
+                so the very first step animates in rather than popping. */}
+            {!faded && (
+              <AnimatedCircle
                 cx={CENTER}
                 cy={CENTER}
                 r={RADIUS}
@@ -75,7 +101,7 @@ export function HabitRing({
                 stroke={theme.colors.primary}
                 strokeWidth={STROKE}
                 strokeDasharray={CIRCUMFERENCE}
-                strokeDashoffset={dashoffset}
+                strokeDashoffset={arc}
                 strokeLinecap="round"
               />
             )}
@@ -105,6 +131,7 @@ export function HabitRing({
     <TouchableOpacity
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      activeOpacity={0.8}
       onPress={onPress}
     >
       {ring}
