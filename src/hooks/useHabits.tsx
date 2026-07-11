@@ -152,16 +152,50 @@ export const useDailyHabits = (date: string): TUseDailyHabits => {
     },
   });
 
-  const { mutate: update } = useMutation<TDailyHabit, Error, TUpdateDailyHabit>(
-    {
-      mutationFn: (diff) => updateDailyHabit(supabase, diff),
-      onSuccess: () => {
-        void queryClient.invalidateQueries({
-          queryKey: ["dailyHabits", date],
-        });
-      },
+  const { mutate: update } = useMutation<
+    TDailyHabit,
+    Error,
+    TUpdateDailyHabit,
+    { previous?: TDailyHabit[] }
+  >({
+    mutationFn: (diff) => updateDailyHabit(supabase, diff),
+    // Write the new step count into the cache immediately so back-to-back taps
+    // each read fresh progress. Without this, a second tap before the refetch
+    // reuses the stale snapshot and drops the step.
+    onMutate: async (diff) => {
+      await queryClient.cancelQueries({ queryKey: ["dailyHabits", date] });
+      const previous = queryClient.getQueryData<TDailyHabit[]>([
+        "dailyHabits",
+        date,
+      ]);
+      if (diff.stepsComplete !== undefined) {
+        queryClient.setQueryData<TDailyHabit[]>(
+          ["dailyHabits", date],
+          (rows = []) =>
+            rows.map((row) =>
+              row.date === diff.date && row.habitId === diff.habitId
+                ? {
+                    ...row,
+                    stepsComplete: diff.stepsComplete!,
+                    percentComplete: Math.round(
+                      (100 * diff.stepsComplete!) / row.steps,
+                    ),
+                  }
+                : row,
+            ),
+        );
+      }
+      return { previous };
     },
-  );
+    onError: (_error, _diff, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["dailyHabits", date], context.previous);
+      }
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["dailyHabits", date] });
+    },
+  });
 
   const incrementDailyHabit = (dailyHabit: TDailyHabit) => {
     const { date: dailyHabitDate, habitId, steps, stepsComplete } = dailyHabit;

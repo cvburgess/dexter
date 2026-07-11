@@ -1,4 +1,9 @@
-import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import {
+  Redirect,
+  useLocalSearchParams,
+  useNavigation,
+  useRouter,
+} from "expo-router";
 import { useLayoutEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -52,7 +57,7 @@ const showSaveError = () => {
 export default function HabitScreen() {
   // "/settings/habits/new" is the create route; any other id edits that habit.
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [, { getHabitById }] = useHabits();
+  const [, { getHabitById, isLoading }] = useHabits();
 
   // Editing is decided by the route, not by whether the habit has loaded yet —
   // otherwise a cold cache (deep link / web reload) would treat an edit as a
@@ -60,10 +65,14 @@ export default function HabitScreen() {
   const isEditing = id !== "new";
   const existing = getHabitById(isEditing ? id : null);
 
-  // Wait for the habit before mounting the form so its inputs initialize from
-  // the saved values. The `key` remounts the form if the resolved habit changes.
-  if (isEditing && !existing) return <LoadingScreen />;
+  if (isEditing && !existing) {
+    // Still fetching: wait for the habit so the form initializes from its saved
+    // values. Once loaded with no match (stale link / deleted habit), the id is
+    // invalid — bail back to the list rather than spin forever.
+    return isLoading ? <LoadingScreen /> : <Redirect href="/settings/habits" />;
+  }
 
+  // The `key` remounts the form if the resolved habit changes.
   return <HabitForm key={existing?.id ?? "new"} existing={existing} />;
 }
 
