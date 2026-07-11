@@ -9,8 +9,8 @@ type TSettingsSectionTitleProps = {
 };
 
 /**
- * Uppercase secondary label heading a group of settings. Adds top margin so
- * consecutive sections read as clearly separated blocks.
+ * Uppercase secondary label heading a group of settings. Spacing between
+ * sections is owned by the parent container (gap), not this component.
  */
 export function SettingsSectionTitle({
   children,
@@ -20,10 +20,7 @@ export function SettingsSectionTitle({
 
   return (
     <Text
-      style={[
-        styles.title,
-        { color: theme.colors.textSecondary, marginTop: theme.spacing },
-      ]}
+      style={[styles.title, { color: theme.colors.textSecondary }]}
       testID={testID}
     >
       {children}

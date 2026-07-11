@@ -17,7 +17,9 @@ export function SettingsSidebar() {
   const pathname = usePathname();
   // The sidebar owns the physical left edge in two-pane mode, so it absorbs
   // the left safe-area inset (e.g. the notch on a landscape phone); the
-  // detail screens skip theirs (see account.tsx).
+  // detail screens skip theirs (see account.tsx). It also has no stack
+  // header above it — unlike the detail pane — so it absorbs the top inset
+  // too, or the heading would sit under the status bar.
   const insets = useSafeAreaInsets();
 
   return (
@@ -29,6 +31,7 @@ export function SettingsSidebar() {
           borderRightColor: withOpacity(theme.colors.text, 0.1),
           padding: theme.spacing,
           paddingLeft: theme.spacing + insets.left,
+          paddingTop: theme.spacing + insets.top,
           gap: theme.gap,
         },
       ]}
