@@ -45,25 +45,27 @@ export const useHabits = (options?: TSupabaseHookOptions): TUseHabits => {
     staleTime: 1000 * 60 * 10,
   });
 
+  // A habit edit can change today's daily rows — the DB trigger deletes them on
+  // pause/archive or a days_active change, and the dailyHabits join carries the
+  // habit's emoji/title. Invalidate both caches so the Today tracker stays fresh.
+  const invalidateHabits = () => {
+    void queryClient.invalidateQueries({ queryKey: ["habits"] });
+    void queryClient.invalidateQueries({ queryKey: ["dailyHabits"] });
+  };
+
   const { mutate: create } = useMutation<THabit, Error, TCreateHabit>({
     mutationFn: (habit) => createHabit(supabase, habit),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["habits"] });
-    },
+    onSuccess: invalidateHabits,
   });
 
   const { mutate: update } = useMutation<THabit, Error, TUpdateHabit>({
     mutationFn: (diff) => updateHabit(supabase, diff),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["habits"] });
-    },
+    onSuccess: invalidateHabits,
   });
 
   const { mutate: remove } = useMutation<void, Error, string>({
     mutationFn: (id) => deleteHabit(supabase, id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["habits"] });
-    },
+    onSuccess: invalidateHabits,
   });
 
   const getHabitById = (id: string | null) => {
