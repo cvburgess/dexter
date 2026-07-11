@@ -22,37 +22,42 @@ export function HabitRow({ habit, updateHabit }: THabitRowProps) {
   const subtitle = `${habit.steps}× daily · ${habit.daysActive.length}× weekly`;
 
   return (
-    <TouchableOpacity
-      accessibilityRole="button"
-      accessibilityLabel={`Edit ${habit.title}`}
-      onPress={() =>
-        router.push({ pathname: "/habit", params: { id: habit.id } })
-      }
-      style={[styles.row, { opacity: habit.isPaused ? 0.5 : 1 }]}
-    >
-      <View
-        style={[
-          styles.tile,
-          { backgroundColor: withOpacity(theme.colors.text, 0.06) },
-        ]}
+    // A plain View, not a Touchable: the row hosts two separate tap targets
+    // (edit + pause). Nesting one Touchable inside another renders as a
+    // <button> inside a <button> on web, which is invalid DOM.
+    <View style={[styles.row, { opacity: habit.isPaused ? 0.5 : 1 }]}>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={`Edit ${habit.title}`}
+        onPress={() =>
+          router.push({ pathname: "/habit", params: { id: habit.id } })
+        }
+        style={styles.main}
       >
-        <Text style={styles.emoji}>{habit.emoji}</Text>
-      </View>
+        <View
+          style={[
+            styles.tile,
+            { backgroundColor: withOpacity(theme.colors.text, 0.06) },
+          ]}
+        >
+          <Text style={styles.emoji}>{habit.emoji}</Text>
+        </View>
 
-      <View style={styles.labels}>
-        <Text
-          numberOfLines={1}
-          style={[styles.title, { color: theme.colors.text }]}
-        >
-          {habit.title}
-        </Text>
-        <Text
-          numberOfLines={1}
-          style={[styles.subtitle, { color: theme.colors.textSecondary }]}
-        >
-          {subtitle}
-        </Text>
-      </View>
+        <View style={styles.labels}>
+          <Text
+            numberOfLines={1}
+            style={[styles.title, { color: theme.colors.text }]}
+          >
+            {habit.title}
+          </Text>
+          <Text
+            numberOfLines={1}
+            style={[styles.subtitle, { color: theme.colors.textSecondary }]}
+          >
+            {subtitle}
+          </Text>
+        </View>
+      </TouchableOpacity>
 
       <TouchableOpacity
         accessibilityRole="button"
@@ -67,7 +72,7 @@ export function HabitRow({ habit, updateHabit }: THabitRowProps) {
           size={20}
         />
       </TouchableOpacity>
-    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -80,6 +85,12 @@ const styles = StyleSheet.create({
   labels: {
     flex: 1,
     gap: 2,
+  },
+  main: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: 12,
   },
   pause: {
     alignItems: "center",
