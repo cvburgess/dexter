@@ -82,12 +82,12 @@ export function toolError(message: string): ToolResult {
   return { content: [{ type: "text", text: message }], isError: true };
 }
 
-export function compactUpdate(
-  fields: Record<string, unknown>,
-): Record<string, unknown> {
+export function compactUpdate<T extends Record<string, unknown>>(
+  fields: T,
+): Partial<T> {
   return Object.fromEntries(
     Object.entries(fields).filter(([, value]) => value !== undefined),
-  );
+  ) as Partial<T>;
 }
 
 export function hasUpdates(fields: Record<string, unknown>): boolean {
