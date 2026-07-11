@@ -1,3 +1,4 @@
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
@@ -37,42 +38,63 @@ export function HabitRing({
 
   const clamped = Math.max(0, Math.min(100, percentComplete || 0));
   const dashoffset = CIRCUMFERENCE * (1 - clamped / 100);
+  const isComplete = !faded && clamped >= 100;
 
   const ring = (
     <View style={[styles.container, faded && styles.faded]}>
-      {/* Rotate the whole SVG with a plain RN transform so the arc appears to
-          start at 12 o'clock. react-native-svg's own rotation/transform props
-          throw on web, so this stays off the SVG element itself. */}
-      <View style={styles.svgRotate}>
+      {isComplete ? (
+        // Done: a solid primary disc filling the ring.
         <Svg width={SIZE} height={SIZE}>
           <Circle
             cx={CENTER}
             cy={CENTER}
-            r={RADIUS}
-            fill="none"
-            stroke={withOpacity(theme.colors.text, 0.15)}
-            strokeWidth={STROKE}
+            r={SIZE / 2}
+            fill={theme.colors.primary}
           />
-          {!faded && clamped > 0 && (
+        </Svg>
+      ) : (
+        // Rotate the whole SVG with a plain RN transform so the arc appears to
+        // start at 12 o'clock. react-native-svg's own rotation/transform props
+        // throw on web, so this stays off the SVG element itself.
+        <View style={styles.svgRotate}>
+          <Svg width={SIZE} height={SIZE}>
             <Circle
               cx={CENTER}
               cy={CENTER}
               r={RADIUS}
               fill="none"
-              stroke={theme.colors.primary}
+              stroke={withOpacity(theme.colors.text, 0.15)}
               strokeWidth={STROKE}
-              strokeDasharray={CIRCUMFERENCE}
-              strokeDashoffset={dashoffset}
-              strokeLinecap="round"
             />
-          )}
-        </Svg>
-      </View>
+            {!faded && clamped > 0 && (
+              <Circle
+                cx={CENTER}
+                cy={CENTER}
+                r={RADIUS}
+                fill="none"
+                stroke={theme.colors.primary}
+                strokeWidth={STROKE}
+                strokeDasharray={CIRCUMFERENCE}
+                strokeDashoffset={dashoffset}
+                strokeLinecap="round"
+              />
+            )}
+          </Svg>
+        </View>
+      )}
       {/* Upright, centered, and clipped so a wide glyph can't bleed past the ring. */}
       <View style={styles.emojiWrap} pointerEvents="none">
-        <Text style={styles.emoji} numberOfLines={1}>
-          {emoji}
-        </Text>
+        {isComplete ? (
+          <Ionicons
+            color={theme.colors.primaryContent}
+            name="checkmark"
+            size={22}
+          />
+        ) : (
+          <Text style={styles.emoji} numberOfLines={1}>
+            {emoji}
+          </Text>
+        )}
       </View>
     </View>
   );

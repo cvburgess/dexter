@@ -27,11 +27,13 @@ describe("HabitRing", () => {
     expect(screen.getByText("💧")).toBeTruthy();
   });
 
-  it("clamps out-of-range progress without throwing", () => {
+  it("swaps the emoji for a checkmark once complete (clamping past 100)", () => {
     const screen = render(
       <HabitRing emoji="🏃" percentComplete={150} accessibilityLabel="Run" />,
     );
 
-    expect(screen.getByText("🏃")).toBeTruthy();
+    // At 100%+ the ring fills and the glyph becomes a checkmark, so the emoji
+    // is no longer rendered.
+    expect(screen.queryByText("🏃")).toBeNull();
   });
 });

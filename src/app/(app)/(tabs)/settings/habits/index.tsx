@@ -89,39 +89,44 @@ export default function HabitsScreen() {
         </View>
 
         {preferences.enableHabits && (
-          <View
-            style={[
-              styles.list,
-              {
-                backgroundColor: theme.colors.card,
-                borderRadius: theme.borderRadius,
-              },
-            ]}
-          >
+          <View style={styles.section}>
             <SettingsSectionTitle>Habits</SettingsSectionTitle>
-            {habits.length === 0 ? (
-              <Text
-                style={[styles.empty, { color: theme.colors.textSecondary }]}
-              >
-                Tap ＋ to create your first habit.
-              </Text>
-            ) : (
-              habits.map((habit, index) => (
-                <View key={habit.id}>
-                  {index > 0 && (
-                    <View
-                      style={[
-                        styles.divider,
-                        {
-                          backgroundColor: withOpacity(theme.colors.text, 0.08),
-                        },
-                      ]}
-                    />
-                  )}
-                  <HabitRow habit={habit} updateHabit={updateHabit} />
-                </View>
-              ))
-            )}
+            <View
+              style={[
+                styles.list,
+                {
+                  backgroundColor: theme.colors.card,
+                  borderRadius: theme.borderRadius,
+                },
+              ]}
+            >
+              {habits.length === 0 ? (
+                <Text
+                  style={[styles.empty, { color: theme.colors.textSecondary }]}
+                >
+                  Tap ＋ to create your first habit.
+                </Text>
+              ) : (
+                habits.map((habit, index) => (
+                  <View key={habit.id}>
+                    {index > 0 && (
+                      <View
+                        style={[
+                          styles.divider,
+                          {
+                            backgroundColor: withOpacity(
+                              theme.colors.text,
+                              0.08,
+                            ),
+                          },
+                        ]}
+                      />
+                    )}
+                    <HabitRow habit={habit} updateHabit={updateHabit} />
+                  </View>
+                ))
+              )}
+            </View>
           </View>
         )}
       </ScrollView>
@@ -149,6 +154,9 @@ const styles = StyleSheet.create({
   list: {
     paddingHorizontal: 16,
     paddingVertical: 8,
+  },
+  section: {
+    gap: 10,
   },
   toggle: {
     alignItems: "center",
