@@ -65,6 +65,12 @@ export const useDays = (date: string): TUseDays => {
     { previous: TDay | null | undefined }
   >({
     mutationFn: (diff) => upsertDay(supabase, { ...diff, date }),
+    // Retry a failed save at the QueryClient level (upsert is idempotent). This
+    // survives the component unmounting — an unmount flush (date change / tab
+    // switch) that fails would otherwise have no mounted component left to
+    // reschedule it, silently dropping the edit. `onError`/rollback runs only
+    // after retries are exhausted.
+    retry: 3,
     // Optimistically fold the diff into the cache so autosave feels instant and
     // switching views (Notes ↔ Tasks) doesn't flash stale content before the
     // round-trip settles; roll back on error. Mirrors usePreferences.

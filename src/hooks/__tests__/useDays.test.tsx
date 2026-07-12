@@ -21,7 +21,12 @@ const mockUsePreferences = usePreferences as jest.MockedFunction<
 
 const createWrapper = () => {
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    // `retryDelay: 0` keeps the mutation's `retry: 3` instant under test (the
+    // hook sets the count but leaves the delay to the client default).
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retryDelay: 0 },
+    },
   });
   return ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
@@ -86,6 +91,29 @@ describe("useDays", () => {
         { notes: "hello", date: "2026-07-12" },
       ),
     );
+  });
+
+  it("retries a failed note save and persists once it succeeds", async () => {
+    mockGetDay.mockResolvedValue(null);
+    mockUpsertDay
+      .mockRejectedValueOnce(new Error("blip"))
+      .mockResolvedValueOnce({
+        date: "2026-07-12",
+        notes: "typed",
+        prompts: [],
+      });
+
+    const { result } = renderHook(() => useDays("2026-07-12"), {
+      wrapper: createWrapper(),
+    });
+    await waitFor(() => expect(result.current[1].isLoading).toBe(false));
+
+    act(() => result.current[1].upsertDay({ notes: "typed" }));
+
+    await waitFor(() => expect(mockUpsertDay).toHaveBeenCalledTimes(2));
+    // The successful retry's response is written to the cache.
+    await waitFor(() => expect(result.current[0].notes).toBe("typed"));
+    expect(result.current[1].exists).toBe(true);
   });
 
   it("rolls back the optimistic note when the first save fails for a new day", async () => {
