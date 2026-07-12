@@ -376,6 +376,32 @@ Deno.test("update_task does not re-create an occurrence for an already-complete 
   );
 });
 
+Deno.test("update_task does not spawn an occurrence when editing a completed repeat task's non-status fields", async () => {
+  const registry = new ToolRegistry();
+  const supabase = new RecordingSupabase({
+    // The update carries no status, so only the updated (still-done) row is
+    // read — the recurrence path must not fire for a plain edit.
+    tasks: [
+      { status: 2, template_id: RECUR_TEMPLATE, scheduled_for: "2030-01-01" },
+    ],
+    repeat_task_templates: [
+      { id: RECUR_TEMPLATE, schedule: "0 0 * * *", title: "x", priority: 4 },
+    ],
+  });
+
+  registerTaskTools(
+    registry as unknown as McpServer,
+    recordingContext(supabase, RECUR_USER),
+  );
+
+  await registry.run("update_task", { taskId: RECUR_TASK, priority: 4 });
+
+  assertEquals(
+    supabase.inserts.filter((i) => i.table === "tasks").length,
+    0,
+  );
+});
+
 Deno.test("archive_task schedules the next occurrence when it completes a repeat task", async () => {
   const registry = new ToolRegistry();
   const supabase = new RecordingSupabase({

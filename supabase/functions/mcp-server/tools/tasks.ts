@@ -295,11 +295,13 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         return toolError("No fields provided to update.");
       }
 
-      // Read the pre-update status only when this update could complete the
-      // task, so `maybeCreateNextRecurringTask` can tell a fresh completion from
-      // a re-completion (and avoid the extra read on ordinary edits).
+      // Recurrence only fires when THIS update sets a completion status (a
+      // fresh completion), not when an already-done task is edited. Gate on the
+      // incoming status — matching the app's `diff.status` guard — and read the
+      // pre-update status in the same case so a re-completion is skipped.
+      const isCompleting = isCompletionStatus(update.status);
       let previousStatus: number | null | undefined;
-      if (isCompletionStatus(update.status)) {
+      if (isCompleting) {
         const { data: existing } = await ctx.supabase
           .from("tasks")
           .select("status")
@@ -319,7 +321,9 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
 
       if (error) return toolError(error.message);
 
-      await maybeCreateNextRecurringTask(ctx, data, previousStatus);
+      if (isCompleting) {
+        await maybeCreateNextRecurringTask(ctx, data, previousStatus);
+      }
       return toolJson(data);
     },
   );

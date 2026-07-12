@@ -72,7 +72,15 @@ export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
 
       return template;
     },
-    onSuccess: () => {
+    onSuccess: (template) => {
+      // Seed the new template into the cache synchronously. The "Repeat" flow
+      // navigates straight to the editor by id, which reads it from cache before
+      // the invalidation refetch resolves — without this it would find nothing
+      // and redirect back to the list.
+      queryClient.setQueryData<TTemplate[]>(["templates"], (existing = []) => [
+        ...existing,
+        template,
+      ]);
       void queryClient.invalidateQueries({ queryKey: ["templates"] });
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },

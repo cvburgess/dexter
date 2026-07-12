@@ -64,7 +64,11 @@ export const getNextOccurrence = (
   if (Number.isNaN(from.getTime())) return null;
 
   try {
-    const next = new Cron(schedule, { timezone: "UTC" }).nextRun(from);
+    // `utcOffset: 0` (not `timezone: "UTC"`) keeps croner on its Intl-free UTC
+    // path. Hermes ships only a partial Intl.DateTimeFormat (see
+    // formatPlainDate.ts), and a named timezone would route through it and could
+    // throw on device — silently yielding no next occurrence.
+    const next = new Cron(schedule, { utcOffset: 0 }).nextRun(from);
     return next ? next.toISOString().slice(0, 10) : null;
   } catch {
     return null;
@@ -123,6 +127,8 @@ export const parseSchedule = (
 
   const [, dayOfMonth, month, dayOfWeek] = match;
 
+  // Each branch returns only on a clean match; anything that doesn't map onto a
+  // preset falls through to the terminal daily default.
   if (dayOfWeek !== "*") {
     const weekdays = parseIntList(dayOfWeek)?.map((day) =>
       day === 7 ? 0 : day,
@@ -130,22 +136,15 @@ export const parseSchedule = (
     if (dayOfMonth === "*" && month === "*" && weekdays) {
       return { frequency: "weekly", weekdays };
     }
-    return { frequency: "daily" };
-  }
-
-  if (month !== "*") {
+  } else if (month !== "*") {
     const dom = parseSingleInt(dayOfMonth);
     const mon = parseSingleInt(month);
     if (dom !== null && mon !== null) {
       return { frequency: "yearly", month: mon, dayOfMonth: dom };
     }
-    return { frequency: "daily" };
-  }
-
-  if (dayOfMonth !== "*") {
+  } else if (dayOfMonth !== "*") {
     const dom = parseSingleInt(dayOfMonth);
     if (dom !== null) return { frequency: "monthly", dayOfMonth: dom };
-    return { frequency: "daily" };
   }
 
   return { frequency: "daily" };

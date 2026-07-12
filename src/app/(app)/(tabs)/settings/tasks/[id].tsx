@@ -73,7 +73,13 @@ const FREQUENCIES: { value: TRepeatFrequency; label: string }[] = [
   { value: "yearly", label: "Yearly" },
 ];
 
-const daysInLongestMonth = Array.from({ length: 31 }, (_, i) => i + 1);
+// Max day-of-month per month (February = 29 to allow a leap-day yearly repeat).
+// Used to clamp the yearly day picker so an impossible date like Feb 30 — which
+// the schedule can never match — is unselectable.
+const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+const dayOptions = (maxDay: number) =>
+  Array.from({ length: maxDay }, (_, i) => i + 1);
 
 // RN's Alert is a no-op on web, so fall back to the browser's alert there.
 const showSaveError = () => {
@@ -383,7 +389,15 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
               <Picker
                 appearance="menu"
                 selectedValue={String(month)}
-                onValueChange={(value) => setMonth(Number(value))}
+                onValueChange={(value) => {
+                  const nextMonth = Number(value);
+                  setMonth(nextMonth);
+                  // Clamp so switching to a shorter month can't leave an
+                  // impossible day selected (e.g. 31 → February).
+                  setDayOfMonth((day) =>
+                    Math.min(day, DAYS_IN_MONTH[nextMonth - 1]),
+                  );
+                }}
               >
                 {MONTHS.map((label, index) => (
                   <Picker.Item
@@ -408,7 +422,9 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
                 selectedValue={String(dayOfMonth)}
                 onValueChange={(value) => setDayOfMonth(Number(value))}
               >
-                {daysInLongestMonth.map((day) => (
+                {dayOptions(
+                  frequency === "yearly" ? DAYS_IN_MONTH[month - 1] : 31,
+                ).map((day) => (
                   <Picker.Item
                     key={day}
                     label={String(day)}

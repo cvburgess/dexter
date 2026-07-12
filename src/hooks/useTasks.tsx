@@ -96,7 +96,7 @@ const maybeCreateNextRecurringTask = async (
   const nextDate = getNextTaskDate(
     { scheduledFor: task.scheduledFor },
     template.schedule,
-    Temporal.Now.plainDateISO().toString(),
+    getToday().toString(),
   );
   if (!nextDate) return;
 
