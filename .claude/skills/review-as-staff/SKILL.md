@@ -1,68 +1,57 @@
 ---
 name: review-as-staff
-description: Review code as a staff-level engineer for simplicity, elegance, and clean code. Accepts file paths or reviews the current branch diff against main.
-argument-hint: [optional file paths, e.g. src/utils/errors.ts src/hooks/useAuth.ts]
-allowed-tools: Bash(git diff*), Read, Grep, Glob, Agent, AskUserQuestion
+description: Staff-level code review of the current branch diff — orchestrates /code-review max and /simplify, applying fixes. Reviews the diff against main.
+allowed-tools: Bash(git diff*), Read, Skill
 ---
 
 # Staff-Level Code Review
 
-Review code with a staff engineer's eye: simplicity, elegance, clarity, and correctness. Only suggest changes that genuinely improve the code — do not nitpick or pad the review.
+Review the current branch as a staff engineer would — with an eye for correctness, simplicity, elegance, and clarity. This skill is a thin orchestrator: it delegates the actual review to the built-in `/code-review` and `/simplify` skills, which surface findings **and apply fixes** to the working tree. Your job is to set the scope, load the right architecture context, run the two skills in order, and report a combined summary.
 
 ## Instructions
 
 ### Step 1: Determine the review scope
 
-- If `$ARGUMENTS` contains file paths, review those files.
-- Otherwise, review the diff between the current branch and `main`:
+This review is **diff-only**: it always reviews the changes on the current branch relative to `main`.
 
 ```bash
 git diff main...HEAD
 ```
 
-If there is no diff and no arguments were provided, inform the user and stop.
+If there is no diff, inform the user that there is nothing to review and stop — do not invoke either review skill. (File-path arguments are not supported; scope is always the branch diff.)
 
 ### Step 2: Read the code
 
-Read the relevant architecture doc based on which files are being reviewed:
+Read the relevant architecture doc based on which directories changed, so you can evaluate the delegated findings with the right context:
 
 - Changes in `src/` → read [`docs/frontend.md`](docs/frontend.md)
 - Changes in `supabase/` → read [`docs/backend.md`](docs/backend.md)
 - Changes to tests → read [`docs/testing.md`](docs/testing.md)
 - Changes in both `src/` and `supabase/` → read both architecture docs
 
-Read each file or changed file in full. Understand the context — what the code does, how it fits into the surrounding module, and what patterns are already in use.
+Understand what the changed code does and how it fits the surrounding module before running the review skills.
 
-When reviewing a diff, focus on the changed lines but read enough surrounding context to evaluate whether changes are consistent with the rest of the file.
+### Step 3: Run `/code-review` at max effort, applying fixes
 
-### Step 3: Review
+Invoke the built-in `/code-review` skill via the `Skill` tool with `code-review` and arguments `max --fix`. This runs a deep review for correctness bugs plus reuse/simplification/efficiency cleanups at `max` effort and applies the resulting fixes to the working tree.
 
-Evaluate the code for:
+### Step 4: Run `/simplify`, applying fixes
 
-- **Simplicity** — Is there unnecessary complexity? Could the same thing be expressed more directly?
-- **Clarity** — Is the intent obvious? Are names precise? Would a reader understand this without extra context?
-- **Correctness** — Are there bugs, edge cases, or missed error paths?
-- **Consistency** — Does it follow the patterns already established in the codebase?
-- **Unnecessary code** — Dead code, redundant checks, over-abstraction, speculative generality?
+Invoke the built-in `/simplify` skill via the `Skill` tool with `simplify` (no arguments). This performs quality cleanups only — reuse, simplification, efficiency, and altitude — and applies the fixes by design. It does not hunt for bugs; that coverage comes from Step 3.
 
-Do NOT flag:
-- Style preferences that don't affect readability
-- Missing comments or docs on self-explanatory code
-- Suggestions that add complexity without clear payoff
-- Hypothetical future improvements
+### Step 5: Present a combined summary
 
-### Step 4: Present findings
+Report a single combined summary covering:
 
-For each issue found, explain:
-1. **What** the issue is (with file path and line reference)
-2. **Why** it matters
-3. **How** to fix it (with a concrete code suggestion)
+- What `/code-review max` surfaced and applied (correctness bugs + cleanups)
+- What `/simplify` surfaced and applied (quality cleanups)
+- Anything either skill flagged but did not fix, and any follow-ups worth a human's attention
 
-If the code is clean and there's nothing substantive to flag, say so. A clean review with no suggestions is a valid outcome.
+If both skills came back clean with nothing to apply, say so — a clean review is a valid outcome.
 
 ## Important
 
-- Read the code before forming opinions — don't review from the diff alone
-- Fewer high-quality suggestions beat many low-value ones
-- Respect existing patterns even if you'd choose differently on a blank slate
-- Never suggest changes that alter behavior unless there's a bug
+- This skill **applies fixes** — it is no longer advisory-only. Review the applied changes (`git diff`) before committing.
+- Bug coverage comes from `/code-review`; quality cleanups come from `/simplify`. Run both, in that order.
+- Scope is always the current branch diff against `main`. File-path arguments are not supported.
+- If there is no diff against `main`, stop without invoking either skill.
