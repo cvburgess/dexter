@@ -1,7 +1,7 @@
 // utils/supabase.ts reads these at module scope, so they must exist before any
 // test imports it (directly or via useAuth.tsx, which re-exports the client).
 process.env.EXPO_PUBLIC_SUPABASE_URL ??= "https://test.supabase.co";
-process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??= "test-anon-key";
+process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??= "test-publishable-key";
 
 require("react-native-gesture-handler/jestSetup");
 jest.mock("react-native-reanimated", () =>

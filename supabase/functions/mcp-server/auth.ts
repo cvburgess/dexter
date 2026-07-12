@@ -22,12 +22,16 @@ export async function validateBearerToken(req: Request): Promise<AuthResult> {
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
-  if (!supabaseUrl || !supabaseAnonKey) {
+  const publishableKeys = Deno.env.get("SUPABASE_PUBLISHABLE_KEYS");
+  if (!supabaseUrl || !publishableKeys) {
     throw new Error("Missing Supabase environment configuration");
   }
 
-  const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  // Supabase injects the new publishable keys as a JSON dictionary keyed by
+  // name; the initial migration ships a single key named "default".
+  const supabasePublishableKey = JSON.parse(publishableKeys)["default"];
+
+  const supabase = createClient<Database>(supabaseUrl, supabasePublishableKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
