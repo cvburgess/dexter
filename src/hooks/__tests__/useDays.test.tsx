@@ -71,4 +71,20 @@ describe("useDays", () => {
       ),
     );
   });
+
+  it("rolls back the optimistic note when the first save fails for a new day", async () => {
+    mockGetDay.mockRejectedValue(new Error("No day found"));
+    mockUpsertDay.mockRejectedValue(new Error("save failed"));
+
+    const { result } = renderHook(() => useDays("2026-07-12"), {
+      wrapper: createWrapper(),
+    });
+    await waitFor(() => expect(result.current[1].isLoading).toBe(false));
+
+    act(() => result.current[1].upsertDay({ notes: "typed" }));
+    await waitFor(() => expect(mockUpsertDay).toHaveBeenCalled());
+
+    // The failed save must not leave the never-persisted note in the cache.
+    await waitFor(() => expect(result.current[0].notes).toBe(""));
+  });
 });

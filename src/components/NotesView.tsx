@@ -75,7 +75,7 @@ export function NotesView({ date }: TNotesViewProps) {
     return (
       <View style={styles.centered}>
         <Text style={[styles.prompt, { color: theme.colors.textSecondary }]}>
-          Start today&apos;s note
+          Start this day&apos;s note
         </Text>
         <Button
           variant="primary"

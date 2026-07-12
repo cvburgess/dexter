@@ -69,6 +69,12 @@ export const useDays = (date: string): TUseDays => {
     onError: (_error, _diff, context) => {
       if (context?.previous) {
         queryClient.setQueryData(["days", date], context.previous);
+      } else {
+        // No prior cache entry (a day with no row yet), so there's nothing to
+        // restore to — drop the optimistic entry entirely. `setQueryData(…,
+        // undefined)` is a no-op in React Query, so it would otherwise leave
+        // the never-persisted note in the cache until a cold-start refetch.
+        queryClient.removeQueries({ queryKey: ["days", date] });
       }
     },
     onSettled: () => {
