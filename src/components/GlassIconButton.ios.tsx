@@ -28,7 +28,7 @@ export function GlassIconButton({
     <SymbolView
       name={sfSymbol}
       size={size * 0.5}
-      tintColor={theme.colors.text}
+      tintColor={theme.colors.primary}
     />
   );
 
