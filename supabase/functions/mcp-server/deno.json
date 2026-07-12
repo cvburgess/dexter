@@ -7,6 +7,7 @@
     "@/": "../../../src/",
     "@supabase/functions-js/edge-runtime.d.ts": "jsr:@supabase/functions-js@2.93.3/edge-runtime.d.ts",
     "@supabase/supabase-js": "jsr:@supabase/supabase-js@2",
+    "croner": "npm:croner@^10.0.1",
     "zod": "npm:zod@^3.24.1"
   }
 }
