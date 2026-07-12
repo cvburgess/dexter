@@ -1,5 +1,10 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  QueryClient,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useEffect } from "react";
 
 import { makeOrFilter, TQueryFilter } from "@/api/applyFilters";
@@ -15,6 +20,8 @@ import {
   updateTask,
   updateTasks,
 } from "@/api/tasks";
+import { getTemplates, TTemplate } from "@/api/templates";
+import { getNextTaskDate } from "@/utils/repeatSchedule";
 
 import { supabase } from "./useAuth";
 
@@ -41,6 +48,69 @@ type TSupabaseHookOptions = {
 
 const TASKS_STALE_TIME_MS = 1000 * 60 * 10;
 
+const isCompletionStatus = (status: ETaskStatus | undefined): boolean =>
+  status === ETaskStatus.DONE || status === ETaskStatus.WONT_DO;
+
+/** Finds a cached task across every `["tasks", ...]` query, regardless of filters. */
+const findCachedTask = (
+  queryClient: QueryClient,
+  id: string,
+): TTask | undefined => {
+  for (const [, tasks] of queryClient.getQueriesData<TTask[]>({
+    queryKey: ["tasks"],
+  })) {
+    const found = tasks?.find((task) => task.id === id);
+    if (found) return found;
+  }
+  return undefined;
+};
+
+/**
+ * When an update completes a repeat task, schedule its next occurrence — the
+ * TypeScript replacement for the dropped `create_next_recurring_task` trigger
+ * (DEX-21). Runs on the update's success, before the cache is invalidated, so
+ * the pre-update task (its previous status, template link, and scheduled date)
+ * is still readable. No-ops unless this update is a fresh transition into
+ * done/won't-do on a task linked to a template with a schedule.
+ */
+const maybeCreateNextRecurringTask = async (
+  queryClient: QueryClient,
+  diff: TUpdateTask,
+): Promise<void> => {
+  if (!isCompletionStatus(diff.status)) return;
+
+  const task = findCachedTask(queryClient, diff.id);
+  // Already-complete tasks don't re-spawn (mirrors the trigger's OLD.status
+  // guard); a task missing from the cache is skipped rather than guessed at.
+  if (!task || !task.templateId || isCompletionStatus(task.status)) return;
+
+  const templates =
+    queryClient.getQueryData<TTemplate[]>(["templates"]) ??
+    (await queryClient.fetchQuery<TTemplate[]>({
+      queryKey: ["templates"],
+      queryFn: () => getTemplates(supabase),
+    }));
+  const template = templates.find(({ id }) => id === task.templateId);
+  if (!template?.schedule) return;
+
+  const nextDate = getNextTaskDate(
+    { scheduledFor: task.scheduledFor },
+    template.schedule,
+    getToday().toString(),
+  );
+  if (!nextDate) return;
+
+  await createTask(supabase, {
+    title: template.title,
+    priority: template.priority,
+    listId: template.listId,
+    goalId: template.goalId,
+    scheduledFor: nextDate,
+    templateId: template.id,
+    status: ETaskStatus.TODO,
+  });
+};
+
 export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
   const queryClient = useQueryClient();
 
@@ -61,6 +131,7 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
 
   const { mutate: update } = useMutation<TTask[], Error, TUpdateTask>({
     mutationFn: (diff) => updateTask(supabase, diff),
+    onSuccess: (_data, diff) => maybeCreateNextRecurringTask(queryClient, diff),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },

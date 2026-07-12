@@ -60,7 +60,9 @@ export type TCreateTask = {
 
 /**
  * Builds the `createTask` input for duplicating an existing task: copies every
- * copyable field (including `status`) and omits the DB-generated `id`.
+ * copyable field (including `status`) and omits the DB-generated `id`. The
+ * `templateId` is intentionally dropped — a duplicate is an independent one-off
+ * task, so only the original drives its repeat schedule (DEX-21).
  */
 export const duplicateTaskInput = (task: TTask): TCreateTask => ({
   title: task.title,
@@ -70,7 +72,6 @@ export const duplicateTaskInput = (task: TTask): TCreateTask => ({
   priority: task.priority,
   scheduledFor: task.scheduledFor,
   status: task.status,
-  templateId: task.templateId,
 });
 
 export const createTask = async (

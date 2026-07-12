@@ -39,6 +39,23 @@ jest.mock("@/hooks/useLists", () => ({
     },
   ],
 }));
+// The task menu (via TaskCard/MoreMenu) reads templates and expo-router; both
+// would otherwise need a QueryClientProvider / navigation container this unit
+// test doesn't mount.
+jest.mock("@/hooks/useTemplates", () => ({
+  useTemplates: () => [
+    [],
+    {
+      createTemplate: jest.fn(),
+      createTemplateFromTask: jest.fn(),
+      deleteTemplate: jest.fn(),
+      getTemplateById: () => undefined,
+      isLoading: false,
+      updateTemplate: jest.fn(),
+    },
+  ],
+}));
+jest.mock("expo-router", () => ({ useRouter: () => ({ push: jest.fn() }) }));
 // The habit tracker is exercised on its own; stub it here so this suite stays
 // focused on task rendering (and so its expo-router import isn't evaluated).
 jest.mock("@/components/HabitTracker", () => ({ HabitTracker: () => null }));
