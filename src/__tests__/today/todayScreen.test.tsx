@@ -71,6 +71,11 @@ jest.mock("@/hooks/usePreferences", () => ({
 // with no Jest double; stub it so the module graph loads. The Notes surface is
 // covered by NotesView.test; this suite stays focused on the Tasks view.
 jest.mock("@/components/NoteEditor", () => ({ NoteEditor: () => null }));
+// The view switcher's circular button wraps native glass/SF-symbol views; stub
+// it so the icon-only trigger renders without them (covered by its own tests).
+jest.mock("@/components/GlassIconButton", () => ({
+  GlassIconButton: () => null,
+}));
 
 const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
 
@@ -138,8 +143,8 @@ describe("TodayScreen", () => {
   it("defaults to the Tasks view", () => {
     const screen = render(<TodayScreen />);
 
-    // The switcher pill shows the active view's label.
-    expect(screen.getByText("Tasks")).toBeTruthy();
+    // The switcher is now an icon-only button, so the default view is asserted
+    // via the Tasks content (its empty state), not a label.
     expect(screen.getByText("No tasks scheduled for this day.")).toBeTruthy();
   });
 

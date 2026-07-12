@@ -1,21 +1,32 @@
-import { SymbolView, type SymbolViewProps } from "expo-symbols";
-import { StyleSheet, Text, View } from "react-native";
+import Ionicons from "@react-native-vector-icons/ionicons";
+import type { SymbolViewProps } from "expo-symbols";
+import type { ComponentProps } from "react";
 
-import { useTheme, withOpacity } from "@/utils/theme";
-
+import { GlassIconButton } from "./GlassIconButton";
 import { IconMenu } from "./IconMenu";
 import { TIconMenuOption } from "./IconMenu.types";
 
 /** The three day views selectable from the Today tab. */
 export type TDayView = "tasks" | "notes" | "journal";
 
+const BUTTON_SIZE = 40;
+
 const VIEW_META: Record<
   TDayView,
-  { label: string; icon: SymbolViewProps["name"] }
+  {
+    label: string;
+    /** SF Symbol (iOS) + Ionicons (Android/web) for the circular button icon. */
+    icon: SymbolViewProps["name"];
+    ionicon: ComponentProps<typeof Ionicons>["name"];
+  }
 > = {
-  tasks: { label: "Tasks", icon: "checklist" },
-  notes: { label: "Notes", icon: "note.text" },
-  journal: { label: "Journal", icon: "book" },
+  tasks: { label: "Tasks", icon: "checklist", ionicon: "list-outline" },
+  notes: {
+    label: "Notes",
+    icon: "note.text",
+    ionicon: "document-text-outline",
+  },
+  journal: { label: "Journal", icon: "book", ionicon: "book-outline" },
 };
 
 type TDayViewSwitcherProps = {
@@ -52,10 +63,12 @@ export function dayViewOptions(
 }
 
 /**
- * The Today-tab view switcher: a pill that opens an `IconMenu` for moving
- * between Tasks, Notes, and Journal. All three views share the Today screen's
- * single date, so switching never changes the selected day. Notes/Journal
- * entries appear only when enabled in settings (DEX-37).
+ * The Today-tab view switcher: a circular icon-only button (liquid glass on
+ * iOS, a plain circle elsewhere — see `GlassIconButton`) that opens an
+ * `IconMenu` for moving between Tasks, Notes, and Journal. Its icon reflects the
+ * active view. All three views share the Today screen's single date, so
+ * switching never changes the selected day. Notes/Journal entries appear only
+ * when enabled in settings (DEX-37).
  */
 export function DayViewSwitcher({
   view,
@@ -63,8 +76,6 @@ export function DayViewSwitcher({
   enableNotes,
   enableJournal,
 }: TDayViewSwitcherProps) {
-  const theme = useTheme();
-
   const options = dayViewOptions(
     view,
     onChangeView,
@@ -73,60 +84,20 @@ export function DayViewSwitcher({
   );
 
   return (
+    // Pin the IconMenu host to the button's size: the native @expo/ui MenuView
+    // sizes asynchronously and a content-sized trigger renders untappable on
+    // device (same reason StatusButton/ListButton pin theirs).
     <IconMenu
       accessibilityLabel="Switch view"
       sections={[{ options }]}
-      style={[
-        styles.trigger,
-        {
-          backgroundColor: theme.colors.card,
-          borderColor: withOpacity(theme.colors.text, 0.1),
-          borderRadius: theme.borderRadius,
-        },
-      ]}
+      style={{ width: BUTTON_SIZE, height: BUTTON_SIZE }}
     >
-      <View style={styles.triggerContent}>
-        <SymbolView
-          name={VIEW_META[view].icon}
-          size={16}
-          tintColor={theme.colors.text}
-        />
-        <Text style={[styles.triggerLabel, { color: theme.colors.text }]}>
-          {VIEW_META[view].label}
-        </Text>
-        <Text style={[styles.chevron, { color: theme.colors.textSecondary }]}>
-          ⌄
-        </Text>
-      </View>
+      <GlassIconButton
+        accessibilityLabel="Switch view"
+        ionicon={VIEW_META[view].ionicon}
+        sfSymbol={VIEW_META[view].icon}
+        size={BUTTON_SIZE}
+      />
     </IconMenu>
   );
 }
-
-const styles = StyleSheet.create({
-  // Pin the trigger to a fixed size. The native `@expo/ui` MenuView host sizes
-  // asynchronously and won't derive a reliable tappable frame from padding
-  // alone (the same reason StatusButton/ListButton pin theirs to 32×32); a
-  // content-sized trigger renders untappable on device. Fixed width fits the
-  // longest label ("Journal").
-  trigger: {
-    alignItems: "center",
-    borderWidth: StyleSheet.hairlineWidth,
-    height: 34,
-    justifyContent: "center",
-    width: 116,
-  },
-  triggerContent: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 6,
-    justifyContent: "center",
-  },
-  triggerLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  chevron: {
-    fontSize: 14,
-    marginTop: -4,
-  },
-});

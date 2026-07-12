@@ -1,6 +1,16 @@
 import { render } from "@testing-library/react-native";
+import { Text } from "react-native";
 
 import { DayViewSwitcher, dayViewOptions, TDayView } from "../DayViewSwitcher";
+
+// The circular button wraps native glass/SF-symbol views; stub it so the
+// switcher's trigger renders the current view's SF Symbol name as text.
+const mockGlassIconButton = jest.fn(({ sfSymbol }: { sfSymbol: string }) => (
+  <Text>{sfSymbol}</Text>
+));
+jest.mock("../GlassIconButton", () => ({
+  GlassIconButton: (props: { sfSymbol: string }) => mockGlassIconButton(props),
+}));
 
 describe("dayViewOptions", () => {
   const ids = (view: TDayView, notes: boolean, journal: boolean) =>
@@ -38,7 +48,7 @@ describe("dayViewOptions", () => {
 });
 
 describe("DayViewSwitcher", () => {
-  it("shows the current view's label in the trigger", () => {
+  it("shows the current view's icon in the trigger", () => {
     const screen = render(
       <DayViewSwitcher
         view="notes"
@@ -48,6 +58,6 @@ describe("DayViewSwitcher", () => {
       />,
     );
 
-    expect(screen.getByText("Notes")).toBeTruthy();
+    expect(screen.getByText("note.text")).toBeTruthy();
   });
 });
