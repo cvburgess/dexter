@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { useDays } from "@/hooks/useDays";
@@ -29,28 +29,40 @@ const SAVE_DEBOUNCE_MS = 800;
  */
 export function NotesView({ date }: TNotesViewProps) {
   const theme = useTheme();
-  const [day, { isLoading, exists, upsertDay }] = useDays(date);
+  const [day, { isLoading, exists, upsertDay, upsertDayAsync }] = useDays(date);
   const [preferences] = usePreferences();
+  // Latches once the user commits to the editor (picks a choice or types).
+  // `exists` persists the choice across remounts, but rolls back to false if a
+  // save fails; this local latch keeps the editor mounted through a transient
+  // failure so in-progress text isn't discarded back to the chooser.
+  const [committed, setCommitted] = useState(false);
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRef = useRef<string | null>(null);
 
-  // React Query's `mutate` is referentially stable, so closing over `upsertDay`
-  // keeps `flush` stable and the unmount effect below fires cleanup only on
-  // unmount.
+  // React Query's mutate is referentially stable, so closing over
+  // `upsertDayAsync` keeps `flush` stable and the unmount effect below fires
+  // cleanup only on unmount.
   const flush = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
-    if (pendingRef.current !== null) {
-      upsertDay({ notes: pendingRef.current });
-      pendingRef.current = null;
-    }
-  }, [upsertDay]);
+    const pending = pendingRef.current;
+    if (pending === null) return;
+    pendingRef.current = null;
+    // Requeue the edit if the save fails so the next flush retries it, rather
+    // than dropping it silently — the editor is uncontrolled, so a lost write
+    // would otherwise diverge from what's on screen. Skip the requeue if a
+    // newer edit already superseded this one.
+    void upsertDayAsync({ notes: pending }).catch(() => {
+      if (pendingRef.current === null) pendingRef.current = pending;
+    });
+  }, [upsertDayAsync]);
 
   const handleChangeMarkdown = useCallback(
     (markdown: string) => {
+      setCommitted(true);
       pendingRef.current = markdown;
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(flush, SAVE_DEBOUNCE_MS);
@@ -65,10 +77,10 @@ export function NotesView({ date }: TNotesViewProps) {
 
   const hasTemplate = preferences.templateNote.trim().length > 0;
 
-  // Only prompt before the day has a note row: once either choice writes a row,
-  // `exists` stays true across remounts, so the chooser never resurfaces (and
-  // clearing an existing note to empty keeps the editor, not the chooser).
-  if (!exists && hasTemplate) {
+  // Prompt only before the user has engaged this day's note: `exists` covers a
+  // persisted row (survives remounts), `committed` covers the current session
+  // (survives a failed save that rolled `exists` back).
+  if (!exists && !committed && hasTemplate) {
     return (
       <View style={styles.centered}>
         <Text style={[styles.prompt, { color: theme.colors.textSecondary }]}>
@@ -77,14 +89,20 @@ export function NotesView({ date }: TNotesViewProps) {
         <Button
           variant="primary"
           style={styles.button}
-          onPress={() => upsertDay({ notes: preferences.templateNote })}
+          onPress={() => {
+            setCommitted(true);
+            upsertDay({ notes: preferences.templateNote });
+          }}
         >
           Use daily note template
         </Button>
         <Button
           variant="default"
           style={styles.button}
-          onPress={() => upsertDay({ notes: "" })}
+          onPress={() => {
+            setCommitted(true);
+            upsertDay({ notes: "" });
+          }}
         >
           Blank note
         </Button>

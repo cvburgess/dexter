@@ -39,11 +39,15 @@ export default function TodayScreen() {
   const [view, setView] = useState<TDayView>("tasks");
   // Fall back to Tasks if the active view is disabled in settings (e.g. Notes
   // toggled off while viewing it). All views share `day.date`.
-  const activeView: TDayView =
+  const viewDisabled =
     (view === "notes" && !preferences.enableNotes) ||
-    (view === "journal" && !preferences.enableJournal)
-      ? "tasks"
-      : view;
+    (view === "journal" && !preferences.enableJournal);
+  // Reset the stored `view` when its feature is disabled, so re-enabling later
+  // doesn't jump back into a view the user hasn't been looking at. Adjusting
+  // state during render (React's supported pattern) corrects it before paint —
+  // no flash and no effect. `activeView` guards the pre-reset render pass.
+  if (viewDisabled) setView("tasks");
+  const activeView: TDayView = viewDisabled ? "tasks" : view;
   const [tasks, { isLoading, updateTask, createTask, deleteTask }] = useTasks({
     filters: taskFiltersForDate(day.date),
   });

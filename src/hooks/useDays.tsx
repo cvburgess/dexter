@@ -19,6 +19,8 @@ type TUseDays = [
     /** Whether a `days` row exists for this date (vs. the default fallback). */
     exists: boolean;
     upsertDay: (diff: Omit<TUpsertDay, "date">) => void;
+    /** Awaitable upsert so callers can retry a failed save instead of dropping it. */
+    upsertDayAsync: (diff: Omit<TUpsertDay, "date">) => Promise<TDay>;
   },
 ];
 
@@ -56,7 +58,7 @@ export const useDays = (date: string): TUseDays => {
   const day = data ?? defaultDay;
   const exists = data != null;
 
-  const { mutate: upsert } = useMutation<
+  const { mutate: upsert, mutateAsync: upsertAsync } = useMutation<
     TDay,
     Error,
     Omit<TUpsertDay, "date">,
@@ -92,5 +94,8 @@ export const useDays = (date: string): TUseDays => {
     },
   });
 
-  return [day, { isLoading, exists, upsertDay: upsert }];
+  return [
+    day,
+    { isLoading, exists, upsertDay: upsert, upsertDayAsync: upsertAsync },
+  ];
 };

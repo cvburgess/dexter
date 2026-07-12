@@ -37,6 +37,7 @@ const mockUsePreferences = usePreferences as jest.MockedFunction<
   typeof usePreferences
 >;
 const mockUpsertDay = jest.fn();
+const mockUpsertDayAsync = jest.fn().mockResolvedValue(undefined);
 
 const setup = ({
   notes = "",
@@ -51,7 +52,12 @@ const setup = ({
 } = {}) => {
   mockUseDays.mockReturnValue([
     { date: "2026-07-12", notes, prompts: [] },
-    { isLoading, exists, upsertDay: mockUpsertDay },
+    {
+      isLoading,
+      exists,
+      upsertDay: mockUpsertDay,
+      upsertDayAsync: mockUpsertDayAsync,
+    },
   ]);
   mockUsePreferences.mockReturnValue([
     { templateNote } as never,
@@ -85,6 +91,17 @@ describe("NotesView", () => {
     fireEvent.press(screen.getByText("Blank note"));
 
     expect(mockUpsertDay).toHaveBeenCalledWith({ notes: "" });
+  });
+
+  it("keeps the editor after a choice even if the save has not yet succeeded", () => {
+    // `exists` stays false (mirrors a save still pending or rolled back), but
+    // committing to the editor must not bounce back to the chooser.
+    const screen = setup({ exists: false, templateNote: "# Daily" });
+
+    fireEvent.press(screen.getByText("Blank note"));
+
+    expect(screen.queryByText("Use daily note template")).toBeNull();
+    expect(screen.getByLabelText("note-editor")).toBeTruthy();
   });
 
   it("shows the editor once a row exists, even when the note is empty", () => {
@@ -127,11 +144,11 @@ describe("NotesView", () => {
       const screen = setup({ exists: true, notes: "existing note" });
 
       fireEvent.press(screen.getByLabelText("note-editor"));
-      expect(mockUpsertDay).not.toHaveBeenCalled();
+      expect(mockUpsertDayAsync).not.toHaveBeenCalled();
 
       act(() => jest.advanceTimersByTime(800));
 
-      expect(mockUpsertDay).toHaveBeenCalledWith({ notes: "edited note" });
+      expect(mockUpsertDayAsync).toHaveBeenCalledWith({ notes: "edited note" });
     } finally {
       jest.useRealTimers();
     }
