@@ -95,16 +95,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     paddingVertical: 8,
   },
-  list: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
   row: {
     gap: 2,
     paddingVertical: 10,
-  },
-  section: {
-    gap: 10,
   },
   subtitle: {
     fontSize: 13,
