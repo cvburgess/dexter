@@ -33,10 +33,19 @@ Every user-owned table enables RLS with per-operation policies keyed on
   `WITH CHECK` so ownership is preserved across updates.
 - **Tenant-scoped foreign keys must reference rows the caller owns.** Where a
   row points at another user-owned row (e.g. `tasks.list_id`/`goal_id`/
-  `template_id`/`subtask_of`, `repeat_task_templates.list_id`/`goal_id`,
+  `template_id`, `repeat_task_templates.list_id`/`goal_id`,
   `daily_habits.habit_id`), the `WITH CHECK` clause should confirm the
   referenced row belongs to `auth.uid()` (`is null or exists (...)` for nullable
   FKs) so a user cannot attach another user's records.
+- **Self-referential foreign keys cannot use the inline `exists (...)` guard.**
+  A policy's `USING`/`WITH CHECK` must never sub-select from the same table it
+  guards (e.g. `tasks.subtask_of` → `select 1 from public.tasks`). Postgres
+  re-applies the table's policies while evaluating the sub-select and raises
+  `42P17 infinite recursion detected in policy` (see `DEX-4`/`DEX-32`). The
+  `USING` clause already restricts the operation to rows the caller owns; if a
+  self-referential FK genuinely needs a cross-owner guard, do it in a
+  `SECURITY DEFINER` helper function (which bypasses RLS and so does not recurse),
+  not an inline sub-select.
 
 ## Edge Functions
 
