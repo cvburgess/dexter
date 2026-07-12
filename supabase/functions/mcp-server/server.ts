@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 
-import type { Database } from "@src/types/database.types.ts";
+import type { Database } from "../_shared/database.types.ts";
 import { registerDayTools } from "./tools/days.ts";
 import { registerGoalTools } from "./tools/goals.ts";
 import { registerHabitTools } from "./tools/habits.ts";
