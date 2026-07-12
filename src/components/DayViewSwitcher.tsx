@@ -103,15 +103,23 @@ export function DayViewSwitcher({
 }
 
 const styles = StyleSheet.create({
+  // Pin the trigger to a fixed size. The native `@expo/ui` MenuView host sizes
+  // asynchronously and won't derive a reliable tappable frame from padding
+  // alone (the same reason StatusButton/ListButton pin theirs to 32×32); a
+  // content-sized trigger renders untappable on device. Fixed width fits the
+  // longest label ("Journal").
   trigger: {
+    alignItems: "center",
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    height: 34,
+    justifyContent: "center",
+    width: 116,
   },
   triggerContent: {
     alignItems: "center",
     flexDirection: "row",
     gap: 6,
+    justifyContent: "center",
   },
   triggerLabel: {
     fontSize: 14,
