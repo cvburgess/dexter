@@ -18,7 +18,7 @@ Deno.test("validateBearerToken rejects missing Authorization header", async () =
 
 Deno.test("validateBearerToken rejects invalid bearer tokens", async () => {
   const previousUrl = Deno.env.get("SUPABASE_URL");
-  const previousAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const previousPublishableKeys = Deno.env.get("SUPABASE_PUBLISHABLE_KEYS");
 
   const server = Deno.serve(
     { port: 0, hostname: "127.0.0.1", onListen: () => {} },
@@ -32,7 +32,7 @@ Deno.test("validateBearerToken rejects invalid bearer tokens", async () => {
   try {
     const { port } = server.addr as Deno.NetAddr;
     Deno.env.set("SUPABASE_URL", `http://127.0.0.1:${port}`);
-    Deno.env.set("SUPABASE_ANON_KEY", "anon-key");
+    Deno.env.set("SUPABASE_PUBLISHABLE_KEYS", '{"default":"publishable-key"}');
 
     const result = await validateBearerToken(
       new Request("http://localhost", {
@@ -44,6 +44,6 @@ Deno.test("validateBearerToken rejects invalid bearer tokens", async () => {
   } finally {
     await server.shutdown();
     restoreEnv("SUPABASE_URL", previousUrl);
-    restoreEnv("SUPABASE_ANON_KEY", previousAnonKey);
+    restoreEnv("SUPABASE_PUBLISHABLE_KEYS", previousPublishableKeys);
   }
 });
