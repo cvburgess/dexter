@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { useTemplates } from "@/hooks/useTemplates";
 import { describeSchedule } from "@/utils/repeatSchedule";
 import { SETTINGS_TWO_PANE_MIN_WIDTH } from "@/utils/settingsItems";
@@ -29,74 +28,54 @@ export default function TasksScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { padding: theme.spacing, gap: theme.spacing },
-        ]}
+        contentContainerStyle={[styles.content, { padding: theme.spacing }]}
       >
-        <View style={styles.section}>
-          <SettingsSectionTitle>Repeating Tasks</SettingsSectionTitle>
-          <View
-            style={[
-              styles.list,
-              {
-                backgroundColor: theme.colors.card,
-                borderRadius: theme.borderRadius,
-              },
-            ]}
-          >
-            {templates.length === 0 ? (
-              <Text
-                style={[styles.empty, { color: theme.colors.textSecondary }]}
+        {templates.length === 0 ? (
+          <Text style={[styles.empty, { color: theme.colors.textSecondary }]}>
+            To repeat a task, open its menu and choose Repeat. Its schedule will
+            show up here.
+          </Text>
+        ) : (
+          templates.map((template, index) => (
+            <View key={template.id}>
+              {index > 0 && (
+                <View
+                  style={[
+                    styles.divider,
+                    { backgroundColor: withOpacity(theme.colors.text, 0.08) },
+                  ]}
+                />
+              )}
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={`Edit ${template.title}`}
+                onPress={() =>
+                  router.push({
+                    pathname: "/settings/tasks/[id]",
+                    params: { id: template.id },
+                  })
+                }
+                style={styles.row}
               >
-                To repeat a task, open its menu and choose Repeat. Its schedule
-                will show up here.
-              </Text>
-            ) : (
-              templates.map((template, index) => (
-                <View key={template.id}>
-                  {index > 0 && (
-                    <View
-                      style={[
-                        styles.divider,
-                        {
-                          backgroundColor: withOpacity(theme.colors.text, 0.08),
-                        },
-                      ]}
-                    />
-                  )}
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel={`Edit ${template.title}`}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/settings/tasks/[id]",
-                        params: { id: template.id },
-                      })
-                    }
-                    style={styles.row}
-                  >
-                    <Text
-                      numberOfLines={1}
-                      style={[styles.title, { color: theme.colors.text }]}
-                    >
-                      {template.title || "Untitled task"}
-                    </Text>
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.subtitle,
-                        { color: theme.colors.textSecondary },
-                      ]}
-                    >
-                      {describeSchedule(template.schedule)}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ))
-            )}
-          </View>
-        </View>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.title, { color: theme.colors.text }]}
+                >
+                  {template.title || "Untitled task"}
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.subtitle,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  {describeSchedule(template.schedule)}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
