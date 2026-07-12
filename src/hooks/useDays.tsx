@@ -89,8 +89,13 @@ export const useDays = (date: string): TUseDays => {
         queryClient.removeQueries({ queryKey: ["days", date] });
       }
     },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ["days", date] });
+    // Write the persisted row straight into the cache rather than invalidating
+    // (refetching): a refetch races with in-flight/optimistic edits and can
+    // stamp a stale server value over newer text, which the uncontrolled editor
+    // then re-seeds from on remount. The mutation response IS the latest saved
+    // state, so no GET is needed.
+    onSuccess: (saved) => {
+      queryClient.setQueryData(["days", date], saved);
     },
   });
 
