@@ -3,7 +3,7 @@ import { useState } from "react";
 import { ScrollView, StyleSheet, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { duplicateTaskInput } from "@/api/tasks";
+import { duplicateTaskInput, TTask } from "@/api/tasks";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { DayNav } from "@/components/DayNav";
 import { HabitTracker } from "@/components/HabitTracker";
@@ -16,6 +16,7 @@ import {
   usePrefetchAdjacentTasks,
   useTasks,
 } from "@/hooks/useTasks";
+import { useTemplates } from "@/hooks/useTemplates";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
 import { useTheme } from "@/utils/theme";
 
@@ -35,19 +36,26 @@ export default function TodayScreen() {
   const [tasks, { isLoading, updateTask, createTask, deleteTask }] = useTasks({
     filters: taskFiltersForDate(day.date),
   });
+  const [, { deleteTemplate }] = useTemplates();
   usePrefetchAdjacentTasks(day.date);
   // So "New Task" opened from this tab defaults its schedule to the viewed day.
   usePublishViewedDay(day.date);
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (task: TTask) => {
+    const isRepeating = task.templateId !== null;
     const confirmed = await confirm({
-      title: "Delete Task",
-      message: "Delete this task?",
+      title: isRepeating ? "Delete repeating task?" : "Delete Task",
+      message: isRepeating
+        ? "This task repeats. Deleting it also removes its repeat schedule, so no new occurrences will be created."
+        : "Delete this task?",
       confirmLabel: "Delete",
       destructive: true,
     });
     if (!confirmed) return;
-    deleteTask(id);
+    // The task→template FK is ON DELETE SET NULL, so the template must be removed
+    // explicitly to stop future occurrences (DEX-21).
+    if (task.templateId) deleteTemplate(task.templateId);
+    deleteTask(task.id);
   };
 
   const changeDate = (next: Temporal.PlainDate) =>
@@ -97,7 +105,7 @@ export default function TodayScreen() {
                   task={item}
                   onUpdate={(diff) => updateTask({ id: item.id, ...diff })}
                   onDuplicate={() => createTask(duplicateTaskInput(item))}
-                  onDelete={() => handleDelete(item.id)}
+                  onDelete={() => handleDelete(item)}
                 />
               ))}
         </ScrollView>

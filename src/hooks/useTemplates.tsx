@@ -18,13 +18,23 @@ import {
 
 import { supabase } from "./useAuth";
 
+type TMutateCallbacks = {
+  onError?: (error: Error) => void;
+  onSuccess?: () => void;
+};
+
 type TUseTemplates = [
   TTemplate[],
   {
     createTemplate: (template: TCreateTemplate) => void;
     createTemplateFromTask: UseMutateFunction<TTemplate, Error, TTask>;
-    deleteTemplate: (id: string) => void;
-    updateTemplate: (template: TUpdateTemplate) => void;
+    deleteTemplate: (id: string, callbacks?: TMutateCallbacks) => void;
+    getTemplateById: (id: string | null) => TTemplate | undefined;
+    isLoading: boolean;
+    updateTemplate: (
+      template: TUpdateTemplate,
+      callbacks?: TMutateCallbacks,
+    ) => void;
   },
 ];
 
@@ -35,7 +45,7 @@ type TUseTemplatesOptions = {
 export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
   const queryClient = useQueryClient();
 
-  const { data: templates = [] } = useQuery({
+  const { data: templates = [], isPending } = useQuery({
     enabled: !options?.skipQuery,
     queryKey: ["templates"],
     queryFn: () => getTemplates(supabase),
@@ -82,12 +92,19 @@ export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
     },
   });
 
+  const getTemplateById = (id: string | null) => {
+    if (!id) return undefined;
+    return templates.find((template) => template.id === id);
+  };
+
   return [
     templates,
     {
       createTemplate: create,
       createTemplateFromTask: createFromTask,
       deleteTemplate: remove,
+      getTemplateById,
+      isLoading: isPending,
       updateTemplate: update,
     },
   ];

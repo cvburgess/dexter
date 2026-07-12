@@ -1,6 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
+import { getNextTaskDate } from "@src/utils/repeatSchedule.ts";
+
 import type { ToolContext } from "../server.ts";
 import {
   compactUpdate,
@@ -15,7 +17,59 @@ import {
 } from "./helpers.ts";
 
 const TASK_STATUS_TODO = 1;
+const TASK_STATUS_DONE = 2;
 const TASK_STATUS_WONT_DO = 3;
+
+const isCompletionStatus = (status: number | null | undefined): boolean =>
+  status === TASK_STATUS_DONE || status === TASK_STATUS_WONT_DO;
+
+/**
+ * When a task update completes a repeat task, schedule its next occurrence — the
+ * TypeScript replacement for the dropped `create_next_recurring_task` trigger
+ * (DEX-21), sharing `getNextTaskDate` with the Expo app. No-ops unless the task
+ * just transitioned into done/won't-do (from a non-complete `previousStatus`)
+ * and is linked to a template with a schedule.
+ */
+async function maybeCreateNextRecurringTask(
+  ctx: ToolContext,
+  task: {
+    status: number;
+    template_id: string | null;
+    scheduled_for: string | null;
+  },
+  previousStatus: number | null | undefined,
+): Promise<void> {
+  if (!isCompletionStatus(task.status) || isCompletionStatus(previousStatus)) {
+    return;
+  }
+  if (!task.template_id) return;
+
+  const { data: template } = await ctx.supabase
+    .from("repeat_task_templates")
+    .select("*")
+    .eq("id", task.template_id)
+    .eq("user_id", ctx.userId)
+    .maybeSingle();
+  if (!template?.schedule) return;
+
+  const nextDate = getNextTaskDate(
+    { scheduledFor: task.scheduled_for },
+    template.schedule,
+    getTodayIsoDate(),
+  );
+  if (!nextDate) return;
+
+  await ctx.supabase.from("tasks").insert({
+    user_id: ctx.userId,
+    title: template.title,
+    priority: template.priority,
+    list_id: template.list_id,
+    goal_id: template.goal_id,
+    scheduled_for: nextDate,
+    template_id: template.id,
+    status: TASK_STATUS_TODO,
+  });
+}
 
 const statusFilterSchema = z.union([
   taskStatusSchema,
@@ -241,6 +295,20 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         return toolError("No fields provided to update.");
       }
 
+      // Read the pre-update status only when this update could complete the
+      // task, so `maybeCreateNextRecurringTask` can tell a fresh completion from
+      // a re-completion (and avoid the extra read on ordinary edits).
+      let previousStatus: number | null | undefined;
+      if (isCompletionStatus(update.status)) {
+        const { data: existing } = await ctx.supabase
+          .from("tasks")
+          .select("status")
+          .eq("id", taskId)
+          .eq("user_id", ctx.userId)
+          .maybeSingle();
+        previousStatus = existing?.status;
+      }
+
       const { data, error } = await ctx.supabase
         .from("tasks")
         .update(update)
@@ -250,6 +318,8 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         .single();
 
       if (error) return toolError(error.message);
+
+      await maybeCreateNextRecurringTask(ctx, data, previousStatus);
       return toolJson(data);
     },
   );
@@ -258,11 +328,24 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
     "delete_task",
     {
       title: "Delete Task",
-      description: "Permanently delete a task.",
+      description:
+        "Permanently delete a task. If the task has a linked repeat schedule, " +
+        "its template is deleted too, which stops future occurrences from being " +
+        "created — confirm this with the user before deleting a repeat task.",
       inputSchema: { taskId: uuidSchema },
       annotations: { readOnlyHint: false, destructiveHint: true },
     },
     async ({ taskId }) => {
+      // Deleting a task doesn't cascade to its template (the FK is ON DELETE SET
+      // NULL), so a repeat task's template must be removed explicitly to stop
+      // future occurrences.
+      const { data: task } = await ctx.supabase
+        .from("tasks")
+        .select("template_id")
+        .eq("id", taskId)
+        .eq("user_id", ctx.userId)
+        .maybeSingle();
+
       const { error } = await ctx.supabase
         .from("tasks")
         .delete()
@@ -270,6 +353,17 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         .eq("user_id", ctx.userId);
 
       if (error) return toolError(error.message);
+
+      if (task?.template_id) {
+        const { error: templateError } = await ctx.supabase
+          .from("repeat_task_templates")
+          .delete()
+          .eq("id", task.template_id)
+          .eq("user_id", ctx.userId);
+
+        if (templateError) return toolError(templateError.message);
+      }
+
       return toolJson({ success: true, taskId });
     },
   );
@@ -291,6 +385,19 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
       },
     },
     async ({ taskId, restore }) => {
+      // Archiving to won't-do can complete a repeat task; read the prior status
+      // first so a re-archive doesn't spawn a duplicate occurrence.
+      let previousStatus: number | null | undefined;
+      if (!restore) {
+        const { data: existing } = await ctx.supabase
+          .from("tasks")
+          .select("status")
+          .eq("id", taskId)
+          .eq("user_id", ctx.userId)
+          .maybeSingle();
+        previousStatus = existing?.status;
+      }
+
       const { data, error } = await ctx.supabase
         .from("tasks")
         .update({
@@ -302,6 +409,10 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         .single();
 
       if (error) return toolError(error.message);
+
+      if (!restore) {
+        await maybeCreateNextRecurringTask(ctx, data, previousStatus);
+      }
       return toolJson(data);
     },
   );

@@ -95,9 +95,7 @@ export function TaskCard({
 
   return (
     <MoreMenu
-      priority={task.priority}
-      scheduledFor={task.scheduledFor}
-      listId={task.listId}
+      task={task}
       onChangePriority={(priority) => onUpdate({ priority })}
       onChangeSchedule={(scheduledFor) => onUpdate({ scheduledFor })}
       onChangeList={(listId) => onUpdate({ listId })}

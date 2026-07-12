@@ -1,9 +1,11 @@
 import { Temporal } from "@js-temporal/polyfill";
+import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
 
-import { ETaskPriority } from "@/api/tasks";
+import { ETaskPriority, TTask } from "@/api/tasks";
 import { useLists } from "@/hooks/useLists";
+import { useTemplates } from "@/hooks/useTemplates";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
 import { Theme, useTheme } from "@/utils/theme";
 import { weekStartEnd } from "@/utils/weekStartEnd";
@@ -13,9 +15,7 @@ import { getListSections } from "./ListButton";
 import { PRIORITY_OPTIONS, priorityIconColor } from "./PriorityControl";
 
 type TMoreMenuProps = {
-  priority: ETaskPriority;
-  scheduledFor: string | null;
-  listId: string | null;
+  task: TTask;
   onChangePriority: (priority: ETaskPriority) => void;
   onChangeSchedule: (scheduledFor: string | null) => void;
   onChangeList: (listId: string | null) => void;
@@ -27,9 +27,7 @@ type TMoreMenuProps = {
 
 /** Wraps `children` (the whole task card) with a long-press menu for priority, schedule, list, and task actions. */
 export function MoreMenu({
-  priority,
-  scheduledFor,
-  listId,
+  task,
   onChangePriority,
   onChangeSchedule,
   onChangeList,
@@ -39,18 +37,48 @@ export function MoreMenu({
   style,
 }: TMoreMenuProps) {
   const theme = useTheme();
+  const router = useRouter();
   const [lists] = useLists();
+  const [, { createTemplateFromTask, getTemplateById }] = useTemplates();
+
+  const openRepeatSchedule = (templateId: string) =>
+    router.push({
+      pathname: "/settings/tasks/[id]",
+      params: { id: templateId },
+    });
+
+  // A linked template always carries a schedule today; the extra check
+  // future-proofs a later "linked template without a schedule" state (DEX-21).
+  const linkedTemplate = getTemplateById(task.templateId);
+  const isRepeating =
+    task.templateId !== null && linkedTemplate?.schedule !== null;
+
+  const onRepeat = () => {
+    // Branch on the stored templateId, not the (possibly still-loading) template
+    // lookup, so an existing repeat is never duplicated.
+    if (task.templateId) {
+      openRepeatSchedule(task.templateId);
+    } else {
+      createTemplateFromTask(task, {
+        onSuccess: (template) => openRepeatSchedule(template.id),
+      });
+    }
+  };
+
   const sections = [
-    ...getPrioritySections(priority, onChangePriority, theme),
-    ...getScheduleSections(scheduledFor, onChangeSchedule),
+    ...getPrioritySections(task.priority, onChangePriority, theme),
+    ...getScheduleSections(task.scheduledFor, onChangeSchedule),
     // ListButton's sections, collapsed into a titled submenu like the others.
-    ...getListSections(lists, listId, onChangeList).map((section) => ({
+    ...getListSections(lists, task.listId, onChangeList).map((section) => ({
       ...section,
       title: "List",
       icon: { ios: "face.smiling", android: "mood", web: "mood" } as const,
       isSubmenu: true,
     })),
-    ...getOtherSections(onDuplicate, onDelete),
+    ...getOtherSections(onDuplicate, onDelete, {
+      label: isRepeating ? "Edit repeat schedule" : "Repeat",
+      onSelect: onRepeat,
+    }),
   ];
 
   return (
@@ -166,13 +194,16 @@ export const getScheduleSections = (
 };
 
 /**
- * Task-management actions (Duplicate / Delete), rendered as an inline "Other"
- * group so the actions are directly tappable rather than nested in a submenu.
- * Delete is marked destructive so `IconMenu` styles it accordingly.
+ * Task-management actions (Duplicate / Repeat / Delete), rendered as an inline
+ * "Other" group so the actions are directly tappable rather than nested in a
+ * submenu. The repeat item's label reflects whether the task already has a
+ * repeat schedule. Delete is marked destructive so `IconMenu` styles it
+ * accordingly.
  */
 export const getOtherSections = (
   onDuplicate: () => void,
   onDelete: () => void,
+  repeat: { label: string; onSelect: () => void },
 ): TIconMenuSection[] => [
   {
     title: "Other",
@@ -186,6 +217,12 @@ export const getOtherSections = (
           web: "content_copy",
         } as const,
         onSelect: onDuplicate,
+      },
+      {
+        id: "repeat",
+        title: repeat.label,
+        icon: { ios: "repeat", android: "repeat", web: "repeat" } as const,
+        onSelect: repeat.onSelect,
       },
       {
         id: "delete",
