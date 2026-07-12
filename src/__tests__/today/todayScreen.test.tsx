@@ -63,10 +63,14 @@ jest.mock("@/components/HabitTracker", () => ({ HabitTracker: () => null }));
 // QueryClientProvider (this screen mounts without one).
 jest.mock("@/hooks/usePreferences", () => ({
   usePreferences: () => [
-    { enableHabits: true },
+    { enableHabits: true, enableNotes: true, enableJournal: true },
     { updatePreferences: jest.fn() },
   ],
 }));
+// The Notes view's editor wraps a native module (react-native-enriched-markdown)
+// with no Jest double; stub it so the module graph loads. The Notes surface is
+// covered by NotesView.test; this suite stays focused on the Tasks view.
+jest.mock("@/components/NoteEditor", () => ({ NoteEditor: () => null }));
 
 const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
 
@@ -128,6 +132,14 @@ describe("TodayScreen", () => {
   it("shows an empty state when there are no tasks for the day", () => {
     const screen = render(<TodayScreen />);
 
+    expect(screen.getByText("No tasks scheduled for this day.")).toBeTruthy();
+  });
+
+  it("defaults to the Tasks view", () => {
+    const screen = render(<TodayScreen />);
+
+    // The switcher pill shows the active view's label.
+    expect(screen.getByText("Tasks")).toBeTruthy();
     expect(screen.getByText("No tasks scheduled for this day.")).toBeTruthy();
   });
 
