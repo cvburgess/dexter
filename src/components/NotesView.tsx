@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { useDays } from "@/hooks/useDays";
@@ -20,20 +20,17 @@ const SAVE_DEBOUNCE_MS = 800;
 
 /**
  * The Notes surface for a single day. Reads/writes the day's markdown note via
- * `useDays`, autosaving edits (debounced). When the stored note is blank and a
- * daily-note template is configured, it first offers the user a choice between
- * seeding the template and starting blank (DEX-37). Remount this per-date (via
- * `key`) so the choice resets and the editor re-seeds when the day changes.
+ * `useDays`, autosaving edits (debounced). When the day has no note row yet and
+ * a daily-note template is configured, it first offers the user a choice
+ * between seeding the template and starting blank; both choices write a row, so
+ * the choice persists across remounts/tab switches instead of re-prompting
+ * (DEX-37). Remount this per-date (via `key`) so the editor re-seeds when the
+ * day changes.
  */
 export function NotesView({ date }: TNotesViewProps) {
   const theme = useTheme();
-  const [day, { isLoading, upsertDay }] = useDays(date);
+  const [day, { isLoading, exists, upsertDay }] = useDays(date);
   const [preferences] = usePreferences();
-  // Latches once the user commits to the editor — picking "Blank note" or
-  // starting to type — so an autosave that clears the note to empty can't
-  // resurrect the chooser mid-session. ("Use daily note template" needs no
-  // latch: it makes the note non-blank.)
-  const [chooserResolved, setChooserResolved] = useState(false);
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRef = useRef<string | null>(null);
@@ -54,7 +51,6 @@ export function NotesView({ date }: TNotesViewProps) {
 
   const handleChangeMarkdown = useCallback(
     (markdown: string) => {
-      setChooserResolved(true);
       pendingRef.current = markdown;
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(flush, SAVE_DEBOUNCE_MS);
@@ -67,11 +63,12 @@ export function NotesView({ date }: TNotesViewProps) {
 
   if (isLoading) return <LoadingScreen />;
 
-  const notes = day.notes ?? "";
   const hasTemplate = preferences.templateNote.trim().length > 0;
-  const isBlank = notes.length === 0;
 
-  if (isBlank && hasTemplate && !chooserResolved) {
+  // Only prompt before the day has a note row: once either choice writes a row,
+  // `exists` stays true across remounts, so the chooser never resurfaces (and
+  // clearing an existing note to empty keeps the editor, not the chooser).
+  if (!exists && hasTemplate) {
     return (
       <View style={styles.centered}>
         <Text style={[styles.prompt, { color: theme.colors.textSecondary }]}>
@@ -87,7 +84,7 @@ export function NotesView({ date }: TNotesViewProps) {
         <Button
           variant="default"
           style={styles.button}
-          onPress={() => setChooserResolved(true)}
+          onPress={() => upsertDay({ notes: "" })}
         >
           Blank note
         </Button>
@@ -97,7 +94,7 @@ export function NotesView({ date }: TNotesViewProps) {
 
   return (
     <NoteEditor
-      initialValue={notes}
+      initialValue={day.notes ?? ""}
       onChangeMarkdown={handleChangeMarkdown}
       placeholder="Write today's note…"
       testID="note-editor"

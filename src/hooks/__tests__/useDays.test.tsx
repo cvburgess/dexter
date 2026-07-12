@@ -39,7 +39,7 @@ describe("useDays", () => {
   });
 
   it("defaults a day with no row to a blank note, ignoring the template", async () => {
-    mockGetDay.mockRejectedValue(new Error("No day found"));
+    mockGetDay.mockResolvedValue(null);
 
     const { result } = renderHook(() => useDays("2026-07-12"), {
       wrapper: createWrapper(),
@@ -47,10 +47,26 @@ describe("useDays", () => {
 
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
     expect(result.current[0].notes).toBe("");
+    expect(result.current[1].exists).toBe(false);
+  });
+
+  it("reports exists=true and the stored note when a row is present", async () => {
+    mockGetDay.mockResolvedValue({
+      date: "2026-07-12",
+      notes: "existing",
+      prompts: [],
+    });
+
+    const { result } = renderHook(() => useDays("2026-07-12"), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current[1].exists).toBe(true));
+    expect(result.current[0].notes).toBe("existing");
   });
 
   it("upserts the diff together with the day's date", async () => {
-    mockGetDay.mockRejectedValue(new Error("No day found"));
+    mockGetDay.mockResolvedValue(null);
     mockUpsertDay.mockResolvedValue({
       date: "2026-07-12",
       notes: "hello",
@@ -73,7 +89,7 @@ describe("useDays", () => {
   });
 
   it("rolls back the optimistic note when the first save fails for a new day", async () => {
-    mockGetDay.mockRejectedValue(new Error("No day found"));
+    mockGetDay.mockResolvedValue(null);
     mockUpsertDay.mockRejectedValue(new Error("save failed"));
 
     const { result } = renderHook(() => useDays("2026-07-12"), {
@@ -86,5 +102,6 @@ describe("useDays", () => {
 
     // The failed save must not leave the never-persisted note in the cache.
     await waitFor(() => expect(result.current[0].notes).toBe(""));
+    expect(result.current[1].exists).toBe(false);
   });
 });

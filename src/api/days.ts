@@ -19,7 +19,9 @@ export const getDay = async (
     .maybeSingle();
 
   if (error) throw error;
-  if (!data) throw new Error("No day found");
+  // No row yet for this day — distinct from an existing row with an empty
+  // note, so callers can tell "never started" apart from "started but blank".
+  if (!data) return null;
 
   return camelCase(data) as TDay;
 };

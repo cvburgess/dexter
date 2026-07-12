@@ -16,6 +16,8 @@ type TUseDays = [
   TDay & { prompts: TJournalPrompt[] },
   {
     isLoading: boolean;
+    /** Whether a `days` row exists for this date (vs. the default fallback). */
+    exists: boolean;
     upsertDay: (diff: Omit<TUpsertDay, "date">) => void;
   },
 ];
@@ -40,18 +42,25 @@ export const useDays = (date: string): TUseDays => {
     [date, preferences.templatePrompts],
   );
 
-  const { data: day = defaultDay, isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["days", date],
     queryFn: () => getDay(supabase, date),
     retry: false,
     staleTime: 1000 * 60 * 10,
   });
 
+  // `data` is a row (TDay), `null` when the day has no row yet, or `undefined`
+  // while loading. Fall back to the blank default in the latter two cases, but
+  // surface whether a real row exists so callers can distinguish "never
+  // started" from "started but blank".
+  const day = data ?? defaultDay;
+  const exists = data != null;
+
   const { mutate: upsert } = useMutation<
     TDay,
     Error,
     Omit<TUpsertDay, "date">,
-    { previous?: TDay }
+    { previous: TDay | null | undefined }
   >({
     mutationFn: (diff) => upsertDay(supabase, { ...diff, date }),
     // Optimistically fold the diff into the cache so autosave feels instant and
@@ -59,7 +68,7 @@ export const useDays = (date: string): TUseDays => {
     // round-trip settles; roll back on error. Mirrors usePreferences.
     onMutate: async (diff) => {
       await queryClient.cancelQueries({ queryKey: ["days", date] });
-      const previous = queryClient.getQueryData<TDay>(["days", date]);
+      const previous = queryClient.getQueryData<TDay | null>(["days", date]);
       queryClient.setQueryData<TDay>(["days", date], {
         ...(previous ?? defaultDay),
         ...diff,
@@ -67,13 +76,14 @@ export const useDays = (date: string): TUseDays => {
       return { previous };
     },
     onError: (_error, _diff, context) => {
-      if (context?.previous) {
+      if (context && context.previous !== undefined) {
+        // Restore the prior cache value — a row, or `null` for a known no-row
+        // day (both are concrete values React Query will set).
         queryClient.setQueryData(["days", date], context.previous);
       } else {
-        // No prior cache entry (a day with no row yet), so there's nothing to
-        // restore to — drop the optimistic entry entirely. `setQueryData(…,
-        // undefined)` is a no-op in React Query, so it would otherwise leave
-        // the never-persisted note in the cache until a cold-start refetch.
+        // The day was never fetched (e.g. still errored), so there's nothing to
+        // restore to — drop the optimistic entry so a never-persisted note
+        // doesn't linger. (`setQueryData(…, undefined)` is a no-op.)
         queryClient.removeQueries({ queryKey: ["days", date] });
       }
     },
@@ -82,5 +92,5 @@ export const useDays = (date: string): TUseDays => {
     },
   });
 
-  return [day, { isLoading, upsertDay: upsert }];
+  return [day, { isLoading, exists, upsertDay: upsert }];
 };
