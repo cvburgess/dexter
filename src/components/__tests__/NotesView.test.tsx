@@ -90,6 +90,21 @@ describe("NotesView", () => {
     expect(screen.getByText("seed:existing note")).toBeTruthy();
   });
 
+  it("does not resurrect the chooser when an active edit clears the note", () => {
+    const screen = setup({ notes: "existing note", templateNote: "# Daily" });
+
+    // Start editing, then let the optimistic cache report the note as empty.
+    fireEvent.press(screen.getByLabelText("note-editor"));
+    mockUseDays.mockReturnValue([
+      { date: "2026-07-12", notes: "", prompts: [] },
+      { isLoading: false, upsertDay: mockUpsertDay },
+    ]);
+    screen.rerender(<NotesView date="2026-07-12" />);
+
+    expect(screen.queryByText("Use daily note template")).toBeNull();
+    expect(screen.getByLabelText("note-editor")).toBeTruthy();
+  });
+
   it("skips the chooser when no template is configured", () => {
     const screen = setup({ notes: "", templateNote: "" });
 

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 
 import {
   getDay,
@@ -23,18 +24,21 @@ export const useDays = (date: string): TUseDays => {
   const queryClient = useQueryClient();
   const [preferences] = usePreferences();
 
-  const defaultDay: TDay = {
-    date,
-    // A day with no row reads as a blank note (empty string). The daily-note
-    // template is NOT auto-applied here: notes UI offers "Use template" /
-    // "Blank note" when opening a blank day, so pre-filling would defeat that
-    // choice. Journal prompts still seed from the template (DEX-37).
-    notes: "",
-    prompts: preferences.templatePrompts.map((prompt) => ({
-      prompt,
-      response: "",
-    })),
-  };
+  const defaultDay: TDay = useMemo(
+    () => ({
+      date,
+      // A day with no row reads as a blank note (empty string). The daily-note
+      // template is NOT auto-applied here: notes UI offers "Use template" /
+      // "Blank note" when opening a blank day, so pre-filling would defeat that
+      // choice. Journal prompts still seed from the template (DEX-37).
+      notes: "",
+      prompts: preferences.templatePrompts.map((prompt) => ({
+        prompt,
+        response: "",
+      })),
+    }),
+    [date, preferences.templatePrompts],
+  );
 
   const { data: day = defaultDay, isLoading } = useQuery({
     queryKey: ["days", date],

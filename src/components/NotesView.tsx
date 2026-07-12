@@ -1,16 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import { useDays } from "@/hooks/useDays";
 import { usePreferences } from "@/hooks/usePreferences";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
+import { Button } from "./Button";
+import { LoadingScreen } from "./LoadingScreen";
 import { NoteEditor } from "./NoteEditor";
 
 type TNotesViewProps = {
@@ -33,30 +29,32 @@ export function NotesView({ date }: TNotesViewProps) {
   const theme = useTheme();
   const [day, { isLoading, upsertDay }] = useDays(date);
   const [preferences] = usePreferences();
-  const [blankChosen, setBlankChosen] = useState(false);
+  // Latches once the user commits to the editor — picking "Blank note" or
+  // starting to type — so an autosave that clears the note to empty can't
+  // resurrect the chooser mid-session. ("Use daily note template" needs no
+  // latch: it makes the note non-blank.)
+  const [chooserResolved, setChooserResolved] = useState(false);
 
-  // `upsertDay` is stable, but read it through a ref so the debounce/unmount
-  // flush never captures a stale closure.
-  const upsertRef = useRef(upsertDay);
-  useEffect(() => {
-    upsertRef.current = upsertDay;
-  }, [upsertDay]);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRef = useRef<string | null>(null);
 
+  // React Query's `mutate` is referentially stable, so closing over `upsertDay`
+  // keeps `flush` stable and the unmount effect below fires cleanup only on
+  // unmount.
   const flush = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
     if (pendingRef.current !== null) {
-      upsertRef.current({ notes: pendingRef.current });
+      upsertDay({ notes: pendingRef.current });
       pendingRef.current = null;
     }
-  }, []);
+  }, [upsertDay]);
 
   const handleChangeMarkdown = useCallback(
     (markdown: string) => {
+      setChooserResolved(true);
       pendingRef.current = markdown;
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(flush, SAVE_DEBOUNCE_MS);
@@ -67,63 +65,39 @@ export function NotesView({ date }: TNotesViewProps) {
   // Persist any pending edit when the view unmounts (date change / tab switch).
   useEffect(() => flush, [flush]);
 
-  if (isLoading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={theme.colors.primary} />
-      </View>
-    );
-  }
+  if (isLoading) return <LoadingScreen />;
 
+  const notes = day.notes ?? "";
   const hasTemplate = preferences.templateNote.trim().length > 0;
-  const isBlank = day.notes.length === 0;
+  const isBlank = notes.length === 0;
 
-  if (isBlank && hasTemplate && !blankChosen) {
+  if (isBlank && hasTemplate && !chooserResolved) {
     return (
       <View style={styles.centered}>
         <Text style={[styles.prompt, { color: theme.colors.textSecondary }]}>
           Start today&apos;s note
         </Text>
-        <TouchableOpacity
-          accessibilityRole="button"
+        <Button
+          variant="primary"
+          style={styles.button}
           onPress={() => upsertDay({ notes: preferences.templateNote })}
-          style={[
-            styles.button,
-            {
-              backgroundColor: theme.colors.primary,
-              borderRadius: theme.borderRadius,
-            },
-          ]}
         >
-          <Text
-            style={[styles.buttonText, { color: theme.colors.primaryContent }]}
-          >
-            Use daily note template
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          accessibilityRole="button"
-          onPress={() => setBlankChosen(true)}
-          style={[
-            styles.button,
-            styles.buttonSecondary,
-            {
-              borderColor: withOpacity(theme.colors.text, 0.2),
-              borderRadius: theme.borderRadius,
-            },
-          ]}
+          Use daily note template
+        </Button>
+        <Button
+          variant="default"
+          style={styles.button}
+          onPress={() => setChooserResolved(true)}
         >
-          <Text style={[styles.buttonText, { color: theme.colors.text }]}>
-            Blank note
-          </Text>
-        </TouchableOpacity>
+          Blank note
+        </Button>
       </View>
     );
   }
 
   return (
     <NoteEditor
-      initialValue={day.notes}
+      initialValue={notes}
       onChangeMarkdown={handleChangeMarkdown}
       placeholder="Write today's note…"
       testID="note-editor"
@@ -144,17 +118,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   button: {
-    alignItems: "center",
-    minWidth: 220,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  buttonSecondary: {
-    backgroundColor: "transparent",
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  buttonText: {
-    fontSize: 15,
-    fontWeight: "600",
+    minWidth: 240,
   },
 });
