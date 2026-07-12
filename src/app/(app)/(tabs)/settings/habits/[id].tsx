@@ -1,0 +1,412 @@
+import {
+  Redirect,
+  useLocalSearchParams,
+  useNavigation,
+  useRouter,
+} from "expo-router";
+import { useLayoutEffect, useRef, useState } from "react";
+import {
+  Alert,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput as NativeTextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+
+import { TCreateHabit, THabit } from "@/api/habits";
+import { Button } from "@/components/Button";
+import { ConfirmationModal } from "@/components/ConfirmationModal";
+import { EmojiPicker } from "@/components/EmojiPicker";
+import { LoadingScreen } from "@/components/LoadingScreen";
+import { CloseButton, DoneButton } from "@/components/ModalHeaderButtons";
+import { TextInput } from "@/components/TextInput";
+import { WebModalHeader } from "@/components/WebModalHeader";
+import { useConfirmation } from "@/hooks/useConfirmation";
+import { useHabits } from "@/hooks/useHabits";
+import { useTheme, withOpacity } from "@/utils/theme";
+
+// Temporal's `dayOfWeek`: Monday = 1 … Sunday = 7.
+const DAYS = [
+  { value: 1, label: "M" },
+  { value: 2, label: "T" },
+  { value: 3, label: "W" },
+  { value: 4, label: "T" },
+  { value: 5, label: "F" },
+  { value: 6, label: "S" },
+  { value: 7, label: "S" },
+] as const;
+
+const ALL_DAYS = [1, 2, 3, 4, 5, 6, 7];
+const DEFAULT_EMOJI = "😄";
+const MAX_STEPS = 999;
+
+// RN's Alert is a no-op on web, so fall back to the browser's alert there.
+const showSaveError = () => {
+  const message = "We couldn't save your habit. Please try again.";
+
+  if (Platform.OS === "web") {
+    window.alert(message);
+  } else {
+    Alert.alert("Something went wrong", message);
+  }
+};
+
+export default function HabitScreen() {
+  // "/settings/habits/new" is the create route; any other id edits that habit.
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const [, { getHabitById, isLoading }] = useHabits();
+
+  // Editing is decided by the route, not by whether the habit has loaded yet —
+  // otherwise a cold cache (deep link / web reload) would treat an edit as a
+  // create and save a duplicate.
+  const isEditing = id !== "new";
+  const existing = getHabitById(isEditing ? id : null);
+
+  if (isEditing && !existing) {
+    // Still fetching: wait for the habit so the form initializes from its saved
+    // values. Once loaded with no match (stale link / deleted habit), the id is
+    // invalid — bail back to the list rather than spin forever.
+    return isLoading ? <LoadingScreen /> : <Redirect href="/settings/habits" />;
+  }
+
+  // The `key` remounts the form if the resolved habit changes.
+  return <HabitForm key={existing?.id ?? "new"} existing={existing} />;
+}
+
+function HabitForm({ existing }: { existing?: THabit }) {
+  const theme = useTheme();
+  const navigation = useNavigation();
+  const router = useRouter();
+
+  const [, { createHabit, updateHabit, deleteHabit }] = useHabits();
+  const { confirm, confirmationProps } = useConfirmation();
+
+  const isEditing = !!existing;
+
+  const [emoji, setEmoji] = useState(existing?.emoji ?? DEFAULT_EMOJI);
+  const [title, setTitle] = useState(existing?.title ?? "");
+  const [steps, setSteps] = useState(String(existing?.steps ?? 1));
+  const [daysActive, setDaysActive] = useState<number[]>(
+    existing?.daysActive ?? ALL_DAYS,
+  );
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const hasSaved = useRef(false);
+
+  const parsedSteps = parseInt(steps, 10);
+  const stepsValid =
+    Number.isFinite(parsedSteps) && parsedSteps > 0 && parsedSteps <= MAX_STEPS;
+  const canSave =
+    title.trim().length > 0 && stepsValid && daysActive.length > 0;
+
+  const handleClose = () => router.back();
+
+  const handleSave = () => {
+    if (hasSaved.current || !canSave) return;
+    hasSaved.current = true;
+
+    const callbacks = {
+      onSuccess: () => router.back(),
+      onError: () => {
+        hasSaved.current = false;
+        showSaveError();
+      },
+    };
+
+    if (isEditing && existing) {
+      updateHabit(
+        {
+          id: existing.id,
+          emoji,
+          title: title.trim(),
+          steps: parsedSteps,
+          daysActive,
+        },
+        callbacks,
+      );
+    } else {
+      const habit: TCreateHabit = {
+        emoji,
+        title: title.trim(),
+        steps: parsedSteps,
+        daysActive,
+      };
+      createHabit(habit, callbacks);
+    }
+  };
+
+  const handleArchive = async () => {
+    if (!existing) return;
+    const confirmed = await confirm({
+      title: `Archive ${existing.title}?`,
+      message:
+        "Archiving hides the habit but keeps its history. To erase all history, delete it instead.",
+      confirmLabel: "Archive",
+      destructive: true,
+    });
+    if (!confirmed) return;
+    updateHabit(
+      { id: existing.id, isArchived: true },
+      { onSuccess: () => router.back(), onError: showSaveError },
+    );
+  };
+
+  const handleDelete = async () => {
+    if (!existing) return;
+    const confirmed = await confirm({
+      title: `Delete ${existing.title}?`,
+      message: "This permanently deletes the habit and all of its history.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!confirmed) return;
+    deleteHabit(existing.id, {
+      onSuccess: () => router.back(),
+      onError: showSaveError,
+    });
+  };
+
+  const toggleDay = (day: number) =>
+    setDaysActive((prev) =>
+      prev.includes(day)
+        ? prev.filter((d) => d !== day)
+        : [...prev, day].sort((a, b) => a - b),
+    );
+
+  // No dependency array: the handlers close over the latest form state, so the
+  // header must be re-wired on every render (mirrors new-task.tsx).
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: isEditing ? "Edit Habit" : "New Habit",
+      headerLeft: () => <CloseButton onPress={handleClose} />,
+      headerRight: () => (
+        <DoneButton disabled={!canSave} onPress={handleSave} />
+      ),
+      unstable_headerLeftItems: () => [
+        {
+          type: "button",
+          label: "Cancel",
+          icon: { type: "sfSymbol", name: "xmark" },
+          tintColor: theme.colors.text,
+          onPress: handleClose,
+        },
+      ],
+      unstable_headerRightItems: () => [
+        {
+          type: "button",
+          label: "Save",
+          icon: { type: "sfSymbol", name: "checkmark" },
+          variant: "done",
+          tintColor: theme.colors.primary,
+          disabled: !canSave,
+          onPress: handleSave,
+        },
+      ],
+    });
+  });
+
+  const inputBorder = withOpacity(theme.colors.text, 0.1);
+
+  return (
+    <>
+      <WebModalHeader
+        isDisabled={!canSave}
+        onClose={handleClose}
+        onSave={handleSave}
+      />
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={[
+          styles.container,
+          { gap: theme.gap, padding: theme.spacing },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        style={{ backgroundColor: theme.colors.background }}
+      >
+        <View style={styles.titleRow}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Choose emoji"
+            onPress={() => setPickerOpen(true)}
+            style={[styles.emoji, { borderColor: inputBorder }]}
+          >
+            <Text style={styles.emojiGlyph}>{emoji}</Text>
+          </TouchableOpacity>
+          <TextInput
+            accessibilityLabel="Habit title"
+            autoFocus={!isEditing}
+            placeholder="What habit do you want to build?"
+            returnKeyType="done"
+            style={styles.titleInput}
+            value={title}
+            onChangeText={setTitle}
+            onSubmitEditing={handleSave}
+          />
+        </View>
+
+        <View style={styles.labelRow}>
+          <Text style={[styles.label, { color: theme.colors.text }]}>
+            Times per day
+          </Text>
+          <View style={styles.stepsControl}>
+            <NativeTextInput
+              accessibilityLabel="Times per day"
+              value={steps}
+              onChangeText={setSteps}
+              keyboardType="number-pad"
+              maxLength={3}
+              style={[
+                styles.stepsInput,
+                { borderColor: inputBorder, color: theme.colors.text },
+              ]}
+            />
+            <Text
+              style={[
+                styles.labelDetail,
+                { color: theme.colors.textSecondary },
+              ]}
+            >
+              × daily
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.labelRow}>
+          <Text style={[styles.label, { color: theme.colors.text }]}>Days</Text>
+          <View style={styles.days}>
+            {DAYS.map((day, index) => {
+              const selected = daysActive.includes(day.value);
+              return (
+                <TouchableOpacity
+                  key={index}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={`Day ${day.value}`}
+                  onPress={() => toggleDay(day.value)}
+                  style={[
+                    styles.day,
+                    {
+                      backgroundColor: selected
+                        ? theme.colors.primary
+                        : "transparent",
+                      borderColor: inputBorder,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.dayLabel,
+                      {
+                        color: selected
+                          ? theme.colors.primaryContent
+                          : theme.colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    {day.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {isEditing && (
+          <View style={styles.dangerZone}>
+            <Button variant="dangerous" onPress={handleArchive}>
+              Archive
+            </Button>
+            <Button variant="dangerous" onPress={handleDelete}>
+              Delete
+            </Button>
+          </View>
+        )}
+      </ScrollView>
+
+      <EmojiPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(next) => {
+          setEmoji(next);
+          setPickerOpen(false);
+        }}
+      />
+
+      <ConfirmationModal {...confirmationProps} />
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    paddingBottom: 32,
+  },
+  dangerZone: {
+    gap: 12,
+    marginTop: 12,
+  },
+  day: {
+    alignItems: "center",
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    height: 32,
+    justifyContent: "center",
+    width: 32,
+  },
+  dayLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  days: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  emoji: {
+    alignItems: "center",
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    height: 50,
+    justifyContent: "center",
+    width: 50,
+  },
+  emojiGlyph: {
+    fontSize: 24,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  labelDetail: {
+    fontSize: 14,
+  },
+  labelRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 40,
+  },
+  stepsControl: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  stepsInput: {
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    fontSize: 16,
+    height: 40,
+    minWidth: 56,
+    paddingHorizontal: 8,
+    textAlign: "center",
+  },
+  titleInput: {
+    flex: 1,
+  },
+  titleRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+  },
+});

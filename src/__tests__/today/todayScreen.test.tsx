@@ -39,6 +39,17 @@ jest.mock("@/hooks/useLists", () => ({
     },
   ],
 }));
+// The habit tracker is exercised on its own; stub it here so this suite stays
+// focused on task rendering (and so its expo-router import isn't evaluated).
+jest.mock("@/components/HabitTracker", () => ({ HabitTracker: () => null }));
+// usePreferences reads via useQuery, which would throw without a
+// QueryClientProvider (this screen mounts without one).
+jest.mock("@/hooks/usePreferences", () => ({
+  usePreferences: () => [
+    { enableHabits: true },
+    { updatePreferences: jest.fn() },
+  ],
+}));
 
 const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
 

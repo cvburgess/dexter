@@ -19,14 +19,19 @@ import {
 
 import { supabase } from "./useAuth";
 
+type TMutateCallbacks = {
+  onError?: (error: Error) => void;
+  onSuccess?: () => void;
+};
+
 type TUseHabits = [
   THabit[],
   {
-    createHabit: (habit: TCreateHabit) => void;
-    deleteHabit: (id: string) => void;
+    createHabit: (habit: TCreateHabit, callbacks?: TMutateCallbacks) => void;
+    deleteHabit: (id: string, callbacks?: TMutateCallbacks) => void;
     getHabitById: (id: string | null) => THabit | undefined;
     isLoading: boolean;
-    updateHabit: (habit: TUpdateHabit) => void;
+    updateHabit: (habit: TUpdateHabit, callbacks?: TMutateCallbacks) => void;
   },
 ];
 
@@ -45,25 +50,27 @@ export const useHabits = (options?: TSupabaseHookOptions): TUseHabits => {
     staleTime: 1000 * 60 * 10,
   });
 
+  // A habit edit can change today's daily rows — the DB trigger deletes them on
+  // pause/archive or a days_active change, and the dailyHabits join carries the
+  // habit's emoji/title. Invalidate both caches so the Today tracker stays fresh.
+  const invalidateHabits = () => {
+    void queryClient.invalidateQueries({ queryKey: ["habits"] });
+    void queryClient.invalidateQueries({ queryKey: ["dailyHabits"] });
+  };
+
   const { mutate: create } = useMutation<THabit, Error, TCreateHabit>({
     mutationFn: (habit) => createHabit(supabase, habit),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["habits"] });
-    },
+    onSuccess: invalidateHabits,
   });
 
   const { mutate: update } = useMutation<THabit, Error, TUpdateHabit>({
     mutationFn: (diff) => updateHabit(supabase, diff),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["habits"] });
-    },
+    onSuccess: invalidateHabits,
   });
 
   const { mutate: remove } = useMutation<void, Error, string>({
     mutationFn: (id) => deleteHabit(supabase, id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["habits"] });
-    },
+    onSuccess: invalidateHabits,
   });
 
   const getHabitById = (id: string | null) => {
@@ -145,19 +152,60 @@ export const useDailyHabits = (date: string): TUseDailyHabits => {
     },
   });
 
-  const { mutate: update } = useMutation<TDailyHabit, Error, TUpdateDailyHabit>(
-    {
-      mutationFn: (diff) => updateDailyHabit(supabase, diff),
-      onSuccess: () => {
-        void queryClient.invalidateQueries({
-          queryKey: ["dailyHabits", date],
-        });
-      },
+  const { mutate: update } = useMutation<
+    TDailyHabit,
+    Error,
+    TUpdateDailyHabit,
+    { previous?: TDailyHabit[] }
+  >({
+    mutationFn: (diff) => updateDailyHabit(supabase, diff),
+    // Write the new step count into the cache immediately so back-to-back taps
+    // each read fresh progress. Without this, a second tap before the refetch
+    // reuses the stale snapshot and drops the step.
+    onMutate: async (diff) => {
+      await queryClient.cancelQueries({ queryKey: ["dailyHabits", date] });
+      const previous = queryClient.getQueryData<TDailyHabit[]>([
+        "dailyHabits",
+        date,
+      ]);
+      if (diff.stepsComplete !== undefined) {
+        queryClient.setQueryData<TDailyHabit[]>(
+          ["dailyHabits", date],
+          (rows = []) =>
+            rows.map((row) =>
+              row.date === diff.date && row.habitId === diff.habitId
+                ? {
+                    ...row,
+                    stepsComplete: diff.stepsComplete!,
+                    percentComplete: Math.round(
+                      (100 * diff.stepsComplete!) / row.steps,
+                    ),
+                  }
+                : row,
+            ),
+        );
+      }
+      return { previous };
     },
-  );
+    onError: (_error, _diff, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["dailyHabits", date], context.previous);
+      }
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["dailyHabits", date] });
+    },
+  });
 
   const incrementDailyHabit = (dailyHabit: TDailyHabit) => {
-    const { date: dailyHabitDate, habitId, steps, stepsComplete } = dailyHabit;
+    // Derive the next value from the freshest cached row, not the snapshot the
+    // ring captured on its last render — otherwise two taps before a re-render
+    // both compute from the same stepsComplete and repeat a step. onMutate keeps
+    // this cache current between taps.
+    const rows = queryClient.getQueryData<TDailyHabit[]>(["dailyHabits", date]);
+    const current =
+      rows?.find((row) => row.habitId === dailyHabit.habitId) ?? dailyHabit;
+    const { date: dailyHabitDate, habitId, steps, stepsComplete } = current;
     const next = stepsComplete === steps ? 0 : stepsComplete + 1;
 
     update({ date: dailyHabitDate, habitId, stepsComplete: next });
