@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: "center",
     position: "absolute",
-    right: 12,
+    right: 20,
     top: 0,
   },
   // Bound the scroll view's height to its flex parent so the day's tasks
