@@ -66,6 +66,15 @@ Every user-owned table enables RLS with per-operation policies keyed on
 - MCP tool groups cover tasks, goals, lists, habits and daily habit progress,
   days, repeat task templates, and preferences. Tool inputs never accept
   `user_id`; user ownership is derived from the validated bearer token.
+- **Repeat tasks are recurred in TypeScript, not Postgres.** Completing a task
+  linked to a `repeat_task_templates` row (status → done/won't-do) creates the
+  next occurrence, with its date computed by `src/utils/repeatSchedule.ts`
+  (croner-backed) — imported by both the app and `mcp-server` (via the `@src/`
+  alias in `functions/mcp-server/deno.json`). The legacy
+  `create_next_recurring_task` trigger was dropped (migration
+  `20260712142149_drop_recurring_task_trigger.sql`); `update_task`/`archive_task`
+  invoke the shared logic, and `delete_task` also deletes a linked template so
+  future occurrences stop.
 - Both functions report errors to **Sentry** via `functions/_shared/sentry.ts`
   (`npm:@sentry/deno`, aliased in each function's `deno.json` import map since
   there is no shared import map across functions today). `initSentry`/
