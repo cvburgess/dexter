@@ -198,7 +198,14 @@ export const useDailyHabits = (date: string): TUseDailyHabits => {
   });
 
   const incrementDailyHabit = (dailyHabit: TDailyHabit) => {
-    const { date: dailyHabitDate, habitId, steps, stepsComplete } = dailyHabit;
+    // Derive the next value from the freshest cached row, not the snapshot the
+    // ring captured on its last render — otherwise two taps before a re-render
+    // both compute from the same stepsComplete and repeat a step. onMutate keeps
+    // this cache current between taps.
+    const rows = queryClient.getQueryData<TDailyHabit[]>(["dailyHabits", date]);
+    const current =
+      rows?.find((row) => row.habitId === dailyHabit.habitId) ?? dailyHabit;
+    const { date: dailyHabitDate, habitId, steps, stepsComplete } = current;
     const next = stepsComplete === steps ? 0 : stepsComplete + 1;
 
     update({ date: dailyHabitDate, habitId, stepsComplete: next });
