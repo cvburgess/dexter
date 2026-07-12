@@ -39,26 +39,42 @@ export function NotesView({ date }: TNotesViewProps) {
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRef = useRef<string | null>(null);
+  const savingRef = useRef(false);
 
-  // React Query's mutate is referentially stable, so closing over
-  // `upsertDayAsync` keeps `flush` stable and the unmount effect below fires
-  // cleanup only on unmount.
+  // Drain pending edits one save at a time, always sending the latest text.
+  // Serializing (never two saves in flight) keeps overlapping debounced/retrying
+  // saves from writing an older note over a newer one — both the server and the
+  // React Query cache stay last-edit-wins. React Query's mutate is referentially
+  // stable, so closing over `upsertDayAsync` keeps this stable.
+  const drainSaves = useCallback(async () => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    try {
+      while (pendingRef.current !== null) {
+        const pending = pendingRef.current;
+        pendingRef.current = null;
+        try {
+          await upsertDayAsync({ notes: pending });
+        } catch {
+          // Retries (in useDays) are exhausted. Requeue unless newer text
+          // already arrived, then stop so we don't hot-loop a persistent
+          // failure — the next edit/unmount flush retries.
+          if (pendingRef.current === null) pendingRef.current = pending;
+          break;
+        }
+      }
+    } finally {
+      savingRef.current = false;
+    }
+  }, [upsertDayAsync]);
+
   const flush = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
-    const pending = pendingRef.current;
-    if (pending === null) return;
-    pendingRef.current = null;
-    // Requeue the edit if the save fails so the next flush retries it, rather
-    // than dropping it silently — the editor is uncontrolled, so a lost write
-    // would otherwise diverge from what's on screen. Skip the requeue if a
-    // newer edit already superseded this one.
-    void upsertDayAsync({ notes: pending }).catch(() => {
-      if (pendingRef.current === null) pendingRef.current = pending;
-    });
-  }, [upsertDayAsync]);
+    void drainSaves();
+  }, [drainSaves]);
 
   const handleChangeMarkdown = useCallback(
     (markdown: string) => {
