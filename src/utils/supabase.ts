@@ -8,33 +8,38 @@ import { Database } from "@/types/database.types";
 
 const getSupabaseEnv = () => {
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  const supabasePublishableKey =
+    process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || !supabasePublishableKey) {
     throw new Error(
-      "Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY",
+      "Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
     );
   }
 
   return {
-    supabaseAnonKey,
+    supabasePublishableKey,
     supabaseUrl,
   };
 };
 
-const { supabaseAnonKey, supabaseUrl } = getSupabaseEnv();
+const { supabasePublishableKey, supabaseUrl } = getSupabaseEnv();
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    detectSessionInUrl: false,
-    // PKCE makes magic-link and OAuth callbacks return a ?code= param that
-    // handleAuthCallbackUrl exchanges for a session.
-    flowType: "pkce",
-    persistSession: true,
-    storage: AsyncStorage,
+export const supabase = createClient<Database>(
+  supabaseUrl,
+  supabasePublishableKey,
+  {
+    auth: {
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+      // PKCE makes magic-link and OAuth callbacks return a ?code= param that
+      // handleAuthCallbackUrl exchanges for a session.
+      flowType: "pkce",
+      persistSession: true,
+      storage: AsyncStorage,
+    },
   },
-});
+);
 
 // On native, the auto-refresh timer is suspended while the app is
 // backgrounded, so the access token can silently expire. Tie the timer to

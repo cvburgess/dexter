@@ -6,11 +6,11 @@ jest.mock("@supabase/supabase-js", () => ({
 
 describe("supabase client env validation", () => {
   const originalUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  const originalKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  const originalKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
   afterEach(() => {
     process.env.EXPO_PUBLIC_SUPABASE_URL = originalUrl;
-    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = originalKey;
+    process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY = originalKey;
     jest.resetModules();
     mockCreateClient.mockClear();
   });
@@ -23,25 +23,25 @@ describe("supabase client env validation", () => {
         require("../supabase");
       });
     }).toThrow(
-      "Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY",
+      "Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
     );
   });
 
-  it("throws when the anon key is missing", () => {
-    delete process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  it("throws when the publishable key is missing", () => {
+    delete process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
     expect(() => {
       jest.isolateModules(() => {
         require("../supabase");
       });
     }).toThrow(
-      "Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY",
+      "Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
     );
   });
 
-  it("creates the client with the configured url and anon key", () => {
+  it("creates the client with the configured url and publishable key", () => {
     process.env.EXPO_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
-    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
+    process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "test-publishable-key";
 
     let mod: typeof import("../supabase") | undefined;
     jest.isolateModules(() => {
@@ -50,7 +50,7 @@ describe("supabase client env validation", () => {
 
     expect(mockCreateClient).toHaveBeenCalledWith(
       "https://test.supabase.co",
-      "test-anon-key",
+      "test-publishable-key",
       expect.objectContaining({
         auth: expect.objectContaining({ flowType: "pkce" }),
       }),

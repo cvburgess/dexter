@@ -64,7 +64,7 @@ Every user-owned table enables RLS with per-operation policies keyed on
   leak to the target host, and responses are bounded by a 5 MB size cap and a
   10s timeout.
 - `mcp-server` also has Supabase JWT verification disabled at the function
-  gateway so it can validate bearer tokens inline. It creates an anon-key
+  gateway so it can validate bearer tokens inline. It creates a publishable-key
   Supabase client with the incoming `Authorization: Bearer <token>` header,
   calls `auth.getUser()`, and uses that user-scoped client for all tools so RLS
   policies remain the enforcement layer. The service role key is not used.
@@ -201,7 +201,7 @@ script (`expo export --platform web`), the `expo-updates` dependency, and the
 
 **Required GitHub repo secrets:** `SUPABASE_PROJECT_ID`, `SUPABASE_DB_PASSWORD`,
 `SUPABASE_ACCESS_TOKEN` (backend); `EXPO_TOKEN`, `EXPO_PUBLIC_SUPABASE_URL`,
-`EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_SENTRY_DSN` (app/EAS).
+`EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `EXPO_PUBLIC_SENTRY_DSN` (app/EAS).
 
 > **First-run reconciliation.** Production's migration-history table was empty
 > while the schema was already live (migrations had been applied out-of-band),
