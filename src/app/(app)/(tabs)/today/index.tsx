@@ -87,15 +87,15 @@ export default function TodayScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <View style={styles.header}>
-        <DayNav date={day.date} onChangeDate={changeDate} />
-        <View style={styles.switcher}>
-          <DayViewSwitcher
-            view={activeView}
-            onChangeView={setView}
-            enableNotes={preferences.enableNotes}
-            enableJournal={preferences.enableJournal}
-          />
+        <View style={styles.dayNavWrap}>
+          <DayNav date={day.date} onChangeDate={changeDate} />
         </View>
+        <DayViewSwitcher
+          view={activeView}
+          onChangeView={setView}
+          enableNotes={preferences.enableNotes}
+          enableJournal={preferences.enableJournal}
+        />
       </View>
       {activeView === "notes" ? (
         // Keyed by date so switching days remounts the editor (re-seeds the
@@ -149,16 +149,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  // The switcher overlays the left of the row so DayNav stays centered.
+  // DayNav takes the row's flexible space and centers its own content; the
+  // switcher sits inline at the right edge (DayNav ends up slightly left of
+  // dead-center, which reads fine and avoids overlapping its arrows).
   header: {
-    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row",
+    paddingRight: 12,
   },
-  switcher: {
-    bottom: 0,
-    justifyContent: "center",
-    left: 12,
-    position: "absolute",
-    top: 0,
+  dayNavWrap: {
+    flex: 1,
   },
   // Bound the scroll view's height to its flex parent so the day's tasks
   // scroll when they overflow, instead of being clipped.
