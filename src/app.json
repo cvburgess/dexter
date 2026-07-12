@@ -52,6 +52,12 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/32cbd021-186c-4071-a7b5-72ca3509bf4b"
+    },
     "extra": {
       "router": {},
       "eas": {

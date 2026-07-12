@@ -1,7 +1,7 @@
 {
   "lock": false,
   "imports": {
-    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@latest",
+    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@1.22.0",
     "@sentry/deno": "npm:@sentry/deno@^10",
     "@src/": "../../../src/",
     "@/": "../../../src/",
