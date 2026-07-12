@@ -218,6 +218,232 @@ Deno.test("create_task derives user_id from authenticated context", async () => 
   );
 });
 
+// A richer fake than FakeSupabase: it hands out per-table queued rows for
+// `.single()`/`.maybeSingle()` reads and records inserts/deletes, so the
+// multi-step recurrence and delete-cleanup flows can be asserted end to end.
+type FakeRow = Record<string, unknown>;
+
+class RecordingBuilder {
+  op: "select" | "insert" | "update" | "delete" = "select";
+  filters: string[] = [];
+  payload: FakeRow | null = null;
+
+  constructor(private fake: RecordingSupabase, readonly table: string) {}
+
+  select(): RecordingBuilder {
+    return this;
+  }
+
+  insert(payload: FakeRow): RecordingBuilder {
+    this.op = "insert";
+    this.payload = payload;
+    this.fake.inserts.push({ table: this.table, payload });
+    return this;
+  }
+
+  update(payload: FakeRow): RecordingBuilder {
+    this.op = "update";
+    this.payload = payload;
+    return this;
+  }
+
+  delete(): RecordingBuilder {
+    this.op = "delete";
+    return this;
+  }
+
+  eq(column: string, value: unknown): RecordingBuilder {
+    this.filters.push(`eq:${column}:${String(value)}`);
+    return this;
+  }
+
+  maybeSingle(): Promise<{ data: FakeRow | null; error: null }> {
+    return Promise.resolve({ data: this.fake.take(this.table), error: null });
+  }
+
+  single(): Promise<{ data: FakeRow; error: null }> {
+    return Promise.resolve({
+      data: this.fake.take(this.table) ?? {},
+      error: null,
+    });
+  }
+
+  // Thenable so awaiting an insert/delete chain directly (no `.single()`)
+  // resolves like PostgREST and lets us record the delete.
+  then<T>(
+    onFulfilled: (value: { data: null; error: null }) => T,
+  ): Promise<T> {
+    if (this.op === "delete") {
+      this.fake.deletes.push({ table: this.table, filters: this.filters });
+    }
+    return Promise.resolve({ data: null, error: null }).then(onFulfilled);
+  }
+}
+
+class RecordingSupabase {
+  inserts: { table: string; payload: FakeRow }[] = [];
+  deletes: { table: string; filters: string[] }[] = [];
+
+  constructor(private queues: Record<string, FakeRow[]>) {}
+
+  take(table: string): FakeRow | null {
+    return this.queues[table]?.shift() ?? null;
+  }
+
+  from(table: string): RecordingBuilder {
+    return new RecordingBuilder(this, table);
+  }
+}
+
+function recordingContext(
+  fake: RecordingSupabase,
+  userId: string,
+): ToolContext {
+  return {
+    supabase: fake as unknown as ToolContext["supabase"],
+    userId,
+  };
+}
+
+const RECUR_USER = "00000000-0000-4000-8000-0000000000aa";
+const RECUR_TASK = "00000000-0000-4000-8000-0000000000cc";
+const RECUR_TEMPLATE = "00000000-0000-4000-8000-0000000000dd";
+
+Deno.test("update_task schedules the next occurrence when it completes a repeat task", async () => {
+  const registry = new ToolRegistry();
+  const supabase = new RecordingSupabase({
+    // Pre-update status read, then the updated row returned by the update.
+    tasks: [
+      { status: 1 },
+      {
+        status: 2,
+        template_id: RECUR_TEMPLATE,
+        scheduled_for: "2030-01-01",
+      },
+    ],
+    repeat_task_templates: [
+      {
+        id: RECUR_TEMPLATE,
+        title: "Water the plants",
+        priority: 2,
+        list_id: null,
+        goal_id: null,
+        schedule: "0 0 * * *",
+      },
+    ],
+  });
+
+  registerTaskTools(
+    registry as unknown as McpServer,
+    recordingContext(supabase, RECUR_USER),
+  );
+
+  await registry.run("update_task", { taskId: RECUR_TASK, status: 2 });
+
+  const inserted = supabase.inserts.find((i) => i.table === "tasks");
+  assert(inserted, "expected a next occurrence to be inserted");
+  // Daily, anchored to the (future) scheduled date, so max(today, date) is the date.
+  assertEquals(inserted.payload.scheduled_for, "2030-01-02");
+  assertEquals(inserted.payload.template_id, RECUR_TEMPLATE);
+  assertEquals(inserted.payload.title, "Water the plants");
+  assertEquals(inserted.payload.status, 1);
+  assertEquals(inserted.payload.user_id, RECUR_USER);
+});
+
+Deno.test("update_task does not re-create an occurrence for an already-complete task", async () => {
+  const registry = new ToolRegistry();
+  const supabase = new RecordingSupabase({
+    // Already won't-do before this update — not a fresh completion.
+    tasks: [
+      { status: 3 },
+      { status: 2, template_id: RECUR_TEMPLATE, scheduled_for: "2030-01-01" },
+    ],
+    repeat_task_templates: [
+      { id: RECUR_TEMPLATE, schedule: "0 0 * * *", title: "x", priority: 4 },
+    ],
+  });
+
+  registerTaskTools(
+    registry as unknown as McpServer,
+    recordingContext(supabase, RECUR_USER),
+  );
+
+  await registry.run("update_task", { taskId: RECUR_TASK, status: 2 });
+
+  assertEquals(
+    supabase.inserts.filter((i) => i.table === "tasks").length,
+    0,
+  );
+});
+
+Deno.test("archive_task schedules the next occurrence when it completes a repeat task", async () => {
+  const registry = new ToolRegistry();
+  const supabase = new RecordingSupabase({
+    tasks: [
+      { status: 1 },
+      { status: 3, template_id: RECUR_TEMPLATE, scheduled_for: "2030-01-01" },
+    ],
+    repeat_task_templates: [
+      { id: RECUR_TEMPLATE, schedule: "0 0 * * *", title: "y", priority: 4 },
+    ],
+  });
+
+  registerTaskTools(
+    registry as unknown as McpServer,
+    recordingContext(supabase, RECUR_USER),
+  );
+
+  await registry.run("archive_task", { taskId: RECUR_TASK });
+
+  assertEquals(
+    supabase.inserts.filter((i) => i.table === "tasks").length,
+    1,
+  );
+});
+
+Deno.test("delete_task also deletes a linked repeat template", async () => {
+  const registry = new ToolRegistry();
+  const supabase = new RecordingSupabase({
+    tasks: [{ template_id: RECUR_TEMPLATE }],
+  });
+
+  registerTaskTools(
+    registry as unknown as McpServer,
+    recordingContext(supabase, RECUR_USER),
+  );
+
+  await registry.run("delete_task", { taskId: RECUR_TASK });
+
+  assert(supabase.deletes.some((d) => d.table === "tasks"));
+  const templateDelete = supabase.deletes.find(
+    (d) => d.table === "repeat_task_templates",
+  );
+  assert(templateDelete, "expected the linked template to be deleted");
+  assertEquals(templateDelete.filters, [
+    `eq:id:${RECUR_TEMPLATE}`,
+    `eq:user_id:${RECUR_USER}`,
+  ]);
+});
+
+Deno.test("delete_task leaves standalone tasks' templates untouched", async () => {
+  const registry = new ToolRegistry();
+  const supabase = new RecordingSupabase({
+    tasks: [{ template_id: null }],
+  });
+
+  registerTaskTools(
+    registry as unknown as McpServer,
+    recordingContext(supabase, RECUR_USER),
+  );
+
+  await registry.run("delete_task", { taskId: RECUR_TASK });
+
+  assertEquals(
+    supabase.deletes.filter((d) => d.table === "repeat_task_templates").length,
+    0,
+  );
+});
+
 Deno.test("update_daily_habit only writes steps_complete", async () => {
   const registry = new ToolRegistry();
   const supabase = new FakeSupabase();

@@ -3,7 +3,7 @@ import { render, renderHook } from "@testing-library/react-native";
 import type { ReactNode } from "react";
 import { Text } from "react-native";
 
-import { ETaskPriority } from "@/api/tasks";
+import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import { PRIORITY_OPTIONS } from "@/components/PriorityControl";
 import { useTheme } from "@/utils/theme";
 import { weekStartEnd } from "@/utils/weekStartEnd";
@@ -17,6 +17,19 @@ import {
 } from "../MoreMenu";
 
 const theme = renderHook(() => useTheme()).result.current;
+
+const makeTask = (overrides: Partial<TTask> = {}): TTask => ({
+  id: "task-1",
+  title: "Task row",
+  dueOn: null,
+  goalId: null,
+  listId: null,
+  priority: ETaskPriority.NEITHER,
+  scheduledFor: null,
+  status: ETaskStatus.TODO,
+  templateId: null,
+  ...overrides,
+});
 
 const mockIconMenu = jest.fn(
   (props: { children: ReactNode; sections: TIconMenuSection[] }) =>
@@ -38,13 +51,39 @@ jest.mock("@/hooks/useLists", () => ({
   ],
 }));
 
+const mockGetTemplateById = jest.fn(() => undefined);
+jest.mock("@/hooks/useTemplates", () => ({
+  useTemplates: () => [
+    [],
+    {
+      createTemplate: jest.fn(),
+      createTemplateFromTask: jest.fn(),
+      deleteTemplate: jest.fn(),
+      getTemplateById: mockGetTemplateById,
+      isLoading: false,
+      updateTemplate: jest.fn(),
+    },
+  ],
+}));
+
+jest.mock("expo-router", () => ({ useRouter: () => ({ push: jest.fn() }) }));
+
+const otherOptionTitles = () => {
+  const { sections } = mockIconMenu.mock.calls[0][0];
+  const other = sections.find((section) => section.title === "Other");
+  return other?.options.map((option) => option.title);
+};
+
 describe("MoreMenu", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetTemplateById.mockReturnValue(undefined);
+  });
+
   it("opens on long-press with no menu title, wrapping its children", () => {
     const screen = render(
       <MoreMenu
-        priority={ETaskPriority.NEITHER}
-        scheduledFor={null}
-        listId={null}
+        task={makeTask()}
         onChangePriority={jest.fn()}
         onChangeSchedule={jest.fn()}
         onChangeList={jest.fn()}
@@ -82,16 +121,62 @@ describe("MoreMenu", () => {
       ),
     ).toEqual(["exclamationmark", "calendar", "face.smiling", undefined]);
   });
+
+  it("labels the repeat action 'Repeat' when the task has no template", () => {
+    render(
+      <MoreMenu
+        task={makeTask({ templateId: null })}
+        onChangePriority={jest.fn()}
+        onChangeSchedule={jest.fn()}
+        onChangeList={jest.fn()}
+        onDuplicate={jest.fn()}
+        onDelete={jest.fn()}
+      >
+        <Text>Task row</Text>
+      </MoreMenu>,
+    );
+
+    expect(otherOptionTitles()).toEqual(["Duplicate", "Repeat", "Delete"]);
+  });
+
+  it("labels the repeat action 'Edit repeat schedule' when a scheduled template is linked", () => {
+    mockGetTemplateById.mockReturnValue({
+      id: "template-1",
+      schedule: "0 0 * * *",
+    } as never);
+
+    render(
+      <MoreMenu
+        task={makeTask({ templateId: "template-1" })}
+        onChangePriority={jest.fn()}
+        onChangeSchedule={jest.fn()}
+        onChangeList={jest.fn()}
+        onDuplicate={jest.fn()}
+        onDelete={jest.fn()}
+      >
+        <Text>Task row</Text>
+      </MoreMenu>,
+    );
+
+    expect(otherOptionTitles()).toEqual([
+      "Duplicate",
+      "Edit repeat schedule",
+      "Delete",
+    ]);
+  });
 });
 
 describe("getOtherSections", () => {
-  it("offers Duplicate and Delete as an inline group, with Delete destructive", () => {
-    const [section] = getOtherSections(jest.fn(), jest.fn());
+  const repeat = { label: "Repeat", onSelect: jest.fn() };
+
+  it("offers Duplicate, Repeat, and Delete as an inline group, with Delete destructive", () => {
+    const [section] = getOtherSections(jest.fn(), jest.fn(), repeat);
 
     expect(section.title).toBe("Other");
     expect(section.isSubmenu).toBeUndefined();
     expect(section.options.map((option) => option.title)).toEqual([
       "Duplicate",
+      "Repeat",
       "Delete",
     ]);
 
@@ -106,14 +191,20 @@ describe("getOtherSections", () => {
     expect(duplicateOption?.isDestructive).toBeFalsy();
   });
 
-  it("calls onDuplicate and onDelete when their options are selected", () => {
+  it("calls the action handlers when their options are selected", () => {
     const onDuplicate = jest.fn();
     const onDelete = jest.fn();
-    const [section] = getOtherSections(onDuplicate, onDelete);
+    const onRepeat = jest.fn();
+    const [section] = getOtherSections(onDuplicate, onDelete, {
+      label: "Repeat",
+      onSelect: onRepeat,
+    });
 
     section.options.find((option) => option.title === "Duplicate")?.onSelect();
     expect(onDuplicate).toHaveBeenCalledTimes(1);
-    expect(onDelete).not.toHaveBeenCalled();
+
+    section.options.find((option) => option.title === "Repeat")?.onSelect();
+    expect(onRepeat).toHaveBeenCalledTimes(1);
 
     section.options.find((option) => option.title === "Delete")?.onSelect();
     expect(onDelete).toHaveBeenCalledTimes(1);

@@ -54,7 +54,7 @@ describe("duplicateTaskInput", () => {
     templateId: "template-1",
   };
 
-  it("copies every copyable field, keeping status, without an id", () => {
+  it("copies every copyable field, keeping status, without an id or template", () => {
     expect(duplicateTaskInput(source)).toEqual({
       title: "Write the report",
       dueOn: "2026-07-05",
@@ -63,9 +63,10 @@ describe("duplicateTaskInput", () => {
       priority: ETaskPriority.URGENT,
       scheduledFor: "2026-07-03",
       status: ETaskStatus.IN_PROGRESS,
-      templateId: "template-1",
     });
     expect(duplicateTaskInput(source)).not.toHaveProperty("id");
+    // A duplicate is an independent one-off: only the original drives the repeat.
+    expect(duplicateTaskInput(source)).not.toHaveProperty("templateId");
   });
 });
 
