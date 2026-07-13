@@ -17,9 +17,7 @@ import { useTheme, withOpacity } from "@/utils/theme";
 // Stripping it here (rather than on the raw Circle) keeps the drop scoped to
 // the animated instance.
 const BareCircle = forwardRef<Circle, CircleProps & { collapsable?: boolean }>(
-  ({ collapsable: _collapsable, ...rest }, ref) => (
-    <Circle ref={ref} {...rest} />
-  ),
+  ({ collapsable, ...rest }, ref) => <Circle ref={ref} {...rest} />,
 );
 BareCircle.displayName = "BareCircle";
 
