@@ -144,7 +144,16 @@ function UserProfile({ session }: { session: Session }) {
   const initial = user.email?.charAt(0)?.toUpperCase() ?? "😄";
 
   return (
-    <View style={[styles.profile, { gap: theme.gap }]}>
+    <View
+      style={[
+        styles.profile,
+        {
+          backgroundColor: theme.colors.card,
+          borderRadius: theme.borderRadius,
+          gap: theme.gap,
+        },
+      ]}
+    >
       {metadata.avatar_url ? (
         <Image
           accessibilityLabel="User avatar"
@@ -200,6 +209,7 @@ const styles = StyleSheet.create({
   profile: {
     flexDirection: "row",
     alignItems: "center",
+    padding: 16,
   },
   avatar: {
     width: AVATAR_SIZE,

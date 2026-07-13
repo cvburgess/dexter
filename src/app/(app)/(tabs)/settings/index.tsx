@@ -6,7 +6,7 @@ import {
   SETTINGS_ITEMS,
   SETTINGS_TWO_PANE_MIN_WIDTH,
 } from "@/utils/settingsItems";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 export default function SettingsScreen() {
   const theme = useTheme();
@@ -21,29 +21,36 @@ export default function SettingsScreen() {
   }
 
   return (
-    <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
+    <View
+      style={[
+        styles.screen,
+        { backgroundColor: theme.colors.background, padding: theme.spacing },
+      ]}
+    >
       <FlatList
-        // Plain, ungrouped list: rows sit directly on the background, separated
-        // by hairline dividers (no wrapping card).
-        contentContainerStyle={{ paddingVertical: theme.spacing }}
+        // Ungrouped: each item is its own card, separated by margin (rather than
+        // sharing a single grouped surface).
+        contentContainerStyle={{ gap: theme.gap }}
         data={SETTINGS_ITEMS}
         keyExtractor={(item) => item.slug}
-        ItemSeparatorComponent={() => (
+        renderItem={({ item }) => (
           <View
             style={[
-              styles.divider,
-              { backgroundColor: withOpacity(theme.colors.text, 0.1) },
+              styles.card,
+              {
+                backgroundColor: theme.colors.card,
+                borderRadius: theme.borderRadius,
+              },
             ]}
-          />
-        )}
-        renderItem={({ item }) => (
-          <SettingsRow
-            icon={item.icon}
-            title={item.title}
-            subtitle={item.subtitle}
-            onPress={() => router.push(`/settings/${item.slug}`)}
-            testID={`settings-row-${item.slug}`}
-          />
+          >
+            <SettingsRow
+              icon={item.icon}
+              title={item.title}
+              subtitle={item.subtitle}
+              onPress={() => router.push(`/settings/${item.slug}`)}
+              testID={`settings-row-${item.slug}`}
+            />
+          </View>
         )}
       />
     </View>
@@ -51,8 +58,8 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  divider: {
-    height: StyleSheet.hairlineWidth,
+  card: {
+    overflow: "hidden",
   },
   screen: {
     flex: 1,

@@ -60,7 +60,15 @@ export default function HabitsScreen() {
           { padding: theme.spacing, gap: theme.spacing },
         ]}
       >
-        <View style={styles.toggle}>
+        <View
+          style={[
+            styles.toggle,
+            {
+              backgroundColor: theme.colors.card,
+              borderRadius: theme.borderRadius,
+            },
+          ]}
+        >
           <Text style={[styles.toggleLabel, { color: theme.colors.text }]}>
             Habit Tracking
           </Text>
@@ -80,34 +88,30 @@ export default function HabitsScreen() {
         {preferences.enableHabits && (
           <View style={styles.section}>
             <SettingsSectionTitle>Habits</SettingsSectionTitle>
-            <View style={styles.list}>
-              {habits.length === 0 ? (
-                <Text
-                  style={[styles.empty, { color: theme.colors.textSecondary }]}
-                >
-                  Tap ＋ to create your first habit.
-                </Text>
-              ) : (
-                habits.map((habit, index) => (
-                  <View key={habit.id}>
-                    {index > 0 && (
-                      <View
-                        style={[
-                          styles.divider,
-                          {
-                            backgroundColor: withOpacity(
-                              theme.colors.text,
-                              0.08,
-                            ),
-                          },
-                        ]}
-                      />
-                    )}
+            {habits.length === 0 ? (
+              <Text
+                style={[styles.empty, { color: theme.colors.textSecondary }]}
+              >
+                Tap ＋ to create your first habit.
+              </Text>
+            ) : (
+              <View style={styles.list}>
+                {habits.map((habit) => (
+                  <View
+                    key={habit.id}
+                    style={[
+                      styles.card,
+                      {
+                        backgroundColor: theme.colors.card,
+                        borderRadius: theme.borderRadius,
+                      },
+                    ]}
+                  >
                     <HabitRow habit={habit} updateHabit={updateHabit} />
                   </View>
-                ))
-              )}
-            </View>
+                ))}
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -122,16 +126,16 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
   },
-  divider: {
-    height: StyleSheet.hairlineWidth,
+  card: {
+    overflow: "hidden",
+    paddingHorizontal: 16,
   },
   empty: {
     fontSize: 14,
     paddingVertical: 8,
   },
   list: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    gap: 8,
   },
   section: {
     gap: 10,

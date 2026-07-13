@@ -2,7 +2,7 @@ import { FlatList, StyleSheet, Text, View } from "react-native";
 
 import packageJson from "@/package.json";
 import licensesJson from "@/utils/licenses.json";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 const licenses = licensesJson as Record<string, string>;
 
@@ -28,7 +28,13 @@ export default function LicensesScreen() {
     .map((name) => ({ name, license: licenses[name] || "Unknown" }));
 
   const renderItem = ({ item }: { item: TLicenseItem }) => (
-    <View style={styles.row}>
+    <View
+      style={{
+        backgroundColor: theme.colors.card,
+        borderRadius: theme.borderRadius,
+        padding: theme.spacing,
+      }}
+    >
       <Text style={[styles.licenseName, { color: theme.colors.text }]}>
         {item.name}
       </Text>
@@ -52,15 +58,7 @@ export default function LicensesScreen() {
       renderItem={renderItem}
       keyExtractor={(item) => item.name}
       ListHeaderComponent={ListHeaderComponent}
-      ItemSeparatorComponent={() => (
-        <View
-          style={[
-            styles.divider,
-            { backgroundColor: withOpacity(theme.colors.text, 0.1) },
-          ]}
-        />
-      )}
-      contentContainerStyle={{ padding: theme.spacing }}
+      contentContainerStyle={{ gap: theme.gap, padding: theme.spacing }}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     />
   );
@@ -74,9 +72,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-  },
   header: {
     marginBottom: 8,
   },
@@ -88,8 +83,5 @@ const styles = StyleSheet.create({
   licenseType: {
     fontSize: 14,
     marginTop: 4,
-  },
-  row: {
-    paddingVertical: 12,
   },
 });

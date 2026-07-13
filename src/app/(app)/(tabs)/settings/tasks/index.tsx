@@ -13,7 +13,7 @@ import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { useTemplates } from "@/hooks/useTemplates";
 import { describeSchedule } from "@/utils/repeatSchedule";
 import { SETTINGS_TWO_PANE_MIN_WIDTH } from "@/utils/settingsItems";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 export default function TasksScreen() {
   const theme = useTheme();
@@ -42,47 +42,42 @@ export default function TasksScreen() {
               will show up here.
             </Text>
           ) : (
-            <View>
-              {templates.map((template, index) => (
-                <View key={template.id}>
-                  {index > 0 && (
-                    <View
-                      style={[
-                        styles.divider,
-                        {
-                          backgroundColor: withOpacity(theme.colors.text, 0.08),
-                        },
-                      ]}
-                    />
-                  )}
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel={`Edit ${template.title}`}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/settings/tasks/[id]",
-                        params: { id: template.id },
-                      })
-                    }
-                    style={styles.row}
+            <View style={styles.list}>
+              {templates.map((template) => (
+                <TouchableOpacity
+                  key={template.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Edit ${template.title}`}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/settings/tasks/[id]",
+                      params: { id: template.id },
+                    })
+                  }
+                  style={[
+                    styles.card,
+                    {
+                      backgroundColor: theme.colors.card,
+                      borderRadius: theme.borderRadius,
+                    },
+                  ]}
+                >
+                  <Text
+                    numberOfLines={1}
+                    style={[styles.title, { color: theme.colors.text }]}
                   >
-                    <Text
-                      numberOfLines={1}
-                      style={[styles.title, { color: theme.colors.text }]}
-                    >
-                      {template.title || "Untitled task"}
-                    </Text>
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.subtitle,
-                        { color: theme.colors.textSecondary },
-                      ]}
-                    >
-                      {describeSchedule(template.schedule)}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                    {template.title || "Untitled task"}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.subtitle,
+                      { color: theme.colors.textSecondary },
+                    ]}
+                  >
+                    {describeSchedule(template.schedule)}
+                  </Text>
+                </TouchableOpacity>
               ))}
             </View>
           )}
@@ -93,22 +88,22 @@ export default function TasksScreen() {
 }
 
 const styles = StyleSheet.create({
+  card: {
+    gap: 4,
+    padding: 16,
+  },
   container: {
     flex: 1,
   },
   content: {
     flexGrow: 1,
   },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-  },
   empty: {
     fontSize: 14,
     paddingVertical: 8,
   },
-  row: {
-    gap: 4,
-    paddingVertical: 12,
+  list: {
+    gap: 8,
   },
   section: {
     gap: 10,

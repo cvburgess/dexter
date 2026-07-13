@@ -107,7 +107,15 @@ export default function JournalScreen() {
           ]}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.toggle}>
+          <View
+            style={[
+              styles.toggle,
+              {
+                backgroundColor: theme.colors.card,
+                borderRadius: theme.borderRadius,
+              },
+            ]}
+          >
             <Text style={[styles.toggleLabel, { color: theme.colors.text }]}>
               Journal
             </Text>
