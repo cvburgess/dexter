@@ -123,8 +123,15 @@ export default function TodayScreen() {
           </View>
           {(showNotes || showJournal) && (
             <View style={styles.notesJournalPane}>
+              {/* Keyed on date: NotesView/JournalView seed their editors
+                  uncontrolled (see NotesView.tsx, JournalView.tsx) and rely on
+                  a remount to re-seed for a new day — small screens get this
+                  for free from SwipeableDay's own dateKey. Without it here, an
+                  edit on the new day would autosave over stale text still
+                  showing from the previous one. */}
               <NotesJournalTabs
                 date={day.date.toString()}
+                key={day.date.toString()}
                 showJournal={showJournal}
                 showNotes={showNotes}
               />
@@ -140,7 +147,10 @@ export default function TodayScreen() {
                 },
               ]}
             >
-              <CalendarView date={day.date} />
+              {/* Keyed on date for the same reason as NotesJournalTabs:
+                  CalendarView seeds its "now" line position once per mount
+                  (see CalendarView.tsx), relying on a remount per day. */}
+              <CalendarView date={day.date} key={day.date.toString()} />
             </View>
           )}
         </View>

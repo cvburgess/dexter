@@ -56,13 +56,21 @@ export const useTodayPanes = (): TUseTodayPanes => {
     staleTime: Infinity,
   });
 
+  // Derives `next` from the query cache via `setQueryData`'s updater form
+  // (applied synchronously) rather than the `data` closed over at the last
+  // render, so two toggles fired back to back — before either's AsyncStorage
+  // write resolves and re-renders this hook — each read the other's update
+  // instead of clobbering it.
   const togglePane = useCallback(
     async (pane: TTodayPane) => {
-      const next = { ...data, [pane]: !data[pane] };
-      await AsyncStorage.setItem(TODAY_PANES_KEY, JSON.stringify(next));
-      queryClient.setQueryData(["todayPanes"], next);
+      const next = queryClient.setQueryData<TTodayPanes>(
+        ["todayPanes"],
+        (prev = DEFAULT_PANES) => ({ ...prev, [pane]: !prev[pane] }),
+      );
+      if (next)
+        await AsyncStorage.setItem(TODAY_PANES_KEY, JSON.stringify(next));
     },
-    [data, queryClient],
+    [queryClient],
   );
 
   return [data, { togglePane, isLoading }];

@@ -100,4 +100,25 @@ describe("useTodayPanes", () => {
 
     await waitFor(() => expect(result.current[0].calendar).toBe(true));
   });
+
+  it("applies two toggles fired before either resolves, without losing one", async () => {
+    const { result } = renderHook(() => useTodayPanes(), {
+      wrapper: createWrapper(),
+    });
+    await waitFor(() => expect(result.current[1].isLoading).toBe(false));
+
+    // Simulates two rapid button taps (e.g. Notes then Journal) landing
+    // before the first toggle's AsyncStorage write resolves and re-renders
+    // this hook — both must still be applied, not just the last one.
+    await act(async () => {
+      const first = result.current[1].togglePane("notes");
+      const second = result.current[1].togglePane("journal");
+      await Promise.all([first, second]);
+    });
+
+    const expected = { notes: false, journal: false, calendar: true };
+    await waitFor(() => expect(result.current[0]).toEqual(expected));
+    const stored = await AsyncStorage.getItem(TODAY_PANES_KEY);
+    expect(JSON.parse(stored as string)).toEqual(expected);
+  });
 });

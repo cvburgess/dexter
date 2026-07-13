@@ -1,5 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { act, fireEvent, render } from "@testing-library/react-native";
+import { useEffect } from "react";
 import { Text, TouchableOpacity } from "react-native";
 import {
   fireGestureHandler,
@@ -46,10 +47,18 @@ jest.mock("@/components/TasksView", () => ({
 }));
 // Notes/Journal/Calendar read via hooks that need a QueryClientProvider or
 // native modules this unit test doesn't mount; their own behavior is covered
-// by their own tests. Stub each to a marker exposing its date.
-const mockNotesView = ({ date }: { date: string }) => (
-  <Text>notes-view:{date}</Text>
-);
+// by their own tests. Stub each to a marker exposing its date, plus a mount
+// counter (`useEffect` with no deps) — NotesView/JournalView/CalendarView all
+// seed uncontrolled/one-time state from `date` at mount (see their own
+// comments) and rely on the host remounting them via a date-keyed `key` for a
+// new day to take effect; the large-screen suite below asserts on this count
+// to catch a missing `key` (a stale-content bug a marker's `date` prop alone
+// can't reveal, since the prop updates fine even without a remount).
+const mockNotesViewMount = jest.fn();
+const mockNotesView = ({ date }: { date: string }) => {
+  useEffect(() => mockNotesViewMount(), []);
+  return <Text>notes-view:{date}</Text>;
+};
 jest.mock("@/components/NotesView", () => ({
   NotesView: (props: Parameters<typeof mockNotesView>[0]) =>
     mockNotesView(props),
@@ -61,9 +70,11 @@ jest.mock("@/components/JournalView", () => ({
   JournalView: (props: Parameters<typeof mockJournalView>[0]) =>
     mockJournalView(props),
 }));
-const mockCalendarView = ({ date }: { date: Temporal.PlainDate }) => (
-  <Text>calendar-view:{date.toString()}</Text>
-);
+const mockCalendarViewMount = jest.fn();
+const mockCalendarView = ({ date }: { date: Temporal.PlainDate }) => {
+  useEffect(() => mockCalendarViewMount(), []);
+  return <Text>calendar-view:{date.toString()}</Text>;
+};
 jest.mock("@/components/CalendarView", () => ({
   CalendarView: (props: Parameters<typeof mockCalendarView>[0]) =>
     mockCalendarView(props),
@@ -406,6 +417,23 @@ describe("TodayScreen", () => {
       expect(screen.getByText(`tasks-view:${tomorrow}`)).toBeTruthy();
       expect(screen.getByText(`notes-view:${tomorrow}`)).toBeTruthy();
       expect(screen.getByText(`calendar-view:${tomorrow}`)).toBeTruthy();
+    });
+
+    it("remounts Notes/Journal and Calendar on a date change, not just re-rendering them", () => {
+      mockNotesViewMount.mockClear();
+      mockCalendarViewMount.mockClear();
+      const screen = render(<TodayScreen />);
+      expect(mockNotesViewMount).toHaveBeenCalledTimes(1);
+      expect(mockCalendarViewMount).toHaveBeenCalledTimes(1);
+
+      fireEvent.press(screen.getByLabelText("Next day"));
+
+      // NotesView/JournalView seed uncontrolled inputs, and CalendarView
+      // seeds its "now" line, only once per mount — a second render with a
+      // new `date` prop but the same component instance would leave both
+      // showing stale content instead of the new day's.
+      expect(mockNotesViewMount).toHaveBeenCalledTimes(2);
+      expect(mockCalendarViewMount).toHaveBeenCalledTimes(2);
     });
 
     it("does not wrap panes in a swipeable day gesture", () => {
