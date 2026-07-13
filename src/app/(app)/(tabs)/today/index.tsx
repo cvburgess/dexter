@@ -1,6 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { duplicateTaskInput, TTask } from "@/api/tasks";
@@ -8,6 +8,7 @@ import { CalendarView } from "@/components/CalendarView";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { DayNav } from "@/components/DayNav";
 import { DayViewSwitcher, TDayView } from "@/components/DayViewSwitcher";
+import { EmptyScreen } from "@/components/EmptyScreen";
 import { HabitTracker } from "@/components/HabitTracker";
 import { JournalView } from "@/components/JournalView";
 import { NotesView } from "@/components/NotesView";
@@ -164,28 +165,26 @@ export default function TodayScreen() {
               hosts that size asynchronously, which virtualized off-viewport
               mounting makes worse (expo/expo#42576). The cards themselves pin
               their heights (see TaskCard/StatusButton) so layout stays stable. */}
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.list}>
-            {tasks.length === 0
-              ? !isLoading && (
-                  <Text
-                    style={[
-                      styles.emptyText,
-                      { color: theme.colors.textSecondary },
-                    ]}
-                  >
-                    No tasks scheduled for this day.
-                  </Text>
-                )
-              : tasks.map((item) => (
-                  <TaskCard
-                    key={item.id}
-                    task={item}
-                    onUpdate={(diff) => updateTask({ id: item.id, ...diff })}
-                    onDuplicate={() => createTask(duplicateTaskInput(item))}
-                    onDelete={() => handleDelete(item)}
-                  />
-                ))}
-          </ScrollView>
+          {tasks.length === 0 ? (
+            !isLoading && (
+              <EmptyScreen message="No tasks scheduled for this day." />
+            )
+          ) : (
+            <ScrollView
+              style={styles.scroll}
+              contentContainerStyle={styles.list}
+            >
+              {tasks.map((item) => (
+                <TaskCard
+                  key={item.id}
+                  task={item}
+                  onUpdate={(diff) => updateTask({ id: item.id, ...diff })}
+                  onDuplicate={() => createTask(duplicateTaskInput(item))}
+                  onDelete={() => handleDelete(item)}
+                />
+              ))}
+            </ScrollView>
+          )}
         </SwipeableDay>
       )}
       <ConfirmationModal {...confirmationProps} />
@@ -218,10 +217,5 @@ const styles = StyleSheet.create({
   list: {
     gap: 8,
     padding: 16,
-  },
-  emptyText: {
-    fontSize: 14,
-    paddingTop: 32,
-    textAlign: "center",
   },
 });

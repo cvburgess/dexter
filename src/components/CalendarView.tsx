@@ -14,6 +14,8 @@ import {
 } from "@/utils/formatPlainTime";
 import { useTheme, withOpacity } from "@/utils/theme";
 
+import { EmptyScreen } from "./EmptyScreen";
+
 /** Pixels per hour on the timeline. */
 const HOUR_HEIGHT = 72;
 /** Width reserved for the hour labels down the left edge. */
@@ -155,13 +157,7 @@ export function CalendarView({ date }: TCalendarViewProps) {
       )}
 
       {showEmpty ? (
-        <View style={styles.emptyContainer}>
-          <Text
-            style={[styles.emptyText, { color: theme.colors.textSecondary }]}
-          >
-            {emptyMessage}
-          </Text>
-        </View>
+        <EmptyScreen message={emptyMessage} />
       ) : (
         <ScrollView
           contentContainerStyle={[
@@ -376,15 +372,6 @@ const styles = StyleSheet.create({
   allDayText: {
     fontSize: 13,
     fontWeight: "500",
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 32,
-  },
-  emptyText: {
-    fontSize: 14,
-    textAlign: "center",
   },
   scrollContent: {
     paddingTop: 12,
