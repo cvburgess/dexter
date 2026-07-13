@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react-native";
+import { fireEvent, render, within } from "@testing-library/react-native";
 
 import AppearanceScreen from "@/app/(app)/(tabs)/settings/appearance";
 import { EThemeMode } from "@/api/preferences";
@@ -40,7 +40,7 @@ describe("AppearanceScreen", () => {
   it("renders the mode control and both theme sections in SYSTEM mode", () => {
     const screen = renderWith();
 
-    expect(screen.getByTestId("appearance-mode-system")).toBeTruthy();
+    expect(screen.getByTestId("appearance-mode")).toBeTruthy();
     // Light themes
     expect(screen.getByTestId("appearance-theme-dexter")).toBeTruthy();
     expect(screen.getByTestId("appearance-theme-light")).toBeTruthy();
@@ -50,10 +50,13 @@ describe("AppearanceScreen", () => {
     expect(screen.getByTestId("appearance-theme-abyss")).toBeTruthy();
   });
 
-  it("saves the mode when a mode pill is pressed", () => {
+  it("saves the mode when a segment is pressed", () => {
     const screen = renderWith();
 
-    fireEvent.press(screen.getByTestId("appearance-mode-dark"));
+    // Scope to the mode control so the "Dark" segment isn't confused with the
+    // "Dark" theme card that shares the label.
+    const mode = within(screen.getByTestId("appearance-mode"));
+    fireEvent.press(mode.getByText("Dark"));
 
     expect(mockUpdate).toHaveBeenCalledWith({ themeMode: EThemeMode.DARK });
   });

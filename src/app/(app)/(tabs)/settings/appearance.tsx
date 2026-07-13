@@ -1,3 +1,4 @@
+import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import { SymbolView } from "expo-symbols";
 import { ReactNode } from "react";
 import {
@@ -39,50 +40,18 @@ export default function AppearanceScreen() {
       ]}
     >
       <Section title="Mode">
-        <View
-          style={[
-            styles.segmented,
-            {
-              backgroundColor: theme.colors.card,
-              borderColor: withOpacity(theme.colors.text, 0.1),
-              borderRadius: theme.borderRadius,
-            },
-          ]}
-        >
-          {MODE_OPTIONS.map(({ mode, label }) => {
-            const selected = mode === themeMode;
-            return (
-              <TouchableOpacity
-                key={label}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                onPress={() => updatePreferences({ themeMode: mode })}
-                style={[
-                  styles.segment,
-                  {
-                    backgroundColor: selected
-                      ? theme.colors.primary
-                      : "transparent",
-                    borderRadius: theme.borderRadius - 4,
-                  },
-                ]}
-                testID={`appearance-mode-${label.toLowerCase()}`}
-              >
-                <Text
-                  style={[
-                    styles.segmentLabel,
-                    {
-                      color: selected
-                        ? theme.colors.primaryContent
-                        : theme.colors.text,
-                    },
-                  ]}
-                >
-                  {label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+        <View testID="appearance-mode">
+          <SegmentedControl
+            values={MODE_OPTIONS.map(({ label }) => label)}
+            selectedIndex={MODE_OPTIONS.findIndex(
+              ({ mode }) => mode === themeMode,
+            )}
+            onChange={({ nativeEvent: { selectedSegmentIndex } }) =>
+              updatePreferences({
+                themeMode: MODE_OPTIONS[selectedSegmentIndex].mode,
+              })
+            }
+          />
         </View>
       </Section>
 
@@ -220,21 +189,6 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: 10,
-  },
-  segment: {
-    alignItems: "center",
-    flex: 1,
-    paddingVertical: 10,
-  },
-  segmentLabel: {
-    fontSize: 15,
-    fontWeight: "500",
-  },
-  segmented: {
-    borderWidth: StyleSheet.hairlineWidth,
-    flexDirection: "row",
-    gap: 4,
-    padding: 4,
   },
   swatch: {
     borderRadius: 6,

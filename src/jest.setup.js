@@ -35,6 +35,29 @@ jest.mock("@expo/ui", () => {
   return { Host, Picker };
 });
 
+// @expo/ui's SegmentedControl is a native control with no test double; render
+// a pressable label per segment so tests can drive selection.
+jest.mock("@expo/ui/community/segmented-control", () => {
+  const { Text, TouchableOpacity } = require("react-native");
+  return {
+    SegmentedControl: ({ values = [], onChange, onValueChange }) =>
+      values.map((value, index) => (
+        <TouchableOpacity
+          key={value}
+          accessibilityRole="button"
+          onPress={() => {
+            onValueChange?.(value);
+            onChange?.({
+              nativeEvent: { selectedSegmentIndex: index, value },
+            });
+          }}
+        >
+          <Text>{value}</Text>
+        </TouchableOpacity>
+      )),
+  };
+});
+
 // expo-symbols renders a native SF Symbol / Material Symbol view.
 jest.mock("expo-symbols", () => ({ SymbolView: () => null }));
 
