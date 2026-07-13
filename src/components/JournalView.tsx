@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import { TDay, TJournalPrompt } from "@/api/days";
 import { useDays } from "@/hooks/useDays";
@@ -148,30 +155,38 @@ function JournalEditor({
   useEffect(() => () => onEditingChange?.(false), [onEditingChange]);
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.list}>
-      {prompts.map(({ prompt, response }, index) => (
-        <View key={index} style={styles.row}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>
-            {prompt}
-          </Text>
-          <TextInput
-            accessibilityLabel={prompt}
-            defaultValue={response}
-            multiline
-            onBlur={() => {
-              flush();
-              onEditingChange?.(false);
-            }}
-            onChangeText={(text) => handleChangeResponse(index, text)}
-            onFocus={() => onEditingChange?.(true)}
-            placeholder="Write your response…"
-            style={styles.input}
-            testID={`journal-response-${index}`}
-            textAlignVertical="top"
-          />
-        </View>
-      ))}
-    </ScrollView>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.scroll}
+    >
+      <ScrollView
+        contentContainerStyle={styles.list}
+        keyboardShouldPersistTaps="handled"
+      >
+        {prompts.map(({ prompt, response }, index) => (
+          <View key={index} style={styles.row}>
+            <Text style={[styles.label, { color: theme.colors.text }]}>
+              {prompt}
+            </Text>
+            <TextInput
+              accessibilityLabel={prompt}
+              defaultValue={response}
+              multiline
+              onBlur={() => {
+                flush();
+                onEditingChange?.(false);
+              }}
+              onChangeText={(text) => handleChangeResponse(index, text)}
+              onFocus={() => onEditingChange?.(true)}
+              placeholder="Write your response…"
+              style={styles.input}
+              testID={`journal-response-${index}`}
+              textAlignVertical="top"
+            />
+          </View>
+        ))}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

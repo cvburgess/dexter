@@ -1,6 +1,8 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { useEffect, useRef, useState } from "react";
 import {
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -67,80 +69,88 @@ export default function JournalScreen() {
       edges={twoPane ? ["bottom", "right"] : ["bottom", "left", "right"]}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { padding: theme.spacing, gap: theme.spacing },
-        ]}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.container}
       >
-        <View
-          style={[
-            styles.toggle,
-            {
-              backgroundColor: theme.colors.card,
-              borderRadius: theme.borderRadius,
-            },
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { padding: theme.spacing, gap: theme.spacing },
           ]}
+          keyboardShouldPersistTaps="handled"
         >
-          <Text style={[styles.toggleLabel, { color: theme.colors.text }]}>
-            Journal
-          </Text>
-          <Switch
-            accessibilityLabel="Journal"
-            value={preferences.enableJournal}
-            onValueChange={(enableJournal) =>
-              updatePreferences({ enableJournal })
-            }
-            trackColor={{
-              true: theme.colors.primary,
-              false: withOpacity(theme.colors.text, 0.2),
-            }}
-          />
-        </View>
-
-        {preferences.enableJournal && (
-          <View style={styles.section}>
-            <SettingsSectionTitle>Journal prompts</SettingsSectionTitle>
-            {drafts.map((prompt, index) => (
-              <View key={index} style={styles.promptRow}>
-                <TextInput
-                  accessibilityLabel={`Journal prompt ${index + 1}`}
-                  onBlur={commitPrompt}
-                  onChangeText={(text) =>
-                    setDrafts((current) =>
-                      current.map((p, i) => (i === index ? text : p)),
-                    )
-                  }
-                  onFocus={() => (focusedRef.current = true)}
-                  placeholder="e.g. What went well today?"
-                  style={styles.promptInput}
-                  value={prompt}
-                />
-                <TouchableOpacity
-                  accessibilityLabel={`Delete prompt ${index + 1}`}
-                  accessibilityRole="button"
-                  onPress={() => deletePrompt(index)}
-                  style={styles.deleteButton}
-                  testID={`delete-prompt-${index}`}
-                >
-                  <Ionicons
-                    color={theme.colors.error}
-                    name="trash-outline"
-                    size={22}
-                  />
-                </TouchableOpacity>
-              </View>
-            ))}
-            <Button variant="default" onPress={addPrompt}>
-              Add prompt
-            </Button>
-            <Text style={[styles.hint, { color: theme.colors.textSecondary }]}>
-              These prompts seed each new day&apos;s Journal. Editing them
-              doesn&apos;t change days you&apos;ve already answered.
+          <View
+            style={[
+              styles.toggle,
+              {
+                backgroundColor: theme.colors.card,
+                borderRadius: theme.borderRadius,
+              },
+            ]}
+          >
+            <Text style={[styles.toggleLabel, { color: theme.colors.text }]}>
+              Journal
             </Text>
+            <Switch
+              accessibilityLabel="Journal"
+              value={preferences.enableJournal}
+              onValueChange={(enableJournal) =>
+                updatePreferences({ enableJournal })
+              }
+              trackColor={{
+                true: theme.colors.primary,
+                false: withOpacity(theme.colors.text, 0.2),
+              }}
+            />
           </View>
-        )}
-      </ScrollView>
+
+          {preferences.enableJournal && (
+            <View style={styles.section}>
+              <SettingsSectionTitle>Journal prompts</SettingsSectionTitle>
+              {drafts.map((prompt, index) => (
+                <View key={index} style={styles.promptRow}>
+                  <TextInput
+                    accessibilityLabel={`Journal prompt ${index + 1}`}
+                    onBlur={commitPrompt}
+                    onChangeText={(text) =>
+                      setDrafts((current) =>
+                        current.map((p, i) => (i === index ? text : p)),
+                      )
+                    }
+                    onFocus={() => (focusedRef.current = true)}
+                    placeholder="e.g. What went well today?"
+                    style={styles.promptInput}
+                    value={prompt}
+                  />
+                  <TouchableOpacity
+                    accessibilityLabel={`Delete prompt ${index + 1}`}
+                    accessibilityRole="button"
+                    onPress={() => deletePrompt(index)}
+                    style={styles.deleteButton}
+                    testID={`delete-prompt-${index}`}
+                  >
+                    <Ionicons
+                      color={theme.colors.error}
+                      name="trash-outline"
+                      size={22}
+                    />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <Button variant="default" onPress={addPrompt}>
+                Add prompt
+              </Button>
+              <Text
+                style={[styles.hint, { color: theme.colors.textSecondary }]}
+              >
+                These prompts seed each new day&apos;s Journal. Editing them
+                doesn&apos;t change days you&apos;ve already answered.
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
