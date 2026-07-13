@@ -241,12 +241,14 @@ const styles = StyleSheet.create({
   // Large screens: the DayNav slot is capped to the Tasks pane's width (below)
   // and pane toggles/New Task sit at the far right — a line under the row
   // separates it from the panes, matching the legacy desktop app.
+  // `paddingBottom` matches `paneRow.paddingTop` so the gap above and below
+  // the separator line is symmetric.
   multiPaneHeader: {
     alignItems: "center",
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingBottom: 8,
+    paddingBottom: 16,
     paddingHorizontal: 16,
   },
   // DayNav centers within this slot's width (cross-axis alignment on the
@@ -263,7 +265,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 16,
   },
   // Tasks is capped at a mobile-typical width so it doesn't stretch to fill a
   // wide window.
@@ -283,7 +285,9 @@ const styles = StyleSheet.create({
   // other panes, matching the legacy desktop app. `marginLeft: "auto"` pins it
   // to the row's right edge even when Notes/Journal isn't rendered to push it
   // there itself (flex-grow alone would leave it stranded next to Tasks, with
-  // blank space trailing after it instead of before it).
+  // blank space trailing after it instead of before it). `padding` matches
+  // TasksView's own list padding so both panes give their content the same
+  // breathing room from their pane's edge.
   calendarPane: {
     borderWidth: StyleSheet.hairlineWidth,
     flex: 1,
@@ -291,6 +295,6 @@ const styles = StyleSheet.create({
     maxWidth: CALENDAR_PANE_MAX_WIDTH,
     minWidth: 200,
     overflow: "hidden",
-    padding: 8,
+    padding: 16,
   },
 });

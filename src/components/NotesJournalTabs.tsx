@@ -15,14 +15,16 @@ type TNotesJournalTabsProps = {
 };
 
 /**
- * The large-screen Notes/Journal pane: both surfaces share one card body
- * (see today/index.tsx, which gives this pane no border of its own),
- * switched via a small tab bar when both are enabled — styled like manila
- * folder tabs: only the active tab carries a border (top + sides, no
- * bottom), overlapping the card body's own top border so the two merge into
- * one shape, matching the legacy desktop app. With only one enabled, its
- * content fills the pane and no tab bar renders. Calendar is a separate
- * column so it always sits at the far right regardless of this pane's state.
+ * The large-screen Notes/Journal pane: both surfaces share one bordered body
+ * (see today/index.tsx, which gives this pane no border of its own; no fill
+ * color either — a solid card tint here reads as distracting next to the
+ * other borderless/lightly-bordered panes), switched via a small tab bar when
+ * both are enabled — styled like manila folder tabs: only the active tab
+ * carries a border (top + sides, no bottom), overlapping the body's own top
+ * border so the two merge into one shape, matching the legacy desktop app.
+ * With only one enabled, its content fills the pane and no tab bar renders.
+ * Calendar is a separate column so it always sits at the far right
+ * regardless of this pane's state.
  */
 export function NotesJournalTabs({
   date,
@@ -53,11 +55,7 @@ export function NotesJournalTabs({
       <View
         style={[
           styles.content,
-          {
-            backgroundColor: theme.colors.card,
-            borderColor,
-            borderRadius: theme.borderRadius,
-          },
+          { borderColor, borderRadius: theme.borderRadius },
         ]}
       >
         {activeTab === "notes" ? (
@@ -126,7 +124,6 @@ function TabButton({
         active && [
           styles.activeTab,
           {
-            backgroundColor: theme.colors.card,
             borderColor,
             borderTopLeftRadius: theme.borderRadius,
             borderTopRightRadius: theme.borderRadius,
