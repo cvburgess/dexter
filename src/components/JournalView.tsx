@@ -1,10 +1,14 @@
-import { useCallback, useEffect, useRef } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  NativeSyntheticEvent,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInputContentSizeChangeEventData,
+  View,
+} from "react-native";
 import Animated, {
-  KeyboardState,
-  runOnJS,
   useAnimatedKeyboard,
-  useAnimatedReaction,
   useAnimatedStyle,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -28,6 +32,12 @@ type TJournalViewProps = {
 // write, short enough that a response is safe within a second of pausing.
 // Matches NotesView.
 const SAVE_DEBOUNCE_MS = 800;
+
+// Starting/minimum height for a response field — roughly one line plus the
+// shared TextInput's own padding. Fields grow from here as the user types (see
+// JournalResponseField), so a short answer doesn't render as a tall empty box
+// that's more likely to sit under the keyboard.
+const MIN_RESPONSE_HEIGHT = 48;
 
 /**
  * The Journal surface for a single day. Reads/writes the day's reflection
@@ -82,69 +92,17 @@ function JournalEditor({
   upsertDayAsync,
   onEditingChange,
 }: TJournalEditorProps) {
-  const theme = useTheme();
   const keyboard = useAnimatedKeyboard();
   const insets = useSafeAreaInsets();
-  const scrollRef = useRef<ScrollView>(null);
-  // Each row's y-offset within the scroll content, recorded via onLayout, so
-  // a focus can scroll straight to it.
-  const rowOffsetsRef = useRef<number[]>([]);
-  const focusedIndexRef = useRef<number | null>(null);
 
   // Shrink the scroll area's own frame to the visible viewport as the keyboard
-  // rises. Mirrors NoteEditor's approach: this view nests inside SwipeableDay's
-  // Animated.View/GestureDetector chain, where a plain `KeyboardAvoidingView`'s
-  // layout tracking is unreliable, so we read the keyboard height directly on
-  // the UI thread instead. The host's SafeAreaView excludes "bottom" (the tab
-  // bar owns that inset), so fall back to the safe-area inset when closed.
+  // rises, so there's always scroll room past the last field instead of it
+  // running under the keyboard with nowhere to scroll to. The host's
+  // SafeAreaView excludes "bottom" (the tab bar owns that inset), so fall back
+  // to the safe-area inset when the keyboard is closed.
   const keyboardInsetStyle = useAnimatedStyle(() => ({
     paddingBottom: Math.max(keyboard.height.value, insets.bottom),
   }));
-
-  // Shrinking the viewport only makes room — it doesn't reposition the
-  // scroll. With several independent `TextInput`s (not one caret-scrolling
-  // editor like Notes), RN's built-in scroll-focused-input-into-view is
-  // unreliable, so drive it explicitly: scroll the focused row near the top
-  // of the now-shrunk visible area.
-  const scrollToRow = useCallback((index: number) => {
-    const y = rowOffsetsRef.current[index];
-    if (y !== undefined) {
-      scrollRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true });
-    }
-  }, []);
-
-  const handleFocus = useCallback(
-    (index: number) => {
-      focusedIndexRef.current = index;
-      // Covers switching between fields while the keyboard is already open:
-      // its height isn't changing, so a short wait for this frame to settle
-      // is enough. Covers a first focus that opens the keyboard from closed
-      // as a bonus if the OS reports it fast — the reaction below is the
-      // reliable path for that case (see it for why a fixed delay isn't
-      // enough there).
-      setTimeout(() => scrollToRow(index), 50);
-    },
-    [scrollToRow],
-  );
-
-  // The OS keyboard-rise animation (closed → open) runs ~250-300ms — well
-  // past `handleFocus`'s fixed 50ms delay — so that delay alone scrolls
-  // using a viewport that's still mid-shrink on a field's first focus, and
-  // the field ends up covered anyway. Wait for reanimated to report the
-  // keyboard has actually finished opening, then scroll to whichever row is
-  // currently focused.
-  useAnimatedReaction(
-    () => keyboard.state.value,
-    (state, previousState) => {
-      if (
-        state === KeyboardState.OPEN &&
-        previousState !== KeyboardState.OPEN &&
-        focusedIndexRef.current !== null
-      ) {
-        runOnJS(scrollToRow)(focusedIndexRef.current);
-      }
-    },
-  );
 
   // Track the latest per-index text so a save can rebuild the whole array,
   // seeded from the loaded responses. Seeded once at mount; the editor is
@@ -220,46 +178,82 @@ function JournalEditor({
   return (
     <Animated.View style={[styles.scroll, keyboardInsetStyle]}>
       <ScrollView
-        ref={scrollRef}
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
       >
         {prompts.map(({ prompt, response }, index) => (
-          <View
+          <JournalResponseField
             key={index}
-            style={styles.row}
-            onLayout={(e) => {
-              rowOffsetsRef.current[index] = e.nativeEvent.layout.y;
+            prompt={prompt}
+            response={response}
+            onBlur={() => {
+              flush();
+              onEditingChange?.(false);
             }}
-          >
-            <Text style={[styles.label, { color: theme.colors.text }]}>
-              {prompt}
-            </Text>
-            <TextInput
-              accessibilityLabel={prompt}
-              defaultValue={response}
-              multiline
-              onBlur={() => {
-                if (focusedIndexRef.current === index) {
-                  focusedIndexRef.current = null;
-                }
-                flush();
-                onEditingChange?.(false);
-              }}
-              onChangeText={(text) => handleChangeResponse(index, text)}
-              onFocus={() => {
-                onEditingChange?.(true);
-                handleFocus(index);
-              }}
-              placeholder="Write your response…"
-              style={styles.input}
-              testID={`journal-response-${index}`}
-              textAlignVertical="top"
-            />
-          </View>
+            onChangeText={(text) => handleChangeResponse(index, text)}
+            onFocus={() => onEditingChange?.(true)}
+            testID={`journal-response-${index}`}
+          />
         ))}
       </ScrollView>
     </Animated.View>
+  );
+}
+
+type TJournalResponseFieldProps = {
+  prompt: string;
+  response: string;
+  onBlur: () => void;
+  onChangeText: (text: string) => void;
+  onFocus: () => void;
+  testID: string;
+};
+
+// A single prompt + response row. Starts at one line and grows with the
+// content (via onContentSizeChange) instead of rendering a tall empty box up
+// front — a short answer is much less likely to end up sitting under the
+// keyboard.
+function JournalResponseField({
+  prompt,
+  response,
+  onBlur,
+  onChangeText,
+  onFocus,
+  testID,
+}: TJournalResponseFieldProps) {
+  const theme = useTheme();
+  const [height, setHeight] = useState(MIN_RESPONSE_HEIGHT);
+
+  const handleContentSizeChange = (
+    e: NativeSyntheticEvent<TextInputContentSizeChangeEventData>,
+  ) => {
+    // `contentSize.height` is the text content's own height, not counting the
+    // input's padding — add it back so typed text isn't clipped as it grows.
+    setHeight(
+      Math.max(
+        MIN_RESPONSE_HEIGHT,
+        e.nativeEvent.contentSize.height + theme.spacing * 2,
+      ),
+    );
+  };
+
+  return (
+    <View style={styles.row}>
+      <Text style={[styles.label, { color: theme.colors.text }]}>{prompt}</Text>
+      <TextInput
+        accessibilityLabel={prompt}
+        defaultValue={response}
+        multiline
+        onBlur={onBlur}
+        onChangeText={onChangeText}
+        onContentSizeChange={handleContentSizeChange}
+        onFocus={onFocus}
+        placeholder="Write your response…"
+        style={{ height }}
+        testID={testID}
+        textAlignVertical="top"
+      />
+    </View>
   );
 }
 
@@ -277,9 +271,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: "600",
-  },
-  input: {
-    minHeight: 80,
   },
   centered: {
     alignItems: "center",

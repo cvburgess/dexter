@@ -10,10 +10,7 @@ import {
   View,
 } from "react-native";
 import Animated, {
-  KeyboardState,
-  runOnJS,
   useAnimatedKeyboard,
-  useAnimatedReaction,
   useAnimatedStyle,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -32,59 +29,15 @@ export default function JournalScreen() {
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = width >= SETTINGS_TWO_PANE_MIN_WIDTH;
   const keyboard = useAnimatedKeyboard();
-  const scrollRef = useRef<ScrollView>(null);
-  // Each prompt row's y-offset within the scroll content, recorded via
-  // onLayout, so a focus can scroll straight to it.
-  const rowOffsetsRef = useRef<number[]>([]);
-  const focusedIndexRef = useRef<number | null>(null);
 
-  // Shrink the scroll area as the keyboard rises so a focused prompt field
-  // isn't hidden underneath it. No safe-area fallback needed here (unlike
-  // JournalView) — the SafeAreaView below already reserves the resting bottom
-  // inset; adding it again here would double that padding when the keyboard
-  // is closed.
+  // Shrink the scroll area as the keyboard rises so there's always scroll room
+  // past the last field instead of it running under the keyboard with nowhere
+  // to scroll to. No safe-area fallback needed here (unlike JournalView) — the
+  // SafeAreaView below already reserves the resting bottom inset; adding it
+  // again here would double that padding when the keyboard is closed.
   const keyboardInsetStyle = useAnimatedStyle(() => ({
     paddingBottom: keyboard.height.value,
   }));
-
-  // Shrinking the viewport only makes room — it doesn't reposition the
-  // scroll. With several independent `TextInput`s, RN's built-in
-  // scroll-focused-input-into-view is unreliable, so drive it explicitly:
-  // scroll the focused row near the top of the now-shrunk visible area.
-  const scrollToRow = (index: number) => {
-    const y = rowOffsetsRef.current[index];
-    if (y !== undefined) {
-      scrollRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true });
-    }
-  };
-
-  const handleFocus = (index: number) => {
-    focusedIndexRef.current = index;
-    // Covers switching between fields while the keyboard is already open: its
-    // height isn't changing, so a short wait for this frame to settle is
-    // enough. A first focus that opens the keyboard from closed is handled
-    // by the reaction below instead (see it for why a fixed delay alone
-    // isn't reliable there).
-    setTimeout(() => scrollToRow(index), 50);
-  };
-
-  // The OS keyboard-rise animation (closed → open) runs ~250-300ms — well
-  // past `handleFocus`'s fixed 50ms delay — so that delay alone scrolls using
-  // a viewport that's still mid-shrink on a field's first focus, and the
-  // field ends up covered anyway. Wait for reanimated to report the keyboard
-  // has actually finished opening, then scroll to whichever row is focused.
-  useAnimatedReaction(
-    () => keyboard.state.value,
-    (state, previousState) => {
-      if (
-        state === KeyboardState.OPEN &&
-        previousState !== KeyboardState.OPEN &&
-        focusedIndexRef.current !== null
-      ) {
-        runOnJS(scrollToRow)(focusedIndexRef.current);
-      }
-    },
-  );
 
   // Edit prompts locally and commit on blur so we don't write a preference on
   // every keystroke. Re-sync from the stored value when it changes elsewhere
@@ -130,7 +83,6 @@ export default function JournalScreen() {
     >
       <Animated.View style={[styles.container, keyboardInsetStyle]}>
         <ScrollView
-          ref={scrollRef}
           contentContainerStyle={[
             styles.content,
             { padding: theme.spacing, gap: theme.spacing },
@@ -166,30 +118,16 @@ export default function JournalScreen() {
             <View style={styles.section}>
               <SettingsSectionTitle>Journal prompts</SettingsSectionTitle>
               {drafts.map((prompt, index) => (
-                <View
-                  key={index}
-                  style={styles.promptRow}
-                  onLayout={(e) => {
-                    rowOffsetsRef.current[index] = e.nativeEvent.layout.y;
-                  }}
-                >
+                <View key={index} style={styles.promptRow}>
                   <TextInput
                     accessibilityLabel={`Journal prompt ${index + 1}`}
-                    onBlur={() => {
-                      if (focusedIndexRef.current === index) {
-                        focusedIndexRef.current = null;
-                      }
-                      commitPrompt();
-                    }}
+                    onBlur={commitPrompt}
                     onChangeText={(text) =>
                       setDrafts((current) =>
                         current.map((p, i) => (i === index ? text : p)),
                       )
                     }
-                    onFocus={() => {
-                      focusedRef.current = true;
-                      handleFocus(index);
-                    }}
+                    onFocus={() => (focusedRef.current = true)}
                     placeholder="e.g. What went well today?"
                     style={styles.promptInput}
                     value={prompt}
