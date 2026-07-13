@@ -15,9 +15,25 @@ import {
 import { useTheme, withOpacity } from "@/utils/theme";
 
 /** Pixels per hour on the timeline. */
-const HOUR_HEIGHT = 60;
+const HOUR_HEIGHT = 72;
 /** Width reserved for the hour labels down the left edge. */
 const GUTTER_WIDTH = 56;
+/**
+ * Blocks at least this tall stack the time under the title; shorter ones render
+ * the time inline to the right (no vertical room to stack). Half an hour at the
+ * current scale, so a 30-minute event shows its time under the name.
+ */
+const STACKED_MIN_HEIGHT = HOUR_HEIGHT / 2;
+/** Only blocks this tall have room for a two-line title above the time. */
+const TWO_LINE_TITLE_MIN_HEIGHT = 50;
+/** Floor for very short blocks so a single inline line stays legible. */
+const MIN_EVENT_HEIGHT = 20;
+/**
+ * Hairline gap shaved off each block's bottom so back-to-back events (e.g. 1–2
+ * and 2–3) render with a sliver between them instead of touching edge-to-edge,
+ * where their rounded corners read as one event overlapping the next.
+ */
+const EVENT_GAP = 2;
 /** Fallback window if stored times are missing or inverted. */
 const DEFAULT_START_HOUR = 6;
 const DEFAULT_END_HOUR = 20;
@@ -99,6 +115,7 @@ export function CalendarView({ date }: TCalendarViewProps) {
         windowEndMin,
         HOUR_HEIGHT,
         nowMinutes,
+        MIN_EVENT_HEIGHT,
       ),
     [events, date, windowStartMin, windowEndMin, nowMinutes],
   );
@@ -189,14 +206,19 @@ export function CalendarView({ date }: TCalendarViewProps) {
                   isPast,
                 }) => {
                   const accent = event.color ?? theme.colors.primary;
+                  // Tall enough to stack the time under the title; otherwise the
+                  // time rides inline to the right of a single-line title.
+                  const stacked = heightPx >= STACKED_MIN_HEIGHT;
                   return (
                     <View
                       key={event.id}
                       style={[
                         styles.eventBlock,
+                        // Short blocks can't spare the full vertical padding.
+                        !stacked && styles.eventBlockInline,
                         {
                           top: topPx,
-                          height: heightPx,
+                          height: heightPx - EVENT_GAP,
                           left: `${(columnIndex / columnCount) * 100}%`,
                           width: `${(1 / columnCount) * 100}%`,
                           backgroundColor: withOpacity(accent, 0.16),
@@ -208,25 +230,52 @@ export function CalendarView({ date }: TCalendarViewProps) {
                         },
                       ]}
                     >
-                      <Text
-                        numberOfLines={heightPx < 34 ? 1 : 2}
-                        style={[
-                          styles.eventTitle,
-                          { color: theme.colors.text },
-                        ]}
-                      >
-                        {event.title}
-                      </Text>
-                      {heightPx >= 34 && (
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.eventTime,
-                            { color: theme.colors.textSecondary },
-                          ]}
-                        >
-                          {formatTime(event.start)}
-                        </Text>
+                      {stacked ? (
+                        <>
+                          <Text
+                            numberOfLines={
+                              heightPx >= TWO_LINE_TITLE_MIN_HEIGHT ? 2 : 1
+                            }
+                            style={[
+                              styles.eventTitle,
+                              { color: theme.colors.text },
+                            ]}
+                          >
+                            {event.title}
+                          </Text>
+                          <Text
+                            numberOfLines={1}
+                            style={[
+                              styles.eventTime,
+                              { color: theme.colors.textSecondary },
+                            ]}
+                          >
+                            {formatTime(event.start)}
+                          </Text>
+                        </>
+                      ) : (
+                        <View style={styles.eventInlineRow}>
+                          <Text
+                            numberOfLines={1}
+                            style={[
+                              styles.eventTitle,
+                              styles.eventTitleInline,
+                              { color: theme.colors.text },
+                            ]}
+                          >
+                            {event.title}
+                          </Text>
+                          <Text
+                            numberOfLines={1}
+                            style={[
+                              styles.eventTime,
+                              styles.eventTimeInline,
+                              { color: theme.colors.textSecondary },
+                            ]}
+                          >
+                            {formatTime(event.start)}
+                          </Text>
+                        </View>
                       )}
                     </View>
                   );
@@ -389,9 +438,13 @@ const styles = StyleSheet.create({
   eventBlock: {
     borderLeftWidth: 3,
     overflow: "hidden",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     position: "absolute",
+  },
+  // Short blocks are too thin for the full vertical padding.
+  eventBlockInline: {
+    paddingVertical: 1,
   },
   eventTitle: {
     fontSize: 12,
@@ -399,5 +452,17 @@ const styles = StyleSheet.create({
   },
   eventTime: {
     fontSize: 11,
+  },
+  // Short blocks: title and time share one row, time just right of the title.
+  eventInlineRow: {
+    alignItems: "baseline",
+    flexDirection: "row",
+  },
+  eventTitleInline: {
+    flexShrink: 1, // truncate the title, don't push the time off-block
+  },
+  eventTimeInline: {
+    flexShrink: 0,
+    marginLeft: 6,
   },
 });
