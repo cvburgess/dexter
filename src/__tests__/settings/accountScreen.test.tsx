@@ -1,5 +1,6 @@
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
-import { Alert } from "react-native";
+import { Alert, type StyleProp, type ViewStyle } from "react-native";
+import type { Edge } from "react-native-safe-area-context";
 
 import AccountScreen from "@/app/(app)/(tabs)/settings/account";
 import { deleteAccount, signOut } from "@/hooks/useAuth";
@@ -33,11 +34,13 @@ jest.mock("react-native-safe-area-context", () => {
     SafeAreaView: ({
       children,
       edges,
+      style,
     }: {
       children: React.ReactNode;
-      edges?: string[];
+      edges?: Edge[];
+      style?: StyleProp<ViewStyle>;
     }) => (
-      <View testID={`safe-area-edges-${(edges ?? []).join(",")}`}>
+      <View testID={`safe-area-edges-${(edges ?? []).join(",")}`} style={style}>
         {children}
       </View>
     ),

@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render } from "@testing-library/react-native";
 import { ReactNode } from "react";
+import type { StyleProp, ViewStyle } from "react-native";
+import type { Edge } from "react-native-safe-area-context";
 
 import CalendarsScreen from "@/app/(app)/(tabs)/settings/calendars";
 import { useEnabledDeviceCalendars } from "@/hooks/useEnabledDeviceCalendars";
@@ -29,11 +31,13 @@ jest.mock("react-native-safe-area-context", () => {
     SafeAreaView: ({
       children,
       edges,
+      style,
     }: {
       children: React.ReactNode;
-      edges?: string[];
+      edges?: Edge[];
+      style?: StyleProp<ViewStyle>;
     }) => (
-      <View testID={`safe-area-edges-${(edges ?? []).join(",")}`}>
+      <View testID={`safe-area-edges-${(edges ?? []).join(",")}`} style={style}>
         {children}
       </View>
     ),
