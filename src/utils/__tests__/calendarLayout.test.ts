@@ -2,7 +2,7 @@ import { Temporal } from "@js-temporal/polyfill";
 
 import { TCalendarEvent } from "@/hooks/useCalendarEvents.types";
 
-import { layoutEvents } from "../calendarLayout";
+import { layoutEvents, nowLineTopPx } from "../calendarLayout";
 
 const DATE = Temporal.PlainDate.from("2026-07-12");
 
@@ -29,8 +29,13 @@ const START = 360;
 const END = 1200;
 const HOUR = 60;
 
-const layout = (events: TCalendarEvent[], minHeight?: number) =>
-  layoutEvents(events, DATE, START, END, HOUR, minHeight);
+// `nowMinutes` defaults before the window so nothing reads as past unless a
+// test opts in; `minHeight` keeps its previous meaning.
+const layout = (
+  events: TCalendarEvent[],
+  minHeight?: number,
+  nowMinutes = -Infinity,
+) => layoutEvents(events, DATE, START, END, HOUR, nowMinutes, minHeight);
 
 describe("layoutEvents", () => {
   it("positions an event by minutes from the window start", () => {
@@ -99,5 +104,43 @@ describe("layoutEvents", () => {
     const result = layout([event("a", 9, 0, 10, 0), event("b", 10, 0, 11, 0)]);
     // Non-overlapping → each is its own single-column cluster.
     expect(result.every((r) => r.columnCount === 1)).toBe(true);
+  });
+
+  it("flags events ending at or before now as past", () => {
+    // Now = 10:00 (600 min). "a" ends at 10:00, "b" ends at 11:00.
+    const result = layout(
+      [event("a", 9, 0, 10, 0), event("b", 10, 0, 11, 0)],
+      undefined,
+      600,
+    );
+    expect(result.find((r) => r.event.id === "a")!.isPast).toBe(true);
+    expect(result.find((r) => r.event.id === "b")!.isPast).toBe(false);
+  });
+
+  it("marks every event past on a prior day (now is beyond midnight)", () => {
+    // A day already elapsed → now is >1440 minutes past its midnight.
+    const result = layout([event("a", 9, 0, 10, 0)], undefined, 2000);
+    expect(result[0].isPast).toBe(true);
+  });
+
+  it("marks no event past on a future day (now is before its midnight)", () => {
+    const result = layout([event("a", 9, 0, 10, 0)], undefined, -500);
+    expect(result[0].isPast).toBe(false);
+  });
+});
+
+describe("nowLineTopPx", () => {
+  it("returns the pixel offset when now is inside the window", () => {
+    expect(nowLineTopPx(600, START, END, HOUR)).toBe(240); // (600 - 360) * 1
+  });
+
+  it("returns 0 at the window start and the full height at the end", () => {
+    expect(nowLineTopPx(START, START, END, HOUR)).toBe(0);
+    expect(nowLineTopPx(END, START, END, HOUR)).toBe(840); // (1200 - 360) * 1
+  });
+
+  it("returns null when now is before or after the window", () => {
+    expect(nowLineTopPx(START - 1, START, END, HOUR)).toBeNull();
+    expect(nowLineTopPx(END + 1, START, END, HOUR)).toBeNull();
   });
 });

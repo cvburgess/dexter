@@ -113,6 +113,10 @@ export const useCalendarEvents = (
     queryKey: ["calendarEvents", date.toString(), enabledIds],
     queryFn: () => fetchDeviceEvents(date.toString(), enabledIds),
     staleTime: STALE_TIME_MS,
+    // SwipeableDay mounts a fresh view per day, so refetch on every day-load to
+    // pick up calendar edits made since the day was last cached. Cached events
+    // still show during the background refetch, so there's no empty flash.
+    refetchOnMount: "always",
   });
 
   const result = data ?? { events: [], permissionDenied: false };

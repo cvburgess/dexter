@@ -69,6 +69,10 @@ export const useCalendarEvents = (
     queryKey: ["calendarEvents", date.toString(), urls],
     queryFn: () => fetchIcsEvents(urls, date.toString()),
     staleTime: STALE_TIME_MS,
+    // SwipeableDay mounts a fresh view per day, so refetch on every day-load to
+    // pick up feed changes since the day was last cached. Cached events still
+    // show during the background refetch, so there's no empty flash.
+    refetchOnMount: "always",
   });
 
   return [

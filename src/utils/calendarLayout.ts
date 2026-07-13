@@ -11,9 +11,28 @@ export type TPositionedEvent = {
   columnIndex: number;
   /** Total columns in this event's cluster (widths split evenly). */
   columnCount: number;
+  /** True once the event has ended (its end is at or before `now`). */
+  isPast: boolean;
 };
 
 const MINUTES_PER_HOUR = 60;
+
+/**
+ * Pixel offset of the "now" line within the window, or `null` when the current
+ * time falls outside `[startMin, endMin]` (so the caller renders nothing).
+ * `nowMinutes` is minutes from the viewed day's midnight to now — on a past day
+ * it exceeds `endMin` and on a future day it's below `startMin`, so this also
+ * naturally hides the line on any day but today. Mirrors `layoutEvents`' topPx.
+ */
+export const nowLineTopPx = (
+  nowMinutes: number,
+  startMin: number,
+  endMin: number,
+  hourHeightPx: number,
+): number | null =>
+  nowMinutes < startMin || nowMinutes > endMin
+    ? null
+    : (nowMinutes - startMin) * (hourHeightPx / MINUTES_PER_HOUR);
 
 /**
  * Minutes from the viewed day's midnight to `moment`. Signed and unbounded: an
@@ -41,6 +60,11 @@ const minutesFromDayStart = (
  * share the cluster's column count so their rendered widths line up.
  *
  * All-day events are ignored here — the timeline pins them in a separate header.
+ *
+ * `nowMinutes` is minutes from the viewed day's midnight to now; each event is
+ * flagged `isPast` when its (unclamped) end is at or before it. This is correct
+ * across day boundaries: on a past day `nowMinutes > 1440` so all events read as
+ * past, and on a future day it's negative so none do.
  */
 export const layoutEvents = (
   events: TCalendarEvent[],
@@ -48,6 +72,7 @@ export const layoutEvents = (
   startMin: number,
   endMin: number,
   hourHeightPx: number,
+  nowMinutes: number,
   minEventHeightPx = 16,
 ): TPositionedEvent[] => {
   const pxPerMinute = hourHeightPx / MINUTES_PER_HOUR;
@@ -104,6 +129,7 @@ export const layoutEvents = (
         heightPx,
         columnIndex,
         columnCount,
+        isPast: item.endMin <= nowMinutes,
       });
     }
     cluster = [];

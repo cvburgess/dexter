@@ -1,11 +1,12 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { TCalendarEvent } from "@/hooks/useCalendarEvents.types";
 import { usePreferences } from "@/hooks/usePreferences";
-import { layoutEvents } from "@/utils/calendarLayout";
+import { layoutEvents, nowLineTopPx } from "@/utils/calendarLayout";
 import {
   formatHourLabel,
   formatTime,
@@ -20,6 +21,18 @@ const GUTTER_WIDTH = 56;
 /** Fallback window if stored times are missing or inverted. */
 const DEFAULT_START_HOUR = 6;
 const DEFAULT_END_HOUR = 20;
+/** How often the "now" line / past-event dimming re-evaluates. */
+const NOW_REFRESH_MS = 60_000;
+
+/**
+ * Minutes from `date`'s midnight to the current moment. Inside `[0, 1440]` on
+ * today, `>1440` on a past day, and negative on a future day — which is what
+ * lets the same value drive the now-line position and the past-event flag.
+ */
+const nowMinutesFromDayStart = (date: Temporal.PlainDate): number =>
+  Temporal.Now.plainDateTimeISO()
+    .since(date.toPlainDateTime(), { largestUnit: "minute" })
+    .total({ unit: "minute" });
 
 type TCalendarViewProps = {
   date: Temporal.PlainDate;
@@ -35,9 +48,25 @@ type TCalendarViewProps = {
  */
 export function CalendarView({ date }: TCalendarViewProps) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [preferences] = usePreferences();
   const [events, { isLoading, isError, permissionDenied }] =
     useCalendarEvents(date);
+
+  // Minutes-from-midnight of "now" relative to the viewed day, refreshed on an
+  // interval so the now-line advances and events dim as they end. Seeded from
+  // the initializer — SwipeableDay remounts this view per date, so `date` is
+  // stable for the component's lifetime and needs no in-effect re-seed.
+  const [nowMinutes, setNowMinutes] = useState(() =>
+    nowMinutesFromDayStart(date),
+  );
+  useEffect(() => {
+    const id = setInterval(
+      () => setNowMinutes(nowMinutesFromDayStart(date)),
+      NOW_REFRESH_MS,
+    );
+    return () => clearInterval(id);
+  }, [date]);
 
   // Snap the window to whole hours: the start/end preferences name the first
   // and last hours shown. Fall back to a sane default if unset or inverted.
@@ -62,8 +91,23 @@ export function CalendarView({ date }: TCalendarViewProps) {
   );
 
   const positioned = useMemo(
-    () => layoutEvents(events, date, windowStartMin, windowEndMin, HOUR_HEIGHT),
-    [events, date, windowStartMin, windowEndMin],
+    () =>
+      layoutEvents(
+        events,
+        date,
+        windowStartMin,
+        windowEndMin,
+        HOUR_HEIGHT,
+        nowMinutes,
+      ),
+    [events, date, windowStartMin, windowEndMin, nowMinutes],
+  );
+
+  const nowTopPx = nowLineTopPx(
+    nowMinutes,
+    windowStartMin,
+    windowEndMin,
+    HOUR_HEIGHT,
   );
 
   const hours = useMemo(() => {
@@ -103,7 +147,12 @@ export function CalendarView({ date }: TCalendarViewProps) {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            // The host SafeAreaView omits the bottom edge (the native tab bar
+            // owns it), so add the inset here or the last hour hides behind it.
+            { paddingBottom: 24 + insets.bottom },
+          ]}
           showsVerticalScrollIndicator={false}
         >
           <View style={{ height: totalHeight }}>
@@ -131,7 +180,14 @@ export function CalendarView({ date }: TCalendarViewProps) {
 
             <View style={styles.eventsArea}>
               {positioned.map(
-                ({ event, topPx, heightPx, columnIndex, columnCount }) => {
+                ({
+                  event,
+                  topPx,
+                  heightPx,
+                  columnIndex,
+                  columnCount,
+                  isPast,
+                }) => {
                   const accent = event.color ?? theme.colors.primary;
                   return (
                     <View
@@ -146,6 +202,9 @@ export function CalendarView({ date }: TCalendarViewProps) {
                           backgroundColor: withOpacity(accent, 0.16),
                           borderLeftColor: accent,
                           borderRadius: theme.borderRadius,
+                          // Dim events that have already ended, matching the
+                          // disabled treatment used in settings lists.
+                          opacity: isPast ? 0.5 : 1,
                         },
                       ]}
                     >
@@ -174,6 +233,26 @@ export function CalendarView({ date }: TCalendarViewProps) {
                 },
               )}
             </View>
+
+            {nowTopPx !== null && (
+              <View
+                pointerEvents="none"
+                style={[styles.nowLineRow, { top: nowTopPx }]}
+              >
+                <View
+                  style={[
+                    styles.nowDot,
+                    { backgroundColor: theme.colors.primary },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.nowLine,
+                    { backgroundColor: theme.colors.primary },
+                  ]}
+                />
+              </View>
+            )}
           </View>
         </ScrollView>
       )}
@@ -259,7 +338,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   scrollContent: {
-    paddingBottom: 24,
     paddingTop: 12,
   },
   hourLabel: {
@@ -274,6 +352,30 @@ const styles = StyleSheet.create({
     left: GUTTER_WIDTH,
     position: "absolute",
     right: 8,
+  },
+  // Zero-height row whose top edge sits exactly at "now"; alignItems center
+  // makes the dot and line straddle that line. Spans from just left of the
+  // gutter (for the dot) to the same right edge as the hour lines.
+  nowLineRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    height: 0,
+    left: GUTTER_WIDTH - 4,
+    position: "absolute",
+    right: 8,
+  },
+  nowDot: {
+    borderRadius: 4,
+    height: 8,
+    width: 8,
+  },
+  nowLine: {
+    borderRadius: 1,
+    flex: 1,
+    height: 2,
+    // Pull the line back under the dot so it starts at the gutter edge,
+    // aligning with the hour lines.
+    marginLeft: -4,
   },
   // Positioned over the gridlines; event blocks are absolute within it, so their
   // percentage widths divide this area (the space right of the hour gutter).

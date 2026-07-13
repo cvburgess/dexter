@@ -7,6 +7,8 @@ import { ReactNode } from "react";
 import { usePreferences } from "@/hooks/usePreferences";
 
 import { useCalendarEvents as useNativeCalendarEvents } from "../useCalendarEvents";
+// The web/native hooks are separate platform variants that we test side by side.
+// eslint-disable-next-line import/no-duplicates -- the resolver collapses the `.web` suffix to the same module, but this must stay a distinct import so the web implementation is exercised.
 import { useCalendarEvents as useWebCalendarEvents } from "../useCalendarEvents.web";
 
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
@@ -80,6 +82,28 @@ describe("useCalendarEvents (web)", () => {
         "/functions/v1/ics-proxy?url=https%3A%2F%2Fexample.com%2Fcal.ics",
       ),
     );
+  });
+
+  it("refetches when the view remounts for the same day", async () => {
+    setPreferences({ calendarUrls: ["https://example.com/cal.ics"] });
+
+    // One shared client across both mounts so the day's result is cached: only
+    // `refetchOnMount: "always"` makes the second mount fetch again.
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+
+    const first = renderHook(() => useWebCalendarEvents(DAY), { wrapper });
+    await waitFor(() => expect(first.result.current[0]).toHaveLength(1));
+    expect(fetch).toHaveBeenCalledTimes(1);
+    first.unmount();
+
+    const second = renderHook(() => useWebCalendarEvents(DAY), { wrapper });
+    await waitFor(() => expect(second.result.current[0]).toHaveLength(1));
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 
   it("stays idle with no feeds configured", async () => {
