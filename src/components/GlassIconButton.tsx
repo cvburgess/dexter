@@ -1,0 +1,62 @@
+import Ionicons from "@react-native-vector-icons/ionicons";
+import { Pressable, StyleSheet, View } from "react-native";
+
+import { useTheme, withOpacity } from "@/utils/theme";
+
+import { TGlassIconButtonProps } from "./GlassIconButton.types";
+
+const DEFAULT_SIZE = 40;
+
+/**
+ * Android/web (and `tsc`) implementation of the circular icon button. The iOS
+ * liquid-glass variant lives in `GlassIconButton.ios.tsx`; `expo-glass-effect`
+ * renders nothing but a bare `View` off iOS, so here we draw a plain bordered
+ * circle and use an Ionicons glyph (SF Symbols don't render on Android/web).
+ */
+export function GlassIconButton({
+  ionicon,
+  accessibilityLabel,
+  size = DEFAULT_SIZE,
+  onPress,
+}: TGlassIconButtonProps) {
+  const theme = useTheme();
+
+  const circle = (
+    <View
+      accessibilityLabel={onPress ? undefined : accessibilityLabel}
+      style={[
+        styles.circle,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: theme.colors.card,
+          borderColor: withOpacity(theme.colors.text, 0.1),
+        },
+      ]}
+    >
+      <Ionicons color={theme.colors.text} name={ionicon} size={size * 0.5} />
+    </View>
+  );
+
+  if (onPress) {
+    return (
+      <Pressable
+        accessibilityLabel={accessibilityLabel}
+        accessibilityRole="button"
+        onPress={onPress}
+      >
+        {circle}
+      </Pressable>
+    );
+  }
+  return circle;
+}
+
+const styles = StyleSheet.create({
+  circle: {
+    alignItems: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: "center",
+  },
+});

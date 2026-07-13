@@ -92,4 +92,24 @@ describe("SwipeableDay", () => {
 
     expect(onSwipe).not.toHaveBeenCalled();
   });
+
+  it("does not commit a past-threshold swipe when disabled", () => {
+    const onSwipe = jest.fn();
+    render(
+      <SwipeableDay
+        dateKey="2026-07-06"
+        direction={0}
+        enabled={false}
+        onSwipe={onSwipe}
+      >
+        <Text>Task A</Text>
+      </SwipeableDay>,
+    );
+
+    fireGestureHandler(getByGestureTestId("day-swipe"), [
+      { translationX: -200, velocityX: -900 },
+    ]);
+
+    expect(onSwipe).not.toHaveBeenCalled();
+  });
 });

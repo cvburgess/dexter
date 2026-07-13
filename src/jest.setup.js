@@ -38,6 +38,21 @@ jest.mock("@expo/ui", () => {
 // expo-symbols renders a native SF Symbol / Material Symbol view.
 jest.mock("expo-symbols", () => ({ SymbolView: () => null }));
 
+// expo-glass-effect wraps a native iOS UIVisualEffectView; render its children
+// through a plain View and report glass as unavailable so the .ios fallback path
+// is exercised without the native module.
+jest.mock("expo-glass-effect", () => {
+  const { View } = require("react-native");
+  return {
+    GlassView: ({ children, ...props }) => <View {...props}>{children}</View>,
+    GlassContainer: ({ children, ...props }) => (
+      <View {...props}>{children}</View>
+    ),
+    isLiquidGlassAvailable: () => false,
+    isGlassEffectAPIAvailable: () => false,
+  };
+});
+
 // Vector icons render glyphs from a bundled font; render the icon name as
 // text so tests can assert on presence without the native font.
 jest.mock("@react-native-vector-icons/ionicons", () => {

@@ -19,9 +19,14 @@ export const getDay = async (
     .maybeSingle();
 
   if (error) throw error;
-  if (!data) throw new Error("No day found");
+  // No row yet for this day — distinct from an existing row with an empty
+  // note, so callers can tell "never started" apart from "started but blank".
+  if (!data) return null;
 
-  return camelCase(data) as TDay;
+  // Coerce a null `prompts` to `[]`. The column is NOT NULL going forward, but
+  // rows written before that migration (and by other shared clients) may still
+  // carry null, and `TDay.prompts` is `TJournalPrompt[]` — callers `.map()` it.
+  return { ...camelCase(data), prompts: data.prompts ?? [] } as TDay;
 };
 
 export type TUpsertDay = {
