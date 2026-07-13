@@ -55,10 +55,15 @@ export function NotesJournalTabs({
           { borderColor, borderRadius: theme.borderRadius },
         ]}
       >
+        {/* Keyed on date: NotesView/JournalView seed their editors
+            uncontrolled and rely on a remount to re-seed for a new day (see
+            their own comments). Keying only these — not the whole component —
+            re-seeds the editor on a day change without also resetting which
+            tab is selected. */}
         {activeTab === "notes" ? (
-          <NotesView date={date} inset={false} />
+          <NotesView date={date} inset={false} key={date} />
         ) : (
-          <JournalView date={date} />
+          <JournalView date={date} key={date} />
         )}
       </View>
     </View>

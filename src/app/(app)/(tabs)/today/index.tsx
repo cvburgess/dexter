@@ -126,15 +126,12 @@ export default function TodayScreen() {
           </View>
           {(showNotes || showJournal) && (
             <View style={styles.notesJournalPane}>
-              {/* Keyed on date: NotesView/JournalView seed their editors
-                  uncontrolled (see NotesView.tsx, JournalView.tsx) and rely on
-                  a remount to re-seed for a new day — small screens get this
-                  for free from SwipeableDay's own dateKey. Without it here, an
-                  edit on the new day would autosave over stale text still
-                  showing from the previous one. */}
+              {/* No key here (unlike CalendarView below): NotesJournalTabs
+                  keys its own NotesView/JournalView content on date
+                  internally, so the editor re-seeds on a day change without
+                  also resetting which tab is selected. */}
               <NotesJournalTabs
                 date={day.date.toString()}
-                key={day.date.toString()}
                 showJournal={showJournal}
                 showNotes={showNotes}
               />

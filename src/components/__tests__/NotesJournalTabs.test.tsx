@@ -61,6 +61,24 @@ describe("NotesJournalTabs", () => {
     expect(screen.queryByText("journal-view")).toBeNull();
   });
 
+  it("keeps the selected tab when the date changes", () => {
+    const screen = render(
+      <NotesJournalTabs date="2026-07-13" showNotes showJournal />,
+    );
+
+    fireEvent.press(screen.getByLabelText("Journal tab"));
+    expect(screen.getByText("journal-view")).toBeTruthy();
+
+    // A day change re-renders with a new `date`, not a remount of this whole
+    // component — the tab selection shouldn't reset just because the day did.
+    screen.rerender(
+      <NotesJournalTabs date="2026-07-14" showNotes showJournal />,
+    );
+
+    expect(screen.getByText("journal-view")).toBeTruthy();
+    expect(screen.queryByText("notes-view")).toBeNull();
+  });
+
   it("re-renders to the other tab if the active one is disabled", () => {
     const screen = render(
       <NotesJournalTabs date="2026-07-13" showNotes showJournal />,
