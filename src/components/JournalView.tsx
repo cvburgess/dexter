@@ -76,11 +76,10 @@ function JournalEditor({
 }: TJournalEditorProps) {
   const theme = useTheme();
 
-  // Freeze the loaded prompts at mount: labels are stable for this mount (the
-  // key remounts on any label change), and the uncontrolled inputs seed from
-  // these responses. `responsesRef` tracks the latest per-index text so a save
-  // can rebuild the whole array.
-  const promptsRef = useRef(prompts);
+  // Track the latest per-index text so a save can rebuild the whole array,
+  // seeded from the loaded responses. Seeded once at mount; the editor is
+  // remounted (re-seeding) whenever the prompt labels change, so the label set
+  // stays invariant for this mount's lifetime.
   const responsesRef = useRef(prompts.map((p) => p.response));
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -127,15 +126,17 @@ function JournalEditor({
       responsesRef.current[index] = text;
       // Rebuild the full array on every edit: `upsertDay({ prompts })` replaces
       // the whole column, so a partial array would drop the other responses.
-      // (The day's `notes` are preserved by the partial upsert.)
-      pendingRef.current = promptsRef.current.map((prompt, i) => ({
+      // Labels are invariant for this mount (the editor is keyed on them), so
+      // reading them off the prop is safe. (`notes` is preserved by the partial
+      // upsert.)
+      pendingRef.current = prompts.map((prompt, i) => ({
         prompt: prompt.prompt,
         response: responsesRef.current[i],
       }));
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(flush, SAVE_DEBOUNCE_MS);
     },
-    [flush],
+    [flush, prompts],
   );
 
   // Persist any pending edit when the view unmounts (date change / tab switch).

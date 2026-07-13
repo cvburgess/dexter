@@ -49,17 +49,18 @@ export default function JournalScreen() {
     if (changed) updatePreferences({ templatePrompts: drafts });
   };
 
-  const addPrompt = () => {
-    const next = [...drafts, ""];
+  // Structural edits write the local drafts straight through (and mirror them to
+  // the store) so the list re-renders immediately and the next edit builds on
+  // the current array, not the optimistically-lagging preference.
+  const writePrompts = (next: string[]) => {
     setDrafts(next);
     updatePreferences({ templatePrompts: next });
   };
 
-  const deletePrompt = (index: number) => {
-    const next = drafts.filter((_, i) => i !== index);
-    setDrafts(next);
-    updatePreferences({ templatePrompts: next });
-  };
+  const addPrompt = () => writePrompts([...drafts, ""]);
+
+  const deletePrompt = (index: number) =>
+    writePrompts(drafts.filter((_, i) => i !== index));
 
   return (
     <SafeAreaView

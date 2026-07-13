@@ -1,11 +1,22 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
 import { camelCase, snakeCase } from "@/utils/changeCase";
-import { Database, TablesUpdate } from "@/types/database.types";
+import { Database, Tables, TablesUpdate } from "@/types/database.types";
 
 export type TJournalPrompt = { prompt: string; response: string };
 
 export type TDay = { date: string; notes: string; prompts: TJournalPrompt[] };
+
+// Normalize a raw `days` row into `TDay`, coercing a null `prompts` to `[]`. The
+// column is NOT NULL going forward, but rows written before that migration (and
+// by other shared clients) may still carry null, and `TDay.prompts` is
+// `TJournalPrompt[]` — callers `.map()` it / read `.length`. Both the fetch
+// (`getDay`) and the write (`upsertDay`) go through here, so neither can leak a
+// null-`prompts` row into the React Query cache.
+const rowToDay = (data: Tables<"days">): TDay => {
+  const row = camelCase(data) as TDay;
+  return { ...row, prompts: data.prompts ?? [] } as TDay;
+};
 
 export const getDay = async (
   supabase: SupabaseClient<Database>,
@@ -23,11 +34,7 @@ export const getDay = async (
   // note, so callers can tell "never started" apart from "started but blank".
   if (!data) return null;
 
-  // Coerce a null `prompts` to `[]`. The column is NOT NULL going forward, but
-  // rows written before that migration (and by other shared clients) may still
-  // carry null, and `TDay.prompts` is `TJournalPrompt[]` — callers `.map()` it.
-  const row = camelCase(data) as TDay;
-  return { ...row, prompts: data.prompts ?? [] } as TDay;
+  return rowToDay(data);
 };
 
 export type TUpsertDay = {
@@ -47,10 +54,5 @@ export const upsertDay = async (
     .single();
 
   if (error) throw error;
-  // Coerce a null `prompts` to `[]`, same as `getDay` — a legacy/shared row
-  // whose `prompts` column is still null would otherwise land in the query
-  // cache verbatim (e.g. after a notes-only upsert), and `TDay.prompts` is
-  // `TJournalPrompt[]`, which `JournalView` `.map()`s / reads `.length` on.
-  const row = camelCase(data) as TDay;
-  return { ...row, prompts: data.prompts ?? [] } as TDay;
+  return rowToDay(data);
 };
