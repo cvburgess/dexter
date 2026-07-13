@@ -50,15 +50,7 @@ export default function NotesScreen() {
           { padding: theme.spacing, gap: theme.spacing },
         ]}
       >
-        <View
-          style={[
-            styles.toggle,
-            {
-              backgroundColor: theme.colors.card,
-              borderRadius: theme.borderRadius,
-            },
-          ]}
-        >
+        <View style={styles.toggle}>
           <Text style={[styles.toggleLabel, { color: theme.colors.text }]}>
             Notes
           </Text>

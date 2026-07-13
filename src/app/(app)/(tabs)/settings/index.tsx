@@ -21,23 +21,11 @@ export default function SettingsScreen() {
   }
 
   return (
-    <View
-      style={[
-        styles.screen,
-        { backgroundColor: theme.colors.background, padding: theme.spacing },
-      ]}
-    >
+    <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       <FlatList
-        // The content container is the grouped card: a single rounded, clipped
-        // surface. Individual rows draw their own hairline dividers.
-        contentContainerStyle={[
-          styles.card,
-          {
-            backgroundColor: theme.colors.card,
-            borderRadius: theme.borderRadius,
-            borderColor: withOpacity(theme.colors.text, 0.1),
-          },
-        ]}
+        // Plain, ungrouped list: rows sit directly on the background, separated
+        // by hairline dividers (no wrapping card).
+        contentContainerStyle={{ paddingVertical: theme.spacing }}
         data={SETTINGS_ITEMS}
         keyExtractor={(item) => item.slug}
         ItemSeparatorComponent={() => (
@@ -63,10 +51,6 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: "hidden",
-  },
   divider: {
     height: StyleSheet.hairlineWidth,
   },
