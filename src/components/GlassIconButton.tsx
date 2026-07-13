@@ -18,8 +18,15 @@ export function GlassIconButton({
   accessibilityLabel,
   size = DEFAULT_SIZE,
   onPress,
+  active,
 }: TGlassIconButtonProps) {
   const theme = useTheme();
+  const iconColor =
+    active === undefined
+      ? theme.colors.text
+      : active
+        ? theme.colors.primary
+        : theme.colors.text;
 
   const circle = (
     <View
@@ -35,7 +42,7 @@ export function GlassIconButton({
         },
       ]}
     >
-      <Ionicons color={theme.colors.text} name={ionicon} size={size * 0.5} />
+      <Ionicons color={iconColor} name={ionicon} size={size * 0.5} />
     </View>
   );
 
