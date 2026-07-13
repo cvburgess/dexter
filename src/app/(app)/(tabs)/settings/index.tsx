@@ -6,7 +6,7 @@ import {
   SETTINGS_ITEMS,
   SETTINGS_TWO_PANE_MIN_WIDTH,
 } from "@/utils/settingsItems";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 export default function SettingsScreen() {
   const theme = useTheme();
@@ -28,34 +28,29 @@ export default function SettingsScreen() {
       ]}
     >
       <FlatList
-        // The content container is the grouped card: a single rounded, clipped
-        // surface. Individual rows draw their own hairline dividers.
-        contentContainerStyle={[
-          styles.card,
-          {
-            backgroundColor: theme.colors.card,
-            borderRadius: theme.borderRadius,
-            borderColor: withOpacity(theme.colors.text, 0.1),
-          },
-        ]}
+        // Ungrouped: each item is its own card, separated by margin (rather than
+        // sharing a single grouped surface).
+        contentContainerStyle={{ gap: theme.gap }}
         data={SETTINGS_ITEMS}
         keyExtractor={(item) => item.slug}
-        ItemSeparatorComponent={() => (
+        renderItem={({ item }) => (
           <View
             style={[
-              styles.divider,
-              { backgroundColor: withOpacity(theme.colors.text, 0.1) },
+              styles.card,
+              {
+                backgroundColor: theme.colors.card,
+                borderRadius: theme.borderRadius,
+              },
             ]}
-          />
-        )}
-        renderItem={({ item }) => (
-          <SettingsRow
-            icon={item.icon}
-            title={item.title}
-            subtitle={item.subtitle}
-            onPress={() => router.push(`/settings/${item.slug}`)}
-            testID={`settings-row-${item.slug}`}
-          />
+          >
+            <SettingsRow
+              icon={item.icon}
+              title={item.title}
+              subtitle={item.subtitle}
+              onPress={() => router.push(`/settings/${item.slug}`)}
+              testID={`settings-row-${item.slug}`}
+            />
+          </View>
         )}
       />
     </View>
@@ -64,11 +59,7 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   card: {
-    borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
   },
   screen: {
     flex: 1,

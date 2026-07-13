@@ -5,6 +5,11 @@ import { usePreferences } from "@/hooks/usePreferences";
 
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 
+const mockSetOptions = jest.fn();
+jest.mock("expo-router", () => ({
+  useNavigation: () => ({ setOptions: mockSetOptions }),
+}));
+
 const mockUsePreferences = usePreferences as jest.MockedFunction<
   typeof usePreferences
 >;
@@ -20,6 +25,14 @@ const renderWith = (
   return render(<JournalScreen />);
 };
 
+// The "Add prompt" affordance lives in the navigation header (set via
+// setOptions), so it isn't in the screen's own tree. Render the latest
+// headerRight to inspect/press it.
+const renderHeader = () => {
+  const options = mockSetOptions.mock.calls.at(-1)?.[0];
+  return render(options.headerRight());
+};
+
 describe("JournalScreen", () => {
   beforeEach(() => jest.clearAllMocks());
 
@@ -33,14 +46,20 @@ describe("JournalScreen", () => {
     expect(mockUpdate).toHaveBeenCalledWith({ enableJournal: false });
   });
 
-  it("hides the prompts editor when Journal is disabled", () => {
+  it("hides the prompts editor and header add button when Journal is disabled", () => {
     const screen = renderWith({
       enableJournal: false,
       templatePrompts: ["Highlight"],
     });
 
     expect(screen.queryByLabelText("Journal prompt 1")).toBeNull();
-    expect(screen.queryByText("Add prompt")).toBeNull();
+    expect(renderHeader().queryByLabelText("Add prompt")).toBeNull();
+  });
+
+  it("shows the header add button when Journal is enabled", () => {
+    renderWith({ enableJournal: true });
+
+    expect(renderHeader().getByLabelText("Add prompt")).toBeTruthy();
   });
 
   it("commits an edited prompt on blur, replacing it by index", () => {
@@ -69,20 +88,20 @@ describe("JournalScreen", () => {
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  it("appends an empty prompt when Add prompt is pressed", () => {
-    const screen = renderWith({
+  it("appends an empty prompt when the header add button is pressed", () => {
+    renderWith({
       enableJournal: true,
       templatePrompts: ["Highlight"],
     });
 
-    fireEvent.press(screen.getByText("Add prompt"));
+    fireEvent.press(renderHeader().getByLabelText("Add prompt"));
 
     expect(mockUpdate).toHaveBeenCalledWith({
       templatePrompts: ["Highlight", ""],
     });
   });
 
-  it("preserves an in-progress edit when Add prompt is pressed", () => {
+  it("preserves an in-progress edit when a prompt is added", () => {
     // Add derives the new array from local drafts, not the (optimistically
     // lagging) stored preference — so a typed-but-not-yet-blurred edit survives.
     const screen = renderWith({
@@ -94,7 +113,8 @@ describe("JournalScreen", () => {
       screen.getByLabelText("Journal prompt 1"),
       "What went well?",
     );
-    fireEvent.press(screen.getByText("Add prompt"));
+    // Re-read the header after the edit so it closes over the latest drafts.
+    fireEvent.press(renderHeader().getByLabelText("Add prompt"));
 
     expect(mockUpdate).toHaveBeenCalledWith({
       templatePrompts: ["What went well?", ""],

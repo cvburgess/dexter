@@ -1,19 +1,17 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
 import { useNavigation, useRouter } from "expo-router";
 import { useLayoutEffect } from "react";
 import {
-  Platform,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
-  TouchableOpacity,
   useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { HabitRow } from "@/components/HabitRow";
+import { HeaderAddButton } from "@/components/HeaderAddButton";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { useHabits } from "@/hooks/useHabits";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -30,24 +28,23 @@ export default function HabitsScreen() {
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = width >= SETTINGS_TWO_PANE_MIN_WIDTH;
 
-  // A "+" in the header opens the create modal (mirrors New Task). Re-wired on
-  // every render so the handler closes over the latest router.
+  // A "+" in the header opens the create modal (mirrors New Task), but only when
+  // habit tracking is on — otherwise there's no list to add to. Re-wired on
+  // every render so the handler and `enableHabits` gate stay current.
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <TouchableOpacity
-          accessibilityRole="button"
+        <HeaderAddButton
           accessibilityLabel="New habit"
+          visible={preferences.enableHabits}
           onPress={() =>
             router.push({
               pathname: "/settings/habits/[id]",
               params: { id: "new" },
             })
           }
-          style={Platform.OS === "web" ? styles.headerButtonWeb : undefined}
-        >
-          <Ionicons color={theme.colors.primary} name="add" size={28} />
-        </TouchableOpacity>
+          testID="new-habit-button"
+        />
       ),
     });
   });
@@ -91,42 +88,30 @@ export default function HabitsScreen() {
         {preferences.enableHabits && (
           <View style={styles.section}>
             <SettingsSectionTitle>Habits</SettingsSectionTitle>
-            <View
-              style={[
-                styles.list,
-                {
-                  backgroundColor: theme.colors.card,
-                  borderRadius: theme.borderRadius,
-                },
-              ]}
-            >
-              {habits.length === 0 ? (
-                <Text
-                  style={[styles.empty, { color: theme.colors.textSecondary }]}
-                >
-                  Tap ＋ to create your first habit.
-                </Text>
-              ) : (
-                habits.map((habit, index) => (
-                  <View key={habit.id}>
-                    {index > 0 && (
-                      <View
-                        style={[
-                          styles.divider,
-                          {
-                            backgroundColor: withOpacity(
-                              theme.colors.text,
-                              0.08,
-                            ),
-                          },
-                        ]}
-                      />
-                    )}
+            {habits.length === 0 ? (
+              <Text
+                style={[styles.empty, { color: theme.colors.textSecondary }]}
+              >
+                Tap ＋ to create your first habit.
+              </Text>
+            ) : (
+              <View style={{ gap: theme.gap }}>
+                {habits.map((habit) => (
+                  <View
+                    key={habit.id}
+                    style={[
+                      styles.card,
+                      {
+                        backgroundColor: theme.colors.card,
+                        borderRadius: theme.borderRadius,
+                      },
+                    ]}
+                  >
                     <HabitRow habit={habit} updateHabit={updateHabit} />
                   </View>
-                ))
-              )}
-            </View>
+                ))}
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -141,18 +126,12 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
   },
-  divider: {
-    height: StyleSheet.hairlineWidth,
+  card: {
+    overflow: "hidden",
+    paddingHorizontal: 16,
   },
   empty: {
     fontSize: 14,
-    paddingVertical: 8,
-  },
-  headerButtonWeb: {
-    marginRight: 20,
-  },
-  list: {
-    paddingHorizontal: 16,
     paddingVertical: 8,
   },
   section: {

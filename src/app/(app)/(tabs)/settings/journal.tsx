@@ -1,5 +1,6 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
-import { useEffect, useRef, useState } from "react";
+import { useNavigation } from "expo-router";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -15,7 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Button } from "@/components/Button";
+import { HeaderAddButton } from "@/components/HeaderAddButton";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { TextInput } from "@/components/TextInput";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -24,6 +25,7 @@ import { useTheme, withOpacity } from "@/utils/theme";
 
 export default function JournalScreen() {
   const theme = useTheme();
+  const navigation = useNavigation();
   const [preferences, { updatePreferences }] = usePreferences();
   const { width } = useWindowDimensions();
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
@@ -76,6 +78,22 @@ export default function JournalScreen() {
   const deletePrompt = (index: number) =>
     writePrompts(drafts.filter((_, i) => i !== index));
 
+  // A "+" in the header adds a prompt (mirrors Habits), but only when the
+  // Journal is on. Re-wired on every render so the handler closes over the
+  // latest drafts and the `enableJournal` gate stays current.
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <HeaderAddButton
+          accessibilityLabel="Add prompt"
+          visible={preferences.enableJournal}
+          onPress={addPrompt}
+          testID="add-prompt-button"
+        />
+      ),
+    });
+  });
+
   return (
     <SafeAreaView
       edges={twoPane ? ["bottom", "right"] : ["bottom", "left", "right"]}
@@ -117,39 +135,46 @@ export default function JournalScreen() {
           {preferences.enableJournal && (
             <View style={styles.section}>
               <SettingsSectionTitle>Journal prompts</SettingsSectionTitle>
-              {drafts.map((prompt, index) => (
-                <View key={index} style={styles.promptRow}>
-                  <TextInput
-                    accessibilityLabel={`Journal prompt ${index + 1}`}
-                    onBlur={commitPrompt}
-                    onChangeText={(text) =>
-                      setDrafts((current) =>
-                        current.map((p, i) => (i === index ? text : p)),
-                      )
-                    }
-                    onFocus={() => (focusedRef.current = true)}
-                    placeholder="e.g. What went well today?"
-                    style={styles.promptInput}
-                    value={prompt}
-                  />
-                  <TouchableOpacity
-                    accessibilityLabel={`Delete prompt ${index + 1}`}
-                    accessibilityRole="button"
-                    onPress={() => deletePrompt(index)}
-                    style={styles.deleteButton}
-                    testID={`delete-prompt-${index}`}
-                  >
-                    <Ionicons
-                      color={theme.colors.error}
-                      name="trash-outline"
-                      size={22}
-                    />
-                  </TouchableOpacity>
+              {drafts.length === 0 ? (
+                <Text
+                  style={[styles.empty, { color: theme.colors.textSecondary }]}
+                >
+                  Tap ＋ to add your first prompt.
+                </Text>
+              ) : (
+                <View style={{ gap: theme.gap }}>
+                  {drafts.map((prompt, index) => (
+                    <View key={index} style={styles.promptRow}>
+                      <TextInput
+                        accessibilityLabel={`Journal prompt ${index + 1}`}
+                        onBlur={commitPrompt}
+                        onChangeText={(text) =>
+                          setDrafts((current) =>
+                            current.map((p, i) => (i === index ? text : p)),
+                          )
+                        }
+                        onFocus={() => (focusedRef.current = true)}
+                        placeholder="e.g. What went well today?"
+                        style={styles.promptInput}
+                        value={prompt}
+                      />
+                      <TouchableOpacity
+                        accessibilityLabel={`Delete prompt ${index + 1}`}
+                        accessibilityRole="button"
+                        onPress={() => deletePrompt(index)}
+                        style={styles.deleteButton}
+                        testID={`delete-prompt-${index}`}
+                      >
+                        <Ionicons
+                          color={theme.colors.error}
+                          name="trash-outline"
+                          size={22}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
                 </View>
-              ))}
-              <Button variant="default" onPress={addPrompt}>
-                Add prompt
-              </Button>
+              )}
               <Text
                 style={[styles.hint, { color: theme.colors.textSecondary }]}
               >
@@ -175,6 +200,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 4,
+  },
+  empty: {
+    fontSize: 14,
+    paddingVertical: 8,
   },
   hint: {
     fontSize: 13,

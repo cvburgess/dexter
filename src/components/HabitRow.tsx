@@ -40,7 +40,10 @@ export function HabitRow({ habit, updateHabit }: THabitRowProps) {
         <View
           style={[
             styles.tile,
-            { backgroundColor: withOpacity(theme.colors.text, 0.06) },
+            {
+              backgroundColor: withOpacity(theme.colors.text, 0.06),
+              borderRadius: theme.borderRadius,
+            },
           ]}
         >
           <Text style={styles.emoji}>{habit.emoji}</Text>
@@ -112,7 +115,6 @@ const styles = StyleSheet.create({
   },
   tile: {
     alignItems: "center",
-    borderRadius: 8,
     height: TILE_SIZE,
     justifyContent: "center",
     width: TILE_SIZE,
