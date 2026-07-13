@@ -8,8 +8,8 @@ import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { DayNav } from "@/components/DayNav";
 import { DayViewSwitcher, TDayView } from "@/components/DayViewSwitcher";
 import { HabitTracker } from "@/components/HabitTracker";
+import { JournalView } from "@/components/JournalView";
 import { NotesView } from "@/components/NotesView";
-import { PlaceholderScreen } from "@/components/PlaceholderScreen";
 import { SwipeableDay } from "@/components/SwipeableDay";
 import { TaskCard } from "@/components/TaskCard";
 import { useConfirmation } from "@/hooks/useConfirmation";
@@ -40,6 +40,8 @@ export default function TodayScreen() {
   // Suspends notes day-swipe while the editor is focused, so horizontal drags
   // position the caret / select text instead of changing days.
   const [notesEditing, setNotesEditing] = useState(false);
+  // Same for Journal: a focused response field owns horizontal drags.
+  const [journalEditing, setJournalEditing] = useState(false);
   // Fall back to Tasks if the active view is disabled in settings (e.g. Notes
   // toggled off while viewing it). All views share `day.date`.
   const viewDisabled =
@@ -122,7 +124,20 @@ export default function TodayScreen() {
           />
         </SwipeableDay>
       ) : activeView === "journal" ? (
-        <PlaceholderScreen message="Journal is coming soon." />
+        // Swipe to change days like Notes, suspended while a response field is
+        // focused so horizontal drags position the caret instead of changing
+        // days. SwipeableDay remounts per date, re-seeding the response inputs.
+        <SwipeableDay
+          dateKey={day.date.toString()}
+          direction={day.direction}
+          enabled={!journalEditing}
+          onSwipe={changeDateBy}
+        >
+          <JournalView
+            date={day.date.toString()}
+            onEditingChange={setJournalEditing}
+          />
+        </SwipeableDay>
       ) : (
         <SwipeableDay
           dateKey={day.date.toString()}

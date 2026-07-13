@@ -1,5 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { act, fireEvent, render } from "@testing-library/react-native";
+import { Text, TouchableOpacity } from "react-native";
 import {
   fireGestureHandler,
   getByGestureTestId,
@@ -8,6 +9,7 @@ import {
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 
 import TodayScreen from "@/app/(app)/(tabs)/today";
+import { usePreferences } from "@/hooks/usePreferences";
 import { taskFiltersForDate, useTasks } from "@/hooks/useTasks";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
 
@@ -60,17 +62,45 @@ jest.mock("expo-router", () => ({ useRouter: () => ({ push: jest.fn() }) }));
 // focused on task rendering (and so its expo-router import isn't evaluated).
 jest.mock("@/components/HabitTracker", () => ({ HabitTracker: () => null }));
 // usePreferences reads via useQuery, which would throw without a
-// QueryClientProvider (this screen mounts without one).
-jest.mock("@/hooks/usePreferences", () => ({
-  usePreferences: () => [
-    { enableHabits: true, enableNotes: true, enableJournal: true },
-    { updatePreferences: jest.fn() },
-  ],
-}));
+// QueryClientProvider (this screen mounts without one). A jest.fn() so tests can
+// vary the enabled views (e.g. Journal on/off).
+jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 // The Notes view's editor wraps a native module (react-native-enriched-markdown)
 // with no Jest double; stub it so the module graph loads. The Notes surface is
 // covered by NotesView.test; this suite stays focused on the Tasks view.
 jest.mock("@/components/NoteEditor", () => ({ NoteEditor: () => null }));
+// The Journal view reads via useDays (supabase/QueryClient); stub it to a marker
+// so this suite can assert it mounts when Journal is selected. Its behavior is
+// covered by JournalView.test.
+const mockJournalView = () => <Text>journal-view</Text>;
+jest.mock("@/components/JournalView", () => ({
+  JournalView: () => mockJournalView(),
+}));
+// The real switcher is an icon-only native trigger (GlassIconButton + IconMenu),
+// so it can't be driven from a unit test. Stub it with a plain button per view
+// that calls onChangeView, letting tests exercise the screen's view branches.
+// The switcher's own gating is covered by DayViewSwitcher.test.
+const mockDayViewSwitcher = ({
+  onChangeView,
+}: {
+  onChangeView: (view: string) => void;
+}) => (
+  <>
+    {["tasks", "notes", "journal"].map((view) => (
+      <TouchableOpacity
+        accessibilityLabel={`view-${view}`}
+        key={view}
+        onPress={() => onChangeView(view)}
+      >
+        <Text>{view}</Text>
+      </TouchableOpacity>
+    ))}
+  </>
+);
+jest.mock("@/components/DayViewSwitcher", () => ({
+  DayViewSwitcher: (props: { onChangeView: (view: string) => void }) =>
+    mockDayViewSwitcher(props),
+}));
 // The view switcher's circular button wraps native glass/SF-symbol views; stub
 // it so the icon-only trigger renders without them (covered by its own tests).
 jest.mock("@/components/GlassIconButton", () => ({
@@ -78,6 +108,9 @@ jest.mock("@/components/GlassIconButton", () => ({
 }));
 
 const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
+const mockUsePreferences = usePreferences as jest.MockedFunction<
+  typeof usePreferences
+>;
 
 const task: TTask = {
   id: "task-1",
@@ -91,6 +124,19 @@ const task: TTask = {
   templateId: null,
 };
 
+const preferences = (
+  overrides: { enableJournal?: boolean } = {},
+): ReturnType<typeof usePreferences> =>
+  [
+    {
+      enableHabits: true,
+      enableNotes: true,
+      enableJournal: true,
+      ...overrides,
+    },
+    { updatePreferences: jest.fn() },
+  ] as never;
+
 describe("TodayScreen", () => {
   beforeEach(() => {
     mockUseTasks.mockReturnValue([
@@ -103,6 +149,7 @@ describe("TodayScreen", () => {
         updateTasks: jest.fn(),
       },
     ]);
+    mockUsePreferences.mockReturnValue(preferences());
   });
 
   it("queries tasks scheduled for today by default", () => {
@@ -145,6 +192,25 @@ describe("TodayScreen", () => {
 
     // The switcher is now an icon-only button, so the default view is asserted
     // via the Tasks content (its empty state), not a label.
+    expect(screen.getByText("No tasks scheduled for this day.")).toBeTruthy();
+  });
+
+  it("renders the Journal view when Journal is selected", () => {
+    const screen = render(<TodayScreen />);
+
+    fireEvent.press(screen.getByLabelText("view-journal"));
+
+    expect(screen.getByText("journal-view")).toBeTruthy();
+    expect(screen.queryByText("No tasks scheduled for this day.")).toBeNull();
+  });
+
+  it("falls back to Tasks when Journal is selected but disabled", () => {
+    mockUsePreferences.mockReturnValue(preferences({ enableJournal: false }));
+    const screen = render(<TodayScreen />);
+
+    fireEvent.press(screen.getByLabelText("view-journal"));
+
+    expect(screen.queryByText("journal-view")).toBeNull();
     expect(screen.getByText("No tasks scheduled for this day.")).toBeTruthy();
   });
 
