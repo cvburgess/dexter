@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   useAnimatedKeyboard,
@@ -92,6 +92,7 @@ export function NoteEditor({
   onChangeMarkdown,
   placeholder,
   autoFocus,
+  onFocusChange,
   testID,
 }: TNoteEditorProps) {
   const theme = useTheme();
@@ -104,6 +105,12 @@ export function NoteEditor({
   const barStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: -keyboard.height.value }],
   }));
+
+  // Report "no longer editing" when the editor unmounts without a blur event —
+  // e.g. the day changes via DayNav or the tab switches while focused (React
+  // fires no blur on unmount), which would otherwise leave the host's swipe
+  // gesture disabled on the next day.
+  useEffect(() => () => onFocusChange?.(false), [onFocusChange]);
 
   return (
     <View style={styles.container}>
@@ -118,10 +125,14 @@ export function NoteEditor({
           // Clear so a later focus doesn't flash the previous caret's
           // highlights before the input emits a fresh state.
           setState(null);
+          onFocusChange?.(false);
         }}
         onChangeMarkdown={onChangeMarkdown}
         onChangeState={setState}
-        onFocus={() => setFocused(true)}
+        onFocus={() => {
+          setFocused(true);
+          onFocusChange?.(true);
+        }}
         placeholder={placeholder}
         placeholderTextColor={theme.colors.textSecondary}
         selectionColor={theme.colors.primary}

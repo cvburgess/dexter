@@ -37,6 +37,9 @@ export default function TodayScreen() {
     direction: 0,
   }));
   const [view, setView] = useState<TDayView>("tasks");
+  // Suspends notes day-swipe while the editor is focused, so horizontal drags
+  // position the caret / select text instead of changing days.
+  const [notesEditing, setNotesEditing] = useState(false);
   // Fall back to Tasks if the active view is disabled in settings (e.g. Notes
   // toggled off while viewing it). All views share `day.date`.
   const viewDisabled =
@@ -102,10 +105,22 @@ export default function TodayScreen() {
         </View>
       </View>
       {activeView === "notes" ? (
-        // Keyed by date so switching days remounts the editor (re-seeds the
-        // note, resets the template chooser). Notes navigate via DayNav only —
-        // no swipe, which would fight the editor's caret/selection gestures.
-        <NotesView key={day.date.toString()} date={day.date.toString()} />
+        // Swipe to change days like tasks, but only while the note isn't being
+        // edited — a focused editor owns horizontal drags for caret/selection,
+        // so the gesture is suspended via `enabled` until the user taps Done.
+        // SwipeableDay remounts its content per date, re-seeding the editor and
+        // resetting the template chooser.
+        <SwipeableDay
+          dateKey={day.date.toString()}
+          direction={day.direction}
+          enabled={!notesEditing}
+          onSwipe={changeDateBy}
+        >
+          <NotesView
+            date={day.date.toString()}
+            onEditingChange={setNotesEditing}
+          />
+        </SwipeableDay>
       ) : activeView === "journal" ? (
         <PlaceholderScreen message="Journal is coming soon." />
       ) : (

@@ -37,6 +37,9 @@ type TSwipeableDayProps = {
   dateKey: string;
   direction: -1 | 0 | 1;
   onSwipe: (direction: 1 | -1) => void;
+  /** Disable the swipe gesture (e.g. while a note is being edited, so it
+   * doesn't fight the editor's caret/selection drags). Defaults to enabled. */
+  enabled?: boolean;
   children: ReactNode;
 };
 
@@ -53,6 +56,7 @@ export function SwipeableDay(props: TSwipeableDayProps) {
 function SwipeableDayContent({
   direction,
   onSwipe,
+  enabled = true,
   children,
 }: Omit<TSwipeableDayProps, "dateKey">) {
   const translateX = useSharedValue(0);
@@ -73,6 +77,7 @@ function SwipeableDayContent({
   };
 
   const pan = Gesture.Pan()
+    .enabled(enabled)
     .activeOffsetX([-20, 20])
     .failOffsetY([-10, 10])
     .withTestId("day-swipe")

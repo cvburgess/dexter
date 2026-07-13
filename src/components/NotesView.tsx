@@ -12,6 +12,9 @@ import { NoteEditor } from "./NoteEditor";
 type TNotesViewProps = {
   /** ISO date (YYYY-MM-DD) of the day whose note is shown. */
   date: string;
+  /** Fired as the editor gains/loses focus, so the host can disable day-swipe
+   * while editing. */
+  onEditingChange?: (editing: boolean) => void;
 };
 
 // Autosave cadence: long enough to coalesce a burst of keystrokes into one
@@ -27,7 +30,7 @@ const SAVE_DEBOUNCE_MS = 800;
  * (DEX-37). Remount this per-date (via `key`) so the editor re-seeds when the
  * day changes.
  */
-export function NotesView({ date }: TNotesViewProps) {
+export function NotesView({ date, onEditingChange }: TNotesViewProps) {
   const theme = useTheme();
   const [day, { isLoading, exists, upsertDay, upsertDayAsync }] = useDays(date);
   const [preferences] = usePreferences();
@@ -130,6 +133,7 @@ export function NotesView({ date }: TNotesViewProps) {
     <NoteEditor
       initialValue={day.notes ?? ""}
       onChangeMarkdown={handleChangeMarkdown}
+      onFocusChange={onEditingChange}
       placeholder="Write today's note…"
       testID="note-editor"
     />
