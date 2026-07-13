@@ -58,8 +58,8 @@ export function CalendarView({ date }: TCalendarViewProps) {
   );
 
   const positioned = useMemo(
-    () => layoutEvents(events, windowStartMin, windowEndMin, HOUR_HEIGHT),
-    [events, windowStartMin, windowEndMin],
+    () => layoutEvents(events, date, windowStartMin, windowEndMin, HOUR_HEIGHT),
+    [events, date, windowStartMin, windowEndMin],
   );
 
   const hours = useMemo(() => {

@@ -103,11 +103,15 @@ export const useCalendarEvents = (
   date: Temporal.PlainDate,
 ): TUseCalendarEvents => {
   const [preferences] = usePreferences();
-  const [enabledIds] = useEnabledDeviceCalendars();
+  const [enabledIds, { isLoading: enabledLoading }] =
+    useEnabledDeviceCalendars();
   const active = preferences.enableCalendar;
 
   const { data, isLoading, isError } = useQuery({
-    enabled: active,
+    // Wait for the device-local selection to load before fetching, so a cold
+    // start with some calendars disabled doesn't briefly fetch (and cache)
+    // every calendar under a stale `null` key.
+    enabled: active && !enabledLoading,
     queryKey: ["calendarEvents", date.toString(), enabledIds],
     queryFn: () => fetchDeviceEvents(date.toString(), enabledIds),
     staleTime: STALE_TIME_MS,
@@ -117,7 +121,7 @@ export const useCalendarEvents = (
   return [
     result.events,
     {
-      isLoading: active && isLoading,
+      isLoading: active && (enabledLoading || isLoading),
       isError,
       permissionDenied: result.permissionDenied,
     },

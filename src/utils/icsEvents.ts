@@ -3,9 +3,14 @@ import ICAL from "ical.js";
 
 import { TCalendarEvent } from "@/hooks/useCalendarEvents.types";
 
-// Hard ceiling on recurrence expansion per event. The real terminator is
-// "stop once an occurrence starts after the target day"; this only guards
-// against pathological/looping RRULEs (e.g. FREQ=SECONDLY) hanging the parser.
+// Hard ceiling on recurrence expansion per event. The real terminator is "stop
+// once an occurrence starts after the target day"; this guards against
+// pathological/looping RRULEs (e.g. FREQ=SECONDLY) hanging the parser. 10000
+// occurrences covers ~27 years of a daily event — enough for any realistic
+// feed. The tradeoff: an unbounded sub-daily rule (HOURLY/MINUTELY) whose
+// DTSTART is far in the past could exhaust the cap before reaching today; such
+// feeds are effectively nonexistent, so we accept that over risking incorrect
+// fast-forward seeking.
 const MAX_ITERATIONS = 10000;
 
 /** An ICAL.Time as exposed by ical.js — typed loosely to avoid depending on internals. */
