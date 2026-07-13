@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { duplicateTaskInput, TTask } from "@/api/tasks";
+import { CalendarView } from "@/components/CalendarView";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { DayNav } from "@/components/DayNav";
 import { DayViewSwitcher, TDayView } from "@/components/DayViewSwitcher";
@@ -46,7 +47,8 @@ export default function TodayScreen() {
   // toggled off while viewing it). All views share `day.date`.
   const viewDisabled =
     (view === "notes" && !preferences.enableNotes) ||
-    (view === "journal" && !preferences.enableJournal);
+    (view === "journal" && !preferences.enableJournal) ||
+    (view === "calendar" && !preferences.enableCalendar);
   // Reset the stored `view` when its feature is disabled, so re-enabling later
   // doesn't jump back into a view the user hasn't been looking at. Adjusting
   // state during render (React's supported pattern) corrects it before paint —
@@ -103,6 +105,7 @@ export default function TodayScreen() {
             onChangeView={setView}
             enableNotes={preferences.enableNotes}
             enableJournal={preferences.enableJournal}
+            enableCalendar={preferences.enableCalendar}
           />
         </View>
       </View>
@@ -137,6 +140,17 @@ export default function TodayScreen() {
             date={day.date.toString()}
             onEditingChange={setJournalEditing}
           />
+        </SwipeableDay>
+      ) : activeView === "calendar" ? (
+        // Swipe to change days like the other views. The timeline scrolls
+        // vertically, so horizontal drags never conflict with its own gestures;
+        // SwipeableDay remounts per date, re-fetching that day's events.
+        <SwipeableDay
+          dateKey={day.date.toString()}
+          direction={day.direction}
+          onSwipe={changeDateBy}
+        >
+          <CalendarView date={day.date} />
         </SwipeableDay>
       ) : (
         <SwipeableDay
