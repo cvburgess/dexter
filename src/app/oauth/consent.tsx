@@ -161,7 +161,15 @@ export default function OAuthConsentScreen() {
       <SafeAreaView
         style={[styles.container, { backgroundColor: theme.colors.background }]}
       >
-        <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: theme.colors.card,
+              borderRadius: theme.borderRadius,
+            },
+          ]}
+        >
           <Text style={[styles.title, { color: theme.colors.text }]}>
             Authorized
           </Text>
@@ -181,7 +189,15 @@ export default function OAuthConsentScreen() {
       <SafeAreaView
         style={[styles.container, { backgroundColor: theme.colors.background }]}
       >
-        <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: theme.colors.card,
+              borderRadius: theme.borderRadius,
+            },
+          ]}
+        >
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text
             style={[styles.subtitle, { color: theme.colors.textSecondary }]}
@@ -236,7 +252,6 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   card: {
-    borderRadius: 16,
     padding: 24,
     maxWidth: 400,
     width: "100%",

@@ -230,7 +230,10 @@ function HabitForm({ existing }: { existing?: THabit }) {
             accessibilityRole="button"
             accessibilityLabel="Choose emoji"
             onPress={() => setPickerOpen(true)}
-            style={[styles.emoji, { borderColor: inputBorder }]}
+            style={[
+              styles.emoji,
+              { borderColor: inputBorder, borderRadius: theme.borderRadius },
+            ]}
           >
             <Text style={styles.emojiGlyph}>{emoji}</Text>
           </TouchableOpacity>
@@ -259,7 +262,11 @@ function HabitForm({ existing }: { existing?: THabit }) {
               maxLength={3}
               style={[
                 styles.stepsInput,
-                { borderColor: inputBorder, color: theme.colors.text },
+                {
+                  borderColor: inputBorder,
+                  borderRadius: theme.borderRadius,
+                  color: theme.colors.text,
+                },
               ]}
             />
             <Text
@@ -365,7 +372,6 @@ const styles = StyleSheet.create({
   },
   emoji: {
     alignItems: "center",
-    borderRadius: 8,
     borderWidth: StyleSheet.hairlineWidth,
     height: 50,
     justifyContent: "center",
@@ -393,7 +399,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   stepsInput: {
-    borderRadius: 8,
     borderWidth: StyleSheet.hairlineWidth,
     fontSize: 16,
     height: 40,

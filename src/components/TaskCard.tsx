@@ -49,6 +49,7 @@ export function TaskCard({
             isComplete ? COMPLETE_OPACITY : INCOMPLETE_OPACITY,
           ),
           borderColor: withOpacity(contentColor, 0.1),
+          borderRadius: theme.borderRadius,
         },
       ]}
       testID={`task-card-${task.id}`}
@@ -118,7 +119,6 @@ const styles = StyleSheet.create({
     // wrapper that would otherwise supply the stretch).
     alignSelf: "stretch",
     alignItems: "center",
-    borderRadius: 12,
     borderWidth: 1,
     flexDirection: "row",
     gap: 8,
