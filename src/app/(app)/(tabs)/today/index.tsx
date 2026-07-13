@@ -40,6 +40,12 @@ export default function TodayScreen() {
     date: Temporal.Now.plainDateISO(),
     direction: 0,
   }));
+  // `view`/`notesEditing`/`journalEditing` only drive the small-screen
+  // single-view layout below, but as hooks they still need to run
+  // unconditionally on every render regardless of `multiPane` — their derived
+  // values (`viewDisabled`/`activeView`) are computed further down, after the
+  // large-screen branch's early return, since only the small-screen JSX reads
+  // them.
   const [view, setView] = useState<TDayView>("tasks");
   // Suspends notes day-swipe while the editor is focused, so horizontal drags
   // position the caret / select text instead of changing days. Only relevant
@@ -47,18 +53,6 @@ export default function TodayScreen() {
   const [notesEditing, setNotesEditing] = useState(false);
   // Same for Journal: a focused response field owns horizontal drags.
   const [journalEditing, setJournalEditing] = useState(false);
-  // Fall back to Tasks if the active view is disabled in settings (e.g. Notes
-  // toggled off while viewing it). All views share `day.date`.
-  const viewDisabled =
-    (view === "notes" && !preferences.enableNotes) ||
-    (view === "journal" && !preferences.enableJournal) ||
-    (view === "calendar" && !preferences.enableCalendar);
-  // Reset the stored `view` when its feature is disabled, so re-enabling later
-  // doesn't jump back into a view the user hasn't been looking at. Adjusting
-  // state during render (React's supported pattern) corrects it before paint —
-  // no flash and no effect. `activeView` guards the pre-reset render pass.
-  if (viewDisabled) setView("tasks");
-  const activeView: TDayView = viewDisabled ? "tasks" : view;
   usePrefetchAdjacentTasks(day.date);
   // So "New Task" opened from this tab defaults its schedule to the viewed day.
   usePublishViewedDay(day.date);
@@ -157,6 +151,19 @@ export default function TodayScreen() {
       </SafeAreaView>
     );
   }
+
+  // Fall back to Tasks if the active view is disabled in settings (e.g. Notes
+  // toggled off while viewing it). All views share `day.date`.
+  const viewDisabled =
+    (view === "notes" && !preferences.enableNotes) ||
+    (view === "journal" && !preferences.enableJournal) ||
+    (view === "calendar" && !preferences.enableCalendar);
+  // Reset the stored `view` when its feature is disabled, so re-enabling later
+  // doesn't jump back into a view the user hasn't been looking at. Adjusting
+  // state during render (React's supported pattern) corrects it before paint —
+  // no flash and no effect. `activeView` guards the pre-reset render pass.
+  if (viewDisabled) setView("tasks");
+  const activeView: TDayView = viewDisabled ? "tasks" : view;
 
   return (
     <SafeAreaView

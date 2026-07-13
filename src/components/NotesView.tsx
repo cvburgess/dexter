@@ -152,16 +152,27 @@ export function NotesView({
   const priorityColor = theme.colors.priority[ETaskPriority.NEITHER];
   const contentColor = theme.colors.priorityContent[ETaskPriority.NEITHER];
 
+  // `inset` bundles three chrome decisions that only ever change together —
+  // derive them here once rather than three scattered ternaries in the JSX.
+  const chrome = inset
+    ? {
+        wrapper: styles.cardWrapper,
+        card: styles.card,
+        backgroundColor: withOpacity(priorityColor, 0.8),
+      }
+    : {
+        wrapper: [styles.cardWrapper, styles.cardWrapperFlush],
+        card: [styles.card, styles.cardBorderless],
+        backgroundColor: "transparent",
+      };
+
   return (
-    <View style={[styles.cardWrapper, !inset && styles.cardWrapperFlush]}>
+    <View style={chrome.wrapper}>
       <View
         style={[
-          styles.card,
-          !inset && styles.cardBorderless,
+          chrome.card,
           {
-            backgroundColor: inset
-              ? withOpacity(priorityColor, 0.8)
-              : "transparent",
+            backgroundColor: chrome.backgroundColor,
             borderColor: withOpacity(contentColor, 0.1),
             borderRadius: theme.borderRadius,
           },

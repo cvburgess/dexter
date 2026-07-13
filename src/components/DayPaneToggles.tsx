@@ -29,6 +29,7 @@ type TPaneToggleOption = {
  * Builds the toggle button descriptors: Notes/Journal/Calendar, each only
  * when enabled, with the pane's current on/off state. Exported so the
  * gating/selection logic is unit-testable without rendering native buttons.
+ * Mirrors `dayViewOptions`' shape (collect the enabled panes, then map).
  */
 export function paneToggleOptions(
   panes: TTodayPanes,
@@ -37,28 +38,19 @@ export function paneToggleOptions(
   enableJournal: boolean,
   enableCalendar: boolean,
 ): TPaneToggleOption[] {
-  const options: TPaneToggleOption[] = [];
-  if (enableNotes) options.push(makeOption("notes", panes, onTogglePane));
-  if (enableJournal) options.push(makeOption("journal", panes, onTogglePane));
-  if (enableCalendar) {
-    options.push(makeOption("calendar", panes, onTogglePane));
-  }
-  return options;
-}
+  const enabled: TTodayPane[] = [];
+  if (enableNotes) enabled.push("notes");
+  if (enableJournal) enabled.push("journal");
+  if (enableCalendar) enabled.push("calendar");
 
-function makeOption(
-  pane: TTodayPane,
-  panes: TTodayPanes,
-  onTogglePane: (pane: TTodayPane) => void,
-): TPaneToggleOption {
-  return {
+  return enabled.map((pane) => ({
     pane,
     label: VIEW_META[pane].label,
     icon: VIEW_META[pane].icon,
     ionicon: VIEW_META[pane].ionicon,
     active: panes[pane],
     onToggle: () => onTogglePane(pane),
-  };
+  }));
 }
 
 /**
