@@ -82,18 +82,35 @@ function JournalEditor({
   const theme = useTheme();
   const keyboard = useAnimatedKeyboard();
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
+  // Each row's y-offset within the scroll content, recorded via onLayout, so
+  // a focus can scroll straight to it.
+  const rowOffsetsRef = useRef<number[]>([]);
 
   // Shrink the scroll area's own frame to the visible viewport as the keyboard
-  // rises, so a focused response field's built-in scroll-into-view lands it
-  // above the keyboard instead of underneath it. Mirrors NoteEditor's approach:
-  // this view nests inside SwipeableDay's Animated.View/GestureDetector chain,
-  // where a plain `KeyboardAvoidingView`'s layout tracking is unreliable, so we
-  // read the keyboard height directly on the UI thread instead. The host's
-  // SafeAreaView excludes "bottom" (the tab bar owns that inset), so fall back
-  // to the safe-area inset when the keyboard is closed.
+  // rises. Mirrors NoteEditor's approach: this view nests inside SwipeableDay's
+  // Animated.View/GestureDetector chain, where a plain `KeyboardAvoidingView`'s
+  // layout tracking is unreliable, so we read the keyboard height directly on
+  // the UI thread instead. The host's SafeAreaView excludes "bottom" (the tab
+  // bar owns that inset), so fall back to the safe-area inset when closed.
   const keyboardInsetStyle = useAnimatedStyle(() => ({
     paddingBottom: Math.max(keyboard.height.value, insets.bottom),
   }));
+
+  // Shrinking the viewport only makes room — it doesn't reposition the
+  // scroll. With several independent `TextInput`s (not one caret-scrolling
+  // editor like Notes), RN's built-in scroll-focused-input-into-view is
+  // unreliable, so drive it explicitly: scroll the focused row near the top
+  // of the now-shrunk visible area. The keyboard is still animating in when
+  // focus fires, so wait a beat for the viewport to finish shrinking first.
+  const scrollToRow = useCallback((index: number) => {
+    setTimeout(() => {
+      const y = rowOffsetsRef.current[index];
+      if (y !== undefined) {
+        scrollRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true });
+      }
+    }, 50);
+  }, []);
 
   // Track the latest per-index text so a save can rebuild the whole array,
   // seeded from the loaded responses. Seeded once at mount; the editor is
@@ -169,11 +186,18 @@ function JournalEditor({
   return (
     <Animated.View style={[styles.scroll, keyboardInsetStyle]}>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
       >
         {prompts.map(({ prompt, response }, index) => (
-          <View key={index} style={styles.row}>
+          <View
+            key={index}
+            style={styles.row}
+            onLayout={(e) => {
+              rowOffsetsRef.current[index] = e.nativeEvent.layout.y;
+            }}
+          >
             <Text style={[styles.label, { color: theme.colors.text }]}>
               {prompt}
             </Text>
@@ -186,7 +210,10 @@ function JournalEditor({
                 onEditingChange?.(false);
               }}
               onChangeText={(text) => handleChangeResponse(index, text)}
-              onFocus={() => onEditingChange?.(true)}
+              onFocus={() => {
+                onEditingChange?.(true);
+                scrollToRow(index);
+              }}
               placeholder="Write your response…"
               style={styles.input}
               testID={`journal-response-${index}`}

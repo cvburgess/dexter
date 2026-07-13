@@ -29,6 +29,10 @@ export default function JournalScreen() {
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = width >= SETTINGS_TWO_PANE_MIN_WIDTH;
   const keyboard = useAnimatedKeyboard();
+  const scrollRef = useRef<ScrollView>(null);
+  // Each prompt row's y-offset within the scroll content, recorded via
+  // onLayout, so a focus can scroll straight to it.
+  const rowOffsetsRef = useRef<number[]>([]);
 
   // Shrink the scroll area as the keyboard rises so a focused prompt field
   // isn't hidden underneath it. No safe-area fallback needed here (unlike
@@ -38,6 +42,20 @@ export default function JournalScreen() {
   const keyboardInsetStyle = useAnimatedStyle(() => ({
     paddingBottom: keyboard.height.value,
   }));
+
+  // Shrinking the viewport only makes room — it doesn't reposition the
+  // scroll. With several independent `TextInput`s, RN's built-in
+  // scroll-focused-input-into-view is unreliable, so drive it explicitly:
+  // scroll the focused row near the top of the now-shrunk visible area. The
+  // keyboard is still animating in when focus fires, so wait a beat first.
+  const scrollToRow = (index: number) => {
+    setTimeout(() => {
+      const y = rowOffsetsRef.current[index];
+      if (y !== undefined) {
+        scrollRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true });
+      }
+    }, 50);
+  };
 
   // Edit prompts locally and commit on blur so we don't write a preference on
   // every keystroke. Re-sync from the stored value when it changes elsewhere
@@ -83,6 +101,7 @@ export default function JournalScreen() {
     >
       <Animated.View style={[styles.container, keyboardInsetStyle]}>
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={[
             styles.content,
             { padding: theme.spacing, gap: theme.spacing },
@@ -118,7 +137,13 @@ export default function JournalScreen() {
             <View style={styles.section}>
               <SettingsSectionTitle>Journal prompts</SettingsSectionTitle>
               {drafts.map((prompt, index) => (
-                <View key={index} style={styles.promptRow}>
+                <View
+                  key={index}
+                  style={styles.promptRow}
+                  onLayout={(e) => {
+                    rowOffsetsRef.current[index] = e.nativeEvent.layout.y;
+                  }}
+                >
                   <TextInput
                     accessibilityLabel={`Journal prompt ${index + 1}`}
                     onBlur={commitPrompt}
@@ -127,7 +152,10 @@ export default function JournalScreen() {
                         current.map((p, i) => (i === index ? text : p)),
                       )
                     }
-                    onFocus={() => (focusedRef.current = true)}
+                    onFocus={() => {
+                      focusedRef.current = true;
+                      scrollToRow(index);
+                    }}
                     placeholder="e.g. What went well today?"
                     style={styles.promptInput}
                     value={prompt}
