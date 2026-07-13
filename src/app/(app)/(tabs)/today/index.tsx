@@ -1,28 +1,21 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { StyleSheet, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { duplicateTaskInput, TTask } from "@/api/tasks";
 import { CalendarView } from "@/components/CalendarView";
-import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { DayNav } from "@/components/DayNav";
+import { DayPaneToggles } from "@/components/DayPaneToggles";
 import { DayViewSwitcher, TDayView } from "@/components/DayViewSwitcher";
-import { EmptyScreen } from "@/components/EmptyScreen";
-import { HabitTracker } from "@/components/HabitTracker";
 import { JournalView } from "@/components/JournalView";
 import { NotesView } from "@/components/NotesView";
 import { SwipeableDay } from "@/components/SwipeableDay";
-import { TaskCard } from "@/components/TaskCard";
-import { useConfirmation } from "@/hooks/useConfirmation";
+import { TasksView } from "@/components/TasksView";
 import { usePreferences } from "@/hooks/usePreferences";
-import {
-  taskFiltersForDate,
-  usePrefetchAdjacentTasks,
-  useTasks,
-} from "@/hooks/useTasks";
-import { useTemplates } from "@/hooks/useTemplates";
+import { usePrefetchAdjacentTasks } from "@/hooks/useTasks";
+import { useTodayPanes } from "@/hooks/useTodayPanes";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
+import { PANE_MAX_WIDTH, TWO_PANE_MIN_WIDTH } from "@/utils/breakpoints";
 import { useTheme } from "@/utils/theme";
 
 type TDayState = {
@@ -32,15 +25,18 @@ type TDayState = {
 
 export default function TodayScreen() {
   const theme = useTheme();
-  const { confirm, confirmationProps } = useConfirmation();
   const [preferences] = usePreferences();
+  const { width } = useWindowDimensions();
+  const multiPane = width >= TWO_PANE_MIN_WIDTH;
+  const [panes, { togglePane }] = useTodayPanes();
   const [day, setDay] = useState<TDayState>(() => ({
     date: Temporal.Now.plainDateISO(),
     direction: 0,
   }));
   const [view, setView] = useState<TDayView>("tasks");
   // Suspends notes day-swipe while the editor is focused, so horizontal drags
-  // position the caret / select text instead of changing days.
+  // position the caret / select text instead of changing days. Only relevant
+  // to the small-screen single-view layout — large screens don't swipe.
   const [notesEditing, setNotesEditing] = useState(false);
   // Same for Journal: a focused response field owns horizontal drags.
   const [journalEditing, setJournalEditing] = useState(false);
@@ -56,30 +52,9 @@ export default function TodayScreen() {
   // no flash and no effect. `activeView` guards the pre-reset render pass.
   if (viewDisabled) setView("tasks");
   const activeView: TDayView = viewDisabled ? "tasks" : view;
-  const [tasks, { isLoading, updateTask, createTask, deleteTask }] = useTasks({
-    filters: taskFiltersForDate(day.date),
-  });
-  const [, { deleteTemplate }] = useTemplates();
   usePrefetchAdjacentTasks(day.date);
   // So "New Task" opened from this tab defaults its schedule to the viewed day.
   usePublishViewedDay(day.date);
-
-  const handleDelete = async (task: TTask) => {
-    const isRepeating = task.templateId !== null;
-    const confirmed = await confirm({
-      title: isRepeating ? "Delete repeating task?" : "Delete Task",
-      message: isRepeating
-        ? "This task repeats. Deleting it also removes its repeat schedule, so no new occurrences will be created."
-        : "Delete this task?",
-      confirmLabel: "Delete",
-      destructive: true,
-    });
-    if (!confirmed) return;
-    // The task→template FK is ON DELETE SET NULL, so the template must be removed
-    // explicitly to stop future occurrences (DEX-21).
-    if (task.templateId) deleteTemplate(task.templateId);
-    deleteTask(task.id);
-  };
 
   const changeDate = (next: Temporal.PlainDate) =>
     setDay(({ date }) => ({
@@ -92,6 +67,50 @@ export default function TodayScreen() {
       const next = date.add({ days });
       return { date: next, direction: Temporal.PlainDate.compare(next, date) };
     });
+
+  if (multiPane) {
+    const showNotes = preferences.enableNotes && panes.notes;
+    const showJournal = preferences.enableJournal && panes.journal;
+    const showCalendar = preferences.enableCalendar && panes.calendar;
+
+    return (
+      <SafeAreaView
+        edges={["top", "left", "right"]}
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+      >
+        <View style={styles.multiPaneHeader}>
+          <DayNav date={day.date} onChangeDate={changeDate} />
+          <DayPaneToggles
+            enableCalendar={preferences.enableCalendar}
+            enableJournal={preferences.enableJournal}
+            enableNotes={preferences.enableNotes}
+            onTogglePane={togglePane}
+            panes={panes}
+          />
+        </View>
+        <View style={[styles.paneRow, { gap: theme.gap }]}>
+          <View style={styles.fixedPane}>
+            <TasksView date={day.date} />
+          </View>
+          {showNotes && (
+            <View style={styles.flexPane}>
+              <NotesView date={day.date.toString()} />
+            </View>
+          )}
+          {showJournal && (
+            <View style={styles.flexPane}>
+              <JournalView date={day.date.toString()} />
+            </View>
+          )}
+          {showCalendar && (
+            <View style={styles.fixedPane}>
+              <CalendarView date={day.date} />
+            </View>
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView
@@ -159,35 +178,9 @@ export default function TodayScreen() {
           direction={day.direction}
           onSwipe={changeDateBy}
         >
-          {preferences.enableHabits && <HabitTracker date={day.date} />}
-          {/* A plain ScrollView (not FlatList): a day's list is small, so
-              virtualization buys nothing — and the cards contain @expo/ui menu
-              hosts that size asynchronously, which virtualized off-viewport
-              mounting makes worse (expo/expo#42576). The cards themselves pin
-              their heights (see TaskCard/StatusButton) so layout stays stable. */}
-          {tasks.length === 0 ? (
-            !isLoading && (
-              <EmptyScreen message="No tasks scheduled for this day." />
-            )
-          ) : (
-            <ScrollView
-              style={styles.scroll}
-              contentContainerStyle={styles.list}
-            >
-              {tasks.map((item) => (
-                <TaskCard
-                  key={item.id}
-                  task={item}
-                  onUpdate={(diff) => updateTask({ id: item.id, ...diff })}
-                  onDuplicate={() => createTask(duplicateTaskInput(item))}
-                  onDelete={() => handleDelete(item)}
-                />
-              ))}
-            </ScrollView>
-          )}
+          <TasksView date={day.date} />
         </SwipeableDay>
       )}
-      <ConfirmationModal {...confirmationProps} />
     </SafeAreaView>
   );
 }
@@ -209,13 +202,29 @@ const styles = StyleSheet.create({
     right: 20,
     top: 0,
   },
-  // Bound the scroll view's height to its flex parent so the day's tasks
-  // scroll when they overflow, instead of being clipped.
-  scroll: {
-    flex: 1,
+  // Large screens: DayNav sits left, pane toggles sit right, sharing a row
+  // (unlike the small-screen header, nothing needs absolute positioning
+  // because there's no need to keep DayNav visually centered).
+  multiPaneHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
   },
-  list: {
-    gap: 8,
-    padding: 16,
+  paneRow: {
+    flex: 1,
+    flexDirection: "row",
+    paddingHorizontal: 16,
+  },
+  // Tasks and Calendar are capped at a mobile-typical width so they don't
+  // stretch to fill a wide window.
+  fixedPane: {
+    flex: 1,
+    maxWidth: PANE_MAX_WIDTH,
+    minWidth: 280,
+  },
+  // Notes and Journal flex to fill whatever space remains.
+  flexPane: {
+    flex: 1,
   },
 });
