@@ -1,12 +1,6 @@
 import { useNavigation, useRouter } from "expo-router";
 import { useLayoutEffect } from "react";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { HabitRow } from "@/components/HabitRow";
@@ -14,8 +8,8 @@ import { HeaderAddButton } from "@/components/HeaderAddButton";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { SettingsToggleCard } from "@/components/SettingsToggleCard";
 import { useHabits } from "@/hooks/useHabits";
+import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
-import { SETTINGS_TWO_PANE_MIN_WIDTH } from "@/utils/settingsItems";
 import { useTheme } from "@/utils/theme";
 
 export default function HabitsScreen() {
@@ -24,9 +18,8 @@ export default function HabitsScreen() {
   const router = useRouter();
   const [habits, { updateHabit }] = useHabits();
   const [preferences, { updatePreferences }] = usePreferences();
-  const { width } = useWindowDimensions();
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
-  const twoPane = width >= SETTINGS_TWO_PANE_MIN_WIDTH;
+  const twoPane = useIsMultiPane();
 
   // A "+" in the header opens the create modal (mirrors New Task), but only when
   // habit tracking is on — otherwise there's no list to add to. Re-wired on

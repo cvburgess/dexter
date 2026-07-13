@@ -6,7 +6,6 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  useWindowDimensions,
   View,
 } from "react-native";
 import Animated, {
@@ -19,17 +18,16 @@ import { HeaderAddButton } from "@/components/HeaderAddButton";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { SettingsToggleCard } from "@/components/SettingsToggleCard";
 import { TextInput } from "@/components/TextInput";
+import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
-import { SETTINGS_TWO_PANE_MIN_WIDTH } from "@/utils/settingsItems";
 import { useTheme } from "@/utils/theme";
 
 export default function JournalScreen() {
   const theme = useTheme();
   const navigation = useNavigation();
   const [preferences, { updatePreferences }] = usePreferences();
-  const { width } = useWindowDimensions();
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
-  const twoPane = width >= SETTINGS_TWO_PANE_MIN_WIDTH;
+  const twoPane = useIsMultiPane();
   const keyboard = useAnimatedKeyboard();
 
   // Shrink the scroll area as the keyboard rises so there's always scroll room

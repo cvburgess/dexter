@@ -1,18 +1,12 @@
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CalendarSourceList } from "@/components/CalendarSourceList";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { SettingsToggleCard } from "@/components/SettingsToggleCard";
 import { TimeField } from "@/components/TimeField";
+import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
-import { SETTINGS_TWO_PANE_MIN_WIDTH } from "@/utils/settingsItems";
 import { useTheme } from "@/utils/theme";
 
 // Preferences store the daily window as Postgres `time` (`"HH:MM:SS"`), while
@@ -23,9 +17,8 @@ const toStoredValue = (field: string) => `${field}:00`;
 export default function CalendarsScreen() {
   const theme = useTheme();
   const [preferences, { updatePreferences }] = usePreferences();
-  const { width } = useWindowDimensions();
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
-  const twoPane = width >= SETTINGS_TWO_PANE_MIN_WIDTH;
+  const twoPane = useIsMultiPane();
 
   const cardStyle = {
     backgroundColor: theme.colors.card,

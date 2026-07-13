@@ -1,8 +1,8 @@
 import { Stack } from "expo-router";
-import { useWindowDimensions, View } from "react-native";
+import { View } from "react-native";
 
 import { SettingsSidebar } from "@/components/SettingsSidebar";
-import { SETTINGS_TWO_PANE_MIN_WIDTH } from "@/utils/settingsItems";
+import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import {
   createListScreenOptions,
   createModalScreenOptions,
@@ -11,8 +11,7 @@ import { useTheme } from "@/utils/theme";
 
 export default function SettingsLayout() {
   const theme = useTheme();
-  const { width } = useWindowDimensions();
-  const twoPane = width >= SETTINGS_TWO_PANE_MIN_WIDTH;
+  const twoPane = useIsMultiPane();
 
   const stack = (
     <Stack>

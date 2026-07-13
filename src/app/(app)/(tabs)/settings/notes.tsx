@@ -1,26 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { SettingsToggleCard } from "@/components/SettingsToggleCard";
 import { TextInput } from "@/components/TextInput";
+import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
-import { SETTINGS_TWO_PANE_MIN_WIDTH } from "@/utils/settingsItems";
 import { useTheme } from "@/utils/theme";
 
 export default function NotesScreen() {
   const theme = useTheme();
   const [preferences, { updatePreferences }] = usePreferences();
-  const { width } = useWindowDimensions();
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
-  const twoPane = width >= SETTINGS_TWO_PANE_MIN_WIDTH;
+  const twoPane = useIsMultiPane();
 
   // Edit the template locally and commit on blur so we don't write a
   // preference on every keystroke. Re-sync from the stored value when it
