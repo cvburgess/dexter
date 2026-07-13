@@ -14,9 +14,11 @@ const mockUpsertDayAsync = jest.fn().mockResolvedValue(undefined);
 const setup = ({
   prompts = [],
   isLoading = false,
+  onEditingChange,
 }: {
   prompts?: TJournalPrompt[];
   isLoading?: boolean;
+  onEditingChange?: (editing: boolean) => void;
 } = {}) => {
   mockUseDays.mockReturnValue([
     { date: "2026-07-12", notes: "", prompts },
@@ -27,7 +29,9 @@ const setup = ({
       upsertDayAsync: mockUpsertDayAsync,
     },
   ]);
-  return render(<JournalView date="2026-07-12" />);
+  return render(
+    <JournalView date="2026-07-12" onEditingChange={onEditingChange} />,
+  );
 };
 
 describe("JournalView", () => {
@@ -77,13 +81,47 @@ describe("JournalView", () => {
     }
   });
 
-  it("shows no inputs or empty state while the day loads", () => {
-    const screen = setup({ isLoading: true });
+  it("shows the loading screen (no inputs) even when prompts exist", () => {
+    // Non-empty prompts + isLoading proves the loading branch suppresses the
+    // inputs — distinct from the empty-prompts branch, which also renders none.
+    const screen = setup({
+      prompts: [{ prompt: "Highlight", response: "" }],
+      isLoading: true,
+    });
 
     expect(screen.queryByTestId("journal-response-0")).toBeNull();
     expect(
       screen.queryByText("Add journal prompts in Settings → Journal"),
     ).toBeNull();
+  });
+
+  it("seeds each input from its existing response", () => {
+    const screen = setup({
+      prompts: [{ prompt: "Grateful for", response: "family" }],
+    });
+
+    expect(screen.getByDisplayValue("family")).toBeTruthy();
+  });
+
+  it("signals editing on focus/blur and resets it on unmount", () => {
+    const onEditingChange = jest.fn();
+    const screen = setup({
+      prompts: [{ prompt: "Highlight", response: "" }],
+      onEditingChange,
+    });
+
+    const input = screen.getByTestId("journal-response-0");
+    fireEvent(input, "focus");
+    expect(onEditingChange).toHaveBeenLastCalledWith(true);
+
+    fireEvent(input, "blur");
+    expect(onEditingChange).toHaveBeenLastCalledWith(false);
+
+    // Changing date / switching tabs unmounts a possibly-focused field without a
+    // reliable blur; the unmount reset must clear the host's swipe-suspend flag.
+    onEditingChange.mockClear();
+    act(() => screen.unmount());
+    expect(onEditingChange).toHaveBeenCalledWith(false);
   });
 
   it("shows an empty state when no prompts are configured", () => {

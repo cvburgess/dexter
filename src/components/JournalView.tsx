@@ -48,8 +48,14 @@ export function JournalView({ date, onEditingChange }: TJournalViewProps) {
 
   // Mount the editor only once the day has loaded so its refs/inputs seed from
   // the real prompts rather than the loading-time default (empty responses).
+  // Key it on the prompt labels so a template change (add/edit/delete a prompt
+  // in Settings) re-seeds a still-mounted editor — the Today screen stays
+  // mounted across tab switches, so without this the frozen refs would diverge
+  // from the rendered inputs and a save would drop the new/renamed prompt.
+  // Response-only edits keep the labels, so autosaves don't remount.
   return (
     <JournalEditor
+      key={JSON.stringify(day.prompts.map((p) => p.prompt))}
       prompts={day.prompts}
       upsertDayAsync={upsertDayAsync}
       onEditingChange={onEditingChange}
@@ -70,10 +76,10 @@ function JournalEditor({
 }: TJournalEditorProps) {
   const theme = useTheme();
 
-  // Freeze the loaded prompts at mount: labels are stable for this day, and the
-  // uncontrolled inputs seed from these responses. `responsesRef` tracks the
-  // latest per-index text so a save can rebuild the whole array. Both seed once
-  // (this component only mounts after the day has loaded).
+  // Freeze the loaded prompts at mount: labels are stable for this mount (the
+  // key remounts on any label change), and the uncontrolled inputs seed from
+  // these responses. `responsesRef` tracks the latest per-index text so a save
+  // can rebuild the whole array.
   const promptsRef = useRef(prompts);
   const responsesRef = useRef(prompts.map((p) => p.response));
 
@@ -134,6 +140,11 @@ function JournalEditor({
 
   // Persist any pending edit when the view unmounts (date change / tab switch).
   useEffect(() => flush, [flush]);
+
+  // Reset the host's editing flag on unmount so a date change while a field is
+  // focused (which unmounts the input without a reliable `onBlur`) can't leave
+  // day-swipe suspended on the next day. Mirrors NoteEditor's unmount reset.
+  useEffect(() => () => onEditingChange?.(false), [onEditingChange]);
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.list}>

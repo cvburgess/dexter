@@ -26,7 +26,8 @@ export const getDay = async (
   // Coerce a null `prompts` to `[]`. The column is NOT NULL going forward, but
   // rows written before that migration (and by other shared clients) may still
   // carry null, and `TDay.prompts` is `TJournalPrompt[]` — callers `.map()` it.
-  return { ...camelCase(data), prompts: data.prompts ?? [] } as TDay;
+  const row = camelCase(data) as TDay;
+  return { ...row, prompts: data.prompts ?? [] } as TDay;
 };
 
 export type TUpsertDay = {
@@ -46,5 +47,10 @@ export const upsertDay = async (
     .single();
 
   if (error) throw error;
-  return camelCase(data) as TDay;
+  // Coerce a null `prompts` to `[]`, same as `getDay` — a legacy/shared row
+  // whose `prompts` column is still null would otherwise land in the query
+  // cache verbatim (e.g. after a notes-only upsert), and `TDay.prompts` is
+  // `TJournalPrompt[]`, which `JournalView` `.map()`s / reads `.length` on.
+  const row = camelCase(data) as TDay;
+  return { ...row, prompts: data.prompts ?? [] } as TDay;
 };

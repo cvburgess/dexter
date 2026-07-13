@@ -26,6 +26,8 @@ describe("JournalScreen", () => {
   it("reflects the enabled state and toggles it", () => {
     const screen = renderWith({ enableJournal: true });
 
+    expect(screen.getByLabelText("Journal").props.value).toBe(true);
+
     fireEvent(screen.getByLabelText("Journal"), "valueChange", false);
 
     expect(mockUpdate).toHaveBeenCalledWith({ enableJournal: false });
@@ -77,6 +79,25 @@ describe("JournalScreen", () => {
 
     expect(mockUpdate).toHaveBeenCalledWith({
       templatePrompts: ["Highlight", ""],
+    });
+  });
+
+  it("preserves an in-progress edit when Add prompt is pressed", () => {
+    // Add derives the new array from local drafts, not the (optimistically
+    // lagging) stored preference — so a typed-but-not-yet-blurred edit survives.
+    const screen = renderWith({
+      enableJournal: true,
+      templatePrompts: ["Highlight"],
+    });
+
+    fireEvent.changeText(
+      screen.getByLabelText("Journal prompt 1"),
+      "What went well?",
+    );
+    fireEvent.press(screen.getByText("Add prompt"));
+
+    expect(mockUpdate).toHaveBeenCalledWith({
+      templatePrompts: ["What went well?", ""],
     });
   });
 

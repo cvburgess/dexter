@@ -36,30 +36,29 @@ export default function JournalScreen() {
     if (!focusedRef.current) setDrafts(preferences.templatePrompts);
   }, [preferences.templatePrompts]);
 
-  const commitPrompt = (index: number) => {
+  // `drafts` is the authoritative current array: every structural write derives
+  // from it, never from `preferences.templatePrompts`. Because `updatePreferences`
+  // is optimistic (its cache write is deferred behind `cancelQueries`), the
+  // preference lags a just-committed blur — deriving an add/delete from it would
+  // compute on the stale array and clobber the pending edit (last-write-wins).
+  const commitPrompt = () => {
     focusedRef.current = false;
-    const draft = drafts[index] ?? "";
-    if (draft !== preferences.templatePrompts[index]) {
-      updatePreferences({
-        templatePrompts: preferences.templatePrompts.map((prompt, i) =>
-          i === index ? draft : prompt,
-        ),
-      });
-    }
+    const changed =
+      drafts.length !== preferences.templatePrompts.length ||
+      drafts.some((draft, i) => draft !== preferences.templatePrompts[i]);
+    if (changed) updatePreferences({ templatePrompts: drafts });
   };
 
   const addPrompt = () => {
-    updatePreferences({
-      templatePrompts: [...preferences.templatePrompts, ""],
-    });
+    const next = [...drafts, ""];
+    setDrafts(next);
+    updatePreferences({ templatePrompts: next });
   };
 
   const deletePrompt = (index: number) => {
-    updatePreferences({
-      templatePrompts: preferences.templatePrompts.filter(
-        (_, i) => i !== index,
-      ),
-    });
+    const next = drafts.filter((_, i) => i !== index);
+    setDrafts(next);
+    updatePreferences({ templatePrompts: next });
   };
 
   return (
@@ -105,7 +104,7 @@ export default function JournalScreen() {
               <View key={index} style={styles.promptRow}>
                 <TextInput
                   accessibilityLabel={`Journal prompt ${index + 1}`}
-                  onBlur={() => commitPrompt(index)}
+                  onBlur={commitPrompt}
                   onChangeText={(text) =>
                     setDrafts((current) =>
                       current.map((p, i) => (i === index ? text : p)),
