@@ -11,7 +11,7 @@ import {
   type StyleState,
 } from "react-native-enriched-markdown";
 
-import { useTheme } from "@/utils/theme";
+import { useTheme, withOpacity } from "@/utils/theme";
 
 import { TNoteEditorProps } from "./NoteEditor.types";
 
@@ -36,31 +36,54 @@ import { TNoteEditorProps } from "./NoteEditor.types";
  * library limitation, so there are no controls for them.
  */
 
-/** Inline-format toggles shown in the accessory bar, left to right. */
-const FORMAT_CONTROLS: {
+/** Height of the accessory bar; also the bottom inset reserved for it. */
+const BAR_HEIGHT = 44;
+
+type TFormatControl = {
+  /** `StyleState` key whose `isActive` drives this button's highlight. */
   key: keyof StyleState;
+  /** SF Symbol (iOS) + Material Symbol (Android/web) — needs both so the icon
+   * renders off iOS: `expo-symbols` yields nothing for a bare string name. */
   symbol: SymbolViewProps["name"];
   label: string;
-  toggle: (input: EnrichedMarkdownTextInputInstance) => void;
-}[] = [
-  { key: "bold", symbol: "bold", label: "Bold", toggle: (i) => i.toggleBold() },
+  /** Instance method toggled on press. */
+  method:
+    "toggleBold" | "toggleItalic" | "toggleUnderline" | "toggleStrikethrough";
+};
+
+/** Inline-format toggles shown in the accessory bar, left to right. */
+const FORMAT_CONTROLS: TFormatControl[] = [
+  {
+    key: "bold",
+    symbol: { ios: "bold", android: "format_bold", web: "format_bold" },
+    label: "Bold",
+    method: "toggleBold",
+  },
   {
     key: "italic",
-    symbol: "italic",
+    symbol: { ios: "italic", android: "format_italic", web: "format_italic" },
     label: "Italic",
-    toggle: (i) => i.toggleItalic(),
+    method: "toggleItalic",
   },
   {
     key: "underline",
-    symbol: "underline",
+    symbol: {
+      ios: "underline",
+      android: "format_underlined",
+      web: "format_underlined",
+    },
     label: "Underline",
-    toggle: (i) => i.toggleUnderline(),
+    method: "toggleUnderline",
   },
   {
     key: "strikethrough",
-    symbol: "strikethrough",
+    symbol: {
+      ios: "strikethrough",
+      android: "format_strikethrough",
+      web: "format_strikethrough",
+    },
     label: "Strikethrough",
-    toggle: (i) => i.toggleStrikethrough(),
+    method: "toggleStrikethrough",
   },
 ];
 
@@ -90,7 +113,12 @@ export function NoteEditor({
         cursorColor={theme.colors.primary}
         defaultValue={initialValue}
         multiline
-        onBlur={() => setFocused(false)}
+        onBlur={() => {
+          setFocused(false);
+          // Clear so a later focus doesn't flash the previous caret's
+          // highlights before the input emits a fresh state.
+          setState(null);
+        }}
         onChangeMarkdown={onChangeMarkdown}
         onChangeState={setState}
         onFocus={() => setFocused(true)}
@@ -100,6 +128,9 @@ export function NoteEditor({
         style={StyleSheet.flatten([
           styles.editor,
           { color: theme.colors.text },
+          // Reserve room so the caret scrolls above the accessory bar, not
+          // behind it, when typing near the bottom.
+          focused && { paddingBottom: BAR_HEIGHT + 16 },
         ])}
         testID={testID}
       />
@@ -110,7 +141,7 @@ export function NoteEditor({
             barStyle,
             {
               backgroundColor: theme.colors.card,
-              borderTopColor: theme.colors.textSecondary,
+              borderTopColor: withOpacity(theme.colors.text, 0.1),
             },
           ]}
         >
@@ -123,10 +154,8 @@ export function NoteEditor({
                   accessibilityLabel={control.label}
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
-                  hitSlop={8}
-                  onPress={() => {
-                    if (inputRef.current) control.toggle(inputRef.current);
-                  }}
+                  hitSlop={12}
+                  onPress={() => inputRef.current?.[control.method]()}
                   style={styles.tool}
                 >
                   <SymbolView
@@ -142,7 +171,7 @@ export function NoteEditor({
           </View>
           <Pressable
             accessibilityRole="button"
-            hitSlop={8}
+            hitSlop={12}
             onPress={() => inputRef.current?.blur()}
           >
             <Text style={[styles.doneLabel, { color: theme.colors.primary }]}>
@@ -169,7 +198,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     bottom: 0,
     flexDirection: "row",
-    height: 44,
+    height: BAR_HEIGHT,
     justifyContent: "space-between",
     left: 0,
     paddingHorizontal: 16,
