@@ -113,9 +113,7 @@ describe("useCalendarEvents (web)", () => {
 describe("useCalendarEvents (native)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (Calendar.requestCalendarPermissionsAsync as jest.Mock).mockResolvedValue({
-      status: "granted",
-    });
+    (Calendar.requestCalendarPermissionsAsync as jest.Mock).mockResolvedValue({ status: "granted", granted: true });
     (Calendar.getCalendarsAsync as jest.Mock).mockResolvedValue([
       { id: "cal-1", color: "#ff0000" },
     ]);
@@ -151,9 +149,7 @@ describe("useCalendarEvents (native)", () => {
 
   it("reports permissionDenied when the grant is refused", async () => {
     setPreferences({});
-    (Calendar.requestCalendarPermissionsAsync as jest.Mock).mockResolvedValue({
-      status: "denied",
-    });
+    (Calendar.requestCalendarPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied", granted: false });
 
     const { result } = renderHook(() => useNativeCalendarEvents(DAY), {
       wrapper: createWrapper(),

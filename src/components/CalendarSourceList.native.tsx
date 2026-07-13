@@ -6,14 +6,18 @@ import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { useEnabledDeviceCalendars } from "@/hooks/useEnabledDeviceCalendars";
 import { useTheme, withOpacity } from "@/utils/theme";
 
+// Minimal structural shape for the calendars we render — decoupled from
+// expo-calendar's exact exported type names.
+type TDeviceCalendar = { id: string; title: string; color: string };
+
 type TCalendarsResult = {
-  calendars: Calendar.Calendar[];
+  calendars: TDeviceCalendar[];
   permissionDenied: boolean;
 };
 
 const fetchCalendars = async (): Promise<TCalendarsResult> => {
-  const { status } = await Calendar.requestCalendarPermissionsAsync();
-  if (status !== Calendar.PermissionStatus.GRANTED) {
+  const { granted } = await Calendar.requestCalendarPermissionsAsync();
+  if (!granted) {
     return { calendars: [], permissionDenied: true };
   }
   const calendars = await Calendar.getCalendarsAsync(

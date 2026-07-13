@@ -17,6 +17,17 @@ type TDeviceResult = {
   permissionDenied: boolean;
 };
 
+// Minimal structural shapes for the expo-calendar objects we read — decoupled
+// from the library's exact exported type names (which shift between SDKs).
+type TDeviceEvent = {
+  id: string;
+  title?: string;
+  startDate: string | Date;
+  endDate: string | Date;
+  allDay?: boolean;
+  calendarId: string;
+};
+
 /** Absolute instant (from a native ISO string or Date) → local wall-clock. */
 const toPlainDateTime = (
   value: string | Date,
@@ -30,7 +41,7 @@ const toPlainDateTime = (
 };
 
 const nativeToEvent = (
-  event: Calendar.Event,
+  event: TDeviceEvent,
   timeZone: string,
   colorById: Map<string, string | undefined>,
 ): TCalendarEvent => ({
@@ -52,8 +63,8 @@ const fetchDeviceEvents = async (
   dateIso: string,
   enabledIds: string[] | null,
 ): Promise<TDeviceResult> => {
-  const { status } = await Calendar.requestCalendarPermissionsAsync();
-  if (status !== Calendar.PermissionStatus.GRANTED) {
+  const { granted } = await Calendar.requestCalendarPermissionsAsync();
+  if (!granted) {
     return { events: [], permissionDenied: true };
   }
 
@@ -64,7 +75,9 @@ const fetchDeviceEvents = async (
   const ids = (enabledIds ?? allIds).filter((id) => allIds.includes(id));
   if (ids.length === 0) return { events: [], permissionDenied: false };
 
-  const colorById = new Map(calendars.map((c) => [c.id, c.color]));
+  const colorById = new Map<string, string | undefined>(
+    calendars.map((c) => [c.id, c.color] as [string, string | undefined]),
+  );
   const timeZone = Temporal.Now.timeZoneId();
   const date = Temporal.PlainDate.from(dateIso);
   const dayStart = new Date(

@@ -85,9 +85,7 @@ describe("CalendarSourceList (native / device calendars)", () => {
       null,
       { setEnabledIds: mockSetEnabledIds, isLoading: false },
     ]);
-    (Calendar.requestCalendarPermissionsAsync as jest.Mock).mockResolvedValue({
-      status: "granted",
-    });
+    (Calendar.requestCalendarPermissionsAsync as jest.Mock).mockResolvedValue({ status: "granted", granted: true });
     (Calendar.getCalendarsAsync as jest.Mock).mockResolvedValue([
       { id: "work", title: "Work", color: "#ff0000" },
       { id: "home", title: "Home", color: "#00ff00" },
@@ -110,9 +108,7 @@ describe("CalendarSourceList (native / device calendars)", () => {
   });
 
   it("prompts when calendar permission is denied", async () => {
-    (Calendar.requestCalendarPermissionsAsync as jest.Mock).mockResolvedValue({
-      status: "denied",
-    });
+    (Calendar.requestCalendarPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied", granted: false });
     const screen = render(<NativeSourceList />, { wrapper });
     await waitFor(() =>
       expect(screen.getByText(/Calendar access is off/)).toBeTruthy(),

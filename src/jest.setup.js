@@ -65,9 +65,14 @@ jest.mock("@react-native-vector-icons/ionicons", () => {
 // an empty/granted result; individual tests override with jest.spyOn as needed.
 jest.mock("expo-calendar", () => ({
   EntityTypes: { EVENT: "event" },
-  PermissionStatus: { GRANTED: "granted", DENIED: "denied" },
-  requestCalendarPermissionsAsync: jest.fn(async () => ({ status: "granted" })),
-  getCalendarPermissionsAsync: jest.fn(async () => ({ status: "granted" })),
+  requestCalendarPermissionsAsync: jest.fn(async () => ({
+    status: "granted",
+    granted: true,
+  })),
+  getCalendarPermissionsAsync: jest.fn(async () => ({
+    status: "granted",
+    granted: true,
+  })),
   getCalendarsAsync: jest.fn(async () => []),
   getEventsAsync: jest.fn(async () => []),
 }));
