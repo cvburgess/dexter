@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { parseIcsEventsForDate } from "@/utils/icsEvents";
 
+import { useAuth } from "./useAuth";
 import { usePreferences } from "./usePreferences";
 import { TCalendarEvent, TUseCalendarEvents } from "./useCalendarEvents.types";
 
@@ -22,6 +23,7 @@ const proxyUrl = (icsUrl: string): string => {
 const fetchIcsEvents = async (
   urls: string[],
   dateIso: string,
+  userEmail: string | undefined,
 ): Promise<TCalendarEvent[]> => {
   const date = Temporal.PlainDate.from(dateIso);
   const timeZone = Temporal.Now.timeZoneId();
@@ -32,7 +34,12 @@ const fetchIcsEvents = async (
       if (!response.ok) {
         throw new Error(`ics-proxy returned ${response.status}`);
       }
-      return parseIcsEventsForDate(await response.text(), date, timeZone);
+      return parseIcsEventsForDate(
+        await response.text(),
+        date,
+        timeZone,
+        userEmail,
+      );
     }),
   );
 
@@ -57,6 +64,8 @@ export const useCalendarEvents = (
   date: Temporal.PlainDate,
 ): TUseCalendarEvents => {
   const [preferences] = usePreferences();
+  const { session } = useAuth();
+  const userEmail = session?.user?.email;
   const urls = preferences.calendarUrls;
   const active = preferences.enableCalendar && urls.length > 0;
 
@@ -66,8 +75,8 @@ export const useCalendarEvents = (
     isError,
   } = useQuery({
     enabled: active,
-    queryKey: ["calendarEvents", date.toString(), urls],
-    queryFn: () => fetchIcsEvents(urls, date.toString()),
+    queryKey: ["calendarEvents", date.toString(), urls, userEmail],
+    queryFn: () => fetchIcsEvents(urls, date.toString(), userEmail),
     staleTime: STALE_TIME_MS,
     // SwipeableDay mounts a fresh view per day, so refetch on every day-load to
     // pick up feed changes since the day was last cached. Cached events still

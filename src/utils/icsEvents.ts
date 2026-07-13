@@ -1,7 +1,10 @@
 import { Temporal } from "@js-temporal/polyfill";
 import ICAL from "ical.js";
 
-import { TCalendarEvent } from "@/hooks/useCalendarEvents.types";
+import {
+  TCalendarEvent,
+  TEventResponse,
+} from "@/hooks/useCalendarEvents.types";
 
 // Hard ceiling on recurrence expansion per event. The real terminator is "stop
 // once an occurrence starts after the target day"; this guards against
@@ -38,6 +41,41 @@ const allDayPlainDateTime = (time: TIcalTime): Temporal.PlainDateTime =>
 const plainDateOf = (time: TIcalTime): Temporal.PlainDate =>
   new Temporal.PlainDate(time.year, time.month, time.day);
 
+/** CAL-ADDRESS PARTSTAT → app response; unrecognized/DECLINED map to undefined. */
+const PARTSTAT_TO_RESPONSE: Record<string, TEventResponse> = {
+  ACCEPTED: "accepted",
+  TENTATIVE: "tentative",
+  "NEEDS-ACTION": "invited",
+};
+
+/** Lowercased email from a CAL-ADDRESS value (`mailto:foo@bar.com` → `foo@bar.com`). */
+const emailOf = (calAddress: string): string =>
+  calAddress
+    .replace(/^mailto:/i, "")
+    .trim()
+    .toLowerCase();
+
+/**
+ * The current user's RSVP for a VEVENT, matched against their email via the
+ * ATTENDEE properties' CAL-ADDRESS. Returns undefined when there's no matching
+ * attendee (common for subscription feeds) or no email to match on.
+ */
+const responseForUser = (
+  vevent: ICAL.Component,
+  userEmail: string | undefined,
+): TEventResponse | undefined => {
+  if (!userEmail) return undefined;
+  const target = userEmail.toLowerCase();
+  for (const attendee of vevent.getAllProperties("attendee")) {
+    const value = attendee.getFirstValue();
+    if (typeof value !== "string" || emailOf(value) !== target) continue;
+    const partstat = attendee.getParameter("partstat");
+    if (typeof partstat !== "string") return undefined;
+    return PARTSTAT_TO_RESPONSE[partstat.toUpperCase()];
+  }
+  return undefined;
+};
+
 /**
  * Build a `TCalendarEvent` for one occurrence, or null if it doesn't intersect
  * the target day. `dayStartMs`/`dayEndMs` bound the day as absolute instants
@@ -48,6 +86,7 @@ const occurrenceToEvent = (
   uid: string,
   title: string,
   color: string | undefined,
+  response: TEventResponse | undefined,
   start: TIcalTime,
   end: TIcalTime,
   targetDate: Temporal.PlainDate,
@@ -74,6 +113,7 @@ const occurrenceToEvent = (
       end: allDayPlainDateTime(end),
       allDay: true,
       color,
+      response,
     };
   }
 
@@ -87,6 +127,7 @@ const occurrenceToEvent = (
     end: toLocalPlainDateTime(end.toJSDate(), timeZone),
     allDay: false,
     color,
+    response,
   };
 };
 
@@ -98,11 +139,16 @@ const occurrenceToEvent = (
  *
  * `timeZone` is the viewer's IANA zone (e.g. from `Temporal.Now.timeZoneId()`),
  * used to bound the target day; pass a fixed zone in tests for determinism.
+ *
+ * `userEmail`, when provided, is matched against each event's ATTENDEE list to
+ * set the current user's RSVP (`response`); feeds without a matching attendee
+ * leave it undefined.
  */
 export const parseIcsEventsForDate = (
   icsText: string,
   date: Temporal.PlainDate,
   timeZone: string,
+  userEmail?: string,
 ): TCalendarEvent[] => {
   let calendar: ICAL.Component;
   try {
@@ -139,14 +185,16 @@ export const parseIcsEventsForDate = (
       const title = event.summary || "(No title)";
       const color =
         (vevent.getFirstPropertyValue("color") as string | null) ?? undefined;
+      const response = responseForUser(vevent, userEmail);
 
       if (!event.isRecurring()) {
         const mapped = occurrenceToEvent(
           uid,
           title,
           color,
-          event.startDate as unknown as TIcalTime,
-          event.endDate as unknown as TIcalTime,
+          response,
+          event.startDate,
+          event.endDate,
           date,
           timeZone,
           dayStartMs,
@@ -175,8 +223,9 @@ export const parseIcsEventsForDate = (
           uid,
           title,
           color,
-          details.startDate as unknown as TIcalTime,
-          details.endDate as unknown as TIcalTime,
+          response,
+          details.startDate,
+          details.endDate,
           date,
           timeZone,
           dayStartMs,

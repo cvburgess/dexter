@@ -91,3 +91,86 @@ describe("parseIcsEventsForDate", () => {
     expect(parseIcsEventsForDate("not a calendar", DAY, TZ)).toEqual([]);
   });
 });
+
+const ME = "me@example.com";
+
+const withAttendee = (partstat: string, email = ME) =>
+  wrap(
+    "BEGIN:VEVENT",
+    "UID:invite-1",
+    "SUMMARY:Invite",
+    "DTSTART:20260712T140000Z",
+    "DTEND:20260712T143000Z",
+    `ATTENDEE;CN=Someone;PARTSTAT=ACCEPTED:mailto:other@example.com`,
+    `ATTENDEE;CN=Me;PARTSTAT=${partstat}:mailto:${email}`,
+    "END:VEVENT",
+  );
+
+describe("parseIcsEventsForDate — attendee response", () => {
+  it("maps the current user's NEEDS-ACTION to invited", () => {
+    const events = parseIcsEventsForDate(
+      withAttendee("NEEDS-ACTION"),
+      DAY,
+      TZ,
+      ME,
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0].response).toBe("invited");
+  });
+
+  it("maps TENTATIVE to tentative and ACCEPTED to accepted", () => {
+    expect(
+      parseIcsEventsForDate(withAttendee("TENTATIVE"), DAY, TZ, ME)[0].response,
+    ).toBe("tentative");
+    expect(
+      parseIcsEventsForDate(withAttendee("ACCEPTED"), DAY, TZ, ME)[0].response,
+    ).toBe("accepted");
+  });
+
+  it("leaves response undefined for DECLINED", () => {
+    expect(
+      parseIcsEventsForDate(withAttendee("DECLINED"), DAY, TZ, ME)[0].response,
+    ).toBeUndefined();
+  });
+
+  it("matches the attendee email case-insensitively", () => {
+    const events = parseIcsEventsForDate(
+      withAttendee("NEEDS-ACTION", "Me@Example.com"),
+      DAY,
+      TZ,
+      ME,
+    );
+    expect(events[0].response).toBe("invited");
+  });
+
+  it("leaves response undefined when no attendee matches the user", () => {
+    const events = parseIcsEventsForDate(
+      withAttendee("NEEDS-ACTION"),
+      DAY,
+      TZ,
+      "someone-else@example.com",
+    );
+    expect(events[0].response).toBeUndefined();
+  });
+
+  it("leaves response undefined when no user email is provided", () => {
+    const events = parseIcsEventsForDate(withAttendee("NEEDS-ACTION"), DAY, TZ);
+    expect(events[0].response).toBeUndefined();
+  });
+
+  it("propagates response to every occurrence of a recurring event", () => {
+    const recurringInvite = wrap(
+      "BEGIN:VEVENT",
+      "UID:recur-invite",
+      "SUMMARY:Daily Invite",
+      "DTSTART:20260701T120000Z",
+      "DTEND:20260701T123000Z",
+      "RRULE:FREQ=DAILY",
+      `ATTENDEE;CN=Me;PARTSTAT=TENTATIVE:mailto:${ME}`,
+      "END:VEVENT",
+    );
+    const events = parseIcsEventsForDate(recurringInvite, DAY, TZ, ME);
+    expect(events).toHaveLength(1);
+    expect(events[0].response).toBe("tentative");
+  });
+});

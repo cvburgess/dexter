@@ -1,10 +1,13 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useEffect, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
-import { TCalendarEvent } from "@/hooks/useCalendarEvents.types";
+import {
+  TCalendarEvent,
+  TEventResponse,
+} from "@/hooks/useCalendarEvents.types";
 import { usePreferences } from "@/hooks/usePreferences";
 import { layoutEvents, nowLineTopPx } from "@/utils/calendarLayout";
 import {
@@ -36,6 +39,24 @@ const MIN_EVENT_HEIGHT = 20;
  * where their rounded corners read as one event overlapping the next.
  */
 const EVENT_GAP = 2;
+/** Accent-fill opacity by RSVP: tentative reads faint, invited is outline-only
+ * (transparent), so neither is mistaken for an accepted commitment. */
+const NORMAL_FILL_OPACITY = 0.16;
+const RESPONSE_FILL_OPACITY: Partial<Record<TEventResponse, number>> = {
+  tentative: 0.08,
+  invited: 0,
+};
+const fillOpacity = (response?: TEventResponse): number =>
+  (response && RESPONSE_FILL_OPACITY[response]) ?? NORMAL_FILL_OPACITY;
+
+/** Border for an event block. Accepted/tentative keep just the 3px left accent
+ * bar (from `eventBlock`/`allDayBlock`); invited events keep that same 3px left
+ * bar and add a 1px accent border on the other sides to read as a complete,
+ * outline-only card. */
+const borderStyle = (accent: string, response?: TEventResponse): ViewStyle =>
+  response === "invited"
+    ? { borderColor: accent, borderWidth: 1, borderLeftWidth: 3 }
+    : { borderLeftColor: accent };
 /** Fallback window if stored times are missing or inverted. */
 const DEFAULT_START_HOUR = 6;
 const DEFAULT_END_HOUR = 20;
@@ -217,8 +238,11 @@ export function CalendarView({ date }: TCalendarViewProps) {
                           height: heightPx - EVENT_GAP,
                           left: `${(columnIndex / columnCount) * 100}%`,
                           width: `${(1 / columnCount) * 100}%`,
-                          backgroundColor: withOpacity(accent, 0.16),
-                          borderLeftColor: accent,
+                          backgroundColor: withOpacity(
+                            accent,
+                            fillOpacity(event.response),
+                          ),
+                          ...borderStyle(accent, event.response),
                           borderRadius: theme.borderRadius,
                           // Dim events that have already ended, matching the
                           // disabled treatment used in settings lists.
@@ -325,8 +349,8 @@ function AllDayRow({
         style={[
           styles.allDayBlock,
           {
-            backgroundColor: withOpacity(accent, 0.16),
-            borderLeftColor: accent,
+            backgroundColor: withOpacity(accent, fillOpacity(event.response)),
+            ...borderStyle(accent, event.response),
             borderRadius: theme.borderRadius,
           },
         ]}

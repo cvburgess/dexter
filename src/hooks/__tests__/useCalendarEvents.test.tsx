@@ -18,6 +18,9 @@ jest.mock("@/hooks/useEnabledDeviceCalendars", () => ({
     { setEnabledIds: jest.fn(), isLoading: false },
   ]),
 }));
+// useAuth runs Linking.createURL at import time (throws under jest); the hooks
+// only read the signed-in email from it, so stub a signed-out session.
+jest.mock("@/hooks/useAuth", () => ({ useAuth: jest.fn(() => ({})) }));
 
 const mockUsePreferences = usePreferences as jest.MockedFunction<
   typeof usePreferences
