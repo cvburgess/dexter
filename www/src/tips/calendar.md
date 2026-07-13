@@ -18,7 +18,7 @@ day has in store for you on every level.
 
 The calendar lives in the [Day](/tips/day) view.
 
-Press the calendar icon in the toolbar to toggle it.
+Open the day view switcher in the toolbar and choose **Calendar** to see it.
 
 ## Settings
 
@@ -37,7 +37,17 @@ through hours you don't need or intend to use.
 - **Calendar Start Time**: The fist hour displayed in the calendar widget
 - **Calendar End Time**: The last hour displayed in the calendar widget
 
-### Adding a calendar feed
+### Choosing your calendars
+
+How you connect calendars depends on where you're using Dexter:
+
+- **On the mobile app**: Dexter reads the calendars already on your device.
+  Grant calendar access, then toggle the individual calendars you want to see.
+  These choices are saved only on that device.
+- **On the web**: add public `.ics` feed URLs (see below). Feeds sync across all
+  of your devices.
+
+### Adding a calendar feed (web)
 
 Use the + input to add a new feed URL, pressing Enter to save it.
 

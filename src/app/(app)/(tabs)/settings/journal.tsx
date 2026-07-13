@@ -4,7 +4,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   useWindowDimensions,
@@ -18,10 +17,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { HeaderAddButton } from "@/components/HeaderAddButton";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
+import { SettingsToggleCard } from "@/components/SettingsToggleCard";
 import { TextInput } from "@/components/TextInput";
 import { usePreferences } from "@/hooks/usePreferences";
 import { SETTINGS_TWO_PANE_MIN_WIDTH } from "@/utils/settingsItems";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 export default function JournalScreen() {
   const theme = useTheme();
@@ -107,30 +107,13 @@ export default function JournalScreen() {
           ]}
           keyboardShouldPersistTaps="handled"
         >
-          <View
-            style={[
-              styles.toggle,
-              {
-                backgroundColor: theme.colors.card,
-                borderRadius: theme.borderRadius,
-              },
-            ]}
-          >
-            <Text style={[styles.toggleLabel, { color: theme.colors.text }]}>
-              Journal
-            </Text>
-            <Switch
-              accessibilityLabel="Journal"
-              value={preferences.enableJournal}
-              onValueChange={(enableJournal) =>
-                updatePreferences({ enableJournal })
-              }
-              trackColor={{
-                true: theme.colors.primary,
-                false: withOpacity(theme.colors.text, 0.2),
-              }}
-            />
-          </View>
+          <SettingsToggleCard
+            label="Journal"
+            value={preferences.enableJournal}
+            onValueChange={(enableJournal) =>
+              updatePreferences({ enableJournal })
+            }
+          />
 
           {preferences.enableJournal && (
             <View style={styles.section}>
@@ -218,15 +201,5 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: 10,
-  },
-  toggle: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: 16,
-  },
-  toggleLabel: {
-    fontSize: 16,
-    fontWeight: "500",
   },
 });

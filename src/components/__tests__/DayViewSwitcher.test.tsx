@@ -13,8 +13,13 @@ jest.mock("../GlassIconButton", () => ({
 }));
 
 describe("dayViewOptions", () => {
-  const ids = (view: TDayView, notes: boolean, journal: boolean) =>
-    dayViewOptions(view, jest.fn(), notes, journal).map((o) => o.id);
+  const ids = (
+    view: TDayView,
+    notes: boolean,
+    journal: boolean,
+    calendar = false,
+  ) =>
+    dayViewOptions(view, jest.fn(), notes, journal, calendar).map((o) => o.id);
 
   it("always offers Tasks", () => {
     expect(ids("tasks", false, false)).toEqual(["tasks"]);
@@ -30,8 +35,13 @@ describe("dayViewOptions", () => {
     expect(ids("tasks", false, false)).not.toContain("journal");
   });
 
+  it("includes Calendar only when enabled", () => {
+    expect(ids("tasks", false, false, true)).toContain("calendar");
+    expect(ids("tasks", false, false, false)).not.toContain("calendar");
+  });
+
   it("marks the active view as selected and no others", () => {
-    const options = dayViewOptions("notes", jest.fn(), true, true);
+    const options = dayViewOptions("notes", jest.fn(), true, true, true);
     const selected = options.filter((o) => o.isSelected).map((o) => o.id);
 
     expect(selected).toEqual(["notes"]);
@@ -39,11 +49,11 @@ describe("dayViewOptions", () => {
 
   it("calls onChangeView with the option's id when selected", () => {
     const onChangeView = jest.fn();
-    const options = dayViewOptions("tasks", onChangeView, true, true);
+    const options = dayViewOptions("tasks", onChangeView, true, true, true);
 
-    options.find((o) => o.id === "journal")?.onSelect();
+    options.find((o) => o.id === "calendar")?.onSelect();
 
-    expect(onChangeView).toHaveBeenCalledWith("journal");
+    expect(onChangeView).toHaveBeenCalledWith("calendar");
   });
 });
 
@@ -55,6 +65,7 @@ describe("DayViewSwitcher", () => {
         onChangeView={jest.fn()}
         enableNotes
         enableJournal
+        enableCalendar
       />,
     );
 

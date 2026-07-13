@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   useWindowDimensions,
   View,
@@ -10,10 +9,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
+import { SettingsToggleCard } from "@/components/SettingsToggleCard";
 import { TextInput } from "@/components/TextInput";
 import { usePreferences } from "@/hooks/usePreferences";
 import { SETTINGS_TWO_PANE_MIN_WIDTH } from "@/utils/settingsItems";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 export default function NotesScreen() {
   const theme = useTheme();
@@ -50,28 +50,11 @@ export default function NotesScreen() {
           { padding: theme.spacing, gap: theme.spacing },
         ]}
       >
-        <View
-          style={[
-            styles.toggle,
-            {
-              backgroundColor: theme.colors.card,
-              borderRadius: theme.borderRadius,
-            },
-          ]}
-        >
-          <Text style={[styles.toggleLabel, { color: theme.colors.text }]}>
-            Notes
-          </Text>
-          <Switch
-            accessibilityLabel="Notes"
-            value={preferences.enableNotes}
-            onValueChange={(enableNotes) => updatePreferences({ enableNotes })}
-            trackColor={{
-              true: theme.colors.primary,
-              false: withOpacity(theme.colors.text, 0.2),
-            }}
-          />
-        </View>
+        <SettingsToggleCard
+          label="Notes"
+          value={preferences.enableNotes}
+          onValueChange={(enableNotes) => updatePreferences({ enableNotes })}
+        />
 
         {preferences.enableNotes && (
           <View style={styles.section}>
@@ -113,15 +96,5 @@ const styles = StyleSheet.create({
   },
   template: {
     minHeight: 160,
-  },
-  toggle: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: 16,
-  },
-  toggleLabel: {
-    fontSize: 16,
-    fontWeight: "500",
   },
 });

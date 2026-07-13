@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StyleSheet, View } from "react-native";
 
 import { ETaskPriority } from "@/api/tasks";
 import { useDays } from "@/hooks/useDays";
@@ -8,6 +7,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 import { Button } from "./Button";
+import { EmptyScreen } from "./EmptyScreen";
 import { LoadingScreen } from "./LoadingScreen";
 import { NoteEditor } from "./NoteEditor";
 
@@ -39,7 +39,6 @@ const CARD_TRAIL_OFF = 24;
  */
 export function NotesView({ date, onEditingChange }: TNotesViewProps) {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const [day, { isLoading, exists, upsertDay, upsertDayAsync }] = useDays(date);
   const [preferences] = usePreferences();
   // Latches once the user commits to the editor (picks a choice or types).
@@ -109,13 +108,7 @@ export function NotesView({ date, onEditingChange }: TNotesViewProps) {
   // (survives a failed save that rolled `exists` back).
   if (!exists && !committed && hasTemplate) {
     return (
-      // The host SafeAreaView excludes "bottom" (the tab bar owns that inset),
-      // so reserve it here — otherwise the buttons center over the area behind
-      // the tab bar and sit visibly low.
-      <View style={[styles.centered, { paddingBottom: 24 + insets.bottom }]}>
-        <Text style={[styles.prompt, { color: theme.colors.textSecondary }]}>
-          Start this day&apos;s note
-        </Text>
+      <EmptyScreen message="Start this day's note">
         <Button
           variant="primary"
           style={styles.button}
@@ -136,7 +129,7 @@ export function NotesView({ date, onEditingChange }: TNotesViewProps) {
         >
           Blank note
         </Button>
-      </View>
+      </EmptyScreen>
     );
   }
 
@@ -190,17 +183,6 @@ const styles = StyleSheet.create({
     marginBottom: -CARD_TRAIL_OFF,
     overflow: "hidden",
     paddingBottom: CARD_TRAIL_OFF,
-  },
-  centered: {
-    alignItems: "center",
-    flex: 1,
-    gap: 12,
-    justifyContent: "center",
-    padding: 24,
-  },
-  prompt: {
-    fontSize: 15,
-    marginBottom: 4,
   },
   button: {
     minWidth: 240,

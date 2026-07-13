@@ -1,12 +1,14 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { duplicateTaskInput, TTask } from "@/api/tasks";
+import { CalendarView } from "@/components/CalendarView";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { DayNav } from "@/components/DayNav";
 import { DayViewSwitcher, TDayView } from "@/components/DayViewSwitcher";
+import { EmptyScreen } from "@/components/EmptyScreen";
 import { HabitTracker } from "@/components/HabitTracker";
 import { JournalView } from "@/components/JournalView";
 import { NotesView } from "@/components/NotesView";
@@ -46,7 +48,8 @@ export default function TodayScreen() {
   // toggled off while viewing it). All views share `day.date`.
   const viewDisabled =
     (view === "notes" && !preferences.enableNotes) ||
-    (view === "journal" && !preferences.enableJournal);
+    (view === "journal" && !preferences.enableJournal) ||
+    (view === "calendar" && !preferences.enableCalendar);
   // Reset the stored `view` when its feature is disabled, so re-enabling later
   // doesn't jump back into a view the user hasn't been looking at. Adjusting
   // state during render (React's supported pattern) corrects it before paint —
@@ -103,6 +106,7 @@ export default function TodayScreen() {
             onChangeView={setView}
             enableNotes={preferences.enableNotes}
             enableJournal={preferences.enableJournal}
+            enableCalendar={preferences.enableCalendar}
           />
         </View>
       </View>
@@ -138,6 +142,17 @@ export default function TodayScreen() {
             onEditingChange={setJournalEditing}
           />
         </SwipeableDay>
+      ) : activeView === "calendar" ? (
+        // Swipe to change days like the other views. The timeline scrolls
+        // vertically, so horizontal drags never conflict with its own gestures;
+        // SwipeableDay remounts per date, re-fetching that day's events.
+        <SwipeableDay
+          dateKey={day.date.toString()}
+          direction={day.direction}
+          onSwipe={changeDateBy}
+        >
+          <CalendarView date={day.date} />
+        </SwipeableDay>
       ) : (
         <SwipeableDay
           dateKey={day.date.toString()}
@@ -150,28 +165,26 @@ export default function TodayScreen() {
               hosts that size asynchronously, which virtualized off-viewport
               mounting makes worse (expo/expo#42576). The cards themselves pin
               their heights (see TaskCard/StatusButton) so layout stays stable. */}
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.list}>
-            {tasks.length === 0
-              ? !isLoading && (
-                  <Text
-                    style={[
-                      styles.emptyText,
-                      { color: theme.colors.textSecondary },
-                    ]}
-                  >
-                    No tasks scheduled for this day.
-                  </Text>
-                )
-              : tasks.map((item) => (
-                  <TaskCard
-                    key={item.id}
-                    task={item}
-                    onUpdate={(diff) => updateTask({ id: item.id, ...diff })}
-                    onDuplicate={() => createTask(duplicateTaskInput(item))}
-                    onDelete={() => handleDelete(item)}
-                  />
-                ))}
-          </ScrollView>
+          {tasks.length === 0 ? (
+            !isLoading && (
+              <EmptyScreen message="No tasks scheduled for this day." />
+            )
+          ) : (
+            <ScrollView
+              style={styles.scroll}
+              contentContainerStyle={styles.list}
+            >
+              {tasks.map((item) => (
+                <TaskCard
+                  key={item.id}
+                  task={item}
+                  onUpdate={(diff) => updateTask({ id: item.id, ...diff })}
+                  onDuplicate={() => createTask(duplicateTaskInput(item))}
+                  onDelete={() => handleDelete(item)}
+                />
+              ))}
+            </ScrollView>
+          )}
         </SwipeableDay>
       )}
       <ConfirmationModal {...confirmationProps} />
@@ -204,10 +217,5 @@ const styles = StyleSheet.create({
   list: {
     gap: 8,
     padding: 16,
-  },
-  emptyText: {
-    fontSize: 14,
-    paddingTop: 32,
-    textAlign: "center",
   },
 });

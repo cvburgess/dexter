@@ -6,8 +6,8 @@ import { GlassIconButton } from "./GlassIconButton";
 import { IconMenu } from "./IconMenu";
 import { TIconMenuOption } from "./IconMenu.types";
 
-/** The three day views selectable from the Today tab. */
-export type TDayView = "tasks" | "notes" | "journal";
+/** The day views selectable from the Today tab. */
+export type TDayView = "tasks" | "notes" | "journal" | "calendar";
 
 const BUTTON_SIZE = 40;
 
@@ -27,6 +27,11 @@ const VIEW_META: Record<
     ionicon: "document-text-outline",
   },
   journal: { label: "Journal", icon: "book", ionicon: "book-outline" },
+  calendar: {
+    label: "Calendar",
+    icon: "calendar",
+    ionicon: "calendar-outline",
+  },
 };
 
 type TDayViewSwitcherProps = {
@@ -36,22 +41,26 @@ type TDayViewSwitcherProps = {
   enableNotes: boolean;
   /** Journal is hidden when disabled in settings. */
   enableJournal: boolean;
+  /** Calendar is hidden when disabled in settings. */
+  enableCalendar: boolean;
 };
 
 /**
- * Builds the menu options for the switcher: Tasks always, Notes/Journal only
- * when enabled, with the active view checked. Exported so the selection wiring
- * is unit-testable without the platform menu host.
+ * Builds the menu options for the switcher: Tasks always, Notes/Journal/Calendar
+ * only when enabled, with the active view checked. Exported so the selection
+ * wiring is unit-testable without the platform menu host.
  */
 export function dayViewOptions(
   view: TDayView,
   onChangeView: (view: TDayView) => void,
   enableNotes: boolean,
   enableJournal: boolean,
+  enableCalendar: boolean,
 ): TIconMenuOption[] {
   const views: TDayView[] = ["tasks"];
   if (enableNotes) views.push("notes");
   if (enableJournal) views.push("journal");
+  if (enableCalendar) views.push("calendar");
 
   return views.map((id) => ({
     id,
@@ -66,21 +75,23 @@ export function dayViewOptions(
  * The Today-tab view switcher: a circular icon-only button (liquid glass on
  * iOS, a plain circle elsewhere — see `GlassIconButton`) that opens an
  * `IconMenu` for moving between Tasks, Notes, and Journal. Its icon reflects the
- * active view. All three views share the Today screen's single date, so
- * switching never changes the selected day. Notes/Journal entries appear only
- * when enabled in settings (DEX-37).
+ * active view. All views share the Today screen's single date, so switching
+ * never changes the selected day. Notes/Journal/Calendar entries appear only
+ * when enabled in settings (DEX-37, DEX-39).
  */
 export function DayViewSwitcher({
   view,
   onChangeView,
   enableNotes,
   enableJournal,
+  enableCalendar,
 }: TDayViewSwitcherProps) {
   const options = dayViewOptions(
     view,
     onChangeView,
     enableNotes,
     enableJournal,
+    enableCalendar,
   );
 
   return (

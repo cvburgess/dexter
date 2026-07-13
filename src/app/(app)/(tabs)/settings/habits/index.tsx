@@ -3,7 +3,6 @@ import { useLayoutEffect } from "react";
 import {
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   useWindowDimensions,
   View,
@@ -13,10 +12,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { HabitRow } from "@/components/HabitRow";
 import { HeaderAddButton } from "@/components/HeaderAddButton";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
+import { SettingsToggleCard } from "@/components/SettingsToggleCard";
 import { useHabits } from "@/hooks/useHabits";
 import { usePreferences } from "@/hooks/usePreferences";
 import { SETTINGS_TWO_PANE_MIN_WIDTH } from "@/utils/settingsItems";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 export default function HabitsScreen() {
   const theme = useTheme();
@@ -60,30 +60,11 @@ export default function HabitsScreen() {
           { padding: theme.spacing, gap: theme.spacing },
         ]}
       >
-        <View
-          style={[
-            styles.toggle,
-            {
-              backgroundColor: theme.colors.card,
-              borderRadius: theme.borderRadius,
-            },
-          ]}
-        >
-          <Text style={[styles.toggleLabel, { color: theme.colors.text }]}>
-            Habit Tracking
-          </Text>
-          <Switch
-            accessibilityLabel="Habit Tracking"
-            value={preferences.enableHabits}
-            onValueChange={(enableHabits) =>
-              updatePreferences({ enableHabits })
-            }
-            trackColor={{
-              true: theme.colors.primary,
-              false: withOpacity(theme.colors.text, 0.2),
-            }}
-          />
-        </View>
+        <SettingsToggleCard
+          label="Habit Tracking"
+          value={preferences.enableHabits}
+          onValueChange={(enableHabits) => updatePreferences({ enableHabits })}
+        />
 
         {preferences.enableHabits && (
           <View style={styles.section}>
@@ -136,15 +117,5 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: 10,
-  },
-  toggle: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: 16,
-  },
-  toggleLabel: {
-    fontSize: 16,
-    fontWeight: "500",
   },
 });

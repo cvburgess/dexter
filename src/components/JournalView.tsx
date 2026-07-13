@@ -10,6 +10,7 @@ import { TDay, TJournalPrompt } from "@/api/days";
 import { useDays } from "@/hooks/useDays";
 import { useTheme } from "@/utils/theme";
 
+import { EmptyScreen } from "./EmptyScreen";
 import { LoadingScreen } from "./LoadingScreen";
 import { TextInput } from "./TextInput";
 
@@ -51,19 +52,12 @@ const responseHeight = (lines: number, spacing: number) =>
  * day), which re-seeds the uncontrolled inputs when the day changes.
  */
 export function JournalView({ date, onEditingChange }: TJournalViewProps) {
-  const theme = useTheme();
   const [day, { isLoading, upsertDayAsync }] = useDays(date);
 
   if (isLoading) return <LoadingScreen />;
 
   if (day.prompts.length === 0) {
-    return (
-      <View style={styles.centered}>
-        <Text style={[styles.empty, { color: theme.colors.textSecondary }]}>
-          Add journal prompts in Settings → Journal
-        </Text>
-      </View>
-    );
+    return <EmptyScreen message="Add journal prompts in Settings → Journal" />;
   }
 
   // Mount the editor only once the day has loaded so its refs/inputs seed from
@@ -268,15 +262,5 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: "600",
-  },
-  centered: {
-    alignItems: "center",
-    flex: 1,
-    justifyContent: "center",
-    padding: 24,
-  },
-  empty: {
-    fontSize: 15,
-    textAlign: "center",
   },
 });

@@ -23,7 +23,7 @@ const getSupabaseEnv = () => {
   };
 };
 
-const { supabasePublishableKey, supabaseUrl } = getSupabaseEnv();
+export const { supabasePublishableKey, supabaseUrl } = getSupabaseEnv();
 
 export const supabase = createClient<Database>(
   supabaseUrl,
