@@ -1,22 +1,20 @@
 import { Redirect, useRouter } from "expo-router";
-import { FlatList, StyleSheet, useWindowDimensions, View } from "react-native";
+import { FlatList, StyleSheet, View } from "react-native";
 
 import { SettingsRow } from "@/components/SettingsRow";
-import {
-  SETTINGS_ITEMS,
-  SETTINGS_TWO_PANE_MIN_WIDTH,
-} from "@/utils/settingsItems";
+import { useIsMultiPane } from "@/hooks/useIsMultiPane";
+import { SETTINGS_ITEMS } from "@/utils/settingsItems";
 import { useTheme } from "@/utils/theme";
 
 export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { width } = useWindowDimensions();
+  const twoPane = useIsMultiPane();
 
   // On wide screens the list becomes a persistent sidebar (SettingsSidebar) and
   // this index would otherwise render the same list again in the detail pane, so
   // redirect to a default subview and let the sidebar drive navigation.
-  if (width >= SETTINGS_TWO_PANE_MIN_WIDTH) {
+  if (twoPane) {
     return <Redirect href={`/settings/${SETTINGS_ITEMS[0].slug}`} />;
   }
 

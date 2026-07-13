@@ -4,24 +4,22 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
+import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { useTemplates } from "@/hooks/useTemplates";
 import { describeSchedule } from "@/utils/repeatSchedule";
-import { SETTINGS_TWO_PANE_MIN_WIDTH } from "@/utils/settingsItems";
 import { useTheme } from "@/utils/theme";
 
 export default function TasksScreen() {
   const theme = useTheme();
   const router = useRouter();
   const [templates] = useTemplates();
-  const { width } = useWindowDimensions();
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
-  const twoPane = width >= SETTINGS_TWO_PANE_MIN_WIDTH;
+  const twoPane = useIsMultiPane();
 
   return (
     <SafeAreaView

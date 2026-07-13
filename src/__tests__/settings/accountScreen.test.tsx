@@ -3,6 +3,7 @@ import { Alert } from "react-native";
 
 import AccountScreen from "@/app/(app)/(tabs)/settings/account";
 import { deleteAccount, signOut } from "@/hooks/useAuth";
+import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 
 jest.mock("@/hooks/useAuth", () => ({
   signOut: jest.fn(),
@@ -17,6 +18,12 @@ jest.mock("@/hooks/useAuth", () => ({
   }),
 }));
 
+jest.mock("@/hooks/useIsMultiPane", () => ({ useIsMultiPane: jest.fn() }));
+
+jest.mock("react-native-safe-area-context", () =>
+  require("@/testUtils/mockSafeAreaEdges").mockSafeAreaContext(),
+);
+
 const mockClear = jest.fn();
 jest.mock("@tanstack/react-query", () => ({
   useQueryClient: () => ({ clear: mockClear }),
@@ -25,6 +32,9 @@ jest.mock("@tanstack/react-query", () => ({
 const mockSignOut = signOut as jest.MockedFunction<typeof signOut>;
 const mockDeleteAccount = deleteAccount as jest.MockedFunction<
   typeof deleteAccount
+>;
+const mockUseIsMultiPane = useIsMultiPane as jest.MockedFunction<
+  typeof useIsMultiPane
 >;
 
 // Confirm a destructive Alert by pressing its destructive button.
@@ -42,6 +52,23 @@ const cancelAlert = () =>
 describe("AccountScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseIsMultiPane.mockReturnValue(false);
+  });
+
+  it("skips the left safe-area edge in two-pane mode (sidebar owns it)", () => {
+    mockUseIsMultiPane.mockReturnValue(true);
+    const screen = render(<AccountScreen />);
+
+    expect(screen.getByTestId("safe-area-edges-bottom,right")).toBeTruthy();
+  });
+
+  it("includes the left safe-area edge in single-column mode", () => {
+    mockUseIsMultiPane.mockReturnValue(false);
+    const screen = render(<AccountScreen />);
+
+    expect(
+      screen.getByTestId("safe-area-edges-bottom,left,right"),
+    ).toBeTruthy();
   });
 
   it("renders the signed-in user's name and email", () => {

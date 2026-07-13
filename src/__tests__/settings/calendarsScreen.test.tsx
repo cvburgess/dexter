@@ -4,6 +4,7 @@ import { ReactNode } from "react";
 
 import CalendarsScreen from "@/app/(app)/(tabs)/settings/calendars";
 import { useEnabledDeviceCalendars } from "@/hooks/useEnabledDeviceCalendars";
+import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
 
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
@@ -13,9 +14,17 @@ jest.mock("@/hooks/useEnabledDeviceCalendars", () => ({
     { setEnabledIds: jest.fn(), isLoading: false },
   ]),
 }));
+jest.mock("@/hooks/useIsMultiPane", () => ({ useIsMultiPane: jest.fn() }));
+
+jest.mock("react-native-safe-area-context", () =>
+  require("@/testUtils/mockSafeAreaEdges").mockSafeAreaContext(),
+);
 
 const mockUsePreferences = usePreferences as jest.MockedFunction<
   typeof usePreferences
+>;
+const mockUseIsMultiPane = useIsMultiPane as jest.MockedFunction<
+  typeof useIsMultiPane
 >;
 const mockUpdate = jest.fn();
 
@@ -50,6 +59,23 @@ describe("CalendarsScreen", () => {
       null,
       { setEnabledIds: jest.fn(), isLoading: false },
     ]);
+    mockUseIsMultiPane.mockReturnValue(false);
+  });
+
+  it("skips the left safe-area edge in two-pane mode (sidebar owns it)", () => {
+    mockUseIsMultiPane.mockReturnValue(true);
+    const screen = renderWith({ enableCalendar: true });
+
+    expect(screen.getByTestId("safe-area-edges-bottom,right")).toBeTruthy();
+  });
+
+  it("includes the left safe-area edge in single-column mode", () => {
+    mockUseIsMultiPane.mockReturnValue(false);
+    const screen = renderWith({ enableCalendar: true });
+
+    expect(
+      screen.getByTestId("safe-area-edges-bottom,left,right"),
+    ).toBeTruthy();
   });
 
   it("reflects the enabled state and toggles it", () => {
