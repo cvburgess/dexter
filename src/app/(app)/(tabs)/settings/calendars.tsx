@@ -68,6 +68,9 @@ export default function CalendarsScreen() {
                     testID="calendar-start-time"
                     value={toFieldValue(preferences.calendarStartTime)}
                     onChange={(value) =>
+                      // The web time input can emit "" when cleared; ignore it
+                      // rather than storing the invalid ":00" (`time` rejects it).
+                      value &&
                       updatePreferences({
                         calendarStartTime: toStoredValue(value),
                       })
@@ -85,6 +88,7 @@ export default function CalendarsScreen() {
                     testID="calendar-end-time"
                     value={toFieldValue(preferences.calendarEndTime)}
                     onChange={(value) =>
+                      value &&
                       updatePreferences({
                         calendarEndTime: toStoredValue(value),
                       })

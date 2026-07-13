@@ -6,7 +6,6 @@ type TSettingsToggleCardProps = {
   label: string;
   value: boolean;
   onValueChange: (value: boolean) => void;
-  testID?: string;
 };
 
 /**
@@ -18,7 +17,6 @@ export function SettingsToggleCard({
   label,
   value,
   onValueChange,
-  testID,
 }: TSettingsToggleCardProps) {
   const theme = useTheme();
 
@@ -35,7 +33,6 @@ export function SettingsToggleCard({
       <Text style={[styles.label, { color: theme.colors.text }]}>{label}</Text>
       <Switch
         accessibilityLabel={label}
-        testID={testID}
         value={value}
         onValueChange={onValueChange}
         trackColor={{

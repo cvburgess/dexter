@@ -22,7 +22,7 @@ import { EmptyScreen } from "./EmptyScreen";
 /** Pixels per hour on the timeline. */
 const HOUR_HEIGHT = 72;
 /** Width reserved for the hour labels down the left edge. */
-const GUTTER_WIDTH = 56;
+const GUTTER_WIDTH = 50;
 /**
  * Blocks at least this tall stack the time under the title; shorter ones render
  * the time inline to the right (no vertical room to stack). Half an hour at the
@@ -49,14 +49,17 @@ const RESPONSE_FILL_OPACITY: Partial<Record<TEventResponse, number>> = {
 const fillOpacity = (response?: TEventResponse): number =>
   (response && RESPONSE_FILL_OPACITY[response]) ?? NORMAL_FILL_OPACITY;
 
-/** Border for an event block. Accepted/tentative keep just the 3px left accent
- * bar (from `eventBlock`/`allDayBlock`); invited events keep that same 3px left
- * bar and add a 1px accent border on the other sides to read as a complete,
- * outline-only card. */
+/** Border for an event block. Every event carries a full-opacity accent bar
+ * inset inside the rectangle (see `AccentBar`); invited events add a matching
+ * uniform 1px accent outline so the hollow (unfilled) block still reads as a
+ * complete card — matching Apple Calendar's treatment for unaccepted events. */
 const borderStyle = (accent: string, response?: TEventResponse): ViewStyle =>
-  response === "invited"
-    ? { borderColor: accent, borderWidth: 1, borderLeftWidth: 3 }
-    : { borderLeftColor: accent };
+  response === "invited" ? { borderColor: accent, borderWidth: 1 } : {};
+
+/** Full-opacity accent bar inset inside an event's rectangle. */
+function AccentBar({ accent }: { accent: string }) {
+  return <View style={[styles.accentBar, { backgroundColor: accent }]} />;
+}
 /** Fallback window if stored times are missing or inverted. */
 const DEFAULT_START_HOUR = 6;
 const DEFAULT_END_HOUR = 20;
@@ -156,7 +159,7 @@ export function CalendarView({ date }: TCalendarViewProps) {
     return list;
   }, [startHour, endHour]);
 
-  const dividerColor = withOpacity(theme.colors.text, 0.1);
+  const dividerColor = withOpacity(theme.colors.text, 0.25);
 
   const emptyMessage = permissionDenied
     ? "Calendar access is off. Enable it in your system settings to see your events."
@@ -250,6 +253,7 @@ export function CalendarView({ date }: TCalendarViewProps) {
                         },
                       ]}
                     >
+                      <AccentBar accent={accent} />
                       {stacked ? (
                         <>
                           <Text
@@ -343,7 +347,7 @@ function AllDayRow({
         numberOfLines={1}
         style={[styles.allDayGutter, { color: theme.colors.textSecondary }]}
       >
-        All Day
+        all-day
       </Text>
       <View
         style={[
@@ -355,6 +359,7 @@ function AllDayRow({
           },
         ]}
       >
+        <AccentBar accent={accent} />
         <Text
           numberOfLines={1}
           style={[styles.allDayText, { color: theme.colors.text }]}
@@ -379,18 +384,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
   },
+  // Full gutter width so the all-day block lines up with the timeline events
+  // (which start at GUTTER_WIDTH), rather than starting 8px further left.
   allDayGutter: {
     fontSize: 11,
     paddingRight: 8,
     textAlign: "right",
-    width: GUTTER_WIDTH - 8,
+    width: GUTTER_WIDTH,
   },
+  // Left padding leaves room for the inset accent bar (see `accentBar`).
   allDayBlock: {
-    borderLeftWidth: 3,
     flex: 1,
     marginRight: 8,
     overflow: "hidden",
-    paddingHorizontal: 6,
+    paddingLeft: 14,
+    paddingRight: 6,
     paddingVertical: 4,
   },
   allDayText: {
@@ -446,16 +454,26 @@ const styles = StyleSheet.create({
     right: 8,
     top: 0,
   },
+  // Left padding leaves room for the inset accent bar (see `accentBar`).
   eventBlock: {
-    borderLeftWidth: 3,
     overflow: "hidden",
-    paddingHorizontal: 8,
+    paddingLeft: 16,
+    paddingRight: 8,
     paddingVertical: 4,
     position: "absolute",
   },
   // Short blocks are too thin for the full vertical padding.
   eventBlockInline: {
     paddingVertical: 1,
+  },
+  // Full-opacity accent bar inset inside every event's rectangle.
+  accentBar: {
+    borderRadius: 2,
+    bottom: 4,
+    left: 6,
+    position: "absolute",
+    top: 4,
+    width: 3,
   },
   eventTitle: {
     fontSize: 12,

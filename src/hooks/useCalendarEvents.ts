@@ -110,15 +110,25 @@ const nativeToEvent = (
   timeZone: string,
   colorById: Map<string, string | undefined>,
   response: TEventResponse | undefined,
-): TCalendarEvent => ({
-  id: event.id,
-  title: event.title || "(No title)",
-  start: toPlainDateTime(event.startDate, timeZone),
-  end: toPlainDateTime(event.endDate, timeZone),
-  allDay: Boolean(event.allDay),
-  color: colorById.get(event.calendarId),
-  response,
-});
+): TCalendarEvent => {
+  const startMs =
+    event.startDate instanceof Date
+      ? event.startDate.getTime()
+      : new Date(event.startDate).getTime();
+  return {
+    // expo-calendar returns the same `id` for every occurrence of a recurring
+    // event, so suffix the occurrence start to keep React keys unique when a
+    // series fires more than once in the viewed day (mirrors the web
+    // `${uid}-${startMs}` id).
+    id: `${event.id}-${startMs}`,
+    title: event.title || "(No title)",
+    start: toPlainDateTime(event.startDate, timeZone),
+    end: toPlainDateTime(event.endDate, timeZone),
+    allDay: Boolean(event.allDay),
+    color: colorById.get(event.calendarId),
+    response,
+  };
+};
 
 /**
  * Read the day's events from the enabled device calendars. Requests permission

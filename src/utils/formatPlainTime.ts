@@ -32,13 +32,3 @@ export const parseTimeToMinutes = (time: string): number => {
     (Number.isFinite(minute) ? minute : 0)
   );
 };
-
-/** Convert minutes past midnight back to a stored `"HH:MM:SS"` time string. */
-export const minutesToTimeString = (minutes: number): string => {
-  const clamped = Math.max(0, Math.min(24 * 60, Math.round(minutes)));
-  const hour = Math.floor(clamped / 60);
-  const minute = clamped % 60;
-  return `${hour.toString().padStart(2, "0")}:${minute
-    .toString()
-    .padStart(2, "0")}:00`;
-};

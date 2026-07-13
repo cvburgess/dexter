@@ -133,6 +133,21 @@ describe("parseIcsEventsForDate — attendee response", () => {
     ).toBeUndefined();
   });
 
+  it("defaults a matched attendee with no PARTSTAT to invited (RFC 5545)", () => {
+    const noPartstat = wrap(
+      "BEGIN:VEVENT",
+      "UID:invite-2",
+      "SUMMARY:Bare invite",
+      "DTSTART:20260712T140000Z",
+      "DTEND:20260712T143000Z",
+      `ATTENDEE;CN=Me:mailto:${ME}`,
+      "END:VEVENT",
+    );
+    expect(parseIcsEventsForDate(noPartstat, DAY, TZ, ME)[0].response).toBe(
+      "invited",
+    );
+  });
+
   it("matches the attendee email case-insensitively", () => {
     const events = parseIcsEventsForDate(
       withAttendee("NEEDS-ACTION", "Me@Example.com"),
@@ -172,5 +187,32 @@ describe("parseIcsEventsForDate — attendee response", () => {
     const events = parseIcsEventsForDate(recurringInvite, DAY, TZ, ME);
     expect(events).toHaveLength(1);
     expect(events[0].response).toBe("tentative");
+  });
+});
+
+describe("parseIcsEventsForDate — event color", () => {
+  const withColor = (color: string) =>
+    wrap(
+      "BEGIN:VEVENT",
+      "UID:colored-1",
+      "SUMMARY:Colored",
+      "DTSTART:20260712T140000Z",
+      "DTEND:20260712T143000Z",
+      `COLOR:${color}`,
+      "END:VEVENT",
+    );
+
+  it("keeps a #RRGGBB hex color", () => {
+    expect(parseIcsEventsForDate(withColor("#3366ff"), DAY, TZ)[0].color).toBe(
+      "#3366ff",
+    );
+  });
+
+  it("drops a non-hex CSS color name (would break the hex-only withOpacity)", () => {
+    // RFC 7986 permits names like `turquoise`; the app's withOpacity parses hex
+    // only and would yield rgba(NaN,...), so a non-hex COLOR falls back to undefined.
+    expect(
+      parseIcsEventsForDate(withColor("turquoise"), DAY, TZ)[0].color,
+    ).toBeUndefined();
   });
 });

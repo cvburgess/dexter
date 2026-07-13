@@ -1,7 +1,6 @@
 import {
   formatHourLabel,
   formatTime,
-  minutesToTimeString,
   parseTimeToMinutes,
 } from "../formatPlainTime";
 
@@ -37,17 +36,5 @@ describe("parseTimeToMinutes", () => {
 
   it("tolerates HH:MM without seconds", () => {
     expect(parseTimeToMinutes("09:15")).toBe(555);
-  });
-});
-
-describe("minutesToTimeString", () => {
-  it("round-trips with parseTimeToMinutes", () => {
-    expect(minutesToTimeString(360)).toBe("06:00:00");
-    expect(minutesToTimeString(1230)).toBe("20:30:00");
-  });
-
-  it("clamps out-of-range minutes", () => {
-    expect(minutesToTimeString(-10)).toBe("00:00:00");
-    expect(minutesToTimeString(24 * 60 + 30)).toBe("24:00:00");
   });
 });

@@ -36,7 +36,8 @@ export type TUseCalendarEvents = [
   TCalendarEvent[],
   {
     isLoading: boolean;
-    /** A feed/device read failed (all sources, or at least one on web). */
+    /** A read failed: the device read (native), or *every* configured feed
+     * (web). One failing feed among several is omitted, not surfaced here. */
     isError: boolean;
     /** Native only: calendar permission was denied. Always false on web. */
     permissionDenied: boolean;

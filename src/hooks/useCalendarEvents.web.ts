@@ -2,6 +2,7 @@ import { Temporal } from "@js-temporal/polyfill";
 import { useQuery } from "@tanstack/react-query";
 
 import { parseIcsEventsForDate } from "@/utils/icsEvents";
+import { supabaseUrl } from "@/utils/supabase";
 
 import { useAuth } from "./useAuth";
 import { usePreferences } from "./usePreferences";
@@ -11,8 +12,9 @@ const STALE_TIME_MS = 1000 * 60 * 10;
 
 /** Route a third-party `.ics` URL through the ics-proxy Edge Function (CORS + SSRF guard). */
 const proxyUrl = (icsUrl: string): string => {
-  const base = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  return `${base}/functions/v1/ics-proxy?url=${encodeURIComponent(icsUrl)}`;
+  // `supabaseUrl` is the validated base from utils/supabase (throws on a
+  // missing env), rather than an unchecked `process.env` read here.
+  return `${supabaseUrl}/functions/v1/ics-proxy?url=${encodeURIComponent(icsUrl)}`;
 };
 
 /**

@@ -56,6 +56,17 @@ const emailOf = (calAddress: string): string =>
     .toLowerCase();
 
 /**
+ * Keep an ICS `COLOR` value only when it's `#RRGGBB` hex. RFC 7986 permits CSS3
+ * color *names* (e.g. `turquoise`), which the app's hex-only `withOpacity`
+ * mis-parses into `rgba(NaN, NaN, NaN, a)` (a fill-less block); drop anything
+ * non-hex so the event falls back to the theme accent instead.
+ */
+const hexColorOrUndefined = (value: unknown): string | undefined => {
+  const color = typeof value === "string" ? value.trim() : "";
+  return /^#[0-9a-f]{6}$/i.test(color) ? color : undefined;
+};
+
+/**
  * The current user's RSVP for a VEVENT, matched against their email via the
  * ATTENDEE properties' CAL-ADDRESS. Returns undefined when there's no matching
  * attendee (common for subscription feeds) or no email to match on.
@@ -70,7 +81,9 @@ const responseForUser = (
     const value = attendee.getFirstValue();
     if (typeof value !== "string" || emailOf(value) !== target) continue;
     const partstat = attendee.getParameter("partstat");
-    if (typeof partstat !== "string") return undefined;
+    // RFC 5545 §3.2.12: an ATTENDEE with no PARTSTAT defaults to NEEDS-ACTION,
+    // so a bare invite (listed, no reply) reads as "invited", not accepted.
+    if (typeof partstat !== "string") return "invited";
     return PARTSTAT_TO_RESPONSE[partstat.toUpperCase()];
   }
   return undefined;
@@ -183,8 +196,7 @@ export const parseIcsEventsForDate = (
 
       const uid = event.uid || `${events.length}`;
       const title = event.summary || "(No title)";
-      const color =
-        (vevent.getFirstPropertyValue("color") as string | null) ?? undefined;
+      const color = hexColorOrUndefined(vevent.getFirstPropertyValue("color"));
       const response = responseForUser(vevent, userEmail);
 
       if (!event.isRecurring()) {
