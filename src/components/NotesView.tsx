@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
+import { ETaskPriority } from "@/api/tasks";
 import { useDays } from "@/hooks/useDays";
 import { usePreferences } from "@/hooks/usePreferences";
-import { useTheme } from "@/utils/theme";
+import { useTheme, withOpacity } from "@/utils/theme";
 
 import { Button } from "./Button";
 import { LoadingScreen } from "./LoadingScreen";
@@ -20,6 +21,11 @@ type TNotesViewProps = {
 // Autosave cadence: long enough to coalesce a burst of keystrokes into one
 // write, short enough that a note is safe within a second of pausing.
 const SAVE_DEBOUNCE_MS = 800;
+
+// How far the note card's background/border overhang the bottom screen edge for
+// the "trails off" look. Applied as both a negative margin (visual overhang) and
+// a matching bottom padding (keeps the editor content on-screen).
+const CARD_TRAIL_OFF = 24;
 
 /**
  * The Notes surface for a single day. Reads/writes the day's markdown note via
@@ -129,18 +135,57 @@ export function NotesView({ date, onEditingChange }: TNotesViewProps) {
     );
   }
 
+  // Experiment: sit the note on a card styled like an incomplete "Neither"
+  // task (TaskCard: priority color at 80%, content color at 10% for the
+  // border), inset with the same 16pt gutter as the task list.
+  const priorityColor = theme.colors.priority[ETaskPriority.NEITHER];
+  const contentColor = theme.colors.priorityContent[ETaskPriority.NEITHER];
+
   return (
-    <NoteEditor
-      initialValue={day.notes ?? ""}
-      onChangeMarkdown={handleChangeMarkdown}
-      onFocusChange={onEditingChange}
-      placeholder="Write today's note…"
-      testID="note-editor"
-    />
+    <View style={styles.cardWrapper}>
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: withOpacity(priorityColor, 0.8),
+            borderColor: withOpacity(contentColor, 0.1),
+          },
+        ]}
+      >
+        <NoteEditor
+          initialValue={day.notes ?? ""}
+          onChangeMarkdown={handleChangeMarkdown}
+          onFocusChange={onEditingChange}
+          placeholder="Write today's note…"
+          testID="note-editor"
+        />
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // Same 16pt gutter the task list uses (today/index.tsx `list`) on the top and
+  // sides — but no bottom gutter, so the card runs to the bottom edge.
+  cardWrapper: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  // Matches TaskCard's container: 12 radius, 1pt border, clipped corners. The
+  // editor's own 16pt padding supplies the inner padding (TaskCard uses 16).
+  // The negative bottom margin pushes the rounded bottom corners past the screen
+  // edge so the card looks like it trails off rather than ending in the viewport;
+  // the matching paddingBottom keeps the editor *content* on-screen (only the
+  // bg/border overhang) so the editor can still scroll its last lines into view.
+  card: {
+    borderRadius: 12,
+    borderWidth: 1,
+    flex: 1,
+    marginBottom: -CARD_TRAIL_OFF,
+    overflow: "hidden",
+    paddingBottom: CARD_TRAIL_OFF,
+  },
   centered: {
     alignItems: "center",
     flex: 1,

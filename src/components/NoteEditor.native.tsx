@@ -4,6 +4,7 @@ import Animated, {
   useAnimatedKeyboard,
   useAnimatedStyle,
 } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SymbolView, type SymbolViewProps } from "expo-symbols";
 import {
   EnrichedMarkdownTextInput,
@@ -97,6 +98,7 @@ export function NoteEditor({
 }: TNoteEditorProps) {
   const theme = useTheme();
   const keyboard = useAnimatedKeyboard();
+  const insets = useSafeAreaInsets();
   const inputRef = useRef<EnrichedMarkdownTextInputInstance>(null);
   const [focused, setFocused] = useState(false);
   const [state, setState] = useState<StyleState | null>(null);
@@ -104,6 +106,18 @@ export function NoteEditor({
   // Ride the top edge of the keyboard as it animates in/out (UI thread).
   const barStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: -keyboard.height.value }],
+  }));
+
+  // Shrink the input's frame to the on-screen viewport so its built-in
+  // caret-scroll targets the real visible area: end above the keyboard + bar
+  // while editing, above the tab-bar safe area while reading. (The library
+  // scrolls the caret within the input's own frame, and ignores the input's own
+  // `padding` as a scroll inset — so this has to constrain the frame itself.)
+  const editorInsetStyle = useAnimatedStyle(() => ({
+    paddingBottom: Math.max(
+      keyboard.height.value + (focused ? BAR_HEIGHT : 0),
+      insets.bottom,
+    ),
   }));
 
   // Report "no longer editing" when the editor unmounts without a blur event —
@@ -114,37 +128,36 @@ export function NoteEditor({
 
   return (
     <View style={styles.container}>
-      <EnrichedMarkdownTextInput
-        ref={inputRef}
-        autoFocus={autoFocus}
-        cursorColor={theme.colors.primary}
-        defaultValue={initialValue}
-        multiline
-        onBlur={() => {
-          setFocused(false);
-          // Clear so a later focus doesn't flash the previous caret's
-          // highlights before the input emits a fresh state.
-          setState(null);
-          onFocusChange?.(false);
-        }}
-        onChangeMarkdown={onChangeMarkdown}
-        onChangeState={setState}
-        onFocus={() => {
-          setFocused(true);
-          onFocusChange?.(true);
-        }}
-        placeholder={placeholder}
-        placeholderTextColor={theme.colors.textSecondary}
-        selectionColor={theme.colors.primary}
-        style={StyleSheet.flatten([
-          styles.editor,
-          { color: theme.colors.text },
-          // Reserve room so the caret scrolls above the accessory bar, not
-          // behind it, when typing near the bottom.
-          focused && { paddingBottom: BAR_HEIGHT + 16 },
-        ])}
-        testID={testID}
-      />
+      <Animated.View style={[styles.editorFill, editorInsetStyle]}>
+        <EnrichedMarkdownTextInput
+          ref={inputRef}
+          autoFocus={autoFocus}
+          cursorColor={theme.colors.primary}
+          defaultValue={initialValue}
+          multiline
+          onBlur={() => {
+            setFocused(false);
+            // Clear so a later focus doesn't flash the previous caret's
+            // highlights before the input emits a fresh state.
+            setState(null);
+            onFocusChange?.(false);
+          }}
+          onChangeMarkdown={onChangeMarkdown}
+          onChangeState={setState}
+          onFocus={() => {
+            setFocused(true);
+            onFocusChange?.(true);
+          }}
+          placeholder={placeholder}
+          placeholderTextColor={theme.colors.textSecondary}
+          selectionColor={theme.colors.primary}
+          style={StyleSheet.flatten([
+            styles.editor,
+            { color: theme.colors.text },
+          ])}
+          testID={testID}
+        />
+      </Animated.View>
       {focused && (
         <Animated.View
           style={[
@@ -197,6 +210,11 @@ export function NoteEditor({
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  // Wraps the input; its animated paddingBottom shrinks the input's frame to the
+  // visible viewport (see `editorInsetStyle`) so the built-in caret-scroll works.
+  editorFill: {
     flex: 1,
   },
   editor: {
