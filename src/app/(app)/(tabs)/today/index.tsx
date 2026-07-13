@@ -122,15 +122,7 @@ export default function TodayScreen() {
             <TasksView date={day.date} />
           </View>
           {(showNotes || showJournal) && (
-            <View
-              style={[
-                styles.notesJournalPane,
-                {
-                  borderColor: withOpacity(theme.colors.text, 0.1),
-                  borderRadius: theme.borderRadius,
-                },
-              ]}
-            >
+            <View style={styles.notesJournalPane}>
               <NotesJournalTabs
                 date={day.date.toString()}
                 showJournal={showJournal}
@@ -280,13 +272,11 @@ const styles = StyleSheet.create({
     maxWidth: PANE_MAX_WIDTH,
     minWidth: 280,
   },
-  // Notes and Journal share one bordered, tabbed pane that flexes to fill
-  // whatever space remains — the outline sets it apart from the other panes,
-  // matching the legacy desktop app.
+  // Notes and Journal share one tabbed pane that flexes to fill whatever
+  // space remains. NotesJournalTabs draws its own border (only the active
+  // tab plus the card body below it, manila-folder style), not this wrapper.
   notesJournalPane: {
-    borderWidth: StyleSheet.hairlineWidth,
     flex: 1,
-    overflow: "hidden",
   },
   // Calendar gets its own (narrower) cap — a day timeline reads fine
   // narrower than a task list — plus a bordered card to set it apart from the

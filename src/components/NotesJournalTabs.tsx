@@ -3,7 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { JournalView } from "@/components/JournalView";
 import { NotesView } from "@/components/NotesView";
-import { useTheme } from "@/utils/theme";
+import { useTheme, withOpacity } from "@/utils/theme";
 
 type TTab = "notes" | "journal";
 
@@ -15,13 +15,14 @@ type TNotesJournalTabsProps = {
 };
 
 /**
- * The large-screen Notes/Journal pane: both surfaces share one bordered
- * column (see today/index.tsx), switched via a small tab bar when both are
- * enabled — styled like manila folder tabs (rounded top corners, the active
- * tab's color merging into the card body below it), matching the legacy
- * desktop app. With only one enabled, its content fills the pane and no tab
- * bar renders. Calendar is a separate column so it always sits at the far
- * right regardless of this pane's state.
+ * The large-screen Notes/Journal pane: both surfaces share one card body
+ * (see today/index.tsx, which gives this pane no border of its own),
+ * switched via a small tab bar when both are enabled — styled like manila
+ * folder tabs: only the active tab carries a border (top + sides, no
+ * bottom), overlapping the card body's own top border so the two merge into
+ * one shape, matching the legacy desktop app. With only one enabled, its
+ * content fills the pane and no tab bar renders. Calendar is a separate
+ * column so it always sits at the far right regardless of this pane's state.
  */
 export function NotesJournalTabs({
   date,
@@ -38,11 +39,27 @@ export function NotesJournalTabs({
         ? "notes"
         : tab;
   const showTabBar = showNotes && showJournal;
+  const borderColor = withOpacity(theme.colors.text, 0.1);
 
   return (
     <View style={styles.container}>
-      {showTabBar && <TabBar activeTab={activeTab} onChangeTab={setTab} />}
-      <View style={[styles.content, { backgroundColor: theme.colors.card }]}>
+      {showTabBar && (
+        <TabBar
+          activeTab={activeTab}
+          borderColor={borderColor}
+          onChangeTab={setTab}
+        />
+      )}
+      <View
+        style={[
+          styles.content,
+          {
+            backgroundColor: theme.colors.card,
+            borderColor,
+            borderRadius: theme.borderRadius,
+          },
+        ]}
+      >
         {activeTab === "notes" ? (
           <NotesView date={date} inset={false} />
         ) : (
@@ -55,21 +72,25 @@ export function NotesJournalTabs({
 
 function TabBar({
   activeTab,
+  borderColor,
   onChangeTab,
 }: {
   activeTab: TTab;
+  borderColor: string;
   onChangeTab: (tab: TTab) => void;
 }) {
   return (
     <View style={styles.tabBar}>
       <TabButton
         activeTab={activeTab}
+        borderColor={borderColor}
         label="Notes"
         onPress={onChangeTab}
         tab="notes"
       />
       <TabButton
         activeTab={activeTab}
+        borderColor={borderColor}
         label="Journal"
         onPress={onChangeTab}
         tab="journal"
@@ -82,11 +103,13 @@ function TabButton({
   label,
   tab,
   activeTab,
+  borderColor,
   onPress,
 }: {
   label: string;
   tab: TTab;
   activeTab: TTab;
+  borderColor: string;
   onPress: (tab: TTab) => void;
 }) {
   const theme = useTheme();
@@ -100,11 +123,15 @@ function TabButton({
       onPress={() => onPress(tab)}
       style={[
         styles.tab,
-        {
-          backgroundColor: active ? theme.colors.card : "transparent",
-          borderTopLeftRadius: theme.borderRadius,
-          borderTopRightRadius: theme.borderRadius,
-        },
+        active && [
+          styles.activeTab,
+          {
+            backgroundColor: theme.colors.card,
+            borderColor,
+            borderTopLeftRadius: theme.borderRadius,
+            borderTopRightRadius: theme.borderRadius,
+          },
+        ],
       ]}
     >
       <Text
@@ -126,23 +153,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  // The tab row sits on the page background; only the active tab's card
-  // color "pops" above the content body, like a manila folder tab.
   tabBar: {
     flexDirection: "row",
     gap: 4,
     paddingHorizontal: 8,
-    paddingTop: 8,
   },
   tab: {
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
+  // Border on top + sides only, pulled down by a hairline to overlap (and so
+  // visually merge with) the content body's own top border below it.
+  activeTab: {
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    marginBottom: -StyleSheet.hairlineWidth,
+  },
   tabLabel: {
     fontSize: 14,
   },
-  // Matches the active tab's color so the two merge into one folder body.
   content: {
+    borderWidth: StyleSheet.hairlineWidth,
     flex: 1,
+    overflow: "hidden",
   },
 });

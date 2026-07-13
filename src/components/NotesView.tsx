@@ -18,9 +18,11 @@ type TNotesViewProps = {
    * while editing. */
   onEditingChange?: (editing: boolean) => void;
   /**
-   * Whether to inset the card with the small-screen gutter (16pt top/sides).
-   * The large-screen multi-column layout passes `false` so the card sits
-   * flush within its own column instead of floating with extra margin.
+   * Whether to inset the card with the small-screen gutter (16pt top/sides)
+   * and draw its own border. The large-screen multi-column layout passes
+   * `false` so the card sits flush within its own column instead of floating
+   * with extra margin, and doesn't double up on the tabbed pane's own border
+   * (see NotesJournalTabs).
    */
   inset?: boolean;
 };
@@ -154,6 +156,7 @@ export function NotesView({
       <View
         style={[
           styles.card,
+          !inset && styles.cardBorderless,
           {
             backgroundColor: withOpacity(priorityColor, 0.8),
             borderColor: withOpacity(contentColor, 0.1),
@@ -200,6 +203,11 @@ const styles = StyleSheet.create({
     marginBottom: -CARD_TRAIL_OFF,
     overflow: "hidden",
     paddingBottom: CARD_TRAIL_OFF,
+  },
+  // The large-screen tabbed pane already draws a border around the whole
+  // column (see NotesJournalTabs), so the card's own border would double up.
+  cardBorderless: {
+    borderWidth: 0,
   },
   button: {
     minWidth: 240,
