@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ETaskPriority } from "@/api/tasks";
 import { useDays } from "@/hooks/useDays";
@@ -38,6 +39,7 @@ const CARD_TRAIL_OFF = 24;
  */
 export function NotesView({ date, onEditingChange }: TNotesViewProps) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [day, { isLoading, exists, upsertDay, upsertDayAsync }] = useDays(date);
   const [preferences] = usePreferences();
   // Latches once the user commits to the editor (picks a choice or types).
@@ -107,7 +109,10 @@ export function NotesView({ date, onEditingChange }: TNotesViewProps) {
   // (survives a failed save that rolled `exists` back).
   if (!exists && !committed && hasTemplate) {
     return (
-      <View style={styles.centered}>
+      // The host SafeAreaView excludes "bottom" (the tab bar owns that inset),
+      // so reserve it here — otherwise the buttons center over the area behind
+      // the tab bar and sit visibly low.
+      <View style={[styles.centered, { paddingBottom: 24 + insets.bottom }]}>
         <Text style={[styles.prompt, { color: theme.colors.textSecondary }]}>
           Start this day&apos;s note
         </Text>
@@ -149,6 +154,7 @@ export function NotesView({ date, onEditingChange }: TNotesViewProps) {
           {
             backgroundColor: withOpacity(priorityColor, 0.8),
             borderColor: withOpacity(contentColor, 0.1),
+            borderRadius: theme.borderRadius,
           },
         ]}
       >
@@ -172,14 +178,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
   },
-  // Matches TaskCard's container: 12 radius, 1pt border, clipped corners. The
+  // Matches TaskCard's container: theme radius, 1pt border, clipped corners. The
   // editor's own 16pt padding supplies the inner padding (TaskCard uses 16).
   // The negative bottom margin pushes the rounded bottom corners past the screen
   // edge so the card looks like it trails off rather than ending in the viewport;
   // the matching paddingBottom keeps the editor *content* on-screen (only the
   // bg/border overhang) so the editor can still scroll its last lines into view.
   card: {
-    borderRadius: 12,
     borderWidth: 1,
     flex: 1,
     marginBottom: -CARD_TRAIL_OFF,
