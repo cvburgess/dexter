@@ -26,7 +26,8 @@ The journal lives in the [Day](/tips/day) view under the **Journal** tab.
 
 ### Adding journal prompts
 
-Use the + input to add a new journal prompt, pressing Enter to save it.
+Use **Add prompt** to append a new prompt, then type your question — it saves
+automatically.
 
 Any new journal prompts will appear on days with a blank journal.
 
@@ -39,6 +40,7 @@ data.
 
 ### Editing journal prompts
 
-Click into a prompt and start typing to make changes, pressing Enter to save it.
+Tap into a prompt and start typing to make changes — they save automatically
+when you tap away.
 
 Any changes to journal prompts will appear on days with a blank journal.
