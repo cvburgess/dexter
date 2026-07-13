@@ -6,7 +6,11 @@ import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { TCalendarEvent } from "@/hooks/useCalendarEvents.types";
 import { usePreferences } from "@/hooks/usePreferences";
 import { layoutEvents } from "@/utils/calendarLayout";
-import { formatHourLabel, formatTime, parseTimeToMinutes } from "@/utils/formatPlainTime";
+import {
+  formatHourLabel,
+  formatTime,
+  parseTimeToMinutes,
+} from "@/utils/formatPlainTime";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 /** Pixels per hour on the timeline. */
@@ -84,14 +88,16 @@ export function CalendarView({ date }: TCalendarViewProps) {
       {allDayEvents.length > 0 && (
         <View style={[styles.allDayBar, { borderBottomColor: dividerColor }]}>
           {allDayEvents.map((event) => (
-            <AllDayChip key={event.id} event={event} theme={theme} />
+            <AllDayRow key={event.id} event={event} theme={theme} />
           ))}
         </View>
       )}
 
       {showEmpty ? (
         <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+          <Text
+            style={[styles.emptyText, { color: theme.colors.textSecondary }]}
+          >
             {emptyMessage}
           </Text>
         </View>
@@ -124,44 +130,49 @@ export function CalendarView({ date }: TCalendarViewProps) {
             })}
 
             <View style={styles.eventsArea}>
-              {positioned.map(({ event, topPx, heightPx, columnIndex, columnCount }) => {
-                const accent = event.color ?? theme.colors.primary;
-                return (
-                  <View
-                    key={event.id}
-                    style={[
-                      styles.eventBlock,
-                      {
-                        top: topPx,
-                        height: heightPx,
-                        left: `${(columnIndex / columnCount) * 100}%`,
-                        width: `${(1 / columnCount) * 100}%`,
-                        backgroundColor: withOpacity(accent, 0.16),
-                        borderLeftColor: accent,
-                        borderRadius: theme.borderRadius,
-                      },
-                    ]}
-                  >
-                    <Text
-                      numberOfLines={heightPx < 34 ? 1 : 2}
-                      style={[styles.eventTitle, { color: theme.colors.text }]}
+              {positioned.map(
+                ({ event, topPx, heightPx, columnIndex, columnCount }) => {
+                  const accent = event.color ?? theme.colors.primary;
+                  return (
+                    <View
+                      key={event.id}
+                      style={[
+                        styles.eventBlock,
+                        {
+                          top: topPx,
+                          height: heightPx,
+                          left: `${(columnIndex / columnCount) * 100}%`,
+                          width: `${(1 / columnCount) * 100}%`,
+                          backgroundColor: withOpacity(accent, 0.16),
+                          borderLeftColor: accent,
+                          borderRadius: theme.borderRadius,
+                        },
+                      ]}
                     >
-                      {event.title}
-                    </Text>
-                    {heightPx >= 34 && (
                       <Text
-                        numberOfLines={1}
+                        numberOfLines={heightPx < 34 ? 1 : 2}
                         style={[
-                          styles.eventTime,
-                          { color: theme.colors.textSecondary },
+                          styles.eventTitle,
+                          { color: theme.colors.text },
                         ]}
                       >
-                        {formatTime(event.start)}
+                        {event.title}
                       </Text>
-                    )}
-                  </View>
-                );
-              })}
+                      {heightPx >= 34 && (
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.eventTime,
+                            { color: theme.colors.textSecondary },
+                          ]}
+                        >
+                          {formatTime(event.start)}
+                        </Text>
+                      )}
+                    </View>
+                  );
+                },
+              )}
             </View>
           </View>
         </ScrollView>
@@ -170,7 +181,7 @@ export function CalendarView({ date }: TCalendarViewProps) {
   );
 }
 
-function AllDayChip({
+function AllDayRow({
   event,
   theme,
 }: {
@@ -179,21 +190,30 @@ function AllDayChip({
 }) {
   const accent = event.color ?? theme.colors.primary;
   return (
-    <View
-      style={[
-        styles.allDayChip,
-        {
-          backgroundColor: withOpacity(accent, 0.16),
-          borderRadius: theme.borderRadius,
-        },
-      ]}
-    >
+    <View style={styles.allDayRow}>
       <Text
         numberOfLines={1}
-        style={[styles.allDayText, { color: theme.colors.text }]}
+        style={[styles.allDayGutter, { color: theme.colors.textSecondary }]}
       >
-        {event.title}
+        All Day
       </Text>
+      <View
+        style={[
+          styles.allDayBlock,
+          {
+            backgroundColor: withOpacity(accent, 0.16),
+            borderLeftColor: accent,
+            borderRadius: theme.borderRadius,
+          },
+        ]}
+      >
+        <Text
+          numberOfLines={1}
+          style={[styles.allDayText, { color: theme.colors.text }]}
+        >
+          {event.title}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -204,14 +224,25 @@ const styles = StyleSheet.create({
   },
   allDayBar: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    paddingHorizontal: 16,
+    gap: 4,
     paddingVertical: 8,
   },
-  allDayChip: {
-    paddingHorizontal: 10,
+  allDayRow: {
+    alignItems: "center",
+    flexDirection: "row",
+  },
+  allDayGutter: {
+    fontSize: 11,
+    paddingRight: 8,
+    textAlign: "right",
+    width: GUTTER_WIDTH - 8,
+  },
+  allDayBlock: {
+    borderLeftWidth: 3,
+    flex: 1,
+    marginRight: 8,
+    overflow: "hidden",
+    paddingHorizontal: 6,
     paddingVertical: 4,
   },
   allDayText: {

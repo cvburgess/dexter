@@ -56,8 +56,11 @@ describe("DayNav", () => {
 
   it("jumps to today when the date is pressed on a non-today day", () => {
     const onChangeDate = jest.fn();
+    // Derive from the real "today" so this is never coincidentally today
+    // (a fixed date would render the picker whenever the suite runs on it).
+    const notToday = Temporal.Now.plainDateISO().add({ days: 10 });
     const screen = render(
-      <DayNav date={date.add({ days: 10 })} onChangeDate={onChangeDate} />,
+      <DayNav date={notToday} onChangeDate={onChangeDate} />,
     );
 
     // The center control is the "go to today" shortcut, not the picker.
