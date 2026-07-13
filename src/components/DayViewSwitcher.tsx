@@ -27,7 +27,11 @@ const VIEW_META: Record<
     ionicon: "document-text-outline",
   },
   journal: { label: "Journal", icon: "book", ionicon: "book-outline" },
-  calendar: { label: "Calendar", icon: "calendar", ionicon: "calendar-outline" },
+  calendar: {
+    label: "Calendar",
+    icon: "calendar",
+    ionicon: "calendar-outline",
+  },
 };
 
 type TDayViewSwitcherProps = {

@@ -18,7 +18,8 @@ describe("dayViewOptions", () => {
     notes: boolean,
     journal: boolean,
     calendar = false,
-  ) => dayViewOptions(view, jest.fn(), notes, journal, calendar).map((o) => o.id);
+  ) =>
+    dayViewOptions(view, jest.fn(), notes, journal, calendar).map((o) => o.id);
 
   it("always offers Tasks", () => {
     expect(ids("tasks", false, false)).toEqual(["tasks"]);

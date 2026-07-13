@@ -8,7 +8,7 @@ import { useTheme, withOpacity } from "@/utils/theme";
 
 // Minimal structural shape for the calendars we render — decoupled from
 // expo-calendar's exact exported type names.
-type TDeviceCalendar = { id: string; title: string; color: string };
+type TDeviceCalendar = { id: string; title: string; color?: string };
 
 type TCalendarsResult = {
   calendars: TDeviceCalendar[];
@@ -16,13 +16,11 @@ type TCalendarsResult = {
 };
 
 const fetchCalendars = async (): Promise<TCalendarsResult> => {
-  const { granted } = await Calendar.requestCalendarPermissionsAsync();
+  const { granted } = await Calendar.requestCalendarPermissions();
   if (!granted) {
     return { calendars: [], permissionDenied: true };
   }
-  const calendars = await Calendar.getCalendarsAsync(
-    Calendar.EntityTypes.EVENT,
-  );
+  const calendars = await Calendar.getCalendars(Calendar.EntityTypes.EVENT);
   return { calendars, permissionDenied: false };
 };
 
@@ -55,8 +53,6 @@ export function CalendarSourceList() {
     void setEnabledIds(next);
   };
 
-  const dividerColor = withOpacity(theme.colors.text, 0.1);
-
   return (
     <View style={styles.section}>
       <SettingsSectionTitle>Calendars</SettingsSectionTitle>
@@ -70,29 +66,20 @@ export function CalendarSourceList() {
           No calendars found on this device.
         </Text>
       ) : (
-        <View
-          style={[
-            styles.list,
-            {
-              backgroundColor: theme.colors.card,
-              borderRadius: theme.borderRadius,
-            },
-          ]}
-        >
-          {calendars.map((calendar, index) => (
+        <View style={{ gap: theme.gap }}>
+          {calendars.map((calendar) => (
             <View
               key={calendar.id}
               style={[
                 styles.row,
-                index > 0 && {
-                  borderTopColor: dividerColor,
-                  borderTopWidth: StyleSheet.hairlineWidth,
+                {
+                  backgroundColor: theme.colors.card,
+                  borderRadius: theme.borderRadius,
+                  opacity: isEnabled(calendar.id) ? 1 : 0.5,
                 },
               ]}
             >
-              <View
-                style={[styles.dot, { backgroundColor: calendar.color }]}
-              />
+              <View style={[styles.dot, { backgroundColor: calendar.color }]} />
               <Text
                 numberOfLines={1}
                 style={[styles.title, { color: theme.colors.text }]}
@@ -120,15 +107,11 @@ const styles = StyleSheet.create({
   section: {
     gap: 10,
   },
-  list: {
-    overflow: "hidden",
-    paddingHorizontal: 16,
-  },
   row: {
     alignItems: "center",
     flexDirection: "row",
     gap: 12,
-    paddingVertical: 12,
+    padding: 16,
   },
   dot: {
     borderRadius: 6,

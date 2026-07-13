@@ -63,14 +63,12 @@ const fetchDeviceEvents = async (
   dateIso: string,
   enabledIds: string[] | null,
 ): Promise<TDeviceResult> => {
-  const { granted } = await Calendar.requestCalendarPermissionsAsync();
+  const { granted } = await Calendar.requestCalendarPermissions();
   if (!granted) {
     return { events: [], permissionDenied: true };
   }
 
-  const calendars = await Calendar.getCalendarsAsync(
-    Calendar.EntityTypes.EVENT,
-  );
+  const calendars = await Calendar.getCalendars(Calendar.EntityTypes.EVENT);
   const allIds = calendars.map((c) => c.id);
   const ids = (enabledIds ?? allIds).filter((id) => allIds.includes(id));
   if (ids.length === 0) return { events: [], permissionDenied: false };
@@ -88,7 +86,7 @@ const fetchDeviceEvents = async (
       .epochMilliseconds,
   );
 
-  const native = await Calendar.getEventsAsync(ids, dayStart, dayEnd);
+  const native = await Calendar.listEvents(ids, dayStart, dayEnd);
   return {
     events: native.map((event) => nativeToEvent(event, timeZone, colorById)),
     permissionDenied: false,

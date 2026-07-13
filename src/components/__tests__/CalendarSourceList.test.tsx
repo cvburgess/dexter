@@ -1,9 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  fireEvent,
-  render,
-  waitFor,
-} from "@testing-library/react-native";
+import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import * as Calendar from "expo-calendar";
 import { ReactNode } from "react";
 
@@ -60,7 +56,10 @@ describe("CalendarSourceList (web / .ics feeds)", () => {
     fireEvent.changeText(input, "https://a.example/edited.ics");
     fireEvent(input, "blur");
     expect(mockUpdate).toHaveBeenCalledWith({
-      calendarUrls: ["https://a.example/edited.ics", "https://a.example/two.ics"],
+      calendarUrls: [
+        "https://a.example/edited.ics",
+        "https://a.example/two.ics",
+      ],
     });
   });
 
@@ -85,8 +84,11 @@ describe("CalendarSourceList (native / device calendars)", () => {
       null,
       { setEnabledIds: mockSetEnabledIds, isLoading: false },
     ]);
-    (Calendar.requestCalendarPermissionsAsync as jest.Mock).mockResolvedValue({ status: "granted", granted: true });
-    (Calendar.getCalendarsAsync as jest.Mock).mockResolvedValue([
+    (Calendar.requestCalendarPermissions as jest.Mock).mockResolvedValue({
+      status: "granted",
+      granted: true,
+    });
+    (Calendar.getCalendars as jest.Mock).mockResolvedValue([
       { id: "work", title: "Work", color: "#ff0000" },
       { id: "home", title: "Home", color: "#00ff00" },
     ]);
@@ -108,7 +110,10 @@ describe("CalendarSourceList (native / device calendars)", () => {
   });
 
   it("prompts when calendar permission is denied", async () => {
-    (Calendar.requestCalendarPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied", granted: false });
+    (Calendar.requestCalendarPermissions as jest.Mock).mockResolvedValue({
+      status: "denied",
+      granted: false,
+    });
     const screen = render(<NativeSourceList />, { wrapper });
     await waitFor(() =>
       expect(screen.getByText(/Calendar access is off/)).toBeTruthy(),

@@ -65,16 +65,16 @@ jest.mock("@react-native-vector-icons/ionicons", () => {
 // an empty/granted result; individual tests override with jest.spyOn as needed.
 jest.mock("expo-calendar", () => ({
   EntityTypes: { EVENT: "event" },
-  requestCalendarPermissionsAsync: jest.fn(async () => ({
+  requestCalendarPermissions: jest.fn(async () => ({
     status: "granted",
     granted: true,
   })),
-  getCalendarPermissionsAsync: jest.fn(async () => ({
+  getCalendarPermissions: jest.fn(async () => ({
     status: "granted",
     granted: true,
   })),
-  getCalendarsAsync: jest.fn(async () => []),
-  getEventsAsync: jest.fn(async () => []),
+  getCalendars: jest.fn(async () => []),
+  listEvents: jest.fn(async () => []),
 }));
 
 // @expo/ui's SwiftUI primitives (used by DateField.ios) are native views.

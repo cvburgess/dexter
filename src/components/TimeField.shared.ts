@@ -3,7 +3,9 @@
 
 /** Parse `"HH:MM"` into a `Date` today at that time. */
 export const timeStringToDate = (value: string): Date => {
-  const [hour = 0, minute = 0] = value.split(":").map((part) => parseInt(part, 10));
+  const [hour = 0, minute = 0] = value
+    .split(":")
+    .map((part) => parseInt(part, 10));
   const date = new Date();
   date.setHours(
     Number.isFinite(hour) ? hour : 0,

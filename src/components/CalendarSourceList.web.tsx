@@ -75,7 +75,11 @@ export function CalendarSourceList() {
               style={styles.delete}
               testID={`delete-feed-${index}`}
             >
-              <Ionicons color={theme.colors.error} name="trash-outline" size={22} />
+              <Ionicons
+                color={theme.colors.error}
+                name="trash-outline"
+                size={22}
+              />
             </TouchableOpacity>
           </View>
         ))
