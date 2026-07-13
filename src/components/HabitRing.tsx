@@ -1,5 +1,5 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
-import { useEffect, useState } from "react";
+import { forwardRef, useEffect, useState } from "react";
 import {
   Animated,
   StyleSheet,
@@ -7,13 +7,25 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import Svg, { Circle } from "react-native-svg";
+import Svg, { Circle, type CircleProps } from "react-native-svg";
 
 import { useTheme, withOpacity } from "@/utils/theme";
 
+// Animated.createAnimatedComponent injects a `collapsable` prop, an RN View
+// hint with no web meaning. react-native-svg's web renderer forwards unknown
+// props straight to the DOM <circle>, so React DOM warns about it there.
+// Stripping it here (rather than on the raw Circle) keeps the drop scoped to
+// the animated instance.
+const BareCircle = forwardRef<Circle, CircleProps & { collapsable?: boolean }>(
+  ({ collapsable: _collapsable, ...rest }, ref) => (
+    <Circle ref={ref} {...rest} />
+  ),
+);
+BareCircle.displayName = "BareCircle";
+
 // SVG props can't run on the native driver, so the arc animates on the JS
 // thread; a short duration keeps the fill feeling responsive to each tap.
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const AnimatedCircle = Animated.createAnimatedComponent(BareCircle);
 const FILL_DURATION_MS = 300;
 
 // A larger ring than the emoji needs leaves breathing room between the ring
