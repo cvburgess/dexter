@@ -15,4 +15,10 @@ export type TGlassIconButtonProps = {
    * the menu handles the tap and the button is just the (visual) anchor.
    */
   onPress?: () => void;
+  /**
+   * Tints the icon `theme.colors.primary` when true, `theme.colors.text` when
+   * false — for buttons that toggle a state on/off. Omit to keep each
+   * platform's default icon color (primary on iOS, text on Android/web).
+   */
+  active?: boolean;
 };

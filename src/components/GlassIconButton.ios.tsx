@@ -21,15 +21,15 @@ export function GlassIconButton({
   accessibilityLabel,
   size = DEFAULT_SIZE,
   onPress,
+  active,
 }: TGlassIconButtonProps) {
   const theme = useTheme();
   const circle = { width: size, height: size, borderRadius: size / 2 };
+  // Only an explicit `active={false}` switches away from the default primary
+  // tint — `undefined` and `true` both resolve to it.
+  const tintColor = active === false ? theme.colors.text : theme.colors.primary;
   const icon = (
-    <SymbolView
-      name={sfSymbol}
-      size={size * 0.5}
-      tintColor={theme.colors.primary}
-    />
+    <SymbolView name={sfSymbol} size={size * 0.5} tintColor={tintColor} />
   );
 
   // The trigger anchor doesn't take the a11y label when a Pressable wraps it.

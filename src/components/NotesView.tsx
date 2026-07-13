@@ -17,6 +17,15 @@ type TNotesViewProps = {
   /** Fired as the editor gains/loses focus, so the host can disable day-swipe
    * while editing. */
   onEditingChange?: (editing: boolean) => void;
+  /**
+   * Whether to inset the card with the small-screen gutter (16pt top/sides)
+   * and draw its own tinted background/border. The large-screen
+   * multi-column layout passes `false` so the card sits flush and transparent
+   * within its own column instead of floating with extra margin and a card
+   * color that would double up on the tabbed pane's own border (see
+   * NotesJournalTabs).
+   */
+  inset?: boolean;
 };
 
 // Autosave cadence: long enough to coalesce a burst of keystrokes into one
@@ -37,7 +46,11 @@ const CARD_TRAIL_OFF = 24;
  * (DEX-37). Remount this per-date (via `key`) so the editor re-seeds when the
  * day changes.
  */
-export function NotesView({ date, onEditingChange }: TNotesViewProps) {
+export function NotesView({
+  date,
+  onEditingChange,
+  inset = true,
+}: TNotesViewProps) {
   const theme = useTheme();
   const [day, { isLoading, exists, upsertDay, upsertDayAsync }] = useDays(date);
   const [preferences] = usePreferences();
@@ -139,13 +152,27 @@ export function NotesView({ date, onEditingChange }: TNotesViewProps) {
   const priorityColor = theme.colors.priority[ETaskPriority.NEITHER];
   const contentColor = theme.colors.priorityContent[ETaskPriority.NEITHER];
 
+  // `inset` bundles three chrome decisions that only ever change together —
+  // derive them here once rather than three scattered ternaries in the JSX.
+  const chrome = inset
+    ? {
+        wrapper: styles.cardWrapper,
+        card: styles.card,
+        backgroundColor: withOpacity(priorityColor, 0.8),
+      }
+    : {
+        wrapper: [styles.cardWrapper, styles.cardWrapperFlush],
+        card: [styles.card, styles.cardBorderless],
+        backgroundColor: "transparent",
+      };
+
   return (
-    <View style={styles.cardWrapper}>
+    <View style={chrome.wrapper}>
       <View
         style={[
-          styles.card,
+          chrome.card,
           {
-            backgroundColor: withOpacity(priorityColor, 0.8),
+            backgroundColor: chrome.backgroundColor,
             borderColor: withOpacity(contentColor, 0.1),
             borderRadius: theme.borderRadius,
           },
@@ -171,6 +198,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
   },
+  // The large-screen layout already gives every pane its own column gutter
+  // (see today/index.tsx), so the card runs flush there instead of doubling
+  // up on inset.
+  cardWrapperFlush: {
+    paddingHorizontal: 0,
+    paddingTop: 0,
+  },
   // Matches TaskCard's container: theme radius, 1pt border, clipped corners. The
   // editor's own 16pt padding supplies the inner padding (TaskCard uses 16).
   // The negative bottom margin pushes the rounded bottom corners past the screen
@@ -183,6 +217,11 @@ const styles = StyleSheet.create({
     marginBottom: -CARD_TRAIL_OFF,
     overflow: "hidden",
     paddingBottom: CARD_TRAIL_OFF,
+  },
+  // The large-screen tabbed pane already draws a border around the whole
+  // column (see NotesJournalTabs), so the card's own border would double up.
+  cardBorderless: {
+    borderWidth: 0,
   },
   button: {
     minWidth: 240,

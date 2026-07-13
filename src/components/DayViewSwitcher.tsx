@@ -11,7 +11,11 @@ export type TDayView = "tasks" | "notes" | "journal" | "calendar";
 
 const BUTTON_SIZE = 40;
 
-const VIEW_META: Record<
+/**
+ * Icon metadata for each day view, shared with `DayPaneToggles` (the
+ * large-screen equivalent) so both surfaces use the same icons/labels.
+ */
+export const VIEW_META: Record<
   TDayView,
   {
     label: string;

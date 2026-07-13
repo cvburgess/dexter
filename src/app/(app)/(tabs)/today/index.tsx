@@ -1,29 +1,29 @@
 import { Temporal } from "@js-temporal/polyfill";
+import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { duplicateTaskInput, TTask } from "@/api/tasks";
 import { CalendarView } from "@/components/CalendarView";
-import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { DayNav } from "@/components/DayNav";
+import { DayPaneToggles } from "@/components/DayPaneToggles";
 import { DayViewSwitcher, TDayView } from "@/components/DayViewSwitcher";
-import { EmptyScreen } from "@/components/EmptyScreen";
-import { HabitTracker } from "@/components/HabitTracker";
+import { GlassIconButton } from "@/components/GlassIconButton";
 import { JournalView } from "@/components/JournalView";
+import { NotesJournalTabs } from "@/components/NotesJournalTabs";
 import { NotesView } from "@/components/NotesView";
 import { SwipeableDay } from "@/components/SwipeableDay";
-import { TaskCard } from "@/components/TaskCard";
-import { useConfirmation } from "@/hooks/useConfirmation";
+import { TasksView } from "@/components/TasksView";
+import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
-import {
-  taskFiltersForDate,
-  usePrefetchAdjacentTasks,
-  useTasks,
-} from "@/hooks/useTasks";
-import { useTemplates } from "@/hooks/useTemplates";
+import { usePrefetchAdjacentTasks } from "@/hooks/useTasks";
+import { useTodayPanes } from "@/hooks/useTodayPanes";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
-import { useTheme } from "@/utils/theme";
+import {
+  CALENDAR_PANE_MAX_WIDTH,
+  TASKS_PANE_MAX_WIDTH,
+} from "@/utils/breakpoints";
+import { useTheme, withOpacity } from "@/utils/theme";
 
 type TDayState = {
   date: Temporal.PlainDate;
@@ -32,54 +32,30 @@ type TDayState = {
 
 export default function TodayScreen() {
   const theme = useTheme();
-  const { confirm, confirmationProps } = useConfirmation();
+  const router = useRouter();
   const [preferences] = usePreferences();
+  const multiPane = useIsMultiPane();
+  const [panes, { togglePane }] = useTodayPanes();
   const [day, setDay] = useState<TDayState>(() => ({
     date: Temporal.Now.plainDateISO(),
     direction: 0,
   }));
+  // `view`/`notesEditing`/`journalEditing` only drive the small-screen
+  // single-view layout below, but as hooks they still need to run
+  // unconditionally on every render regardless of `multiPane` — their derived
+  // values (`viewDisabled`/`activeView`) are computed further down, after the
+  // large-screen branch's early return, since only the small-screen JSX reads
+  // them.
   const [view, setView] = useState<TDayView>("tasks");
   // Suspends notes day-swipe while the editor is focused, so horizontal drags
-  // position the caret / select text instead of changing days.
+  // position the caret / select text instead of changing days. Only relevant
+  // to the small-screen single-view layout — large screens don't swipe.
   const [notesEditing, setNotesEditing] = useState(false);
   // Same for Journal: a focused response field owns horizontal drags.
   const [journalEditing, setJournalEditing] = useState(false);
-  // Fall back to Tasks if the active view is disabled in settings (e.g. Notes
-  // toggled off while viewing it). All views share `day.date`.
-  const viewDisabled =
-    (view === "notes" && !preferences.enableNotes) ||
-    (view === "journal" && !preferences.enableJournal) ||
-    (view === "calendar" && !preferences.enableCalendar);
-  // Reset the stored `view` when its feature is disabled, so re-enabling later
-  // doesn't jump back into a view the user hasn't been looking at. Adjusting
-  // state during render (React's supported pattern) corrects it before paint —
-  // no flash and no effect. `activeView` guards the pre-reset render pass.
-  if (viewDisabled) setView("tasks");
-  const activeView: TDayView = viewDisabled ? "tasks" : view;
-  const [tasks, { isLoading, updateTask, createTask, deleteTask }] = useTasks({
-    filters: taskFiltersForDate(day.date),
-  });
-  const [, { deleteTemplate }] = useTemplates();
   usePrefetchAdjacentTasks(day.date);
   // So "New Task" opened from this tab defaults its schedule to the viewed day.
   usePublishViewedDay(day.date);
-
-  const handleDelete = async (task: TTask) => {
-    const isRepeating = task.templateId !== null;
-    const confirmed = await confirm({
-      title: isRepeating ? "Delete repeating task?" : "Delete Task",
-      message: isRepeating
-        ? "This task repeats. Deleting it also removes its repeat schedule, so no new occurrences will be created."
-        : "Delete this task?",
-      confirmLabel: "Delete",
-      destructive: true,
-    });
-    if (!confirmed) return;
-    // The task→template FK is ON DELETE SET NULL, so the template must be removed
-    // explicitly to stop future occurrences (DEX-21).
-    if (task.templateId) deleteTemplate(task.templateId);
-    deleteTask(task.id);
-  };
 
   const changeDate = (next: Temporal.PlainDate) =>
     setDay(({ date }) => ({
@@ -92,6 +68,102 @@ export default function TodayScreen() {
       const next = date.add({ days });
       return { date: next, direction: Temporal.PlainDate.compare(next, date) };
     });
+
+  if (multiPane) {
+    const showNotes = preferences.enableNotes && panes.notes;
+    const showJournal = preferences.enableJournal && panes.journal;
+    const showCalendar = preferences.enableCalendar && panes.calendar;
+    // The viewed day is right here (unlike NewTaskButton's tab-bar accessory,
+    // which reads it back from a module store because it renders outside the
+    // screen's React tree), so push straight to it.
+    const openNewTask = () =>
+      router.push({
+        pathname: "/new-task",
+        params: { scheduledFor: day.date.toString() },
+      });
+
+    return (
+      <SafeAreaView
+        edges={["top", "left", "right"]}
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+      >
+        <View
+          style={[
+            styles.multiPaneHeader,
+            { borderBottomColor: withOpacity(theme.colors.text, 0.1) },
+          ]}
+        >
+          {/* Matches the Tasks pane's width below so DayNav centers over it,
+              the same way it centers over the single view on small screens. */}
+          <View style={[styles.fixedPane, styles.taskHeaderSlot]}>
+            <DayNav date={day.date} onChangeDate={changeDate} />
+          </View>
+          <View style={[styles.headerActions, { gap: theme.gap }]}>
+            <DayPaneToggles
+              enableCalendar={preferences.enableCalendar}
+              enableJournal={preferences.enableJournal}
+              enableNotes={preferences.enableNotes}
+              onTogglePane={togglePane}
+              panes={panes}
+            />
+            <GlassIconButton
+              accessibilityLabel="New Task"
+              ionicon="add-outline"
+              onPress={openNewTask}
+              sfSymbol="plus"
+            />
+          </View>
+        </View>
+        <View style={[styles.paneRow, { gap: theme.gap }]}>
+          <View style={styles.fixedPane}>
+            <TasksView date={day.date} />
+          </View>
+          {(showNotes || showJournal) && (
+            <View style={styles.notesJournalPane}>
+              {/* No key here (unlike CalendarView below): NotesJournalTabs
+                  keys its own NotesView/JournalView content on date
+                  internally, so the editor re-seeds on a day change without
+                  also resetting which tab is selected. */}
+              <NotesJournalTabs
+                date={day.date.toString()}
+                showJournal={showJournal}
+                showNotes={showNotes}
+              />
+            </View>
+          )}
+          {showCalendar && (
+            <View
+              style={[
+                styles.calendarPane,
+                {
+                  borderColor: withOpacity(theme.colors.text, 0.1),
+                  borderRadius: theme.borderRadius,
+                },
+              ]}
+            >
+              {/* Keyed on date for the same reason as NotesJournalTabs:
+                  CalendarView seeds its "now" line position once per mount
+                  (see CalendarView.tsx), relying on a remount per day. */}
+              <CalendarView date={day.date} key={day.date.toString()} />
+            </View>
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Fall back to Tasks if the active view is disabled in settings (e.g. Notes
+  // toggled off while viewing it). All views share `day.date`.
+  const viewDisabled =
+    (view === "notes" && !preferences.enableNotes) ||
+    (view === "journal" && !preferences.enableJournal) ||
+    (view === "calendar" && !preferences.enableCalendar);
+  // Reset the stored `view` when its feature is disabled, so re-enabling later
+  // doesn't jump back into a view the user hasn't been looking at. Adjusting
+  // state during render (React's supported pattern) corrects it before paint —
+  // no flash and no effect. `activeView` guards the pre-reset render pass.
+  if (viewDisabled) setView("tasks");
+  const activeView: TDayView = viewDisabled ? "tasks" : view;
 
   return (
     <SafeAreaView
@@ -159,35 +231,9 @@ export default function TodayScreen() {
           direction={day.direction}
           onSwipe={changeDateBy}
         >
-          {preferences.enableHabits && <HabitTracker date={day.date} />}
-          {/* A plain ScrollView (not FlatList): a day's list is small, so
-              virtualization buys nothing — and the cards contain @expo/ui menu
-              hosts that size asynchronously, which virtualized off-viewport
-              mounting makes worse (expo/expo#42576). The cards themselves pin
-              their heights (see TaskCard/StatusButton) so layout stays stable. */}
-          {tasks.length === 0 ? (
-            !isLoading && (
-              <EmptyScreen message="No tasks scheduled for this day." />
-            )
-          ) : (
-            <ScrollView
-              style={styles.scroll}
-              contentContainerStyle={styles.list}
-            >
-              {tasks.map((item) => (
-                <TaskCard
-                  key={item.id}
-                  task={item}
-                  onUpdate={(diff) => updateTask({ id: item.id, ...diff })}
-                  onDuplicate={() => createTask(duplicateTaskInput(item))}
-                  onDelete={() => handleDelete(item)}
-                />
-              ))}
-            </ScrollView>
-          )}
+          <TasksView date={day.date} />
         </SwipeableDay>
       )}
-      <ConfirmationModal {...confirmationProps} />
     </SafeAreaView>
   );
 }
@@ -209,13 +255,65 @@ const styles = StyleSheet.create({
     right: 20,
     top: 0,
   },
-  // Bound the scroll view's height to its flex parent so the day's tasks
-  // scroll when they overflow, instead of being clipped.
-  scroll: {
+  // Large screens: the DayNav slot is capped to the Tasks pane's width (below)
+  // and pane toggles/New Task sit at the far right — a line under the row
+  // separates it from the panes, matching the legacy desktop app. DayNav
+  // already carries its own 12pt vertical padding (DayNav.tsx), so top/bottom
+  // here only need 4pt more to bring the total to 16pt — matching the sides
+  // and `paneRow.paddingTop` — instead of stacking a full 16pt on top of it.
+  multiPaneHeader: {
+    alignItems: "center",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingBottom: 4,
+    paddingHorizontal: 16,
+    paddingTop: 4,
+  },
+  // DayNav centers within this slot's width (cross-axis alignment on the
+  // default column direction), same as it's centered over the full width on
+  // small screens.
+  taskHeaderSlot: {
+    alignItems: "center",
+  },
+  headerActions: {
+    alignItems: "center",
+    flexDirection: "row",
+  },
+  paneRow: {
+    flex: 1,
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  // Tasks is capped at a mobile-typical width so it doesn't stretch to fill a
+  // wide window.
+  fixedPane: {
+    flex: 1,
+    maxWidth: TASKS_PANE_MAX_WIDTH,
+    minWidth: 280,
+  },
+  // Notes and Journal share one tabbed pane that flexes to fill whatever
+  // space remains. NotesJournalTabs draws its own border (only the active
+  // tab plus the card body below it, manila-folder style), not this wrapper.
+  notesJournalPane: {
     flex: 1,
   },
-  list: {
-    gap: 8,
+  // Calendar gets its own (narrower) cap — a day timeline reads fine
+  // narrower than a task list — plus a bordered card to set it apart from the
+  // other panes, matching the legacy desktop app. `marginLeft: "auto"` pins it
+  // to the row's right edge even when Notes/Journal isn't rendered to push it
+  // there itself (flex-grow alone would leave it stranded next to Tasks, with
+  // blank space trailing after it instead of before it). `padding` matches
+  // TasksView's own list padding so both panes give their content the same
+  // breathing room from their pane's edge.
+  calendarPane: {
+    borderWidth: StyleSheet.hairlineWidth,
+    flex: 1,
+    marginLeft: "auto",
+    maxWidth: CALENDAR_PANE_MAX_WIDTH,
+    minWidth: 200,
+    overflow: "hidden",
     padding: 16,
   },
 });
