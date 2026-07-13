@@ -1,22 +1,26 @@
 import { Temporal } from "@js-temporal/polyfill";
+import { useRouter } from "expo-router";
 import { useState } from "react";
-import { StyleSheet, useWindowDimensions, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CalendarView } from "@/components/CalendarView";
 import { DayNav } from "@/components/DayNav";
 import { DayPaneToggles } from "@/components/DayPaneToggles";
 import { DayViewSwitcher, TDayView } from "@/components/DayViewSwitcher";
+import { GlassIconButton } from "@/components/GlassIconButton";
 import { JournalView } from "@/components/JournalView";
+import { NotesJournalTabs } from "@/components/NotesJournalTabs";
 import { NotesView } from "@/components/NotesView";
 import { SwipeableDay } from "@/components/SwipeableDay";
 import { TasksView } from "@/components/TasksView";
+import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
 import { usePrefetchAdjacentTasks } from "@/hooks/useTasks";
 import { useTodayPanes } from "@/hooks/useTodayPanes";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
-import { PANE_MAX_WIDTH, TWO_PANE_MIN_WIDTH } from "@/utils/breakpoints";
-import { useTheme } from "@/utils/theme";
+import { CALENDAR_PANE_MAX_WIDTH, PANE_MAX_WIDTH } from "@/utils/breakpoints";
+import { useTheme, withOpacity } from "@/utils/theme";
 
 type TDayState = {
   date: Temporal.PlainDate;
@@ -25,9 +29,9 @@ type TDayState = {
 
 export default function TodayScreen() {
   const theme = useTheme();
+  const router = useRouter();
   const [preferences] = usePreferences();
-  const { width } = useWindowDimensions();
-  const multiPane = width >= TWO_PANE_MIN_WIDTH;
+  const multiPane = useIsMultiPane();
   const [panes, { togglePane }] = useTodayPanes();
   const [day, setDay] = useState<TDayState>(() => ({
     date: Temporal.Now.plainDateISO(),
@@ -72,38 +76,78 @@ export default function TodayScreen() {
     const showNotes = preferences.enableNotes && panes.notes;
     const showJournal = preferences.enableJournal && panes.journal;
     const showCalendar = preferences.enableCalendar && panes.calendar;
+    // The viewed day is right here (unlike NewTaskButton's tab-bar accessory,
+    // which reads it back from a module store because it renders outside the
+    // screen's React tree), so push straight to it.
+    const openNewTask = () =>
+      router.push({
+        pathname: "/new-task",
+        params: { scheduledFor: day.date.toString() },
+      });
 
     return (
       <SafeAreaView
         edges={["top", "left", "right"]}
         style={[styles.container, { backgroundColor: theme.colors.background }]}
       >
-        <View style={styles.multiPaneHeader}>
-          <DayNav date={day.date} onChangeDate={changeDate} />
-          <DayPaneToggles
-            enableCalendar={preferences.enableCalendar}
-            enableJournal={preferences.enableJournal}
-            enableNotes={preferences.enableNotes}
-            onTogglePane={togglePane}
-            panes={panes}
-          />
+        <View
+          style={[
+            styles.multiPaneHeader,
+            { borderBottomColor: withOpacity(theme.colors.text, 0.1) },
+          ]}
+        >
+          {/* Matches the Tasks pane's width below so DayNav centers over it,
+              the same way it centers over the single view on small screens. */}
+          <View style={[styles.fixedPane, styles.taskHeaderSlot]}>
+            <DayNav date={day.date} onChangeDate={changeDate} />
+          </View>
+          <View style={[styles.headerActions, { gap: theme.gap }]}>
+            <DayPaneToggles
+              enableCalendar={preferences.enableCalendar}
+              enableJournal={preferences.enableJournal}
+              enableNotes={preferences.enableNotes}
+              onTogglePane={togglePane}
+              panes={panes}
+            />
+            <GlassIconButton
+              accessibilityLabel="New Task"
+              ionicon="add-outline"
+              onPress={openNewTask}
+              sfSymbol="plus"
+            />
+          </View>
         </View>
         <View style={[styles.paneRow, { gap: theme.gap }]}>
           <View style={styles.fixedPane}>
             <TasksView date={day.date} />
           </View>
-          {showNotes && (
-            <View style={styles.flexPane}>
-              <NotesView date={day.date.toString()} />
-            </View>
-          )}
-          {showJournal && (
-            <View style={styles.flexPane}>
-              <JournalView date={day.date.toString()} />
+          {(showNotes || showJournal) && (
+            <View
+              style={[
+                styles.notesJournalPane,
+                {
+                  borderColor: withOpacity(theme.colors.text, 0.1),
+                  borderRadius: theme.borderRadius,
+                },
+              ]}
+            >
+              <NotesJournalTabs
+                date={day.date.toString()}
+                showJournal={showJournal}
+                showNotes={showNotes}
+              />
             </View>
           )}
           {showCalendar && (
-            <View style={styles.fixedPane}>
+            <View
+              style={[
+                styles.calendarPane,
+                {
+                  borderColor: withOpacity(theme.colors.text, 0.1),
+                  borderRadius: theme.borderRadius,
+                },
+              ]}
+            >
               <CalendarView date={day.date} />
             </View>
           )}
@@ -202,29 +246,61 @@ const styles = StyleSheet.create({
     right: 20,
     top: 0,
   },
-  // Large screens: DayNav sits left, pane toggles sit right, sharing a row
-  // (unlike the small-screen header, nothing needs absolute positioning
-  // because there's no need to keep DayNav visually centered).
+  // Large screens: the DayNav slot is capped to the Tasks pane's width (below)
+  // and pane toggles/New Task sit at the far right — a line under the row
+  // separates it from the panes, matching the legacy desktop app.
   multiPaneHeader: {
     alignItems: "center",
+    borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     justifyContent: "space-between",
+    paddingBottom: 8,
     paddingHorizontal: 16,
+  },
+  // DayNav centers within this slot's width (cross-axis alignment on the
+  // default column direction), same as it's centered over the full width on
+  // small screens.
+  taskHeaderSlot: {
+    alignItems: "center",
+  },
+  headerActions: {
+    alignItems: "center",
+    flexDirection: "row",
   },
   paneRow: {
     flex: 1,
     flexDirection: "row",
     paddingHorizontal: 16,
+    paddingTop: 8,
   },
-  // Tasks and Calendar are capped at a mobile-typical width so they don't
-  // stretch to fill a wide window.
+  // Tasks is capped at a mobile-typical width so it doesn't stretch to fill a
+  // wide window.
   fixedPane: {
     flex: 1,
     maxWidth: PANE_MAX_WIDTH,
     minWidth: 280,
   },
-  // Notes and Journal flex to fill whatever space remains.
-  flexPane: {
+  // Notes and Journal share one bordered, tabbed pane that flexes to fill
+  // whatever space remains — the outline sets it apart from the other panes,
+  // matching the legacy desktop app.
+  notesJournalPane: {
+    borderWidth: StyleSheet.hairlineWidth,
     flex: 1,
+    overflow: "hidden",
+  },
+  // Calendar gets its own (narrower) cap — a day timeline reads fine
+  // narrower than a task list — plus a bordered card to set it apart from the
+  // other panes, matching the legacy desktop app. `marginLeft: "auto"` pins it
+  // to the row's right edge even when Notes/Journal isn't rendered to push it
+  // there itself (flex-grow alone would leave it stranded next to Tasks, with
+  // blank space trailing after it instead of before it).
+  calendarPane: {
+    borderWidth: StyleSheet.hairlineWidth,
+    flex: 1,
+    marginLeft: "auto",
+    maxWidth: CALENDAR_PANE_MAX_WIDTH,
+    minWidth: 200,
+    overflow: "hidden",
+    padding: 8,
   },
 });

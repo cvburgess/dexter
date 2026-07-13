@@ -17,6 +17,12 @@ type TNotesViewProps = {
   /** Fired as the editor gains/loses focus, so the host can disable day-swipe
    * while editing. */
   onEditingChange?: (editing: boolean) => void;
+  /**
+   * Whether to inset the card with the small-screen gutter (16pt top/sides).
+   * The large-screen multi-column layout passes `false` so the card sits
+   * flush within its own column instead of floating with extra margin.
+   */
+  inset?: boolean;
 };
 
 // Autosave cadence: long enough to coalesce a burst of keystrokes into one
@@ -37,7 +43,11 @@ const CARD_TRAIL_OFF = 24;
  * (DEX-37). Remount this per-date (via `key`) so the editor re-seeds when the
  * day changes.
  */
-export function NotesView({ date, onEditingChange }: TNotesViewProps) {
+export function NotesView({
+  date,
+  onEditingChange,
+  inset = true,
+}: TNotesViewProps) {
   const theme = useTheme();
   const [day, { isLoading, exists, upsertDay, upsertDayAsync }] = useDays(date);
   const [preferences] = usePreferences();
@@ -140,7 +150,7 @@ export function NotesView({ date, onEditingChange }: TNotesViewProps) {
   const contentColor = theme.colors.priorityContent[ETaskPriority.NEITHER];
 
   return (
-    <View style={styles.cardWrapper}>
+    <View style={[styles.cardWrapper, !inset && styles.cardWrapperFlush]}>
       <View
         style={[
           styles.card,
@@ -170,6 +180,13 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
     paddingTop: 16,
+  },
+  // The large-screen layout already gives every pane its own column gutter
+  // (see today/index.tsx), so the card runs flush there instead of doubling
+  // up on inset.
+  cardWrapperFlush: {
+    paddingHorizontal: 0,
+    paddingTop: 0,
   },
   // Matches TaskCard's container: theme radius, 1pt border, clipped corners. The
   // editor's own 16pt padding supplies the inner padding (TaskCard uses 16).
