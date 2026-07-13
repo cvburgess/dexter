@@ -240,16 +240,18 @@ const styles = StyleSheet.create({
   },
   // Large screens: the DayNav slot is capped to the Tasks pane's width (below)
   // and pane toggles/New Task sit at the far right — a line under the row
-  // separates it from the panes, matching the legacy desktop app.
-  // `paddingBottom` matches `paneRow.paddingTop` so the gap above and below
-  // the separator line is symmetric.
+  // separates it from the panes, matching the legacy desktop app. DayNav
+  // already carries its own 12pt vertical padding (DayNav.tsx), so top/bottom
+  // here only need 4pt more to bring the total to 16pt — matching the sides
+  // and `paneRow.paddingTop` — instead of stacking a full 16pt on top of it.
   multiPaneHeader: {
     alignItems: "center",
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingBottom: 16,
+    paddingBottom: 4,
     paddingHorizontal: 16,
+    paddingTop: 4,
   },
   // DayNav centers within this slot's width (cross-axis alignment on the
   // default column direction), same as it's centered over the full width on
