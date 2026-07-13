@@ -42,7 +42,7 @@ export default function TasksScreen() {
               will show up here.
             </Text>
           ) : (
-            <View style={styles.list}>
+            <View style={{ gap: theme.gap }}>
               {templates.map((template) => (
                 <TouchableOpacity
                   key={template.id}
@@ -101,9 +101,6 @@ const styles = StyleSheet.create({
   empty: {
     fontSize: 14,
     paddingVertical: 8,
-  },
-  list: {
-    gap: 8,
   },
   section: {
     gap: 10,

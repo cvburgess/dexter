@@ -142,36 +142,38 @@ export default function JournalScreen() {
                   Tap ＋ to add your first prompt.
                 </Text>
               ) : (
-                drafts.map((prompt, index) => (
-                  <View key={index} style={styles.promptRow}>
-                    <TextInput
-                      accessibilityLabel={`Journal prompt ${index + 1}`}
-                      onBlur={commitPrompt}
-                      onChangeText={(text) =>
-                        setDrafts((current) =>
-                          current.map((p, i) => (i === index ? text : p)),
-                        )
-                      }
-                      onFocus={() => (focusedRef.current = true)}
-                      placeholder="e.g. What went well today?"
-                      style={styles.promptInput}
-                      value={prompt}
-                    />
-                    <TouchableOpacity
-                      accessibilityLabel={`Delete prompt ${index + 1}`}
-                      accessibilityRole="button"
-                      onPress={() => deletePrompt(index)}
-                      style={styles.deleteButton}
-                      testID={`delete-prompt-${index}`}
-                    >
-                      <Ionicons
-                        color={theme.colors.error}
-                        name="trash-outline"
-                        size={22}
+                <View style={{ gap: theme.gap }}>
+                  {drafts.map((prompt, index) => (
+                    <View key={index} style={styles.promptRow}>
+                      <TextInput
+                        accessibilityLabel={`Journal prompt ${index + 1}`}
+                        onBlur={commitPrompt}
+                        onChangeText={(text) =>
+                          setDrafts((current) =>
+                            current.map((p, i) => (i === index ? text : p)),
+                          )
+                        }
+                        onFocus={() => (focusedRef.current = true)}
+                        placeholder="e.g. What went well today?"
+                        style={styles.promptInput}
+                        value={prompt}
                       />
-                    </TouchableOpacity>
-                  </View>
-                ))
+                      <TouchableOpacity
+                        accessibilityLabel={`Delete prompt ${index + 1}`}
+                        accessibilityRole="button"
+                        onPress={() => deletePrompt(index)}
+                        style={styles.deleteButton}
+                        testID={`delete-prompt-${index}`}
+                      >
+                        <Ionicons
+                          color={theme.colors.error}
+                          name="trash-outline"
+                          size={22}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
               )}
               <Text
                 style={[styles.hint, { color: theme.colors.textSecondary }]}

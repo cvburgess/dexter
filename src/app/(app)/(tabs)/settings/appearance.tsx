@@ -144,7 +144,13 @@ function ThemeCard({
     >
       <View style={styles.swatches}>
         {swatches.map((color, i) => (
-          <View key={i} style={[styles.swatch, { backgroundColor: color }]} />
+          <View
+            key={i}
+            style={[
+              styles.swatch,
+              { backgroundColor: color, borderRadius: uiTheme.borderRadius },
+            ]}
+          />
         ))}
       </View>
       <View style={styles.cardFooter}>
@@ -191,7 +197,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   swatch: {
-    borderRadius: 6,
     flex: 1,
     height: 28,
   },

@@ -95,7 +95,7 @@ export default function HabitsScreen() {
                 Tap ＋ to create your first habit.
               </Text>
             ) : (
-              <View style={styles.list}>
+              <View style={{ gap: theme.gap }}>
                 {habits.map((habit) => (
                   <View
                     key={habit.id}
@@ -133,9 +133,6 @@ const styles = StyleSheet.create({
   empty: {
     fontSize: 14,
     paddingVertical: 8,
-  },
-  list: {
-    gap: 8,
   },
   section: {
     gap: 10,
