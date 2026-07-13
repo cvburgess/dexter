@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  NativeSyntheticEvent,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInputContentSizeChangeEventData,
-  View,
-} from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, {
   useAnimatedKeyboard,
   useAnimatedStyle,
@@ -33,11 +26,20 @@ type TJournalViewProps = {
 // Matches NotesView.
 const SAVE_DEBOUNCE_MS = 800;
 
-// Starting/minimum height for a response field — roughly one line plus the
-// shared TextInput's own padding. Fields grow from here as the user types (see
+// Approximate line height for the response field's 16px font, used to size a
+// field from its line count. Fields grow from here as the user types (see
 // JournalResponseField), so a short answer doesn't render as a tall empty box
 // that's more likely to sit under the keyboard.
-const MIN_RESPONSE_HEIGHT = 48;
+const RESPONSE_LINE_HEIGHT = 20;
+
+// Height for `lines` lines of response text, including the shared TextInput's
+// own vertical padding. Deliberately synchronous (no native measurement
+// callback like `onContentSizeChange`): `today/index.tsx` already documents
+// this app hitting stale/corrupted async-sizing native views during rapid
+// day-paging remounts (the @expo/ui menu-host issue TaskCard pins heights to
+// avoid) — a text-derived estimate can't go stale the same way.
+const responseHeight = (lines: number, spacing: number) =>
+  Math.max(1, lines) * RESPONSE_LINE_HEIGHT + spacing * 2;
 
 /**
  * The Journal surface for a single day. Reads/writes the day's reflection
@@ -210,9 +212,11 @@ type TJournalResponseFieldProps = {
 };
 
 // A single prompt + response row. Starts at one line and grows with the
-// content (via onContentSizeChange) instead of rendering a tall empty box up
-// front — a short answer is much less likely to end up sitting under the
-// keyboard.
+// content instead of rendering a tall empty box up front — a short answer is
+// much less likely to end up sitting under the keyboard. Height is derived
+// from the text's own line count (see `responseHeight`), not a native
+// measurement callback, so a remount always starts from a correct, freshly
+// computed size — it can't inherit a stale size left over by the previous day.
 function JournalResponseField({
   prompt,
   response,
@@ -222,19 +226,13 @@ function JournalResponseField({
   testID,
 }: TJournalResponseFieldProps) {
   const theme = useTheme();
-  const [height, setHeight] = useState(MIN_RESPONSE_HEIGHT);
+  const [height, setHeight] = useState(() =>
+    responseHeight(response.split("\n").length, theme.spacing),
+  );
 
-  const handleContentSizeChange = (
-    e: NativeSyntheticEvent<TextInputContentSizeChangeEventData>,
-  ) => {
-    // `contentSize.height` is the text content's own height, not counting the
-    // input's padding — add it back so typed text isn't clipped as it grows.
-    setHeight(
-      Math.max(
-        MIN_RESPONSE_HEIGHT,
-        e.nativeEvent.contentSize.height + theme.spacing * 2,
-      ),
-    );
+  const handleChangeText = (text: string) => {
+    setHeight(responseHeight(text.split("\n").length, theme.spacing));
+    onChangeText(text);
   };
 
   return (
@@ -245,8 +243,7 @@ function JournalResponseField({
         defaultValue={response}
         multiline
         onBlur={onBlur}
-        onChangeText={onChangeText}
-        onContentSizeChange={handleContentSizeChange}
+        onChangeText={handleChangeText}
         onFocus={onFocus}
         placeholder="Write your response…"
         style={{ height }}
