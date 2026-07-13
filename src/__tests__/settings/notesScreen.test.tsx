@@ -1,6 +1,4 @@
 import { fireEvent, render } from "@testing-library/react-native";
-import type { StyleProp, ViewStyle } from "react-native";
-import type { Edge } from "react-native-safe-area-context";
 
 import NotesScreen from "@/app/(app)/(tabs)/settings/notes";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
@@ -9,31 +7,9 @@ import { usePreferences } from "@/hooks/usePreferences";
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 jest.mock("@/hooks/useIsMultiPane", () => ({ useIsMultiPane: jest.fn() }));
 
-// The project-wide react-native-safe-area-context mock doesn't stub
-// SafeAreaView itself, so `edges` isn't otherwise observable in a render
-// tree — expose it via testID to assert on the two-pane/single-pane split.
-jest.mock("react-native-safe-area-context", () => {
-  const actual = jest.requireActual(
-    "react-native-safe-area-context/jest/mock",
-  ).default;
-  const { View } = require("react-native");
-  return {
-    ...actual,
-    SafeAreaView: ({
-      children,
-      edges,
-      style,
-    }: {
-      children: React.ReactNode;
-      edges?: Edge[];
-      style?: StyleProp<ViewStyle>;
-    }) => (
-      <View testID={`safe-area-edges-${(edges ?? []).join(",")}`} style={style}>
-        {children}
-      </View>
-    ),
-  };
-});
+jest.mock("react-native-safe-area-context", () =>
+  require("@/testUtils/mockSafeAreaEdges").mockSafeAreaContext(),
+);
 
 const mockUsePreferences = usePreferences as jest.MockedFunction<
   typeof usePreferences
