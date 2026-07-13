@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useRef } from "react";
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import Animated, {
+  useAnimatedKeyboard,
+  useAnimatedStyle,
+} from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { TDay, TJournalPrompt } from "@/api/days";
 import { useDays } from "@/hooks/useDays";
@@ -82,6 +80,20 @@ function JournalEditor({
   onEditingChange,
 }: TJournalEditorProps) {
   const theme = useTheme();
+  const keyboard = useAnimatedKeyboard();
+  const insets = useSafeAreaInsets();
+
+  // Shrink the scroll area's own frame to the visible viewport as the keyboard
+  // rises, so a focused response field's built-in scroll-into-view lands it
+  // above the keyboard instead of underneath it. Mirrors NoteEditor's approach:
+  // this view nests inside SwipeableDay's Animated.View/GestureDetector chain,
+  // where a plain `KeyboardAvoidingView`'s layout tracking is unreliable, so we
+  // read the keyboard height directly on the UI thread instead. The host's
+  // SafeAreaView excludes "bottom" (the tab bar owns that inset), so fall back
+  // to the safe-area inset when the keyboard is closed.
+  const keyboardInsetStyle = useAnimatedStyle(() => ({
+    paddingBottom: Math.max(keyboard.height.value, insets.bottom),
+  }));
 
   // Track the latest per-index text so a save can rebuild the whole array,
   // seeded from the loaded responses. Seeded once at mount; the editor is
@@ -155,10 +167,7 @@ function JournalEditor({
   useEffect(() => () => onEditingChange?.(false), [onEditingChange]);
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.scroll}
-    >
+    <Animated.View style={[styles.scroll, keyboardInsetStyle]}>
       <ScrollView
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
@@ -186,7 +195,7 @@ function JournalEditor({
           </View>
         ))}
       </ScrollView>
-    </KeyboardAvoidingView>
+    </Animated.View>
   );
 }
 

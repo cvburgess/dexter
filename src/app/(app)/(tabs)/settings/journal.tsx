@@ -1,8 +1,6 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { useEffect, useRef, useState } from "react";
 import {
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -11,6 +9,10 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import Animated, {
+  useAnimatedKeyboard,
+  useAnimatedStyle,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "@/components/Button";
@@ -26,6 +28,16 @@ export default function JournalScreen() {
   const { width } = useWindowDimensions();
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = width >= SETTINGS_TWO_PANE_MIN_WIDTH;
+  const keyboard = useAnimatedKeyboard();
+
+  // Shrink the scroll area as the keyboard rises so a focused prompt field
+  // isn't hidden underneath it. No safe-area fallback needed here (unlike
+  // JournalView) — the SafeAreaView below already reserves the resting bottom
+  // inset; adding it again here would double that padding when the keyboard
+  // is closed.
+  const keyboardInsetStyle = useAnimatedStyle(() => ({
+    paddingBottom: keyboard.height.value,
+  }));
 
   // Edit prompts locally and commit on blur so we don't write a preference on
   // every keystroke. Re-sync from the stored value when it changes elsewhere
@@ -69,10 +81,7 @@ export default function JournalScreen() {
       edges={twoPane ? ["bottom", "right"] : ["bottom", "left", "right"]}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.container}
-      >
+      <Animated.View style={[styles.container, keyboardInsetStyle]}>
         <ScrollView
           contentContainerStyle={[
             styles.content,
@@ -150,7 +159,7 @@ export default function JournalScreen() {
             </View>
           )}
         </ScrollView>
-      </KeyboardAvoidingView>
+      </Animated.View>
     </SafeAreaView>
   );
 }
