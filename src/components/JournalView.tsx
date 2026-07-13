@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, {
+  KeyboardState,
+  runOnJS,
   useAnimatedKeyboard,
+  useAnimatedReaction,
   useAnimatedStyle,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -86,6 +89,7 @@ function JournalEditor({
   // Each row's y-offset within the scroll content, recorded via onLayout, so
   // a focus can scroll straight to it.
   const rowOffsetsRef = useRef<number[]>([]);
+  const focusedIndexRef = useRef<number | null>(null);
 
   // Shrink the scroll area's own frame to the visible viewport as the keyboard
   // rises. Mirrors NoteEditor's approach: this view nests inside SwipeableDay's
@@ -101,16 +105,46 @@ function JournalEditor({
   // scroll. With several independent `TextInput`s (not one caret-scrolling
   // editor like Notes), RN's built-in scroll-focused-input-into-view is
   // unreliable, so drive it explicitly: scroll the focused row near the top
-  // of the now-shrunk visible area. The keyboard is still animating in when
-  // focus fires, so wait a beat for the viewport to finish shrinking first.
+  // of the now-shrunk visible area.
   const scrollToRow = useCallback((index: number) => {
-    setTimeout(() => {
-      const y = rowOffsetsRef.current[index];
-      if (y !== undefined) {
-        scrollRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true });
-      }
-    }, 50);
+    const y = rowOffsetsRef.current[index];
+    if (y !== undefined) {
+      scrollRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true });
+    }
   }, []);
+
+  const handleFocus = useCallback(
+    (index: number) => {
+      focusedIndexRef.current = index;
+      // Covers switching between fields while the keyboard is already open:
+      // its height isn't changing, so a short wait for this frame to settle
+      // is enough. Covers a first focus that opens the keyboard from closed
+      // as a bonus if the OS reports it fast — the reaction below is the
+      // reliable path for that case (see it for why a fixed delay isn't
+      // enough there).
+      setTimeout(() => scrollToRow(index), 50);
+    },
+    [scrollToRow],
+  );
+
+  // The OS keyboard-rise animation (closed → open) runs ~250-300ms — well
+  // past `handleFocus`'s fixed 50ms delay — so that delay alone scrolls
+  // using a viewport that's still mid-shrink on a field's first focus, and
+  // the field ends up covered anyway. Wait for reanimated to report the
+  // keyboard has actually finished opening, then scroll to whichever row is
+  // currently focused.
+  useAnimatedReaction(
+    () => keyboard.state.value,
+    (state, previousState) => {
+      if (
+        state === KeyboardState.OPEN &&
+        previousState !== KeyboardState.OPEN &&
+        focusedIndexRef.current !== null
+      ) {
+        runOnJS(scrollToRow)(focusedIndexRef.current);
+      }
+    },
+  );
 
   // Track the latest per-index text so a save can rebuild the whole array,
   // seeded from the loaded responses. Seeded once at mount; the editor is
@@ -206,13 +240,16 @@ function JournalEditor({
               defaultValue={response}
               multiline
               onBlur={() => {
+                if (focusedIndexRef.current === index) {
+                  focusedIndexRef.current = null;
+                }
                 flush();
                 onEditingChange?.(false);
               }}
               onChangeText={(text) => handleChangeResponse(index, text)}
               onFocus={() => {
                 onEditingChange?.(true);
-                scrollToRow(index);
+                handleFocus(index);
               }}
               placeholder="Write your response…"
               style={styles.input}
