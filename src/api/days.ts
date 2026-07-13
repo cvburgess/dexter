@@ -23,7 +23,10 @@ export const getDay = async (
   // note, so callers can tell "never started" apart from "started but blank".
   if (!data) return null;
 
-  return camelCase(data) as TDay;
+  // Coerce a null `prompts` to `[]`. The column is NOT NULL going forward, but
+  // rows written before that migration (and by other shared clients) may still
+  // carry null, and `TDay.prompts` is `TJournalPrompt[]` — callers `.map()` it.
+  return { ...camelCase(data), prompts: data.prompts ?? [] } as TDay;
 };
 
 export type TUpsertDay = {

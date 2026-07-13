@@ -88,7 +88,77 @@ describe("useDays", () => {
     await waitFor(() =>
       expect(mockUpsertDay).toHaveBeenCalledWith(
         {},
-        { notes: "hello", date: "2026-07-12" },
+        // No stored prompts to seed (template is empty), so a first write sends
+        // an empty array — never null — for the shared, legacy-read column.
+        { prompts: [], notes: "hello", date: "2026-07-12" },
+      ),
+    );
+  });
+
+  it("seeds journal prompts from the template on a first write", async () => {
+    mockUsePreferences.mockReturnValue([
+      {
+        templateNote: "# My template",
+        templatePrompts: ["Highlight", "Grateful for"],
+      } as never,
+      { updatePreferences: jest.fn() },
+    ]);
+    mockGetDay.mockResolvedValue(null);
+    mockUpsertDay.mockResolvedValue({
+      date: "2026-07-12",
+      notes: "hello",
+      prompts: [],
+    });
+
+    const { result } = renderHook(() => useDays("2026-07-12"), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current[1].isLoading).toBe(false));
+    act(() => result.current[1].upsertDay({ notes: "hello" }));
+
+    // Inserting a brand-new day must carry the template prompts so the shared
+    // legacy Journal renders them (and never `.map()`s over null).
+    await waitFor(() =>
+      expect(mockUpsertDay).toHaveBeenCalledWith(
+        {},
+        {
+          prompts: [
+            { prompt: "Highlight", response: "" },
+            { prompt: "Grateful for", response: "" },
+          ],
+          notes: "hello",
+          date: "2026-07-12",
+        },
+      ),
+    );
+  });
+
+  it("does not resend prompts when updating a day that already has a row", async () => {
+    mockGetDay.mockResolvedValue({
+      date: "2026-07-12",
+      notes: "existing",
+      prompts: [{ prompt: "Highlight", response: "kept" }],
+    });
+    mockUpsertDay.mockResolvedValue({
+      date: "2026-07-12",
+      notes: "edited",
+      prompts: [{ prompt: "Highlight", response: "kept" }],
+    });
+
+    const { result } = renderHook(() => useDays("2026-07-12"), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current[1].exists).toBe(true));
+    act(() => result.current[1].upsertDay({ notes: "edited" }));
+
+    // An existing row keeps its stored prompts; the update must not overwrite
+    // them, so the payload carries only the diff.
+    await waitFor(() =>
+      expect(mockUpsertDay).toHaveBeenCalledWith(
+        {},
+        { notes: "edited", date: "2026-07-12" },
       ),
     );
   });

@@ -64,7 +64,16 @@ export const useDays = (date: string): TUseDays => {
     Omit<TUpsertDay, "date">,
     { previous: TDay | null | undefined }
   >({
-    mutationFn: (diff) => upsertDay(supabase, { ...diff, date }),
+    mutationFn: (diff) =>
+      upsertDay(supabase, {
+        // Seed journal prompts on first write so an insert never persists null/
+        // empty prompts. `days` is shared with the legacy app, which renders
+        // `prompts.map(...)` unguarded — a null there crashes it, and an empty
+        // array shows a blank journal. Existing rows keep their stored prompts.
+        ...(exists ? {} : { prompts: day.prompts }),
+        ...diff,
+        date,
+      }),
     // Retry a failed save at the QueryClient level (upsert is idempotent). This
     // survives the component unmounting — an unmount flush (date change / tab
     // switch) that fails would otherwise have no mounted component left to
