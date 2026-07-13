@@ -51,7 +51,9 @@ export const layoutEvents = (
       endMin: minutesOfDay(event.end.hour, event.end.minute),
     }))
     // Treat a zero/negative-length event as a short block so it stays visible.
-    .map((e) => (e.endMin <= e.startMin ? { ...e, endMin: e.startMin + 15 } : e))
+    .map((e) =>
+      e.endMin <= e.startMin ? { ...e, endMin: e.startMin + 15 } : e,
+    )
     .filter((e) => e.endMin > startMin && e.startMin < endMin)
     .sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
 

@@ -24,8 +24,13 @@ export const formatHourLabel = (hour: number): string => {
  * midnight. Preferences persist the daily start/end as Postgres `time` strings.
  */
 export const parseTimeToMinutes = (time: string): number => {
-  const [hour = 0, minute = 0] = time.split(":").map((part) => parseInt(part, 10));
-  return (Number.isFinite(hour) ? hour : 0) * 60 + (Number.isFinite(minute) ? minute : 0);
+  const [hour = 0, minute = 0] = time
+    .split(":")
+    .map((part) => parseInt(part, 10));
+  return (
+    (Number.isFinite(hour) ? hour : 0) * 60 +
+    (Number.isFinite(minute) ? minute : 0)
+  );
 };
 
 /** Convert minutes past midnight back to a stored `"HH:MM:SS"` time string. */

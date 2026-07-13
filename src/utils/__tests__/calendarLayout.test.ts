@@ -40,9 +40,9 @@ describe("layoutEvents", () => {
   });
 
   it("drops all-day events (the timeline pins those separately)", () => {
-    expect(layoutEvents([event("a", 0, 0, 0, 0, true)], START, END, HOUR)).toHaveLength(
-      0,
-    );
+    expect(
+      layoutEvents([event("a", 0, 0, 0, 0, true)], START, END, HOUR),
+    ).toHaveLength(0);
   });
 
   it("drops events entirely outside the window", () => {

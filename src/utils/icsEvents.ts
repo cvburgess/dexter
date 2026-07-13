@@ -159,7 +159,8 @@ export const parseIcsEventsForDate = (
 
         const nextTime = next as unknown as TIcalTime;
         if (nextTime.isDate) {
-          if (Temporal.PlainDate.compare(plainDateOf(nextTime), date) > 0) break;
+          if (Temporal.PlainDate.compare(plainDateOf(nextTime), date) > 0)
+            break;
         } else if (next.toJSDate().getTime() >= dayEndMs) {
           break;
         }
