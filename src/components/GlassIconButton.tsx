@@ -21,12 +21,9 @@ export function GlassIconButton({
   active,
 }: TGlassIconButtonProps) {
   const theme = useTheme();
-  const iconColor =
-    active === undefined
-      ? theme.colors.text
-      : active
-        ? theme.colors.primary
-        : theme.colors.text;
+  // `undefined` and `false` both resolve to the default text color — only an
+  // explicit `active={true}` switches to the primary tint.
+  const iconColor = active ? theme.colors.primary : theme.colors.text;
 
   const circle = (
     <View

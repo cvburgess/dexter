@@ -25,12 +25,9 @@ export function GlassIconButton({
 }: TGlassIconButtonProps) {
   const theme = useTheme();
   const circle = { width: size, height: size, borderRadius: size / 2 };
-  const tintColor =
-    active === undefined
-      ? theme.colors.primary
-      : active
-        ? theme.colors.primary
-        : theme.colors.text;
+  // Only an explicit `active={false}` switches away from the default primary
+  // tint — `undefined` and `true` both resolve to it.
+  const tintColor = active === false ? theme.colors.text : theme.colors.primary;
   const icon = (
     <SymbolView name={sfSymbol} size={size * 0.5} tintColor={tintColor} />
   );

@@ -19,7 +19,10 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { usePrefetchAdjacentTasks } from "@/hooks/useTasks";
 import { useTodayPanes } from "@/hooks/useTodayPanes";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
-import { CALENDAR_PANE_MAX_WIDTH, PANE_MAX_WIDTH } from "@/utils/breakpoints";
+import {
+  CALENDAR_PANE_MAX_WIDTH,
+  TASKS_PANE_MAX_WIDTH,
+} from "@/utils/breakpoints";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 type TDayState = {
@@ -283,7 +286,7 @@ const styles = StyleSheet.create({
   // wide window.
   fixedPane: {
     flex: 1,
-    maxWidth: PANE_MAX_WIDTH,
+    maxWidth: TASKS_PANE_MAX_WIDTH,
     minWidth: 280,
   },
   // Notes and Journal share one tabbed pane that flexes to fill whatever

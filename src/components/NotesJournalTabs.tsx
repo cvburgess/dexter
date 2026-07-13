@@ -34,12 +34,9 @@ export function NotesJournalTabs({
   const theme = useTheme();
   const [tab, setTab] = useState<TTab>(showNotes ? "notes" : "journal");
   // Snap to whichever tab is still enabled if the active one gets toggled off.
-  const activeTab: TTab =
-    tab === "notes" && !showNotes
-      ? "journal"
-      : tab === "journal" && !showJournal
-        ? "notes"
-        : tab;
+  let activeTab = tab;
+  if (tab === "notes" && !showNotes) activeTab = "journal";
+  else if (tab === "journal" && !showJournal) activeTab = "notes";
   const showTabBar = showNotes && showJournal;
   const borderColor = withOpacity(theme.colors.text, 0.1);
 
