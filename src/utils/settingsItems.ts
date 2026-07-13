@@ -1,4 +1,5 @@
 import type { TSettingsIconName } from "@/components/SettingsIcon";
+import { TWO_PANE_MIN_WIDTH } from "@/utils/breakpoints";
 
 // The subview slugs, as a literal union so `/settings/${slug}` narrows to the
 // typed-route strings expo-router accepts (typedRoutes is enabled).
@@ -74,5 +75,5 @@ export const SETTINGS_ITEMS: TSettingsItem[] = [
 ];
 
 // Width (in dp) at or above which settings shows a two-pane sidebar + detail
-// layout instead of the single-column push stack. Roughly an iPad in portrait.
-export const SETTINGS_TWO_PANE_MIN_WIDTH = 768;
+// layout instead of the single-column push stack.
+export const SETTINGS_TWO_PANE_MIN_WIDTH = TWO_PANE_MIN_WIDTH;
