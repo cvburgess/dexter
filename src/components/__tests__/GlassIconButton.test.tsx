@@ -1,6 +1,8 @@
 import { fireEvent, render } from "@testing-library/react-native";
 import { Text } from "react-native";
 
+import { themes } from "@/utils/theme";
+
 import { GlassIconButton } from "../GlassIconButton";
 
 // Render the SF Symbol name as text so we can assert on the icon (jest-expo
@@ -41,5 +43,49 @@ describe("GlassIconButton", () => {
     fireEvent.press(screen.getByLabelText("Open menu"));
 
     expect(onPress).toHaveBeenCalled();
+  });
+
+  it("tints the icon primary when active is undefined (default)", () => {
+    render(
+      <GlassIconButton
+        sfSymbol="book"
+        ionicon="book-outline"
+        accessibilityLabel="Toggle"
+      />,
+    );
+
+    expect(mockSymbolView).toHaveBeenLastCalledWith(
+      expect.objectContaining({ tintColor: themes.dexter.colors.primary }),
+    );
+  });
+
+  it("tints the icon primary when active is true", () => {
+    render(
+      <GlassIconButton
+        active
+        sfSymbol="book"
+        ionicon="book-outline"
+        accessibilityLabel="Toggle"
+      />,
+    );
+
+    expect(mockSymbolView).toHaveBeenLastCalledWith(
+      expect.objectContaining({ tintColor: themes.dexter.colors.primary }),
+    );
+  });
+
+  it("tints the icon text color when active is false", () => {
+    render(
+      <GlassIconButton
+        active={false}
+        sfSymbol="book"
+        ionicon="book-outline"
+        accessibilityLabel="Toggle"
+      />,
+    );
+
+    expect(mockSymbolView).toHaveBeenLastCalledWith(
+      expect.objectContaining({ tintColor: themes.dexter.colors.text }),
+    );
   });
 });
