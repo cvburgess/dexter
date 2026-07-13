@@ -41,6 +41,12 @@
       ],
       "expo-font",
       [
+        "expo-calendar",
+        {
+          "calendarPermission": "Dexter shows your events on the daily timeline."
+        }
+      ],
+      [
         "@sentry/react-native/expo",
         {
           "organization": "cvburgess",

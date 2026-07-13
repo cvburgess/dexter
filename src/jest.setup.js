@@ -61,6 +61,17 @@ jest.mock("@react-native-vector-icons/ionicons", () => {
   return { __esModule: true, default: Ionicons };
 });
 
+// expo-calendar is a native module (device calendars). Default every method to
+// an empty/granted result; individual tests override with jest.spyOn as needed.
+jest.mock("expo-calendar", () => ({
+  EntityTypes: { EVENT: "event" },
+  PermissionStatus: { GRANTED: "granted", DENIED: "denied" },
+  requestCalendarPermissionsAsync: jest.fn(async () => ({ status: "granted" })),
+  getCalendarPermissionsAsync: jest.fn(async () => ({ status: "granted" })),
+  getCalendarsAsync: jest.fn(async () => []),
+  getEventsAsync: jest.fn(async () => []),
+}));
+
 // @expo/ui's SwiftUI primitives (used by DateField.ios) are native views.
 jest.mock("@expo/ui/swift-ui", () => ({
   DatePicker: () => null,
