@@ -1,10 +1,12 @@
+import { Temporal } from "@js-temporal/polyfill";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { ReactNode } from "react";
 
-import { getTasks, TTask } from "@/api/tasks";
+import { makeOrFilter } from "@/api/applyFilters";
+import { ETaskStatus, getTasks, TTask } from "@/api/tasks";
 
-import { useTasks } from "../useTasks";
+import { canonicalTaskFilters, useTasks } from "../useTasks";
 
 // useTasks imports the supabase client from useAuth, which reads the app's
 // URI scheme at module scope — not available under Jest.
@@ -29,6 +31,19 @@ const createWrapper = () => {
   };
 };
 
+describe("canonicalTaskFilters", () => {
+  it("combines incomplete status with the recent-window date scope in one OR filter", () => {
+    const cutoff = Temporal.Now.plainDateISO().subtract({ days: 30 });
+
+    expect(canonicalTaskFilters()).toEqual([
+      makeOrFilter([
+        ["status", "in", [ETaskStatus.TODO, ETaskStatus.IN_PROGRESS]],
+        ["scheduledFor", "gte", cutoff.toString()],
+      ]),
+    ]);
+  });
+});
+
 describe("useTasks", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -47,7 +62,7 @@ describe("useTasks", () => {
     ).toHaveLength(1);
   });
 
-  it("queries an OR filter combining incomplete status with the recent-window date scope", async () => {
+  it("fetches with the canonical task filters", async () => {
     const { wrapper } = createWrapper();
 
     renderHook(() => useTasks(), { wrapper });
@@ -55,11 +70,7 @@ describe("useTasks", () => {
     await waitFor(() => expect(mockGetTasks).toHaveBeenCalled());
 
     const [, filters] = mockGetTasks.mock.calls[0];
-    expect(filters).toHaveLength(1);
-    const [, operation, value] = filters![0];
-    expect(operation).toBe("or");
-    expect(value).toContain("status.in.(1,0)");
-    expect(value).toContain("scheduled_for.gte.");
+    expect(filters).toEqual(canonicalTaskFilters());
   });
 
   it("refetches the single canonical query after a mutation", async () => {

@@ -20,6 +20,7 @@ import {
 } from "@/api/tasks";
 import { getTemplates, TTemplate } from "@/api/templates";
 import { getNextTaskDate } from "@/utils/repeatSchedule";
+import { isCompletionStatus } from "@/utils/taskFilters";
 
 import { supabase } from "./useAuth";
 
@@ -52,9 +53,6 @@ const TASKS_STALE_TIME_MS = 1000 * 60 * 10;
 const RECENT_TASK_WINDOW_DAYS = 30;
 
 const getToday = () => Temporal.Now.plainDateISO();
-
-const isCompletionStatus = (status: ETaskStatus | undefined): boolean =>
-  status === ETaskStatus.DONE || status === ETaskStatus.WONT_DO;
 
 /** Finds a task in the canonical `["tasks"]` cache entry. */
 const findCachedTask = (
@@ -110,15 +108,18 @@ const maybeCreateNextRecurringTask = async (
 };
 
 /**
- * The single fetch every task view derives from: every incomplete task, plus
- * any task (regardless of status) scheduled within the last
+ * The single fetch the Today and Backlog views derive from: every incomplete
+ * task, plus any task (regardless of status) scheduled within the last
  * `RECENT_TASK_WINDOW_DAYS` days — bounding the payload while keeping the
  * Today list's recently-completed rows intact. Filtering, grouping, and
- * searching for a specific view (Today, Backlog) all happen client-side over
- * this one cached array (see `utils/taskFilters.ts`) instead of separate
- * server queries per view/day/filter (DEX-57).
+ * searching for a specific view all happen client-side over this one cached
+ * array (see `utils/taskFilters.ts`) instead of separate server queries per
+ * view/day/filter (DEX-57). Not a general-purpose "all tasks" fetch — a view
+ * needing full history or a different window (e.g. an analytics screen)
+ * would need its own query, since old completed/won't-do tasks fall outside
+ * this window entirely.
  */
-const canonicalTaskFilters = (): TQueryFilter[] => [
+export const canonicalTaskFilters = (): TQueryFilter[] => [
   makeOrFilter([
     ["status", "in", [ETaskStatus.TODO, ETaskStatus.IN_PROGRESS]],
     [

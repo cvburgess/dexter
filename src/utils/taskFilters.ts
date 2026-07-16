@@ -7,8 +7,11 @@ export type TFilterId =
 
 const DUE_SOON_WINDOW_DAYS = 13;
 
-const isIncomplete = (task: TTask): boolean =>
-  task.status === ETaskStatus.TODO || task.status === ETaskStatus.IN_PROGRESS;
+/** Shared with `hooks/useTasks.tsx`'s recurring-task logic, which needs the same DONE/WONT_DO classification. */
+export const isCompletionStatus = (status: ETaskStatus | undefined): boolean =>
+  status === ETaskStatus.DONE || status === ETaskStatus.WONT_DO;
+
+const isIncomplete = (task: TTask): boolean => !isCompletionStatus(task.status);
 
 /** Tasks scheduled for `date`, any status — the Today list's contents. */
 export function selectTasksForDate(
