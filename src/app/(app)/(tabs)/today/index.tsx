@@ -1,7 +1,8 @@
+import type { BottomSheetMethods } from "@expo/ui/community/bottom-sheet";
 import { Temporal } from "@js-temporal/polyfill";
 import { useRouter } from "expo-router";
-import { useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { useRef, useState } from "react";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CalendarView } from "@/components/CalendarView";
@@ -13,6 +14,8 @@ import { JournalView } from "@/components/JournalView";
 import { NotesJournalTabs } from "@/components/NotesJournalTabs";
 import { NotesView } from "@/components/NotesView";
 import { SwipeableDay } from "@/components/SwipeableDay";
+import { TaskDrawer } from "@/components/TaskDrawer";
+import { TaskDrawerSheet } from "@/components/TaskDrawerSheet";
 import { TasksView } from "@/components/TasksView";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -21,6 +24,7 @@ import { useTodayPanes } from "@/hooks/useTodayPanes";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
 import {
   CALENDAR_PANE_MAX_WIDTH,
+  DRAWER_PANE_MAX_WIDTH,
   TASKS_PANE_MAX_WIDTH,
 } from "@/utils/breakpoints";
 import { useTheme, withOpacity } from "@/utils/theme";
@@ -36,6 +40,10 @@ export default function TodayScreen() {
   const [preferences] = usePreferences();
   const multiPane = useIsMultiPane();
   const [panes, { togglePane }] = useTodayPanes();
+  // Only the small-screen branch opens this (the large-screen branch docks
+  // the drawer inline instead), but it's declared unconditionally like the
+  // view-state hooks below since hooks can't run inside a conditional branch.
+  const taskDrawerRef = useRef<BottomSheetMethods>(null);
   const [day, setDay] = useState<TDayState>(() => ({
     date: Temporal.Now.plainDateISO(),
     direction: 0,
@@ -107,6 +115,13 @@ export default function TodayScreen() {
               panes={panes}
             />
             <GlassIconButton
+              accessibilityLabel="Toggle task drawer pane"
+              active={panes.drawer}
+              ionicon="file-tray-full-outline"
+              onPress={() => togglePane("drawer")}
+              sfSymbol="tray.full"
+            />
+            <GlassIconButton
               accessibilityLabel="New Task"
               ionicon="add-outline"
               onPress={openNewTask}
@@ -147,6 +162,21 @@ export default function TodayScreen() {
               <CalendarView date={day.date} key={day.date.toString()} />
             </View>
           )}
+          {panes.drawer && (
+            <View
+              style={[
+                styles.drawerPane,
+                {
+                  borderColor: withOpacity(theme.colors.text, 0.1),
+                  borderRadius: theme.borderRadius,
+                },
+              ]}
+            >
+              <ScrollView contentContainerStyle={styles.drawerScrollContent}>
+                <TaskDrawer date={day.date} />
+              </ScrollView>
+            </View>
+          )}
         </View>
       </SafeAreaView>
     );
@@ -172,7 +202,16 @@ export default function TodayScreen() {
     >
       <View style={styles.header}>
         <DayNav date={day.date} onChangeDate={changeDate} />
-        <View style={styles.switcher}>
+        <View style={[styles.switcher, { gap: theme.gap }]}>
+          {/* Standalone button, not folded into DayViewSwitcher's menu — the
+              task drawer isn't a day "view" like Notes/Journal/Calendar, it
+              opens its own sheet over whichever view is active. */}
+          <GlassIconButton
+            accessibilityLabel="Open task drawer"
+            ionicon="file-tray-full-outline"
+            onPress={() => taskDrawerRef.current?.present()}
+            sfSymbol="tray.full"
+          />
           <DayViewSwitcher
             view={activeView}
             onChangeView={setView}
@@ -234,6 +273,7 @@ export default function TodayScreen() {
           <TasksView date={day.date} />
         </SwipeableDay>
       )}
+      <TaskDrawerSheet ref={taskDrawerRef} date={day.date} />
     </SafeAreaView>
   );
 }
@@ -249,7 +289,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   switcher: {
+    alignItems: "center",
     bottom: 0,
+    flexDirection: "row",
     justifyContent: "center",
     position: "absolute",
     right: 20,
@@ -315,5 +357,21 @@ const styles = StyleSheet.create({
     minWidth: 200,
     overflow: "hidden",
     padding: 16,
+  },
+  // Docked at the row's far right, after Calendar (legacy QuickDrawer
+  // parity). `marginLeft: "auto"` pins it to the right edge the same way
+  // `calendarPane` does, so it still lands there when Calendar/Notes/Journal
+  // are hidden. No `padding` here (unlike `calendarPane`) — `TaskDrawer`
+  // pads its own content.
+  drawerPane: {
+    borderWidth: StyleSheet.hairlineWidth,
+    flex: 1,
+    marginLeft: "auto",
+    maxWidth: DRAWER_PANE_MAX_WIDTH,
+    minWidth: 280,
+    overflow: "hidden",
+  },
+  drawerScrollContent: {
+    flexGrow: 1,
   },
 });

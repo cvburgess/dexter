@@ -79,6 +79,34 @@ jest.mock("@/components/CalendarView", () => ({
   CalendarView: (props: Parameters<typeof mockCalendarView>[0]) =>
     mockCalendarView(props),
 }));
+// The docked large-screen drawer pane; its own filter/group/search behavior
+// is covered by TaskDrawer.test. Stub it to a marker exposing its date so
+// this suite can assert the pane's visibility and toggle wiring.
+const mockTaskDrawer = ({ date }: { date: Temporal.PlainDate }) => (
+  <Text>task-drawer:{date.toString()}</Text>
+);
+jest.mock("@/components/TaskDrawer", () => ({
+  TaskDrawer: (props: Parameters<typeof mockTaskDrawer>[0]) =>
+    mockTaskDrawer(props),
+}));
+// The mobile sheet shell hosts a native `@expo/ui` bottom sheet that can't be
+// driven from a unit test; stub it to a marker exposing its date, and fake
+// the imperative ref so pressing the header button can be asserted.
+const mockPresentTaskDrawer = jest.fn();
+const mockTaskDrawerSheet = ({
+  ref,
+  date,
+}: {
+  ref?: { current: unknown };
+  date: Temporal.PlainDate;
+}) => {
+  if (ref) ref.current = { present: mockPresentTaskDrawer };
+  return <Text>task-drawer-sheet:{date.toString()}</Text>;
+};
+jest.mock("@/components/TaskDrawerSheet", () => ({
+  TaskDrawerSheet: (props: Parameters<typeof mockTaskDrawerSheet>[0]) =>
+    mockTaskDrawerSheet(props),
+}));
 
 // The real switcher is an icon-only native trigger (GlassIconButton + IconMenu),
 // so it can't be driven from a unit test. Stub it with a plain button per view
@@ -200,10 +228,17 @@ const panes = (
     notes: boolean;
     journal: boolean;
     calendar: boolean;
+    drawer: boolean;
   }> = {},
 ): ReturnType<typeof useTodayPanes> =>
   [
-    { notes: true, journal: true, calendar: true, ...overrides },
+    {
+      notes: true,
+      journal: true,
+      calendar: true,
+      drawer: false,
+      ...overrides,
+    },
     { togglePane: mockTogglePane, isLoading: false },
   ] as never;
 
@@ -239,6 +274,24 @@ describe("TodayScreen", () => {
   });
 
   describe("small screens", () => {
+    it("mounts the task drawer sheet for the viewed day", () => {
+      const screen = render(<TodayScreen />);
+
+      expect(
+        screen.getByText(
+          `task-drawer-sheet:${Temporal.Now.plainDateISO().toString()}`,
+        ),
+      ).toBeTruthy();
+    });
+
+    it("opens the task drawer sheet from its own header button", () => {
+      const screen = render(<TodayScreen />);
+
+      fireEvent.press(screen.getByLabelText("Open task drawer"));
+
+      expect(mockPresentTaskDrawer).toHaveBeenCalled();
+    });
+
     it("defaults to the Tasks view", () => {
       const screen = render(<TodayScreen />);
 
@@ -360,6 +413,28 @@ describe("TodayScreen", () => {
       expect(screen.getByText(`tasks-view:${today}`)).toBeTruthy();
       expect(screen.getByText(`notes-view:${today}`)).toBeTruthy();
       expect(screen.getByText(`calendar-view:${today}`)).toBeTruthy();
+    });
+
+    it("hides the task drawer pane by default", () => {
+      const screen = render(<TodayScreen />);
+
+      expect(screen.queryByText(/^task-drawer:/)).toBeNull();
+    });
+
+    it("shows the task drawer pane for the viewed day once opened", () => {
+      mockUseTodayPanes.mockReturnValue(panes({ drawer: true }));
+      const screen = render(<TodayScreen />);
+      const today = Temporal.Now.plainDateISO().toString();
+
+      expect(screen.getByText(`task-drawer:${today}`)).toBeTruthy();
+    });
+
+    it("toggles the task drawer pane via its header button", () => {
+      const screen = render(<TodayScreen />);
+
+      fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
+
+      expect(mockTogglePane).toHaveBeenCalledWith("drawer");
     });
 
     it("does not render the small-screen view switcher", () => {
