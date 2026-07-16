@@ -19,7 +19,6 @@ import { TaskDrawerSheet } from "@/components/TaskDrawerSheet";
 import { TasksView } from "@/components/TasksView";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
-import { usePrefetchAdjacentTasks } from "@/hooks/useTasks";
 import { useTodayPanes } from "@/hooks/useTodayPanes";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
 import {
@@ -61,7 +60,6 @@ export default function TodayScreen() {
   const [notesEditing, setNotesEditing] = useState(false);
   // Same for Journal: a focused response field owns horizontal drags.
   const [journalEditing, setJournalEditing] = useState(false);
-  usePrefetchAdjacentTasks(day.date);
   // So "New Task" opened from this tab defaults its schedule to the viewed day.
   usePublishViewedDay(day.date);
 

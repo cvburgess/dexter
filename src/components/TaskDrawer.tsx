@@ -9,7 +9,6 @@ import {
 } from "react-native";
 
 import { TGoal } from "@/api/goals";
-import { dedupeFilters } from "@/api/applyFilters";
 import { TList } from "@/api/lists";
 import { duplicateTaskInput, ETaskPriority, TTask } from "@/api/tasks";
 import { EmptyScreen } from "@/components/EmptyScreen";
@@ -20,26 +19,18 @@ import { TaskCard } from "@/components/TaskCard";
 import { TextInput } from "@/components/TextInput";
 import { useGoals } from "@/hooks/useGoals";
 import { useLists } from "@/hooks/useLists";
+import { useTasks } from "@/hooks/useTasks";
 import {
-  notScheduledForDateFilters,
-  taskFilters,
-  useTasks,
-} from "@/hooks/useTasks";
+  filterTasks,
+  selectBacklogTasks,
+  TFilterId,
+} from "@/utils/taskFilters";
 import { useTheme, withOpacity } from "@/utils/theme";
-
-export type TFilterId =
-  "none" | "overdue" | "dueSoon" | "leftBehind" | "unscheduled";
 
 export type TGroupBy = "none" | "listId" | "priority" | "goalId";
 
 export type TTaskGroup = { id: string; title: string; tasks: TTask[] };
 
-// Each id here doubles as a key into `taskFilters` (see `filters` below,
-// which ANDs the matching preset onto the base `notScheduledForDateFilters`
-// scope) — only add an id whose preset can't contradict that base scope.
-// `taskFilters.today`/`taskFiltersForDate`, for instance, would AND a
-// `scheduledFor === date` clause onto a base scope that already requires
-// `scheduledFor !== date`, silently producing an always-empty query.
 const FILTER_META: { id: TFilterId; title: string }[] = [
   { id: "none", title: "No Filter" },
   { id: "overdue", title: "Overdue" },
@@ -194,20 +185,17 @@ export function TaskDrawer({ date }: TTaskDrawerProps) {
   // skip the query otherwise rather than always subscribing to both tables.
   const [lists] = useLists({ skipQuery: groupBy !== "listId" });
   const [goals] = useGoals({ skipQuery: groupBy !== "goalId" });
-  const filters = useMemo(
-    // `taskFilters` has no "none" entry, so `taskFilters[filterId]` is
-    // already undefined (falling back to `[]`) when nothing extra is
-    // selected — no separate "none" branch needed.
+  const [allTasks, { isLoading, updateTask, createTask, deleteTask }] =
+    useTasks();
+  const tasks = useMemo(
     () =>
-      dedupeFilters([
-        ...notScheduledForDateFilters(date),
-        ...(taskFilters[filterId] ?? []),
-      ]),
-    [date, filterId],
+      filterTasks(
+        selectBacklogTasks(allTasks, date),
+        filterId,
+        Temporal.Now.plainDateISO(),
+      ),
+    [allTasks, date, filterId],
   );
-  const [tasks, { isLoading, updateTask, createTask, deleteTask }] = useTasks({
-    filters,
-  });
 
   const groups = useMemo(
     () => groupTasks(searchTasksByTitle(tasks, search), groupBy, lists, goals),
@@ -262,9 +250,10 @@ export function TaskDrawer({ date }: TTaskDrawerProps) {
         onChangeText={setSearch}
       />
       {isLoading && !hasTasks ? (
-        // The drawer's queries only fire once it's first opened (the shell
-        // defers mounting), so the initial fetch is visible — show a spinner
-        // rather than a bare gap until the list arrives.
+        // `isLoading` reflects the canonical `useTasks()` query shared with
+        // the Tasks pane — usually already resolved by the time this drawer
+        // first mounts (the shell defers mounting until opened), but shown as
+        // a spinner rather than a bare gap on a cold app start where it isn't.
         <View style={styles.state}>
           <ActivityIndicator color={theme.colors.textSecondary} />
         </View>

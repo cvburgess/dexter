@@ -90,7 +90,10 @@ const task = (overrides: Partial<TTask> = {}): TTask => ({
   goalId: null,
   listId: null,
   priority: ETaskPriority.URGENT,
-  scheduledFor: "2026-07-03",
+  // Matches this suite's `date` — TasksView now filters the canonical fetch
+  // down to tasks scheduled for the viewed day client-side (DEX-57), so a
+  // fixture task must be scheduled for that day to appear.
+  scheduledFor: "2026-07-13",
   status: ETaskStatus.TODO,
   templateId: null,
   ...overrides,
