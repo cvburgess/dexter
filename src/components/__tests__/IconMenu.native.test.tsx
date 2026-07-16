@@ -58,4 +58,33 @@ describe("IconMenu (native)", () => {
       }),
     );
   });
+
+  it("emits `state` only for checkable options, so action items stay buttons", () => {
+    const mixedSections: TIconMenuSection[] = [
+      {
+        options: [
+          // Checkable options declare `isSelected` (renders as a toggle).
+          { id: "on", title: "On", isSelected: true, onSelect: jest.fn() },
+          { id: "off", title: "Off", isSelected: false, onSelect: jest.fn() },
+          // Action item: no `isSelected` -> must not become a stateful toggle.
+          { id: "action", title: "Action", onSelect: jest.fn() },
+        ],
+      },
+    ];
+
+    render(
+      <IconMenu accessibilityLabel="Menu" sections={mixedSections}>
+        <Text>Trigger</Text>
+      </IconMenu>,
+    );
+
+    const { actions } = mockMenuView.mock.calls.at(-1)![0] as {
+      actions: { subactions: { id: string; state?: string }[] }[];
+    };
+    const stateById = Object.fromEntries(
+      actions[0].subactions.map((a) => [a.id, a.state]),
+    );
+
+    expect(stateById).toEqual({ on: "on", off: "off", action: undefined });
+  });
 });

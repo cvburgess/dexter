@@ -19,7 +19,7 @@ describe("useTodayPanes", () => {
     await AsyncStorage.clear();
   });
 
-  it("defaults every pane to open when nothing is stored", async () => {
+  it("defaults every pane to open, except the task drawer, when nothing is stored", async () => {
     const { result } = renderHook(() => useTodayPanes(), {
       wrapper: createWrapper(),
     });
@@ -29,6 +29,7 @@ describe("useTodayPanes", () => {
       notes: true,
       journal: true,
       calendar: true,
+      drawer: false,
     });
   });
 
@@ -44,13 +45,14 @@ describe("useTodayPanes", () => {
       notes: true,
       journal: true,
       calendar: true,
+      drawer: false,
     });
   });
 
-  it("defaults to open when the stored value is missing a key", async () => {
+  it("defaults to open when the stored value has an invalid key type", async () => {
     await AsyncStorage.setItem(
       TODAY_PANES_KEY,
-      JSON.stringify({ notes: false }),
+      JSON.stringify({ notes: "yes" }),
     );
 
     const { result } = renderHook(() => useTodayPanes(), {
@@ -62,6 +64,28 @@ describe("useTodayPanes", () => {
       notes: true,
       journal: true,
       calendar: true,
+      drawer: false,
+    });
+  });
+
+  it("fills in a pane added after the value was stored, keeping the rest", async () => {
+    // Simulates a device that stored its preferences before `drawer` existed
+    // — it must not be treated as corrupt and reset to every default.
+    await AsyncStorage.setItem(
+      TODAY_PANES_KEY,
+      JSON.stringify({ notes: false, journal: true, calendar: false }),
+    );
+
+    const { result } = renderHook(() => useTodayPanes(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current[1].isLoading).toBe(false));
+    expect(result.current[0]).toEqual({
+      notes: false,
+      journal: true,
+      calendar: false,
+      drawer: false,
     });
   });
 
@@ -78,11 +102,29 @@ describe("useTodayPanes", () => {
         notes: false,
         journal: true,
         calendar: true,
+        drawer: false,
       }),
     );
     const stored = await AsyncStorage.getItem(TODAY_PANES_KEY);
     expect(JSON.parse(stored as string)).toEqual({
       notes: false,
+      journal: true,
+      calendar: true,
+      drawer: false,
+    });
+  });
+
+  it("toggles the task drawer pane independently of the others", async () => {
+    const { result } = renderHook(() => useTodayPanes(), {
+      wrapper: createWrapper(),
+    });
+    await waitFor(() => expect(result.current[1].isLoading).toBe(false));
+
+    await act(() => result.current[1].togglePane("drawer"));
+
+    await waitFor(() => expect(result.current[0].drawer).toBe(true));
+    expect(result.current[0]).toMatchObject({
+      notes: true,
       journal: true,
       calendar: true,
     });
@@ -116,7 +158,12 @@ describe("useTodayPanes", () => {
       await Promise.all([first, second]);
     });
 
-    const expected = { notes: false, journal: false, calendar: true };
+    const expected = {
+      notes: false,
+      journal: false,
+      calendar: true,
+      drawer: false,
+    };
     await waitFor(() => expect(result.current[0]).toEqual(expected));
     const stored = await AsyncStorage.getItem(TODAY_PANES_KEY);
     expect(JSON.parse(stored as string)).toEqual(expected);

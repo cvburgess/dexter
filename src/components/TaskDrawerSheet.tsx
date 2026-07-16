@@ -1,0 +1,69 @@
+import {
+  BottomSheetModal,
+  BottomSheetView,
+  type BottomSheetMethods,
+} from "@expo/ui/community/bottom-sheet";
+import { Temporal } from "@js-temporal/polyfill";
+import type { Ref } from "react";
+import { useState } from "react";
+import { StyleSheet } from "react-native";
+
+import { TaskDrawer } from "@/components/TaskDrawer";
+
+type TTaskDrawerSheetProps = {
+  date: Temporal.PlainDate;
+  ref?: Ref<BottomSheetMethods>;
+};
+
+// Fixed detents (opens at the first, 55%; drag up to 90%). Without explicit
+// snap points the sheet falls into `enableDynamicSizing`/fit-to-content mode,
+// which sizes to the content's full height and leaves the scroll view
+// unbounded. Module-level for a stable array identity across renders (the
+// library memoizes its derived detents on this prop). On Android these map to
+// partial (~55%) + expanded; on web both heights apply via CSS.
+const SNAP_POINTS = ["55%", "90%"];
+
+/**
+ * Mobile shell for the task drawer (DEX-33): hosts the shared `TaskDrawer` in
+ * `@expo/ui/community/bottom-sheet`'s `BottomSheetModal` — a native SwiftUI
+ * sheet on iOS, a Compose `ModalBottomSheet` on Android, and a vaul drawer on
+ * web. `BottomSheetView` (a plain flex passthrough) fills the detent, and
+ * `TaskDrawer` owns the scrolling `ScrollView` inside it. Starts closed; the
+ * caller opens it imperatively with `ref.current?.present()` from the
+ * `DayViewSwitcher` menu's drawer action (`BottomSheetModal` has no controlled
+ * "visible" prop).
+ */
+export function TaskDrawerSheet({ date, ref }: TTaskDrawerSheetProps) {
+  // `BottomSheetModal` mounts its children immediately regardless of
+  // presentation state — only the sheet's own visibility is deferred until
+  // `present()`. Without this gate, TaskDrawer's useTasks/useLists/useGoals
+  // queries would fire on every Today-tab load whether or not the user ever
+  // opens the drawer. Rendering nothing until the first `onChange` (fired once
+  // `present()` moves the sheet to a real snap point) keeps the drawer truly
+  // opt-in; it then stays mounted across later opens/closes.
+  const [hasOpened, setHasOpened] = useState(false);
+
+  return (
+    <BottomSheetModal
+      ref={ref}
+      enablePanDownToClose
+      snapPoints={SNAP_POINTS}
+      onChange={(index) => {
+        if (index >= 0) setHasOpened(true);
+      }}
+    >
+      {/* `flex: 1` gives TaskDrawer a bounded box to fill so its ScrollView
+          scrolls within the detent (with snap points set, the sheet isn't in
+          fit-to-content mode, so BottomSheetView keeps `flex`). */}
+      <BottomSheetView style={styles.content}>
+        {hasOpened ? <TaskDrawer date={date} /> : null}
+      </BottomSheetView>
+    </BottomSheetModal>
+  );
+}
+
+const styles = StyleSheet.create({
+  content: {
+    flex: 1,
+  },
+});

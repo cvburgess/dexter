@@ -27,10 +27,15 @@ type THookOptions = {
   skipQuery?: boolean;
 };
 
+// A stable reference (rather than an inline `= []` default, which creates a
+// new array every render) so consumers that memoize on `lists` don't
+// recompute on every render while the query is skipped/empty.
+const EMPTY_LISTS: TList[] = [];
+
 export const useLists = (options?: THookOptions): TUseLists => {
   const queryClient = useQueryClient();
 
-  const { data: lists = [], isPending } = useQuery({
+  const { data: lists = EMPTY_LISTS, isPending } = useQuery({
     enabled: !options?.skipQuery,
     queryKey: ["lists"],
     queryFn: () => getLists(supabase),

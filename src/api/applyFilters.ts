@@ -40,6 +40,24 @@ export const applyFilters = <TQuery>(
 };
 /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
 
+/**
+ * Drops exact-duplicate filter tuples (same column, operation, and value)
+ * from a composed filters array, keeping the first occurrence. Callers that
+ * combine independently-built filter sets (e.g. a base scope plus a named
+ * preset) can end up with the same clause twice — harmless to Postgres, but
+ * worth collapsing before it's sent.
+ */
+export const dedupeFilters = (filters: TQueryFilter[]): TQueryFilter[] => {
+  const seen = new Set<string>();
+
+  return filters.filter((filter) => {
+    const key = JSON.stringify(filter);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 export const makeOrFilter = (filters: TQueryFilter[]): TQueryFilter => {
   return [
     "",

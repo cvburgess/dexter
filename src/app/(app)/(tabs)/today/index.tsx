@@ -1,6 +1,7 @@
+import type { BottomSheetMethods } from "@expo/ui/community/bottom-sheet";
 import { Temporal } from "@js-temporal/polyfill";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -13,6 +14,8 @@ import { JournalView } from "@/components/JournalView";
 import { NotesJournalTabs } from "@/components/NotesJournalTabs";
 import { NotesView } from "@/components/NotesView";
 import { SwipeableDay } from "@/components/SwipeableDay";
+import { TaskDrawer } from "@/components/TaskDrawer";
+import { TaskDrawerSheet } from "@/components/TaskDrawerSheet";
 import { TasksView } from "@/components/TasksView";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -21,6 +24,7 @@ import { useTodayPanes } from "@/hooks/useTodayPanes";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
 import {
   CALENDAR_PANE_MAX_WIDTH,
+  DRAWER_PANE_MAX_WIDTH,
   TASKS_PANE_MAX_WIDTH,
 } from "@/utils/breakpoints";
 import { useTheme, withOpacity } from "@/utils/theme";
@@ -36,6 +40,10 @@ export default function TodayScreen() {
   const [preferences] = usePreferences();
   const multiPane = useIsMultiPane();
   const [panes, { togglePane }] = useTodayPanes();
+  // Only the small-screen branch opens this (the large-screen branch docks the
+  // drawer inline instead), but it's declared unconditionally since hooks
+  // can't run inside a conditional branch.
+  const taskDrawerRef = useRef<BottomSheetMethods>(null);
   const [day, setDay] = useState<TDayState>(() => ({
     date: Temporal.Now.plainDateISO(),
     direction: 0,
@@ -107,6 +115,13 @@ export default function TodayScreen() {
               panes={panes}
             />
             <GlassIconButton
+              accessibilityLabel="Toggle task drawer pane"
+              active={panes.drawer}
+              ionicon="file-tray-full-outline"
+              onPress={() => togglePane("drawer")}
+              sfSymbol="tray.full"
+            />
+            <GlassIconButton
               accessibilityLabel="New Task"
               ionicon="add-outline"
               onPress={openNewTask}
@@ -147,6 +162,27 @@ export default function TodayScreen() {
               <CalendarView date={day.date} key={day.date.toString()} />
             </View>
           )}
+          {panes.drawer && (
+            <View
+              style={[
+                styles.drawerPane,
+                {
+                  borderColor: withOpacity(theme.colors.text, 0.1),
+                  borderRadius: theme.borderRadius,
+                  // Calendar (rendered above, when shown) already carries the
+                  // unconditional auto margin and always renders before this
+                  // pane, so its leading margin absorbs the row's leftover
+                  // space and pushes the whole {Calendar, Drawer} group right
+                  // together — this pane's own margin must drop out then, or
+                  // the leftover space would split across both auto margins
+                  // and open a gap between them instead of docking flush.
+                  marginLeft: showCalendar ? 0 : "auto",
+                },
+              ]}
+            >
+              <TaskDrawer date={day.date} />
+            </View>
+          )}
         </View>
       </SafeAreaView>
     );
@@ -173,9 +209,13 @@ export default function TodayScreen() {
       <View style={styles.header}>
         <DayNav date={day.date} onChangeDate={changeDate} />
         <View style={styles.switcher}>
+          {/* The task-drawer trigger lives inside this menu (via onOpenDrawer)
+              rather than as a second header button — a standalone button here
+              crowded DayNav's next-day arrow. */}
           <DayViewSwitcher
             view={activeView}
             onChangeView={setView}
+            onOpenDrawer={() => taskDrawerRef.current?.present()}
             enableNotes={preferences.enableNotes}
             enableJournal={preferences.enableJournal}
             enableCalendar={preferences.enableCalendar}
@@ -234,6 +274,7 @@ export default function TodayScreen() {
           <TasksView date={day.date} />
         </SwipeableDay>
       )}
+      <TaskDrawerSheet ref={taskDrawerRef} date={day.date} />
     </SafeAreaView>
   );
 }
@@ -249,7 +290,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   switcher: {
+    alignItems: "center",
     bottom: 0,
+    flexDirection: "row",
     justifyContent: "center",
     position: "absolute",
     right: 20,
@@ -301,12 +344,15 @@ const styles = StyleSheet.create({
   },
   // Calendar gets its own (narrower) cap — a day timeline reads fine
   // narrower than a task list — plus a bordered card to set it apart from the
-  // other panes, matching the legacy desktop app. `marginLeft: "auto"` pins it
-  // to the row's right edge even when Notes/Journal isn't rendered to push it
-  // there itself (flex-grow alone would leave it stranded next to Tasks, with
-  // blank space trailing after it instead of before it). `padding` matches
-  // TasksView's own list padding so both panes give their content the same
-  // breathing room from their pane's edge.
+  // other panes, matching the legacy desktop app. `marginLeft: "auto"` pins
+  // it to the row's right edge even when Notes/Journal isn't rendered to
+  // push it there itself. Calendar always renders before Drawer, so this
+  // margin is unconditional — it's the one that needs to absorb the row's
+  // leftover space; `drawerPane` below drops its own when Calendar is
+  // present so the two dock flush together instead of splitting the space
+  // across both auto margins. `padding` matches TasksView's own list padding
+  // so both panes give their content the same breathing room from their
+  // pane's edge.
   calendarPane: {
     borderWidth: StyleSheet.hairlineWidth,
     flex: 1,
@@ -315,5 +361,18 @@ const styles = StyleSheet.create({
     minWidth: 200,
     overflow: "hidden",
     padding: 16,
+  },
+  // Docked at the row's far right, after Calendar (legacy QuickDrawer
+  // parity). `marginLeft` is set inline per-render (0 when Calendar is also
+  // shown, since Calendar's own auto margin already pushes the pair right
+  // together; "auto" when Calendar is hidden, so this pane pins itself).
+  // No `padding` here (unlike `calendarPane`) — `TaskDrawer` pads its own
+  // content.
+  drawerPane: {
+    borderWidth: StyleSheet.hairlineWidth,
+    flex: 1,
+    maxWidth: DRAWER_PANE_MAX_WIDTH,
+    minWidth: 280,
+    overflow: "hidden",
   },
 });

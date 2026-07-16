@@ -5,6 +5,11 @@ import { GlassIconButton } from "@/components/GlassIconButton";
 import { TTodayPane, TTodayPanes } from "@/hooks/useTodayPanes";
 import { useTheme } from "@/utils/theme";
 
+// This component only ever toggles Notes/Journal/Calendar — the task drawer
+// (DEX-33) is a standalone header button, not one of these toggles — even
+// though it shares `TTodayPanes`' persisted store via `onTogglePane`.
+type TDisplayPane = Exclude<TTodayPane, "drawer">;
+
 type TDayPaneTogglesProps = {
   panes: TTodayPanes;
   onTogglePane: (pane: TTodayPane) => void;
@@ -17,10 +22,10 @@ type TDayPaneTogglesProps = {
 };
 
 type TPaneToggleOption = {
-  pane: TTodayPane;
+  pane: TDisplayPane;
   label: string;
-  icon: (typeof VIEW_META)[TTodayPane]["icon"];
-  ionicon: (typeof VIEW_META)[TTodayPane]["ionicon"];
+  icon: (typeof VIEW_META)[TDisplayPane]["icon"];
+  ionicon: (typeof VIEW_META)[TDisplayPane]["ionicon"];
   active: boolean;
   onToggle: () => void;
 };
@@ -38,7 +43,7 @@ export function paneToggleOptions(
   enableJournal: boolean,
   enableCalendar: boolean,
 ): TPaneToggleOption[] {
-  const enabled: TTodayPane[] = [];
+  const enabled: TDisplayPane[] = [];
   if (enableNotes) enabled.push("notes");
   if (enableJournal) enabled.push("journal");
   if (enableCalendar) enabled.push("calendar");
