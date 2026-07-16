@@ -81,6 +81,11 @@ export default function TodayScreen() {
     const showNotes = preferences.enableNotes && panes.notes;
     const showJournal = preferences.enableJournal && panes.journal;
     const showCalendar = preferences.enableCalendar && panes.calendar;
+    // Only one trailing pane should carry the row's `marginLeft: "auto"` —
+    // if both Calendar and Drawer had it, flexbox would split the leftover
+    // space across both auto margins (opening a gap between them) instead
+    // of letting the last one absorb it and dock the pair flush together.
+    const calendarIsLastTrailingPane = showCalendar && !panes.drawer;
     // The viewed day is right here (unlike NewTaskButton's tab-bar accessory,
     // which reads it back from a module store because it renders outside the
     // screen's React tree), so push straight to it.
@@ -153,6 +158,7 @@ export default function TodayScreen() {
                 {
                   borderColor: withOpacity(theme.colors.text, 0.1),
                   borderRadius: theme.borderRadius,
+                  marginLeft: calendarIsLastTrailingPane ? "auto" : 0,
                 },
               ]}
             >
@@ -343,26 +349,27 @@ const styles = StyleSheet.create({
   },
   // Calendar gets its own (narrower) cap — a day timeline reads fine
   // narrower than a task list — plus a bordered card to set it apart from the
-  // other panes, matching the legacy desktop app. `marginLeft: "auto"` pins it
-  // to the row's right edge even when Notes/Journal isn't rendered to push it
-  // there itself (flex-grow alone would leave it stranded next to Tasks, with
-  // blank space trailing after it instead of before it). `padding` matches
-  // TasksView's own list padding so both panes give their content the same
-  // breathing room from their pane's edge.
+  // other panes, matching the legacy desktop app. `marginLeft` is set inline
+  // per-render (see `calendarIsLastTrailingPane` above) rather than fixed to
+  // "auto" here: only whichever trailing pane (Calendar or Drawer) is
+  // actually last should absorb the row's leftover space and pin to the
+  // right edge — giving both an unconditional auto margin would split that
+  // space across the two instead of docking them flush together. `padding`
+  // matches TasksView's own list padding so both panes give their content
+  // the same breathing room from their pane's edge.
   calendarPane: {
     borderWidth: StyleSheet.hairlineWidth,
     flex: 1,
-    marginLeft: "auto",
     maxWidth: CALENDAR_PANE_MAX_WIDTH,
     minWidth: 200,
     overflow: "hidden",
     padding: 16,
   },
   // Docked at the row's far right, after Calendar (legacy QuickDrawer
-  // parity). `marginLeft: "auto"` pins it to the right edge the same way
-  // `calendarPane` does, so it still lands there when Calendar/Notes/Journal
-  // are hidden. No `padding` here (unlike `calendarPane`) — `TaskDrawer`
-  // pads its own content.
+  // parity). Always the last trailing pane when shown (nothing renders after
+  // it), so its `marginLeft: "auto"` can stay fixed here rather than
+  // computed like `calendarPane`'s. No `padding` here (unlike `calendarPane`)
+  // — `TaskDrawer` pads its own content.
   drawerPane: {
     borderWidth: StyleSheet.hairlineWidth,
     flex: 1,

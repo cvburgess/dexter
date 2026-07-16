@@ -1,4 +1,4 @@
-import { applyFilters, makeOrFilter } from "@/api/applyFilters";
+import { applyFilters, dedupeFilters, makeOrFilter } from "@/api/applyFilters";
 
 type QueryMock = {
   calls: string[];
@@ -27,6 +27,34 @@ describe("applyFilters", () => {
       "eq:scheduled_for:2026-04-30",
       "or:status.eq.1,status.eq.2",
     ]);
+  });
+});
+
+describe("dedupeFilters", () => {
+  it("drops an exact-duplicate filter tuple, keeping the first occurrence", () => {
+    const filters = dedupeFilters([
+      ["status", "in", ["todo", "in_progress"]],
+      ["dueOn", "lt", "2026-07-16"],
+      ["status", "in", ["todo", "in_progress"]],
+    ]);
+
+    expect(filters).toEqual([
+      ["status", "in", ["todo", "in_progress"]],
+      ["dueOn", "lt", "2026-07-16"],
+    ]);
+  });
+
+  it("keeps filters on the same column with different operations or values", () => {
+    const filters = dedupeFilters([
+      ["scheduledFor", "lt", "2026-07-16"],
+      ["scheduledFor", "gte", "2026-07-01"],
+    ]);
+
+    expect(filters).toHaveLength(2);
+  });
+
+  it("returns an empty array unchanged", () => {
+    expect(dedupeFilters([])).toEqual([]);
   });
 });
 

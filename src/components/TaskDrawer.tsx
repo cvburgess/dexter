@@ -1,13 +1,15 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { duplicateTaskInput, ETaskPriority, TTask } from "@/api/tasks";
 import { TGoal } from "@/api/goals";
+import { dedupeFilters } from "@/api/applyFilters";
 import { TList } from "@/api/lists";
+import { duplicateTaskInput, ETaskPriority, TTask } from "@/api/tasks";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { GlassIconButton } from "@/components/GlassIconButton";
 import { IconMenu, TIconMenuOption } from "@/components/IconMenu";
+import { PRIORITY_OPTIONS } from "@/components/PriorityControl";
 import { TaskCard } from "@/components/TaskCard";
 import { TextInput } from "@/components/TextInput";
 import { useGoals } from "@/hooks/useGoals";
@@ -41,26 +43,32 @@ const GROUP_META: { id: TGroupBy; title: string }[] = [
   { id: "goalId", title: "By Goal" },
 ];
 
+// Reuses PriorityControl's labels (the priority selector's source of truth)
+// rather than re-declaring the wording here; UNPRIORITIZED has no shorthand
+// icon/label there, so it's the one entry this map doesn't cover.
+const PRIORITY_LABELS: Partial<Record<ETaskPriority, string>> =
+  Object.fromEntries(
+    PRIORITY_OPTIONS.map(({ value, label }) => [value, label]),
+  );
+
 // Grouping order mirrors the legacy dexter-app QuickPlanner's priority
 // columns (most to least urgent), plus Unprioritized, which the legacy
 // grouping omitted.
-const PRIORITY_GROUPS: { priority: ETaskPriority; title: string }[] = [
-  {
-    priority: ETaskPriority.IMPORTANT_AND_URGENT,
-    title: "Important & Urgent",
-  },
-  { priority: ETaskPriority.URGENT, title: "Urgent" },
-  { priority: ETaskPriority.IMPORTANT, title: "Important" },
-  { priority: ETaskPriority.NEITHER, title: "Neither" },
-  { priority: ETaskPriority.UNPRIORITIZED, title: "Unprioritized" },
+const PRIORITY_ORDER: ETaskPriority[] = [
+  ETaskPriority.IMPORTANT_AND_URGENT,
+  ETaskPriority.URGENT,
+  ETaskPriority.IMPORTANT,
+  ETaskPriority.NEITHER,
+  ETaskPriority.UNPRIORITIZED,
 ];
 
-/** Builds the Filter menu's options. Exported so selection wiring is unit-testable without the native menu host. */
-export function filterMenuOptions(
-  selected: TFilterId,
-  onSelect: (id: TFilterId) => void,
+/** Builds a titled, selectable option list for an `IconMenu` from a `{id, title}` meta array — shared by the Filter and Group menus. */
+function buildMenuOptions<T extends string>(
+  meta: { id: T; title: string }[],
+  selected: T,
+  onSelect: (id: T) => void,
 ): TIconMenuOption[] {
-  return FILTER_META.map(({ id, title }) => ({
+  return meta.map(({ id, title }) => ({
     id,
     title,
     isSelected: id === selected,
@@ -68,17 +76,20 @@ export function filterMenuOptions(
   }));
 }
 
+/** Builds the Filter menu's options. Exported so selection wiring is unit-testable without the native menu host. */
+export function filterMenuOptions(
+  selected: TFilterId,
+  onSelect: (id: TFilterId) => void,
+): TIconMenuOption[] {
+  return buildMenuOptions(FILTER_META, selected, onSelect);
+}
+
 /** Builds the Group menu's options. Exported so selection wiring is unit-testable without the native menu host. */
 export function groupMenuOptions(
   selected: TGroupBy,
   onSelect: (id: TGroupBy) => void,
 ): TIconMenuOption[] {
-  return GROUP_META.map(({ id, title }) => ({
-    id,
-    title,
-    isSelected: id === selected,
-    onSelect: () => onSelect(id),
-  }));
+  return buildMenuOptions(GROUP_META, selected, onSelect);
 }
 
 /** Live, case-insensitive title filter — matches the legacy QuickPlanner's client-side search. */
@@ -92,6 +103,10 @@ export function searchTasksByTitle(tasks: TTask[], search: string): TTask[] {
  * Splits `tasks` into the sections the Group menu selects: none (a single
  * unlabeled group), by list, by priority, or by goal. Empty groups are
  * dropped so an unused list/goal/priority doesn't render an empty section.
+ * A task whose listId/goalId no longer matches any currently-fetched entity
+ * (e.g. it was archived) falls into the "No List"/"No Goal" bucket rather
+ * than disappearing, matching how `ListButton` falls back to a placeholder
+ * for an unresolvable listId.
  */
 export function groupTasks(
   tasks: TTask[],
@@ -104,9 +119,9 @@ export function groupTasks(
   }
 
   if (groupBy === "priority") {
-    return PRIORITY_GROUPS.map(({ priority, title }) => ({
+    return PRIORITY_ORDER.map((priority) => ({
       id: String(priority),
-      title,
+      title: PRIORITY_LABELS[priority] ?? "Unprioritized",
       tasks: tasks.filter((task) => task.priority === priority),
     })).filter((group) => group.tasks.length > 0);
   }
@@ -120,6 +135,7 @@ export function groupTasks(
       : goals.map((goal) => ({ id: goal.id, title: goal.title }));
   const key = groupBy === "listId" ? "listId" : "goalId";
   const noneTitle = groupBy === "listId" ? "No List" : "No Goal";
+  const entityIds = new Set(entities.map(({ id }) => id));
 
   return [
     ...entities.map(({ id, title }) => ({
@@ -130,7 +146,10 @@ export function groupTasks(
     {
       id: "none",
       title: noneTitle,
-      tasks: tasks.filter((task) => task[key] === null),
+      tasks: tasks.filter((task) => {
+        const value = task[key];
+        return value === null || !entityIds.has(value);
+      }),
     },
   ].filter((group) => group.tasks.length > 0);
 }
@@ -154,22 +173,22 @@ export function TaskDrawer({ date }: TTaskDrawerProps) {
   const [groupBy, setGroupBy] = useState<TGroupBy>("none");
   const [search, setSearch] = useState("");
 
-  const [lists] = useLists();
-  const [goals] = useGoals();
+  // Lists/goals are only needed once the matching grouping is selected —
+  // skip the query otherwise rather than always subscribing to both tables.
+  const [lists] = useLists({ skipQuery: groupBy !== "listId" });
+  const [goals] = useGoals({ skipQuery: groupBy !== "goalId" });
   const [tasks, { isLoading, updateTask, createTask, deleteTask }] = useTasks({
-    filters: [
+    filters: dedupeFilters([
       ...notScheduledForDateFilters(date),
-      ...(filterId === "none" ? [] : taskFilters[filterId]),
-    ],
+      ...(filterId === "none" ? [] : (taskFilters[filterId] ?? [])),
+    ]),
   });
 
-  const groups = groupTasks(
-    searchTasksByTitle(tasks, search),
-    groupBy,
-    lists,
-    goals,
+  const groups = useMemo(
+    () => groupTasks(searchTasksByTitle(tasks, search), groupBy, lists, goals),
+    [tasks, search, groupBy, lists, goals],
   );
-  const hasTasks = groups.some((group) => group.tasks.length > 0);
+  const hasTasks = groups.length > 0;
 
   const controlBorder = { borderColor: withOpacity(theme.colors.text, 0.15) };
 
@@ -184,7 +203,7 @@ export function TaskDrawer({ date }: TTaskDrawerProps) {
         >
           <View style={[styles.controlButtonInner, controlBorder]}>
             <Text style={{ color: theme.colors.text }} numberOfLines={1}>
-              {FILTER_META.find(({ id }) => id === filterId)!.title}
+              {titleFor(FILTER_META, filterId)}
             </Text>
           </View>
         </IconMenu>
@@ -196,7 +215,7 @@ export function TaskDrawer({ date }: TTaskDrawerProps) {
         >
           <View style={[styles.controlButtonInner, controlBorder]}>
             <Text style={{ color: theme.colors.text }} numberOfLines={1}>
-              {GROUP_META.find(({ id }) => id === groupBy)!.title}
+              {titleFor(GROUP_META, groupBy)}
             </Text>
           </View>
         </IconMenu>
@@ -250,6 +269,14 @@ export function TaskDrawer({ date }: TTaskDrawerProps) {
       )}
     </View>
   );
+}
+
+/** Looks up the display title for the currently selected filter/group id, falling back to the id itself if it's ever missing from its meta array (instead of crashing on a non-null assertion). */
+function titleFor<T extends string>(
+  meta: { id: T; title: string }[],
+  id: T,
+): string {
+  return meta.find((entry) => entry.id === id)?.title ?? id;
 }
 
 const styles = StyleSheet.create({

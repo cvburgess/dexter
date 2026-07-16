@@ -11,8 +11,6 @@ export type TTodayPanes = Record<TTodayPane, boolean>;
 // AsyncStorage rather than the Supabase `preferences` row.
 export const TODAY_PANES_KEY = "dexter.today.panes";
 
-const TODAY_PANE_KEYS = ["notes", "journal", "calendar", "drawer"] as const;
-
 // "Whole day at a glance" — the original three panes default open so the
 // multi-column layout is useful (and discoverable) the first time a user
 // sees it. The task drawer (DEX-33) is an opt-in triage tool rather than a
@@ -23,6 +21,10 @@ const DEFAULT_PANES: TTodayPanes = {
   calendar: true,
   drawer: false,
 };
+
+// Derived from DEFAULT_PANES (rather than a separate hand-listed array) so
+// adding a pane only ever means updating one place.
+const TODAY_PANE_KEYS = Object.keys(DEFAULT_PANES) as TTodayPane[];
 
 // Only checks the keys actually present, so a device's stored value from
 // before a pane was added (e.g. `drawer`) still passes — `readPanes` below

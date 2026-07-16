@@ -219,6 +219,16 @@ describe("groupTasks", () => {
     expect(groups.map((g) => g.title)).toEqual(["💼 Work", "No List"]);
   });
 
+  it("buckets a task referencing an archived (no-longer-fetched) list into No List instead of dropping it", () => {
+    // useLists() only fetches non-archived lists, so an archived list a task
+    // still points to is absent from `lists` — the task must not disappear.
+    const archivedListTasks = [task({ id: "1", listId: "archived-list" })];
+    const groups = groupTasks(archivedListTasks, "listId", [list()], []);
+
+    expect(groups.map((g) => g.title)).toEqual(["No List"]);
+    expect(groups[0].tasks.map((t) => t.id)).toEqual(["1"]);
+  });
+
   it("groups by goal, including a No Goal group", () => {
     const goalTasks = [
       task({ id: "1", goalId: "goal-1" }),
@@ -227,6 +237,14 @@ describe("groupTasks", () => {
     const groups = groupTasks(goalTasks, "goalId", [], [goal()]);
 
     expect(groups.map((g) => g.title)).toEqual(["Ship it", "No Goal"]);
+  });
+
+  it("buckets a task referencing an archived goal into No Goal instead of dropping it", () => {
+    const archivedGoalTasks = [task({ id: "1", goalId: "archived-goal" })];
+    const groups = groupTasks(archivedGoalTasks, "goalId", [], [goal()]);
+
+    expect(groups.map((g) => g.title)).toEqual(["No Goal"]);
+    expect(groups[0].tasks.map((t) => t.id)).toEqual(["1"]);
   });
 
   it("groups by priority in urgency order, dropping unused priorities", () => {
