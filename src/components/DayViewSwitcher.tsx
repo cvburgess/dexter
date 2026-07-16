@@ -4,7 +4,7 @@ import type { ComponentProps } from "react";
 
 import { GlassIconButton } from "./GlassIconButton";
 import { IconMenu } from "./IconMenu";
-import { TIconMenuOption } from "./IconMenu.types";
+import { TIconMenuOption, TIconMenuSection } from "./IconMenu.types";
 
 /** The day views selectable from the Today tab. */
 export type TDayView = "tasks" | "notes" | "journal" | "calendar";
@@ -47,6 +47,13 @@ type TDayViewSwitcherProps = {
   enableJournal: boolean;
   /** Calendar is hidden when disabled in settings. */
   enableCalendar: boolean;
+  /**
+   * When provided, a "Task Drawer" action is appended below the view options
+   * (in its own divided section) that opens the drawer. Kept in this menu
+   * rather than a standalone header button so it doesn't crowd `DayNav`'s
+   * next-day arrow.
+   */
+  onOpenDrawer?: () => void;
 };
 
 /**
@@ -81,7 +88,8 @@ export function dayViewOptions(
  * `IconMenu` for moving between Tasks, Notes, and Journal. Its icon reflects the
  * active view. All views share the Today screen's single date, so switching
  * never changes the selected day. Notes/Journal/Calendar entries appear only
- * when enabled in settings (DEX-37, DEX-39).
+ * when enabled in settings (DEX-37, DEX-39). When `onOpenDrawer` is given, a
+ * "Task Drawer" action is added below the view options (DEX-33).
  */
 export function DayViewSwitcher({
   view,
@@ -89,6 +97,7 @@ export function DayViewSwitcher({
   enableNotes,
   enableJournal,
   enableCalendar,
+  onOpenDrawer,
 }: TDayViewSwitcherProps) {
   const options = dayViewOptions(
     view,
@@ -98,13 +107,27 @@ export function DayViewSwitcher({
     enableCalendar,
   );
 
+  const sections: TIconMenuSection[] = [{ options }];
+  if (onOpenDrawer) {
+    sections.push({
+      options: [
+        {
+          id: "drawer",
+          title: "Task Drawer",
+          icon: "tray.full",
+          onSelect: onOpenDrawer,
+        },
+      ],
+    });
+  }
+
   return (
     // Pin the IconMenu host to the button's size: the native @expo/ui MenuView
     // sizes asynchronously and a content-sized trigger renders untappable on
     // device (same reason StatusButton/ListButton pin theirs).
     <IconMenu
       accessibilityLabel="Switch view"
-      sections={[{ options }]}
+      sections={sections}
       style={{ width: BUTTON_SIZE, height: BUTTON_SIZE }}
     >
       <GlassIconButton

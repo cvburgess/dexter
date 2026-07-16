@@ -89,33 +89,18 @@ jest.mock("@/components/TaskDrawer", () => ({
   TaskDrawer: (props: Parameters<typeof mockTaskDrawer>[0]) =>
     mockTaskDrawer(props),
 }));
-// The mobile sheet shell hosts a native `@expo/ui` bottom sheet that can't be
-// driven from a unit test; stub it to a marker exposing its date, and fake
-// the imperative ref so pressing the header button can be asserted.
-const mockPresentTaskDrawer = jest.fn();
-const mockTaskDrawerSheet = ({
-  ref,
-  date,
-}: {
-  ref?: { current: unknown };
-  date: Temporal.PlainDate;
-}) => {
-  if (ref) ref.current = { present: mockPresentTaskDrawer };
-  return <Text>task-drawer-sheet:{date.toString()}</Text>;
-};
-jest.mock("@/components/TaskDrawerSheet", () => ({
-  TaskDrawerSheet: (props: Parameters<typeof mockTaskDrawerSheet>[0]) =>
-    mockTaskDrawerSheet(props),
-}));
 
 // The real switcher is an icon-only native trigger (GlassIconButton + IconMenu),
 // so it can't be driven from a unit test. Stub it with a plain button per view
-// that calls onChangeView, letting tests exercise the small-screen view branches.
+// that calls onChangeView, plus a button for the drawer action (onOpenDrawer),
+// letting tests exercise the small-screen view branches and the drawer trigger.
 // The switcher's own gating is covered by DayViewSwitcher.test.
 const mockDayViewSwitcher = ({
   onChangeView,
+  onOpenDrawer,
 }: {
   onChangeView: (view: string) => void;
+  onOpenDrawer?: () => void;
 }) => (
   <>
     {["tasks", "notes", "journal"].map((view) => (
@@ -127,6 +112,14 @@ const mockDayViewSwitcher = ({
         <Text>{view}</Text>
       </TouchableOpacity>
     ))}
+    {onOpenDrawer && (
+      <TouchableOpacity
+        accessibilityLabel="Open task drawer"
+        onPress={onOpenDrawer}
+      >
+        <Text>Open task drawer</Text>
+      </TouchableOpacity>
+    )}
   </>
 );
 jest.mock("@/components/DayViewSwitcher", () => ({
@@ -274,22 +267,29 @@ describe("TodayScreen", () => {
   });
 
   describe("small screens", () => {
-    it("mounts the task drawer sheet for the viewed day", () => {
-      const screen = render(<TodayScreen />);
-
-      expect(
-        screen.getByText(
-          `task-drawer-sheet:${Temporal.Now.plainDateISO().toString()}`,
-        ),
-      ).toBeTruthy();
-    });
-
-    it("opens the task drawer sheet from its own header button", () => {
+    it("opens the task drawer route for the viewed day from the view switcher's drawer action", () => {
       const screen = render(<TodayScreen />);
 
       fireEvent.press(screen.getByLabelText("Open task drawer"));
 
-      expect(mockPresentTaskDrawer).toHaveBeenCalled();
+      expect(mockPush).toHaveBeenCalledWith({
+        pathname: "/task-drawer",
+        params: { date: Temporal.Now.plainDateISO().toString() },
+      });
+    });
+
+    it("opens the task drawer for the newly viewed day after navigating forward", () => {
+      const screen = render(<TodayScreen />);
+
+      fireEvent.press(screen.getByLabelText("Next day"));
+      fireEvent.press(screen.getByLabelText("Open task drawer"));
+
+      expect(mockPush).toHaveBeenCalledWith({
+        pathname: "/task-drawer",
+        params: {
+          date: Temporal.Now.plainDateISO().add({ days: 1 }).toString(),
+        },
+      });
     });
 
     it("defaults to the Tasks view", () => {

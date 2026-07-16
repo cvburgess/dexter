@@ -33,3 +33,18 @@ export function createModalScreenOptions(
     contentStyle: { backgroundColor: theme.colors.background },
   };
 }
+
+/**
+ * Web variant of the task-drawer sheet: detents/grabber are native-only, so
+ * this just presents a headerless form sheet (the content owns its controls
+ * and dismissal is via the platform's modal chrome).
+ */
+export function createSheetScreenOptions(
+  theme: Theme,
+): NativeStackNavigationOptions {
+  return {
+    presentation: "formSheet",
+    headerShown: false,
+    contentStyle: { backgroundColor: theme.colors.background },
+  };
+}

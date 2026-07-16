@@ -1,6 +1,12 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import { TGoal } from "@/api/goals";
 import { dedupeFilters } from "@/api/applyFilters";
@@ -169,11 +175,14 @@ type TTaskDrawerProps = {
 
 /**
  * Shared task-drawer content: Filter/Group/Search controls over every
- * incomplete task not scheduled for `date`, with a tap-to-schedule
- * affordance per row. Hosted by two shells — a bottom sheet on small screens
- * (`TaskDrawerSheet`) and a docked pane on large screens (`today/index.tsx`)
- * — so this component owns no scroll container of its own; the shell
- * supplies one (DEX-33).
+ * incomplete task not scheduled for `date`, with a tap-to-schedule affordance
+ * per row. Its root is a single `ScrollView` — the controls scroll as the
+ * first rows, above the list — hosted two ways: a native detented form-sheet
+ * route on small screens (`app/(app)/task-drawer.tsx`) and a docked pane on
+ * large screens (`today/index.tsx`). The single-scroller shape is deliberate:
+ * `react-native-screens` coordinates the sheet's drag/dismiss with the
+ * ScrollView in the Screen's first-descendants chain, and a `flex: 1` view
+ * with a nested scroller doesn't size reliably as iOS sheet content (DEX-33).
  */
 export function TaskDrawer({ date }: TTaskDrawerProps) {
   const theme = useTheme();
@@ -209,7 +218,17 @@ export function TaskDrawer({ date }: TTaskDrawerProps) {
   const controlBorder = { borderColor: withOpacity(theme.colors.text, 0.15) };
 
   return (
-    <View style={styles.container}>
+    // A single ScrollView is the root (not a flex-1 View wrapping a nested
+    // scroller): `react-native-screens` looks for the ScrollView in the
+    // Screen's first-descendants chain to coordinate the form sheet's
+    // scroll-to-expand/dismiss (see `task-drawer.tsx`), and a `flex: 1` view
+    // doesn't size reliably as sheet content on iOS. The controls scroll as
+    // the first rows; `flexGrow: 1` lets the empty/loading states fill and
+    // center when the list is short.
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={[styles.content, { gap: theme.gap }]}
+    >
       <View style={[styles.controls, { gap: theme.gap }]}>
         <IconMenu
           accessibilityLabel="Filter"
@@ -241,12 +260,18 @@ export function TaskDrawer({ date }: TTaskDrawerProps) {
         placeholder="Search"
         value={search}
         onChangeText={setSearch}
-        style={styles.search}
       />
-      {!hasTasks && !isLoading ? (
+      {isLoading && !hasTasks ? (
+        // The drawer's queries only fire once it's first opened (the shell
+        // defers mounting), so the initial fetch is visible — show a spinner
+        // rather than a bare gap until the list arrives.
+        <View style={styles.state}>
+          <ActivityIndicator color={theme.colors.textSecondary} />
+        </View>
+      ) : !hasTasks ? (
         <EmptyScreen message="Nothing here — you're all caught up." />
       ) : (
-        <View style={[styles.list, { gap: theme.gap }]}>
+        <View style={{ gap: theme.gap }}>
           {groups.map((group) => (
             <View key={group.id} style={{ gap: theme.gap }}>
               {group.title ? (
@@ -283,7 +308,7 @@ export function TaskDrawer({ date }: TTaskDrawerProps) {
           ))}
         </View>
       )}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -296,11 +321,18 @@ function titleFor<T extends string>(
 }
 
 const styles = StyleSheet.create({
-  // `flex: 1` so the empty state's own `flex: 1` (EmptyScreen) has a sized
-  // ancestor to center within — both shells flexGrow their scroll container,
-  // but that alone doesn't reach into this component's root.
-  container: {
+  // `flex: 1` bounds the scroller to its parent's height so a long list
+  // scrolls instead of laying out at full content height and overflowing the
+  // sheet/pane (react-native-screens honors this for the sheet's descendant
+  // ScrollView).
+  scroll: {
     flex: 1,
+  },
+  // `flexGrow: 1` so the empty/loading state can fill and center when the
+  // list is short; when it's long the content just overflows and scrolls.
+  // (gap is applied inline from the theme.)
+  content: {
+    flexGrow: 1,
     padding: 16,
   },
   controls: {
@@ -313,19 +345,24 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 40,
   },
+  // Explicit height (not `flex: 1`) so the native `@expo/ui` menu host has an
+  // intrinsic content height to size to — as sheet content it otherwise
+  // collapsed to ~2px (the menu measures its RN child, and a flex-only child
+  // has no height until a bounded ancestor resolves, which the sheet's
+  // ScrollView doesn't provide). `alignSelf: stretch` fills the menu's width.
   controlButtonInner: {
     alignItems: "center",
+    alignSelf: "stretch",
     borderRadius: 999,
     borderWidth: 1,
-    flex: 1,
+    height: 40,
     justifyContent: "center",
     paddingHorizontal: 12,
   },
-  search: {
-    marginTop: 12,
-  },
-  list: {
-    marginTop: 16,
+  state: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
   },
   groupTitle: {
     fontSize: 12,

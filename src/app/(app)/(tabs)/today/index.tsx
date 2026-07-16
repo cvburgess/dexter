@@ -1,8 +1,7 @@
-import type { BottomSheetMethods } from "@expo/ui/community/bottom-sheet";
 import { Temporal } from "@js-temporal/polyfill";
 import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { useState } from "react";
+import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CalendarView } from "@/components/CalendarView";
@@ -15,7 +14,6 @@ import { NotesJournalTabs } from "@/components/NotesJournalTabs";
 import { NotesView } from "@/components/NotesView";
 import { SwipeableDay } from "@/components/SwipeableDay";
 import { TaskDrawer } from "@/components/TaskDrawer";
-import { TaskDrawerSheet } from "@/components/TaskDrawerSheet";
 import { TasksView } from "@/components/TasksView";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -40,10 +38,6 @@ export default function TodayScreen() {
   const [preferences] = usePreferences();
   const multiPane = useIsMultiPane();
   const [panes, { togglePane }] = useTodayPanes();
-  // Only the small-screen branch opens this (the large-screen branch docks
-  // the drawer inline instead), but it's declared unconditionally like the
-  // view-state hooks below since hooks can't run inside a conditional branch.
-  const taskDrawerRef = useRef<BottomSheetMethods>(null);
   const [day, setDay] = useState<TDayState>(() => ({
     date: Temporal.Now.plainDateISO(),
     direction: 0,
@@ -75,6 +69,16 @@ export default function TodayScreen() {
     setDay(({ date }) => {
       const next = date.add({ days });
       return { date: next, direction: Temporal.PlainDate.compare(next, date) };
+    });
+
+  // Opens the drawer as a native detented form sheet (see `task-drawer.tsx`).
+  // A route, not the inline `@expo/ui` sheet, whose iOS RNHostView bridge
+  // clipped the drawer's flex-width Filter/Group menus. Small screens only —
+  // large screens dock `TaskDrawer` inline as a pane instead.
+  const openTaskDrawer = () =>
+    router.push({
+      pathname: "/task-drawer",
+      params: { date: day.date.toString() },
     });
 
   if (multiPane) {
@@ -180,9 +184,7 @@ export default function TodayScreen() {
                 },
               ]}
             >
-              <ScrollView contentContainerStyle={styles.drawerScrollContent}>
-                <TaskDrawer date={day.date} />
-              </ScrollView>
+              <TaskDrawer date={day.date} />
             </View>
           )}
         </View>
@@ -210,19 +212,14 @@ export default function TodayScreen() {
     >
       <View style={styles.header}>
         <DayNav date={day.date} onChangeDate={changeDate} />
-        <View style={[styles.switcher, { gap: theme.gap }]}>
-          {/* Standalone button, not folded into DayViewSwitcher's menu — the
-              task drawer isn't a day "view" like Notes/Journal/Calendar, it
-              opens its own sheet over whichever view is active. */}
-          <GlassIconButton
-            accessibilityLabel="Open task drawer"
-            ionicon="file-tray-full-outline"
-            onPress={() => taskDrawerRef.current?.present()}
-            sfSymbol="tray.full"
-          />
+        <View style={styles.switcher}>
+          {/* The task-drawer trigger lives inside this menu (via onOpenDrawer)
+              rather than as a second header button — a standalone button here
+              crowded DayNav's next-day arrow. */}
           <DayViewSwitcher
             view={activeView}
             onChangeView={setView}
+            onOpenDrawer={openTaskDrawer}
             enableNotes={preferences.enableNotes}
             enableJournal={preferences.enableJournal}
             enableCalendar={preferences.enableCalendar}
@@ -281,7 +278,6 @@ export default function TodayScreen() {
           <TasksView date={day.date} />
         </SwipeableDay>
       )}
-      <TaskDrawerSheet ref={taskDrawerRef} date={day.date} />
     </SafeAreaView>
   );
 }
@@ -381,8 +377,5 @@ const styles = StyleSheet.create({
     maxWidth: DRAWER_PANE_MAX_WIDTH,
     minWidth: 280,
     overflow: "hidden",
-  },
-  drawerScrollContent: {
-    flexGrow: 1,
   },
 });

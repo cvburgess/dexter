@@ -1,7 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render } from "@testing-library/react-native";
 import type { ReactNode } from "react";
-import { Text, TouchableOpacity } from "react-native";
+import { ActivityIndicator, Text, TouchableOpacity } from "react-native";
 
 import { TGoal } from "@/api/goals";
 import { TList } from "@/api/lists";
@@ -99,13 +99,16 @@ const goal = (overrides: Partial<TGoal> = {}): TGoal => ({
   ...overrides,
 });
 
-const tasksResult = (tasks: TTask[] = []): ReturnType<typeof useTasks> =>
+const tasksResult = (
+  tasks: TTask[] = [],
+  isLoading = false,
+): ReturnType<typeof useTasks> =>
   [
     tasks,
     {
       createTask: jest.fn(),
       deleteTask: jest.fn(),
-      isLoading: false,
+      isLoading,
       updateTask: mockUpdateTask,
       updateTasks: jest.fn(),
     },
@@ -286,6 +289,16 @@ describe("TaskDrawer", () => {
     expect(
       screen.getByText("Nothing here — you're all caught up."),
     ).toBeTruthy();
+  });
+
+  it("shows a loading indicator (not the empty state) while the first fetch is in flight", () => {
+    mockUseTasks.mockReturnValue(tasksResult([], true));
+    const screen = render(<TaskDrawer date={date} />);
+
+    expect(screen.UNSAFE_getByType(ActivityIndicator)).toBeTruthy();
+    expect(
+      screen.queryByText("Nothing here — you're all caught up."),
+    ).toBeNull();
   });
 
   it("renders a card for every task returned", () => {
