@@ -4,7 +4,13 @@ import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { ReactNode } from "react";
 
 import { makeOrFilter } from "@/api/applyFilters";
-import { ETaskStatus, getTasks, TTask } from "@/api/tasks";
+import {
+  createTask,
+  ETaskPriority,
+  ETaskStatus,
+  getTasks,
+  TTask,
+} from "@/api/tasks";
 
 import { canonicalTaskFilters, useTasks } from "../useTasks";
 
@@ -18,6 +24,7 @@ jest.mock("@/api/tasks", () => ({
 }));
 
 const mockGetTasks = getTasks as jest.MockedFunction<typeof getTasks>;
+const mockCreateTask = createTask as jest.MockedFunction<typeof createTask>;
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -81,12 +88,12 @@ describe("useTasks", () => {
       dueOn: null,
       goalId: null,
       listId: null,
-      priority: 4,
+      priority: ETaskPriority.UNPRIORITIZED,
       scheduledFor: null,
-      status: 1,
+      status: ETaskStatus.TODO,
       templateId: null,
     };
-    jest.requireMock("@/api/tasks").createTask.mockResolvedValue([task]);
+    mockCreateTask.mockResolvedValue([task]);
 
     const { result } = renderHook(() => useTasks(), { wrapper });
     await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(1));

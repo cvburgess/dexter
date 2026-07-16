@@ -36,11 +36,14 @@ const SNAP_POINTS = ["55%", "90%"];
 export function TaskDrawerSheet({ date, ref }: TTaskDrawerSheetProps) {
   // `BottomSheetModal` mounts its children immediately regardless of
   // presentation state — only the sheet's own visibility is deferred until
-  // `present()`. Without this gate, TaskDrawer's useTasks/useLists/useGoals
-  // queries would fire on every Today-tab load whether or not the user ever
-  // opens the drawer. Rendering nothing until the first `onChange` (fired once
-  // `present()` moves the sheet to a real snap point) keeps the drawer truly
-  // opt-in; it then stays mounted across later opens/closes.
+  // `present()`. TaskDrawer's `useTasks()` is the same canonical query the
+  // always-visible Tasks pane already fires (DEX-57), so this gate no longer
+  // saves a fetch; it still saves the cost of building the drawer's content
+  // tree (and its conditionally-gated useLists/useGoals queries) on every
+  // Today-tab load whether or not the user ever opens the drawer. Rendering
+  // nothing until the first `onChange` (fired once `present()` moves the
+  // sheet to a real snap point) keeps that opt-in; it then stays mounted
+  // across later opens/closes.
   const [hasOpened, setHasOpened] = useState(false);
 
   return (
