@@ -28,6 +28,12 @@ export type TGroupBy = "none" | "listId" | "priority" | "goalId";
 
 export type TTaskGroup = { id: string; title: string; tasks: TTask[] };
 
+// Each id here doubles as a key into `taskFilters` (see `filters` below,
+// which ANDs the matching preset onto the base `notScheduledForDateFilters`
+// scope) — only add an id whose preset can't contradict that base scope.
+// `taskFilters.today`/`taskFiltersForDate`, for instance, would AND a
+// `scheduledFor === date` clause onto a base scope that already requires
+// `scheduledFor !== date`, silently producing an always-empty query.
 const FILTER_META: { id: TFilterId; title: string }[] = [
   { id: "none", title: "No Filter" },
   { id: "overdue", title: "Overdue" },
@@ -126,6 +132,9 @@ export function groupTasks(
     })).filter((group) => group.tasks.length > 0);
   }
 
+  // `groupBy` is narrowed to exactly "listId" | "goalId" here (the "none" and
+  // "priority" cases returned above), so it doubles as the task field to
+  // group on — no need to re-derive it from another ternary.
   const entities: { id: string; title: string }[] =
     groupBy === "listId"
       ? lists.map((list) => ({
@@ -133,7 +142,6 @@ export function groupTasks(
           title: `${list.emoji} ${list.title}`,
         }))
       : goals.map((goal) => ({ id: goal.id, title: goal.title }));
-  const key = groupBy === "listId" ? "listId" : "goalId";
   const noneTitle = groupBy === "listId" ? "No List" : "No Goal";
   const entityIds = new Set(entities.map(({ id }) => id));
 
@@ -141,13 +149,13 @@ export function groupTasks(
     ...entities.map(({ id, title }) => ({
       id,
       title,
-      tasks: tasks.filter((task) => task[key] === id),
+      tasks: tasks.filter((task) => task[groupBy] === id),
     })),
     {
       id: "none",
       title: noneTitle,
       tasks: tasks.filter((task) => {
-        const value = task[key];
+        const value = task[groupBy];
         return value === null || !entityIds.has(value);
       }),
     },
@@ -177,11 +185,19 @@ export function TaskDrawer({ date }: TTaskDrawerProps) {
   // skip the query otherwise rather than always subscribing to both tables.
   const [lists] = useLists({ skipQuery: groupBy !== "listId" });
   const [goals] = useGoals({ skipQuery: groupBy !== "goalId" });
+  const filters = useMemo(
+    // `taskFilters` has no "none" entry, so `taskFilters[filterId]` is
+    // already undefined (falling back to `[]`) when nothing extra is
+    // selected — no separate "none" branch needed.
+    () =>
+      dedupeFilters([
+        ...notScheduledForDateFilters(date),
+        ...(taskFilters[filterId] ?? []),
+      ]),
+    [date, filterId],
+  );
   const [tasks, { isLoading, updateTask, createTask, deleteTask }] = useTasks({
-    filters: dedupeFilters([
-      ...notScheduledForDateFilters(date),
-      ...(filterId === "none" ? [] : (taskFilters[filterId] ?? [])),
-    ]),
+    filters,
   });
 
   const groups = useMemo(
@@ -280,7 +296,11 @@ function titleFor<T extends string>(
 }
 
 const styles = StyleSheet.create({
+  // `flex: 1` so the empty state's own `flex: 1` (EmptyScreen) has a sized
+  // ancestor to center within — both shells flexGrow their scroll container,
+  // but that alone doesn't reach into this component's root.
   container: {
+    flex: 1,
     padding: 16,
   },
   controls: {

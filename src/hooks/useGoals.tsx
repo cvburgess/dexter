@@ -26,10 +26,15 @@ type THookOptions = {
   skipQuery?: boolean;
 };
 
+// A stable reference (rather than an inline `= []` default, which creates a
+// new array every render) so consumers that memoize on `goals` don't
+// recompute on every render while the query is skipped/empty.
+const EMPTY_GOALS: TGoal[] = [];
+
 export const useGoals = (options?: THookOptions): TUseGoals => {
   const queryClient = useQueryClient();
 
-  const { data: goals = [] } = useQuery({
+  const { data: goals = EMPTY_GOALS } = useQuery({
     enabled: !options?.skipQuery,
     queryKey: ["goals"],
     queryFn: () => getGoals(supabase),
