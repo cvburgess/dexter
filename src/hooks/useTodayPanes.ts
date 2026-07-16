@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
-export type TTodayPane = "notes" | "journal" | "calendar";
+export type TTodayPane = "notes" | "journal" | "calendar" | "drawer";
 
 export type TTodayPanes = Record<TTodayPane, boolean>;
 
@@ -11,27 +11,39 @@ export type TTodayPanes = Record<TTodayPane, boolean>;
 // AsyncStorage rather than the Supabase `preferences` row.
 export const TODAY_PANES_KEY = "dexter.today.panes";
 
-// "Whole day at a glance" — panes default to open so the multi-column layout
-// is useful (and discoverable) the first time a user sees it.
+const TODAY_PANE_KEYS = ["notes", "journal", "calendar", "drawer"] as const;
+
+// "Whole day at a glance" — the original three panes default open so the
+// multi-column layout is useful (and discoverable) the first time a user
+// sees it. The task drawer (DEX-33) is an opt-in triage tool rather than a
+// glance surface, so it defaults closed.
 const DEFAULT_PANES: TTodayPanes = {
   notes: true,
   journal: true,
   calendar: true,
+  drawer: false,
 };
 
-const isTodayPanes = (value: unknown): value is TTodayPanes =>
+// Only checks the keys actually present, so a device's stored value from
+// before a pane was added (e.g. `drawer`) still passes — `readPanes` below
+// fills in any missing keys from `DEFAULT_PANES` rather than discarding the
+// user's existing notes/journal/calendar choices.
+const isPartialTodayPanes = (value: unknown): value is Partial<TTodayPanes> =>
   typeof value === "object" &&
   value !== null &&
-  (["notes", "journal", "calendar"] as const).every(
-    (key) => typeof (value as Record<string, unknown>)[key] === "boolean",
-  );
+  TODAY_PANE_KEYS.every((key) => {
+    const entry = (value as Record<string, unknown>)[key];
+    return entry === undefined || typeof entry === "boolean";
+  });
 
 const readPanes = async (): Promise<TTodayPanes> => {
   const raw = await AsyncStorage.getItem(TODAY_PANES_KEY);
   if (!raw) return DEFAULT_PANES;
   try {
-    const parsed = JSON.parse(raw);
-    return isTodayPanes(parsed) ? parsed : DEFAULT_PANES;
+    const parsed: unknown = JSON.parse(raw);
+    return isPartialTodayPanes(parsed)
+      ? { ...DEFAULT_PANES, ...parsed }
+      : DEFAULT_PANES;
   } catch {
     return DEFAULT_PANES;
   }

@@ -187,11 +187,31 @@ export const usePrefetchAdjacentTasks = (date: Temporal.PlainDate): void => {
   }, [iso]);
 };
 
+const INCOMPLETE_FILTER: TQueryFilter[] = [
+  ["status", "in", [ETaskStatus.TODO, ETaskStatus.IN_PROGRESS]],
+];
+
+/**
+ * Incomplete tasks unscheduled or scheduled for a day other than `date` — the
+ * Today-tab task drawer's base scope (DEX-33). Parameterized (unlike
+ * `taskFilters.notToday`, which is always relative to the real current date)
+ * so the drawer can query "not on this day" for whichever day is being viewed.
+ */
+export const notScheduledForDateFilters = (
+  date: Temporal.PlainDate,
+): TQueryFilter[] => [
+  makeOrFilter([
+    ["scheduledFor", "neq", date.toString()],
+    ["scheduledFor", "is", null],
+  ]),
+  ...INCOMPLETE_FILTER,
+];
+
 export const taskFilters: Record<string, TQueryFilter[]> = {
   get today(): TQueryFilter[] {
     return taskFiltersForDate(getToday());
   },
-  incomplete: [["status", "in", [ETaskStatus.TODO, ETaskStatus.IN_PROGRESS]]],
+  incomplete: INCOMPLETE_FILTER,
   get unprioritized(): TQueryFilter[] {
     return [
       ["priority", "eq", ETaskPriority.UNPRIORITIZED],
@@ -221,15 +241,7 @@ export const taskFilters: Record<string, TQueryFilter[]> = {
     return [["scheduledFor", "lt", today.toString()], ...this.incomplete];
   },
   get notToday(): TQueryFilter[] {
-    const today = getToday();
-
-    return [
-      makeOrFilter([
-        ["scheduledFor", "neq", today.toString()],
-        ["scheduledFor", "is", null],
-      ]),
-      ...this.incomplete,
-    ];
+    return notScheduledForDateFilters(getToday());
   },
   get noGoal(): TQueryFilter[] {
     return [["goalId", "is", null], ...this.incomplete];

@@ -12,3 +12,8 @@ export const TASKS_PANE_MAX_WIDTH = 400;
 // Max width (in dp) for the Calendar pane — a day timeline reads fine
 // narrower than a task list, so it gets its own (smaller) cap.
 export const CALENDAR_PANE_MAX_WIDTH = 240;
+
+// Max width (in dp) for the Task Drawer pane (DEX-33) — it renders the same
+// TaskCard rows as the Tasks pane, just narrower so it fits alongside
+// Notes/Journal/Calendar instead of competing with Tasks for space.
+export const DRAWER_PANE_MAX_WIDTH = 360;
