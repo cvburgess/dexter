@@ -30,13 +30,23 @@ jest.mock("../GlassIconButton", () => ({
   }) => mockGlassIconButton(props),
 }));
 
-const allOpen: TTodayPanes = { notes: true, journal: true, calendar: true };
+const allOpen: TTodayPanes = {
+  notes: true,
+  journal: true,
+  calendar: true,
+  drawer: false,
+};
 
 describe("paneToggleOptions", () => {
-  const panesFor = (notes: boolean, journal: boolean, calendar: boolean) => ({
+  const panesFor = (
+    notes: boolean,
+    journal: boolean,
+    calendar: boolean,
+  ): TTodayPanes => ({
     notes,
     journal,
     calendar,
+    drawer: false,
   });
 
   it("offers nothing when every pane is disabled in settings", () => {
@@ -110,5 +120,21 @@ describe("DayPaneToggles", () => {
     fireEvent.press(screen.getByLabelText("Toggle calendar pane"));
 
     expect(onTogglePane).toHaveBeenCalledWith("calendar");
+  });
+
+  it("never renders a toggle for the task drawer pane", () => {
+    // The task drawer (DEX-33) is a standalone header button, not one of
+    // this component's Notes/Journal/Calendar toggles.
+    const screen = render(
+      <DayPaneToggles
+        panes={allOpen}
+        onTogglePane={jest.fn()}
+        enableNotes
+        enableJournal
+        enableCalendar
+      />,
+    );
+
+    expect(screen.queryByLabelText("Toggle drawer pane")).toBeNull();
   });
 });
