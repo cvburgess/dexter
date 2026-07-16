@@ -40,7 +40,16 @@ export function IconMenu({
           image:
             typeof option.icon === "string" ? option.icon : option.icon?.ios,
           imageColor: option.iconColor,
-          state: option.isSelected ? "on" : "off",
+          // Only checkable options declare `isSelected`. Omitting `state`
+          // makes @expo/ui render a plain button rather than a stateful
+          // Toggle, so action items (e.g. "Backlog") never stick a
+          // checkmark after being tapped.
+          state:
+            option.isSelected === undefined
+              ? undefined
+              : option.isSelected
+                ? "on"
+                : "off",
           attributes: option.isDestructive ? { destructive: true } : undefined,
         })),
       }))}

@@ -48,7 +48,7 @@ type TDayViewSwitcherProps = {
   /** Calendar is hidden when disabled in settings. */
   enableCalendar: boolean;
   /**
-   * When provided, a "Task Drawer" action is appended below the view options
+   * When provided, a "Backlog" action is appended below the view options
    * (in its own divided section) that opens the drawer. Kept in this menu
    * rather than a standalone header button so it doesn't crowd `DayNav`'s
    * next-day arrow.
@@ -89,7 +89,7 @@ export function dayViewOptions(
  * active view. All views share the Today screen's single date, so switching
  * never changes the selected day. Notes/Journal/Calendar entries appear only
  * when enabled in settings (DEX-37, DEX-39). When `onOpenDrawer` is given, a
- * "Task Drawer" action is added below the view options (DEX-33).
+ * "Backlog" action is added below the view options (DEX-33).
  */
 export function DayViewSwitcher({
   view,
@@ -113,7 +113,7 @@ export function DayViewSwitcher({
       options: [
         {
           id: "drawer",
-          title: "Task Drawer",
+          title: "Backlog",
           icon: "tray.full",
           onSelect: onOpenDrawer,
         },
