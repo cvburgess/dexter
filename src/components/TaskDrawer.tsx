@@ -177,12 +177,12 @@ type TTaskDrawerProps = {
  * Shared task-drawer content: Filter/Group/Search controls over every
  * incomplete task not scheduled for `date`, with a tap-to-schedule affordance
  * per row. Its root is a single `ScrollView` — the controls scroll as the
- * first rows, above the list — hosted two ways: a native detented form-sheet
- * route on small screens (`app/(app)/task-drawer.tsx`) and a docked pane on
- * large screens (`today/index.tsx`). The single-scroller shape is deliberate:
- * `react-native-screens` coordinates the sheet's drag/dismiss with the
- * ScrollView in the Screen's first-descendants chain, and a `flex: 1` view
- * with a nested scroller doesn't size reliably as iOS sheet content (DEX-33).
+ * first rows, above the list — hosted two ways: an `@expo/ui` bottom sheet on
+ * small screens (`TaskDrawerSheet`) and a docked pane on large screens
+ * (`today/index.tsx`). The `ScrollView`'s `flex: 1` bounds it to the
+ * sheet/pane so a long list scrolls rather than overflowing; note the native
+ * `@expo/ui` menu controls need an explicit height to render inside it (see
+ * `controlButtonInner`) (DEX-33).
  */
 export function TaskDrawer({ date }: TTaskDrawerProps) {
   const theme = useTheme();

@@ -89,6 +89,24 @@ jest.mock("@/components/TaskDrawer", () => ({
   TaskDrawer: (props: Parameters<typeof mockTaskDrawer>[0]) =>
     mockTaskDrawer(props),
 }));
+// The mobile sheet shell hosts a native `@expo/ui` bottom sheet that can't be
+// driven from a unit test; stub it to a marker exposing its date, and fake the
+// imperative ref so pressing the drawer action can be asserted.
+const mockPresentTaskDrawer = jest.fn();
+const mockTaskDrawerSheet = ({
+  ref,
+  date,
+}: {
+  ref?: { current: unknown };
+  date: Temporal.PlainDate;
+}) => {
+  if (ref) ref.current = { present: mockPresentTaskDrawer };
+  return <Text>task-drawer-sheet:{date.toString()}</Text>;
+};
+jest.mock("@/components/TaskDrawerSheet", () => ({
+  TaskDrawerSheet: (props: Parameters<typeof mockTaskDrawerSheet>[0]) =>
+    mockTaskDrawerSheet(props),
+}));
 
 // The real switcher is an icon-only native trigger (GlassIconButton + IconMenu),
 // so it can't be driven from a unit test. Stub it with a plain button per view
@@ -267,29 +285,22 @@ describe("TodayScreen", () => {
   });
 
   describe("small screens", () => {
-    it("opens the task drawer route for the viewed day from the view switcher's drawer action", () => {
+    it("mounts the task drawer sheet for the viewed day", () => {
       const screen = render(<TodayScreen />);
 
-      fireEvent.press(screen.getByLabelText("Open task drawer"));
-
-      expect(mockPush).toHaveBeenCalledWith({
-        pathname: "/task-drawer",
-        params: { date: Temporal.Now.plainDateISO().toString() },
-      });
+      expect(
+        screen.getByText(
+          `task-drawer-sheet:${Temporal.Now.plainDateISO().toString()}`,
+        ),
+      ).toBeTruthy();
     });
 
-    it("opens the task drawer for the newly viewed day after navigating forward", () => {
+    it("opens the task drawer sheet from the view switcher's drawer action", () => {
       const screen = render(<TodayScreen />);
 
-      fireEvent.press(screen.getByLabelText("Next day"));
       fireEvent.press(screen.getByLabelText("Open task drawer"));
 
-      expect(mockPush).toHaveBeenCalledWith({
-        pathname: "/task-drawer",
-        params: {
-          date: Temporal.Now.plainDateISO().add({ days: 1 }).toString(),
-        },
-      });
+      expect(mockPresentTaskDrawer).toHaveBeenCalled();
     });
 
     it("defaults to the Tasks view", () => {

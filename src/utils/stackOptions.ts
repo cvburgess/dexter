@@ -39,24 +39,3 @@ export function createModalScreenOptions(
     contentStyle: { backgroundColor: theme.colors.background },
   };
 }
-
-/**
- * Options for a detented bottom-sheet-style modal (the DEX-33 task drawer): a
- * native form sheet with medium/large detents and a drag grabber, no header
- * (the hosted content — `TaskDrawer` — supplies its own controls). Uses
- * `react-native-screens`' native sheet rather than `@expo/ui`'s community
- * bottom sheet, which hosts RN content through an `RNHostView` bridge that
- * clips flex-width native controls on iOS (the drawer's Filter/Group menus).
- */
-export function createSheetScreenOptions(
-  theme: Theme,
-): NativeStackNavigationOptions {
-  return {
-    presentation: "formSheet",
-    headerShown: false,
-    sheetAllowedDetents: [0.55, 0.9],
-    sheetGrabberVisible: true,
-    sheetCornerRadius: 16,
-    contentStyle: { backgroundColor: theme.colors.background },
-  };
-}
