@@ -31,12 +31,11 @@ export default function AppLayout() {
       // Explicit log-out/delete-account already clear the whole cache
       // (settings/account.tsx), but a session can also end without going
       // through that screen (a revoked/expired token, "sign out everywhere"
-      // from another device) — clear just what this effect warmed so a
-      // different user signing in on the same device afterward doesn't see
-      // the previous user's still-fresh lists/goals before anything else
-      // invalidates them.
-      queryClient.removeQueries({ queryKey: listsQueryOptions.queryKey });
-      queryClient.removeQueries({ queryKey: goalsQueryOptions.queryKey });
+      // from another device) — clear it here too, the same way, so a
+      // different user signing in on the same device afterward never sees
+      // the previous user's still-fresh tasks/notes/habits/etc. (not just
+      // lists/goals) before something else invalidates them (DEX-36).
+      queryClient.clear();
       return;
     }
 

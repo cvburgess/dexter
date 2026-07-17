@@ -63,15 +63,22 @@ dashboard-only addition would drift from what the migration declares.
   events for rows it could `SELECT`. No separate realtime-specific
   authorization exists.
 - **DELETE events are not filterable** by column (a Postgres/Realtime
-  limitation, not specific to this schema), and with RLS enabled the
-  `old` record on a DELETE payload contains only primary-key columns.
+  limitation, not specific to this schema): with default `REPLICA IDENTITY`,
+  a DELETE's `old` record contains only primary-key columns, so a filter on
+  any other column — including the `user_id=eq.<uuid>` filter the client
+  applies — can never match. Only `days` and `preferences` key on `user_id`;
+  for the other six tables (`tasks`, `goals`, `lists`, `habits`,
+  `daily_habits`, `repeat_task_templates`), this means DELETE-triggered
+  realtime invalidation **never fires, by construction** — not an occasional
+  miss, a structural gap for every deletion on those tables.
 - **Client contract: invalidation-only.** The app's realtime consumer
   (`useRealtimeInvalidation`, see `docs/frontend.md`) never reads event
   payloads as data — an event only triggers a query-cache invalidation, and
   the subsequent refetch goes through the normal RLS-scoped REST path. This
-  sidesteps both the DELETE-filter gap and the PK-only old-record limitation:
-  worst case, an event is missed or a stale row briefly persists on screen
-  until the next focus/staleness-triggered refetch.
+  sidesteps the PK-only old-record limitation (there's no payload data to be
+  wrong), but does not change the DELETE-filter gap above: a deleted row on
+  those six tables persists on screen until the next focus/staleness-
+  triggered refetch (`DEFAULT_STALE_TIME_MS`), not until the next event.
 
 ## Edge Functions
 

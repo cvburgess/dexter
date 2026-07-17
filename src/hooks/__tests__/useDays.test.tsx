@@ -225,15 +225,21 @@ describe("useDays", () => {
     const { result } = renderHook(() => useDays("2026-07-12"), { wrapper });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
-    expect(client.isMutating({ mutationKey: daysMutationKey })).toBe(0);
+    expect(
+      client.isMutating({ mutationKey: daysMutationKey("2026-07-12") }),
+    ).toBe(0);
     act(() => result.current[1].upsertDay({ notes: "hello" }));
     await waitFor(() =>
-      expect(client.isMutating({ mutationKey: daysMutationKey })).toBe(1),
+      expect(
+        client.isMutating({ mutationKey: daysMutationKey("2026-07-12") }),
+      ).toBe(1),
     );
 
     resolveUpsert({ date: "2026-07-12", notes: "hello", prompts: [] });
     await waitFor(() =>
-      expect(client.isMutating({ mutationKey: daysMutationKey })).toBe(0),
+      expect(
+        client.isMutating({ mutationKey: daysMutationKey("2026-07-12") }),
+      ).toBe(0),
     );
   });
 });

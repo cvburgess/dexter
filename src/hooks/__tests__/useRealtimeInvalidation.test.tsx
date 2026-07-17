@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { ReactNode } from "react";
 
-import { daysMutationKey, useDays } from "@/hooks/useDays";
+import { useDays } from "@/hooks/useDays";
 
 import {
   REALTIME_INVALIDATIONS,
@@ -151,11 +151,10 @@ describe("useRealtimeInvalidation", () => {
     }
   });
 
-  it("skips invalidating days while an autosave is in flight, then catches up", async () => {
+  it("skips refetching a date's days query while its own autosave is in flight, then catches up once it settles", async () => {
     jest.useFakeTimers();
     try {
-      const { wrapper, queryClient } = createWrapper();
-      const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
+      const { wrapper } = createWrapper();
       renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
 
       let resolveUpsert: () => void = () => {};
@@ -178,30 +177,92 @@ describe("useRealtimeInvalidation", () => {
 
       const days = renderHook(() => useDays("2026-07-12"), { wrapper });
       await waitFor(() => expect(days.result.current[1].isLoading).toBe(false));
+      // The initial mount already fetched this date once.
+      const fetchCountBeforeEvent = (daysApi.getDay as jest.Mock).mock.calls
+        .length;
       act(() => days.result.current[1].upsertDay({ notes: "hi" }));
       await waitFor(() =>
-        expect(queryClient.isMutating({ mutationKey: daysMutationKey })).toBe(
-          1,
-        ),
+        expect((daysApi.upsertDay as jest.Mock).mock.calls.length).toBe(1),
       );
 
       const binding = captured!.bindings.find((b) => b.table === "days")!;
       act(() => binding.handler({ table: "days" }));
       act(() => jest.advanceTimersByTime(250));
 
-      expect(invalidateSpy).not.toHaveBeenCalledWith({ queryKey: ["days"] });
+      // Still mid-autosave for this exact date — no extra refetch yet.
+      expect((daysApi.getDay as jest.Mock).mock.calls.length).toBe(
+        fetchCountBeforeEvent,
+      );
 
       act(() => resolveUpsert());
-      await waitFor(() =>
-        expect(queryClient.isMutating({ mutationKey: daysMutationKey })).toBe(
-          0,
-        ),
-      );
+      await waitFor(() => expect(days.result.current[0].notes).toBe("hi"));
 
       act(() => binding.handler({ table: "days" }));
       act(() => jest.advanceTimersByTime(250));
 
-      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["days"] });
+      // The autosave has settled — the same date now refetches normally.
+      await waitFor(() =>
+        expect((daysApi.getDay as jest.Mock).mock.calls.length).toBeGreaterThan(
+          fetchCountBeforeEvent,
+        ),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("does not suppress invalidation of an unrelated date while another date's autosave is in flight", async () => {
+    jest.useFakeTimers();
+    try {
+      const { wrapper } = createWrapper();
+      renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
+
+      const daysApi =
+        jest.requireMock<typeof import("@/api/days")>("@/api/days");
+      (daysApi.getDay as jest.Mock).mockResolvedValue(null);
+      // Date A's upsert never resolves within this test — simulates an
+      // autosave still retrying in the background after the component
+      // unmounted (see useDays.tsx's retry comment).
+      (daysApi.upsertDay as jest.Mock).mockReturnValue(new Promise(() => {}));
+      const usePreferencesMock = jest.requireMock<
+        typeof import("@/hooks/usePreferences")
+      >("@/hooks/usePreferences").usePreferences as jest.Mock;
+      usePreferencesMock.mockReturnValue([
+        { templateNote: "", templatePrompts: [] },
+        { updatePreferences: jest.fn() },
+      ]);
+
+      const dateA = renderHook(() => useDays("2026-07-12"), { wrapper });
+      await waitFor(() =>
+        expect(dateA.result.current[1].isLoading).toBe(false),
+      );
+      act(() => dateA.result.current[1].upsertDay({ notes: "hi" }));
+      await waitFor(() =>
+        expect(
+          (daysApi.upsertDay as jest.Mock).mock.calls.length,
+        ).toBeGreaterThan(0),
+      );
+
+      const dateB = renderHook(() => useDays("2026-07-13"), { wrapper });
+      await waitFor(() =>
+        expect(dateB.result.current[1].isLoading).toBe(false),
+      );
+      const fetchCountForB = (daysApi.getDay as jest.Mock).mock.calls.filter(
+        (call) => call[1] === "2026-07-13",
+      ).length;
+
+      const binding = captured!.bindings.find((b) => b.table === "days")!;
+      act(() => binding.handler({ table: "days" }));
+      act(() => jest.advanceTimersByTime(250));
+
+      // Date A's still-pending autosave must not block date B's refetch.
+      await waitFor(() =>
+        expect(
+          (daysApi.getDay as jest.Mock).mock.calls.filter(
+            (call) => call[1] === "2026-07-13",
+          ).length,
+        ).toBeGreaterThan(fetchCountForB),
+      );
     } finally {
       jest.useRealTimers();
     }
