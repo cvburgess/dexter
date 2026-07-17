@@ -1,6 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useLayoutEffect, useRef } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useRef } from "react";
 import {
   Alert,
   Platform,
@@ -11,14 +11,14 @@ import {
   View,
 } from "react-native";
 
-import { Host, Picker } from "@expo/ui";
-
 import { DateField } from "@/components/DateField";
-import { CloseButton, DoneButton } from "@/components/ModalHeaderButtons";
+import { FormRow } from "@/components/FormRow";
+import { PickerField } from "@/components/PickerField";
 import { PriorityControl } from "@/components/PriorityControl";
 import { TextInput } from "@/components/TextInput";
 import { WebModalHeader } from "@/components/WebModalHeader";
 import { useLists } from "@/hooks/useLists";
+import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useNewTaskForm } from "@/hooks/useNewTaskForm";
 import { useTasks } from "@/hooks/useTasks";
 import { useTheme } from "@/utils/theme";
@@ -52,7 +52,6 @@ const showSaveError = () => {
 
 export default function NewTaskScreen() {
   const theme = useTheme();
-  const navigation = useNavigation();
   const router = useRouter();
   const [lists, { isLoading: isLoadingLists }] = useLists();
   const [, { createTask }] = useTasks({ skipQuery: true });
@@ -79,36 +78,7 @@ export default function NewTaskScreen() {
     });
   };
 
-  // No dependency array: the handlers close over the latest form state, so
-  // the header must be re-wired on every render.
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerLeft: () => <CloseButton onPress={handleClose} />,
-      headerRight: () => (
-        <DoneButton disabled={!canSave} onPress={handleSave} />
-      ),
-      unstable_headerLeftItems: () => [
-        {
-          type: "button",
-          label: "Cancel",
-          icon: { type: "sfSymbol", name: "xmark" },
-          tintColor: theme.colors.text,
-          onPress: handleClose,
-        },
-      ],
-      unstable_headerRightItems: () => [
-        {
-          type: "button",
-          label: "Save",
-          icon: { type: "sfSymbol", name: "checkmark" },
-          variant: "done",
-          tintColor: theme.colors.primary,
-          disabled: !canSave,
-          onPress: handleSave,
-        },
-      ],
-    });
-  });
+  useModalHeaderActions({ canSave, onClose: handleClose, onSave: handleSave });
 
   return (
     <>
@@ -138,96 +108,89 @@ export default function NewTaskScreen() {
           onSubmitEditing={handleSave}
         />
 
-        <View style={styles.labelRow}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>
-            Priority
-          </Text>
+        <FormRow label="Priority" minHeight={32}>
           <PriorityControl
             priority={form.priority}
             onChangePriority={form.setPriority}
           />
-        </View>
+        </FormRow>
 
-        <View style={styles.labelRow}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>List</Text>
-          <Host matchContents>
-            <Picker
-              appearance="menu"
-              selectedValue={form.listId ?? NO_LIST}
-              testID="new-task-list"
-              onValueChange={(listId) =>
-                form.setListId(listId === NO_LIST ? null : String(listId))
-              }
-            >
-              <Picker.Item label="None" value={NO_LIST} />
-              {lists.map((list) => (
-                <Picker.Item
-                  key={list.id}
-                  label={`${list.emoji} ${list.title}`}
-                  value={list.id}
-                />
-              ))}
-            </Picker>
-          </Host>
-        </View>
+        <PickerField
+          label="List"
+          minHeight={32}
+          testID="new-task-list"
+          options={[
+            { label: "None", value: NO_LIST },
+            ...lists.map((list) => ({
+              label: `${list.emoji} ${list.title}`,
+              value: list.id,
+            })),
+          ]}
+          selectedValue={form.listId ?? NO_LIST}
+          onValueChange={(listId) =>
+            form.setListId(listId === NO_LIST ? null : listId)
+          }
+        />
 
-        <View style={styles.labelRow}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>
-            Schedule
-          </Text>
+        <FormRow label="Schedule" minHeight={32}>
           <DateField
             accentColor={theme.colors.primary}
             testID="new-task-schedule"
             value={plainDateToDate(form.scheduledFor)}
             onChange={(date) => form.setScheduledFor(dateToPlainDateISO(date))}
           />
-        </View>
+        </FormRow>
 
-        <View style={styles.labelRow}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>
-            Deadline
-          </Text>
-          {form.dueOn === null ? (
-            <TouchableOpacity
-              accessibilityRole="button"
-              testID="new-task-add-deadline"
-              onPress={() =>
-                form.setDueOn(Temporal.Now.plainDateISO().toString())
-              }
-            >
-              <Text
-                style={[styles.labelDetail, { color: theme.colors.primary }]}
-              >
-                Add deadline
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={[styles.deadlineControls, { gap: theme.gap }]}>
-              <DateField
-                accentColor={theme.colors.primary}
-                testID="new-task-deadline"
-                value={plainDateToDate(form.dueOn)}
-                onChange={(date) => form.setDueOn(dateToPlainDateISO(date))}
-              />
-              <TouchableOpacity
-                accessibilityRole="button"
-                testID="new-task-clear-deadline"
-                onPress={() => form.setDueOn(null)}
-              >
-                <Text
-                  style={[
-                    styles.labelDetail,
-                    { color: theme.colors.textSecondary },
-                  ]}
-                >
-                  Clear
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+        <FormRow label="Deadline" minHeight={32}>
+          <DeadlineField dueOn={form.dueOn} onChange={form.setDueOn} />
+        </FormRow>
       </ScrollView>
     </>
+  );
+}
+
+type TDeadlineFieldProps = {
+  dueOn: string | null;
+  onChange: (dueOn: string | null) => void;
+};
+
+function DeadlineField({ dueOn, onChange }: TDeadlineFieldProps) {
+  const theme = useTheme();
+
+  if (dueOn === null) {
+    return (
+      <TouchableOpacity
+        accessibilityRole="button"
+        testID="new-task-add-deadline"
+        onPress={() => onChange(Temporal.Now.plainDateISO().toString())}
+      >
+        <Text style={[styles.labelDetail, { color: theme.colors.primary }]}>
+          Add deadline
+        </Text>
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View style={[styles.deadlineControls, { gap: theme.gap }]}>
+      <DateField
+        accentColor={theme.colors.primary}
+        testID="new-task-deadline"
+        value={plainDateToDate(dueOn)}
+        onChange={(date) => onChange(dateToPlainDateISO(date))}
+      />
+      <TouchableOpacity
+        accessibilityRole="button"
+        testID="new-task-clear-deadline"
+        onPress={() => onChange(null)}
+      >
+        <Text
+          style={[styles.labelDetail, { color: theme.colors.textSecondary }]}
+        >
+          Clear
+        </Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -239,17 +202,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
   },
-  label: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
   labelDetail: {
     fontSize: 14,
-  },
-  labelRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    minHeight: 32,
   },
 });

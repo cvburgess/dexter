@@ -22,6 +22,15 @@ import type {
 const MENU_WIDTH = 220;
 const MENU_MARGIN = 8;
 
+// Explicit `titleColor` override, else destructive red, else default text —
+// shared by the leaf and submenu option rows so their label color can't drift.
+const labelColor = (
+  option: TIconMenuOption,
+  theme: ReturnType<typeof useTheme>,
+) =>
+  option.titleColor ??
+  (option.isDestructive ? theme.colors.error : theme.colors.text);
+
 /**
  * Web fallback for `IconMenu`: `@expo/ui`'s `MenuView` doesn't fire actions on
  * web, so a click (or long-press, per `trigger`) on the trigger opens this
@@ -40,9 +49,7 @@ export function IconMenu({
   const theme = useTheme();
   // Divider tint derived from the text color so it reads on both schemes,
   // rather than a fixed gray that washes out on dark backgrounds.
-  const dividerBorder = {
-    borderTopColor: withOpacity(theme.colors.text, 0.15),
-  };
+  const dividerBorderColor = withOpacity(theme.colors.text, 0.15);
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const isLongPress = trigger === "longPress";
@@ -54,12 +61,6 @@ export function IconMenu({
       y: y + MENU_MARGIN,
     });
   };
-
-  // Explicit `titleColor` override, else destructive red, else default text —
-  // shared by the leaf and submenu option rows so their label color can't drift.
-  const labelColor = (option: TIconMenuOption) =>
-    option.titleColor ??
-    (option.isDestructive ? theme.colors.error : theme.colors.text);
 
   const handlePress = (event: GestureResponderEvent) => {
     // Web (DOM) events carry clientX/clientY; native touches carry pageX/pageY.
@@ -137,117 +138,23 @@ export function IconMenu({
               ) : null}
               {sections.map((section, sectionIndex) => {
                 const key = sectionKey(section, sectionIndex);
-
-                if (!section.isSubmenu) {
-                  return (
-                    <View
-                      key={key}
-                      style={
-                        sectionIndex > 0
-                          ? [styles.sectionDivider, dividerBorder]
-                          : undefined
-                      }
-                    >
-                      {section.title ? (
-                        <Text
-                          style={[
-                            styles.sectionTitle,
-                            { color: theme.colors.textSecondary },
-                          ]}
-                        >
-                          {section.title}
-                        </Text>
-                      ) : null}
-                      {section.options.map((option) => (
-                        <Pressable
-                          key={option.id}
-                          style={styles.option}
-                          onPress={() => {
-                            close();
-                            option.onSelect();
-                          }}
-                        >
-                          <Text style={styles.checkmark}>
-                            {option.isSelected ? "✓" : ""}
-                          </Text>
-                          {option.icon ? (
-                            <SymbolView
-                              name={option.icon}
-                              size={18}
-                              tintColor={option.iconColor ?? theme.colors.text}
-                            />
-                          ) : null}
-                          <Text style={{ color: labelColor(option) }}>
-                            {option.title}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  );
-                }
-
-                const expanded = expandedSection === key;
                 return (
-                  <View
+                  <MenuSection
                     key={key}
-                    style={
-                      sectionIndex > 0
-                        ? [styles.sectionDivider, dividerBorder]
-                        : undefined
+                    section={section}
+                    dividerBorderColor={
+                      sectionIndex > 0 ? dividerBorderColor : null
                     }
-                  >
-                    <Pressable
-                      style={styles.option}
-                      onPress={() => setExpandedSection(expanded ? null : key)}
-                    >
-                      {section.icon ? (
-                        <SymbolView
-                          name={section.icon}
-                          size={18}
-                          tintColor={theme.colors.text}
-                        />
-                      ) : null}
-                      <Text style={{ color: theme.colors.text }}>
-                        {section.title}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.chevron,
-                          { color: theme.colors.textSecondary },
-                        ]}
-                      >
-                        {expanded ? "⌄" : "›"}
-                      </Text>
-                    </Pressable>
-                    {expanded
-                      ? section.options.map((option) => (
-                          <Pressable
-                            key={option.id}
-                            style={[styles.option, styles.optionIndented]}
-                            onPress={() => {
-                              close();
-                              option.onSelect();
-                            }}
-                          >
-                            <Text style={styles.checkmark}>
-                              {option.isSelected ? "✓" : ""}
-                            </Text>
-                            {option.icon ? (
-                              <SymbolView
-                                name={option.icon}
-                                size={18}
-                                tintColor={
-                                  option.iconColor ?? theme.colors.text
-                                }
-                              />
-                            ) : null}
-                            <Text style={{ color: labelColor(option) }}>
-                              {option.title}
-                            </Text>
-                          </Pressable>
-                        ))
-                      : null}
-                  </View>
+                    expanded={expandedSection === key}
+                    onToggleExpanded={() =>
+                      setExpandedSection(expandedSection === key ? null : key)
+                    }
+                    theme={theme}
+                    onSelectOption={(option) => {
+                      close();
+                      option.onSelect();
+                    }}
+                  />
                 );
               })}
             </ScrollView>
@@ -255,6 +162,108 @@ export function IconMenu({
         </Modal>
       ) : null}
     </>
+  );
+}
+
+function MenuSection({
+  section,
+  dividerBorderColor,
+  expanded,
+  onToggleExpanded,
+  theme,
+  onSelectOption,
+}: {
+  section: TIconMenuSection;
+  /** Divider color for every section but the first, or `null` to omit it. */
+  dividerBorderColor: string | null;
+  expanded: boolean;
+  onToggleExpanded: () => void;
+  theme: ReturnType<typeof useTheme>;
+  onSelectOption: (option: TIconMenuOption) => void;
+}) {
+  const dividerStyle =
+    dividerBorderColor !== null
+      ? [styles.sectionDivider, { borderTopColor: dividerBorderColor }]
+      : undefined;
+
+  if (!section.isSubmenu) {
+    return (
+      <View style={dividerStyle}>
+        {section.title ? (
+          <Text
+            style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}
+          >
+            {section.title}
+          </Text>
+        ) : null}
+        {section.options.map((option) => (
+          <MenuOptionRow
+            key={option.id}
+            option={option}
+            theme={theme}
+            onSelect={() => onSelectOption(option)}
+          />
+        ))}
+      </View>
+    );
+  }
+
+  return (
+    <View style={dividerStyle}>
+      <Pressable style={styles.option} onPress={onToggleExpanded}>
+        {section.icon ? (
+          <SymbolView
+            name={section.icon}
+            size={18}
+            tintColor={theme.colors.text}
+          />
+        ) : null}
+        <Text style={{ color: theme.colors.text }}>{section.title}</Text>
+        <Text style={[styles.chevron, { color: theme.colors.textSecondary }]}>
+          {expanded ? "⌄" : "›"}
+        </Text>
+      </Pressable>
+      {expanded
+        ? section.options.map((option) => (
+            <MenuOptionRow
+              key={option.id}
+              option={option}
+              indented
+              theme={theme}
+              onSelect={() => onSelectOption(option)}
+            />
+          ))
+        : null}
+    </View>
+  );
+}
+
+function MenuOptionRow({
+  option,
+  indented,
+  theme,
+  onSelect,
+}: {
+  option: TIconMenuOption;
+  indented?: boolean;
+  theme: ReturnType<typeof useTheme>;
+  onSelect: () => void;
+}) {
+  return (
+    <Pressable
+      style={[styles.option, indented && styles.optionIndented]}
+      onPress={onSelect}
+    >
+      <Text style={styles.checkmark}>{option.isSelected ? "✓" : ""}</Text>
+      {option.icon ? (
+        <SymbolView
+          name={option.icon}
+          size={18}
+          tintColor={option.iconColor ?? theme.colors.text}
+        />
+      ) : null}
+      <Text style={{ color: labelColor(option, theme) }}>{option.title}</Text>
+    </Pressable>
   );
 }
 

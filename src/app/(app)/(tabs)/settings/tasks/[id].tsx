@@ -1,55 +1,33 @@
-import { Host, Picker } from "@expo/ui";
-import {
-  Redirect,
-  useLocalSearchParams,
-  useNavigation,
-  useRouter,
-} from "expo-router";
-import { useLayoutEffect, useRef, useState } from "react";
-import {
-  Alert,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { useRef, useState } from "react";
+import { Alert, Platform, ScrollView, StyleSheet, View } from "react-native";
 
 import { ETaskPriority } from "@/api/tasks";
 import { TTemplate } from "@/api/templates";
 import { Button } from "@/components/Button";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
+import { FormRow } from "@/components/FormRow";
 import { LoadingScreen } from "@/components/LoadingScreen";
-import { CloseButton, DoneButton } from "@/components/ModalHeaderButtons";
+import { PickerField } from "@/components/PickerField";
 import { PriorityControl } from "@/components/PriorityControl";
 import { TextInput } from "@/components/TextInput";
+import { WeekdayPicker } from "@/components/WeekdayPicker";
 import { WebModalHeader } from "@/components/WebModalHeader";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useGoals } from "@/hooks/useGoals";
 import { useLists } from "@/hooks/useLists";
+import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTemplates } from "@/hooks/useTemplates";
 import {
   buildSchedule,
   parseSchedule,
   TRepeatFrequency,
 } from "@/utils/repeatSchedule";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 // The universal Picker's item values cannot be null, so "none" gets a sentinel
 // that can never collide with a real id.
 const NO_VALUE = "";
-
-// Cron day-of-week (0 = Sunday), ordered Monday-first to match the habit editor.
-const WEEKDAYS = [
-  { cron: 1, label: "M" },
-  { cron: 2, label: "T" },
-  { cron: 3, label: "W" },
-  { cron: 4, label: "T" },
-  { cron: 5, label: "F" },
-  { cron: 6, label: "S" },
-  { cron: 0, label: "S" },
-] as const;
 
 const MONTHS = [
   "January",
@@ -110,7 +88,6 @@ export default function RepeatScheduleScreen() {
 
 function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
   const theme = useTheme();
-  const navigation = useNavigation();
   const router = useRouter();
 
   const [lists] = useLists();
@@ -203,39 +180,12 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
         : [...prev, day].sort((a, b) => a - b),
     );
 
-  // No dependency array: the handlers close over the latest form state, so the
-  // header must be re-wired on every render (mirrors habits/[id].tsx).
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      title: "Repeat Schedule",
-      headerLeft: () => <CloseButton onPress={handleClose} />,
-      headerRight: () => (
-        <DoneButton disabled={!canSave} onPress={handleSave} />
-      ),
-      unstable_headerLeftItems: () => [
-        {
-          type: "button",
-          label: "Cancel",
-          icon: { type: "sfSymbol", name: "xmark" },
-          tintColor: theme.colors.text,
-          onPress: handleClose,
-        },
-      ],
-      unstable_headerRightItems: () => [
-        {
-          type: "button",
-          label: "Save",
-          icon: { type: "sfSymbol", name: "checkmark" },
-          variant: "done",
-          tintColor: theme.colors.primary,
-          disabled: !canSave,
-          onPress: handleSave,
-        },
-      ],
-    });
+  useModalHeaderActions({
+    title: "Repeat Schedule",
+    canSave,
+    onClose: handleClose,
+    onSave: handleSave,
   });
-
-  const inputBorder = withOpacity(theme.colors.text, 0.1);
 
   return (
     <>
@@ -262,178 +212,86 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
           onSubmitEditing={handleSave}
         />
 
-        <View style={styles.labelRow}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>
-            Priority
-          </Text>
+        <FormRow label="Priority">
           <PriorityControl priority={priority} onChangePriority={setPriority} />
-        </View>
+        </FormRow>
 
-        <View style={styles.labelRow}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>List</Text>
-          <Host matchContents>
-            <Picker
-              appearance="menu"
-              selectedValue={listId ?? NO_VALUE}
-              onValueChange={(value) =>
-                setListId(value === NO_VALUE ? null : String(value))
-              }
-            >
-              <Picker.Item label="None" value={NO_VALUE} />
-              {lists.map((list) => (
-                <Picker.Item
-                  key={list.id}
-                  label={`${list.emoji} ${list.title}`}
-                  value={list.id}
-                />
-              ))}
-            </Picker>
-          </Host>
-        </View>
+        <PickerField
+          label="List"
+          options={[
+            { label: "None", value: NO_VALUE },
+            ...lists.map((list) => ({
+              label: `${list.emoji} ${list.title}`,
+              value: list.id,
+            })),
+          ]}
+          selectedValue={listId ?? NO_VALUE}
+          onValueChange={(value) =>
+            setListId(value === NO_VALUE ? null : value)
+          }
+        />
 
-        <View style={styles.labelRow}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>Goal</Text>
-          <Host matchContents>
-            <Picker
-              appearance="menu"
-              selectedValue={goalId ?? NO_VALUE}
-              onValueChange={(value) =>
-                setGoalId(value === NO_VALUE ? null : String(value))
-              }
-            >
-              <Picker.Item label="None" value={NO_VALUE} />
-              {goals.map((goal) => (
-                <Picker.Item
-                  key={goal.id}
-                  label={
-                    goal.emoji ? `${goal.emoji} ${goal.title}` : goal.title
-                  }
-                  value={goal.id}
-                />
-              ))}
-            </Picker>
-          </Host>
-        </View>
+        <PickerField
+          label="Goal"
+          options={[
+            { label: "None", value: NO_VALUE },
+            ...goals.map((goal) => ({
+              label: goal.emoji ? `${goal.emoji} ${goal.title}` : goal.title,
+              value: goal.id,
+            })),
+          ]}
+          selectedValue={goalId ?? NO_VALUE}
+          onValueChange={(value) =>
+            setGoalId(value === NO_VALUE ? null : value)
+          }
+        />
 
-        <View style={styles.labelRow}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>
-            Repeats
-          </Text>
-          <Host matchContents>
-            <Picker
-              appearance="menu"
-              selectedValue={frequency}
-              onValueChange={(value) => setFrequency(value)}
-            >
-              {FREQUENCIES.map((option) => (
-                <Picker.Item
-                  key={option.value}
-                  label={option.label}
-                  value={option.value}
-                />
-              ))}
-            </Picker>
-          </Host>
-        </View>
+        <PickerField
+          label="Repeats"
+          options={FREQUENCIES}
+          selectedValue={frequency}
+          onValueChange={setFrequency}
+        />
 
         {frequency === "weekly" && (
-          <View style={styles.labelRow}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>
-              On days
-            </Text>
-            <View style={styles.days}>
-              {WEEKDAYS.map((day, index) => {
-                const selected = weekdays.includes(day.cron);
-                return (
-                  <TouchableOpacity
-                    key={index}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                    accessibilityLabel={`Weekday ${day.cron}`}
-                    onPress={() => toggleWeekday(day.cron)}
-                    style={[
-                      styles.day,
-                      {
-                        backgroundColor: selected
-                          ? theme.colors.primary
-                          : "transparent",
-                        borderColor: inputBorder,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.dayLabel,
-                        {
-                          color: selected
-                            ? theme.colors.primaryContent
-                            : theme.colors.textSecondary,
-                        },
-                      ]}
-                    >
-                      {day.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
+          <FormRow label="On days">
+            <WeekdayPicker
+              valueSource="cron"
+              selected={weekdays}
+              onToggle={toggleWeekday}
+            />
+          </FormRow>
         )}
 
         {frequency === "yearly" && (
-          <View style={styles.labelRow}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>
-              Month
-            </Text>
-            <Host matchContents>
-              <Picker
-                appearance="menu"
-                selectedValue={String(month)}
-                onValueChange={(value) => {
-                  const nextMonth = Number(value);
-                  setMonth(nextMonth);
-                  // Clamp so switching to a shorter month can't leave an
-                  // impossible day selected (e.g. 31 → February).
-                  setDayOfMonth((day) =>
-                    Math.min(day, DAYS_IN_MONTH[nextMonth - 1]),
-                  );
-                }}
-              >
-                {MONTHS.map((label, index) => (
-                  <Picker.Item
-                    key={label}
-                    label={label}
-                    value={String(index + 1)}
-                  />
-                ))}
-              </Picker>
-            </Host>
-          </View>
+          <PickerField
+            label="Month"
+            options={MONTHS.map((label, index) => ({
+              label,
+              value: String(index + 1),
+            }))}
+            selectedValue={String(month)}
+            onValueChange={(value) => {
+              const nextMonth = Number(value);
+              setMonth(nextMonth);
+              // Clamp so switching to a shorter month can't leave an
+              // impossible day selected (e.g. 31 → February).
+              setDayOfMonth((day) =>
+                Math.min(day, DAYS_IN_MONTH[nextMonth - 1]),
+              );
+            }}
+          />
         )}
 
         {(frequency === "monthly" || frequency === "yearly") && (
-          <View style={styles.labelRow}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>
-              Day of month
-            </Text>
-            <Host matchContents>
-              <Picker
-                appearance="menu"
-                selectedValue={String(dayOfMonth)}
-                onValueChange={(value) => setDayOfMonth(Number(value))}
-              >
-                {dayOptions(
-                  frequency === "yearly" ? DAYS_IN_MONTH[month - 1] : 31,
-                ).map((day) => (
-                  <Picker.Item
-                    key={day}
-                    label={String(day)}
-                    value={String(day)}
-                  />
-                ))}
-              </Picker>
-            </Host>
-          </View>
+          <PickerField
+            label="Day of month"
+            options={dayOptions(
+              frequency === "yearly" ? DAYS_IN_MONTH[month - 1] : 31,
+            ).map((day) => ({ label: String(day), value: String(day) }))}
+            selectedValue={String(dayOfMonth)}
+            onValueChange={(value) => setDayOfMonth(Number(value))}
+          />
         )}
 
         <View style={styles.dangerZone}>
@@ -455,31 +313,5 @@ const styles = StyleSheet.create({
   dangerZone: {
     gap: 12,
     marginTop: 12,
-  },
-  day: {
-    alignItems: "center",
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    height: 32,
-    justifyContent: "center",
-    width: 32,
-  },
-  dayLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  days: {
-    flexDirection: "row",
-    gap: 4,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  labelRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    minHeight: 40,
   },
 });
