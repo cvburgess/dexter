@@ -3,8 +3,8 @@ import { Temporal } from "@js-temporal/polyfill";
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 
 import {
+  backlogAttentionFilter,
   filterTasks,
-  hasBacklogAttention,
   isCompletionStatus,
   selectBacklogTasks,
   selectTasksForDate,
@@ -157,31 +157,40 @@ describe("filterTasks", () => {
   });
 });
 
-describe("hasBacklogAttention", () => {
+describe("backlogAttentionFilter", () => {
   const today = Temporal.PlainDate.from("2026-07-16");
 
-  it("is true when an incomplete task is overdue", () => {
-    expect(hasBacklogAttention([task({ dueOn: "2026-07-15" })], today)).toBe(
-      true,
+  it("returns 'overdue' when an incomplete task is overdue", () => {
+    expect(backlogAttentionFilter([task({ dueOn: "2026-07-15" })], today)).toBe(
+      "overdue",
     );
   });
 
-  it("is true when an incomplete task is left behind", () => {
+  it("returns 'leftBehind' when an incomplete task is only left behind", () => {
     expect(
-      hasBacklogAttention([task({ scheduledFor: "2026-07-15" })], today),
-    ).toBe(true);
+      backlogAttentionFilter([task({ scheduledFor: "2026-07-15" })], today),
+    ).toBe("leftBehind");
   });
 
-  it("is true when both overdue and left-behind tasks exist", () => {
+  it("prioritizes 'overdue' when both overdue and left-behind tasks exist", () => {
     const tasks = [
       task({ id: "1", dueOn: "2026-07-15" }),
       task({ id: "2", scheduledFor: "2026-07-10" }),
     ];
 
-    expect(hasBacklogAttention(tasks, today)).toBe(true);
+    expect(backlogAttentionFilter(tasks, today)).toBe("overdue");
   });
 
-  it("is false when nothing is overdue or left behind", () => {
+  it("prioritizes 'overdue' even when a left-behind task comes first", () => {
+    const tasks = [
+      task({ id: "1", scheduledFor: "2026-07-10" }),
+      task({ id: "2", dueOn: "2026-07-15" }),
+    ];
+
+    expect(backlogAttentionFilter(tasks, today)).toBe("overdue");
+  });
+
+  it("returns null when nothing is overdue or left behind", () => {
     const tasks = [
       task({ id: "1", dueOn: "2026-07-16" }), // due today, not overdue
       task({ id: "2", scheduledFor: "2026-07-16" }), // scheduled today
@@ -189,7 +198,7 @@ describe("hasBacklogAttention", () => {
       task({ id: "4", dueOn: null, scheduledFor: null }),
     ];
 
-    expect(hasBacklogAttention(tasks, today)).toBe(false);
+    expect(backlogAttentionFilter(tasks, today)).toBeNull();
   });
 
   it("ignores completed tasks that are past due or left behind", () => {
@@ -202,7 +211,7 @@ describe("hasBacklogAttention", () => {
       }),
     ];
 
-    expect(hasBacklogAttention(tasks, today)).toBe(false);
+    expect(backlogAttentionFilter(tasks, today)).toBeNull();
   });
 
   it("uses a strict boundary — due today / scheduled today does not count", () => {
@@ -211,10 +220,10 @@ describe("hasBacklogAttention", () => {
       task({ id: "2", scheduledFor: "2026-07-16" }),
     ];
 
-    expect(hasBacklogAttention(tasks, today)).toBe(false);
+    expect(backlogAttentionFilter(tasks, today)).toBeNull();
   });
 
-  it("is false for an empty task list", () => {
-    expect(hasBacklogAttention([], today)).toBe(false);
+  it("returns null for an empty task list", () => {
+    expect(backlogAttentionFilter([], today)).toBeNull();
   });
 });

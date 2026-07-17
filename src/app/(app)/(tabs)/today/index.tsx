@@ -1,4 +1,3 @@
-import type { BottomSheetMethods } from "@expo/ui/community/bottom-sheet";
 import { Temporal } from "@js-temporal/polyfill";
 import { useRouter } from "expo-router";
 import { useMemo, useRef, useState } from "react";
@@ -15,7 +14,10 @@ import { NotesJournalTabs } from "@/components/NotesJournalTabs";
 import { NotesView } from "@/components/NotesView";
 import { SwipeableDay } from "@/components/SwipeableDay";
 import { TaskDrawer } from "@/components/TaskDrawer";
-import { TaskDrawerSheet } from "@/components/TaskDrawerSheet";
+import {
+  TaskDrawerSheet,
+  TTaskDrawerSheetHandle,
+} from "@/components/TaskDrawerSheet";
 import { TasksView } from "@/components/TasksView";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -27,7 +29,7 @@ import {
   DRAWER_PANE_MAX_WIDTH,
   TASKS_PANE_MAX_WIDTH,
 } from "@/utils/breakpoints";
-import { hasBacklogAttention } from "@/utils/taskFilters";
+import { backlogAttentionFilter } from "@/utils/taskFilters";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 type TDayState = {
@@ -44,7 +46,7 @@ export default function TodayScreen() {
   // Only the small-screen branch opens this (the large-screen branch docks the
   // drawer inline instead), but it's declared unconditionally since hooks
   // can't run inside a conditional branch.
-  const taskDrawerRef = useRef<BottomSheetMethods>(null);
+  const taskDrawerRef = useRef<TTaskDrawerSheetHandle>(null);
   const [day, setDay] = useState<TDayState>(() => ({
     date: Temporal.Now.plainDateISO(),
     direction: 0,
@@ -65,15 +67,18 @@ export default function TodayScreen() {
   // So "New Task" opened from this tab defaults its schedule to the viewed day.
   usePublishViewedDay(day.date);
 
-  // Drives the Backlog attention dot: true when any incomplete task is overdue
-  // or left behind (DEX-58). Anchored to the real today, not `day.date` — it
-  // signals stragglers regardless of which day is on screen. Reads the shared,
-  // already-warm `["tasks"]` cache the panes use, so it costs no extra fetch.
+  // Drives the Backlog attention dot and the filter that tapping Backlog
+  // pre-applies (DEX-58): the Filter preset for the first overdue/left-behind
+  // task (Overdue wins), or null when there's nothing. Anchored to the real
+  // today, not `day.date` — it signals stragglers regardless of which day is on
+  // screen. Reads the shared, already-warm `["tasks"]` cache the panes use, so
+  // it costs no extra fetch.
   const [allTasks] = useTasks();
-  const backlogAttention = useMemo(
-    () => hasBacklogAttention(allTasks, Temporal.Now.plainDateISO()),
+  const attentionFilter = useMemo(
+    () => backlogAttentionFilter(allTasks, Temporal.Now.plainDateISO()),
     [allTasks],
   );
+  const backlogAttention = attentionFilter !== null;
 
   const changeDate = (next: Temporal.PlainDate) =>
     setDay(({ date }) => ({
@@ -226,7 +231,9 @@ export default function TodayScreen() {
           <DayViewSwitcher
             view={activeView}
             onChangeView={setView}
-            onOpenDrawer={() => taskDrawerRef.current?.present()}
+            onOpenDrawer={() =>
+              taskDrawerRef.current?.present(attentionFilter ?? undefined)
+            }
             attention={backlogAttention}
             enableNotes={preferences.enableNotes}
             enableJournal={preferences.enableJournal}

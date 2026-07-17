@@ -151,9 +151,11 @@ export function IconMenu({
                           ) : null}
                           <Text
                             style={{
-                              color: option.isDestructive
-                                ? theme.colors.error
-                                : theme.colors.text,
+                              color:
+                                option.titleColor ??
+                                (option.isDestructive
+                                  ? theme.colors.error
+                                  : theme.colors.text),
                             }}
                           >
                             {option.title}
@@ -221,9 +223,11 @@ export function IconMenu({
                             ) : null}
                             <Text
                               style={{
-                                color: option.isDestructive
-                                  ? theme.colors.error
-                                  : theme.colors.text,
+                                color:
+                                  option.titleColor ??
+                                  (option.isDestructive
+                                    ? theme.colors.error
+                                    : theme.colors.text),
                               }}
                             >
                               {option.title}

@@ -2,6 +2,8 @@ import Ionicons from "@react-native-vector-icons/ionicons";
 import type { SymbolViewProps } from "expo-symbols";
 import type { ComponentProps } from "react";
 
+import { useTheme } from "@/utils/theme";
+
 import { GlassIconButton } from "./GlassIconButton";
 import { IconMenu } from "./IconMenu";
 import { TIconMenuOption, TIconMenuSection } from "./IconMenu.types";
@@ -107,6 +109,7 @@ export function DayViewSwitcher({
   onOpenDrawer,
   attention,
 }: TDayViewSwitcherProps) {
+  const theme = useTheme();
   const options = dayViewOptions(
     view,
     onChangeView,
@@ -117,12 +120,19 @@ export function DayViewSwitcher({
 
   const sections: TIconMenuSection[] = [{ options }];
   if (onOpenDrawer) {
+    // When the attention dot is showing, tint the Backlog row the same
+    // warning-yellow (`priority[0]`) as the dot so it's clear what the dot
+    // refers to (DEX-58). `iconColor` also recolors the label on iOS; on
+    // Android/web `titleColor` carries the label.
+    const attentionColor = attention ? theme.colors.priority[0] : undefined;
     sections.push({
       options: [
         {
           id: "drawer",
           title: "Backlog",
           icon: "tray.full",
+          iconColor: attentionColor,
+          titleColor: attentionColor,
           onSelect: onOpenDrawer,
         },
       ],

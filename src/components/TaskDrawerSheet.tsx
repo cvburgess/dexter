@@ -5,14 +5,26 @@ import {
 } from "@expo/ui/community/bottom-sheet";
 import { Temporal } from "@js-temporal/polyfill";
 import type { Ref } from "react";
-import { useState } from "react";
+import { useImperativeHandle, useRef, useState } from "react";
 import { StyleSheet } from "react-native";
 
 import { TaskDrawer } from "@/components/TaskDrawer";
+import { TFilterId } from "@/utils/taskFilters";
+
+/**
+ * Imperative handle for the mobile drawer sheet. `present(filter)` optionally
+ * pre-applies a Filter preset before opening — the Today screen passes the
+ * attention filter (Overdue/Left Behind) so tapping "Backlog" lands on the
+ * relevant view (DEX-58). Called with no argument, it just opens the sheet and
+ * leaves the current filter as-is.
+ */
+export type TTaskDrawerSheetHandle = {
+  present: (filter?: TFilterId) => void;
+};
 
 type TTaskDrawerSheetProps = {
   date: Temporal.PlainDate;
-  ref?: Ref<BottomSheetMethods>;
+  ref?: Ref<TTaskDrawerSheetHandle>;
 };
 
 // Fixed detents (opens at the first, 55%; drag up to 90%). Without explicit
@@ -46,10 +58,24 @@ export function TaskDrawerSheet({ date, ref }: TTaskDrawerSheetProps) {
   // `onChange` (fired once `present()` moves the sheet to a real snap point)
   // keeps that opt-in; it then stays mounted across later opens/closes.
   const [hasOpened, setHasOpened] = useState(false);
+  // The drawer's Filter preset is owned here (not inside TaskDrawer) so
+  // `present(filter)` can set it before the sheet opens; TaskDrawer runs
+  // controlled off this state.
+  const [filterId, setFilterId] = useState<TFilterId>("none");
+  const sheetRef = useRef<BottomSheetMethods>(null);
+
+  useImperativeHandle(ref, () => ({
+    present: (filter) => {
+      // Set the filter first so the deferred TaskDrawer mounts already filtered;
+      // omitting `filter` leaves whatever the user last had selected.
+      if (filter) setFilterId(filter);
+      sheetRef.current?.present();
+    },
+  }));
 
   return (
     <BottomSheetModal
-      ref={ref}
+      ref={sheetRef}
       enablePanDownToClose
       snapPoints={SNAP_POINTS}
       onChange={(index) => {
@@ -60,7 +86,13 @@ export function TaskDrawerSheet({ date, ref }: TTaskDrawerSheetProps) {
           scrolls within the detent (with snap points set, the sheet isn't in
           fit-to-content mode, so BottomSheetView keeps `flex`). */}
       <BottomSheetView style={styles.content}>
-        {hasOpened ? <TaskDrawer date={date} /> : null}
+        {hasOpened ? (
+          <TaskDrawer
+            date={date}
+            filterId={filterId}
+            onFilterChange={setFilterId}
+          />
+        ) : null}
       </BottomSheetView>
     </BottomSheetModal>
   );

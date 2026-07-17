@@ -7,9 +7,11 @@ import {
   getByGestureTestId,
 } from "react-native-gesture-handler/jest-utils";
 
+import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import TodayScreen from "@/app/(app)/(tabs)/today";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useTasks } from "@/hooks/useTasks";
 import { useTodayPanes } from "@/hooks/useTodayPanes";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
 
@@ -24,10 +26,11 @@ jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 jest.mock("@/hooks/useTodayPanes", () => ({ useTodayPanes: jest.fn() }));
 jest.mock("@/hooks/useIsMultiPane", () => ({ useIsMultiPane: jest.fn() }));
 // TodayScreen reads the canonical task cache only to drive the Backlog
-// attention dot (DEX-58); the mocked TasksView/TaskDrawer own the real fetch in
-// their own suites. Stub it to an empty list (its module-scope useAuth import
-// otherwise needs the expo-constants manifest this unit test doesn't set up).
-jest.mock("@/hooks/useTasks", () => ({ useTasks: () => [[], {}] }));
+// attention dot + the filter tapping Backlog pre-applies (DEX-58); the mocked
+// TasksView/TaskDrawer own the real fetch in their own suites. A jest.fn so
+// individual tests can inject tasks (its module-scope useAuth import otherwise
+// needs the expo-constants manifest this unit test doesn't set up).
+jest.mock("@/hooks/useTasks", () => ({ useTasks: jest.fn() }));
 
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));
@@ -254,12 +257,17 @@ const mockUseIsMultiPane = useIsMultiPane as jest.MockedFunction<
   typeof useIsMultiPane
 >;
 
+const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
+const tasksResult = (tasks: TTask[] = []): ReturnType<typeof useTasks> =>
+  [tasks, {}] as never;
+
 describe("TodayScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseIsMultiPane.mockReturnValue(false);
     mockUsePreferences.mockReturnValue(preferences());
     mockUseTodayPanes.mockReturnValue(panes());
+    mockUseTasks.mockReturnValue(tasksResult());
   });
 
   const lastPublishedDay = () =>
@@ -297,7 +305,27 @@ describe("TodayScreen", () => {
 
       fireEvent.press(screen.getByLabelText("Open task drawer"));
 
-      expect(mockPresentTaskDrawer).toHaveBeenCalled();
+      expect(mockPresentTaskDrawer).toHaveBeenCalledWith(undefined);
+    });
+
+    it("pre-applies the Overdue filter when opening Backlog with an overdue task", () => {
+      const overdue: TTask = {
+        id: "1",
+        title: "Overdue",
+        dueOn: Temporal.Now.plainDateISO().subtract({ days: 1 }).toString(),
+        goalId: null,
+        listId: null,
+        priority: ETaskPriority.UNPRIORITIZED,
+        scheduledFor: null,
+        status: ETaskStatus.TODO,
+        templateId: null,
+      };
+      mockUseTasks.mockReturnValue(tasksResult([overdue]));
+      const screen = render(<TodayScreen />);
+
+      fireEvent.press(screen.getByLabelText("Open task drawer"));
+
+      expect(mockPresentTaskDrawer).toHaveBeenCalledWith("overdue");
     });
 
     it("defaults to the Tasks view", () => {

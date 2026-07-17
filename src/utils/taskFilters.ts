@@ -81,23 +81,30 @@ export function filterTasks(
 }
 
 /**
- * True when any *incomplete* task is overdue or left behind as of `today` —
- * drives the Backlog attention dot (DEX-58). Anchored to today, not the viewed
- * day, since it signals "you have stragglers" regardless of which day is on
- * screen. Uses the same strict `< today` boundary as the drawer's Overdue /
- * Left Behind filter presets (a task due today is not yet overdue). The status
- * guard matters: `filterTasks`'s presets don't check completion themselves (the
- * drawer pre-scopes to incomplete via `selectBacklogTasks`), so a completed
- * past-due task must not light the dot here.
+ * The Backlog Filter preset the attention dot maps to (DEX-58), or `null` when
+ * no *incomplete* task is overdue or left behind as of `today`. `"overdue"`
+ * wins when both kinds exist (product decision: overdue is more time-sensitive).
+ * The dot itself is just `backlogAttentionFilter(...) !== null`, and tapping
+ * Backlog pre-applies the returned preset in the drawer.
+ *
+ * Anchored to today, not the viewed day, since it signals "you have stragglers"
+ * regardless of which day is on screen. Uses the same strict `< today` boundary
+ * as the drawer's Overdue / Left Behind presets (a task due today is not yet
+ * overdue). The status guard matters: `filterTasks`'s presets don't check
+ * completion themselves (the drawer pre-scopes to incomplete via
+ * `selectBacklogTasks`), so a completed past-due task must not light the dot.
  */
-export function hasBacklogAttention(
+export function backlogAttentionFilter(
   tasks: TTask[],
   today: Temporal.PlainDate,
-): boolean {
+): TFilterId | null {
   const todayIso = today.toString();
-  return tasks.some(
-    (task) =>
-      isIncomplete(task) &&
-      (isOverdue(task, todayIso) || isLeftBehind(task, todayIso)),
-  );
+  let hasLeftBehind = false;
+  for (const task of tasks) {
+    if (!isIncomplete(task)) continue;
+    // Any overdue task wins outright, whatever the array order.
+    if (isOverdue(task, todayIso)) return "overdue";
+    if (isLeftBehind(task, todayIso)) hasLeftBehind = true;
+  }
+  return hasLeftBehind ? "leftBehind" : null;
 }
