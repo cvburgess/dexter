@@ -88,57 +88,77 @@ export function SmallScreenToday({
           />
         </View>
       </View>
-      {activeView === "notes" ? (
-        // Swipe to change days like tasks, but only while the note isn't being
-        // edited — a focused editor owns horizontal drags for caret/selection,
-        // so the gesture is suspended via `enabled` until the user taps Done.
-        // SwipeableDay remounts its content per date, re-seeding the editor and
-        // resetting the template chooser.
-        <SwipeableDay
-          dateKey={date.toString()}
-          direction={direction}
-          enabled={!notesEditing}
-          onSwipe={changeDateBy}
-        >
-          <NotesView date={date.toString()} onEditingChange={setNotesEditing} />
-        </SwipeableDay>
-      ) : activeView === "journal" ? (
-        // Swipe to change days like Notes, suspended while a response field is
-        // focused so horizontal drags position the caret instead of changing
-        // days. SwipeableDay remounts per date, re-seeding the response inputs.
-        <SwipeableDay
-          dateKey={date.toString()}
-          direction={direction}
-          enabled={!journalEditing}
-          onSwipe={changeDateBy}
-        >
-          <JournalView
-            date={date.toString()}
-            onEditingChange={setJournalEditing}
-          />
-        </SwipeableDay>
-      ) : activeView === "calendar" ? (
-        // Swipe to change days like the other views. The timeline scrolls
-        // vertically, so horizontal drags never conflict with its own gestures;
-        // SwipeableDay remounts per date, re-fetching that day's events.
-        <SwipeableDay
-          dateKey={date.toString()}
-          direction={direction}
-          onSwipe={changeDateBy}
-        >
-          <CalendarView date={date} />
-        </SwipeableDay>
-      ) : (
-        <SwipeableDay
-          dateKey={date.toString()}
-          direction={direction}
-          onSwipe={changeDateBy}
-        >
-          <TasksView date={date} />
-        </SwipeableDay>
-      )}
+      <DayViewContent
+        view={activeView}
+        date={date}
+        direction={direction}
+        notesEditing={notesEditing}
+        journalEditing={journalEditing}
+        onNotesEditingChange={setNotesEditing}
+        onJournalEditingChange={setJournalEditing}
+        onSwipe={changeDateBy}
+      />
       <TaskDrawerSheet ref={taskDrawerRef} date={date} />
     </SafeAreaView>
+  );
+}
+
+type TDayViewContentProps = {
+  view: TDayView;
+  date: Temporal.PlainDate;
+  direction: -1 | 0 | 1;
+  notesEditing: boolean;
+  journalEditing: boolean;
+  onNotesEditingChange: (editing: boolean) => void;
+  onJournalEditingChange: (editing: boolean) => void;
+  onSwipe: (days: 1 | -1) => void;
+};
+
+// Swipe to change days, suspended while a note/journal response field is
+// focused — a focused editor owns horizontal drags for caret/selection until
+// the user taps Done. Calendar and Tasks have no such conflict (Calendar's
+// timeline scrolls vertically) and always allow swiping. SwipeableDay
+// remounts its content per date, re-seeding editors/inputs and re-fetching
+// calendar events.
+function DayViewContent({
+  view,
+  date,
+  direction,
+  notesEditing,
+  journalEditing,
+  onNotesEditingChange,
+  onJournalEditingChange,
+  onSwipe,
+}: TDayViewContentProps) {
+  return (
+    <SwipeableDay
+      dateKey={date.toString()}
+      direction={direction}
+      enabled={
+        view === "notes"
+          ? !notesEditing
+          : view === "journal"
+            ? !journalEditing
+            : undefined
+      }
+      onSwipe={onSwipe}
+    >
+      {view === "notes" ? (
+        <NotesView
+          date={date.toString()}
+          onEditingChange={onNotesEditingChange}
+        />
+      ) : view === "journal" ? (
+        <JournalView
+          date={date.toString()}
+          onEditingChange={onJournalEditingChange}
+        />
+      ) : view === "calendar" ? (
+        <CalendarView date={date} />
+      ) : (
+        <TasksView date={date} />
+      )}
+    </SwipeableDay>
   );
 }
 
