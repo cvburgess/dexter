@@ -20,6 +20,7 @@ import {
   layoutEvents,
   nowLineTopPx,
   scrollOffsetForTarget,
+  TPositionedEvent,
 } from "@/utils/calendarLayout";
 import {
   formatHourLabel,
@@ -233,142 +234,149 @@ export function CalendarView({ date }: TCalendarViewProps) {
           testID="calendar-scroll"
         >
           <View style={{ height: totalHeight }}>
-            {hours.map((hour) => {
-              const top = (hour - startHour) * HOUR_HEIGHT;
-              return (
-                <View key={hour}>
-                  <Text
-                    style={[
-                      styles.hourLabel,
-                      { top: top - 7, color: theme.colors.textSecondary },
-                    ]}
-                  >
-                    {formatHourLabel(hour)}
-                  </Text>
-                  <View
-                    style={[
-                      styles.hourLine,
-                      { top, backgroundColor: dividerColor },
-                    ]}
-                  />
-                </View>
-              );
-            })}
+            {hours.map((hour) => (
+              <HourRow
+                key={hour}
+                hour={hour}
+                top={(hour - startHour) * HOUR_HEIGHT}
+                dividerColor={dividerColor}
+                theme={theme}
+              />
+            ))}
 
             <View style={styles.eventsArea}>
-              {positioned.map(
-                ({
-                  event,
-                  topPx,
-                  heightPx,
-                  columnIndex,
-                  columnCount,
-                  isPast,
-                }) => {
-                  const accent = event.color ?? theme.colors.primary;
-                  // Tall enough to stack the time under the title; otherwise the
-                  // time rides inline to the right of a single-line title.
-                  const stacked = heightPx >= STACKED_MIN_HEIGHT;
-                  return (
-                    <View
-                      key={event.id}
-                      style={[
-                        styles.eventBlock,
-                        // Short blocks can't spare the full vertical padding.
-                        !stacked && styles.eventBlockInline,
-                        {
-                          top: topPx,
-                          height: heightPx - EVENT_GAP,
-                          left: `${(columnIndex / columnCount) * 100}%`,
-                          width: `${(1 / columnCount) * 100}%`,
-                          backgroundColor: withOpacity(
-                            accent,
-                            fillOpacity(event.response),
-                          ),
-                          ...borderStyle(accent, event.response),
-                          borderRadius: theme.borderRadius,
-                          // Dim events that have already ended, matching the
-                          // disabled treatment used in settings lists.
-                          opacity: isPast ? 0.5 : 1,
-                        },
-                      ]}
-                    >
-                      <AccentBar accent={accent} />
-                      {stacked ? (
-                        <>
-                          <Text
-                            numberOfLines={
-                              heightPx >= TWO_LINE_TITLE_MIN_HEIGHT ? 2 : 1
-                            }
-                            style={[
-                              styles.eventTitle,
-                              { color: theme.colors.text },
-                            ]}
-                          >
-                            {event.title}
-                          </Text>
-                          <Text
-                            numberOfLines={1}
-                            style={[
-                              styles.eventTime,
-                              { color: theme.colors.textSecondary },
-                            ]}
-                          >
-                            {formatTime(event.start)}
-                          </Text>
-                        </>
-                      ) : (
-                        <View style={styles.eventInlineRow}>
-                          <Text
-                            numberOfLines={1}
-                            style={[
-                              styles.eventTitle,
-                              styles.eventTitleInline,
-                              { color: theme.colors.text },
-                            ]}
-                          >
-                            {event.title}
-                          </Text>
-                          <Text
-                            numberOfLines={1}
-                            style={[
-                              styles.eventTime,
-                              styles.eventTimeInline,
-                              { color: theme.colors.textSecondary },
-                            ]}
-                          >
-                            {formatTime(event.start)}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  );
-                },
-              )}
+              {positioned.map((p) => (
+                <EventBlock key={p.event.id} positioned={p} theme={theme} />
+              ))}
             </View>
 
-            {nowTopPx !== null && (
-              <View
-                pointerEvents="none"
-                style={[styles.nowLineRow, { top: nowTopPx }]}
-              >
-                <View
-                  style={[
-                    styles.nowDot,
-                    { backgroundColor: theme.colors.primary },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.nowLine,
-                    { backgroundColor: theme.colors.primary },
-                  ]}
-                />
-              </View>
-            )}
+            {nowTopPx !== null && <NowLine top={nowTopPx} theme={theme} />}
           </View>
         </ScrollView>
       )}
+    </View>
+  );
+}
+
+function HourRow({
+  hour,
+  top,
+  dividerColor,
+  theme,
+}: {
+  hour: number;
+  top: number;
+  dividerColor: string;
+  theme: ReturnType<typeof useTheme>;
+}) {
+  return (
+    <View>
+      <Text
+        style={[
+          styles.hourLabel,
+          { top: top - 7, color: theme.colors.textSecondary },
+        ]}
+      >
+        {formatHourLabel(hour)}
+      </Text>
+      <View style={[styles.hourLine, { top, backgroundColor: dividerColor }]} />
+    </View>
+  );
+}
+
+function EventBlock({
+  positioned,
+  theme,
+}: {
+  positioned: TPositionedEvent;
+  theme: ReturnType<typeof useTheme>;
+}) {
+  const { event, topPx, heightPx, columnIndex, columnCount, isPast } =
+    positioned;
+  const accent = event.color ?? theme.colors.primary;
+  // Tall enough to stack the time under the title; otherwise the time rides
+  // inline to the right of a single-line title.
+  const stacked = heightPx >= STACKED_MIN_HEIGHT;
+
+  return (
+    <View
+      style={[
+        styles.eventBlock,
+        // Short blocks can't spare the full vertical padding.
+        !stacked && styles.eventBlockInline,
+        {
+          top: topPx,
+          height: heightPx - EVENT_GAP,
+          left: `${(columnIndex / columnCount) * 100}%`,
+          width: `${(1 / columnCount) * 100}%`,
+          backgroundColor: withOpacity(accent, fillOpacity(event.response)),
+          ...borderStyle(accent, event.response),
+          borderRadius: theme.borderRadius,
+          // Dim events that have already ended, matching the disabled
+          // treatment used in settings lists.
+          opacity: isPast ? 0.5 : 1,
+        },
+      ]}
+    >
+      <AccentBar accent={accent} />
+      {stacked ? (
+        <>
+          <Text
+            numberOfLines={heightPx >= TWO_LINE_TITLE_MIN_HEIGHT ? 2 : 1}
+            style={[styles.eventTitle, { color: theme.colors.text }]}
+          >
+            {event.title}
+          </Text>
+          <Text
+            numberOfLines={1}
+            style={[styles.eventTime, { color: theme.colors.textSecondary }]}
+          >
+            {formatTime(event.start)}
+          </Text>
+        </>
+      ) : (
+        <View style={styles.eventInlineRow}>
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.eventTitle,
+              styles.eventTitleInline,
+              { color: theme.colors.text },
+            ]}
+          >
+            {event.title}
+          </Text>
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.eventTime,
+              styles.eventTimeInline,
+              { color: theme.colors.textSecondary },
+            ]}
+          >
+            {formatTime(event.start)}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function NowLine({
+  top,
+  theme,
+}: {
+  top: number;
+  theme: ReturnType<typeof useTheme>;
+}) {
+  return (
+    <View pointerEvents="none" style={[styles.nowLineRow, { top }]}>
+      <View
+        style={[styles.nowDot, { backgroundColor: theme.colors.primary }]}
+      />
+      <View
+        style={[styles.nowLine, { backgroundColor: theme.colors.primary }]}
+      />
     </View>
   );
 }
