@@ -40,7 +40,6 @@ export default function TodayScreen() {
     () => backlogAttentionFilter(allTasks, Temporal.Now.plainDateISO()),
     [allTasks],
   );
-  const backlogAttention = attentionFilter !== null;
 
   const changeDate = (next: Temporal.PlainDate) =>
     setDay(({ date }) => ({
@@ -60,7 +59,6 @@ export default function TodayScreen() {
       preferences={preferences}
       changeDate={changeDate}
       attentionFilter={attentionFilter}
-      backlogAttention={backlogAttention}
     />
   ) : (
     <SmallScreenToday
@@ -70,7 +68,6 @@ export default function TodayScreen() {
       changeDate={changeDate}
       changeDateBy={changeDateBy}
       attentionFilter={attentionFilter}
-      backlogAttention={backlogAttention}
     />
   );
 }

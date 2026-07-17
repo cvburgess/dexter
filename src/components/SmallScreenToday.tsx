@@ -27,7 +27,6 @@ type TSmallScreenTodayProps = {
   // The Filter preset to pre-apply when opening Backlog (Overdue/left-behind),
   // or null when there's nothing needing attention. Drives the switcher's dot.
   attentionFilter: TFilterId | null;
-  backlogAttention: boolean;
 };
 
 // The single-view (small-screen) Today layout: one full-width view at a time
@@ -41,9 +40,9 @@ export function SmallScreenToday({
   changeDate,
   changeDateBy,
   attentionFilter,
-  backlogAttention,
 }: TSmallScreenTodayProps) {
   const theme = useTheme();
+  const backlogAttention = attentionFilter !== null;
   const [view, setView] = useState<TDayView>("tasks");
   // Suspends notes day-swipe while the editor is focused, so horizontal drags
   // position the caret / select text instead of changing days.

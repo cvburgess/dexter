@@ -29,7 +29,6 @@ type TLargeScreenTodayProps = {
   // header toggle (Overdue/left-behind), or null when nothing needs attention.
   // Drives the drawer toggle's dot.
   attentionFilter: TFilterId | null;
-  backlogAttention: boolean;
 };
 
 // The multi-pane (large-screen) Today layout: Tasks plus optional Notes/Journal,
@@ -41,11 +40,11 @@ export function LargeScreenToday({
   preferences,
   changeDate,
   attentionFilter,
-  backlogAttention,
 }: TLargeScreenTodayProps) {
   const theme = useTheme();
   const router = useRouter();
   const [panes, { togglePane }] = useTodayPanes();
+  const backlogAttention = attentionFilter !== null;
   // The docked drawer runs controlled off this so opening it via the header
   // toggle can pre-apply the attention filter (see `toggleDrawerPane`),
   // mirroring the small-screen "tap Backlog" flow. The small-screen sheet owns
