@@ -47,6 +47,32 @@ Every user-owned table enables RLS with per-operation policies keyed on
   `SECURITY DEFINER` helper function (which bypasses RLS and so does not recurse),
   not an inline sub-select.
 
+## Realtime
+
+All eight user-owned tables (`tasks`, `repeat_task_templates`, `lists`,
+`goals`, `habits`, `daily_habits`, `days`, `preferences`) are added to the
+`supabase_realtime` publication via a guarded migration
+(`20260717193451_realtime_publication.sql`), so Postgres emits change events
+for them. Publication membership is **migration-managed** — do not add/remove
+tables via the dashboard, since a later migration re-adding an already-present
+table would no-op (the guard checks `pg_publication_tables`), but a
+dashboard-only addition would drift from what the migration declares.
+
+- **RLS gates delivery**: Realtime evaluates `postgres_changes` subscriptions
+  through the same RLS policies as normal queries, so a client only receives
+  events for rows it could `SELECT`. No separate realtime-specific
+  authorization exists.
+- **DELETE events are not filterable** by column (a Postgres/Realtime
+  limitation, not specific to this schema), and with RLS enabled the
+  `old` record on a DELETE payload contains only primary-key columns.
+- **Client contract: invalidation-only.** The app's realtime consumer
+  (`useRealtimeInvalidation`, see `docs/frontend.md`) never reads event
+  payloads as data — an event only triggers a query-cache invalidation, and
+  the subsequent refetch goes through the normal RLS-scoped REST path. This
+  sidesteps both the DELETE-filter gap and the PK-only old-record limitation:
+  worst case, an event is missed or a stale row briefly persists on screen
+  until the next focus/staleness-triggered refetch.
+
 ## Edge Functions
 
 - Runtime is **Deno**, not Node: avoid Node-only built-ins and npm packages that

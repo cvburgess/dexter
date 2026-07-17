@@ -19,6 +19,11 @@ schemas = ["public", "storage", "graphql_public"]
 extra_search_path = ["public", "extensions"]
 max_rows = 1000
 
+# ---------- Realtime ----------
+
+[realtime]
+enabled = true
+
 # ---------- Auth ----------
 
 [auth]
