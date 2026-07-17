@@ -25,17 +25,6 @@ import { useHabits } from "@/hooks/useHabits";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTheme, withOpacity } from "@/utils/theme";
 
-// Temporal's `dayOfWeek`: Monday = 1 … Sunday = 7.
-const DAYS = [
-  { value: 1, label: "M", accessibilityLabel: "Monday" },
-  { value: 2, label: "T", accessibilityLabel: "Tuesday" },
-  { value: 3, label: "W", accessibilityLabel: "Wednesday" },
-  { value: 4, label: "T", accessibilityLabel: "Thursday" },
-  { value: 5, label: "F", accessibilityLabel: "Friday" },
-  { value: 6, label: "S", accessibilityLabel: "Saturday" },
-  { value: 7, label: "S", accessibilityLabel: "Sunday" },
-] as const;
-
 const ALL_DAYS = [1, 2, 3, 4, 5, 6, 7];
 const DEFAULT_EMOJI = "😄";
 const MAX_STEPS = 999;
@@ -250,7 +239,7 @@ function HabitForm({ existing }: { existing?: THabit }) {
 
         <FormRow label="Days">
           <WeekdayPicker
-            days={DAYS}
+            valueSource="temporal"
             selected={daysActive}
             onToggle={toggleDay}
           />

@@ -29,17 +29,6 @@ import { useTheme } from "@/utils/theme";
 // that can never collide with a real id.
 const NO_VALUE = "";
 
-// Cron day-of-week (0 = Sunday), ordered Monday-first to match the habit editor.
-const WEEKDAYS = [
-  { value: 1, label: "M", accessibilityLabel: "Monday" },
-  { value: 2, label: "T", accessibilityLabel: "Tuesday" },
-  { value: 3, label: "W", accessibilityLabel: "Wednesday" },
-  { value: 4, label: "T", accessibilityLabel: "Thursday" },
-  { value: 5, label: "F", accessibilityLabel: "Friday" },
-  { value: 6, label: "S", accessibilityLabel: "Saturday" },
-  { value: 0, label: "S", accessibilityLabel: "Sunday" },
-] as const;
-
 const MONTHS = [
   "January",
   "February",
@@ -267,7 +256,7 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
         {frequency === "weekly" && (
           <FormRow label="On days">
             <WeekdayPicker
-              days={WEEKDAYS}
+              valueSource="cron"
               selected={weekdays}
               onToggle={toggleWeekday}
             />

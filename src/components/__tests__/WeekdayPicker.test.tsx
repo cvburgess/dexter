@@ -2,46 +2,47 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 
 import { WeekdayPicker } from "../WeekdayPicker";
 
-// Cron day-of-week (0 = Sunday), ordered Monday-first — matches
-// settings/tasks/[id].tsx's WEEKDAYS.
-const CRON_DAYS = [
-  { value: 1, label: "M", accessibilityLabel: "Monday" },
-  { value: 2, label: "T", accessibilityLabel: "Tuesday" },
-  { value: 0, label: "S", accessibilityLabel: "Sunday" },
-];
-
-// Temporal dayOfWeek (Monday = 1 ... Sunday = 7) — matches
-// settings/habits/[id].tsx's DAYS. Sunday is encoded differently (7 vs
-// cron's 0) to prove the component round-trips whatever value it's given.
-const TEMPORAL_DAYS = [
-  { value: 1, label: "M", accessibilityLabel: "Monday" },
-  { value: 7, label: "S", accessibilityLabel: "Sunday" },
-];
-
 describe("WeekdayPicker", () => {
-  it("renders one chip per day with the caller's labels", () => {
+  it("renders one chip per day, Monday-first", () => {
     render(
-      <WeekdayPicker days={CRON_DAYS} selected={[]} onToggle={jest.fn()} />,
+      <WeekdayPicker valueSource="cron" selected={[]} onToggle={jest.fn()} />,
     );
 
     expect(screen.getAllByText("M")).toHaveLength(1);
-    expect(screen.getAllByText("T")).toHaveLength(1);
-    expect(screen.getAllByText("S")).toHaveLength(1);
+    expect(screen.getAllByText("T")).toHaveLength(2); // Tuesday + Thursday
+    expect(screen.getAllByText("W")).toHaveLength(1);
+    expect(screen.getAllByText("F")).toHaveLength(1);
+    expect(screen.getAllByText("S")).toHaveLength(2); // Saturday + Sunday
   });
 
-  it("uses the caller-supplied accessibility labels", () => {
+  it("labels each chip with the full day name for screen readers", () => {
     render(
-      <WeekdayPicker days={CRON_DAYS} selected={[]} onToggle={jest.fn()} />,
+      <WeekdayPicker valueSource="cron" selected={[]} onToggle={jest.fn()} />,
     );
 
-    expect(screen.getByLabelText("Sunday")).toBeTruthy();
     expect(screen.getByLabelText("Monday")).toBeTruthy();
+    expect(screen.getByLabelText("Sunday")).toBeTruthy();
   });
 
-  it("round-trips the caller's value regardless of encoding (cron vs Temporal)", () => {
+  it("uses cron day values (Sunday = 0) when valueSource is cron", () => {
     const onToggle = jest.fn();
     render(
-      <WeekdayPicker days={TEMPORAL_DAYS} selected={[]} onToggle={onToggle} />,
+      <WeekdayPicker valueSource="cron" selected={[]} onToggle={onToggle} />,
+    );
+
+    fireEvent.press(screen.getByLabelText("Sunday"));
+
+    expect(onToggle).toHaveBeenCalledWith(0);
+  });
+
+  it("uses Temporal day values (Sunday = 7) when valueSource is temporal", () => {
+    const onToggle = jest.fn();
+    render(
+      <WeekdayPicker
+        valueSource="temporal"
+        selected={[]}
+        onToggle={onToggle}
+      />,
     );
 
     fireEvent.press(screen.getByLabelText("Sunday"));
@@ -51,7 +52,11 @@ describe("WeekdayPicker", () => {
 
   it("marks only the selected days as selected", () => {
     render(
-      <WeekdayPicker days={CRON_DAYS} selected={[1, 0]} onToggle={jest.fn()} />,
+      <WeekdayPicker
+        valueSource="cron"
+        selected={[1, 0]}
+        onToggle={jest.fn()}
+      />,
     );
 
     expect(screen.getByLabelText("Monday").props.accessibilityState).toEqual(
@@ -68,7 +73,7 @@ describe("WeekdayPicker", () => {
   it("calls onToggle with the pressed day's value", () => {
     const onToggle = jest.fn();
     render(
-      <WeekdayPicker days={CRON_DAYS} selected={[]} onToggle={onToggle} />,
+      <WeekdayPicker valueSource="cron" selected={[]} onToggle={onToggle} />,
     );
 
     fireEvent.press(screen.getByLabelText("Tuesday"));
