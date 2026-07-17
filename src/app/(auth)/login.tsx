@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -69,94 +69,131 @@ export default function LoginScreen() {
           Sign up or log in to start planning
         </Text>
 
-        {errorMessage ? (
-          <View
-            style={[
-              styles.banner,
-              {
-                backgroundColor: theme.colors.error,
-                borderRadius: theme.borderRadius,
-                padding: theme.spacing,
-                marginBottom: theme.spacing,
-              },
-            ]}
-          >
-            <Text style={{ color: theme.colors.errorContent }}>
-              {errorMessage}
-            </Text>
-          </View>
-        ) : null}
+        {errorMessage ? <Banner tone="error">{errorMessage}</Banner> : null}
 
         {emailSent ? (
-          <>
-            <View
-              style={[
-                styles.banner,
-                {
-                  backgroundColor: theme.colors.success,
-                  borderRadius: theme.borderRadius,
-                  padding: theme.spacing,
-                  marginBottom: theme.spacing,
-                },
-              ]}
-            >
-              <Text
-                testID="login-email-sent-banner"
-                style={{ color: theme.colors.successContent }}
-              >
-                Check your email for a login link
-              </Text>
-            </View>
-            <Button
-              onPress={() => setEmailSent(false)}
-              testID="login-use-different-email-button"
-            >
-              Use a different email
-            </Button>
-          </>
+          <EmailSentPanel onUseDifferentEmail={() => setEmailSent(false)} />
         ) : (
-          <>
-            <Button
-              onPress={handleGoogleLogin}
-              disabled={loading}
-              isLoading={loading}
-              testID="login-google-button"
-            >
-              Continue with Google
-            </Button>
-
-            <Text
-              style={[styles.divider, { color: theme.colors.textSecondary }]}
-            >
-              OR
-            </Text>
-
-            <TextInput
-              testID="login-email-input"
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="email"
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              editable={!loading}
-              style={{ marginBottom: theme.spacing }}
-            />
-            <Button
-              variant="primary"
-              onPress={handleEmailLogin}
-              disabled={loading || !email.trim()}
-              isLoading={loading}
-              testID="login-email-button"
-            >
-              Continue with Email
-            </Button>
-          </>
+          <EmailLoginForm
+            email={email}
+            loading={loading}
+            onChangeEmail={setEmail}
+            onGoogleLogin={handleGoogleLogin}
+            onEmailLogin={handleEmailLogin}
+          />
         )}
       </SafeAreaView>
     </KeyboardAvoidingView>
+  );
+}
+
+type TBannerProps = {
+  tone: "error" | "success";
+  children: ReactNode;
+  testID?: string;
+};
+
+function Banner({ tone, children, testID }: TBannerProps) {
+  const theme = useTheme();
+  const backgroundColor =
+    tone === "error" ? theme.colors.error : theme.colors.success;
+  const textColor =
+    tone === "error" ? theme.colors.errorContent : theme.colors.successContent;
+
+  return (
+    <View
+      style={[
+        styles.banner,
+        {
+          backgroundColor,
+          borderRadius: theme.borderRadius,
+          padding: theme.spacing,
+          marginBottom: theme.spacing,
+        },
+      ]}
+    >
+      <Text testID={testID} style={{ color: textColor }}>
+        {children}
+      </Text>
+    </View>
+  );
+}
+
+function EmailSentPanel({
+  onUseDifferentEmail,
+}: {
+  onUseDifferentEmail: () => void;
+}) {
+  return (
+    <>
+      <Banner tone="success" testID="login-email-sent-banner">
+        Check your email for a login link
+      </Banner>
+      <Button
+        onPress={onUseDifferentEmail}
+        testID="login-use-different-email-button"
+      >
+        Use a different email
+      </Button>
+    </>
+  );
+}
+
+type TEmailLoginFormProps = {
+  email: string;
+  loading: boolean;
+  onChangeEmail: (email: string) => void;
+  onGoogleLogin: () => void;
+  onEmailLogin: () => void;
+};
+
+function EmailLoginForm({
+  email,
+  loading,
+  onChangeEmail,
+  onGoogleLogin,
+  onEmailLogin,
+}: TEmailLoginFormProps) {
+  const theme = useTheme();
+
+  return (
+    <>
+      <Button
+        onPress={onGoogleLogin}
+        disabled={loading}
+        isLoading={loading}
+        testID="login-google-button"
+      >
+        Continue with Google
+      </Button>
+
+      <Text style={[styles.divider, { color: theme.colors.textSecondary }]}>
+        OR
+      </Text>
+
+      <TextInput
+        testID="login-email-input"
+        placeholder="Email"
+        value={email}
+        onChangeText={onChangeEmail}
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoComplete="email"
+        keyboardType="email-address"
+        textContentType="emailAddress"
+        editable={!loading}
+        style={{ marginBottom: theme.spacing }}
+      />
+      <Button
+        variant="primary"
+        onPress={onEmailLogin}
+        disabled={loading || !email.trim()}
+        isLoading={loading}
+        testID="login-email-button"
+      >
+        Continue with Email
+      </Button>
+    </>
   );
 }
 
