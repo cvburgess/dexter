@@ -29,7 +29,7 @@ import {
   DRAWER_PANE_MAX_WIDTH,
   TASKS_PANE_MAX_WIDTH,
 } from "@/utils/breakpoints";
-import { backlogAttentionFilter } from "@/utils/taskFilters";
+import { backlogAttentionFilter, TFilterId } from "@/utils/taskFilters";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 type TDayState = {
@@ -79,6 +79,11 @@ export default function TodayScreen() {
     [allTasks],
   );
   const backlogAttention = attentionFilter !== null;
+  // The large-screen docked drawer runs controlled off this so opening it via
+  // the header toggle can pre-apply the attention filter (see `openDrawerPane`),
+  // mirroring the small-screen "tap Backlog" flow. The small-screen sheet owns
+  // its own filter internally instead (`TaskDrawerSheet`).
+  const [drawerFilterId, setDrawerFilterId] = useState<TFilterId>("none");
 
   const changeDate = (next: Temporal.PlainDate) =>
     setDay(({ date }) => ({
@@ -104,6 +109,14 @@ export default function TodayScreen() {
         pathname: "/new-task",
         params: { scheduledFor: day.date.toString() },
       });
+
+    // Toggling the drawer pane; when it's opening (not closing) and there are
+    // stragglers, pre-apply the filter the dot points to so it lands on the
+    // same view as the small-screen "tap Backlog" flow.
+    const toggleDrawerPane = () => {
+      if (!panes.drawer && attentionFilter) setDrawerFilterId(attentionFilter);
+      togglePane("drawer");
+    };
 
     return (
       <SafeAreaView
@@ -134,7 +147,7 @@ export default function TodayScreen() {
               active={panes.drawer}
               indicator={backlogAttention}
               ionicon="file-tray-full-outline"
-              onPress={() => togglePane("drawer")}
+              onPress={toggleDrawerPane}
               sfSymbol="tray.full"
             />
             <GlassIconButton
@@ -196,7 +209,11 @@ export default function TodayScreen() {
                 },
               ]}
             >
-              <TaskDrawer date={day.date} />
+              <TaskDrawer
+                date={day.date}
+                filterId={drawerFilterId}
+                onFilterChange={setDrawerFilterId}
+              />
             </View>
           )}
         </View>

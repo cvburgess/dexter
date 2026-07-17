@@ -80,10 +80,13 @@ jest.mock("@/components/CalendarView", () => ({
     mockCalendarView(props),
 }));
 // The docked large-screen drawer pane; its own filter/group/search behavior
-// is covered by TaskDrawer.test. Stub it to a marker exposing its date so
-// this suite can assert the pane's visibility and toggle wiring.
-const mockTaskDrawer = ({ date }: { date: Temporal.PlainDate }) => (
-  <Text>task-drawer:{date.toString()}</Text>
+// is covered by TaskDrawer.test. Stub it to a marker exposing its date, and
+// spy on its props so this suite can assert the pane's visibility, toggle
+// wiring, and the pre-applied filter.
+const mockTaskDrawer = jest.fn(
+  ({ date }: { date: Temporal.PlainDate; filterId?: string }) => (
+    <Text>task-drawer:{date.toString()}</Text>
+  ),
 );
 jest.mock("@/components/TaskDrawer", () => ({
   TaskDrawer: (props: Parameters<typeof mockTaskDrawer>[0]) =>
@@ -261,6 +264,20 @@ const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
 const tasksResult = (tasks: TTask[] = []): ReturnType<typeof useTasks> =>
   [tasks, {}] as never;
 
+// An incomplete task whose due date is before today → drives the Overdue
+// attention filter. Derived from the real today (the screen filters against it).
+const overdueTask = (): TTask => ({
+  id: "1",
+  title: "Overdue",
+  dueOn: Temporal.Now.plainDateISO().subtract({ days: 1 }).toString(),
+  goalId: null,
+  listId: null,
+  priority: ETaskPriority.UNPRIORITIZED,
+  scheduledFor: null,
+  status: ETaskStatus.TODO,
+  templateId: null,
+});
+
 describe("TodayScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -309,18 +326,7 @@ describe("TodayScreen", () => {
     });
 
     it("pre-applies the Overdue filter when opening Backlog with an overdue task", () => {
-      const overdue: TTask = {
-        id: "1",
-        title: "Overdue",
-        dueOn: Temporal.Now.plainDateISO().subtract({ days: 1 }).toString(),
-        goalId: null,
-        listId: null,
-        priority: ETaskPriority.UNPRIORITIZED,
-        scheduledFor: null,
-        status: ETaskStatus.TODO,
-        templateId: null,
-      };
-      mockUseTasks.mockReturnValue(tasksResult([overdue]));
+      mockUseTasks.mockReturnValue(tasksResult([overdueTask()]));
       const screen = render(<TodayScreen />);
 
       fireEvent.press(screen.getByLabelText("Open task drawer"));
@@ -467,6 +473,49 @@ describe("TodayScreen", () => {
 
     it("toggles the task drawer pane via its header button", () => {
       const screen = render(<TodayScreen />);
+
+      fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
+
+      expect(mockTogglePane).toHaveBeenCalledWith("drawer");
+    });
+
+    it("pre-applies the attention filter to the docked drawer when the toggle opens it", () => {
+      // Stateful pane mock so pressing the toggle actually opens the pane and
+      // the docked TaskDrawer renders (the setDrawerFilterId re-render picks up
+      // the now-open state).
+      let drawerOpen = false;
+      mockUseTodayPanes.mockImplementation(
+        () =>
+          [
+            { notes: true, journal: true, calendar: true, drawer: drawerOpen },
+            {
+              togglePane: (pane: string) => {
+                if (pane === "drawer") drawerOpen = !drawerOpen;
+              },
+              isLoading: false,
+            },
+          ] as never,
+      );
+      mockUseTasks.mockReturnValue(tasksResult([overdueTask()]));
+      const screen = render(<TodayScreen />);
+
+      fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
+
+      expect(mockTaskDrawer).toHaveBeenLastCalledWith(
+        expect.objectContaining({ filterId: "overdue" }),
+      );
+    });
+
+    it("does not change the drawer filter when the toggle closes the pane", () => {
+      mockUseTodayPanes.mockReturnValue(panes({ drawer: true }));
+      mockUseTasks.mockReturnValue(tasksResult([overdueTask()]));
+      const screen = render(<TodayScreen />);
+
+      // Pane starts open → pressing the toggle closes it; the filter stays at
+      // its default rather than jumping to "overdue".
+      expect(mockTaskDrawer).toHaveBeenLastCalledWith(
+        expect.objectContaining({ filterId: "none" }),
+      );
 
       fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
 
