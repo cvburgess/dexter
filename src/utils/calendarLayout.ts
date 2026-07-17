@@ -35,6 +35,27 @@ export const nowLineTopPx = (
     : (nowMinutes - startMin) * (hourHeightPx / MINUTES_PER_HOUR);
 
 /**
+ * Scroll offset that places `targetPx` (a position within the scroll content,
+ * e.g. the now-line) `anchorRatio` of the way down the viewport — 1/3 anchors it
+ * to the upper third, leaving more room below for upcoming events. Clamped to
+ * `[0, contentHeight - viewportHeight]` so the scroll never goes negative or
+ * overshoots the content; returns 0 when the content is shorter than the
+ * viewport (nothing to scroll).
+ */
+export const scrollOffsetForTarget = (
+  targetPx: number,
+  viewportHeightPx: number,
+  contentHeightPx: number,
+  anchorRatio = 1 / 3,
+): number => {
+  const maxScroll = Math.max(0, contentHeightPx - viewportHeightPx);
+  return Math.max(
+    0,
+    Math.min(targetPx - viewportHeightPx * anchorRatio, maxScroll),
+  );
+};
+
+/**
  * Minutes from the viewed day's midnight to `moment`. Signed and unbounded: an
  * event that starts the previous day is negative, one that ends the next day is
  * >1440. Computing from the date (not bare `hour`/`minute`) is what lets
