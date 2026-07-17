@@ -2,7 +2,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { ReactNode } from "react";
 
+import * as daysApi from "@/api/days";
 import { useDays } from "@/hooks/useDays";
+import { usePreferences } from "@/hooks/usePreferences";
 
 import {
   REALTIME_INVALIDATIONS,
@@ -23,13 +25,28 @@ const mockRemoveChannel = jest.fn();
 
 jest.mock("@/hooks/useAuth", () => ({
   supabase: {
+    // Wrapped rather than a direct `channel: mockChannel` reference: jest
+    // hoists this factory above `const mockChannel = jest.fn()` below, and
+    // `@/hooks/useDays` (imported above) requires this module immediately —
+    // a direct reference would capture `mockChannel` before it's assigned.
+    // The wrapper only reads it lazily, once a test actually calls in.
+    /* eslint-disable-next-line @typescript-eslint/no-unsafe-return -- jest.fn() is untyped; see comment above for why this can't be a typed passthrough. */
     channel: (...args: unknown[]) => mockChannel(...args),
+    /* eslint-disable-next-line @typescript-eslint/no-unsafe-return -- same as above. */
     removeChannel: (...args: unknown[]) => mockRemoveChannel(...args),
   },
 }));
 
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 jest.mock("@/api/days", () => ({ getDay: jest.fn(), upsertDay: jest.fn() }));
+
+const mockGetDay = daysApi.getDay as jest.MockedFunction<typeof daysApi.getDay>;
+const mockUpsertDay = daysApi.upsertDay as jest.MockedFunction<
+  typeof daysApi.upsertDay
+>;
+const mockUsePreferences = usePreferences as jest.MockedFunction<
+  typeof usePreferences
+>;
 
 const makeChannel = () => {
   const channel: {
@@ -158,41 +175,31 @@ describe("useRealtimeInvalidation", () => {
       renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
 
       let resolveUpsert: () => void = () => {};
-      const daysApi =
-        jest.requireMock<typeof import("@/api/days")>("@/api/days");
-      (daysApi.getDay as jest.Mock).mockResolvedValue(null);
-      (daysApi.upsertDay as jest.Mock).mockReturnValue(
-        new Promise<void>((resolve) => {
+      mockGetDay.mockResolvedValue(null);
+      mockUpsertDay.mockReturnValue(
+        new Promise((resolve) => {
           resolveUpsert = () =>
-            resolve({ date: "2026-07-12", notes: "hi", prompts: [] } as never);
+            resolve({ date: "2026-07-12", notes: "hi", prompts: [] });
         }),
       );
-      const usePreferencesMock = jest.requireMock<
-        typeof import("@/hooks/usePreferences")
-      >("@/hooks/usePreferences").usePreferences as jest.Mock;
-      usePreferencesMock.mockReturnValue([
-        { templateNote: "", templatePrompts: [] },
+      mockUsePreferences.mockReturnValue([
+        { templateNote: "", templatePrompts: [] } as never,
         { updatePreferences: jest.fn() },
       ]);
 
       const days = renderHook(() => useDays("2026-07-12"), { wrapper });
       await waitFor(() => expect(days.result.current[1].isLoading).toBe(false));
       // The initial mount already fetched this date once.
-      const fetchCountBeforeEvent = (daysApi.getDay as jest.Mock).mock.calls
-        .length;
+      const fetchCountBeforeEvent = mockGetDay.mock.calls.length;
       act(() => days.result.current[1].upsertDay({ notes: "hi" }));
-      await waitFor(() =>
-        expect((daysApi.upsertDay as jest.Mock).mock.calls.length).toBe(1),
-      );
+      await waitFor(() => expect(mockUpsertDay.mock.calls.length).toBe(1));
 
       const binding = captured!.bindings.find((b) => b.table === "days")!;
       act(() => binding.handler({ table: "days" }));
       act(() => jest.advanceTimersByTime(250));
 
       // Still mid-autosave for this exact date — no extra refetch yet.
-      expect((daysApi.getDay as jest.Mock).mock.calls.length).toBe(
-        fetchCountBeforeEvent,
-      );
+      expect(mockGetDay.mock.calls.length).toBe(fetchCountBeforeEvent);
 
       act(() => resolveUpsert());
       await waitFor(() => expect(days.result.current[0].notes).toBe("hi"));
@@ -202,7 +209,7 @@ describe("useRealtimeInvalidation", () => {
 
       // The autosave has settled — the same date now refetches normally.
       await waitFor(() =>
-        expect((daysApi.getDay as jest.Mock).mock.calls.length).toBeGreaterThan(
+        expect(mockGetDay.mock.calls.length).toBeGreaterThan(
           fetchCountBeforeEvent,
         ),
       );
@@ -217,18 +224,13 @@ describe("useRealtimeInvalidation", () => {
       const { wrapper } = createWrapper();
       renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
 
-      const daysApi =
-        jest.requireMock<typeof import("@/api/days")>("@/api/days");
-      (daysApi.getDay as jest.Mock).mockResolvedValue(null);
+      mockGetDay.mockResolvedValue(null);
       // Date A's upsert never resolves within this test — simulates an
       // autosave still retrying in the background after the component
       // unmounted (see useDays.tsx's retry comment).
-      (daysApi.upsertDay as jest.Mock).mockReturnValue(new Promise(() => {}));
-      const usePreferencesMock = jest.requireMock<
-        typeof import("@/hooks/usePreferences")
-      >("@/hooks/usePreferences").usePreferences as jest.Mock;
-      usePreferencesMock.mockReturnValue([
-        { templateNote: "", templatePrompts: [] },
+      mockUpsertDay.mockReturnValue(new Promise(() => {}));
+      mockUsePreferences.mockReturnValue([
+        { templateNote: "", templatePrompts: [] } as never,
         { updatePreferences: jest.fn() },
       ]);
 
@@ -238,16 +240,14 @@ describe("useRealtimeInvalidation", () => {
       );
       act(() => dateA.result.current[1].upsertDay({ notes: "hi" }));
       await waitFor(() =>
-        expect(
-          (daysApi.upsertDay as jest.Mock).mock.calls.length,
-        ).toBeGreaterThan(0),
+        expect(mockUpsertDay.mock.calls.length).toBeGreaterThan(0),
       );
 
       const dateB = renderHook(() => useDays("2026-07-13"), { wrapper });
       await waitFor(() =>
         expect(dateB.result.current[1].isLoading).toBe(false),
       );
-      const fetchCountForB = (daysApi.getDay as jest.Mock).mock.calls.filter(
+      const fetchCountForB = mockGetDay.mock.calls.filter(
         (call) => call[1] === "2026-07-13",
       ).length;
 
@@ -258,9 +258,8 @@ describe("useRealtimeInvalidation", () => {
       // Date A's still-pending autosave must not block date B's refetch.
       await waitFor(() =>
         expect(
-          (daysApi.getDay as jest.Mock).mock.calls.filter(
-            (call) => call[1] === "2026-07-13",
-          ).length,
+          mockGetDay.mock.calls.filter((call) => call[1] === "2026-07-13")
+            .length,
         ).toBeGreaterThan(fetchCountForB),
       );
     } finally {

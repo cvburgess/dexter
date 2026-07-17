@@ -7,20 +7,22 @@ import {
 
 import { daysMutationKey } from "./useDays";
 import { goalsQueryOptions } from "./useGoals";
+import { HABITS_INVALIDATION_KEYS } from "./useHabits";
 import { listsQueryOptions } from "./useLists";
 import { supabase } from "./useAuth";
 
-// Table -> cache keys to invalidate when a change lands for that table. A
-// habit edit can also delete/reshape today's daily rows (pause/archive, a
-// days_active change), so `habits` invalidates `dailyHabits` too — mirrors
-// `invalidateHabits` in useHabits.tsx. `lists`/`goals` reuse their hooks'
-// exported `queryOptions` key instead of a second hand-copied literal, the
-// same reason those are exported for `(app)/_layout.tsx`'s prefetch.
+// Table -> cache keys to invalidate when a change lands for that table.
+// Reuses each hook's own exported key(s) where available (`goalsQueryOptions`/
+// `listsQueryOptions`/`HABITS_INVALIDATION_KEYS`) instead of a second
+// hand-copied literal that could drift out of sync — the same reason
+// `goalsQueryOptions`/`listsQueryOptions` are exported for `(app)/_layout.tsx`'s
+// prefetch. The remaining tables have no such export in their hooks (every
+// call site there already inlines the literal), so they're listed directly.
 export const REALTIME_INVALIDATIONS: Record<string, readonly string[][]> = {
   daily_habits: [["dailyHabits"]],
   days: [["days"]],
   goals: [goalsQueryOptions.queryKey],
-  habits: [["habits"], ["dailyHabits"]],
+  habits: HABITS_INVALIDATION_KEYS,
   lists: [listsQueryOptions.queryKey],
   preferences: [["preferences"]],
   repeat_task_templates: [["templates"]],
@@ -58,21 +60,21 @@ export const useRealtimeInvalidation = (userId: string | undefined) => {
     let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
     const invalidateTable = (table: (typeof REALTIME_TABLES)[number]) => {
+      if (table === "days") {
+        // `days` echoes our own autosave back as a realtime event — skip
+        // only the date(s) whose autosave is still in flight, so it can't
+        // race the debounced editor (see the comment on daysMutationKey),
+        // without suppressing invalidation for every other cached date.
+        void queryClient.invalidateQueries({
+          queryKey: ["days"],
+          predicate: (query) =>
+            queryClient.isMutating({
+              mutationKey: daysMutationKey(query.queryKey[1] as string),
+            }) === 0,
+        });
+        return;
+      }
       for (const queryKey of REALTIME_INVALIDATIONS[table]) {
-        if (table === "days") {
-          // `days` echoes our own autosave back as a realtime event — skip
-          // only the date(s) whose autosave is still in flight, so it can't
-          // race the debounced editor (see the comment on daysMutationKey),
-          // without suppressing invalidation for every other cached date.
-          void queryClient.invalidateQueries({
-            queryKey,
-            predicate: (query) =>
-              queryClient.isMutating({
-                mutationKey: daysMutationKey(query.queryKey[1] as string),
-              }) === 0,
-          });
-          continue;
-        }
         void queryClient.invalidateQueries({ queryKey });
       }
     };
