@@ -6,7 +6,7 @@ import { useTheme } from "@/utils/theme";
 type TFormRowProps = {
   label: string;
   children: ReactNode;
-  /** Row's minimum height; most forms use 40, new-task uses a tighter 32. */
+  /** Row's minimum height, for forms that need a tighter row. Defaults to 40. */
   minHeight?: number;
 };
 

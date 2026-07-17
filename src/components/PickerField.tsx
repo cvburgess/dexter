@@ -13,7 +13,7 @@ type TPickerFieldProps<V extends string> = {
   selectedValue: V;
   onValueChange: (value: V) => void;
   testID?: string;
-  /** Forwarded to FormRow; most forms use 40, new-task uses a tighter 32. */
+  /** Forwarded to FormRow, for forms that need a tighter row. Defaults to 40. */
   minHeight?: number;
 };
 

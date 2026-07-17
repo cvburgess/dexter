@@ -64,6 +64,17 @@ export function SmallScreenToday({
   if (viewDisabled) setView("tasks");
   const activeView: TDayView = viewDisabled ? "tasks" : view;
 
+  // Suspended while a note/journal response field is focused — a focused
+  // editor owns horizontal drags for caret/selection until the user taps
+  // Done. Calendar and Tasks have no such conflict (Calendar's timeline
+  // scrolls vertically) and always allow swiping.
+  const swipeEnabled =
+    activeView === "notes"
+      ? !notesEditing
+      : activeView === "journal"
+        ? !journalEditing
+        : undefined;
+
   return (
     <SafeAreaView
       edges={["top", "left", "right"]}
@@ -92,8 +103,7 @@ export function SmallScreenToday({
         view={activeView}
         date={date}
         direction={direction}
-        notesEditing={notesEditing}
-        journalEditing={journalEditing}
+        swipeEnabled={swipeEnabled}
         onNotesEditingChange={setNotesEditing}
         onJournalEditingChange={setJournalEditing}
         onSwipe={changeDateBy}
@@ -107,25 +117,19 @@ type TDayViewContentProps = {
   view: TDayView;
   date: Temporal.PlainDate;
   direction: -1 | 0 | 1;
-  notesEditing: boolean;
-  journalEditing: boolean;
+  swipeEnabled: boolean | undefined;
   onNotesEditingChange: (editing: boolean) => void;
   onJournalEditingChange: (editing: boolean) => void;
   onSwipe: (days: 1 | -1) => void;
 };
 
-// Swipe to change days, suspended while a note/journal response field is
-// focused — a focused editor owns horizontal drags for caret/selection until
-// the user taps Done. Calendar and Tasks have no such conflict (Calendar's
-// timeline scrolls vertically) and always allow swiping. SwipeableDay
-// remounts its content per date, re-seeding editors/inputs and re-fetching
-// calendar events.
+// SwipeableDay remounts its content per date, re-seeding editors/inputs and
+// re-fetching calendar events.
 function DayViewContent({
   view,
   date,
   direction,
-  notesEditing,
-  journalEditing,
+  swipeEnabled,
   onNotesEditingChange,
   onJournalEditingChange,
   onSwipe,
@@ -134,13 +138,7 @@ function DayViewContent({
     <SwipeableDay
       dateKey={date.toString()}
       direction={direction}
-      enabled={
-        view === "notes"
-          ? !notesEditing
-          : view === "journal"
-            ? !journalEditing
-            : undefined
-      }
+      enabled={swipeEnabled}
       onSwipe={onSwipe}
     >
       {view === "notes" ? (
