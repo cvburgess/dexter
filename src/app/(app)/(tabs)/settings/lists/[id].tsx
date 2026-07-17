@@ -1,10 +1,5 @@
-import {
-  Redirect,
-  useLocalSearchParams,
-  useNavigation,
-  useRouter,
-} from "expo-router";
-import { useLayoutEffect, useRef, useState } from "react";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { useRef, useState } from "react";
 import {
   Alert,
   Platform,
@@ -20,11 +15,11 @@ import { Button } from "@/components/Button";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { EmojiPicker } from "@/components/EmojiPicker";
 import { LoadingScreen } from "@/components/LoadingScreen";
-import { CloseButton, DoneButton } from "@/components/ModalHeaderButtons";
 import { TextInput } from "@/components/TextInput";
 import { WebModalHeader } from "@/components/WebModalHeader";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useLists } from "@/hooks/useLists";
+import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 const DEFAULT_EMOJI = "📋";
@@ -64,7 +59,6 @@ export default function ListScreen() {
 
 function ListForm({ existing }: { existing?: TList }) {
   const theme = useTheme();
-  const navigation = useNavigation();
   const router = useRouter();
 
   const [, { createList, updateList }] = useLists();
@@ -117,36 +111,11 @@ function ListForm({ existing }: { existing?: TList }) {
     );
   };
 
-  // No dependency array: the handlers close over the latest form state, so the
-  // header must be re-wired on every render (mirrors habits/[id].tsx).
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      title: isEditing ? "Edit List" : "New List",
-      headerLeft: () => <CloseButton onPress={handleClose} />,
-      headerRight: () => (
-        <DoneButton disabled={!canSave} onPress={handleSave} />
-      ),
-      unstable_headerLeftItems: () => [
-        {
-          type: "button",
-          label: "Cancel",
-          icon: { type: "sfSymbol", name: "xmark" },
-          tintColor: theme.colors.text,
-          onPress: handleClose,
-        },
-      ],
-      unstable_headerRightItems: () => [
-        {
-          type: "button",
-          label: "Save",
-          icon: { type: "sfSymbol", name: "checkmark" },
-          variant: "done",
-          tintColor: theme.colors.primary,
-          disabled: !canSave,
-          onPress: handleSave,
-        },
-      ],
-    });
+  useModalHeaderActions({
+    title: isEditing ? "Edit List" : "New List",
+    canSave,
+    onClose: handleClose,
+    onSave: handleSave,
   });
 
   const inputBorder = withOpacity(theme.colors.text, 0.1);
