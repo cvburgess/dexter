@@ -180,10 +180,7 @@ export function CalendarView({ date }: TCalendarViewProps) {
     if (didScrollToNowRef.current || nowTopPx === null) return;
     const viewportHeight = event.nativeEvent.layout.height;
     const contentHeight =
-      totalHeight +
-      SCROLL_TOP_PADDING +
-      SCROLL_BOTTOM_PADDING +
-      insets.bottom;
+      totalHeight + SCROLL_TOP_PADDING + SCROLL_BOTTOM_PADDING + insets.bottom;
     const y = scrollOffsetForTarget(
       nowTopPx + SCROLL_TOP_PADDING,
       viewportHeight,

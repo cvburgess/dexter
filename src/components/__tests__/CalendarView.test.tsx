@@ -35,13 +35,20 @@ const eventOn = (date: Temporal.PlainDate): TCalendarEvent => ({
   allDay: false,
 });
 
+const READY = { isLoading: false, isError: false, permissionDenied: false };
+const setEvents = (date: Temporal.PlainDate) =>
+  mockUseCalendarEvents.mockReturnValue([[eventOn(date)], READY]);
+
 const fireLayout = (node: unknown, height: number) =>
   fireEvent(node as never, "layout", {
     nativeEvent: { layout: { x: 0, y: 0, width: 300, height } },
   });
 
+let scrollToSpy: jest.SpyInstance;
+
 beforeEach(() => {
   jest.clearAllMocks();
+  scrollToSpy = jest.spyOn(ScrollView.prototype, "scrollTo");
   // Full-day window (00:00 → 24:00) so "now" is always inside it regardless of
   // the wall-clock time the suite runs at — keeps the now line deterministic.
   mockUsePreferences.mockReturnValue([
@@ -53,16 +60,11 @@ beforeEach(() => {
     } as never,
     { updatePreferences: jest.fn() },
   ]);
+  setEvents(TODAY);
 });
 
 describe("CalendarView auto-scroll to now", () => {
   it("scrolls the now line into the viewport on first layout", () => {
-    const scrollToSpy = jest.spyOn(ScrollView.prototype, "scrollTo");
-    mockUseCalendarEvents.mockReturnValue([
-      [eventOn(TODAY)],
-      { isLoading: false, isError: false, permissionDenied: false },
-    ]);
-
     const { getByTestId } = render(<CalendarView date={TODAY} />);
     fireLayout(getByTestId("calendar-scroll"), 600);
 
@@ -77,11 +79,7 @@ describe("CalendarView auto-scroll to now", () => {
   });
 
   it("does not scroll on a future day (no now line)", () => {
-    const scrollToSpy = jest.spyOn(ScrollView.prototype, "scrollTo");
-    mockUseCalendarEvents.mockReturnValue([
-      [eventOn(TOMORROW)],
-      { isLoading: false, isError: false, permissionDenied: false },
-    ]);
+    setEvents(TOMORROW);
 
     const { getByTestId } = render(<CalendarView date={TOMORROW} />);
     fireLayout(getByTestId("calendar-scroll"), 600);
@@ -90,12 +88,6 @@ describe("CalendarView auto-scroll to now", () => {
   });
 
   it("scrolls only once even if layout fires repeatedly", () => {
-    const scrollToSpy = jest.spyOn(ScrollView.prototype, "scrollTo");
-    mockUseCalendarEvents.mockReturnValue([
-      [eventOn(TODAY)],
-      { isLoading: false, isError: false, permissionDenied: false },
-    ]);
-
     const { getByTestId } = render(<CalendarView date={TODAY} />);
     const scroll = getByTestId("calendar-scroll");
     fireLayout(scroll, 600);
