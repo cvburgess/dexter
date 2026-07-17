@@ -1,6 +1,24 @@
 import { MenuView } from "@expo/ui/community/menu";
+import { Platform } from "react-native";
 
 import type { IconMenuProps, TIconMenuOption } from "./IconMenu.types";
+
+/**
+ * The `@expo/ui` menu-item `state` for an option. On iOS the SF Symbol is only
+ * tinted through SwiftUI's `.tint`, which `@expo/ui` applies to **Toggle**
+ * items (any `state`) — a plain **Button** uses `.foregroundColor`, which the
+ * system menu ignores for menu content (verified on iOS 26). So a *colored*
+ * action item (has `iconColor`, isn't checkable) is given an `"off"` state on
+ * iOS: an off toggle shows no checkmark, but it renders through the Toggle path
+ * so the tint actually lands. Checkable options map their `isSelected`
+ * straight through; everything else stays a plain Button. Android colors the
+ * label via `titleColor` and needs no trick.
+ */
+function menuItemState(option: TIconMenuOption): "on" | "off" | undefined {
+  if (option.isSelected !== undefined) return option.isSelected ? "on" : "off";
+  if (Platform.OS === "ios" && option.iconColor !== undefined) return "off";
+  return undefined;
+}
 
 /**
  * Icon menu backed by `@expo/ui`'s community `MenuView` (a SwiftUI `Menu`/
@@ -40,20 +58,11 @@ export function IconMenu({
           image:
             typeof option.icon === "string" ? option.icon : option.icon?.ios,
           imageColor: option.iconColor,
-          // Android draws a separate label color; iOS ignores this and instead
-          // tints the label from `imageColor` (foregroundColor), so callers set
-          // both `iconColor` and `titleColor` for a uniform recolor.
+          // Android label color. iOS ignores it (its menu label can't be
+          // recolored independently); see `menuItemState` for how iOS tints the
+          // icon instead.
           titleColor: option.titleColor,
-          // Only checkable options declare `isSelected`. Omitting `state`
-          // makes @expo/ui render a plain button rather than a stateful
-          // Toggle, so action items (e.g. "Backlog") never stick a
-          // checkmark after being tapped.
-          state:
-            option.isSelected === undefined
-              ? undefined
-              : option.isSelected
-                ? "on"
-                : "off",
+          state: menuItemState(option),
           attributes: option.isDestructive ? { destructive: true } : undefined,
         })),
       }))}

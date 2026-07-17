@@ -78,7 +78,7 @@ describe("IconMenu (native)", () => {
       </IconMenu>,
     );
 
-    const { actions } = mockMenuView.mock.calls.at(-1)![0] as {
+    const { actions } = mockMenuView.mock.calls.at(-1)![0] as unknown as {
       actions: { subactions: { id: string; state?: string }[] }[];
     };
     const stateById = Object.fromEntries(
@@ -86,5 +86,40 @@ describe("IconMenu (native)", () => {
     );
 
     expect(stateById).toEqual({ on: "on", off: "off", action: undefined });
+  });
+
+  it("gives a colored action item an 'off' state on iOS so its icon can tint", () => {
+    // iOS only tints a menu item's SF Symbol through the Toggle path; a colored
+    // action (iconColor, no isSelected) is routed there via an "off" state (no
+    // checkmark). A plain action with no iconColor stays a button.
+    const coloredSections: TIconMenuSection[] = [
+      {
+        options: [
+          {
+            id: "backlog",
+            title: "Backlog",
+            icon: "tray.full",
+            iconColor: "#fcb700",
+            onSelect: jest.fn(),
+          },
+          { id: "plain", title: "Plain", onSelect: jest.fn() },
+        ],
+      },
+    ];
+
+    render(
+      <IconMenu accessibilityLabel="Menu" sections={coloredSections}>
+        <Text>Trigger</Text>
+      </IconMenu>,
+    );
+
+    const { actions } = mockMenuView.mock.calls.at(-1)![0] as unknown as {
+      actions: { subactions: { id: string; state?: string }[] }[];
+    };
+    const stateById = Object.fromEntries(
+      actions[0].subactions.map((a) => [a.id, a.state]),
+    );
+
+    expect(stateById).toEqual({ backlog: "off", plain: undefined });
   });
 });
