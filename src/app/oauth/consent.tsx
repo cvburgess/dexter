@@ -1,5 +1,5 @@
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { ReactNode, useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -30,7 +30,6 @@ export default function OAuthConsentScreen() {
     authorization_id?: string;
   }>();
   const { initializing, session } = useAuth();
-  const theme = useTheme();
   const router = useRouter();
 
   const [appName, setAppName] = useState<string | null>(null);
@@ -158,89 +157,120 @@ export default function OAuthConsentScreen() {
 
   if (step === "done") {
     return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: theme.colors.background }]}
-      >
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: theme.colors.card,
-              borderRadius: theme.borderRadius,
-            },
-          ]}
-        >
-          <Text style={[styles.title, { color: theme.colors.text }]}>
-            Authorized
-          </Text>
-          <Text
-            style={[styles.subtitle, { color: theme.colors.textSecondary }]}
-          >
-            You can close this window and return to the app that requested
-            access.
-          </Text>
-        </View>
-      </SafeAreaView>
+      <ConsentCard>
+        <AuthorizedNotice />
+      </ConsentCard>
     );
   }
 
   if (loading || approving) {
     return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: theme.colors.background }]}
-      >
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: theme.colors.card,
-              borderRadius: theme.borderRadius,
-            },
-          ]}
-        >
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text
-            style={[styles.subtitle, { color: theme.colors.textSecondary }]}
-          >
-            {approving ? "Authorizing…" : "Loading…"}
-          </Text>
-        </View>
-      </SafeAreaView>
+      <ConsentCard>
+        <PendingIndicator message={approving ? "Authorizing…" : "Loading…"} />
+      </ConsentCard>
     );
   }
+
+  return (
+    <ConsentCard>
+      <ConsentForm
+        appName={appName}
+        error={error}
+        onApprove={approve}
+        onDeny={deny}
+      />
+    </ConsentCard>
+  );
+}
+
+function ConsentCard({ children }: { children: ReactNode }) {
+  const theme = useTheme();
 
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
-        <Text style={[styles.title, { color: theme.colors.text }]}>
-          Authorize Access
-        </Text>
-        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-          {appName} wants to access your tasks, lists, goals, days, habits, and
-          journals.
-        </Text>
-
-        {error ? (
-          <Text style={[styles.error, { color: theme.colors.error }]}>
-            {error}
-          </Text>
-        ) : null}
-
-        <Button
-          variant="primary"
-          onPress={approve}
-          testID="oauth-consent-approve-button"
-        >
-          Approve
-        </Button>
-
-        <Button onPress={deny} testID="oauth-consent-deny-button">
-          Deny
-        </Button>
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: theme.colors.card,
+            borderRadius: theme.borderRadius,
+          },
+        ]}
+      >
+        {children}
       </View>
     </SafeAreaView>
+  );
+}
+
+function AuthorizedNotice() {
+  const theme = useTheme();
+
+  return (
+    <>
+      <Text style={[styles.title, { color: theme.colors.text }]}>
+        Authorized
+      </Text>
+      <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+        You can close this window and return to the app that requested access.
+      </Text>
+    </>
+  );
+}
+
+function PendingIndicator({ message }: { message: string }) {
+  const theme = useTheme();
+
+  return (
+    <>
+      <ActivityIndicator size="large" color={theme.colors.primary} />
+      <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+        {message}
+      </Text>
+    </>
+  );
+}
+
+type TConsentFormProps = {
+  appName: string | null;
+  error: string | null;
+  onApprove: () => void;
+  onDeny: () => void;
+};
+
+function ConsentForm({ appName, error, onApprove, onDeny }: TConsentFormProps) {
+  const theme = useTheme();
+
+  return (
+    <>
+      <Text style={[styles.title, { color: theme.colors.text }]}>
+        Authorize Access
+      </Text>
+      <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+        {appName} wants to access your tasks, lists, goals, days, habits, and
+        journals.
+      </Text>
+
+      {error ? (
+        <Text style={[styles.error, { color: theme.colors.error }]}>
+          {error}
+        </Text>
+      ) : null}
+
+      <Button
+        variant="primary"
+        onPress={onApprove}
+        testID="oauth-consent-approve-button"
+      >
+        Approve
+      </Button>
+
+      <Button onPress={onDeny} testID="oauth-consent-deny-button">
+        Deny
+      </Button>
+    </>
   );
 }
 
