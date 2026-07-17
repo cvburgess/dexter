@@ -3,13 +3,13 @@ import { useLayoutEffect, useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { ETaskStatus } from "@/api/tasks";
 import { HeaderAddButton } from "@/components/HeaderAddButton";
 import { ListRow } from "@/components/ListRow";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { useLists } from "@/hooks/useLists";
 import { useTasks } from "@/hooks/useTasks";
+import { isCompletionStatus } from "@/utils/taskFilters";
 import { useTheme } from "@/utils/theme";
 
 export default function ListsScreen() {
@@ -27,11 +27,7 @@ export default function ListsScreen() {
   const openCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const task of tasks) {
-      if (
-        task.listId &&
-        (task.status === ETaskStatus.TODO ||
-          task.status === ETaskStatus.IN_PROGRESS)
-      ) {
+      if (task.listId && !isCompletionStatus(task.status)) {
         counts.set(task.listId, (counts.get(task.listId) ?? 0) + 1);
       }
     }
