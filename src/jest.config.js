@@ -7,6 +7,6 @@ module.exports = {
     "^@/(.*)$": "<rootDir>/$1",
   },
   transformIgnorePatterns: [
-    "node_modules/(?!((jest-)?react-native(-.*)?|@react-native|react-clone-referenced-element|@react-navigation|expo|expo-.+|@expo(nent)?/.*|@expo-google-fonts/.*|camelcase|camelcase-keys|decamelize|decamelize-keys|map-obj|quick-lru)/)",
+    "node_modules/(?!((jest-)?react-native(-.*)?|@react-native|react-clone-referenced-element|@react-navigation|expo|expo-.+|@expo(nent)?/.*|@expo-google-fonts/.*|@shopify/flash-list|camelcase|camelcase-keys|decamelize|decamelize-keys|map-obj|quick-lru)/)",
   ],
 };

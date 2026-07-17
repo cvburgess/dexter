@@ -1,15 +1,9 @@
+import { FlashList } from "@shopify/flash-list";
 import { Temporal } from "@js-temporal/polyfill";
-import { useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { TGoal } from "@/api/goals";
-import { dedupeFilters } from "@/api/applyFilters";
 import { TList } from "@/api/lists";
 import { duplicateTaskInput, ETaskPriority, TTask } from "@/api/tasks";
 import { EmptyScreen } from "@/components/EmptyScreen";
@@ -20,26 +14,26 @@ import { TaskCard } from "@/components/TaskCard";
 import { TextInput } from "@/components/TextInput";
 import { useGoals } from "@/hooks/useGoals";
 import { useLists } from "@/hooks/useLists";
+import { useTasks } from "@/hooks/useTasks";
 import {
-  notScheduledForDateFilters,
-  taskFilters,
-  useTasks,
-} from "@/hooks/useTasks";
+  filterTasks,
+  selectBacklogTasks,
+  TFilterId,
+} from "@/utils/taskFilters";
 import { useTheme, withOpacity } from "@/utils/theme";
-
-export type TFilterId =
-  "none" | "overdue" | "dueSoon" | "leftBehind" | "unscheduled";
 
 export type TGroupBy = "none" | "listId" | "priority" | "goalId";
 
 export type TTaskGroup = { id: string; title: string; tasks: TTask[] };
 
-// Each id here doubles as a key into `taskFilters` (see `filters` below,
-// which ANDs the matching preset onto the base `notScheduledForDateFilters`
-// scope) — only add an id whose preset can't contradict that base scope.
-// `taskFilters.today`/`taskFiltersForDate`, for instance, would AND a
-// `scheduledFor === date` clause onto a base scope that already requires
-// `scheduledFor !== date`, silently producing an always-empty query.
+// The flattened shape `FlashList` renders: `groupTasks`'s `{id, title, tasks}[]`
+// groups collapsed into a single list of header/task rows so recycling can
+// work across group boundaries. `getItemType` keys off `type` so headers and
+// task rows recycle into separate cell pools.
+type TDrawerListItem =
+  | { type: "header"; id: string; title: string }
+  | { type: "task"; id: string; task: TTask };
+
 const FILTER_META: { id: TFilterId; title: string }[] = [
   { id: "none", title: "No Filter" },
   { id: "overdue", title: "Overdue" },
@@ -176,13 +170,22 @@ type TTaskDrawerProps = {
 /**
  * Shared task-drawer content: Filter/Group/Search controls over every
  * incomplete task not scheduled for `date`, with a tap-to-schedule affordance
- * per row. Its root is a single `ScrollView` — the controls scroll as the
- * first rows, above the list — hosted two ways: an `@expo/ui` bottom sheet on
- * small screens (`TaskDrawerSheet`) and a docked pane on large screens
- * (`today/index.tsx`). The `ScrollView`'s `flex: 1` bounds it to the
- * sheet/pane so a long list scrolls rather than overflowing; note the native
- * `@expo/ui` menu controls need an explicit height to render inside it (see
- * `controlButtonInner`) (DEX-33).
+ * per row. Hosted two ways: an `@expo/ui` bottom sheet on small screens
+ * (`TaskDrawerSheet`) and a docked pane on large screens (`today/index.tsx`).
+ * The controls+search sit above a `FlashList` of the (possibly large, in
+ * contrast to a single day's list) backlog — recycled rather than all mounted
+ * at once, since each row's `TaskCard` carries multiple `@expo/ui` native
+ * menu hosts (see `TaskCard.tsx`'s `minHeight` comment) that are expensive to
+ * mount in bulk. Root is a plain `flex: 1` `View`, not a `ScrollView`: only
+ * `FlashList` needs to scroll (it owns its own internal scroll), and nesting
+ * a scroller inside a `ScrollView` breaks virtualization. `@shopify/flash-list`
+ * still renders a real RN `ScrollView` under the hood (see its own
+ * `CompatScroller.ts`), which is what lets the small-screen `@expo/ui`
+ * `BottomSheetModal` (`TaskDrawerSheet`) keep coordinating its native
+ * drag-to-dismiss/scroll-to-expand gestures with this list — verified
+ * hands-on on iOS after the FlashList migration. Note the native `@expo/ui`
+ * menu controls need an explicit height to render (see `controlButtonInner`)
+ * (DEX-33).
  */
 export function TaskDrawer({ date }: TTaskDrawerProps) {
   const theme = useTheme();
@@ -194,20 +197,17 @@ export function TaskDrawer({ date }: TTaskDrawerProps) {
   // skip the query otherwise rather than always subscribing to both tables.
   const [lists] = useLists({ skipQuery: groupBy !== "listId" });
   const [goals] = useGoals({ skipQuery: groupBy !== "goalId" });
-  const filters = useMemo(
-    // `taskFilters` has no "none" entry, so `taskFilters[filterId]` is
-    // already undefined (falling back to `[]`) when nothing extra is
-    // selected — no separate "none" branch needed.
+  const [allTasks, { isLoading, updateTask, createTask, deleteTask }] =
+    useTasks();
+  const tasks = useMemo(
     () =>
-      dedupeFilters([
-        ...notScheduledForDateFilters(date),
-        ...(taskFilters[filterId] ?? []),
-      ]),
-    [date, filterId],
+      filterTasks(
+        selectBacklogTasks(allTasks, date),
+        filterId,
+        Temporal.Now.plainDateISO(),
+      ),
+    [allTasks, date, filterId],
   );
-  const [tasks, { isLoading, updateTask, createTask, deleteTask }] = useTasks({
-    filters,
-  });
 
   const groups = useMemo(
     () => groupTasks(searchTasksByTitle(tasks, search), groupBy, lists, goals),
@@ -215,20 +215,78 @@ export function TaskDrawer({ date }: TTaskDrawerProps) {
   );
   const hasTasks = groups.length > 0;
 
+  // Flattened for FlashList: a group's title (when it has one — "no
+  // grouping" collapses everything into one untitled group) becomes a header
+  // row, followed by its tasks as task rows, all in one recyclable list.
+  const listItems = useMemo<TDrawerListItem[]>(
+    () =>
+      groups.flatMap((group) => [
+        ...(group.title
+          ? [
+              {
+                type: "header" as const,
+                id: `header-${group.id}`,
+                title: group.title,
+              },
+            ]
+          : []),
+        ...group.tasks.map((task) => ({
+          type: "task" as const,
+          id: task.id,
+          task,
+        })),
+      ]),
+    [groups],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: TDrawerListItem }) => {
+      if (item.type === "header") {
+        return (
+          <Text
+            style={[styles.groupTitle, { color: theme.colors.textSecondary }]}
+          >
+            {item.title}
+          </Text>
+        );
+      }
+
+      const { task } = item;
+      return (
+        <View style={[styles.row, { gap: theme.gap }]}>
+          <View style={styles.cardWrapper}>
+            <TaskCard
+              task={task}
+              onUpdate={(diff) => updateTask({ id: task.id, ...diff })}
+              onDuplicate={() => createTask(duplicateTaskInput(task))}
+              onDelete={() => deleteTask(task.id)}
+            />
+          </View>
+          <GlassIconButton
+            accessibilityLabel={`Schedule "${task.title}" for this day`}
+            sfSymbol="plus"
+            ionicon="add-outline"
+            onPress={() =>
+              updateTask({ id: task.id, scheduledFor: date.toString() })
+            }
+          />
+        </View>
+      );
+    },
+    [theme, date, updateTask, createTask, deleteTask],
+  );
+
+  const keyExtractor = useCallback((item: TDrawerListItem) => item.id, []);
+  const getItemType = useCallback((item: TDrawerListItem) => item.type, []);
+  const ItemSeparator = useCallback(
+    () => <View style={{ height: theme.gap }} />,
+    [theme.gap],
+  );
+
   const controlBorder = { borderColor: withOpacity(theme.colors.text, 0.15) };
 
   return (
-    // A single ScrollView is the root (not a flex-1 View wrapping a nested
-    // scroller): `react-native-screens` looks for the ScrollView in the
-    // Screen's first-descendants chain to coordinate the form sheet's
-    // scroll-to-expand/dismiss (see `task-drawer.tsx`), and a `flex: 1` view
-    // doesn't size reliably as sheet content on iOS. The controls scroll as
-    // the first rows; `flexGrow: 1` lets the empty/loading states fill and
-    // center when the list is short.
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={[styles.content, { gap: theme.gap }]}
-    >
+    <View style={[styles.container, { gap: theme.gap }]}>
       <View style={[styles.controls, { gap: theme.gap }]}>
         <IconMenu
           accessibilityLabel="Filter"
@@ -262,53 +320,26 @@ export function TaskDrawer({ date }: TTaskDrawerProps) {
         onChangeText={setSearch}
       />
       {isLoading && !hasTasks ? (
-        // The drawer's queries only fire once it's first opened (the shell
-        // defers mounting), so the initial fetch is visible — show a spinner
-        // rather than a bare gap until the list arrives.
+        // `isLoading` reflects the canonical `useTasks()` query shared with
+        // the Tasks pane — usually already resolved by the time this drawer
+        // first mounts (the shell defers mounting until opened), but shown as
+        // a spinner rather than a bare gap on a cold app start where it isn't.
         <View style={styles.state}>
           <ActivityIndicator color={theme.colors.textSecondary} />
         </View>
       ) : !hasTasks ? (
         <EmptyScreen message="Nothing here — you're all caught up." />
       ) : (
-        <View style={{ gap: theme.gap }}>
-          {groups.map((group) => (
-            <View key={group.id} style={{ gap: theme.gap }}>
-              {group.title ? (
-                <Text
-                  style={[
-                    styles.groupTitle,
-                    { color: theme.colors.textSecondary },
-                  ]}
-                >
-                  {group.title}
-                </Text>
-              ) : null}
-              {group.tasks.map((task) => (
-                <View key={task.id} style={[styles.row, { gap: theme.gap }]}>
-                  <View style={styles.cardWrapper}>
-                    <TaskCard
-                      task={task}
-                      onUpdate={(diff) => updateTask({ id: task.id, ...diff })}
-                      onDuplicate={() => createTask(duplicateTaskInput(task))}
-                      onDelete={() => deleteTask(task.id)}
-                    />
-                  </View>
-                  <GlassIconButton
-                    accessibilityLabel={`Schedule "${task.title}" for this day`}
-                    sfSymbol="plus"
-                    ionicon="add-outline"
-                    onPress={() =>
-                      updateTask({ id: task.id, scheduledFor: date.toString() })
-                    }
-                  />
-                </View>
-              ))}
-            </View>
-          ))}
-        </View>
+        <FlashList
+          data={listItems}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
+          getItemType={getItemType}
+          ItemSeparatorComponent={ItemSeparator}
+          style={styles.list}
+        />
       )}
-    </ScrollView>
+    </View>
   );
 }
 
@@ -321,18 +352,13 @@ function titleFor<T extends string>(
 }
 
 const styles = StyleSheet.create({
-  // `flex: 1` bounds the scroller to its parent's height so a long list
-  // scrolls instead of laying out at full content height and overflowing the
-  // sheet/pane (react-native-screens honors this for the sheet's descendant
-  // ScrollView).
-  scroll: {
+  // `flex: 1` bounds this to the sheet/pane's height; whichever child ends up
+  // scrollable (the FlashList branch — the loading/empty branches are small,
+  // static content with no need to scroll) fills the remaining space below
+  // the controls/search. `padding` + inline `gap` reproduce what used to be
+  // the ScrollView's `contentContainerStyle` spacing.
+  container: {
     flex: 1,
-  },
-  // `flexGrow: 1` so the empty/loading state can fill and center when the
-  // list is short; when it's long the content just overflows and scrolls.
-  // (gap is applied inline from the theme.)
-  content: {
-    flexGrow: 1,
     padding: 16,
   },
   controls: {
@@ -349,7 +375,7 @@ const styles = StyleSheet.create({
   // intrinsic content height to size to — as sheet content it otherwise
   // collapsed to ~2px (the menu measures its RN child, and a flex-only child
   // has no height until a bounded ancestor resolves, which the sheet's
-  // ScrollView doesn't provide). `alignSelf: stretch` fills the menu's width.
+  // content doesn't provide). `alignSelf: stretch` fills the menu's width.
   controlButtonInner: {
     alignItems: "center",
     alignSelf: "stretch",
@@ -363,6 +389,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flex: 1,
     justifyContent: "center",
+  },
+  // Fills the remaining space below the controls/search; FlashList owns its
+  // own internal scrolling and recycling.
+  list: {
+    flex: 1,
   },
   groupTitle: {
     fontSize: 12,

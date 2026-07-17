@@ -4,6 +4,16 @@ process.env.EXPO_PUBLIC_SUPABASE_URL ??= "https://test.supabase.co";
 process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??= "test-publishable-key";
 
 require("react-native-gesture-handler/jestSetup");
+
+// Deliberately NOT requiring `@shopify/flash-list/jestSetup` here: FlashList
+// already renders every item under test by default (no native layout events
+// fire under react-test-renderer, so it can't measure a real viewport to
+// virtualize against); that mock exists to constrain it back down to a
+// realistic viewport for tests that specifically assert on recycling. Loading
+// it globally via `setupFiles` (which re-runs per test file) was measured to
+// balloon the full suite from ~5s to 90-100s for no behavior difference in
+// any current test — add it scoped to a single test file instead, if a test
+// ever needs to assert what does/doesn't render off-screen.
 jest.mock("react-native-reanimated", () =>
   require("react-native-reanimated/mock"),
 );

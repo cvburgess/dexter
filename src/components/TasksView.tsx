@@ -1,4 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
+import { useMemo } from "react";
 import { ScrollView, StyleSheet } from "react-native";
 
 import { duplicateTaskInput, TTask } from "@/api/tasks";
@@ -8,8 +9,9 @@ import { HabitTracker } from "@/components/HabitTracker";
 import { TaskCard } from "@/components/TaskCard";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { usePreferences } from "@/hooks/usePreferences";
-import { taskFiltersForDate, useTasks } from "@/hooks/useTasks";
+import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
+import { selectTasksForDate } from "@/utils/taskFilters";
 
 type TTasksViewProps = {
   date: Temporal.PlainDate;
@@ -23,9 +25,12 @@ type TTasksViewProps = {
 export function TasksView({ date }: TTasksViewProps) {
   const { confirm, confirmationProps } = useConfirmation();
   const [preferences] = usePreferences();
-  const [tasks, { isLoading, updateTask, createTask, deleteTask }] = useTasks({
-    filters: taskFiltersForDate(date),
-  });
+  const [allTasks, { isLoading, updateTask, createTask, deleteTask }] =
+    useTasks();
+  const tasks = useMemo(
+    () => selectTasksForDate(allTasks, date),
+    [allTasks, date],
+  );
   const [, { deleteTemplate }] = useTemplates();
 
   const handleDelete = async (task: TTask) => {

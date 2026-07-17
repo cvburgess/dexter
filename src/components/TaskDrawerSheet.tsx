@@ -17,10 +17,10 @@ type TTaskDrawerSheetProps = {
 
 // Fixed detents (opens at the first, 55%; drag up to 90%). Without explicit
 // snap points the sheet falls into `enableDynamicSizing`/fit-to-content mode,
-// which sizes to the content's full height and leaves the scroll view
-// unbounded. Module-level for a stable array identity across renders (the
-// library memoizes its derived detents on this prop). On Android these map to
-// partial (~55%) + expanded; on web both heights apply via CSS.
+// which sizes to the content's full height and leaves TaskDrawer's scrollable
+// content unbounded. Module-level for a stable array identity across renders
+// (the library memoizes its derived detents on this prop). On Android these
+// map to partial (~55%) + expanded; on web both heights apply via CSS.
 const SNAP_POINTS = ["55%", "90%"];
 
 /**
@@ -28,7 +28,8 @@ const SNAP_POINTS = ["55%", "90%"];
  * `@expo/ui/community/bottom-sheet`'s `BottomSheetModal` — a native SwiftUI
  * sheet on iOS, a Compose `ModalBottomSheet` on Android, and a vaul drawer on
  * web. `BottomSheetView` (a plain flex passthrough) fills the detent, and
- * `TaskDrawer` owns the scrolling `ScrollView` inside it. Starts closed; the
+ * `TaskDrawer` owns its scrollable content (a `FlashList`) inside it. Starts
+ * closed; the
  * caller opens it imperatively with `ref.current?.present()` from the
  * `DayViewSwitcher` menu's drawer action (`BottomSheetModal` has no controlled
  * "visible" prop).
@@ -36,11 +37,14 @@ const SNAP_POINTS = ["55%", "90%"];
 export function TaskDrawerSheet({ date, ref }: TTaskDrawerSheetProps) {
   // `BottomSheetModal` mounts its children immediately regardless of
   // presentation state — only the sheet's own visibility is deferred until
-  // `present()`. Without this gate, TaskDrawer's useTasks/useLists/useGoals
-  // queries would fire on every Today-tab load whether or not the user ever
-  // opens the drawer. Rendering nothing until the first `onChange` (fired once
-  // `present()` moves the sheet to a real snap point) keeps the drawer truly
-  // opt-in; it then stays mounted across later opens/closes.
+  // `present()`. TaskDrawer's `useTasks()` is the same canonical query the
+  // always-visible Tasks pane already fires (DEX-57), and `useLists`/`useGoals`
+  // are warmed as soon as a session exists (see `(app)/_layout.tsx`), so this
+  // gate no longer saves a fetch; it still saves the cost of building and
+  // rendering the drawer's `FlashList` content on every Today-tab load whether
+  // or not the user ever opens the drawer. Rendering nothing until the first
+  // `onChange` (fired once `present()` moves the sheet to a real snap point)
+  // keeps that opt-in; it then stays mounted across later opens/closes.
   const [hasOpened, setHasOpened] = useState(false);
 
   return (
@@ -52,7 +56,7 @@ export function TaskDrawerSheet({ date, ref }: TTaskDrawerSheetProps) {
         if (index >= 0) setHasOpened(true);
       }}
     >
-      {/* `flex: 1` gives TaskDrawer a bounded box to fill so its ScrollView
+      {/* `flex: 1` gives TaskDrawer a bounded box to fill so its FlashList
           scrolls within the detent (with snap points set, the sheet isn't in
           fit-to-content mode, so BottomSheetView keeps `flex`). */}
       <BottomSheetView style={styles.content}>

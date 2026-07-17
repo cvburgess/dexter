@@ -20,14 +20,6 @@ const mockPublishViewedDay = usePublishViewedDay as jest.MockedFunction<
   typeof usePublishViewedDay
 >;
 
-// usePrefetchAdjacentTasks reads via useQueryClient, which the screen (mounted
-// without a QueryClientProvider) can't provide.
-jest.mock("@/hooks/useAuth", () => ({ supabase: {} }));
-jest.mock("@/hooks/useTasks", () => ({
-  ...jest.requireActual<typeof import("@/hooks/useTasks")>("@/hooks/useTasks"),
-  usePrefetchAdjacentTasks: jest.fn(),
-}));
-
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 jest.mock("@/hooks/useTodayPanes", () => ({ useTodayPanes: jest.fn() }));
 jest.mock("@/hooks/useIsMultiPane", () => ({ useIsMultiPane: jest.fn() }));

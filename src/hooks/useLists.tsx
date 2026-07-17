@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import {
   createList,
@@ -32,14 +37,22 @@ type THookOptions = {
 // recompute on every render while the query is skipped/empty.
 const EMPTY_LISTS: TList[] = [];
 
+// Exported so callers that need to warm this cache ahead of a mount (e.g.
+// `(app)/_layout.tsx`'s launch-time prefetch) share the exact key/fetcher/
+// staleTime this hook uses, instead of a second hand-copied definition that
+// could drift out of sync with this one.
+export const listsQueryOptions = queryOptions({
+  queryKey: ["lists"],
+  queryFn: () => getLists(supabase),
+  staleTime: 1000 * 60 * 10,
+});
+
 export const useLists = (options?: THookOptions): TUseLists => {
   const queryClient = useQueryClient();
 
   const { data: lists = EMPTY_LISTS, isPending } = useQuery({
+    ...listsQueryOptions,
     enabled: !options?.skipQuery,
-    queryKey: ["lists"],
-    queryFn: () => getLists(supabase),
-    staleTime: 1000 * 60 * 10,
   });
 
   const { mutate: create } = useMutation<TList[], Error, TCreateList>({
