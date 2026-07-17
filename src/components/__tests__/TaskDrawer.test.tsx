@@ -311,6 +311,21 @@ describe("TaskDrawer", () => {
     ).toBeNull();
   });
 
+  it("renders every row of a multi-task list through the flattened FlashList data", () => {
+    mockUseTasks.mockReturnValue(
+      tasksResult([
+        task({ id: "1", title: "Write report" }),
+        task({ id: "2", title: "Buy milk" }),
+        task({ id: "3", title: "Call dentist" }),
+      ]),
+    );
+    const screen = render(<TaskDrawer date={date} />);
+
+    expect(screen.getByText("Write report")).toBeTruthy();
+    expect(screen.getByText("Buy milk")).toBeTruthy();
+    expect(screen.getByText("Call dentist")).toBeTruthy();
+  });
+
   it("fetches the canonical task set with no arguments", () => {
     render(<TaskDrawer date={date} />);
 
