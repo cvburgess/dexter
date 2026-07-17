@@ -12,7 +12,9 @@ jest.mock("@expo/ui", () => {
     lastPickerProps = props;
     return null;
   };
-  Picker.Item = () => null;
+  Picker.Item = function PickerItem() {
+    return null;
+  };
   return { Host, Picker };
 });
 
