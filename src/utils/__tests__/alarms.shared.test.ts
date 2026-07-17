@@ -67,7 +67,6 @@ describe("reconcileAlarms", () => {
       {
         id: "task-1",
         title: "Take meds",
-        date: new Date(2026, 6, 17, 17, 30, 0, 0),
         epochSeconds: Math.floor(
           new Date(2026, 6, 17, 17, 30).getTime() / 1000,
         ),

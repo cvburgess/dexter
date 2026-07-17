@@ -8,12 +8,10 @@ import {
   View,
 } from "react-native";
 
+import { DEFAULT_ALARM_TIME } from "@/utils/alarms";
 import { useTheme } from "@/utils/theme";
 
 import { TimeField } from "./TimeField";
-
-// Falls back to a sensible morning time when the task has no alarm yet.
-const DEFAULT_TIME = "09:00";
 
 type TSetAlarmModalProps = {
   visible: boolean;
@@ -36,7 +34,7 @@ export function SetAlarmModal({
   onConfirm,
 }: TSetAlarmModalProps) {
   const theme = useTheme();
-  const [time, setTime] = useState(initialTime ?? DEFAULT_TIME);
+  const [time, setTime] = useState(initialTime ?? DEFAULT_ALARM_TIME);
 
   // The modal stays mounted while `visible` toggles, so re-seed the picker from
   // the task's current alarm each time it opens rather than keeping stale state.
@@ -45,7 +43,7 @@ export function SetAlarmModal({
   const [wasVisible, setWasVisible] = useState(visible);
   if (visible !== wasVisible) {
     setWasVisible(visible);
-    if (visible) setTime(initialTime ?? DEFAULT_TIME);
+    if (visible) setTime(initialTime ?? DEFAULT_ALARM_TIME);
   }
 
   return (

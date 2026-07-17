@@ -27,6 +27,7 @@ import { useGoals } from "@/hooks/useGoals";
 import { useLists } from "@/hooks/useLists";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTemplates } from "@/hooks/useTemplates";
+import { DEFAULT_ALARM_TIME, isAlarmSupported } from "@/utils/alarms";
 import {
   buildSchedule,
   parseSchedule,
@@ -37,9 +38,6 @@ import { useTheme } from "@/utils/theme";
 // The universal Picker's item values cannot be null, so "none" gets a sentinel
 // that can never collide with a real id.
 const NO_VALUE = "";
-
-// Seed a sensible morning time when enabling an alarm on a repeat schedule.
-const DEFAULT_ALARM_TIME = "09:00";
 
 const MONTHS = [
   "January",
@@ -260,38 +258,40 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
           }
         />
 
-        <FormRow label="Alarm">
-          {alarmTime === null ? (
-            <TouchableOpacity
-              onPress={() => setAlarmTime(DEFAULT_ALARM_TIME)}
-              accessibilityRole="button"
-            >
-              <Text
-                style={[styles.alarmAction, { color: theme.colors.primary }]}
-              >
-                Add alarm
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={[styles.alarmControl, { gap: theme.gap }]}>
-              <TimeField
-                accentColor={theme.colors.primary}
-                value={alarmTime}
-                onChange={setAlarmTime}
-              />
+        {isAlarmSupported && (
+          <FormRow label="Alarm">
+            {alarmTime === null ? (
               <TouchableOpacity
-                onPress={() => setAlarmTime(null)}
+                onPress={() => setAlarmTime(DEFAULT_ALARM_TIME)}
                 accessibilityRole="button"
               >
                 <Text
-                  style={[styles.alarmAction, { color: theme.colors.error }]}
+                  style={[styles.alarmAction, { color: theme.colors.primary }]}
                 >
-                  Remove
+                  Add alarm
                 </Text>
               </TouchableOpacity>
-            </View>
-          )}
-        </FormRow>
+            ) : (
+              <View style={[styles.alarmControl, { gap: theme.gap }]}>
+                <TimeField
+                  accentColor={theme.colors.primary}
+                  value={alarmTime}
+                  onChange={setAlarmTime}
+                />
+                <TouchableOpacity
+                  onPress={() => setAlarmTime(null)}
+                  accessibilityRole="button"
+                >
+                  <Text
+                    style={[styles.alarmAction, { color: theme.colors.error }]}
+                  >
+                    Remove
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </FormRow>
+        )}
 
         <PickerField
           label="Repeats"

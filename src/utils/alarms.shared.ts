@@ -4,11 +4,23 @@
 // scheduled from the current task list. Keeping it native-free means the
 // reconciliation math is testable without mocking the module.
 
+import { Platform } from "react-native";
+
 import { TTask } from "@/api/tasks";
 import { isCompletionStatus } from "@/utils/taskFilters";
 
 /** The App Group shared with the AlarmKit dismiss intent (see `app.json`). */
 export const ALARM_APP_GROUP = "group.com.dexterplanner";
+
+/**
+ * Whether task alarms can actually ring on this platform. AlarmKit is iOS-only,
+ * so every alarm-setting surface gates on this rather than repeating a raw
+ * `Platform.OS` check and risking one surface diverging from another.
+ */
+export const isAlarmSupported = Platform.OS === "ios";
+
+/** Seeds a sensible morning time when enabling an alarm that has none yet. */
+export const DEFAULT_ALARM_TIME = "09:00";
 
 /** The task fields the alarm layer needs — a narrow slice of `TTask`. */
 export type TAlarmTask = Pick<
@@ -20,7 +32,6 @@ export type TAlarmTask = Pick<
 export type TAlarmSchedule = {
   id: string;
   title: string;
-  date: Date;
   epochSeconds: number;
 };
 
@@ -84,7 +95,6 @@ export const reconcileAlarms = (
     desired.set(task.id, {
       id: task.id,
       title: task.title,
-      date,
       epochSeconds: Math.floor(date.getTime() / 1000),
     });
   }

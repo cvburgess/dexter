@@ -1,9 +1,10 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
-import { Platform, type StyleProp, type ViewStyle } from "react-native";
+import type { StyleProp, ViewStyle } from "react-native";
 
 import { ETaskPriority, TTask } from "@/api/tasks";
+import { isAlarmSupported } from "@/utils/alarms";
 import { useLists } from "@/hooks/useLists";
 import { useTemplates } from "@/hooks/useTemplates";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
@@ -73,7 +74,7 @@ export function MoreMenu({
     ...getPrioritySections(task.priority, onChangePriority, theme),
     ...getScheduleSections(task.scheduledFor, onChangeSchedule),
     // Alarms ring via native iOS AlarmKit only, so the item is iOS-only.
-    ...(Platform.OS === "ios"
+    ...(isAlarmSupported
       ? getAlarmSections(task.alarmTime, onSetAlarm, onClearAlarm)
       : []),
     // ListButton's sections, collapsed into a titled submenu like the others.
