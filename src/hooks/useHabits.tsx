@@ -47,7 +47,6 @@ export const useHabits = (options?: TSupabaseHookOptions): TUseHabits => {
     enabled: !options?.skipQuery,
     queryKey: ["habits", options?.filters],
     queryFn: () => getHabits(supabase, options?.filters),
-    staleTime: 1000 * 60 * 10,
   });
 
   // A habit edit can change today's daily rows — the DB trigger deletes them on
@@ -112,7 +111,6 @@ export const useDailyHabits = (date: string): TUseDailyHabits => {
     queryKey: ["dailyHabits", date],
     queryFn: () => getDailyHabits(supabase, date),
     retry: false,
-    staleTime: 1000 * 60 * 10,
   });
 
   const { mutate: create } = useMutation<void, Error>({
