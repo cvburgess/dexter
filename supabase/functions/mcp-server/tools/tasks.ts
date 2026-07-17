@@ -62,6 +62,7 @@ async function maybeCreateNextRecurringTask(
   await ctx.supabase.from("tasks").insert({
     user_id: ctx.userId,
     title: template.title,
+    alarm_time: template.alarm_time,
     priority: template.priority,
     list_id: template.list_id,
     goal_id: template.goal_id,

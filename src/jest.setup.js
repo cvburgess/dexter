@@ -87,6 +87,18 @@ jest.mock("expo-calendar", () => ({
   listEvents: jest.fn(async () => []),
 }));
 
+// expo-alarm-kit wraps native iOS AlarmKit (used by utils/alarms.ios). Default
+// authorization to granted and the schedule/cancel/query calls to no-ops so the
+// alarm layer can be tested without the native module.
+jest.mock("expo-alarm-kit", () => ({
+  configure: jest.fn(() => true),
+  requestAuthorization: jest.fn(async () => "authorized"),
+  scheduleAlarm: jest.fn(async () => true),
+  cancelAlarm: jest.fn(async () => true),
+  getAllAlarms: jest.fn(() => []),
+  generateUUID: jest.fn(() => "test-uuid"),
+}));
+
 // @expo/ui's SwiftUI primitives (used by DateField.ios) are native views.
 jest.mock("@expo/ui/swift-ui", () => ({
   DatePicker: () => null,

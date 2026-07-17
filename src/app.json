@@ -12,7 +12,11 @@
       "bundleIdentifier": "com.dexterplanner",
       "icon": "./assets/app.icon",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAlarmKitUsageDescription": "Dexter rings a native alarm at the time you set on a task."
+      },
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.com.dexterplanner"]
       }
     },
     "android": {

@@ -3,6 +3,7 @@ import { Redirect, Stack } from "expo-router";
 import { useEffect } from "react";
 
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { useAlarmSync } from "@/hooks/useAlarmSync";
 import { useAuth } from "@/hooks/useAuth";
 import { goalsQueryOptions } from "@/hooks/useGoals";
 import { listsQueryOptions } from "@/hooks/useLists";
@@ -18,6 +19,10 @@ export default function AppLayout() {
   // Keeps every screen's query cache current when data changes on another
   // platform (web, MCP) — see docs/frontend.md's Data Layer section (DEX-36).
   useRealtimeInvalidation(userId);
+
+  // Projects task alarm times onto native iOS AlarmKit (no-op elsewhere) so
+  // set/unset/complete/reschedule and repeat occurrences all stay in sync.
+  useAlarmSync();
 
   // Warms the lists/goals caches (`useLists`/`useGoals`'s own query options)
   // as soon as a session exists, so the Backlog drawer's Group menu never has
