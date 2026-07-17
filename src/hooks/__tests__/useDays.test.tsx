@@ -5,7 +5,7 @@ import { ReactNode } from "react";
 import * as daysApi from "@/api/days";
 import { usePreferences } from "@/hooks/usePreferences";
 
-import { useDays } from "../useDays";
+import { daysMutationKey, useDays } from "../useDays";
 
 jest.mock("@/hooks/useAuth", () => ({ supabase: {} }));
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
@@ -201,5 +201,39 @@ describe("useDays", () => {
     // The failed save must not leave the never-persisted note in the cache.
     await waitFor(() => expect(result.current[0].notes).toBe(""));
     expect(result.current[1].exists).toBe(false);
+  });
+
+  it("tags the upsert with daysMutationKey while it is in flight", async () => {
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retryDelay: 0 },
+      },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+
+    mockGetDay.mockResolvedValue(null);
+    let resolveUpsert: (day: daysApi.TDay) => void = () => {};
+    mockUpsertDay.mockReturnValue(
+      new Promise((resolve) => {
+        resolveUpsert = resolve;
+      }),
+    );
+
+    const { result } = renderHook(() => useDays("2026-07-12"), { wrapper });
+    await waitFor(() => expect(result.current[1].isLoading).toBe(false));
+
+    expect(client.isMutating({ mutationKey: daysMutationKey })).toBe(0);
+    act(() => result.current[1].upsertDay({ notes: "hello" }));
+    await waitFor(() =>
+      expect(client.isMutating({ mutationKey: daysMutationKey })).toBe(1),
+    );
+
+    resolveUpsert({ date: "2026-07-12", notes: "hello", prompts: [] });
+    await waitFor(() =>
+      expect(client.isMutating({ mutationKey: daysMutationKey })).toBe(0),
+    );
   });
 });
