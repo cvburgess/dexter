@@ -47,6 +47,9 @@ export function IconMenu({
   style,
 }: IconMenuProps) {
   const theme = useTheme();
+  // Divider tint derived from the text color so it reads on both schemes,
+  // rather than a fixed gray that washes out on dark backgrounds.
+  const dividerBorderColor = withOpacity(theme.colors.text, 0.15);
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const isLongPress = trigger === "longPress";
@@ -139,7 +142,9 @@ export function IconMenu({
                   <MenuSection
                     key={key}
                     section={section}
-                    showDivider={sectionIndex > 0}
+                    dividerBorderColor={
+                      sectionIndex > 0 ? dividerBorderColor : null
+                    }
                     expanded={expandedSection === key}
                     onToggleExpanded={() =>
                       setExpandedSection(expandedSection === key ? null : key)
@@ -162,27 +167,24 @@ export function IconMenu({
 
 function MenuSection({
   section,
-  showDivider,
+  dividerBorderColor,
   expanded,
   onToggleExpanded,
   theme,
   onSelectOption,
 }: {
   section: TIconMenuSection;
-  showDivider: boolean;
+  /** Divider color for every section but the first, or `null` to omit it. */
+  dividerBorderColor: string | null;
   expanded: boolean;
   onToggleExpanded: () => void;
   theme: ReturnType<typeof useTheme>;
   onSelectOption: (option: TIconMenuOption) => void;
 }) {
-  // Divider tint derived from the text color so it reads on both schemes,
-  // rather than a fixed gray that washes out on dark backgrounds.
-  const dividerStyle = showDivider
-    ? [
-        styles.sectionDivider,
-        { borderTopColor: withOpacity(theme.colors.text, 0.15) },
-      ]
-    : undefined;
+  const dividerStyle =
+    dividerBorderColor !== null
+      ? [styles.sectionDivider, { borderTopColor: dividerBorderColor }]
+      : undefined;
 
   if (!section.isSubmenu) {
     return (
