@@ -69,10 +69,9 @@ describe("CalendarView auto-scroll to now", () => {
     fireLayout(getByTestId("calendar-scroll"), 600);
 
     expect(scrollToSpy).toHaveBeenCalledTimes(1);
-    const arg = scrollToSpy.mock.calls[0][0] as {
-      y: number;
-      animated: boolean;
-    };
+    const [arg] = scrollToSpy.mock.calls[0] as [
+      { y: number; animated: boolean },
+    ];
     expect(arg.animated).toBe(false);
     // Anchored (not negative) and clamped within the scrollable range.
     expect(arg.y).toBeGreaterThanOrEqual(0);
