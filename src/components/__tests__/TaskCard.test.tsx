@@ -27,11 +27,28 @@ jest.mock("@/hooks/useLists", () => ({
   ],
 }));
 
-const mockMoreMenu = jest.fn(
-  (props: { children: ReactNode }) => props.children,
-);
+type MoreMenuMockProps = {
+  children: ReactNode;
+  // TaskCard passes an async handler here (it may await a confirmation).
+  onChangeSchedule: (scheduledFor: string | null) => Promise<void>;
+};
+const mockMoreMenu = jest.fn((props: MoreMenuMockProps) => props.children);
 jest.mock("../MoreMenu", () => ({
   MoreMenu: (props: Parameters<typeof mockMoreMenu>[0]) => mockMoreMenu(props),
+}));
+
+const mockConfirm = jest.fn<Promise<boolean>, [unknown]>();
+jest.mock("@/hooks/useConfirmation", () => ({
+  useConfirmation: () => ({
+    confirm: mockConfirm,
+    confirmationProps: {
+      visible: false,
+      title: "",
+      message: "",
+      actions: [],
+      onClose: jest.fn(),
+    },
+  }),
 }));
 
 const baseTask: TTask = {
@@ -50,6 +67,73 @@ const baseTask: TTask = {
 describe("TaskCard", () => {
   beforeEach(() => {
     mockMoreMenu.mockClear();
+    mockConfirm.mockReset();
+  });
+
+  const scheduleVia = (task: TTask, onUpdate: jest.Mock) => {
+    render(
+      <TaskCard
+        task={task}
+        onUpdate={onUpdate}
+        onDuplicate={jest.fn()}
+        onDelete={jest.fn()}
+      />,
+    );
+    return mockMoreMenu.mock.calls[0][0].onChangeSchedule;
+  };
+
+  it("reschedules directly, without confirming, when the task has no alarm", async () => {
+    const onUpdate = jest.fn();
+    const onChangeSchedule = scheduleVia(baseTask, onUpdate);
+
+    await onChangeSchedule("2026-07-20");
+
+    expect(mockConfirm).not.toHaveBeenCalled();
+    expect(onUpdate).toHaveBeenCalledWith({ scheduledFor: "2026-07-20" });
+  });
+
+  it("confirms, then clears the alarm alongside a reschedule when one is set", async () => {
+    mockConfirm.mockResolvedValue(true);
+    const onUpdate = jest.fn();
+    const onChangeSchedule = scheduleVia(
+      { ...baseTask, alarmTime: "17:30" },
+      onUpdate,
+    );
+
+    await onChangeSchedule("2026-07-20");
+
+    expect(mockConfirm).toHaveBeenCalledTimes(1);
+    expect(onUpdate).toHaveBeenCalledWith({
+      scheduledFor: "2026-07-20",
+      alarmTime: null,
+    });
+  });
+
+  it("leaves the task untouched when the reschedule-clears-alarm prompt is declined", async () => {
+    mockConfirm.mockResolvedValue(false);
+    const onUpdate = jest.fn();
+    const onChangeSchedule = scheduleVia(
+      { ...baseTask, alarmTime: "17:30" },
+      onUpdate,
+    );
+
+    await onChangeSchedule(null);
+
+    expect(mockConfirm).toHaveBeenCalledTimes(1);
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it("does not prompt or clear the alarm when re-selecting the current day", async () => {
+    const onUpdate = jest.fn();
+    const onChangeSchedule = scheduleVia(
+      { ...baseTask, alarmTime: "17:30", scheduledFor: "2026-07-03" },
+      onUpdate,
+    );
+
+    await onChangeSchedule("2026-07-03");
+
+    expect(mockConfirm).not.toHaveBeenCalled();
+    expect(onUpdate).toHaveBeenCalledWith({ scheduledFor: "2026-07-03" });
   });
 
   it("renders the title and due date, wrapped in the long-press menu, with no list button when no list is chosen", () => {

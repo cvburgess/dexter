@@ -3,9 +3,11 @@ import { useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 
 import { ETaskStatus, TTask, TUpdateTask } from "@/api/tasks";
+import { useConfirmation } from "@/hooks/useConfirmation";
 import { requestAlarmAuthorization } from "@/utils/alarms";
 import { useTheme, withOpacity } from "@/utils/theme";
 
+import { ConfirmationModal } from "./ConfirmationModal";
 import { DueDateButton } from "./DueDateButton";
 import { ListButton } from "./ListButton";
 import { MoreMenu } from "./MoreMenu";
@@ -34,8 +36,32 @@ export function TaskCard({
 }: TTaskCardProps) {
   const theme = useTheme();
   const [alarmModalVisible, setAlarmModalVisible] = useState(false);
+  const { confirm, confirmationProps } = useConfirmation();
   const isComplete =
     task.status === ETaskStatus.DONE || task.status === ETaskStatus.WONT_DO;
+
+  // An alarm is bound to the task's scheduled date (it fires at scheduled_for +
+  // alarm_time), so unscheduling or moving the task would leave it silently
+  // dangling or ringing on the wrong day. Confirm, then clear the alarm as part
+  // of the same schedule change. A re-tap of the current day changes nothing, so
+  // it neither prompts nor clears (DEX-48).
+  const handleChangeSchedule = async (scheduledFor: string | null) => {
+    const scheduleChanged = scheduledFor !== task.scheduledFor;
+
+    if (task.alarmTime !== null && scheduleChanged) {
+      const confirmed = await confirm({
+        title: scheduledFor === null ? "Unschedule task?" : "Reschedule task?",
+        message:
+          "This task has an alarm set. Changing its schedule will unset the alarm.",
+        confirmLabel: scheduledFor === null ? "Unschedule" : "Reschedule",
+      });
+      if (!confirmed) return;
+      onUpdate({ scheduledFor, alarmTime: null });
+      return;
+    }
+
+    onUpdate({ scheduledFor });
+  };
 
   // Persist the picked alarm time. Alarms fire on the scheduled date, so an
   // unscheduled task is pulled onto today. AlarmKit needs permission before it
@@ -127,7 +153,7 @@ export function TaskCard({
       <MoreMenu
         task={task}
         onChangePriority={(priority) => onUpdate({ priority })}
-        onChangeSchedule={(scheduledFor) => onUpdate({ scheduledFor })}
+        onChangeSchedule={handleChangeSchedule}
         onChangeList={(listId) => onUpdate({ listId })}
         onSetAlarm={() => setAlarmModalVisible(true)}
         onClearAlarm={() => onUpdate({ alarmTime: null })}
@@ -143,6 +169,7 @@ export function TaskCard({
         onCancel={() => setAlarmModalVisible(false)}
         onConfirm={handleConfirmAlarm}
       />
+      <ConfirmationModal {...confirmationProps} />
     </>
   );
 }
