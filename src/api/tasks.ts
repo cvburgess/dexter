@@ -7,6 +7,7 @@ import { applyFilters, TQueryFilter } from "./applyFilters";
 
 export type TTask = {
   id: string;
+  alarmTime: string | null;
   dueOn: string | null;
   goalId: string | null;
   listId: string | null;
@@ -48,6 +49,7 @@ export const getTasks = async (
 };
 
 export type TCreateTask = {
+  alarmTime?: string | null;
   dueOn?: string | null;
   goalId?: string | null;
   listId?: string | null;
@@ -66,6 +68,7 @@ export type TCreateTask = {
  */
 export const duplicateTaskInput = (task: TTask): TCreateTask => ({
   title: task.title,
+  alarmTime: task.alarmTime,
   dueOn: task.dueOn,
   goalId: task.goalId,
   listId: task.listId,
@@ -89,6 +92,7 @@ export const createTask = async (
 
 export type TUpdateTask = {
   id: string;
+  alarmTime?: string | null;
   dueOn?: string | null;
   goalId?: string | null;
   listId?: string | null;

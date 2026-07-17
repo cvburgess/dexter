@@ -7,6 +7,7 @@ import { ETaskPriority } from "./tasks";
 
 export type TTemplate = {
   id: string;
+  alarmTime: string | null;
   createdAt: string;
   goalId: string | null;
   listId: string | null;
@@ -27,6 +28,7 @@ export const getTemplates = async (supabase: SupabaseClient<Database>) => {
 };
 
 export type TCreateTemplate = {
+  alarmTime?: string | null;
   goalId?: string | null;
   listId?: string | null;
   priority: ETaskPriority;
@@ -50,6 +52,7 @@ export const createTemplate = async (
 
 export type TUpdateTemplate = {
   id: string;
+  alarmTime?: string | null;
   goalId?: string | null;
   listId?: string | null;
   priority?: ETaskPriority;
