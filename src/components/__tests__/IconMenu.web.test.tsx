@@ -166,6 +166,48 @@ describe("IconMenu (web)", () => {
     expect(screen.getByText("Backlog").props.style.color).toBe("#fcb700");
   });
 
+  it("opens a long-press menu on right-click and suppresses the browser menu", () => {
+    const screen = render(
+      <IconMenu
+        accessibilityLabel="More"
+        trigger="longPress"
+        sections={sections}
+      >
+        <Text>Trigger</Text>
+      </IconMenu>,
+    );
+
+    expect(screen.queryByText("To Do")).toBeNull();
+
+    const wrapper = screen.UNSAFE_root.find(
+      (node) => typeof node.props.onContextMenu === "function",
+    );
+    const preventDefault = jest.fn();
+    fireEvent(wrapper, "contextMenu", {
+      clientX: 10,
+      clientY: 10,
+      preventDefault,
+    });
+
+    expect(preventDefault).toHaveBeenCalled();
+    expect(screen.getByText("To Do")).toBeTruthy();
+  });
+
+  it("does not wire right-click for a tap menu, leaving the browser menu intact", () => {
+    const screen = render(
+      <IconMenu accessibilityLabel="Status" sections={sections}>
+        <Text>Trigger</Text>
+      </IconMenu>,
+    );
+
+    expect(
+      screen.UNSAFE_root.findAll(
+        (node) => typeof node.props.onContextMenu === "function",
+      ),
+    ).toHaveLength(0);
+    expect(screen.queryByText("To Do")).toBeNull();
+  });
+
   it("opens on long-press instead of a regular press when configured for it", () => {
     const screen = render(
       <IconMenu

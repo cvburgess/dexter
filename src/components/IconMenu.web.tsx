@@ -1,5 +1,5 @@
 import { SymbolView } from "expo-symbols";
-import { useState } from "react";
+import { type MouseEvent, useState } from "react";
 import {
   Dimensions,
   type GestureResponderEvent,
@@ -45,6 +45,15 @@ export function IconMenu({
   };
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const isLongPress = trigger === "longPress";
+
+  const openAt = (x: number, y: number) => {
+    const { width } = Dimensions.get("window");
+    setAnchor({
+      x: Math.max(MENU_MARGIN, Math.min(x, width - MENU_WIDTH - MENU_MARGIN)),
+      y: y + MENU_MARGIN,
+    });
+  };
 
   // Explicit `titleColor` override, else destructive red, else default text —
   // shared by the leaf and submenu option rows so their label color can't drift.
@@ -60,16 +69,15 @@ export function IconMenu({
       clientX?: number;
       clientY?: number;
     };
-    const touchX = clientX ?? pageX ?? 0;
-    const touchY = clientY ?? pageY ?? 0;
-    const { width } = Dimensions.get("window");
-    setAnchor({
-      x: Math.max(
-        MENU_MARGIN,
-        Math.min(touchX, width - MENU_WIDTH - MENU_MARGIN),
-      ),
-      y: touchY + MENU_MARGIN,
-    });
+    openAt(clientX ?? pageX ?? 0, clientY ?? pageY ?? 0);
+  };
+
+  // Right-click is the mouse equivalent of a long-press, so it opens long-press
+  // menus at the cursor and suppresses the browser's native context menu. Tap
+  // menus are left alone (the handler is only wired for `trigger === "longPress"`).
+  const handleContextMenu = (event: MouseEvent) => {
+    event.preventDefault();
+    openAt(event.clientX, event.clientY);
   };
 
   const close = () => {
@@ -82,15 +90,25 @@ export function IconMenu({
 
   return (
     <>
-      <Pressable
-        accessibilityLabel={accessibilityLabel}
-        style={style}
-        {...(trigger === "longPress"
-          ? { onLongPress: handlePress }
-          : { onPress: handlePress })}
+      {/*
+        A layout-neutral DOM wrapper (adds no box) catches right-clicks so
+        long-press menus are reachable with a mouse. `contextmenu` bubbles up
+        from the trigger content; tap menus opt out by omitting the handler.
+      */}
+      <div
+        style={{ display: "contents" }}
+        onContextMenu={isLongPress ? handleContextMenu : undefined}
       >
-        {children}
-      </Pressable>
+        <Pressable
+          accessibilityLabel={accessibilityLabel}
+          style={style}
+          {...(isLongPress
+            ? { onLongPress: handlePress }
+            : { onPress: handlePress })}
+        >
+          {children}
+        </Pressable>
+      </div>
       {anchor ? (
         <Modal visible transparent animationType="fade" onRequestClose={close}>
           <Pressable style={styles.overlay} onPress={close}>

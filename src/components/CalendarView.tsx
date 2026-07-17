@@ -1,6 +1,13 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { useEffect, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, View, ViewStyle } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  LayoutChangeEvent,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
@@ -9,7 +16,11 @@ import {
   TEventResponse,
 } from "@/hooks/useCalendarEvents.types";
 import { usePreferences } from "@/hooks/usePreferences";
-import { layoutEvents, nowLineTopPx } from "@/utils/calendarLayout";
+import {
+  layoutEvents,
+  nowLineTopPx,
+  scrollOffsetForTarget,
+} from "@/utils/calendarLayout";
 import {
   formatHourLabel,
   formatTime,
@@ -65,6 +76,10 @@ const DEFAULT_START_HOUR = 6;
 const DEFAULT_END_HOUR = 20;
 /** How often the "now" line / past-event dimming re-evaluates. */
 const NOW_REFRESH_MS = 60_000;
+/** Padding above the first hour, inside the scroll content. */
+const SCROLL_TOP_PADDING = 12;
+/** Padding below the last hour (plus the bottom safe-area inset at runtime). */
+const SCROLL_BOTTOM_PADDING = 24;
 
 /**
  * Minutes from `date`'s midnight to the current moment. Inside `[0, 1440]` on
@@ -153,6 +168,28 @@ export function CalendarView({ date }: TCalendarViewProps) {
     HOUR_HEIGHT,
   );
 
+  // Once the scroll viewport is measured, anchor the now line in its upper third
+  // so recent and upcoming meetings are in frame without manual scrolling. This
+  // view remounts per day (SwipeableDay on small screens, a date `key` on large
+  // ones), so a once-per-mount scroll on first layout covers both "view loads"
+  // and "day changed". Skip when there's no now line (any day but today). The
+  // ref guards repeat layouts (rotation, split-view resize) from re-scrolling.
+  const scrollRef = useRef<ScrollView>(null);
+  const didScrollToNowRef = useRef(false);
+  const scrollToNow = (event: LayoutChangeEvent) => {
+    if (didScrollToNowRef.current || nowTopPx === null) return;
+    const viewportHeight = event.nativeEvent.layout.height;
+    const contentHeight =
+      totalHeight + SCROLL_TOP_PADDING + SCROLL_BOTTOM_PADDING + insets.bottom;
+    const y = scrollOffsetForTarget(
+      nowTopPx + SCROLL_TOP_PADDING,
+      viewportHeight,
+      contentHeight,
+    );
+    scrollRef.current?.scrollTo({ y, animated: false });
+    didScrollToNowRef.current = true;
+  };
+
   const hours = useMemo(() => {
     const list: number[] = [];
     for (let hour = startHour; hour <= endHour; hour++) list.push(hour);
@@ -184,13 +221,16 @@ export function CalendarView({ date }: TCalendarViewProps) {
         <EmptyScreen message={emptyMessage} />
       ) : (
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={[
             styles.scrollContent,
             // The host SafeAreaView omits the bottom edge (the native tab bar
             // owns it), so add the inset here or the last hour hides behind it.
-            { paddingBottom: 24 + insets.bottom },
+            { paddingBottom: SCROLL_BOTTOM_PADDING + insets.bottom },
           ]}
+          onLayout={scrollToNow}
           showsVerticalScrollIndicator={false}
+          testID="calendar-scroll"
         >
           <View style={{ height: totalHeight }}>
             {hours.map((hour) => {
@@ -406,7 +446,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   scrollContent: {
-    paddingTop: 12,
+    paddingTop: SCROLL_TOP_PADDING,
   },
   hourLabel: {
     fontSize: 11,
