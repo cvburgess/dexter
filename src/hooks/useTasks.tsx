@@ -96,6 +96,7 @@ const maybeCreateNextRecurringTask = async (
 
   await createTask(supabase, {
     title: template.title,
+    alarmTime: template.alarmTime,
     priority: template.priority,
     listId: template.listId,
     goalId: template.goalId,

@@ -61,6 +61,7 @@ export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
   const { mutate: createFromTask } = useMutation<TTemplate, Error, TTask>({
     mutationFn: async (task) => {
       const template = await createTemplate(supabase, {
+        alarmTime: task.alarmTime,
         goalId: task.goalId,
         listId: task.listId,
         priority: task.priority,

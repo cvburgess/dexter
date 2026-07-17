@@ -1,11 +1,15 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Temporal } from "@js-temporal/polyfill";
+import { useState } from "react";
+import { Alert, StyleSheet, Text, View } from "react-native";
 
 import { ETaskStatus, TTask, TUpdateTask } from "@/api/tasks";
+import { requestAlarmAuthorization } from "@/utils/alarms";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 import { DueDateButton } from "./DueDateButton";
 import { ListButton } from "./ListButton";
 import { MoreMenu } from "./MoreMenu";
+import { SetAlarmModal } from "./SetAlarmModal";
 import { StatusButton } from "./StatusButton";
 
 // Matches dexter-app's cardColors: incomplete cards sit on the priority color
@@ -29,8 +33,32 @@ export function TaskCard({
   onDelete,
 }: TTaskCardProps) {
   const theme = useTheme();
+  const [alarmModalVisible, setAlarmModalVisible] = useState(false);
   const isComplete =
     task.status === ETaskStatus.DONE || task.status === ETaskStatus.WONT_DO;
+
+  // Persist the picked alarm time. Alarms fire on the scheduled date, so an
+  // unscheduled task is pulled onto today. AlarmKit needs permission before it
+  // can ring, so a set that's denied is surfaced rather than silently stored.
+  const handleConfirmAlarm = async (alarmTime: string) => {
+    setAlarmModalVisible(false);
+
+    const authorized = await requestAlarmAuthorization();
+    if (!authorized) {
+      Alert.alert(
+        "Alarms are turned off",
+        "Enable alarms for Dexter in Settings to be reminded at a set time.",
+      );
+      return;
+    }
+
+    onUpdate({
+      alarmTime,
+      ...(task.scheduledFor === null
+        ? { scheduledFor: Temporal.Now.plainDateISO().toString() }
+        : {}),
+    });
+  };
   const priorityColor = theme.colors.priority[task.priority];
   // The color everything on the card (title, button outlines/icons, border)
   // is drawn in — matches dexter-app's Card.tsx, which derives all of it
@@ -95,17 +123,27 @@ export function TaskCard({
   if (isComplete) return card;
 
   return (
-    <MoreMenu
-      task={task}
-      onChangePriority={(priority) => onUpdate({ priority })}
-      onChangeSchedule={(scheduledFor) => onUpdate({ scheduledFor })}
-      onChangeList={(listId) => onUpdate({ listId })}
-      onDuplicate={onDuplicate}
-      onDelete={onDelete}
-      style={styles.moreMenuWrapper}
-    >
-      {card}
-    </MoreMenu>
+    <>
+      <MoreMenu
+        task={task}
+        onChangePriority={(priority) => onUpdate({ priority })}
+        onChangeSchedule={(scheduledFor) => onUpdate({ scheduledFor })}
+        onChangeList={(listId) => onUpdate({ listId })}
+        onSetAlarm={() => setAlarmModalVisible(true)}
+        onClearAlarm={() => onUpdate({ alarmTime: null })}
+        onDuplicate={onDuplicate}
+        onDelete={onDelete}
+        style={styles.moreMenuWrapper}
+      >
+        {card}
+      </MoreMenu>
+      <SetAlarmModal
+        visible={alarmModalVisible}
+        initialTime={task.alarmTime}
+        onCancel={() => setAlarmModalVisible(false)}
+        onConfirm={handleConfirmAlarm}
+      />
+    </>
   );
 }
 

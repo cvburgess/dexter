@@ -36,6 +36,7 @@ jest.mock("../MoreMenu", () => ({
 
 const baseTask: TTask = {
   id: "task-1",
+  alarmTime: null,
   title: "Write the report",
   dueOn: null,
   goalId: null,

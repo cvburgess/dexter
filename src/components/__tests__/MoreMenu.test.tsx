@@ -10,6 +10,7 @@ import { weekStartEnd } from "@/utils/weekStartEnd";
 
 import type { TIconMenuSection } from "../IconMenu.types";
 import {
+  getAlarmSections,
   getOtherSections,
   getPrioritySections,
   getScheduleSections,
@@ -20,6 +21,7 @@ const theme = renderHook(() => useTheme()).result.current;
 
 const makeTask = (overrides: Partial<TTask> = {}): TTask => ({
   id: "task-1",
+  alarmTime: null,
   title: "Task row",
   dueOn: null,
   goalId: null,
@@ -87,6 +89,8 @@ describe("MoreMenu", () => {
         onChangePriority={jest.fn()}
         onChangeSchedule={jest.fn()}
         onChangeList={jest.fn()}
+        onSetAlarm={jest.fn()}
+        onClearAlarm={jest.fn()}
         onDuplicate={jest.fn()}
         onDelete={jest.fn()}
       >
@@ -104,14 +108,16 @@ describe("MoreMenu", () => {
     expect(sections.map((section) => section.title)).toEqual([
       "Priority",
       "Schedule",
+      "Alarm",
       "List",
       "Other",
     ]);
-    // Priority/Schedule/List collapse into submenus; the Other action group is
-    // inline so its actions are directly tappable.
+    // Priority/Schedule/List collapse into submenus; the Alarm and Other action
+    // groups are inline so their actions are directly tappable.
     expect(sections.map((section) => Boolean(section.isSubmenu))).toEqual([
       true,
       true,
+      false,
       true,
       false,
     ]);
@@ -119,7 +125,13 @@ describe("MoreMenu", () => {
       sections.map((section) =>
         typeof section.icon === "object" ? section.icon.ios : section.icon,
       ),
-    ).toEqual(["exclamationmark", "calendar", "face.smiling", undefined]);
+    ).toEqual([
+      "exclamationmark",
+      "calendar",
+      undefined,
+      "face.smiling",
+      undefined,
+    ]);
   });
 
   it("labels the repeat action 'Repeat' when the task has no template", () => {
@@ -129,6 +141,8 @@ describe("MoreMenu", () => {
         onChangePriority={jest.fn()}
         onChangeSchedule={jest.fn()}
         onChangeList={jest.fn()}
+        onSetAlarm={jest.fn()}
+        onClearAlarm={jest.fn()}
         onDuplicate={jest.fn()}
         onDelete={jest.fn()}
       >
@@ -151,6 +165,8 @@ describe("MoreMenu", () => {
         onChangePriority={jest.fn()}
         onChangeSchedule={jest.fn()}
         onChangeList={jest.fn()}
+        onSetAlarm={jest.fn()}
+        onClearAlarm={jest.fn()}
         onDuplicate={jest.fn()}
         onDelete={jest.fn()}
       >
@@ -208,6 +224,38 @@ describe("getOtherSections", () => {
 
     section.options.find((option) => option.title === "Delete")?.onSelect();
     expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("getAlarmSections", () => {
+  it("offers 'Set alarm' as an inline item when the task has no alarm", () => {
+    const onSetAlarm = jest.fn();
+    const onClearAlarm = jest.fn();
+    const [section] = getAlarmSections(null, onSetAlarm, onClearAlarm);
+
+    expect(section.title).toBe("Alarm");
+    expect(section.isSubmenu).toBeUndefined();
+    expect(section.options.map((option) => option.title)).toEqual([
+      "Set alarm",
+    ]);
+
+    section.options[0].onSelect();
+    expect(onSetAlarm).toHaveBeenCalledTimes(1);
+    expect(onClearAlarm).not.toHaveBeenCalled();
+  });
+
+  it("flips to 'Unset alarm' that clears when the task has an alarm", () => {
+    const onSetAlarm = jest.fn();
+    const onClearAlarm = jest.fn();
+    const [section] = getAlarmSections("17:30", onSetAlarm, onClearAlarm);
+
+    expect(section.options.map((option) => option.title)).toEqual([
+      "Unset alarm",
+    ]);
+
+    section.options[0].onSelect();
+    expect(onClearAlarm).toHaveBeenCalledTimes(1);
+    expect(onSetAlarm).not.toHaveBeenCalled();
   });
 });
 

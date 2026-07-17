@@ -1,7 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
-import type { StyleProp, ViewStyle } from "react-native";
+import { Platform, type StyleProp, type ViewStyle } from "react-native";
 
 import { ETaskPriority, TTask } from "@/api/tasks";
 import { useLists } from "@/hooks/useLists";
@@ -19,6 +19,8 @@ type TMoreMenuProps = {
   onChangePriority: (priority: ETaskPriority) => void;
   onChangeSchedule: (scheduledFor: string | null) => void;
   onChangeList: (listId: string | null) => void;
+  onSetAlarm: () => void;
+  onClearAlarm: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
   children: ReactNode;
@@ -31,6 +33,8 @@ export function MoreMenu({
   onChangePriority,
   onChangeSchedule,
   onChangeList,
+  onSetAlarm,
+  onClearAlarm,
   onDuplicate,
   onDelete,
   children,
@@ -68,6 +72,10 @@ export function MoreMenu({
   const sections = [
     ...getPrioritySections(task.priority, onChangePriority, theme),
     ...getScheduleSections(task.scheduledFor, onChangeSchedule),
+    // Alarms ring via native iOS AlarmKit only, so the item is iOS-only.
+    ...(Platform.OS === "ios"
+      ? getAlarmSections(task.alarmTime, onSetAlarm, onClearAlarm)
+      : []),
     // ListButton's sections, collapsed into a titled submenu like the others.
     ...getListSections(lists, task.listId, onChangeList).map((section) => ({
       ...section,
@@ -192,6 +200,41 @@ export const getScheduleSections = (
     },
   ];
 };
+
+/**
+ * The alarm toggle, rendered as a single inline, directly-tappable item that
+ * flips between "Set alarm" (opens the time picker) and "Unset alarm" (clears
+ * it) based on whether the task already has an alarm time. iOS-only — AlarmKit
+ * does the ringing (DEX-48).
+ */
+export const getAlarmSections = (
+  alarmTime: string | null,
+  onSetAlarm: () => void,
+  onClearAlarm: () => void,
+): TIconMenuSection[] => [
+  {
+    title: "Alarm",
+    options: [
+      alarmTime
+        ? {
+            id: "unset-alarm",
+            title: "Unset alarm",
+            icon: {
+              ios: "alarm.slash",
+              android: "alarm_off",
+              web: "alarm_off",
+            } as const,
+            onSelect: onClearAlarm,
+          }
+        : {
+            id: "set-alarm",
+            title: "Set alarm",
+            icon: { ios: "alarm", android: "alarm", web: "alarm" } as const,
+            onSelect: onSetAlarm,
+          },
+    ],
+  },
+];
 
 /**
  * Task-management actions (Duplicate / Repeat / Delete), rendered as an inline
