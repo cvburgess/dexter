@@ -3,6 +3,7 @@ import { Temporal } from "@js-temporal/polyfill";
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 
 import {
+  backlogAttentionFilter,
   filterTasks,
   isCompletionStatus,
   selectBacklogTasks,
@@ -153,5 +154,76 @@ describe("filterTasks", () => {
     expect(filterTasks(tasks, "unscheduled", today).map((t) => t.id)).toEqual([
       "1",
     ]);
+  });
+});
+
+describe("backlogAttentionFilter", () => {
+  const today = Temporal.PlainDate.from("2026-07-16");
+
+  it("returns 'overdue' when an incomplete task is overdue", () => {
+    expect(backlogAttentionFilter([task({ dueOn: "2026-07-15" })], today)).toBe(
+      "overdue",
+    );
+  });
+
+  it("returns 'leftBehind' when an incomplete task is only left behind", () => {
+    expect(
+      backlogAttentionFilter([task({ scheduledFor: "2026-07-15" })], today),
+    ).toBe("leftBehind");
+  });
+
+  it("prioritizes 'overdue' when both overdue and left-behind tasks exist", () => {
+    const tasks = [
+      task({ id: "1", dueOn: "2026-07-15" }),
+      task({ id: "2", scheduledFor: "2026-07-10" }),
+    ];
+
+    expect(backlogAttentionFilter(tasks, today)).toBe("overdue");
+  });
+
+  it("prioritizes 'overdue' even when a left-behind task comes first", () => {
+    const tasks = [
+      task({ id: "1", scheduledFor: "2026-07-10" }),
+      task({ id: "2", dueOn: "2026-07-15" }),
+    ];
+
+    expect(backlogAttentionFilter(tasks, today)).toBe("overdue");
+  });
+
+  it("returns null when nothing is overdue or left behind", () => {
+    const tasks = [
+      task({ id: "1", dueOn: "2026-07-16" }), // due today, not overdue
+      task({ id: "2", scheduledFor: "2026-07-16" }), // scheduled today
+      task({ id: "3", dueOn: "2026-07-20", scheduledFor: "2026-07-20" }),
+      task({ id: "4", dueOn: null, scheduledFor: null }),
+    ];
+
+    expect(backlogAttentionFilter(tasks, today)).toBeNull();
+  });
+
+  it("ignores completed tasks that are past due or left behind", () => {
+    const tasks = [
+      task({ id: "1", dueOn: "2026-07-15", status: ETaskStatus.DONE }),
+      task({
+        id: "2",
+        scheduledFor: "2026-07-15",
+        status: ETaskStatus.WONT_DO,
+      }),
+    ];
+
+    expect(backlogAttentionFilter(tasks, today)).toBeNull();
+  });
+
+  it("uses a strict boundary — due today / scheduled today does not count", () => {
+    const tasks = [
+      task({ id: "1", dueOn: "2026-07-16" }),
+      task({ id: "2", scheduledFor: "2026-07-16" }),
+    ];
+
+    expect(backlogAttentionFilter(tasks, today)).toBeNull();
+  });
+
+  it("returns null for an empty task list", () => {
+    expect(backlogAttentionFilter([], today)).toBeNull();
   });
 });

@@ -1,8 +1,9 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
-import { Pressable, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import { useTheme, withOpacity } from "@/utils/theme";
 
+import { finishButton, indicatorLabel } from "./GlassIconButton.indicator";
 import { TGlassIconButtonProps } from "./GlassIconButton.types";
 
 const DEFAULT_SIZE = 40;
@@ -19,15 +20,17 @@ export function GlassIconButton({
   size = DEFAULT_SIZE,
   onPress,
   active,
+  indicator,
 }: TGlassIconButtonProps) {
   const theme = useTheme();
   // `undefined` and `false` both resolve to the default text color — only an
   // explicit `active={true}` switches to the primary tint.
   const iconColor = active ? theme.colors.primary : theme.colors.text;
+  const label = indicatorLabel(accessibilityLabel, indicator);
 
   const circle = (
     <View
-      accessibilityLabel={onPress ? undefined : accessibilityLabel}
+      accessibilityLabel={onPress ? undefined : label}
       style={[
         styles.circle,
         {
@@ -43,18 +46,7 @@ export function GlassIconButton({
     </View>
   );
 
-  if (onPress) {
-    return (
-      <Pressable
-        accessibilityLabel={accessibilityLabel}
-        accessibilityRole="button"
-        onPress={onPress}
-      >
-        {circle}
-      </Pressable>
-    );
-  }
-  return circle;
+  return finishButton(circle, { onPress, label, indicator, theme });
 }
 
 const styles = StyleSheet.create({

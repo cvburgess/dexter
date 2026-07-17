@@ -140,6 +140,32 @@ describe("IconMenu (web)", () => {
     expect(onSelect).toHaveBeenCalled();
   });
 
+  it("renders an option's label in its titleColor when set", () => {
+    const colored: TIconMenuSection[] = [
+      {
+        options: [
+          {
+            id: "backlog",
+            title: "Backlog",
+            titleColor: "#fcb700",
+            onSelect: jest.fn(),
+          },
+        ],
+      },
+    ];
+    const screen = render(
+      <IconMenu accessibilityLabel="Switch view" sections={colored}>
+        <Text>Trigger</Text>
+      </IconMenu>,
+    );
+
+    fireEvent.press(screen.getByLabelText("Switch view"), {
+      nativeEvent: { clientX: 10, clientY: 10 },
+    });
+
+    expect(screen.getByText("Backlog").props.style.color).toBe("#fcb700");
+  });
+
   it("opens a long-press menu on right-click and suppresses the browser menu", () => {
     const screen = render(
       <IconMenu

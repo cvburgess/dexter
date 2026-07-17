@@ -9,10 +9,19 @@ export type TIconMenuOption = {
   /** Icon rendered beside the label (SF Symbol / Material Symbol names). */
   icon?: SymbolViewProps["name"];
   /**
-   * Tint for the icon. Applied on Android and web; iOS system menus draw
-   * their own item icons and may ignore it.
+   * Tint for the icon. Applied on all platforms — on iOS the SF Symbol is
+   * tinted through SwiftUI's `.tint` (see `patches/@expo+ui`, which fixes the
+   * upstream menu using an ineffective `.foregroundColor` for button icons),
+   * which colors the icon but not the label. Set `titleColor` too for the label
+   * on Android/web.
    */
   iconColor?: string;
+  /**
+   * Tint for the label text. Applied on Android and web. iOS menu labels can't
+   * be recolored independently (only the icon tints, via `iconColor`), so this
+   * is a no-op there.
+   */
+  titleColor?: string;
   isSelected?: boolean;
   isDestructive?: boolean;
   onSelect: () => void;

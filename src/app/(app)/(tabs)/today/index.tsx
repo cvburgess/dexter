@@ -1,7 +1,6 @@
-import type { BottomSheetMethods } from "@expo/ui/community/bottom-sheet";
 import { Temporal } from "@js-temporal/polyfill";
 import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -15,10 +14,14 @@ import { NotesJournalTabs } from "@/components/NotesJournalTabs";
 import { NotesView } from "@/components/NotesView";
 import { SwipeableDay } from "@/components/SwipeableDay";
 import { TaskDrawer } from "@/components/TaskDrawer";
-import { TaskDrawerSheet } from "@/components/TaskDrawerSheet";
+import {
+  TaskDrawerSheet,
+  TTaskDrawerSheetHandle,
+} from "@/components/TaskDrawerSheet";
 import { TasksView } from "@/components/TasksView";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useTasks } from "@/hooks/useTasks";
 import { useTodayPanes } from "@/hooks/useTodayPanes";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
 import {
@@ -26,6 +29,7 @@ import {
   DRAWER_PANE_MAX_WIDTH,
   TASKS_PANE_MAX_WIDTH,
 } from "@/utils/breakpoints";
+import { backlogAttentionFilter, TFilterId } from "@/utils/taskFilters";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 type TDayState = {
@@ -42,7 +46,7 @@ export default function TodayScreen() {
   // Only the small-screen branch opens this (the large-screen branch docks the
   // drawer inline instead), but it's declared unconditionally since hooks
   // can't run inside a conditional branch.
-  const taskDrawerRef = useRef<BottomSheetMethods>(null);
+  const taskDrawerRef = useRef<TTaskDrawerSheetHandle>(null);
   const [day, setDay] = useState<TDayState>(() => ({
     date: Temporal.Now.plainDateISO(),
     direction: 0,
@@ -62,6 +66,24 @@ export default function TodayScreen() {
   const [journalEditing, setJournalEditing] = useState(false);
   // So "New Task" opened from this tab defaults its schedule to the viewed day.
   usePublishViewedDay(day.date);
+
+  // Drives the Backlog attention dot and the filter that tapping Backlog
+  // pre-applies (DEX-58): the Filter preset for the first overdue/left-behind
+  // task (Overdue wins), or null when there's nothing. Anchored to the real
+  // today, not `day.date` — it signals stragglers regardless of which day is on
+  // screen. Reads the shared, already-warm `["tasks"]` cache the panes use, so
+  // it costs no extra fetch.
+  const [allTasks] = useTasks();
+  const attentionFilter = useMemo(
+    () => backlogAttentionFilter(allTasks, Temporal.Now.plainDateISO()),
+    [allTasks],
+  );
+  const backlogAttention = attentionFilter !== null;
+  // The large-screen docked drawer runs controlled off this so opening it via
+  // the header toggle can pre-apply the attention filter (see `openDrawerPane`),
+  // mirroring the small-screen "tap Backlog" flow. The small-screen sheet owns
+  // its own filter internally instead (`TaskDrawerSheet`).
+  const [drawerFilterId, setDrawerFilterId] = useState<TFilterId>("none");
 
   const changeDate = (next: Temporal.PlainDate) =>
     setDay(({ date }) => ({
@@ -87,6 +109,14 @@ export default function TodayScreen() {
         pathname: "/new-task",
         params: { scheduledFor: day.date.toString() },
       });
+
+    // Toggling the drawer pane; when it's opening (not closing) and there are
+    // stragglers, pre-apply the filter the dot points to so it lands on the
+    // same view as the small-screen "tap Backlog" flow.
+    const toggleDrawerPane = () => {
+      if (!panes.drawer && attentionFilter) setDrawerFilterId(attentionFilter);
+      togglePane("drawer");
+    };
 
     return (
       <SafeAreaView
@@ -115,8 +145,9 @@ export default function TodayScreen() {
             <GlassIconButton
               accessibilityLabel="Toggle task drawer pane"
               active={panes.drawer}
+              indicator={backlogAttention}
               ionicon="file-tray-full-outline"
-              onPress={() => togglePane("drawer")}
+              onPress={toggleDrawerPane}
               sfSymbol="tray.full"
             />
             <GlassIconButton
@@ -178,7 +209,11 @@ export default function TodayScreen() {
                 },
               ]}
             >
-              <TaskDrawer date={day.date} />
+              <TaskDrawer
+                date={day.date}
+                filterId={drawerFilterId}
+                onFilterChange={setDrawerFilterId}
+              />
             </View>
           )}
         </View>
@@ -213,7 +248,10 @@ export default function TodayScreen() {
           <DayViewSwitcher
             view={activeView}
             onChangeView={setView}
-            onOpenDrawer={() => taskDrawerRef.current?.present()}
+            onOpenDrawer={() =>
+              taskDrawerRef.current?.present(attentionFilter ?? undefined)
+            }
+            attention={backlogAttention}
             enableNotes={preferences.enableNotes}
             enableJournal={preferences.enableJournal}
             enableCalendar={preferences.enableCalendar}

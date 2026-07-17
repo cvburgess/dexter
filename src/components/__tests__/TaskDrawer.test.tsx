@@ -10,6 +10,7 @@ import { useGoals } from "@/hooks/useGoals";
 import { useLists } from "@/hooks/useLists";
 import { useTasks } from "@/hooks/useTasks";
 
+import type { TIconMenuSection } from "../IconMenu.types";
 import {
   filterMenuOptions,
   groupMenuOptions,
@@ -29,14 +30,29 @@ jest.mock("@/hooks/useLists", () => ({ useLists: jest.fn() }));
 jest.mock("@/hooks/useGoals", () => ({ useGoals: jest.fn() }));
 
 // The native `@expo/ui` menu host can't be driven from a unit test (see
-// ListButton.test); render only the trigger and cover selection wiring via
-// the exported option-builder functions directly.
+// ListButton.test); render only the trigger, and capture the sections so a
+// menu option's onSelect can be invoked directly.
 const mockIconMenu = jest.fn(
-  (props: { children: ReactNode }) => props.children,
+  (props: {
+    accessibilityLabel?: string;
+    sections?: TIconMenuSection[];
+    children: ReactNode;
+  }) => props.children,
 );
 jest.mock("../IconMenu", () => ({
   IconMenu: (props: Parameters<typeof mockIconMenu>[0]) => mockIconMenu(props),
 }));
+
+/** Invokes a filter option's onSelect from the captured Filter IconMenu. */
+const selectFilterOption = (id: string) => {
+  const filterMenu = mockIconMenu.mock.calls.find(
+    ([props]) => props.accessibilityLabel === "Filter",
+  )?.[0];
+  filterMenu?.sections
+    ?.flatMap((section) => section.options)
+    .find((option) => option.id === id)
+    ?.onSelect();
+};
 
 // TaskCard wraps a native menu (MoreMenu) that can't be driven from a unit
 // test (see TasksView.test); stub it to its title. TaskCard's own rendering
@@ -359,5 +375,38 @@ describe("TaskDrawer", () => {
       id: "task-1",
       scheduledFor: "2026-07-16",
     });
+  });
+
+  it("applies a controlled filterId from the parent (Overdue)", () => {
+    // The drawer filters against the real today, so derive the overdue date
+    // from it rather than the fixed viewed day.
+    const yesterday = Temporal.Now.plainDateISO().subtract({ days: 1 });
+    mockUseTasks.mockReturnValue(
+      tasksResult([
+        task({ id: "1", title: "Overdue item", dueOn: yesterday.toString() }),
+        task({ id: "2", title: "Not overdue", dueOn: null }),
+      ]),
+    );
+    const screen = render(
+      <TaskDrawer date={date} filterId="overdue" onFilterChange={jest.fn()} />,
+    );
+
+    expect(screen.getByText("Overdue item")).toBeTruthy();
+    expect(screen.queryByText("Not overdue")).toBeNull();
+  });
+
+  it("routes filter selection through onFilterChange when controlled", () => {
+    const onFilterChange = jest.fn();
+    render(
+      <TaskDrawer
+        date={date}
+        filterId="none"
+        onFilterChange={onFilterChange}
+      />,
+    );
+
+    selectFilterOption("overdue");
+
+    expect(onFilterChange).toHaveBeenCalledWith("overdue");
   });
 });

@@ -78,7 +78,7 @@ describe("IconMenu (native)", () => {
       </IconMenu>,
     );
 
-    const { actions } = mockMenuView.mock.calls.at(-1)![0] as {
+    const { actions } = mockMenuView.mock.calls.at(-1)![0] as unknown as {
       actions: { subactions: { id: string; state?: string }[] }[];
     };
     const stateById = Object.fromEntries(
@@ -86,5 +86,39 @@ describe("IconMenu (native)", () => {
     );
 
     expect(stateById).toEqual({ on: "on", off: "off", action: undefined });
+  });
+
+  it("forwards a colored action item's icon tint without making it a toggle", () => {
+    // The colored Backlog action stays a plain button (no `state`); its icon is
+    // tinted natively via the patched @expo/ui menu (see patches/@expo+ui).
+    const coloredSections: TIconMenuSection[] = [
+      {
+        options: [
+          {
+            id: "backlog",
+            title: "Backlog",
+            icon: "tray.full",
+            iconColor: "#fcb700",
+            onSelect: jest.fn(),
+          },
+        ],
+      },
+    ];
+
+    render(
+      <IconMenu accessibilityLabel="Menu" sections={coloredSections}>
+        <Text>Trigger</Text>
+      </IconMenu>,
+    );
+
+    const { actions } = mockMenuView.mock.calls.at(-1)![0] as unknown as {
+      actions: {
+        subactions: { id: string; state?: string; imageColor?: string }[];
+      }[];
+    };
+    const backlog = actions[0].subactions.find((a) => a.id === "backlog");
+
+    expect(backlog?.imageColor).toBe("#fcb700");
+    expect(backlog?.state).toBeUndefined();
   });
 });

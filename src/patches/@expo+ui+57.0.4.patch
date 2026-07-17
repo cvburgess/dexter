@@ -1,0 +1,22 @@
+diff --git a/node_modules/@expo/ui/src/community/menu/MenuView.ios.tsx b/node_modules/@expo/ui/src/community/menu/MenuView.ios.tsx
+index a5b55b6..ee7f2b8 100644
+--- a/node_modules/@expo/ui/src/community/menu/MenuView.ios.tsx
++++ b/node_modules/@expo/ui/src/community/menu/MenuView.ios.tsx
+@@ -76,11 +76,12 @@ function renderAction(
+     );
+   }
+ 
+-  // For a leaf `Button`, `foregroundColor` also tints the system image —
+-  // upstream uses this to color both the label and the icon. Skip when the
+-  // role is destructive so SwiftUI's red tint remains in effect.
+-  if (imageColor && !attributes?.destructive) {
+-    modifiers.push(foregroundColorModifier(imageColor));
++  // For a leaf `Button`, `foregroundColor` is ignored by the iOS system menu
++  // for the item's content (verified iOS 26), so use `.tint` — which the menu
++  // does honor for the leading SF Symbol (same as the Toggle branch above).
++  // Skip when the role is destructive so SwiftUI's red tint remains in effect.
++  if (tintMod && !attributes?.destructive) {
++    modifiers.push(tintMod);
+   }
+ 
+   return (

@@ -13,7 +13,11 @@ import {
 
 import { useTheme, withOpacity } from "@/utils/theme";
 
-import type { IconMenuProps, TIconMenuSection } from "./IconMenu.types";
+import type {
+  IconMenuProps,
+  TIconMenuOption,
+  TIconMenuSection,
+} from "./IconMenu.types";
 
 const MENU_WIDTH = 220;
 const MENU_MARGIN = 8;
@@ -50,6 +54,12 @@ export function IconMenu({
       y: y + MENU_MARGIN,
     });
   };
+
+  // Explicit `titleColor` override, else destructive red, else default text —
+  // shared by the leaf and submenu option rows so their label color can't drift.
+  const labelColor = (option: TIconMenuOption) =>
+    option.titleColor ??
+    (option.isDestructive ? theme.colors.error : theme.colors.text);
 
   const handlePress = (event: GestureResponderEvent) => {
     // Web (DOM) events carry clientX/clientY; native touches carry pageX/pageY.
@@ -167,13 +177,7 @@ export function IconMenu({
                               tintColor={option.iconColor ?? theme.colors.text}
                             />
                           ) : null}
-                          <Text
-                            style={{
-                              color: option.isDestructive
-                                ? theme.colors.error
-                                : theme.colors.text,
-                            }}
-                          >
+                          <Text style={{ color: labelColor(option) }}>
                             {option.title}
                           </Text>
                         </Pressable>
@@ -237,13 +241,7 @@ export function IconMenu({
                                 }
                               />
                             ) : null}
-                            <Text
-                              style={{
-                                color: option.isDestructive
-                                  ? theme.colors.error
-                                  : theme.colors.text,
-                              }}
-                            >
+                            <Text style={{ color: labelColor(option) }}>
                               {option.title}
                             </Text>
                           </Pressable>

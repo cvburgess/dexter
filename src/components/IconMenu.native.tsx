@@ -40,6 +40,10 @@ export function IconMenu({
           image:
             typeof option.icon === "string" ? option.icon : option.icon?.ios,
           imageColor: option.iconColor,
+          // Android label color. iOS colors the icon from `imageColor` (via the
+          // `patches/@expo+ui` tint fix) but can't recolor a menu label
+          // independently, so this is a no-op there.
+          titleColor: option.titleColor,
           // Only checkable options declare `isSelected`. Omitting `state`
           // makes @expo/ui render a plain button rather than a stateful
           // Toggle, so action items (e.g. "Backlog") never stick a

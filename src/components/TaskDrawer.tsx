@@ -165,6 +165,14 @@ export function groupTasks(
 type TTaskDrawerProps = {
   /** The day currently being viewed on the Today tab — the drawer shows tasks not scheduled for it. */
   date: Temporal.PlainDate;
+  /**
+   * Controls the Filter preset from the parent when provided (with
+   * `onFilterChange`) — used by the mobile sheet to pre-apply the attention
+   * filter on open (DEX-58). Omitted for the docked large-screen pane, which
+   * keeps its own internal filter state.
+   */
+  filterId?: TFilterId;
+  onFilterChange?: (id: TFilterId) => void;
 };
 
 /**
@@ -187,9 +195,18 @@ type TTaskDrawerProps = {
  * menu controls need an explicit height to render (see `controlButtonInner`)
  * (DEX-33).
  */
-export function TaskDrawer({ date }: TTaskDrawerProps) {
+export function TaskDrawer({
+  date,
+  filterId: controlledFilterId,
+  onFilterChange,
+}: TTaskDrawerProps) {
   const theme = useTheme();
-  const [filterId, setFilterId] = useState<TFilterId>("none");
+  // Controlled by the parent when both props are given (mobile sheet), else
+  // self-managed (docked large-screen pane) — same optional-controlled shape
+  // as a standard input.
+  const [internalFilterId, setInternalFilterId] = useState<TFilterId>("none");
+  const filterId = controlledFilterId ?? internalFilterId;
+  const setFilterId = onFilterChange ?? setInternalFilterId;
   const [groupBy, setGroupBy] = useState<TGroupBy>("none");
   const [search, setSearch] = useState("");
 

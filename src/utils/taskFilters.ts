@@ -13,6 +13,14 @@ export const isCompletionStatus = (status: ETaskStatus | undefined): boolean =>
 
 const isIncomplete = (task: TTask): boolean => !isCompletionStatus(task.status);
 
+/** Due date set and strictly before `todayIso` — the "Overdue" preset's predicate. */
+const isOverdue = (task: TTask, todayIso: string): boolean =>
+  task.dueOn !== null && task.dueOn < todayIso;
+
+/** Scheduled for a day strictly before `todayIso` — the "Left Behind" preset's predicate. */
+const isLeftBehind = (task: TTask, todayIso: string): boolean =>
+  task.scheduledFor !== null && task.scheduledFor < todayIso;
+
 /** Tasks scheduled for `date`, any status — the Today list's contents. */
 export function selectTasksForDate(
   tasks: TTask[],
@@ -55,9 +63,7 @@ export function filterTasks(
     case "none":
       return tasks;
     case "overdue":
-      return tasks.filter(
-        (task) => task.dueOn !== null && task.dueOn < todayIso,
-      );
+      return tasks.filter((task) => isOverdue(task, todayIso));
     case "dueSoon": {
       const cutoffIso = today.add({ days: DUE_SOON_WINDOW_DAYS }).toString();
       return tasks.filter(
@@ -68,10 +74,37 @@ export function filterTasks(
       );
     }
     case "leftBehind":
-      return tasks.filter(
-        (task) => task.scheduledFor !== null && task.scheduledFor < todayIso,
-      );
+      return tasks.filter((task) => isLeftBehind(task, todayIso));
     case "unscheduled":
       return tasks.filter((task) => task.scheduledFor === null);
   }
+}
+
+/**
+ * The Backlog Filter preset the attention dot maps to (DEX-58), or `null` when
+ * no *incomplete* task is overdue or left behind as of `today`. `"overdue"`
+ * wins when both kinds exist (product decision: overdue is more time-sensitive).
+ * The dot itself is just `backlogAttentionFilter(...) !== null`, and tapping
+ * Backlog pre-applies the returned preset in the drawer.
+ *
+ * Anchored to today, not the viewed day, since it signals "you have stragglers"
+ * regardless of which day is on screen. Uses the same strict `< today` boundary
+ * as the drawer's Overdue / Left Behind presets (a task due today is not yet
+ * overdue). The status guard matters: `filterTasks`'s presets don't check
+ * completion themselves (the drawer pre-scopes to incomplete via
+ * `selectBacklogTasks`), so a completed past-due task must not light the dot.
+ */
+export function backlogAttentionFilter(
+  tasks: TTask[],
+  today: Temporal.PlainDate,
+): TFilterId | null {
+  const todayIso = today.toString();
+  let hasLeftBehind = false;
+  for (const task of tasks) {
+    if (!isIncomplete(task)) continue;
+    // Any overdue task wins outright, whatever the array order.
+    if (isOverdue(task, todayIso)) return "overdue";
+    if (isLeftBehind(task, todayIso)) hasLeftBehind = true;
+  }
+  return hasLeftBehind ? "leftBehind" : null;
 }
