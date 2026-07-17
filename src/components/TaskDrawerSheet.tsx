@@ -64,14 +64,20 @@ export function TaskDrawerSheet({ date, ref }: TTaskDrawerSheetProps) {
   const [filterId, setFilterId] = useState<TFilterId>("none");
   const sheetRef = useRef<BottomSheetMethods>(null);
 
-  useImperativeHandle(ref, () => ({
-    present: (filter) => {
-      // Set the filter first so the deferred TaskDrawer mounts already filtered;
-      // omitting `filter` leaves whatever the user last had selected.
-      if (filter) setFilterId(filter);
-      sheetRef.current?.present();
-    },
-  }));
+  // Deps `[]`: the handle only closes over the stable `sheetRef` and the stable
+  // `setFilterId` setter, so it's built once rather than on every render.
+  useImperativeHandle(
+    ref,
+    () => ({
+      present: (filter) => {
+        // Set the filter first so the deferred TaskDrawer mounts already filtered;
+        // omitting `filter` leaves whatever the user last had selected.
+        if (filter) setFilterId(filter);
+        sheetRef.current?.present();
+      },
+    }),
+    [],
+  );
 
   return (
     <BottomSheetModal
