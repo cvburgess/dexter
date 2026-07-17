@@ -43,13 +43,12 @@ type THookOptions = {
 const EMPTY_LISTS: TList[] = [];
 
 // Exported so callers that need to warm this cache ahead of a mount (e.g.
-// `(app)/_layout.tsx`'s launch-time prefetch) share the exact key/fetcher/
-// staleTime this hook uses, instead of a second hand-copied definition that
-// could drift out of sync with this one.
+// `(app)/_layout.tsx`'s launch-time prefetch) share the exact key/fetcher this
+// hook uses, instead of a second hand-copied definition that could drift out
+// of sync with this one. staleTime falls through to the QueryProvider default.
 export const listsQueryOptions = queryOptions({
   queryKey: ["lists"],
   queryFn: () => getLists(supabase),
-  staleTime: 1000 * 60 * 10,
 });
 
 export const useLists = (options?: THookOptions): TUseLists => {

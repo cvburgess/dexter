@@ -1,7 +1,13 @@
 import { act, renderHook, waitFor } from "@testing-library/react-native";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  focusManager,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { AppState } from "react-native";
 
-import { QueryProvider } from "../QueryProvider";
+import { DEFAULT_STALE_TIME_MS, QueryProvider } from "../QueryProvider";
 
 const mockCaptureException = jest.fn();
 
@@ -51,5 +57,40 @@ describe("QueryProvider error routing", () => {
     });
 
     expect(mockCaptureException).toHaveBeenCalledWith(error);
+  });
+});
+
+describe("QueryProvider freshness defaults", () => {
+  it("gives Supabase-backed queries a shared default staleTime", () => {
+    const { result } = renderHook(() => useQueryClient(), {
+      wrapper: QueryProvider,
+    });
+
+    expect(result.current.getDefaultOptions().queries?.staleTime).toBe(
+      DEFAULT_STALE_TIME_MS,
+    );
+  });
+
+  it("ties focusManager to AppState so foregrounding refetches stale queries", () => {
+    const addEventListenerSpy = jest.spyOn(AppState, "addEventListener");
+
+    renderHook(() => null, { wrapper: QueryProvider });
+
+    expect(addEventListenerSpy).toHaveBeenCalledWith(
+      "change",
+      expect.any(Function),
+    );
+    const handleChange = addEventListenerSpy.mock.calls[0][1];
+
+    act(() => handleChange("background"));
+    expect(focusManager.isFocused()).toBe(false);
+
+    act(() => handleChange("active"));
+    expect(focusManager.isFocused()).toBe(true);
+
+    addEventListenerSpy.mockRestore();
+    // Module-level singleton — restore React Query's own event source so
+    // this test doesn't leak a stuck focus state into other test files.
+    focusManager.setFocused(undefined);
   });
 });

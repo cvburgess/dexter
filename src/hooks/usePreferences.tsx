@@ -35,7 +35,6 @@ export const usePreferences = (options?: THookOptions): TUsePreferences => {
     placeholderData: defaultPreferences,
     queryKey: ["preferences"],
     queryFn: () => getPreferences(supabase),
-    staleTime: 1000 * 60 * 10,
   });
 
   // Ignore any cached row when signed out — the `["preferences"]` cache isn't

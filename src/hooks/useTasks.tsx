@@ -44,8 +44,6 @@ type TSupabaseHookOptions = {
   skipQuery?: boolean;
 };
 
-const TASKS_STALE_TIME_MS = 1000 * 60 * 10;
-
 // How far back the canonical fetch reaches for completed tasks — wide enough
 // that the Today list's recently-checked-off rows stay visible, bounded so
 // the payload doesn't grow with the account's full task history. Incomplete
@@ -138,7 +136,6 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
     placeholderData: [],
     queryKey: ["tasks"],
     queryFn: () => getTasks(supabase, canonicalTaskFilters()),
-    staleTime: TASKS_STALE_TIME_MS,
   });
 
   const { mutate: create } = useMutation<TTask[], Error, TCreateTask>({

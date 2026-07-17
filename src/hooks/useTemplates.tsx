@@ -49,7 +49,6 @@ export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
     enabled: !options?.skipQuery,
     queryKey: ["templates"],
     queryFn: () => getTemplates(supabase),
-    staleTime: 1000 * 60 * 10,
   });
 
   const { mutate: create } = useMutation<TTemplate, Error, TCreateTemplate>({

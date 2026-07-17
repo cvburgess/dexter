@@ -14,7 +14,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { setPendingOAuthAuthorizationId } from "@/utils/oauthReturn";
 
 jest.mock("@/hooks/useAuth", () => ({
-  supabase: {},
+  // AppLayout now mounts useRealtimeInvalidation, which calls these when
+  // signed in.
+  supabase: {
+    channel: jest.fn(() => ({
+      on: jest.fn().mockReturnThis(),
+      subscribe: jest.fn(),
+    })),
+    removeChannel: jest.fn(),
+  },
   useAuth: jest.fn(),
 }));
 jest.mock("@/api/lists", () => ({ getLists: jest.fn() }));
@@ -172,20 +180,27 @@ describe("auth guards", () => {
       expect(mockGetGoals).toHaveBeenCalledTimes(1);
     });
 
-    it("clears the lists/goals cache when a session ends outside the explicit log-out flow", async () => {
+    it("clears the whole cache when a session ends outside the explicit log-out flow", async () => {
       mockUseAuth.mockReturnValue(authStates.signedIn);
       const screen = renderWithQueryClient(<AppLayout />);
       await waitFor(() =>
         expect(screen.queryClient.getQueryData(["lists"])).toEqual([]),
       );
+      // A domain unrelated to the prefetch effect (e.g. tasks) — proves the
+      // whole cache is cleared, not just what this effect itself warmed.
+      screen.queryClient.setQueryData(["tasks"], []);
 
-      // e.g. a revoked/expired token — not the settings/account.tsx log-out
-      // action, which already clears the whole cache itself.
+      // e.g. a revoked/expired token, or "sign out everywhere" from another
+      // device — not the settings/account.tsx log-out action, which already
+      // clears the whole cache itself. Without clearing here too, a
+      // different user signing in on the same device could briefly see the
+      // previous user's still-fresh data (DEX-36).
       mockUseAuth.mockReturnValue(authStates.signedOut);
       screen.rerender(<AppLayout />);
 
       expect(screen.queryClient.getQueryData(["lists"])).toBeUndefined();
       expect(screen.queryClient.getQueryData(["goals"])).toBeUndefined();
+      expect(screen.queryClient.getQueryData(["tasks"])).toBeUndefined();
     });
   });
 

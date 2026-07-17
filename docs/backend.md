@@ -47,6 +47,39 @@ Every user-owned table enables RLS with per-operation policies keyed on
   `SECURITY DEFINER` helper function (which bypasses RLS and so does not recurse),
   not an inline sub-select.
 
+## Realtime
+
+All eight user-owned tables (`tasks`, `repeat_task_templates`, `lists`,
+`goals`, `habits`, `daily_habits`, `days`, `preferences`) are added to the
+`supabase_realtime` publication via a guarded migration
+(`20260717193451_realtime_publication.sql`), so Postgres emits change events
+for them. Publication membership is **migration-managed** — do not add/remove
+tables via the dashboard, since a later migration re-adding an already-present
+table would no-op (the guard checks `pg_publication_tables`), but a
+dashboard-only addition would drift from what the migration declares.
+
+- **RLS gates delivery**: Realtime evaluates `postgres_changes` subscriptions
+  through the same RLS policies as normal queries, so a client only receives
+  events for rows it could `SELECT`. No separate realtime-specific
+  authorization exists.
+- **DELETE events are not filterable** by column (a Postgres/Realtime
+  limitation, not specific to this schema): with default `REPLICA IDENTITY`,
+  a DELETE's `old` record contains only primary-key columns, so a filter on
+  any other column — including the `user_id=eq.<uuid>` filter the client
+  applies — can never match. Only `days` and `preferences` key on `user_id`;
+  for the other six tables (`tasks`, `goals`, `lists`, `habits`,
+  `daily_habits`, `repeat_task_templates`), this means DELETE-triggered
+  realtime invalidation **never fires, by construction** — not an occasional
+  miss, a structural gap for every deletion on those tables.
+- **Client contract: invalidation-only.** The app's realtime consumer
+  (`useRealtimeInvalidation`, see `docs/frontend.md`) never reads event
+  payloads as data — an event only triggers a query-cache invalidation, and
+  the subsequent refetch goes through the normal RLS-scoped REST path. This
+  sidesteps the PK-only old-record limitation (there's no payload data to be
+  wrong), but does not change the DELETE-filter gap above: a deleted row on
+  those six tables persists on screen until the next focus/staleness-
+  triggered refetch (`DEFAULT_STALE_TIME_MS`), not until the next event.
+
 ## Edge Functions
 
 - Runtime is **Deno**, not Node: avoid Node-only built-ins and npm packages that

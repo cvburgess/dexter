@@ -40,6 +40,13 @@ type TSupabaseHookOptions = {
   filters?: TQueryFilter[];
 };
 
+// A habit edit can change today's daily rows — the DB trigger deletes them on
+// pause/archive or a days_active change, and the dailyHabits join carries the
+// habit's emoji/title. Exported so other consumers that need to invalidate
+// this pairing (e.g. useRealtimeInvalidation) share it instead of a second
+// hand-copied definition that could drift out of sync.
+export const HABITS_INVALIDATION_KEYS = [["habits"], ["dailyHabits"]];
+
 export const useHabits = (options?: TSupabaseHookOptions): TUseHabits => {
   const queryClient = useQueryClient();
 
@@ -47,15 +54,12 @@ export const useHabits = (options?: TSupabaseHookOptions): TUseHabits => {
     enabled: !options?.skipQuery,
     queryKey: ["habits", options?.filters],
     queryFn: () => getHabits(supabase, options?.filters),
-    staleTime: 1000 * 60 * 10,
   });
 
-  // A habit edit can change today's daily rows — the DB trigger deletes them on
-  // pause/archive or a days_active change, and the dailyHabits join carries the
-  // habit's emoji/title. Invalidate both caches so the Today tracker stays fresh.
   const invalidateHabits = () => {
-    void queryClient.invalidateQueries({ queryKey: ["habits"] });
-    void queryClient.invalidateQueries({ queryKey: ["dailyHabits"] });
+    HABITS_INVALIDATION_KEYS.forEach((queryKey) => {
+      void queryClient.invalidateQueries({ queryKey });
+    });
   };
 
   const { mutate: create } = useMutation<THabit, Error, TCreateHabit>({
@@ -112,7 +116,6 @@ export const useDailyHabits = (date: string): TUseDailyHabits => {
     queryKey: ["dailyHabits", date],
     queryFn: () => getDailyHabits(supabase, date),
     retry: false,
-    staleTime: 1000 * 60 * 10,
   });
 
   const { mutate: create } = useMutation<void, Error>({

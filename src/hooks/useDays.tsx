@@ -24,6 +24,16 @@ type TUseDays = [
   },
 ];
 
+// The realtime invalidation layer (useRealtimeInvalidation) checks this key
+// via `queryClient.isMutating` to skip refetching a date's cache entry while
+// its autosave is in flight — our own upsert echoes back as a realtime
+// event, and a refetch here would race the debounced editor (see the
+// onSuccess comment below). Scoped per date (not just "days") so an autosave
+// still retrying for one date (e.g. after a swipe away — see the `retry`
+// comment below) doesn't suppress a genuine incoming update for a different,
+// unrelated date.
+export const daysMutationKey = (date: string) => ["days", date];
+
 export const useDays = (date: string): TUseDays => {
   const queryClient = useQueryClient();
   const [preferences] = usePreferences();
@@ -48,7 +58,6 @@ export const useDays = (date: string): TUseDays => {
     queryKey: ["days", date],
     queryFn: () => getDay(supabase, date),
     retry: false,
-    staleTime: 1000 * 60 * 10,
   });
 
   // `data` is a row (TDay), `null` when the day has no row yet, or `undefined`
@@ -74,6 +83,7 @@ export const useDays = (date: string): TUseDays => {
         ...diff,
         date,
       }),
+    mutationKey: daysMutationKey(date),
     // Retry a failed save at the QueryClient level (upsert is idempotent). This
     // survives the component unmounting — an unmount flush (date change / tab
     // switch) that fails would otherwise have no mounted component left to

@@ -171,6 +171,17 @@ The app reports errors and performance data via [`@sentry/react-native`](https:/
 - `utils/` contains data helpers shared by the query layer and hooks.
 - `providers/QueryProvider.tsx` exports the React Query provider; `providers/ThemeProvider.tsx` resolves the user's chosen theme into `ThemeContext`. Route wiring in `app/` is intentionally separate from the data layer.
 
+### Keeping data fresh across platforms (DEX-36)
+
+Tasks, notes, and other Supabase-backed data can change from web, MCP, or another device while the app is open — three layers keep the cache from going stale:
+
+- **Shared staleTime.** `QueryProvider` sets `defaultOptions.queries.staleTime` to `DEFAULT_STALE_TIME_MS` (60s), replacing the hand-copied 10-minute `staleTime` every Supabase-backed hook used to set individually. Device-backed hooks still override it: `useTodayPanes`/`useEnabledDeviceCalendars` (`Infinity`, AsyncStorage-backed) and `useCalendarEvents`/`.web.ts` (10 min + `refetchOnMount: "always"`, device calendar/ICS-backed) have no cross-platform staleness to bound.
+- **Focus refetch.** React Query's `refetchOnWindowFocus` needs a `focusManager` event source; the browser's `visibilitychange` covers web for free, but nothing wired one on native. `QueryProvider` now ties `focusManager.setFocused` to `AppState` on native (mirroring the auth-refresh `AppState` listener in `utils/supabase.ts`), so foregrounding the app refetches any query older than the staleTime above.
+- **Realtime invalidation signal.** `useRealtimeInvalidation` (mounted from `(app)/_layout.tsx` once a session exists) subscribes to Supabase Realtime `postgres_changes` on every user-owned table and invalidates the matching query key(s) — see `REALTIME_INVALIDATIONS` for the table → key map. It is deliberately **invalidation-only**: event payloads are never written into the cache, so every refetch still goes through the normal RLS-scoped REST path (see `docs/backend.md`'s Realtime section for why — unfilterable DELETE events, PK-only old records). A burst of events for one table is coalesced into a single invalidation (~250ms debounce) instead of one refetch per row. Because Realtime does not replay events missed while disconnected, a channel rejoin after the first `SUBSCRIBED` invalidates every mapped key once as a catch-up.
+- **The `days` echo guard.** `useDays`'s autosave upsert echoes back as its own realtime event. Refetching a date's row while that date's mutation is still in flight would race the debounced editor the same way an `invalidateQueries` call in `onSuccess` would (see the comment there) — `useDays` tags its mutation with `daysMutationKey(date)` (scoped per date, not just the table), and `useRealtimeInvalidation` invalidates `["days"]` with a `predicate` that skips only the date(s) currently mutating. Scoping by date (rather than blocking the whole table) matters because a `days` mutation is designed to survive its component unmounting and keeps retrying in the background (e.g. after swiping to another day) — a stuck retry for one date must not suppress a genuine incoming update for a different one.
+
+No interval polling is used — realtime plus the 60s staleTime/focus backstop was judged to cover freshness without the extra request volume.
+
 ## Platform-split components
 
 Components that need a native module unavailable on web follow a four-file pattern, e.g. `DateField` (`components/DateField.*`):

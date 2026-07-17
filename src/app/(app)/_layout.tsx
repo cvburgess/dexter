@@ -6,6 +6,7 @@ import { LoadingScreen } from "@/components/LoadingScreen";
 import { useAuth } from "@/hooks/useAuth";
 import { goalsQueryOptions } from "@/hooks/useGoals";
 import { listsQueryOptions } from "@/hooks/useLists";
+import { useRealtimeInvalidation } from "@/hooks/useRealtimeInvalidation";
 import { createModalScreenOptions } from "@/utils/stackOptions";
 import { useTheme } from "@/utils/theme";
 
@@ -13,6 +14,10 @@ export default function AppLayout() {
   const { initializing, session, userId } = useAuth();
   const theme = useTheme();
   const queryClient = useQueryClient();
+
+  // Keeps every screen's query cache current when data changes on another
+  // platform (web, MCP) — see docs/frontend.md's Data Layer section (DEX-36).
+  useRealtimeInvalidation(userId);
 
   // Warms the lists/goals caches (`useLists`/`useGoals`'s own query options)
   // as soon as a session exists, so the Backlog drawer's Group menu never has
@@ -26,12 +31,11 @@ export default function AppLayout() {
       // Explicit log-out/delete-account already clear the whole cache
       // (settings/account.tsx), but a session can also end without going
       // through that screen (a revoked/expired token, "sign out everywhere"
-      // from another device) — clear just what this effect warmed so a
-      // different user signing in on the same device afterward doesn't see
-      // the previous user's still-fresh lists/goals before anything else
-      // invalidates them.
-      queryClient.removeQueries({ queryKey: listsQueryOptions.queryKey });
-      queryClient.removeQueries({ queryKey: goalsQueryOptions.queryKey });
+      // from another device) — clear it here too, the same way, so a
+      // different user signing in on the same device afterward never sees
+      // the previous user's still-fresh tasks/notes/habits/etc. (not just
+      // lists/goals) before something else invalidates them (DEX-36).
+      queryClient.clear();
       return;
     }
 
