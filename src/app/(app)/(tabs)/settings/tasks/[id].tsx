@@ -31,13 +31,13 @@ const NO_VALUE = "";
 
 // Cron day-of-week (0 = Sunday), ordered Monday-first to match the habit editor.
 const WEEKDAYS = [
-  { value: 1, label: "M", accessibilityLabel: "Weekday 1" },
-  { value: 2, label: "T", accessibilityLabel: "Weekday 2" },
-  { value: 3, label: "W", accessibilityLabel: "Weekday 3" },
-  { value: 4, label: "T", accessibilityLabel: "Weekday 4" },
-  { value: 5, label: "F", accessibilityLabel: "Weekday 5" },
-  { value: 6, label: "S", accessibilityLabel: "Weekday 6" },
-  { value: 0, label: "S", accessibilityLabel: "Weekday 0" },
+  { value: 1, label: "M", accessibilityLabel: "Monday" },
+  { value: 2, label: "T", accessibilityLabel: "Tuesday" },
+  { value: 3, label: "W", accessibilityLabel: "Wednesday" },
+  { value: 4, label: "T", accessibilityLabel: "Thursday" },
+  { value: 5, label: "F", accessibilityLabel: "Friday" },
+  { value: 6, label: "S", accessibilityLabel: "Saturday" },
+  { value: 0, label: "S", accessibilityLabel: "Sunday" },
 ] as const;
 
 const MONTHS = [

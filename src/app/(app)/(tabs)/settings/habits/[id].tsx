@@ -27,13 +27,13 @@ import { useTheme, withOpacity } from "@/utils/theme";
 
 // Temporal's `dayOfWeek`: Monday = 1 … Sunday = 7.
 const DAYS = [
-  { value: 1, label: "M", accessibilityLabel: "Day 1" },
-  { value: 2, label: "T", accessibilityLabel: "Day 2" },
-  { value: 3, label: "W", accessibilityLabel: "Day 3" },
-  { value: 4, label: "T", accessibilityLabel: "Day 4" },
-  { value: 5, label: "F", accessibilityLabel: "Day 5" },
-  { value: 6, label: "S", accessibilityLabel: "Day 6" },
-  { value: 7, label: "S", accessibilityLabel: "Day 7" },
+  { value: 1, label: "M", accessibilityLabel: "Monday" },
+  { value: 2, label: "T", accessibilityLabel: "Tuesday" },
+  { value: 3, label: "W", accessibilityLabel: "Wednesday" },
+  { value: 4, label: "T", accessibilityLabel: "Thursday" },
+  { value: 5, label: "F", accessibilityLabel: "Friday" },
+  { value: 6, label: "S", accessibilityLabel: "Saturday" },
+  { value: 7, label: "S", accessibilityLabel: "Sunday" },
 ] as const;
 
 const ALL_DAYS = [1, 2, 3, 4, 5, 6, 7];

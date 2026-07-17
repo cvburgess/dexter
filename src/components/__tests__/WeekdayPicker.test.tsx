@@ -5,16 +5,17 @@ import { WeekdayPicker } from "../WeekdayPicker";
 // Cron day-of-week (0 = Sunday), ordered Monday-first — matches
 // settings/tasks/[id].tsx's WEEKDAYS.
 const CRON_DAYS = [
-  { value: 1, label: "M", accessibilityLabel: "Weekday 1" },
-  { value: 2, label: "T", accessibilityLabel: "Weekday 2" },
-  { value: 0, label: "S", accessibilityLabel: "Weekday 0" },
+  { value: 1, label: "M", accessibilityLabel: "Monday" },
+  { value: 2, label: "T", accessibilityLabel: "Tuesday" },
+  { value: 0, label: "S", accessibilityLabel: "Sunday" },
 ];
 
 // Temporal dayOfWeek (Monday = 1 ... Sunday = 7) — matches
-// settings/habits/[id].tsx's DAYS.
+// settings/habits/[id].tsx's DAYS. Sunday is encoded differently (7 vs
+// cron's 0) to prove the component round-trips whatever value it's given.
 const TEMPORAL_DAYS = [
-  { value: 1, label: "M", accessibilityLabel: "Day 1" },
-  { value: 7, label: "S", accessibilityLabel: "Day 7" },
+  { value: 1, label: "M", accessibilityLabel: "Monday" },
+  { value: 7, label: "S", accessibilityLabel: "Sunday" },
 ];
 
 describe("WeekdayPicker", () => {
@@ -28,22 +29,24 @@ describe("WeekdayPicker", () => {
     expect(screen.getAllByText("S")).toHaveLength(1);
   });
 
-  it("uses the caller-supplied accessibility label format (cron)", () => {
+  it("uses the caller-supplied accessibility labels", () => {
     render(
       <WeekdayPicker days={CRON_DAYS} selected={[]} onToggle={jest.fn()} />,
     );
 
-    expect(screen.getByLabelText("Weekday 0")).toBeTruthy();
-    expect(screen.getByLabelText("Weekday 1")).toBeTruthy();
+    expect(screen.getByLabelText("Sunday")).toBeTruthy();
+    expect(screen.getByLabelText("Monday")).toBeTruthy();
   });
 
-  it("uses the caller-supplied accessibility label format (Temporal)", () => {
+  it("round-trips the caller's value regardless of encoding (cron vs Temporal)", () => {
+    const onToggle = jest.fn();
     render(
-      <WeekdayPicker days={TEMPORAL_DAYS} selected={[]} onToggle={jest.fn()} />,
+      <WeekdayPicker days={TEMPORAL_DAYS} selected={[]} onToggle={onToggle} />,
     );
 
-    expect(screen.getByLabelText("Day 1")).toBeTruthy();
-    expect(screen.getByLabelText("Day 7")).toBeTruthy();
+    fireEvent.press(screen.getByLabelText("Sunday"));
+
+    expect(onToggle).toHaveBeenCalledWith(7);
   });
 
   it("marks only the selected days as selected", () => {
@@ -51,13 +54,13 @@ describe("WeekdayPicker", () => {
       <WeekdayPicker days={CRON_DAYS} selected={[1, 0]} onToggle={jest.fn()} />,
     );
 
-    expect(screen.getByLabelText("Weekday 1").props.accessibilityState).toEqual(
+    expect(screen.getByLabelText("Monday").props.accessibilityState).toEqual(
       expect.objectContaining({ selected: true }),
     );
-    expect(screen.getByLabelText("Weekday 0").props.accessibilityState).toEqual(
+    expect(screen.getByLabelText("Sunday").props.accessibilityState).toEqual(
       expect.objectContaining({ selected: true }),
     );
-    expect(screen.getByLabelText("Weekday 2").props.accessibilityState).toEqual(
+    expect(screen.getByLabelText("Tuesday").props.accessibilityState).toEqual(
       expect.objectContaining({ selected: false }),
     );
   });
@@ -68,7 +71,7 @@ describe("WeekdayPicker", () => {
       <WeekdayPicker days={CRON_DAYS} selected={[]} onToggle={onToggle} />,
     );
 
-    fireEvent.press(screen.getByLabelText("Weekday 2"));
+    fireEvent.press(screen.getByLabelText("Tuesday"));
 
     expect(onToggle).toHaveBeenCalledWith(2);
   });
