@@ -178,9 +178,14 @@ type TTaskDrawerProps = {
  * menu hosts (see `TaskCard.tsx`'s `minHeight` comment) that are expensive to
  * mount in bulk. Root is a plain `flex: 1` `View`, not a `ScrollView`: only
  * `FlashList` needs to scroll (it owns its own internal scroll), and nesting
- * a scroller inside a `ScrollView` breaks virtualization. Note the native
- * `@expo/ui` menu controls need an explicit height to render (see
- * `controlButtonInner`) (DEX-33).
+ * a scroller inside a `ScrollView` breaks virtualization. `@shopify/flash-list`
+ * still renders a real RN `ScrollView` under the hood (see its own
+ * `CompatScroller.ts`), which is what lets the small-screen `@expo/ui`
+ * `BottomSheetModal` (`TaskDrawerSheet`) keep coordinating its native
+ * drag-to-dismiss/scroll-to-expand gestures with this list — verified
+ * hands-on on iOS after the FlashList migration. Note the native `@expo/ui`
+ * menu controls need an explicit height to render (see `controlButtonInner`)
+ * (DEX-33).
  */
 export function TaskDrawer({ date }: TTaskDrawerProps) {
   const theme = useTheme();
@@ -225,9 +230,11 @@ export function TaskDrawer({ date }: TTaskDrawerProps) {
               },
             ]
           : []),
-        ...group.tasks.map(
-          (task) => ({ type: "task" as const, id: task.id, task }) as const,
-        ),
+        ...group.tasks.map((task) => ({
+          type: "task" as const,
+          id: task.id,
+          task,
+        })),
       ]),
     [groups],
   );

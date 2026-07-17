@@ -84,18 +84,32 @@ describe("auth guards", () => {
   describe("AppLayout ((app)/_layout.tsx)", () => {
     beforeEach(() => {
       jest.clearAllMocks();
+      // Every signed-in render fires the prefetch effect; give it a resolved
+      // value by default so tests that don't care about prefetch behavior
+      // specifically don't log React Query's "data cannot be undefined"
+      // error for an un-mocked resolution.
+      mockGetLists.mockResolvedValue([]);
+      mockGetGoals.mockResolvedValue([]);
     });
 
     // AppLayout prefetches lists/goals via useQueryClient() once a session
     // exists, which needs a real provider in the tree (unlike the other
-    // layouts in this file).
+    // layouts in this file). Returns `rerender`/`queryClient` too, so a test
+    // can change the mocked auth state and re-render against the SAME client
+    // to observe how the prefetch effect reacts to that transition.
     const renderWithQueryClient = (ui: ReactNode) => {
       const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false } },
       });
-      return render(
-        <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+      const wrap = (inner: ReactNode) => (
+        <QueryClientProvider client={queryClient}>{inner}</QueryClientProvider>
       );
+      const result = render(wrap(ui));
+      return {
+        ...result,
+        queryClient,
+        rerender: (nextUi: ReactNode) => result.rerender(wrap(nextUi)),
+      };
     };
 
     it("shows the loading screen while initializing", () => {
@@ -122,8 +136,6 @@ describe("auth guards", () => {
     });
 
     it("prefetches lists and goals once a session exists", async () => {
-      mockGetLists.mockResolvedValue([]);
-      mockGetGoals.mockResolvedValue([]);
       mockUseAuth.mockReturnValue(authStates.signedIn);
 
       renderWithQueryClient(<AppLayout />);
@@ -139,6 +151,41 @@ describe("auth guards", () => {
 
       expect(mockGetLists).not.toHaveBeenCalled();
       expect(mockGetGoals).not.toHaveBeenCalled();
+    });
+
+    it("does not re-prefetch for a new session object belonging to the same user", async () => {
+      mockUseAuth.mockReturnValue(authStates.signedIn);
+      const screen = renderWithQueryClient(<AppLayout />);
+      await waitFor(() => expect(mockGetLists).toHaveBeenCalledTimes(1));
+
+      // A token refresh reissues a new Session object for the same user —
+      // the effect must key on userId, not session identity, or this would
+      // refire the prefetch on every refresh for the life of the session.
+      mockUseAuth.mockReturnValue({
+        initializing: false,
+        session: { user: { id: "user-1" } } as Session,
+        userId: "user-1",
+      });
+      screen.rerender(<AppLayout />);
+
+      expect(mockGetLists).toHaveBeenCalledTimes(1);
+      expect(mockGetGoals).toHaveBeenCalledTimes(1);
+    });
+
+    it("clears the lists/goals cache when a session ends outside the explicit log-out flow", async () => {
+      mockUseAuth.mockReturnValue(authStates.signedIn);
+      const screen = renderWithQueryClient(<AppLayout />);
+      await waitFor(() =>
+        expect(screen.queryClient.getQueryData(["lists"])).toEqual([]),
+      );
+
+      // e.g. a revoked/expired token — not the settings/account.tsx log-out
+      // action, which already clears the whole cache itself.
+      mockUseAuth.mockReturnValue(authStates.signedOut);
+      screen.rerender(<AppLayout />);
+
+      expect(screen.queryClient.getQueryData(["lists"])).toBeUndefined();
+      expect(screen.queryClient.getQueryData(["goals"])).toBeUndefined();
     });
   });
 
