@@ -41,6 +41,7 @@ export function IconMenu({
   };
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const isLongPress = trigger === "longPress";
 
   const openAt = (x: number, y: number) => {
     const { width } = Dimensions.get("window");
@@ -86,12 +87,12 @@ export function IconMenu({
       */}
       <div
         style={{ display: "contents" }}
-        onContextMenu={trigger === "longPress" ? handleContextMenu : undefined}
+        onContextMenu={isLongPress ? handleContextMenu : undefined}
       >
         <Pressable
           accessibilityLabel={accessibilityLabel}
           style={style}
-          {...(trigger === "longPress"
+          {...(isLongPress
             ? { onLongPress: handlePress }
             : { onPress: handlePress })}
         >
