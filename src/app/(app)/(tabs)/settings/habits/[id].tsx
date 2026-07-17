@@ -1,10 +1,5 @@
-import {
-  Redirect,
-  useLocalSearchParams,
-  useNavigation,
-  useRouter,
-} from "expo-router";
-import { useLayoutEffect, useRef, useState } from "react";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { useRef, useState } from "react";
 import {
   Alert,
   Platform,
@@ -20,23 +15,25 @@ import { TCreateHabit, THabit } from "@/api/habits";
 import { Button } from "@/components/Button";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { EmojiPicker } from "@/components/EmojiPicker";
+import { FormRow } from "@/components/FormRow";
 import { LoadingScreen } from "@/components/LoadingScreen";
-import { CloseButton, DoneButton } from "@/components/ModalHeaderButtons";
 import { TextInput } from "@/components/TextInput";
+import { WeekdayPicker } from "@/components/WeekdayPicker";
 import { WebModalHeader } from "@/components/WebModalHeader";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useHabits } from "@/hooks/useHabits";
+import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 // Temporal's `dayOfWeek`: Monday = 1 … Sunday = 7.
 const DAYS = [
-  { value: 1, label: "M" },
-  { value: 2, label: "T" },
-  { value: 3, label: "W" },
-  { value: 4, label: "T" },
-  { value: 5, label: "F" },
-  { value: 6, label: "S" },
-  { value: 7, label: "S" },
+  { value: 1, label: "M", accessibilityLabel: "Day 1" },
+  { value: 2, label: "T", accessibilityLabel: "Day 2" },
+  { value: 3, label: "W", accessibilityLabel: "Day 3" },
+  { value: 4, label: "T", accessibilityLabel: "Day 4" },
+  { value: 5, label: "F", accessibilityLabel: "Day 5" },
+  { value: 6, label: "S", accessibilityLabel: "Day 6" },
+  { value: 7, label: "S", accessibilityLabel: "Day 7" },
 ] as const;
 
 const ALL_DAYS = [1, 2, 3, 4, 5, 6, 7];
@@ -78,7 +75,6 @@ export default function HabitScreen() {
 
 function HabitForm({ existing }: { existing?: THabit }) {
   const theme = useTheme();
-  const navigation = useNavigation();
   const router = useRouter();
 
   const [, { createHabit, updateHabit, deleteHabit }] = useHabits();
@@ -175,36 +171,11 @@ function HabitForm({ existing }: { existing?: THabit }) {
         : [...prev, day].sort((a, b) => a - b),
     );
 
-  // No dependency array: the handlers close over the latest form state, so the
-  // header must be re-wired on every render (mirrors new-task.tsx).
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      title: isEditing ? "Edit Habit" : "New Habit",
-      headerLeft: () => <CloseButton onPress={handleClose} />,
-      headerRight: () => (
-        <DoneButton disabled={!canSave} onPress={handleSave} />
-      ),
-      unstable_headerLeftItems: () => [
-        {
-          type: "button",
-          label: "Cancel",
-          icon: { type: "sfSymbol", name: "xmark" },
-          tintColor: theme.colors.text,
-          onPress: handleClose,
-        },
-      ],
-      unstable_headerRightItems: () => [
-        {
-          type: "button",
-          label: "Save",
-          icon: { type: "sfSymbol", name: "checkmark" },
-          variant: "done",
-          tintColor: theme.colors.primary,
-          disabled: !canSave,
-          onPress: handleSave,
-        },
-      ],
-    });
+  useModalHeaderActions({
+    title: isEditing ? "Edit Habit" : "New Habit",
+    canSave,
+    onClose: handleClose,
+    onSave: handleSave,
   });
 
   const inputBorder = withOpacity(theme.colors.text, 0.1);
@@ -249,10 +220,7 @@ function HabitForm({ existing }: { existing?: THabit }) {
           />
         </View>
 
-        <View style={styles.labelRow}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>
-            Times per day
-          </Text>
+        <FormRow label="Times per day">
           <View style={styles.stepsControl}>
             <NativeTextInput
               accessibilityLabel="Times per day"
@@ -278,47 +246,15 @@ function HabitForm({ existing }: { existing?: THabit }) {
               × daily
             </Text>
           </View>
-        </View>
+        </FormRow>
 
-        <View style={styles.labelRow}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>Days</Text>
-          <View style={styles.days}>
-            {DAYS.map((day, index) => {
-              const selected = daysActive.includes(day.value);
-              return (
-                <TouchableOpacity
-                  key={index}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                  accessibilityLabel={`Day ${day.value}`}
-                  onPress={() => toggleDay(day.value)}
-                  style={[
-                    styles.day,
-                    {
-                      backgroundColor: selected
-                        ? theme.colors.primary
-                        : "transparent",
-                      borderColor: inputBorder,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.dayLabel,
-                      {
-                        color: selected
-                          ? theme.colors.primaryContent
-                          : theme.colors.textSecondary,
-                      },
-                    ]}
-                  >
-                    {day.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
+        <FormRow label="Days">
+          <WeekdayPicker
+            days={DAYS}
+            selected={daysActive}
+            onToggle={toggleDay}
+          />
+        </FormRow>
 
         {isEditing && (
           <View style={styles.dangerZone}>
@@ -354,22 +290,6 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 12,
   },
-  day: {
-    alignItems: "center",
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    height: 32,
-    justifyContent: "center",
-    width: 32,
-  },
-  dayLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  days: {
-    flexDirection: "row",
-    gap: 4,
-  },
   emoji: {
     alignItems: "center",
     borderWidth: StyleSheet.hairlineWidth,
@@ -380,18 +300,8 @@ const styles = StyleSheet.create({
   emojiGlyph: {
     fontSize: 24,
   },
-  label: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
   labelDetail: {
     fontSize: 14,
-  },
-  labelRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    minHeight: 40,
   },
   stepsControl: {
     alignItems: "center",
