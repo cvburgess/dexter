@@ -163,7 +163,8 @@ describe("IconMenu (web)", () => {
       nativeEvent: { clientX: 10, clientY: 10 },
     });
 
-    expect(screen.getByText("Backlog").props.style.color).toBe("#fcb700");
+    const style = screen.getByText("Backlog").props.style as { color?: string };
+    expect(style.color).toBe("#fcb700");
   });
 
   it("opens a long-press menu on right-click and suppresses the browser menu", () => {

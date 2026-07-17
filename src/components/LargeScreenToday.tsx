@@ -69,6 +69,8 @@ export function LargeScreenToday({
   // same view as the small-screen "tap Backlog" flow.
   const toggleDrawerPane = () => {
     if (!panes.drawer && attentionFilter) setDrawerFilterId(attentionFilter);
+    // `togglePane` persists to AsyncStorage; fire-and-forget like the other
+    // pane toggles (which pass it straight to `onPress`).
     void togglePane("drawer");
   };
 
