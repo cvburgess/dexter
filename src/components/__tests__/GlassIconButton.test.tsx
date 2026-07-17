@@ -88,4 +88,33 @@ describe("GlassIconButton", () => {
       expect.objectContaining({ tintColor: themes.dexter.colors.text }),
     );
   });
+
+  it("shows the attention dot and annotates the label when indicator is true", () => {
+    const screen = render(
+      <GlassIconButton
+        indicator
+        sfSymbol="tray.full"
+        ionicon="file-tray-full-outline"
+        accessibilityLabel="Backlog"
+      />,
+    );
+
+    expect(screen.getByTestId("attention-indicator")).toBeTruthy();
+    expect(
+      screen.getByLabelText("Backlog with overdue or left behind tasks"),
+    ).toBeTruthy();
+  });
+
+  it("omits the attention dot when indicator is falsy", () => {
+    const screen = render(
+      <GlassIconButton
+        sfSymbol="tray.full"
+        ionicon="file-tray-full-outline"
+        accessibilityLabel="Backlog"
+      />,
+    );
+
+    expect(screen.queryByTestId("attention-indicator")).toBeNull();
+    expect(screen.getByLabelText("Backlog")).toBeTruthy();
+  });
 });

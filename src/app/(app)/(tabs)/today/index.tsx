@@ -1,7 +1,7 @@
 import type { BottomSheetMethods } from "@expo/ui/community/bottom-sheet";
 import { Temporal } from "@js-temporal/polyfill";
 import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -19,6 +19,7 @@ import { TaskDrawerSheet } from "@/components/TaskDrawerSheet";
 import { TasksView } from "@/components/TasksView";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useTasks } from "@/hooks/useTasks";
 import { useTodayPanes } from "@/hooks/useTodayPanes";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
 import {
@@ -26,6 +27,7 @@ import {
   DRAWER_PANE_MAX_WIDTH,
   TASKS_PANE_MAX_WIDTH,
 } from "@/utils/breakpoints";
+import { hasBacklogAttention } from "@/utils/taskFilters";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 type TDayState = {
@@ -62,6 +64,16 @@ export default function TodayScreen() {
   const [journalEditing, setJournalEditing] = useState(false);
   // So "New Task" opened from this tab defaults its schedule to the viewed day.
   usePublishViewedDay(day.date);
+
+  // Drives the Backlog attention dot: true when any incomplete task is overdue
+  // or left behind (DEX-58). Anchored to the real today, not `day.date` — it
+  // signals stragglers regardless of which day is on screen. Reads the shared,
+  // already-warm `["tasks"]` cache the panes use, so it costs no extra fetch.
+  const [allTasks] = useTasks();
+  const backlogAttention = useMemo(
+    () => hasBacklogAttention(allTasks, Temporal.Now.plainDateISO()),
+    [allTasks],
+  );
 
   const changeDate = (next: Temporal.PlainDate) =>
     setDay(({ date }) => ({
@@ -115,6 +127,7 @@ export default function TodayScreen() {
             <GlassIconButton
               accessibilityLabel="Toggle task drawer pane"
               active={panes.drawer}
+              indicator={backlogAttention}
               ionicon="file-tray-full-outline"
               onPress={() => togglePane("drawer")}
               sfSymbol="tray.full"
@@ -214,6 +227,7 @@ export default function TodayScreen() {
             view={activeView}
             onChangeView={setView}
             onOpenDrawer={() => taskDrawerRef.current?.present()}
+            attention={backlogAttention}
             enableNotes={preferences.enableNotes}
             enableJournal={preferences.enableJournal}
             enableCalendar={preferences.enableCalendar}

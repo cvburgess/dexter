@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 
 import { useTheme, withOpacity } from "@/utils/theme";
 
+import { withIndicator } from "./GlassIconButton.indicator";
 import { TGlassIconButtonProps } from "./GlassIconButton.types";
 
 const DEFAULT_SIZE = 40;
@@ -19,15 +20,19 @@ export function GlassIconButton({
   size = DEFAULT_SIZE,
   onPress,
   active,
+  indicator,
 }: TGlassIconButtonProps) {
   const theme = useTheme();
   // `undefined` and `false` both resolve to the default text color — only an
   // explicit `active={true}` switches to the primary tint.
   const iconColor = active ? theme.colors.primary : theme.colors.text;
+  const label = indicator
+    ? `${accessibilityLabel} with overdue or left behind tasks`
+    : accessibilityLabel;
 
   const circle = (
     <View
-      accessibilityLabel={onPress ? undefined : accessibilityLabel}
+      accessibilityLabel={onPress ? undefined : label}
       style={[
         styles.circle,
         {
@@ -43,18 +48,19 @@ export function GlassIconButton({
     </View>
   );
 
-  if (onPress) {
-    return (
-      <Pressable
-        accessibilityLabel={accessibilityLabel}
-        accessibilityRole="button"
-        onPress={onPress}
-      >
-        {circle}
-      </Pressable>
-    );
-  }
-  return circle;
+  const button = onPress ? (
+    <Pressable
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      onPress={onPress}
+    >
+      {circle}
+    </Pressable>
+  ) : (
+    circle
+  );
+
+  return withIndicator(button, indicator, theme);
 }
 
 const styles = StyleSheet.create({

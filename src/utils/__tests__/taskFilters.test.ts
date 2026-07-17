@@ -4,6 +4,7 @@ import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 
 import {
   filterTasks,
+  hasBacklogAttention,
   isCompletionStatus,
   selectBacklogTasks,
   selectTasksForDate,
@@ -153,5 +154,67 @@ describe("filterTasks", () => {
     expect(filterTasks(tasks, "unscheduled", today).map((t) => t.id)).toEqual([
       "1",
     ]);
+  });
+});
+
+describe("hasBacklogAttention", () => {
+  const today = Temporal.PlainDate.from("2026-07-16");
+
+  it("is true when an incomplete task is overdue", () => {
+    expect(hasBacklogAttention([task({ dueOn: "2026-07-15" })], today)).toBe(
+      true,
+    );
+  });
+
+  it("is true when an incomplete task is left behind", () => {
+    expect(
+      hasBacklogAttention([task({ scheduledFor: "2026-07-15" })], today),
+    ).toBe(true);
+  });
+
+  it("is true when both overdue and left-behind tasks exist", () => {
+    const tasks = [
+      task({ id: "1", dueOn: "2026-07-15" }),
+      task({ id: "2", scheduledFor: "2026-07-10" }),
+    ];
+
+    expect(hasBacklogAttention(tasks, today)).toBe(true);
+  });
+
+  it("is false when nothing is overdue or left behind", () => {
+    const tasks = [
+      task({ id: "1", dueOn: "2026-07-16" }), // due today, not overdue
+      task({ id: "2", scheduledFor: "2026-07-16" }), // scheduled today
+      task({ id: "3", dueOn: "2026-07-20", scheduledFor: "2026-07-20" }),
+      task({ id: "4", dueOn: null, scheduledFor: null }),
+    ];
+
+    expect(hasBacklogAttention(tasks, today)).toBe(false);
+  });
+
+  it("ignores completed tasks that are past due or left behind", () => {
+    const tasks = [
+      task({ id: "1", dueOn: "2026-07-15", status: ETaskStatus.DONE }),
+      task({
+        id: "2",
+        scheduledFor: "2026-07-15",
+        status: ETaskStatus.WONT_DO,
+      }),
+    ];
+
+    expect(hasBacklogAttention(tasks, today)).toBe(false);
+  });
+
+  it("uses a strict boundary — due today / scheduled today does not count", () => {
+    const tasks = [
+      task({ id: "1", dueOn: "2026-07-16" }),
+      task({ id: "2", scheduledFor: "2026-07-16" }),
+    ];
+
+    expect(hasBacklogAttention(tasks, today)).toBe(false);
+  });
+
+  it("is false for an empty task list", () => {
+    expect(hasBacklogAttention([], today)).toBe(false);
   });
 });

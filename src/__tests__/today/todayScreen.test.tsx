@@ -23,6 +23,11 @@ const mockPublishViewedDay = usePublishViewedDay as jest.MockedFunction<
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 jest.mock("@/hooks/useTodayPanes", () => ({ useTodayPanes: jest.fn() }));
 jest.mock("@/hooks/useIsMultiPane", () => ({ useIsMultiPane: jest.fn() }));
+// TodayScreen reads the canonical task cache only to drive the Backlog
+// attention dot (DEX-58); the mocked TasksView/TaskDrawer own the real fetch in
+// their own suites. Stub it to an empty list (its module-scope useAuth import
+// otherwise needs the expo-constants manifest this unit test doesn't set up).
+jest.mock("@/hooks/useTasks", () => ({ useTasks: () => [[], {}] }));
 
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));

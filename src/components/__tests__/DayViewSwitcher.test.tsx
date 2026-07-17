@@ -58,6 +58,8 @@ describe("dayViewOptions", () => {
 });
 
 describe("DayViewSwitcher", () => {
+  beforeEach(() => mockGlassIconButton.mockClear());
+
   it("shows the current view's icon in the trigger", () => {
     const screen = render(
       <DayViewSwitcher
@@ -70,5 +72,38 @@ describe("DayViewSwitcher", () => {
     );
 
     expect(screen.getByText("note.text")).toBeTruthy();
+  });
+
+  it("forwards `attention` to the trigger button as its indicator", () => {
+    render(
+      <DayViewSwitcher
+        view="tasks"
+        onChangeView={jest.fn()}
+        attention
+        enableNotes={false}
+        enableJournal={false}
+        enableCalendar={false}
+      />,
+    );
+
+    expect(mockGlassIconButton).toHaveBeenLastCalledWith(
+      expect.objectContaining({ indicator: true }),
+    );
+  });
+
+  it("leaves the indicator unset when `attention` is omitted", () => {
+    render(
+      <DayViewSwitcher
+        view="tasks"
+        onChangeView={jest.fn()}
+        enableNotes={false}
+        enableJournal={false}
+        enableCalendar={false}
+      />,
+    );
+
+    expect(mockGlassIconButton).toHaveBeenLastCalledWith(
+      expect.objectContaining({ indicator: undefined }),
+    );
   });
 });

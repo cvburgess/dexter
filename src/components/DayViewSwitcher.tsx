@@ -54,6 +54,13 @@ type TDayViewSwitcherProps = {
    * next-day arrow.
    */
   onOpenDrawer?: () => void;
+  /**
+   * Shows the warning-yellow attention dot on the trigger button when the
+   * Backlog holds overdue or left-behind tasks (DEX-58). The dot lives here
+   * (rather than a dedicated Backlog button) because the small-screen Backlog
+   * action is inside this menu.
+   */
+  attention?: boolean;
 };
 
 /**
@@ -98,6 +105,7 @@ export function DayViewSwitcher({
   enableJournal,
   enableCalendar,
   onOpenDrawer,
+  attention,
 }: TDayViewSwitcherProps) {
   const options = dayViewOptions(
     view,
@@ -132,6 +140,7 @@ export function DayViewSwitcher({
     >
       <GlassIconButton
         accessibilityLabel="Switch view"
+        indicator={attention}
         ionicon={VIEW_META[view].ionicon}
         sfSymbol={VIEW_META[view].icon}
         size={BUTTON_SIZE}

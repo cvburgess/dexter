@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 
 import { useTheme, withOpacity } from "@/utils/theme";
 
+import { withIndicator } from "./GlassIconButton.indicator";
 import { TGlassIconButtonProps } from "./GlassIconButton.types";
 
 const DEFAULT_SIZE = 40;
@@ -22,6 +23,7 @@ export function GlassIconButton({
   size = DEFAULT_SIZE,
   onPress,
   active,
+  indicator,
 }: TGlassIconButtonProps) {
   const theme = useTheme();
   const circle = { width: size, height: size, borderRadius: size / 2 };
@@ -32,8 +34,11 @@ export function GlassIconButton({
     <SymbolView name={sfSymbol} size={size * 0.5} tintColor={tintColor} />
   );
 
+  const label = indicator
+    ? `${accessibilityLabel} with overdue or left behind tasks`
+    : accessibilityLabel;
   // The trigger anchor doesn't take the a11y label when a Pressable wraps it.
-  const anchorLabel = onPress ? undefined : accessibilityLabel;
+  const anchorLabel = onPress ? undefined : label;
 
   const content: ReactNode = isLiquidGlassAvailable() ? (
     <GlassView
@@ -61,18 +66,19 @@ export function GlassIconButton({
     </View>
   );
 
-  if (onPress) {
-    return (
-      <Pressable
-        accessibilityLabel={accessibilityLabel}
-        accessibilityRole="button"
-        onPress={onPress}
-      >
-        {content}
-      </Pressable>
-    );
-  }
-  return content;
+  const button = onPress ? (
+    <Pressable
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      onPress={onPress}
+    >
+      {content}
+    </Pressable>
+  ) : (
+    content
+  );
+
+  return withIndicator(button, indicator, theme);
 }
 
 const styles = StyleSheet.create({

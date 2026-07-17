@@ -21,4 +21,10 @@ export type TGlassIconButtonProps = {
    * platform's default icon color (primary on iOS, text on Android/web).
    */
   active?: boolean;
+  /**
+   * Shows a small warning-yellow attention dot in the top-right corner when
+   * true — signals that action is waiting behind this button (DEX-58, the
+   * Backlog's overdue/left-behind indicator).
+   */
+  indicator?: boolean;
 };
