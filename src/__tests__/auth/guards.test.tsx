@@ -14,7 +14,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { setPendingOAuthAuthorizationId } from "@/utils/oauthReturn";
 
 jest.mock("@/hooks/useAuth", () => ({
-  supabase: {},
+  // AppLayout now mounts useRealtimeInvalidation, which calls these when
+  // signed in.
+  supabase: {
+    channel: jest.fn(() => ({
+      on: jest.fn().mockReturnThis(),
+      subscribe: jest.fn(),
+    })),
+    removeChannel: jest.fn(),
+  },
   useAuth: jest.fn(),
 }));
 jest.mock("@/api/lists", () => ({ getLists: jest.fn() }));
