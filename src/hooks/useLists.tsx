@@ -17,14 +17,19 @@ import {
 
 import { supabase } from "./useAuth";
 
+type TMutateCallbacks = {
+  onError?: (error: Error) => void;
+  onSuccess?: () => void;
+};
+
 type TUseLists = [
   TList[],
   {
-    createList: (list: TCreateList) => void;
+    createList: (list: TCreateList, callbacks?: TMutateCallbacks) => void;
     deleteList: (id: string) => void;
     getListById: (id: string | null) => TList | undefined;
     isLoading: boolean;
-    updateList: (list: TUpdateList) => void;
+    updateList: (list: TUpdateList, callbacks?: TMutateCallbacks) => void;
   },
 ];
 

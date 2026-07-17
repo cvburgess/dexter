@@ -6,6 +6,7 @@ export type TSettingsSlug =
   | "account"
   | "appearance"
   | "tasks"
+  | "lists"
   | "calendars"
   | "habits"
   | "journal"
@@ -40,6 +41,12 @@ export const SETTINGS_ITEMS: TSettingsItem[] = [
     title: "Tasks",
     subtitle: "Task defaults and behavior",
     icon: "checkbox-outline",
+  },
+  {
+    slug: "lists",
+    title: "Lists",
+    subtitle: "Organize tasks into lists",
+    icon: "list-outline",
   },
   {
     slug: "calendars",

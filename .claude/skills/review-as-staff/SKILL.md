@@ -1,6 +1,6 @@
 ---
 name: review-as-staff
-description: Staff-level code review of the current branch diff — orchestrates /code-review max and /simplify, applying fixes. Reviews the diff against main.
+description: Staff-level code review of the current branch diff — orchestrates /code-review high and /simplify, applying fixes. Reviews the diff against main.
 allowed-tools: Bash(git diff*), Read, Skill
 ---
 
@@ -31,9 +31,9 @@ Read the relevant architecture doc based on which directories changed, so you ca
 
 Understand what the changed code does and how it fits the surrounding module before running the review skills.
 
-### Step 3: Run `/code-review` at max effort, applying fixes
+### Step 3: Run `/code-review` at high effort, applying fixes
 
-Invoke the built-in `/code-review` skill via the `Skill` tool with `code-review` and arguments `max --fix`. This runs a deep review for correctness bugs plus reuse/simplification/efficiency cleanups at `max` effort and applies the resulting fixes to the working tree.
+Invoke the built-in `/code-review` skill via the `Skill` tool with `code-review` and arguments `high --fix`. This runs a deep review for correctness bugs plus reuse/simplification/efficiency cleanups at `high` effort and applies the resulting fixes to the working tree.
 
 ### Step 4: Run `/simplify`, applying fixes
 
@@ -43,7 +43,7 @@ Invoke the built-in `/simplify` skill via the `Skill` tool with `simplify` (no a
 
 Report a single combined summary covering:
 
-- What `/code-review max` surfaced and applied (correctness bugs + cleanups)
+- What `/code-review high` surfaced and applied (correctness bugs + cleanups)
 - What `/simplify` surfaced and applied (quality cleanups)
 - Anything either skill flagged but did not fix, and any follow-ups worth a human's attention
 

@@ -36,6 +36,14 @@ export default function SettingsLayout() {
         options={createModalScreenOptions(theme, "Repeat Schedule")}
       />
       <Stack.Screen
+        name="lists/index"
+        options={createListScreenOptions(theme, "Lists")}
+      />
+      <Stack.Screen
+        name="lists/[id]"
+        options={createModalScreenOptions(theme, "List")}
+      />
+      <Stack.Screen
         name="calendars"
         options={createListScreenOptions(theme, "Calendars")}
       />
