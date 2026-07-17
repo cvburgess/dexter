@@ -1,25 +1,63 @@
 import { ReactNode } from "react";
-import { StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 
 import { Theme } from "@/utils/theme";
 
 /**
- * Wraps a `GlassIconButton`'s content with a small warning-yellow attention dot
- * in the top-right corner when `indicator` is true (DEX-58). Shared by the
- * native and Android/web variants so the dot is identical on every platform.
- * `theme.colors.priority[0]` is the daisyUI "warning" (yellow) token — the
- * legacy app's left-behind color — as documented on `Theme.colors.priority` in
- * `theme.ts`; reused here rather than adding a dedicated `warning` token.
+ * The button's accessibility label, annotated when the attention dot shows so
+ * screen readers announce that the button needs attention. Kept generic — the
+ * dot is a generic affordance, so the *reason* for the attention lives with the
+ * consumer, not this shared primitive.
  */
-export function withIndicator(
-  content: ReactNode,
+export function indicatorLabel(
+  accessibilityLabel: string,
   indicator: boolean | undefined,
-  theme: Theme,
+): string {
+  return indicator
+    ? `${accessibilityLabel}, needs attention`
+    : accessibilityLabel;
+}
+
+type TFinishButtonOptions = {
+  onPress?: () => void;
+  label: string;
+  indicator: boolean | undefined;
+  theme: Theme;
+};
+
+/**
+ * Shared tail of both `GlassIconButton` variants: wrap the platform-rendered
+ * `content` in a `Pressable` when interactive, then overlay a small
+ * warning-yellow attention dot in the top-right corner when `indicator` is set
+ * (DEX-58). `content` already carries the anchor a11y label for the
+ * non-interactive (menu-trigger) case; the `Pressable` owns it otherwise.
+ * `theme.colors.priority[0]` is the daisyUI "warning" (yellow) token — the
+ * legacy app's left-behind color, documented on `Theme.colors.priority` in
+ * `theme.ts` — reused rather than adding a dedicated `warning` token.
+ */
+export function finishButton(
+  content: ReactNode,
+  { onPress, label, indicator, theme }: TFinishButtonOptions,
 ): ReactNode {
-  if (!indicator) return content;
-  return (
-    <View style={styles.wrapper}>
+  const button = onPress ? (
+    <Pressable
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      onPress={onPress}
+    >
       {content}
+    </Pressable>
+  ) : (
+    content
+  );
+
+  if (!indicator) return button;
+
+  // An absolute child anchors to its parent View without needing an explicit
+  // `position: "relative"` (the React Native default), so the wrapper is bare.
+  return (
+    <View>
+      {button}
       <View
         pointerEvents="none"
         style={[
@@ -37,11 +75,6 @@ export function withIndicator(
 }
 
 const styles = StyleSheet.create({
-  // No size of its own: sizes to the wrapped button so the absolute dot anchors
-  // to that button's top-right corner.
-  wrapper: {
-    position: "relative",
-  },
   dot: {
     borderRadius: 999,
     borderWidth: 1.5,

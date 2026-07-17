@@ -100,9 +100,7 @@ describe("GlassIconButton", () => {
     );
 
     expect(screen.getByTestId("attention-indicator")).toBeTruthy();
-    expect(
-      screen.getByLabelText("Backlog with overdue or left behind tasks"),
-    ).toBeTruthy();
+    expect(screen.getByLabelText("Backlog, needs attention")).toBeTruthy();
   });
 
   it("omits the attention dot when indicator is falsy", () => {
