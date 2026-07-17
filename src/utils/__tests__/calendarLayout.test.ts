@@ -2,7 +2,11 @@ import { Temporal } from "@js-temporal/polyfill";
 
 import { TCalendarEvent } from "@/hooks/useCalendarEvents.types";
 
-import { layoutEvents, nowLineTopPx } from "../calendarLayout";
+import {
+  layoutEvents,
+  nowLineTopPx,
+  scrollOffsetForTarget,
+} from "../calendarLayout";
 
 const DATE = Temporal.PlainDate.from("2026-07-12");
 
@@ -142,5 +146,35 @@ describe("nowLineTopPx", () => {
   it("returns null when now is before or after the window", () => {
     expect(nowLineTopPx(START - 1, START, END, HOUR)).toBeNull();
     expect(nowLineTopPx(END + 1, START, END, HOUR)).toBeNull();
+  });
+});
+
+describe("scrollOffsetForTarget", () => {
+  // Content 1000px tall, viewport 300px → max scroll 700px.
+  const VIEWPORT = 300;
+  const CONTENT = 1000;
+
+  it("anchors a mid-content target to the upper third of the viewport", () => {
+    // 500 - 300/3 = 500 - 100 = 400.
+    expect(scrollOffsetForTarget(500, VIEWPORT, CONTENT)).toBe(400);
+  });
+
+  it("clamps to 0 when the target is near the top (no negative scroll)", () => {
+    // 50 - 100 = -50 → clamped to 0.
+    expect(scrollOffsetForTarget(50, VIEWPORT, CONTENT)).toBe(0);
+  });
+
+  it("clamps to the max scroll when the target is near the bottom", () => {
+    // 990 - 100 = 890, but max scroll is 700.
+    expect(scrollOffsetForTarget(990, VIEWPORT, CONTENT)).toBe(700);
+  });
+
+  it("returns 0 when the content is shorter than the viewport", () => {
+    expect(scrollOffsetForTarget(100, 500, 300)).toBe(0);
+  });
+
+  it("honors a custom anchor ratio", () => {
+    // Centered: 500 - 300/2 = 350.
+    expect(scrollOffsetForTarget(500, VIEWPORT, CONTENT, 1 / 2)).toBe(350);
   });
 });
