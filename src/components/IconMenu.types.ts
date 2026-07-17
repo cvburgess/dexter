@@ -9,9 +9,10 @@ export type TIconMenuOption = {
   /** Icon rendered beside the label (SF Symbol / Material Symbol names). */
   icon?: SymbolViewProps["name"];
   /**
-   * Tint for the icon. Applied on all platforms — on iOS the icon is tinted
-   * through SwiftUI's `.tint` (see `IconMenu.native`'s `menuItemState`), which
-   * colors the SF Symbol but not the label. Set `titleColor` too for the label
+   * Tint for the icon. Applied on all platforms — on iOS the SF Symbol is
+   * tinted through SwiftUI's `.tint` (see `patches/@expo+ui`, which fixes the
+   * upstream menu using an ineffective `.foregroundColor` for button icons),
+   * which colors the icon but not the label. Set `titleColor` too for the label
    * on Android/web.
    */
   iconColor?: string;

@@ -88,10 +88,9 @@ describe("IconMenu (native)", () => {
     expect(stateById).toEqual({ on: "on", off: "off", action: undefined });
   });
 
-  it("gives a colored action item an 'off' state on iOS so its icon can tint", () => {
-    // iOS only tints a menu item's SF Symbol through the Toggle path; a colored
-    // action (iconColor, no isSelected) is routed there via an "off" state (no
-    // checkmark). A plain action with no iconColor stays a button.
+  it("forwards a colored action item's icon tint without making it a toggle", () => {
+    // The colored Backlog action stays a plain button (no `state`); its icon is
+    // tinted natively via the patched @expo/ui menu (see patches/@expo+ui).
     const coloredSections: TIconMenuSection[] = [
       {
         options: [
@@ -102,7 +101,6 @@ describe("IconMenu (native)", () => {
             iconColor: "#fcb700",
             onSelect: jest.fn(),
           },
-          { id: "plain", title: "Plain", onSelect: jest.fn() },
         ],
       },
     ];
@@ -114,12 +112,13 @@ describe("IconMenu (native)", () => {
     );
 
     const { actions } = mockMenuView.mock.calls.at(-1)![0] as unknown as {
-      actions: { subactions: { id: string; state?: string }[] }[];
+      actions: {
+        subactions: { id: string; state?: string; imageColor?: string }[];
+      }[];
     };
-    const stateById = Object.fromEntries(
-      actions[0].subactions.map((a) => [a.id, a.state]),
-    );
+    const backlog = actions[0].subactions.find((a) => a.id === "backlog");
 
-    expect(stateById).toEqual({ backlog: "off", plain: undefined });
+    expect(backlog?.imageColor).toBe("#fcb700");
+    expect(backlog?.state).toBeUndefined();
   });
 });
