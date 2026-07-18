@@ -179,6 +179,11 @@ the function exchanges them for a real session.
   `docs/appstore.md` for the reviewer flow.
 - **Required secret:** `DEMO_OTP` (set as a function secret and passed to the
   seed script). `SUPABASE_URL`/`SUPABASE_PUBLISHABLE_KEYS` are already present.
+  Because the endpoint is public and unthrottled, use a **long, random**
+  `DEMO_OTP` (not a 6-digit number) so the demo account can't be brute-forced —
+  the login screen lets the demo code entry accept a long non-numeric secret,
+  unlike the 6-digit field real users see. Rotate or disable the function after
+  review if desired; it only ever reaches the demo account's data.
 - **Deploying the email template:** `[auth.email.template.magic_link]` in
   `config.toml` only applies to the **local** `supabase start` stack. The hosted
   project's Magic Link template is dashboard-managed — paste

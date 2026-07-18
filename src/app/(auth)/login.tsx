@@ -192,11 +192,16 @@ function CodeEntryForm({
       )}
       <TextInput
         testID="login-code-input"
-        placeholder="Enter 6-digit code"
+        // Regular users get a 6-digit numeric OTP. The demo account uses a
+        // static code, so it accepts a longer, non-numeric secret to keep the
+        // public verify-demo-otp endpoint from being brute-forceable.
+        placeholder={isDemo ? "Enter code" : "Enter 6-digit code"}
         value={code}
         onChangeText={onChangeCode}
-        keyboardType="number-pad"
-        maxLength={6}
+        keyboardType={isDemo ? "default" : "number-pad"}
+        maxLength={isDemo ? undefined : 6}
+        autoCapitalize="none"
+        autoCorrect={false}
         autoComplete="one-time-code"
         textContentType="oneTimeCode"
         editable={!loading}
