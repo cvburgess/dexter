@@ -6,9 +6,13 @@
 //   cd supabase/scripts
 //   SUPABASE_URL=... \
 //   SUPABASE_SERVICE_ROLE_KEY=... \
-//   DEMO_EMAIL=demo@dexterplanner.com \
-//   DEMO_PASSWORD=... \
+//   DEMO_OTP=... \
 //   deno task seed-demo
+//
+// The demo account's email is the shared DEMO_EMAIL constant, and its password
+// is derived from DEMO_OTP — the same secret the verify-demo-otp Edge Function
+// uses to sign the reviewer in — so the two never drift (see
+// ../functions/_shared/demoAuth.ts).
 //
 // The service-role key bypasses RLS, so every inserted row sets `user_id`
 // explicitly (there is no `auth.uid()` under the service role). It is a secret
@@ -18,6 +22,10 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@src/types/database.types.ts";
 
+import {
+  DEMO_EMAIL,
+  deriveDemoPassword,
+} from "../functions/_shared/demoAuth.ts";
 import { addDaysIso, buildDemoData, type DemoDataset } from "./demoData.ts";
 
 type Client = SupabaseClient<Database>;
@@ -243,18 +251,17 @@ async function seed(
 async function main(): Promise<void> {
   const supabaseUrl = requireEnv("SUPABASE_URL");
   const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
-  const demoEmail = requireEnv("DEMO_EMAIL");
-  const demoPassword = requireEnv("DEMO_PASSWORD");
+  const demoPassword = deriveDemoPassword(requireEnv("DEMO_OTP"));
 
   const supabase = createClient<Database>(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const userId = await findOrCreateDemoUser(supabase, demoEmail, demoPassword);
+  const userId = await findOrCreateDemoUser(supabase, DEMO_EMAIL, demoPassword);
   await wipeUserData(supabase, userId);
   await seed(supabase, userId, buildDemoData());
 
-  console.log(`Demo account reset complete for ${demoEmail}.`);
+  console.log(`Demo account reset complete for ${DEMO_EMAIL}.`);
 }
 
 if (import.meta.main) {

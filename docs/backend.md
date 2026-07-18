@@ -12,6 +12,13 @@ All backend config and migrations live under `/supabase`.
   calendar URLs
 - `functions/mcp-server/` — MCP-compatible planning data server for
   authenticated AI clients
+- `functions/verify-demo-otp/` — signs the App Store demo account in with a
+  fixed code (see "Demo account login" below)
+- `functions/_shared/` — modules shared across functions (`sentry.ts`,
+  `demoAuth.ts`)
+- `templates/magic_link.html` — the passwordless login email (magic link +
+  `{{ .Token }}` code), wired via `[auth.email.template.magic_link]` in
+  `config.toml`
 - `migrations/` — SQL migrations (timestamped filenames), including the
   production baseline
 - `config.toml` — Local Supabase CLI configuration
@@ -140,6 +147,43 @@ dashboard-only addition would drift from what the migration declares.
   tools return instead of throwing) also reports to Sentry. `ics-proxy` wraps
   its handler the same way and captures unexpected upstream-fetch failures
   without leaking internal error details in the sanitized client response.
+
+## Demo account login (App Store review)
+
+The app's login is passwordless (email magic link / OTP code + Google), so an
+App Store reviewer can't receive a code out of band. `verify-demo-otp` bridges
+that gap: the reviewer enters the demo email and a fixed code (`DEMO_OTP`), and
+the function exchanges them for a real session.
+
+- **Identity is shared, not duplicated by drift.** `functions/_shared/demoAuth.ts`
+  exports `DEMO_EMAIL` (matched *exactly* — never a whole domain — so a real
+  user can never be routed through the bypass) and `deriveDemoPassword(otp)`.
+  The `seed-demo` script sets the demo user's password to
+  `deriveDemoPassword(DEMO_OTP)`; the function signs in with the same derived
+  value. So the only shared secret is `DEMO_OTP` — no password is stored or
+  shipped in the app. The app re-declares `DEMO_EMAIL`/`isDemoEmail` in
+  `src/hooks/useAuth.tsx` (it can't import the Deno module); keep them identical.
+- **The function uses the publishable key, not the service role.** It validates
+  `isDemoEmail(email) && token === DEMO_OTP` (one constant rejection for any bad
+  input, so it can't be used to probe accounts), then calls
+  `signInWithPassword` — a normal auth call — and returns the session. This
+  keeps `verify-demo-otp` from widening backend privileges even though it's
+  public (`verify_jwt = false`, since it mints the session). If the demo user or
+  password is missing (the seed script hasn't run, or `DEMO_OTP` changed since),
+  it returns a distinct "not ready" error.
+- **The login email carries both a link and the code.** `signInWithOtp` (with
+  `emailRedirectTo`) still sends the magic link, and `templates/magic_link.html`
+  renders `{{ .Token }}` alongside `{{ .ConfirmationURL }}`, so real users can
+  tap the link or type the code on the login screen's code-entry step
+  (`verifyOtp({ type: "email" })`). See `docs/frontend.md` (Auth) and
+  `docs/appstore.md` for the reviewer flow.
+- **Required secret:** `DEMO_OTP` (set as a function secret and passed to the
+  seed script). `SUPABASE_URL`/`SUPABASE_PUBLISHABLE_KEYS` are already present.
+- **Deploying the email template:** `[auth.email.template.magic_link]` in
+  `config.toml` only applies to the **local** `supabase start` stack. The hosted
+  project's Magic Link template is dashboard-managed — paste
+  `templates/magic_link.html` into Authentication → Email Templates → Magic Link
+  so production emails carry the `{{ .Token }}` code, not just the link.
 
 ## OAuth server (MCP authorization)
 

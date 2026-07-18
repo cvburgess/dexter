@@ -24,13 +24,19 @@ cd supabase/scripts
 
 SUPABASE_URL=... \
 SUPABASE_SERVICE_ROLE_KEY=... \
-DEMO_EMAIL=demo@dexterplanner.com \
-DEMO_PASSWORD=... \
+DEMO_OTP=... \
 deno task seed-demo
 ```
 
+The demo account's email is the shared `DEMO_EMAIL` constant
+(`../functions/_shared/demoAuth.ts`), and its password is **derived from
+`DEMO_OTP`** — the same fixed code the `verify-demo-otp` Edge Function uses to
+sign the App Store reviewer in — so the two never drift. Set the same `DEMO_OTP`
+here and as the function's secret; if you change it, re-run this script so the
+stored password matches.
+
 The **service-role key bypasses RLS** and has full database access — it is a
-secret. Only ever supply it (and the demo password) via the environment; never
-commit these values. Point `SUPABASE_URL` at whichever project holds the demo
-account (a local `supabase start` stack, a preview branch, or the hosted project
-used for App Store review).
+secret. Only ever supply it (and `DEMO_OTP`) via the environment; never commit
+these values. Point `SUPABASE_URL` at whichever project holds the demo account
+(a local `supabase start` stack, a preview branch, or the hosted project used
+for App Store review).

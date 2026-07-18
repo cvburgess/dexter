@@ -76,20 +76,27 @@ product changes.
 
 ## Review notes
 
-Provide the App Store reviewer with the demo account credentials (sent
-separately, never committed):
+The app's login is passwordless (email magic-link/code + Google), so the
+reviewer signs into the demo account **without an inbox**: they enter the demo
+email and a fixed code. Provide these in App Store Connect's review notes (the
+code is the `DEMO_OTP` secret — share it here, never commit it):
 
 ```
-Email: <DEMO_EMAIL>
-Password: <DEMO_PASSWORD>
+Email: demo@dexterplanner.com
+Code:  <DEMO_OTP>
 ```
 
-- The demo account is reset to a curated, known-good state by
-  `supabase/scripts/seed-demo.ts` (see `supabase/scripts/README.md`). Re-run it
-  before capturing screenshots or submitting for review so the data is fresh.
+- On the login screen, enter the email, tap **Continue with Email**, then type
+  the code and tap **Verify Code**. The `verify-demo-otp` Edge Function
+  validates the demo email + code and signs the reviewer in (see
+  `docs/backend.md`). No email is sent for the demo account.
+- The demo account is populated with a curated, known-good dataset by
+  `supabase/scripts/seed-demo.ts` (see `supabase/scripts/README.md`). Its
+  password is derived from the same `DEMO_OTP`, so **run the seed script with
+  the same `DEMO_OTP` set as the function's secret** before submitting — and
+  re-run it whenever `DEMO_OTP` changes or before capturing fresh screenshots.
 - **Task alarms** use AlarmKit and require **iOS 26+**; on older versions the
-  "Set alarm" action is hidden. Sign-in is passwordless magic-link email or
-  "Continue with Google".
+  "Set alarm" action is hidden.
 - The **MCP server** and calendar feeds are optional and not required to
   review core planning functionality.
 
