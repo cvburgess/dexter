@@ -6,9 +6,7 @@ consistent with the app (`src/app.json`) and the marketing site (`/www`).
 
 The app is not yet live on the App Store — `www/src/_data/metadata.json`'s
 `links.ios` is empty and the site's "Get iPhone app" link is disabled. This
-doc is the staging ground for the first submission. There is no `submit`
-profile in `src/eas.json` or `store.config.json` yet; add those when wiring
-`eas submit` / `eas metadata`.
+doc is the staging ground for the first submission.
 
 ## App identity
 
@@ -99,6 +97,27 @@ Code:  <DEMO_OTP>
   "Set alarm" action is hidden.
 - The **MCP server** and calendar feeds are optional and not required to
   review core planning functionality.
+
+## Build & submit
+
+A manual **Build and Submit** GitHub Actions workflow
+(`.github/workflows/build-and-submit.yml`, `workflow_dispatch`) builds the iOS
+`production` profile with EAS, submits the latest build to App Store Connect,
+then tags the release and publishes GitHub release notes from `CHANGELOG.md`
+(`.github/scripts/tag-and-release.sh`). Version/build numbers auto-increment
+(`appVersionSource: "remote"` + `autoIncrement` on the production profile).
+
+Before the first run, wire up the credentials this pipeline assumes:
+
+- **`EXPO_TOKEN`** — a GitHub Actions repo secret (same one `deploy.yml` uses).
+- **`src/eas.json` → `submit.production.ios.ascAppId`** — currently empty. Fill
+  it with the App Store Connect app's Apple ID once the app is **created in App
+  Store Connect** (`com.dexterplanner`). `eas submit` fails until it is set.
+- **App Store Connect API key** — upload it to EAS once (`eas credentials` or an
+  interactive `eas submit`) so `--non-interactive` submits can authenticate.
+
+Until the app exists in App Store Connect, the build step works but the submit
+step will not.
 
 ## Screenshots
 

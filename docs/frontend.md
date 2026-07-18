@@ -123,6 +123,8 @@ npm run dev:android     # eas build --platform android --profile development
 
 The EAS project is wired up via `extra.eas.projectId` and `owner` in `app.json`. `appVersionSource` is `remote`, so build/version numbers are managed by EAS.
 
+Production release to the App Store is a manual **Build and Submit** workflow (`.github/workflows/build-and-submit.yml`): `eas build --profile production` → `eas submit` → tag + GitHub release from `CHANGELOG.md`. See [`docs/appstore.md`](appstore.md) for the required credentials (`EXPO_TOKEN`, `submit.production.ios.ascAppId`, an App Store Connect API key on EAS).
+
 ## Stack
 
 - **Expo SDK 57** (see `src/package.json` for exact versions)
