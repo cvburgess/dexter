@@ -50,7 +50,15 @@ async function findOrCreateDemoUser(
     );
     if (existing) {
       // Keep the password in sync so the reviewer login never drifts.
-      await supabase.auth.admin.updateUserById(existing.id, { password });
+      const { error: updateError } = await supabase.auth.admin.updateUserById(
+        existing.id,
+        { password },
+      );
+      if (updateError) {
+        throw new Error(
+          `Failed updating demo password: ${updateError.message}`,
+        );
+      }
       console.log(`Found existing demo user ${email} (${existing.id})`);
       return existing.id;
     }
@@ -87,19 +95,18 @@ async function wipeUserData(supabase: Client, userId: string): Promise<void> {
   }
 }
 
-/**
- * Build a key → id map for just-inserted rows, matching on the unique demo
- * title. Inserts are done inline per table (concrete table literals) so the
- * typed Supabase client validates each row shape.
- */
-function mapKeysToIds<T extends { key: string; title: string }>(
-  entities: T[],
-  rows: { id: string; title: string | null }[],
-): Map<string, string> {
-  const idByTitle = new Map(rows.map((row) => [row.title, row.id]));
-  return new Map(
-    entities.map((entity) => [entity.key, idByTitle.get(entity.title)!]),
-  );
+/** Assign a fresh UUID to each entity's key, before any round-trip. */
+function idMap<T extends { key: string }>(entities: T[]): Map<string, string> {
+  return new Map(entities.map((entity) => [entity.key, crypto.randomUUID()]));
+}
+
+/** Await a Supabase write and throw a labeled error if it failed. */
+async function runWrite(
+  label: string,
+  query: PromiseLike<{ error: { message: string } | null }>,
+): Promise<void> {
+  const { error } = await query;
+  if (error) throw new Error(`Failed writing ${label}: ${error.message}`);
 }
 
 async function seed(
@@ -111,109 +118,117 @@ async function seed(
   const date = (offset: number | null) =>
     offset === null ? null : addDaysIso(today, offset);
 
-  const { data: listRows, error: listError } = await supabase
-    .from("lists")
-    .insert(
+  // Generate ids client-side (the Insert types accept `id`) so foreign keys
+  // resolve without a round-trip and without correlating returned rows.
+  const listIds = idMap(data.lists);
+  const goalIds = idMap(data.goals);
+  const habitIds = idMap(data.habits);
+  const templateIds = idMap(data.templates);
+
+  await runWrite(
+    "lists",
+    supabase.from("lists").insert(
       data.lists.map((list) => ({
+        id: listIds.get(list.key)!,
         user_id: userId,
         title: list.title,
         emoji: list.emoji,
       })),
-    )
-    .select("id, title");
-  if (listError) {
-    throw new Error(`Failed inserting lists: ${listError.message}`);
-  }
-  const listIds = mapKeysToIds(data.lists, listRows ?? []);
+    ),
+  );
 
-  const { data: goalRows, error: goalError } = await supabase
-    .from("goals")
-    .insert(data.goals.map((goal) => ({ user_id: userId, title: goal.title })))
-    .select("id, title");
-  if (goalError) {
-    throw new Error(`Failed inserting goals: ${goalError.message}`);
-  }
-  const goalIds = mapKeysToIds(data.goals, goalRows ?? []);
+  await runWrite(
+    "goals",
+    supabase.from("goals").insert(
+      data.goals.map((goal) => ({
+        id: goalIds.get(goal.key)!,
+        user_id: userId,
+        title: goal.title,
+      })),
+    ),
+  );
 
-  const { data: habitRows, error: habitError } = await supabase
-    .from("habits")
-    .insert(
+  await runWrite(
+    "habits",
+    supabase.from("habits").insert(
       data.habits.map((habit) => ({
+        id: habitIds.get(habit.key)!,
         user_id: userId,
         title: habit.title,
         emoji: habit.emoji,
         steps: habit.steps,
         days_active: habit.daysActive,
       })),
-    )
-    .select("id, title");
-  if (habitError) {
-    throw new Error(`Failed inserting habits: ${habitError.message}`);
-  }
-  const habitIds = mapKeysToIds(data.habits, habitRows ?? []);
+    ),
+  );
 
-  const { data: templateRows, error: templateError } = await supabase
-    .from("repeat_task_templates")
-    .insert(
+  await runWrite(
+    "repeat_task_templates",
+    supabase.from("repeat_task_templates").insert(
       data.templates.map((template) => ({
+        id: templateIds.get(template.key)!,
         user_id: userId,
         title: template.title,
         schedule: template.schedule,
         priority: template.priority,
-        list_id: template.listKey ? listIds.get(template.listKey) : null,
-        goal_id: template.goalKey ? goalIds.get(template.goalKey) : null,
+        list_id: template.listKey ? listIds.get(template.listKey)! : null,
+        goal_id: template.goalKey ? goalIds.get(template.goalKey)! : null,
       })),
-    )
-    .select("id, title");
-  if (templateError) {
-    throw new Error(`Failed inserting templates: ${templateError.message}`);
-  }
-  const templateIds = mapKeysToIds(data.templates, templateRows ?? []);
+    ),
+  );
 
-  const taskRows = data.tasks.map((task) => ({
-    user_id: userId,
-    title: task.title,
-    priority: task.priority,
-    status: task.status,
-    scheduled_for: date(task.scheduledForOffset),
-    due_on: date(task.dueOnOffset),
-    list_id: task.listKey ? listIds.get(task.listKey) : null,
-    goal_id: task.goalKey ? goalIds.get(task.goalKey) : null,
-    template_id: task.templateKey ? templateIds.get(task.templateKey) : null,
-    alarm_time: task.alarmTime ?? null,
-  }));
-  const { error: taskError } = await supabase.from("tasks").insert(taskRows);
-  if (taskError) {
-    throw new Error(`Failed inserting tasks: ${taskError.message}`);
-  }
+  await runWrite(
+    "tasks",
+    supabase.from("tasks").insert(
+      data.tasks.map((task) => ({
+        user_id: userId,
+        title: task.title,
+        priority: task.priority,
+        status: task.status,
+        scheduled_for: date(task.scheduledForOffset),
+        due_on: date(task.dueOnOffset),
+        list_id: task.listKey ? listIds.get(task.listKey)! : null,
+        goal_id: task.goalKey ? goalIds.get(task.goalKey)! : null,
+        template_id: task.templateKey
+          ? templateIds.get(task.templateKey)!
+          : null,
+        alarm_time: task.alarmTime ?? null,
+      })),
+    ),
+  );
 
-  const dailyHabitRows = data.dailyHabits.map((entry) => ({
-    user_id: userId,
-    habit_id: habitIds.get(entry.habitKey)!,
-    date: addDaysIso(today, entry.dateOffset),
-    steps: entry.steps,
-    steps_complete: entry.stepsComplete,
-  }));
-  const { error: dailyError } = await supabase
-    .from("daily_habits")
-    .insert(dailyHabitRows);
-  if (dailyError) {
-    throw new Error(`Failed inserting daily_habits: ${dailyError.message}`);
-  }
+  await runWrite(
+    "daily_habits",
+    supabase.from("daily_habits").insert(
+      data.dailyHabits.map((entry) => ({
+        user_id: userId,
+        habit_id: habitIds.get(entry.habitKey)!,
+        date: addDaysIso(today, entry.dateOffset),
+        steps: entry.steps,
+        steps_complete: entry.stepsComplete,
+      })),
+    ),
+  );
 
-  const dayRows = data.days.map((day) => ({
-    user_id: userId,
-    date: addDaysIso(today, day.dateOffset),
-    notes: day.notes,
-    prompts: day.prompts,
-  }));
-  const { error: dayError } = await supabase.from("days").insert(dayRows);
-  if (dayError) throw new Error(`Failed inserting days: ${dayError.message}`);
+  await runWrite(
+    "days",
+    supabase.from("days").insert(
+      data.days.map((day) => ({
+        user_id: userId,
+        date: addDaysIso(today, day.dateOffset),
+        notes: day.notes,
+        prompts: day.prompts,
+      })),
+    ),
+  );
 
-  // preferences already exists (created by the signup trigger) — update it.
-  const { error: prefsError } = await supabase
-    .from("preferences")
-    .update({
+  // The signup trigger creates a preferences row, but upsert keeps the reset
+  // idempotent even if that row is ever missing. Unset columns keep their DB
+  // defaults on insert.
+  await runWrite(
+    "preferences",
+    supabase.from("preferences").upsert({
+      user_id: userId,
       light_theme: data.preferences.lightTheme,
       dark_theme: data.preferences.darkTheme,
       theme_mode: data.preferences.themeMode,
@@ -221,11 +236,8 @@ async function seed(
       enable_journal: data.preferences.enableJournal,
       enable_habits: data.preferences.enableHabits,
       template_prompts: data.preferences.templatePrompts,
-    })
-    .eq("user_id", userId);
-  if (prefsError) {
-    throw new Error(`Failed updating preferences: ${prefsError.message}`);
-  }
+    }, { onConflict: "user_id" }),
+  );
 }
 
 async function main(): Promise<void> {
