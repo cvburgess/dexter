@@ -111,6 +111,7 @@ describe("NewTaskScreen", () => {
         listId: "list-home",
         scheduledFor: today.toString(),
         dueOn: today.add({ days: 2 }).toString(),
+        alarmTime: null,
       },
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
@@ -210,5 +211,28 @@ describe("NewTaskScreen", () => {
     render(<NewTaskScreen />);
 
     expect(mockUseTasks).toHaveBeenCalledWith({ skipQuery: true });
+  });
+
+  it("adds an alarm (seeded to the default time) to the created task", async () => {
+    const screen = render(<NewTaskScreen />);
+
+    fireEvent.changeText(screen.getByTestId("new-task-title"), "Wake up");
+    // Enabling the alarm awaits AlarmKit authorization (granted in the mock),
+    // then swaps the "Add alarm" affordance for the time + Clear controls.
+    fireEvent.press(screen.getByTestId("new-task-add-alarm"));
+    await screen.findByTestId("new-task-clear-alarm");
+
+    const save = render(headerOptions().headerRight());
+    fireEvent.press(save.getByTestId("modal-done-button"));
+
+    // Seeded to a "now"-based default (a few minutes out) rather than a fixed
+    // time, so assert the shape rather than an exact value.
+    expect(mockCreateTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Wake up",
+        alarmTime: expect.stringMatching(/^\d{2}:\d{2}$/),
+      }),
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
   });
 });

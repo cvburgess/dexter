@@ -9,6 +9,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
+        "image": "latest",
         "buildConfiguration": "Debug"
       },
       "env": {
@@ -19,6 +20,7 @@
       "node": "24.3.0",
       "developmentClient": true,
       "ios": {
+        "image": "latest",
         "simulator": true,
         "buildConfiguration": "Debug"
       },
@@ -30,6 +32,7 @@
       "node": "24.3.0",
       "withoutCredentials": true,
       "ios": {
+        "image": "latest",
         "simulator": true
       },
       "env": {
@@ -41,6 +44,7 @@
       "distribution": "internal",
       "channel": "preview",
       "ios": {
+        "image": "latest",
         "buildConfiguration": "Release"
       }
     },
@@ -49,6 +53,7 @@
       "autoIncrement": true,
       "channel": "production",
       "ios": {
+        "image": "latest",
         "buildConfiguration": "Release"
       }
     }

@@ -10,9 +10,15 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.dexterplanner",
+      "appleTeamId": "Q77C3BA452",
       "icon": "./assets/app.icon",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAlarmKitUsageDescription": "Dexter rings a native alarm at the time you set on a task.",
+        "NSSupportsLiveActivities": true
+      },
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.com.dexterplanner"]
       }
     },
     "android": {
@@ -34,11 +40,11 @@
         "expo-build-properties",
         {
           "ios": {
-            "deploymentTarget": "26.0",
-            "usePrecompiledModules": false
+            "deploymentTarget": "26.1"
           }
         }
       ],
+      "@bacons/apple-targets",
       "expo-font",
       [
         "expo-calendar",

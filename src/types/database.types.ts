@@ -209,6 +209,7 @@ export type Database = {
       };
       repeat_task_templates: {
         Row: {
+          alarm_time: string | null;
           created_at: string;
           goal_id: string | null;
           id: string;
@@ -219,6 +220,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          alarm_time?: string | null;
           created_at?: string;
           goal_id?: string | null;
           id?: string;
@@ -229,6 +231,7 @@ export type Database = {
           user_id?: string;
         };
         Update: {
+          alarm_time?: string | null;
           created_at?: string;
           goal_id?: string | null;
           id?: string;
@@ -257,6 +260,7 @@ export type Database = {
       };
       tasks: {
         Row: {
+          alarm_time: string | null;
           created_at: string;
           due_on: string | null;
           goal_id: string | null;
@@ -271,6 +275,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          alarm_time?: string | null;
           created_at?: string;
           due_on?: string | null;
           goal_id?: string | null;
@@ -285,6 +290,7 @@ export type Database = {
           user_id?: string;
         };
         Update: {
+          alarm_time?: string | null;
           created_at?: string;
           due_on?: string | null;
           goal_id?: string | null;

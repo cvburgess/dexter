@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider } from "@/hooks/useAuth";
 import { QueryProvider } from "@/providers/QueryProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
+import { configureAlarms } from "@/utils/alarms";
 import { getSentryDsn } from "@/utils/sentry";
 import { useTheme } from "@/utils/theme";
 
@@ -32,6 +33,10 @@ Sentry.init({
   enableNativeCrashHandling: Platform.OS !== "web",
   debug: __DEV__,
 });
+
+// Wire up the AlarmKit App Group as early as possible (per expo-alarm-kit's
+// requirement that `configure` run before any other alarm call). No-op off iOS.
+configureAlarms();
 
 // Rendered inside ThemeProvider so the gap before a screen paints (cold start,
 // auth redirects) matches the user's chosen theme instead of flashing white.

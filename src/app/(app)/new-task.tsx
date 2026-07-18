@@ -16,11 +16,18 @@ import { FormRow } from "@/components/FormRow";
 import { PickerField } from "@/components/PickerField";
 import { PriorityControl } from "@/components/PriorityControl";
 import { TextInput } from "@/components/TextInput";
+import { TimeField } from "@/components/TimeField";
 import { WebModalHeader } from "@/components/WebModalHeader";
 import { useLists } from "@/hooks/useLists";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useNewTaskForm } from "@/hooks/useNewTaskForm";
 import { useTasks } from "@/hooks/useTasks";
+import {
+  currentAlarmTime,
+  defaultAlarmTime,
+  isAlarmSupported,
+  requestAlarmAuthorization,
+} from "@/utils/alarms";
 import { useTheme } from "@/utils/theme";
 
 // The universal Picker's item values cannot be null, so "no list" gets a
@@ -65,6 +72,21 @@ export default function NewTaskScreen() {
   const canSave = form.canSave && !isLoadingLists;
 
   const handleClose = () => router.back();
+
+  // Enabling an alarm needs AlarmKit permission before it can ring, so a denied
+  // request is surfaced rather than silently seeding an alarm that won't fire
+  // (mirrors TaskCard.handleConfirmAlarm — DEX-48).
+  const handleAddAlarm = async () => {
+    const authorized = await requestAlarmAuthorization();
+    if (!authorized) {
+      Alert.alert(
+        "Alarms are turned off",
+        "Enable alarms for Dexter in Settings to be reminded at a set time.",
+      );
+      return;
+    }
+    form.setAlarmTime(defaultAlarmTime());
+  };
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;
@@ -144,6 +166,55 @@ export default function NewTaskScreen() {
         <FormRow label="Deadline" minHeight={32}>
           <DeadlineField dueOn={form.dueOn} onChange={form.setDueOn} />
         </FormRow>
+
+        {isAlarmSupported && (
+          <FormRow label="Alarm" minHeight={32}>
+            {form.alarmTime === null ? (
+              <TouchableOpacity
+                accessibilityRole="button"
+                testID="new-task-add-alarm"
+                onPress={handleAddAlarm}
+              >
+                <Text
+                  style={[styles.labelDetail, { color: theme.colors.primary }]}
+                >
+                  Add alarm
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={[styles.alarmControls, { gap: theme.gap }]}>
+                <TimeField
+                  accentColor={theme.colors.primary}
+                  testID="new-task-alarm"
+                  // Bound to now only when the task is scheduled for today, so a
+                  // same-day alarm can't be set in the past; a future day allows
+                  // any time.
+                  min={
+                    form.scheduledFor === Temporal.Now.plainDateISO().toString()
+                      ? currentAlarmTime()
+                      : undefined
+                  }
+                  value={form.alarmTime}
+                  onChange={form.setAlarmTime}
+                />
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  testID="new-task-clear-alarm"
+                  onPress={() => form.setAlarmTime(null)}
+                >
+                  <Text
+                    style={[
+                      styles.labelDetail,
+                      { color: theme.colors.textSecondary },
+                    ]}
+                  >
+                    Clear
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </FormRow>
+        )}
       </ScrollView>
     </>
   );
@@ -199,6 +270,10 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   deadlineControls: {
+    alignItems: "center",
+    flexDirection: "row",
+  },
+  alarmControls: {
     alignItems: "center",
     flexDirection: "row",
   },

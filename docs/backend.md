@@ -116,7 +116,16 @@ dashboard-only addition would drift from what the migration declares.
   `create_next_recurring_task` trigger was dropped (migration
   `20260712142149_drop_recurring_task_trigger.sql`); `update_task`/`archive_task`
   invoke the shared logic, and `delete_task` also deletes a linked template so
-  future occurrences stop.
+  future occurrences stop. A recurred occurrence copies the template's
+  `alarm_time` (see below) so repeat tasks keep their alarm.
+- **Task alarms (`alarm_time`).** `tasks` and `repeat_task_templates` each carry
+  a nullable `alarm_time` (`time`) column (migration
+  `20260717230155_add_task_alarm_time.sql`). It stores the time-of-day a task's
+  native iOS alarm fires, combined with `scheduled_for` for the date; the app
+  reconciles these onto AlarmKit (`src/utils/alarms.ts`, iOS-only). The column
+  needs no RLS change — the existing `user_id` policies cover it — and both
+  tables are already in the realtime publication, so alarm edits sync like any
+  other field.
 - Both functions report errors to **Sentry** via `functions/_shared/sentry.ts`
   (`npm:@sentry/deno`, aliased in each function's `deno.json` import map since
   there is no shared import map across functions today). `initSentry`/

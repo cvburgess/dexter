@@ -44,6 +44,7 @@ describe("getTasks", () => {
 describe("duplicateTaskInput", () => {
   const source: TTask = {
     id: "task-1",
+    alarmTime: "17:30",
     title: "Write the report",
     dueOn: "2026-07-05",
     goalId: "goal-1",
@@ -57,6 +58,7 @@ describe("duplicateTaskInput", () => {
   it("copies every copyable field, keeping status, without an id or template", () => {
     expect(duplicateTaskInput(source)).toEqual({
       title: "Write the report",
+      alarmTime: "17:30",
       dueOn: "2026-07-05",
       goalId: "goal-1",
       listId: "list-1",

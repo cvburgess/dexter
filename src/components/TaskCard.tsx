@@ -1,11 +1,17 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Temporal } from "@js-temporal/polyfill";
+import { useState } from "react";
+import { Alert, StyleSheet, Text, View } from "react-native";
 
 import { ETaskStatus, TTask, TUpdateTask } from "@/api/tasks";
+import { useConfirmation } from "@/hooks/useConfirmation";
+import { currentAlarmTime, requestAlarmAuthorization } from "@/utils/alarms";
 import { useTheme, withOpacity } from "@/utils/theme";
 
+import { ConfirmationModal } from "./ConfirmationModal";
 import { DueDateButton } from "./DueDateButton";
 import { ListButton } from "./ListButton";
 import { MoreMenu } from "./MoreMenu";
+import { SetAlarmModal } from "./SetAlarmModal";
 import { StatusButton } from "./StatusButton";
 
 // Matches dexter-app's cardColors: incomplete cards sit on the priority color
@@ -29,8 +35,83 @@ export function TaskCard({
   onDelete,
 }: TTaskCardProps) {
   const theme = useTheme();
+  const [alarmModalVisible, setAlarmModalVisible] = useState(false);
+  const { confirm, confirmationProps } = useConfirmation();
   const isComplete =
     task.status === ETaskStatus.DONE || task.status === ETaskStatus.WONT_DO;
+
+  // An alarm is bound to the task's scheduled date (it fires at scheduled_for +
+  // alarm_time), so changing that date shouldn't silently move or orphan it —
+  // ask first. A re-tap of the current day changes nothing, and a task without
+  // an alarm just reschedules (DEX-48). `== null` (not `===`) so a task whose
+  // `alarmTime` is absent rather than null — e.g. a DB missing the column —
+  // still counts as "no alarm" and reschedules directly instead of prompting.
+  const handleChangeSchedule = async (scheduledFor: string | null) => {
+    const scheduleChanged = scheduledFor !== task.scheduledFor;
+
+    if (task.alarmTime == null || !scheduleChanged) {
+      onUpdate({ scheduledFor });
+      return;
+    }
+
+    if (scheduledFor === null) {
+      // Unscheduling removes the date the alarm needs to fire, so keeping it
+      // isn't an option — only unset-or-cancel.
+      const confirmed = await confirm({
+        title: "Unschedule task?",
+        message:
+          "This task has an alarm set. Unscheduling it will unset the alarm.",
+        confirmLabel: "Unschedule",
+        destructive: true,
+      });
+      if (confirmed) onUpdate({ scheduledFor: null, alarmTime: null });
+      return;
+    }
+
+    // Moving to another day: let the user carry the alarm to the new day (same
+    // time) or drop it. Each choice applies itself; Cancel leaves the task as-is.
+    await confirm({
+      title: "Reschedule task?",
+      message:
+        "This task has an alarm set. Keep the alarm on the new day, or unset it?",
+      actions: [
+        {
+          label: "Keep alarm",
+          role: "default",
+          onPress: () => onUpdate({ scheduledFor }),
+        },
+        {
+          label: "Unset alarm",
+          role: "destructive",
+          onPress: () => onUpdate({ scheduledFor, alarmTime: null }),
+        },
+        { label: "Cancel", role: "cancel" },
+      ],
+    });
+  };
+
+  // Persist the picked alarm time. Alarms fire on the scheduled date, so an
+  // unscheduled task is pulled onto today. AlarmKit needs permission before it
+  // can ring, so a set that's denied is surfaced rather than silently stored.
+  const handleConfirmAlarm = async (alarmTime: string) => {
+    setAlarmModalVisible(false);
+
+    const authorized = await requestAlarmAuthorization();
+    if (!authorized) {
+      Alert.alert(
+        "Alarms are turned off",
+        "Enable alarms for Dexter in Settings to be reminded at a set time.",
+      );
+      return;
+    }
+
+    onUpdate({
+      alarmTime,
+      ...(task.scheduledFor === null
+        ? { scheduledFor: Temporal.Now.plainDateISO().toString() }
+        : {}),
+    });
+  };
   const priorityColor = theme.colors.priority[task.priority];
   // The color everything on the card (title, button outlines/icons, border)
   // is drawn in — matches dexter-app's Card.tsx, which derives all of it
@@ -95,17 +176,37 @@ export function TaskCard({
   if (isComplete) return card;
 
   return (
-    <MoreMenu
-      task={task}
-      onChangePriority={(priority) => onUpdate({ priority })}
-      onChangeSchedule={(scheduledFor) => onUpdate({ scheduledFor })}
-      onChangeList={(listId) => onUpdate({ listId })}
-      onDuplicate={onDuplicate}
-      onDelete={onDelete}
-      style={styles.moreMenuWrapper}
-    >
-      {card}
-    </MoreMenu>
+    <>
+      <MoreMenu
+        task={task}
+        onChangePriority={(priority) => onUpdate({ priority })}
+        onChangeSchedule={handleChangeSchedule}
+        onChangeList={(listId) => onUpdate({ listId })}
+        onSetAlarm={() => setAlarmModalVisible(true)}
+        onClearAlarm={() => onUpdate({ alarmTime: null })}
+        onDuplicate={onDuplicate}
+        onDelete={onDelete}
+        style={styles.moreMenuWrapper}
+      >
+        {card}
+      </MoreMenu>
+      <SetAlarmModal
+        visible={alarmModalVisible}
+        initialTime={task.alarmTime}
+        // The alarm fires on the task's scheduled day; an unscheduled task is
+        // pulled to today (see handleConfirmAlarm), so bound the picker to now
+        // only when that day is today — a future day makes any time valid.
+        minTime={
+          (task.scheduledFor ?? Temporal.Now.plainDateISO().toString()) ===
+          Temporal.Now.plainDateISO().toString()
+            ? currentAlarmTime()
+            : undefined
+        }
+        onCancel={() => setAlarmModalVisible(false)}
+        onConfirm={handleConfirmAlarm}
+      />
+      <ConfirmationModal {...confirmationProps} />
+    </>
   );
 }
 

@@ -15,6 +15,7 @@ import { TTimeFieldProps } from "./TimeField.types";
  */
 export function TimeField({
   accentColor,
+  min,
   onChange,
   testID,
   value,
@@ -29,6 +30,9 @@ export function TimeField({
       <DatePicker
         displayedComponents={["hourAndMinute"]}
         modifiers={modifiers}
+        // A lower bound disables earlier times (e.g. now, so a same-day alarm
+        // can't be set in the past). `min` is a time-of-day, anchored to today.
+        range={min ? { start: timeStringToDate(min) } : undefined}
         selection={timeStringToDate(value)}
         testID={testID}
         onDateChange={(date) => onChange(dateToTimeString(date))}

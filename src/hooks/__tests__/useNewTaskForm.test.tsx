@@ -69,6 +69,7 @@ describe("useNewTaskForm", () => {
       listId: homeList.id,
       scheduledFor: today().toString(),
       dueOn: today().add({ days: 3 }).toString(),
+      alarmTime: null,
     });
   });
 
@@ -145,5 +146,23 @@ describe("useNewTaskForm", () => {
     act(() => result.current.setScheduledFor(nextWeek));
 
     expect(result.current.task.scheduledFor).toBe(nextWeek);
+  });
+
+  it("defaults to no alarm", () => {
+    const { result } = renderHook(() => useNewTaskForm([]));
+
+    expect(result.current.alarmTime).toBeNull();
+    expect(result.current.task.alarmTime).toBeNull();
+  });
+
+  it("carries a set alarm time into the payload, and clears it back to null", () => {
+    const { result } = renderHook(() => useNewTaskForm([]));
+
+    act(() => result.current.setAlarmTime("09:00"));
+    expect(result.current.alarmTime).toBe("09:00");
+    expect(result.current.task.alarmTime).toBe("09:00");
+
+    act(() => result.current.setAlarmTime(null));
+    expect(result.current.task.alarmTime).toBeNull();
   });
 });

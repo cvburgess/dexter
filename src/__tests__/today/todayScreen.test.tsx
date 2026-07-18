@@ -268,6 +268,7 @@ const tasksResult = (tasks: TTask[] = []): ReturnType<typeof useTasks> =>
 // attention filter. Derived from the real today (the screen filters against it).
 const overdueTask = (): TTask => ({
   id: "1",
+  alarmTime: null,
   title: "Overdue",
   dueOn: Temporal.Now.plainDateISO().subtract({ days: 1 }).toString(),
   goalId: null,

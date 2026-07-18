@@ -1,6 +1,14 @@
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
-import { Alert, Platform, ScrollView, StyleSheet, View } from "react-native";
+import {
+  Alert,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 import { ETaskPriority } from "@/api/tasks";
 import { TTemplate } from "@/api/templates";
@@ -11,6 +19,7 @@ import { LoadingScreen } from "@/components/LoadingScreen";
 import { PickerField } from "@/components/PickerField";
 import { PriorityControl } from "@/components/PriorityControl";
 import { TextInput } from "@/components/TextInput";
+import { TimeField } from "@/components/TimeField";
 import { WeekdayPicker } from "@/components/WeekdayPicker";
 import { WebModalHeader } from "@/components/WebModalHeader";
 import { useConfirmation } from "@/hooks/useConfirmation";
@@ -18,6 +27,7 @@ import { useGoals } from "@/hooks/useGoals";
 import { useLists } from "@/hooks/useLists";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTemplates } from "@/hooks/useTemplates";
+import { DEFAULT_ALARM_TIME, isAlarmSupported } from "@/utils/alarms";
 import {
   buildSchedule,
   parseSchedule,
@@ -101,6 +111,7 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
   const [priority, setPriority] = useState<ETaskPriority>(existing.priority);
   const [listId, setListId] = useState<string | null>(existing.listId);
   const [goalId, setGoalId] = useState<string | null>(existing.goalId);
+  const [alarmTime, setAlarmTime] = useState<string | null>(existing.alarmTime);
   const [frequency, setFrequency] = useState<TRepeatFrequency>(
     parsed.frequency,
   );
@@ -146,6 +157,7 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
         priority,
         listId,
         goalId,
+        alarmTime,
         schedule: buildCurrentSchedule(),
       },
       {
@@ -246,6 +258,41 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
           }
         />
 
+        {isAlarmSupported && (
+          <FormRow label="Alarm">
+            {alarmTime === null ? (
+              <TouchableOpacity
+                onPress={() => setAlarmTime(DEFAULT_ALARM_TIME)}
+                accessibilityRole="button"
+              >
+                <Text
+                  style={[styles.alarmAction, { color: theme.colors.primary }]}
+                >
+                  Add alarm
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={[styles.alarmControl, { gap: theme.gap }]}>
+                <TimeField
+                  accentColor={theme.colors.primary}
+                  value={alarmTime}
+                  onChange={setAlarmTime}
+                />
+                <TouchableOpacity
+                  onPress={() => setAlarmTime(null)}
+                  accessibilityRole="button"
+                >
+                  <Text
+                    style={[styles.alarmAction, { color: theme.colors.error }]}
+                  >
+                    Remove
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </FormRow>
+        )}
+
         <PickerField
           label="Repeats"
           options={FREQUENCIES}
@@ -313,5 +360,13 @@ const styles = StyleSheet.create({
   dangerZone: {
     gap: 12,
     marginTop: 12,
+  },
+  alarmControl: {
+    alignItems: "center",
+    flexDirection: "row",
+  },
+  alarmAction: {
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

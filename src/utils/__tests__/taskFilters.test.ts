@@ -12,6 +12,7 @@ import {
 
 const task = (overrides: Partial<TTask> = {}): TTask => ({
   id: "task-1",
+  alarmTime: null,
   title: "Write report",
   dueOn: null,
   goalId: null,

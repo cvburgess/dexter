@@ -25,6 +25,7 @@ const mockUseIsMultiPane = useIsMultiPane as jest.MockedFunction<
 
 const makeTemplate = (overrides: Partial<TTemplate> = {}): TTemplate => ({
   id: "template-1",
+  alarmTime: null,
   createdAt: "2026-07-01T00:00:00Z",
   goalId: null,
   listId: null,

@@ -39,6 +39,7 @@ const makeList = (overrides: Partial<TList> = {}): TList => ({
 
 const makeTask = (overrides: Partial<TTask> = {}): TTask => ({
   id: "task-1",
+  alarmTime: null,
   title: "A task",
   dueOn: null,
   goalId: null,

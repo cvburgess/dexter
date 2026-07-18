@@ -85,6 +85,7 @@ const preferences = (
 
 const task = (overrides: Partial<TTask> = {}): TTask => ({
   id: "task-1",
+  alarmTime: null,
   title: "Write the report",
   dueOn: null,
   goalId: null,

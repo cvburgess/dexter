@@ -10,7 +10,9 @@ import {
   ETaskStatus,
   getTasks,
   TTask,
+  updateTask,
 } from "@/api/tasks";
+import { TTemplate } from "@/api/templates";
 
 import { canonicalTaskFilters, useTasks } from "../useTasks";
 
@@ -21,10 +23,12 @@ jest.mock("@/api/tasks", () => ({
   ...jest.requireActual<typeof import("@/api/tasks")>("@/api/tasks"),
   getTasks: jest.fn(),
   createTask: jest.fn(),
+  updateTask: jest.fn(),
 }));
 
 const mockGetTasks = getTasks as jest.MockedFunction<typeof getTasks>;
 const mockCreateTask = createTask as jest.MockedFunction<typeof createTask>;
+const mockUpdateTask = updateTask as jest.MockedFunction<typeof updateTask>;
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -84,6 +88,7 @@ describe("useTasks", () => {
     const { wrapper } = createWrapper();
     const task: TTask = {
       id: "task-1",
+      alarmTime: null,
       title: "New task",
       dueOn: null,
       goalId: null,
@@ -101,5 +106,58 @@ describe("useTasks", () => {
     act(() => result.current[1].createTask({ title: "New task" }));
 
     await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(2));
+  });
+
+  it("carries the template's alarm time onto the next recurring occurrence", async () => {
+    const { wrapper, queryClient } = createWrapper();
+    const today = Temporal.Now.plainDateISO().toString();
+
+    const task: TTask = {
+      id: "task-1",
+      alarmTime: "17:30",
+      title: "Take meds",
+      dueOn: null,
+      goalId: null,
+      listId: null,
+      priority: ETaskPriority.NEITHER,
+      scheduledFor: today,
+      status: ETaskStatus.TODO,
+      templateId: "template-1",
+    };
+    const template: TTemplate = {
+      id: "template-1",
+      alarmTime: "17:30",
+      createdAt: "2026-01-01T00:00:00Z",
+      goalId: null,
+      listId: null,
+      priority: ETaskPriority.NEITHER,
+      schedule: "0 0 * * *", // daily
+      title: "Take meds",
+      userId: "user-1",
+    };
+
+    // Seed both caches so the recurrence helper reads them synchronously (the
+    // template cache also short-circuits its getTemplates fallback fetch).
+    mockGetTasks.mockResolvedValue([task]);
+    queryClient.setQueryData(["templates"], [template]);
+    mockUpdateTask.mockResolvedValue([{ ...task, status: ETaskStatus.DONE }]);
+
+    const { result } = renderHook(() => useTasks(), { wrapper });
+    await waitFor(() =>
+      expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual([task]),
+    );
+
+    act(() =>
+      result.current[1].updateTask({
+        id: "task-1",
+        status: ETaskStatus.DONE,
+      }),
+    );
+
+    await waitFor(() => expect(mockCreateTask).toHaveBeenCalled());
+    const [, created] = mockCreateTask.mock.calls[0];
+    expect(created.alarmTime).toBe("17:30");
+    expect(created.templateId).toBe("template-1");
+    expect(created.scheduledFor).not.toBe(today);
   });
 });

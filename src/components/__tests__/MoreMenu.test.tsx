@@ -20,6 +20,7 @@ const theme = renderHook(() => useTheme()).result.current;
 
 const makeTask = (overrides: Partial<TTask> = {}): TTask => ({
   id: "task-1",
+  alarmTime: null,
   title: "Task row",
   dueOn: null,
   goalId: null,
@@ -87,6 +88,8 @@ describe("MoreMenu", () => {
         onChangePriority={jest.fn()}
         onChangeSchedule={jest.fn()}
         onChangeList={jest.fn()}
+        onSetAlarm={jest.fn()}
+        onClearAlarm={jest.fn()}
         onDuplicate={jest.fn()}
         onDelete={jest.fn()}
       >
@@ -107,8 +110,9 @@ describe("MoreMenu", () => {
       "List",
       "Other",
     ]);
-    // Priority/Schedule/List collapse into submenus; the Other action group is
-    // inline so its actions are directly tappable.
+    // Priority/Schedule/List collapse into submenus; the Other action group
+    // (which now leads with the alarm toggle) is inline so its actions are
+    // directly tappable.
     expect(sections.map((section) => Boolean(section.isSubmenu))).toEqual([
       true,
       true,
@@ -129,6 +133,8 @@ describe("MoreMenu", () => {
         onChangePriority={jest.fn()}
         onChangeSchedule={jest.fn()}
         onChangeList={jest.fn()}
+        onSetAlarm={jest.fn()}
+        onClearAlarm={jest.fn()}
         onDuplicate={jest.fn()}
         onDelete={jest.fn()}
       >
@@ -136,7 +142,12 @@ describe("MoreMenu", () => {
       </MoreMenu>,
     );
 
-    expect(otherOptionTitles()).toEqual(["Duplicate", "Repeat", "Delete"]);
+    expect(otherOptionTitles()).toEqual([
+      "Set alarm",
+      "Duplicate",
+      "Repeat",
+      "Delete",
+    ]);
   });
 
   it("labels the repeat action 'Edit repeat schedule' when a scheduled template is linked", () => {
@@ -151,6 +162,8 @@ describe("MoreMenu", () => {
         onChangePriority={jest.fn()}
         onChangeSchedule={jest.fn()}
         onChangeList={jest.fn()}
+        onSetAlarm={jest.fn()}
+        onClearAlarm={jest.fn()}
         onDuplicate={jest.fn()}
         onDelete={jest.fn()}
       >
@@ -159,10 +172,30 @@ describe("MoreMenu", () => {
     );
 
     expect(otherOptionTitles()).toEqual([
+      "Set alarm",
       "Duplicate",
       "Edit repeat schedule",
       "Delete",
     ]);
+  });
+
+  it("shows 'Unset alarm' in the Other group when the task already has an alarm", () => {
+    render(
+      <MoreMenu
+        task={makeTask({ alarmTime: "08:00" })}
+        onChangePriority={jest.fn()}
+        onChangeSchedule={jest.fn()}
+        onChangeList={jest.fn()}
+        onSetAlarm={jest.fn()}
+        onClearAlarm={jest.fn()}
+        onDuplicate={jest.fn()}
+        onDelete={jest.fn()}
+      >
+        <Text>Task row</Text>
+      </MoreMenu>,
+    );
+
+    expect(otherOptionTitles()?.[0]).toBe("Unset alarm");
   });
 });
 
@@ -208,6 +241,44 @@ describe("getOtherSections", () => {
 
     section.options.find((option) => option.title === "Delete")?.onSelect();
     expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("leads with an inline alarm item (same icon for set/unset) when one is passed", () => {
+    const onSelect = jest.fn();
+    const [section] = getOtherSections(
+      jest.fn(),
+      jest.fn(),
+      { label: "Repeat", onSelect: jest.fn() },
+      { title: "Set alarm", onSelect },
+    );
+
+    const [alarmOption] = section.options;
+    expect(alarmOption.title).toBe("Set alarm");
+    // Same icon whether setting or unsetting.
+    expect(alarmOption.icon).toEqual({
+      ios: "alarm",
+      android: "alarm",
+      web: "alarm",
+    });
+
+    alarmOption.onSelect();
+    expect(onSelect).toHaveBeenCalledTimes(1);
+
+    // The alarm item is not a submenu; it's a directly-tappable action.
+    expect(section.isSubmenu).toBeUndefined();
+  });
+
+  it("omits the alarm item when none is passed (non-iOS)", () => {
+    const [section] = getOtherSections(jest.fn(), jest.fn(), {
+      label: "Repeat",
+      onSelect: jest.fn(),
+    });
+
+    expect(section.options.map((option) => option.title)).toEqual([
+      "Duplicate",
+      "Repeat",
+      "Delete",
+    ]);
   });
 });
 

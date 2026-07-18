@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
 
 import { ETaskPriority, TTask } from "@/api/tasks";
+import { isAlarmSupported } from "@/utils/alarms";
 import { useLists } from "@/hooks/useLists";
 import { useTemplates } from "@/hooks/useTemplates";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
@@ -19,6 +20,8 @@ type TMoreMenuProps = {
   onChangePriority: (priority: ETaskPriority) => void;
   onChangeSchedule: (scheduledFor: string | null) => void;
   onChangeList: (listId: string | null) => void;
+  onSetAlarm: () => void;
+  onClearAlarm: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
   children: ReactNode;
@@ -31,6 +34,8 @@ export function MoreMenu({
   onChangePriority,
   onChangeSchedule,
   onChangeList,
+  onSetAlarm,
+  onClearAlarm,
   onDuplicate,
   onDelete,
   children,
@@ -65,6 +70,16 @@ export function MoreMenu({
     }
   };
 
+  // Alarms ring via native iOS AlarmKit only, so the item is iOS-only. It sits
+  // inline in the "Other" group alongside Duplicate/Repeat/Delete rather than in
+  // its own section — a single directly-tappable action, not a submenu.
+  const alarm = isAlarmSupported
+    ? {
+        title: task.alarmTime ? "Unset alarm" : "Set alarm",
+        onSelect: task.alarmTime ? onClearAlarm : onSetAlarm,
+      }
+    : undefined;
+
   const sections = [
     ...getPrioritySections(task.priority, onChangePriority, theme),
     ...getScheduleSections(task.scheduledFor, onChangeSchedule),
@@ -75,10 +90,15 @@ export function MoreMenu({
       icon: { ios: "face.smiling", android: "mood", web: "mood" } as const,
       isSubmenu: true,
     })),
-    ...getOtherSections(onDuplicate, onDelete, {
-      label: isRepeating ? "Edit repeat schedule" : "Repeat",
-      onSelect: onRepeat,
-    }),
+    ...getOtherSections(
+      onDuplicate,
+      onDelete,
+      {
+        label: isRepeating ? "Edit repeat schedule" : "Repeat",
+        onSelect: onRepeat,
+      },
+      alarm,
+    ),
   ];
 
   return (
@@ -194,20 +214,33 @@ export const getScheduleSections = (
 };
 
 /**
- * Task-management actions (Duplicate / Repeat / Delete), rendered as an inline
- * "Other" group so the actions are directly tappable rather than nested in a
- * submenu. The repeat item's label reflects whether the task already has a
- * repeat schedule. Delete is marked destructive so `IconMenu` styles it
- * accordingly.
+ * Task-management actions, rendered as an inline "Other" group so the actions
+ * are directly tappable rather than nested in a submenu. The optional alarm
+ * toggle leads the group (iOS-only — AlarmKit does the ringing, DEX-48); it
+ * flips between "Set alarm" and "Unset alarm" but keeps the same icon either
+ * way. Duplicate / Repeat / Delete follow; the repeat item's label reflects
+ * whether the task already has a repeat schedule, and Delete is marked
+ * destructive so `IconMenu` styles it accordingly.
  */
 export const getOtherSections = (
   onDuplicate: () => void,
   onDelete: () => void,
   repeat: { label: string; onSelect: () => void },
+  alarm?: { title: string; onSelect: () => void },
 ): TIconMenuSection[] => [
   {
     title: "Other",
     options: [
+      ...(alarm
+        ? [
+            {
+              id: "alarm",
+              title: alarm.title,
+              icon: { ios: "alarm", android: "alarm", web: "alarm" } as const,
+              onSelect: alarm.onSelect,
+            },
+          ]
+        : []),
       {
         id: "duplicate",
         title: "Duplicate",
