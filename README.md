@@ -18,3 +18,7 @@ The marketing site for **[dexterplanner.com](https://dexterplanner.com)** lives 
 ## Repository
 
 **GitHub:** `cvburgess/dexter`
+
+## License
+
+Dexter is open source under the [MIT License](LICENSE).
