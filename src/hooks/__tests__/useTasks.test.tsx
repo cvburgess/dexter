@@ -28,7 +28,7 @@ jest.mock("@/api/tasks", () => ({
 
 const mockGetTasks = getTasks as jest.MockedFunction<typeof getTasks>;
 const mockCreateTask = createTask as jest.MockedFunction<typeof createTask>;
-const mockUpdateTask = updateTask;
+const mockUpdateTask = updateTask as jest.MockedFunction<typeof updateTask>;
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
