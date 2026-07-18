@@ -1,0 +1,10 @@
+{
+  "lock": false,
+  "tasks": {
+    "seed-demo": "deno run --allow-env --allow-net seed-demo.ts"
+  },
+  "imports": {
+    "@src/": "../../src/",
+    "@supabase/supabase-js": "jsr:@supabase/supabase-js@2"
+  }
+}
