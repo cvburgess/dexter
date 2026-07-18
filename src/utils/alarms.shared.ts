@@ -19,8 +19,38 @@ export const ALARM_APP_GROUP = "group.com.dexterplanner";
  */
 export const isAlarmSupported = Platform.OS === "ios";
 
-/** Seeds a sensible morning time when enabling an alarm that has none yet. */
+/** Seeds a sensible morning time for a repeat template's alarm (recurring, so
+ * "now" is meaningless — every generated occurrence is a future date). One-off
+ * task alarms use {@link defaultAlarmTime} instead. */
 export const DEFAULT_ALARM_TIME = "09:00";
+
+/** How far ahead of "now" a freshly-enabled one-off alarm is seeded, so
+ * accepting the default never lands in the past (which would silently never
+ * ring). */
+export const DEFAULT_ALARM_LEAD_MINUTES = 5;
+
+/** Format a `Date`'s local time-of-day as `"HH:MM"`. */
+const toTimeString = (date: Date): string =>
+  `${date.getHours().toString().padStart(2, "0")}:${date
+    .getMinutes()
+    .toString()
+    .padStart(2, "0")}`;
+
+/**
+ * Local time-of-day right now (`"HH:MM"`) — the earliest an alarm scheduled for
+ * *today* may fire, so it doubles as the time picker's lower bound on the
+ * current day.
+ */
+export const currentAlarmTime = (now: Date = new Date()): string =>
+  toTimeString(now);
+
+/**
+ * A sensible default when enabling an alarm on a one-off task: a few minutes
+ * from `now` (see {@link DEFAULT_ALARM_LEAD_MINUTES}), so tapping "Set alarm"
+ * and accepting the default lands just ahead rather than in the past.
+ */
+export const defaultAlarmTime = (now: Date = new Date()): string =>
+  toTimeString(new Date(now.getTime() + DEFAULT_ALARM_LEAD_MINUTES * 60_000));
 
 /** The task fields the alarm layer needs — a narrow slice of `TTask`. */
 export type TAlarmTask = Pick<

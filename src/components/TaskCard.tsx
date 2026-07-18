@@ -4,7 +4,7 @@ import { Alert, StyleSheet, Text, View } from "react-native";
 
 import { ETaskStatus, TTask, TUpdateTask } from "@/api/tasks";
 import { useConfirmation } from "@/hooks/useConfirmation";
-import { requestAlarmAuthorization } from "@/utils/alarms";
+import { currentAlarmTime, requestAlarmAuthorization } from "@/utils/alarms";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 import { ConfirmationModal } from "./ConfirmationModal";
@@ -193,6 +193,15 @@ export function TaskCard({
       <SetAlarmModal
         visible={alarmModalVisible}
         initialTime={task.alarmTime}
+        // The alarm fires on the task's scheduled day; an unscheduled task is
+        // pulled to today (see handleConfirmAlarm), so bound the picker to now
+        // only when that day is today — a future day makes any time valid.
+        minTime={
+          (task.scheduledFor ?? Temporal.Now.plainDateISO().toString()) ===
+          Temporal.Now.plainDateISO().toString()
+            ? currentAlarmTime()
+            : undefined
+        }
         onCancel={() => setAlarmModalVisible(false)}
         onConfirm={handleConfirmAlarm}
       />

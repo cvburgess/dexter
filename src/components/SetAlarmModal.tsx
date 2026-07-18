@@ -8,7 +8,7 @@ import {
   View,
 } from "react-native";
 
-import { DEFAULT_ALARM_TIME } from "@/utils/alarms";
+import { defaultAlarmTime } from "@/utils/alarms";
 import { useTheme } from "@/utils/theme";
 
 import { TimeField } from "./TimeField";
@@ -17,6 +17,10 @@ type TSetAlarmModalProps = {
   visible: boolean;
   /** The task's current alarm time (`"HH:MM"`/`"HH:MM:SS"`), or null if unset. */
   initialTime: string | null;
+  /** Earliest selectable time (`"HH:MM"`) — set to now on the current day so a
+   * same-day alarm can't be picked in the past. Omitted when the task's day is
+   * in the future (any time is valid then). */
+  minTime?: string;
   onCancel: () => void;
   onConfirm: (time: string) => void;
 };
@@ -30,20 +34,22 @@ type TSetAlarmModalProps = {
 export function SetAlarmModal({
   visible,
   initialTime,
+  minTime,
   onCancel,
   onConfirm,
 }: TSetAlarmModalProps) {
   const theme = useTheme();
-  const [time, setTime] = useState(initialTime ?? DEFAULT_ALARM_TIME);
+  const [time, setTime] = useState(initialTime ?? defaultAlarmTime());
 
   // The modal stays mounted while `visible` toggles, so re-seed the picker from
-  // the task's current alarm each time it opens rather than keeping stale state.
-  // Resetting during render off a "was it visible last render" flag is React's
-  // recommended alternative to a setState-in-effect (which lint forbids).
+  // the task's current alarm (or a fresh "now"-based default) each time it opens
+  // rather than keeping stale state. Resetting during render off a "was it
+  // visible last render" flag is React's recommended alternative to a
+  // setState-in-effect (which lint forbids).
   const [wasVisible, setWasVisible] = useState(visible);
   if (visible !== wasVisible) {
     setWasVisible(visible);
-    if (visible) setTime(initialTime ?? DEFAULT_ALARM_TIME);
+    if (visible) setTime(initialTime ?? defaultAlarmTime());
   }
 
   return (
@@ -76,6 +82,7 @@ export function SetAlarmModal({
             <TimeField
               accentColor={theme.colors.primary}
               testID="alarm-time-field"
+              min={minTime}
               value={time}
               onChange={setTime}
             />

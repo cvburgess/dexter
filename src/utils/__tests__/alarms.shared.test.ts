@@ -1,6 +1,9 @@
 import { ETaskStatus, TTask } from "@/api/tasks";
 import {
   alarmFireDate,
+  currentAlarmTime,
+  DEFAULT_ALARM_LEAD_MINUTES,
+  defaultAlarmTime,
   reconcileAlarms,
   TAlarmTask,
 } from "@/utils/alarms.shared";
@@ -155,5 +158,23 @@ describe("reconcileAlarms", () => {
 
     const { toSchedule } = reconcileAlarms([task], [], new Map(), NOW);
     expect(toSchedule.map((a) => a.id)).toEqual(["task-2"]);
+  });
+});
+
+describe("currentAlarmTime", () => {
+  it("formats the current local time-of-day as zero-padded HH:MM", () => {
+    expect(currentAlarmTime(new Date(2026, 6, 17, 9, 5, 42))).toBe("09:05");
+    expect(currentAlarmTime(new Date(2026, 6, 17, 14, 30, 0))).toBe("14:30");
+  });
+});
+
+describe("defaultAlarmTime", () => {
+  it("seeds a few minutes ahead of now so the default isn't already past", () => {
+    expect(defaultAlarmTime(new Date(2026, 6, 17, 9, 0, 0))).toBe("09:05");
+    expect(DEFAULT_ALARM_LEAD_MINUTES).toBe(5);
+  });
+
+  it("rolls the hour over when the lead crosses a boundary", () => {
+    expect(defaultAlarmTime(new Date(2026, 6, 17, 9, 58, 0))).toBe("10:03");
   });
 });

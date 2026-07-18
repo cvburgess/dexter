@@ -225,8 +225,13 @@ describe("NewTaskScreen", () => {
     const save = render(headerOptions().headerRight());
     fireEvent.press(save.getByTestId("modal-done-button"));
 
+    // Seeded to a "now"-based default (a few minutes out) rather than a fixed
+    // time, so assert the shape rather than an exact value.
     expect(mockCreateTask).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Wake up", alarmTime: "09:00" }),
+      expect.objectContaining({
+        title: "Wake up",
+        alarmTime: expect.stringMatching(/^\d{2}:\d{2}$/),
+      }),
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
   });

@@ -23,7 +23,8 @@ import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useNewTaskForm } from "@/hooks/useNewTaskForm";
 import { useTasks } from "@/hooks/useTasks";
 import {
-  DEFAULT_ALARM_TIME,
+  currentAlarmTime,
+  defaultAlarmTime,
   isAlarmSupported,
   requestAlarmAuthorization,
 } from "@/utils/alarms";
@@ -84,7 +85,7 @@ export default function NewTaskScreen() {
       );
       return;
     }
-    form.setAlarmTime(DEFAULT_ALARM_TIME);
+    form.setAlarmTime(defaultAlarmTime());
   };
 
   const handleSave = () => {
@@ -185,6 +186,14 @@ export default function NewTaskScreen() {
                 <TimeField
                   accentColor={theme.colors.primary}
                   testID="new-task-alarm"
+                  // Bound to now only when the task is scheduled for today, so a
+                  // same-day alarm can't be set in the past; a future day allows
+                  // any time.
+                  min={
+                    form.scheduledFor === Temporal.Now.plainDateISO().toString()
+                      ? currentAlarmTime()
+                      : undefined
+                  }
                   value={form.alarmTime}
                   onChange={form.setAlarmTime}
                 />

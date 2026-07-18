@@ -8,7 +8,7 @@ import { TTimeFieldProps } from "./TimeField.types";
  * `input[type="time"]`, themed to match the rest of the app. Its value is
  * already the `"HH:MM"` string the field speaks, so no conversion is needed.
  */
-export function TimeField({ onChange, testID, value }: TTimeFieldProps) {
+export function TimeField({ min, onChange, testID, value }: TTimeFieldProps) {
   const theme = useTheme();
 
   return (
@@ -16,6 +16,7 @@ export function TimeField({ onChange, testID, value }: TTimeFieldProps) {
       type="time"
       data-testid={testID}
       value={value}
+      min={min}
       onChange={(event) => onChange(event.target.value)}
       style={{
         backgroundColor: theme.colors.card,
