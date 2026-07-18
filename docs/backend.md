@@ -17,6 +17,10 @@ All backend config and migrations live under `/supabase`.
 - `config.toml` — Local Supabase CLI configuration
 - `seed.sql` — Optional seed data for local dev; the production baseline
   currently requires none
+- `scripts/` — Operational Deno scripts. `seed-demo.ts` resets the App Store
+  review / marketing demo account to a curated, known-good dataset (service
+  role, idempotent); see [`../supabase/scripts/README.md`](../supabase/scripts/README.md)
+  and [`appstore.md`](appstore.md)
 
 For query optimization, schema design, and RLS guidance, see the repo skill at
 [`.claude/skills/supabase-postgres-best-practices/SKILL.md`](../.claude/skills/supabase-postgres-best-practices/SKILL.md).
