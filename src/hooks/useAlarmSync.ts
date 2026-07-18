@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { Alert } from "react-native";
 
 import {
   cancelTaskAlarm,
@@ -39,6 +40,10 @@ export const useAlarmSync = (): void => {
         new Date(),
       );
 
+      // Tracks whether any alarm this run failed to schedule, so we warn the
+      // user once per reconcile rather than firing an Alert per failed alarm.
+      let anyScheduleFailed = false;
+
       await Promise.all([
         ...toCancel.map(async (id) => {
           try {
@@ -53,6 +58,10 @@ export const useAlarmSync = (): void => {
             await scheduleTaskAlarm(alarm);
             scheduledEpochs.current.set(alarm.id, alarm.epochSeconds);
           } catch (error) {
+            // Leave the epoch unrecorded so a later reconcile retries. Flag the
+            // failure so the user isn't left counting on an alarm that won't
+            // ring (e.g. AlarmKit authorization denied — DEX-48).
+            anyScheduleFailed = true;
             console.warn(
               `[alarms] Failed to schedule alarm ${alarm.id}`,
               error,
@@ -60,6 +69,13 @@ export const useAlarmSync = (): void => {
           }
         }),
       ]);
+
+      if (anyScheduleFailed) {
+        Alert.alert(
+          "Alarm not set",
+          "We couldn't set one of your task alarms, so it won't ring. Check that alarms are enabled for Dexter in Settings.",
+        );
+      }
     };
 
     void sync();

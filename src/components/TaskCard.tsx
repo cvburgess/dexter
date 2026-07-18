@@ -43,11 +43,13 @@ export function TaskCard({
   // An alarm is bound to the task's scheduled date (it fires at scheduled_for +
   // alarm_time), so changing that date shouldn't silently move or orphan it —
   // ask first. A re-tap of the current day changes nothing, and a task without
-  // an alarm just reschedules (DEX-48).
+  // an alarm just reschedules (DEX-48). `== null` (not `===`) so a task whose
+  // `alarmTime` is absent rather than null — e.g. a DB missing the column —
+  // still counts as "no alarm" and reschedules directly instead of prompting.
   const handleChangeSchedule = async (scheduledFor: string | null) => {
     const scheduleChanged = scheduledFor !== task.scheduledFor;
 
-    if (task.alarmTime === null || !scheduleChanged) {
+    if (task.alarmTime == null || !scheduleChanged) {
       onUpdate({ scheduledFor });
       return;
     }

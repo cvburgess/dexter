@@ -18,6 +18,9 @@ export type TNewTaskForm = {
   setScheduledFor: (scheduledFor: string) => void;
   dueOn: string | null;
   setDueOn: (dueOn: string | null) => void;
+  /** Time-of-day the alarm fires (`"HH:MM"`), or null when no alarm is set. */
+  alarmTime: string | null;
+  setAlarmTime: (alarmTime: string | null) => void;
   /** The resolved payload for `createTask`, with tokens stripped from the title. */
   task: TCreateTask;
   canSave: boolean;
@@ -50,6 +53,7 @@ export const useNewTaskForm = (
   const [scheduledFor, setScheduledFor] = useState(() =>
     resolveScheduledFor(defaultScheduledFor),
   );
+  const [alarmTime, setAlarmTime] = useState<string | null>(null);
 
   // `undefined` means "no manual override yet — follow the shorthand tokens".
   const [priorityOverride, setPriorityOverride] = useState<ETaskPriority>();
@@ -78,7 +82,16 @@ export const useNewTaskForm = (
     setScheduledFor,
     dueOn,
     setDueOn: setDueOnOverride,
-    task: { title: cleanTitle, priority, listId, scheduledFor, dueOn },
+    alarmTime,
+    setAlarmTime,
+    task: {
+      title: cleanTitle,
+      priority,
+      listId,
+      scheduledFor,
+      dueOn,
+      alarmTime,
+    },
     canSave: cleanTitle.length > 0,
   };
 };

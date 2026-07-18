@@ -43,17 +43,25 @@ export const requestAlarmAuthorization = async (): Promise<boolean> => {
  * alarm id, so cancelling first makes a time edit replace cleanly rather than
  * leaving a duplicate. `launchAppOnDismiss` brings Dexter forward when the user
  * stops the alarm.
+ *
+ * `scheduleAlarm` returns `false` (rather than throwing) when AlarmKit rejects
+ * the alarm — authorization not granted, the Live Activity can't be presented,
+ * etc. We turn that into a throw so callers can't mistake a swallowed native
+ * failure for success and leave the user counting on an alarm that won't ring.
  */
 export const scheduleTaskAlarm = async (
   alarm: TAlarmSchedule,
 ): Promise<void> => {
   await cancelAlarm(alarm.id);
-  await scheduleAlarm({
+  const scheduled = await scheduleAlarm({
     id: alarm.id,
     epochSeconds: alarm.epochSeconds,
     title: alarm.title,
     launchAppOnDismiss: true,
   });
+  if (!scheduled) {
+    throw new Error(`AlarmKit rejected alarm ${alarm.id}`);
+  }
 };
 
 /** Cancel a task's alarm in AlarmKit and shared storage. */
