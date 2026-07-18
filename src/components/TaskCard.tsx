@@ -41,26 +41,51 @@ export function TaskCard({
     task.status === ETaskStatus.DONE || task.status === ETaskStatus.WONT_DO;
 
   // An alarm is bound to the task's scheduled date (it fires at scheduled_for +
-  // alarm_time), so unscheduling or moving the task would leave it silently
-  // dangling or ringing on the wrong day. Confirm, then clear the alarm as part
-  // of the same schedule change. A re-tap of the current day changes nothing, so
-  // it neither prompts nor clears (DEX-48).
+  // alarm_time), so changing that date shouldn't silently move or orphan it —
+  // ask first. A re-tap of the current day changes nothing, and a task without
+  // an alarm just reschedules (DEX-48).
   const handleChangeSchedule = async (scheduledFor: string | null) => {
     const scheduleChanged = scheduledFor !== task.scheduledFor;
 
-    if (task.alarmTime !== null && scheduleChanged) {
-      const confirmed = await confirm({
-        title: scheduledFor === null ? "Unschedule task?" : "Reschedule task?",
-        message:
-          "This task has an alarm set. Changing its schedule will unset the alarm.",
-        confirmLabel: scheduledFor === null ? "Unschedule" : "Reschedule",
-      });
-      if (!confirmed) return;
-      onUpdate({ scheduledFor, alarmTime: null });
+    if (task.alarmTime === null || !scheduleChanged) {
+      onUpdate({ scheduledFor });
       return;
     }
 
-    onUpdate({ scheduledFor });
+    if (scheduledFor === null) {
+      // Unscheduling removes the date the alarm needs to fire, so keeping it
+      // isn't an option — only unset-or-cancel.
+      const confirmed = await confirm({
+        title: "Unschedule task?",
+        message:
+          "This task has an alarm set. Unscheduling it will unset the alarm.",
+        confirmLabel: "Unschedule",
+        destructive: true,
+      });
+      if (confirmed) onUpdate({ scheduledFor: null, alarmTime: null });
+      return;
+    }
+
+    // Moving to another day: let the user carry the alarm to the new day (same
+    // time) or drop it. Each choice applies itself; Cancel leaves the task as-is.
+    await confirm({
+      title: "Reschedule task?",
+      message:
+        "This task has an alarm set. Keep the alarm on the new day, or unset it?",
+      actions: [
+        {
+          label: "Keep alarm",
+          role: "default",
+          onPress: () => onUpdate({ scheduledFor }),
+        },
+        {
+          label: "Unset alarm",
+          role: "destructive",
+          onPress: () => onUpdate({ scheduledFor, alarmTime: null }),
+        },
+        { label: "Cancel", role: "cancel" },
+      ],
+    });
   };
 
   // Persist the picked alarm time. Alarms fire on the scheduled date, so an

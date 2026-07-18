@@ -37,7 +37,25 @@ jest.mock("../MoreMenu", () => ({
   MoreMenu: (props: Parameters<typeof mockMoreMenu>[0]) => mockMoreMenu(props),
 }));
 
-const mockConfirm = jest.fn<Promise<boolean>, [unknown]>();
+// A subset of ConfirmOptions the schedule handler passes; enough to simulate
+// which button the user taps in the multi-action reschedule prompt.
+type ConfirmArg = {
+  actions?: { label: string; role?: string; onPress?: () => void }[];
+};
+const mockConfirm = jest.fn<Promise<boolean>, [ConfirmArg]>();
+
+/** Make the mocked confirm resolve `false` (Cancel / dismiss). */
+const cancelPrompt = () => mockConfirm.mockResolvedValue(false);
+/** Make the mocked confirm accept a plain confirm (no custom actions). */
+const acceptPrompt = () => mockConfirm.mockResolvedValue(true);
+/** Make the mocked confirm "tap" the action with the given label. */
+const tapAction = (label: string) =>
+  mockConfirm.mockImplementation((options) => {
+    const action = options.actions?.find((a) => a.label === label);
+    action?.onPress?.();
+    return Promise.resolve(!!action && action.role !== "cancel");
+  });
+
 jest.mock("@/hooks/useConfirmation", () => ({
   useConfirmation: () => ({
     confirm: mockConfirm,
@@ -82,6 +100,12 @@ describe("TaskCard", () => {
     return mockMoreMenu.mock.calls[0][0].onChangeSchedule;
   };
 
+  const alarmTask = {
+    ...baseTask,
+    alarmTime: "17:30",
+    scheduledFor: "2026-07-03",
+  };
+
   it("reschedules directly, without confirming, when the task has no alarm", async () => {
     const onUpdate = jest.fn();
     const onChangeSchedule = scheduleVia(baseTask, onUpdate);
@@ -92,43 +116,69 @@ describe("TaskCard", () => {
     expect(onUpdate).toHaveBeenCalledWith({ scheduledFor: "2026-07-20" });
   });
 
-  it("confirms, then clears the alarm alongside a reschedule when one is set", async () => {
-    mockConfirm.mockResolvedValue(true);
+  it("offers to keep the alarm on a reschedule, moving it to the new day", async () => {
+    tapAction("Keep alarm");
     const onUpdate = jest.fn();
-    const onChangeSchedule = scheduleVia(
-      { ...baseTask, alarmTime: "17:30" },
-      onUpdate,
-    );
+    const onChangeSchedule = scheduleVia(alarmTask, onUpdate);
 
     await onChangeSchedule("2026-07-20");
 
     expect(mockConfirm).toHaveBeenCalledTimes(1);
+    // Alarm time is untouched; only the date moves, so the reconcile re-fires it.
+    expect(onUpdate).toHaveBeenCalledWith({ scheduledFor: "2026-07-20" });
+  });
+
+  it("offers to unset the alarm on a reschedule, clearing it alongside the date", async () => {
+    tapAction("Unset alarm");
+    const onUpdate = jest.fn();
+    const onChangeSchedule = scheduleVia(alarmTask, onUpdate);
+
+    await onChangeSchedule("2026-07-20");
+
     expect(onUpdate).toHaveBeenCalledWith({
       scheduledFor: "2026-07-20",
       alarmTime: null,
     });
   });
 
-  it("leaves the task untouched when the reschedule-clears-alarm prompt is declined", async () => {
-    mockConfirm.mockResolvedValue(false);
+  it("leaves the task untouched when the reschedule prompt is cancelled", async () => {
+    tapAction("Cancel");
     const onUpdate = jest.fn();
-    const onChangeSchedule = scheduleVia(
-      { ...baseTask, alarmTime: "17:30" },
-      onUpdate,
-    );
+    const onChangeSchedule = scheduleVia(alarmTask, onUpdate);
 
-    await onChangeSchedule(null);
+    await onChangeSchedule("2026-07-20");
 
     expect(mockConfirm).toHaveBeenCalledTimes(1);
     expect(onUpdate).not.toHaveBeenCalled();
   });
 
+  it("unsets the alarm when unscheduling a task that has one (no keep option)", async () => {
+    acceptPrompt();
+    const onUpdate = jest.fn();
+    const onChangeSchedule = scheduleVia(alarmTask, onUpdate);
+
+    await onChangeSchedule(null);
+
+    expect(mockConfirm).toHaveBeenCalledTimes(1);
+    expect(onUpdate).toHaveBeenCalledWith({
+      scheduledFor: null,
+      alarmTime: null,
+    });
+  });
+
+  it("leaves the task untouched when the unschedule prompt is declined", async () => {
+    cancelPrompt();
+    const onUpdate = jest.fn();
+    const onChangeSchedule = scheduleVia(alarmTask, onUpdate);
+
+    await onChangeSchedule(null);
+
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
   it("does not prompt or clear the alarm when re-selecting the current day", async () => {
     const onUpdate = jest.fn();
-    const onChangeSchedule = scheduleVia(
-      { ...baseTask, alarmTime: "17:30", scheduledFor: "2026-07-03" },
-      onUpdate,
-    );
+    const onChangeSchedule = scheduleVia(alarmTask, onUpdate);
 
     await onChangeSchedule("2026-07-03");
 
