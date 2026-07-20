@@ -84,6 +84,9 @@ The husky vector in `assets/app.icon/Assets/Vector.svg` is the source of truth; 
 
 Auth is Supabase-backed (magic-link email + Google OAuth, PKCE flow) via `hooks/useAuth.tsx`, which exports `AuthProvider`/`useAuth` (`{ initializing, session, userId }`) and `signInWithEmail` / `signInWithGoogle` / `signOut` helpers. The singleton `supabase` client lives in `utils/supabase.ts` (env validation + native `AppState` auto-refresh) and is re-exported from `hooks/useAuth.tsx` for existing call sites.
 
+- **Email login is link *or* code.** `signInWithEmail` sends a magic link, and the email template (`supabase/templates/magic_link.html`) also renders the `{{ .Token }}` code, so `app/(auth)/login.tsx` shows a two-step flow: enter email → enter the 6-digit code. The code is verified with `verifyEmailOtp` (`verifyOtp({ type: "email" })`); tapping the link still works via `auth-callback`. On success the session is set and `(auth)/_layout.tsx` redirects into the app — no manual navigation.
+- **Demo account login.** `isDemoEmail(email)` (exact match on `DEMO_EMAIL`, duplicated from `supabase/functions/_shared/demoAuth.ts`) routes the App Store demo account down a separate path: no email is sent, and the typed code is verified by the `verify-demo-otp` Edge Function via `verifyDemoOtp`, which returns a session installed with `setSession`. Keeps reviewer login inbox-free. See `docs/backend.md` (Demo account login).
+
 - **MCP / OAuth consent**: `app/oauth/consent.tsx` renders the Supabase OAuth-server consent screen (`{site_url}/oauth/consent?authorization_id=…`). It sits outside the `(app)` group, so it guards itself — an unauthenticated visitor's `authorization_id` is stashed (`utils/oauthReturn.ts`) and replayed by `auth-callback.tsx` after sign-in. See `docs/backend.md` for the server-side config and client registration.
 
 - **Guards live in the layouts**: `(app)/_layout.tsx` redirects signed-out users to `/(auth)/login`; `(auth)/_layout.tsx` redirects signed-in users to the app; `app/index.tsx` branches on session at boot.
@@ -119,6 +122,8 @@ npm run dev:android     # eas build --platform android --profile development
 ```
 
 The EAS project is wired up via `extra.eas.projectId` and `owner` in `app.json`. `appVersionSource` is `remote`, so build/version numbers are managed by EAS.
+
+Production release to the App Store is a manual **Build and Submit** workflow (`.github/workflows/build-and-submit.yml`): `eas build --profile production` → `eas submit` → tag + GitHub release from `CHANGELOG.md`. See [`docs/appstore.md`](appstore.md) for the required credentials (`EXPO_TOKEN`, `submit.production.ios.ascAppId`, an App Store Connect API key on EAS).
 
 ## Stack
 

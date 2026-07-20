@@ -1,0 +1,49 @@
+name: Build and Submit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-submit:
+    name: Build and Submit to App Store
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: src/package-lock.json
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: src
+        run: npm ci
+
+      - name: Build iOS App
+        working-directory: src
+        run: eas build --platform ios --profile production --non-interactive --wait
+
+      - name: Submit iOS App to App Store
+        working-directory: src
+        run: eas submit --platform ios --latest --non-interactive
+
+      - name: Tag and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./src/package.json').version")
+          bash .github/scripts/tag-and-release.sh "$VERSION"

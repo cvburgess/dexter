@@ -10,7 +10,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "@/components/Button";
 import { TextInput } from "@/components/TextInput";
-import { signInWithEmail, signInWithGoogle } from "@/hooks/useAuth";
+import {
+  isDemoEmail,
+  signInWithEmail,
+  signInWithGoogle,
+  verifyDemoOtp,
+  verifyEmailOtp,
+} from "@/hooks/useAuth";
 import { useTheme } from "@/utils/theme";
 
 const toErrorMessage = (error: unknown) =>
@@ -21,8 +27,9 @@ const toErrorMessage = (error: unknown) =>
 export default function LoginScreen() {
   const theme = useTheme();
   const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   const handleGoogleLogin = async () => {
@@ -39,20 +46,49 @@ export default function LoginScreen() {
     }
   };
 
-  const handleEmailLogin = async () => {
+  const handleSendCode = async () => {
     setLoading(true);
     setErrorMessage("");
 
     try {
-      const { error } = await signInWithEmail(email.trim());
-      if (error) throw error;
+      // The demo account can't receive email, so skip sending and go straight
+      // to the code entry — its fixed code is verified by verify-demo-otp.
+      if (!isDemoEmail(email)) {
+        const { error } = await signInWithEmail(email.trim());
+        if (error) throw error;
+      }
 
-      setEmailSent(true);
+      setCodeSent(true);
     } catch (error) {
       setErrorMessage(toErrorMessage(error));
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleVerifyCode = async () => {
+    setLoading(true);
+    setErrorMessage("");
+
+    try {
+      const trimmedEmail = email.trim();
+      const { error } = isDemoEmail(trimmedEmail)
+        ? await verifyDemoOtp(trimmedEmail, code)
+        : await verifyEmailOtp(trimmedEmail, code);
+      // On success the session is set and the (auth) layout redirects into the
+      // app; no manual navigation needed.
+      if (error) throw error;
+    } catch (error) {
+      setErrorMessage(toErrorMessage(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUseDifferentEmail = () => {
+    setCodeSent(false);
+    setCode("");
+    setErrorMessage("");
   };
 
   return (
@@ -66,20 +102,29 @@ export default function LoginScreen() {
         </Text>
 
         <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-          Sign up or log in to start planning
+          {codeSent
+            ? "Enter the code from your email"
+            : "Sign up or log in to start planning"}
         </Text>
 
         {errorMessage ? <Banner tone="error">{errorMessage}</Banner> : null}
 
-        {emailSent ? (
-          <EmailSentPanel onUseDifferentEmail={() => setEmailSent(false)} />
+        {codeSent ? (
+          <CodeEntryForm
+            code={code}
+            loading={loading}
+            isDemo={isDemoEmail(email)}
+            onChangeCode={setCode}
+            onVerifyCode={handleVerifyCode}
+            onUseDifferentEmail={handleUseDifferentEmail}
+          />
         ) : (
           <EmailLoginForm
             email={email}
             loading={loading}
             onChangeEmail={setEmail}
             onGoogleLogin={handleGoogleLogin}
-            onEmailLogin={handleEmailLogin}
+            onSendCode={handleSendCode}
           />
         )}
       </SafeAreaView>
@@ -119,18 +164,61 @@ function Banner({ tone, children, testID }: TBannerProps) {
   );
 }
 
-function EmailSentPanel({
-  onUseDifferentEmail,
-}: {
+type TCodeEntryFormProps = {
+  code: string;
+  loading: boolean;
+  isDemo: boolean;
+  onChangeCode: (code: string) => void;
+  onVerifyCode: () => void;
   onUseDifferentEmail: () => void;
-}) {
+};
+
+function CodeEntryForm({
+  code,
+  loading,
+  isDemo,
+  onChangeCode,
+  onVerifyCode,
+  onUseDifferentEmail,
+}: TCodeEntryFormProps) {
+  const theme = useTheme();
+
   return (
     <>
-      <Banner tone="success" testID="login-email-sent-banner">
-        Check your email for a login link
-      </Banner>
+      {isDemo ? null : (
+        <Banner tone="success" testID="login-code-sent-banner">
+          Check your email for a login code — or tap the link
+        </Banner>
+      )}
+      <TextInput
+        testID="login-code-input"
+        // Regular users get a 6-digit numeric OTP. The demo account uses a
+        // static code, so it accepts a longer, non-numeric secret to keep the
+        // public verify-demo-otp endpoint from being brute-forceable.
+        placeholder={isDemo ? "Enter code" : "Enter 6-digit code"}
+        value={code}
+        onChangeText={onChangeCode}
+        keyboardType={isDemo ? "default" : "number-pad"}
+        maxLength={isDemo ? undefined : 6}
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoComplete="one-time-code"
+        textContentType="oneTimeCode"
+        editable={!loading}
+        style={{ marginBottom: theme.spacing }}
+      />
+      <Button
+        variant="primary"
+        onPress={onVerifyCode}
+        disabled={loading || !code.trim()}
+        isLoading={loading}
+        testID="login-verify-button"
+      >
+        Verify Code
+      </Button>
       <Button
         onPress={onUseDifferentEmail}
+        disabled={loading}
         testID="login-use-different-email-button"
       >
         Use a different email
@@ -144,7 +232,7 @@ type TEmailLoginFormProps = {
   loading: boolean;
   onChangeEmail: (email: string) => void;
   onGoogleLogin: () => void;
-  onEmailLogin: () => void;
+  onSendCode: () => void;
 };
 
 function EmailLoginForm({
@@ -152,7 +240,7 @@ function EmailLoginForm({
   loading,
   onChangeEmail,
   onGoogleLogin,
-  onEmailLogin,
+  onSendCode,
 }: TEmailLoginFormProps) {
   const theme = useTheme();
 
@@ -186,7 +274,7 @@ function EmailLoginForm({
       />
       <Button
         variant="primary"
-        onPress={onEmailLogin}
+        onPress={onSendCode}
         disabled={loading || !email.trim()}
         isLoading={loading}
         testID="login-email-button"
