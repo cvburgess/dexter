@@ -13,6 +13,7 @@ doc is the staging ground for the first submission.
 - **Name:** `Dexter: Day Planner` (App Store name, ≤ 30 chars)
 - **Subtitle:** `An opinionated day planner` (≤ 30 chars)
 - **Bundle ID:** `com.dexterplanner` (`src/app.json` → `ios.bundleIdentifier`)
+- **App Store Connect App ID (ascAppId):** `6790178708`
 - **Apple Team ID:** `Q77C3BA452`
 - **Primary category:** Productivity
 - **Copyright:** `2026 Charles Burgess`
@@ -110,14 +111,10 @@ then tags the release and publishes GitHub release notes from `CHANGELOG.md`
 Before the first run, wire up the credentials this pipeline assumes:
 
 - **`EXPO_TOKEN`** — a GitHub Actions repo secret (same one `deploy.yml` uses).
-- **`src/eas.json` → `submit.production.ios.ascAppId`** — currently empty. Fill
-  it with the App Store Connect app's Apple ID once the app is **created in App
-  Store Connect** (`com.dexterplanner`). `eas submit` fails until it is set.
+- **`src/eas.json` → `submit.production.ios.ascAppId`** — set to `6790178708`
+  (the App Store Connect app for `com.dexterplanner`).
 - **App Store Connect API key** — upload it to EAS once (`eas credentials` or an
   interactive `eas submit`) so `--non-interactive` submits can authenticate.
-
-Until the app exists in App Store Connect, the build step works but the submit
-step will not.
 
 ## Screenshots
 
