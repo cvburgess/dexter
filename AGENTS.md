@@ -13,6 +13,7 @@ This file is the working guide for AI/code agents in this monorepo.
 - `/supabase` — Supabase backend (Edge Functions + config + migrations)
 - `/www` — Lume marketing website for `dexterplanner.com`
 - `/docs` — Engineering documentation
+- `/scripts` — Repo-level developer utilities (not shipped with any app)
 
 **Marketing website:** Source lives in `/www` and deploys to **[https://dexterplanner.com](https://dexterplanner.com)**. See `docs/website.md`.
 
