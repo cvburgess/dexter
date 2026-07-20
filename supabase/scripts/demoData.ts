@@ -172,7 +172,7 @@ export function buildDemoData(): DemoDataset {
     {
       title: "Prepare App Store screenshots",
       priority: DEMO_PRIORITY.IMPORTANT_AND_URGENT,
-      status: DEMO_STATUS.TODO,
+      status: DEMO_STATUS.DONE,
       scheduledForOffset: 0,
       dueOnOffset: 0,
       listKey: "work",
@@ -188,7 +188,7 @@ export function buildDemoData(): DemoDataset {
     },
     {
       title: "Draft release notes",
-      priority: DEMO_PRIORITY.IMPORTANT,
+      priority: DEMO_PRIORITY.NEITHER,
       status: DEMO_STATUS.TODO,
       scheduledForOffset: 0,
       dueOnOffset: null,
@@ -197,7 +197,7 @@ export function buildDemoData(): DemoDataset {
     },
     {
       title: "Weekly review",
-      priority: DEMO_PRIORITY.IMPORTANT,
+      priority: DEMO_PRIORITY.NEITHER,
       status: DEMO_STATUS.TODO,
       scheduledForOffset: 0,
       dueOnOffset: null,
@@ -224,7 +224,7 @@ export function buildDemoData(): DemoDataset {
     {
       title: "Buy groceries",
       priority: DEMO_PRIORITY.UNPRIORITIZED,
-      status: DEMO_STATUS.TODO,
+      status: DEMO_STATUS.DONE,
       scheduledForOffset: 0,
       dueOnOffset: null,
       listKey: "errands",
@@ -232,7 +232,7 @@ export function buildDemoData(): DemoDataset {
     {
       title: "Book dentist appointment",
       priority: DEMO_PRIORITY.NEITHER,
-      status: DEMO_STATUS.TODO,
+      status: DEMO_STATUS.DONE,
       scheduledForOffset: 0,
       dueOnOffset: null,
       listKey: "errands",
@@ -244,6 +244,22 @@ export function buildDemoData(): DemoDataset {
       scheduledForOffset: -3,
       dueOnOffset: -2,
       listKey: "work",
+    },
+    {
+      title: "Send invoice to client",
+      priority: DEMO_PRIORITY.IMPORTANT_AND_URGENT,
+      status: DEMO_STATUS.TODO,
+      scheduledForOffset: -5,
+      dueOnOffset: -4,
+      listKey: "work",
+    },
+    {
+      title: "Renew car registration",
+      priority: DEMO_PRIORITY.URGENT,
+      status: DEMO_STATUS.TODO,
+      scheduledForOffset: -2,
+      dueOnOffset: -1,
+      listKey: "personal",
     },
     {
       title: "Water the plants",
