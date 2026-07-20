@@ -19,7 +19,7 @@
     "lint": "expo lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "supabase:types": "npx supabase gen types typescript --project-id \"isreileykodwkyedcewv\" --schema public > ./types/database.types.ts",
+    "supabase:types": "npx supabase gen types typescript --project-id \"isreileykodwkyedcewv\" --schema public | tee ./types/database.types.ts | deno fmt - --ext ts > ../supabase/functions/_shared/database.types.ts",
     "licenses": "node utils/generate-licenses.ts",
     "test": "jest --forceExit",
     "test:watch": "jest --watch --forceExit",
