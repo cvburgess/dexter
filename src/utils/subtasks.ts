@@ -44,9 +44,9 @@ export const withFreshIds = <S extends { id: string }>(
  * the *same* row update, which is what makes the sweep atomic — there is no
  * window where a done parent still shows open children.
  */
-export const sweepSubtasks = <T, S extends { status: T }>(
+export const sweepSubtasks = <S extends { status: unknown }>(
   subtasks: readonly S[],
-  status: T,
+  status: S["status"],
 ): S[] =>
   subtasks.map((subtask) =>
     subtask.status === status ? subtask : { ...subtask, status },

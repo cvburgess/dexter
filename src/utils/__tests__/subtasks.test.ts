@@ -62,7 +62,7 @@ describe("sweepSubtasks", () => {
   });
 
   it("returns an empty array unchanged", () => {
-    expect(sweepSubtasks([], 2)).toEqual([]);
+    expect(sweepSubtasks<{ status: number }>([], 2)).toEqual([]);
   });
 });
 

@@ -5,6 +5,16 @@ import { Database, TablesInsert, TablesUpdate } from "@/types/database.types";
 
 import { ETaskPriority } from "./tasks";
 
+/**
+ * A template's checklist item. Unlike a task's subtask it carries no `status` —
+ * a template is a blueprint, not state; each generated occurrence materializes
+ * its own copy at the open status (see `subtasksFromTemplate`).
+ */
+export type TTemplateSubtask = {
+  id: string;
+  title: string;
+};
+
 export type TTemplate = {
   id: string;
   alarmTime: string | null;
@@ -13,6 +23,7 @@ export type TTemplate = {
   listId: string | null;
   priority: ETaskPriority;
   schedule: string;
+  subtasks: TTemplateSubtask[];
   title: string;
   userId: string;
 };
@@ -33,6 +44,7 @@ export type TCreateTemplate = {
   listId?: string | null;
   priority: ETaskPriority;
   schedule?: string;
+  subtasks?: TTemplateSubtask[];
   title: string;
 };
 
@@ -57,6 +69,7 @@ export type TUpdateTemplate = {
   listId?: string | null;
   priority?: ETaskPriority;
   schedule?: string;
+  subtasks?: TTemplateSubtask[];
   title?: string;
 };
 

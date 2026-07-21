@@ -134,6 +134,7 @@ describe("useTasks", () => {
       listId: null,
       priority: ETaskPriority.NEITHER,
       schedule: "0 0 * * *", // daily
+      subtasks: [],
       title: "Take meds",
       userId: "user-1",
     };
@@ -161,5 +162,169 @@ describe("useTasks", () => {
     expect(created.alarmTime).toBe("17:30");
     expect(created.templateId).toBe("template-1");
     expect(created.scheduledFor).not.toBe(today);
+  });
+
+  describe("subtask sweep on completion", () => {
+    const withSubtasks = (overrides: Partial<TTask> = {}): TTask => ({
+      id: "task-1",
+      alarmTime: null,
+      title: "Ship the release",
+      dueOn: null,
+      goalId: null,
+      listId: null,
+      priority: ETaskPriority.NEITHER,
+      scheduledFor: null,
+      status: ETaskStatus.TODO,
+      subtasks: [
+        { id: "sub-1", title: "Tag it", status: ETaskStatus.TODO },
+        { id: "sub-2", title: "Write notes", status: ETaskStatus.DONE },
+      ],
+      templateId: null,
+      ...overrides,
+    });
+
+    const completeTask = async (task: TTask, status: ETaskStatus) => {
+      const { wrapper, queryClient } = createWrapper();
+      mockGetTasks.mockResolvedValue([task]);
+      mockUpdateTask.mockResolvedValue([{ ...task, status }]);
+
+      const { result } = renderHook(() => useTasks(), { wrapper });
+      await waitFor(() =>
+        expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual([task]),
+      );
+
+      act(() => result.current[1].updateTask({ id: task.id, status }));
+      await waitFor(() => expect(mockUpdateTask).toHaveBeenCalled());
+
+      return mockUpdateTask.mock.calls[0][1];
+    };
+
+    it("closes every open subtask in the same update as the parent", async () => {
+      const diff = await completeTask(withSubtasks(), ETaskStatus.DONE);
+
+      // One row write carries both — that single-update property is what makes
+      // the sweep atomic; a done parent is never briefly shown with open children.
+      expect(diff.status).toBe(ETaskStatus.DONE);
+      expect(diff.subtasks).toEqual([
+        { id: "sub-1", title: "Tag it", status: ETaskStatus.DONE },
+        { id: "sub-2", title: "Write notes", status: ETaskStatus.DONE },
+      ]);
+    });
+
+    it("sweeps to won't-do, not just done", async () => {
+      const diff = await completeTask(withSubtasks(), ETaskStatus.WONT_DO);
+
+      expect(
+        diff.subtasks?.every(({ status }) => status === ETaskStatus.WONT_DO),
+      ).toBe(true);
+    });
+
+    it("leaves the update untouched for a task with no subtasks", async () => {
+      const diff = await completeTask(
+        withSubtasks({ subtasks: [] }),
+        ETaskStatus.DONE,
+      );
+
+      expect(diff).not.toHaveProperty("subtasks");
+    });
+
+    it("does not sweep when the update is not a completion", async () => {
+      const diff = await completeTask(withSubtasks(), ETaskStatus.IN_PROGRESS);
+
+      expect(diff).not.toHaveProperty("subtasks");
+    });
+
+    it("respects an explicitly supplied subtasks array over the sweep", async () => {
+      // Editing a checklist item and completing the parent in one call must not
+      // have the sweep clobber the caller's array.
+      const { wrapper, queryClient } = createWrapper();
+      const task = withSubtasks();
+      const explicit = [
+        { id: "sub-1", title: "Renamed", status: ETaskStatus.TODO },
+      ];
+      mockGetTasks.mockResolvedValue([task]);
+      mockUpdateTask.mockResolvedValue([task]);
+
+      const { result } = renderHook(() => useTasks(), { wrapper });
+      await waitFor(() =>
+        expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual([task]),
+      );
+
+      act(() =>
+        result.current[1].updateTask({
+          id: "task-1",
+          status: ETaskStatus.DONE,
+          subtasks: explicit,
+        }),
+      );
+      await waitFor(() => expect(mockUpdateTask).toHaveBeenCalled());
+
+      expect(mockUpdateTask.mock.calls[0][1].subtasks).toEqual(explicit);
+    });
+  });
+
+  it("materializes the template's checklist onto the next occurrence, reset to open", async () => {
+    const { wrapper, queryClient } = createWrapper();
+    const today = Temporal.Now.plainDateISO().toString();
+
+    const task: TTask = {
+      id: "task-1",
+      alarmTime: null,
+      title: "Weekly review",
+      dueOn: null,
+      goalId: null,
+      listId: null,
+      priority: ETaskPriority.NEITHER,
+      scheduledFor: today,
+      status: ETaskStatus.TODO,
+      subtasks: [
+        { id: "sub-1", title: "Clear inbox", status: ETaskStatus.TODO },
+      ],
+      templateId: "template-1",
+    };
+    const template: TTemplate = {
+      id: "template-1",
+      alarmTime: null,
+      createdAt: "2026-01-01T00:00:00Z",
+      goalId: null,
+      listId: null,
+      priority: ETaskPriority.NEITHER,
+      schedule: "0 0 * * *",
+      subtasks: [
+        { id: "tpl-1", title: "Clear inbox" },
+        { id: "tpl-2", title: "Review goals" },
+      ],
+      title: "Weekly review",
+      userId: "user-1",
+    };
+
+    mockGetTasks.mockResolvedValue([task]);
+    queryClient.setQueryData(["templates"], [template]);
+    mockUpdateTask.mockResolvedValue([{ ...task, status: ETaskStatus.DONE }]);
+
+    const { result } = renderHook(() => useTasks(), { wrapper });
+    await waitFor(() =>
+      expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual([task]),
+    );
+
+    act(() =>
+      result.current[1].updateTask({ id: "task-1", status: ETaskStatus.DONE }),
+    );
+
+    await waitFor(() => expect(mockCreateTask).toHaveBeenCalled());
+    const [, created] = mockCreateTask.mock.calls[0];
+
+    expect(created.subtasks?.map(({ title }) => title)).toEqual([
+      "Clear inbox",
+      "Review goals",
+    ]);
+    // The new occurrence starts fresh: open, and not sharing ids with either the
+    // template or the task that just completed.
+    expect(
+      created.subtasks?.every(({ status }) => status === ETaskStatus.TODO),
+    ).toBe(true);
+    const ids = created.subtasks?.map(({ id }) => id) ?? [];
+    expect(ids).not.toContain("tpl-1");
+    expect(ids).not.toContain("sub-1");
   });
 });

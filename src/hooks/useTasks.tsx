@@ -20,6 +20,7 @@ import {
 } from "@/api/tasks";
 import { getTemplates, TTemplate } from "@/api/templates";
 import { getNextTaskDate } from "@/utils/repeatSchedule";
+import { subtasksFromTemplate, sweepSubtasks } from "@/utils/subtasks";
 import { isCompletionStatus } from "@/utils/taskFilters";
 
 import { supabase } from "./useAuth";
@@ -58,6 +59,34 @@ const findCachedTask = (
   id: string,
 ): TTask | undefined =>
   queryClient.getQueryData<TTask[]>(["tasks"])?.find((task) => task.id === id);
+
+/**
+ * Folds a subtask sweep into a completing update, so checking off a parent
+ * closes its whole checklist in the *same* row write. Doing it here rather than
+ * at each call site is what makes the sweep atomic — and means no future caller
+ * can complete a task and silently leave its children open.
+ *
+ * Deliberately does nothing when the caller already supplied `subtasks` (an
+ * explicit array wins over the sweep), when the task isn't in the cache, or when
+ * every subtask already carries the target status.
+ */
+const withSubtaskSweep = (
+  queryClient: QueryClient,
+  diff: TUpdateTask,
+): TUpdateTask => {
+  const { status } = diff;
+  if (!isCompletionStatus(status) || diff.subtasks) return diff;
+
+  const task = findCachedTask(queryClient, diff.id);
+  if (!task?.subtasks.length) return diff;
+
+  const subtasks = sweepSubtasks(task.subtasks, status);
+  const unchanged = subtasks.every(
+    (subtask, index) => subtask === task.subtasks[index],
+  );
+
+  return unchanged ? diff : { ...diff, subtasks };
+};
 
 /**
  * When an update completes a repeat task, schedule its next occurrence — the
@@ -103,6 +132,9 @@ const maybeCreateNextRecurringTask = async (
     scheduledFor: nextDate,
     templateId: template.id,
     status: ETaskStatus.TODO,
+    // Each occurrence gets its own copy of the checklist, reset to open. Array
+    // items carry no template link, so there is no orphan-spawn hazard here.
+    subtasks: subtasksFromTemplate(template.subtasks, ETaskStatus.TODO),
   });
 };
 
@@ -147,7 +179,8 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
   });
 
   const { mutate: update } = useMutation<TTask[], Error, TUpdateTask>({
-    mutationFn: (diff) => updateTask(supabase, diff),
+    mutationFn: (diff) =>
+      updateTask(supabase, withSubtaskSweep(queryClient, diff)),
     onSuccess: (_data, diff) => maybeCreateNextRecurringTask(queryClient, diff),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -155,7 +188,11 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
   });
 
   const { mutate: bulkUpdate } = useMutation<TTask[], Error, TUpdateTask[]>({
-    mutationFn: (diffs) => updateTasks(supabase, diffs),
+    mutationFn: (diffs) =>
+      updateTasks(
+        supabase,
+        diffs.map((diff) => withSubtaskSweep(queryClient, diff)),
+      ),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
