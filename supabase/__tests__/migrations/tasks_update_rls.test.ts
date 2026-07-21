@@ -1,4 +1,4 @@
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { assert, assertStringIncludes } from "@std/assert";
 
 // DEX-32: regression guard for the tasks UPDATE RLS policy.
 //
@@ -8,6 +8,11 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 // longer sub-selects from `public.tasks` (the self-reference that caused the
 // 42P17 infinite recursion), and (2) it still enforces post-update ownership
 // plus the non-recursive list/goal/template FK-ownership guards from DEX-4.
+//
+// DEX-70 dropped the `subtask_of` column that originally motivated the
+// self-reference, so the specific-column assertion is retired. The structural
+// guard below is kept and is now the stronger of the two: no tasks policy may
+// sub-select `public.tasks` for any reason, whatever column tempts it.
 
 const migrationUrl = new URL(
   "../../migrations/20260712141905_fix_tasks_update_rls_recursion.sql",
@@ -37,11 +42,6 @@ Deno.test("tasks UPDATE policy does not self-reference public.tasks (no 42P17)",
     !policy.includes("from public.tasks"),
     "tasks UPDATE policy must not sub-select from public.tasks; a self-referential " +
       'guard causes `42P17 infinite recursion detected in policy for relation "tasks"`',
-  );
-  assertEquals(
-    policy.includes("subtask_of"),
-    false,
-    "the recursive subtask_of guard must be removed from the tasks UPDATE policy",
   );
 });
 

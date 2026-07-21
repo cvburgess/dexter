@@ -152,6 +152,7 @@ describe("reconcileAlarms", () => {
       priority: 4,
       scheduledFor: "2026-07-17",
       status: ETaskStatus.TODO,
+      subtasks: [],
       templateId: null,
       title: "Water plants",
     };

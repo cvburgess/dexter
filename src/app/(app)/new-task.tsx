@@ -11,10 +11,12 @@ import {
   View,
 } from "react-native";
 
+import { ETaskStatus } from "@/api/tasks";
 import { DateField } from "@/components/DateField";
 import { FormRow } from "@/components/FormRow";
 import { PickerField } from "@/components/PickerField";
 import { PriorityControl } from "@/components/PriorityControl";
+import { SubtaskFields } from "@/components/SubtaskFields";
 import { TextInput } from "@/components/TextInput";
 import { TimeField } from "@/components/TimeField";
 import { WebModalHeader } from "@/components/WebModalHeader";
@@ -166,6 +168,13 @@ export default function NewTaskScreen() {
         <FormRow label="Deadline" minHeight={32}>
           <DeadlineField dueOn={form.dueOn} onChange={form.setDueOn} />
         </FormRow>
+
+        <SubtaskFields
+          value={form.subtasks}
+          onChange={form.setSubtasks}
+          makeRow={(id) => ({ id, title: "", status: ETaskStatus.TODO })}
+          testIDPrefix="new-task"
+        />
 
         {isAlarmSupported && (
           <FormRow label="Alarm" minHeight={32}>

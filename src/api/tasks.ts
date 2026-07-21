@@ -1,9 +1,22 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
 import { camelCase, snakeCase } from "@/utils/changeCase";
+import { makeSubtaskId, withFreshIds } from "@/utils/subtasks";
 import { Database, TablesInsert, TablesUpdate } from "@/types/database.types";
 
 import { applyFilters, TQueryFilter } from "./applyFilters";
+
+/**
+ * A subtask is a lightweight checklist item stored inside its parent's
+ * `subtasks` jsonb array — never its own row. Ids are minted client-side and
+ * are only unique within the array. See `docs/backend.md` for the model and its
+ * accepted last-write-wins tradeoff.
+ */
+export type TSubtask = {
+  id: string;
+  title: string;
+  status: ETaskStatus;
+};
 
 export type TTask = {
   id: string;
@@ -14,6 +27,7 @@ export type TTask = {
   priority: ETaskPriority;
   scheduledFor: string | null;
   status: ETaskStatus;
+  subtasks: TSubtask[];
   templateId: string | null;
   title: string;
 };
@@ -45,8 +59,18 @@ export const getTasks = async (
   const { data, error } = await query;
 
   if (error) throw error;
-  return camelCase(data) as TTask[];
+  return (camelCase(data) as TTask[]).map(withSubtasksArray);
 };
+
+/**
+ * Guarantees `subtasks` is an array. The row shape is an unchecked cast, and
+ * the app and the database deploy independently — a bundle that reaches users
+ * before the migration runs gets rows with no `subtasks` column at all, and
+ * every consumer here dereferences it without guarding. Mirrors the `alarmTime`
+ * `== null` handling in `TaskCard` (DEX-48) for the same reason.
+ */
+const withSubtasksArray = <T extends { subtasks?: TSubtask[] }>(row: T): T =>
+  Array.isArray(row.subtasks) ? row : { ...row, subtasks: [] };
 
 export type TCreateTask = {
   alarmTime?: string | null;
@@ -56,6 +80,7 @@ export type TCreateTask = {
   priority?: ETaskPriority;
   scheduledFor?: string | null;
   status?: ETaskStatus;
+  subtasks?: TSubtask[];
   templateId?: string | null;
   title: string;
 };
@@ -64,7 +89,8 @@ export type TCreateTask = {
  * Builds the `createTask` input for duplicating an existing task: copies every
  * copyable field (including `status`) and omits the DB-generated `id`. The
  * `templateId` is intentionally dropped — a duplicate is an independent one-off
- * task, so only the original drives its repeat schedule (DEX-21).
+ * task, so only the original drives its repeat schedule (DEX-21). Subtasks are
+ * copied with fresh ids so the two checklists can diverge.
  */
 export const duplicateTaskInput = (task: TTask): TCreateTask => ({
   title: task.title,
@@ -75,7 +101,48 @@ export const duplicateTaskInput = (task: TTask): TCreateTask => ({
   priority: task.priority,
   scheduledFor: task.scheduledFor,
   status: task.status,
+  subtasks: withFreshIds(task.subtasks),
 });
+
+/**
+ * Builds the `createTask` input for promoting a subtask into a real task. The
+ * new task inherits the parent's *context* — where it lives and when it's due —
+ * but not its `alarmTime`: an alarm is a deliberate per-task commitment, and
+ * silently cloning it onto a checklist item would ring an alarm the user never
+ * set. The subtask keeps its own title and status.
+ *
+ * Promotion is two non-atomic writes (create the task, then update the parent
+ * minus the element); a crash between them leaves a duplicate, not data loss.
+ */
+export const promoteSubtaskInput = (
+  parent: TTask,
+  subtask: TSubtask,
+): TCreateTask => ({
+  title: subtask.title,
+  status: subtask.status,
+  alarmTime: null,
+  dueOn: parent.dueOn,
+  goalId: parent.goalId,
+  listId: parent.listId,
+  priority: parent.priority,
+  scheduledFor: parent.scheduledFor,
+});
+
+/**
+ * The array with one subtask removed — the second half of promotion, and the
+ * delete action. Array-in/array-out like its siblings, so callers holding a
+ * pending draft array (not a stored `TTask`) can use it too.
+ */
+export const removeSubtask = (
+  subtasks: TSubtask[],
+  subtaskId: string,
+): TSubtask[] => subtasks.filter(({ id }) => id !== subtaskId);
+
+/** Appends an empty-titled subtask, ready for inline entry. */
+export const appendSubtask = (subtasks: TSubtask[]): TSubtask[] => [
+  ...subtasks,
+  { id: makeSubtaskId(), title: "", status: ETaskStatus.TODO },
+];
 
 export const createTask = async (
   supabase: SupabaseClient<Database>,
@@ -87,7 +154,7 @@ export const createTask = async (
     .select();
 
   if (error) throw error;
-  return camelCase(data) as TTask[];
+  return (camelCase(data) as TTask[]).map(withSubtasksArray);
 };
 
 export type TUpdateTask = {
@@ -99,6 +166,7 @@ export type TUpdateTask = {
   priority?: ETaskPriority;
   scheduledFor?: string | null;
   status?: ETaskStatus;
+  subtasks?: TSubtask[];
   templateId?: string | null;
   title?: string;
 };
@@ -114,7 +182,7 @@ export const updateTask = async (
     .select();
 
   if (error) throw error;
-  return camelCase(data) as TTask[];
+  return (camelCase(data) as TTask[]).map(withSubtasksArray);
 };
 
 export const updateTasks = async (
@@ -127,7 +195,7 @@ export const updateTasks = async (
     .select();
 
   if (error) throw error;
-  return camelCase(data) as TTask[];
+  return (camelCase(data) as TTask[]).map(withSubtasksArray);
 };
 
 export const deleteTask = async (

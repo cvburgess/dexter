@@ -2,7 +2,7 @@ import { Temporal } from "@js-temporal/polyfill";
 import { act, renderHook } from "@testing-library/react-native";
 
 import { TList } from "@/api/lists";
-import { ETaskPriority } from "@/api/tasks";
+import { ETaskPriority, ETaskStatus } from "@/api/tasks";
 import { useNewTaskForm } from "@/hooks/useNewTaskForm";
 
 const homeList: TList = {
@@ -70,6 +70,7 @@ describe("useNewTaskForm", () => {
       scheduledFor: today().toString(),
       dueOn: today().add({ days: 3 }).toString(),
       alarmTime: null,
+      subtasks: [],
     });
   });
 
@@ -164,5 +165,49 @@ describe("useNewTaskForm", () => {
 
     act(() => result.current.setAlarmTime(null));
     expect(result.current.task.alarmTime).toBeNull();
+  });
+
+  describe("subtasks", () => {
+    it("starts with an empty checklist", () => {
+      const { result } = renderHook(() => useNewTaskForm([]));
+
+      expect(result.current.subtasks).toEqual([]);
+      expect(result.current.task.subtasks).toEqual([]);
+    });
+
+    it("carries titled subtasks into the create payload, in order", () => {
+      const { result } = renderHook(() => useNewTaskForm([]));
+
+      act(() =>
+        result.current.setSubtasks([
+          { id: "s1", title: "First", status: ETaskStatus.TODO },
+          { id: "s2", title: "Second", status: ETaskStatus.TODO },
+        ]),
+      );
+
+      // A task and its checklist are created in one insert.
+      expect(result.current.task.subtasks?.map(({ title }) => title)).toEqual([
+        "First",
+        "Second",
+      ]);
+    });
+
+    it("omits an untitled row from the payload without discarding it from the form", () => {
+      const { result } = renderHook(() => useNewTaskForm([]));
+
+      act(() =>
+        result.current.setSubtasks([
+          { id: "s1", title: "Real", status: ETaskStatus.TODO },
+          { id: "s2", title: "   ", status: ETaskStatus.TODO },
+        ]),
+      );
+
+      // The row stays visible so it can be typed into, but a half-finished
+      // edit is not a checklist item.
+      expect(result.current.subtasks).toHaveLength(2);
+      expect(result.current.task.subtasks?.map(({ title }) => title)).toEqual([
+        "Real",
+      ]);
+    });
   });
 });

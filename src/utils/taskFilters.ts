@@ -8,7 +8,9 @@ export type TFilterId =
 const DUE_SOON_WINDOW_DAYS = 13;
 
 /** Shared with `hooks/useTasks.tsx`'s recurring-task logic, which needs the same DONE/WONT_DO classification. */
-export const isCompletionStatus = (status: ETaskStatus | undefined): boolean =>
+export const isCompletionStatus = (
+  status: ETaskStatus | undefined,
+): status is ETaskStatus.DONE | ETaskStatus.WONT_DO =>
   status === ETaskStatus.DONE || status === ETaskStatus.WONT_DO;
 
 const isIncomplete = (task: TTask): boolean => !isCompletionStatus(task.status);

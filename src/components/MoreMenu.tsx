@@ -22,6 +22,7 @@ type TMoreMenuProps = {
   onChangeList: (listId: string | null) => void;
   onSetAlarm: () => void;
   onClearAlarm: () => void;
+  onAddSubtask?: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
   children: ReactNode;
@@ -36,6 +37,7 @@ export function MoreMenu({
   onChangeList,
   onSetAlarm,
   onClearAlarm,
+  onAddSubtask,
   onDuplicate,
   onDelete,
   children,
@@ -98,6 +100,7 @@ export function MoreMenu({
         onSelect: onRepeat,
       },
       alarm,
+      onAddSubtask,
     ),
   ];
 
@@ -227,6 +230,7 @@ export const getOtherSections = (
   onDelete: () => void,
   repeat: { label: string; onSelect: () => void },
   alarm?: { title: string; onSelect: () => void },
+  onAddSubtask?: () => void,
 ): TIconMenuSection[] => [
   {
     title: "Other",
@@ -238,6 +242,20 @@ export const getOtherSections = (
               title: alarm.title,
               icon: { ios: "alarm", android: "alarm", web: "alarm" } as const,
               onSelect: alarm.onSelect,
+            },
+          ]
+        : []),
+      ...(onAddSubtask
+        ? [
+            {
+              id: "add-subtask",
+              title: "Add subtask",
+              icon: {
+                ios: "checklist",
+                android: "checklist",
+                web: "checklist",
+              } as const,
+              onSelect: onAddSubtask,
             },
           ]
         : []),

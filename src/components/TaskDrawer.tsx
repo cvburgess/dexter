@@ -273,9 +273,17 @@ export function TaskDrawer({
         <View style={[styles.row, { gap: theme.gap }]}>
           <View style={styles.cardWrapper}>
             <TaskCard
+              // FlashList recycles a row by reusing its React key from a pool
+              // and re-rendering with new props — it does NOT remount, and
+              // `keyExtractor` only sets FlashList's own stableId, not this
+              // key. Without keying here, `TaskCard`'s inline-edit state and
+              // any focused input survive the swap and get committed against
+              // whichever task landed in the recycled row.
+              key={task.id}
               task={task}
               onUpdate={(diff) => updateTask({ id: task.id, ...diff })}
               onDuplicate={() => createTask(duplicateTaskInput(task))}
+              onPromoteSubtask={(promoted) => createTask(promoted)}
               onDelete={() => deleteTask(task.id)}
             />
           </View>

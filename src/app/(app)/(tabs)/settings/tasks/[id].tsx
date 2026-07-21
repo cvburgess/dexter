@@ -11,13 +11,14 @@ import {
 } from "react-native";
 
 import { ETaskPriority } from "@/api/tasks";
-import { TTemplate } from "@/api/templates";
+import { TTemplate, TTemplateSubtask } from "@/api/templates";
 import { Button } from "@/components/Button";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { FormRow } from "@/components/FormRow";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { PickerField } from "@/components/PickerField";
 import { PriorityControl } from "@/components/PriorityControl";
+import { SubtaskFields, withTitledRows } from "@/components/SubtaskFields";
 import { TextInput } from "@/components/TextInput";
 import { TimeField } from "@/components/TimeField";
 import { WeekdayPicker } from "@/components/WeekdayPicker";
@@ -112,6 +113,9 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
   const [listId, setListId] = useState<string | null>(existing.listId);
   const [goalId, setGoalId] = useState<string | null>(existing.goalId);
   const [alarmTime, setAlarmTime] = useState<string | null>(existing.alarmTime);
+  const [subtasks, setSubtasks] = useState<TTemplateSubtask[]>(
+    existing.subtasks,
+  );
   const [frequency, setFrequency] = useState<TRepeatFrequency>(
     parsed.frequency,
   );
@@ -159,6 +163,8 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
         goalId,
         alarmTime,
         schedule: buildCurrentSchedule(),
+        // Drop any row left untitled — an empty row is an abandoned edit.
+        subtasks: withTitledRows(subtasks),
       },
       {
         onSuccess: () => router.back(),
@@ -292,6 +298,13 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
             )}
           </FormRow>
         )}
+
+        <SubtaskFields
+          value={subtasks}
+          onChange={setSubtasks}
+          makeRow={(id) => ({ id, title: "" })}
+          testIDPrefix="template"
+        />
 
         <PickerField
           label="Repeats"

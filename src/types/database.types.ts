@@ -216,6 +216,7 @@ export type Database = {
           list_id: string | null;
           priority: number;
           schedule: string;
+          subtasks: Json;
           title: string;
           user_id: string;
         };
@@ -227,6 +228,7 @@ export type Database = {
           list_id?: string | null;
           priority?: number;
           schedule?: string;
+          subtasks?: Json;
           title?: string;
           user_id?: string;
         };
@@ -238,6 +240,7 @@ export type Database = {
           list_id?: string | null;
           priority?: number;
           schedule?: string;
+          subtasks?: Json;
           title?: string;
           user_id?: string;
         };
@@ -269,7 +272,7 @@ export type Database = {
           priority: number;
           scheduled_for: string | null;
           status: number;
-          subtask_of: string | null;
+          subtasks: Json;
           template_id: string | null;
           title: string;
           user_id: string;
@@ -284,7 +287,7 @@ export type Database = {
           priority?: number;
           scheduled_for?: string | null;
           status?: number;
-          subtask_of?: string | null;
+          subtasks?: Json;
           template_id?: string | null;
           title?: string;
           user_id?: string;
@@ -299,7 +302,7 @@ export type Database = {
           priority?: number;
           scheduled_for?: string | null;
           status?: number;
-          subtask_of?: string | null;
+          subtasks?: Json;
           template_id?: string | null;
           title?: string;
           user_id?: string;
@@ -317,13 +320,6 @@ export type Database = {
             columns: ["list_id"];
             isOneToOne: false;
             referencedRelation: "lists";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "tasks_subtask_of_fkey";
-            columns: ["subtask_of"];
-            isOneToOne: false;
-            referencedRelation: "tasks";
             referencedColumns: ["id"];
           },
           {

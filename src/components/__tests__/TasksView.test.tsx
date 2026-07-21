@@ -96,6 +96,7 @@ const task = (overrides: Partial<TTask> = {}): TTask => ({
   // fixture task must be scheduled for that day to appear.
   scheduledFor: "2026-07-13",
   status: ETaskStatus.TODO,
+  subtasks: [],
   templateId: null,
   ...overrides,
 });
