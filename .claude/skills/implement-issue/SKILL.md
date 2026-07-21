@@ -164,10 +164,10 @@ Only make factual updates — no speculative or cosmetic edits. Skip docs that a
 
 ### Step 9: Self-review as a staff engineer
 
-Before opening a PR, use the `/review-as-staff` skill to review your own changes. This catches issues before they reach a human reviewer.
+Before opening a PR, use the `/code-review` skill at high effort to review your own changes. This catches issues before they reach a human reviewer.
 
 ```
-/review-as-staff
+/code-review high
 ```
 
 If the review surfaces substantive issues, fix them and commit before proceeding. If the review is clean, move on.
