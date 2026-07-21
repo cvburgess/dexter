@@ -99,6 +99,24 @@ jest.mock("expo-alarm-kit", () => ({
   generateUUID: jest.fn(() => "test-uuid"),
 }));
 
+// react-native-drax drives drag hit-testing through Reanimated shared values
+// (`spatialIndexSV.modify(...)`), which `react-native-reanimated/mock` above
+// doesn't implement — mounting a real DraxProvider throws. Both components
+// render as plain Views that pass their props straight through, so a test can
+// find the drop target by testID and invoke `onReceiveDragDrop` directly
+// rather than simulating a pointer path (DEX-77). Note this renders children
+// (unlike Magic Meal Kit's `DraxList: () => null` stub), so the drawer's rows
+// are still asserted on.
+jest.mock("react-native-drax", () => {
+  const { View } = require("react-native");
+  return {
+    DraxProvider: ({ children, ...props }) => (
+      <View {...props}>{children}</View>
+    ),
+    DraxView: ({ children, ...props }) => <View {...props}>{children}</View>,
+  };
+});
+
 // @expo/ui's SwiftUI primitives (used by DateField.ios) are native views.
 jest.mock("@expo/ui/swift-ui", () => ({
   DatePicker: () => null,

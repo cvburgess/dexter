@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 
 import { ETaskStatus, TTask, TUpdateTask } from "@/api/tasks";
-import { useConfirmation } from "@/hooks/useConfirmation";
+import { useScheduleChange } from "@/hooks/useScheduleChange";
 import { currentAlarmTime, requestAlarmAuthorization } from "@/utils/alarms";
 import { useTheme, withOpacity } from "@/utils/theme";
 
@@ -36,59 +36,13 @@ export function TaskCard({
 }: TTaskCardProps) {
   const theme = useTheme();
   const [alarmModalVisible, setAlarmModalVisible] = useState(false);
-  const { confirm, confirmationProps } = useConfirmation();
+  // The alarm-confirmation flow lives in the hook so this card and the
+  // large-screen drag-to-schedule drop target prompt identically (DEX-77).
+  const { changeSchedule, confirmationProps } = useScheduleChange(
+    (_task, diff) => onUpdate(diff),
+  );
   const isComplete =
     task.status === ETaskStatus.DONE || task.status === ETaskStatus.WONT_DO;
-
-  // An alarm is bound to the task's scheduled date (it fires at scheduled_for +
-  // alarm_time), so changing that date shouldn't silently move or orphan it —
-  // ask first. A re-tap of the current day changes nothing, and a task without
-  // an alarm just reschedules (DEX-48). `== null` (not `===`) so a task whose
-  // `alarmTime` is absent rather than null — e.g. a DB missing the column —
-  // still counts as "no alarm" and reschedules directly instead of prompting.
-  const handleChangeSchedule = async (scheduledFor: string | null) => {
-    const scheduleChanged = scheduledFor !== task.scheduledFor;
-
-    if (task.alarmTime == null || !scheduleChanged) {
-      onUpdate({ scheduledFor });
-      return;
-    }
-
-    if (scheduledFor === null) {
-      // Unscheduling removes the date the alarm needs to fire, so keeping it
-      // isn't an option — only unset-or-cancel.
-      const confirmed = await confirm({
-        title: "Unschedule task?",
-        message:
-          "This task has an alarm set. Unscheduling it will unset the alarm.",
-        confirmLabel: "Unschedule",
-        destructive: true,
-      });
-      if (confirmed) onUpdate({ scheduledFor: null, alarmTime: null });
-      return;
-    }
-
-    // Moving to another day: let the user carry the alarm to the new day (same
-    // time) or drop it. Each choice applies itself; Cancel leaves the task as-is.
-    await confirm({
-      title: "Reschedule task?",
-      message:
-        "This task has an alarm set. Keep the alarm on the new day, or unset it?",
-      actions: [
-        {
-          label: "Keep alarm",
-          role: "default",
-          onPress: () => onUpdate({ scheduledFor }),
-        },
-        {
-          label: "Unset alarm",
-          role: "destructive",
-          onPress: () => onUpdate({ scheduledFor, alarmTime: null }),
-        },
-        { label: "Cancel", role: "cancel" },
-      ],
-    });
-  };
 
   // Persist the picked alarm time. Alarms fire on the scheduled date, so an
   // unscheduled task is pulled onto today. AlarmKit needs permission before it
@@ -180,7 +134,7 @@ export function TaskCard({
       <MoreMenu
         task={task}
         onChangePriority={(priority) => onUpdate({ priority })}
-        onChangeSchedule={handleChangeSchedule}
+        onChangeSchedule={(scheduledFor) => changeSchedule(task, scheduledFor)}
         onChangeList={(listId) => onUpdate({ listId })}
         onSetAlarm={() => setAlarmModalVisible(true)}
         onClearAlarm={() => onUpdate({ alarmTime: null })}

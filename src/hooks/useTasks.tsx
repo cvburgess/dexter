@@ -52,28 +52,26 @@ const RECENT_TASK_WINDOW_DAYS = 30;
 
 const getToday = () => Temporal.Now.plainDateISO();
 
-/** Finds a task in the canonical `["tasks"]` cache entry. */
-const findCachedTask = (
-  queryClient: QueryClient,
-  id: string,
-): TTask | undefined =>
-  queryClient.getQueryData<TTask[]>(["tasks"])?.find((task) => task.id === id);
-
 /**
  * When an update completes a repeat task, schedule its next occurrence — the
  * TypeScript replacement for the dropped `create_next_recurring_task` trigger
- * (DEX-21). Runs on the update's success, before the cache is invalidated, so
- * the pre-update task (its previous status, template link, and scheduled date)
- * is still readable. No-ops unless this update is a fresh transition into
- * done/won't-do on a task linked to a template with a schedule.
+ * (DEX-21). No-ops unless this update is a fresh transition into done/won't-do
+ * on a task linked to a template with a schedule.
+ *
+ * `task` is the state from *before* the update — its previous status, template
+ * link, and scheduled date. It's passed in rather than read from the cache
+ * because the update mutation now writes optimistically in `onMutate`
+ * (DEX-77); by the time this runs on success, the cached task already carries
+ * the new completion status and the `isCompletionStatus` guard below would
+ * read it as "already complete" and never re-spawn.
  */
 const maybeCreateNextRecurringTask = async (
   queryClient: QueryClient,
   diff: TUpdateTask,
+  task: TTask | undefined,
 ): Promise<void> => {
   if (!isCompletionStatus(diff.status)) return;
 
-  const task = findCachedTask(queryClient, diff.id);
   // Already-complete tasks don't re-spawn (mirrors the trigger's OLD.status
   // guard); a task missing from the cache is skipped rather than guessed at.
   if (!task || !task.templateId || isCompletionStatus(task.status)) return;
@@ -146,9 +144,38 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
     },
   });
 
-  const { mutate: update } = useMutation<TTask[], Error, TUpdateTask>({
+  const { mutate: update } = useMutation<
+    TTask[],
+    Error,
+    TUpdateTask,
+    { previous?: TTask[]; task?: TTask }
+  >({
     mutationFn: (diff) => updateTask(supabase, diff),
-    onSuccess: (_data, diff) => maybeCreateNextRecurringTask(queryClient, diff),
+    // Optimistically apply the diff to the canonical cache so the change lands
+    // on screen immediately instead of after the round-trip + refetch; roll
+    // back if the save fails. Drag-to-schedule (DEX-77) made the latency
+    // obvious — a dropped card sat in the backlog until the refetch resolved —
+    // but every surface that edits a task benefits.
+    onMutate: async (diff) => {
+      await queryClient.cancelQueries({ queryKey: ["tasks"] });
+      const previous = queryClient.getQueryData<TTask[]>(["tasks"]);
+      const task = previous?.find(({ id }) => id === diff.id);
+      queryClient.setQueryData<TTask[]>(["tasks"], (current) =>
+        current?.map((entry) =>
+          entry.id === diff.id ? { ...entry, ...diff } : entry,
+        ),
+      );
+      // `task` rides along so `onSuccess` can read the pre-update state after
+      // the optimistic write has already overwritten it in the cache.
+      return { previous, task };
+    },
+    onError: (_error, _diff, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["tasks"], context.previous);
+      }
+    },
+    onSuccess: (_data, diff, context) =>
+      maybeCreateNextRecurringTask(queryClient, diff, context?.task),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },

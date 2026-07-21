@@ -1,0 +1,75 @@
+import { TTask, TUpdateTask } from "@/api/tasks";
+import { useConfirmation } from "@/hooks/useConfirmation";
+
+/** Applies the resolved diff to `task`. The caller decides how it reaches the server (a `TaskCard`'s `onUpdate`, or `useTasks`' `updateTask` keyed by `task.id`). */
+type TScheduleUpdate = (task: TTask, diff: Omit<TUpdateTask, "id">) => void;
+
+/**
+ * The one path a task's `scheduledFor` should change through (DEX-77).
+ *
+ * An alarm is bound to the task's scheduled date (it fires at `scheduled_for` +
+ * `alarm_time`), so moving that date shouldn't silently move or orphan the
+ * alarm — ask first. Extracted from `TaskCard` so every surface that
+ * reschedules shares the prompt: the card's own long-press menu, and the
+ * large-screen drag-to-schedule drop target. Before this hook existed the
+ * backlog's "+" button called `updateTask` directly and skipped the prompt
+ * entirely.
+ *
+ * A re-tap of the current day changes nothing, and a task without an alarm just
+ * reschedules. `== null` (not `===`) so a task whose `alarmTime` is absent
+ * rather than null — e.g. a DB missing the column — still counts as "no alarm"
+ * and reschedules directly instead of prompting (DEX-48).
+ *
+ * @returns `changeSchedule` — awaitable; resolves once the user has answered.
+ * @returns `confirmationProps` — spread onto a single `<ConfirmationModal />`
+ *   by the consuming component.
+ */
+export function useScheduleChange(onUpdate: TScheduleUpdate) {
+  const { confirm, confirmationProps } = useConfirmation();
+
+  const changeSchedule = async (task: TTask, scheduledFor: string | null) => {
+    const scheduleChanged = scheduledFor !== task.scheduledFor;
+
+    if (task.alarmTime == null || !scheduleChanged) {
+      onUpdate(task, { scheduledFor });
+      return;
+    }
+
+    if (scheduledFor === null) {
+      // Unscheduling removes the date the alarm needs to fire, so keeping it
+      // isn't an option — only unset-or-cancel.
+      const confirmed = await confirm({
+        title: "Unschedule task?",
+        message:
+          "This task has an alarm set. Unscheduling it will unset the alarm.",
+        confirmLabel: "Unschedule",
+        destructive: true,
+      });
+      if (confirmed) onUpdate(task, { scheduledFor: null, alarmTime: null });
+      return;
+    }
+
+    // Moving to another day: let the user carry the alarm to the new day (same
+    // time) or drop it. Each choice applies itself; Cancel leaves the task as-is.
+    await confirm({
+      title: "Reschedule task?",
+      message:
+        "This task has an alarm set. Keep the alarm on the new day, or unset it?",
+      actions: [
+        {
+          label: "Keep alarm",
+          role: "default",
+          onPress: () => onUpdate(task, { scheduledFor }),
+        },
+        {
+          label: "Unset alarm",
+          role: "destructive",
+          onPress: () => onUpdate(task, { scheduledFor, alarmTime: null }),
+        },
+        { label: "Cancel", role: "cancel" },
+      ],
+    });
+  };
+
+  return { changeSchedule, confirmationProps };
+}

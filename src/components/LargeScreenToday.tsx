@@ -2,15 +2,20 @@ import { Temporal } from "@js-temporal/polyfill";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
+import { DraxProvider, DraxView } from "react-native-drax";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { TTask } from "@/api/tasks";
 import { CalendarView } from "@/components/CalendarView";
+import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { DayNav } from "@/components/DayNav";
 import { DayPaneToggles } from "@/components/DayPaneToggles";
 import { GlassIconButton } from "@/components/GlassIconButton";
 import { NotesJournalTabs } from "@/components/NotesJournalTabs";
 import { TaskDrawer } from "@/components/TaskDrawer";
 import { TasksView } from "@/components/TasksView";
+import { useScheduleChange } from "@/hooks/useScheduleChange";
+import { useTasks } from "@/hooks/useTasks";
 import { useTodayPanes } from "@/hooks/useTodayPanes";
 import { TPreferences } from "@/api/preferences";
 import {
@@ -50,6 +55,14 @@ export function LargeScreenToday({
   // mirroring the small-screen "tap Backlog" flow. The small-screen sheet owns
   // its own filter internally instead (`TaskDrawerSheet`).
   const [drawerFilterId, setDrawerFilterId] = useState<TFilterId>("none");
+  // Same canonical `["tasks"]` cache the panes below already read, so this
+  // subscribes rather than adding a fetch.
+  const [, { updateTask }] = useTasks();
+  // Drag-to-schedule shares the card's alarm-confirmation flow (DEX-77), so a
+  // dropped task with an alarm prompts exactly like rescheduling from its menu.
+  const { changeSchedule, confirmationProps } = useScheduleChange(
+    (task, diff) => updateTask({ id: task.id, ...diff }),
+  );
 
   const showNotes = preferences.enableNotes && panes.notes;
   const showJournal = preferences.enableJournal && panes.journal;
@@ -114,65 +127,92 @@ export function LargeScreenToday({
           />
         </View>
       </View>
-      <View style={[styles.paneRow, { gap: theme.gap }]}>
-        <View style={styles.fixedPane}>
-          <TasksView date={date} />
+      {/* Scopes drag-to-schedule to the pane row, which holds both the drag
+          sources (the drawer's rows) and the drop target (the Tasks pane).
+          Wrapping the row rather than styling the provider as the row itself
+          keeps the provider's hover layer out of the row's flex layout. */}
+      <DraxProvider style={styles.dragArea}>
+        <View style={[styles.paneRow, { gap: theme.gap }]}>
+          <DraxView
+            testID="tasks-drop-target"
+            style={styles.fixedPane}
+            draggable={false}
+            receivingStyle={[
+              styles.receiving,
+              {
+                borderColor: theme.colors.text,
+                borderRadius: theme.borderRadius,
+              },
+            ]}
+            onReceiveDragDrop={({ dragged }) => {
+              // `payload` is `unknown` at the drax boundary; the drawer sets it
+              // to the whole task (see TaskDrawer's `enableDrag` branch).
+              const task = dragged.payload as TTask | undefined;
+              if (task) void changeSchedule(task, date.toString());
+            }}
+          >
+            <TasksView date={date} />
+          </DraxView>
+          {(showNotes || showJournal) && (
+            <View style={styles.notesJournalPane}>
+              {/* No key here (unlike CalendarView below): NotesJournalTabs
+                  keys its own NotesView/JournalView content on date
+                  internally, so the editor re-seeds on a day change without
+                  also resetting which tab is selected. */}
+              <NotesJournalTabs
+                date={date.toString()}
+                showJournal={showJournal}
+                showNotes={showNotes}
+              />
+            </View>
+          )}
+          {showCalendar && (
+            <View
+              style={[
+                styles.calendarPane,
+                {
+                  borderColor: withOpacity(theme.colors.text, 0.1),
+                  borderRadius: theme.borderRadius,
+                },
+              ]}
+            >
+              {/* Keyed on date for the same reason as NotesJournalTabs:
+                  CalendarView seeds its "now" line position once per mount
+                  (see CalendarView.tsx), relying on a remount per day. */}
+              <CalendarView date={date} key={date.toString()} />
+            </View>
+          )}
+          {panes.drawer && (
+            <View
+              style={[
+                styles.drawerPane,
+                {
+                  borderColor: withOpacity(theme.colors.text, 0.1),
+                  borderRadius: theme.borderRadius,
+                  // Calendar (rendered above, when shown) already carries the
+                  // unconditional auto margin and always renders before this
+                  // pane, so its leading margin absorbs the row's leftover
+                  // space and pushes the whole {Calendar, Drawer} group right
+                  // together — this pane's own margin must drop out then, or
+                  // the leftover space would split across both auto margins
+                  // and open a gap between them instead of docking flush.
+                  marginLeft: showCalendar ? 0 : "auto",
+                },
+              ]}
+            >
+              <TaskDrawer
+                date={date}
+                enableDrag
+                filterId={drawerFilterId}
+                onFilterChange={setDrawerFilterId}
+              />
+            </View>
+          )}
         </View>
-        {(showNotes || showJournal) && (
-          <View style={styles.notesJournalPane}>
-            {/* No key here (unlike CalendarView below): NotesJournalTabs
-                keys its own NotesView/JournalView content on date
-                internally, so the editor re-seeds on a day change without
-                also resetting which tab is selected. */}
-            <NotesJournalTabs
-              date={date.toString()}
-              showJournal={showJournal}
-              showNotes={showNotes}
-            />
-          </View>
-        )}
-        {showCalendar && (
-          <View
-            style={[
-              styles.calendarPane,
-              {
-                borderColor: withOpacity(theme.colors.text, 0.1),
-                borderRadius: theme.borderRadius,
-              },
-            ]}
-          >
-            {/* Keyed on date for the same reason as NotesJournalTabs:
-                CalendarView seeds its "now" line position once per mount
-                (see CalendarView.tsx), relying on a remount per day. */}
-            <CalendarView date={date} key={date.toString()} />
-          </View>
-        )}
-        {panes.drawer && (
-          <View
-            style={[
-              styles.drawerPane,
-              {
-                borderColor: withOpacity(theme.colors.text, 0.1),
-                borderRadius: theme.borderRadius,
-                // Calendar (rendered above, when shown) already carries the
-                // unconditional auto margin and always renders before this
-                // pane, so its leading margin absorbs the row's leftover
-                // space and pushes the whole {Calendar, Drawer} group right
-                // together — this pane's own margin must drop out then, or
-                // the leftover space would split across both auto margins
-                // and open a gap between them instead of docking flush.
-                marginLeft: showCalendar ? 0 : "auto",
-              },
-            ]}
-          >
-            <TaskDrawer
-              date={date}
-              filterId={drawerFilterId}
-              onFilterChange={setDrawerFilterId}
-            />
-          </View>
-        )}
-      </View>
+      </DraxProvider>
+      {/* Drag-to-schedule reuses the card's alarm prompt, so the modal it
+          drives has to be mounted at this level too. */}
+      <ConfirmationModal {...confirmationProps} />
     </SafeAreaView>
   );
 }
@@ -206,11 +246,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
   },
+  // The DraxProvider's own view; it only needs to fill the space below the
+  // header so the pane row inside it lays out exactly as it did before.
+  dragArea: {
+    flex: 1,
+  },
   paneRow: {
     flex: 1,
     flexDirection: "row",
     paddingHorizontal: 16,
     paddingTop: 16,
+  },
+  // Applied to the Tasks pane only while a dragged card is over it — an
+  // outline, not a fill, so the day's cards stay legible underneath and the
+  // drop target reads without the pane's contents shifting.
+  receiving: {
+    borderWidth: 2,
   },
   // Tasks is capped at a mobile-typical width so it doesn't stretch to fill a
   // wide window.

@@ -1,7 +1,14 @@
 import { FlashList } from "@shopify/flash-list";
 import { Temporal } from "@js-temporal/polyfill";
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { DraxView } from "react-native-drax";
 
 import { TGoal } from "@/api/goals";
 import { TList } from "@/api/lists";
@@ -33,6 +40,21 @@ export type TTaskGroup = { id: string; title: string; tasks: TTask[] };
 type TDrawerListItem =
   | { type: "header"; id: string; title: string }
   | { type: "task"; id: string; task: TTask };
+
+// Drag-activation tuning for the large-screen drag-to-schedule rows (DEX-77).
+// On native a press must be held before the drag takes over, so a quick flick
+// still scrolls the FlashList; 250ms also beats the ~500ms threshold iOS uses
+// for the SwiftUI context menu behind `MoreMenu`'s long-press
+// (`IconMenu.native.tsx`), so the drag wins that race. Web has no
+// touch-slop-free long press — Magic Meal Kit found anything above 0 required
+// a double-click to activate — and wheel scrolling is unaffected by a pointer
+// drag, so it activates immediately there.
+const DRAG_LONG_PRESS_DELAY = Platform.OS === "web" ? 0 : 250;
+
+// Cancels drag activation if the finger travels this far during the delay, so
+// a scroll that happens to start on a card scrolls the list instead of picking
+// the card up — the same disambiguation `SwipeableDay` gets from `failOffsetY`.
+const DRAG_ACTIVATION_FAIL_OFFSET = 12;
 
 const FILTER_META: { id: TFilterId; title: string }[] = [
   { id: "none", title: "No Filter" },
@@ -173,12 +195,22 @@ type TTaskDrawerProps = {
    */
   filterId?: TFilterId;
   onFilterChange?: (id: TFilterId) => void;
+  /**
+   * Makes each row a drag source for the large-screen drop target instead of
+   * rendering a per-row schedule button (DEX-77). Only `LargeScreenToday` sets
+   * this: it's the one layout where the Tasks pane and this drawer are
+   * siblings under a shared `DraxProvider`. On small screens the drawer is a
+   * native bottom sheet rendered *over* the day list, which a drag can't cross,
+   * so those rows keep the button.
+   */
+  enableDrag?: boolean;
 };
 
 /**
  * Shared task-drawer content: Filter/Group/Search controls over every
- * incomplete task not scheduled for `date`, with a tap-to-schedule affordance
- * per row. Hosted two ways: an `@expo/ui` bottom sheet on small screens
+ * incomplete task not scheduled for `date`, with a per-row schedule
+ * affordance — a drag source when `enableDrag` is set, a tap-to-schedule
+ * button otherwise. Hosted two ways: an `@expo/ui` bottom sheet on small screens
  * (`TaskDrawerSheet`) and a docked pane on large screens (`today/index.tsx`).
  * The controls+search sit above a `FlashList` of the (possibly large, in
  * contrast to a single day's list) backlog — recycled rather than all mounted
@@ -199,6 +231,7 @@ export function TaskDrawer({
   date,
   filterId: controlledFilterId,
   onFilterChange,
+  enableDrag = false,
 }: TTaskDrawerProps) {
   const theme = useTheme();
   // Controlled by the parent when both props are given (mobile sheet), else
@@ -269,16 +302,38 @@ export function TaskDrawer({
       }
 
       const { task } = item;
+      const card = (
+        <TaskCard
+          task={task}
+          onUpdate={(diff) => updateTask({ id: task.id, ...diff })}
+          onDuplicate={() => createTask(duplicateTaskInput(task))}
+          onDelete={() => deleteTask(task.id)}
+        />
+      );
+
+      // The whole card is the drag source, so the row needs no button and no
+      // flex row to make space for one. The payload is the task itself rather
+      // than its id: the drop target needs `alarmTime` to decide whether to
+      // prompt, and re-reading it from the cache there would race the
+      // optimistic write from a preceding edit.
+      if (enableDrag) {
+        return (
+          <DraxView
+            draggable
+            receptive={false}
+            payload={task}
+            longPressDelay={DRAG_LONG_PRESS_DELAY}
+            dragActivationFailOffset={DRAG_ACTIVATION_FAIL_OFFSET}
+            draggingStyle={styles.dragging}
+          >
+            {card}
+          </DraxView>
+        );
+      }
+
       return (
         <View style={[styles.row, { gap: theme.gap }]}>
-          <View style={styles.cardWrapper}>
-            <TaskCard
-              task={task}
-              onUpdate={(diff) => updateTask({ id: task.id, ...diff })}
-              onDuplicate={() => createTask(duplicateTaskInput(task))}
-              onDelete={() => deleteTask(task.id)}
-            />
-          </View>
+          <View style={styles.cardWrapper}>{card}</View>
           <GlassIconButton
             accessibilityLabel={`Schedule "${task.title}" for this day`}
             sfSymbol="plus"
@@ -290,7 +345,7 @@ export function TaskDrawer({
         </View>
       );
     },
-    [theme, date, updateTask, createTask, deleteTask],
+    [theme, date, enableDrag, updateTask, createTask, deleteTask],
   );
 
   const keyExtractor = useCallback((item: TDrawerListItem) => item.id, []);
@@ -423,5 +478,11 @@ const styles = StyleSheet.create({
   },
   cardWrapper: {
     flex: 1,
+  },
+  // The row left behind in the list while its card is being dragged — faded so
+  // the backlog reads as "this one is in flight" without collapsing the row and
+  // reflowing everything under it mid-drag.
+  dragging: {
+    opacity: 0.2,
   },
 });
