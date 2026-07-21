@@ -40,32 +40,55 @@ export function TasksDropTarget({
   const { changeSchedule, confirmationProps } = useScheduleChange(updateTask);
 
   return (
-    <DraxView
-      testID="tasks-drop-target"
-      style={style}
-      draggable={false}
-      receivingStyle={[
-        styles.receiving,
-        { borderColor: theme.colors.text, borderRadius: theme.borderRadius },
-      ]}
-      onReceiveDragDrop={({ dragged }) => {
-        // `payload` is `unknown` at the drax boundary; the drawer sets it to
-        // the whole task (see TaskDrawer's `enableDrag` branch).
-        const task = dragged.payload as TTask | undefined;
-        if (task) void changeSchedule(task, date.toString());
-      }}
-    >
-      {children}
+    <>
+      <DraxView
+        testID="tasks-drop-target"
+        // The transparent border is carried in the base style so `receivingStyle`
+        // only has to change its color. Introducing the border width on hover
+        // instead would shrink the content box by 4px and reflow every card in
+        // the pane for the duration of the drag.
+        style={[styles.pane, { borderRadius: theme.borderRadius }, style]}
+        draggable={false}
+        receivingStyle={{ borderColor: theme.colors.text }}
+        onReceiveDragDrop={({ dragged }) => {
+          if (isTask(dragged.payload)) {
+            void changeSchedule(dragged.payload, date.toString());
+          }
+        }}
+      >
+        {children}
+      </DraxView>
+      {/* A sibling, not a child: on web this renders a react-native-web
+          `Modal` that lays out inline, and nesting it inside the bordered,
+          animated drop target would anchor it to that pane instead of the
+          screen. */}
       <ConfirmationModal {...confirmationProps} />
-    </DraxView>
+    </>
+  );
+}
+
+/**
+ * Narrows the drag payload, which drax types as `unknown`. `TaskDrawer`'s
+ * `enableDrag` branch is the only source today, but a truthiness check alone
+ * would let any future drag source through and reach `updateTask` with an
+ * undefined id — so check the two fields the reschedule actually reads.
+ */
+function isTask(payload: unknown): payload is TTask {
+  return (
+    typeof payload === "object" &&
+    payload !== null &&
+    "id" in payload &&
+    typeof (payload as TTask).id === "string" &&
+    "scheduledFor" in payload
   );
 }
 
 const styles = StyleSheet.create({
-  // Applied only while a dragged card is over the pane — an outline, not a
-  // fill, so the day's cards stay legible underneath and the drop target reads
-  // without the pane's contents shifting.
-  receiving: {
+  // The border is always present and transparent; `receivingStyle` only tints
+  // it while a card hovers, so the highlight costs no layout. An outline
+  // rather than a fill keeps the day's cards legible underneath.
+  pane: {
+    borderColor: "transparent",
     borderWidth: 2,
   },
 });

@@ -177,33 +177,42 @@ describe("useTasks", () => {
       templateId: null,
     };
 
-    /** Renders the hook with `backlogTask` already in the canonical cache. */
-    const seeded = async () => {
+    /** Renders the hook with `tasks` already in the canonical cache. */
+    const seeded = async (tasks: TTask[] = [backlogTask]) => {
       const { wrapper, queryClient } = createWrapper();
-      mockGetTasks.mockResolvedValue([backlogTask]);
+      mockGetTasks.mockResolvedValue(tasks);
       const { result } = renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
-        expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual([
-          backlogTask,
-        ]),
+        expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual(tasks),
       );
       return { queryClient, result };
     };
 
-    const cachedTask = (queryClient: QueryClient) =>
-      queryClient.getQueryData<TTask[]>(["tasks"])?.[0];
+    const cached = (queryClient: QueryClient) =>
+      queryClient.getQueryData<TTask[]>(["tasks"]) ?? [];
+
+    const cachedTask = (queryClient: QueryClient) => cached(queryClient)[0];
+
+    /**
+     * Holds the update in flight so the cache can be read between `onMutate`
+     * and `onSettled`. Every hold is released in `afterEach` — a mutation left
+     * pending forever wedges the whole run, not just its test.
+     */
+    const releases: ((tasks: TTask[]) => void)[] = [];
+    const holdUpdate = () =>
+      mockUpdateTask.mockReturnValue(
+        new Promise<TTask[]>((resolve) => releases.push(resolve)),
+      );
+
+    afterEach(async () => {
+      await act(async () =>
+        releases.splice(0).forEach((release) => release([])),
+      );
+    });
 
     it("applies the change to the cache before the request resolves", async () => {
       const { queryClient, result } = await seeded();
-      // Held in flight so the cache can be read between onMutate and
-      // onSettled; released below, since a forever-pending mutation wedges
-      // the run.
-      let release!: (tasks: TTask[]) => void;
-      mockUpdateTask.mockReturnValue(
-        new Promise<TTask[]>((resolve) => {
-          release = resolve;
-        }),
-      );
+      holdUpdate();
 
       await act(async () => {
         result.current[1].updateTask({
@@ -216,10 +225,6 @@ describe("useTasks", () => {
       expect(cachedTask(queryClient)).toEqual({
         ...backlogTask,
         scheduledFor: "2026-07-20",
-      });
-
-      await act(async () => {
-        release([{ ...backlogTask, scheduledFor: "2026-07-20" }]);
       });
     });
 
@@ -237,6 +242,77 @@ describe("useTasks", () => {
       await waitFor(() =>
         expect(cachedTask(queryClient)?.scheduledFor).toBeNull(),
       );
+    });
+
+    // The cache mirrors getTasks' status/priority/due_on ordering, so a card
+    // that changes position has to move immediately rather than jumping when
+    // the refetch lands.
+    it("re-sorts the cache when the change moves the task", async () => {
+      const urgent = { ...backlogTask, id: "urgent", priority: 1 };
+      const { queryClient, result } = await seeded([
+        urgent,
+        { ...backlogTask, id: "later" },
+      ]);
+      holdUpdate();
+
+      await act(async () => {
+        result.current[1].updateTask({ id: "later", priority: 0 });
+      });
+
+      expect(cached(queryClient).map(({ id }) => id)).toEqual([
+        "later",
+        "urgent",
+      ]);
+    });
+
+    // A whole-array rollback would also revert the other task's in-flight
+    // optimistic write.
+    it("rolls back only the failed task, not concurrent optimistic writes", async () => {
+      const other = { ...backlogTask, id: "task-2" };
+      const { queryClient, result } = await seeded([backlogTask, other]);
+      // task-2 stays in flight throughout, so its optimistic write can only be
+      // undone by task-1's rollback — not by a refetch that task-2 settling
+      // would trigger.
+      let failFirst!: (error: Error) => void;
+      mockUpdateTask.mockImplementation((_supabase, diff) =>
+        diff.id === "task-1"
+          ? new Promise<TTask[]>((_resolve, reject) => {
+              failFirst = reject;
+            })
+          : new Promise<TTask[]>((resolve) => releases.push(resolve)),
+      );
+
+      await act(async () => {
+        result.current[1].updateTask({
+          id: "task-2",
+          scheduledFor: "2026-08-01",
+        });
+        result.current[1].updateTask({
+          id: "task-1",
+          scheduledFor: "2026-07-20",
+        });
+      });
+      await act(async () => failFirst(new Error("network down")));
+
+      const byId = Object.fromEntries(
+        cached(queryClient).map((entry) => [entry.id, entry.scheduledFor]),
+      );
+      expect(byId["task-1"]).toBeNull();
+      expect(byId["task-2"]).toBe("2026-08-01");
+    });
+
+    // api/tasks builds its wire payload separately, so an undefined here would
+    // corrupt only the cache — and slip past `!== null` render guards.
+    it("ignores keys whose value is undefined", async () => {
+      const withList = { ...backlogTask, listId: "list-1" };
+      const { queryClient, result } = await seeded([withList]);
+      holdUpdate();
+
+      await act(async () => {
+        result.current[1].updateTask({ id: "task-1", listId: undefined });
+      });
+
+      expect(cachedTask(queryClient)?.listId).toBe("list-1");
     });
   });
 });

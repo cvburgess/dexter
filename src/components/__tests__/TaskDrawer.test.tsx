@@ -382,6 +382,11 @@ describe("TaskDrawer", () => {
   // The button routes through useScheduleChange like every other reschedule
   // surface, so an alarm has to be resolved before the date moves (DEX-77) —
   // it used to write scheduledFor straight through and orphan the alarm.
+  // Restored explicitly: the Jest config sets neither `restoreMocks` nor
+  // `resetMocks`, so a spy's implementation otherwise leaks into every later
+  // test in this file (`clearAllMocks` only wipes call records).
+  afterEach(() => jest.restoreAllMocks());
+
   it("prompts before moving a task that has an alarm set", () => {
     const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
     mockUseTasks.mockReturnValue(

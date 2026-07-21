@@ -293,6 +293,11 @@ describe("TodayScreen", () => {
     mockUseTasks.mockReturnValue(tasksResult());
   });
 
+  // The Jest config sets neither `restoreMocks` nor `resetMocks`, so a spy's
+  // implementation would otherwise leak into every later test in this file
+  // (`clearAllMocks` only wipes call records, not implementations).
+  afterEach(() => jest.restoreAllMocks());
+
   const lastPublishedDay = () =>
     mockPublishViewedDay.mock.calls.at(-1)?.[0]?.toString();
 

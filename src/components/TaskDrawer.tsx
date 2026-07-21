@@ -345,7 +345,7 @@ export function TaskDrawer({
             accessibilityLabel={`Schedule "${task.title}" for this day`}
             sfSymbol="plus"
             ionicon="add-outline"
-            onPress={() => changeSchedule(task, date.toString())}
+            onPress={() => void changeSchedule(task, date.toString())}
           />
         </View>
       );

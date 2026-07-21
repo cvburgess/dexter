@@ -20,6 +20,7 @@ import {
 } from "@/api/tasks";
 import { getTemplates, TTemplate } from "@/api/templates";
 import { getNextTaskDate } from "@/utils/repeatSchedule";
+import { sortTasks } from "@/utils/sortTasks";
 import { isCompletionStatus } from "@/utils/taskFilters";
 
 import { supabase } from "./useAuth";
@@ -51,6 +52,39 @@ type TSupabaseHookOptions = {
 const RECENT_TASK_WINDOW_DAYS = 30;
 
 const getToday = () => Temporal.Now.plainDateISO();
+
+// Tags the update mutation so its `onSettled` can tell whether sibling updates
+// are still in flight before invalidating (DEX-77).
+const UPDATE_TASK_MUTATION_KEY = ["tasks", "update"];
+
+/**
+ * Merges `diff` into the matching task and re-sorts, returning a new array —
+ * the optimistic counterpart to a `getTasks` response (DEX-77).
+ *
+ * Two things it must get right that a bare `{ ...entry, ...diff }` doesn't:
+ * keys whose value is `undefined` are dropped rather than written over real
+ * data (`api/tasks.ts` builds its wire payload separately, so an accidental
+ * `undefined` would corrupt only the cache), and the result is re-sorted,
+ * since a status or priority change moves a task's position and leaving it at
+ * its old index makes the card jump when the refetch lands.
+ */
+const applyTaskDiff = (tasks: TTask[], diff: TUpdateTask): TTask[] => {
+  const defined = Object.fromEntries(
+    Object.entries(diff).filter(([, value]) => value !== undefined),
+  );
+  return sortTasks(
+    tasks.map((entry) =>
+      entry.id === diff.id ? { ...entry, ...defined } : entry,
+    ),
+  );
+};
+
+/** Finds a task in the canonical `["tasks"]` cache entry. */
+const findCachedTask = (
+  queryClient: QueryClient,
+  id: string,
+): TTask | undefined =>
+  queryClient.getQueryData<TTask[]>(["tasks"])?.find((task) => task.id === id);
 
 /**
  * When an update completes a repeat task, schedule its next occurrence — the
@@ -148,8 +182,9 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
     TTask[],
     Error,
     TUpdateTask,
-    { previous?: TTask[] }
+    { previousTask?: TTask }
   >({
+    mutationKey: UPDATE_TASK_MUTATION_KEY,
     mutationFn: (diff) => updateTask(supabase, diff),
     // Optimistically apply the diff to the canonical cache so the change lands
     // on screen immediately instead of after the round-trip + refetch; roll
@@ -158,28 +193,44 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
     // but every surface that edits a task benefits.
     onMutate: async (diff) => {
       await queryClient.cancelQueries({ queryKey: ["tasks"] });
-      const previous = queryClient.getQueryData<TTask[]>(["tasks"]);
-      queryClient.setQueryData<TTask[]>(["tasks"], (current) =>
-        current?.map((entry) =>
-          entry.id === diff.id ? { ...entry, ...diff } : entry,
-        ),
+      const previousTask = findCachedTask(queryClient, diff.id);
+      queryClient.setQueryData<TTask[]>(
+        ["tasks"],
+        (current) => current && applyTaskDiff(current, diff),
       );
-      // The snapshot doubles as the rollback source and as `onSuccess`'s only
-      // view of the pre-update task, which the write above has overwritten.
-      return { previous };
+      // Only this task is snapshotted, not the whole array: rolling the array
+      // back wholesale would also erase optimistic writes from other mutations
+      // still in flight (see `onError`).
+      return { previousTask };
     },
-    onError: (_error, _diff, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(["tasks"], context.previous);
-      }
+    onError: (_error, diff, context) => {
+      const { previousTask } = context ?? {};
+      if (!previousTask) return;
+      // Restore just this task, leaving any concurrent optimistic writes alone.
+      queryClient.setQueryData<TTask[]>(
+        ["tasks"],
+        (current) => current && applyTaskDiff(current, previousTask),
+      );
     },
     onSuccess: (_data, diff, context) =>
       maybeCreateNextRecurringTask(
         queryClient,
         diff,
-        context?.previous?.find(({ id }) => id === diff.id),
+        // The cache lookup at mutate time is the reliable source, but it comes
+        // up empty when the mutation beats the first fetch (the query declares
+        // `placeholderData: []`, which TanStack never writes to the cache).
+        // Falling back to a read here covers that window rather than silently
+        // skipping the next occurrence.
+        context?.previousTask ?? findCachedTask(queryClient, diff.id),
       ),
     onSettled: () => {
+      // Refetch only once the last concurrent update has settled. Invalidating
+      // per-mutation would pull server state that doesn't yet include the
+      // *other* in-flight edits, so their optimistic writes would visibly
+      // revert and then re-apply. `isMutating` still counts this mutation
+      // while `onSettled` runs, so 1 means "this is the last one".
+      if (queryClient.isMutating({ mutationKey: UPDATE_TASK_MUTATION_KEY }) > 1)
+        return;
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
