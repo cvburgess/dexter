@@ -59,8 +59,18 @@ export const getTasks = async (
   const { data, error } = await query;
 
   if (error) throw error;
-  return camelCase(data) as TTask[];
+  return (camelCase(data) as TTask[]).map(withSubtasksArray);
 };
+
+/**
+ * Guarantees `subtasks` is an array. The row shape is an unchecked cast, and
+ * the app and the database deploy independently — a bundle that reaches users
+ * before the migration runs gets rows with no `subtasks` column at all, and
+ * every consumer here dereferences it without guarding. Mirrors the `alarmTime`
+ * `== null` handling in `TaskCard` (DEX-48) for the same reason.
+ */
+const withSubtasksArray = <T extends { subtasks?: TSubtask[] }>(row: T): T =>
+  Array.isArray(row.subtasks) ? row : { ...row, subtasks: [] };
 
 export type TCreateTask = {
   alarmTime?: string | null;
@@ -144,7 +154,7 @@ export const createTask = async (
     .select();
 
   if (error) throw error;
-  return camelCase(data) as TTask[];
+  return (camelCase(data) as TTask[]).map(withSubtasksArray);
 };
 
 export type TUpdateTask = {
@@ -172,7 +182,7 @@ export const updateTask = async (
     .select();
 
   if (error) throw error;
-  return camelCase(data) as TTask[];
+  return (camelCase(data) as TTask[]).map(withSubtasksArray);
 };
 
 export const updateTasks = async (
@@ -185,7 +195,7 @@ export const updateTasks = async (
     .select();
 
   if (error) throw error;
-  return camelCase(data) as TTask[];
+  return (camelCase(data) as TTask[]).map(withSubtasksArray);
 };
 
 export const deleteTask = async (

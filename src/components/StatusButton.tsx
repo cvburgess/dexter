@@ -12,6 +12,8 @@ type TStatusButtonProps = {
   /** Diameter in px. Subtask rows use 24 so they read as subordinate to the parent's 32. */
   size?: number;
   accessibilityLabel?: string;
+  /** When false the glyph still renders but no menu opens — and no native menu host is mounted. */
+  interactive?: boolean;
 };
 
 const DEFAULT_SIZE = 32;
@@ -22,8 +24,28 @@ export function StatusButton({
   onChangeStatus,
   size = DEFAULT_SIZE,
   accessibilityLabel = "Status",
+  interactive = true,
 }: TStatusButtonProps) {
   const sections = getStatusSections(onChangeStatus);
+
+  const glyph = (
+    <View
+      style={[
+        styles.button,
+        {
+          borderColor: withOpacity(contentColor, 0.25),
+          height: size,
+          width: size,
+        },
+      ]}
+    >
+      <Text style={{ color: contentColor, fontSize: size / 2 }}>
+        {glyphForStatus(status)}
+      </Text>
+    </View>
+  );
+
+  if (!interactive) return glyph;
 
   return (
     <IconMenu
@@ -34,20 +56,7 @@ export function StatusButton({
       // to flex it reports 0 height while sizing and collapses the row.
       style={{ height: size, width: size }}
     >
-      <View
-        style={[
-          styles.button,
-          {
-            borderColor: withOpacity(contentColor, 0.25),
-            height: size,
-            width: size,
-          },
-        ]}
-      >
-        <Text style={{ color: contentColor, fontSize: size / 2 }}>
-          {glyphForStatus(status)}
-        </Text>
-      </View>
+      {glyph}
     </IconMenu>
   );
 }

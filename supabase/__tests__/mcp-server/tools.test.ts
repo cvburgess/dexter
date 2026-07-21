@@ -702,3 +702,85 @@ Deno.test("a recurring occurrence gets a fresh copy of the template's checklist"
   assertEquals(subtasks.every((s) => s.status === 1), true);
   assertEquals(subtasks.some((s) => s.id === "tpl-1" || s.id === "old"), false);
 });
+
+Deno.test("the sweep survives a stored title longer than the input cap", async () => {
+  // The app has its own maxLength, but a title stored before that existed (or
+  // written any other way) must not make the whole array unparseable — failing
+  // the read would silently skip the sweep rather than reject anything.
+  const longTitle = "x".repeat(250);
+  const supabase = new RecordingSupabase({
+    tasks: [
+      { status: 1, subtasks: [{ id: "s1", title: longTitle, status: 1 }] },
+      { status: 2, template_id: null, scheduled_for: null },
+    ],
+  });
+
+  await taskTools(supabase).run("update_task", { taskId: SUB_TASK, status: 2 });
+
+  assertEquals(supabase.updates[0].payload.subtasks, [
+    { id: "s1", title: longTitle, status: 2 },
+  ]);
+});
+
+Deno.test("create_task sweeps a checklist when the task is created complete", async () => {
+  const supabase = new RecordingSupabase({ tasks: [{ ok: true }] });
+
+  await taskTools(supabase).run("create_task", {
+    title: "Already handled",
+    status: 2,
+    subtasks: [
+      { id: "s1", title: "Open", status: 1 },
+      { id: "s2", title: "Also open", status: 0 },
+    ],
+  });
+
+  // Otherwise a done parent with open children could be inserted directly,
+  // sidestepping the invariant update_task and archive_task both enforce.
+  assertEquals(supabase.inserts[0].payload.subtasks, [
+    { id: "s1", title: "Open", status: 2 },
+    { id: "s2", title: "Also open", status: 2 },
+  ]);
+});
+
+Deno.test("create_task leaves the checklist alone for an incomplete task", async () => {
+  const supabase = new RecordingSupabase({ tasks: [{ ok: true }] });
+  const subtasks = [{ id: "s1", title: "Open", status: 1 }];
+
+  await taskTools(supabase).run("create_task", {
+    title: "In flight",
+    status: 1,
+    subtasks,
+  });
+
+  assertEquals(supabase.inserts[0].payload.subtasks, subtasks);
+});
+
+Deno.test("a recurring occurrence copies a template checklist past the input cap", async () => {
+  const longTitle = "y".repeat(250);
+  const supabase = new RecordingSupabase({
+    tasks: [
+      { status: 1, subtasks: [] },
+      { status: 2, template_id: RECUR_TEMPLATE, scheduled_for: "2030-01-01" },
+    ],
+    repeat_task_templates: [
+      {
+        id: RECUR_TEMPLATE,
+        title: "Water the plants",
+        priority: 2,
+        list_id: null,
+        goal_id: null,
+        schedule: "0 0 * * *",
+        subtasks: [{ id: "tpl-1", title: longTitle }],
+      },
+    ],
+  });
+
+  await taskTools(supabase).run("update_task", { taskId: SUB_TASK, status: 2 });
+
+  const inserted = supabase.inserts.find((i) => i.table === "tasks");
+  assert(inserted, "expected a next occurrence to be inserted");
+  assertEquals(
+    (inserted.payload.subtasks as { title: string }[]).map((s) => s.title),
+    [longTitle],
+  );
+});

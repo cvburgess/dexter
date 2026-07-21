@@ -327,4 +327,138 @@ describe("useTasks", () => {
     expect(ids).not.toContain("tpl-1");
     expect(ids).not.toContain("sub-1");
   });
+
+  describe("optimistic cache writes", () => {
+    const cached: TTask = {
+      id: "task-1",
+      alarmTime: null,
+      title: "Ship it",
+      dueOn: null,
+      goalId: null,
+      listId: null,
+      priority: ETaskPriority.NEITHER,
+      scheduledFor: null,
+      status: ETaskStatus.TODO,
+      subtasks: [{ id: "s1", title: "Open", status: ETaskStatus.TODO }],
+      templateId: null,
+    };
+
+    it("applies the diff to the cache before the request resolves", async () => {
+      const { wrapper, queryClient } = createWrapper();
+      mockGetTasks.mockResolvedValue([cached]);
+      let resolve: ((value: TTask[]) => void) | undefined;
+      mockUpdateTask.mockReturnValue(
+        new Promise<TTask[]>((r) => {
+          resolve = r;
+        }),
+      );
+
+      const { result } = renderHook(() => useTasks(), { wrapper });
+      await waitFor(() =>
+        expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual([cached]),
+      );
+
+      act(() =>
+        result.current[1].updateTask({ id: "task-1", title: "Shipped" }),
+      );
+
+      // Visible immediately — this is what lets TaskCard compose its next edit
+      // from stored state instead of a local overlay that can go stale.
+      await waitFor(() =>
+        expect(queryClient.getQueryData<TTask[]>(["tasks"])?.[0].title).toBe(
+          "Shipped",
+        ),
+      );
+      resolve?.([{ ...cached, title: "Shipped" }]);
+    });
+
+    it("does not write undefined over fields the diff omitted", async () => {
+      const { wrapper, queryClient } = createWrapper();
+      mockGetTasks.mockResolvedValue([cached]);
+      mockUpdateTask.mockResolvedValue([cached]);
+
+      const { result } = renderHook(() => useTasks(), { wrapper });
+      await waitFor(() =>
+        expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual([cached]),
+      );
+
+      act(() =>
+        result.current[1].updateTask({ id: "task-1", title: "Renamed" }),
+      );
+
+      const optimistic = queryClient.getQueryData<TTask[]>(["tasks"])?.[0];
+      expect(optimistic?.subtasks).toEqual(cached.subtasks);
+      expect(optimistic?.priority).toBe(ETaskPriority.NEITHER);
+    });
+
+    it("restores the snapshot when the write fails", async () => {
+      const { wrapper, queryClient } = createWrapper();
+      mockGetTasks.mockResolvedValue([cached]);
+      mockUpdateTask.mockRejectedValue(new Error("offline"));
+
+      const { result } = renderHook(() => useTasks(), { wrapper });
+      await waitFor(() =>
+        expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual([cached]),
+      );
+
+      act(() =>
+        result.current[1].updateTask({ id: "task-1", title: "Renamed" }),
+      );
+
+      // Without the rollback the card would keep showing unsaved state forever,
+      // with no error surfaced anywhere.
+      await waitFor(() =>
+        expect(queryClient.getQueryData<TTask[]>(["tasks"])?.[0].title).toBe(
+          "Ship it",
+        ),
+      );
+    });
+
+    it("still spawns a recurrence, despite the optimistic write marking the task complete", async () => {
+      // The recurrence guard skips already-complete tasks; reading the live
+      // cache after the optimistic write would see DONE and skip every time.
+      const { wrapper, queryClient } = createWrapper();
+      const today = Temporal.Now.plainDateISO().toString();
+      const repeating: TTask = {
+        ...cached,
+        scheduledFor: today,
+        subtasks: [],
+        templateId: "template-1",
+      };
+      const template: TTemplate = {
+        id: "template-1",
+        alarmTime: null,
+        createdAt: "2026-01-01T00:00:00Z",
+        goalId: null,
+        listId: null,
+        priority: ETaskPriority.NEITHER,
+        schedule: "0 0 * * *",
+        subtasks: [],
+        title: "Ship it",
+        userId: "user-1",
+      };
+
+      mockGetTasks.mockResolvedValue([repeating]);
+      queryClient.setQueryData(["templates"], [template]);
+      mockUpdateTask.mockResolvedValue([
+        { ...repeating, status: ETaskStatus.DONE },
+      ]);
+
+      const { result } = renderHook(() => useTasks(), { wrapper });
+      await waitFor(() =>
+        expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual([
+          repeating,
+        ]),
+      );
+
+      act(() =>
+        result.current[1].updateTask({
+          id: "task-1",
+          status: ETaskStatus.DONE,
+        }),
+      );
+
+      await waitFor(() => expect(mockCreateTask).toHaveBeenCalled());
+    });
+  });
 });

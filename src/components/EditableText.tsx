@@ -26,7 +26,16 @@ type TEditableTextProps = {
    * rather than appending another empty one forever.
    */
   onSubmit?: (title: string) => void;
+  /**
+   * Fires on every keystroke with the raw text. For callers whose "commit" is
+   * just local form state: without it, saving a form while an input still has
+   * focus loses the text, because on native a header button press does not
+   * blur the field first.
+   */
+  onChangeDraft?: (text: string) => void;
   editable?: boolean;
+  /** Caps input length. Subtask titles use 100 to match the MCP server's schema. */
+  maxLength?: number;
   placeholder?: string;
   numberOfLines?: number;
   style?: StyleProp<TextStyle>;
@@ -44,7 +53,9 @@ export function EditableText({
   onStartEdit,
   onCommit,
   onSubmit,
+  onChangeDraft,
   editable = true,
+  maxLength,
   placeholder,
   numberOfLines = 1,
   style,
@@ -56,10 +67,13 @@ export function EditableText({
         // Deliberately not keyed on `value`: the input already mounts fresh
         // each time editing begins, so a key would only remount mid-edit — and
         // the unmount cleanup would commit the half-typed draft, discarding the
-        // very keystrokes the remount was meant to preserve.
+        // very keystrokes the remount was meant to preserve. `InlineInput`
+        // re-seeds itself from a changed `value` while untouched instead.
         initialValue={value}
         onCommit={onCommit}
+        onChangeDraft={onChangeDraft}
         onSubmit={onSubmit}
+        maxLength={maxLength}
         placeholder={placeholder}
         style={style}
         testID={testID}
@@ -84,7 +98,10 @@ export function EditableText({
 type TInlineInputProps = {
   initialValue: string;
   onCommit: (title: string) => void;
+  onChangeDraft?: (text: string) => void;
   onSubmit?: (title: string) => void;
+  editable?: boolean;
+  maxLength?: number;
   placeholder?: string;
   style?: StyleProp<TextStyle>;
   testID?: string;
@@ -107,34 +124,53 @@ type TInlineInputProps = {
 function InlineInput({
   initialValue,
   onCommit,
+  onChangeDraft,
   onSubmit,
+  editable = true,
+  maxLength,
   placeholder,
   style,
   testID,
 }: TInlineInputProps) {
   const [draft, setDraft] = useState(initialValue);
+  // Whether the user has typed. Until they have, a value arriving from
+  // elsewhere is safe to adopt; after, it must not stomp their keystrokes.
+  const [dirty, setDirty] = useState(false);
+  const [seeded, setSeeded] = useState(initialValue);
   const inputRef = useRef<TextInput>(null);
 
-  // Read by the unmount cleanup, which must not re-run per keystroke. Updated
-  // from the change handler rather than during render.
+  // Re-seed from a value that changed while this input was open but untouched —
+  // a rename landing from another device, or a realtime refetch. Adjusting
+  // state during render is React's own recommendation for deriving from props.
+  if (!dirty && initialValue !== seeded) {
+    setSeeded(initialValue);
+    setDraft(initialValue);
+  }
+
+  // Read by the unmount cleanup, which must not re-run per keystroke; synced in
+  // an effect rather than during render so no ref is written mid-render.
   const draftRef = useRef(initialValue);
   const committedRef = useRef(false);
   const onCommitRef = useRef(onCommit);
 
   useEffect(() => {
+    draftRef.current = draft;
     onCommitRef.current = onCommit;
   });
 
   useEffect(
     () => () => {
-      // Unmounted mid-edit (FlashList recycle, navigation): treat it as a blur.
+      // Unmounted mid-edit (navigation, a parent re-render that ends editing):
+      // treat it as a blur so a half-typed title is not silently lost.
       if (!committedRef.current) onCommitRef.current(draftRef.current.trim());
     },
     [],
   );
 
   const commit = () => {
-    const title = draftRef.current.trim();
+    // `draft` (state), not `draftRef`: in an event handler the state is current,
+    // while the ref only catches up after the next effect flush.
+    const title = draft.trim();
     if (committedRef.current) return title;
     committedRef.current = true;
     onCommit(title);
@@ -145,10 +181,15 @@ function InlineInput({
     <TextInput
       ref={inputRef}
       autoFocus
+      editable={editable}
+      maxLength={maxLength}
       value={draft}
       onChangeText={(text) => {
-        draftRef.current = text;
+        setDirty(true);
         setDraft(text);
+        // Lets a caller mirror keystrokes into its own state, so a form that is
+        // saved while this input still has focus does not lose the text.
+        onChangeDraft?.(text);
       }}
       onBlur={commit}
       onSubmitEditing={() => {

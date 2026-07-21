@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { TList } from "@/api/lists";
 import { ETaskPriority, TCreateTask, TSubtask } from "@/api/tasks";
+import { withTitledRows } from "@/components/SubtaskFields";
 import { parseTaskShorthand } from "@/utils/parseTaskShorthand";
 
 export type TNewTaskForm = {
@@ -77,7 +78,7 @@ export const useNewTaskForm = (
 
   // Only titled rows reach the payload — an empty row is a half-finished edit,
   // not a checklist item.
-  const savedSubtasks = subtasks.filter(({ title }) => title.trim().length > 0);
+  const savedSubtasks = withTitledRows(subtasks);
 
   return {
     title,

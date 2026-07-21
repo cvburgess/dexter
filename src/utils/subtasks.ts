@@ -8,6 +8,14 @@
  * neither has to widen to the other's representation.
  */
 
+/**
+ * Longest subtask title the app will accept. Must not exceed the MCP server's
+ * `subtaskTitleSchema` bound: that schema is also used to read stored rows, and
+ * an over-long title there would fail validation and silently skip the
+ * completion sweep for that task.
+ */
+export const SUBTASK_TITLE_MAX_LENGTH = 100;
+
 let counter = 0;
 
 /**

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
-import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
+import { ETaskPriority, ETaskStatus, TTask, TUpdateTask } from "@/api/tasks";
 
 import type { TIconMenuOption, TIconMenuSection } from "../IconMenu.types";
 import { TaskCard } from "../TaskCard";
@@ -84,6 +84,38 @@ const renderCard = (
       {...props}
     />,
   );
+
+/**
+ * Renders the card with the task fed back from its own updates — which is what
+ * `useTasks` now does via its optimistic cache write. Several behaviors are only
+ * correct *because* the stored value moves forward between two writes in the
+ * same event (return-to-chain being the sharp case), so testing them against a
+ * frozen prop would assert a world the app no longer runs in.
+ */
+type TWriteMock = jest.Mock<void, [Omit<TUpdateTask, "id">]>;
+
+function LiveCard({
+  initial,
+  onWrite,
+}: {
+  initial: TTask;
+  onWrite?: TWriteMock;
+}) {
+  const [task, setTask] = useState(initial);
+
+  return (
+    <TaskCard
+      task={task}
+      onUpdate={(diff) => {
+        onWrite?.(diff);
+        setTask((current) => ({ ...current, ...diff }));
+      }}
+      onDuplicate={jest.fn()}
+      onPromoteSubtask={jest.fn()}
+      onDelete={jest.fn()}
+    />
+  );
+}
 
 /**
  * The options of the `index`-th menu carrying `label`, in render order — so
@@ -279,15 +311,62 @@ describe("TaskCard subtasks", () => {
       expect(onUpdate).not.toHaveBeenCalled();
     });
 
-    it("chains another empty row when return commits a non-empty title", () => {
-      renderCard(baseTask, { onUpdate: jest.fn() });
+    it("chains another empty row while keeping the title just committed", () => {
+      // The regression this guards: committing and appending happen in one
+      // event, so an append that reads pre-commit state blanks the typed title
+      // and then writes the empty title back over it.
+      const onWrite = jest.fn<void, [Omit<TUpdateTask, "id">]>();
+      render(<LiveCard initial={baseTask} onWrite={onWrite} />);
 
       addSubtask();
       const input = screen.getByPlaceholderText("Subtask");
       fireEvent.changeText(input, "Proofread");
       fireEvent(input, "submitEditing");
 
+      expect(screen.getByText("Proofread")).toBeTruthy();
       expect(screen.getAllByTestId(/^subtask-row-/)).toHaveLength(4);
+
+      // And the next row's commit must not carry the blank away with it.
+      const next = screen.getByPlaceholderText("Subtask");
+      fireEvent.changeText(next, "Format");
+      fireEvent(next, "blur");
+
+      const lastWrite = onWrite.mock.calls.at(-1)?.[0];
+      const titles = lastWrite?.subtasks?.map(({ title }) => title);
+      expect(titles).toEqual([
+        "Draft outline",
+        "Gather figures",
+        "Proofread",
+        "Format",
+      ]);
+    });
+
+    it("never persists an untitled row", () => {
+      const onWrite = jest.fn<void, [Omit<TUpdateTask, "id">]>();
+      render(<LiveCard initial={baseTask} onWrite={onWrite} />);
+
+      addSubtask();
+      fireEvent(screen.getByPlaceholderText("Subtask"), "blur");
+
+      // A title:"" entry would fail the MCP server's validation and silently
+      // disable that task's completion sweep from then on.
+      for (const [diff] of onWrite.mock.calls) {
+        expect(
+          diff.subtasks?.every(({ title }: { title: string }) => title),
+        ).toBe(true);
+      }
+    });
+
+    it("keeps the second row when Add subtask is tapped twice with nothing typed", () => {
+      render(<LiveCard initial={baseTask} />);
+
+      addSubtask();
+      addSubtask();
+
+      // The first row's unmount-commit must not delete the row that replaced it
+      // or cancel its edit.
+      expect(screen.getByPlaceholderText("Subtask")).toBeTruthy();
+      expect(screen.getAllByTestId(/^subtask-row-/)).toHaveLength(3);
     });
 
     it("ends the chain when return commits an empty row", () => {
@@ -348,6 +427,37 @@ describe("TaskCard subtasks", () => {
         { id: "sub-1", title: "Draft outline", status: ETaskStatus.DONE },
         { id: "sub-2", title: "Gather figures", status: ETaskStatus.DONE },
       ],
+    });
+  });
+
+  describe("a completed parent's checklist is frozen", () => {
+    const done: TTask = { ...baseTask, status: ETaskStatus.DONE };
+
+    it("still shows the subtasks", () => {
+      renderCard(done);
+
+      expect(screen.getByTestId("subtask-row-sub-1")).toBeTruthy();
+    });
+
+    it("offers no status menu or row actions", () => {
+      renderCard(done);
+
+      // Re-opening a swept subtask would restore exactly the
+      // done-parent-with-open-children state the sweep exists to prevent — and
+      // nothing re-sweeps until the parent is completed again.
+      const labels = mockIconMenu.mock.calls.map(
+        ([props]) => props.accessibilityLabel,
+      );
+      expect(labels).not.toContain("Subtask status");
+      expect(labels).not.toContain("Subtask actions");
+    });
+
+    it("does not enter edit mode when a subtask title is tapped", () => {
+      renderCard(done);
+
+      fireEvent.press(screen.getByTestId("subtask-title-sub-1"));
+
+      expect(screen.queryByTestId("subtask-title-sub-1-input")).toBeNull();
     });
   });
 });

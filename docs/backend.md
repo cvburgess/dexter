@@ -154,6 +154,19 @@ dashboard-only addition would drift from what the migration declares.
     `due_on` but never its `alarm_time`; the task is inserted, then the parent's
     array is rewritten without it. A crash between the two leaves a duplicate,
     not data loss.
+  - **Write bounds are not read bounds.** `tools/helpers.ts` exports bounded
+    schemas for tool *input* (`subtasksSchema`, `templateSubtasksSchema` — 100
+    items, 100-char titles) and separate unbounded ones for parsing *stored*
+    rows (`storedSubtasksSchema`, `storedTemplateSubtasksSchema`). Reusing the
+    input schema on a read is a trap: a failed parse means "no subtasks", so an
+    over-long stored title would silently skip that task's completion sweep
+    instead of rejecting anything. The app caps input at
+    `SUBTASK_TITLE_MAX_LENGTH` to match the write bound.
+  - **Every write path that can complete a task sweeps.** `update_task` and
+    `archive_task` fold the sweep into their existing pre-update read
+    (`readForCompletion`), and `create_task` sweeps when it inserts an
+    already-complete task — otherwise the forbidden state could be created
+    directly, sidestepping both.
   - If subtasks ever need fields of their own, that is a jsonb→rows migration.
 - **Task alarms (`alarm_time`).** `tasks` and `repeat_task_templates` each carry
   a nullable `alarm_time` (`time`) column (migration

@@ -1,5 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 
 import {
@@ -35,15 +35,6 @@ const COMPLETE_TEXT_OPACITY = 0.25;
 /** Which row, if any, is currently in inline-edit mode. */
 type TEditing = { kind: "title" } | { kind: "subtask"; id: string } | null;
 
-const sameSubtasks = (a: TSubtask[], b: TSubtask[]) =>
-  a.length === b.length &&
-  a.every(
-    (subtask, index) =>
-      subtask.id === b[index].id &&
-      subtask.title === b[index].title &&
-      subtask.status === b[index].status,
-  );
-
 type TTaskCardProps = {
   task: TTask;
   onUpdate: (diff: Omit<TUpdateTask, "id">) => void;
@@ -72,55 +63,68 @@ export function TaskCard({
   const isComplete =
     task.status === ETaskStatus.DONE || task.status === ETaskStatus.WONT_DO;
 
-  // A pending checklist overlay. Adding a subtask must show an empty focused row
-  // *before* anything is written, so the array being rendered is the draft until
-  // the server state catches up with it — at which point the draft dissolves.
-  const [draftSubtasks, setDraftSubtasks] = useState<TSubtask[] | null>(null);
-  const subtasks = draftSubtasks ?? task.subtasks;
+  // The one not-yet-saved row: "Add subtask" shows an empty focused row before
+  // anything is written, and an empty subtask is never persisted. Everything
+  // else reads straight from `task.subtasks`, which `useTasks` keeps current
+  // through its optimistic cache write — so there is no overlay to go stale,
+  // and a change arriving from another device is never masked.
+  const [pending, setPending] = useState<TSubtask | null>(null);
+  const subtasks = pending ? [...task.subtasks, pending] : task.subtasks;
 
-  // Release the overlay once the stored value has caught up with it, so a later
-  // change from another device isn't masked by a stale draft. Adjusting state
-  // during render (rather than in an effect) is React's own recommendation for
-  // this: it re-renders before committing, with no extra paint.
-  if (draftSubtasks && sameSubtasks(draftSubtasks, task.subtasks)) {
-    setDraftSubtasks(null);
-  }
-
-  /** Writes the array only when it actually differs from what's stored. */
-  const commitSubtasks = (next: TSubtask[]) => {
-    setDraftSubtasks(next);
-    if (!sameSubtasks(next, task.subtasks)) onUpdate({ subtasks: next });
+  // A row that unmounts commits from *its* last-render closure, which can name
+  // a pending row that has since been replaced (tap "Add subtask" twice). The
+  // ref is always current, so the commit can tell "I am the pending row" from
+  // "I was the pending row" and avoid clearing someone else's.
+  const pendingRef = useRef<TSubtask | null>(null);
+  const setPendingRow = (row: TSubtask | null) => {
+    pendingRef.current = row;
+    setPending(row);
   };
 
+  /** Clears edit mode only if this row still owns it — see `commitSubtaskTitle`. */
+  const stopEditing = (id: string) =>
+    setEditing((current) =>
+      current?.kind === "subtask" && current.id === id ? null : current,
+    );
+
   const addSubtask = () => {
-    const next = appendSubtask(draftSubtasks ?? task.subtasks);
-    setDraftSubtasks(next);
-    setEditing({ kind: "subtask", id: next[next.length - 1].id });
+    const [row] = appendSubtask([]);
+    setPendingRow(row);
+    setEditing({ kind: "subtask", id: row.id });
   };
 
   const commitSubtaskTitle = (id: string, title: string) => {
-    setEditing(null);
+    // Not unconditional: React runs the outgoing row's unmount cleanup *after*
+    // `editing` has already moved to the row the user just tapped, so clearing
+    // blindly would cancel the edit they are starting.
+    stopEditing(id);
 
-    if (title === "") {
-      // An empty commit means two different things depending on where the row
-      // came from: discard a row that was never saved, or leave an existing
-      // title alone (the array still holds it — the draft text lived in the
-      // input, never here — so reverting is simply not writing).
-      const isUnsaved = !task.subtasks.some((subtask) => subtask.id === id);
-      commitSubtasks(isUnsaved ? removeSubtask(subtasks, id) : subtasks);
+    // The pending row is the only unsaved one, so its identity — not a search
+    // through server state that may not have caught up — decides the rule.
+    const pendingRow = pendingRef.current;
+    if (pendingRow?.id === id) {
+      setPendingRow(null);
+      // An untitled row is discarded, never written: `title: ""` would fail the
+      // MCP server's validation and disable that task's sweep permanently.
+      if (title !== "")
+        onUpdate({ subtasks: [...task.subtasks, { ...pendingRow, title }] });
       return;
     }
 
-    commitSubtasks(
-      subtasks.map((subtask) =>
+    // An emptied existing title reverts — a titleless subtask would be
+    // unidentifiable — so there is simply nothing to write.
+    if (title === "") return;
+
+    onUpdate({
+      subtasks: task.subtasks.map((subtask) =>
         subtask.id === id ? { ...subtask, title } : subtask,
       ),
-    );
+    });
   };
 
   const handlePromoteSubtask = (subtask: TSubtask) => {
     onPromoteSubtask(promoteSubtaskInput(task, subtask));
-    commitSubtasks(removeSubtask(subtasks, subtask.id));
+    onUpdate({ subtasks: removeSubtask(task.subtasks, subtask.id) });
   };
 
   // An alarm is bound to the task's scheduled date (it fires at scheduled_for +
@@ -278,18 +282,22 @@ export function TaskCard({
               onSubmit={(title) => {
                 if (title) addSubtask();
               }}
+              // A completed parent's checklist is frozen: the sweep just closed
+              // every row, and re-opening one would restore exactly the
+              // done-parent-with-open-children state the sweep exists to prevent.
+              interactive={!isComplete}
               onChangeStatus={(status) =>
-                commitSubtasks(
-                  subtasks.map((current) =>
+                onUpdate({
+                  subtasks: task.subtasks.map((current) =>
                     current.id === subtask.id
                       ? { ...current, status }
                       : current,
                   ),
-                )
+                })
               }
               onPromote={() => handlePromoteSubtask(subtask)}
               onDelete={() =>
-                commitSubtasks(removeSubtask(subtasks, subtask.id))
+                onUpdate({ subtasks: removeSubtask(task.subtasks, subtask.id) })
               }
             />
           ))}

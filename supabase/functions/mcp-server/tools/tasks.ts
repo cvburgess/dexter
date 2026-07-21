@@ -10,11 +10,12 @@ import {
   dateSchema,
   getTodayIsoDate,
   hasUpdates,
+  storedSubtasksSchema,
+  storedTemplateSubtasksSchema,
   subtaskSchema,
   subtasksSchema,
   taskPrioritySchema,
   taskStatusSchema,
-  templateSubtaskSchema,
   toolError,
   toolJson,
   uuidSchema,
@@ -24,19 +25,21 @@ const TASK_STATUS_TODO = 1;
 const TASK_STATUS_DONE = 2;
 const TASK_STATUS_WONT_DO = 3;
 
-const isCompletionStatus = (status: number | null | undefined): boolean =>
+const isCompletionStatus = (
+  status: number | null | undefined,
+): status is number =>
   status === TASK_STATUS_DONE || status === TASK_STATUS_WONT_DO;
 
 type Subtask = z.infer<typeof subtaskSchema>;
 
 /**
- * Reads a task row's `subtasks` column, which Postgres types as `Json`. A
- * payload that doesn't match the shape is treated as empty rather than trusted —
- * the column is writable by any MCP client, and a malformed entry must not
- * corrupt a sweep.
+ * Reads a task row's `subtasks` column, which Postgres types as `Json`. Uses the
+ * unbounded *stored* schema, not the tool-input one: an existing row whose title
+ * exceeds the input cap must still sweep correctly, and failing the parse would
+ * silently skip the sweep rather than reject anything.
  */
 const readSubtasks = (value: unknown): Subtask[] => {
-  const parsed = subtasksSchema.safeParse(value);
+  const parsed = storedSubtasksSchema.safeParse(value);
   return parsed.success ? parsed.data : [];
 };
 
@@ -127,7 +130,7 @@ async function maybeCreateNextRecurringTask(
 
 /** Template checklist items carry no status — a template is a blueprint, not state. */
 const readTemplateSubtasks = (value: unknown): { title: string }[] => {
-  const parsed = z.array(templateSubtaskSchema).safeParse(value);
+  const parsed = storedTemplateSubtasksSchema.safeParse(value);
   return parsed.success ? parsed.data : [];
 };
 
@@ -311,7 +314,12 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
           priority: task.priority,
           scheduled_for: task.scheduledFor ?? null,
           status: task.status,
-          subtasks: task.subtasks ?? [],
+          // A task created already-complete gets the same sweep an update
+          // would apply, so the done-parent-with-open-children state the sweep
+          // exists to prevent can't be inserted through the front door.
+          subtasks: isCompletionStatus(task.status)
+            ? sweepSubtasks(task.subtasks ?? [], task.status)
+            : (task.subtasks ?? []),
           template_id: task.templateId ?? null,
         })
         .select()

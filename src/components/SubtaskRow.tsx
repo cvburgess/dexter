@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
 import { ETaskStatus, TSubtask } from "@/api/tasks";
+import { SUBTASK_TITLE_MAX_LENGTH } from "@/utils/subtasks";
 import { isCompletionStatus } from "@/utils/taskFilters";
 import { withOpacity } from "@/utils/theme";
 
@@ -14,9 +15,9 @@ import { StatusButton } from "./StatusButton";
 // pinned to, hence one constant rather than a literal per call site.
 const STATUS_SIZE = 24;
 
-// Everything but the two callbacks is constant, and each subtask row mounts its
-// own native menu host — so the descriptors are built once here rather than
-// re-allocated per row on every render of the card.
+// The icons are hoisted; the sections themselves close over the row's callbacks
+// and so are rebuilt per render. That allocation is trivial next to the native
+// menu host each row mounts, which is the cost that actually scales.
 const PROMOTE_ICON = {
   ios: "arrow.up.forward.square",
   android: "open_in_new",
@@ -57,6 +58,12 @@ type TSubtaskRowProps = {
   onChangeStatus: (status: ETaskStatus) => void;
   onPromote: () => void;
   onDelete: () => void;
+  /**
+   * Whether the row's controls respond. False for a completed parent, whose
+   * checklist is frozen — and which also drops two native menu hosts per row
+   * from a card that can no longer act on them.
+   */
+  interactive?: boolean;
 };
 
 /**
@@ -78,6 +85,7 @@ export function SubtaskRow({
   onChangeStatus,
   onPromote,
   onDelete,
+  interactive = true,
 }: TSubtaskRowProps) {
   const isComplete = isCompletionStatus(subtask.status);
 
@@ -88,12 +96,14 @@ export function SubtaskRow({
         contentColor={contentColor}
         size={STATUS_SIZE}
         accessibilityLabel="Subtask status"
+        interactive={interactive}
         onChangeStatus={onChangeStatus}
       />
       <EditableText
         value={subtask.title}
         editing={editing}
-        editable={!isComplete}
+        editable={interactive && !isComplete}
+        maxLength={SUBTASK_TITLE_MAX_LENGTH}
         onStartEdit={onStartEdit}
         onCommit={onCommitTitle}
         onSubmit={onSubmit}
@@ -107,22 +117,24 @@ export function SubtaskRow({
           },
         ]}
       />
-      <IconMenu
-        accessibilityLabel="Subtask actions"
-        style={styles.menu}
-        sections={actionSections(onPromote, onDelete)}
-      >
-        <View style={styles.menuTrigger}>
-          <Text
-            style={[
-              styles.menuGlyph,
-              { color: withOpacity(contentColor, 0.6) },
-            ]}
-          >
-            ⋯
-          </Text>
-        </View>
-      </IconMenu>
+      {!interactive ? null : (
+        <IconMenu
+          accessibilityLabel="Subtask actions"
+          style={styles.menu}
+          sections={actionSections(onPromote, onDelete)}
+        >
+          <View style={styles.menuTrigger}>
+            <Text
+              style={[
+                styles.menuGlyph,
+                { color: withOpacity(contentColor, 0.6) },
+              ]}
+            >
+              ⋯
+            </Text>
+          </View>
+        </IconMenu>
+      )}
     </View>
   );
 }

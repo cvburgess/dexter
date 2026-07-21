@@ -29,6 +29,25 @@ export const subtaskSchema = z.object({
 export const subtasksSchema = z.array(subtaskSchema).max(MAX_SUBTASKS);
 
 /**
+ * Schemas for *reading* what is already stored, as opposed to validating tool
+ * input. Deliberately unbounded: the write bounds are a policy on new input,
+ * and applying them to a read makes an over-long row unparseable — which, since
+ * a failed parse means "no subtasks", would silently skip that task's
+ * completion sweep instead of rejecting anything.
+ */
+export const storedSubtasksSchema = z.array(
+  z.object({
+    id: z.string().min(1),
+    title: z.string(),
+    status: taskStatusSchema,
+  }),
+);
+
+export const storedTemplateSubtasksSchema = z.array(
+  z.object({ id: z.string().min(1), title: z.string() }),
+);
+
+/**
  * A template's checklist item. Deliberately narrower — no status, because a
  * template is a blueprint and each occurrence materializes its own copy at the
  * open status.

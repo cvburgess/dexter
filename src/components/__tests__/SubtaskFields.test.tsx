@@ -62,14 +62,43 @@ describe("SubtaskFields", () => {
     expect(screen.getByText("Existing")).toBeTruthy();
   });
 
-  it("removes an existing row when its title is emptied", () => {
+  it("reverts an existing row whose title is emptied, rather than deleting it", () => {
+    // The template form seeds this from saved rows, so clearing the text to
+    // retype must not silently drop a checklist item from the blueprint.
     render(<Host initial={[{ id: "s1", title: "Existing" }]} />);
 
     fireEvent.press(screen.getByTestId("test-subtask-s1"));
     fireEvent.changeText(screen.getByTestId("test-subtask-s1-input"), "");
     fireEvent(screen.getByTestId("test-subtask-s1-input"), "blur");
 
+    expect(screen.getByText("Existing")).toBeTruthy();
+  });
+
+  it("removes a row through its explicit ✕", () => {
+    render(<Host initial={[{ id: "s1", title: "Existing" }]} />);
+
+    fireEvent.press(screen.getByTestId("test-remove-subtask-s1"));
+
     expect(screen.queryByText("Existing")).toBeNull();
+  });
+
+  it("mirrors keystrokes into form state before any commit", () => {
+    // On native, tapping Save does not blur the focused input first, so a row
+    // that is only committed on blur would be dropped from the payload.
+    const onChange = jest.fn();
+    render(
+      <SubtaskFields
+        value={[{ id: "s1", title: "" }]}
+        onChange={onChange}
+        makeRow={(id) => ({ id, title: "" })}
+        testIDPrefix="test"
+      />,
+    );
+
+    fireEvent.press(screen.getByTestId("test-subtask-s1"));
+    fireEvent.changeText(screen.getByTestId("test-subtask-s1-input"), "Pack");
+
+    expect(onChange).toHaveBeenCalledWith([{ id: "s1", title: "Pack" }]);
   });
 
   it("chains another row when return commits a non-empty title", () => {

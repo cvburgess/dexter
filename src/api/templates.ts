@@ -28,6 +28,11 @@ export type TTemplate = {
   userId: string;
 };
 
+/** See `withSubtasksArray` in `api/tasks.ts` — the same pre-migration guard. */
+const withSubtasksArray = <T extends { subtasks?: TTemplateSubtask[] }>(
+  row: T,
+): T => (Array.isArray(row.subtasks) ? row : { ...row, subtasks: [] });
+
 export const getTemplates = async (supabase: SupabaseClient<Database>) => {
   const { data, error } = await supabase
     .from("repeat_task_templates")
@@ -35,7 +40,7 @@ export const getTemplates = async (supabase: SupabaseClient<Database>) => {
     .order("created_at");
 
   if (error) throw error;
-  return camelCase(data) as TTemplate[];
+  return (camelCase(data) as TTemplate[]).map(withSubtasksArray);
 };
 
 export type TCreateTemplate = {
@@ -59,7 +64,7 @@ export const createTemplate = async (
     .single();
 
   if (error) throw error;
-  return camelCase(data) as TTemplate;
+  return withSubtasksArray(camelCase(data) as TTemplate);
 };
 
 export type TUpdateTemplate = {
@@ -85,7 +90,7 @@ export const updateTemplate = async (
     .single();
 
   if (error) throw error;
-  return camelCase(data) as TTemplate;
+  return withSubtasksArray(camelCase(data) as TTemplate);
 };
 
 export const deleteTemplate = async (

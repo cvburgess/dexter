@@ -18,7 +18,7 @@ import { FormRow } from "@/components/FormRow";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { PickerField } from "@/components/PickerField";
 import { PriorityControl } from "@/components/PriorityControl";
-import { SubtaskFields } from "@/components/SubtaskFields";
+import { SubtaskFields, withTitledRows } from "@/components/SubtaskFields";
 import { TextInput } from "@/components/TextInput";
 import { TimeField } from "@/components/TimeField";
 import { WeekdayPicker } from "@/components/WeekdayPicker";
@@ -164,7 +164,7 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
         alarmTime,
         schedule: buildCurrentSchedule(),
         // Drop any row left untitled — an empty row is an abandoned edit.
-        subtasks: subtasks.filter(({ title: t }) => t.trim().length > 0),
+        subtasks: withTitledRows(subtasks),
       },
       {
         onSuccess: () => router.back(),
