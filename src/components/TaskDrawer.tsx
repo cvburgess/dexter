@@ -18,7 +18,7 @@ import { EmptyScreen } from "@/components/EmptyScreen";
 import { GlassIconButton } from "@/components/GlassIconButton";
 import { IconMenu, TIconMenuOption } from "@/components/IconMenu";
 import { PRIORITY_OPTIONS } from "@/components/PriorityControl";
-import { TaskCard } from "@/components/TaskCard";
+import { TaskCard, TaskCardPreview } from "@/components/TaskCard";
 import { TextInput } from "@/components/TextInput";
 import { useGoals } from "@/hooks/useGoals";
 import { useLists } from "@/hooks/useLists";
@@ -368,6 +368,13 @@ export function TaskDrawer({
             longPressDelay={DRAG_ACTIVATION.longPressDelay}
             dragActivationFailOffset={DRAG_ACTIVATION.dragActivationFailOffset}
             draggingStyle={styles.dragging}
+            // Without this drax's default hover re-renders the card's children
+            // into its overlay, mounting a second set of `@expo/ui` menu hosts
+            // that paint nothing on native — the card teleported instead of
+            // following the finger. The preview has no native hosts in it.
+            renderHoverContent={({ dimensions }) => (
+              <TaskCardPreview task={task} width={dimensions?.width} />
+            )}
           >
             {card}
           </DraxView>

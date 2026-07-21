@@ -166,6 +166,52 @@ export function TaskCard({
   );
 }
 
+/**
+ * A static, non-interactive stand-in for a `TaskCard` — the priority-colored
+ * shell and the title, nothing else.
+ *
+ * Used as the drag preview that follows the finger (DEX-77). It exists because
+ * `react-native-drax`'s default hover re-renders the dragged view's *children*
+ * into its overlay, which here would mount a second set of `@expo/ui` menu
+ * hosts (`MoreMenu` wraps the card; `StatusButton`/`ListButton` each host one).
+ * Those size asynchronously and report 0 on native — see the `minHeight`
+ * comment below — so the duplicate painted nothing and the card appeared to
+ * teleport to the drop target instead of travelling there. Web was unaffected,
+ * since duplicating DOM is free.
+ *
+ * `width` comes from the dragged row's measured bounds so the preview matches
+ * the row it left; without it the shell would shrink to fit its own text.
+ */
+export function TaskCardPreview({
+  task,
+  width,
+}: {
+  task: TTask;
+  width?: number;
+}) {
+  const theme = useTheme();
+  const priorityColor = theme.colors.priority[task.priority];
+  const contentColor = theme.colors.priorityContent[task.priority];
+
+  return (
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: withOpacity(priorityColor, INCOMPLETE_OPACITY),
+          borderColor: withOpacity(contentColor, 0.1),
+          borderRadius: theme.borderRadius,
+          width,
+        },
+      ]}
+    >
+      <Text numberOfLines={1} style={[styles.title, { color: contentColor }]}>
+        {task.title}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   moreMenuWrapper: {
     alignSelf: "stretch",

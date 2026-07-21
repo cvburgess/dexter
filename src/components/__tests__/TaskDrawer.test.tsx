@@ -59,8 +59,14 @@ const selectFilterOption = (id: string) => {
 // test (see TasksView.test); stub it to its title. TaskCard's own rendering
 // is covered by its own tests.
 const mockTaskCard = ({ task }: { task: TTask }) => <Text>{task.title}</Text>;
+// `TaskCardPreview` (the drag hover preview) is stubbed alongside it — the real
+// one is a plain View/Text with no native hosts, which is the whole point of
+// it, but leaving it off the mock makes it `undefined` and any render of the
+// drag branch's hover content fails with "Element type is invalid".
 jest.mock("../TaskCard", () => ({
   TaskCard: (props: Parameters<typeof mockTaskCard>[0]) => mockTaskCard(props),
+  TaskCardPreview: (props: Parameters<typeof mockTaskCard>[0]) =>
+    mockTaskCard(props),
 }));
 
 const mockGlassIconButton = ({
@@ -457,6 +463,33 @@ describe("TaskDrawer", () => {
       expect(screen.getByTestId("task-drag-task-1")).toBeTruthy();
       // The card itself still renders — the drag source wraps it.
       expect(screen.getByText("Write report")).toBeTruthy();
+    });
+
+    // drax's default hover re-renders the dragged view's children into its
+    // overlay. Here that would mount a second set of @expo/ui menu hosts,
+    // which paint nothing on native — the card teleported to the drop target
+    // instead of following the finger. Supplying renderHoverContent is what
+    // keeps native hosts out of the overlay.
+    it("supplies its own hover preview rather than duplicating the card", () => {
+      mockUseTasks.mockReturnValue(tasksResult([task()]));
+      const screen = render(<TaskDrawer date={date} enableDrag />);
+
+      const { renderHoverContent } = screen.getByTestId("task-drag-task-1")
+        .props as { renderHoverContent?: (p: unknown) => ReactNode };
+      expect(renderHoverContent).toBeInstanceOf(Function);
+
+      // Cleared first: the drawer's own Filter/Group menus have already
+      // rendered, so only calls made by the preview itself should count.
+      mockIconMenu.mockClear();
+      const preview = render(
+        <>{renderHoverContent?.({ dimensions: { width: 280, height: 64 } })}</>,
+      );
+
+      expect(preview.getByText("Write report")).toBeTruthy();
+      // No MoreMenu/StatusButton/ListButton in the preview — those are the
+      // native menu hosts that made the default hover invisible. Guards against
+      // anyone re-pointing renderHoverContent at the interactive card.
+      expect(mockIconMenu).not.toHaveBeenCalled();
     });
 
     // The drop target reads `alarmTime` off the payload to decide whether to
