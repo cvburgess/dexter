@@ -1,5 +1,7 @@
 import { FlatList, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import packageJson from "@/package.json";
 import licensesJson from "@/utils/licenses.json";
 import { useTheme } from "@/utils/theme";
@@ -13,6 +15,8 @@ type TLicenseItem = {
 
 export default function LicensesScreen() {
   const theme = useTheme();
+  // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
+  const twoPane = useIsMultiPane();
 
   // Combine dependencies and devDependencies, sort alphabetically, and look up
   // each license from the generated map (see `npm run licenses`). Deriving the
@@ -53,14 +57,18 @@ export default function LicensesScreen() {
   );
 
   return (
-    <FlatList
-      data={sortedDependencies}
-      renderItem={renderItem}
-      keyExtractor={(item) => item.name}
-      ListHeaderComponent={ListHeaderComponent}
-      contentContainerStyle={{ gap: theme.gap, padding: theme.spacing }}
+    <SafeAreaView
+      edges={twoPane ? ["bottom", "right"] : ["bottom", "left", "right"]}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
-    />
+    >
+      <FlatList
+        data={sortedDependencies}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.name}
+        ListHeaderComponent={ListHeaderComponent}
+        contentContainerStyle={{ gap: theme.gap, padding: theme.spacing }}
+      />
+    </SafeAreaView>
   );
 }
 

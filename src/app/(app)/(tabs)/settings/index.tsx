@@ -1,5 +1,6 @@
 import { Redirect, useRouter } from "expo-router";
 import { FlatList, StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { SettingsRow } from "@/components/SettingsRow";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
@@ -19,16 +20,14 @@ export default function SettingsScreen() {
   }
 
   return (
-    <View
-      style={[
-        styles.screen,
-        { backgroundColor: theme.colors.background, padding: theme.spacing },
-      ]}
+    <SafeAreaView
+      edges={["bottom", "left", "right"]}
+      style={[styles.screen, { backgroundColor: theme.colors.background }]}
     >
       <FlatList
         // Ungrouped: each item is its own card, separated by margin (rather than
         // sharing a single grouped surface).
-        contentContainerStyle={{ gap: theme.gap }}
+        contentContainerStyle={{ gap: theme.gap, padding: theme.spacing }}
         data={SETTINGS_ITEMS}
         keyExtractor={(item) => item.slug}
         renderItem={({ item }) => (
@@ -51,7 +50,7 @@ export default function SettingsScreen() {
           </View>
         )}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 

@@ -7,9 +7,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { EThemeMode } from "@/api/preferences";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
+import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
 import { Theme, THEMES, themes, useTheme, withOpacity } from "@/utils/theme";
 
@@ -25,101 +27,107 @@ const DARK_THEMES = THEMES.filter((t) => t.mode === "dark");
 export default function AppearanceScreen() {
   const theme = useTheme();
   const [preferences, { updatePreferences }] = usePreferences();
+  // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
+  const twoPane = useIsMultiPane();
 
   const { themeMode, lightTheme, darkTheme } = preferences;
   const showLight = themeMode !== EThemeMode.DARK;
   const showDark = themeMode !== EThemeMode.LIGHT;
 
   return (
-    <ScrollView
+    <SafeAreaView
+      edges={twoPane ? ["bottom", "right"] : ["bottom", "left", "right"]}
       style={{ backgroundColor: theme.colors.background }}
-      contentContainerStyle={[
-        styles.content,
-        { padding: theme.spacing, gap: theme.spacing },
-      ]}
     >
-      <Section title="Mode">
-        <View
-          style={[
-            styles.segmented,
-            {
-              backgroundColor: theme.colors.card,
-              borderColor: withOpacity(theme.colors.text, 0.1),
-              borderRadius: theme.borderRadius,
-            },
-          ]}
-        >
-          {MODE_OPTIONS.map(({ mode, label }) => {
-            const selected = mode === themeMode;
-            return (
-              <TouchableOpacity
-                key={label}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                onPress={() => updatePreferences({ themeMode: mode })}
-                style={[
-                  styles.segment,
-                  {
-                    backgroundColor: selected
-                      ? theme.colors.primary
-                      : "transparent",
-                    borderRadius: theme.borderRadius - 4,
-                  },
-                ]}
-                testID={`appearance-mode-${label.toLowerCase()}`}
-              >
-                <Text
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { padding: theme.spacing, gap: theme.spacing },
+        ]}
+      >
+        <Section title="Mode">
+          <View
+            style={[
+              styles.segmented,
+              {
+                backgroundColor: theme.colors.card,
+                borderColor: withOpacity(theme.colors.text, 0.1),
+                borderRadius: theme.borderRadius,
+              },
+            ]}
+          >
+            {MODE_OPTIONS.map(({ mode, label }) => {
+              const selected = mode === themeMode;
+              return (
+                <TouchableOpacity
+                  key={label}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  onPress={() => updatePreferences({ themeMode: mode })}
                   style={[
-                    styles.segmentLabel,
+                    styles.segment,
                     {
-                      color: selected
-                        ? theme.colors.primaryContent
-                        : theme.colors.text,
+                      backgroundColor: selected
+                        ? theme.colors.primary
+                        : "transparent",
+                      borderRadius: theme.borderRadius - 4,
                     },
                   ]}
+                  testID={`appearance-mode-${label.toLowerCase()}`}
                 >
-                  {label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </Section>
-
-      {showLight && (
-        <Section title="Light theme">
-          <View style={styles.cards}>
-            {LIGHT_THEMES.map(({ name, label }) => (
-              <ThemeCard
-                key={name}
-                name={name}
-                label={label}
-                selected={name === lightTheme}
-                uiTheme={theme}
-                onPress={() => updatePreferences({ lightTheme: name })}
-              />
-            ))}
+                  <Text
+                    style={[
+                      styles.segmentLabel,
+                      {
+                        color: selected
+                          ? theme.colors.primaryContent
+                          : theme.colors.text,
+                      },
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </Section>
-      )}
 
-      {showDark && (
-        <Section title="Dark theme">
-          <View style={styles.cards}>
-            {DARK_THEMES.map(({ name, label }) => (
-              <ThemeCard
-                key={name}
-                name={name}
-                label={label}
-                selected={name === darkTheme}
-                uiTheme={theme}
-                onPress={() => updatePreferences({ darkTheme: name })}
-              />
-            ))}
-          </View>
-        </Section>
-      )}
-    </ScrollView>
+        {showLight && (
+          <Section title="Light theme">
+            <View style={styles.cards}>
+              {LIGHT_THEMES.map(({ name, label }) => (
+                <ThemeCard
+                  key={name}
+                  name={name}
+                  label={label}
+                  selected={name === lightTheme}
+                  uiTheme={theme}
+                  onPress={() => updatePreferences({ lightTheme: name })}
+                />
+              ))}
+            </View>
+          </Section>
+        )}
+
+        {showDark && (
+          <Section title="Dark theme">
+            <View style={styles.cards}>
+              {DARK_THEMES.map(({ name, label }) => (
+                <ThemeCard
+                  key={name}
+                  name={name}
+                  label={label}
+                  selected={name === darkTheme}
+                  uiTheme={theme}
+                  onPress={() => updatePreferences({ darkTheme: name })}
+                />
+              ))}
+            </View>
+          </Section>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
