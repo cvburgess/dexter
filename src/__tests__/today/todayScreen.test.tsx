@@ -1,7 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { act, fireEvent, render } from "@testing-library/react-native";
 import { useEffect } from "react";
-import { Text, TouchableOpacity } from "react-native";
+import { Alert, Text, TouchableOpacity } from "react-native";
 import {
   fireGestureHandler,
   getByGestureTestId,
@@ -84,9 +84,13 @@ jest.mock("@/components/CalendarView", () => ({
 // spy on its props so this suite can assert the pane's visibility, toggle
 // wiring, and the pre-applied filter.
 const mockTaskDrawer = jest.fn(
-  ({ date }: { date: Temporal.PlainDate; filterId?: string }) => (
-    <Text>task-drawer:{date.toString()}</Text>
-  ),
+  ({
+    date,
+  }: {
+    date: Temporal.PlainDate;
+    filterId?: string;
+    enableDrag?: boolean;
+  }) => <Text>task-drawer:{date.toString()}</Text>,
 );
 jest.mock("@/components/TaskDrawer", () => ({
   TaskDrawer: (props: Parameters<typeof mockTaskDrawer>[0]) =>
@@ -261,8 +265,9 @@ const mockUseIsMultiPane = useIsMultiPane as jest.MockedFunction<
 >;
 
 const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
+const mockUpdateTask = jest.fn();
 const tasksResult = (tasks: TTask[] = []): ReturnType<typeof useTasks> =>
-  [tasks, {}] as never;
+  [tasks, { updateTask: mockUpdateTask }] as never;
 
 // An incomplete task whose due date is before today → drives the Overdue
 // attention filter. Derived from the real today (the screen filters against it).
@@ -601,6 +606,104 @@ describe("TodayScreen", () => {
       render(<TodayScreen />);
 
       expect(() => getByGestureTestId("day-swipe")).toThrow();
+    });
+
+    // Drag-to-schedule (DEX-77). react-native-drax is stubbed to plain Views in
+    // jest.setup, so the drop is driven by invoking the target's
+    // `onReceiveDragDrop` rather than simulating a pointer path.
+    describe("drag to schedule", () => {
+      // Wrapped in act: a dropped task carrying an alarm opens the
+      // confirmation, which is a state update on this screen.
+      const drop = (screen: ReturnType<typeof render>, dragged?: TTask) =>
+        act(() => {
+          screen.getByTestId("tasks-drop-target").props.onReceiveDragDrop({
+            dragged: { payload: dragged },
+          });
+        });
+
+      it("enables dragging on the docked drawer", () => {
+        mockUseTodayPanes.mockReturnValue(panes({ drawer: true }));
+        render(<TodayScreen />);
+
+        expect(mockTaskDrawer).toHaveBeenCalledWith(
+          expect.objectContaining({ enableDrag: true }),
+        );
+      });
+
+      it("schedules a dropped task for the viewed day", () => {
+        const dragged = overdueTask();
+        const screen = render(<TodayScreen />);
+
+        drop(screen, dragged);
+
+        expect(mockUpdateTask).toHaveBeenCalledWith({
+          id: dragged.id,
+          scheduledFor: Temporal.Now.plainDateISO().toString(),
+        });
+      });
+
+      it("schedules for the navigated day, not today", () => {
+        const dragged = overdueTask();
+        const screen = render(<TodayScreen />);
+
+        fireEvent.press(screen.getByLabelText("Next day"));
+        drop(screen, dragged);
+
+        expect(mockUpdateTask).toHaveBeenCalledWith({
+          id: dragged.id,
+          scheduledFor: Temporal.Now.plainDateISO().add({ days: 1 }).toString(),
+        });
+      });
+
+      // The drop shares TaskCard's alarm flow, so a task carrying an alarm has
+      // to prompt before it moves rather than silently relocating the alarm.
+      // ConfirmationModal.native renders through `Alert.alert` (see
+      // TasksView.test), so the prompt is asserted on the spy, not the tree.
+      describe("a task that has an alarm set", () => {
+        const withAlarm = (): TTask => ({
+          ...overdueTask(),
+          alarmTime: "09:00:00",
+        });
+
+        it("prompts instead of moving straight away", () => {
+          const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+          const screen = render(<TodayScreen />);
+
+          drop(screen, withAlarm());
+
+          expect(mockUpdateTask).not.toHaveBeenCalled();
+          expect(alert).toHaveBeenCalledWith(
+            "Reschedule task?",
+            expect.stringContaining("alarm"),
+            expect.any(Array),
+            expect.anything(),
+          );
+        });
+
+        it("moves it once the alarm is kept", () => {
+          jest
+            .spyOn(Alert, "alert")
+            .mockImplementation((_title, _message, buttons) => {
+              buttons?.find((b) => b.text === "Keep alarm")?.onPress?.();
+            });
+          const screen = render(<TodayScreen />);
+
+          drop(screen, withAlarm());
+
+          expect(mockUpdateTask).toHaveBeenCalledWith({
+            id: "1",
+            scheduledFor: Temporal.Now.plainDateISO().toString(),
+          });
+        });
+      });
+
+      it("ignores a drop carrying no task", () => {
+        const screen = render(<TodayScreen />);
+
+        drop(screen, undefined);
+
+        expect(mockUpdateTask).not.toHaveBeenCalled();
+      });
     });
 
     it("opens the new-task modal scheduled for the viewed day", () => {

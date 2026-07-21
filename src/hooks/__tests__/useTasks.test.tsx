@@ -160,4 +160,90 @@ describe("useTasks", () => {
     expect(created.templateId).toBe("template-1");
     expect(created.scheduledFor).not.toBe(today);
   });
+
+  // Drag-to-schedule (DEX-77) made update latency visible — a dropped card sat
+  // in the backlog until the refetch resolved.
+  describe("optimistic updates", () => {
+    const backlogTask: TTask = {
+      id: "task-1",
+      alarmTime: null,
+      title: "Write report",
+      dueOn: null,
+      goalId: null,
+      listId: null,
+      priority: ETaskPriority.UNPRIORITIZED,
+      scheduledFor: null,
+      status: ETaskStatus.TODO,
+      templateId: null,
+    };
+
+    /** Renders the hook with `backlogTask` already in the canonical cache. */
+    const seeded = async () => {
+      const { wrapper, queryClient } = createWrapper();
+      mockGetTasks.mockResolvedValue([backlogTask]);
+      const { result } = renderHook(() => useTasks(), { wrapper });
+      await waitFor(() =>
+        expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual([
+          backlogTask,
+        ]),
+      );
+      return { queryClient, result };
+    };
+
+    const cachedTask = (queryClient: QueryClient) =>
+      queryClient.getQueryData<TTask[]>(["tasks"])?.[0];
+
+    /**
+     * Holds the update in flight so the cache can be inspected between
+     * `onMutate` and `onSettled`. Always released before the test ends — a
+     * mutation left pending forever wedges the run.
+     */
+    const pendingUpdate = () => {
+      let release!: (tasks: TTask[]) => void;
+      mockUpdateTask.mockReturnValue(
+        new Promise<TTask[]>((resolve) => {
+          release = resolve;
+        }),
+      );
+      return release;
+    };
+
+    it("applies the change to the cache before the request resolves", async () => {
+      const { queryClient, result } = await seeded();
+      const release = pendingUpdate();
+
+      await act(async () => {
+        result.current[1].updateTask({
+          id: "task-1",
+          scheduledFor: "2026-07-20",
+        });
+      });
+
+      // Only `onMutate` can have moved the cache — the request is still open.
+      expect(cachedTask(queryClient)).toEqual({
+        ...backlogTask,
+        scheduledFor: "2026-07-20",
+      });
+
+      await act(async () => {
+        release([{ ...backlogTask, scheduledFor: "2026-07-20" }]);
+      });
+    });
+
+    it("rolls back when the save fails", async () => {
+      const { queryClient, result } = await seeded();
+      mockUpdateTask.mockRejectedValue(new Error("network down"));
+
+      await act(async () => {
+        result.current[1].updateTask({
+          id: "task-1",
+          scheduledFor: "2026-07-20",
+        });
+      });
+
+      await waitFor(() =>
+        expect(cachedTask(queryClient)?.scheduledFor).toBeNull(),
+      );
+    });
+  });
 });

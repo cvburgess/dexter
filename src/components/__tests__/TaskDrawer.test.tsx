@@ -378,6 +378,45 @@ describe("TaskDrawer", () => {
     });
   });
 
+  // Large screens drag the card onto the Tasks pane instead (DEX-77); the
+  // button only exists on the small-screen sheet, where the drawer is a native
+  // bottom sheet a drag can't escape.
+  describe("enableDrag", () => {
+    it("replaces the schedule button with a drag source", () => {
+      mockUseTasks.mockReturnValue(tasksResult([task()]));
+      const screen = render(<TaskDrawer date={date} enableDrag />);
+
+      expect(
+        screen.queryByLabelText('Schedule "Write report" for this day'),
+      ).toBeNull();
+      expect(screen.getByTestId("task-drag-task-1")).toBeTruthy();
+      // The card itself still renders — the drag source wraps it.
+      expect(screen.getByText("Write report")).toBeTruthy();
+    });
+
+    // The drop target reads `alarmTime` off the payload to decide whether to
+    // prompt, so it has to carry the whole task, not just an id.
+    it("carries the full task as the drag payload", () => {
+      const dragged = task({ alarmTime: "09:00:00" });
+      mockUseTasks.mockReturnValue(tasksResult([dragged]));
+      const screen = render(<TaskDrawer date={date} enableDrag />);
+
+      expect(screen.getByTestId("task-drag-task-1").props.payload).toEqual(
+        dragged,
+      );
+    });
+
+    it("keeps the schedule button when not set", () => {
+      mockUseTasks.mockReturnValue(tasksResult([task()]));
+      const screen = render(<TaskDrawer date={date} />);
+
+      expect(
+        screen.getByLabelText('Schedule "Write report" for this day'),
+      ).toBeTruthy();
+      expect(screen.queryByTestId("task-drag-task-1")).toBeNull();
+    });
+  });
+
   it("applies a controlled filterId from the parent (Overdue)", () => {
     // The drawer filters against the real today, so derive the overdue date
     // from it rather than the fixed viewed day.

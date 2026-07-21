@@ -319,6 +319,7 @@ export function TaskDrawer({
       if (enableDrag) {
         return (
           <DraxView
+            testID={`task-drag-${task.id}`}
             draggable
             receptive={false}
             payload={task}
