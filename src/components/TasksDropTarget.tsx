@@ -46,8 +46,11 @@ export function TasksDropTarget({
         // The transparent border is carried in the base style so `receivingStyle`
         // only has to change its color. Introducing the border width on hover
         // instead would shrink the content box by 4px and reflow every card in
-        // the pane for the duration of the drag.
-        style={[styles.pane, { borderRadius: theme.borderRadius }, style]}
+        // the pane for the duration of the drag. It sits *after* the caller's
+        // `style` deliberately: a pane that brought its own border (as
+        // `calendarPane` and `drawerPane` both do) would otherwise override the
+        // reserved width and bring that reflow back.
+        style={[style, styles.pane, { borderRadius: theme.borderRadius }]}
         draggable={false}
         receivingStyle={{ borderColor: theme.colors.text }}
         onReceiveDragDrop={({ dragged }) => {

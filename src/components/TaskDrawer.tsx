@@ -449,9 +449,11 @@ export function TaskDrawer({
           style={styles.list}
         />
       )}
-      {/* Drives the "+" button's alarm prompt. Harmless in the drag branch,
-          where nothing opens it. */}
-      <ConfirmationModal {...confirmationProps} />
+      {/* Drives the "+" button's alarm prompt, so it's only needed where that
+          button renders — the drag branch's prompt belongs to the drop target
+          (`TasksDropTarget`), and mounting a second one here that nothing can
+          open just makes it harder to tell which modal a prompt came from. */}
+      {!enableDrag && <ConfirmationModal {...confirmationProps} />}
     </View>
   );
 }

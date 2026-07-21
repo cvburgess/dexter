@@ -6,6 +6,7 @@ import { ReactNode } from "react";
 import { makeOrFilter } from "@/api/applyFilters";
 import {
   createTask,
+  deleteTask,
   ETaskPriority,
   ETaskStatus,
   getTasks,
@@ -24,11 +25,13 @@ jest.mock("@/api/tasks", () => ({
   getTasks: jest.fn(),
   createTask: jest.fn(),
   updateTask: jest.fn(),
+  deleteTask: jest.fn(),
 }));
 
 const mockGetTasks = getTasks as jest.MockedFunction<typeof getTasks>;
 const mockCreateTask = createTask as jest.MockedFunction<typeof createTask>;
 const mockUpdateTask = updateTask as jest.MockedFunction<typeof updateTask>;
+const mockDeleteTask = deleteTask as jest.MockedFunction<typeof deleteTask>;
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -200,8 +203,11 @@ describe("useTasks", () => {
      */
     const releases: ((tasks: TTask[]) => void)[] = [];
     const holdUpdate = () =>
-      mockUpdateTask.mockReturnValue(
-        new Promise<TTask[]>((resolve) => releases.push(resolve)),
+      // `mockImplementation`, not `mockReturnValue`: each call gets its own
+      // promise and its own resolver, so a test can hold two updates in flight
+      // independently instead of sharing one settle.
+      mockUpdateTask.mockImplementation(
+        () => new Promise<TTask[]>((resolve) => releases.push(resolve)),
       );
 
     afterEach(async () => {
@@ -299,6 +305,29 @@ describe("useTasks", () => {
       );
       expect(byId["task-1"]).toBeNull();
       expect(byId["task-2"]).toBe("2026-08-01");
+    });
+
+    // Every task mutation shares the invalidation gate, not just update: a
+    // delete landing mid-drag invalidates the same query, and an ungated
+    // refetch would return server state without the still-open edit.
+    it("does not refetch over an in-flight update when a delete settles", async () => {
+      const { queryClient, result } = await seeded();
+      holdUpdate();
+      mockDeleteTask.mockResolvedValue(undefined);
+      mockGetTasks.mockClear();
+
+      await act(async () => {
+        result.current[1].updateTask({
+          id: "task-1",
+          scheduledFor: "2026-07-20",
+        });
+      });
+      await act(async () => {
+        result.current[1].deleteTask("task-2");
+      });
+
+      expect(mockGetTasks).not.toHaveBeenCalled();
+      expect(cachedTask(queryClient)?.scheduledFor).toBe("2026-07-20");
     });
 
     // api/tasks builds its wire payload separately, so an undefined here would

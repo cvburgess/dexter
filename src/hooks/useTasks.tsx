@@ -53,9 +53,29 @@ const RECENT_TASK_WINDOW_DAYS = 30;
 
 const getToday = () => Temporal.Now.plainDateISO();
 
-// Tags the update mutation so its `onSettled` can tell whether sibling updates
-// are still in flight before invalidating (DEX-77).
-const UPDATE_TASK_MUTATION_KEY = ["tasks", "update"];
+// Tags every task mutation so each can tell whether siblings are still in
+// flight before invalidating (DEX-77 — see `invalidateWhenSettled`).
+const TASK_MUTATION_KEY = ["tasks", "mutate"];
+
+/**
+ * Refetches the canonical list, but only once the last in-flight task mutation
+ * has settled.
+ *
+ * The update mutation writes optimistically, and a refetch triggered while
+ * another update is still open returns server state that doesn't include it —
+ * so that edit would visibly revert and then re-apply. Every task mutation
+ * shares the guard, not just update: a create or delete landing mid-drag
+ * invalidates the same query and would snap the dragged card back just as
+ * readily.
+ *
+ * `isMutating` still counts the calling mutation while its own callback runs,
+ * so 1 means "this is the last one". Skipping is safe — whichever mutation
+ * settles last invalidates for all of them.
+ */
+const invalidateWhenSettled = (queryClient: QueryClient): void => {
+  if (queryClient.isMutating({ mutationKey: TASK_MUTATION_KEY }) > 1) return;
+  void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+};
 
 /**
  * Merges `diff` into the matching task and re-sorts, returning a new array —
@@ -172,10 +192,9 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
   });
 
   const { mutate: create } = useMutation<TTask[], Error, TCreateTask>({
+    mutationKey: TASK_MUTATION_KEY,
     mutationFn: (task) => createTask(supabase, task),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
+    onSuccess: () => invalidateWhenSettled(queryClient),
   });
 
   const { mutate: update } = useMutation<
@@ -184,7 +203,7 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
     TUpdateTask,
     { previousTask?: TTask }
   >({
-    mutationKey: UPDATE_TASK_MUTATION_KEY,
+    mutationKey: TASK_MUTATION_KEY,
     mutationFn: (diff) => updateTask(supabase, diff),
     // Optimistically apply the diff to the canonical cache so the change lands
     // on screen immediately instead of after the round-trip + refetch; roll
@@ -219,34 +238,25 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
         // The cache lookup at mutate time is the reliable source, but it comes
         // up empty when the mutation beats the first fetch (the query declares
         // `placeholderData: []`, which TanStack never writes to the cache).
-        // Falling back to a read here covers that window rather than silently
-        // skipping the next occurrence.
+        // Reading again here narrows that window — the optimistic write was a
+        // no-op on an empty cache, so this usually sees the pre-update task —
+        // but it doesn't close it: if the fetch resolves with the completion
+        // already applied, the guard below still skips the next occurrence.
         context?.previousTask ?? findCachedTask(queryClient, diff.id),
       ),
-    onSettled: () => {
-      // Refetch only once the last concurrent update has settled. Invalidating
-      // per-mutation would pull server state that doesn't yet include the
-      // *other* in-flight edits, so their optimistic writes would visibly
-      // revert and then re-apply. `isMutating` still counts this mutation
-      // while `onSettled` runs, so 1 means "this is the last one".
-      if (queryClient.isMutating({ mutationKey: UPDATE_TASK_MUTATION_KEY }) > 1)
-        return;
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
+    onSettled: () => invalidateWhenSettled(queryClient),
   });
 
   const { mutate: bulkUpdate } = useMutation<TTask[], Error, TUpdateTask[]>({
+    mutationKey: TASK_MUTATION_KEY,
     mutationFn: (diffs) => updateTasks(supabase, diffs),
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
+    onSettled: () => invalidateWhenSettled(queryClient),
   });
 
   const { mutate: remove } = useMutation<void, Error, string>({
+    mutationKey: TASK_MUTATION_KEY,
     mutationFn: (id) => deleteTask(supabase, id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
+    onSuccess: () => invalidateWhenSettled(queryClient),
   });
 
   return [
