@@ -276,6 +276,7 @@ const overdueTask = (): TTask => ({
   priority: ETaskPriority.UNPRIORITIZED,
   scheduledFor: null,
   status: ETaskStatus.TODO,
+  subtasks: [],
   templateId: null,
 });
 

@@ -79,6 +79,7 @@ const baseTask: TTask = {
   priority: ETaskPriority.URGENT,
   scheduledFor: "2026-07-03",
   status: ETaskStatus.TODO,
+  subtasks: [],
   templateId: null,
 };
 

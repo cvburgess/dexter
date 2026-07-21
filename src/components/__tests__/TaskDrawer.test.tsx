@@ -94,6 +94,7 @@ const task = (overrides: Partial<TTask> = {}): TTask => ({
   priority: ETaskPriority.URGENT,
   scheduledFor: null,
   status: ETaskStatus.TODO,
+  subtasks: [],
   templateId: null,
   ...overrides,
 });

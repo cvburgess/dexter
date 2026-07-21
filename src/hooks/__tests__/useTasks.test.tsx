@@ -96,6 +96,7 @@ describe("useTasks", () => {
       priority: ETaskPriority.UNPRIORITIZED,
       scheduledFor: null,
       status: ETaskStatus.TODO,
+      subtasks: [],
       templateId: null,
     };
     mockCreateTask.mockResolvedValue([task]);
@@ -122,6 +123,7 @@ describe("useTasks", () => {
       priority: ETaskPriority.NEITHER,
       scheduledFor: today,
       status: ETaskStatus.TODO,
+      subtasks: [],
       templateId: "template-1",
     };
     const template: TTemplate = {
