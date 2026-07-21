@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
 import { getNextTaskDate } from "@src/utils/repeatSchedule.ts";
+import { subtasksFromTemplate, sweepSubtasks } from "@src/utils/subtasks.ts";
 
 import type { ToolContext } from "../server.ts";
 import {
@@ -22,6 +23,33 @@ const TASK_STATUS_WONT_DO = 3;
 
 const isCompletionStatus = (status: number | null | undefined): boolean =>
   status === TASK_STATUS_DONE || status === TASK_STATUS_WONT_DO;
+
+/**
+ * A subtask: a lightweight checklist item living in the parent's `subtasks`
+ * jsonb array, never its own row. `id` is client-minted and only has to be
+ * unique within the array.
+ */
+const subtaskSchema = z.object({
+  id: z.string().min(1).max(64),
+  title: z.string().min(1).max(100),
+  status: taskStatusSchema,
+});
+
+// Bounded so a runaway client can't write an unindexable multi-megabyte array
+// into a single row.
+const subtasksSchema = z.array(subtaskSchema).max(100);
+
+type Subtask = z.infer<typeof subtaskSchema>;
+
+/**
+ * Reads a task row's `subtasks` column, which Postgres types as `Json`. Entries
+ * that don't match the shape are dropped rather than trusted — the column is
+ * writable by any MCP client, and a malformed entry must not corrupt a sweep.
+ */
+const readSubtasks = (value: unknown): Subtask[] => {
+  const parsed = z.array(subtaskSchema).safeParse(value);
+  return parsed.success ? parsed.data : [];
+};
 
 /**
  * When a task update completes a repeat task, schedule its next occurrence — the
@@ -69,8 +97,22 @@ async function maybeCreateNextRecurringTask(
     scheduled_for: nextDate,
     template_id: template.id,
     status: TASK_STATUS_TODO,
+    // Each occurrence gets its own copy of the template's checklist, reset to
+    // open. Array items carry no template link, so no orphan-spawn hazard.
+    subtasks: subtasksFromTemplate(
+      readTemplateSubtasks(template.subtasks),
+      TASK_STATUS_TODO,
+    ),
   });
 }
+
+/** Template checklist items carry no status — a template is a blueprint, not state. */
+const readTemplateSubtasks = (value: unknown): { title: string }[] => {
+  const parsed = z
+    .array(z.object({ title: z.string().min(1).max(100) }).passthrough())
+    .safeParse(value);
+  return parsed.success ? parsed.data : [];
+};
 
 const statusFilterSchema = z.union([
   taskStatusSchema,
@@ -222,7 +264,11 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
     "create_task",
     {
       title: "Create Task",
-      description: "Create a new task for the authenticated user.",
+      description:
+        "Create a new task for the authenticated user. `subtasks` is an " +
+        "optional checklist of `{id, title, status}` items stored on the task " +
+        "itself — they are not tasks and have no fields beyond these. Mint " +
+        "each `id` yourself; it only needs to be unique within this array.",
       inputSchema: {
         title: z.string().min(1).max(100),
         dueOn: dateSchema.nullable().optional(),
@@ -231,6 +277,7 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         priority: taskPrioritySchema.optional(),
         scheduledFor: dateSchema.nullable().optional(),
         status: taskStatusSchema.optional(),
+        subtasks: subtasksSchema.optional(),
         templateId: uuidSchema.nullable().optional(),
       },
       annotations: { readOnlyHint: false, destructiveHint: false },
@@ -247,6 +294,7 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
           priority: task.priority,
           scheduled_for: task.scheduledFor ?? null,
           status: task.status,
+          subtasks: task.subtasks ?? [],
           template_id: task.templateId ?? null,
         })
         .select()
@@ -262,7 +310,12 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
     {
       title: "Update Task",
       description:
-        "Update one or more task fields. Only provided fields are changed.",
+        "Update one or more task fields. Only provided fields are changed. " +
+        "`subtasks` REPLACES the whole checklist array — to change one item, " +
+        "read the task first, modify the array, and send it back in full. " +
+        "Setting `status` to done (2) or won't-do (3) also sweeps every " +
+        "subtask to that status automatically, so do not send `subtasks` " +
+        "just to close them; send it only to make a different change.",
       inputSchema: {
         taskId: uuidSchema,
         title: z.string().min(1).max(100).optional(),
@@ -272,6 +325,7 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         priority: taskPrioritySchema.optional(),
         scheduledFor: dateSchema.nullable().optional(),
         status: taskStatusSchema.optional(),
+        subtasks: subtasksSchema.optional(),
         templateId: uuidSchema.nullable().optional(),
       },
       annotations: {
@@ -289,6 +343,7 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         priority: fields.priority,
         scheduled_for: fields.scheduledFor,
         status: fields.status,
+        subtasks: fields.subtasks,
         template_id: fields.templateId,
       });
 
@@ -305,11 +360,21 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
       if (isCompleting) {
         const { data: existing } = await ctx.supabase
           .from("tasks")
-          .select("status")
+          .select("status, subtasks")
           .eq("id", taskId)
           .eq("user_id", ctx.userId)
           .maybeSingle();
         previousStatus = existing?.status;
+
+        // Fold the checklist sweep into this same write so a completed parent
+        // is never briefly stored alongside open children. An explicit
+        // `subtasks` from the caller wins.
+        if (fields.subtasks === undefined && existing) {
+          const current = readSubtasks(existing.subtasks);
+          if (current.length > 0) {
+            update.subtasks = sweepSubtasks(current, update.status as number);
+          }
+        }
       }
 
       const { data, error } = await ctx.supabase
@@ -378,7 +443,9 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
     {
       title: "Archive Task",
       description:
-        "Archive a task by setting its status to won't-do, or restore it to todo.",
+        "Archive a task by setting its status to won't-do, or restore it to " +
+        "todo. Archiving also sweeps the task's subtasks to won't-do; " +
+        "restoring leaves them as they are.",
       inputSchema: {
         taskId: uuidSchema,
         restore: z.boolean().optional().default(false),
@@ -393,20 +460,30 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
       // Archiving to won't-do can complete a repeat task; read the prior status
       // first so a re-archive doesn't spawn a duplicate occurrence.
       let previousStatus: number | null | undefined;
+      let sweptSubtasks: Subtask[] | undefined;
       if (!restore) {
         const { data: existing } = await ctx.supabase
           .from("tasks")
-          .select("status")
+          .select("status, subtasks")
           .eq("id", taskId)
           .eq("user_id", ctx.userId)
           .maybeSingle();
         previousStatus = existing?.status;
+
+        // Archiving is a completion, so it sweeps the checklist in the same
+        // write — the mirror of update_task's behavior. Restoring does not: a
+        // restored task returns to todo with its checklist as the user left it.
+        const current = readSubtasks(existing?.subtasks);
+        if (current.length > 0) {
+          sweptSubtasks = sweepSubtasks(current, TASK_STATUS_WONT_DO);
+        }
       }
 
       const { data, error } = await ctx.supabase
         .from("tasks")
         .update({
           status: restore ? TASK_STATUS_TODO : TASK_STATUS_WONT_DO,
+          ...(sweptSubtasks ? { subtasks: sweptSubtasks } : {}),
         })
         .eq("id", taskId)
         .eq("user_id", ctx.userId)
