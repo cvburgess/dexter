@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 
 import { ETaskStatus, TTask, TUpdateTask } from "@/api/tasks";
-import { useConfirmation } from "@/hooks/useConfirmation";
+import { useScheduleChange } from "@/hooks/useScheduleChange";
 import { currentAlarmTime, requestAlarmAuthorization } from "@/utils/alarms";
 import { useTheme, withOpacity } from "@/utils/theme";
 
@@ -36,59 +36,15 @@ export function TaskCard({
 }: TTaskCardProps) {
   const theme = useTheme();
   const [alarmModalVisible, setAlarmModalVisible] = useState(false);
-  const { confirm, confirmationProps } = useConfirmation();
+  // The alarm-confirmation flow lives in the hook so every surface that
+  // reschedules — this card, the backlog's "+", the drag-to-schedule drop
+  // target — prompts identically (DEX-77). The id is dropped here because
+  // this card's `onUpdate` is already bound to its own task by the parent.
+  const { changeSchedule, confirmationProps } = useScheduleChange(
+    ({ id: _id, ...diff }) => onUpdate(diff),
+  );
   const isComplete =
     task.status === ETaskStatus.DONE || task.status === ETaskStatus.WONT_DO;
-
-  // An alarm is bound to the task's scheduled date (it fires at scheduled_for +
-  // alarm_time), so changing that date shouldn't silently move or orphan it —
-  // ask first. A re-tap of the current day changes nothing, and a task without
-  // an alarm just reschedules (DEX-48). `== null` (not `===`) so a task whose
-  // `alarmTime` is absent rather than null — e.g. a DB missing the column —
-  // still counts as "no alarm" and reschedules directly instead of prompting.
-  const handleChangeSchedule = async (scheduledFor: string | null) => {
-    const scheduleChanged = scheduledFor !== task.scheduledFor;
-
-    if (task.alarmTime == null || !scheduleChanged) {
-      onUpdate({ scheduledFor });
-      return;
-    }
-
-    if (scheduledFor === null) {
-      // Unscheduling removes the date the alarm needs to fire, so keeping it
-      // isn't an option — only unset-or-cancel.
-      const confirmed = await confirm({
-        title: "Unschedule task?",
-        message:
-          "This task has an alarm set. Unscheduling it will unset the alarm.",
-        confirmLabel: "Unschedule",
-        destructive: true,
-      });
-      if (confirmed) onUpdate({ scheduledFor: null, alarmTime: null });
-      return;
-    }
-
-    // Moving to another day: let the user carry the alarm to the new day (same
-    // time) or drop it. Each choice applies itself; Cancel leaves the task as-is.
-    await confirm({
-      title: "Reschedule task?",
-      message:
-        "This task has an alarm set. Keep the alarm on the new day, or unset it?",
-      actions: [
-        {
-          label: "Keep alarm",
-          role: "default",
-          onPress: () => onUpdate({ scheduledFor }),
-        },
-        {
-          label: "Unset alarm",
-          role: "destructive",
-          onPress: () => onUpdate({ scheduledFor, alarmTime: null }),
-        },
-        { label: "Cancel", role: "cancel" },
-      ],
-    });
-  };
 
   // Persist the picked alarm time. Alarms fire on the scheduled date, so an
   // unscheduled task is pulled onto today. AlarmKit needs permission before it
@@ -180,7 +136,7 @@ export function TaskCard({
       <MoreMenu
         task={task}
         onChangePriority={(priority) => onUpdate({ priority })}
-        onChangeSchedule={handleChangeSchedule}
+        onChangeSchedule={(scheduledFor) => changeSchedule(task, scheduledFor)}
         onChangeList={(listId) => onUpdate({ listId })}
         onSetAlarm={() => setAlarmModalVisible(true)}
         onClearAlarm={() => onUpdate({ alarmTime: null })}
@@ -210,7 +166,65 @@ export function TaskCard({
   );
 }
 
+/**
+ * A static, non-interactive stand-in for a `TaskCard` — the priority-colored
+ * shell and the title, nothing else.
+ *
+ * Used as the drag preview that follows the finger (DEX-77). It exists because
+ * `react-native-drax`'s default hover re-renders the dragged view's *children*
+ * into its overlay, which here would mount a second set of `@expo/ui` menu
+ * hosts (`MoreMenu` wraps the card; `StatusButton`/`ListButton` each host one).
+ * Those size asynchronously and report 0 on native — see the `minHeight`
+ * comment below — so the duplicate painted nothing and the card appeared to
+ * teleport to the drop target instead of travelling there. Web was unaffected,
+ * since duplicating DOM is free.
+ *
+ * `width` comes from the dragged row's measured bounds so the preview matches
+ * the row it left; without it the shell would shrink to fit its own text.
+ */
+export function TaskCardPreview({
+  task,
+  width,
+}: {
+  task: TTask;
+  width?: number;
+}) {
+  const theme = useTheme();
+  const priorityColor = theme.colors.priority[task.priority];
+  const contentColor = theme.colors.priorityContent[task.priority];
+
+  return (
+    <View
+      style={[
+        styles.container,
+        styles.preview,
+        {
+          backgroundColor: withOpacity(priorityColor, INCOMPLETE_OPACITY),
+          borderColor: withOpacity(contentColor, 0.1),
+          borderRadius: theme.borderRadius,
+          width,
+        },
+      ]}
+    >
+      <Text numberOfLines={1} style={[styles.title, { color: contentColor }]}>
+        {task.title}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  // Overrides `container`'s `alignSelf: "stretch"`, which is right for a list
+  // row but wrong inside drax's hover wrapper — that wrapper is
+  // `alignSelf: "flex-start"` (shrink-to-content), and on Yoga a stretch child
+  // of a shrink-wrapped parent with no resolved width collapses to zero. Web
+  // sizes it from the title's intrinsic width instead, which is why an
+  // invisible preview showed up only on native. `minWidth` is the floor for
+  // the case where drax has no measurements to pass and `width` is undefined.
+  preview: {
+    alignSelf: "flex-start",
+    minWidth: 160,
+  },
   moreMenuWrapper: {
     alignSelf: "stretch",
   },

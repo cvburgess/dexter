@@ -20,6 +20,7 @@ import {
 } from "@/api/tasks";
 import { getTemplates, TTemplate } from "@/api/templates";
 import { getNextTaskDate } from "@/utils/repeatSchedule";
+import { sortTasks } from "@/utils/sortTasks";
 import { isCompletionStatus } from "@/utils/taskFilters";
 
 import { supabase } from "./useAuth";
@@ -52,6 +53,52 @@ const RECENT_TASK_WINDOW_DAYS = 30;
 
 const getToday = () => Temporal.Now.plainDateISO();
 
+// Tags every task mutation so each can tell whether siblings are still in
+// flight before invalidating (DEX-77 — see `invalidateWhenSettled`).
+const TASK_MUTATION_KEY = ["tasks", "mutate"];
+
+/**
+ * Refetches the canonical list, but only once the last in-flight task mutation
+ * has settled.
+ *
+ * The update mutation writes optimistically, and a refetch triggered while
+ * another update is still open returns server state that doesn't include it —
+ * so that edit would visibly revert and then re-apply. Every task mutation
+ * shares the guard, not just update: a create or delete landing mid-drag
+ * invalidates the same query and would snap the dragged card back just as
+ * readily.
+ *
+ * `isMutating` still counts the calling mutation while its own callback runs,
+ * so 1 means "this is the last one". Skipping is safe — whichever mutation
+ * settles last invalidates for all of them.
+ */
+const invalidateWhenSettled = (queryClient: QueryClient): void => {
+  if (queryClient.isMutating({ mutationKey: TASK_MUTATION_KEY }) > 1) return;
+  void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+};
+
+/**
+ * Merges `diff` into the matching task and re-sorts, returning a new array —
+ * the optimistic counterpart to a `getTasks` response (DEX-77).
+ *
+ * Two things it must get right that a bare `{ ...entry, ...diff }` doesn't:
+ * keys whose value is `undefined` are dropped rather than written over real
+ * data (`api/tasks.ts` builds its wire payload separately, so an accidental
+ * `undefined` would corrupt only the cache), and the result is re-sorted,
+ * since a status or priority change moves a task's position and leaving it at
+ * its old index makes the card jump when the refetch lands.
+ */
+const applyTaskDiff = (tasks: TTask[], diff: TUpdateTask): TTask[] => {
+  const defined = Object.fromEntries(
+    Object.entries(diff).filter(([, value]) => value !== undefined),
+  );
+  return sortTasks(
+    tasks.map((entry) =>
+      entry.id === diff.id ? { ...entry, ...defined } : entry,
+    ),
+  );
+};
+
 /** Finds a task in the canonical `["tasks"]` cache entry. */
 const findCachedTask = (
   queryClient: QueryClient,
@@ -62,18 +109,23 @@ const findCachedTask = (
 /**
  * When an update completes a repeat task, schedule its next occurrence — the
  * TypeScript replacement for the dropped `create_next_recurring_task` trigger
- * (DEX-21). Runs on the update's success, before the cache is invalidated, so
- * the pre-update task (its previous status, template link, and scheduled date)
- * is still readable. No-ops unless this update is a fresh transition into
- * done/won't-do on a task linked to a template with a schedule.
+ * (DEX-21). No-ops unless this update is a fresh transition into done/won't-do
+ * on a task linked to a template with a schedule.
+ *
+ * `task` is the state from *before* the update — its previous status, template
+ * link, and scheduled date. It's passed in rather than read from the cache
+ * because the update mutation now writes optimistically in `onMutate`
+ * (DEX-77); by the time this runs on success, the cached task already carries
+ * the new completion status and the `isCompletionStatus` guard below would
+ * read it as "already complete" and never re-spawn.
  */
 const maybeCreateNextRecurringTask = async (
   queryClient: QueryClient,
   diff: TUpdateTask,
+  task: TTask | undefined,
 ): Promise<void> => {
   if (!isCompletionStatus(diff.status)) return;
 
-  const task = findCachedTask(queryClient, diff.id);
   // Already-complete tasks don't re-spawn (mirrors the trigger's OLD.status
   // guard); a task missing from the cache is skipped rather than guessed at.
   if (!task || !task.templateId || isCompletionStatus(task.status)) return;
@@ -140,32 +192,71 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
   });
 
   const { mutate: create } = useMutation<TTask[], Error, TCreateTask>({
+    mutationKey: TASK_MUTATION_KEY,
     mutationFn: (task) => createTask(supabase, task),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
+    onSuccess: () => invalidateWhenSettled(queryClient),
   });
 
-  const { mutate: update } = useMutation<TTask[], Error, TUpdateTask>({
+  const { mutate: update } = useMutation<
+    TTask[],
+    Error,
+    TUpdateTask,
+    { previousTask?: TTask }
+  >({
+    mutationKey: TASK_MUTATION_KEY,
     mutationFn: (diff) => updateTask(supabase, diff),
-    onSuccess: (_data, diff) => maybeCreateNextRecurringTask(queryClient, diff),
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    // Optimistically apply the diff to the canonical cache so the change lands
+    // on screen immediately instead of after the round-trip + refetch; roll
+    // back if the save fails. Drag-to-schedule (DEX-77) made the latency
+    // obvious — a dropped card sat in the backlog until the refetch resolved —
+    // but every surface that edits a task benefits.
+    onMutate: async (diff) => {
+      await queryClient.cancelQueries({ queryKey: ["tasks"] });
+      const previousTask = findCachedTask(queryClient, diff.id);
+      queryClient.setQueryData<TTask[]>(
+        ["tasks"],
+        (current) => current && applyTaskDiff(current, diff),
+      );
+      // Only this task is snapshotted, not the whole array: rolling the array
+      // back wholesale would also erase optimistic writes from other mutations
+      // still in flight (see `onError`).
+      return { previousTask };
     },
+    onError: (_error, diff, context) => {
+      const { previousTask } = context ?? {};
+      if (!previousTask) return;
+      // Restore just this task, leaving any concurrent optimistic writes alone.
+      queryClient.setQueryData<TTask[]>(
+        ["tasks"],
+        (current) => current && applyTaskDiff(current, previousTask),
+      );
+    },
+    onSuccess: (_data, diff, context) =>
+      maybeCreateNextRecurringTask(
+        queryClient,
+        diff,
+        // The cache lookup at mutate time is the reliable source, but it comes
+        // up empty when the mutation beats the first fetch (the query declares
+        // `placeholderData: []`, which TanStack never writes to the cache).
+        // Reading again here narrows that window — the optimistic write was a
+        // no-op on an empty cache, so this usually sees the pre-update task —
+        // but it doesn't close it: if the fetch resolves with the completion
+        // already applied, the guard below still skips the next occurrence.
+        context?.previousTask ?? findCachedTask(queryClient, diff.id),
+      ),
+    onSettled: () => invalidateWhenSettled(queryClient),
   });
 
   const { mutate: bulkUpdate } = useMutation<TTask[], Error, TUpdateTask[]>({
+    mutationKey: TASK_MUTATION_KEY,
     mutationFn: (diffs) => updateTasks(supabase, diffs),
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
+    onSettled: () => invalidateWhenSettled(queryClient),
   });
 
   const { mutate: remove } = useMutation<void, Error, string>({
+    mutationKey: TASK_MUTATION_KEY,
     mutationFn: (id) => deleteTask(supabase, id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
+    onSuccess: () => invalidateWhenSettled(queryClient),
   });
 
   return [

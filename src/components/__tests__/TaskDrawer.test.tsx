@@ -1,7 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render } from "@testing-library/react-native";
 import type { ReactNode } from "react";
-import { ActivityIndicator, Text, TouchableOpacity } from "react-native";
+import { ActivityIndicator, Alert, Text, TouchableOpacity } from "react-native";
 
 import { TGoal } from "@/api/goals";
 import { TList } from "@/api/lists";
@@ -12,6 +12,7 @@ import { useTasks } from "@/hooks/useTasks";
 
 import type { TIconMenuSection } from "../IconMenu.types";
 import {
+  dragActivation,
   filterMenuOptions,
   groupMenuOptions,
   groupTasks,
@@ -58,8 +59,14 @@ const selectFilterOption = (id: string) => {
 // test (see TasksView.test); stub it to its title. TaskCard's own rendering
 // is covered by its own tests.
 const mockTaskCard = ({ task }: { task: TTask }) => <Text>{task.title}</Text>;
+// `TaskCardPreview` (the drag hover preview) is stubbed alongside it — the real
+// one is a plain View/Text with no native hosts, which is the whole point of
+// it, but leaving it off the mock makes it `undefined` and any render of the
+// drag branch's hover content fails with "Element type is invalid".
 jest.mock("../TaskCard", () => ({
   TaskCard: (props: Parameters<typeof mockTaskCard>[0]) => mockTaskCard(props),
+  TaskCardPreview: (props: Parameters<typeof mockTaskCard>[0]) =>
+    mockTaskCard(props),
 }));
 
 const mockGlassIconButton = ({
@@ -176,6 +183,41 @@ describe("groupMenuOptions", () => {
       ?.onSelect();
 
     expect(onSelect).toHaveBeenCalledWith("goalId");
+  });
+});
+
+describe("dragActivation", () => {
+  it("holds the press before dragging on native, so a flick still scrolls", () => {
+    expect(dragActivation("ios")).toEqual({
+      longPressDelay: 100,
+      dragActivationFailOffset: 12,
+    });
+    expect(dragActivation("android").longPressDelay).toBe(100);
+  });
+
+  // iOS opens the SwiftUI context menu behind MoreMenu's long-press at ~500ms;
+  // the drag has to win that race, and a hold long enough to lose it would make
+  // the menu appear mid-drag.
+  it("activates well before the native context menu threshold", () => {
+    expect(dragActivation("ios").longPressDelay).toBeLessThan(500);
+  });
+
+  it("activates immediately on web", () => {
+    expect(dragActivation("web").longPressDelay).toBe(0);
+  });
+
+  // Regression: RNGH checks `shouldFail()` before `shouldActivate()` and only
+  // consults its long-press branch when `activateAfterLongPress > 0`. Shipping
+  // both a 0 delay and a fail offset meant the pan failed at 12px of travel,
+  // so the drag never started on web while native was fine.
+  it("omits the fail offset whenever there is no long-press window to guard", () => {
+    const platforms = ["web", "ios", "android", "macos", "windows"] as const;
+
+    for (const platform of platforms) {
+      const { longPressDelay, dragActivationFailOffset } =
+        dragActivation(platform);
+      expect(dragActivationFailOffset === undefined).toBe(longPressDelay === 0);
+    }
   });
 });
 
@@ -375,6 +417,91 @@ describe("TaskDrawer", () => {
     expect(mockUpdateTask).toHaveBeenCalledWith({
       id: "task-1",
       scheduledFor: "2026-07-16",
+    });
+    expect(screen.queryByTestId("task-drag-task-1")).toBeNull();
+  });
+
+  // The button routes through useScheduleChange like every other reschedule
+  // surface, so an alarm has to be resolved before the date moves (DEX-77) —
+  // it used to write scheduledFor straight through and orphan the alarm.
+  // Restored explicitly: the Jest config sets neither `restoreMocks` nor
+  // `resetMocks`, so a spy's implementation otherwise leaks into every later
+  // test in this file (`clearAllMocks` only wipes call records).
+  afterEach(() => jest.restoreAllMocks());
+
+  it("prompts before moving a task that has an alarm set", () => {
+    const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    mockUseTasks.mockReturnValue(
+      tasksResult([task({ alarmTime: "09:00:00", scheduledFor: null })]),
+    );
+    const screen = render(<TaskDrawer date={date} />);
+
+    fireEvent.press(
+      screen.getByLabelText('Schedule "Write report" for this day'),
+    );
+
+    expect(mockUpdateTask).not.toHaveBeenCalled();
+    expect(alert).toHaveBeenCalledWith(
+      "Reschedule task?",
+      expect.stringContaining("alarm"),
+      expect.any(Array),
+      expect.anything(),
+    );
+  });
+
+  // Large screens drag the card onto the Tasks pane instead (DEX-77); the
+  // button only exists on the small-screen sheet, where the drawer is a native
+  // bottom sheet a drag can't escape.
+  describe("enableDrag", () => {
+    it("replaces the schedule button with a drag source", () => {
+      mockUseTasks.mockReturnValue(tasksResult([task()]));
+      const screen = render(<TaskDrawer date={date} enableDrag />);
+
+      expect(
+        screen.queryByLabelText('Schedule "Write report" for this day'),
+      ).toBeNull();
+      expect(screen.getByTestId("task-drag-task-1")).toBeTruthy();
+      // The card itself still renders — the drag source wraps it.
+      expect(screen.getByText("Write report")).toBeTruthy();
+    });
+
+    // drax's default hover re-renders the dragged view's children into its
+    // overlay. Here that would mount a second set of @expo/ui menu hosts,
+    // which paint nothing on native — the card teleported to the drop target
+    // instead of following the finger. Supplying renderHoverContent is what
+    // keeps native hosts out of the overlay.
+    it("supplies its own hover preview rather than duplicating the card", () => {
+      mockUseTasks.mockReturnValue(tasksResult([task()]));
+      const screen = render(<TaskDrawer date={date} enableDrag />);
+
+      const { renderHoverContent } = screen.getByTestId("task-drag-task-1")
+        .props as { renderHoverContent?: (p: unknown) => ReactNode };
+      expect(renderHoverContent).toBeInstanceOf(Function);
+
+      // Cleared first: the drawer's own Filter/Group menus have already
+      // rendered, so only calls made by the preview itself should count.
+      mockIconMenu.mockClear();
+      const preview = render(
+        <>{renderHoverContent?.({ dimensions: { width: 280, height: 64 } })}</>,
+      );
+
+      expect(preview.getByText("Write report")).toBeTruthy();
+      // No MoreMenu/StatusButton/ListButton in the preview — those are the
+      // native menu hosts that made the default hover invisible. Guards against
+      // anyone re-pointing renderHoverContent at the interactive card.
+      expect(mockIconMenu).not.toHaveBeenCalled();
+    });
+
+    // The drop target reads `alarmTime` off the payload to decide whether to
+    // prompt, so it has to carry the whole task, not just an id.
+    it("carries the full task as the drag payload", () => {
+      const dragged = task({ alarmTime: "09:00:00" });
+      mockUseTasks.mockReturnValue(tasksResult([dragged]));
+      const screen = render(<TaskDrawer date={date} enableDrag />);
+
+      expect(screen.getByTestId("task-drag-task-1").props.payload).toEqual(
+        dragged,
+      );
     });
   });
 

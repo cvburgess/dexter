@@ -2,6 +2,7 @@ import { Temporal } from "@js-temporal/polyfill";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
+import { DraxProvider } from "react-native-drax";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CalendarView } from "@/components/CalendarView";
@@ -10,6 +11,7 @@ import { DayPaneToggles } from "@/components/DayPaneToggles";
 import { GlassIconButton } from "@/components/GlassIconButton";
 import { NotesJournalTabs } from "@/components/NotesJournalTabs";
 import { TaskDrawer } from "@/components/TaskDrawer";
+import { TasksDropTarget } from "@/components/TasksDropTarget";
 import { TasksView } from "@/components/TasksView";
 import { useTodayPanes } from "@/hooks/useTodayPanes";
 import { TPreferences } from "@/api/preferences";
@@ -114,65 +116,72 @@ export function LargeScreenToday({
           />
         </View>
       </View>
-      <View style={[styles.paneRow, { gap: theme.gap }]}>
-        <View style={styles.fixedPane}>
-          <TasksView date={date} />
+      {/* Scopes drag-to-schedule to the pane row, which holds both the drag
+          sources (the drawer's rows) and the drop target (the Tasks pane).
+          Wrapping the row rather than styling the provider as the row itself
+          keeps the provider's hover layer out of the row's flex layout. */}
+      <DraxProvider style={styles.dragArea}>
+        <View style={[styles.paneRow, { gap: theme.gap }]}>
+          <TasksDropTarget date={date} style={styles.fixedPane}>
+            <TasksView date={date} />
+          </TasksDropTarget>
+          {(showNotes || showJournal) && (
+            <View style={styles.notesJournalPane}>
+              {/* No key here (unlike CalendarView below): NotesJournalTabs
+                  keys its own NotesView/JournalView content on date
+                  internally, so the editor re-seeds on a day change without
+                  also resetting which tab is selected. */}
+              <NotesJournalTabs
+                date={date.toString()}
+                showJournal={showJournal}
+                showNotes={showNotes}
+              />
+            </View>
+          )}
+          {showCalendar && (
+            <View
+              style={[
+                styles.calendarPane,
+                {
+                  borderColor: withOpacity(theme.colors.text, 0.1),
+                  borderRadius: theme.borderRadius,
+                },
+              ]}
+            >
+              {/* Keyed on date for the same reason as NotesJournalTabs:
+                  CalendarView seeds its "now" line position once per mount
+                  (see CalendarView.tsx), relying on a remount per day. */}
+              <CalendarView date={date} key={date.toString()} />
+            </View>
+          )}
+          {panes.drawer && (
+            <View
+              style={[
+                styles.drawerPane,
+                {
+                  borderColor: withOpacity(theme.colors.text, 0.1),
+                  borderRadius: theme.borderRadius,
+                  // Calendar (rendered above, when shown) already carries the
+                  // unconditional auto margin and always renders before this
+                  // pane, so its leading margin absorbs the row's leftover
+                  // space and pushes the whole {Calendar, Drawer} group right
+                  // together — this pane's own margin must drop out then, or
+                  // the leftover space would split across both auto margins
+                  // and open a gap between them instead of docking flush.
+                  marginLeft: showCalendar ? 0 : "auto",
+                },
+              ]}
+            >
+              <TaskDrawer
+                date={date}
+                enableDrag
+                filterId={drawerFilterId}
+                onFilterChange={setDrawerFilterId}
+              />
+            </View>
+          )}
         </View>
-        {(showNotes || showJournal) && (
-          <View style={styles.notesJournalPane}>
-            {/* No key here (unlike CalendarView below): NotesJournalTabs
-                keys its own NotesView/JournalView content on date
-                internally, so the editor re-seeds on a day change without
-                also resetting which tab is selected. */}
-            <NotesJournalTabs
-              date={date.toString()}
-              showJournal={showJournal}
-              showNotes={showNotes}
-            />
-          </View>
-        )}
-        {showCalendar && (
-          <View
-            style={[
-              styles.calendarPane,
-              {
-                borderColor: withOpacity(theme.colors.text, 0.1),
-                borderRadius: theme.borderRadius,
-              },
-            ]}
-          >
-            {/* Keyed on date for the same reason as NotesJournalTabs:
-                CalendarView seeds its "now" line position once per mount
-                (see CalendarView.tsx), relying on a remount per day. */}
-            <CalendarView date={date} key={date.toString()} />
-          </View>
-        )}
-        {panes.drawer && (
-          <View
-            style={[
-              styles.drawerPane,
-              {
-                borderColor: withOpacity(theme.colors.text, 0.1),
-                borderRadius: theme.borderRadius,
-                // Calendar (rendered above, when shown) already carries the
-                // unconditional auto margin and always renders before this
-                // pane, so its leading margin absorbs the row's leftover
-                // space and pushes the whole {Calendar, Drawer} group right
-                // together — this pane's own margin must drop out then, or
-                // the leftover space would split across both auto margins
-                // and open a gap between them instead of docking flush.
-                marginLeft: showCalendar ? 0 : "auto",
-              },
-            ]}
-          >
-            <TaskDrawer
-              date={date}
-              filterId={drawerFilterId}
-              onFilterChange={setDrawerFilterId}
-            />
-          </View>
-        )}
-      </View>
+      </DraxProvider>
     </SafeAreaView>
   );
 }
@@ -205,6 +214,11 @@ const styles = StyleSheet.create({
   headerActions: {
     alignItems: "center",
     flexDirection: "row",
+  },
+  // The DraxProvider's own view; it only needs to fill the space below the
+  // header so the pane row inside it lays out exactly as it did before.
+  dragArea: {
+    flex: 1,
   },
   paneRow: {
     flex: 1,

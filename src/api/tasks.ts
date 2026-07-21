@@ -1,6 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
 import { camelCase, snakeCase } from "@/utils/changeCase";
+import { sortTasks } from "@/utils/sortTasks";
 import { Database, TablesInsert, TablesUpdate } from "@/types/database.types";
 
 import { applyFilters, TQueryFilter } from "./applyFilters";
@@ -45,7 +46,11 @@ export const getTasks = async (
   const { data, error } = await query;
 
   if (error) throw error;
-  return camelCase(data) as TTask[];
+  // Re-sorted client-side with the same comparator the optimistic cache write
+  // uses, so a fetch and an optimistic update can never disagree on order
+  // (see utils/sortTasks.ts). The server-side `.order(...)` above stays: it
+  // keeps the wire response ordered for any other consumer.
+  return sortTasks(camelCase(data) as TTask[]);
 };
 
 export type TCreateTask = {
