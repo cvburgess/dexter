@@ -112,6 +112,7 @@ describe("NewTaskScreen", () => {
         scheduledFor: today.toString(),
         dueOn: today.add({ days: 2 }).toString(),
         alarmTime: null,
+        subtasks: [],
       },
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     );

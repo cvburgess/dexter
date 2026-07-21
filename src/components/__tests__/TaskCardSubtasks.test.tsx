@@ -255,14 +255,16 @@ describe("TaskCard subtasks", () => {
       fireEvent(input, "blur");
 
       expect(onUpdate).toHaveBeenCalledTimes(1);
-      const [{ subtasks }] = onUpdate.mock.calls[0];
-      expect(subtasks).toHaveLength(3);
-      expect(subtasks[2]).toEqual(
-        expect.objectContaining({
-          title: "Proofread",
-          status: ETaskStatus.TODO,
-        }),
-      );
+      expect(onUpdate).toHaveBeenCalledWith({
+        subtasks: [
+          baseTask.subtasks[0],
+          baseTask.subtasks[1],
+          expect.objectContaining({
+            title: "Proofread",
+            status: ETaskStatus.TODO,
+          }),
+        ],
+      });
     });
 
     it("discards a just-added row left empty, instead of reverting it", () => {

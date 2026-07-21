@@ -1,6 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   Alert,
   Platform,
@@ -12,6 +12,7 @@ import {
 } from "react-native";
 
 import { DateField } from "@/components/DateField";
+import { EditableText } from "@/components/EditableText";
 import { FormRow } from "@/components/FormRow";
 import { PickerField } from "@/components/PickerField";
 import { PriorityControl } from "@/components/PriorityControl";
@@ -65,6 +66,7 @@ export default function NewTaskScreen() {
   // Set by NewTaskButton to the day the user was viewing; absent → today.
   const { scheduledFor } = useLocalSearchParams<{ scheduledFor?: string }>();
   const form = useNewTaskForm(lists, scheduledFor);
+  const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
   const hasSaved = useRef(false);
 
   // Saving waits for lists so `#list` tokens in the title can resolve, and
@@ -166,6 +168,51 @@ export default function NewTaskScreen() {
         <FormRow label="Deadline" minHeight={32}>
           <DeadlineField dueOn={form.dueOn} onChange={form.setDueOn} />
         </FormRow>
+
+        <FormRow label="Subtasks" minHeight={32}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            testID="new-task-add-subtask"
+            onPress={() => setEditingSubtaskId(form.addSubtask())}
+          >
+            <Text style={[styles.labelDetail, { color: theme.colors.primary }]}>
+              Add subtask
+            </Text>
+          </TouchableOpacity>
+        </FormRow>
+
+        {form.subtasks.length > 0 && (
+          <View style={styles.subtasks}>
+            {form.subtasks.map((subtask) => (
+              <View key={subtask.id} style={styles.subtaskRow}>
+                <Text
+                  style={[
+                    styles.subtaskBullet,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  ○
+                </Text>
+                <EditableText
+                  value={subtask.title}
+                  editing={editingSubtaskId === subtask.id}
+                  onStartEdit={() => setEditingSubtaskId(subtask.id)}
+                  onCommit={(title) => {
+                    setEditingSubtaskId(null);
+                    form.setSubtaskTitle(subtask.id, title);
+                  }}
+                  // Return chains the next row; an empty commit ends the chain.
+                  onSubmit={(title) => {
+                    if (title) setEditingSubtaskId(form.addSubtask());
+                  }}
+                  placeholder="Subtask"
+                  testID={`new-task-subtask-${subtask.id}`}
+                  style={[styles.subtaskTitle, { color: theme.colors.text }]}
+                />
+              </View>
+            ))}
+          </View>
+        )}
 
         {isAlarmSupported && (
           <FormRow label="Alarm" minHeight={32}>
@@ -278,6 +325,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   labelDetail: {
+    fontSize: 14,
+  },
+  subtasks: {
+    gap: 4,
+    // Indent under the "Subtasks" row so the checklist reads as belonging to it.
+    paddingLeft: 16,
+  },
+  subtaskRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+    minHeight: 28,
+  },
+  subtaskBullet: {
+    fontSize: 14,
+  },
+  subtaskTitle: {
+    flex: 1,
     fontSize: 14,
   },
 });

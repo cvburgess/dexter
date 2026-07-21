@@ -70,6 +70,7 @@ describe("useNewTaskForm", () => {
       scheduledFor: today().toString(),
       dueOn: today().add({ days: 3 }).toString(),
       alarmTime: null,
+      subtasks: [],
     });
   });
 
@@ -164,5 +165,89 @@ describe("useNewTaskForm", () => {
 
     act(() => result.current.setAlarmTime(null));
     expect(result.current.task.alarmTime).toBeNull();
+  });
+
+  describe("subtasks", () => {
+    it("starts with an empty checklist", () => {
+      const { result } = renderHook(() => useNewTaskForm([]));
+
+      expect(result.current.subtasks).toEqual([]);
+      expect(result.current.task.subtasks).toEqual([]);
+    });
+
+    it("carries titled subtasks into the create payload", () => {
+      const { result } = renderHook(() => useNewTaskForm([]));
+
+      let id = "";
+      act(() => {
+        id = result.current.addSubtask();
+      });
+      act(() => result.current.setSubtaskTitle(id, "Proofread"));
+
+      // A task and its checklist are created in one insert.
+      expect(result.current.task.subtasks).toEqual([
+        expect.objectContaining({ title: "Proofread" }),
+      ]);
+    });
+
+    it("omits an untitled row from the payload without discarding it from the form", () => {
+      const { result } = renderHook(() => useNewTaskForm([]));
+
+      act(() => {
+        result.current.addSubtask();
+      });
+
+      // The row exists so it can be typed into, but a half-finished edit is
+      // not a checklist item.
+      expect(result.current.subtasks).toHaveLength(1);
+      expect(result.current.task.subtasks).toEqual([]);
+    });
+
+    it("discards a row whose title is emptied", () => {
+      const { result } = renderHook(() => useNewTaskForm([]));
+
+      let id = "";
+      act(() => {
+        id = result.current.addSubtask();
+      });
+      act(() => result.current.setSubtaskTitle(id, "Proofread"));
+      act(() => result.current.setSubtaskTitle(id, ""));
+
+      // Nothing was saved yet, so there is no stored title to revert to.
+      expect(result.current.subtasks).toEqual([]);
+    });
+
+    it("keeps insertion order across several additions", () => {
+      const { result } = renderHook(() => useNewTaskForm([]));
+
+      const ids: string[] = [];
+      for (const title of ["First", "Second", "Third"]) {
+        act(() => {
+          ids.push(result.current.addSubtask());
+        });
+        act(() =>
+          result.current.setSubtaskTitle(ids[ids.length - 1], title),
+        );
+      }
+
+      expect(result.current.task.subtasks?.map(({ title }) => title)).toEqual([
+        "First",
+        "Second",
+        "Third",
+      ]);
+    });
+
+    it("removes a subtask by id", () => {
+      const { result } = renderHook(() => useNewTaskForm([]));
+
+      let id = "";
+      act(() => {
+        id = result.current.addSubtask();
+      });
+      act(() => result.current.setSubtaskTitle(id, "Proofread"));
+      act(() => result.current.removeSubtask(id));
+
+      expect(result.current.task.subtasks).toEqual([]);
+    });
   });
 });

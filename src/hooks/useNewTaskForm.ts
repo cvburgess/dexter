@@ -2,7 +2,12 @@ import { Temporal } from "@js-temporal/polyfill";
 import { useState } from "react";
 
 import { TList } from "@/api/lists";
-import { ETaskPriority, TCreateTask } from "@/api/tasks";
+import {
+  appendSubtask,
+  ETaskPriority,
+  TCreateTask,
+  TSubtask,
+} from "@/api/tasks";
 import { parseTaskShorthand } from "@/utils/parseTaskShorthand";
 
 export type TNewTaskForm = {
@@ -21,6 +26,13 @@ export type TNewTaskForm = {
   /** Time-of-day the alarm fires (`"HH:MM"`), or null when no alarm is set. */
   alarmTime: string | null;
   setAlarmTime: (alarmTime: string | null) => void;
+  /** Checklist items to create alongside the task, in insertion order. */
+  subtasks: TSubtask[];
+  /** Appends an empty row and returns its id, so the caller can focus it. */
+  addSubtask: () => string;
+  /** Sets a row's title; an empty title removes the row. */
+  setSubtaskTitle: (id: string, title: string) => void;
+  removeSubtask: (id: string) => void;
   /** The resolved payload for `createTask`, with tokens stripped from the title. */
   task: TCreateTask;
   canSave: boolean;
@@ -54,6 +66,7 @@ export const useNewTaskForm = (
     resolveScheduledFor(defaultScheduledFor),
   );
   const [alarmTime, setAlarmTime] = useState<string | null>(null);
+  const [subtasks, setSubtasks] = useState<TSubtask[]>([]);
 
   // `undefined` means "no manual override yet — follow the shorthand tokens".
   const [priorityOverride, setPriorityOverride] = useState<ETaskPriority>();
@@ -71,6 +84,30 @@ export const useNewTaskForm = (
 
   const cleanTitle = parsed.title.trim();
 
+  const addSubtask = (): string => {
+    const next = appendSubtask(subtasks);
+    setSubtasks(next);
+    return next[next.length - 1].id;
+  };
+
+  const setSubtaskTitle = (id: string, title: string) =>
+    setSubtasks((current) =>
+      title === ""
+        ? // Nothing here has been saved yet, so an emptied row is simply
+          // discarded — there is no stored title to revert to.
+          current.filter((subtask) => subtask.id !== id)
+        : current.map((subtask) =>
+            subtask.id === id ? { ...subtask, title } : subtask,
+          ),
+    );
+
+  const removeSubtask = (id: string) =>
+    setSubtasks((current) => current.filter((subtask) => subtask.id !== id));
+
+  // Only titled rows reach the payload — an empty row is a half-finished edit,
+  // not a checklist item.
+  const savedSubtasks = subtasks.filter(({ title }) => title.trim().length > 0);
+
   return {
     title,
     setTitle,
@@ -84,6 +121,10 @@ export const useNewTaskForm = (
     setDueOn: setDueOnOverride,
     alarmTime,
     setAlarmTime,
+    subtasks,
+    addSubtask,
+    setSubtaskTitle,
+    removeSubtask,
     task: {
       title: cleanTitle,
       priority,
@@ -91,6 +132,8 @@ export const useNewTaskForm = (
       scheduledFor,
       dueOn,
       alarmTime,
+      // A task and its checklist are created in one insert.
+      subtasks: savedSubtasks,
     },
     canSave: cleanTitle.length > 0,
   };
