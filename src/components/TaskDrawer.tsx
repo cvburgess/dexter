@@ -43,20 +43,45 @@ type TDrawerListItem =
   | { type: "header"; id: string; title: string }
   | { type: "task"; id: string; task: TTask };
 
-// Drag-activation tuning for the large-screen drag-to-schedule rows (DEX-77).
-// On native a press must be held before the drag takes over, so a quick flick
-// still scrolls the FlashList; 250ms also beats the ~500ms threshold iOS uses
-// for the SwiftUI context menu behind `MoreMenu`'s long-press
-// (`IconMenu.native.tsx`), so the drag wins that race. Web activates
-// immediately instead: a non-zero delay there loses the drag to the browser's
-// touch-slop cancellation (it takes a double-click to start one), and wheel
-// scrolling is unaffected by a pointer drag anyway.
-const DRAG_LONG_PRESS_DELAY = Platform.OS === "web" ? 0 : 250;
+/**
+ * How a backlog row's drag activates, per platform (DEX-77). Exported as a
+ * pure function so the coupling between the two values is unit-testable
+ * without a native gesture host — the same reason `SwipeableDay` exports
+ * `getSwipeCommitDirection`.
+ *
+ * `longPressDelay`: on native a press must be held before the drag takes over,
+ * so a quick flick still scrolls the FlashList; 250ms also beats the ~500ms
+ * threshold iOS uses for the SwiftUI context menu behind `MoreMenu`'s
+ * long-press (`IconMenu.native.tsx`), so the drag wins that race. Web
+ * activates immediately — there's no competing menu there
+ * (`IconMenu.web.tsx` binds only `onContextMenu`) and a non-zero delay loses
+ * the drag to the browser's touch-slop cancellation.
+ *
+ * `dragActivationFailOffset`: cancels activation if the pointer travels this
+ * far *while the long press is still pending*, so a scroll that happens to
+ * start on a card scrolls the list instead of picking the card up — the same
+ * disambiguation `SwipeableDay` gets from `failOffsetY`.
+ *
+ * The two are not independent: the fail offset must be left unset when there
+ * is no long-press window. RNGH's pan handler evaluates `shouldFail()` before
+ * `shouldActivate()` and only consults its long-press branch when
+ * `activateAfterLongPress > 0`, so with a 0 delay the fail offset is the only
+ * rule left and the gesture fails at 12px of travel — the drag can never
+ * start. Web doesn't need it anyway: drax sets `touch-action: pan-y` there,
+ * and that is what keeps the list scrollable.
+ */
+export function dragActivation(platform: typeof Platform.OS = Platform.OS): {
+  longPressDelay: number;
+  dragActivationFailOffset?: number;
+} {
+  const longPressDelay = platform === "web" ? 0 : 250;
+  return {
+    longPressDelay,
+    dragActivationFailOffset: longPressDelay > 0 ? 12 : undefined,
+  };
+}
 
-// Cancels drag activation if the finger travels this far during the delay, so
-// a scroll that happens to start on a card scrolls the list instead of picking
-// the card up — the same disambiguation `SwipeableDay` gets from `failOffsetY`.
-const DRAG_ACTIVATION_FAIL_OFFSET = 12;
+const DRAG_ACTIVATION = dragActivation();
 
 const FILTER_META: { id: TFilterId; title: string }[] = [
   { id: "none", title: "No Filter" },
@@ -329,8 +354,8 @@ export function TaskDrawer({
             draggable
             receptive={false}
             payload={task}
-            longPressDelay={DRAG_LONG_PRESS_DELAY}
-            dragActivationFailOffset={DRAG_ACTIVATION_FAIL_OFFSET}
+            longPressDelay={DRAG_ACTIVATION.longPressDelay}
+            dragActivationFailOffset={DRAG_ACTIVATION.dragActivationFailOffset}
             draggingStyle={styles.dragging}
           >
             {card}

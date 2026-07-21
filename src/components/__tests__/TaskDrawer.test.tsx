@@ -12,6 +12,7 @@ import { useTasks } from "@/hooks/useTasks";
 
 import type { TIconMenuSection } from "../IconMenu.types";
 import {
+  dragActivation,
   filterMenuOptions,
   groupMenuOptions,
   groupTasks,
@@ -176,6 +177,34 @@ describe("groupMenuOptions", () => {
       ?.onSelect();
 
     expect(onSelect).toHaveBeenCalledWith("goalId");
+  });
+});
+
+describe("dragActivation", () => {
+  it("holds the press before dragging on native, so a flick still scrolls", () => {
+    expect(dragActivation("ios")).toEqual({
+      longPressDelay: 250,
+      dragActivationFailOffset: 12,
+    });
+    expect(dragActivation("android").longPressDelay).toBe(250);
+  });
+
+  it("activates immediately on web", () => {
+    expect(dragActivation("web").longPressDelay).toBe(0);
+  });
+
+  // Regression: RNGH checks `shouldFail()` before `shouldActivate()` and only
+  // consults its long-press branch when `activateAfterLongPress > 0`. Shipping
+  // both a 0 delay and a fail offset meant the pan failed at 12px of travel,
+  // so the drag never started on web while native was fine.
+  it("omits the fail offset whenever there is no long-press window to guard", () => {
+    const platforms = ["web", "ios", "android", "macos", "windows"] as const;
+
+    for (const platform of platforms) {
+      const { longPressDelay, dragActivationFailOffset } =
+        dragActivation(platform);
+      expect(dragActivationFailOffset === undefined).toBe(longPressDelay === 0);
+    }
   });
 });
 
