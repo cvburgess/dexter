@@ -9,29 +9,42 @@ type TStatusButtonProps = {
   status: ETaskStatus;
   contentColor: string;
   onChangeStatus: (status: ETaskStatus) => void;
+  /** Diameter in px. Subtask rows use 24 so they read as subordinate to the parent's 32. */
+  size?: number;
+  accessibilityLabel?: string;
 };
+
+const DEFAULT_SIZE = 32;
 
 export function StatusButton({
   status,
   contentColor,
   onChangeStatus,
+  size = DEFAULT_SIZE,
+  accessibilityLabel = "Status",
 }: TStatusButtonProps) {
   const sections = getStatusSections(onChangeStatus);
 
   return (
     <IconMenu
-      accessibilityLabel="Status"
+      accessibilityLabel={accessibilityLabel}
       menuTitle="Status"
       sections={sections}
-      style={styles.menu}
+      // The native menu host must be pinned to the trigger's exact size — left
+      // to flex it reports 0 height while sizing and collapses the row.
+      style={{ height: size, width: size }}
     >
       <View
         style={[
           styles.button,
-          { borderColor: withOpacity(contentColor, 0.25) },
+          {
+            borderColor: withOpacity(contentColor, 0.25),
+            height: size,
+            width: size,
+          },
         ]}
       >
-        <Text style={[styles.glyph, { color: contentColor }]}>
+        <Text style={{ color: contentColor, fontSize: size / 2 }}>
           {glyphForStatus(status)}
         </Text>
       </View>
@@ -98,21 +111,10 @@ const glyphForStatus = (status: ETaskStatus) => {
 };
 
 const styles = StyleSheet.create({
-  // Pin the trigger to the button's size so the menu wrapper can never
-  // influence the task card row's height.
-  menu: {
-    height: 32,
-    width: 32,
-  },
   button: {
     alignItems: "center",
     borderRadius: 999,
     borderWidth: 1,
-    height: 32,
     justifyContent: "center",
-    width: 32,
-  },
-  glyph: {
-    fontSize: 16,
   },
 });

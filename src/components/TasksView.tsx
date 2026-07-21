@@ -68,6 +68,7 @@ export function TasksView({ date }: TTasksViewProps) {
               task={item}
               onUpdate={(diff) => updateTask({ id: item.id, ...diff })}
               onDuplicate={() => createTask(duplicateTaskInput(item))}
+              onPromoteSubtask={(promoted) => createTask(promoted)}
               onDelete={() => handleDelete(item)}
             />
           ))}

@@ -276,6 +276,7 @@ export function TaskDrawer({
               task={task}
               onUpdate={(diff) => updateTask({ id: task.id, ...diff })}
               onDuplicate={() => createTask(duplicateTaskInput(task))}
+              onPromoteSubtask={(promoted) => createTask(promoted)}
               onDelete={() => deleteTask(task.id)}
             />
           </View>
