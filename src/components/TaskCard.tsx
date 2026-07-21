@@ -197,6 +197,7 @@ export function TaskCardPreview({
     <View
       style={[
         styles.container,
+        styles.preview,
         {
           backgroundColor: withOpacity(priorityColor, INCOMPLETE_OPACITY),
           borderColor: withOpacity(contentColor, 0.1),
@@ -213,6 +214,17 @@ export function TaskCardPreview({
 }
 
 const styles = StyleSheet.create({
+  // Overrides `container`'s `alignSelf: "stretch"`, which is right for a list
+  // row but wrong inside drax's hover wrapper — that wrapper is
+  // `alignSelf: "flex-start"` (shrink-to-content), and on Yoga a stretch child
+  // of a shrink-wrapped parent with no resolved width collapses to zero. Web
+  // sizes it from the title's intrinsic width instead, which is why an
+  // invisible preview showed up only on native. `minWidth` is the floor for
+  // the case where drax has no measurements to pass and `width` is undefined.
+  preview: {
+    alignSelf: "flex-start",
+    minWidth: 160,
+  },
   moreMenuWrapper: {
     alignSelf: "stretch",
   },
