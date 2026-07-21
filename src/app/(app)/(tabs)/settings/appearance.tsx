@@ -13,6 +13,10 @@ import { EThemeMode } from "@/api/preferences";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
+import {
+  EDGES_SINGLE_PANE,
+  EDGES_TWO_PANE,
+} from "@/utils/settingsSafeAreaEdges";
 import { Theme, THEMES, themes, useTheme, withOpacity } from "@/utils/theme";
 
 const MODE_OPTIONS: { mode: EThemeMode; label: string }[] = [
@@ -23,11 +27,6 @@ const MODE_OPTIONS: { mode: EThemeMode; label: string }[] = [
 
 const LIGHT_THEMES = THEMES.filter((t) => t.mode === "light");
 const DARK_THEMES = THEMES.filter((t) => t.mode === "dark");
-
-// See account.tsx: the sidebar absorbs the left inset in two-pane mode.
-// Hoisted so SafeAreaView's internal edges useMemo sees a stable reference.
-const EDGES_SINGLE_PANE = ["bottom", "left", "right"] as const;
-const EDGES_TWO_PANE = ["bottom", "right"] as const;
 
 export default function AppearanceScreen() {
   const theme = useTheme();

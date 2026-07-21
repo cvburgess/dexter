@@ -4,14 +4,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import packageJson from "@/package.json";
 import licensesJson from "@/utils/licenses.json";
+import {
+  EDGES_SINGLE_PANE,
+  EDGES_TWO_PANE,
+} from "@/utils/settingsSafeAreaEdges";
 import { useTheme } from "@/utils/theme";
 
 const licenses = licensesJson as Record<string, string>;
-
-// See account.tsx: the sidebar absorbs the left inset in two-pane mode.
-// Hoisted so SafeAreaView's internal edges useMemo sees a stable reference.
-const EDGES_SINGLE_PANE = ["bottom", "left", "right"] as const;
-const EDGES_TWO_PANE = ["bottom", "right"] as const;
 
 type TLicenseItem = {
   name: string;
