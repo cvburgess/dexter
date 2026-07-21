@@ -183,10 +183,17 @@ describe("groupMenuOptions", () => {
 describe("dragActivation", () => {
   it("holds the press before dragging on native, so a flick still scrolls", () => {
     expect(dragActivation("ios")).toEqual({
-      longPressDelay: 250,
+      longPressDelay: 100,
       dragActivationFailOffset: 12,
     });
-    expect(dragActivation("android").longPressDelay).toBe(250);
+    expect(dragActivation("android").longPressDelay).toBe(100);
+  });
+
+  // iOS opens the SwiftUI context menu behind MoreMenu's long-press at ~500ms;
+  // the drag has to win that race, and a hold long enough to lose it would make
+  // the menu appear mid-drag.
+  it("activates well before the native context menu threshold", () => {
+    expect(dragActivation("ios").longPressDelay).toBeLessThan(500);
   });
 
   it("activates immediately on web", () => {

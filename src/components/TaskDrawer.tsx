@@ -50,17 +50,28 @@ type TDrawerListItem =
  * `getSwipeCommitDirection`.
  *
  * `longPressDelay`: on native a press must be held before the drag takes over,
- * so a quick flick still scrolls the FlashList; 250ms also beats the ~500ms
- * threshold iOS uses for the SwiftUI context menu behind `MoreMenu`'s
- * long-press (`IconMenu.native.tsx`), so the drag wins that race. Web
- * activates immediately — there's no competing menu there
- * (`IconMenu.web.tsx` binds only `onContextMenu`) and a non-zero delay loses
- * the drag to the browser's touch-slop cancellation.
+ * so a quick flick still scrolls the FlashList. 100ms is short enough to feel
+ * immediate and comfortably beats the ~500ms threshold iOS uses for the
+ * SwiftUI context menu behind `MoreMenu`'s long-press (`IconMenu.native.tsx`),
+ * so the drag wins that race. Web activates immediately — there's no competing
+ * menu there (`IconMenu.web.tsx` binds only `onContextMenu`) and a non-zero
+ * delay loses the drag to the browser's touch-slop cancellation.
+ *
+ * The hold exists only because native has no equivalent of the
+ * `touch-action: pan-y` drax sets on web, which lets the browser keep vertical
+ * scrolling without RNGH arbitrating at all. On native the two gestures share
+ * one recognizer, so scroll and drag have to be told apart by time (this) or
+ * by region (a drag handle).
  *
  * `dragActivationFailOffset`: cancels activation if the pointer travels this
  * far *while the long press is still pending*, so a scroll that happens to
  * start on a card scrolls the list instead of picking the card up — the same
  * disambiguation `SwipeableDay` gets from `failOffsetY`.
+ *
+ * It is coupled to the delay: the shorter the window, the less distance a
+ * scroll covers inside it, so the less likely this is to catch one. At 100ms a
+ * fast flick still clears 12px easily, but a slow deliberate scroll may not —
+ * lower this before raising the delay if slow scrolls start grabbing cards.
  *
  * The two are not independent: the fail offset must be left unset when there
  * is no long-press window. RNGH's pan handler evaluates `shouldFail()` before
@@ -74,7 +85,7 @@ export function dragActivation(platform: typeof Platform.OS = Platform.OS): {
   longPressDelay: number;
   dragActivationFailOffset?: number;
 } {
-  const longPressDelay = platform === "web" ? 0 : 250;
+  const longPressDelay = platform === "web" ? 0 : 100;
   return {
     longPressDelay,
     dragActivationFailOffset: longPressDelay > 0 ? 12 : undefined,
