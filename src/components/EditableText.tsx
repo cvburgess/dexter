@@ -53,9 +53,10 @@ export function EditableText({
   if (editing && editable) {
     return (
       <InlineInput
-        // Remounting per edited value keeps the draft seeded from the latest
-        // title, so a rename landing from elsewhere is never typed over.
-        key={value}
+        // Deliberately not keyed on `value`: the input already mounts fresh
+        // each time editing begins, so a key would only remount mid-edit — and
+        // the unmount cleanup would commit the half-typed draft, discarding the
+        // very keystrokes the remount was meant to preserve.
         initialValue={value}
         onCommit={onCommit}
         onSubmit={onSubmit}
@@ -152,10 +153,13 @@ function InlineInput({
       onBlur={commit}
       onSubmitEditing={() => {
         const title = commit();
+        // Always blur here rather than letting `blurOnSubmit` do it — one
+        // mechanism, and it keeps the ordering explicit: commit, then blur,
+        // then let the caller chain.
         inputRef.current?.blur();
         onSubmit?.(title);
       }}
-      blurOnSubmit={!onSubmit}
+      blurOnSubmit={false}
       placeholder={placeholder}
       returnKeyType={onSubmit ? "next" : "done"}
       style={[styles.input, style]}

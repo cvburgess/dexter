@@ -65,9 +65,26 @@ Deno.test("the migration is idempotent and adds no RLS or trigger surface", () =
   const all = statements(sql);
 
   for (const statement of all) {
+    // `add constraint` has no IF NOT EXISTS in Postgres, so re-run safety comes
+    // from each one being preceded by a `drop constraint if exists` (asserted
+    // separately below).
+    const isConstraintAdd = statement.includes("add constraint");
     assert(
-      statement.includes("if not exists") || statement.includes("if exists"),
+      isConstraintAdd ||
+        statement.includes("if not exists") ||
+        statement.includes("if exists"),
       `every statement must be guarded for re-run safety: ${statement}`,
+    );
+  }
+
+  for (const statement of all.filter((s) => s.includes("add constraint"))) {
+    const name = /add constraint (\S+)/.exec(statement)?.[1];
+    assert(name, `could not read the constraint name from: ${statement}`);
+    assert(
+      all.some((s) =>
+        s.includes("drop constraint if exists") && s.includes(name)
+      ),
+      `${name} must be dropped-if-exists before being added, or a re-run fails`,
     );
   }
 
@@ -77,4 +94,19 @@ Deno.test("the migration is idempotent and adds no RLS or trigger surface", () =
     !sql.includes("create policy") && !sql.includes("create trigger"),
     "subtasks require no new policies or triggers",
   );
+});
+
+Deno.test("both subtasks columns are constrained to hold a JSON array", () => {
+  // Every reader treats the column as an array without type-guarding, and
+  // `jsonb` alone would permit an object, string, or number.
+  const checks = statements(sql).filter((s) => s.includes("jsonb_typeof"));
+
+  for (const table of ["public.tasks", "public.repeat_task_templates"]) {
+    assert(
+      checks.some((s) =>
+        s.includes(table) && s.includes("jsonb_typeof(subtasks) = 'array'")
+      ),
+      `${table}.subtasks must be constrained to a JSON array`,
+    );
+  }
 });

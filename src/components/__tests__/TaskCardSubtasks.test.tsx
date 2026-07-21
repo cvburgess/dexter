@@ -79,6 +79,7 @@ const renderCard = (
       task={task}
       onUpdate={jest.fn()}
       onDuplicate={jest.fn()}
+      onPromoteSubtask={jest.fn()}
       onDelete={jest.fn()}
       {...props}
     />,

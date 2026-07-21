@@ -1,15 +1,51 @@
 import { StyleSheet, Text, View } from "react-native";
 
 import { ETaskStatus, TSubtask } from "@/api/tasks";
+import { isCompletionStatus } from "@/utils/taskFilters";
 import { withOpacity } from "@/utils/theme";
 
 import { EditableText } from "./EditableText";
 import { IconMenu } from "./IconMenu";
+import type { TIconMenuSection } from "./IconMenu.types";
 import { StatusButton } from "./StatusButton";
 
 // Subordinate to the parent's 32px status button, so the nesting reads at a
-// glance without needing a connector rail.
+// glance without needing a connector rail. Also the size the `⋯` menu host is
+// pinned to, hence one constant rather than a literal per call site.
 const STATUS_SIZE = 24;
+
+// Everything but the two callbacks is constant, and each subtask row mounts its
+// own native menu host — so the descriptors are built once here rather than
+// re-allocated per row on every render of the card.
+const PROMOTE_ICON = {
+  ios: "arrow.up.forward.square",
+  android: "open_in_new",
+  web: "open_in_new",
+} as const;
+const DELETE_ICON = { ios: "trash", android: "delete", web: "delete" } as const;
+
+const actionSections = (
+  onPromote: () => void,
+  onDelete: () => void,
+): TIconMenuSection[] => [
+  {
+    options: [
+      {
+        id: "promote",
+        title: "Promote to task",
+        icon: PROMOTE_ICON,
+        onSelect: onPromote,
+      },
+      {
+        id: "delete",
+        title: "Delete",
+        icon: DELETE_ICON,
+        isDestructive: true,
+        onSelect: onDelete,
+      },
+    ],
+  },
+];
 
 type TSubtaskRowProps = {
   subtask: TSubtask;
@@ -43,9 +79,7 @@ export function SubtaskRow({
   onPromote,
   onDelete,
 }: TSubtaskRowProps) {
-  const isComplete =
-    subtask.status === ETaskStatus.DONE ||
-    subtask.status === ETaskStatus.WONT_DO;
+  const isComplete = isCompletionStatus(subtask.status);
 
   return (
     <View style={styles.row} testID={`subtask-row-${subtask.id}`}>
@@ -76,29 +110,7 @@ export function SubtaskRow({
       <IconMenu
         accessibilityLabel="Subtask actions"
         style={styles.menu}
-        sections={[
-          {
-            options: [
-              {
-                id: "promote",
-                title: "Promote to task",
-                icon: {
-                  ios: "arrow.up.forward.square",
-                  android: "open_in_new",
-                  web: "open_in_new",
-                },
-                onSelect: onPromote,
-              },
-              {
-                id: "delete",
-                title: "Delete",
-                icon: { ios: "trash", android: "delete", web: "delete" },
-                isDestructive: true,
-                onSelect: onDelete,
-              },
-            ],
-          },
-        ]}
+        sections={actionSections(onPromote, onDelete)}
       >
         <View style={styles.menuTrigger}>
           <Text
@@ -130,14 +142,14 @@ const styles = StyleSheet.create({
   // Like StatusButton, the native menu host is pinned to its trigger's exact
   // size — an unpinned host reports 0 height while sizing and collapses the row.
   menu: {
-    height: 24,
-    width: 24,
+    height: STATUS_SIZE,
+    width: STATUS_SIZE,
   },
   menuTrigger: {
     alignItems: "center",
-    height: 24,
+    height: STATUS_SIZE,
     justifyContent: "center",
-    width: 24,
+    width: STATUS_SIZE,
   },
   menuGlyph: {
     fontSize: 16,

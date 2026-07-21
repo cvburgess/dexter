@@ -118,16 +118,21 @@ export const promoteSubtaskInput = (
   scheduledFor: parent.scheduledFor,
 });
 
-/** The parent's array with one subtask removed — the second half of promotion. */
-export const removeSubtask = (parent: TTask, subtaskId: string): TSubtask[] =>
-  parent.subtasks.filter(({ id }) => id !== subtaskId);
+/**
+ * The array with one subtask removed — the second half of promotion, and the
+ * delete action. Array-in/array-out like its siblings, so callers holding a
+ * pending draft array (not a stored `TTask`) can use it too.
+ */
+export const removeSubtask = (
+  subtasks: TSubtask[],
+  subtaskId: string,
+): TSubtask[] => subtasks.filter(({ id }) => id !== subtaskId);
 
 /** Appends an empty-titled subtask, ready for inline entry. */
-export const appendSubtask = (
-  subtasks: TSubtask[],
-  title = "",
-  status: ETaskStatus = ETaskStatus.TODO,
-): TSubtask[] => [...subtasks, { id: makeSubtaskId(), title, status }];
+export const appendSubtask = (subtasks: TSubtask[]): TSubtask[] => [
+  ...subtasks,
+  { id: makeSubtaskId(), title: "", status: ETaskStatus.TODO },
+];
 
 export const createTask = async (
   supabase: SupabaseClient<Database>,

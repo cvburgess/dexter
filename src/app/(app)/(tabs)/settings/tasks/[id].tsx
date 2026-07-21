@@ -14,11 +14,11 @@ import { ETaskPriority } from "@/api/tasks";
 import { TTemplate, TTemplateSubtask } from "@/api/templates";
 import { Button } from "@/components/Button";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
-import { EditableText } from "@/components/EditableText";
 import { FormRow } from "@/components/FormRow";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { PickerField } from "@/components/PickerField";
 import { PriorityControl } from "@/components/PriorityControl";
+import { SubtaskFields } from "@/components/SubtaskFields";
 import { TextInput } from "@/components/TextInput";
 import { TimeField } from "@/components/TimeField";
 import { WeekdayPicker } from "@/components/WeekdayPicker";
@@ -34,7 +34,6 @@ import {
   parseSchedule,
   TRepeatFrequency,
 } from "@/utils/repeatSchedule";
-import { makeSubtaskId } from "@/utils/subtasks";
 import { useTheme } from "@/utils/theme";
 
 // The universal Picker's item values cannot be null, so "none" gets a sentinel
@@ -117,7 +116,6 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
   const [subtasks, setSubtasks] = useState<TTemplateSubtask[]>(
     existing.subtasks,
   );
-  const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
   const [frequency, setFrequency] = useState<TRepeatFrequency>(
     parsed.frequency,
   );
@@ -151,23 +149,6 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
   };
 
   const handleClose = () => router.back();
-
-  const addSubtask = () => {
-    const id = makeSubtaskId();
-    setSubtasks((current) => [...current, { id, title: "" }]);
-    setEditingSubtaskId(id);
-  };
-
-  const commitSubtaskTitle = (id: string, title: string) => {
-    setEditingSubtaskId(null);
-    setSubtasks((current) =>
-      title === ""
-        ? current.filter((subtask) => subtask.id !== id)
-        : current.map((subtask) =>
-            subtask.id === id ? { ...subtask, title } : subtask,
-          ),
-    );
-  };
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;
@@ -318,46 +299,12 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
           </FormRow>
         )}
 
-        <FormRow label="Subtasks">
-          <TouchableOpacity
-            accessibilityRole="button"
-            testID="template-add-subtask"
-            onPress={addSubtask}
-          >
-            <Text style={[styles.labelDetail, { color: theme.colors.primary }]}>
-              Add subtask
-            </Text>
-          </TouchableOpacity>
-        </FormRow>
-
-        {subtasks.length > 0 && (
-          <View style={styles.subtasks}>
-            {subtasks.map((subtask) => (
-              <View key={subtask.id} style={styles.subtaskRow}>
-                <Text
-                  style={[
-                    styles.subtaskBullet,
-                    { color: theme.colors.textSecondary },
-                  ]}
-                >
-                  ○
-                </Text>
-                <EditableText
-                  value={subtask.title}
-                  editing={editingSubtaskId === subtask.id}
-                  onStartEdit={() => setEditingSubtaskId(subtask.id)}
-                  onCommit={(title) => commitSubtaskTitle(subtask.id, title)}
-                  onSubmit={(title) => {
-                    if (title) addSubtask();
-                  }}
-                  placeholder="Subtask"
-                  testID={`template-subtask-${subtask.id}`}
-                  style={[styles.subtaskTitle, { color: theme.colors.text }]}
-                />
-              </View>
-            ))}
-          </View>
-        )}
+        <SubtaskFields
+          value={subtasks}
+          onChange={setSubtasks}
+          makeRow={(id) => ({ id, title: "" })}
+          testIDPrefix="template"
+        />
 
         <PickerField
           label="Repeats"
@@ -434,26 +381,5 @@ const styles = StyleSheet.create({
   alarmAction: {
     fontSize: 16,
     fontWeight: "600",
-  },
-  labelDetail: {
-    fontSize: 14,
-  },
-  subtasks: {
-    gap: 4,
-    // Indent under the "Subtasks" row so the checklist reads as belonging to it.
-    paddingLeft: 16,
-  },
-  subtaskRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-    minHeight: 28,
-  },
-  subtaskBullet: {
-    fontSize: 14,
-  },
-  subtaskTitle: {
-    flex: 1,
-    fontSize: 14,
   },
 });

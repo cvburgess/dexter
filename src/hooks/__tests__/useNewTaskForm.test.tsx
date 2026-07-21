@@ -2,7 +2,7 @@ import { Temporal } from "@js-temporal/polyfill";
 import { act, renderHook } from "@testing-library/react-native";
 
 import { TList } from "@/api/lists";
-import { ETaskPriority } from "@/api/tasks";
+import { ETaskPriority, ETaskStatus } from "@/api/tasks";
 import { useNewTaskForm } from "@/hooks/useNewTaskForm";
 
 const homeList: TList = {
@@ -175,79 +175,39 @@ describe("useNewTaskForm", () => {
       expect(result.current.task.subtasks).toEqual([]);
     });
 
-    it("carries titled subtasks into the create payload", () => {
+    it("carries titled subtasks into the create payload, in order", () => {
       const { result } = renderHook(() => useNewTaskForm([]));
 
-      let id = "";
-      act(() => {
-        id = result.current.addSubtask();
-      });
-      act(() => result.current.setSubtaskTitle(id, "Proofread"));
+      act(() =>
+        result.current.setSubtasks([
+          { id: "s1", title: "First", status: ETaskStatus.TODO },
+          { id: "s2", title: "Second", status: ETaskStatus.TODO },
+        ]),
+      );
 
       // A task and its checklist are created in one insert.
-      expect(result.current.task.subtasks).toEqual([
-        expect.objectContaining({ title: "Proofread" }),
+      expect(result.current.task.subtasks?.map(({ title }) => title)).toEqual([
+        "First",
+        "Second",
       ]);
     });
 
     it("omits an untitled row from the payload without discarding it from the form", () => {
       const { result } = renderHook(() => useNewTaskForm([]));
 
-      act(() => {
-        result.current.addSubtask();
-      });
+      act(() =>
+        result.current.setSubtasks([
+          { id: "s1", title: "Real", status: ETaskStatus.TODO },
+          { id: "s2", title: "   ", status: ETaskStatus.TODO },
+        ]),
+      );
 
-      // The row exists so it can be typed into, but a half-finished edit is
-      // not a checklist item.
-      expect(result.current.subtasks).toHaveLength(1);
-      expect(result.current.task.subtasks).toEqual([]);
-    });
-
-    it("discards a row whose title is emptied", () => {
-      const { result } = renderHook(() => useNewTaskForm([]));
-
-      let id = "";
-      act(() => {
-        id = result.current.addSubtask();
-      });
-      act(() => result.current.setSubtaskTitle(id, "Proofread"));
-      act(() => result.current.setSubtaskTitle(id, ""));
-
-      // Nothing was saved yet, so there is no stored title to revert to.
-      expect(result.current.subtasks).toEqual([]);
-    });
-
-    it("keeps insertion order across several additions", () => {
-      const { result } = renderHook(() => useNewTaskForm([]));
-
-      const ids: string[] = [];
-      for (const title of ["First", "Second", "Third"]) {
-        act(() => {
-          ids.push(result.current.addSubtask());
-        });
-        act(() =>
-          result.current.setSubtaskTitle(ids[ids.length - 1], title),
-        );
-      }
-
+      // The row stays visible so it can be typed into, but a half-finished
+      // edit is not a checklist item.
+      expect(result.current.subtasks).toHaveLength(2);
       expect(result.current.task.subtasks?.map(({ title }) => title)).toEqual([
-        "First",
-        "Second",
-        "Third",
+        "Real",
       ]);
-    });
-
-    it("removes a subtask by id", () => {
-      const { result } = renderHook(() => useNewTaskForm([]));
-
-      let id = "";
-      act(() => {
-        id = result.current.addSubtask();
-      });
-      act(() => result.current.setSubtaskTitle(id, "Proofread"));
-      act(() => result.current.removeSubtask(id));
-
-      expect(result.current.task.subtasks).toEqual([]);
     });
   });
 });

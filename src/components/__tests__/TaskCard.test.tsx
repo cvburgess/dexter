@@ -95,6 +95,7 @@ describe("TaskCard", () => {
         task={task}
         onUpdate={onUpdate}
         onDuplicate={jest.fn()}
+        onPromoteSubtask={jest.fn()}
         onDelete={jest.fn()}
       />,
     );
@@ -194,6 +195,7 @@ describe("TaskCard", () => {
         task={task}
         onUpdate={jest.fn()}
         onDuplicate={jest.fn()}
+        onPromoteSubtask={jest.fn()}
         onDelete={jest.fn()}
       />,
     );
@@ -211,6 +213,7 @@ describe("TaskCard", () => {
         task={baseTask}
         onUpdate={jest.fn()}
         onDuplicate={onDuplicate}
+        onPromoteSubtask={jest.fn()}
         onDelete={onDelete}
       />,
     );
@@ -227,6 +230,7 @@ describe("TaskCard", () => {
         task={task}
         onUpdate={jest.fn()}
         onDuplicate={jest.fn()}
+        onPromoteSubtask={jest.fn()}
         onDelete={jest.fn()}
       />,
     );
@@ -246,6 +250,7 @@ describe("TaskCard", () => {
         task={task}
         onUpdate={jest.fn()}
         onDuplicate={jest.fn()}
+        onPromoteSubtask={jest.fn()}
         onDelete={jest.fn()}
       />,
     );
@@ -265,6 +270,7 @@ describe("TaskCard", () => {
         task={task}
         onUpdate={jest.fn()}
         onDuplicate={jest.fn()}
+        onPromoteSubtask={jest.fn()}
         onDelete={jest.fn()}
       />,
     );
@@ -286,6 +292,7 @@ describe("TaskCard", () => {
           task={{ ...baseTask, status }}
           onUpdate={jest.fn()}
           onDuplicate={jest.fn()}
+          onPromoteSubtask={jest.fn()}
           onDelete={jest.fn()}
         />,
       );
@@ -304,6 +311,7 @@ describe("TaskCard", () => {
           task={{ ...baseTask, priority }}
           onUpdate={jest.fn()}
           onDuplicate={jest.fn()}
+          onPromoteSubtask={jest.fn()}
           onDelete={jest.fn()}
         />,
       );
@@ -323,6 +331,7 @@ describe("TaskCard", () => {
         task={baseTask}
         onUpdate={jest.fn()}
         onDuplicate={jest.fn()}
+        onPromoteSubtask={jest.fn()}
         onDelete={jest.fn()}
       />,
     );
@@ -331,6 +340,7 @@ describe("TaskCard", () => {
         task={{ ...baseTask, status: ETaskStatus.DONE }}
         onUpdate={jest.fn()}
         onDuplicate={jest.fn()}
+        onPromoteSubtask={jest.fn()}
         onDelete={jest.fn()}
       />,
     );

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 
 import {
+  appendSubtask,
   ETaskStatus,
   promoteSubtaskInput,
   removeSubtask,
@@ -13,7 +14,6 @@ import {
 } from "@/api/tasks";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { currentAlarmTime, requestAlarmAuthorization } from "@/utils/alarms";
-import { makeSubtaskId } from "@/utils/subtasks";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 import { ConfirmationModal } from "./ConfirmationModal";
@@ -49,8 +49,13 @@ type TTaskCardProps = {
   onUpdate: (diff: Omit<TUpdateTask, "id">) => void;
   onDuplicate: () => void;
   onDelete: () => void;
-  /** Creates the task a promoted subtask becomes; mirrors how `onDuplicate` defers creation upward. */
-  onPromoteSubtask?: (task: TCreateTask) => void;
+  /**
+   * Creates the task a promoted subtask becomes; mirrors how `onDuplicate`
+   * defers creation upward. Required, not optional: promotion removes the
+   * subtask from its parent, so a host that didn't wire this would silently
+   * delete the subtask and create nothing in its place.
+   */
+  onPromoteSubtask: (task: TCreateTask) => void;
 };
 
 export function TaskCard({
@@ -88,12 +93,9 @@ export function TaskCard({
   };
 
   const addSubtask = () => {
-    const id = makeSubtaskId();
-    setDraftSubtasks((current) => [
-      ...(current ?? task.subtasks),
-      { id, title: "", status: ETaskStatus.TODO },
-    ]);
-    setEditing({ kind: "subtask", id });
+    const next = appendSubtask(draftSubtasks ?? task.subtasks);
+    setDraftSubtasks(next);
+    setEditing({ kind: "subtask", id: next[next.length - 1].id });
   };
 
   const commitSubtaskTitle = (id: string, title: string) => {
@@ -105,9 +107,7 @@ export function TaskCard({
       // title alone (the array still holds it — the draft text lived in the
       // input, never here — so reverting is simply not writing).
       const isUnsaved = !task.subtasks.some((subtask) => subtask.id === id);
-      commitSubtasks(
-        isUnsaved ? subtasks.filter((subtask) => subtask.id !== id) : subtasks,
-      );
+      commitSubtasks(isUnsaved ? removeSubtask(subtasks, id) : subtasks);
       return;
     }
 
@@ -119,8 +119,8 @@ export function TaskCard({
   };
 
   const handlePromoteSubtask = (subtask: TSubtask) => {
-    onPromoteSubtask?.(promoteSubtaskInput(task, subtask));
-    commitSubtasks(removeSubtask(task, subtask.id));
+    onPromoteSubtask(promoteSubtaskInput(task, subtask));
+    commitSubtasks(removeSubtask(subtasks, subtask.id));
   };
 
   // An alarm is bound to the task's scheduled date (it fires at scheduled_for +
@@ -289,9 +289,7 @@ export function TaskCard({
               }
               onPromote={() => handlePromoteSubtask(subtask)}
               onDelete={() =>
-                commitSubtasks(
-                  subtasks.filter((current) => current.id !== subtask.id),
-                )
+                commitSubtasks(removeSubtask(subtasks, subtask.id))
               }
             />
           ))}

@@ -10,8 +10,11 @@ import {
   dateSchema,
   getTodayIsoDate,
   hasUpdates,
+  subtaskSchema,
+  subtasksSchema,
   taskPrioritySchema,
   taskStatusSchema,
+  templateSubtaskSchema,
   toolError,
   toolJson,
   uuidSchema,
@@ -24,32 +27,48 @@ const TASK_STATUS_WONT_DO = 3;
 const isCompletionStatus = (status: number | null | undefined): boolean =>
   status === TASK_STATUS_DONE || status === TASK_STATUS_WONT_DO;
 
-/**
- * A subtask: a lightweight checklist item living in the parent's `subtasks`
- * jsonb array, never its own row. `id` is client-minted and only has to be
- * unique within the array.
- */
-const subtaskSchema = z.object({
-  id: z.string().min(1).max(64),
-  title: z.string().min(1).max(100),
-  status: taskStatusSchema,
-});
-
-// Bounded so a runaway client can't write an unindexable multi-megabyte array
-// into a single row.
-const subtasksSchema = z.array(subtaskSchema).max(100);
-
 type Subtask = z.infer<typeof subtaskSchema>;
 
 /**
- * Reads a task row's `subtasks` column, which Postgres types as `Json`. Entries
- * that don't match the shape are dropped rather than trusted — the column is
- * writable by any MCP client, and a malformed entry must not corrupt a sweep.
+ * Reads a task row's `subtasks` column, which Postgres types as `Json`. A
+ * payload that doesn't match the shape is treated as empty rather than trusted —
+ * the column is writable by any MCP client, and a malformed entry must not
+ * corrupt a sweep.
  */
 const readSubtasks = (value: unknown): Subtask[] => {
-  const parsed = z.array(subtaskSchema).safeParse(value);
+  const parsed = subtasksSchema.safeParse(value);
   return parsed.success ? parsed.data : [];
 };
+
+/**
+ * Reads the row a completing write is about to overwrite, returning both the
+ * pre-update status (so recurrence can tell a fresh completion from a re-tap)
+ * and the checklist swept to `status`. Shared by `update_task` and
+ * `archive_task` — the two completion paths — so the read and the sweep can't
+ * drift apart between them. Piggybacks on the read recurrence already needed:
+ * no extra round trip.
+ */
+async function readForCompletion(
+  ctx: ToolContext,
+  taskId: string,
+  status: number,
+): Promise<{ previousStatus?: number; sweptSubtasks?: Subtask[] }> {
+  const { data: existing } = await ctx.supabase
+    .from("tasks")
+    .select("status, subtasks")
+    .eq("id", taskId)
+    .eq("user_id", ctx.userId)
+    .maybeSingle();
+
+  const current = readSubtasks(existing?.subtasks);
+
+  return {
+    previousStatus: existing?.status,
+    sweptSubtasks: current.length > 0
+      ? sweepSubtasks(current, status)
+      : undefined,
+  };
+}
 
 /**
  * When a task update completes a repeat task, schedule its next occurrence — the
@@ -108,9 +127,7 @@ async function maybeCreateNextRecurringTask(
 
 /** Template checklist items carry no status — a template is a blueprint, not state. */
 const readTemplateSubtasks = (value: unknown): { title: string }[] => {
-  const parsed = z
-    .array(z.object({ title: z.string().min(1).max(100) }).passthrough())
-    .safeParse(value);
+  const parsed = z.array(templateSubtaskSchema).safeParse(value);
   return parsed.success ? parsed.data : [];
 };
 
@@ -358,22 +375,18 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
       const isCompleting = isCompletionStatus(update.status);
       let previousStatus: number | null | undefined;
       if (isCompleting) {
-        const { data: existing } = await ctx.supabase
-          .from("tasks")
-          .select("status, subtasks")
-          .eq("id", taskId)
-          .eq("user_id", ctx.userId)
-          .maybeSingle();
-        previousStatus = existing?.status;
+        const completion = await readForCompletion(
+          ctx,
+          taskId,
+          update.status as number,
+        );
+        previousStatus = completion.previousStatus;
 
         // Fold the checklist sweep into this same write so a completed parent
         // is never briefly stored alongside open children. An explicit
         // `subtasks` from the caller wins.
-        if (fields.subtasks === undefined && existing) {
-          const current = readSubtasks(existing.subtasks);
-          if (current.length > 0) {
-            update.subtasks = sweepSubtasks(current, update.status as number);
-          }
+        if (fields.subtasks === undefined && completion.sweptSubtasks) {
+          update.subtasks = completion.sweptSubtasks;
         }
       }
 
@@ -462,21 +475,16 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
       let previousStatus: number | null | undefined;
       let sweptSubtasks: Subtask[] | undefined;
       if (!restore) {
-        const { data: existing } = await ctx.supabase
-          .from("tasks")
-          .select("status, subtasks")
-          .eq("id", taskId)
-          .eq("user_id", ctx.userId)
-          .maybeSingle();
-        previousStatus = existing?.status;
-
         // Archiving is a completion, so it sweeps the checklist in the same
-        // write — the mirror of update_task's behavior. Restoring does not: a
-        // restored task returns to todo with its checklist as the user left it.
-        const current = readSubtasks(existing?.subtasks);
-        if (current.length > 0) {
-          sweptSubtasks = sweepSubtasks(current, TASK_STATUS_WONT_DO);
-        }
+        // write — the mirror of update_task. Restoring does not: a restored
+        // task returns to todo with its checklist as the user left it.
+        const completion = await readForCompletion(
+          ctx,
+          taskId,
+          TASK_STATUS_WONT_DO,
+        );
+        previousStatus = completion.previousStatus;
+        sweptSubtasks = completion.sweptSubtasks;
       }
 
       const { data, error } = await ctx.supabase

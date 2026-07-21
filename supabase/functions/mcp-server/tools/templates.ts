@@ -7,24 +7,11 @@ import {
   cronScheduleSchema,
   hasUpdates,
   taskPrioritySchema,
+  templateSubtasksSchema,
   toolError,
   toolJson,
   uuidSchema,
 } from "./helpers.ts";
-
-/**
- * A template's checklist item. Deliberately narrower than a task's subtask: no
- * `status`, because a template is a blueprint and each occurrence materializes
- * its own copy at the open status.
- */
-const templateSubtasksSchema = z
-  .array(
-    z.object({
-      id: z.string().min(1).max(64),
-      title: z.string().min(1).max(100),
-    }),
-  )
-  .max(100);
 
 function templateError(message: string): ReturnType<typeof toolError> {
   if (

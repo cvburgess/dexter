@@ -134,13 +134,13 @@ describe("promoteSubtaskInput", () => {
 
 describe("removeSubtask", () => {
   it("drops only the matching subtask, preserving order", () => {
-    expect(removeSubtask(source, "sub-1")).toEqual([
+    expect(removeSubtask(source.subtasks, "sub-1")).toEqual([
       { id: "sub-2", title: "Gather figures", status: ETaskStatus.TODO },
     ]);
   });
 
   it("is a no-op for an id that is not present", () => {
-    expect(removeSubtask(source, "missing")).toHaveLength(2);
+    expect(removeSubtask(source.subtasks, "missing")).toHaveLength(2);
   });
 });
 

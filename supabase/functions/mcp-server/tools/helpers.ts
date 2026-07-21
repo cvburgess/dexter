@@ -11,6 +11,37 @@ export const taskPrioritySchema = z.number().int().min(0).max(4);
 export const taskStatusSchema = z.number().int().min(0).max(3);
 export const themeModeSchema = z.number().int().min(0).max(2);
 
+// Subtasks (DEX-70) live as a jsonb array on the parent row. Ids are minted by
+// the client and only have to be unique within their own array. The bounds are
+// declared once here — both the tasks and templates tools use them, and a
+// runaway client must not be able to write a multi-megabyte array into a row.
+const subtaskIdSchema = z.string().min(1).max(64);
+const subtaskTitleSchema = z.string().min(1).max(100);
+const MAX_SUBTASKS = 100;
+
+/** A task's checklist item, which carries its own status. */
+export const subtaskSchema = z.object({
+  id: subtaskIdSchema,
+  title: subtaskTitleSchema,
+  status: taskStatusSchema,
+});
+
+export const subtasksSchema = z.array(subtaskSchema).max(MAX_SUBTASKS);
+
+/**
+ * A template's checklist item. Deliberately narrower — no status, because a
+ * template is a blueprint and each occurrence materializes its own copy at the
+ * open status.
+ */
+export const templateSubtaskSchema = z.object({
+  id: subtaskIdSchema,
+  title: subtaskTitleSchema,
+});
+
+export const templateSubtasksSchema = z
+  .array(templateSubtaskSchema)
+  .max(MAX_SUBTASKS);
+
 export const cronScheduleRegex = /^0 0 (\S+) (\S+) (\S+)$/;
 
 export const cronScheduleSchema = z.string()

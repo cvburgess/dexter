@@ -21,6 +21,22 @@ alter table public.tasks
 alter table public.repeat_task_templates
   add column if not exists subtasks jsonb not null default '[]'::jsonb;
 
+-- Every reader treats this column as an array without null- or type-guarding,
+-- and `jsonb` alone permits an object, string, or number. Enforce the array
+-- shape in the database rather than trusting each writer to get it right — the
+-- MCP tools validate item shape, but a psql session or dashboard edit does not.
+alter table public.tasks
+  drop constraint if exists tasks_subtasks_is_array;
+alter table public.tasks
+  add constraint tasks_subtasks_is_array
+  check (jsonb_typeof(subtasks) = 'array');
+
+alter table public.repeat_task_templates
+  drop constraint if exists repeat_task_templates_subtasks_is_array;
+alter table public.repeat_task_templates
+  add constraint repeat_task_templates_subtasks_is_array
+  check (jsonb_typeof(subtasks) = 'array');
+
 -- Drop the unused relational `subtask_of` column. It shipped in the original
 -- baseline schema but was never app-writable and holds no production rows
 -- (verified: 0 of 2836 tasks). This jsonb design supersedes it, and dropping it
