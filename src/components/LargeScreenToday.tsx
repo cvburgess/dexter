@@ -2,20 +2,17 @@ import { Temporal } from "@js-temporal/polyfill";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { DraxProvider, DraxView } from "react-native-drax";
+import { DraxProvider } from "react-native-drax";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { TTask } from "@/api/tasks";
 import { CalendarView } from "@/components/CalendarView";
-import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { DayNav } from "@/components/DayNav";
 import { DayPaneToggles } from "@/components/DayPaneToggles";
 import { GlassIconButton } from "@/components/GlassIconButton";
 import { NotesJournalTabs } from "@/components/NotesJournalTabs";
 import { TaskDrawer } from "@/components/TaskDrawer";
+import { TasksDropTarget } from "@/components/TasksDropTarget";
 import { TasksView } from "@/components/TasksView";
-import { useScheduleChange } from "@/hooks/useScheduleChange";
-import { useTasks } from "@/hooks/useTasks";
 import { useTodayPanes } from "@/hooks/useTodayPanes";
 import { TPreferences } from "@/api/preferences";
 import {
@@ -55,14 +52,6 @@ export function LargeScreenToday({
   // mirroring the small-screen "tap Backlog" flow. The small-screen sheet owns
   // its own filter internally instead (`TaskDrawerSheet`).
   const [drawerFilterId, setDrawerFilterId] = useState<TFilterId>("none");
-  // Same canonical `["tasks"]` cache the panes below already read, so this
-  // subscribes rather than adding a fetch.
-  const [, { updateTask }] = useTasks();
-  // Drag-to-schedule shares the card's alarm-confirmation flow (DEX-77), so a
-  // dropped task with an alarm prompts exactly like rescheduling from its menu.
-  const { changeSchedule, confirmationProps } = useScheduleChange(
-    (task, diff) => updateTask({ id: task.id, ...diff }),
-  );
 
   const showNotes = preferences.enableNotes && panes.notes;
   const showJournal = preferences.enableJournal && panes.journal;
@@ -133,26 +122,9 @@ export function LargeScreenToday({
           keeps the provider's hover layer out of the row's flex layout. */}
       <DraxProvider style={styles.dragArea}>
         <View style={[styles.paneRow, { gap: theme.gap }]}>
-          <DraxView
-            testID="tasks-drop-target"
-            style={styles.fixedPane}
-            draggable={false}
-            receivingStyle={[
-              styles.receiving,
-              {
-                borderColor: theme.colors.text,
-                borderRadius: theme.borderRadius,
-              },
-            ]}
-            onReceiveDragDrop={({ dragged }) => {
-              // `payload` is `unknown` at the drax boundary; the drawer sets it
-              // to the whole task (see TaskDrawer's `enableDrag` branch).
-              const task = dragged.payload as TTask | undefined;
-              if (task) void changeSchedule(task, date.toString());
-            }}
-          >
+          <TasksDropTarget date={date} style={styles.fixedPane}>
             <TasksView date={date} />
-          </DraxView>
+          </TasksDropTarget>
           {(showNotes || showJournal) && (
             <View style={styles.notesJournalPane}>
               {/* No key here (unlike CalendarView below): NotesJournalTabs
@@ -210,9 +182,6 @@ export function LargeScreenToday({
           )}
         </View>
       </DraxProvider>
-      {/* Drag-to-schedule reuses the card's alarm prompt, so the modal it
-          drives has to be mounted at this level too. */}
-      <ConfirmationModal {...confirmationProps} />
     </SafeAreaView>
   );
 }
@@ -256,12 +225,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: 16,
     paddingTop: 16,
-  },
-  // Applied to the Tasks pane only while a dragged card is over it — an
-  // outline, not a fill, so the day's cards stay legible underneath and the
-  // drop target reads without the pane's contents shifting.
-  receiving: {
-    borderWidth: 2,
   },
   // Tasks is capped at a mobile-typical width so it doesn't stretch to fill a
   // wide window.

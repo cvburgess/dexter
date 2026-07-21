@@ -1,7 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render } from "@testing-library/react-native";
 import type { ReactNode } from "react";
-import { ActivityIndicator, Text, TouchableOpacity } from "react-native";
+import { ActivityIndicator, Alert, Text, TouchableOpacity } from "react-native";
 
 import { TGoal } from "@/api/goals";
 import { TList } from "@/api/lists";
@@ -376,6 +376,30 @@ describe("TaskDrawer", () => {
       id: "task-1",
       scheduledFor: "2026-07-16",
     });
+    expect(screen.queryByTestId("task-drag-task-1")).toBeNull();
+  });
+
+  // The button routes through useScheduleChange like every other reschedule
+  // surface, so an alarm has to be resolved before the date moves (DEX-77) —
+  // it used to write scheduledFor straight through and orphan the alarm.
+  it("prompts before moving a task that has an alarm set", () => {
+    const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    mockUseTasks.mockReturnValue(
+      tasksResult([task({ alarmTime: "09:00:00", scheduledFor: null })]),
+    );
+    const screen = render(<TaskDrawer date={date} />);
+
+    fireEvent.press(
+      screen.getByLabelText('Schedule "Write report" for this day'),
+    );
+
+    expect(mockUpdateTask).not.toHaveBeenCalled();
+    expect(alert).toHaveBeenCalledWith(
+      "Reschedule task?",
+      expect.stringContaining("alarm"),
+      expect.any(Array),
+      expect.anything(),
+    );
   });
 
   // Large screens drag the card onto the Tasks pane instead (DEX-77); the
@@ -404,16 +428,6 @@ describe("TaskDrawer", () => {
       expect(screen.getByTestId("task-drag-task-1").props.payload).toEqual(
         dragged,
       );
-    });
-
-    it("keeps the schedule button when not set", () => {
-      mockUseTasks.mockReturnValue(tasksResult([task()]));
-      const screen = render(<TaskDrawer date={date} />);
-
-      expect(
-        screen.getByLabelText('Schedule "Write report" for this day'),
-      ).toBeTruthy();
-      expect(screen.queryByTestId("task-drag-task-1")).toBeNull();
     });
   });
 

@@ -36,10 +36,12 @@ export function TaskCard({
 }: TTaskCardProps) {
   const theme = useTheme();
   const [alarmModalVisible, setAlarmModalVisible] = useState(false);
-  // The alarm-confirmation flow lives in the hook so this card and the
-  // large-screen drag-to-schedule drop target prompt identically (DEX-77).
+  // The alarm-confirmation flow lives in the hook so every surface that
+  // reschedules — this card, the backlog's "+", the drag-to-schedule drop
+  // target — prompts identically (DEX-77). The id is dropped here because
+  // this card's `onUpdate` is already bound to its own task by the parent.
   const { changeSchedule, confirmationProps } = useScheduleChange(
-    (_task, diff) => onUpdate(diff),
+    ({ id: _id, ...diff }) => onUpdate(diff),
   );
   const isComplete =
     task.status === ETaskStatus.DONE || task.status === ETaskStatus.WONT_DO;

@@ -47,12 +47,10 @@ describe("useScheduleChange", () => {
       await result.current.changeSchedule(task(), "2026-07-20");
     });
 
-    expect(onUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "task-1" }),
-      {
-        scheduledFor: "2026-07-20",
-      },
-    );
+    expect(onUpdate).toHaveBeenCalledWith({
+      id: "task-1",
+      scheduledFor: "2026-07-20",
+    });
     expect(result.current.confirmationProps.visible).toBe(false);
   });
 
@@ -67,7 +65,8 @@ describe("useScheduleChange", () => {
       await result.current.changeSchedule(withoutColumn, "2026-07-20");
     });
 
-    expect(onUpdate).toHaveBeenCalledWith(withoutColumn, {
+    expect(onUpdate).toHaveBeenCalledWith({
+      id: "task-1",
       scheduledFor: "2026-07-20",
     });
   });
@@ -82,7 +81,8 @@ describe("useScheduleChange", () => {
       );
     });
 
-    expect(onUpdate).toHaveBeenCalledWith(expect.anything(), {
+    expect(onUpdate).toHaveBeenCalledWith({
+      id: "task-1",
       scheduledFor: "2026-07-16",
     });
     expect(result.current.confirmationProps.visible).toBe(false);
@@ -103,7 +103,8 @@ describe("useScheduleChange", () => {
 
       await press(result, "Unschedule");
 
-      expect(onUpdate).toHaveBeenCalledWith(expect.anything(), {
+      expect(onUpdate).toHaveBeenCalledWith({
+        id: "task-1",
         scheduledFor: null,
         alarmTime: null,
       });
@@ -142,7 +143,8 @@ describe("useScheduleChange", () => {
 
       await press(result, "Keep alarm");
 
-      expect(onUpdate).toHaveBeenCalledWith(expect.anything(), {
+      expect(onUpdate).toHaveBeenCalledWith({
+        id: "task-1",
         scheduledFor: "2026-07-20",
       });
     });
@@ -152,7 +154,8 @@ describe("useScheduleChange", () => {
 
       await press(result, "Unset alarm");
 
-      expect(onUpdate).toHaveBeenCalledWith(expect.anything(), {
+      expect(onUpdate).toHaveBeenCalledWith({
+        id: "task-1",
         scheduledFor: "2026-07-20",
         alarmTime: null,
       });

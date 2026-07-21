@@ -13,6 +13,7 @@ import { DraxView } from "react-native-drax";
 import { TGoal } from "@/api/goals";
 import { TList } from "@/api/lists";
 import { duplicateTaskInput, ETaskPriority, TTask } from "@/api/tasks";
+import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { GlassIconButton } from "@/components/GlassIconButton";
 import { IconMenu, TIconMenuOption } from "@/components/IconMenu";
@@ -21,6 +22,7 @@ import { TaskCard } from "@/components/TaskCard";
 import { TextInput } from "@/components/TextInput";
 import { useGoals } from "@/hooks/useGoals";
 import { useLists } from "@/hooks/useLists";
+import { useScheduleChange } from "@/hooks/useScheduleChange";
 import { useTasks } from "@/hooks/useTasks";
 import {
   filterTasks,
@@ -45,10 +47,10 @@ type TDrawerListItem =
 // On native a press must be held before the drag takes over, so a quick flick
 // still scrolls the FlashList; 250ms also beats the ~500ms threshold iOS uses
 // for the SwiftUI context menu behind `MoreMenu`'s long-press
-// (`IconMenu.native.tsx`), so the drag wins that race. Web has no
-// touch-slop-free long press — Magic Meal Kit found anything above 0 required
-// a double-click to activate — and wheel scrolling is unaffected by a pointer
-// drag, so it activates immediately there.
+// (`IconMenu.native.tsx`), so the drag wins that race. Web activates
+// immediately instead: a non-zero delay there loses the drag to the browser's
+// touch-slop cancellation (it takes a double-click to start one), and wheel
+// scrolling is unaffected by a pointer drag anyway.
 const DRAG_LONG_PRESS_DELAY = Platform.OS === "web" ? 0 : 250;
 
 // Cancels drag activation if the finger travels this far during the delay, so
@@ -249,6 +251,10 @@ export function TaskDrawer({
   const [goals] = useGoals({ skipQuery: groupBy !== "goalId" });
   const [allTasks, { isLoading, updateTask, createTask, deleteTask }] =
     useTasks();
+  // The "+" reschedules, so it goes through the same alarm prompt as the card's
+  // own menu and the drag drop target rather than writing `scheduledFor`
+  // straight through (DEX-77).
+  const { changeSchedule, confirmationProps } = useScheduleChange(updateTask);
   const tasks = useMemo(
     () =>
       filterTasks(
@@ -339,14 +345,20 @@ export function TaskDrawer({
             accessibilityLabel={`Schedule "${task.title}" for this day`}
             sfSymbol="plus"
             ionicon="add-outline"
-            onPress={() =>
-              updateTask({ id: task.id, scheduledFor: date.toString() })
-            }
+            onPress={() => changeSchedule(task, date.toString())}
           />
         </View>
       );
     },
-    [theme, date, enableDrag, updateTask, createTask, deleteTask],
+    [
+      theme,
+      date,
+      enableDrag,
+      changeSchedule,
+      updateTask,
+      createTask,
+      deleteTask,
+    ],
   );
 
   const keyExtractor = useCallback((item: TDrawerListItem) => item.id, []);
@@ -412,6 +424,9 @@ export function TaskDrawer({
           style={styles.list}
         />
       )}
+      {/* Drives the "+" button's alarm prompt. Harmless in the drag branch,
+          where nothing opens it. */}
+      <ConfirmationModal {...confirmationProps} />
     </View>
   );
 }

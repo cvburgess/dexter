@@ -659,42 +659,19 @@ describe("TodayScreen", () => {
       // to prompt before it moves rather than silently relocating the alarm.
       // ConfirmationModal.native renders through `Alert.alert` (see
       // TasksView.test), so the prompt is asserted on the spy, not the tree.
-      describe("a task that has an alarm set", () => {
-        const withAlarm = (): TTask => ({
-          ...overdueTask(),
-          alarmTime: "09:00:00",
-        });
+      it("prompts instead of moving a task that has an alarm set", () => {
+        const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+        const screen = render(<TodayScreen />);
 
-        it("prompts instead of moving straight away", () => {
-          const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
-          const screen = render(<TodayScreen />);
+        drop(screen, { ...overdueTask(), alarmTime: "09:00:00" });
 
-          drop(screen, withAlarm());
-
-          expect(mockUpdateTask).not.toHaveBeenCalled();
-          expect(alert).toHaveBeenCalledWith(
-            "Reschedule task?",
-            expect.stringContaining("alarm"),
-            expect.any(Array),
-            expect.anything(),
-          );
-        });
-
-        it("moves it once the alarm is kept", () => {
-          jest
-            .spyOn(Alert, "alert")
-            .mockImplementation((_title, _message, buttons) => {
-              buttons?.find((b) => b.text === "Keep alarm")?.onPress?.();
-            });
-          const screen = render(<TodayScreen />);
-
-          drop(screen, withAlarm());
-
-          expect(mockUpdateTask).toHaveBeenCalledWith({
-            id: "1",
-            scheduledFor: Temporal.Now.plainDateISO().toString(),
-          });
-        });
+        expect(mockUpdateTask).not.toHaveBeenCalled();
+        expect(alert).toHaveBeenCalledWith(
+          "Reschedule task?",
+          expect.stringContaining("alarm"),
+          expect.any(Array),
+          expect.anything(),
+        );
       });
 
       it("ignores a drop carrying no task", () => {

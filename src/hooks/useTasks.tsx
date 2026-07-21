@@ -148,7 +148,7 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
     TTask[],
     Error,
     TUpdateTask,
-    { previous?: TTask[]; task?: TTask }
+    { previous?: TTask[] }
   >({
     mutationFn: (diff) => updateTask(supabase, diff),
     // Optimistically apply the diff to the canonical cache so the change lands
@@ -159,15 +159,14 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
     onMutate: async (diff) => {
       await queryClient.cancelQueries({ queryKey: ["tasks"] });
       const previous = queryClient.getQueryData<TTask[]>(["tasks"]);
-      const task = previous?.find(({ id }) => id === diff.id);
       queryClient.setQueryData<TTask[]>(["tasks"], (current) =>
         current?.map((entry) =>
           entry.id === diff.id ? { ...entry, ...diff } : entry,
         ),
       );
-      // `task` rides along so `onSuccess` can read the pre-update state after
-      // the optimistic write has already overwritten it in the cache.
-      return { previous, task };
+      // The snapshot doubles as the rollback source and as `onSuccess`'s only
+      // view of the pre-update task, which the write above has overwritten.
+      return { previous };
     },
     onError: (_error, _diff, context) => {
       if (context?.previous) {
@@ -175,7 +174,11 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
       }
     },
     onSuccess: (_data, diff, context) =>
-      maybeCreateNextRecurringTask(queryClient, diff, context?.task),
+      maybeCreateNextRecurringTask(
+        queryClient,
+        diff,
+        context?.previous?.find(({ id }) => id === diff.id),
+      ),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },

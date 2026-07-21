@@ -1,8 +1,8 @@
 import { TTask, TUpdateTask } from "@/api/tasks";
 import { useConfirmation } from "@/hooks/useConfirmation";
 
-/** Applies the resolved diff to `task`. The caller decides how it reaches the server (a `TaskCard`'s `onUpdate`, or `useTasks`' `updateTask` keyed by `task.id`). */
-type TScheduleUpdate = (task: TTask, diff: Omit<TUpdateTask, "id">) => void;
+/** Applies the resolved change. Already keyed by task id, so `useTasks`' `updateTask` can be passed straight in. */
+type TScheduleUpdate = (update: TUpdateTask) => void;
 
 /**
  * The one path a task's `scheduledFor` should change through (DEX-77).
@@ -28,10 +28,8 @@ export function useScheduleChange(onUpdate: TScheduleUpdate) {
   const { confirm, confirmationProps } = useConfirmation();
 
   const changeSchedule = async (task: TTask, scheduledFor: string | null) => {
-    const scheduleChanged = scheduledFor !== task.scheduledFor;
-
-    if (task.alarmTime == null || !scheduleChanged) {
-      onUpdate(task, { scheduledFor });
+    if (task.alarmTime == null || scheduledFor === task.scheduledFor) {
+      onUpdate({ id: task.id, scheduledFor });
       return;
     }
 
@@ -45,7 +43,9 @@ export function useScheduleChange(onUpdate: TScheduleUpdate) {
         confirmLabel: "Unschedule",
         destructive: true,
       });
-      if (confirmed) onUpdate(task, { scheduledFor: null, alarmTime: null });
+      if (confirmed) {
+        onUpdate({ id: task.id, scheduledFor: null, alarmTime: null });
+      }
       return;
     }
 
@@ -59,12 +59,13 @@ export function useScheduleChange(onUpdate: TScheduleUpdate) {
         {
           label: "Keep alarm",
           role: "default",
-          onPress: () => onUpdate(task, { scheduledFor }),
+          onPress: () => onUpdate({ id: task.id, scheduledFor }),
         },
         {
           label: "Unset alarm",
           role: "destructive",
-          onPress: () => onUpdate(task, { scheduledFor, alarmTime: null }),
+          onPress: () =>
+            onUpdate({ id: task.id, scheduledFor, alarmTime: null }),
         },
         { label: "Cancel", role: "cancel" },
       ],

@@ -193,24 +193,17 @@ describe("useTasks", () => {
     const cachedTask = (queryClient: QueryClient) =>
       queryClient.getQueryData<TTask[]>(["tasks"])?.[0];
 
-    /**
-     * Holds the update in flight so the cache can be inspected between
-     * `onMutate` and `onSettled`. Always released before the test ends — a
-     * mutation left pending forever wedges the run.
-     */
-    const pendingUpdate = () => {
+    it("applies the change to the cache before the request resolves", async () => {
+      const { queryClient, result } = await seeded();
+      // Held in flight so the cache can be read between onMutate and
+      // onSettled; released below, since a forever-pending mutation wedges
+      // the run.
       let release!: (tasks: TTask[]) => void;
       mockUpdateTask.mockReturnValue(
         new Promise<TTask[]>((resolve) => {
           release = resolve;
         }),
       );
-      return release;
-    };
-
-    it("applies the change to the cache before the request resolves", async () => {
-      const { queryClient, result } = await seeded();
-      const release = pendingUpdate();
 
       await act(async () => {
         result.current[1].updateTask({
