@@ -7,6 +7,9 @@ import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { SETTINGS_ITEMS } from "@/utils/settingsItems";
 import { useTheme } from "@/utils/theme";
 
+// Hoisted so SafeAreaView's internal edges useMemo sees a stable reference.
+const SCREEN_EDGES = ["bottom", "left", "right"] as const;
+
 export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -21,7 +24,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView
-      edges={["bottom", "left", "right"]}
+      edges={SCREEN_EDGES}
       style={[styles.screen, { backgroundColor: theme.colors.background }]}
     >
       <FlatList

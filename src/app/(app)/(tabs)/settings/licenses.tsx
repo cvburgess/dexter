@@ -8,6 +8,11 @@ import { useTheme } from "@/utils/theme";
 
 const licenses = licensesJson as Record<string, string>;
 
+// See account.tsx: the sidebar absorbs the left inset in two-pane mode.
+// Hoisted so SafeAreaView's internal edges useMemo sees a stable reference.
+const EDGES_SINGLE_PANE = ["bottom", "left", "right"] as const;
+const EDGES_TWO_PANE = ["bottom", "right"] as const;
+
 type TLicenseItem = {
   name: string;
   license: string;
@@ -15,7 +20,6 @@ type TLicenseItem = {
 
 export default function LicensesScreen() {
   const theme = useTheme();
-  // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = useIsMultiPane();
 
   // Combine dependencies and devDependencies, sort alphabetically, and look up
@@ -58,7 +62,7 @@ export default function LicensesScreen() {
 
   return (
     <SafeAreaView
-      edges={twoPane ? ["bottom", "right"] : ["bottom", "left", "right"]}
+      edges={twoPane ? EDGES_TWO_PANE : EDGES_SINGLE_PANE}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <FlatList

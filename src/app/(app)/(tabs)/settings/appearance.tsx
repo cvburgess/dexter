@@ -24,10 +24,14 @@ const MODE_OPTIONS: { mode: EThemeMode; label: string }[] = [
 const LIGHT_THEMES = THEMES.filter((t) => t.mode === "light");
 const DARK_THEMES = THEMES.filter((t) => t.mode === "dark");
 
+// See account.tsx: the sidebar absorbs the left inset in two-pane mode.
+// Hoisted so SafeAreaView's internal edges useMemo sees a stable reference.
+const EDGES_SINGLE_PANE = ["bottom", "left", "right"] as const;
+const EDGES_TWO_PANE = ["bottom", "right"] as const;
+
 export default function AppearanceScreen() {
   const theme = useTheme();
   const [preferences, { updatePreferences }] = usePreferences();
-  // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = useIsMultiPane();
 
   const { themeMode, lightTheme, darkTheme } = preferences;
@@ -36,8 +40,8 @@ export default function AppearanceScreen() {
 
   return (
     <SafeAreaView
-      edges={twoPane ? ["bottom", "right"] : ["bottom", "left", "right"]}
-      style={{ backgroundColor: theme.colors.background }}
+      edges={twoPane ? EDGES_TWO_PANE : EDGES_SINGLE_PANE}
+      style={[styles.screen, { backgroundColor: theme.colors.background }]}
     >
       <ScrollView
         contentContainerStyle={[
@@ -243,6 +247,9 @@ const styles = StyleSheet.create({
   segmentLabel: {
     fontSize: 15,
     fontWeight: "500",
+  },
+  screen: {
+    flex: 1,
   },
   segmented: {
     borderWidth: StyleSheet.hairlineWidth,
