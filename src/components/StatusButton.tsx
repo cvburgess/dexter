@@ -99,7 +99,11 @@ export const getStatusSections = (
           id: "delegated",
           title: "Delegated",
           status: ETaskStatus.DELEGATED,
-          icon: { ios: "person", android: "person", web: "person" },
+          icon: {
+            ios: "arrow.right",
+            android: "arrow_forward",
+            web: "arrow_forward",
+          },
         },
       ] as const
     ).map(({ status: optionStatus, ...option }) => ({
@@ -116,8 +120,8 @@ export const getStatusSections = (
  * (which would tint fine — see `PriorityControl`): the typographic circle is the
  * task affordance itself, and nesting an SF `circle` inside the bordered circle
  * would double it up. So each status carries two glyphs — the symbol name in
- * `getStatusSections` and its text counterpart here. Delegated's menu icon is
- * `person`; "→" is the text stand-in, reading as handed off.
+ * `getStatusSections` and its text counterpart here. Delegated pairs the arrow
+ * symbol with "→" so the menu row and the trigger read as the same mark.
  *
  * Keyed as a `Record` rather than a switch with a `default` so that adding a
  * status without a glyph is a type error instead of a silent fallback to "○".
