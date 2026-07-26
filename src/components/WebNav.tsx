@@ -1,5 +1,11 @@
 import { type Href, Link, usePathname, useRouter } from "expo-router";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
@@ -67,7 +73,21 @@ function useWebNav() {
 }
 
 /**
- * The props every destination shares across both variants.
+ * The props every destination's pressable shares across both variants.
+ *
+ * These go on the child of an `asChild` `Link`, not on the `Link` itself. A bare
+ * `Link` wraps its children in a `Text`, and a text box doesn't lay its children
+ * out as a flex container — the tile's `alignItems`/`justifyContent` centering
+ * (and the dock item's `flex`/`gap`) silently stop applying, leaving the icon
+ * parked at the text origin. Handing `Link` a `View`-backed child instead keeps
+ * flex layout *and* the real anchor: react-native-web's `View` renders an `<a>`
+ * whenever it's given an `href`, exactly like `Text` does.
+ *
+ * The child has to be a `Pressable`, not a `TouchableOpacity`: `Link`'s `Slot`
+ * hands the child its `href`, and only `Pressable` spreads unrecognized props
+ * through to the underlying `View`. `TouchableOpacity` forwards a fixed prop
+ * set, which swallows both `href` and `aria-current` — the anchor and the
+ * screen-reader cue would silently vanish.
  *
  * `aria-current="page"` is what actually marks the active destination for
  * assistive tech: `accessibilityState.selected` maps to `aria-selected`, which
@@ -79,7 +99,6 @@ const navItemProps = (item: TWebNavItem, selected: boolean) => ({
   accessibilityLabel: item.label,
   accessibilityState: { selected },
   "aria-current": selected ? ("page" as const) : undefined,
-  href: item.href,
   testID: `web-nav-${item.key}`,
 });
 
@@ -111,27 +130,30 @@ export function WebNavRail() {
         const selected = isActive(pathname, item.href);
 
         return (
-          <Link
-            key={item.key}
-            {...navItemProps(item, selected)}
-            style={[
-              styles.tile,
-              {
-                backgroundColor: selected
-                  ? withOpacity(theme.colors.text, 0.8)
-                  : theme.colors.card,
-                borderRadius: theme.borderRadius,
-                // Absorbs the rail's leftover height, pushing this item — and
-                // the "+" that follows it — to the bottom.
-                marginTop: item.pinnedToBottom ? "auto" : 0,
-              },
-            ]}
-          >
-            <SettingsIcon
-              color={selected ? theme.colors.background : theme.colors.text}
-              name={item.icon}
-              size={26}
-            />
+          <Link asChild href={item.href} key={item.key}>
+            <Pressable
+              {...navItemProps(item, selected)}
+              // Flattened, not an array: `Link`'s `Slot` clones this child and
+              // can't merge an array style with the props it injects.
+              style={StyleSheet.flatten([
+                styles.tile,
+                {
+                  backgroundColor: selected
+                    ? withOpacity(theme.colors.text, 0.8)
+                    : theme.colors.card,
+                  borderRadius: theme.borderRadius,
+                  // Absorbs the rail's leftover height, pushing this item — and
+                  // the "+" that follows it — to the bottom.
+                  marginTop: item.pinnedToBottom ? "auto" : 0,
+                },
+              ])}
+            >
+              <SettingsIcon
+                color={selected ? theme.colors.background : theme.colors.text}
+                name={item.icon}
+                size={26}
+              />
+            </Pressable>
           </Link>
         );
       })}
@@ -195,22 +217,23 @@ export function WebNavDock() {
           : withOpacity(theme.colors.text, 0.8);
 
         return (
-          <Link
-            key={item.key}
-            {...navItemProps(item, selected)}
-            style={styles.dockItem}
-          >
-            <View style={styles.dockIconSlot}>
-              <SettingsIcon color={color} name={item.icon} size={20} />
-            </View>
-            <Text
-              style={[
-                styles.dockLabel,
-                { color, fontWeight: selected ? "500" : "400" },
-              ]}
+          <Link asChild href={item.href} key={item.key}>
+            <Pressable
+              {...navItemProps(item, selected)}
+              style={styles.dockItem}
             >
-              {item.label}
-            </Text>
+              <View style={styles.dockIconSlot}>
+                <SettingsIcon color={color} name={item.icon} size={20} />
+              </View>
+              <Text
+                style={[
+                  styles.dockLabel,
+                  { color, fontWeight: selected ? "500" : "400" },
+                ]}
+              >
+                {item.label}
+              </Text>
+            </Pressable>
           </Link>
         );
       })}

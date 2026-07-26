@@ -1,6 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render } from "@testing-library/react-native";
-import type { ReactNode } from "react";
+import type { ReactElement } from "react";
 
 import { WEB_NAV_ITEMS, WebNavDock, WebNavRail } from "@/components/WebNav";
 
@@ -10,12 +10,22 @@ const mockPathname = { current: "/today" };
 // a navigation container this unit test doesn't mount. Asserting on the rendered
 // href is the point: destinations are real anchors on web, not onPress handlers,
 // so cmd-click and "copy link address" work.
+// Stands in for the real `Link`'s `asChild` path, which renders a `Slot` that
+// clones its single child with the href. Mirroring that here (rather than
+// wrapping the child) is what lets the tests assert the href lands on the
+// pressable itself — the property that makes these real anchors on web, and
+// that keeps the tile a flex container so its icon stays centered.
 jest.mock("expo-router", () => {
-  const { View } =
-    jest.requireActual<typeof import("react-native")>("react-native");
+  const { cloneElement } = jest.requireActual<typeof import("react")>("react");
   return {
-    Link: function Link({ children, ...props }: { children?: ReactNode }) {
-      return <View {...props}>{children}</View>;
+    Link: function Link({
+      children,
+      href,
+    }: {
+      children: ReactElement<{ href?: string }>;
+      href: string;
+    }) {
+      return cloneElement(children, { href });
     },
     usePathname: () => mockPathname.current,
     useRouter: () => mockRouter,
