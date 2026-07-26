@@ -391,7 +391,15 @@ npx @dotenvx/dotenvx set SECRET_NAME "value" -f supabase/.env.preview
 Add the matching `KEY = "env(KEY)"` to `config.toml` and commit both files —
 `supabase/__tests__/config/previewSecrets.test.ts` fails if the two drift or if
 a value is committed in plaintext. Re-upload `.env.keys` if the decryption key
-rotates. **Never commit `supabase/.env.keys`** (it's in `.gitignore`).
+rotates.
+
+> **`.env.keys` must sit next to `.env.preview`** — dotenvx *reads* the key
+> from the `-f` file's own directory (`supabase/`), but *writes* it to whatever
+> directory you ran the command in. Running `set` from the repo root therefore
+> drops `./.env.keys` in the wrong place, and the next decrypt fails with
+> `[DECRYPTION_FAILED]`; move it to `supabase/.env.keys`. `.gitignore` matches
+> the filename at any depth, so it stays uncommitted either way — but only the
+> `supabase/` copy actually works.
 
 > **`DEMO_OTP` and the seeded password rotate together.** The demo user's
 > password is `deriveDemoPassword(DEMO_OTP)`, so changing `DEMO_OTP` requires
