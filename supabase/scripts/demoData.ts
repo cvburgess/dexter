@@ -3,10 +3,17 @@
 // env access — so it can be unit-tested without a database. `seed-demo.ts`
 // resolves the symbolic keys and day offsets below into real UUIDs and dates.
 //
-// Enum values mirror the app:
+// Priority values mirror the app:
 //   priority: 0 IMPORTANT_AND_URGENT, 1 URGENT, 2 IMPORTANT, 3 NEITHER, 4 UNPRIORITIZED
-//   status:   0 IN_PROGRESS, 1 TODO, 2 DONE, 3 WONT_DO, 4 DELEGATED
-// (see src/api/tasks.ts and supabase/functions/mcp-server/tools/helpers.ts)
+// (see src/api/tasks.ts)
+
+// Status is the app's own enum, not a copy of it — `scripts/deno.json` maps
+// `@src/` the same way the MCP server's config does, and `taskStatus.ts` is
+// import-free, so this module stays pure. Aliased to `DEMO_STATUS` to keep the
+// `DEMO_*` naming the rest of the file reads by.
+import { ETaskStatus as DEMO_STATUS } from "@src/utils/taskStatus.ts";
+
+export { DEMO_STATUS };
 
 export const DEMO_PRIORITY = {
   IMPORTANT_AND_URGENT: 0,
@@ -14,14 +21,6 @@ export const DEMO_PRIORITY = {
   IMPORTANT: 2,
   NEITHER: 3,
   UNPRIORITIZED: 4,
-} as const;
-
-export const DEMO_STATUS = {
-  IN_PROGRESS: 0,
-  TODO: 1,
-  DONE: 2,
-  WONT_DO: 3,
-  DELEGATED: 4,
 } as const;
 
 export interface DemoList {

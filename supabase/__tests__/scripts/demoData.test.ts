@@ -1,5 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 
+import { ETaskStatus, isCompletionStatus } from "@src/utils/taskStatus.ts";
+
 import {
   addDaysIso,
   buildDemoData,
@@ -46,7 +48,9 @@ Deno.test("templates use valid midnight cron schedules", () => {
 Deno.test("tasks have valid enums and title length", () => {
   for (const task of data.tasks) {
     assert(task.priority >= 0 && task.priority <= 4, `${task.title} priority`);
-    assert(task.status >= 0 && task.status <= 4, `${task.title} status`);
+    // Checked against the enum's reverse mapping rather than a hand-written
+    // bound, so a status added to `ETaskStatus` widens this automatically.
+    assert(ETaskStatus[task.status] !== undefined, `${task.title} status`);
     assert(
       task.title.length > 0 && task.title.length <= 100,
       `${task.title} length`,
@@ -73,7 +77,7 @@ Deno.test("subtasks are well-formed and uniquely keyed within their array", () =
         `${task.title} subtask title length`,
       );
       assert(
-        subtask.status >= 0 && subtask.status <= 4,
+        ETaskStatus[subtask.status] !== undefined,
         `${task.title} subtask status`,
       );
     }
@@ -146,22 +150,18 @@ Deno.test("every foreign key reference resolves to a defined entity", () => {
   }
 });
 
-// Mirrors `isCompletionStatus` in src/utils/taskFilters.ts: a task in any
+// Uses the app's own `isCompletionStatus`, not a local copy of it: a task in any
 // terminal status is closed out, so it can't be what makes the demo show an
 // overdue or left-behind card — the app filters those out of the backlog.
-const isClosedOut = (status: number) =>
-  status === DEMO_STATUS.DONE ||
-  status === DEMO_STATUS.WONT_DO ||
-  status === DEMO_STATUS.DELEGATED;
-
 Deno.test("demo showcases the states screenshots depend on", () => {
   const hasOverdue = data.tasks.some(
     (t) =>
-      !isClosedOut(t.status) && t.dueOnOffset !== null && t.dueOnOffset < 0,
+      !isCompletionStatus(t.status) && t.dueOnOffset !== null &&
+      t.dueOnOffset < 0,
   );
   const hasLeftBehind = data.tasks.some(
     (t) =>
-      !isClosedOut(t.status) &&
+      !isCompletionStatus(t.status) &&
       t.scheduledForOffset !== null &&
       t.scheduledForOffset < 0,
   );

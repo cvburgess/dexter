@@ -122,9 +122,9 @@ dashboard-only addition would drift from what the migration declares.
   days, repeat task templates, and preferences. Tool inputs never accept
   `user_id`; user ownership is derived from the validated bearer token.
 - **Task status is shared, not mirrored.** `src/utils/taskStatus.ts` holds
-  `ETaskStatus` and `isCompletionStatus` and is imported by both the app and
-  `mcp-server` over the `@src/` alias, so a new status can't be added to one side
-  and forgotten on the other. It must stay import-free — Deno requires explicit
+  `ETaskStatus` and `isCompletionStatus` and is imported by the app, by
+  `mcp-server`, and by `scripts/demoData.ts` over the `@src/` alias, so a new
+  status can't be added to one side and forgotten on the other. It must stay import-free — Deno requires explicit
   `.ts` extensions on relative imports while Metro/tsc forbid them, which is why
   the enum can't simply live in `src/api/tasks.ts` (that file pulls in
   `@supabase/supabase-js`). The values are persisted as `tasks.status smallint`

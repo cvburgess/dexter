@@ -40,7 +40,7 @@ export function StatusButton({
       ]}
     >
       <Text style={{ color: contentColor, fontSize: size / 2 }}>
-        {GLYPHS[status]}
+        {GLYPHS[status] ?? GLYPHS[ETaskStatus.TODO]}
       </Text>
     </View>
   );
@@ -121,6 +121,9 @@ export const getStatusSections = (
  *
  * Keyed as a `Record` rather than a switch with a `default` so that adding a
  * status without a glyph is a type error instead of a silent fallback to "○".
+ * The `??` at the call site is for values the *type* can't police: `tasks.status`
+ * is an unconstrained smallint and the row is an unchecked cast, so an
+ * out-of-enum value renders "○" rather than an empty button.
  */
 const GLYPHS: Record<ETaskStatus, string> = {
   [ETaskStatus.TODO]: "○",
