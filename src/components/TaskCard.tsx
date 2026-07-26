@@ -1,18 +1,35 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 
-import { ETaskStatus, TTask, TUpdateTask } from "@/api/tasks";
+import {
+  appendSubtask,
+  ETaskStatus,
+  promoteSubtaskInput,
+  removeSubtask,
+  TCreateTask,
+  TSubtask,
+  TTask,
+  TUpdateTask,
+} from "@/api/tasks";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { currentAlarmTime, requestAlarmAuthorization } from "@/utils/alarms";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 import { ConfirmationModal } from "./ConfirmationModal";
 import { DueDateButton } from "./DueDateButton";
+import { EditableText } from "./EditableText";
 import { ListButton } from "./ListButton";
 import { MoreMenu } from "./MoreMenu";
 import { SetAlarmModal } from "./SetAlarmModal";
 import { StatusButton } from "./StatusButton";
+import {
+  SUBTASK_GAP,
+  SUBTASK_INSET,
+  SUBTASK_OFFSET,
+  SubtaskConnectors,
+} from "./SubtaskConnector";
+import { SubtaskRow } from "./SubtaskRow";
 
 // Matches dexter-app's cardColors: incomplete cards sit on the priority color
 // at 80% opacity; complete cards fade the same color to a 3% tint with muted
@@ -21,11 +38,33 @@ const INCOMPLETE_OPACITY = 0.8;
 const COMPLETE_OPACITY = 0.03;
 const COMPLETE_TEXT_OPACITY = 0.25;
 
+/** Which row, if any, is currently in inline-edit mode. */
+type TEditing = { kind: "title" } | { kind: "subtask"; id: string } | null;
+
+/**
+ * A rename that has been committed but whose write hasn't reached the cache
+ * yet. Leaving edit mode is synchronous, while the optimistic write is a tick
+ * behind it — so without this the pre-edit title paints in between and the old
+ * text visibly blinks back before the new one settles.
+ *
+ * One slot, because `editing` is one slot: only a single row can be renaming.
+ */
+type TRenamed =
+  | { kind: "title"; from: string; to: string }
+  | { kind: "subtask"; id: string; from: string; to: string };
+
 type TTaskCardProps = {
   task: TTask;
   onUpdate: (diff: Omit<TUpdateTask, "id">) => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  /**
+   * Creates the task a promoted subtask becomes; mirrors how `onDuplicate`
+   * defers creation upward. Required, not optional: promotion removes the
+   * subtask from its parent, so a host that didn't wire this would silently
+   * delete the subtask and create nothing in its place.
+   */
+  onPromoteSubtask: (task: TCreateTask) => void;
 };
 
 export function TaskCard({
@@ -33,12 +72,133 @@ export function TaskCard({
   onUpdate,
   onDuplicate,
   onDelete,
+  onPromoteSubtask,
 }: TTaskCardProps) {
   const theme = useTheme();
   const [alarmModalVisible, setAlarmModalVisible] = useState(false);
+  const [editing, setEditing] = useState<TEditing>(null);
   const { confirm, confirmationProps } = useConfirmation();
   const isComplete =
     task.status === ETaskStatus.DONE || task.status === ETaskStatus.WONT_DO;
+
+  // Rows this card has created that the cache hasn't confirmed yet: the empty
+  // one "Add subtask" is showing, plus any just committed whose write is still
+  // in flight. A list rather than a single slot because return chains a fresh
+  // row while the one before it is still unconfirmed. Everything else reads
+  // straight from `task.subtasks`, so a change arriving from another device is
+  // never masked.
+  // Always updated through the function form: a row that unmounts commits from
+  // *its* last-render closure, which can hold a list two taps out of date, and
+  // replacing the list wholesale from there would drop whatever arrived since.
+  const [unconfirmed, setUnconfirmed] = useState<TSubtask[]>([]);
+
+  const [renamed, setRenamed] = useState<TRenamed | null>(null);
+  if (renamed !== null) {
+    const current =
+      renamed.kind === "title"
+        ? task.title
+        : task.subtasks.find((subtask) => subtask.id === renamed.id)?.title;
+    // The prop is authoritative again the moment it moves off what we renamed
+    // *from* — whether that's the optimistic write landing or a failure rolling
+    // it back. Derived during render, not in an effect, so the overlay never
+    // outlives the frame that makes it redundant.
+    if (current !== renamed.from) setRenamed(null);
+  }
+
+  // Display-only overlays. Every write still composes from `task.subtasks`, so
+  // an in-flight rename can never be folded into the next update as if it were
+  // server state.
+  const title = renamed?.kind === "title" ? renamed.to : task.title;
+  const renamedRows =
+    renamed?.kind === "subtask"
+      ? task.subtasks.map((subtask) =>
+          subtask.id === renamed.id
+            ? { ...subtask, title: renamed.to }
+            : subtask,
+        )
+      : task.subtasks;
+
+  // A row drops out of the local list the moment the cache has it. Derived
+  // during render, like the rename above, so it is never rendered twice — once
+  // from the cache and once from here — even for a single frame.
+  const unsettled = unconfirmed.filter(
+    (row) => !task.subtasks.some((subtask) => subtask.id === row.id),
+  );
+  if (unsettled.length !== unconfirmed.length) setUnconfirmed(unsettled);
+
+  const subtasks = [...renamedRows, ...unsettled];
+
+  /**
+   * Clear edit mode only if the row named still owns it. React runs the
+   * outgoing row's unmount cleanup *after* `editing` has already moved to the
+   * row the user just tapped, so clearing blindly cancels the edit they are
+   * starting — and the tap reads as having done nothing at all.
+   */
+  const stopEditingTitle = () =>
+    setEditing((current) => (current?.kind === "title" ? null : current));
+
+  const stopEditingSubtask = (id: string) =>
+    setEditing((current) =>
+      current?.kind === "subtask" && current.id === id ? null : current,
+    );
+
+  const addSubtask = () => {
+    const [row] = appendSubtask([]);
+    // Drop any row still left untitled — the same rule its own commit applies,
+    // just applied now, so tapping "Add subtask" twice never stacks up empties.
+    setUnconfirmed((rows) => [
+      ...rows.filter(({ title }) => title !== ""),
+      row,
+    ]);
+    setEditing({ kind: "subtask", id: row.id });
+  };
+
+  const commitSubtaskTitle = (id: string, title: string) => {
+    stopEditingSubtask(id);
+
+    // A row the cache doesn't have yet is one this card created — so whether
+    // this is an append or an edit is decided by server state, never by how
+    // stale this closure's copy of the local list happens to be. Once the cache
+    // owns the row, this is an ordinary rename and never a second append.
+    const unconfirmedRow = task.subtasks.some((subtask) => subtask.id === id)
+      ? undefined
+      : unconfirmed.find((row) => row.id === id);
+    if (unconfirmedRow) {
+      // An untitled row is discarded, never written: `title: ""` would fail the
+      // MCP server's validation and disable that task's sweep permanently.
+      if (title === "") {
+        setUnconfirmed((rows) => rows.filter((row) => row.id !== id));
+        return;
+      }
+      // Kept on screen carrying the title just committed, rather than dropped
+      // to wait for the write — dropping it blinks the whole row out of the
+      // checklist and back in. It clears itself once the cache confirms it.
+      setUnconfirmed((rows) =>
+        rows.map((row) => (row.id === id ? { ...row, title } : row)),
+      );
+      onUpdate({ subtasks: [...task.subtasks, { ...unconfirmedRow, title }] });
+      return;
+    }
+
+    // An emptied existing title reverts — a titleless subtask would be
+    // unidentifiable — so there is simply nothing to write.
+    if (title === "") return;
+
+    const from = task.subtasks.find((subtask) => subtask.id === id)?.title;
+    if (from !== undefined && from !== title)
+      setRenamed({ kind: "subtask", id, from, to: title });
+
+    onUpdate({
+      subtasks: task.subtasks.map((subtask) =>
+        subtask.id === id ? { ...subtask, title } : subtask,
+      ),
+    });
+  };
+
+  const handlePromoteSubtask = (subtask: TSubtask) => {
+    onPromoteSubtask(promoteSubtaskInput(task, subtask));
+    onUpdate({ subtasks: removeSubtask(task.subtasks, subtask.id) });
+  };
 
   // An alarm is bound to the task's scheduled date (it fires at scheduled_for +
   // alarm_time), so changing that date shouldn't silently move or orphan it —
@@ -135,38 +295,92 @@ export function TaskCard({
       ]}
       testID={`task-card-${task.id}`}
     >
-      <StatusButton
-        status={task.status}
-        contentColor={contentColor}
-        onChangeStatus={(status) => onUpdate({ status })}
-      />
-      <Text
-        numberOfLines={1}
-        style={[
-          styles.title,
-          {
-            color: contentColor,
-            textDecorationLine: isComplete ? "line-through" : "none",
-          },
-        ]}
-      >
-        {task.title}
-      </Text>
-      {!isComplete && (
-        <>
-          <DueDateButton
-            dueOn={task.dueOn}
-            priorityColor={priorityColor}
-            contentColor={contentColor}
-          />
-          {task.listId !== null && (
-            <ListButton
-              listId={task.listId}
+      <View style={styles.titleRow}>
+        <StatusButton
+          status={task.status}
+          contentColor={contentColor}
+          onChangeStatus={(status) => onUpdate({ status })}
+        />
+        <EditableText
+          value={title}
+          editing={editing?.kind === "title"}
+          // Renaming a finished task is disabled, matching the buttons below.
+          editable={!isComplete}
+          onStartEdit={() => setEditing({ kind: "title" })}
+          onCommit={(committed) => {
+            stopEditingTitle();
+            // An emptied title reverts rather than wiping the task — a task with
+            // no title would be unidentifiable and unrecoverable from the list.
+            if (!committed || committed === task.title) return;
+            setRenamed({ kind: "title", from: task.title, to: committed });
+            onUpdate({ title: committed });
+          }}
+          testID={`task-title-${task.id}`}
+          style={[
+            styles.title,
+            {
+              color: contentColor,
+              textDecorationLine: isComplete ? "line-through" : "none",
+            },
+          ]}
+        />
+        {!isComplete && (
+          <>
+            <DueDateButton
+              dueOn={task.dueOn}
+              priorityColor={priorityColor}
               contentColor={contentColor}
-              onChangeList={(listId) => onUpdate({ listId })}
             />
-          )}
-        </>
+            {task.listId !== null && (
+              <ListButton
+                listId={task.listId}
+                contentColor={contentColor}
+                onChangeList={(listId) => onUpdate({ listId })}
+              />
+            )}
+          </>
+        )}
+      </View>
+      {subtasks.length > 0 && (
+        <View style={styles.subtasks}>
+          <SubtaskConnectors
+            count={subtasks.length}
+            color={withOpacity(contentColor, 0.25)}
+          />
+          {subtasks.map((subtask) => (
+            <SubtaskRow
+              key={subtask.id}
+              subtask={subtask}
+              contentColor={contentColor}
+              editing={editing?.kind === "subtask" && editing.id === subtask.id}
+              onStartEdit={() =>
+                setEditing({ kind: "subtask", id: subtask.id })
+              }
+              onCommitTitle={(title) => commitSubtaskTitle(subtask.id, title)}
+              // Return chains the next row; an empty commit ends the chain.
+              onSubmit={(title) => {
+                if (title) addSubtask();
+              }}
+              // A completed parent's checklist is frozen: the sweep just closed
+              // every row, and re-opening one would restore exactly the
+              // done-parent-with-open-children state the sweep exists to prevent.
+              interactive={!isComplete}
+              onChangeStatus={(status) =>
+                onUpdate({
+                  subtasks: task.subtasks.map((current) =>
+                    current.id === subtask.id
+                      ? { ...current, status }
+                      : current,
+                  ),
+                })
+              }
+              onPromote={() => handlePromoteSubtask(subtask)}
+              onDelete={() =>
+                onUpdate({ subtasks: removeSubtask(task.subtasks, subtask.id) })
+              }
+            />
+          ))}
+        </View>
       )}
     </View>
   );
@@ -184,6 +398,7 @@ export function TaskCard({
         onChangeList={(listId) => onUpdate({ listId })}
         onSetAlarm={() => setAlarmModalVisible(true)}
         onClearAlarm={() => onUpdate({ alarmTime: null })}
+        onAddSubtask={addSubtask}
         onDuplicate={onDuplicate}
         onDelete={onDelete}
         style={styles.moreMenuWrapper}
@@ -219,22 +434,34 @@ const styles = StyleSheet.create({
     // single-line height (the complete branch renders without the MoreMenu
     // wrapper that would otherwise supply the stretch).
     alignSelf: "stretch",
-    alignItems: "center",
     borderWidth: 1,
-    flexDirection: "row",
-    gap: 8,
+    // A column now: the title row, then the checklist stacked beneath it.
+    flexDirection: "column",
     // Floor of padding (16×2) + button height (32). A completed card's only
     // height-defining child is the StatusButton's native menu host, whose
     // async sizing can transiently report 0 — without this floor the row
     // (or a whole list of completed tasks) collapses blank. A floor, not a
-    // fixed height, so multi-line titles can still grow the card.
+    // fixed height, so multi-line titles and subtasks can still grow the card.
     minHeight: 64,
     overflow: "hidden",
     padding: 16,
   },
+  titleRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  // No `flex: 1` — EditableText's wrapper owns that; see its stylesheet.
   title: {
-    flex: 1,
     fontSize: 14,
     fontWeight: "500",
+  },
+  subtasks: {
+    gap: SUBTASK_GAP,
+    // Not indented: the checklist runs the full width of the title row, so a
+    // subtask's controls sit directly under the parent's, both columns of
+    // circles on the same vertical axes.
+    paddingHorizontal: SUBTASK_INSET,
+    paddingTop: SUBTASK_OFFSET,
   },
 });

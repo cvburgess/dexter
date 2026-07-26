@@ -7,6 +7,7 @@ import {
   cronScheduleSchema,
   hasUpdates,
   taskPrioritySchema,
+  templateSubtasksSchema,
   toolError,
   toolJson,
   uuidSchema,
@@ -72,17 +73,21 @@ export function registerTemplateTools(
     {
       title: "Create Repeat Task Template",
       description:
-        "Create a repeat task template with a validated cron schedule.",
+        "Create a repeat task template with a validated cron schedule. " +
+        "`subtasks` is an optional checklist blueprint of `{id, title}` " +
+        "items — no status, since each generated occurrence starts its own " +
+        "copy fresh and open.",
       inputSchema: {
         title: z.string().min(1),
         priority: taskPrioritySchema.optional(),
         schedule: cronScheduleSchema.optional(),
         goalId: uuidSchema.nullable().optional(),
         listId: uuidSchema.nullable().optional(),
+        subtasks: templateSubtasksSchema.optional(),
       },
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    async ({ title, priority, schedule, goalId, listId }) => {
+    async ({ title, priority, schedule, goalId, listId, subtasks }) => {
       const { data, error } = await ctx.supabase
         .from("repeat_task_templates")
         .insert({
@@ -92,6 +97,7 @@ export function registerTemplateTools(
           schedule,
           goal_id: goalId ?? null,
           list_id: listId ?? null,
+          subtasks: subtasks ?? [],
         })
         .select()
         .single();
@@ -105,7 +111,12 @@ export function registerTemplateTools(
     "update_template",
     {
       title: "Update Repeat Task Template",
-      description: "Update one or more repeat task template fields.",
+      description:
+        "Update one or more repeat task template fields. `subtasks` REPLACES " +
+        "the whole checklist blueprint — read the template first, modify the " +
+        "array, and send it back in full. Changing it affects future " +
+        "occurrences only; checklists already materialized onto existing " +
+        "tasks are independent copies and are left alone.",
       inputSchema: {
         templateId: uuidSchema,
         title: z.string().min(1).optional(),
@@ -113,6 +124,7 @@ export function registerTemplateTools(
         schedule: cronScheduleSchema.optional(),
         goalId: uuidSchema.nullable().optional(),
         listId: uuidSchema.nullable().optional(),
+        subtasks: templateSubtasksSchema.optional(),
       },
       annotations: {
         readOnlyHint: false,
@@ -120,13 +132,16 @@ export function registerTemplateTools(
         idempotentHint: true,
       },
     },
-    async ({ templateId, title, priority, schedule, goalId, listId }) => {
+    async (
+      { templateId, title, priority, schedule, goalId, listId, subtasks },
+    ) => {
       const update = compactUpdate({
         title,
         priority,
         schedule,
         goal_id: goalId,
         list_id: listId,
+        subtasks,
       });
 
       if (!hasUpdates(update)) {

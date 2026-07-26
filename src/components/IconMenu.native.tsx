@@ -1,6 +1,10 @@
 import { MenuView } from "@expo/ui/community/menu";
+import type { ComponentProps } from "react";
 
 import type { IconMenuProps, TIconMenuOption } from "./IconMenu.types";
+
+/** One entry in `MenuView`'s action tree — a leaf button or a group of them. */
+type TMenuAction = ComponentProps<typeof MenuView>["actions"][number];
 
 /**
  * Icon menu backed by `@expo/ui`'s community `MenuView` (a SwiftUI `Menu`/
@@ -22,41 +26,52 @@ export function IconMenu({
     for (const option of section.options) optionsById.set(option.id, option);
   }
 
+  const toAction = (option: TIconMenuOption): TMenuAction => ({
+    id: option.id,
+    title: option.title,
+    image: typeof option.icon === "string" ? option.icon : option.icon?.ios,
+    imageColor: option.iconColor,
+    // Android label color. iOS colors the icon from `imageColor` (via the
+    // `patches/@expo+ui` tint fix) but can't recolor a menu label
+    // independently, so this is a no-op there.
+    titleColor: option.titleColor,
+    // Only checkable options declare `isSelected`. Omitting `state` makes
+    // @expo/ui render a plain button rather than a stateful Toggle, so action
+    // items (e.g. "Backlog") never stick a checkmark after being tapped.
+    state:
+      option.isSelected === undefined
+        ? undefined
+        : option.isSelected
+          ? "on"
+          : "off",
+    attributes: option.isDestructive ? { destructive: true } : undefined,
+  });
+
   return (
     <MenuView
       title={menuTitle || undefined}
       testID={accessibilityLabel}
       style={style}
       shouldOpenOnLongPress={trigger === "longPress"}
-      actions={sections.map((section, index) => ({
-        id: `section-${index}`,
-        title: section.title ?? "",
-        image:
-          typeof section.icon === "string" ? section.icon : section.icon?.ios,
-        displayInline: !section.isSubmenu,
-        subactions: section.options.map((option) => ({
-          id: option.id,
-          title: option.title,
-          image:
-            typeof option.icon === "string" ? option.icon : option.icon?.ios,
-          imageColor: option.iconColor,
-          // Android label color. iOS colors the icon from `imageColor` (via the
-          // `patches/@expo+ui` tint fix) but can't recolor a menu label
-          // independently, so this is a no-op there.
-          titleColor: option.titleColor,
-          // Only checkable options declare `isSelected`. Omitting `state`
-          // makes @expo/ui render a plain button rather than a stateful
-          // Toggle, so action items (e.g. "Backlog") never stick a
-          // checkmark after being tapped.
-          state:
-            option.isSelected === undefined
-              ? undefined
-              : option.isSelected
-                ? "on"
-                : "off",
-          attributes: option.isDestructive ? { destructive: true } : undefined,
-        })),
-      }))}
+      actions={sections.flatMap((section, index): TMenuAction[] =>
+        // A plain section that continues the one before it is emitted as bare
+        // top-level actions: an inline group of its own would be drawn with the
+        // separator that `hideDivider` asks not to have.
+        !section.isSubmenu && section.hideDivider
+          ? section.options.map(toAction)
+          : [
+              {
+                id: `section-${index}`,
+                title: section.title ?? "",
+                image:
+                  typeof section.icon === "string"
+                    ? section.icon
+                    : section.icon?.ios,
+                displayInline: !section.isSubmenu,
+                subactions: section.options.map(toAction),
+              },
+            ],
+      )}
       onPressAction={({ nativeEvent }) => {
         optionsById.get(nativeEvent.event)?.onSelect();
       }}

@@ -47,6 +47,7 @@ const makeTask = (overrides: Partial<TTask> = {}): TTask => ({
   priority: ETaskPriority.UNPRIORITIZED,
   scheduledFor: null,
   status: ETaskStatus.TODO,
+  subtasks: [],
   templateId: null,
   ...overrides,
 });

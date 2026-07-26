@@ -43,6 +43,19 @@ export interface DemoHabit {
   daysActive: number[];
 }
 
+/** A subtask on a demo task: `{id, title, status}`, matching the jsonb column. */
+export interface DemoSubtask {
+  id: string;
+  title: string;
+  status: number;
+}
+
+/** A template's checklist blueprint: `{id, title}` only — no status. */
+export interface DemoTemplateSubtask {
+  id: string;
+  title: string;
+}
+
 export interface DemoTemplate {
   key: string;
   title: string;
@@ -51,6 +64,8 @@ export interface DemoTemplate {
   priority: number;
   listKey?: string;
   goalKey?: string;
+  /** Checklist copied onto each generated occurrence, reset to open (DEX-70). */
+  subtasks?: DemoTemplateSubtask[];
 }
 
 export interface DemoTask {
@@ -66,6 +81,8 @@ export interface DemoTask {
   templateKey?: string;
   /** Local alarm time `HH:MM`, iOS-only at runtime. */
   alarmTime?: string;
+  /** In-card checklist stored on the task's `subtasks` jsonb column (DEX-70). */
+  subtasks?: DemoSubtask[];
 }
 
 export interface DemoDailyHabit {
@@ -158,6 +175,11 @@ export function buildDemoData(): DemoDataset {
       schedule: "0 0 * * 0",
       priority: DEMO_PRIORITY.IMPORTANT,
       listKey: "work",
+      subtasks: [
+        { id: "wr-1", title: "Clear inbox to zero" },
+        { id: "wr-2", title: "Review this week's goals" },
+        { id: "wr-3", title: "Plan next week's priorities" },
+      ],
     },
     {
       key: "standup",
@@ -185,6 +207,20 @@ export function buildDemoData(): DemoDataset {
       scheduledForOffset: 0,
       dueOnOffset: 1,
       listKey: "work",
+      // A checklist mid-flight: some done, some still open.
+      subtasks: [
+        { id: "bf-1", title: "Triage new reports", status: DEMO_STATUS.DONE },
+        {
+          id: "bf-2",
+          title: "Reply to the crash on iPad",
+          status: DEMO_STATUS.IN_PROGRESS,
+        },
+        {
+          id: "bf-3",
+          title: "Thank the TestFlight group",
+          status: DEMO_STATUS.TODO,
+        },
+      ],
     },
     {
       title: "Draft release notes",
@@ -194,6 +230,16 @@ export function buildDemoData(): DemoDataset {
       dueOnOffset: null,
       listKey: "work",
       goalKey: "launch",
+      // A fresh checklist, nothing started yet.
+      subtasks: [
+        {
+          id: "rn-1",
+          title: "Summarize new features",
+          status: DEMO_STATUS.TODO,
+        },
+        { id: "rn-2", title: "List bug fixes", status: DEMO_STATUS.TODO },
+        { id: "rn-3", title: "Proofread", status: DEMO_STATUS.TODO },
+      ],
     },
     {
       title: "Weekly review",
@@ -203,6 +249,20 @@ export function buildDemoData(): DemoDataset {
       dueOnOffset: null,
       listKey: "work",
       templateKey: "weeklyReview",
+      // This occurrence's copy of the template's checklist, materialized open.
+      subtasks: [
+        { id: "wro-1", title: "Clear inbox to zero", status: DEMO_STATUS.TODO },
+        {
+          id: "wro-2",
+          title: "Review this week's goals",
+          status: DEMO_STATUS.TODO,
+        },
+        {
+          id: "wro-3",
+          title: "Plan next week's priorities",
+          status: DEMO_STATUS.TODO,
+        },
+      ],
     },
     {
       title: "Submit tax documents",

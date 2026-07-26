@@ -112,6 +112,7 @@ describe("NewTaskScreen", () => {
         scheduledFor: today.toString(),
         dueOn: today.add({ days: 2 }).toString(),
         alarmTime: null,
+        subtasks: [],
       },
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
@@ -232,6 +233,72 @@ describe("NewTaskScreen", () => {
         title: "Wake up",
         alarmTime: expect.stringMatching(/^\d{2}:\d{2}$/),
       }),
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
+  });
+
+  it("creates an unscheduled task when the schedule is cleared", () => {
+    const screen = render(<NewTaskScreen />);
+
+    fireEvent.changeText(screen.getByTestId("new-task-title"), "Someday");
+    fireEvent.press(screen.getByTestId("new-task-clear-schedule"));
+    const save = render(headerOptions().headerRight());
+    fireEvent.press(save.getByTestId("modal-done-button"));
+
+    expect(mockCreateTask).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Someday", scheduledFor: null }),
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
+  });
+
+  // An alarm fires on the scheduled day, so the two can't disagree.
+  it("drops a set alarm when the schedule is cleared", async () => {
+    const screen = render(<NewTaskScreen />);
+
+    fireEvent.changeText(screen.getByTestId("new-task-title"), "Someday");
+    fireEvent.press(screen.getByTestId("new-task-add-alarm"));
+    await screen.findByTestId("new-task-clear-alarm");
+
+    fireEvent.press(screen.getByTestId("new-task-clear-schedule"));
+
+    expect(screen.queryByTestId("new-task-clear-alarm")).toBeNull();
+    expect(screen.getByTestId("new-task-add-alarm")).toBeTruthy();
+  });
+
+  it("pulls an unscheduled task onto today when an alarm is added", async () => {
+    const today = Temporal.Now.plainDateISO();
+    const screen = render(<NewTaskScreen />);
+
+    fireEvent.changeText(screen.getByTestId("new-task-title"), "Wake up");
+    fireEvent.press(screen.getByTestId("new-task-clear-schedule"));
+    fireEvent.press(screen.getByTestId("new-task-add-alarm"));
+    await screen.findByTestId("new-task-clear-alarm");
+
+    const save = render(headerOptions().headerRight());
+    fireEvent.press(save.getByTestId("modal-done-button"));
+
+    expect(mockCreateTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Wake up",
+        scheduledFor: today.toString(),
+        alarmTime: expect.stringMatching(/^\d{2}:\d{2}$/),
+      }),
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
+  });
+
+  it("restores today when the schedule is added back", () => {
+    const today = Temporal.Now.plainDateISO();
+    const screen = render(<NewTaskScreen />);
+
+    fireEvent.changeText(screen.getByTestId("new-task-title"), "Pay bills");
+    fireEvent.press(screen.getByTestId("new-task-clear-schedule"));
+    fireEvent.press(screen.getByTestId("new-task-add-schedule"));
+    const save = render(headerOptions().headerRight());
+    fireEvent.press(save.getByTestId("modal-done-button"));
+
+    expect(mockCreateTask).toHaveBeenCalledWith(
+      expect.objectContaining({ scheduledFor: today.toString() }),
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
   });

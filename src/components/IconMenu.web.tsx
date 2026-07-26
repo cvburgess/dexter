@@ -1,5 +1,5 @@
 import { SymbolView } from "expo-symbols";
-import { type MouseEvent, useState } from "react";
+import { type MouseEvent, useEffect, useRef, useState } from "react";
 import {
   Dimensions,
   type GestureResponderEvent,
@@ -21,6 +21,8 @@ import type {
 
 const MENU_WIDTH = 220;
 const MENU_MARGIN = 8;
+/** Icon size, and so the width of the checkmark column that aligns with it. */
+const ICON_SIZE = 18;
 
 // Explicit `titleColor` override, else destructive red, else default text —
 // shared by the leaf and submenu option rows so their label color can't drift.
@@ -53,6 +55,27 @@ export function IconMenu({
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const isLongPress = trigger === "longPress";
+
+  // The chosen option's action, parked until the menu has actually closed.
+  //
+  // `Modal` restores focus to whatever was focused before it opened, and it
+  // does so from its own unmount cleanup. An action run inline would still be
+  // inside that commit, so one that starts an inline edit — "Add subtask",
+  // which mounts an autoFocus input — had its focus taken straight back; the
+  // input then blurred, which commits an empty title and drops the row, and the
+  // menu item looked like it did nothing at all (DEX-70).
+  //
+  // Running it from an effect on the close puts it after that cleanup: React
+  // flushes every unmount effect in a commit before any mount effect, so the
+  // modal is gone and the focus it stole has already been restored by the time
+  // this fires. Whatever the action focuses next therefore keeps it.
+  const pending = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    if (anchor !== null) return;
+    const action = pending.current;
+    pending.current = null;
+    action?.();
+  }, [anchor]);
 
   const openAt = (x: number, y: number) => {
     const { width } = Dimensions.get("window");
@@ -143,7 +166,9 @@ export function IconMenu({
                     key={key}
                     section={section}
                     dividerBorderColor={
-                      sectionIndex > 0 ? dividerBorderColor : null
+                      sectionIndex > 0 && !section.hideDivider
+                        ? dividerBorderColor
+                        : null
                     }
                     expanded={expandedSection === key}
                     onToggleExpanded={() =>
@@ -151,8 +176,9 @@ export function IconMenu({
                     }
                     theme={theme}
                     onSelectOption={(option) => {
+                      // Parked, not called: see `pending` above.
+                      pending.current = option.onSelect;
                       close();
-                      option.onSelect();
                     }}
                   />
                 );
@@ -186,6 +212,14 @@ function MenuSection({
       ? [styles.sectionDivider, { borderTopColor: dividerBorderColor }]
       : undefined;
 
+  // The checkmark column is reserved per section, not per row, so a group whose
+  // options are checkable stays aligned even while none of them is checked. A
+  // group of plain actions reserves nothing and lines up with the submenu
+  // headers instead of sitting indented under them.
+  const showCheckmark = section.options.some(
+    (option) => option.isSelected !== undefined,
+  );
+
   if (!section.isSubmenu) {
     return (
       <View style={dividerStyle}>
@@ -200,6 +234,7 @@ function MenuSection({
           <MenuOptionRow
             key={option.id}
             option={option}
+            showCheckmark={showCheckmark}
             theme={theme}
             onSelect={() => onSelectOption(option)}
           />
@@ -214,7 +249,7 @@ function MenuSection({
         {section.icon ? (
           <SymbolView
             name={section.icon}
-            size={18}
+            size={ICON_SIZE}
             tintColor={theme.colors.text}
           />
         ) : null}
@@ -229,6 +264,7 @@ function MenuSection({
               key={option.id}
               option={option}
               indented
+              showCheckmark={showCheckmark}
               theme={theme}
               onSelect={() => onSelectOption(option)}
             />
@@ -241,24 +277,35 @@ function MenuSection({
 function MenuOptionRow({
   option,
   indented,
+  showCheckmark,
   theme,
   onSelect,
 }: {
   option: TIconMenuOption;
   indented?: boolean;
+  /** Whether to reserve the leading checkmark column; see `MenuSection`. */
+  showCheckmark?: boolean;
   theme: ReturnType<typeof useTheme>;
   onSelect: () => void;
 }) {
   return (
     <Pressable
-      style={[styles.option, indented && styles.optionIndented]}
+      // The checkmark column is itself the indent — it sits where the parent
+      // row's icon does, so a submenu's rows line up under their header. Only a
+      // submenu with nothing to check needs an indent of its own.
+      style={[
+        styles.option,
+        indented && !showCheckmark && styles.optionIndented,
+      ]}
       onPress={onSelect}
     >
-      <Text style={styles.checkmark}>{option.isSelected ? "✓" : ""}</Text>
+      {showCheckmark ? (
+        <Text style={styles.checkmark}>{option.isSelected ? "✓" : ""}</Text>
+      ) : null}
       {option.icon ? (
         <SymbolView
           name={option.icon}
-          size={18}
+          size={ICON_SIZE}
           tintColor={option.iconColor ?? theme.colors.text}
         />
       ) : null}
@@ -300,8 +347,9 @@ const styles = StyleSheet.create({
   },
   chevron: {
     fontSize: 14,
+    // Pushed to the far end of the row, whose own horizontal padding is the
+    // only inset it needs — its own would double the gap the labels get.
     marginLeft: "auto",
-    paddingRight: 16,
   },
   option: {
     flexDirection: "row",
@@ -313,7 +361,9 @@ const styles = StyleSheet.create({
   optionIndented: {
     paddingLeft: 28,
   },
+  // As wide as the icons above it, so a checked row's label starts where its
+  // parent's does rather than 2px shy of it.
   checkmark: {
-    width: 16,
+    width: ICON_SIZE,
   },
 });

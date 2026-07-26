@@ -13,6 +13,7 @@ import {
   getOtherSections,
   getPrioritySections,
   getScheduleSections,
+  getTaskActionSections,
   MoreMenu,
 } from "../MoreMenu";
 
@@ -28,6 +29,7 @@ const makeTask = (overrides: Partial<TTask> = {}): TTask => ({
   priority: ETaskPriority.NEITHER,
   scheduledFor: null,
   status: ETaskStatus.TODO,
+  subtasks: [],
   templateId: null,
   ...overrides,
 });
@@ -69,10 +71,13 @@ jest.mock("@/hooks/useTemplates", () => ({
 
 jest.mock("expo-router", () => ({ useRouter: () => ({ push: jest.fn() }) }));
 
-const otherOptionTitles = () => {
+// The two untitled inline groups at the foot of the menu: the alarm/subtask
+// edits, then the duplicate/repeat/delete actions.
+const inlineOptionTitles = () => {
   const { sections } = mockIconMenu.mock.calls[0][0];
-  const other = sections.find((section) => section.title === "Other");
-  return other?.options.map((option) => option.title);
+  return sections
+    .filter((section) => !section.isSubmenu)
+    .map((section) => section.options.map((option) => option.title));
 };
 
 describe("MoreMenu", () => {
@@ -108,22 +113,38 @@ describe("MoreMenu", () => {
       "Priority",
       "Schedule",
       "List",
-      "Other",
+      undefined,
+      undefined,
     ]);
-    // Priority/Schedule/List collapse into submenus; the Other action group
-    // (which now leads with the alarm toggle) is inline so its actions are
-    // directly tappable.
+    // Priority/Schedule/List collapse into submenus; the two action groups are
+    // inline, so their actions are directly tappable.
     expect(sections.map((section) => Boolean(section.isSubmenu))).toEqual([
       true,
       true,
       true,
+      false,
       false,
     ]);
     expect(
       sections.map((section) =>
         typeof section.icon === "object" ? section.icon.ios : section.icon,
       ),
-    ).toEqual(["exclamationmark", "calendar", "face.smiling", undefined]);
+    ).toEqual([
+      "exclamationmark",
+      "calendar",
+      "face.smiling",
+      undefined,
+      undefined,
+    ]);
+    // Priority through the alarm/subtask actions read as one unruled group;
+    // only the duplicate/repeat/delete actions are set apart.
+    expect(sections.map((section) => Boolean(section.hideDivider))).toEqual([
+      false,
+      true,
+      true,
+      true,
+      false,
+    ]);
   });
 
   it("labels the repeat action 'Repeat' when the task has no template", () => {
@@ -142,11 +163,9 @@ describe("MoreMenu", () => {
       </MoreMenu>,
     );
 
-    expect(otherOptionTitles()).toEqual([
-      "Set alarm",
-      "Duplicate",
-      "Repeat",
-      "Delete",
+    expect(inlineOptionTitles()).toEqual([
+      ["Set alarm"],
+      ["Duplicate", "Repeat", "Delete"],
     ]);
   });
 
@@ -171,15 +190,13 @@ describe("MoreMenu", () => {
       </MoreMenu>,
     );
 
-    expect(otherOptionTitles()).toEqual([
-      "Set alarm",
-      "Duplicate",
-      "Edit repeat schedule",
-      "Delete",
+    expect(inlineOptionTitles()).toEqual([
+      ["Set alarm"],
+      ["Duplicate", "Edit repeat schedule", "Delete"],
     ]);
   });
 
-  it("shows 'Unset alarm' in the Other group when the task already has an alarm", () => {
+  it("shows 'Unset alarm' when the task already has an alarm", () => {
     render(
       <MoreMenu
         task={makeTask({ alarmTime: "08:00" })}
@@ -195,17 +212,17 @@ describe("MoreMenu", () => {
       </MoreMenu>,
     );
 
-    expect(otherOptionTitles()?.[0]).toBe("Unset alarm");
+    expect(inlineOptionTitles()[0]).toEqual(["Unset alarm"]);
   });
 });
 
 describe("getOtherSections", () => {
   const repeat = { label: "Repeat", onSelect: jest.fn() };
 
-  it("offers Duplicate, Repeat, and Delete as an inline group, with Delete destructive", () => {
+  it("offers Duplicate, Repeat, and Delete as an untitled inline group, with Delete destructive", () => {
     const [section] = getOtherSections(jest.fn(), jest.fn(), repeat);
 
-    expect(section.title).toBe("Other");
+    expect(section.title).toBeUndefined();
     expect(section.isSubmenu).toBeUndefined();
     expect(section.options.map((option) => option.title)).toEqual([
       "Duplicate",
@@ -243,17 +260,35 @@ describe("getOtherSections", () => {
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
 
-  it("leads with an inline alarm item (same icon for set/unset) when one is passed", () => {
-    const onSelect = jest.fn();
-    const [section] = getOtherSections(
-      jest.fn(),
-      jest.fn(),
-      { label: "Repeat", onSelect: jest.fn() },
-      { title: "Set alarm", onSelect },
+  it("holds no alarm or subtask item — those sit in their own group above", () => {
+    const [section] = getOtherSections(jest.fn(), jest.fn(), repeat);
+
+    expect(section.options.map((option) => option.title)).toEqual([
+      "Duplicate",
+      "Repeat",
+      "Delete",
+    ]);
+  });
+});
+
+describe("getTaskActionSections", () => {
+  it("offers the alarm and subtask actions as one untitled inline group", () => {
+    const onSetAlarm = jest.fn();
+    const onAddSubtask = jest.fn();
+    const [section] = getTaskActionSections(
+      { title: "Set alarm", onSelect: onSetAlarm },
+      onAddSubtask,
     );
 
-    const [alarmOption] = section.options;
-    expect(alarmOption.title).toBe("Set alarm");
+    expect(section.title).toBeUndefined();
+    // Directly-tappable actions, not a submenu.
+    expect(section.isSubmenu).toBeUndefined();
+    expect(section.options.map((option) => option.title)).toEqual([
+      "Set alarm",
+      "Add subtask",
+    ]);
+
+    const [alarmOption, subtaskOption] = section.options;
     // Same icon whether setting or unsetting.
     expect(alarmOption.icon).toEqual({
       ios: "alarm",
@@ -262,23 +297,24 @@ describe("getOtherSections", () => {
     });
 
     alarmOption.onSelect();
-    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSetAlarm).toHaveBeenCalledTimes(1);
 
-    // The alarm item is not a submenu; it's a directly-tappable action.
-    expect(section.isSubmenu).toBeUndefined();
+    subtaskOption.onSelect();
+    expect(onAddSubtask).toHaveBeenCalledTimes(1);
   });
 
   it("omits the alarm item when none is passed (non-iOS)", () => {
-    const [section] = getOtherSections(jest.fn(), jest.fn(), {
-      label: "Repeat",
-      onSelect: jest.fn(),
-    });
+    const [section] = getTaskActionSections(undefined, jest.fn());
 
     expect(section.options.map((option) => option.title)).toEqual([
-      "Duplicate",
-      "Repeat",
-      "Delete",
+      "Add subtask",
     ]);
+  });
+
+  // Nothing to act on: a card with no alarm support and no checklist affordance
+  // should not open a menu with an empty divider in it.
+  it("drops the group entirely when neither action is available", () => {
+    expect(getTaskActionSections()).toEqual([]);
   });
 });
 

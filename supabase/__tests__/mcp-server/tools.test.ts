@@ -244,6 +244,7 @@ class RecordingBuilder {
   update(payload: FakeRow): RecordingBuilder {
     this.op = "update";
     this.payload = payload;
+    this.fake.updates.push({ table: this.table, payload });
     return this;
   }
 
@@ -282,6 +283,7 @@ class RecordingBuilder {
 
 class RecordingSupabase {
   inserts: { table: string; payload: FakeRow }[] = [];
+  updates: { table: string; payload: FakeRow }[] = [];
   deletes: { table: string; filters: string[] }[] = [];
 
   constructor(private queues: Record<string, FakeRow[]>) {}
@@ -498,4 +500,287 @@ Deno.test("update_daily_habit only writes steps_complete", async () => {
   ]);
   assertEquals("percent_complete" in payload, false);
   assertEquals("user_id" in payload, false);
+});
+
+// DEX-70: subtasks ride on the parent row as a jsonb array.
+
+const SUB_USER = "00000000-0000-4000-8000-0000000000ee";
+const SUB_TASK = "00000000-0000-4000-8000-0000000000ff";
+
+function taskTools(supabase: RecordingSupabase, userId = SUB_USER) {
+  const registry = new ToolRegistry();
+  registerTaskTools(
+    registry as unknown as McpServer,
+    recordingContext(supabase, userId),
+  );
+  return registry;
+}
+
+Deno.test("create_task stores the provided checklist", async () => {
+  const supabase = new RecordingSupabase({ tasks: [{ ok: true }] });
+  const subtasks = [
+    { id: "s1", title: "Pack bag", status: 1 },
+    { id: "s2", title: "Fill bottle", status: 2 },
+  ];
+
+  await taskTools(supabase).run("create_task", {
+    title: "Get ready",
+    subtasks,
+  });
+
+  assertEquals(supabase.inserts[0].payload.subtasks, subtasks);
+});
+
+Deno.test("create_task defaults the checklist to an empty array", async () => {
+  const supabase = new RecordingSupabase({ tasks: [{ ok: true }] });
+
+  await taskTools(supabase).run("create_task", { title: "Get ready" });
+
+  // Never null: every read path treats subtasks as an array without guarding.
+  assertEquals(supabase.inserts[0].payload.subtasks, []);
+});
+
+Deno.test("update_task replaces the whole checklist array", async () => {
+  const supabase = new RecordingSupabase({ tasks: [{ ok: true }] });
+  const replacement = [{ id: "s1", title: "Only this one", status: 1 }];
+
+  await taskTools(supabase).run("update_task", {
+    taskId: SUB_TASK,
+    subtasks: replacement,
+  });
+
+  assertEquals(supabase.updates[0].payload.subtasks, replacement);
+});
+
+Deno.test("update_task rejects malformed subtask entries", () => {
+  const registry = taskTools(new RecordingSupabase({}));
+  const schema = registry.tools.get("update_task")
+    ?.inputSchema as Record<
+      string,
+      { safeParse(v: unknown): { success: boolean } }
+    >;
+
+  assertEquals(
+    schema.subtasks.safeParse([{ id: "s1", title: "Ok", status: 1 }]).success,
+    true,
+  );
+  // A subtask is exactly {id, title, status}; anything else is a client bug and
+  // must not reach the column, since nothing downstream re-validates it.
+  assertEquals(
+    schema.subtasks.safeParse([{ id: "s1", title: "" }]).success,
+    false,
+  );
+  assertEquals(
+    schema.subtasks.safeParse([{ title: "No id", status: 1 }]).success,
+    false,
+  );
+  assertEquals(
+    schema.subtasks.safeParse([{ id: "s1", title: "Bad status", status: 9 }])
+      .success,
+    false,
+  );
+  assertEquals(schema.subtasks.safeParse("not an array").success, false);
+});
+
+Deno.test("update_task sweeps open subtasks closed in the same write", async () => {
+  const supabase = new RecordingSupabase({
+    tasks: [
+      // Pre-update read: status plus the checklist to sweep.
+      {
+        status: 1,
+        subtasks: [
+          { id: "s1", title: "Open", status: 1 },
+          { id: "s2", title: "Already done", status: 2 },
+        ],
+      },
+      { status: 2, template_id: null, scheduled_for: null },
+    ],
+  });
+
+  await taskTools(supabase).run("update_task", { taskId: SUB_TASK, status: 2 });
+
+  // One write carries both — that is what makes the sweep atomic.
+  assertEquals(supabase.updates.length, 1);
+  assertEquals(supabase.updates[0].payload.status, 2);
+  assertEquals(supabase.updates[0].payload.subtasks, [
+    { id: "s1", title: "Open", status: 2 },
+    { id: "s2", title: "Already done", status: 2 },
+  ]);
+});
+
+Deno.test("update_task lets an explicit checklist win over the sweep", async () => {
+  const explicit = [{ id: "s1", title: "Renamed", status: 1 }];
+  const supabase = new RecordingSupabase({
+    tasks: [
+      { status: 1, subtasks: [{ id: "s1", title: "Open", status: 1 }] },
+      { status: 2, template_id: null, scheduled_for: null },
+    ],
+  });
+
+  await taskTools(supabase).run("update_task", {
+    taskId: SUB_TASK,
+    status: 2,
+    subtasks: explicit,
+  });
+
+  assertEquals(supabase.updates[0].payload.subtasks, explicit);
+});
+
+Deno.test("update_task does not touch the checklist on a non-completing update", async () => {
+  const supabase = new RecordingSupabase({ tasks: [{ ok: true }] });
+
+  await taskTools(supabase).run("update_task", {
+    taskId: SUB_TASK,
+    priority: 2,
+  });
+
+  assertEquals("subtasks" in supabase.updates[0].payload, false);
+});
+
+Deno.test("archive_task sweeps the checklist, and restoring leaves it alone", async () => {
+  const archiving = new RecordingSupabase({
+    tasks: [
+      { status: 1, subtasks: [{ id: "s1", title: "Open", status: 1 }] },
+      { status: 3, template_id: null, scheduled_for: null },
+    ],
+  });
+
+  await taskTools(archiving).run("archive_task", { taskId: SUB_TASK });
+
+  assertEquals(archiving.updates[0].payload.subtasks, [
+    { id: "s1", title: "Open", status: 3 },
+  ]);
+
+  const restoring = new RecordingSupabase({
+    tasks: [{ status: 1, template_id: null, scheduled_for: null }],
+  });
+
+  await taskTools(restoring).run("archive_task", {
+    taskId: SUB_TASK,
+    restore: true,
+  });
+
+  // A restored task returns to todo with its checklist as the user left it.
+  assertEquals("subtasks" in restoring.updates[0].payload, false);
+});
+
+Deno.test("a recurring occurrence gets a fresh copy of the template's checklist", async () => {
+  const supabase = new RecordingSupabase({
+    tasks: [
+      { status: 1, subtasks: [{ id: "old", title: "Water", status: 1 }] },
+      { status: 2, template_id: RECUR_TEMPLATE, scheduled_for: "2030-01-01" },
+    ],
+    repeat_task_templates: [
+      {
+        id: RECUR_TEMPLATE,
+        title: "Water the plants",
+        priority: 2,
+        list_id: null,
+        goal_id: null,
+        schedule: "0 0 * * *",
+        subtasks: [
+          { id: "tpl-1", title: "Water" },
+          { id: "tpl-2", title: "Prune" },
+        ],
+      },
+    ],
+  });
+
+  await taskTools(supabase).run("update_task", { taskId: SUB_TASK, status: 2 });
+
+  const inserted = supabase.inserts.find((i) => i.table === "tasks");
+  assert(inserted, "expected a next occurrence to be inserted");
+  const subtasks = inserted.payload.subtasks as {
+    id: string;
+    title: string;
+    status: number;
+  }[];
+
+  assertEquals(subtasks.map((s) => s.title), ["Water", "Prune"]);
+  // Reset to open, and sharing ids with neither the template nor the task that
+  // just completed — each occurrence's checklist is independent state.
+  assertEquals(subtasks.every((s) => s.status === 1), true);
+  assertEquals(subtasks.some((s) => s.id === "tpl-1" || s.id === "old"), false);
+});
+
+Deno.test("the sweep survives a stored title longer than the input cap", async () => {
+  // The app has its own maxLength, but a title stored before that existed (or
+  // written any other way) must not make the whole array unparseable — failing
+  // the read would silently skip the sweep rather than reject anything.
+  const longTitle = "x".repeat(250);
+  const supabase = new RecordingSupabase({
+    tasks: [
+      { status: 1, subtasks: [{ id: "s1", title: longTitle, status: 1 }] },
+      { status: 2, template_id: null, scheduled_for: null },
+    ],
+  });
+
+  await taskTools(supabase).run("update_task", { taskId: SUB_TASK, status: 2 });
+
+  assertEquals(supabase.updates[0].payload.subtasks, [
+    { id: "s1", title: longTitle, status: 2 },
+  ]);
+});
+
+Deno.test("create_task sweeps a checklist when the task is created complete", async () => {
+  const supabase = new RecordingSupabase({ tasks: [{ ok: true }] });
+
+  await taskTools(supabase).run("create_task", {
+    title: "Already handled",
+    status: 2,
+    subtasks: [
+      { id: "s1", title: "Open", status: 1 },
+      { id: "s2", title: "Also open", status: 0 },
+    ],
+  });
+
+  // Otherwise a done parent with open children could be inserted directly,
+  // sidestepping the invariant update_task and archive_task both enforce.
+  assertEquals(supabase.inserts[0].payload.subtasks, [
+    { id: "s1", title: "Open", status: 2 },
+    { id: "s2", title: "Also open", status: 2 },
+  ]);
+});
+
+Deno.test("create_task leaves the checklist alone for an incomplete task", async () => {
+  const supabase = new RecordingSupabase({ tasks: [{ ok: true }] });
+  const subtasks = [{ id: "s1", title: "Open", status: 1 }];
+
+  await taskTools(supabase).run("create_task", {
+    title: "In flight",
+    status: 1,
+    subtasks,
+  });
+
+  assertEquals(supabase.inserts[0].payload.subtasks, subtasks);
+});
+
+Deno.test("a recurring occurrence copies a template checklist past the input cap", async () => {
+  const longTitle = "y".repeat(250);
+  const supabase = new RecordingSupabase({
+    tasks: [
+      { status: 1, subtasks: [] },
+      { status: 2, template_id: RECUR_TEMPLATE, scheduled_for: "2030-01-01" },
+    ],
+    repeat_task_templates: [
+      {
+        id: RECUR_TEMPLATE,
+        title: "Water the plants",
+        priority: 2,
+        list_id: null,
+        goal_id: null,
+        schedule: "0 0 * * *",
+        subtasks: [{ id: "tpl-1", title: longTitle }],
+      },
+    ],
+  });
+
+  await taskTools(supabase).run("update_task", { taskId: SUB_TASK, status: 2 });
+
+  const inserted = supabase.inserts.find((i) => i.table === "tasks");
+  assert(inserted, "expected a next occurrence to be inserted");
+  assertEquals(
+    (inserted.payload.subtasks as { title: string }[]).map((s) => s.title),
+    [longTitle],
+  );
 });

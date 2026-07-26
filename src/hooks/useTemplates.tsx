@@ -66,6 +66,10 @@ export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
         listId: task.listId,
         priority: task.priority,
         title: task.title,
+        // Carry the checklist's titles across, dropping each item's status —
+        // the template is the blueprint every future occurrence starts from,
+        // so it records *what* the steps are, not how far this one task got.
+        subtasks: task.subtasks.map(({ id, title }) => ({ id, title })),
       });
 
       await updateTask(supabase, { id: task.id, templateId: template.id });

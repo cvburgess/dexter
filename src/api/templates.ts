@@ -5,6 +5,16 @@ import { Database, TablesInsert, TablesUpdate } from "@/types/database.types";
 
 import { ETaskPriority } from "./tasks";
 
+/**
+ * A template's checklist item. Unlike a task's subtask it carries no `status` —
+ * a template is a blueprint, not state; each generated occurrence materializes
+ * its own copy at the open status (see `subtasksFromTemplate`).
+ */
+export type TTemplateSubtask = {
+  id: string;
+  title: string;
+};
+
 export type TTemplate = {
   id: string;
   alarmTime: string | null;
@@ -13,9 +23,15 @@ export type TTemplate = {
   listId: string | null;
   priority: ETaskPriority;
   schedule: string;
+  subtasks: TTemplateSubtask[];
   title: string;
   userId: string;
 };
+
+/** See `withSubtasksArray` in `api/tasks.ts` — the same pre-migration guard. */
+const withSubtasksArray = <T extends { subtasks?: TTemplateSubtask[] }>(
+  row: T,
+): T => (Array.isArray(row.subtasks) ? row : { ...row, subtasks: [] });
 
 export const getTemplates = async (supabase: SupabaseClient<Database>) => {
   const { data, error } = await supabase
@@ -24,7 +40,7 @@ export const getTemplates = async (supabase: SupabaseClient<Database>) => {
     .order("created_at");
 
   if (error) throw error;
-  return camelCase(data) as TTemplate[];
+  return (camelCase(data) as TTemplate[]).map(withSubtasksArray);
 };
 
 export type TCreateTemplate = {
@@ -33,6 +49,7 @@ export type TCreateTemplate = {
   listId?: string | null;
   priority: ETaskPriority;
   schedule?: string;
+  subtasks?: TTemplateSubtask[];
   title: string;
 };
 
@@ -47,7 +64,7 @@ export const createTemplate = async (
     .single();
 
   if (error) throw error;
-  return camelCase(data) as TTemplate;
+  return withSubtasksArray(camelCase(data) as TTemplate);
 };
 
 export type TUpdateTemplate = {
@@ -57,6 +74,7 @@ export type TUpdateTemplate = {
   listId?: string | null;
   priority?: ETaskPriority;
   schedule?: string;
+  subtasks?: TTemplateSubtask[];
   title?: string;
 };
 
@@ -72,7 +90,7 @@ export const updateTemplate = async (
     .single();
 
   if (error) throw error;
-  return camelCase(data) as TTemplate;
+  return withSubtasksArray(camelCase(data) as TTemplate);
 };
 
 export const deleteTemplate = async (

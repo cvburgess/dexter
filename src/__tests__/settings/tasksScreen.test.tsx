@@ -31,6 +31,7 @@ const makeTemplate = (overrides: Partial<TTemplate> = {}): TTemplate => ({
   listId: null,
   priority: ETaskPriority.NEITHER,
   schedule: "0 0 * * 1",
+  subtasks: [],
   title: "Water the plants",
   userId: "user-1",
   ...overrides,

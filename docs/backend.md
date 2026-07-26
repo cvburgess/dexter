@@ -48,15 +48,17 @@ Every user-owned table enables RLS with per-operation policies keyed on
   `daily_habits.habit_id`), the `WITH CHECK` clause should confirm the
   referenced row belongs to `auth.uid()` (`is null or exists (...)` for nullable
   FKs) so a user cannot attach another user's records.
-- **Self-referential foreign keys cannot use the inline `exists (...)` guard.**
-  A policy's `USING`/`WITH CHECK` must never sub-select from the same table it
-  guards (e.g. `tasks.subtask_of` → `select 1 from public.tasks`). Postgres
-  re-applies the table's policies while evaluating the sub-select and raises
-  `42P17 infinite recursion detected in policy` (see `DEX-4`/`DEX-32`). The
-  `USING` clause already restricts the operation to rows the caller owns; if a
-  self-referential FK genuinely needs a cross-owner guard, do it in a
-  `SECURITY DEFINER` helper function (which bypasses RLS and so does not recurse),
-  not an inline sub-select.
+- **A policy must never sub-select the table it guards.** Postgres re-applies
+  the table's policies while evaluating the sub-select and raises
+  `42P17 infinite recursion detected in policy` (see `DEX-4`/`DEX-32`). This
+  bit the old `tasks.subtask_of` self-referential FK guard
+  (`select 1 from public.tasks`). That column was dropped in DEX-70 — subtasks
+  are now a jsonb array, not rows — so no self-referential FK exists in the
+  schema today, and the rule stands as a constraint on any future one: the
+  `USING` clause already restricts the operation to rows the caller owns, and a
+  genuine cross-owner guard belongs in a `SECURITY DEFINER` helper (which
+  bypasses RLS and so does not recurse), never an inline sub-select.
+  `supabase/__tests__/migrations/tasks_update_rls.test.ts` pins this.
 
 ## Realtime
 
@@ -129,6 +131,43 @@ dashboard-only addition would drift from what the migration declares.
   invoke the shared logic, and `delete_task` also deletes a linked template so
   future occurrences stop. A recurred occurrence copies the template's
   `alarm_time` (see below) so repeat tasks keep their alarm.
+- **Subtasks are a jsonb array, not rows (`subtasks`).** `tasks` and
+  `repeat_task_templates` each carry `subtasks jsonb NOT NULL DEFAULT '[]'`
+  (migration `20260721182025_add_task_subtasks.sql`). A subtask is a
+  lightweight checklist item — `{id, title, status}` on a task, `{id, title}`
+  on a template, with ids minted client-side and unique only within their own
+  array. Choosing the array over the relational `tasks.subtask_of` column
+  (dropped by the same migration, and never app-writable) buys three things:
+  subtasks are one level deep by construction; completing a parent sweeps its
+  whole checklist in a **single row update**, so a done parent is never stored
+  alongside open children; and recurrence has no orphan-spawn hazard, because
+  array items carry no `template_id`. It needs no RLS change — subtasks live
+  inside rows the existing `user_id` policies already guard — and no triggers.
+  - **Accepted tradeoff: last-write-wins on the whole array.** The phone and an
+    MCP client editing the same checklist inside one refetch window will clobber
+    each other. Whole-array replacement is the contract everywhere (the MCP
+    `update_task` tool documents it explicitly). If this becomes a real problem,
+    the mitigation is RPC array surgery — `subtask_add` / `subtask_set_status` /
+    `subtask_promote` — which needs **no schema change**.
+  - **Promotion is two non-atomic writes.** A subtask graduating to a real task
+    inherits the parent's `list_id`/`goal_id`/`priority`/`scheduled_for`/
+    `due_on` but never its `alarm_time`; the task is inserted, then the parent's
+    array is rewritten without it. A crash between the two leaves a duplicate,
+    not data loss.
+  - **Write bounds are not read bounds.** `tools/helpers.ts` exports bounded
+    schemas for tool *input* (`subtasksSchema`, `templateSubtasksSchema` — 100
+    items, 100-char titles) and separate unbounded ones for parsing *stored*
+    rows (`storedSubtasksSchema`, `storedTemplateSubtasksSchema`). Reusing the
+    input schema on a read is a trap: a failed parse means "no subtasks", so an
+    over-long stored title would silently skip that task's completion sweep
+    instead of rejecting anything. The app caps input at
+    `SUBTASK_TITLE_MAX_LENGTH` to match the write bound.
+  - **Every write path that can complete a task sweeps.** `update_task` and
+    `archive_task` fold the sweep into their existing pre-update read
+    (`readForCompletion`), and `create_task` sweeps when it inserts an
+    already-complete task — otherwise the forbidden state could be created
+    directly, sidestepping both.
+  - If subtasks ever need fields of their own, that is a jsonb→rows migration.
 - **Task alarms (`alarm_time`).** `tasks` and `repeat_task_templates` each carry
   a nullable `alarm_time` (`time`) column (migration
   `20260717230155_add_task_alarm_time.sql`). It stores the time-of-day a task's

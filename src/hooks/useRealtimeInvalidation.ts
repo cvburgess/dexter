@@ -9,6 +9,7 @@ import { daysMutationKey } from "./useDays";
 import { goalsQueryOptions } from "./useGoals";
 import { HABITS_INVALIDATION_KEYS } from "./useHabits";
 import { listsQueryOptions } from "./useLists";
+import { TASKS_MUTATION_KEY } from "./useTasks";
 import { supabase } from "./useAuth";
 
 // Table -> cache keys to invalidate when a change lands for that table.
@@ -72,6 +73,17 @@ export const useRealtimeInvalidation = (userId: string | undefined) => {
               mutationKey: daysMutationKey(query.queryKey[1] as string),
             }) === 0,
         });
+        return;
+      }
+      if (
+        table === "tasks" &&
+        queryClient.isMutating({ mutationKey: TASKS_MUTATION_KEY }) > 0
+      ) {
+        // Our own write echoes back here. The optimistic cache already holds
+        // it, and the refetch this would start can resolve *after* a newer
+        // local edit — stamping stale rows over it, so the edit visibly
+        // reverts. Skipping loses nothing: the in-flight mutation invalidates
+        // on settle, which is the catch-up for anything genuinely remote.
         return;
       }
       for (const queryKey of REALTIME_INVALIDATIONS[table]) {
