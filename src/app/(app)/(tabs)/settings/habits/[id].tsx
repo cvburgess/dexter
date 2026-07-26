@@ -19,6 +19,7 @@ import { FormRow } from "@/components/FormRow";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { TextInput } from "@/components/TextInput";
 import { WeekdayPicker } from "@/components/WeekdayPicker";
+import { ModalScreen } from "@/components/ModalScreen";
 import { WebModalHeader } from "@/components/WebModalHeader";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useHabits } from "@/hooks/useHabits";
@@ -170,7 +171,7 @@ function HabitForm({ existing }: { existing?: THabit }) {
   const inputBorder = withOpacity(theme.colors.text, 0.1);
 
   return (
-    <>
+    <ModalScreen>
       <WebModalHeader
         isDisabled={!canSave}
         onClose={handleClose}
@@ -267,7 +268,7 @@ function HabitForm({ existing }: { existing?: THabit }) {
       />
 
       <ConfirmationModal {...confirmationProps} />
-    </>
+    </ModalScreen>
   );
 }
 

@@ -16,6 +16,7 @@ import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { EmojiPicker } from "@/components/EmojiPicker";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { TextInput } from "@/components/TextInput";
+import { ModalScreen } from "@/components/ModalScreen";
 import { WebModalHeader } from "@/components/WebModalHeader";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useLists } from "@/hooks/useLists";
@@ -121,7 +122,7 @@ function ListForm({ existing }: { existing?: TList }) {
   const inputBorder = withOpacity(theme.colors.text, 0.1);
 
   return (
-    <>
+    <ModalScreen>
       <WebModalHeader
         isDisabled={!canSave}
         onClose={handleClose}
@@ -179,7 +180,7 @@ function ListForm({ existing }: { existing?: TList }) {
       />
 
       <ConfirmationModal {...confirmationProps} />
-    </>
+    </ModalScreen>
   );
 }
 
