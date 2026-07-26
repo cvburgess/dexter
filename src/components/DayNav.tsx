@@ -3,25 +3,13 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { DateField } from "@/components/DateField";
 import { formatWeekdayMonthDay } from "@/utils/formatPlainDate";
+import { dateToPlainDate, plainDateToDate } from "@/utils/plainDate";
 import { useTheme } from "@/utils/theme";
 
 type TDayNavProps = {
   date: Temporal.PlainDate;
   onChangeDate: (date: Temporal.PlainDate) => void;
 };
-
-// `DateField` speaks native `Date`; `DayNav` speaks `Temporal.PlainDate`.
-// Convert at the boundary, mirroring the helpers in `new-task.tsx` but working
-// with `PlainDate` values directly rather than ISO strings.
-const plainDateToDate = (date: Temporal.PlainDate): Date =>
-  new Date(date.year, date.month - 1, date.day);
-
-const dateToPlainDate = (date: Date): Temporal.PlainDate =>
-  Temporal.PlainDate.from({
-    year: date.getFullYear(),
-    month: date.getMonth() + 1,
-    day: date.getDate(),
-  });
 
 export function DayNav({ date, onChangeDate }: TDayNavProps) {
   const theme = useTheme();

@@ -31,23 +31,12 @@ import {
   isAlarmSupported,
   requestAlarmAuthorization,
 } from "@/utils/alarms";
+import { dateToPlainDateISO, plainDateISOToDate } from "@/utils/plainDate";
 import { useTheme } from "@/utils/theme";
 
 // The universal Picker's item values cannot be null, so "no list" gets a
 // sentinel that can never collide with a list id.
 const NO_LIST = "";
-
-const plainDateToDate = (iso: string): Date => {
-  const date = Temporal.PlainDate.from(iso);
-  return new Date(date.year, date.month - 1, date.day);
-};
-
-const dateToPlainDateISO = (date: Date): string =>
-  Temporal.PlainDate.from({
-    year: date.getFullYear(),
-    month: date.getMonth() + 1,
-    day: date.getDate(),
-  }).toString();
 
 // RN's Alert is a no-op on web, so fall back to the browser's alert there.
 const showSaveError = () => {
@@ -308,7 +297,7 @@ function ClearableDateField({
       <DateField
         accentColor={theme.colors.primary}
         testID={`new-task-${field}`}
-        value={plainDateToDate(value)}
+        value={plainDateISOToDate(value)}
         onChange={(date) => onChange(dateToPlainDateISO(date))}
       />
       <TouchableOpacity

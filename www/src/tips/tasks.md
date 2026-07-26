@@ -86,6 +86,8 @@ After all, there's only so much space.
 
 - **Priority**: Assign a priority to the task (changes the card color)
 - **Schedule**: Pick a day to work on the task (see "due date vs do date" above)
+- **Deadline**: Set or clear the day the task is due (see "due date vs do date"
+  above)
 - **Add subtask**: Start a checklist inside the task (see "subtasks" above)
 - **Repeat**: Schedule repeating tasks - daily, weekly, monthly, or annually
 - **Delete**: Permanently deletes the task and all data associated with it
