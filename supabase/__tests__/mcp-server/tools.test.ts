@@ -591,6 +591,14 @@ Deno.test("update_task rejects malformed subtask entries", () => {
       .success,
     false,
   );
+  // The bound is `z.nativeEnum(ETaskStatus)`, and a numeric TS enum carries a
+  // reverse mapping — assert the key names are not silently accepted as values,
+  // which would put a string into a smallint column.
+  assertEquals(
+    schema.subtasks.safeParse([{ id: "s1", title: "By name", status: "DONE" }])
+      .success,
+    false,
+  );
   assertEquals(schema.subtasks.safeParse("not an array").success, false);
 });
 

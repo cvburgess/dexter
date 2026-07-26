@@ -2,6 +2,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 
 import { camelCase, snakeCase } from "@/utils/changeCase";
 import { makeSubtaskId, withFreshIds } from "@/utils/subtasks";
+import { ETaskStatus } from "@/utils/taskStatus";
 import { Database, TablesInsert, TablesUpdate } from "@/types/database.types";
 
 import { applyFilters, TQueryFilter } from "./applyFilters";
@@ -40,25 +41,10 @@ export enum ETaskPriority {
   UNPRIORITIZED,
 }
 
-/**
- * Persisted directly as `tasks.status smallint` — the numeric values are stored
- * data, not just a TS detail. Append new members only; reordering renumbers every
- * existing row. Mirrored by `supabase/functions/mcp-server/tools/tasks.ts` and
- * `supabase/scripts/demoData.ts`.
- *
- * Note that the numbering doubles as sort order: task queries `.order("status")`
- * on the raw smallint, so appending has so far kept the terminal statuses at the
- * bottom by luck. Adding an *open* status would be forced to the end by the
- * append-only rule and would sort below the closed-out ones — at which point the
- * two constraints collide and display order needs its own explicit table.
- */
-export enum ETaskStatus {
-  IN_PROGRESS,
-  TODO,
-  DONE,
-  WONT_DO,
-  DELEGATED,
-}
+// Re-exported so `@/api/tasks` stays the one import site for task types, but the
+// enum itself lives in an import-free leaf module that the Deno MCP server can
+// also load — this file can't be, since it pulls in `@supabase/supabase-js`.
+export { ETaskStatus };
 
 export const getTasks = async (
   supabase: SupabaseClient<Database>,

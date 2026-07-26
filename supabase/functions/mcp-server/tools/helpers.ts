@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { ETaskStatus } from "@src/utils/taskStatus.ts";
+
 import { captureException } from "../../_shared/sentry.ts";
 
 export const uuidSchema = z.string().uuid();
@@ -8,10 +10,15 @@ export const dateSchema = z.string().regex(
   "Expected date in YYYY-MM-DD format",
 );
 export const taskPrioritySchema = z.number().int().min(0).max(4);
-// 0 in-progress, 1 todo, 2 done, 3 won't-do, 4 delegated — mirrors `ETaskStatus`
-// in src/api/tasks.ts. The column itself is an unconstrained smallint, so this
-// bound is what actually rejects a bogus status; raise it whenever the enum grows.
-export const taskStatusSchema = z.number().int().min(0).max(4);
+/**
+ * Derived from the app's enum rather than a hand-written numeric bound, so it can
+ * never fall behind a newly added status. That drift mattered: `tasks.status` is
+ * an unconstrained smallint with no check constraint, making this schema the only
+ * thing that rejects a bogus status — and it also validates *stored* rows on read
+ * (see `storedSubtasksSchema`), where a parse failure is read as "no subtasks" and
+ * silently skips a task's completion sweep.
+ */
+export const taskStatusSchema = z.nativeEnum(ETaskStatus);
 export const themeModeSchema = z.number().int().min(0).max(2);
 
 // Subtasks (DEX-70) live as a jsonb array on the parent row. Ids are minted by
