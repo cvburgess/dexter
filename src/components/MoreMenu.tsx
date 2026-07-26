@@ -72,9 +72,8 @@ export function MoreMenu({
     }
   };
 
-  // Alarms ring via native iOS AlarmKit only, so the item is iOS-only. It sits
-  // inline in the "Other" group alongside Duplicate/Repeat/Delete rather than in
-  // its own section — a single directly-tappable action, not a submenu.
+  // Alarms ring via native iOS AlarmKit only, so the item is iOS-only. A single
+  // directly-tappable action, not a submenu.
   const alarm = isAlarmSupported
     ? {
         title: task.alarmTime ? "Unset alarm" : "Set alarm",
@@ -92,16 +91,11 @@ export function MoreMenu({
       icon: { ios: "face.smiling", android: "mood", web: "mood" } as const,
       isSubmenu: true,
     })),
-    ...getOtherSections(
-      onDuplicate,
-      onDelete,
-      {
-        label: isRepeating ? "Edit repeat schedule" : "Repeat",
-        onSelect: onRepeat,
-      },
-      alarm,
-      onAddSubtask,
-    ),
+    ...getTaskActionSections(alarm, onAddSubtask),
+    ...getOtherSections(onDuplicate, onDelete, {
+      label: isRepeating ? "Edit repeat schedule" : "Repeat",
+      onSelect: onRepeat,
+    }),
   ];
 
   return (
@@ -225,40 +219,57 @@ export const getScheduleSections = (
  * whether the task already has a repeat schedule, and Delete is marked
  * destructive so `IconMenu` styles it accordingly.
  */
+/**
+ * The two edits that act on the task itself. They continue the group the
+ * priority/schedule/list submenus start — setting an alarm or opening a
+ * checklist changes what the task *is* — rather than joining the actions below,
+ * which are things done *to* the task: copy it, repeat it, delete it.
+ *
+ * Both are optional (alarms are iOS-only; subtasks are only offered where a
+ * checklist can be added), so the section drops out entirely when neither is.
+ */
+export const getTaskActionSections = (
+  alarm?: { title: string; onSelect: () => void },
+  onAddSubtask?: () => void,
+): TIconMenuSection[] => {
+  const options = [
+    ...(alarm
+      ? [
+          {
+            id: "alarm",
+            title: alarm.title,
+            icon: { ios: "alarm", android: "alarm", web: "alarm" } as const,
+            onSelect: alarm.onSelect,
+          },
+        ]
+      : []),
+    ...(onAddSubtask
+      ? [
+          {
+            id: "add-subtask",
+            title: "Add subtask",
+            icon: {
+              ios: "checklist",
+              android: "checklist",
+              web: "checklist",
+            } as const,
+            onSelect: onAddSubtask,
+          },
+        ]
+      : []),
+  ];
+
+  return options.length > 0 ? [{ hideDivider: true, options }] : [];
+};
+
+/** Duplicate/Repeat/Delete: untitled, because the icons and labels say it. */
 export const getOtherSections = (
   onDuplicate: () => void,
   onDelete: () => void,
   repeat: { label: string; onSelect: () => void },
-  alarm?: { title: string; onSelect: () => void },
-  onAddSubtask?: () => void,
 ): TIconMenuSection[] => [
   {
-    title: "Other",
     options: [
-      ...(alarm
-        ? [
-            {
-              id: "alarm",
-              title: alarm.title,
-              icon: { ios: "alarm", android: "alarm", web: "alarm" } as const,
-              onSelect: alarm.onSelect,
-            },
-          ]
-        : []),
-      ...(onAddSubtask
-        ? [
-            {
-              id: "add-subtask",
-              title: "Add subtask",
-              icon: {
-                ios: "checklist",
-                android: "checklist",
-                web: "checklist",
-              } as const,
-              onSelect: onAddSubtask,
-            },
-          ]
-        : []),
       {
         id: "duplicate",
         title: "Duplicate",

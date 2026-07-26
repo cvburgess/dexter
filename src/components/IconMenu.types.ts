@@ -37,6 +37,12 @@ export type TIconMenuSection = {
   /** Icon rendered beside the section title (SF Symbol / Material Symbol names). */
   icon?: SymbolViewProps["name"];
   isSubmenu?: boolean;
+  /**
+   * Drops the rule above this section, so it reads as a continuation of the one
+   * before it rather than a group of its own. Web only — the native menu draws
+   * its own separators around inline groups.
+   */
+  hideDivider?: boolean;
   options: TIconMenuOption[];
 };
 

@@ -1,8 +1,28 @@
 import { fireEvent, render } from "@testing-library/react-native";
-import { Text } from "react-native";
+import { StyleSheet, Text, type StyleProp, type ViewStyle } from "react-native";
 
 import { IconMenu } from "../IconMenu.web";
 import { TIconMenuSection } from "../IconMenu.types";
+
+/** `styles.checkmark`'s width — the slot that offsets a checkable row. */
+const CHECKMARK_WIDTH = 16;
+
+/**
+ * Host (not composite) elements whose flattened style matches — the menu's
+ * layout details live in styles, and every element renders twice in the tree
+ * otherwise.
+ */
+const hostsStyled = (
+  screen: ReturnType<typeof render>,
+  matches: (style: ViewStyle) => boolean,
+) =>
+  screen.UNSAFE_root.findAll((node) => {
+    if (typeof node.type !== "string") return false;
+    const style = StyleSheet.flatten(
+      (node.props as { style?: StyleProp<ViewStyle> }).style,
+    );
+    return matches(style ?? {});
+  });
 
 const sections: TIconMenuSection[] = [
   {
@@ -165,6 +185,64 @@ describe("IconMenu (web)", () => {
 
     const style = screen.getByText("Backlog").props.style as { color?: string };
     expect(style.color).toBe("#fcb700");
+  });
+
+  // The empty checkmark slot is what indents a row. A group of plain actions
+  // has nothing to check, so it lines up with the submenu headers above it.
+  it("reserves the checkmark column only for a section that can be checked", () => {
+    const mixed: TIconMenuSection[] = [
+      {
+        options: [
+          {
+            id: "todo",
+            title: "To Do",
+            isSelected: false,
+            onSelect: jest.fn(),
+          },
+        ],
+      },
+      { options: [{ id: "delete", title: "Delete", onSelect: jest.fn() }] },
+    ];
+    const screen = render(
+      <IconMenu accessibilityLabel="Actions" sections={mixed}>
+        <Text>Trigger</Text>
+      </IconMenu>,
+    );
+
+    fireEvent.press(screen.getByLabelText("Actions"), {
+      nativeEvent: { clientX: 10, clientY: 10 },
+    });
+
+    // One slot, held open by the unchecked "To Do"; none for "Delete".
+    expect(
+      hostsStyled(screen, (style) => style.width === CHECKMARK_WIDTH),
+    ).toHaveLength(1);
+  });
+
+  it("omits the rule above a section that continues the one before it", () => {
+    const joined: TIconMenuSection[] = [
+      { options: [{ id: "a", title: "First", onSelect: jest.fn() }] },
+      {
+        hideDivider: true,
+        options: [{ id: "b", title: "Second", onSelect: jest.fn() }],
+      },
+      { options: [{ id: "c", title: "Third", onSelect: jest.fn() }] },
+    ];
+    const screen = render(
+      <IconMenu accessibilityLabel="Actions" sections={joined}>
+        <Text>Trigger</Text>
+      </IconMenu>,
+    );
+
+    fireEvent.press(screen.getByLabelText("Actions"), {
+      nativeEvent: { clientX: 10, clientY: 10 },
+    });
+
+    // One rule for three sections: the first never draws one, the joined
+    // section opts out, and only the third separates itself from what's above.
+    expect(
+      hostsStyled(screen, (style) => (style.borderTopWidth ?? 0) > 0),
+    ).toHaveLength(1);
   });
 
   it("opens a long-press menu on right-click and suppresses the browser menu", () => {

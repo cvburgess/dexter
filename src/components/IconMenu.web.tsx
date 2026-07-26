@@ -143,7 +143,9 @@ export function IconMenu({
                     key={key}
                     section={section}
                     dividerBorderColor={
-                      sectionIndex > 0 ? dividerBorderColor : null
+                      sectionIndex > 0 && !section.hideDivider
+                        ? dividerBorderColor
+                        : null
                     }
                     expanded={expandedSection === key}
                     onToggleExpanded={() =>
@@ -186,6 +188,14 @@ function MenuSection({
       ? [styles.sectionDivider, { borderTopColor: dividerBorderColor }]
       : undefined;
 
+  // The checkmark column is reserved per section, not per row, so a group whose
+  // options are checkable stays aligned even while none of them is checked. A
+  // group of plain actions reserves nothing and lines up with the submenu
+  // headers instead of sitting indented under them.
+  const showCheckmark = section.options.some(
+    (option) => option.isSelected !== undefined,
+  );
+
   if (!section.isSubmenu) {
     return (
       <View style={dividerStyle}>
@@ -200,6 +210,7 @@ function MenuSection({
           <MenuOptionRow
             key={option.id}
             option={option}
+            showCheckmark={showCheckmark}
             theme={theme}
             onSelect={() => onSelectOption(option)}
           />
@@ -229,6 +240,7 @@ function MenuSection({
               key={option.id}
               option={option}
               indented
+              showCheckmark={showCheckmark}
               theme={theme}
               onSelect={() => onSelectOption(option)}
             />
@@ -241,11 +253,14 @@ function MenuSection({
 function MenuOptionRow({
   option,
   indented,
+  showCheckmark,
   theme,
   onSelect,
 }: {
   option: TIconMenuOption;
   indented?: boolean;
+  /** Whether to reserve the leading checkmark column; see `MenuSection`. */
+  showCheckmark?: boolean;
   theme: ReturnType<typeof useTheme>;
   onSelect: () => void;
 }) {
@@ -254,7 +269,9 @@ function MenuOptionRow({
       style={[styles.option, indented && styles.optionIndented]}
       onPress={onSelect}
     >
-      <Text style={styles.checkmark}>{option.isSelected ? "✓" : ""}</Text>
+      {showCheckmark ? (
+        <Text style={styles.checkmark}>{option.isSelected ? "✓" : ""}</Text>
+      ) : null}
       {option.icon ? (
         <SymbolView
           name={option.icon}
