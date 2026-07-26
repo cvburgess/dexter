@@ -25,6 +25,7 @@ Prioritize with the Eisenhower Matrix, plan your day intentionally, brain-dump t
 - [x] Habit tracker
 - [x] Goals & milestones — because being busy != being productive
 - [x] Repeating tasks
+- [x] Task templates — save any task as a reusable starting point
 - [x] Native task alarms so nothing slips (iOS 26+, via AlarmKit)
 - [x] MCP server — plan alongside Claude, ChatGPT, Gemini, and Cursor
 - [x] Customizable themes (`dexter`, `light`, `dim`, `dark`, `abyss`) with light/dark/system modes

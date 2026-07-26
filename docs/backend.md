@@ -141,6 +141,18 @@ dashboard-only addition would drift from what the migration declares.
   invoke the shared logic, and `delete_task` also deletes a linked template so
   future occurrences stop. A recurred occurrence copies the template's
   `alarm_time` (see below) so repeat tasks keep their alarm.
+- **A `repeat_task_templates` row with a NULL `schedule` is a task template, not
+  a repeat task (DEX-65).** `schedule` is nullable and has no default (migration
+  `20260726215225_repeat_task_templates_nullable_schedule.sql`); both RLS
+  policies already guarded the cron regex with `schedule IS NULL OR …`. Nothing
+  recurs from a scheduleless row — every recurrence path bails on a falsy
+  schedule — so the same table serves both the repeat schedules under Settings →
+  Tasks → Repeat tasks and the reusable blueprints under Task templates, and
+  switching a row between them is just writing or clearing `schedule`. Because
+  the column lost its default, **every insert must state its schedule**: the
+  app's "Repeat" flow passes an explicit daily cron and "Save as template"
+  passes `null`. `create_template` with `schedule` omitted therefore creates a
+  task template, and `update_template` accepts `schedule: null` to clear one.
 - **Subtasks are a jsonb array, not rows (`subtasks`).** `tasks` and
   `repeat_task_templates` each carry `subtasks jsonb NOT NULL DEFAULT '[]'`
   (migration `20260721182025_add_task_subtasks.sql`). A subtask is a
