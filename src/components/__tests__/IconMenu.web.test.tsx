@@ -94,6 +94,39 @@ describe("IconMenu (web)", () => {
     expect(screen.queryByText("To Do")).toBeNull();
   });
 
+  // The menu is a `Modal`, and react-native-web's modal restores focus to
+  // whatever was focused before it opened — from its unmount cleanup. An action
+  // run inline would still be inside that commit, so anything it focuses (an
+  // inline edit's autoFocus input, say) has the focus taken straight back.
+  it("runs the option's action only once the menu has closed", () => {
+    let menuStillOpen: boolean | null = null;
+    const sectionsWithSpy: TIconMenuSection[] = [
+      {
+        options: [
+          {
+            id: "todo",
+            title: "To Do",
+            onSelect: () => {
+              menuStillOpen = screen.queryByText("To Do") !== null;
+            },
+          },
+        ],
+      },
+    ];
+    const screen = render(
+      <IconMenu accessibilityLabel="Status" sections={sectionsWithSpy}>
+        <Text>Trigger</Text>
+      </IconMenu>,
+    );
+
+    fireEvent.press(screen.getByLabelText("Status"), {
+      nativeEvent: { clientX: 10, clientY: 10 },
+    });
+    fireEvent.press(screen.getByText("To Do"));
+
+    expect(menuStillOpen).toBe(false);
+  });
+
   it("keeps a submenu section's options collapsed until its header is pressed", () => {
     const submenuSections: TIconMenuSection[] = [
       {

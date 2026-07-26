@@ -1,5 +1,5 @@
 import { SymbolView } from "expo-symbols";
-import { type MouseEvent, useState } from "react";
+import { type MouseEvent, useEffect, useRef, useState } from "react";
 import {
   Dimensions,
   type GestureResponderEvent,
@@ -55,6 +55,27 @@ export function IconMenu({
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const isLongPress = trigger === "longPress";
+
+  // The chosen option's action, parked until the menu has actually closed.
+  //
+  // `Modal` restores focus to whatever was focused before it opened, and it
+  // does so from its own unmount cleanup. An action run inline would still be
+  // inside that commit, so one that starts an inline edit — "Add subtask",
+  // which mounts an autoFocus input — had its focus taken straight back; the
+  // input then blurred, which commits an empty title and drops the row, and the
+  // menu item looked like it did nothing at all (DEX-70).
+  //
+  // Running it from an effect on the close puts it after that cleanup: React
+  // flushes every unmount effect in a commit before any mount effect, so the
+  // modal is gone and the focus it stole has already been restored by the time
+  // this fires. Whatever the action focuses next therefore keeps it.
+  const pending = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    if (anchor !== null) return;
+    const action = pending.current;
+    pending.current = null;
+    action?.();
+  }, [anchor]);
 
   const openAt = (x: number, y: number) => {
     const { width } = Dimensions.get("window");
@@ -155,8 +176,9 @@ export function IconMenu({
                     }
                     theme={theme}
                     onSelectOption={(option) => {
+                      // Parked, not called: see `pending` above.
+                      pending.current = option.onSelect;
                       close();
-                      option.onSelect();
                     }}
                   />
                 );
