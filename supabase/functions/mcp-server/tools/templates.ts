@@ -74,16 +74,19 @@ export function registerTemplateTools(
       title: "Create Repeat Task Template",
       description:
         "Create a repeat task template with a validated cron schedule. " +
-        "Omit `schedule` to create a plain task template instead — a reusable " +
-        "blueprint the user stamps out on demand, which never generates " +
-        "occurrences on its own. " +
+        "Omit `schedule` (or pass null) to create a plain task template " +
+        "instead — a reusable blueprint the user stamps out on demand, which " +
+        "never generates occurrences on its own. " +
         "`subtasks` is an optional checklist blueprint of `{id, title}` " +
         "items — no status, since each generated occurrence starts its own " +
         "copy fresh and open.",
       inputSchema: {
         title: z.string().min(1),
         priority: taskPrioritySchema.optional(),
-        schedule: cronScheduleSchema.optional(),
+        // Nullable as well as optional, mirroring `update_template`: null is
+        // the value that *means* "task template", so a caller that states it
+        // explicitly must not be rejected.
+        schedule: cronScheduleSchema.nullable().optional(),
         goalId: uuidSchema.nullable().optional(),
         listId: uuidSchema.nullable().optional(),
         subtasks: templateSubtasksSchema.optional(),
@@ -97,7 +100,9 @@ export function registerTemplateTools(
           user_id: ctx.userId,
           title,
           priority,
-          schedule,
+          // The column has no default since DEX-65, so an omitted schedule has
+          // to reach it as an explicit null rather than a dropped key.
+          schedule: schedule ?? null,
           goal_id: goalId ?? null,
           list_id: listId ?? null,
           subtasks: subtasks ?? [],

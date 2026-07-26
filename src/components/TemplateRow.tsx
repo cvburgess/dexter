@@ -70,7 +70,14 @@ export function TemplateRow({
       </View>
       {selected && (
         <SymbolView
-          name="checkmark.circle.fill"
+          // Needs all three platforms: `expo-symbols` renders nothing for a
+          // bare SF Symbol name off iOS, which would leave the picker's only
+          // selection glyph missing on Android and web.
+          name={{
+            ios: "checkmark.circle.fill",
+            android: "check_circle",
+            web: "check_circle",
+          }}
           size={18}
           tintColor={theme.colors.primary}
         />

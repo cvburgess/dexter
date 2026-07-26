@@ -445,12 +445,17 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         // Only a template that still carries a schedule is this task's repeat.
         // A scheduleless one is a saved task template (DEX-65) — the user's,
         // not this task's — and deleting it here would destroy it silently.
-        const { data: template } = await ctx.supabase
+        // A failed lookup must not be read as "scheduleless": silently skipping
+        // the delete would strand the repeat schedule with no linked task while
+        // still reporting success.
+        const { data: template, error: lookupError } = await ctx.supabase
           .from("repeat_task_templates")
           .select("schedule")
           .eq("id", task.template_id)
           .eq("user_id", ctx.userId)
           .maybeSingle();
+
+        if (lookupError) return toolError(lookupError.message);
 
         if (template?.schedule) {
           const { error: templateError } = await ctx.supabase
