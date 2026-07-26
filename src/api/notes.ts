@@ -1,7 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
 import { camelCase, snakeCase } from "@/utils/changeCase";
-import { Database, TablesUpdate } from "@/types/database.types";
+import { Database, TablesInsert } from "@/types/database.types";
 
 export type TNote = { date: string; content: string };
 
@@ -35,7 +35,7 @@ export const upsertNote = async (
 ) => {
   const { data, error } = await supabase
     .from("notes")
-    .upsert(snakeCase(diff) as TablesUpdate<"notes">, {
+    .upsert(snakeCase(diff) as TablesInsert<"notes">, {
       // The table is keyed (user_id, date) and `user_id` is never sent (column
       // default + RLS), so name the target explicitly — PostgREST would
       // otherwise infer the conflict target from the payload's columns alone.

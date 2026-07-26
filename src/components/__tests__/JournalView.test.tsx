@@ -1,15 +1,15 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
 
-import { TJournalPrompt } from "@/api/days";
-import { useDays } from "@/hooks/useDays";
+import { TJournalPrompt } from "@/api/journals";
+import { useJournals } from "@/hooks/useJournals";
 
 import { JournalView } from "../JournalView";
 
-jest.mock("@/hooks/useDays", () => ({ useDays: jest.fn() }));
+jest.mock("@/hooks/useJournals", () => ({ useJournals: jest.fn() }));
 
-const mockUseDays = useDays as jest.MockedFunction<typeof useDays>;
-const mockUpsertDay = jest.fn();
-const mockUpsertDayAsync = jest.fn().mockResolvedValue(undefined);
+const mockUseJournals = useJournals as jest.MockedFunction<typeof useJournals>;
+const mockUpsertJournal = jest.fn();
+const mockUpsertJournalAsync = jest.fn().mockResolvedValue(undefined);
 
 const setup = ({
   prompts = [],
@@ -20,13 +20,13 @@ const setup = ({
   isLoading?: boolean;
   onEditingChange?: (editing: boolean) => void;
 } = {}) => {
-  mockUseDays.mockReturnValue([
-    { date: "2026-07-12", notes: "", prompts },
+  mockUseJournals.mockReturnValue([
+    { date: "2026-07-12", prompts },
     {
       isLoading,
       exists: prompts.length > 0,
-      upsertDay: mockUpsertDay,
-      upsertDayAsync: mockUpsertDayAsync,
+      upsertJournal: mockUpsertJournal,
+      upsertJournalAsync: mockUpsertJournalAsync,
     },
   ]);
   return render(
@@ -65,12 +65,12 @@ describe("JournalView", () => {
         screen.getByTestId("journal-response-0"),
         "Shipped the feature",
       );
-      expect(mockUpsertDayAsync).not.toHaveBeenCalled();
+      expect(mockUpsertJournalAsync).not.toHaveBeenCalled();
 
       act(() => jest.advanceTimersByTime(800));
 
       // The edited entry is replaced; the other response is left intact.
-      expect(mockUpsertDayAsync).toHaveBeenCalledWith({
+      expect(mockUpsertJournalAsync).toHaveBeenCalledWith({
         prompts: [
           { prompt: "Highlight", response: "Shipped the feature" },
           { prompt: "Grateful for", response: "family" },
@@ -147,7 +147,7 @@ describe("JournalView", () => {
       // Unmount before the debounce elapses (e.g. tab switch / date change).
       act(() => screen.unmount());
 
-      expect(mockUpsertDayAsync).toHaveBeenCalledWith({
+      expect(mockUpsertJournalAsync).toHaveBeenCalledWith({
         prompts: [{ prompt: "Highlight", response: "Half-written" }],
       });
     } finally {

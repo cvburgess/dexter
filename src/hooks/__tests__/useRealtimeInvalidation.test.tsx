@@ -2,9 +2,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { ReactNode } from "react";
 
-import * as daysApi from "@/api/days";
+import * as journalsApi from "@/api/journals";
+import * as notesApi from "@/api/notes";
 import * as tasksApi from "@/api/tasks";
-import { useDays } from "@/hooks/useDays";
+import { useJournals } from "@/hooks/useJournals";
+import { useNotes } from "@/hooks/useNotes";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTasks } from "@/hooks/useTasks";
 
@@ -29,7 +31,7 @@ jest.mock("@/hooks/useAuth", () => ({
   supabase: {
     // Wrapped rather than a direct `channel: mockChannel` reference: jest
     // hoists this factory above `const mockChannel = jest.fn()` below, and
-    // `@/hooks/useDays` (imported above) requires this module immediately —
+    // `@/hooks/useNotes` (imported above) requires this module immediately —
     // a direct reference would capture `mockChannel` before it's assigned.
     // The wrapper only reads it lazily, once a test actually calls in.
     /* eslint-disable-next-line @typescript-eslint/no-unsafe-return -- jest.fn() is untyped; see comment above for why this can't be a typed passthrough. */
@@ -40,7 +42,11 @@ jest.mock("@/hooks/useAuth", () => ({
 }));
 
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
-jest.mock("@/api/days", () => ({ getDay: jest.fn(), upsertDay: jest.fn() }));
+jest.mock("@/api/notes", () => ({ getNote: jest.fn(), upsertNote: jest.fn() }));
+jest.mock("@/api/journals", () => ({
+  getJournal: jest.fn(),
+  upsertJournal: jest.fn(),
+}));
 // Only the request functions — `ETaskStatus` and the subtask helpers are real,
 // since `useTasks` reads them while composing a write.
 jest.mock("@/api/tasks", () => ({
@@ -49,9 +55,17 @@ jest.mock("@/api/tasks", () => ({
   updateTask: jest.fn(),
 }));
 
-const mockGetDay = daysApi.getDay as jest.MockedFunction<typeof daysApi.getDay>;
-const mockUpsertDay = daysApi.upsertDay as jest.MockedFunction<
-  typeof daysApi.upsertDay
+const mockGetNote = notesApi.getNote as jest.MockedFunction<
+  typeof notesApi.getNote
+>;
+const mockUpsertNote = notesApi.upsertNote as jest.MockedFunction<
+  typeof notesApi.upsertNote
+>;
+const mockGetJournal = journalsApi.getJournal as jest.MockedFunction<
+  typeof journalsApi.getJournal
+>;
+const mockUpsertJournal = journalsApi.upsertJournal as jest.MockedFunction<
+  typeof journalsApi.upsertJournal
 >;
 const mockUsePreferences = usePreferences as jest.MockedFunction<
   typeof usePreferences
@@ -183,48 +197,93 @@ describe("useRealtimeInvalidation", () => {
     }
   });
 
-  it("skips refetching a date's days query while its own autosave is in flight, then catches up once it settles", async () => {
+  it("skips refetching a date's notes query while its own autosave is in flight, then catches up once it settles", async () => {
     jest.useFakeTimers();
     try {
       const { wrapper } = createWrapper();
       renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
 
       let resolveUpsert: () => void = () => {};
-      mockGetDay.mockResolvedValue(null);
-      mockUpsertDay.mockReturnValue(
+      mockGetNote.mockResolvedValue(null);
+      mockUpsertNote.mockReturnValue(
         new Promise((resolve) => {
-          resolveUpsert = () =>
-            resolve({ date: "2026-07-12", notes: "hi", prompts: [] });
+          resolveUpsert = () => resolve({ date: "2026-07-12", content: "hi" });
         }),
       );
-      mockUsePreferences.mockReturnValue([
-        { templateNote: "", templatePrompts: [] } as never,
-        { updatePreferences: jest.fn() },
-      ]);
 
-      const days = renderHook(() => useDays("2026-07-12"), { wrapper });
-      await waitFor(() => expect(days.result.current[1].isLoading).toBe(false));
+      const notes = renderHook(() => useNotes("2026-07-12"), { wrapper });
+      await waitFor(() =>
+        expect(notes.result.current[1].isLoading).toBe(false),
+      );
       // The initial mount already fetched this date once.
-      const fetchCountBeforeEvent = mockGetDay.mock.calls.length;
-      act(() => days.result.current[1].upsertDay({ notes: "hi" }));
-      await waitFor(() => expect(mockUpsertDay.mock.calls.length).toBe(1));
+      const fetchCountBeforeEvent = mockGetNote.mock.calls.length;
+      act(() => notes.result.current[1].upsertNote({ content: "hi" }));
+      await waitFor(() => expect(mockUpsertNote.mock.calls.length).toBe(1));
 
-      const binding = captured!.bindings.find((b) => b.table === "days")!;
-      act(() => binding.handler({ table: "days" }));
+      const binding = captured!.bindings.find((b) => b.table === "notes")!;
+      act(() => binding.handler({ table: "notes" }));
       act(() => jest.advanceTimersByTime(250));
 
       // Still mid-autosave for this exact date — no extra refetch yet.
-      expect(mockGetDay.mock.calls.length).toBe(fetchCountBeforeEvent);
+      expect(mockGetNote.mock.calls.length).toBe(fetchCountBeforeEvent);
 
       act(() => resolveUpsert());
-      await waitFor(() => expect(days.result.current[0].notes).toBe("hi"));
+      await waitFor(() => expect(notes.result.current[0].content).toBe("hi"));
 
-      act(() => binding.handler({ table: "days" }));
+      act(() => binding.handler({ table: "notes" }));
       act(() => jest.advanceTimersByTime(250));
 
       // The autosave has settled — the same date now refetches normally.
       await waitFor(() =>
-        expect(mockGetDay.mock.calls.length).toBeGreaterThan(
+        expect(mockGetNote.mock.calls.length).toBeGreaterThan(
+          fetchCountBeforeEvent,
+        ),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("applies the same in-flight guard to the journals table", async () => {
+    jest.useFakeTimers();
+    try {
+      const { wrapper } = createWrapper();
+      renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
+
+      let resolveUpsert: () => void = () => {};
+      mockGetJournal.mockResolvedValue(null);
+      mockUpsertJournal.mockReturnValue(
+        new Promise((resolve) => {
+          resolveUpsert = () => resolve({ date: "2026-07-12", prompts: [] });
+        }),
+      );
+      mockUsePreferences.mockReturnValue([
+        { templatePrompts: [] } as never,
+        { updatePreferences: jest.fn() },
+      ]);
+
+      const journals = renderHook(() => useJournals("2026-07-12"), { wrapper });
+      await waitFor(() =>
+        expect(journals.result.current[1].isLoading).toBe(false),
+      );
+      const fetchCountBeforeEvent = mockGetJournal.mock.calls.length;
+      act(() => journals.result.current[1].upsertJournal({ prompts: [] }));
+      await waitFor(() => expect(mockUpsertJournal.mock.calls.length).toBe(1));
+
+      const binding = captured!.bindings.find((b) => b.table === "journals")!;
+      act(() => binding.handler({ table: "journals" }));
+      act(() => jest.advanceTimersByTime(250));
+
+      expect(mockGetJournal.mock.calls.length).toBe(fetchCountBeforeEvent);
+
+      act(() => resolveUpsert());
+      await waitFor(() => expect(journals.result.current[1].exists).toBe(true));
+
+      act(() => binding.handler({ table: "journals" }));
+      act(() => jest.advanceTimersByTime(250));
+
+      await waitFor(() =>
+        expect(mockGetJournal.mock.calls.length).toBeGreaterThan(
           fetchCountBeforeEvent,
         ),
       );
@@ -287,41 +346,37 @@ describe("useRealtimeInvalidation", () => {
       const { wrapper } = createWrapper();
       renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
 
-      mockGetDay.mockResolvedValue(null);
+      mockGetNote.mockResolvedValue(null);
       // Date A's upsert never resolves within this test — simulates an
       // autosave still retrying in the background after the component
-      // unmounted (see useDays.tsx's retry comment).
-      mockUpsertDay.mockReturnValue(new Promise(() => {}));
-      mockUsePreferences.mockReturnValue([
-        { templateNote: "", templatePrompts: [] } as never,
-        { updatePreferences: jest.fn() },
-      ]);
+      // unmounted (see useNotes.tsx's retry comment).
+      mockUpsertNote.mockReturnValue(new Promise(() => {}));
 
-      const dateA = renderHook(() => useDays("2026-07-12"), { wrapper });
+      const dateA = renderHook(() => useNotes("2026-07-12"), { wrapper });
       await waitFor(() =>
         expect(dateA.result.current[1].isLoading).toBe(false),
       );
-      act(() => dateA.result.current[1].upsertDay({ notes: "hi" }));
+      act(() => dateA.result.current[1].upsertNote({ content: "hi" }));
       await waitFor(() =>
-        expect(mockUpsertDay.mock.calls.length).toBeGreaterThan(0),
+        expect(mockUpsertNote.mock.calls.length).toBeGreaterThan(0),
       );
 
-      const dateB = renderHook(() => useDays("2026-07-13"), { wrapper });
+      const dateB = renderHook(() => useNotes("2026-07-13"), { wrapper });
       await waitFor(() =>
         expect(dateB.result.current[1].isLoading).toBe(false),
       );
-      const fetchCountForB = mockGetDay.mock.calls.filter(
+      const fetchCountForB = mockGetNote.mock.calls.filter(
         (call) => call[1] === "2026-07-13",
       ).length;
 
-      const binding = captured!.bindings.find((b) => b.table === "days")!;
-      act(() => binding.handler({ table: "days" }));
+      const binding = captured!.bindings.find((b) => b.table === "notes")!;
+      act(() => binding.handler({ table: "notes" }));
       act(() => jest.advanceTimersByTime(250));
 
       // Date A's still-pending autosave must not block date B's refetch.
       await waitFor(() =>
         expect(
-          mockGetDay.mock.calls.filter((call) => call[1] === "2026-07-13")
+          mockGetNote.mock.calls.filter((call) => call[1] === "2026-07-13")
             .length,
         ).toBeGreaterThan(fetchCountForB),
       );

@@ -1,12 +1,12 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
 import { Text, TouchableOpacity } from "react-native";
 
-import { useDays } from "@/hooks/useDays";
+import { useNotes } from "@/hooks/useNotes";
 import { usePreferences } from "@/hooks/usePreferences";
 
 import { NotesView } from "../NotesView";
 
-jest.mock("@/hooks/useDays", () => ({ useDays: jest.fn() }));
+jest.mock("@/hooks/useNotes", () => ({ useNotes: jest.fn() }));
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 
 // Stand in for the platform editor (native lib has no test double). Surface the
@@ -32,31 +32,31 @@ jest.mock("@/components/NoteEditor", () => ({
     mockNoteEditor(props),
 }));
 
-const mockUseDays = useDays as jest.MockedFunction<typeof useDays>;
+const mockUseNotes = useNotes as jest.MockedFunction<typeof useNotes>;
 const mockUsePreferences = usePreferences as jest.MockedFunction<
   typeof usePreferences
 >;
-const mockUpsertDay = jest.fn();
-const mockUpsertDayAsync = jest.fn().mockResolvedValue(undefined);
+const mockUpsertNote = jest.fn();
+const mockUpsertNoteAsync = jest.fn().mockResolvedValue(undefined);
 
 const setup = ({
-  notes = "",
+  content = "",
   exists = false,
   isLoading = false,
   templateNote = "",
 }: {
-  notes?: string;
+  content?: string;
   exists?: boolean;
   isLoading?: boolean;
   templateNote?: string;
 } = {}) => {
-  mockUseDays.mockReturnValue([
-    { date: "2026-07-12", notes, prompts: [] },
+  mockUseNotes.mockReturnValue([
+    { date: "2026-07-12", content },
     {
       isLoading,
       exists,
-      upsertDay: mockUpsertDay,
-      upsertDayAsync: mockUpsertDayAsync,
+      upsertNote: mockUpsertNote,
+      upsertNoteAsync: mockUpsertNoteAsync,
     },
   ]);
   mockUsePreferences.mockReturnValue([
@@ -82,7 +82,7 @@ describe("NotesView", () => {
 
     fireEvent.press(screen.getByText("Use daily note template"));
 
-    expect(mockUpsertDay).toHaveBeenCalledWith({ notes: "# Daily" });
+    expect(mockUpsertNote).toHaveBeenCalledWith({ content: "# Daily" });
   });
 
   it("writes an empty note row when 'Blank note' is chosen", () => {
@@ -90,7 +90,7 @@ describe("NotesView", () => {
 
     fireEvent.press(screen.getByText("Blank note"));
 
-    expect(mockUpsertDay).toHaveBeenCalledWith({ notes: "" });
+    expect(mockUpsertNote).toHaveBeenCalledWith({ content: "" });
   });
 
   it("keeps the editor after a choice even if the save has not yet succeeded", () => {
@@ -107,7 +107,11 @@ describe("NotesView", () => {
   it("shows the editor once a row exists, even when the note is empty", () => {
     // Covers both a persisted 'Blank note' choice and clearing a note to empty:
     // the chooser must not resurface just because the content is blank.
-    const screen = setup({ exists: true, notes: "", templateNote: "# Daily" });
+    const screen = setup({
+      exists: true,
+      content: "",
+      templateNote: "# Daily",
+    });
 
     expect(screen.queryByText("Use daily note template")).toBeNull();
     expect(screen.getByLabelText("note-editor")).toBeTruthy();
@@ -116,7 +120,7 @@ describe("NotesView", () => {
   it("shows the editor seeded with an existing note", () => {
     const screen = setup({
       exists: true,
-      notes: "existing note",
+      content: "existing note",
       templateNote: "# Daily",
     });
 
@@ -141,14 +145,16 @@ describe("NotesView", () => {
   it("autosaves edits after the debounce window elapses", () => {
     jest.useFakeTimers();
     try {
-      const screen = setup({ exists: true, notes: "existing note" });
+      const screen = setup({ exists: true, content: "existing note" });
 
       fireEvent.press(screen.getByLabelText("note-editor"));
-      expect(mockUpsertDayAsync).not.toHaveBeenCalled();
+      expect(mockUpsertNoteAsync).not.toHaveBeenCalled();
 
       act(() => jest.advanceTimersByTime(800));
 
-      expect(mockUpsertDayAsync).toHaveBeenCalledWith({ notes: "edited note" });
+      expect(mockUpsertNoteAsync).toHaveBeenCalledWith({
+        content: "edited note",
+      });
     } finally {
       jest.useRealTimers();
     }

@@ -10,6 +10,8 @@ import {
   registerHabitTools,
   updateDailyHabitInputSchema,
 } from "../../functions/mcp-server/tools/habits.ts";
+import { registerJournalTools } from "../../functions/mcp-server/tools/journals.ts";
+import { registerNoteTools } from "../../functions/mcp-server/tools/notes.ts";
 import { updatePreferencesInputSchema } from "../../functions/mcp-server/tools/preferences.ts";
 import {
   applyTaskFilters,
@@ -43,8 +45,12 @@ class ToolRegistry {
 class FakeMutationBuilder {
   readonly filters: string[] = [];
   payload: Record<string, unknown> | null = null;
+  upsertOptions: Record<string, unknown> | null = null;
 
-  constructor(readonly table: string) {}
+  constructor(
+    readonly table: string,
+    readonly row: Record<string, unknown> | null = { ok: true },
+  ) {}
 
   insert(payload: Record<string, unknown>): FakeMutationBuilder {
     this.payload = payload;
@@ -53,6 +59,15 @@ class FakeMutationBuilder {
 
   update(payload: Record<string, unknown>): FakeMutationBuilder {
     this.payload = payload;
+    return this;
+  }
+
+  upsert(
+    payload: Record<string, unknown>,
+    options?: Record<string, unknown>,
+  ): FakeMutationBuilder {
+    this.payload = payload;
+    this.upsertOptions = options ?? null;
     return this;
   }
 
@@ -66,15 +81,24 @@ class FakeMutationBuilder {
   }
 
   single(): Promise<{ data: Record<string, unknown>; error: null }> {
-    return Promise.resolve({ data: { ok: true }, error: null });
+    return Promise.resolve({ data: this.row ?? { ok: true }, error: null });
+  }
+
+  /** Read path for the single-row-per-date tables: `null` means "no row yet". */
+  maybeSingle(): Promise<
+    { data: Record<string, unknown> | null; error: null }
+  > {
+    return Promise.resolve({ data: this.row, error: null });
   }
 }
 
 class FakeSupabase {
   lastBuilder: FakeMutationBuilder | null = null;
+  /** Row every builder resolves to; set to `null` to simulate a missing row. */
+  row: Record<string, unknown> | null = { ok: true };
 
   from(table: string): FakeMutationBuilder {
-    this.lastBuilder = new FakeMutationBuilder(table);
+    this.lastBuilder = new FakeMutationBuilder(table, this.row);
     return this.lastBuilder;
   }
 }
@@ -828,4 +852,148 @@ Deno.test("a recurring occurrence copies a template checklist past the input cap
     (inserted.payload.subtasks as { title: string }[]).map((s) => s.title),
     [longTitle],
   );
+});
+
+// DEX-51: notes and journals replaced the shared `days` row, so each surface now
+// has its own read/write pair against its own table.
+
+const NOTE_USER = "00000000-0000-4000-8000-0000000000cc";
+
+function noteTools(supabase: FakeSupabase): ToolRegistry {
+  const registry = new ToolRegistry();
+  registerNoteTools(
+    registry as unknown as McpServer,
+    makeToolContext(supabase, NOTE_USER),
+  );
+  return registry;
+}
+
+function journalTools(supabase: FakeSupabase): ToolRegistry {
+  const registry = new ToolRegistry();
+  registerJournalTools(
+    registry as unknown as McpServer,
+    makeToolContext(supabase, NOTE_USER),
+  );
+  return registry;
+}
+
+Deno.test("get_note reads the notes table scoped to the caller and date", async () => {
+  const supabase = new FakeSupabase();
+  supabase.row = { date: "2026-07-12", content: "hello" };
+
+  await noteTools(supabase).run("get_note", { date: "2026-07-12" });
+
+  assertEquals(supabase.lastBuilder?.table, "notes");
+  // RLS is the enforcement layer, but the explicit user filter keeps a
+  // cross-user row from ever being requested.
+  assertEquals(supabase.lastBuilder?.filters, [
+    "eq:date:2026-07-12",
+    `eq:user_id:${NOTE_USER}`,
+  ]);
+});
+
+Deno.test("get_note reports a missing note as an error, not an empty result", async () => {
+  const supabase = new FakeSupabase();
+  supabase.row = null;
+
+  const result = await noteTools(supabase).run("get_note", {
+    date: "2026-07-12",
+  }) as { isError?: boolean };
+
+  assertEquals(result.isError, true);
+});
+
+Deno.test("upsert_note derives user_id from context and targets (user_id, date)", async () => {
+  const supabase = new FakeSupabase();
+
+  await noteTools(supabase).run("upsert_note", {
+    date: "2026-07-12",
+    content: "# Today",
+  });
+
+  assertEquals(supabase.lastBuilder?.table, "notes");
+  assertEquals(supabase.lastBuilder?.payload, {
+    date: "2026-07-12",
+    user_id: NOTE_USER,
+    content: "# Today",
+  });
+  // `user_id` is part of the key, so the conflict target must name it.
+  assertEquals(supabase.lastBuilder?.upsertOptions, {
+    onConflict: "user_id,date",
+  });
+});
+
+Deno.test("upsert_note rejects a call that carries no fields", async () => {
+  const supabase = new FakeSupabase();
+
+  const result = await noteTools(supabase).run("upsert_note", {
+    date: "2026-07-12",
+  }) as { isError?: boolean };
+
+  // A date alone would otherwise insert a blank row, which the app reads as
+  // "the user started this day" (the template chooser depends on it).
+  assertEquals(result.isError, true);
+  assertEquals(supabase.lastBuilder, null);
+});
+
+Deno.test("get_journal reads the journals table scoped to the caller and date", async () => {
+  const supabase = new FakeSupabase();
+  supabase.row = { date: "2026-07-12", prompts: [] };
+
+  await journalTools(supabase).run("get_journal", { date: "2026-07-12" });
+
+  assertEquals(supabase.lastBuilder?.table, "journals");
+  assertEquals(supabase.lastBuilder?.filters, [
+    "eq:date:2026-07-12",
+    `eq:user_id:${NOTE_USER}`,
+  ]);
+});
+
+Deno.test("upsert_journal replaces the prompt array on the (user_id, date) key", async () => {
+  const supabase = new FakeSupabase();
+  const prompts = [{ prompt: "Highlight", response: "shipped it" }];
+
+  await journalTools(supabase).run("upsert_journal", {
+    date: "2026-07-12",
+    prompts,
+  });
+
+  assertEquals(supabase.lastBuilder?.table, "journals");
+  assertEquals(supabase.lastBuilder?.payload, {
+    date: "2026-07-12",
+    user_id: NOTE_USER,
+    prompts,
+  });
+  assertEquals(supabase.lastBuilder?.upsertOptions, {
+    onConflict: "user_id,date",
+  });
+});
+
+Deno.test("upsert_journal rejects a call that carries no fields", async () => {
+  const supabase = new FakeSupabase();
+
+  const result = await journalTools(supabase).run("upsert_journal", {
+    date: "2026-07-12",
+  }) as { isError?: boolean };
+
+  assertEquals(result.isError, true);
+  assertEquals(supabase.lastBuilder, null);
+});
+
+Deno.test("note and journal tools never accept a user id", () => {
+  const registry = new ToolRegistry();
+  registerNoteTools(
+    registry as unknown as McpServer,
+    makeToolContext(new FakeSupabase(), NOTE_USER),
+  );
+  registerJournalTools(
+    registry as unknown as McpServer,
+    makeToolContext(new FakeSupabase(), NOTE_USER),
+  );
+
+  for (const [name, tool] of registry.tools) {
+    const keys = Object.keys(tool.inputSchema ?? {});
+    assertEquals(keys.includes("userId"), false, `${name} exposes userId`);
+    assertEquals(keys.includes("user_id"), false, `${name} exposes user_id`);
+  }
 });
