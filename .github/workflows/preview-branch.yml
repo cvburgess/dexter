@@ -1,17 +1,26 @@
-name: Deploy Preview Functions
+name: Preview Branch
 
-# Supabase preview branches deploy edge functions on creation, but the
-# branching executor does not reliably re-deploy functions on every
-# subsequent push (a function-only edit isn't a strong enough trigger
-# on its own). As a result, a function added or modified in a PR after
-# its preview branch was created returns 404 from
-# https://<preview-ref>.supabase.co/functions/v1/<name>.
+# Fills the gaps Supabase's native branching leaves behind on a PR's preview
+# branch. The integration creates the branch, applies migrations, and deploys
+# functions once — but two things are still missing:
+#
+#   1. Functions are not reliably re-deployed on every subsequent push (a
+#      function-only edit isn't a strong enough trigger on its own), so a
+#      function added or modified after the branch was created returns 404 from
+#      https://<preview-ref>.supabase.co/functions/v1/<name>.
+#   2. Migrations create the schema but no demo *user*, so `verify-demo-otp`
+#      returns "Demo account is not ready" until `seed-demo` runs. (The other
+#      half of that failure — the missing DEMO_OTP function secret — is handled
+#      declaratively by `[edge_runtime.secrets]` in supabase/config.toml, not
+#      here. See docs/backend.md.)
 #
 # Gating: we listen for the `check_run` event from Supabase's GitHub
 # integration. When the `Supabase Preview` check finishes with
-# conclusion=success, the preview branch exists and migrations have
-# already been applied. The workflow runs only then — no polling, no
-# wasted runs on PRs that don't have a preview.
+# conclusion=success, the preview branch exists and migrations have already
+# been applied. The workflow runs only then — no polling, no wasted runs on
+# PRs that don't have a preview. `resolve` performs that gating once and hands
+# the branch's project_ref to both jobs, which are independent and run in
+# parallel.
 
 on:
   check_run:
@@ -19,19 +28,19 @@ on:
   workflow_dispatch:
     inputs:
       git_branch:
-        description: 'PR head branch to deploy functions for (defaults to current ref)'
+        description: 'PR head branch to target (defaults to current ref)'
         required: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: preview-deploy-functions-${{ github.event.check_run.pull_requests[0].number || github.ref }}
+  group: preview-branch-${{ github.event.check_run.pull_requests[0].number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  deploy-preview-functions:
-    name: Deploy edge functions to preview branch
+  resolve:
+    name: Resolve preview branch
     runs-on: ubuntu-latest
     # Only run after Supabase confirms the preview branch is ready, or
     # on explicit manual dispatch.
@@ -40,19 +49,10 @@ jobs:
       (github.event.check_run.app.slug == 'supabase' &&
        github.event.check_run.name == 'Supabase Preview' &&
        github.event.check_run.conclusion == 'success')
+    outputs:
+      ref: ${{ steps.branch.outputs.ref }}
     steps:
-      # For `check_run` events, GITHUB_SHA/GITHUB_REF point at the
-      # repo's default branch — checkout must be explicitly pinned to
-      # the PR head so the CLI deploys the PR's function code, not
-      # main's.
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.check_run.head_sha || github.ref }}
-
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
+      # Pure Management API call — no checkout or CLI needed here.
       - name: Resolve preview branch project_ref
         id: branch
         env:
@@ -79,10 +79,82 @@ jobs:
           echo "Resolved preview branch: $ref"
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
 
+  deploy-functions:
+    name: Deploy edge functions to preview branch
+    needs: resolve
+    runs-on: ubuntu-latest
+    steps:
+      # For `check_run` events, GITHUB_SHA/GITHUB_REF point at the
+      # repo's default branch — checkout must be explicitly pinned to
+      # the PR head so the CLI deploys the PR's function code, not
+      # main's.
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.check_run.head_sha || github.ref }}
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
       - name: Deploy edge functions to preview branch
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         # Deploys every function under supabase/functions/ to the
         # preview branch. The CLI upserts by name, so re-running on
         # subsequent pushes is idempotent and overwrites prior versions.
-        run: supabase functions deploy --project-ref ${{ steps.branch.outputs.ref }}
+        run: supabase functions deploy --project-ref ${{ needs.resolve.outputs.ref }}
+
+  seed-demo:
+    name: Seed demo account on preview branch
+    needs: resolve
+    runs-on: ubuntu-latest
+    steps:
+      # Same pinning rationale as deploy-functions: seed from the PR's
+      # demoData.ts, not main's.
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.check_run.head_sha || github.ref }}
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Fetch preview branch service-role key
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PREVIEW_REF: ${{ needs.resolve.outputs.ref }}
+        # The seed script writes through the Auth Admin API and bypasses RLS,
+        # so it needs the branch's own service-role key — preview branches mint
+        # their own, and the parent project's are not valid against them.
+        run: |
+          set -euo pipefail
+          keys=$(supabase projects api-keys --project-ref "$PREVIEW_REF" --reveal -o json)
+          # Prefer the legacy `service_role` JWT; fall back to a new-style
+          # secret key if legacy JWT keys are ever disabled on the project.
+          key=$(echo "$keys" | jq -r \
+            '([.[] | select(.name == "service_role")][0].api_key
+              // [.[] | select(.api_key | startswith("sb_secret_"))][0].api_key
+              // empty)')
+          if [ -z "$key" ]; then
+            echo "::error::No service-role key found for preview branch $PREVIEW_REF."
+            exit 1
+          fi
+          echo "::add-mask::$key"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$key" >> "$GITHUB_ENV"
+
+      - name: Seed demo account
+        working-directory: supabase/scripts
+        env:
+          # Decrypts supabase/.env.preview so DEMO_OTP reaches the seed script.
+          # The demo user's password is derived from DEMO_OTP, so it must be
+          # the same value `[edge_runtime.secrets]` applies to the branch —
+          # sourcing both from .env.preview is what keeps them in sync.
+          DOTENV_PRIVATE_KEY_PREVIEW: ${{ secrets.DOTENV_PRIVATE_KEY_PREVIEW }}
+          SUPABASE_URL: https://${{ needs.resolve.outputs.ref }}.supabase.co
+        # seed-demo is idempotent (it deletes and re-inserts the demo user's
+        # rows), so re-running on every push to the PR is safe.
+        run: npx --yes @dotenvx/dotenvx run -f ../.env.preview -- deno task seed-demo
