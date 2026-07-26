@@ -380,12 +380,10 @@ const styles = StyleSheet.create({
   subtasks: {
     gap: 2,
     marginTop: 8,
-    // Indent to the title's left edge (32px status button + 8px gap), so the
-    // checklist reads as hanging off the title rather than off the card.
-    paddingLeft: 40,
-    // Half the difference between the parent's 32px buttons and a subtask's
-    // 24px ones, so the `⋯` centers land on the same vertical axis as the
-    // title row's right-most button.
-    paddingRight: 4,
+    // Not indented: the checklist runs the full width of the title row, so a
+    // subtask's controls sit directly under the parent's. The 4px is half the
+    // difference between the parent's 32px buttons and a subtask's 24px ones,
+    // which puts the two columns of circles on the same vertical axes.
+    paddingHorizontal: 4,
   },
 });

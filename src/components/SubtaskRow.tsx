@@ -148,7 +148,10 @@ const styles = StyleSheet.create({
   row: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 8,
+    // 12, not the parent row's 8: the checklist is inset 4px so the 24px
+    // circles center under the parent's 32px ones, and the wider gap gives
+    // that back, so subtask titles start on the parent title's left edge.
+    gap: 12,
     minHeight: 32,
   },
   // No `flex: 1` — EditableText's wrapper owns that; see its stylesheet.
