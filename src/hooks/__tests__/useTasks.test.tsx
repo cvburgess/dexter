@@ -327,12 +327,15 @@ describe("useTasks", () => {
       ]);
     });
 
-    it("sweeps to won't-do, not just done", async () => {
-      const diff = await completeTask(withSubtasks(), ETaskStatus.WONT_DO);
+    it.each([
+      ["won't-do", ETaskStatus.WONT_DO],
+      ["delegated", ETaskStatus.DELEGATED],
+    ])("sweeps to %s, not just done", async (_label, status) => {
+      const diff = await completeTask(withSubtasks(), status);
 
-      expect(
-        diff.subtasks?.every(({ status }) => status === ETaskStatus.WONT_DO),
-      ).toBe(true);
+      expect(diff.subtasks?.every((subtask) => subtask.status === status)).toBe(
+        true,
+      );
     });
 
     it("leaves the update untouched for a task with no subtasks", async () => {

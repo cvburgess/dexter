@@ -3,6 +3,9 @@ import { z } from "zod";
 
 import { getNextTaskDate } from "@src/utils/repeatSchedule.ts";
 import { subtasksFromTemplate, sweepSubtasks } from "@src/utils/subtasks.ts";
+// The app's own enum and terminal-status predicate, not a copy of them — see the
+// module header for why this one is safe to import from Deno.
+import { ETaskStatus, isCompletionStatus } from "@src/utils/taskStatus.ts";
 
 import type { ToolContext } from "../server.ts";
 import {
@@ -20,15 +23,6 @@ import {
   toolJson,
   uuidSchema,
 } from "./helpers.ts";
-
-const TASK_STATUS_TODO = 1;
-const TASK_STATUS_DONE = 2;
-const TASK_STATUS_WONT_DO = 3;
-
-const isCompletionStatus = (
-  status: number | null | undefined,
-): status is number =>
-  status === TASK_STATUS_DONE || status === TASK_STATUS_WONT_DO;
 
 type Subtask = z.infer<typeof subtaskSchema>;
 
@@ -77,8 +71,8 @@ async function readForCompletion(
  * When a task update completes a repeat task, schedule its next occurrence — the
  * TypeScript replacement for the dropped `create_next_recurring_task` trigger
  * (DEX-21), sharing `getNextTaskDate` with the Expo app. No-ops unless the task
- * just transitioned into done/won't-do (from a non-complete `previousStatus`)
- * and is linked to a template with a schedule.
+ * just transitioned into a terminal status — done/won't-do/delegated — from a
+ * non-complete `previousStatus`, and is linked to a template with a schedule.
  */
 async function maybeCreateNextRecurringTask(
   ctx: ToolContext,
@@ -118,12 +112,12 @@ async function maybeCreateNextRecurringTask(
     goal_id: template.goal_id,
     scheduled_for: nextDate,
     template_id: template.id,
-    status: TASK_STATUS_TODO,
+    status: ETaskStatus.TODO,
     // Each occurrence gets its own copy of the template's checklist, reset to
     // open. Array items carry no template link, so no orphan-spawn hazard.
     subtasks: subtasksFromTemplate(
       readTemplateSubtasks(template.subtasks),
-      TASK_STATUS_TODO,
+      ETaskStatus.TODO,
     ),
   });
 }
@@ -338,9 +332,9 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         "Update one or more task fields. Only provided fields are changed. " +
         "`subtasks` REPLACES the whole checklist array — to change one item, " +
         "read the task first, modify the array, and send it back in full. " +
-        "Setting `status` to done (2) or won't-do (3) also sweeps every " +
-        "subtask to that status automatically, so do not send `subtasks` " +
-        "just to close them; send it only to make a different change.",
+        "Setting `status` to done (2), won't-do (3), or delegated (4) also " +
+        "sweeps every subtask to that status automatically, so do not send " +
+        "`subtasks` just to close them; send it only to make a different change.",
       inputSchema: {
         taskId: uuidSchema,
         title: z.string().min(1).max(100).optional(),
@@ -489,7 +483,7 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         const completion = await readForCompletion(
           ctx,
           taskId,
-          TASK_STATUS_WONT_DO,
+          ETaskStatus.WONT_DO,
         );
         previousStatus = completion.previousStatus;
         sweptSubtasks = completion.sweptSubtasks;
@@ -498,7 +492,7 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
       const { data, error } = await ctx.supabase
         .from("tasks")
         .update({
-          status: restore ? TASK_STATUS_TODO : TASK_STATUS_WONT_DO,
+          status: restore ? ETaskStatus.TODO : ETaskStatus.WONT_DO,
           ...(sweptSubtasks ? { subtasks: sweptSubtasks } : {}),
         })
         .eq("id", taskId)

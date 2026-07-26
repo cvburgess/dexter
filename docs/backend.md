@@ -121,9 +121,19 @@ dashboard-only addition would drift from what the migration declares.
 - MCP tool groups cover tasks, goals, lists, habits and daily habit progress,
   days, repeat task templates, and preferences. Tool inputs never accept
   `user_id`; user ownership is derived from the validated bearer token.
+- **Task status is shared, not mirrored.** `src/utils/taskStatus.ts` holds
+  `ETaskStatus` and `isCompletionStatus` and is imported by the app, by
+  `mcp-server`, and by `scripts/demoData.ts` over the `@src/` alias, so a new
+  status can't be added to one side and forgotten on the other. It must stay import-free — Deno requires explicit
+  `.ts` extensions on relative imports while Metro/tsc forbid them, which is why
+  the enum can't simply live in `src/api/tasks.ts` (that file pulls in
+  `@supabase/supabase-js`). The values are persisted as `tasks.status smallint`
+  with no Postgres enum or check constraint, so `taskStatusSchema`
+  (`z.nativeEnum(ETaskStatus)`) is the only thing rejecting a bogus status.
+  Terminal statuses are done, won't do, and delegated.
 - **Repeat tasks are recurred in TypeScript, not Postgres.** Completing a task
-  linked to a `repeat_task_templates` row (status → done/won't-do) creates the
-  next occurrence, with its date computed by `src/utils/repeatSchedule.ts`
+  linked to a `repeat_task_templates` row (status → any terminal status) creates
+  the next occurrence, with its date computed by `src/utils/repeatSchedule.ts`
   (croner-backed) — imported by both the app and `mcp-server` (via the `@src/`
   alias in `functions/mcp-server/deno.json`). The legacy
   `create_next_recurring_task` trigger was dropped (migration
@@ -331,11 +341,16 @@ Backend and app deploys run from GitHub Actions in `.github/workflows/`:
   succeeded or were skipped.
 - **`test-backend.yml`** — on any `supabase/**` PR/push: `deno fmt --check` plus
   `deno test`. Backend tests set their own env, so no secrets are required.
-- **`preview-deploy-functions.yml`** — redeploys edge functions to a PR's
-  Supabase preview branch. Supabase's native GitHub integration creates the
-  preview branch and applies its migrations, but does not reliably redeploy
-  functions on later pushes; this workflow closes that gap, gated on the
-  `Supabase Preview` check succeeding.
+- **`preview-branch.yml`** — fills the gaps Supabase's native branching leaves
+  on a PR's preview branch. A `resolve` job gates on the `Supabase Preview`
+  check reporting success (so it never fires on a PR without a preview),
+  resolves the branch's `project_ref`, and hands it to two parallel jobs:
+  `deploy-functions` redeploys edge functions (Supabase deploys them on branch
+  creation but doesn't reliably redeploy on later pushes, so a function edited
+  afterward 404s), and `seed-demo` runs `supabase/scripts/seed-demo.ts` against
+  the branch with its own service-role key so the demo account exists. Both are
+  idempotent and safe to re-run on every push; `workflow_dispatch` with a
+  `git_branch` input targets an existing preview branch on demand.
 - **`preview.yml`** — `workflow_dispatch` EAS preview OTA update (`eas update
   --auto`) that comments on the PR.
 
@@ -344,8 +359,9 @@ script (`expo export --platform web`), the `expo-updates` dependency, and the
 `updates.url` + `runtimeVersion` config in `src/app.json`.
 
 **Required GitHub repo secrets:** `SUPABASE_PROJECT_ID`, `SUPABASE_DB_PASSWORD`,
-`SUPABASE_ACCESS_TOKEN` (backend); `EXPO_TOKEN`, `EXPO_PUBLIC_SUPABASE_URL`,
-`EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `EXPO_PUBLIC_SENTRY_DSN` (app/EAS).
+`SUPABASE_ACCESS_TOKEN`, `DOTENV_PRIVATE_KEY_PREVIEW` (backend); `EXPO_TOKEN`,
+`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
+`EXPO_PUBLIC_SENTRY_DSN` (app/EAS).
 
 > **First-run reconciliation.** Production's migration-history table was empty
 > while the schema was already live (migrations had been applied out-of-band),
@@ -360,6 +376,64 @@ script (`expo export --platform web`), the `expo-updates` dependency, and the
 Configure secrets via Supabase dashboard or CLI for deployed projects; reference
 them from function code with `Deno.env.get(...)`. Do not commit real keys.
 
-| Secret       | Used by                        | Required?                                             |
-| ------------ | ------------------------------- | ------------------------------------------------------ |
-| `SENTRY_DSN` | `mcp-server`, `ics-proxy` | Optional — Sentry reporting no-ops gracefully if unset |
+| Secret       | Used by                                   | Required?                                              |
+| ------------ | ----------------------------------------- | ------------------------------------------------------ |
+| `DEMO_OTP`   | `verify-demo-otp`, `scripts/seed-demo.ts` | Required for demo login — the function 500s without it |
+| `SENTRY_DSN` | `mcp-server`, `ics-proxy`                 | Optional — Sentry reporting no-ops gracefully if unset |
+
+### Preview-branch secrets (dotenvx)
+
+Supabase's branching integration copies migrations and redeploys functions to a
+preview branch but **does not copy the parent project's function secrets** — a
+fresh preview had no `DEMO_OTP`, so `verify-demo-otp` returned "Demo login is
+not configured". Preview secrets are managed with
+[dotenvx](https://dotenvx.com/) instead: an encrypted `supabase/.env.preview` is
+committed to the repo, and the branching executor decrypts it and applies the
+values to every new branch.
+
+- `supabase/.env.preview` holds encrypted values (safe to commit).
+- [`supabase/config.toml`](../supabase/config.toml) `[edge_runtime.secrets]`
+  maps each secret as `KEY = "env(KEY)"`. Because it's `env(...)` indirection,
+  a local `supabase start` reads the value from your shell environment — same
+  convention as the existing `env(SUPABASE_AUTH_GOOGLE_SECRET)`. **Export
+  `DEMO_OTP` before `supabase start`**: an unresolved `env(...)` reference is
+  not an error, so the local Edge Runtime can receive the literal string
+  `env(DEMO_OTP)` as the secret rather than `verify-demo-otp` reporting "not
+  configured". Hosted projects are unaffected — production sets the secret
+  directly, and previews get it from `.env.preview`.
+- The decryption key is stored as a Supabase **project** secret on production,
+  uploaded once with
+  `npx supabase secrets set --env-file supabase/.env.keys --project-ref <parent_ref>`,
+  and as the `DOTENV_PRIVATE_KEY_PREVIEW` GitHub repo secret so
+  `preview-branch.yml` can decrypt in CI.
+
+Add or update a secret:
+
+```bash
+npx @dotenvx/dotenvx set SECRET_NAME "value" -f supabase/.env.preview
+```
+
+Add the matching `KEY = "env(KEY)"` to `config.toml` and commit both files —
+`supabase/__tests__/config/previewSecrets.test.ts` fails if the two drift or if
+a value is committed in plaintext. Re-upload `.env.keys` if the decryption key
+rotates.
+
+> **`.env.keys` must sit next to `.env.preview`** — dotenvx *reads* the key
+> from the `-f` file's own directory (`supabase/`), but *writes* it to whatever
+> directory you ran the command in. Running `set` from the repo root therefore
+> drops `./.env.keys` in the wrong place, and the next decrypt fails with
+> `[DECRYPTION_FAILED]`; move it to `supabase/.env.keys`. `.gitignore` matches
+> the filename at any depth, so it stays uncommitted either way — but only the
+> `supabase/` copy actually works.
+
+> **`DEMO_OTP` and the seeded password rotate together.** The demo user's
+> password is `deriveDemoPassword(DEMO_OTP)`, so changing `DEMO_OTP` requires
+> re-encrypting `.env.preview` **and** re-running `seed-demo` against every
+> project that holds a demo account, or login breaks. Preview branches
+> deliberately reuse production's `DEMO_OTP` so App Store review and preview
+> behave identically; the tradeoff is that the production demo credential lives
+> encrypted in git, decryptable by anything holding the preview private key.
+
+See the
+[Supabase branching docs](https://supabase.com/docs/guides/deployment/branching/configuration#using-dotenvx-for-git-based-workflow)
+for details.

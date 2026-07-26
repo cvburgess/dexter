@@ -1,20 +1,13 @@
-import { Temporal } from "@js-temporal/polyfill";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 
 import { formatWeekdayMonthDay } from "@/utils/formatPlainDate";
+import { dateToPlainDate } from "@/utils/plainDate";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 import { TDateFieldProps } from "./DateField.types";
-
-const toPlainDate = (date: Date): Temporal.PlainDate =>
-  Temporal.PlainDate.from({
-    year: date.getFullYear(),
-    month: date.getMonth() + 1,
-    day: date.getDate(),
-  });
 
 const POPOVER_WIDTH = 280;
 const VIEWPORT_MARGIN = 8;
@@ -156,7 +149,7 @@ export function DateField({
           padding: 0,
         }}
       >
-        {formatWeekdayMonthDay(toPlainDate(value))}
+        {formatWeekdayMonthDay(dateToPlainDate(value))}
       </button>
       {popover &&
         (typeof document === "undefined"

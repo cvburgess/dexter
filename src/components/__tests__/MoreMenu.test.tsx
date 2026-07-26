@@ -10,6 +10,7 @@ import { weekStartEnd } from "@/utils/weekStartEnd";
 
 import type { TIconMenuSection } from "../IconMenu.types";
 import {
+  getDeadlineSections,
   getOtherSections,
   getPrioritySections,
   getScheduleSections,
@@ -92,7 +93,9 @@ describe("MoreMenu", () => {
         task={makeTask()}
         onChangePriority={jest.fn()}
         onChangeSchedule={jest.fn()}
+        onChangeDeadline={jest.fn()}
         onChangeList={jest.fn()}
+        onPickDate={jest.fn()}
         onSetAlarm={jest.fn()}
         onClearAlarm={jest.fn()}
         onDuplicate={jest.fn()}
@@ -112,13 +115,15 @@ describe("MoreMenu", () => {
     expect(sections.map((section) => section.title)).toEqual([
       "Priority",
       "Schedule",
+      "Deadline",
       "List",
       undefined,
       undefined,
     ]);
-    // Priority/Schedule/List collapse into submenus; the two action groups are
-    // inline, so their actions are directly tappable.
+    // Priority/Schedule/Deadline/List collapse into submenus; the two action
+    // groups are inline, so their actions are directly tappable.
     expect(sections.map((section) => Boolean(section.isSubmenu))).toEqual([
+      true,
       true,
       true,
       true,
@@ -132,6 +137,7 @@ describe("MoreMenu", () => {
     ).toEqual([
       "exclamationmark",
       "calendar",
+      "calendar.badge.clock",
       "face.smiling",
       undefined,
       undefined,
@@ -143,8 +149,77 @@ describe("MoreMenu", () => {
       true,
       true,
       true,
+      true,
       false,
     ]);
+  });
+
+  // The two submenus share one builder, so the only thing that can go wrong
+  // here is the field each one is bound to.
+  it("names the field when 'Pick a date…' is chosen in either date submenu", () => {
+    const onPickDate = jest.fn();
+    render(
+      <MoreMenu
+        task={makeTask()}
+        onChangePriority={jest.fn()}
+        onChangeSchedule={jest.fn()}
+        onChangeDeadline={jest.fn()}
+        onChangeList={jest.fn()}
+        onPickDate={onPickDate}
+        onSetAlarm={jest.fn()}
+        onClearAlarm={jest.fn()}
+        onDuplicate={jest.fn()}
+        onDelete={jest.fn()}
+      >
+        <Text>Task row</Text>
+      </MoreMenu>,
+    );
+
+    const { sections } = mockIconMenu.mock.calls[0][0];
+    const pickDateIn = (title: string) =>
+      sections
+        .find((section) => section.title === title)
+        ?.options.find((option) => option.title === "Pick a date…");
+
+    pickDateIn("Schedule")?.onSelect();
+    expect(onPickDate).toHaveBeenCalledWith("schedule");
+
+    pickDateIn("Deadline")?.onSelect();
+    expect(onPickDate).toHaveBeenCalledWith("deadline");
+    expect(onPickDate).toHaveBeenCalledTimes(2);
+  });
+
+  // `IconMenu.native` flattens every section into one id -> option map and
+  // dispatches the system menu's press by id, so a duplicate silently routes one
+  // row's tap to another's handler. Schedule and Deadline offer the same dates,
+  // which is exactly where that collides.
+  it("gives every option a menu-wide unique id", () => {
+    render(
+      <MoreMenu
+        task={makeTask({
+          scheduledFor: Temporal.Now.plainDateISO().toString(),
+          dueOn: Temporal.Now.plainDateISO().toString(),
+        })}
+        onChangePriority={jest.fn()}
+        onChangeSchedule={jest.fn()}
+        onChangeDeadline={jest.fn()}
+        onChangeList={jest.fn()}
+        onPickDate={jest.fn()}
+        onSetAlarm={jest.fn()}
+        onClearAlarm={jest.fn()}
+        onDuplicate={jest.fn()}
+        onDelete={jest.fn()}
+      >
+        <Text>Task row</Text>
+      </MoreMenu>,
+    );
+
+    const { sections } = mockIconMenu.mock.calls[0][0];
+    const ids = sections.flatMap((section) =>
+      section.options.map((option) => option.id),
+    );
+
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   it("labels the repeat action 'Repeat' when the task has no template", () => {
@@ -153,7 +228,9 @@ describe("MoreMenu", () => {
         task={makeTask({ templateId: null })}
         onChangePriority={jest.fn()}
         onChangeSchedule={jest.fn()}
+        onChangeDeadline={jest.fn()}
         onChangeList={jest.fn()}
+        onPickDate={jest.fn()}
         onSetAlarm={jest.fn()}
         onClearAlarm={jest.fn()}
         onDuplicate={jest.fn()}
@@ -180,7 +257,9 @@ describe("MoreMenu", () => {
         task={makeTask({ templateId: "template-1" })}
         onChangePriority={jest.fn()}
         onChangeSchedule={jest.fn()}
+        onChangeDeadline={jest.fn()}
         onChangeList={jest.fn()}
+        onPickDate={jest.fn()}
         onSetAlarm={jest.fn()}
         onClearAlarm={jest.fn()}
         onDuplicate={jest.fn()}
@@ -202,7 +281,9 @@ describe("MoreMenu", () => {
         task={makeTask({ alarmTime: "08:00" })}
         onChangePriority={jest.fn()}
         onChangeSchedule={jest.fn()}
+        onChangeDeadline={jest.fn()}
         onChangeList={jest.fn()}
+        onPickDate={jest.fn()}
         onSetAlarm={jest.fn()}
         onClearAlarm={jest.fn()}
         onDuplicate={jest.fn()}
@@ -372,7 +453,7 @@ describe("getScheduleSections", () => {
   const nextWeekOptionExpected = tomorrow.toString() !== nextMonday.toString();
 
   it("offers Today and Tomorrow with no Unschedule when nothing is scheduled", () => {
-    const [section] = getScheduleSections(null, jest.fn());
+    const [section] = getScheduleSections(null, jest.fn(), jest.fn());
 
     expect(section.title).toBe("Schedule");
     expect(section.isSubmenu).toBe(true);
@@ -382,7 +463,11 @@ describe("getScheduleSections", () => {
   });
 
   it("selects Today and offers Unschedule when scheduled for today", () => {
-    const [section] = getScheduleSections(today.toString(), jest.fn());
+    const [section] = getScheduleSections(
+      today.toString(),
+      jest.fn(),
+      jest.fn(),
+    );
 
     const todayOption = section.options.find(
       (option) => option.title === "Today",
@@ -394,7 +479,11 @@ describe("getScheduleSections", () => {
   });
 
   it("hides Next Week when already scheduled within the next week", () => {
-    const [section] = getScheduleSections(nextMonday.toString(), jest.fn());
+    const [section] = getScheduleSections(
+      nextMonday.toString(),
+      jest.fn(),
+      jest.fn(),
+    );
 
     expect(section.options.map((option) => option.title)).not.toContain(
       "Next Week",
@@ -403,7 +492,7 @@ describe("getScheduleSections", () => {
 
   it("shows a selected custom-date option for a date scheduled beyond next week", () => {
     const farOut = today.add({ days: 60 }).toString();
-    const [section] = getScheduleSections(farOut, jest.fn());
+    const [section] = getScheduleSections(farOut, jest.fn(), jest.fn());
 
     const titles = section.options.map((option) => option.title);
     if (nextWeekOptionExpected) expect(titles).toContain("Next Week");
@@ -416,10 +505,107 @@ describe("getScheduleSections", () => {
 
   it("calls onChangeSchedule with null when Unschedule is selected", () => {
     const onChangeSchedule = jest.fn();
-    const [section] = getScheduleSections(today.toString(), onChangeSchedule);
+    const [section] = getScheduleSections(
+      today.toString(),
+      onChangeSchedule,
+      jest.fn(),
+    );
 
     section.options.find((option) => option.title === "Unschedule")?.onSelect();
 
     expect(onChangeSchedule).toHaveBeenCalledWith(null);
+  });
+
+  it("always offers 'Pick a date…', which opens the picker", () => {
+    const onPickDate = jest.fn();
+    const [unscheduled] = getScheduleSections(null, jest.fn(), onPickDate);
+    const [scheduled] = getScheduleSections(
+      today.toString(),
+      jest.fn(),
+      onPickDate,
+    );
+
+    for (const section of [unscheduled, scheduled]) {
+      const pickOption = section.options.find(
+        (option) => option.title === "Pick a date…",
+      );
+      expect(pickOption).toBeDefined();
+      pickOption?.onSelect();
+    }
+
+    expect(onPickDate).toHaveBeenCalledTimes(2);
+  });
+
+  // Previously a no-op row that told the user their date and did nothing.
+  it("opens the picker from the custom-date row rather than doing nothing", () => {
+    const onChangeSchedule = jest.fn();
+    const onPickDate = jest.fn();
+    const [section] = getScheduleSections(
+      today.add({ days: 60 }).toString(),
+      onChangeSchedule,
+      onPickDate,
+    );
+
+    section.options.find((option) => option.isSelected)?.onSelect();
+
+    expect(onPickDate).toHaveBeenCalledTimes(1);
+    expect(onChangeSchedule).not.toHaveBeenCalled();
+  });
+});
+
+describe("getDeadlineSections", () => {
+  const today = Temporal.Now.plainDateISO();
+
+  it("mirrors the Schedule presets under its own title and icon", () => {
+    const [section] = getDeadlineSections(null, jest.fn(), jest.fn());
+
+    expect(section.title).toBe("Deadline");
+    expect(section.isSubmenu).toBe(true);
+    expect(section.options.map((option) => option.title)).toEqual(
+      expect.arrayContaining(["Today", "Tomorrow", "Pick a date…"]),
+    );
+    // Nothing to clear until a deadline is set.
+    expect(section.options.map((option) => option.title)).not.toContain(
+      "Clear deadline",
+    );
+  });
+
+  it("selects the matching preset and offers Clear deadline once set", () => {
+    const [section] = getDeadlineSections(
+      today.toString(),
+      jest.fn(),
+      jest.fn(),
+    );
+
+    expect(
+      section.options.find((option) => option.title === "Today")?.isSelected,
+    ).toBe(true);
+    expect(section.options.map((option) => option.title)).toContain(
+      "Clear deadline",
+    );
+  });
+
+  it("calls onChangeDeadline with the picked preset", () => {
+    const onChangeDeadline = jest.fn();
+    const [section] = getDeadlineSections(null, onChangeDeadline, jest.fn());
+
+    section.options.find((option) => option.title === "Today")?.onSelect();
+
+    expect(onChangeDeadline).toHaveBeenCalledWith(today.toString());
+  });
+
+  it("calls onChangeDeadline with null when Clear deadline is selected", () => {
+    const onChangeDeadline = jest.fn();
+    const [section] = getDeadlineSections(
+      today.toString(),
+      onChangeDeadline,
+      jest.fn(),
+    );
+
+    section.options
+      .find((option) => option.title === "Clear deadline")
+      ?.onSelect();
+
+    expect(onChangeDeadline).toHaveBeenCalledWith(null);
   });
 });

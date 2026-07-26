@@ -3,9 +3,9 @@
  * and the Deno MCP server via the `@src/` alias — the same arrangement
  * `repeatSchedule.ts` uses. Nothing here may import React Native or Supabase.
  *
- * The helpers are generic over the status type so the app can keep its
- * `ETaskStatus` enum while `mcp-server` keeps its plain numeric constants;
- * neither has to widen to the other's representation.
+ * The helpers are generic over the status type so they impose no status
+ * representation of their own — both callers happen to pass `ETaskStatus` from
+ * `utils/taskStatus.ts`, but a template's checklist carries no status at all.
  */
 
 /**

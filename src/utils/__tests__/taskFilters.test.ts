@@ -28,9 +28,10 @@ const task = (overrides: Partial<TTask> = {}): TTask => ({
 const date = Temporal.PlainDate.from("2026-07-16");
 
 describe("isCompletionStatus", () => {
-  it("is true only for DONE and WONT_DO", () => {
+  it("is true only for DONE, WONT_DO, and DELEGATED", () => {
     expect(isCompletionStatus(ETaskStatus.DONE)).toBe(true);
     expect(isCompletionStatus(ETaskStatus.WONT_DO)).toBe(true);
+    expect(isCompletionStatus(ETaskStatus.DELEGATED)).toBe(true);
     expect(isCompletionStatus(ETaskStatus.TODO)).toBe(false);
     expect(isCompletionStatus(ETaskStatus.IN_PROGRESS)).toBe(false);
     expect(isCompletionStatus(undefined)).toBe(false);
