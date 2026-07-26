@@ -355,6 +355,35 @@ describe("TaskCard subtasks", () => {
       });
     });
 
+    // `renderCard` freezes the prop, so the row exists only locally — the same
+    // window the optimistic write has yet to close. Dropping the row at commit
+    // time blinks it out of the checklist and back in when the write lands.
+    it("keeps a just-added row on screen until the write lands", () => {
+      renderCard(baseTask);
+
+      addSubtask();
+      const input = screen.getByPlaceholderText("Subtask");
+      fireEvent.changeText(input, "Proofread");
+      fireEvent(input, "blur");
+
+      expect(screen.getAllByTestId(/^subtask-row-/)).toHaveLength(3);
+      expect(screen.getByText("Proofread")).toBeTruthy();
+    });
+
+    it("hands the row over to the cache without doubling it", () => {
+      // `LiveCard` writes straight back, so the row arrives from the task prop
+      // in the same commit the local copy is still held in.
+      render(<LiveCard initial={baseTask} />);
+
+      addSubtask();
+      const input = screen.getByPlaceholderText("Subtask");
+      fireEvent.changeText(input, "Proofread");
+      fireEvent(input, "blur");
+
+      expect(screen.getAllByTestId(/^subtask-row-/)).toHaveLength(3);
+      expect(screen.getAllByText("Proofread")).toHaveLength(1);
+    });
+
     it("discards a just-added row left empty, instead of reverting it", () => {
       const onUpdate = jest.fn();
       renderCard(baseTask, { onUpdate });

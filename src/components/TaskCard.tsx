@@ -1,5 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 
 import {
@@ -109,12 +109,16 @@ export function TaskCard({
   const isComplete =
     task.status === ETaskStatus.DONE || task.status === ETaskStatus.WONT_DO;
 
-  // The one not-yet-saved row: "Add subtask" shows an empty focused row before
-  // anything is written, and an empty subtask is never persisted. Everything
-  // else reads straight from `task.subtasks`, which `useTasks` keeps current
-  // through its optimistic cache write — so there is no overlay to go stale,
-  // and a change arriving from another device is never masked.
-  const [pending, setPending] = useState<TSubtask | null>(null);
+  // Rows this card has created that the cache hasn't confirmed yet: the empty
+  // one "Add subtask" is showing, plus any just committed whose write is still
+  // in flight. A list rather than a single slot because return chains a fresh
+  // row while the one before it is still unconfirmed. Everything else reads
+  // straight from `task.subtasks`, so a change arriving from another device is
+  // never masked.
+  // Always updated through the function form: a row that unmounts commits from
+  // *its* last-render closure, which can hold a list two taps out of date, and
+  // replacing the list wholesale from there would drop whatever arrived since.
+  const [unconfirmed, setUnconfirmed] = useState<TSubtask[]>([]);
 
   const [renamed, setRenamed] = useState<TRenamed | null>(null);
   if (renamed !== null) {
@@ -141,17 +145,16 @@ export function TaskCard({
             : subtask,
         )
       : task.subtasks;
-  const subtasks = pending ? [...renamedRows, pending] : renamedRows;
 
-  // A row that unmounts commits from *its* last-render closure, which can name
-  // a pending row that has since been replaced (tap "Add subtask" twice). The
-  // ref is always current, so the commit can tell "I am the pending row" from
-  // "I was the pending row" and avoid clearing someone else's.
-  const pendingRef = useRef<TSubtask | null>(null);
-  const setPendingRow = (row: TSubtask | null) => {
-    pendingRef.current = row;
-    setPending(row);
-  };
+  // A row drops out of the local list the moment the cache has it. Derived
+  // during render, like the rename above, so it is never rendered twice — once
+  // from the cache and once from here — even for a single frame.
+  const unsettled = unconfirmed.filter(
+    (row) => !task.subtasks.some((subtask) => subtask.id === row.id),
+  );
+  if (unsettled.length !== unconfirmed.length) setUnconfirmed(unsettled);
+
+  const subtasks = [...renamedRows, ...unsettled];
 
   /** Clears edit mode only if this row still owns it — see `commitSubtaskTitle`. */
   const stopEditing = (id: string) =>
@@ -161,7 +164,12 @@ export function TaskCard({
 
   const addSubtask = () => {
     const [row] = appendSubtask([]);
-    setPendingRow(row);
+    // Drop any row still left untitled — the same rule its own commit applies,
+    // just applied now, so tapping "Add subtask" twice never stacks up empties.
+    setUnconfirmed((rows) => [
+      ...rows.filter(({ title }) => title !== ""),
+      row,
+    ]);
     setEditing({ kind: "subtask", id: row.id });
   };
 
@@ -171,15 +179,27 @@ export function TaskCard({
     // blindly would cancel the edit they are starting.
     stopEditing(id);
 
-    // The pending row is the only unsaved one, so its identity — not a search
-    // through server state that may not have caught up — decides the rule.
-    const pendingRow = pendingRef.current;
-    if (pendingRow?.id === id) {
-      setPendingRow(null);
+    // A row the cache doesn't have yet is one this card created — so whether
+    // this is an append or an edit is decided by server state, never by how
+    // stale this closure's copy of the local list happens to be. Once the cache
+    // owns the row, this is an ordinary rename and never a second append.
+    const unconfirmedRow = task.subtasks.some((subtask) => subtask.id === id)
+      ? undefined
+      : unconfirmed.find((row) => row.id === id);
+    if (unconfirmedRow) {
       // An untitled row is discarded, never written: `title: ""` would fail the
       // MCP server's validation and disable that task's sweep permanently.
-      if (title !== "")
-        onUpdate({ subtasks: [...task.subtasks, { ...pendingRow, title }] });
+      if (title === "") {
+        setUnconfirmed((rows) => rows.filter((row) => row.id !== id));
+        return;
+      }
+      // Kept on screen carrying the title just committed, rather than dropped
+      // to wait for the write — dropping it blinks the whole row out of the
+      // checklist and back in. It clears itself once the cache confirms it.
+      setUnconfirmed((rows) =>
+        rows.map((row) => (row.id === id ? { ...row, title } : row)),
+      );
+      onUpdate({ subtasks: [...task.subtasks, { ...unconfirmedRow, title }] });
       return;
     }
 
