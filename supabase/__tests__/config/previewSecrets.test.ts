@@ -12,7 +12,13 @@ import { assert, assertEquals } from "@std/assert";
 
 const envPreview = await Deno.readTextFile(
   new URL("../../.env.preview", import.meta.url),
-);
+).catch(() => {
+  // Deleting this file while config.toml still maps secrets is the silent
+  // failure mode these tests exist to prevent, so say what to do about it.
+  throw new Error(
+    'supabase/.env.preview is missing. Recreate it with `npx @dotenvx/dotenvx set DEMO_OTP "<value>" -f supabase/.env.preview` — without it, preview branches receive empty Edge Function secrets.',
+  );
+});
 const configToml = await Deno.readTextFile(
   new URL("../../config.toml", import.meta.url),
 );
@@ -87,10 +93,11 @@ Deno.test("every [edge_runtime.secrets] entry has a .env.preview value", () => {
   }
 });
 
-Deno.test("DEMO_OTP is wired end to end", () => {
+Deno.test("DEMO_OTP is present", () => {
   // The demo login this whole mechanism exists for: verify-demo-otp reads
   // DEMO_OTP, and seed-demo derives the demo user's password from the same
-  // value (see functions/_shared/demoAuth.ts).
+  // value (see functions/_shared/demoAuth.ts). The generic tests above already
+  // assert its encryption and its config.toml mapping; this only pins that the
+  // key itself never quietly disappears.
   assert(secretKeys.includes("DEMO_OTP"), "DEMO_OTP must be in .env.preview");
-  assertEquals(mapped.get("DEMO_OTP"), "env(DEMO_OTP)");
 });
