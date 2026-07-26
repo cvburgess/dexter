@@ -45,6 +45,12 @@
         }
       ],
       "@bacons/apple-targets",
+      [
+        "./plugins/withAlarmSound",
+        {
+          "sounds": ["./assets/sounds/echos.wav"]
+        }
+      ],
       "expo-font",
       [
         "expo-calendar",

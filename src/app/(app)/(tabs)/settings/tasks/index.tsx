@@ -8,9 +8,16 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { PickerField } from "@/components/PickerField";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
+import { usePreferences } from "@/hooks/usePreferences";
 import { useTemplates } from "@/hooks/useTemplates";
+import {
+  ALARM_SOUNDS,
+  isAlarmSupported,
+  resolveAlarmSound,
+} from "@/utils/alarms";
 import { describeSchedule } from "@/utils/repeatSchedule";
 import { useTheme } from "@/utils/theme";
 
@@ -18,6 +25,7 @@ export default function TasksScreen() {
   const theme = useTheme();
   const router = useRouter();
   const [templates] = useTemplates();
+  const [{ alarmSound }, { updatePreferences }] = usePreferences();
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = useIsMultiPane();
 
@@ -32,6 +40,26 @@ export default function TasksScreen() {
           { padding: theme.spacing, gap: theme.spacing },
         ]}
       >
+        {/* Alarms only ring on iOS, so the sound picker has nothing to offer
+            elsewhere (DEX-72). */}
+        {isAlarmSupported && (
+          <View style={styles.section}>
+            <SettingsSectionTitle>Alarms</SettingsSectionTitle>
+            <PickerField
+              label="Sound"
+              options={ALARM_SOUNDS}
+              // Resolved, not raw: the column is unconstrained text, and the
+              // Picker needs a value matching one of its items or it renders
+              // with nothing selected.
+              selectedValue={resolveAlarmSound(alarmSound)}
+              testID="alarm-sound-picker"
+              onValueChange={(value) =>
+                updatePreferences({ alarmSound: value })
+              }
+            />
+          </View>
+        )}
+
         <View style={styles.section}>
           <SettingsSectionTitle>Repeating Tasks</SettingsSectionTitle>
           {templates.length === 0 ? (

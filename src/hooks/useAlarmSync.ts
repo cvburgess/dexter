@@ -2,12 +2,15 @@ import { useEffect, useRef } from "react";
 import { Alert } from "react-native";
 
 import {
+  alarmSignature,
+  alarmSoundFileName,
   cancelTaskAlarm,
   getScheduledAlarmIds,
   reconcileAlarms,
   scheduleTaskAlarm,
 } from "@/utils/alarms";
 
+import { useAlarmSoundPreference } from "./usePreferences";
 import { useTasks } from "./useTasks";
 
 /**
@@ -24,20 +27,37 @@ import { useTasks } from "./useTasks";
  */
 export const useAlarmSync = (): void => {
   const [tasks, { isLoading }] = useTasks();
+  const { alarmSound, isLoading: preferencesLoading } =
+    useAlarmSoundPreference();
+  const soundName = alarmSoundFileName(alarmSound);
 
-  // Fire time (epoch seconds) we last scheduled per id this session — lets the
-  // reconcile detect a time edit on an alarm AlarmKit only reports by id.
-  const scheduledEpochs = useRef(new Map<string, number>());
+  // What we last scheduled per id this session (see `alarmSignature`) — AlarmKit
+  // reports only ids back, so this is how an edit to an existing alarm is seen.
+  const scheduled = useRef(new Map<string, string>());
+
+  // Runs are queued, never overlapped. A sound change re-fires this effect with
+  // no task mutation of its own, and each run reconciles against `scheduled` —
+  // so two in-flight runs would each see a cache the other hasn't written yet,
+  // re-scheduling alarms that are already correct and racing on the same id
+  // (whichever native call lands last wins in AlarmKit, which need not be the
+  // one the cache ends up recording — leaving a stale sound or title ringing
+  // until the next launch). Serializing makes each reconcile see the finished
+  // state of the one before it.
+  const queue = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
-    if (isLoading) return;
+    // Both queries serve placeholder data first. Acting on the placeholder
+    // preferences would schedule every alarm with the default sound and then
+    // re-schedule them all once the real row lands (DEX-72).
+    if (isLoading || preferencesLoading) return;
 
     const sync = async () => {
       const { toSchedule, toCancel } = reconcileAlarms(
         tasks,
         getScheduledAlarmIds(),
-        scheduledEpochs.current,
+        scheduled.current,
         new Date(),
+        soundName,
       );
 
       // Tracks whether any alarm this run failed to schedule, so we warn the
@@ -48,7 +68,7 @@ export const useAlarmSync = (): void => {
         ...toCancel.map(async (id) => {
           try {
             await cancelTaskAlarm(id);
-            scheduledEpochs.current.delete(id);
+            scheduled.current.delete(id);
           } catch (error) {
             console.warn(`[alarms] Failed to cancel alarm ${id}`, error);
           }
@@ -56,9 +76,9 @@ export const useAlarmSync = (): void => {
         ...toSchedule.map(async (alarm) => {
           try {
             await scheduleTaskAlarm(alarm);
-            scheduledEpochs.current.set(alarm.id, alarm.epochSeconds);
+            scheduled.current.set(alarm.id, alarmSignature(alarm));
           } catch (error) {
-            // Leave the epoch unrecorded so a later reconcile retries. Flag the
+            // Leave it unrecorded so a later reconcile retries. Flag the
             // failure so the user isn't left counting on an alarm that won't
             // ring (e.g. AlarmKit authorization denied — DEX-48).
             anyScheduleFailed = true;
@@ -78,6 +98,10 @@ export const useAlarmSync = (): void => {
       }
     };
 
-    void sync();
-  }, [tasks, isLoading]);
+    // `catch` so a throw outside the per-alarm handlers (e.g. `getAllAlarms`)
+    // can't leave the queue permanently rejected and skip every later run.
+    queue.current = queue.current.then(sync).catch((error) => {
+      console.warn("[alarms] Alarm sync failed", error);
+    });
+  }, [tasks, isLoading, preferencesLoading, soundName]);
 };

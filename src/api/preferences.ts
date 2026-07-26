@@ -10,6 +10,10 @@ export enum EThemeMode {
 }
 
 export type TPreferences = {
+  /** A `TAlarmSound` value — see `ALARM_SOUNDS` in `utils/alarms.shared.ts`.
+   * Typed as `string` because the DB column is unconstrained text: an older
+   * build must be able to read a sound it doesn't know about. */
+  alarmSound: string;
   calendarEndTime: string;
   calendarStartTime: string;
   calendarUrls: string[];
@@ -36,6 +40,7 @@ export const getPreferences = async (supabase: SupabaseClient<Database>) => {
 };
 
 export type TUpdatePreferences = {
+  alarmSound?: string;
   calendarEndTime?: string;
   calendarStartTime?: string;
   calendarUrls?: string[];

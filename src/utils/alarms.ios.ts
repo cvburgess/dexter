@@ -48,6 +48,10 @@ export const requestAlarmAuthorization = async (): Promise<boolean> => {
  * the alarm — authorization not granted, the Live Activity can't be presented,
  * etc. We turn that into a throw so callers can't mistake a swallowed native
  * failure for success and leave the user counting on an alarm that won't ring.
+ *
+ * `soundName` names a file bundled by the `withAlarmSound` plugin (DEX-72); the
+ * key is omitted entirely when absent so AlarmKit stays on its default sound
+ * rather than trying to resolve an empty name.
  */
 export const scheduleTaskAlarm = async (
   alarm: TAlarmSchedule,
@@ -58,6 +62,7 @@ export const scheduleTaskAlarm = async (
     epochSeconds: alarm.epochSeconds,
     title: alarm.title,
     launchAppOnDismiss: true,
+    ...(alarm.soundName ? { soundName: alarm.soundName } : {}),
   });
   if (!scheduled) {
     throw new Error(`AlarmKit rejected alarm ${alarm.id}`);

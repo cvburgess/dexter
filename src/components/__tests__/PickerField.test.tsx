@@ -1,33 +1,26 @@
 import { render, screen } from "@testing-library/react-native";
-import { Children, isValidElement } from "react";
+
+import {
+  pickerOptions,
+  pickerProps,
+  resetPicker,
+} from "@/testUtils/mockExpoUiPicker";
 
 import { PickerField } from "../PickerField";
 
 // The global jest.setup.js mock renders Picker as null, so it can't be driven
 // from a test. Locally override with a capturing mock instead.
-let lastPickerProps: Record<string, unknown> | null = null;
-jest.mock("@expo/ui", () => {
-  const Host = ({ children }: { children: React.ReactNode }) => children;
-  const Picker = (props: Record<string, unknown>) => {
-    lastPickerProps = props;
-    return null;
-  };
-  Picker.Item = function PickerItem() {
-    return null;
-  };
-  return { Host, Picker };
-});
-
-type TItemProps = { label: string; value: string };
-
-const capturedItems = (): TItemProps[] =>
-  Children.toArray(lastPickerProps?.children as React.ReactNode)
-    .filter(isValidElement)
-    .map((child) => child.props as TItemProps);
+jest.mock("@expo/ui", () =>
+  jest
+    .requireActual<typeof import("@/testUtils/mockExpoUiPicker")>(
+      "@/testUtils/mockExpoUiPicker",
+    )
+    .mockExpoUiPicker(),
+);
 
 describe("PickerField", () => {
   beforeEach(() => {
-    lastPickerProps = null;
+    resetPicker();
   });
 
   const options = [
@@ -58,7 +51,7 @@ describe("PickerField", () => {
       />,
     );
 
-    expect(capturedItems()).toEqual(options);
+    expect(pickerOptions()).toEqual(options);
   });
 
   it("forwards selectedValue and testID", () => {
@@ -72,8 +65,8 @@ describe("PickerField", () => {
       />,
     );
 
-    expect(lastPickerProps?.selectedValue).toBe("list-1");
-    expect(lastPickerProps?.testID).toBe("new-task-list");
+    expect(pickerProps()?.selectedValue).toBe("list-1");
+    expect(pickerProps()?.testID).toBe("new-task-list");
   });
 
   it("calls onValueChange with the selected value", () => {
@@ -87,7 +80,7 @@ describe("PickerField", () => {
       />,
     );
 
-    const handler = lastPickerProps?.onValueChange as (v: string) => void;
+    const handler = pickerProps()?.onValueChange as (v: string) => void;
     handler("list-1");
 
     expect(onValueChange).toHaveBeenCalledWith("list-1");

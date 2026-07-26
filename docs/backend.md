@@ -186,6 +186,16 @@ dashboard-only addition would drift from what the migration declares.
   needs no RLS change — the existing `user_id` policies cover it — and both
   tables are already in the realtime publication, so alarm edits sync like any
   other field.
+- **Alarm sound (`preferences.alarm_sound`).** Which sound those alarms ring
+  with, as a `text not null default 'echos'` column on `preferences` (migration
+  `20260726193509_add_preferences_alarm_sound.sql`, DEX-72). The value names an
+  entry in the app's `ALARM_SOUNDS` registry (`src/utils/alarms.shared.ts`), not
+  a file path — the audio is bundled into the iOS app at prebuild, so the DB only
+  records the choice, and `'system'` means "leave AlarmKit on its default sound".
+  Deliberately unconstrained text: the sound list is app-owned and expected to
+  grow, and a client that doesn't recognize a stored value falls back to the
+  system sound rather than failing. Defaulting to `'echos'` is what gives
+  existing rows Dexter's sound without a backfill.
 - Both functions report errors to **Sentry** via `functions/_shared/sentry.ts`
   (`npm:@sentry/deno`, aliased in each function's `deno.json` import map since
   there is no shared import map across functions today). `initSentry`/

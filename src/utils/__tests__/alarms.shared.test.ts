@@ -1,10 +1,16 @@
 import { ETaskStatus, TTask } from "@/api/tasks";
 import {
+  ALARM_SOUNDS,
   alarmFireDate,
+  alarmSignature,
+  alarmSoundFileName,
   currentAlarmTime,
   DEFAULT_ALARM_LEAD_MINUTES,
+  DEFAULT_ALARM_SOUND,
   defaultAlarmTime,
   reconcileAlarms,
+  resolveAlarmSound,
+  TAlarmSchedule,
   TAlarmTask,
 } from "@/utils/alarms.shared";
 
@@ -57,6 +63,24 @@ describe("alarmFireDate", () => {
 });
 
 describe("reconcileAlarms", () => {
+  const FIRE_EPOCH = Math.floor(new Date(2026, 6, 17, 17, 30).getTime() / 1000);
+
+  /** What the session cache holds after `alarmTask()`'s alarm was scheduled. */
+  const alreadyScheduled = (
+    overrides: Partial<TAlarmSchedule> = {},
+  ): Map<string, string> =>
+    new Map([
+      [
+        "task-1",
+        alarmSignature({
+          id: "task-1",
+          title: "Take meds",
+          epochSeconds: FIRE_EPOCH,
+          ...overrides,
+        }),
+      ],
+    ]);
+
   it("schedules an alarm that isn't yet tracked or scheduled", () => {
     const { toSchedule, toCancel } = reconcileAlarms(
       [alarmTask()],
@@ -78,11 +102,10 @@ describe("reconcileAlarms", () => {
   });
 
   it("leaves an unchanged, already-scheduled alarm alone", () => {
-    const epoch = Math.floor(new Date(2026, 6, 17, 17, 30).getTime() / 1000);
     const { toSchedule, toCancel } = reconcileAlarms(
       [alarmTask()],
       ["task-1"],
-      new Map([["task-1", epoch]]),
+      alreadyScheduled(),
       NOW,
     );
 
@@ -91,25 +114,60 @@ describe("reconcileAlarms", () => {
   });
 
   it("re-schedules an alarm whose time was edited", () => {
-    const staleEpoch = Math.floor(
-      new Date(2026, 6, 17, 10, 0).getTime() / 1000,
-    );
     const { toSchedule } = reconcileAlarms(
       [alarmTask({ alarmTime: "17:30" })],
       ["task-1"],
-      new Map([["task-1", staleEpoch]]),
+      alreadyScheduled({
+        epochSeconds: Math.floor(new Date(2026, 6, 17, 10, 0).getTime() / 1000),
+      }),
       NOW,
     );
 
     expect(toSchedule.map((a) => a.id)).toEqual(["task-1"]);
   });
 
+  // AlarmKit reports only ids, so an edit that moves no fire time is invisible
+  // unless the whole scheduled shape is compared (DEX-72).
+  it("re-schedules an alarm whose title was edited", () => {
+    const { toSchedule } = reconcileAlarms(
+      [alarmTask({ title: "Take meds after lunch" })],
+      ["task-1"],
+      alreadyScheduled(),
+      NOW,
+    );
+
+    expect(toSchedule.map((a) => a.title)).toEqual(["Take meds after lunch"]);
+  });
+
+  it("re-schedules every alarm when the sound changes", () => {
+    const { toSchedule } = reconcileAlarms(
+      [alarmTask()],
+      ["task-1"],
+      alreadyScheduled({ soundName: "echos.wav" }),
+      NOW,
+      undefined, // switched back to the system sound
+    );
+
+    expect(toSchedule.map((a) => a.id)).toEqual(["task-1"]);
+  });
+
+  it("stamps the selected sound onto each alarm it schedules", () => {
+    const { toSchedule } = reconcileAlarms(
+      [alarmTask()],
+      [],
+      new Map(),
+      NOW,
+      "echos.wav",
+    );
+
+    expect(toSchedule.map((a) => a.soundName)).toEqual(["echos.wav"]);
+  });
+
   it("cancels a scheduled alarm that is no longer desired", () => {
-    const epoch = Math.floor(new Date(2026, 6, 17, 17, 30).getTime() / 1000);
     const { toSchedule, toCancel } = reconcileAlarms(
       [alarmTask({ alarmTime: null })], // alarm cleared
       ["task-1"],
-      new Map([["task-1", epoch]]),
+      alreadyScheduled(),
       NOW,
     );
 
@@ -177,5 +235,34 @@ describe("defaultAlarmTime", () => {
 
   it("rolls the hour over when the lead crosses a boundary", () => {
     expect(defaultAlarmTime(new Date(2026, 6, 17, 9, 58, 0))).toBe("10:03");
+  });
+});
+
+describe("alarmSoundFileName", () => {
+  it("resolves a bundled sound to the filename AlarmKit rings", () => {
+    expect(alarmSoundFileName("echos")).toBe("echos.wav");
+  });
+
+  it("resolves the system sound to undefined so AlarmKit keeps its default", () => {
+    expect(alarmSoundFileName("system")).toBeUndefined();
+  });
+
+  it("falls back to the system sound for a value this build doesn't ship", () => {
+    // A newer client (or a hand-edited row) can name a sound that isn't in this
+    // bundle — passing it through would resolve to silence.
+    expect(alarmSoundFileName("chimes")).toBeUndefined();
+    expect(resolveAlarmSound("chimes")).toBe("system");
+  });
+
+  it("resolves a sound this build does ship to itself", () => {
+    expect(resolveAlarmSound("echos")).toBe("echos");
+  });
+
+  it("ships a bundled file for the default sound", () => {
+    expect(alarmSoundFileName(DEFAULT_ALARM_SOUND)).toBe("echos.wav");
+  });
+
+  it("offers the system sound as an option so the custom sound is opt-out", () => {
+    expect(ALARM_SOUNDS.map(({ value }) => value)).toContain("system");
   });
 });

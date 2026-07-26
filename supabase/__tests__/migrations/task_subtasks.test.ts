@@ -1,25 +1,14 @@
 import { assert, assertStringIncludes } from "@std/assert";
 
+import { statements } from "./sqlStatements.ts";
+
 // DEX-70: static guards over the subtasks migration.
-//
-// Like `tasks_update_rls.test.ts`, backend CI runs `deno test` with no Postgres,
-// so these assert over the migration SQL text rather than a live database.
 
 const migrationUrl = new URL(
   "../../migrations/20260721182025_add_task_subtasks.sql",
   import.meta.url,
 );
 const sql = (await Deno.readTextFile(migrationUrl)).toLowerCase();
-
-function statements(source: string): string[] {
-  return source
-    .split("\n")
-    .filter((line) => !line.trimStart().startsWith("--"))
-    .join("\n")
-    .split(";")
-    .map((statement) => statement.replace(/\s+/g, " ").trim())
-    .filter(Boolean);
-}
 
 Deno.test("subtasks is added to both tasks and repeat_task_templates", () => {
   const added = statements(sql).filter((statement) =>
