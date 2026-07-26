@@ -477,6 +477,8 @@ Deno.test("delete_task also deletes a linked repeat template", async () => {
   const registry = new ToolRegistry();
   const supabase = new RecordingSupabase({
     tasks: [{ template_id: RECUR_TEMPLATE }],
+    // Read back to check the link is a repeat schedule and not a saved template.
+    repeat_task_templates: [{ schedule: "0 0 * * *" }],
   });
 
   registerTaskTools(
@@ -495,6 +497,29 @@ Deno.test("delete_task also deletes a linked repeat template", async () => {
     `eq:id:${RECUR_TEMPLATE}`,
     `eq:user_id:${RECUR_USER}`,
   ]);
+});
+
+// A linked template with no schedule is a saved task template (DEX-65) — the
+// user's, not this task's. Deleting the task must not take it down too.
+Deno.test("delete_task keeps a linked task template", async () => {
+  const registry = new ToolRegistry();
+  const supabase = new RecordingSupabase({
+    tasks: [{ template_id: RECUR_TEMPLATE }],
+    repeat_task_templates: [{ schedule: null }],
+  });
+
+  registerTaskTools(
+    registry as unknown as McpServer,
+    recordingContext(supabase, RECUR_USER),
+  );
+
+  await registry.run("delete_task", { taskId: RECUR_TASK });
+
+  assert(supabase.deletes.some((d) => d.table === "tasks"));
+  assertEquals(
+    supabase.deletes.filter((d) => d.table === "repeat_task_templates").length,
+    0,
+  );
 });
 
 Deno.test("delete_task leaves standalone tasks' templates untouched", async () => {

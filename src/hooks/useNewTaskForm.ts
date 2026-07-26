@@ -6,6 +6,7 @@ import { ETaskPriority, ETaskStatus, TCreateTask, TSubtask } from "@/api/tasks";
 import { TTemplate } from "@/api/templates";
 import { withTitledRows } from "@/components/SubtaskFields";
 import { parseTaskShorthand } from "@/utils/parseTaskShorthand";
+import { subtasksFromTemplate } from "@/utils/subtasks";
 
 export type TNewTaskForm = {
   /** Raw title input, shorthand tokens included. */
@@ -89,21 +90,22 @@ export const useNewTaskForm = (
   const applyTemplate = (template: TTemplate) => {
     setTitle(template.title);
     // The *override* setters, so the template's choices survive whatever
-    // shorthand tokens its title happens to contain.
+    // shorthand tokens its title happens to contain. `dueOn` is pinned to its
+    // current value for the same reason: it has no template counterpart to
+    // restate, but a `due:N` token in the title would otherwise move it.
     setPriorityOverride(template.priority);
     setListOverride(template.listId);
-    setAlarmTime(template.alarmTime);
-    // A template's checklist is a blueprint with no status; every item starts
-    // this task's copy open.
-    setSubtasks(
-      template.subtasks.map(({ id, title }) => ({
-        id,
-        title,
-        status: ETaskStatus.TODO,
-      })),
-    );
-    // `scheduledFor` and `dueOn` are left alone on purpose: a template carries
-    // neither, and the schedule should stay on the day the user was viewing.
+    setDueOnOverride(dueOn);
+    // A template's checklist is a blueprint with no status. `subtasksFromTemplate`
+    // mints fresh ids, so two tasks stamped from one template never share them.
+    setSubtasks(subtasksFromTemplate(template.subtasks, ETaskStatus.TODO));
+    // `scheduledFor` is left alone on purpose — a template carries no dates, and
+    // the task belongs on the day the user was viewing.
+    //
+    // `alarmTime` is deliberately NOT copied. An alarm only rings once AlarmKit
+    // has been authorized and the task has a day to fire on, and this path can
+    // guarantee neither — `handleAddAlarm` in the modal is what asks for
+    // permission. Copying it here would seed alarms that silently never ring.
   };
 
   return {

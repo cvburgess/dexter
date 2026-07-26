@@ -385,7 +385,12 @@ describe("getOtherSections", () => {
   const repeat = { label: "Repeat", onSelect: jest.fn() };
 
   it("offers Duplicate, Repeat, Save as template, and Delete as an untitled inline group, with Delete destructive", () => {
-    const [section] = getOtherSections(jest.fn(), jest.fn(), repeat, jest.fn());
+    const [section] = getOtherSections({
+      onDuplicate: jest.fn(),
+      repeat,
+      onSaveAsTemplate: jest.fn(),
+      onDelete: jest.fn(),
+    });
 
     expect(section.title).toBeUndefined();
     expect(section.isSubmenu).toBeUndefined();
@@ -414,12 +419,12 @@ describe("getOtherSections", () => {
     const onDelete = jest.fn();
     const onRepeat = jest.fn();
     const onSaveAsTemplate = jest.fn();
-    const [section] = getOtherSections(
+    const [section] = getOtherSections({
       onDuplicate,
-      onDelete,
-      { label: "Repeat", onSelect: onRepeat },
+      repeat: { label: "Repeat", onSelect: onRepeat },
       onSaveAsTemplate,
-    );
+      onDelete,
+    });
 
     section.options.find((option) => option.title === "Duplicate")?.onSelect();
     expect(onDuplicate).toHaveBeenCalledTimes(1);
@@ -437,7 +442,12 @@ describe("getOtherSections", () => {
   });
 
   it("holds no alarm or subtask item — those sit in their own group above", () => {
-    const [section] = getOtherSections(jest.fn(), jest.fn(), repeat, jest.fn());
+    const [section] = getOtherSections({
+      onDuplicate: jest.fn(),
+      repeat,
+      onSaveAsTemplate: jest.fn(),
+      onDelete: jest.fn(),
+    });
 
     expect(section.options.map((option) => option.title)).toEqual([
       "Duplicate",

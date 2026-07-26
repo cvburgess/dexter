@@ -87,7 +87,6 @@ export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
       template,
     ]);
     void queryClient.invalidateQueries({ queryKey: ["templates"] });
-    void queryClient.invalidateQueries({ queryKey: ["tasks"] });
   };
 
   const { mutate: createFromTask } = useMutation<TTemplate, Error, TTask>({
@@ -104,7 +103,12 @@ export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
 
       return template;
     },
-    onSuccess: seedTemplate,
+    onSuccess: (template) => {
+      seedTemplate(template);
+      // Only this flow writes to the task (the `templateId` link above), so
+      // only this flow has a reason to refetch the tasks query.
+      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
   });
 
   const { mutate: saveAsTemplate } = useMutation<TTemplate, Error, TTask>({

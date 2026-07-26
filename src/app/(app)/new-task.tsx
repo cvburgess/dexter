@@ -74,7 +74,7 @@ export default function NewTaskScreen() {
   const router = useRouter();
   const [lists, { isLoading: isLoadingLists }] = useLists();
   const [, { createTask }] = useTasks({ skipQuery: true });
-  const [allTemplates] = useTemplates();
+  const [allTemplates, { isLoading: isLoadingTemplates }] = useTemplates();
   // Set by NewTaskButton to the day the user was viewing; absent → today.
   const { scheduledFor } = useLocalSearchParams<{ scheduledFor?: string }>();
   const form = useNewTaskForm(lists, scheduledFor);
@@ -194,6 +194,7 @@ export default function NewTaskScreen() {
           <TemplatePicker
             templates={templates}
             selectedId={selectedTemplateId}
+            isLoading={isLoadingTemplates}
             onSelect={handleSelectTemplate}
           />
         )}

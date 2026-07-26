@@ -415,8 +415,13 @@ describe("NewTaskScreen", () => {
           scheduledFor: today.toString(),
           dueOn: null,
           alarmTime: null,
+          // Fresh ids, so two tasks from one template never collide.
           subtasks: [
-            { id: "sub-1", title: "Passport", status: ETaskStatus.TODO },
+            {
+              id: expect.any(String),
+              title: "Passport",
+              status: ETaskStatus.TODO,
+            },
           ],
         },
         expect.objectContaining({ onSuccess: expect.any(Function) }),

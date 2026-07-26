@@ -1,17 +1,16 @@
 import { useRouter } from "expo-router";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { isTaskTemplate, TTemplate } from "@/api/templates";
+import {
+  describeChecklist,
+  isRepeatTask,
+  isTaskTemplate,
+  TTemplate,
+} from "@/api/templates";
 import { PickerField } from "@/components/PickerField";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
-import { describeChecklist } from "@/components/TemplatePicker";
+import { TemplateRow } from "@/components/TemplateRow";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTemplates } from "@/hooks/useTemplates";
@@ -30,7 +29,7 @@ export default function TasksScreen() {
   // Two kinds of row live in one table; the schedule is what tells them apart
   // (DEX-65). Both are edited by the same `tasks/[id]` screen.
   const taskTemplates = templates.filter(isTaskTemplate);
-  const repeatTasks = templates.filter((t) => !isTaskTemplate(t));
+  const repeatTasks = templates.filter(isRepeatTask);
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = useIsMultiPane();
 
@@ -115,9 +114,10 @@ function TemplateSection({
       ) : (
         <View style={{ gap: theme.gap }}>
           {templates.map((template) => (
-            <TouchableOpacity
+            <TemplateRow
               key={template.id}
-              accessibilityRole="button"
+              template={template}
+              description={describe(template)}
               accessibilityLabel={`Edit ${template.title}`}
               onPress={() =>
                 router.push({
@@ -125,27 +125,7 @@ function TemplateSection({
                   params: { id: template.id },
                 })
               }
-              style={[
-                styles.card,
-                {
-                  backgroundColor: theme.colors.card,
-                  borderRadius: theme.borderRadius,
-                },
-              ]}
-            >
-              <Text
-                numberOfLines={1}
-                style={[styles.title, { color: theme.colors.text }]}
-              >
-                {template.title || "Untitled task"}
-              </Text>
-              <Text
-                numberOfLines={1}
-                style={[styles.subtitle, { color: theme.colors.textSecondary }]}
-              >
-                {describe(template)}
-              </Text>
-            </TouchableOpacity>
+            />
           ))}
         </View>
       )}
@@ -154,10 +134,6 @@ function TemplateSection({
 }
 
 const styles = StyleSheet.create({
-  card: {
-    gap: 4,
-    padding: 16,
-  },
   container: {
     flex: 1,
   },
@@ -170,12 +146,5 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: 10,
-  },
-  subtitle: {
-    fontSize: 13,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: "500",
   },
 });

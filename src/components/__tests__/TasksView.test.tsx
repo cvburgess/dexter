@@ -3,6 +3,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { Alert, Text, TouchableOpacity } from "react-native";
 
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
+import { TTemplate } from "@/api/templates";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
@@ -60,6 +61,9 @@ const mockUsePreferences = usePreferences as jest.MockedFunction<
 const mockUseTemplates = useTemplates as jest.MockedFunction<
   typeof useTemplates
 >;
+// The linked template the delete path looks up; null schedule = a saved task
+// template rather than this task's repeat.
+const mockGetTemplateById = jest.fn<TTemplate | undefined, [string | null]>();
 
 const mockDeleteTask = jest.fn();
 
@@ -116,6 +120,7 @@ describe("TasksView", () => {
     jest.clearAllMocks();
     mockUseTasks.mockReturnValue(tasksResult());
     mockUsePreferences.mockReturnValue(preferences());
+    mockGetTemplateById.mockReturnValue(undefined);
     mockUseTemplates.mockReturnValue([
       [],
       {
@@ -123,7 +128,7 @@ describe("TasksView", () => {
         createTemplateFromTask: jest.fn(),
         deleteTemplate: mockDeleteTemplate,
         saveTaskAsTemplate: jest.fn(),
-        getTemplateById: () => undefined,
+        getTemplateById: mockGetTemplateById,
         isLoading: false,
         updateTemplate: jest.fn(),
       },
@@ -185,6 +190,10 @@ describe("TasksView", () => {
 
   it("also deletes the repeat template for a repeating task", async () => {
     confirmAlert();
+    mockGetTemplateById.mockReturnValue({
+      id: "template-1",
+      schedule: "0 0 * * *",
+    } as TTemplate);
     mockUseTasks.mockReturnValue(
       tasksResult([task({ templateId: "template-1" })]),
     );
@@ -194,5 +203,24 @@ describe("TasksView", () => {
 
     await waitFor(() => expect(mockDeleteTask).toHaveBeenCalledWith("task-1"));
     expect(mockDeleteTemplate).toHaveBeenCalledWith("template-1");
+  });
+
+  // A linked template with no schedule is a saved task template (DEX-65) — the
+  // user's, not this task's. Deleting one task must not destroy it.
+  it("keeps a linked task template when the task is deleted", async () => {
+    confirmAlert();
+    mockGetTemplateById.mockReturnValue({
+      id: "template-1",
+      schedule: null,
+    } as TTemplate);
+    mockUseTasks.mockReturnValue(
+      tasksResult([task({ templateId: "template-1" })]),
+    );
+    const screen = render(<TasksView date={date} />);
+
+    fireEvent.press(screen.getByLabelText("delete-task-1"));
+
+    await waitFor(() => expect(mockDeleteTask).toHaveBeenCalledWith("task-1"));
+    expect(mockDeleteTemplate).not.toHaveBeenCalled();
   });
 });

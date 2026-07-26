@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { ScrollView, StyleSheet } from "react-native";
 
 import { duplicateTaskInput, TTask } from "@/api/tasks";
+import { isRepeatTask } from "@/api/templates";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { HabitTracker } from "@/components/HabitTracker";
@@ -31,10 +32,17 @@ export function TasksView({ date }: TTasksViewProps) {
     () => selectTasksForDate(allTasks, date),
     [allTasks, date],
   );
-  const [, { deleteTemplate }] = useTemplates();
+  const [, { deleteTemplate, getTemplateById }] = useTemplates();
 
   const handleDelete = async (task: TTask) => {
-    const isRepeating = task.templateId !== null;
+    // A linked template is only this task's repeat schedule while it still
+    // carries one. Since DEX-65 it may have been converted into a saved task
+    // template — which is the user's, not this task's, and must outlive it.
+    // Unknown (still loading, stale id) counts as "not a repeat": leaving a
+    // schedule behind is visible and undoable in Settings, whereas deleting a
+    // template the user saved is neither.
+    const linkedTemplate = getTemplateById(task.templateId);
+    const isRepeating = linkedTemplate ? isRepeatTask(linkedTemplate) : false;
     const confirmed = await confirm({
       title: isRepeating ? "Delete repeating task?" : "Delete Task",
       message: isRepeating
@@ -46,7 +54,7 @@ export function TasksView({ date }: TTasksViewProps) {
     if (!confirmed) return;
     // The task→template FK is ON DELETE SET NULL, so the template must be removed
     // explicitly to stop future occurrences (DEX-21).
-    if (task.templateId) deleteTemplate(task.templateId);
+    if (isRepeating && task.templateId) deleteTemplate(task.templateId);
     deleteTask(task.id);
   };
 

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
 
 import { ETaskPriority, TTask } from "@/api/tasks";
+import { isRepeatTask } from "@/api/templates";
 import { isAlarmSupported } from "@/utils/alarms";
 import { useLists } from "@/hooks/useLists";
 import { useTemplates } from "@/hooks/useTemplates";
@@ -63,11 +64,10 @@ export function MoreMenu({
       params: { id: templateId },
     });
 
-  // A linked template always carries a schedule today; the extra check
-  // future-proofs a later "linked template without a schedule" state (DEX-21).
+  // A linked template only means "this task repeats" while it still carries a
+  // schedule — since DEX-65 it may have been converted into a task template.
   const linkedTemplate = getTemplateById(task.templateId);
-  const isRepeating =
-    task.templateId !== null && linkedTemplate?.schedule !== null;
+  const isRepeating = linkedTemplate ? isRepeatTask(linkedTemplate) : false;
 
   const onRepeat = () => {
     // Branch on the stored templateId, not the (possibly still-loading) template
@@ -123,15 +123,15 @@ export function MoreMenu({
     ...editSections.map((section, index) =>
       index === 0 ? section : { ...section, hideDivider: true },
     ),
-    ...getOtherSections(
+    ...getOtherSections({
       onDuplicate,
-      onDelete,
-      {
+      repeat: {
         label: isRepeating ? "Edit repeat schedule" : "Repeat",
         onSelect: onRepeat,
       },
       onSaveAsTemplate,
-    ),
+      onDelete,
+    }),
   ];
 
   return (
@@ -354,12 +354,17 @@ export const getTaskActionSections = (
  * they make the same kind of thing — a `repeat_task_templates` row — and differ
  * only in whether it carries a schedule (DEX-65).
  */
-export const getOtherSections = (
-  onDuplicate: () => void,
-  onDelete: () => void,
-  repeat: { label: string; onSelect: () => void },
-  onSaveAsTemplate: () => void,
-): TIconMenuSection[] => [
+export const getOtherSections = ({
+  onDuplicate,
+  repeat,
+  onSaveAsTemplate,
+  onDelete,
+}: {
+  onDuplicate: () => void;
+  repeat: { label: string; onSelect: () => void };
+  onSaveAsTemplate: () => void;
+  onDelete: () => void;
+}): TIconMenuSection[] => [
   {
     options: [
       {

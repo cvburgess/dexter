@@ -41,6 +41,16 @@ export type TTemplate = {
 export const isTaskTemplate = (template: TTemplate) =>
   template.schedule === null;
 
+/** The other half of `isTaskTemplate`, so neither side reads as a negation. */
+export const isRepeatTask = (template: TTemplate) => !isTaskTemplate(template);
+
+/** "3 steps" — the only thing worth saying about a template in a list row. */
+export const describeChecklist = (template: TTemplate): string => {
+  const count = template.subtasks.length;
+  if (count === 0) return "No checklist";
+  return count === 1 ? "1 step" : `${count} steps`;
+};
+
 /** See `withSubtasksArray` in `api/tasks.ts` — the same pre-migration guard. */
 const withSubtasksArray = <T extends { subtasks?: TTemplateSubtask[] }>(
   row: T,

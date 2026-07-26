@@ -416,7 +416,9 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
       description:
         "Permanently delete a task. If the task has a linked repeat schedule, " +
         "its template is deleted too, which stops future occurrences from being " +
-        "created — confirm this with the user before deleting a repeat task.",
+        "created — confirm this with the user before deleting a repeat task. " +
+        "A linked template with no schedule is a saved task template rather " +
+        "than this task's repeat, and is left alone.",
       inputSchema: { taskId: uuidSchema },
       annotations: { readOnlyHint: false, destructiveHint: true },
     },
@@ -440,13 +442,25 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
       if (error) return toolError(error.message);
 
       if (task?.template_id) {
-        const { error: templateError } = await ctx.supabase
+        // Only a template that still carries a schedule is this task's repeat.
+        // A scheduleless one is a saved task template (DEX-65) — the user's,
+        // not this task's — and deleting it here would destroy it silently.
+        const { data: template } = await ctx.supabase
           .from("repeat_task_templates")
-          .delete()
+          .select("schedule")
           .eq("id", task.template_id)
-          .eq("user_id", ctx.userId);
+          .eq("user_id", ctx.userId)
+          .maybeSingle();
 
-        if (templateError) return toolError(templateError.message);
+        if (template?.schedule) {
+          const { error: templateError } = await ctx.supabase
+            .from("repeat_task_templates")
+            .delete()
+            .eq("id", task.template_id)
+            .eq("user_id", ctx.userId);
+
+          if (templateError) return toolError(templateError.message);
+        }
       }
 
       return toolJson({ success: true, taskId });

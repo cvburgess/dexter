@@ -245,7 +245,18 @@ describe("useNewTaskForm", () => {
       expect(result.current.title).toBe("Trip packing");
       expect(result.current.priority).toBe(ETaskPriority.IMPORTANT);
       expect(result.current.listId).toBe("list-home");
-      expect(result.current.alarmTime).toBe("07:30");
+    });
+
+    // An alarm only rings once AlarmKit is authorized and the task has a day to
+    // fire on. This path can promise neither, and the modal's "Add alarm" is
+    // what asks for permission — so a copied alarm would silently never ring.
+    it("does not carry the template's alarm across", () => {
+      const { result } = renderHook(() => useNewTaskForm([homeList]));
+
+      act(() => result.current.applyTemplate(template));
+
+      expect(result.current.alarmTime).toBeNull();
+      expect(result.current.task.alarmTime).toBeNull();
     });
 
     // A template's checklist is a blueprint with no status, so every item has
@@ -256,9 +267,40 @@ describe("useNewTaskForm", () => {
       act(() => result.current.applyTemplate(template));
 
       expect(result.current.task.subtasks).toEqual([
-        { id: "s1", title: "Passport", status: ETaskStatus.TODO },
-        { id: "s2", title: "Charger", status: ETaskStatus.TODO },
+        { id: expect.any(String), title: "Passport", status: ETaskStatus.TODO },
+        { id: expect.any(String), title: "Charger", status: ETaskStatus.TODO },
       ]);
+    });
+
+    // Every other copy-onto-a-different-row path re-keys (see `withFreshIds`),
+    // so two tasks stamped from one template never share subtask ids.
+    it("mints fresh subtask ids rather than reusing the template's", () => {
+      const first = renderHook(() => useNewTaskForm([homeList]));
+      const second = renderHook(() => useNewTaskForm([homeList]));
+
+      act(() => first.result.current.applyTemplate(template));
+      act(() => second.result.current.applyTemplate(template));
+
+      const ids = (rows: { id: string }[] = []) => rows.map(({ id }) => id);
+      const firstIds = ids(first.result.current.task.subtasks);
+      const secondIds = ids(second.result.current.task.subtasks);
+
+      expect(firstIds).not.toEqual(["s1", "s2"]);
+      expect(firstIds).not.toEqual(secondIds);
+    });
+
+    // The template editor's title field does no shorthand parsing, so a title
+    // containing `due:5` round-trips into storage verbatim and would otherwise
+    // move the deadline when the template is applied.
+    it("ignores a due: token in the template's own title", () => {
+      const { result } = renderHook(() => useNewTaskForm([homeList]));
+
+      act(() => result.current.setDueOn("2026-07-20"));
+      act(() =>
+        result.current.applyTemplate({ ...template, title: "Pay rent due:5" }),
+      );
+
+      expect(result.current.dueOn).toBe("2026-07-20");
     });
 
     // The template carries no dates, so the day the user was viewing has to

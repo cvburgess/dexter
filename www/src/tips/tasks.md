@@ -113,7 +113,7 @@ To use one, tap **+** to create a task and switch to the **Template** tab. Pick
 a template and the form fills in, still fully editable, so you can adjust
 anything before saving. The new task lands on the day you were viewing.
 
-Templates live in Settings → Tasks, next to your repeat schedules. They're
-really the same thing: set a template's **Repeats** to Daily and it becomes a
-repeating task, or set a repeating task's to **Never** and it becomes a
-template.
+Templates live in Settings → Tasks, next to your repeat schedules — they're
+really the same thing wearing different hats. If a repeating task turns out not
+to need a schedule after all, open it and set **Repeats** to **Never**: it keeps
+everything else and moves over to your templates.

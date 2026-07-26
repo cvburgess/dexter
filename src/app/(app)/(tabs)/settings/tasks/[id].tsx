@@ -195,23 +195,14 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
   };
 
   const handleDelete = async () => {
-    const confirmed = await confirm(
-      isTemplate
-        ? {
-            title: "Delete template?",
-            message:
-              "This deletes the template. Tasks you already created from it are unaffected.",
-            confirmLabel: "Delete Template",
-            destructive: true,
-          }
-        : {
-            title: "Stop repeating?",
-            message:
-              "This deletes the repeat schedule. The current task stays, but no new occurrences will be created.",
-            confirmLabel: "Stop Repeating",
-            destructive: true,
-          },
-    );
+    const confirmed = await confirm({
+      title: isTemplate ? "Delete template?" : "Stop repeating?",
+      message: isTemplate
+        ? "This deletes the template. Tasks you already created from it are unaffected."
+        : "This deletes the repeat schedule. The current task stays, but no new occurrences will be created.",
+      confirmLabel: isTemplate ? "Delete Template" : "Stop Repeating",
+      destructive: true,
+    });
     if (!confirmed) return;
     deleteTemplate(existing.id, {
       onSuccess: () => router.back(),
