@@ -210,8 +210,13 @@ function InlineInput({
 }
 
 const styles = StyleSheet.create({
+  // Owns the row's `flex: 1` — callers must not repeat it in `style`, which
+  // lands on the inner Text/TextInput. There it reads as a *vertical* grow from
+  // a zero basis, which stops the title from being an intrinsic line box the
+  // row can center, and it renders off-center against the row's buttons.
   pressable: {
     flex: 1,
+    justifyContent: "center",
   },
   input: {
     flex: 1,

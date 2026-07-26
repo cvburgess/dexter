@@ -372,8 +372,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
   },
+  // No `flex: 1` — EditableText's wrapper owns that; see its stylesheet.
   title: {
-    flex: 1,
     fontSize: 14,
     fontWeight: "500",
   },
@@ -383,5 +383,9 @@ const styles = StyleSheet.create({
     // Indent to the title's left edge (32px status button + 8px gap), so the
     // checklist reads as hanging off the title rather than off the card.
     paddingLeft: 40,
+    // Half the difference between the parent's 32px buttons and a subtask's
+    // 24px ones, so the `⋯` centers land on the same vertical axis as the
+    // title row's right-most button.
+    paddingRight: 4,
   },
 });

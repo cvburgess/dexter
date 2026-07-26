@@ -123,7 +123,12 @@ export function SubtaskRow({
           style={styles.menu}
           sections={actionSections(onPromote, onDelete)}
         >
-          <View style={styles.menuTrigger}>
+          <View
+            style={[
+              styles.menuTrigger,
+              { borderColor: withOpacity(contentColor, 0.25) },
+            ]}
+          >
             <Text
               style={[
                 styles.menuGlyph,
@@ -146,8 +151,8 @@ const styles = StyleSheet.create({
     gap: 8,
     minHeight: 32,
   },
+  // No `flex: 1` — EditableText's wrapper owns that; see its stylesheet.
   title: {
-    flex: 1,
     fontSize: 13,
     fontWeight: "400",
   },
@@ -157,8 +162,12 @@ const styles = StyleSheet.create({
     height: STATUS_SIZE,
     width: STATUS_SIZE,
   },
+  // Circled like StatusButton, at the same 24px, so the row's two controls read
+  // as a pair and both sit subordinate to the parent's 32px buttons.
   menuTrigger: {
     alignItems: "center",
+    borderRadius: 999,
+    borderWidth: 1,
     height: STATUS_SIZE,
     justifyContent: "center",
     width: STATUS_SIZE,

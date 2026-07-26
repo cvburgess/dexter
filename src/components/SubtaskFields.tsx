@@ -186,8 +186,8 @@ const styles = StyleSheet.create({
   bullet: {
     fontSize: 14,
   },
+  // No `flex: 1` — EditableText's wrapper owns that; see its stylesheet.
   title: {
-    flex: 1,
     fontSize: 14,
   },
   remove: {
