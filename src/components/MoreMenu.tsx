@@ -172,7 +172,11 @@ const DATE_FIELD_META = {
   },
   deadline: {
     title: "Deadline",
-    icon: { ios: "flag", android: "flag", web: "flag" },
+    icon: {
+      ios: "calendar.badge.clock",
+      android: "calendar_clock",
+      web: "calendar_clock",
+    },
     clearTitle: "Clear deadline",
   },
 } as const;

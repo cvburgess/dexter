@@ -137,7 +137,7 @@ describe("MoreMenu", () => {
     ).toEqual([
       "exclamationmark",
       "calendar",
-      "flag",
+      "calendar.badge.clock",
       "face.smiling",
       undefined,
       undefined,
