@@ -49,7 +49,7 @@ describe("StatusButton", () => {
     [ETaskStatus.DONE, "✓"],
     [ETaskStatus.WONT_DO, "✕"],
     [ETaskStatus.DELEGATED, "→"],
-  ])("renders a glyph representing status %i", (status, glyph) => {
+  ])("renders status %i as %s", (status, glyph) => {
     const screen = render(
       <StatusButton
         status={status}

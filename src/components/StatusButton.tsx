@@ -40,7 +40,7 @@ export function StatusButton({
       ]}
     >
       <Text style={{ color: contentColor, fontSize: size / 2 }}>
-        {glyphForStatus(status)}
+        {GLYPHS[status]}
       </Text>
     </View>
   );
@@ -112,26 +112,22 @@ export const getStatusSections = (
 ];
 
 /**
- * The trigger draws a text character, not an SF Symbol — it has to tint with the
- * card's content color and render identically on iOS, Android, and web, which the
- * menu's `SymbolView` icons don't. So each status carries two glyphs: the symbol
- * name in `getStatusSections` and its text counterpart here. Delegated's menu icon
- * is `person`; "→" is the text stand-in, reading as handed off.
+ * The trigger draws a text character rather than the menu's `SymbolView` icon
+ * (which would tint fine — see `PriorityControl`): the typographic circle is the
+ * task affordance itself, and nesting an SF `circle` inside the bordered circle
+ * would double it up. So each status carries two glyphs — the symbol name in
+ * `getStatusSections` and its text counterpart here. Delegated's menu icon is
+ * `person`; "→" is the text stand-in, reading as handed off.
+ *
+ * Keyed as a `Record` rather than a switch with a `default` so that adding a
+ * status without a glyph is a type error instead of a silent fallback to "○".
  */
-const glyphForStatus = (status: ETaskStatus) => {
-  switch (status) {
-    case ETaskStatus.IN_PROGRESS:
-      return "◐";
-    case ETaskStatus.DONE:
-      return "✓";
-    case ETaskStatus.WONT_DO:
-      return "✕";
-    case ETaskStatus.DELEGATED:
-      return "→";
-    case ETaskStatus.TODO:
-    default:
-      return "○";
-  }
+const GLYPHS: Record<ETaskStatus, string> = {
+  [ETaskStatus.TODO]: "○",
+  [ETaskStatus.IN_PROGRESS]: "◐",
+  [ETaskStatus.DONE]: "✓",
+  [ETaskStatus.WONT_DO]: "✕",
+  [ETaskStatus.DELEGATED]: "→",
 };
 
 const styles = StyleSheet.create({

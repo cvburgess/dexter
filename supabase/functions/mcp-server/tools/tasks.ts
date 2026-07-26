@@ -81,8 +81,8 @@ async function readForCompletion(
  * When a task update completes a repeat task, schedule its next occurrence — the
  * TypeScript replacement for the dropped `create_next_recurring_task` trigger
  * (DEX-21), sharing `getNextTaskDate` with the Expo app. No-ops unless the task
- * just transitioned into done/won't-do (from a non-complete `previousStatus`)
- * and is linked to a template with a schedule.
+ * just transitioned into a terminal status — done/won't-do/delegated — from a
+ * non-complete `previousStatus`, and is linked to a template with a schedule.
  */
 async function maybeCreateNextRecurringTask(
   ctx: ToolContext,

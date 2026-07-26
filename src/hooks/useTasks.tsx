@@ -148,8 +148,9 @@ const normalizeBulkKeys = (
 /**
  * When an update completes a repeat task, schedule its next occurrence — the
  * TypeScript replacement for the dropped `create_next_recurring_task` trigger
- * (DEX-21). No-ops unless this update is a fresh transition into done/won't-do
- * on a task linked to a template with a schedule.
+ * (DEX-21). No-ops unless this update is a fresh transition into a terminal
+ * status (done/won't-do/delegated) on a task linked to a template with a
+ * schedule.
  *
  * Reads the task from `previousTasks` — the snapshot `onMutate` took *before*
  * the optimistic write — not from the live cache. The optimistic write has
@@ -208,8 +209,8 @@ const maybeCreateNextRecurringTask = async (
  * array (see `utils/taskFilters.ts`) instead of separate server queries per
  * view/day/filter (DEX-57). Not a general-purpose "all tasks" fetch — a view
  * needing full history or a different window (e.g. an analytics screen)
- * would need its own query, since old completed/won't-do tasks fall outside
- * this window entirely.
+ * would need its own query, since old closed-out tasks (done, won't do,
+ * delegated) fall outside this window entirely.
  */
 export const canonicalTaskFilters = (): TQueryFilter[] => [
   makeOrFilter([

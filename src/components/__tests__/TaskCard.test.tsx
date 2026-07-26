@@ -238,59 +238,41 @@ describe("TaskCard", () => {
     expect(screen.getByText("🏠")).toBeTruthy();
   });
 
-  it("hides the due date and list button, skips the more menu, and mutes the title for a done task", () => {
-    const task = {
-      ...baseTask,
-      status: ETaskStatus.DONE,
-      dueOn: "2026-07-05",
-      listId: "list-1",
-    };
-    const screen = render(
-      <TaskCard
-        task={task}
-        onUpdate={jest.fn()}
-        onDuplicate={jest.fn()}
-        onPromoteSubtask={jest.fn()}
-        onDelete={jest.fn()}
-      />,
-    );
-
-    expect(screen.queryByText("🏠")).toBeNull();
-    expect(mockMoreMenu).not.toHaveBeenCalled();
-
-    const title = screen.getByText("Write the report");
-    const flatStyle = StyleSheet.flatten(title.props.style as TextStyle[]);
-    expect(flatStyle.textDecorationLine).toBe("line-through");
-  });
-
-  // The other two terminal statuses get the same treatment as DONE — they share
-  // one `isCompletionStatus` predicate, so this guards against anyone reverting
-  // the card to a hardcoded DONE/WONT_DO pair (DEX-68).
+  // Every terminal status gets identical treatment — they share one
+  // `isCompletionStatus` predicate, so listing all three here is what guards
+  // against anyone reverting the card to a hardcoded DONE/WONT_DO pair (DEX-68).
   it.each([
+    ["done", ETaskStatus.DONE],
     ["won't-do", ETaskStatus.WONT_DO],
     ["delegated", ETaskStatus.DELEGATED],
-  ])("skips the more menu and strikes the title for a %s task too", (
-    _label,
-    status,
-  ) => {
-    const task = { ...baseTask, status, dueOn: "2026-07-05", listId: "list-1" };
-    const screen = render(
-      <TaskCard
-        task={task}
-        onUpdate={jest.fn()}
-        onDuplicate={jest.fn()}
-        onPromoteSubtask={jest.fn()}
-        onDelete={jest.fn()}
-      />,
-    );
+  ])(
+    "hides the due date and list button, skips the more menu, and strikes the title for a %s task",
+    (_label, status) => {
+      const task = {
+        ...baseTask,
+        status,
+        dueOn: "2026-07-05",
+        listId: "list-1",
+      };
+      const screen = render(
+        <TaskCard
+          task={task}
+          onUpdate={jest.fn()}
+          onDuplicate={jest.fn()}
+          onPromoteSubtask={jest.fn()}
+          onDelete={jest.fn()}
+        />,
+      );
 
-    expect(mockMoreMenu).not.toHaveBeenCalled();
-    expect(screen.queryByText("🏠")).toBeNull();
+      expect(screen.queryByTestId("due-date-badge")).toBeNull();
+      expect(screen.queryByText("🏠")).toBeNull();
+      expect(mockMoreMenu).not.toHaveBeenCalled();
 
-    const title = screen.getByText("Write the report");
-    const flatStyle = StyleSheet.flatten(title.props.style as TextStyle[]);
-    expect(flatStyle.textDecorationLine).toBe("line-through");
-  });
+      const title = screen.getByText("Write the report");
+      const flatStyle = StyleSheet.flatten(title.props.style as TextStyle[]);
+      expect(flatStyle.textDecorationLine).toBe("line-through");
+    },
+  );
 
   it.each([
     ["completed", ETaskStatus.DONE],

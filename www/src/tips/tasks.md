@@ -22,9 +22,7 @@ your super power in the battle against chronic busyness, don't be afraid to use
 them (wisely)!
 
 Done, won't do, and delegated all close a task out: it drops off your backlog
-and stops nagging you. Keeping them separate just means that when you look back,
-you can tell the difference between what you finished, what you dropped, and
-what someone else picked up.
+and stops nagging you.
 
 ## Renaming a task
 

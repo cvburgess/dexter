@@ -385,7 +385,7 @@ export function TaskCard({
   );
 
   // Priority/schedule/list editing (and the long-press that opens it) isn't
-  // available once a task is done or won't-do, matching the buttons above.
+  // available once a task reaches a terminal status, matching the buttons above.
   if (isComplete) return card;
 
   return (

@@ -146,18 +146,22 @@ Deno.test("every foreign key reference resolves to a defined entity", () => {
   }
 });
 
+// Mirrors `isCompletionStatus` in src/utils/taskFilters.ts: a task in any
+// terminal status is closed out, so it can't be what makes the demo show an
+// overdue or left-behind card — the app filters those out of the backlog.
+const isClosedOut = (status: number) =>
+  status === DEMO_STATUS.DONE ||
+  status === DEMO_STATUS.WONT_DO ||
+  status === DEMO_STATUS.DELEGATED;
+
 Deno.test("demo showcases the states screenshots depend on", () => {
   const hasOverdue = data.tasks.some(
     (t) =>
-      t.status !== DEMO_STATUS.DONE &&
-      t.status !== DEMO_STATUS.WONT_DO &&
-      t.dueOnOffset !== null &&
-      t.dueOnOffset < 0,
+      !isClosedOut(t.status) && t.dueOnOffset !== null && t.dueOnOffset < 0,
   );
   const hasLeftBehind = data.tasks.some(
     (t) =>
-      t.status !== DEMO_STATUS.DONE &&
-      t.status !== DEMO_STATUS.WONT_DO &&
+      !isClosedOut(t.status) &&
       t.scheduledForOffset !== null &&
       t.scheduledForOffset < 0,
   );
