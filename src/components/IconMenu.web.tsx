@@ -21,6 +21,8 @@ import type {
 
 const MENU_WIDTH = 220;
 const MENU_MARGIN = 8;
+/** Icon size, and so the width of the checkmark column that aligns with it. */
+const ICON_SIZE = 18;
 
 // Explicit `titleColor` override, else destructive red, else default text —
 // shared by the leaf and submenu option rows so their label color can't drift.
@@ -225,7 +227,7 @@ function MenuSection({
         {section.icon ? (
           <SymbolView
             name={section.icon}
-            size={18}
+            size={ICON_SIZE}
             tintColor={theme.colors.text}
           />
         ) : null}
@@ -266,7 +268,13 @@ function MenuOptionRow({
 }) {
   return (
     <Pressable
-      style={[styles.option, indented && styles.optionIndented]}
+      // The checkmark column is itself the indent — it sits where the parent
+      // row's icon does, so a submenu's rows line up under their header. Only a
+      // submenu with nothing to check needs an indent of its own.
+      style={[
+        styles.option,
+        indented && !showCheckmark && styles.optionIndented,
+      ]}
       onPress={onSelect}
     >
       {showCheckmark ? (
@@ -275,7 +283,7 @@ function MenuOptionRow({
       {option.icon ? (
         <SymbolView
           name={option.icon}
-          size={18}
+          size={ICON_SIZE}
           tintColor={option.iconColor ?? theme.colors.text}
         />
       ) : null}
@@ -331,7 +339,9 @@ const styles = StyleSheet.create({
   optionIndented: {
     paddingLeft: 28,
   },
+  // As wide as the icons above it, so a checked row's label starts where its
+  // parent's does rather than 2px shy of it.
   checkmark: {
-    width: 16,
+    width: ICON_SIZE,
   },
 });

@@ -4,8 +4,8 @@ import { StyleSheet, Text, type StyleProp, type ViewStyle } from "react-native";
 import { IconMenu } from "../IconMenu.web";
 import { TIconMenuSection } from "../IconMenu.types";
 
-/** `styles.checkmark`'s width — the slot that offsets a checkable row. */
-const CHECKMARK_WIDTH = 16;
+/** `styles.checkmark`'s width — the slot that aligns a checkable row. */
+const CHECKMARK_WIDTH = 18;
 
 /**
  * Host (not composite) elements whose flattened style matches — the menu's
@@ -217,6 +217,46 @@ describe("IconMenu (web)", () => {
     expect(
       hostsStyled(screen, (style) => style.width === CHECKMARK_WIDTH),
     ).toHaveLength(1);
+  });
+
+  // The checkmark sits where the header's icon does, which is the alignment
+  // that reads as nesting — an extra indent on top of it only breaks the column.
+  it("does not indent a checkable submenu's rows past their header", () => {
+    const submenuSections: TIconMenuSection[] = [
+      {
+        title: "Priority",
+        isSubmenu: true,
+        options: [
+          {
+            id: "urgent",
+            title: "Urgent",
+            isSelected: false,
+            onSelect: jest.fn(),
+          },
+        ],
+      },
+    ];
+    const screen = render(
+      <IconMenu accessibilityLabel="More" sections={submenuSections}>
+        <Text>Trigger</Text>
+      </IconMenu>,
+    );
+
+    fireEvent.press(screen.getByLabelText("More"), {
+      nativeEvent: { clientX: 10, clientY: 10 },
+    });
+    fireEvent.press(screen.getByText("Priority"));
+
+    const rows = hostsStyled(
+      screen,
+      (style) =>
+        style.paddingHorizontal === 16 && style.flexDirection === "row",
+    );
+    // Header and option row alike, inset only by the menu's own padding.
+    expect(rows).toHaveLength(2);
+    expect(
+      hostsStyled(screen, (style) => style.paddingLeft !== undefined),
+    ).toHaveLength(0);
   });
 
   it("omits the rule above a section that continues the one before it", () => {
