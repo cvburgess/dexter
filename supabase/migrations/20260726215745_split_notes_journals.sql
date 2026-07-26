@@ -129,12 +129,12 @@ create policy "Users can update their own journals" on "public"."journals"
   using ((( SELECT auth.uid() AS uid) = user_id))
   with check ((( SELECT auth.uid() AS uid) = user_id));
 
--- Backfill from `days`, skipping rows whose column is empty. Copying *every*
--- `days` row into both tables would destroy the distinction the clients rely on
--- between "this day was never started" (no row) and "started but blank" (row
--- with an empty value) — `useNotes`' `exists` flag drives the "Use daily note
--- template / Blank note" chooser, which would then never appear again for any
--- day that happens to have a journal entry.
+-- Backfill from `days`, skipping rows the user never actually put content in.
+-- Copying *every* `days` row into both tables would destroy the distinction the
+-- clients rely on between "this day was never started" (no row) and "started but
+-- blank" (row with an empty value) — `useNotes`' `exists` flag drives the "Use
+-- daily note template / Blank note" chooser, which would then never appear again
+-- for any day that happens to carry a journal entry.
 --
 -- One-time cosmetic consequence: a day where the user explicitly picked "Blank
 -- note" (a `days` row with notes = '') is not backfilled, so that day offers the
@@ -145,10 +145,28 @@ from public.days
 where notes is not null and notes <> ''
 on conflict (user_id, date) do nothing;
 
+-- Journals need a *content* test, not the shape test `prompts <> '[]'` — those
+-- are not equivalent here. The old shared-row design made the first *note* write
+-- seed the day's prompts with empty responses (so the legacy app wouldn't render
+-- a blank journal — see 20260713003945), so most rows carry template scaffolding
+-- the user never answered: at the time of writing, 160 of 162 `days` rows hold a
+-- non-empty prompts array but only 47 hold a single response. Importing the other
+-- 113 would make "a journals row exists" mean "a note was written that day",
+-- breaking `exists` for the same reason the shape test looks tempting.
 insert into public.journals (user_id, date, prompts)
 select user_id, date, prompts
 from public.days
-where prompts is not null and prompts <> '[]'::jsonb
+-- The `jsonb_typeof` guard is load-bearing, not defensive noise: `days.prompts`
+-- carries no array constraint (unlike the new column above), and
+-- `jsonb_array_elements` raises on a non-array, which would abort this whole
+-- migration. Every production row is an array today, but the legacy client and
+-- the dashboard can both still write that column before this runs.
+where jsonb_typeof(prompts) = 'array'
+  and exists (
+    select 1
+    from jsonb_array_elements(prompts) as entry
+    where coalesce(entry ->> 'response', '') <> ''
+  )
 on conflict (user_id, date) do nothing;
 
 -- Emit change events for client cache invalidation, same guarded pattern as

@@ -16,6 +16,8 @@ const mockUpsertNote = notesApi.upsertNote as jest.MockedFunction<
   typeof notesApi.upsertNote
 >;
 
+// Returns the client alongside the wrapper so a test can inspect the mutation
+// cache without standing up a second QueryClient of its own.
 const createWrapper = () => {
   const client = new QueryClient({
     // `retryDelay: 0` keeps the mutation's `retry: 3` instant under test (the
@@ -25,9 +27,10 @@ const createWrapper = () => {
       mutations: { retryDelay: 0 },
     },
   });
-  return ({ children }: { children: ReactNode }) => (
+  const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
+  return { client, wrapper };
 };
 
 describe("useNotes", () => {
@@ -39,7 +42,7 @@ describe("useNotes", () => {
     mockGetNote.mockResolvedValue(null);
 
     const { result } = renderHook(() => useNotes("2026-07-12"), {
-      wrapper: createWrapper(),
+      wrapper: createWrapper().wrapper,
     });
 
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
@@ -53,7 +56,7 @@ describe("useNotes", () => {
     mockGetNote.mockResolvedValue({ date: "2026-07-12", content: "existing" });
 
     const { result } = renderHook(() => useNotes("2026-07-12"), {
-      wrapper: createWrapper(),
+      wrapper: createWrapper().wrapper,
     });
 
     await waitFor(() => expect(result.current[1].exists).toBe(true));
@@ -65,7 +68,7 @@ describe("useNotes", () => {
     mockUpsertNote.mockResolvedValue({ date: "2026-07-12", content: "hello" });
 
     const { result } = renderHook(() => useNotes("2026-07-12"), {
-      wrapper: createWrapper(),
+      wrapper: createWrapper().wrapper,
     });
 
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
@@ -88,7 +91,7 @@ describe("useNotes", () => {
       .mockResolvedValueOnce({ date: "2026-07-12", content: "typed" });
 
     const { result } = renderHook(() => useNotes("2026-07-12"), {
-      wrapper: createWrapper(),
+      wrapper: createWrapper().wrapper,
     });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
@@ -105,7 +108,7 @@ describe("useNotes", () => {
     mockUpsertNote.mockRejectedValue(new Error("save failed"));
 
     const { result } = renderHook(() => useNotes("2026-07-12"), {
-      wrapper: createWrapper(),
+      wrapper: createWrapper().wrapper,
     });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
@@ -118,15 +121,7 @@ describe("useNotes", () => {
   });
 
   it("tags the upsert with notesMutationKey while it is in flight", async () => {
-    const client = new QueryClient({
-      defaultOptions: {
-        queries: { retry: false },
-        mutations: { retryDelay: 0 },
-      },
-    });
-    const wrapper = ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={client}>{children}</QueryClientProvider>
-    );
+    const { client, wrapper } = createWrapper();
 
     mockGetNote.mockResolvedValue(null);
     let resolveUpsert: (note: notesApi.TNote) => void = () => {};

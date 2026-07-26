@@ -24,6 +24,8 @@ const mockUsePreferences = usePreferences as jest.MockedFunction<
   typeof usePreferences
 >;
 
+// Returns the client alongside the wrapper so a test can inspect the mutation
+// cache without standing up a second QueryClient of its own.
 const createWrapper = () => {
   const client = new QueryClient({
     // `retryDelay: 0` keeps the mutation's `retry: 3` instant under test (the
@@ -33,9 +35,10 @@ const createWrapper = () => {
       mutations: { retryDelay: 0 },
     },
   });
-  return ({ children }: { children: ReactNode }) => (
+  const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
+  return { client, wrapper };
 };
 
 const setTemplatePrompts = (templatePrompts: string[]) =>
@@ -55,7 +58,7 @@ describe("useJournals", () => {
     mockGetJournal.mockResolvedValue(null);
 
     const { result } = renderHook(() => useJournals("2026-07-12"), {
-      wrapper: createWrapper(),
+      wrapper: createWrapper().wrapper,
     });
 
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
@@ -76,7 +79,7 @@ describe("useJournals", () => {
     });
 
     const { result } = renderHook(() => useJournals("2026-07-12"), {
-      wrapper: createWrapper(),
+      wrapper: createWrapper().wrapper,
     });
 
     await waitFor(() => expect(result.current[1].exists).toBe(true));
@@ -93,7 +96,7 @@ describe("useJournals", () => {
     mockUpsertJournal.mockResolvedValue({ date: "2026-07-12", prompts });
 
     const { result } = renderHook(() => useJournals("2026-07-12"), {
-      wrapper: createWrapper(),
+      wrapper: createWrapper().wrapper,
     });
 
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
@@ -117,7 +120,7 @@ describe("useJournals", () => {
       .mockResolvedValueOnce({ date: "2026-07-12", prompts });
 
     const { result } = renderHook(() => useJournals("2026-07-12"), {
-      wrapper: createWrapper(),
+      wrapper: createWrapper().wrapper,
     });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
@@ -135,7 +138,7 @@ describe("useJournals", () => {
     mockUpsertJournal.mockRejectedValue(new Error("save failed"));
 
     const { result } = renderHook(() => useJournals("2026-07-12"), {
-      wrapper: createWrapper(),
+      wrapper: createWrapper().wrapper,
     });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
@@ -157,15 +160,7 @@ describe("useJournals", () => {
   });
 
   it("tags the upsert with journalsMutationKey while it is in flight", async () => {
-    const client = new QueryClient({
-      defaultOptions: {
-        queries: { retry: false },
-        mutations: { retryDelay: 0 },
-      },
-    });
-    const wrapper = ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={client}>{children}</QueryClientProvider>
-    );
+    const { client, wrapper } = createWrapper();
 
     mockGetJournal.mockResolvedValue(null);
     let resolveUpsert: (journal: journalsApi.TJournal) => void = () => {};

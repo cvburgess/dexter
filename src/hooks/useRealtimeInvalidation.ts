@@ -75,21 +75,8 @@ export const useRealtimeInvalidation = (userId: string | undefined) => {
     let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
     const invalidateTable = (table: (typeof REALTIME_TABLES)[number]) => {
-      const mutationKey = PER_DATE_MUTATION_KEYS[table];
-      if (mutationKey) {
-        // `notes`/`journals` echo our own autosave back as a realtime event —
-        // skip only the date(s) whose autosave is still in flight, so it can't
-        // race the debounced editor (see the comment on notesMutationKey),
-        // without suppressing invalidation for every other cached date.
-        void queryClient.invalidateQueries({
-          queryKey: [table],
-          predicate: (query) =>
-            queryClient.isMutating({
-              mutationKey: mutationKey(query.queryKey[1] as string),
-            }) === 0,
-        });
-        return;
-      }
+      const perDateMutationKey = PER_DATE_MUTATION_KEYS[table];
+
       if (
         table === "tasks" &&
         queryClient.isMutating({ mutationKey: TASKS_MUTATION_KEY }) > 0
@@ -101,8 +88,22 @@ export const useRealtimeInvalidation = (userId: string | undefined) => {
         // on settle, which is the catch-up for anything genuinely remote.
         return;
       }
+
       for (const queryKey of REALTIME_INVALIDATIONS[table]) {
-        void queryClient.invalidateQueries({ queryKey });
+        void queryClient.invalidateQueries({
+          queryKey,
+          // `notes`/`journals` echo our own autosave back as a realtime event —
+          // skip only the date(s) whose autosave is still in flight, so it
+          // can't race the debounced editor (see the comment on
+          // notesMutationKey), without suppressing invalidation for every other
+          // cached date. Every other table invalidates unconditionally.
+          ...(perDateMutationKey && {
+            predicate: (query) =>
+              queryClient.isMutating({
+                mutationKey: perDateMutationKey(query.queryKey[1] as string),
+              }) === 0,
+          }),
+        });
       }
     };
 

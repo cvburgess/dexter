@@ -39,16 +39,30 @@ Notes and the journal used to be two columns on one `public.days` row
 `public.notes` (`content text`) and `public.journals` (`prompts jsonb`, with a
 `jsonb_typeof(prompts) = 'array'` check constraint), each keyed
 `(user_id, date)` — one row per user per date, no `id`, no `updated_at`
-(nothing in this schema maintains one). The migration backfills only rows whose
-column was non-empty, so a day that was never written still reads as "no row",
-which is what the app's template chooser keys off.
+(nothing in this schema maintains one).
 
-`public.days` is **deprecated but intentionally still present**: no code in this
-repo reads or writes it, but the same production project is shared with the
-legacy `dexter-app` (Electron/PWA) whose released builds still do, and `days`
-remains the rollback path for the split. A `dexter-app` release that reads the
-new tables is the prerequisite for dropping it. Until then, edits made in this
-app and edits made in a legacy build do **not** see each other.
+The backfill deliberately copies only rows the user actually put content in, so a
+day that was never written still reads as "no row" — which is what the notes
+template chooser keys off (`useNotes`' `exists`). For notes that means a non-empty
+`days.notes`; for journals it means **at least one non-empty response**, not
+merely a non-empty `prompts` array. Those are not the same test: the old shared
+row seeded template prompts on the first *note* write, so most `days` rows carry
+scaffolding the user never answered (160 of 162 rows had a non-empty array; only
+47 held a response).
+
+`public.days` is **deprecated but intentionally still present**: the app, the MCP
+server, and every read path in this repo have moved off it (the one remaining
+reference is `scripts/seed-demo.ts`, which still clears it so a demo reset stays
+deterministic), but the same production project is shared with the legacy
+`dexter-app` (Electron/PWA) whose released builds still read and write it, and
+`days` remains the rollback path for the split. Until that client ships an
+update (`DEX-89`), edits made in this app and edits made in a legacy build do
+**not** see each other. Dropping the table is `DEX-90`, gated on that release.
+
+One consequence worth knowing before comparing the publication against the
+client: `days` is still in `supabase_realtime` but is deliberately **absent**
+from the app's `REALTIME_INVALIDATIONS` map, so its change events have no
+subscriber. That gap is intentional, not drift.
 
 ## RLS policy invariants
 

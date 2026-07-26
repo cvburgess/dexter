@@ -49,7 +49,7 @@ class FakeMutationBuilder {
 
   constructor(
     readonly table: string,
-    readonly row: Record<string, unknown> | null = { ok: true },
+    readonly row: Record<string, unknown> | null,
   ) {}
 
   insert(payload: Record<string, unknown>): FakeMutationBuilder {
@@ -80,8 +80,8 @@ class FakeMutationBuilder {
     return this;
   }
 
-  single(): Promise<{ data: Record<string, unknown>; error: null }> {
-    return Promise.resolve({ data: this.row ?? { ok: true }, error: null });
+  single(): Promise<{ data: Record<string, unknown> | null; error: null }> {
+    return Promise.resolve({ data: this.row, error: null });
   }
 
   /** Read path for the single-row-per-date tables: `null` means "no row yet". */
@@ -892,15 +892,60 @@ Deno.test("get_note reads the notes table scoped to the caller and date", async 
   ]);
 });
 
-Deno.test("get_note reports a missing note as an error, not an empty result", async () => {
+Deno.test("get_note returns a blank note for a date with no row, not an error", async () => {
   const supabase = new FakeSupabase();
   supabase.row = null;
 
   const result = await noteTools(supabase).run("get_note", {
     date: "2026-07-12",
-  }) as { isError?: boolean };
+  }) as { isError?: boolean; content: Array<{ text: string }> };
 
-  assertEquals(result.isError, true);
+  // An unwritten day is ordinary, not a failure: `toolError` also reports to
+  // Sentry, so erroring here would page us for every empty day an agent reads.
+  assertEquals(result.isError, undefined);
+  assertEquals(JSON.parse(result.content[0].text), {
+    date: "2026-07-12",
+    content: "",
+    user_id: NOTE_USER,
+  });
+});
+
+Deno.test("get_journal returns an empty prompt array for a date with no row", async () => {
+  const supabase = new FakeSupabase();
+  supabase.row = null;
+
+  const result = await journalTools(supabase).run("get_journal", {
+    date: "2026-07-12",
+  }) as { isError?: boolean; content: Array<{ text: string }> };
+
+  assertEquals(result.isError, undefined);
+  assertEquals(JSON.parse(result.content[0].text), {
+    date: "2026-07-12",
+    prompts: [],
+    user_id: NOTE_USER,
+  });
+});
+
+Deno.test("upsert_journal bounds the prompt array like the tasks checklist does", () => {
+  const registry = journalTools(new FakeSupabase());
+  const prompts = registry.tools.get("upsert_journal")!.inputSchema!
+    .prompts as {
+      safeParse: (value: unknown) => { success: boolean };
+    };
+  const entries = (count: number) =>
+    Array.from(
+      { length: count },
+      () => ({ prompt: "Highlight", response: "" }),
+    );
+
+  assertEquals(prompts.safeParse(entries(50)).success, true);
+  // The column has no size limit of its own, so this schema is what stops a
+  // client writing a multi-megabyte array into the row.
+  assertEquals(prompts.safeParse(entries(51)).success, false);
+  assertEquals(
+    prompts.safeParse([{ prompt: "x".repeat(201), response: "" }]).success,
+    false,
+  );
 });
 
 Deno.test("upsert_note derives user_id from context and targets (user_id, date)", async () => {
@@ -981,19 +1026,16 @@ Deno.test("upsert_journal rejects a call that carries no fields", async () => {
 });
 
 Deno.test("note and journal tools never accept a user id", () => {
-  const registry = new ToolRegistry();
-  registerNoteTools(
-    registry as unknown as McpServer,
-    makeToolContext(new FakeSupabase(), NOTE_USER),
-  );
-  registerJournalTools(
-    registry as unknown as McpServer,
-    makeToolContext(new FakeSupabase(), NOTE_USER),
-  );
+  const registries = [
+    noteTools(new FakeSupabase()),
+    journalTools(new FakeSupabase()),
+  ];
 
-  for (const [name, tool] of registry.tools) {
-    const keys = Object.keys(tool.inputSchema ?? {});
-    assertEquals(keys.includes("userId"), false, `${name} exposes userId`);
-    assertEquals(keys.includes("user_id"), false, `${name} exposes user_id`);
+  for (const registry of registries) {
+    for (const [name, tool] of registry.tools) {
+      const keys = Object.keys(tool.inputSchema ?? {});
+      assertEquals(keys.includes("userId"), false, `${name} exposes userId`);
+      assertEquals(keys.includes("user_id"), false, `${name} exposes user_id`);
+    }
   }
 });

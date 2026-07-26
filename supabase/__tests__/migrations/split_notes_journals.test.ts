@@ -1,6 +1,6 @@
 import { assert, assertStringIncludes } from "@std/assert";
 
-import { statements } from "./sqlStatements.ts";
+import { statements, withoutComments } from "./sqlStatements.ts";
 
 // DEX-51: static guards over the notes/journals split.
 //
@@ -16,11 +16,8 @@ const migrationUrl = new URL(
 const raw = await Deno.readTextFile(migrationUrl);
 const sql = raw.toLowerCase();
 // Comment-free text, for assertions that must not be satisfiable by prose in
-// the migration header.
-const code = sql
-  .split("\n")
-  .filter((line) => !line.trimStart().startsWith("--"))
-  .join("\n");
+// the migration header (this one's is long).
+const code = withoutComments(sql);
 
 function createTable(table: string): string {
   const statement = statements(sql).find((s) =>
@@ -124,10 +121,15 @@ Deno.test("the backfill copies only non-empty days columns", () => {
   );
   assert(journalsBackfill, "journals must be backfilled from days");
   assertStringIncludes(journalsBackfill, "from public.days");
-  assertStringIncludes(
-    journalsBackfill,
-    "prompts is not null and prompts <> '[]'::jsonb",
-  );
+  // Deliberately a content test, not `prompts <> '[]'`: the old shared row seeded
+  // template prompts with empty responses on the first *note* write, so the shape
+  // test would import ~113 of 162 production rows the user never journaled in.
+  assertStringIncludes(journalsBackfill, "jsonb_array_elements(prompts)");
+  assertStringIncludes(journalsBackfill, "entry ->> 'response'");
+  // And guard the array type, since `days.prompts` has no array constraint and
+  // `jsonb_array_elements` raises on a non-array — which would abort the whole
+  // migration.
+  assertStringIncludes(journalsBackfill, "jsonb_typeof(prompts) = 'array'");
   assertStringIncludes(
     journalsBackfill,
     "on conflict (user_id, date) do nothing",

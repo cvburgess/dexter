@@ -44,12 +44,12 @@ const responseHeight = (lines: number, spacing: number) =>
 
 /**
  * The Journal surface for a single day. Reads/writes the day's reflection
- * prompts via `useJournals`, autosaving edits (debounced). Responses are plain text
- * (unlike Notes' markdown editor), so this renders identically on web and
+ * prompts via `useJournals`, autosaving edits (debounced). Responses are plain
+ * text (unlike Notes' markdown editor), so this renders identically on web and
  * native. Prompts auto-seed from `preferences.templatePrompts` (via
- * `useJournals.defaultJournal`), so there is no template chooser — nothing persists
- * until the user answers. Remounted per date by `SwipeableDay` (keyed on the
- * day), which re-seeds the uncontrolled inputs when the day changes.
+ * `useJournals`' `defaultJournal`), so there is no template chooser — nothing
+ * persists until the user answers. Remounted per date by `SwipeableDay` (keyed
+ * on the day), which re-seeds the uncontrolled inputs when the day changes.
  */
 export function JournalView({ date, onEditingChange }: TJournalViewProps) {
   const [journal, { isLoading, upsertJournalAsync }] = useJournals(date);

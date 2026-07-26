@@ -28,7 +28,12 @@ export function registerNoteTools(server: McpServer, ctx: ToolContext): void {
         .maybeSingle();
 
       if (error) return toolError(error.message);
-      if (!data) return toolError("Note not found");
+      // A date with no row is the ordinary case, not a failure — unlike the
+      // id-keyed getters (get_task/get_goal), where a miss really is a bad
+      // reference. Reporting it as an error would hand the agent `isError` for
+      // "you haven't written today's note yet" and, since `toolError` reports to
+      // Sentry, page us once per empty day an agent looks at.
+      if (!data) return toolJson({ date, content: "", user_id: ctx.userId });
       return toolJson(data);
     },
   );
@@ -38,7 +43,7 @@ export function registerNoteTools(server: McpServer, ctx: ToolContext): void {
     {
       title: "Upsert Note",
       description:
-        "Create or update the authenticated user's daily note for a date.",
+        "Create or update the authenticated user's daily note for a date. Replaces the note's entire markdown content — read it with get_note first and send the full text to append or edit. Pass an empty string to clear it.",
       inputSchema: {
         date: dateSchema,
         // Not nullable: `notes.content` is NOT NULL, so clearing a note is an

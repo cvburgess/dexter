@@ -10,10 +10,20 @@ import {
   toolJson,
 } from "./helpers.ts";
 
+// Bounded like the sibling jsonb array on tasks (`subtasksSchema` in
+// helpers.ts): a runaway client must not be able to write a multi-megabyte array
+// into a row. Prompts are short labels mirroring `preferences.template_prompts`;
+// responses are user prose and stay unbounded.
+const MAX_JOURNAL_PROMPTS = 50;
+
 const journalPromptSchema = z.object({
-  prompt: z.string(),
+  prompt: z.string().max(200),
   response: z.string(),
 });
+
+const journalPromptsSchema = z.array(journalPromptSchema).max(
+  MAX_JOURNAL_PROMPTS,
+);
 
 export function registerJournalTools(
   server: McpServer,
@@ -36,7 +46,9 @@ export function registerJournalTools(
         .maybeSingle();
 
       if (error) return toolError(error.message);
-      if (!data) return toolError("Journal not found");
+      // A date with no row is the ordinary case, not a failure — see the
+      // matching comment in get_note.
+      if (!data) return toolJson({ date, prompts: [], user_id: ctx.userId });
       return toolJson(data);
     },
   );
@@ -46,12 +58,12 @@ export function registerJournalTools(
     {
       title: "Upsert Journal",
       description:
-        "Create or update the authenticated user's journal prompts for a date. Replaces the whole prompt array.",
+        "Create or update the authenticated user's journal prompts for a date. Replaces the entire prompt array — read it with get_journal first and send every entry back, or the omitted ones are lost. Pass an empty array to clear it.",
       inputSchema: {
         date: dateSchema,
         // Not nullable: `journals.prompts` is NOT NULL (and constrained to a
         // jsonb array), so clearing the journal is an empty array, not a null.
-        prompts: z.array(journalPromptSchema).optional(),
+        prompts: journalPromptsSchema.optional(),
       },
       annotations: {
         readOnlyHint: false,
