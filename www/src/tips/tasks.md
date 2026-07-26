@@ -13,11 +13,16 @@ layout: layouts/tips.vto
 - **In Progress**: Tasks you have started and need to close out
 - **Done**: Tasks you have completed
 - **Won't Do**: Tasks you decided to close out without completing
+- **Delegated**: Tasks you handed off to someone else
 
-Not everything needs to be completed. After planning your day, you may decide
-that a task is better off delegated or simply left undone so you can focus on
-something more important. **Won't do** is your super power in the battle against
-chronic busyness, don't be afraid to use it (wisely)!
+Not everything needs to be completed by you. After planning your day, you may
+decide that a task is better off handed to someone else, or simply left undone
+so you can focus on something more important. **Won't do** and **delegated** are
+your super power in the battle against chronic busyness, don't be afraid to use
+them (wisely)!
+
+Done, won't do, and delegated all close a task out: it drops off your backlog
+and stops nagging you.
 
 ## Renaming a task
 

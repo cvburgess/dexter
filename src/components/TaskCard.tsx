@@ -4,7 +4,6 @@ import { Alert, StyleSheet, View } from "react-native";
 
 import {
   appendSubtask,
-  ETaskStatus,
   promoteSubtaskInput,
   removeSubtask,
   TCreateTask,
@@ -14,6 +13,7 @@ import {
 } from "@/api/tasks";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { currentAlarmTime, requestAlarmAuthorization } from "@/utils/alarms";
+import { isCompletionStatus } from "@/utils/taskFilters";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 import { ConfirmationModal } from "./ConfirmationModal";
@@ -86,8 +86,7 @@ export function TaskCard({
   }>({ field: "schedule", visible: false });
   const [editing, setEditing] = useState<TEditing>(null);
   const { confirm, confirmationProps } = useConfirmation();
-  const isComplete =
-    task.status === ETaskStatus.DONE || task.status === ETaskStatus.WONT_DO;
+  const isComplete = isCompletionStatus(task.status);
 
   // Rows this card has created that the cache hasn't confirmed yet: the empty
   // one "Add subtask" is showing, plus any just committed whose write is still
@@ -417,7 +416,7 @@ export function TaskCard({
   );
 
   // Priority/schedule/list editing (and the long-press that opens it) isn't
-  // available once a task is done or won't-do, matching the buttons above.
+  // available once a task reaches a terminal status, matching the buttons above.
   if (isComplete) return card;
 
   return (

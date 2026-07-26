@@ -2,6 +2,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 
 import { camelCase, snakeCase } from "@/utils/changeCase";
 import { makeSubtaskId, withFreshIds } from "@/utils/subtasks";
+import { ETaskStatus } from "@/utils/taskStatus";
 import { Database, TablesInsert, TablesUpdate } from "@/types/database.types";
 
 import { applyFilters, TQueryFilter } from "./applyFilters";
@@ -40,12 +41,10 @@ export enum ETaskPriority {
   UNPRIORITIZED,
 }
 
-export enum ETaskStatus {
-  IN_PROGRESS,
-  TODO,
-  DONE,
-  WONT_DO,
-}
+// Re-exported so `@/api/tasks` stays the one import site for task types, but the
+// enum itself lives in an import-free leaf module that the Deno MCP server can
+// also load — this file can't be, since it pulls in `@supabase/supabase-js`.
+export { ETaskStatus };
 
 export const getTasks = async (
   supabase: SupabaseClient<Database>,

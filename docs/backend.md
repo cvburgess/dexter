@@ -121,9 +121,19 @@ dashboard-only addition would drift from what the migration declares.
 - MCP tool groups cover tasks, goals, lists, habits and daily habit progress,
   days, repeat task templates, and preferences. Tool inputs never accept
   `user_id`; user ownership is derived from the validated bearer token.
+- **Task status is shared, not mirrored.** `src/utils/taskStatus.ts` holds
+  `ETaskStatus` and `isCompletionStatus` and is imported by the app, by
+  `mcp-server`, and by `scripts/demoData.ts` over the `@src/` alias, so a new
+  status can't be added to one side and forgotten on the other. It must stay import-free — Deno requires explicit
+  `.ts` extensions on relative imports while Metro/tsc forbid them, which is why
+  the enum can't simply live in `src/api/tasks.ts` (that file pulls in
+  `@supabase/supabase-js`). The values are persisted as `tasks.status smallint`
+  with no Postgres enum or check constraint, so `taskStatusSchema`
+  (`z.nativeEnum(ETaskStatus)`) is the only thing rejecting a bogus status.
+  Terminal statuses are done, won't do, and delegated.
 - **Repeat tasks are recurred in TypeScript, not Postgres.** Completing a task
-  linked to a `repeat_task_templates` row (status → done/won't-do) creates the
-  next occurrence, with its date computed by `src/utils/repeatSchedule.ts`
+  linked to a `repeat_task_templates` row (status → any terminal status) creates
+  the next occurrence, with its date computed by `src/utils/repeatSchedule.ts`
   (croner-backed) — imported by both the app and `mcp-server` (via the `@src/`
   alias in `functions/mcp-server/deno.json`). The legacy
   `create_next_recurring_task` trigger was dropped (migration

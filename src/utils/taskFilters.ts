@@ -1,17 +1,17 @@
 import { Temporal } from "@js-temporal/polyfill";
 
-import { ETaskStatus, TTask } from "@/api/tasks";
+import { TTask } from "@/api/tasks";
+import { isCompletionStatus } from "@/utils/taskStatus";
 
 export type TFilterId =
   "none" | "overdue" | "dueSoon" | "leftBehind" | "unscheduled";
 
 const DUE_SOON_WINDOW_DAYS = 13;
 
-/** Shared with `hooks/useTasks.tsx`'s recurring-task logic, which needs the same DONE/WONT_DO classification. */
-export const isCompletionStatus = (
-  status: ETaskStatus | undefined,
-): status is ETaskStatus.DONE | ETaskStatus.WONT_DO =>
-  status === ETaskStatus.DONE || status === ETaskStatus.WONT_DO;
+// Defined in the import-free `utils/taskStatus` so the Deno MCP server shares the
+// one predicate; re-exported here because this module is where the app's task
+// filtering lives and every existing call site imports it from here.
+export { isCompletionStatus };
 
 const isIncomplete = (task: TTask): boolean => !isCompletionStatus(task.status);
 

@@ -13,7 +13,7 @@ jest.mock("../IconMenu", () => ({
 }));
 
 describe("getStatusSections", () => {
-  it("lists all 4 statuses with icons and no selection checkmark", () => {
+  it("lists all 5 statuses with icons and no selection checkmark", () => {
     const onChangeStatus = jest.fn();
     const [section] = getStatusSections(onChangeStatus);
 
@@ -22,6 +22,7 @@ describe("getStatusSections", () => {
       "In Progress",
       "Done",
       "Won't Do",
+      "Delegated",
     ]);
     expect(section.options.every((option) => option.icon)).toBe(true);
     expect(
@@ -37,19 +38,60 @@ describe("getStatusSections", () => {
 
     expect(onChangeStatus).toHaveBeenCalledWith(ETaskStatus.DONE);
   });
+
+  it("tints each icon from the theme, leaving To Do neutral", () => {
+    // Sentinels rather than real hex values: this pins which *token* each status
+    // reads, which is the part that must not drift. The literal colors are the
+    // theme's business and change per theme.
+    const colors = {
+      success: "GREEN",
+      error: "RED",
+      // Indexed by ETaskPriority — daisyUI [warning, error, info, ...].
+      priority: ["YELLOW", "RED", "BLUE", "BASE", "NEUTRAL"],
+    } as unknown as Parameters<typeof getStatusSections>[1];
+
+    const [section] = getStatusSections(jest.fn(), colors);
+    const tint = Object.fromEntries(
+      section.options.map((option) => [option.title, option.iconColor]),
+    );
+
+    expect(tint).toEqual({
+      "To Do": undefined,
+      "In Progress": "YELLOW",
+      Done: "GREEN",
+      "Won't Do": "RED",
+      Delegated: "BLUE",
+    });
+  });
+
+  it("omits tints when no theme is supplied", () => {
+    const [section] = getStatusSections(jest.fn());
+
+    expect(
+      section.options.every((option) => option.iconColor === undefined),
+    ).toBe(true);
+  });
 });
 
 describe("StatusButton", () => {
-  it("renders a glyph representing the current status", () => {
+  // The trigger draws text, not the menu's SF Symbols, so every status needs a
+  // glyph of its own — a missing case silently falls through to TODO's "○".
+  it.each([
+    [ETaskStatus.TODO, "○"],
+    [ETaskStatus.IN_PROGRESS, "◐"],
+    [ETaskStatus.DONE, "✓"],
+    [ETaskStatus.WONT_DO, "✕"],
+    [ETaskStatus.DELEGATED, "→"],
+  ])("renders status %i as %s", (status, glyph) => {
     const screen = render(
       <StatusButton
-        status={ETaskStatus.DONE}
+        status={status}
         contentColor="#000000"
         onChangeStatus={jest.fn()}
       />,
     );
 
-    expect(screen.getByText("✓")).toBeTruthy();
+    expect(screen.getByText(glyph)).toBeTruthy();
   });
 
   it("pins the menu trigger to the button's 32×32 size", () => {
