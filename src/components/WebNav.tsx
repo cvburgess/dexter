@@ -6,7 +6,7 @@ import {
   SettingsIcon,
   type TSettingsIconName,
 } from "@/components/SettingsIcon";
-import { getViewedDay } from "@/hooks/useViewedDay";
+import { newTaskRoute } from "@/utils/newTaskRoute";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 // The string branch of `Href` — every nav destination is a static path, so the
@@ -19,12 +19,17 @@ type TWebNavItem = {
   href: TWebNavHref;
   label: string;
   icon: TSettingsIconName;
+  /** Floats this item (and everything after it) to the far end of the rail. */
+  pinnedToBottom?: boolean;
 };
 
 /**
  * The app's web navigation destinations, in rail order (top to bottom) and dock
- * order (left to right). Settings is last so it can be pinned to the bottom of
- * the rail, matching the legacy dexter-app's `mt-auto` gear.
+ * order (left to right). Keep in sync with the native tab triggers in
+ * `app/(app)/(tabs)/_layout.tsx` when a tab is added or removed — the two
+ * declarations are deliberately separate (different icon vocabularies, and web
+ * adds a "+" that native hosts as a tab-bar accessory instead), so nothing
+ * enforces it automatically.
  */
 export const WEB_NAV_ITEMS: TWebNavItem[] = [
   { key: "today", href: "/today", label: "Today", icon: "sunny-outline" },
@@ -34,6 +39,9 @@ export const WEB_NAV_ITEMS: TWebNavItem[] = [
     href: "/settings",
     label: "Settings",
     icon: "settings-outline",
+    // The legacy nav's `mt-auto` gear. Declared rather than inferred from list
+    // position, so reordering the array can't silently unpin it.
+    pinnedToBottom: true,
   },
 ];
 
@@ -50,20 +58,8 @@ function useWebNav() {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Same contract as NewTaskButton's tab-bar accessory: read the viewed day at
-  // press time, while the day screen is still focused — pushing the modal blurs
-  // it, so reading later would always fall back to today.
-  const openNewTask = () => {
-    const viewedDay = getViewedDay();
-    router.push(
-      viewedDay
-        ? {
-            pathname: "/new-task",
-            params: { scheduledFor: viewedDay.toString() },
-          }
-        : "/new-task",
-    );
-  };
+  // Resolved at press time, not render time — see `newTaskRoute`.
+  const openNewTask = () => router.push(newTaskRoute());
 
   // `navigate` rather than `push`: these are tabs, so revisiting one should jump
   // back to it instead of stacking another copy onto the history.
@@ -113,9 +109,9 @@ export function WebNavRail() {
                   ? withOpacity(theme.colors.text, 0.8)
                   : theme.colors.card,
                 borderRadius: theme.borderRadius,
-                // Pins Settings — and the "+" that follows it — to the bottom of
-                // the rail, the legacy nav's `mt-auto`.
-                marginTop: item.key === "settings" ? "auto" : 0,
+                // Absorbs the rail's leftover height, pushing this item — and
+                // the "+" that follows it — to the bottom.
+                marginTop: item.pinnedToBottom ? "auto" : 0,
               },
             ]}
             testID={`web-nav-${item.key}`}
@@ -192,7 +188,9 @@ export function WebNavDock() {
             style={styles.dockItem}
             testID={`web-nav-${item.key}`}
           >
-            <SettingsIcon color={color} name={item.icon} size={20} />
+            <View style={styles.dockIconSlot}>
+              <SettingsIcon color={color} name={item.icon} size={20} />
+            </View>
             <Text
               style={[
                 styles.dockLabel,
@@ -214,7 +212,8 @@ export function WebNavDock() {
       >
         <View
           style={[
-            styles.dockNewTaskIcon,
+            styles.dockIconSlot,
+            styles.dockNewTaskChip,
             {
               backgroundColor: theme.colors.primary,
               borderRadius: theme.borderRadius,
@@ -243,6 +242,10 @@ export function WebNavDock() {
 const styles = StyleSheet.create({
   rail: {
     alignItems: "center",
+    // Explicit rather than relying on the shell row's default `stretch`:
+    // pinning the gear to the bottom (`marginTop: "auto"`) only works if the
+    // rail actually fills the viewport height.
+    alignSelf: "stretch",
     width: 76,
   },
   // Legacy parity: a 48pt square card that sits a step above the rail's sunken
@@ -257,20 +260,28 @@ const styles = StyleSheet.create({
   dock: {
     borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
-    justifyContent: "space-around",
     paddingTop: 8,
   },
+  // Equal columns rather than `space-around`, which would distribute around the
+  // labels' differing widths and leave "New Task" crowding its neighbor.
   dockItem: {
     alignItems: "center",
+    flex: 1,
     gap: 2,
+  },
+  // A fixed-height icon band so every label sits on the same baseline, whether
+  // the item is a bare icon or the "+" chip below.
+  dockIconSlot: {
+    alignItems: "center",
+    height: 24,
+    justifyContent: "center",
   },
   dockLabel: {
     fontSize: 11,
   },
-  dockNewTaskIcon: {
-    alignItems: "center",
-    height: 20,
-    justifyContent: "center",
-    width: 28,
+  // Wider than the icon band is tall so the glyph has breathing room inside the
+  // primary fill instead of running edge to edge.
+  dockNewTaskChip: {
+    width: 34,
   },
 });

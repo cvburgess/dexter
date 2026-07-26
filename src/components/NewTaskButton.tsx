@@ -2,7 +2,7 @@ import { useRouter } from "expo-router";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { StyleSheet, Text, TouchableOpacity } from "react-native";
 
-import { getViewedDay } from "@/hooks/useViewedDay";
+import { newTaskRoute } from "@/utils/newTaskRoute";
 import { useTheme } from "@/utils/theme";
 
 /**
@@ -16,21 +16,10 @@ export function NewTaskButton() {
   const theme = useTheme();
   const placement = NativeTabs.BottomAccessory.usePlacement();
 
-  // Read the viewed day now, while the day screen is still focused — pushing the
-  // modal blurs it, so reading later would always fall back to today. Read from
-  // the store at press time (not via a hook) because this button renders in the
-  // bottom accessory, outside the React tree where a context value would reach.
-  const openNewTask = () => {
-    const viewedDay = getViewedDay();
-    router.push(
-      viewedDay
-        ? {
-            pathname: "/new-task",
-            params: { scheduledFor: viewedDay.toString() },
-          }
-        : "/new-task",
-    );
-  };
+  // Resolved at press time, not render time (see `newTaskRoute`). This button
+  // reads the day from a module store rather than context because it renders in
+  // the bottom accessory, outside the React tree a context value would reach.
+  const openNewTask = () => router.push(newTaskRoute());
 
   return (
     <TouchableOpacity
