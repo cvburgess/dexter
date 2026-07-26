@@ -116,4 +116,4 @@ Common local commands:
 
 - **No `.env` files are committed.** Use local env files or your host's secret manager; document new `EXPO_PUBLIC_*` or function secrets in the relevant README or `docs/backend.md`.
 - **Supabase local dev** (`supabase start`) requires Docker.
-- **`npm run lint` does not cover all of `/src`.** `expo lint` only walks `src`, `app`, and `components` relative to its working directory, so from `/src` it lints `app/` and `components/` but silently skips `hooks/`, `utils/`, `api/`, `providers/`, and the top-level `__tests__/`. A clean `npm run lint` is not proof those directories lint — run `npx eslint <path>` on them directly.
+- **`npm run lint` does not cover all of `/src`.** `expo lint` only walks `src`, `app`, and `components` relative to its working directory, so from `/src` it lints `app/` and `components/` but silently skips `hooks/`, `utils/`, `api/`, `providers/`, `plugins/`, `testUtils/`, and the top-level `__tests__/`. A clean `npm run lint` is not proof those directories lint — run `npx eslint <path>` on them directly.
