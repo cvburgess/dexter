@@ -7,11 +7,19 @@ export type TFilterId =
 
 const DUE_SOON_WINDOW_DAYS = 13;
 
-/** Shared with `hooks/useTasks.tsx`'s recurring-task logic, which needs the same DONE/WONT_DO classification. */
+/**
+ * The terminal statuses — a task nobody is going to work on further, whether it
+ * was finished, abandoned, or handed to someone else (DEX-68). The single place
+ * that classification lives: card styling, the Backlog scope, alarm reconciliation,
+ * the subtask sweep, and `hooks/useTasks.tsx`'s recurring-task logic all read it,
+ * so a status added here becomes terminal everywhere at once.
+ */
 export const isCompletionStatus = (
   status: ETaskStatus | undefined,
-): status is ETaskStatus.DONE | ETaskStatus.WONT_DO =>
-  status === ETaskStatus.DONE || status === ETaskStatus.WONT_DO;
+): status is ETaskStatus.DONE | ETaskStatus.WONT_DO | ETaskStatus.DELEGATED =>
+  status === ETaskStatus.DONE ||
+  status === ETaskStatus.WONT_DO ||
+  status === ETaskStatus.DELEGATED;
 
 const isIncomplete = (task: TTask): boolean => !isCompletionStatus(task.status);
 

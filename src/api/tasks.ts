@@ -40,11 +40,18 @@ export enum ETaskPriority {
   UNPRIORITIZED,
 }
 
+/**
+ * Persisted directly as `tasks.status smallint` — the numeric values are stored
+ * data, not just a TS detail. Append new members only; reordering renumbers every
+ * existing row. Mirrored by `supabase/functions/mcp-server/tools/tasks.ts` and
+ * `supabase/scripts/demoData.ts`.
+ */
 export enum ETaskStatus {
   IN_PROGRESS,
   TODO,
   DONE,
   WONT_DO,
+  DELEGATED,
 }
 
 export const getTasks = async (

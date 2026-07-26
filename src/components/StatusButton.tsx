@@ -95,6 +95,12 @@ export const getStatusSections = (
           status: ETaskStatus.WONT_DO,
           icon: { ios: "xmark", android: "close", web: "close" },
         },
+        {
+          id: "delegated",
+          title: "Delegated",
+          status: ETaskStatus.DELEGATED,
+          icon: { ios: "person", android: "person", web: "person" },
+        },
       ] as const
     ).map(({ status: optionStatus, ...option }) => ({
       ...option,
@@ -105,6 +111,13 @@ export const getStatusSections = (
   },
 ];
 
+/**
+ * The trigger draws a text character, not an SF Symbol — it has to tint with the
+ * card's content color and render identically on iOS, Android, and web, which the
+ * menu's `SymbolView` icons don't. So each status carries two glyphs: the symbol
+ * name in `getStatusSections` and its text counterpart here. Delegated's menu icon
+ * is `person`; "→" is the text stand-in, reading as handed off.
+ */
 const glyphForStatus = (status: ETaskStatus) => {
   switch (status) {
     case ETaskStatus.IN_PROGRESS:
@@ -113,6 +126,8 @@ const glyphForStatus = (status: ETaskStatus) => {
       return "✓";
     case ETaskStatus.WONT_DO:
       return "✕";
+    case ETaskStatus.DELEGATED:
+      return "→";
     case ETaskStatus.TODO:
     default:
       return "○";

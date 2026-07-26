@@ -8,7 +8,10 @@ export const dateSchema = z.string().regex(
   "Expected date in YYYY-MM-DD format",
 );
 export const taskPrioritySchema = z.number().int().min(0).max(4);
-export const taskStatusSchema = z.number().int().min(0).max(3);
+// 0 in-progress, 1 todo, 2 done, 3 won't-do, 4 delegated — mirrors `ETaskStatus`
+// in src/api/tasks.ts. The column itself is an unconstrained smallint, so this
+// bound is what actually rejects a bogus status; raise it whenever the enum grows.
+export const taskStatusSchema = z.number().int().min(0).max(4);
 export const themeModeSchema = z.number().int().min(0).max(2);
 
 // Subtasks (DEX-70) live as a jsonb array on the parent row. Ids are minted by

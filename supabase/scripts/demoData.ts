@@ -5,7 +5,7 @@
 //
 // Enum values mirror the app:
 //   priority: 0 IMPORTANT_AND_URGENT, 1 URGENT, 2 IMPORTANT, 3 NEITHER, 4 UNPRIORITIZED
-//   status:   0 IN_PROGRESS, 1 TODO, 2 DONE, 3 WONT_DO
+//   status:   0 IN_PROGRESS, 1 TODO, 2 DONE, 3 WONT_DO, 4 DELEGATED
 // (see src/api/tasks.ts and supabase/functions/mcp-server/tools/helpers.ts)
 
 export const DEMO_PRIORITY = {
@@ -21,6 +21,7 @@ export const DEMO_STATUS = {
   TODO: 1,
   DONE: 2,
   WONT_DO: 3,
+  DELEGATED: 4,
 } as const;
 
 export interface DemoList {
