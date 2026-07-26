@@ -4,7 +4,10 @@ test.json
 .env.local
 /app/supabase/.temp
 /supabase/.temp
-supabase/.env.keys
+# dotenvx private keys — written to the cwd it runs from, so ignore the
+# filename anywhere rather than one expected path. The encrypted
+# .env.preview alongside it IS committed; only the keys never are.
+.env.keys
 
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 

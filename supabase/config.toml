@@ -78,6 +78,17 @@ file_size_limit = "50MiB"
 [analytics]
 enabled = false
 
+# ---------- Edge Function secrets (preview branches) ----------
+
+# Supabase's branching integration copies migrations and redeploys functions to
+# a preview branch, but does NOT copy the parent project's function secrets.
+# This table closes that gap: the branching executor decrypts the committed
+# supabase/.env.preview with the project-level dotenvx key and applies each
+# entry below to the new branch. Production secrets are still set directly on
+# the project — this table only feeds previews. See docs/backend.md.
+[edge_runtime.secrets]
+DEMO_OTP = "env(DEMO_OTP)"
+
 # ---------- Edge Functions ----------
 
 [functions.ics-proxy]
