@@ -182,6 +182,18 @@ Deno.test("repeat task schedule validation enforces valid midnight cron fields",
   assertEquals(cronScheduleSchema.safeParse("0 0 1,99 * *").success, false);
 });
 
+// DEX-65: `update_template` widens the schedule to nullable so a repeat task
+// can be cleared back into a plain task template. The bare schema must still
+// reject null, or an invalid cron could slip past as one.
+Deno.test("a nullable schedule accepts null without loosening cron validation", () => {
+  assertEquals(cronScheduleSchema.nullable().safeParse(null).success, true);
+  assertEquals(cronScheduleSchema.safeParse(null).success, false);
+  assertEquals(
+    cronScheduleSchema.nullable().safeParse("0 12 * * *").success,
+    false,
+  );
+});
+
 Deno.test("daily habit writes only expose stepsComplete", () => {
   assertEquals(Object.keys(updateDailyHabitInputSchema).sort(), [
     "date",
@@ -350,6 +362,38 @@ Deno.test("update_task schedules the next occurrence when it completes a repeat 
   assertEquals(inserted.payload.title, "Water the plants");
   assertEquals(inserted.payload.status, 1);
   assertEquals(inserted.payload.user_id, RECUR_USER);
+});
+
+// The whole point of DEX-65: a template is a blueprint, so completing a task
+// linked to one must not spawn anything. `maybeCreateNextRecurringTask` bails
+// on a falsy schedule, which is what keeps a converted repeat from recurring.
+Deno.test("update_task spawns nothing when the linked template has no schedule", async () => {
+  const registry = new ToolRegistry();
+  const supabase = new RecordingSupabase({
+    tasks: [
+      { status: 1 },
+      { status: 2, template_id: RECUR_TEMPLATE, scheduled_for: "2030-01-01" },
+    ],
+    repeat_task_templates: [
+      {
+        id: RECUR_TEMPLATE,
+        title: "Trip packing",
+        priority: 2,
+        list_id: null,
+        goal_id: null,
+        schedule: null,
+      },
+    ],
+  });
+
+  registerTaskTools(
+    registry as unknown as McpServer,
+    recordingContext(supabase, RECUR_USER),
+  );
+
+  await registry.run("update_task", { taskId: RECUR_TASK, status: 2 });
+
+  assertEquals(supabase.inserts.filter((i) => i.table === "tasks").length, 0);
 });
 
 Deno.test("update_task does not re-create an occurrence for an already-complete task", async () => {

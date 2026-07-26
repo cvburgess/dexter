@@ -91,27 +91,61 @@ describe("TasksScreen", () => {
     ).toBeTruthy();
   });
 
-  it("explains where repeats come from when there are none", () => {
+  it("explains where each kind of saved task comes from when there are none", () => {
     const screen = renderWith([]);
 
     expect(screen.getByText(/open its menu and choose Repeat/i)).toBeTruthy();
+    expect(screen.getByText(/choose Save as template/i)).toBeTruthy();
   });
 
-  it("lists each template with a human-readable schedule", () => {
+  it("lists each repeat task with a human-readable schedule", () => {
     const screen = renderWith([makeTemplate()]);
 
+    expect(screen.getByText("Repeat tasks")).toBeTruthy();
     expect(screen.getByText("Water the plants")).toBeTruthy();
     expect(screen.getByText("Weekly on Mon")).toBeTruthy();
   });
 
-  it("opens the editor when a template row is tapped", () => {
-    const screen = renderWith([makeTemplate()]);
+  // Both kinds live in one table; the schedule is the only thing separating
+  // them, so a mix must not leak across the two sections (DEX-65).
+  it("sorts scheduleless rows into Task templates, described by their checklist", () => {
+    const screen = renderWith([
+      makeTemplate(),
+      makeTemplate({
+        id: "template-2",
+        schedule: null,
+        title: "Trip packing",
+        subtasks: [
+          { id: "s1", title: "Passport" },
+          { id: "s2", title: "Charger" },
+        ],
+      }),
+    ]);
+
+    expect(screen.getByText("Task templates")).toBeTruthy();
+    expect(screen.getByText("Trip packing")).toBeTruthy();
+    expect(screen.getByText("2 steps")).toBeTruthy();
+    // The repeat section keeps its own row and says nothing about the template.
+    expect(screen.getByText("Weekly on Mon")).toBeTruthy();
+    expect(screen.queryByText("Doesn't repeat")).toBe(null);
+  });
+
+  it("opens the same editor from either section", () => {
+    const screen = renderWith([
+      makeTemplate(),
+      makeTemplate({ id: "template-2", schedule: null, title: "Trip packing" }),
+    ]);
 
     fireEvent.press(screen.getByLabelText("Edit Water the plants"));
-
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/settings/tasks/[id]",
       params: { id: "template-1" },
+    });
+
+    fireEvent.press(screen.getByLabelText("Edit Trip packing"));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/settings/tasks/[id]",
+      params: { id: "template-2" },
     });
   });
 

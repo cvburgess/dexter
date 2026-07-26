@@ -219,4 +219,78 @@ describe("useNewTaskForm", () => {
       ]);
     });
   });
+
+  describe("applyTemplate", () => {
+    const template = {
+      id: "template-1",
+      alarmTime: "07:30",
+      createdAt: "2026-01-01T00:00:00Z",
+      goalId: null,
+      listId: "list-home",
+      priority: ETaskPriority.IMPORTANT,
+      schedule: null,
+      subtasks: [
+        { id: "s1", title: "Passport" },
+        { id: "s2", title: "Charger" },
+      ],
+      title: "Trip packing",
+      userId: "user-1",
+    };
+
+    it("fills the form from the template", () => {
+      const { result } = renderHook(() => useNewTaskForm([homeList]));
+
+      act(() => result.current.applyTemplate(template));
+
+      expect(result.current.title).toBe("Trip packing");
+      expect(result.current.priority).toBe(ETaskPriority.IMPORTANT);
+      expect(result.current.listId).toBe("list-home");
+      expect(result.current.alarmTime).toBe("07:30");
+    });
+
+    // A template's checklist is a blueprint with no status, so every item has
+    // to start this task's own copy open.
+    it("materializes the checklist blueprint as open subtasks", () => {
+      const { result } = renderHook(() => useNewTaskForm([homeList]));
+
+      act(() => result.current.applyTemplate(template));
+
+      expect(result.current.task.subtasks).toEqual([
+        { id: "s1", title: "Passport", status: ETaskStatus.TODO },
+        { id: "s2", title: "Charger", status: ETaskStatus.TODO },
+      ]);
+    });
+
+    // The template carries no dates, so the day the user was viewing has to
+    // survive the moment they pick one.
+    it("leaves the schedule and deadline alone", () => {
+      const { result } = renderHook(() =>
+        useNewTaskForm([homeList], "2026-07-08"),
+      );
+
+      act(() => result.current.setDueOn("2026-07-20"));
+      act(() => result.current.applyTemplate(template));
+
+      expect(result.current.scheduledFor).toBe("2026-07-08");
+      expect(result.current.dueOn).toBe("2026-07-20");
+    });
+
+    // The title arrives from the template, and it may well contain a `!` or a
+    // `#list` that was only ever meant as text.
+    it("keeps the template's own priority and list over its title's shorthand", () => {
+      const { result } = renderHook(() => useNewTaskForm([homeList]));
+
+      act(() =>
+        result.current.applyTemplate({
+          ...template,
+          title: "!!!! Pack #home",
+          priority: ETaskPriority.NEITHER,
+          listId: null,
+        }),
+      );
+
+      expect(result.current.priority).toBe(ETaskPriority.NEITHER);
+      expect(result.current.listId).toBeNull();
+    });
+  });
 });

@@ -56,24 +56,31 @@ jest.mock("@/hooks/useLists", () => ({
 }));
 
 const mockGetTemplateById = jest.fn(() => undefined);
+const mockCreateTemplateFromTask = jest.fn();
+const mockSaveTaskAsTemplate = jest.fn<
+  void,
+  [TTask, { onSuccess: (template: { id: string }) => void }]
+>();
 jest.mock("@/hooks/useTemplates", () => ({
   useTemplates: () => [
     [],
     {
       createTemplate: jest.fn(),
-      createTemplateFromTask: jest.fn(),
+      createTemplateFromTask: mockCreateTemplateFromTask,
       deleteTemplate: jest.fn(),
       getTemplateById: mockGetTemplateById,
       isLoading: false,
+      saveTaskAsTemplate: mockSaveTaskAsTemplate,
       updateTemplate: jest.fn(),
     },
   ],
 }));
 
-jest.mock("expo-router", () => ({ useRouter: () => ({ push: jest.fn() }) }));
+const mockPush = jest.fn();
+jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));
 
 // The two untitled inline groups at the foot of the menu: the alarm/subtask
-// edits, then the duplicate/repeat/delete actions.
+// edits, then the duplicate/repeat/save-as-template/delete actions.
 const inlineOptionTitles = () => {
   const { sections } = mockIconMenu.mock.calls[0][0];
   return sections
@@ -242,7 +249,7 @@ describe("MoreMenu", () => {
 
     expect(inlineOptionTitles()).toEqual([
       ["Set alarm"],
-      ["Duplicate", "Repeat", "Delete"],
+      ["Duplicate", "Repeat", "Save as template", "Delete"],
     ]);
   });
 
@@ -271,8 +278,85 @@ describe("MoreMenu", () => {
 
     expect(inlineOptionTitles()).toEqual([
       ["Set alarm"],
-      ["Duplicate", "Edit repeat schedule", "Delete"],
+      ["Duplicate", "Edit repeat schedule", "Save as template", "Delete"],
     ]);
+  });
+
+  // A task template linked to a task carries no schedule, so the task does not
+  // repeat and the action must still offer to start a repeat rather than to
+  // edit a schedule that isn't there (DEX-65).
+  it("labels the repeat action 'Repeat' when the linked template has no schedule", () => {
+    mockGetTemplateById.mockReturnValue({
+      id: "template-1",
+      schedule: null,
+    } as never);
+
+    render(
+      <MoreMenu
+        task={makeTask({ templateId: "template-1" })}
+        onChangePriority={jest.fn()}
+        onChangeSchedule={jest.fn()}
+        onChangeDeadline={jest.fn()}
+        onChangeList={jest.fn()}
+        onPickDate={jest.fn()}
+        onSetAlarm={jest.fn()}
+        onClearAlarm={jest.fn()}
+        onDuplicate={jest.fn()}
+        onDelete={jest.fn()}
+      >
+        <Text>Task row</Text>
+      </MoreMenu>,
+    );
+
+    expect(inlineOptionTitles()[1]).toEqual([
+      "Duplicate",
+      "Repeat",
+      "Save as template",
+      "Delete",
+    ]);
+  });
+
+  // Saving a template must not touch the task it came from: linking would make
+  // the task look like it repeats and would let `delete_task` take the template
+  // down with it.
+  it("saves a template from the task without linking it, then opens the editor", () => {
+    const task = makeTask({ templateId: null });
+    mockSaveTaskAsTemplate.mockImplementation((_task, { onSuccess }) => {
+      onSuccess({ id: "template-9" });
+    });
+
+    render(
+      <MoreMenu
+        task={task}
+        onChangePriority={jest.fn()}
+        onChangeSchedule={jest.fn()}
+        onChangeDeadline={jest.fn()}
+        onChangeList={jest.fn()}
+        onPickDate={jest.fn()}
+        onSetAlarm={jest.fn()}
+        onClearAlarm={jest.fn()}
+        onDuplicate={jest.fn()}
+        onDelete={jest.fn()}
+      >
+        <Text>Task row</Text>
+      </MoreMenu>,
+    );
+
+    const { sections } = mockIconMenu.mock.calls[0][0];
+    sections
+      .flatMap((section) => section.options)
+      .find((option) => option.id === "save-as-template")
+      ?.onSelect();
+
+    expect(mockSaveTaskAsTemplate).toHaveBeenCalledWith(
+      task,
+      expect.anything(),
+    );
+    expect(mockCreateTemplateFromTask).not.toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/settings/tasks/[id]",
+      params: { id: "template-9" },
+    });
   });
 
   it("shows 'Unset alarm' when the task already has an alarm", () => {
@@ -300,14 +384,17 @@ describe("MoreMenu", () => {
 describe("getOtherSections", () => {
   const repeat = { label: "Repeat", onSelect: jest.fn() };
 
-  it("offers Duplicate, Repeat, and Delete as an untitled inline group, with Delete destructive", () => {
-    const [section] = getOtherSections(jest.fn(), jest.fn(), repeat);
+  it("offers Duplicate, Repeat, Save as template, and Delete as an untitled inline group, with Delete destructive", () => {
+    const [section] = getOtherSections(jest.fn(), jest.fn(), repeat, jest.fn());
 
     expect(section.title).toBeUndefined();
     expect(section.isSubmenu).toBeUndefined();
+    // Save as template sits directly under Repeat: both create a template row,
+    // and they differ only in whether it carries a schedule.
     expect(section.options.map((option) => option.title)).toEqual([
       "Duplicate",
       "Repeat",
+      "Save as template",
       "Delete",
     ]);
 
@@ -326,10 +413,13 @@ describe("getOtherSections", () => {
     const onDuplicate = jest.fn();
     const onDelete = jest.fn();
     const onRepeat = jest.fn();
-    const [section] = getOtherSections(onDuplicate, onDelete, {
-      label: "Repeat",
-      onSelect: onRepeat,
-    });
+    const onSaveAsTemplate = jest.fn();
+    const [section] = getOtherSections(
+      onDuplicate,
+      onDelete,
+      { label: "Repeat", onSelect: onRepeat },
+      onSaveAsTemplate,
+    );
 
     section.options.find((option) => option.title === "Duplicate")?.onSelect();
     expect(onDuplicate).toHaveBeenCalledTimes(1);
@@ -337,16 +427,22 @@ describe("getOtherSections", () => {
     section.options.find((option) => option.title === "Repeat")?.onSelect();
     expect(onRepeat).toHaveBeenCalledTimes(1);
 
+    section.options
+      .find((option) => option.title === "Save as template")
+      ?.onSelect();
+    expect(onSaveAsTemplate).toHaveBeenCalledTimes(1);
+
     section.options.find((option) => option.title === "Delete")?.onSelect();
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
 
   it("holds no alarm or subtask item — those sit in their own group above", () => {
-    const [section] = getOtherSections(jest.fn(), jest.fn(), repeat);
+    const [section] = getOtherSections(jest.fn(), jest.fn(), repeat, jest.fn());
 
     expect(section.options.map((option) => option.title)).toEqual([
       "Duplicate",
       "Repeat",
+      "Save as template",
       "Delete",
     ]);
   });

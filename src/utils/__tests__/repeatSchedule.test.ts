@@ -147,6 +147,13 @@ describe("describeSchedule", () => {
     expect(describeSchedule("0 0 4 7 *")).toBe("Yearly on Jul 4");
   });
 
+  // `parseSchedule` falls back to daily for a missing schedule, which would
+  // describe a scheduleless task template as repeating every day (DEX-65).
+  it("says a scheduleless template does not repeat", () => {
+    expect(describeSchedule(null)).toBe("Doesn't repeat");
+    expect(describeSchedule(undefined)).toBe("Doesn't repeat");
+  });
+
   it("uses correct ordinals for day-of-month", () => {
     expect(describeSchedule("0 0 1 * *")).toBe("Monthly on the 1st");
     expect(describeSchedule("0 0 2 * *")).toBe("Monthly on the 2nd");
