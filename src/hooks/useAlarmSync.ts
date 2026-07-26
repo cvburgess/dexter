@@ -2,12 +2,14 @@ import { useEffect, useRef } from "react";
 import { Alert } from "react-native";
 
 import {
+  alarmSoundFileName,
   cancelTaskAlarm,
   getScheduledAlarmIds,
   reconcileAlarms,
   scheduleTaskAlarm,
 } from "@/utils/alarms";
 
+import { usePreferences } from "./usePreferences";
 import { useTasks } from "./useTasks";
 
 /**
@@ -24,13 +26,29 @@ import { useTasks } from "./useTasks";
  */
 export const useAlarmSync = (): void => {
   const [tasks, { isLoading }] = useTasks();
+  const [{ alarmSound }] = usePreferences();
+  const soundName = alarmSoundFileName(alarmSound);
 
   // Fire time (epoch seconds) we last scheduled per id this session — lets the
   // reconcile detect a time edit on an alarm AlarmKit only reports by id.
   const scheduledEpochs = useRef(new Map<string, number>());
+  // The sound those alarms were scheduled with, so switching sounds re-rings
+  // them (DEX-72).
+  const scheduledSound = useRef(soundName);
 
   useEffect(() => {
     if (isLoading) return;
+
+    // A sound change leaves every fire time untouched, so the reconcile would
+    // see nothing to do and existing alarms would keep the old sound for the
+    // rest of the session. Forgetting what we scheduled makes them all look new,
+    // and `scheduleTaskAlarm` cancels before scheduling, so each one is replaced
+    // rather than duplicated. Stale-alarm cancellation is unaffected — the
+    // reconcile also unions in `getAllAlarms()`.
+    if (scheduledSound.current !== soundName) {
+      scheduledSound.current = soundName;
+      scheduledEpochs.current.clear();
+    }
 
     const sync = async () => {
       const { toSchedule, toCancel } = reconcileAlarms(
@@ -55,7 +73,7 @@ export const useAlarmSync = (): void => {
         }),
         ...toSchedule.map(async (alarm) => {
           try {
-            await scheduleTaskAlarm(alarm);
+            await scheduleTaskAlarm(alarm, soundName);
             scheduledEpochs.current.set(alarm.id, alarm.epochSeconds);
           } catch (error) {
             // Leave the epoch unrecorded so a later reconcile retries. Flag the
@@ -79,5 +97,5 @@ export const useAlarmSync = (): void => {
     };
 
     void sync();
-  }, [tasks, isLoading]);
+  }, [tasks, isLoading, soundName]);
 };

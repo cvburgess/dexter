@@ -161,6 +161,7 @@ export type Database = {
       };
       preferences: {
         Row: {
+          alarm_sound: string;
           calendar_end_time: string;
           calendar_start_time: string;
           calendar_urls: string[];
@@ -176,6 +177,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          alarm_sound?: string;
           calendar_end_time?: string;
           calendar_start_time?: string;
           calendar_urls?: string[];
@@ -191,6 +193,7 @@ export type Database = {
           user_id?: string;
         };
         Update: {
+          alarm_sound?: string;
           calendar_end_time?: string;
           calendar_start_time?: string;
           calendar_urls?: string[];

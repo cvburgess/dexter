@@ -7,6 +7,7 @@ import {
   TUpdatePreferences,
   updatePreferences,
 } from "@/api/preferences";
+import { DEFAULT_ALARM_SOUND } from "@/utils/alarms";
 
 import { supabase, useAuth } from "./useAuth";
 
@@ -81,6 +82,7 @@ export const usePreferences = (options?: THookOptions): TUsePreferences => {
 };
 
 const defaultPreferences: TPreferences = {
+  alarmSound: DEFAULT_ALARM_SOUND,
   calendarEndTime: "20:00:00",
   calendarStartTime: "06:00:00",
   calendarUrls: [],

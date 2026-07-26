@@ -17,6 +17,7 @@ export const requestAlarmAuthorization = async (): Promise<boolean> => false;
 
 export const scheduleTaskAlarm = async (
   _alarm: TAlarmSchedule,
+  _soundName?: string,
 ): Promise<void> => {};
 
 export const cancelTaskAlarm = async (_id: string): Promise<void> => {};

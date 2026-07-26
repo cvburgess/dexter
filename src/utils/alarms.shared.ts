@@ -29,6 +29,38 @@ export const DEFAULT_ALARM_TIME = "09:00";
  * ring). */
 export const DEFAULT_ALARM_LEAD_MINUTES = 5;
 
+/** A selectable alarm sound (see {@link ALARM_SOUNDS}). */
+export type TAlarmSound = "system" | "echos";
+
+/** What a fresh account rings with — Dexter's own sound, not iOS's (DEX-72). */
+export const DEFAULT_ALARM_SOUND: TAlarmSound = "echos";
+
+/**
+ * The alarm sounds a user can pick from in Settings → Tasks. `fileName` is the
+ * bundled resource AlarmKit rings (`null` means "leave AlarmKit on its default
+ * sound"). Adding a sound means adding an entry here *and* the audio file to
+ * the `withAlarmSound` plugin's `sounds` list in `app.json` — a name AlarmKit
+ * can't resolve in the bundle rings nothing.
+ */
+export const ALARM_SOUNDS: readonly {
+  value: TAlarmSound;
+  label: string;
+  fileName: string | null;
+}[] = [
+  { value: "system", label: "System", fileName: null },
+  { value: "echos", label: "Echos", fileName: "echos.wav" },
+];
+
+/**
+ * Resolve a stored preference to the bundled filename to hand AlarmKit, or
+ * `undefined` to leave it on the system sound. Unknown values resolve to
+ * `undefined` too: a newer client (or a hand-edited row) may name a sound this
+ * build doesn't ship, and falling back to the default sound is far better than
+ * scheduling a filename that resolves to silence.
+ */
+export const alarmSoundFileName = (sound: string): string | undefined =>
+  ALARM_SOUNDS.find((option) => option.value === sound)?.fileName ?? undefined;
+
 /** Format a `Date`'s local time-of-day as `"HH:MM"`. */
 const toTimeString = (date: Date): string =>
   `${date.getHours().toString().padStart(2, "0")}:${date
