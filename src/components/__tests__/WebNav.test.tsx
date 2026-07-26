@@ -1,14 +1,26 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render } from "@testing-library/react-native";
+import type { ReactNode } from "react";
 
 import { WEB_NAV_ITEMS, WebNavDock, WebNavRail } from "@/components/WebNav";
 
 const mockRouter = { navigate: jest.fn(), push: jest.fn() };
 const mockPathname = { current: "/today" };
-jest.mock("expo-router", () => ({
-  usePathname: () => mockPathname.current,
-  useRouter: () => mockRouter,
-}));
+// `Link` is stubbed as a pressable that surfaces its `href` — the real one needs
+// a navigation container this unit test doesn't mount. Asserting on the rendered
+// href is the point: destinations are real anchors on web, not onPress handlers,
+// so cmd-click and "copy link address" work.
+jest.mock("expo-router", () => {
+  const { View } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+  return {
+    Link: function Link({ children, ...props }: { children?: ReactNode }) {
+      return <View {...props}>{children}</View>;
+    },
+    usePathname: () => mockPathname.current,
+    useRouter: () => mockRouter,
+  };
+});
 
 const mockViewedDay: { current: Temporal.PlainDate | null } = { current: null };
 jest.mock("@/hooks/useViewedDay", () => ({
@@ -53,13 +65,26 @@ describe.each(variants)("$name", ({ Component }) => {
     expect(screen.getByTestId("web-nav-today")).not.toBeSelected();
   });
 
-  it("navigates to a destination rather than pushing another copy of it", () => {
+  it("renders each destination as a real link to its route", () => {
     const screen = render(<Component />);
 
-    fireEvent.press(screen.getByTestId("web-nav-search"));
+    WEB_NAV_ITEMS.forEach((item) => {
+      expect(screen.getByTestId(`web-nav-${item.key}`).props.href).toBe(
+        item.href,
+      );
+    });
+  });
 
-    expect(mockRouter.navigate).toHaveBeenCalledWith("/search");
-    expect(mockRouter.push).not.toHaveBeenCalled();
+  it("marks the current destination with aria-current for assistive tech", () => {
+    mockPathname.current = "/search";
+    const screen = render(<Component />);
+
+    expect(screen.getByTestId("web-nav-search").props["aria-current"]).toBe(
+      "page",
+    );
+    expect(
+      screen.getByTestId("web-nav-today").props["aria-current"],
+    ).toBeUndefined();
   });
 
   it("opens the new-task modal seeded with the viewed day", () => {

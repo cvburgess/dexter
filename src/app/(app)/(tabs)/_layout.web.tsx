@@ -2,7 +2,7 @@ import { Tabs } from "expo-router";
 import { StyleSheet, View } from "react-native";
 
 import { WebNavDock, WebNavRail } from "@/components/WebNav";
-import { useIsMultiPane } from "@/hooks/useIsMultiPane";
+import { useShowNavRail } from "@/hooks/useShowNavRail";
 
 /**
  * Web tabs layout. `NativeTabs` (used in `_layout.tsx` for iOS/Android) renders
@@ -15,10 +15,11 @@ import { useIsMultiPane } from "@/hooks/useIsMultiPane";
  * `Stack`, so they stay off here.
  */
 export default function TabsLayout() {
-  // Same breakpoint the Settings sidebar and Today's panes use, applied the same
-  // way (see settings/_layout.tsx): the layout owns the decision, the nav
-  // components just render.
-  const rail = useIsMultiPane();
+  // The layout owns the decision and the nav components just render, the same
+  // split as settings/_layout.tsx. The threshold is the rail's own
+  // (`WEB_RAIL_MIN_WIDTH`), not `useIsMultiPane`'s — see the comment there for
+  // why the two differ by the rail's width.
+  const rail = useShowNavRail();
 
   return (
     <View style={[styles.shell, { flexDirection: rail ? "row" : "column" }]}>

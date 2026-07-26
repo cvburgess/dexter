@@ -1,4 +1,4 @@
-import { type Href, usePathname, useRouter } from "expo-router";
+import { type Href, Link, usePathname, useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -6,6 +6,7 @@ import {
   SettingsIcon,
   type TSettingsIconName,
 } from "@/components/SettingsIcon";
+import { WEB_NAV_RAIL_WIDTH } from "@/utils/breakpoints";
 import { newTaskRoute } from "@/utils/newTaskRoute";
 import { useTheme, withOpacity } from "@/utils/theme";
 
@@ -51,8 +52,9 @@ const isActive = (pathname: string, href: TWebNavHref) =>
   pathname === href || pathname.startsWith(`${href}/`);
 
 /**
- * Shared behavior for both nav variants: which destination is current, how to
- * reach one, and how to open the create-task modal.
+ * Shared behavior for both nav variants: which destination is current, and how
+ * to open the create-task modal. Destinations themselves are `Link`s rather than
+ * handlers — see `navItemProps`.
  */
 function useWebNav() {
   const router = useRouter();
@@ -61,12 +63,25 @@ function useWebNav() {
   // Resolved at press time, not render time — see `newTaskRoute`.
   const openNewTask = () => router.push(newTaskRoute());
 
-  // `navigate` rather than `push`: these are tabs, so revisiting one should jump
-  // back to it instead of stacking another copy onto the history.
-  const go = (href: TWebNavHref) => router.navigate(href);
-
-  return { go, openNewTask, pathname };
+  return { openNewTask, pathname };
 }
+
+/**
+ * The props every destination shares across both variants.
+ *
+ * `aria-current="page"` is what actually marks the active destination for
+ * assistive tech: `accessibilityState.selected` maps to `aria-selected`, which
+ * only carries meaning on tab/option/row roles and is ignored on a link. It's
+ * kept alongside because it's the cross-platform signal (and what the tests
+ * assert), but `aria-current` is the one a screen reader announces here.
+ */
+const navItemProps = (item: TWebNavItem, selected: boolean) => ({
+  accessibilityLabel: item.label,
+  accessibilityState: { selected },
+  "aria-current": selected ? ("page" as const) : undefined,
+  href: item.href,
+  testID: `web-nav-${item.key}`,
+});
 
 /**
  * The web navigation rail shown on wide viewports (see `(tabs)/_layout.web.tsx`).
@@ -77,7 +92,7 @@ function useWebNav() {
  */
 export function WebNavRail() {
   const theme = useTheme();
-  const { go, openNewTask, pathname } = useWebNav();
+  const { openNewTask, pathname } = useWebNav();
 
   return (
     <View
@@ -96,12 +111,9 @@ export function WebNavRail() {
         const selected = isActive(pathname, item.href);
 
         return (
-          <TouchableOpacity
+          <Link
             key={item.key}
-            accessibilityLabel={item.label}
-            accessibilityRole="button"
-            accessibilityState={{ selected }}
-            onPress={() => go(item.href)}
+            {...navItemProps(item, selected)}
             style={[
               styles.tile,
               {
@@ -114,14 +126,13 @@ export function WebNavRail() {
                 marginTop: item.pinnedToBottom ? "auto" : 0,
               },
             ]}
-            testID={`web-nav-${item.key}`}
           >
             <SettingsIcon
               color={selected ? theme.colors.background : theme.colors.text}
               name={item.icon}
               size={26}
             />
-          </TouchableOpacity>
+          </Link>
         );
       })}
 
@@ -156,7 +167,7 @@ export function WebNavRail() {
 export function WebNavDock() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { go, openNewTask, pathname } = useWebNav();
+  const { openNewTask, pathname } = useWebNav();
 
   return (
     <View
@@ -184,14 +195,10 @@ export function WebNavDock() {
           : withOpacity(theme.colors.text, 0.8);
 
         return (
-          <TouchableOpacity
+          <Link
             key={item.key}
-            accessibilityLabel={item.label}
-            accessibilityRole="button"
-            accessibilityState={{ selected }}
-            onPress={() => go(item.href)}
+            {...navItemProps(item, selected)}
             style={styles.dockItem}
-            testID={`web-nav-${item.key}`}
           >
             <View style={styles.dockIconSlot}>
               <SettingsIcon color={color} name={item.icon} size={20} />
@@ -204,7 +211,7 @@ export function WebNavDock() {
             >
               {item.label}
             </Text>
-          </TouchableOpacity>
+          </Link>
         );
       })}
 
@@ -251,7 +258,7 @@ const styles = StyleSheet.create({
     // pinning the gear to the bottom (`marginTop: "auto"`) only works if the
     // rail actually fills the viewport height.
     alignSelf: "stretch",
-    width: 76,
+    width: WEB_NAV_RAIL_WIDTH,
   },
   // Legacy parity: a 48pt square card that sits a step above the rail's sunken
   // background, lifted by a soft shadow rather than a border.
