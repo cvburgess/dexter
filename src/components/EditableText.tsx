@@ -8,6 +8,8 @@ import {
   TextStyle,
 } from "react-native";
 
+import { NO_FOCUS_RING } from "@/utils/inputStyles";
+
 type TEditableTextProps = {
   value: string;
   /** Whether this row is the one currently being edited (the parent owns which). */
@@ -222,8 +224,10 @@ const styles = StyleSheet.create({
     flex: 1,
     // Strip the platform input chrome so the field sits exactly where the Text
     // did — an inline edit should feel like typing over the title, not like a
-    // form field appearing inside the card.
+    // form field appearing inside the card. The browser's focus ring is part of
+    // that chrome.
     margin: 0,
     padding: 0,
+    ...NO_FOCUS_RING,
   },
 });
