@@ -202,6 +202,15 @@ export const canonicalTaskFilters = (): TQueryFilter[] => [
   ]),
 ];
 
+// The realtime invalidation layer (useRealtimeInvalidation) checks this key via
+// `queryClient.isMutating` to skip refetching while one of our own writes is in
+// flight — Postgres echoes that write back as a realtime event, and a refetch
+// it triggers can resolve *after* a newer local edit and stamp stale rows over
+// it. Unscoped, unlike `daysMutationKey`: there is a single `["tasks"]` cache
+// entry, so there is no unrelated slice left to invalidate anyway. Every task
+// mutation carries it, and each one's own settle invalidation is the catch-up.
+export const TASKS_MUTATION_KEY = ["tasks"];
+
 export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
   const queryClient = useQueryClient();
 
@@ -213,6 +222,7 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
   });
 
   const { mutate: create } = useMutation<TTask[], Error, TCreateTask>({
+    mutationKey: TASKS_MUTATION_KEY,
     mutationFn: (task) => createTask(supabase, task),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -260,6 +270,7 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
     TUpdateTask,
     { previousTasks?: TTask[] }
   >({
+    mutationKey: TASKS_MUTATION_KEY,
     mutationFn: (diff) => updateTask(supabase, diff),
     ...optimisticUpdate,
     onSuccess: (_data, diff, context) =>
@@ -278,6 +289,7 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
     update(withSubtaskSweep(queryClient, diff));
 
   const { mutate: bulkUpdate } = useMutation<TTask[], Error, TUpdateTask[]>({
+    mutationKey: TASKS_MUTATION_KEY,
     mutationFn: (diffs) =>
       updateTasks(
         supabase,
@@ -293,6 +305,7 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
   });
 
   const { mutate: remove } = useMutation<void, Error, string>({
+    mutationKey: TASKS_MUTATION_KEY,
     mutationFn: (id) => deleteTask(supabase, id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });

@@ -3,8 +3,10 @@ import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { ReactNode } from "react";
 
 import * as daysApi from "@/api/days";
+import * as tasksApi from "@/api/tasks";
 import { useDays } from "@/hooks/useDays";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useTasks } from "@/hooks/useTasks";
 
 import {
   REALTIME_INVALIDATIONS,
@@ -39,6 +41,13 @@ jest.mock("@/hooks/useAuth", () => ({
 
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 jest.mock("@/api/days", () => ({ getDay: jest.fn(), upsertDay: jest.fn() }));
+// Only the request functions — `ETaskStatus` and the subtask helpers are real,
+// since `useTasks` reads them while composing a write.
+jest.mock("@/api/tasks", () => ({
+  ...jest.requireActual("@/api/tasks"),
+  getTasks: jest.fn(),
+  updateTask: jest.fn(),
+}));
 
 const mockGetDay = daysApi.getDay as jest.MockedFunction<typeof daysApi.getDay>;
 const mockUpsertDay = daysApi.upsertDay as jest.MockedFunction<
@@ -46,6 +55,12 @@ const mockUpsertDay = daysApi.upsertDay as jest.MockedFunction<
 >;
 const mockUsePreferences = usePreferences as jest.MockedFunction<
   typeof usePreferences
+>;
+const mockGetTasks = tasksApi.getTasks as jest.MockedFunction<
+  typeof tasksApi.getTasks
+>;
+const mockUpdateTask = tasksApi.updateTask as jest.MockedFunction<
+  typeof tasksApi.updateTask
 >;
 
 const makeChannel = () => {
@@ -210,6 +225,54 @@ describe("useRealtimeInvalidation", () => {
       // The autosave has settled — the same date now refetches normally.
       await waitFor(() =>
         expect(mockGetDay.mock.calls.length).toBeGreaterThan(
+          fetchCountBeforeEvent,
+        ),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("skips refetching tasks while one of our own writes is in flight, then catches up once it settles", async () => {
+    jest.useFakeTimers();
+    try {
+      const { wrapper } = createWrapper();
+      renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
+
+      let resolveUpdate: () => void = () => {};
+      mockGetTasks.mockResolvedValue([]);
+      mockUpdateTask.mockReturnValue(
+        new Promise((resolve) => {
+          resolveUpdate = () => resolve([]);
+        }),
+      );
+
+      const tasks = renderHook(() => useTasks(), { wrapper });
+      await waitFor(() =>
+        expect(tasks.result.current[1].isLoading).toBe(false),
+      );
+      // The initial mount already fetched once.
+      const fetchCountBeforeEvent = mockGetTasks.mock.calls.length;
+
+      act(() =>
+        tasks.result.current[1].updateTask({ id: "task-1", title: "Renamed" }),
+      );
+      await waitFor(() => expect(mockUpdateTask.mock.calls.length).toBe(1));
+
+      const binding = captured!.bindings.find((b) => b.table === "tasks")!;
+      act(() => binding.handler({ table: "tasks" }));
+      act(() => jest.advanceTimersByTime(250));
+
+      // Postgres echoing our own write back must not start a refetch: it can
+      // resolve after a *newer* local edit and stamp stale rows over it.
+      expect(mockGetTasks.mock.calls.length).toBe(fetchCountBeforeEvent);
+
+      act(() => resolveUpdate());
+
+      // Nothing is lost by skipping — the write's own settle invalidation is
+      // the catch-up for anything that genuinely changed elsewhere.
+      await waitFor(() =>
+        expect(mockGetTasks.mock.calls.length).toBeGreaterThan(
           fetchCountBeforeEvent,
         ),
       );
