@@ -38,6 +38,39 @@ describe("getStatusSections", () => {
 
     expect(onChangeStatus).toHaveBeenCalledWith(ETaskStatus.DONE);
   });
+
+  it("tints each icon from the theme, leaving To Do neutral", () => {
+    // Sentinels rather than real hex values: this pins which *token* each status
+    // reads, which is the part that must not drift. The literal colors are the
+    // theme's business and change per theme.
+    const colors = {
+      success: "GREEN",
+      error: "RED",
+      // Indexed by ETaskPriority — daisyUI [warning, error, info, ...].
+      priority: ["YELLOW", "RED", "BLUE", "BASE", "NEUTRAL"],
+    } as unknown as Parameters<typeof getStatusSections>[1];
+
+    const [section] = getStatusSections(jest.fn(), colors);
+    const tint = Object.fromEntries(
+      section.options.map((option) => [option.title, option.iconColor]),
+    );
+
+    expect(tint).toEqual({
+      "To Do": undefined,
+      "In Progress": "YELLOW",
+      Done: "GREEN",
+      "Won't Do": "RED",
+      Delegated: "BLUE",
+    });
+  });
+
+  it("omits tints when no theme is supplied", () => {
+    const [section] = getStatusSections(jest.fn());
+
+    expect(
+      section.options.every((option) => option.iconColor === undefined),
+    ).toBe(true);
+  });
 });
 
 describe("StatusButton", () => {

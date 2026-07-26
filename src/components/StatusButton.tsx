@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
-import { ETaskStatus } from "@/api/tasks";
-import { withOpacity } from "@/utils/theme";
+import { ETaskPriority, ETaskStatus } from "@/api/tasks";
+import { Theme, useTheme, withOpacity } from "@/utils/theme";
 
 import { IconMenu, TIconMenuSection } from "./IconMenu";
 
@@ -26,7 +26,8 @@ export function StatusButton({
   accessibilityLabel = "Status",
   interactive = true,
 }: TStatusButtonProps) {
-  const sections = getStatusSections(onChangeStatus);
+  const theme = useTheme();
+  const sections = getStatusSections(onChangeStatus, theme.colors);
 
   const glyph = (
     <View
@@ -61,8 +62,38 @@ export function StatusButton({
   );
 }
 
+/**
+ * Tints each status's menu icon, reusing the same tokens the priority icons draw
+ * from: yellow/blue are the daisyUI `warning`/`info` slots of the `priority`
+ * array, and green/red are the dedicated `success`/`error` tokens. To Do is left
+ * untinted so it inherits the menu's own text color — an open task is the neutral
+ * default, and giving it an accent would imply a state it doesn't have.
+ *
+ * Passing `colors` in (rather than reading a theme here) keeps this a pure
+ * function of its arguments, which is what lets the test call it directly.
+ */
+const iconColorForStatus = (
+  status: ETaskStatus,
+  colors: Theme["colors"],
+): string | undefined => {
+  switch (status) {
+    case ETaskStatus.IN_PROGRESS:
+      return colors.priority[ETaskPriority.IMPORTANT_AND_URGENT];
+    case ETaskStatus.DONE:
+      return colors.success;
+    case ETaskStatus.WONT_DO:
+      return colors.error;
+    case ETaskStatus.DELEGATED:
+      return colors.priority[ETaskPriority.IMPORTANT];
+    case ETaskStatus.TODO:
+    default:
+      return undefined;
+  }
+};
+
 export const getStatusSections = (
   onChangeStatus: (status: ETaskStatus) => void,
+  colors?: Theme["colors"],
 ): TIconMenuSection[] => [
   {
     options: (
@@ -108,6 +139,7 @@ export const getStatusSections = (
       ] as const
     ).map(({ status: optionStatus, ...option }) => ({
       ...option,
+      iconColor: colors ? iconColorForStatus(optionStatus, colors) : undefined,
       // No isSelected: the icons say it all, and the trigger glyph already
       // reflects the current status — skip the menu checkmark.
       onSelect: () => onChangeStatus(optionStatus),
