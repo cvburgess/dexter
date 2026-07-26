@@ -64,6 +64,14 @@ client: `days` is still in `supabase_realtime` but is deliberately **absent**
 from the app's `REALTIME_INVALIDATIONS` map, so its change events have no
 subscriber. That gap is intentional, not drift.
 
+**Rollout note:** the backfill is one-time, and there is no dual-write. Between
+the migration deploying and a client picking up the new bundle, anything that
+client writes lands in `days` and is invisible once it updates. The split is
+JS-only, so shipping an EAS update alongside the deploy closes the window
+immediately; re-running the two backfill inserts (both are
+`on conflict do nothing`, so they are rerunnable) recovers any date the new
+build has not written since.
+
 ## RLS policy invariants
 
 Every user-owned table enables RLS with per-operation policies keyed on

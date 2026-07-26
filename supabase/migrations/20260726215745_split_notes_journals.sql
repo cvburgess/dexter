@@ -26,11 +26,12 @@
 -- that reads the new tables has shipped.
 --
 -- Rollback: the new tables can be dropped outright — `days` still holds every
--- backfilled row, and this migration never writes to it.
+-- backfilled row, and this migration never writes to it. Dropping a table also
+-- removes it from every publication, so the two statements below are all that is
+-- needed (an `alter publication ... drop table` afterwards would fail on the
+-- now-missing relation).
 --   drop table if exists public.notes;
 --   drop table if exists public.journals;
---   alter publication supabase_realtime drop table public.notes;
---   alter publication supabase_realtime drop table public.journals;
 -- (Any note/journal written *after* this migration exists only in the new
 -- tables, so a rollback loses those edits.)
 
@@ -153,20 +154,31 @@ on conflict (user_id, date) do nothing;
 -- non-empty prompts array but only 47 hold a single response. Importing the other
 -- 113 would make "a journals row exists" mean "a note was written that day",
 -- breaking `exists` for the same reason the shape test looks tempting.
-insert into public.journals (user_id, date, prompts)
-select user_id, date, prompts
-from public.days
 -- The `jsonb_typeof` guard is load-bearing, not defensive noise: `days.prompts`
 -- carries no array constraint (unlike the new column above), and
 -- `jsonb_array_elements` raises on a non-array, which would abort this whole
 -- migration. Every production row is an array today, but the legacy client and
 -- the dashboard can both still write that column before this runs.
-where jsonb_typeof(prompts) = 'array'
-  and exists (
-    select 1
-    from jsonb_array_elements(prompts) as entry
-    where coalesce(entry ->> 'response', '') <> ''
-  )
+--
+-- It has to be a *separate scan* rather than another `and` alongside the
+-- `exists`, because Postgres does not promise left-to-right qual evaluation — it
+-- reorders quals by cost, so nothing guarantees the type check runs before the
+-- subplan that expands the array. `offset 0` is the documented optimization
+-- fence that stops the planner flattening this subquery and pulling the outer
+-- qual back down into it, which is what makes the ordering actually hold.
+insert into public.journals (user_id, date, prompts)
+select user_id, date, prompts
+from (
+  select user_id, date, prompts
+  from public.days
+  where jsonb_typeof(prompts) = 'array'
+  offset 0
+) as arrays
+where exists (
+  select 1
+  from jsonb_array_elements(prompts) as entry
+  where coalesce(entry ->> 'response', '') <> ''
+)
 on conflict (user_id, date) do nothing;
 
 -- Emit change events for client cache invalidation, same guarded pattern as

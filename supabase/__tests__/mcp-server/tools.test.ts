@@ -926,26 +926,26 @@ Deno.test("get_journal returns an empty prompt array for a date with no row", as
   });
 });
 
-Deno.test("upsert_journal bounds the prompt array like the tasks checklist does", () => {
+Deno.test("upsert_journal accepts any prompt set the app can legitimately store", () => {
   const registry = journalTools(new FakeSupabase());
   const prompts = registry.tools.get("upsert_journal")!.inputSchema!
     .prompts as {
       safeParse: (value: unknown) => { success: boolean };
     };
-  const entries = (count: number) =>
-    Array.from(
-      { length: count },
-      () => ({ prompt: "Highlight", response: "" }),
-    );
+  const entries = (count: number, prompt = "Highlight") =>
+    Array.from({ length: count }, () => ({ prompt, response: "" }));
 
-  assertEquals(prompts.safeParse(entries(50)).success, true);
-  // The column has no size limit of its own, so this schema is what stops a
-  // client writing a multi-megabyte array into the row.
-  assertEquals(prompts.safeParse(entries(51)).success, false);
-  assertEquals(
-    prompts.safeParse([{ prompt: "x".repeat(201), response: "" }]).success,
-    false,
-  );
+  // Nothing caps prompt count or length in the settings editor, in
+  // `update_preferences`, or on `preferences.template_prompts`, and `useJournals`
+  // seeds a row from that template through PostgREST (no Zod). A cap here would
+  // reject a row the app itself wrote, permanently breaking the documented
+  // get_journal → upsert_journal round trip for that user.
+  assertEquals(prompts.safeParse(entries(60)).success, true);
+  assertEquals(prompts.safeParse(entries(1, "x".repeat(250))).success, true);
+  // Shape is still enforced — the column's check constraint expects an array of
+  // {prompt, response}.
+  assertEquals(prompts.safeParse([{ prompt: "Highlight" }]).success, false);
+  assertEquals(prompts.safeParse("not an array").success, false);
 });
 
 Deno.test("upsert_note derives user_id from context and targets (user_id, date)", async () => {

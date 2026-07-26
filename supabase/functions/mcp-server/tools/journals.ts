@@ -10,20 +10,23 @@ import {
   toolJson,
 } from "./helpers.ts";
 
-// Bounded like the sibling jsonb array on tasks (`subtasksSchema` in
-// helpers.ts): a runaway client must not be able to write a multi-megabyte array
-// into a row. Prompts are short labels mirroring `preferences.template_prompts`;
-// responses are user prose and stay unbounded.
-const MAX_JOURNAL_PROMPTS = 50;
-
+// Deliberately unbounded, unlike the sibling jsonb array on tasks
+// (`subtasksSchema` in helpers.ts). Those bounds work because they match limits
+// the app itself enforces (`tasks.title` is varchar(100)); nothing bounds a
+// journal prompt anywhere — not the settings editor, not `update_preferences`'
+// `templatePrompts`, not `preferences.template_prompts` (unbounded varchar[]) —
+// and `useJournals` seeds a row straight from that template via PostgREST, which
+// runs no Zod. A cap here would therefore reject rows the app legitimately
+// created: an agent doing the documented get_journal → upsert_journal round trip
+// would be locked out of that user's journal for good. It would also buy little,
+// since `response` here and `content` on notes are both unbounded prose. Bound
+// `template_prompts` first if this ever needs a limit.
 const journalPromptSchema = z.object({
-  prompt: z.string().max(200),
+  prompt: z.string(),
   response: z.string(),
 });
 
-const journalPromptsSchema = z.array(journalPromptSchema).max(
-  MAX_JOURNAL_PROMPTS,
-);
+const journalPromptsSchema = z.array(journalPromptSchema);
 
 export function registerJournalTools(
   server: McpServer,
