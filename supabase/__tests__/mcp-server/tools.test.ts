@@ -579,6 +579,18 @@ Deno.test("update_task rejects malformed subtask entries", () => {
       .success,
     false,
   );
+  // 4 is delegated (DEX-68). The bound gates stored rows as well as tool input,
+  // and a subtask that fails to parse silently loses its parent's sweep.
+  assertEquals(
+    schema.subtasks.safeParse([{ id: "s1", title: "Delegated", status: 4 }])
+      .success,
+    true,
+  );
+  assertEquals(
+    schema.subtasks.safeParse([{ id: "s1", title: "Past the end", status: 5 }])
+      .success,
+    false,
+  );
   assertEquals(schema.subtasks.safeParse("not an array").success, false);
 });
 
@@ -605,6 +617,31 @@ Deno.test("update_task sweeps open subtasks closed in the same write", async () 
   assertEquals(supabase.updates[0].payload.subtasks, [
     { id: "s1", title: "Open", status: 2 },
     { id: "s2", title: "Already done", status: 2 },
+  ]);
+});
+
+Deno.test("update_task sweeps the checklist for delegated too, not just done", async () => {
+  const supabase = new RecordingSupabase({
+    tasks: [
+      {
+        status: 1,
+        subtasks: [
+          { id: "s1", title: "Open", status: 1 },
+          { id: "s2", title: "Started", status: 0 },
+        ],
+      },
+      { status: 4, template_id: null, scheduled_for: null },
+    ],
+  });
+
+  // Delegated (4) is terminal alongside done (2) and won't-do (3) — handing the
+  // parent off closes its checklist the same way (DEX-68).
+  await taskTools(supabase).run("update_task", { taskId: SUB_TASK, status: 4 });
+
+  assertEquals(supabase.updates.length, 1);
+  assertEquals(supabase.updates[0].payload.subtasks, [
+    { id: "s1", title: "Open", status: 4 },
+    { id: "s2", title: "Started", status: 4 },
   ]);
 });
 

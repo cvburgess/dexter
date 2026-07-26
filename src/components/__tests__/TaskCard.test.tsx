@@ -263,9 +263,18 @@ describe("TaskCard", () => {
     expect(flatStyle.textDecorationLine).toBe("line-through");
   });
 
-  it("skips the more menu for a won't-do task too", () => {
-    const task = { ...baseTask, status: ETaskStatus.WONT_DO };
-    render(
+  // The other two terminal statuses get the same treatment as DONE — they share
+  // one `isCompletionStatus` predicate, so this guards against anyone reverting
+  // the card to a hardcoded DONE/WONT_DO pair (DEX-68).
+  it.each([
+    ["won't-do", ETaskStatus.WONT_DO],
+    ["delegated", ETaskStatus.DELEGATED],
+  ])("skips the more menu and strikes the title for a %s task too", (
+    _label,
+    status,
+  ) => {
+    const task = { ...baseTask, status, dueOn: "2026-07-05", listId: "list-1" };
+    const screen = render(
       <TaskCard
         task={task}
         onUpdate={jest.fn()}
@@ -276,6 +285,11 @@ describe("TaskCard", () => {
     );
 
     expect(mockMoreMenu).not.toHaveBeenCalled();
+    expect(screen.queryByText("🏠")).toBeNull();
+
+    const title = screen.getByText("Write the report");
+    const flatStyle = StyleSheet.flatten(title.props.style as TextStyle[]);
+    expect(flatStyle.textDecorationLine).toBe("line-through");
   });
 
   it.each([

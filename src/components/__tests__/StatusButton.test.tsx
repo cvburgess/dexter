@@ -13,7 +13,7 @@ jest.mock("../IconMenu", () => ({
 }));
 
 describe("getStatusSections", () => {
-  it("lists all 4 statuses with icons and no selection checkmark", () => {
+  it("lists all 5 statuses with icons and no selection checkmark", () => {
     const onChangeStatus = jest.fn();
     const [section] = getStatusSections(onChangeStatus);
 
@@ -22,6 +22,7 @@ describe("getStatusSections", () => {
       "In Progress",
       "Done",
       "Won't Do",
+      "Delegated",
     ]);
     expect(section.options.every((option) => option.icon)).toBe(true);
     expect(
@@ -40,16 +41,24 @@ describe("getStatusSections", () => {
 });
 
 describe("StatusButton", () => {
-  it("renders a glyph representing the current status", () => {
+  // The trigger draws text, not the menu's SF Symbols, so every status needs a
+  // glyph of its own — a missing case silently falls through to TODO's "○".
+  it.each([
+    [ETaskStatus.TODO, "○"],
+    [ETaskStatus.IN_PROGRESS, "◐"],
+    [ETaskStatus.DONE, "✓"],
+    [ETaskStatus.WONT_DO, "✕"],
+    [ETaskStatus.DELEGATED, "→"],
+  ])("renders a glyph representing status %i", (status, glyph) => {
     const screen = render(
       <StatusButton
-        status={ETaskStatus.DONE}
+        status={status}
         contentColor="#000000"
         onChangeStatus={jest.fn()}
       />,
     );
 
-    expect(screen.getByText("✓")).toBeTruthy();
+    expect(screen.getByText(glyph)).toBeTruthy();
   });
 
   it("pins the menu trigger to the button's 32×32 size", () => {

@@ -46,7 +46,7 @@ Deno.test("templates use valid midnight cron schedules", () => {
 Deno.test("tasks have valid enums and title length", () => {
   for (const task of data.tasks) {
     assert(task.priority >= 0 && task.priority <= 4, `${task.title} priority`);
-    assert(task.status >= 0 && task.status <= 3, `${task.title} status`);
+    assert(task.status >= 0 && task.status <= 4, `${task.title} status`);
     assert(
       task.title.length > 0 && task.title.length <= 100,
       `${task.title} length`,
@@ -73,7 +73,7 @@ Deno.test("subtasks are well-formed and uniquely keyed within their array", () =
         `${task.title} subtask title length`,
       );
       assert(
-        subtask.status >= 0 && subtask.status <= 3,
+        subtask.status >= 0 && subtask.status <= 4,
         `${task.title} subtask status`,
       );
     }
