@@ -168,13 +168,11 @@ const DATE_FIELD_META = {
       android: "calendar_today",
       web: "calendar_today",
     },
-    clearId: "unschedule",
     clearTitle: "Unschedule",
   },
   deadline: {
     title: "Deadline",
     icon: { ios: "flag", android: "flag", web: "flag" },
-    clearId: "clear-deadline",
     clearTitle: "Clear deadline",
   },
 } as const;
@@ -186,6 +184,12 @@ const getDateSections = (
   onPickDate: () => void,
 ): TIconMenuSection[] => {
   const meta = DATE_FIELD_META[field];
+  // Option ids are the menu's dispatch keys, and `IconMenu.native` flattens
+  // every section into one id -> option map before handing the tree to the
+  // system menu. Schedule and Deadline offer the very same dates, so an
+  // un-namespaced id would let the later submenu (Deadline) shadow the earlier
+  // one and route Schedule's taps to the deadline handler.
+  const optionId = (suffix: string) => `${field}-${suffix}`;
   const now = Temporal.Now.plainDateISO();
   const today = now.toString();
   const tomorrow = now.add({ days: 1 }).toString();
@@ -200,13 +204,13 @@ const getDateSections = (
 
   const options = [
     {
-      id: today,
+      id: optionId(today),
       title: "Today",
       isSelected: value === today,
       onSelect: () => onChange(today),
     },
     {
-      id: tomorrow,
+      id: optionId(tomorrow),
       title: "Tomorrow",
       isSelected: value === tomorrow,
       onSelect: () => onChange(tomorrow),
@@ -215,7 +219,7 @@ const getDateSections = (
 
   if (!isWithinNextWeek && tomorrow !== nextMonday) {
     options.push({
-      id: nextMonday,
+      id: optionId(nextMonday),
       title: "Next Week",
       isSelected: false,
       onSelect: () => onChange(nextMonday),
@@ -227,7 +231,7 @@ const getDateSections = (
   // no-op row it used to be (DEX-87).
   if (currentDate && value !== today && value !== tomorrow) {
     options.push({
-      id: currentDate.toString(),
+      id: optionId(currentDate.toString()),
       title: formatMonthDayYear(currentDate),
       isSelected: true,
       onSelect: onPickDate,
@@ -235,7 +239,7 @@ const getDateSections = (
   }
 
   options.push({
-    id: "pick-date",
+    id: optionId("pick-date"),
     title: "Pick a date…",
     isSelected: false,
     onSelect: onPickDate,
@@ -243,7 +247,7 @@ const getDateSections = (
 
   if (currentDate) {
     options.push({
-      id: meta.clearId,
+      id: optionId("clear"),
       title: meta.clearTitle,
       isSelected: false,
       onSelect: () => onChange(null),

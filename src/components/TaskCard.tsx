@@ -288,12 +288,19 @@ export function TaskCard({
   // schedule pick is routed through `handleChangeSchedule` rather than writing
   // `scheduledFor` here, so moving an alarmed task still prompts (DEX-87).
   const handleConfirmDate = async (date: string) => {
-    closeDateModal();
     if (dateModal.field === "deadline") {
+      closeDateModal();
       onUpdate({ dueOn: date });
       return;
     }
+    // Nothing to prompt about on a deadline, so that branch closes first and
+    // feels instant. A schedule can prompt, and that prompt is a native
+    // `Alert` (see ConfirmationModal.native) — UIKit drops an alert presented
+    // while this sheet's view controller is still animating away, which would
+    // silently swallow the whole reschedule. So let it resolve first and close
+    // afterwards, leaving the alert stacked over the sheet the way iOS expects.
     await handleChangeSchedule(date);
+    closeDateModal();
   };
 
   const priorityColor = theme.colors.priority[task.priority];

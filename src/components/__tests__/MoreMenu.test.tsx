@@ -189,6 +189,39 @@ describe("MoreMenu", () => {
     expect(onPickDate).toHaveBeenCalledTimes(2);
   });
 
+  // `IconMenu.native` flattens every section into one id -> option map and
+  // dispatches the system menu's press by id, so a duplicate silently routes one
+  // row's tap to another's handler. Schedule and Deadline offer the same dates,
+  // which is exactly where that collides.
+  it("gives every option a menu-wide unique id", () => {
+    render(
+      <MoreMenu
+        task={makeTask({
+          scheduledFor: Temporal.Now.plainDateISO().toString(),
+          dueOn: Temporal.Now.plainDateISO().toString(),
+        })}
+        onChangePriority={jest.fn()}
+        onChangeSchedule={jest.fn()}
+        onChangeDeadline={jest.fn()}
+        onChangeList={jest.fn()}
+        onPickDate={jest.fn()}
+        onSetAlarm={jest.fn()}
+        onClearAlarm={jest.fn()}
+        onDuplicate={jest.fn()}
+        onDelete={jest.fn()}
+      >
+        <Text>Task row</Text>
+      </MoreMenu>,
+    );
+
+    const { sections } = mockIconMenu.mock.calls[0][0];
+    const ids = sections.flatMap((section) =>
+      section.options.map((option) => option.id),
+    );
+
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
   it("labels the repeat action 'Repeat' when the task has no template", () => {
     render(
       <MoreMenu

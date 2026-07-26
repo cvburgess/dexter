@@ -47,7 +47,8 @@ type SetDateModalMockProps = {
   visible: boolean;
   initialDate: string | null;
   onCancel: () => void;
-  onConfirm: (date: string) => void | Promise<void>;
+  // TaskCard's handler is async — it may await a confirmation.
+  onConfirm: (date: string) => Promise<void>;
 };
 const mockSetDateModal = jest.fn((_props: SetDateModalMockProps) => null);
 jest.mock("../SetDateModal", () => ({
@@ -218,6 +219,12 @@ describe("TaskCard", () => {
       />,
     );
 
+  /** The props the date sheet was last rendered with. */
+  const latestDateModal = () => {
+    const { calls } = mockSetDateModal.mock;
+    return calls[calls.length - 1][0];
+  };
+
   /** Open the date picker for a field and hand back the sheet's latest props. */
   const openPicker = (
     task: TTask,
@@ -226,8 +233,7 @@ describe("TaskCard", () => {
   ) => {
     renderCard(task, onUpdate);
     act(() => mockMoreMenu.mock.calls[0][0].onPickDate(field));
-    const { calls } = mockSetDateModal.mock;
-    return calls[calls.length - 1][0];
+    return latestDateModal();
   };
 
   it("writes a deadline straight through — nothing is bound to it, so there is nothing to confirm", () => {
@@ -289,6 +295,33 @@ describe("TaskCard", () => {
 
     expect(mockConfirm).toHaveBeenCalledTimes(1);
     expect(onUpdate).toHaveBeenCalledWith({ scheduledFor: "2026-07-20" });
+  });
+
+  // That prompt is a native Alert, and UIKit drops one presented while the
+  // sheet's view controller is still animating away — which would swallow the
+  // reschedule entirely. The sheet has to outlive the prompt.
+  it("keeps the sheet up until the reschedule prompt resolves", async () => {
+    let resolvePrompt!: (confirmed: boolean) => void;
+    mockConfirm.mockImplementation(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolvePrompt = resolve;
+        }),
+    );
+    const modal = openPicker(alarmTask, jest.fn(), "schedule");
+
+    let confirmed!: Promise<void>;
+    act(() => {
+      confirmed = modal.onConfirm("2026-07-20");
+    });
+    expect(latestDateModal().visible).toBe(true);
+
+    await act(async () => {
+      resolvePrompt(true);
+      await confirmed;
+    });
+
+    expect(latestDateModal().visible).toBe(false);
   });
 
   it("renders the title and due date, wrapped in the long-press menu, with no list button when no list is chosen", () => {
