@@ -122,7 +122,8 @@ dashboard-only addition would drift from what the migration declares.
   days, repeat task templates, and preferences. Tool inputs never accept
   `user_id`; user ownership is derived from the validated bearer token.
 - **Repeat tasks are recurred in TypeScript, not Postgres.** Completing a task
-  linked to a `repeat_task_templates` row (status → done/won't-do) creates the
+  linked to a `repeat_task_templates` row (status → any terminal status:
+  done/won't-do/delegated) creates the
   next occurrence, with its date computed by `src/utils/repeatSchedule.ts`
   (croner-backed) — imported by both the app and `mcp-server` (via the `@src/`
   alias in `functions/mcp-server/deno.json`). The legacy
