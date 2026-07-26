@@ -54,6 +54,28 @@ export const priorityIconColor = (
     : theme.colors.priority[value];
 
 /**
+ * The fill and icon color of a *selected* option. NEITHER inverts for the same
+ * reason its icon does: its priority color is the card color, which is all but
+ * invisible against the form background, and its content color is the text
+ * color the icon already carries unselected — so filling with one and drawing
+ * with the other leaves the option looking untouched. Swapping the pair gives
+ * it a filled chip like every other priority.
+ */
+export const prioritySelectedColors = (
+  value: ETaskPriority,
+  theme: Theme,
+): { background: string; content: string } =>
+  value === ETaskPriority.NEITHER
+    ? {
+        background: theme.colors.priorityContent[value],
+        content: theme.colors.priority[value],
+      }
+    : {
+        background: theme.colors.priority[value],
+        content: theme.colors.priorityContent[value],
+      };
+
+/**
  * A segmented-control-style row of priority icons tinted with the theme's
  * priority colors. Tapping the selected icon again clears back to
  * unprioritized.
@@ -68,10 +90,9 @@ export function PriorityControl({
     <View style={styles.row}>
       {PRIORITY_OPTIONS.map((option) => {
         const isSelected = option.value === priority;
-        // Selected options fill with the priority color and use its matching
-        // content color.
+        const selected = prioritySelectedColors(option.value, theme);
         const iconColor = isSelected
-          ? theme.colors.priorityContent[option.value]
+          ? selected.content
           : priorityIconColor(option.value, theme);
 
         return (
@@ -82,9 +103,7 @@ export function PriorityControl({
             key={option.value}
             style={[
               styles.option,
-              isSelected && {
-                backgroundColor: theme.colors.priority[option.value],
-              },
+              isSelected && { backgroundColor: selected.background },
             ]}
             onPress={() =>
               onChangePriority(

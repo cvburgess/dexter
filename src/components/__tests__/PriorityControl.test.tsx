@@ -1,8 +1,11 @@
-import { fireEvent, render } from "@testing-library/react-native";
+import { fireEvent, render, renderHook } from "@testing-library/react-native";
 
 import { ETaskPriority } from "@/api/tasks";
+import { useTheme } from "@/utils/theme";
 
-import { PriorityControl } from "../PriorityControl";
+import { PriorityControl, prioritySelectedColors } from "../PriorityControl";
+
+const theme = renderHook(() => useTheme()).result.current;
 
 describe("PriorityControl", () => {
   it("renders an option for each priority", () => {
@@ -47,6 +50,44 @@ describe("PriorityControl", () => {
 
     expect(screen.getByLabelText("Important")).toBeSelected();
     expect(screen.getByLabelText("Urgent")).not.toBeSelected();
+  });
+
+  // NEITHER's priority color is the card color and its content color is the
+  // text color the icon already carries unselected, so drawing it like the
+  // other three leaves the option looking untouched. It inverts instead.
+  it("fills the selected Neither option with a color that isn't the card", () => {
+    const screen = render(
+      <PriorityControl
+        priority={ETaskPriority.NEITHER}
+        onChangePriority={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Neither")).toHaveStyle({
+      backgroundColor: theme.colors.priorityContent[ETaskPriority.NEITHER],
+    });
+
+    screen.rerender(
+      <PriorityControl
+        priority={ETaskPriority.UNPRIORITIZED}
+        onChangePriority={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Neither")).not.toHaveStyle({
+      backgroundColor: theme.colors.priorityContent[ETaskPriority.NEITHER],
+    });
+  });
+
+  it("swaps Neither's fill and content colors, and no other priority's", () => {
+    expect(prioritySelectedColors(ETaskPriority.NEITHER, theme)).toEqual({
+      background: theme.colors.priorityContent[ETaskPriority.NEITHER],
+      content: theme.colors.priority[ETaskPriority.NEITHER],
+    });
+    expect(prioritySelectedColors(ETaskPriority.URGENT, theme)).toEqual({
+      background: theme.colors.priority[ETaskPriority.URGENT],
+      content: theme.colors.priorityContent[ETaskPriority.URGENT],
+    });
   });
 
   it("clears back to unprioritized when the selected option is tapped again", () => {

@@ -214,6 +214,9 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
       />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
+        // Insets the content by the keyboard's height (iOS) so a subtask row it
+        // covers stays reachable. Android resizes the window instead.
+        automaticallyAdjustKeyboardInsets
         contentContainerStyle={[
           styles.container,
           { gap: theme.gap, padding: theme.spacing },

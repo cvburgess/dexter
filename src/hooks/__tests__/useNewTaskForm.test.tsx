@@ -46,6 +46,15 @@ describe("useNewTaskForm", () => {
     expect(result.current.scheduledFor).toBe(today().toString());
   });
 
+  it("carries a cleared schedule through to the payload as unscheduled", () => {
+    const { result } = renderHook(() => useNewTaskForm([]));
+
+    act(() => result.current.setScheduledFor(null));
+
+    expect(result.current.scheduledFor).toBeNull();
+    expect(result.current.task.scheduledFor).toBeNull();
+  });
+
   it("cannot save a whitespace-only title", () => {
     const { result } = renderHook(() => useNewTaskForm([]));
 

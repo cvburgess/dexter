@@ -24,10 +24,12 @@ import { MoreMenu } from "./MoreMenu";
 import { SetAlarmModal } from "./SetAlarmModal";
 import { StatusButton } from "./StatusButton";
 import {
-  SUBTASK_ROW_HEIGHT,
-  SUBTASK_STATUS_SIZE,
-  SubtaskRow,
-} from "./SubtaskRow";
+  SUBTASK_GAP,
+  SUBTASK_INSET,
+  SUBTASK_OFFSET,
+  SubtaskConnectors,
+} from "./SubtaskConnector";
+import { SubtaskRow } from "./SubtaskRow";
 
 // Matches dexter-app's cardColors: incomplete cards sit on the priority color
 // at 80% opacity; complete cards fade the same color to a 3% tint with muted
@@ -35,36 +37,6 @@ import {
 const INCOMPLETE_OPACITY = 0.8;
 const COMPLETE_OPACITY = 0.03;
 const COMPLETE_TEXT_OPACITY = 0.25;
-
-// Checklist spacing. Constants rather than literals in the stylesheet because
-// the connector rail is positioned from the same numbers — if the two drift,
-// the line stops meeting the circles.
-const SUBTASK_GAP = 2;
-/** Between the title row and the first subtask. Padding, not margin, so the
- * rail's first segment starts inside the box it's positioned against. */
-const SUBTASK_OFFSET = 8;
-/** Half the difference between the parent's 32px buttons and a subtask's 24px
- * ones — the inset that puts both columns of circles on the same axes. */
-const SUBTASK_INSET = 4;
-/** Matches StatusButton's `borderWidth`, so the rail reads as the same stroke
- * as the circles it joins (its color matches their border opacity too). */
-const CONNECTOR_WIDTH = 1;
-
-/**
- * The rail segment linking one subtask's circle up to the circle above it (the
- * parent's, for the first row). Deliberately segments and not one continuous
- * line: the circles are transparent, so a full-length rail would be visible
- * straight through the middle of every one of them.
- */
-const connectorSegment = (index: number) => {
-  const circleInset = (SUBTASK_ROW_HEIGHT - SUBTASK_STATUS_SIZE) / 2;
-  const top =
-    SUBTASK_OFFSET + index * (SUBTASK_ROW_HEIGHT + SUBTASK_GAP) + circleInset;
-  // The parent's circle fills its row, so its underside is the checklist's top
-  // edge; a sibling's clears the gap and its own inset first.
-  const previousBottom = index === 0 ? 0 : top - SUBTASK_GAP - circleInset * 2;
-  return { height: top - previousBottom, top: previousBottom };
-};
 
 /** Which row, if any, is currently in inline-edit mode. */
 type TEditing = { kind: "title" } | { kind: "subtask"; id: string } | null;
@@ -366,16 +338,10 @@ export function TaskCard({
       </View>
       {subtasks.length > 0 && (
         <View style={styles.subtasks}>
-          {subtasks.map((subtask, index) => (
-            <View
-              key={`connector-${subtask.id}`}
-              style={[
-                styles.connector,
-                connectorSegment(index),
-                { backgroundColor: withOpacity(contentColor, 0.25) },
-              ]}
-            />
-          ))}
+          <SubtaskConnectors
+            count={subtasks.length}
+            color={withOpacity(contentColor, 0.25)}
+          />
           {subtasks.map((subtask) => (
             <SubtaskRow
               key={subtask.id}
@@ -492,13 +458,5 @@ const styles = StyleSheet.create({
     // circles on the same vertical axes.
     paddingHorizontal: SUBTASK_INSET,
     paddingTop: SUBTASK_OFFSET,
-  },
-  connector: {
-    // Down the axis the circles share. The negative margin re-centers the line
-    // on that axis rather than hanging it off the right of it.
-    left: SUBTASK_INSET + SUBTASK_STATUS_SIZE / 2,
-    marginLeft: -CONNECTOR_WIDTH / 2,
-    position: "absolute",
-    width: CONNECTOR_WIDTH,
   },
 });

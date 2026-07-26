@@ -9,7 +9,13 @@ type Row = { id: string; title: string };
  * The component is controlled, so drive it through a stateful host — asserting
  * against a static `value` would only ever test the first change.
  */
-function Host({ initial = [] as Row[] }) {
+function Host({
+  initial = [] as Row[],
+  onAddRow,
+}: {
+  initial?: Row[];
+  onAddRow?: () => void;
+}) {
   const [rows, setRows] = useState<Row[]>(initial);
 
   return (
@@ -17,6 +23,7 @@ function Host({ initial = [] as Row[] }) {
       value={rows}
       onChange={setRows}
       makeRow={(id) => ({ id, title: "" })}
+      onAddRow={onAddRow}
       testIDPrefix="test"
     />
   );
@@ -111,6 +118,21 @@ describe("SubtaskFields", () => {
     // The committed row is now static text and a fresh empty row is focused.
     expect(screen.getByText("Pack bag")).toBeTruthy();
     expect(draftInput()).toBeTruthy();
+  });
+
+  // A new row autofocuses, so a form whose checklist runs past the keyboard has
+  // to scroll it into view — both ways of adding one must announce it.
+  it("announces every added row, from the button and from the chain", () => {
+    const onAddRow = jest.fn();
+    render(<Host onAddRow={onAddRow} />);
+
+    addRow();
+    expect(onAddRow).toHaveBeenCalledTimes(1);
+
+    fireEvent.changeText(draftInput(), "Pack bag");
+    fireEvent(draftInput(), "submitEditing");
+
+    expect(onAddRow).toHaveBeenCalledTimes(2);
   });
 
   it("ends the chain when return commits an empty row", () => {

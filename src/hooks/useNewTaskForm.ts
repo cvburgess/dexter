@@ -14,9 +14,12 @@ export type TNewTaskForm = {
   setPriority: (priority: ETaskPriority) => void;
   listId: string | null;
   setListId: (listId: string | null) => void;
-  /** ISO date the task is scheduled for. Control-only (no shorthand token). */
-  scheduledFor: string;
-  setScheduledFor: (scheduledFor: string) => void;
+  /**
+   * ISO date the task is scheduled for, or null when the task is unscheduled.
+   * Control-only (no shorthand token).
+   */
+  scheduledFor: string | null;
+  setScheduledFor: (scheduledFor: string | null) => void;
   dueOn: string | null;
   setDueOn: (dueOn: string | null) => void;
   /** Time-of-day the alarm fires (`"HH:MM"`), or null when no alarm is set. */
@@ -54,7 +57,7 @@ export const useNewTaskForm = (
   defaultScheduledFor?: string,
 ): TNewTaskForm => {
   const [title, setTitle] = useState("");
-  const [scheduledFor, setScheduledFor] = useState(() =>
+  const [scheduledFor, setScheduledFor] = useState<string | null>(() =>
     resolveScheduledFor(defaultScheduledFor),
   );
   const [alarmTime, setAlarmTime] = useState<string | null>(null);
