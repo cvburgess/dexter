@@ -3,6 +3,11 @@ import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { NewTaskButton } from "@/components/NewTaskButton";
 import { useTheme } from "@/utils/theme";
 
+/**
+ * The native tab bar (iOS/Android). Web declares the same destinations
+ * separately, as `WEB_NAV_ITEMS` in `components/WebNav.tsx` — keep the two in
+ * sync when a tab is added or removed.
+ */
 export default function TabsLayout() {
   const theme = useTheme();
 

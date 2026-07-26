@@ -12,7 +12,8 @@ type TSettingsIconProps = {
 /**
  * The icon used throughout settings. Ionicons renders identically on native and
  * web, so settings icons stay consistent across platforms (unlike SF Symbols,
- * which are Apple-only). Shared by SettingsRow and SettingsSidebar.
+ * which are Apple-only). Shared by SettingsRow, SettingsSidebar, and the web
+ * nav rail/dock (WebNav) for that same cross-platform reason.
  */
 export function SettingsIcon({ name, size, color }: TSettingsIconProps) {
   return <Ionicons name={name} size={size} color={color} />;

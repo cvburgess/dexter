@@ -19,6 +19,7 @@ import { PriorityControl } from "@/components/PriorityControl";
 import { SubtaskFields } from "@/components/SubtaskFields";
 import { TextInput } from "@/components/TextInput";
 import { TimeField } from "@/components/TimeField";
+import { ModalScreen } from "@/components/ModalScreen";
 import { WebModalHeader } from "@/components/WebModalHeader";
 import { useLists } from "@/hooks/useLists";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
@@ -121,7 +122,7 @@ export default function NewTaskScreen() {
   useModalHeaderActions({ canSave, onClose: handleClose, onSave: handleSave });
 
   return (
-    <>
+    <ModalScreen>
       <WebModalHeader
         isDisabled={!canSave}
         onClose={handleClose}
@@ -265,7 +266,7 @@ export default function NewTaskScreen() {
           testIDPrefix="new-task"
         />
       </ScrollView>
-    </>
+    </ModalScreen>
   );
 }
 

@@ -22,6 +22,7 @@ import { SubtaskFields, withTitledRows } from "@/components/SubtaskFields";
 import { TextInput } from "@/components/TextInput";
 import { TimeField } from "@/components/TimeField";
 import { WeekdayPicker } from "@/components/WeekdayPicker";
+import { ModalScreen } from "@/components/ModalScreen";
 import { WebModalHeader } from "@/components/WebModalHeader";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useGoals } from "@/hooks/useGoals";
@@ -206,7 +207,7 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
   });
 
   return (
-    <>
+    <ModalScreen>
       <WebModalHeader
         isDisabled={!canSave}
         onClose={handleClose}
@@ -365,7 +366,7 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
       </ScrollView>
 
       <ConfirmationModal {...confirmationProps} />
-    </>
+    </ModalScreen>
   );
 }
 
