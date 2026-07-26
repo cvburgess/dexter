@@ -14,12 +14,16 @@ import { weekStartEnd } from "@/utils/weekStartEnd";
 import { IconMenu, TIconMenuSection } from "./IconMenu";
 import { getListSections } from "./ListButton";
 import { PRIORITY_OPTIONS, priorityIconColor } from "./PriorityControl";
+import type { TTaskDateField } from "./SetDateModal";
 
 type TMoreMenuProps = {
   task: TTask;
   onChangePriority: (priority: ETaskPriority) => void;
   onChangeSchedule: (scheduledFor: string | null) => void;
+  onChangeDeadline: (dueOn: string | null) => void;
   onChangeList: (listId: string | null) => void;
+  /** Opens the date picker for the named field, seeded to its current value. */
+  onPickDate: (field: TTaskDateField) => void;
   onSetAlarm: () => void;
   onClearAlarm: () => void;
   onAddSubtask?: () => void;
@@ -29,12 +33,14 @@ type TMoreMenuProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-/** Wraps `children` (the whole task card) with a long-press menu for priority, schedule, list, and task actions. */
+/** Wraps `children` (the whole task card) with a long-press menu for priority, schedule, deadline, list, and task actions. */
 export function MoreMenu({
   task,
   onChangePriority,
   onChangeSchedule,
+  onChangeDeadline,
   onChangeList,
+  onPickDate,
   onSetAlarm,
   onClearAlarm,
   onAddSubtask,
@@ -86,7 +92,12 @@ export function MoreMenu({
   // takes to build — only the actions below it are set apart.
   const editSections = [
     ...getPrioritySections(task.priority, onChangePriority, theme),
-    ...getScheduleSections(task.scheduledFor, onChangeSchedule),
+    ...getScheduleSections(task.scheduledFor, onChangeSchedule, () =>
+      onPickDate("schedule"),
+    ),
+    ...getDeadlineSections(task.dueOn, onChangeDeadline, () =>
+      onPickDate("deadline"),
+    ),
     // ListButton's sections, collapsed into a titled submenu like the others.
     ...getListSections(lists, task.listId, onChangeList).map((section) => ({
       ...section,
@@ -144,80 +155,123 @@ export const getPrioritySections = (
   },
 ];
 
-export const getScheduleSections = (
-  scheduledFor: string | null,
-  onChangeSchedule: (scheduledFor: string | null) => void,
+/**
+ * The two date submenus differ only in their copy and icon — the presets, the
+ * "Pick a date…" row, and the rule for when a custom date or a clear action
+ * appears are identical.
+ */
+const DATE_FIELD_META = {
+  schedule: {
+    title: "Schedule",
+    icon: {
+      ios: "calendar",
+      android: "calendar_today",
+      web: "calendar_today",
+    },
+    clearId: "unschedule",
+    clearTitle: "Unschedule",
+  },
+  deadline: {
+    title: "Deadline",
+    icon: { ios: "flag", android: "flag", web: "flag" },
+    clearId: "clear-deadline",
+    clearTitle: "Clear deadline",
+  },
+} as const;
+
+const getDateSections = (
+  field: TTaskDateField,
+  value: string | null,
+  onChange: (value: string | null) => void,
+  onPickDate: () => void,
 ): TIconMenuSection[] => {
+  const meta = DATE_FIELD_META[field];
   const today = Temporal.Now.plainDateISO().toString();
   const tomorrow = Temporal.Now.plainDateISO().add({ days: 1 }).toString();
   const { monday } = weekStartEnd(1);
   const nextMonday = monday.toString();
 
-  const scheduledDate = scheduledFor
-    ? Temporal.PlainDate.from(scheduledFor)
-    : null;
-  const isScheduledForNextWeek =
-    scheduledDate !== null &&
-    scheduledDate.until(monday).days <= 0 &&
-    scheduledDate.until(monday).days >= -6;
+  const currentDate = value ? Temporal.PlainDate.from(value) : null;
+  const isWithinNextWeek =
+    currentDate !== null &&
+    currentDate.until(monday).days <= 0 &&
+    currentDate.until(monday).days >= -6;
 
   const options = [
     {
       id: today,
       title: "Today",
-      isSelected: scheduledFor === today,
-      onSelect: () => onChangeSchedule(today),
+      isSelected: value === today,
+      onSelect: () => onChange(today),
     },
     {
       id: tomorrow,
       title: "Tomorrow",
-      isSelected: scheduledFor === tomorrow,
-      onSelect: () => onChangeSchedule(tomorrow),
+      isSelected: value === tomorrow,
+      onSelect: () => onChange(tomorrow),
     },
   ];
 
-  if (!isScheduledForNextWeek && tomorrow !== nextMonday) {
+  if (!isWithinNextWeek && tomorrow !== nextMonday) {
     options.push({
       id: nextMonday,
       title: "Next Week",
       isSelected: false,
-      onSelect: () => onChangeSchedule(nextMonday),
+      onSelect: () => onChange(nextMonday),
     });
   }
 
-  if (scheduledFor && scheduledDate) {
-    if (scheduledFor !== today && scheduledFor !== tomorrow) {
-      options.push({
-        id: scheduledFor,
-        title: formatMonthDayYear(scheduledDate),
-        isSelected: true,
-        onSelect: () => {
-          // Already scheduled for this custom date; no-op.
-        },
-      });
-    }
-
+  // The date already set, when it isn't one of the presets above. Selecting it
+  // opens the picker seeded to it — a way *into* the calendar rather than the
+  // no-op row it used to be (DEX-87).
+  if (currentDate && value !== today && value !== tomorrow) {
     options.push({
-      id: "unschedule",
-      title: "Unschedule",
+      id: currentDate.toString(),
+      title: formatMonthDayYear(currentDate),
+      isSelected: true,
+      onSelect: onPickDate,
+    });
+  }
+
+  options.push({
+    id: "pick-date",
+    title: "Pick a date…",
+    isSelected: false,
+    onSelect: onPickDate,
+  });
+
+  if (currentDate) {
+    options.push({
+      id: meta.clearId,
+      title: meta.clearTitle,
       isSelected: false,
-      onSelect: () => onChangeSchedule(null),
+      onSelect: () => onChange(null),
     });
   }
 
   return [
     {
-      title: "Schedule",
-      icon: {
-        ios: "calendar",
-        android: "calendar_today",
-        web: "calendar_today",
-      } as const,
+      title: meta.title,
+      icon: meta.icon,
       isSubmenu: true,
       options,
     },
   ];
 };
+
+export const getScheduleSections = (
+  scheduledFor: string | null,
+  onChangeSchedule: (scheduledFor: string | null) => void,
+  onPickDate: () => void,
+): TIconMenuSection[] =>
+  getDateSections("schedule", scheduledFor, onChangeSchedule, onPickDate);
+
+export const getDeadlineSections = (
+  dueOn: string | null,
+  onChangeDeadline: (dueOn: string | null) => void,
+  onPickDate: () => void,
+): TIconMenuSection[] =>
+  getDateSections("deadline", dueOn, onChangeDeadline, onPickDate);
 
 /**
  * Task-management actions, rendered as an inline "Other" group so the actions

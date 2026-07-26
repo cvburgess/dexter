@@ -22,6 +22,7 @@ import { EditableText } from "./EditableText";
 import { ListButton } from "./ListButton";
 import { MoreMenu } from "./MoreMenu";
 import { SetAlarmModal } from "./SetAlarmModal";
+import { SetDateModal, type TTaskDateField } from "./SetDateModal";
 import { StatusButton } from "./StatusButton";
 import {
   SUBTASK_GAP,
@@ -76,6 +77,13 @@ export function TaskCard({
 }: TTaskCardProps) {
   const theme = useTheme();
   const [alarmModalVisible, setAlarmModalVisible] = useState(false);
+  // Which date the picker is editing, kept alongside `visible` rather than
+  // derived from a nullable field: the modal stays mounted to animate out, and
+  // a field that blanked on close would retitle the sheet mid-dismissal.
+  const [dateModal, setDateModal] = useState<{
+    field: TTaskDateField;
+    visible: boolean;
+  }>({ field: "schedule", visible: false });
   const [editing, setEditing] = useState<TEditing>(null);
   const { confirm, confirmationProps } = useConfirmation();
   const isComplete =
@@ -272,6 +280,22 @@ export function TaskCard({
         : {}),
     });
   };
+
+  const closeDateModal = () =>
+    setDateModal((current) => ({ ...current, visible: false }));
+
+  // The picker only ever produces a date — clearing stays in the menu. A
+  // schedule pick is routed through `handleChangeSchedule` rather than writing
+  // `scheduledFor` here, so moving an alarmed task still prompts (DEX-87).
+  const handleConfirmDate = async (date: string) => {
+    closeDateModal();
+    if (dateModal.field === "deadline") {
+      onUpdate({ dueOn: date });
+      return;
+    }
+    await handleChangeSchedule(date);
+  };
+
   const priorityColor = theme.colors.priority[task.priority];
   // The color everything on the card (title, button outlines/icons, border)
   // is drawn in — matches dexter-app's Card.tsx, which derives all of it
@@ -395,7 +419,9 @@ export function TaskCard({
         task={task}
         onChangePriority={(priority) => onUpdate({ priority })}
         onChangeSchedule={handleChangeSchedule}
+        onChangeDeadline={(dueOn) => onUpdate({ dueOn })}
         onChangeList={(listId) => onUpdate({ listId })}
+        onPickDate={(field) => setDateModal({ field, visible: true })}
         onSetAlarm={() => setAlarmModalVisible(true)}
         onClearAlarm={() => onUpdate({ alarmTime: null })}
         onAddSubtask={addSubtask}
@@ -419,6 +445,15 @@ export function TaskCard({
         }
         onCancel={() => setAlarmModalVisible(false)}
         onConfirm={handleConfirmAlarm}
+      />
+      <SetDateModal
+        field={dateModal.field}
+        visible={dateModal.visible}
+        initialDate={
+          dateModal.field === "deadline" ? task.dueOn : task.scheduledFor
+        }
+        onCancel={closeDateModal}
+        onConfirm={handleConfirmDate}
       />
       <ConfirmationModal {...confirmationProps} />
     </>
