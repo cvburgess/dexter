@@ -15,7 +15,11 @@ const mockAlarms = {
 // jest.mock factory is hoisted above the `const mockAlarms` initializer, so a
 // direct reference would evaluate it while still undefined. getScheduledAlarmIds
 // forwards no args (its zero-arg signature can't take a spread).
+// `alarmSoundFileName` is the real (pure) implementation — the sound-change
+// behavior under test is only meaningful against real filenames.
 jest.mock("@/utils/alarms", () => ({
+  alarmSoundFileName: (sound: string) =>
+    sound === "echos" ? "echos.wav" : undefined,
   reconcileAlarms: (...args: unknown[]) => mockAlarms.reconcileAlarms(...args),
   scheduleTaskAlarm: (...args: unknown[]) =>
     mockAlarms.scheduleTaskAlarm(...args),
@@ -29,6 +33,12 @@ jest.mock("../useTasks", () => ({
   useTasks: () => [[], { isLoading: tasksState.isLoading }],
 }));
 
+// usePreferences pulls in the supabase client too; only the sound matters here.
+const preferencesState = { alarmSound: "echos" };
+jest.mock("../usePreferences", () => ({
+  usePreferences: () => [{ alarmSound: preferencesState.alarmSound }, {}],
+}));
+
 describe("useAlarmSync", () => {
   let alertSpy: jest.SpyInstance;
   let warnSpy: jest.SpyInstance;
@@ -36,6 +46,7 @@ describe("useAlarmSync", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     tasksState.isLoading = false;
+    preferencesState.alarmSound = "echos";
     mockAlarms.getScheduledAlarmIds.mockReturnValue([]);
     alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
     // The hook console.warns each failure; silence it to keep test output clean.
@@ -76,5 +87,89 @@ describe("useAlarmSync", () => {
       expect(mockAlarms.scheduleTaskAlarm).toHaveBeenCalledTimes(1),
     );
     expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  it("schedules with the sound file the preference selects", async () => {
+    mockAlarms.reconcileAlarms.mockReturnValue({
+      toSchedule: [{ id: "a", title: "A", epochSeconds: 1 }],
+      toCancel: [],
+    });
+    mockAlarms.scheduleTaskAlarm.mockResolvedValue(undefined);
+
+    renderHook(() => useAlarmSync());
+
+    await waitFor(() =>
+      expect(mockAlarms.scheduleTaskAlarm).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "a" }),
+        "echos.wav",
+      ),
+    );
+  });
+
+  // The reconcile only re-schedules an alarm whose fire time it hasn't seen, and
+  // a sound change moves no fire times — so without dropping that record the
+  // switch wouldn't reach AlarmKit until the next launch (DEX-72). Sizes are
+  // captured at call time because the hook passes the live Map by reference.
+  it("forgets scheduled alarms when the sound changes so they re-ring with it", async () => {
+    const scheduledCounts: number[] = [];
+    mockAlarms.reconcileAlarms.mockImplementation(
+      (
+        _tasks: unknown,
+        _ids: unknown,
+        scheduledEpochs: Map<string, number>,
+      ) => {
+        scheduledCounts.push(scheduledEpochs.size);
+        return {
+          toSchedule: [{ id: "a", title: "A", epochSeconds: 1 }],
+          toCancel: [],
+        };
+      },
+    );
+    mockAlarms.scheduleTaskAlarm.mockResolvedValue(undefined);
+
+    const { rerender } = renderHook(() => useAlarmSync());
+    await waitFor(() =>
+      expect(mockAlarms.scheduleTaskAlarm).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "a" }),
+        "echos.wav",
+      ),
+    );
+
+    preferencesState.alarmSound = "system";
+    rerender({});
+
+    await waitFor(() =>
+      expect(mockAlarms.scheduleTaskAlarm).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "a" }),
+        undefined,
+      ),
+    );
+    expect(scheduledCounts).toEqual([0, 0]);
+  });
+
+  it("keeps its record of scheduled alarms when the sound is unchanged", async () => {
+    const scheduledCounts: number[] = [];
+    mockAlarms.reconcileAlarms.mockImplementation(
+      (
+        _tasks: unknown,
+        _ids: unknown,
+        scheduledEpochs: Map<string, number>,
+      ) => {
+        scheduledCounts.push(scheduledEpochs.size);
+        return {
+          toSchedule: [{ id: "a", title: "A", epochSeconds: 1 }],
+          toCancel: [],
+        };
+      },
+    );
+    mockAlarms.scheduleTaskAlarm.mockResolvedValue(undefined);
+
+    const { rerender } = renderHook(() => useAlarmSync());
+    await waitFor(() => expect(scheduledCounts).toEqual([0]));
+
+    rerender({});
+
+    // Still holding alarm "a" — only a sound change clears the record.
+    await waitFor(() => expect(scheduledCounts).toEqual([0, 1]));
   });
 });

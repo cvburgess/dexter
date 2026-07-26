@@ -1,8 +1,11 @@
 import { ETaskStatus, TTask } from "@/api/tasks";
 import {
+  ALARM_SOUNDS,
   alarmFireDate,
+  alarmSoundFileName,
   currentAlarmTime,
   DEFAULT_ALARM_LEAD_MINUTES,
+  DEFAULT_ALARM_SOUND,
   defaultAlarmTime,
   reconcileAlarms,
   TAlarmTask,
@@ -177,5 +180,29 @@ describe("defaultAlarmTime", () => {
 
   it("rolls the hour over when the lead crosses a boundary", () => {
     expect(defaultAlarmTime(new Date(2026, 6, 17, 9, 58, 0))).toBe("10:03");
+  });
+});
+
+describe("alarmSoundFileName", () => {
+  it("resolves a bundled sound to the filename AlarmKit rings", () => {
+    expect(alarmSoundFileName("echos")).toBe("echos.wav");
+  });
+
+  it("resolves the system sound to undefined so AlarmKit keeps its default", () => {
+    expect(alarmSoundFileName("system")).toBeUndefined();
+  });
+
+  it("falls back to the system sound for a value this build doesn't ship", () => {
+    // A newer client (or a hand-edited row) can name a sound that isn't in this
+    // bundle — passing it through would resolve to silence.
+    expect(alarmSoundFileName("chimes")).toBeUndefined();
+  });
+
+  it("ships a bundled file for the default sound", () => {
+    expect(alarmSoundFileName(DEFAULT_ALARM_SOUND)).toBe("echos.wav");
+  });
+
+  it("offers the system sound as an option so the custom sound is opt-out", () => {
+    expect(ALARM_SOUNDS.map(({ value }) => value)).toContain("system");
   });
 });

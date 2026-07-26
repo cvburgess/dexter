@@ -69,6 +69,10 @@ const withAlarmSound: ConfigPlugin<TAlarmSoundOptions> = (
         filepath: path.join(projectName, path.basename(sound)),
         groupName: projectName,
         isBuildFile: true,
+        // The `xcode` package ships no type declarations, so the `XcodeProject`
+        // that `modResults` is typed as resolves to an untyped value. Nothing to
+        // narrow at this boundary.
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         project: xcodeConfig.modResults,
       });
     }
