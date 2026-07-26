@@ -375,7 +375,12 @@ values to every new branch.
 - [`supabase/config.toml`](../supabase/config.toml) `[edge_runtime.secrets]`
   maps each secret as `KEY = "env(KEY)"`. Because it's `env(...)` indirection,
   a local `supabase start` reads the value from your shell environment — same
-  convention as the existing `env(SUPABASE_AUTH_GOOGLE_SECRET)`.
+  convention as the existing `env(SUPABASE_AUTH_GOOGLE_SECRET)`. **Export
+  `DEMO_OTP` before `supabase start`**: an unresolved `env(...)` reference is
+  not an error, so the local Edge Runtime can receive the literal string
+  `env(DEMO_OTP)` as the secret rather than `verify-demo-otp` reporting "not
+  configured". Hosted projects are unaffected — production sets the secret
+  directly, and previews get it from `.env.preview`.
 - The decryption key is stored as a Supabase **project** secret on production,
   uploaded once with
   `npx supabase secrets set --env-file supabase/.env.keys --project-ref <parent_ref>`,

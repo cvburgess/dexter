@@ -12,9 +12,12 @@ import { assert, assertEquals } from "@std/assert";
 
 const envPreview = await Deno.readTextFile(
   new URL("../../.env.preview", import.meta.url),
-).catch(() => {
+).catch((error: unknown) => {
   // Deleting this file while config.toml still maps secrets is the silent
   // failure mode these tests exist to prevent, so say what to do about it.
+  // Anything else (a permission error, a directory in its place) is surfaced
+  // as-is rather than mislabelled as "missing".
+  if (!(error instanceof Deno.errors.NotFound)) throw error;
   throw new Error(
     'supabase/.env.preview is missing. Recreate it with `npx @dotenvx/dotenvx set DEMO_OTP "<value>" -f supabase/.env.preview` — without it, preview branches receive empty Edge Function secrets.',
   );
@@ -23,14 +26,20 @@ const configToml = await Deno.readTextFile(
   new URL("../../config.toml", import.meta.url),
 );
 
+// `KEY="value"`, `KEY='value'`, or bare `KEY=value`, in each case ignoring a
+// trailing `# comment` — dotenvx writes one after the public key line, and a
+// hand-added comment on a secret line must not make the value unreadable (an
+// unparsed line would silently drop the key from these checks).
+const ASSIGNMENT = /^([A-Z0-9_]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^#\s]*))/;
+
 /** Every `KEY="value"` assignment in `.env.preview`, comments stripped. */
 function envAssignments(source: string): Map<string, string> {
   const entries = new Map<string, string>();
   for (const line of source.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
-    const match = trimmed.match(/^([A-Z0-9_]+)\s*=\s*"?(.*?)"?$/);
-    if (match) entries.set(match[1], match[2]);
+    const match = trimmed.match(ASSIGNMENT);
+    if (match) entries.set(match[1], match[2] ?? match[3] ?? match[4] ?? "");
   }
   return entries;
 }
@@ -45,8 +54,10 @@ function edgeRuntimeSecrets(source: string): Map<string, string> {
     const trimmed = line.trim();
     if (trimmed.startsWith("[")) break;
     if (!trimmed || trimmed.startsWith("#")) continue;
-    const match = trimmed.match(/^([A-Z0-9_]+)\s*=\s*"(.*)"$/);
-    if (match) entries.set(match[1], match[2]);
+    // Same tolerance as `.env.preview`: a TOML inline comment after the value
+    // must not stop the mapping from being seen.
+    const match = trimmed.match(ASSIGNMENT);
+    if (match) entries.set(match[1], match[2] ?? match[3] ?? match[4] ?? "");
   }
   return entries;
 }

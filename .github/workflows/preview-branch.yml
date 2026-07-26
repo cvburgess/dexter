@@ -34,8 +34,15 @@ on:
 permissions:
   contents: read
 
+# Every `check_run: completed` event on the repo starts a run of this workflow
+# — the `if` below is evaluated per job, after the run has already joined its
+# concurrency group. Keying the group on the PR number alone would therefore let
+# an unrelated check finishing on the same PR (a bot review, `Test Backend`, …)
+# cancel an in-flight deploy/seed. Including the check name keeps consecutive
+# `Supabase Preview` runs superseding each other while leaving other checks in
+# their own, harmless groups.
 concurrency:
-  group: preview-branch-${{ github.event.check_run.pull_requests[0].number || github.ref }}
+  group: preview-branch-${{ github.event.check_run.name || 'dispatch' }}-${{ github.event.check_run.pull_requests[0].number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -87,10 +94,12 @@ jobs:
       # For `check_run` events, GITHUB_SHA/GITHUB_REF point at the
       # repo's default branch — checkout must be explicitly pinned to
       # the PR head so the CLI deploys the PR's function code, not
-      # main's.
+      # main's. On manual dispatch, honour `git_branch` for the same
+      # reason: `resolve` targeted that branch's preview, so the code
+      # deployed to it has to come from that branch too.
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.check_run.head_sha || github.ref }}
+          ref: ${{ github.event.check_run.head_sha || inputs.git_branch || github.ref }}
 
       - uses: supabase/setup-cli@v1
         with:
@@ -113,7 +122,7 @@ jobs:
       # demoData.ts, not main's.
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.check_run.head_sha || github.ref }}
+          ref: ${{ github.event.check_run.head_sha || inputs.git_branch || github.ref }}
 
       - uses: denoland/setup-deno@v2
         with:
@@ -165,4 +174,9 @@ jobs:
         # rows), so re-running on every push to the PR is safe.
         # Version-pinned: this tool decrypts a production credential, so it
         # should not float to whatever `@latest` resolves to on a given day.
-        run: npx --yes @dotenvx/dotenvx@2.18.1 run -f ../.env.preview -- deno task seed-demo
+        # `--strict` is load-bearing: without it dotenvx only *logs* a failed
+        # decrypt (missing or rotated DOTENV_PRIVATE_KEY_PREVIEW) and still
+        # runs the command with the raw `encrypted:…` ciphertext as DEMO_OTP —
+        # the job would go green while seeding a password verify-demo-otp can
+        # never derive.
+        run: npx --yes @dotenvx/dotenvx@2.18.1 run --strict -f ../.env.preview -- deno task seed-demo
