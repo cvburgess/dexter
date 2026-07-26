@@ -317,8 +317,9 @@ const styles = StyleSheet.create({
   },
   chevron: {
     fontSize: 14,
+    // Pushed to the far end of the row, whose own horizontal padding is the
+    // only inset it needs — its own would double the gap the labels get.
     marginLeft: "auto",
-    paddingRight: 16,
   },
   option: {
     flexDirection: "row",

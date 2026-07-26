@@ -88,6 +88,50 @@ describe("IconMenu (native)", () => {
     expect(stateById).toEqual({ on: "on", off: "off", action: undefined });
   });
 
+  // The system draws a separator around every inline group, so a section that
+  // continues the one before it can't be one — its options go up a level.
+  it("flattens a continuing section into bare top-level actions", () => {
+    const continuing: TIconMenuSection[] = [
+      {
+        title: "Priority",
+        isSubmenu: true,
+        options: [{ id: "urgent", title: "Urgent", onSelect: jest.fn() }],
+      },
+      {
+        hideDivider: true,
+        options: [{ id: "alarm", title: "Set alarm", onSelect: jest.fn() }],
+      },
+      { options: [{ id: "delete", title: "Delete", onSelect: jest.fn() }] },
+    ];
+
+    render(
+      <IconMenu accessibilityLabel="More" sections={continuing}>
+        <Text>Trigger</Text>
+      </IconMenu>,
+    );
+
+    const { actions } = mockMenuView.mock.calls.at(-1)![0] as unknown as {
+      actions: {
+        id: string;
+        title: string;
+        displayInline?: boolean;
+        subactions?: { id: string }[];
+      }[];
+    };
+
+    expect(actions.map((action) => action.id)).toEqual([
+      "section-0",
+      "alarm",
+      "section-2",
+    ]);
+    // The flattened action is a leaf, not a group of one.
+    expect(actions[1].subactions).toBeUndefined();
+    expect(actions[1].title).toBe("Set alarm");
+    // The sections around it are untouched.
+    expect(actions[0].displayInline).toBe(false);
+    expect(actions[2].displayInline).toBe(true);
+  });
+
   it("forwards a colored action item's icon tint without making it a toggle", () => {
     // The colored Backlog action stays a plain button (no `state`); its icon is
     // tinted natively via the patched @expo/ui menu (see patches/@expo+ui).

@@ -39,8 +39,9 @@ export type TIconMenuSection = {
   isSubmenu?: boolean;
   /**
    * Drops the rule above this section, so it reads as a continuation of the one
-   * before it rather than a group of its own. Web only — the native menu draws
-   * its own separators around inline groups.
+   * before it rather than a group of its own. On native this also flattens a
+   * plain section into bare top-level actions, since the system draws a
+   * separator around every inline group.
    */
   hideDivider?: boolean;
   options: TIconMenuOption[];

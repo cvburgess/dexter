@@ -81,7 +81,10 @@ export function MoreMenu({
       }
     : undefined;
 
-  const sections = [
+  // Everything that edits the task: what it is, when it happens, where it
+  // lives, and what it contains. One unruled group, however many sections it
+  // takes to build — only the actions below it are set apart.
+  const editSections = [
     ...getPrioritySections(task.priority, onChangePriority, theme),
     ...getScheduleSections(task.scheduledFor, onChangeSchedule),
     // ListButton's sections, collapsed into a titled submenu like the others.
@@ -92,6 +95,12 @@ export function MoreMenu({
       isSubmenu: true,
     })),
     ...getTaskActionSections(alarm, onAddSubtask),
+  ];
+
+  const sections = [
+    ...editSections.map((section, index) =>
+      index === 0 ? section : { ...section, hideDivider: true },
+    ),
     ...getOtherSections(onDuplicate, onDelete, {
       label: isRepeating ? "Edit repeat schedule" : "Repeat",
       onSelect: onRepeat,
@@ -220,10 +229,8 @@ export const getScheduleSections = (
  * destructive so `IconMenu` styles it accordingly.
  */
 /**
- * The two edits that act on the task itself. They continue the group the
- * priority/schedule/list submenus start — setting an alarm or opening a
- * checklist changes what the task *is* — rather than joining the actions below,
- * which are things done *to* the task: copy it, repeat it, delete it.
+ * The two edits that act on the task itself, rather than on the task as a whole
+ * the way the actions below them do: copy it, repeat it, delete it.
  *
  * Both are optional (alarms are iOS-only; subtasks are only offered where a
  * checklist can be added), so the section drops out entirely when neither is.
@@ -259,7 +266,7 @@ export const getTaskActionSections = (
       : []),
   ];
 
-  return options.length > 0 ? [{ hideDivider: true, options }] : [];
+  return options.length > 0 ? [{ options }] : [];
 };
 
 /** Duplicate/Repeat/Delete: untitled, because the icons and labels say it. */

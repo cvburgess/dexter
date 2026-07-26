@@ -136,12 +136,12 @@ describe("MoreMenu", () => {
       undefined,
       undefined,
     ]);
-    // The alarm/subtask group continues the submenus above it rather than
-    // opening a group of its own.
+    // Priority through the alarm/subtask actions read as one unruled group;
+    // only the duplicate/repeat/delete actions are set apart.
     expect(sections.map((section) => Boolean(section.hideDivider))).toEqual([
       false,
-      false,
-      false,
+      true,
+      true,
       true,
       false,
     ]);
