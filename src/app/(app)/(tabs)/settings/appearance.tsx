@@ -10,6 +10,10 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { EThemeMode } from "@/api/preferences";
+import {
+  SegmentedControl,
+  TSegmentedControlOption,
+} from "@/components/SegmentedControl";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -19,10 +23,10 @@ import {
 } from "@/utils/settingsSafeAreaEdges";
 import { Theme, THEMES, themes, useTheme, withOpacity } from "@/utils/theme";
 
-const MODE_OPTIONS: { mode: EThemeMode; label: string }[] = [
-  { mode: EThemeMode.SYSTEM, label: "System" },
-  { mode: EThemeMode.LIGHT, label: "Light" },
-  { mode: EThemeMode.DARK, label: "Dark" },
+const MODE_OPTIONS: TSegmentedControlOption<EThemeMode>[] = [
+  { value: EThemeMode.SYSTEM, label: "System" },
+  { value: EThemeMode.LIGHT, label: "Light" },
+  { value: EThemeMode.DARK, label: "Dark" },
 ];
 
 const LIGHT_THEMES = THEMES.filter((t) => t.mode === "light");
@@ -49,51 +53,12 @@ export default function AppearanceScreen() {
         ]}
       >
         <Section title="Mode">
-          <View
-            style={[
-              styles.segmented,
-              {
-                backgroundColor: theme.colors.card,
-                borderColor: withOpacity(theme.colors.text, 0.1),
-                borderRadius: theme.borderRadius,
-              },
-            ]}
-          >
-            {MODE_OPTIONS.map(({ mode, label }) => {
-              const selected = mode === themeMode;
-              return (
-                <TouchableOpacity
-                  key={label}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                  onPress={() => updatePreferences({ themeMode: mode })}
-                  style={[
-                    styles.segment,
-                    {
-                      backgroundColor: selected
-                        ? theme.colors.primary
-                        : "transparent",
-                      borderRadius: theme.borderRadius - 4,
-                    },
-                  ]}
-                  testID={`appearance-mode-${label.toLowerCase()}`}
-                >
-                  <Text
-                    style={[
-                      styles.segmentLabel,
-                      {
-                        color: selected
-                          ? theme.colors.primaryContent
-                          : theme.colors.text,
-                      },
-                    ]}
-                  >
-                    {label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          <SegmentedControl
+            options={MODE_OPTIONS}
+            testIDPrefix="appearance-mode"
+            value={themeMode}
+            onChange={(mode) => updatePreferences({ themeMode: mode })}
+          />
         </Section>
 
         {showLight && (
@@ -238,23 +203,8 @@ const styles = StyleSheet.create({
   section: {
     gap: 10,
   },
-  segment: {
-    alignItems: "center",
-    flex: 1,
-    paddingVertical: 10,
-  },
-  segmentLabel: {
-    fontSize: 15,
-    fontWeight: "500",
-  },
   screen: {
     flex: 1,
-  },
-  segmented: {
-    borderWidth: StyleSheet.hairlineWidth,
-    flexDirection: "row",
-    gap: 4,
-    padding: 4,
   },
   swatch: {
     flex: 1,

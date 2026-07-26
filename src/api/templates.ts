@@ -22,11 +22,24 @@ export type TTemplate = {
   goalId: string | null;
   listId: string | null;
   priority: ETaskPriority;
-  schedule: string;
+  /**
+   * A midnight cron expression, or null when this row is a plain task template
+   * rather than a repeat task — see `isTaskTemplate` (DEX-65).
+   */
+  schedule: string | null;
   subtasks: TTemplateSubtask[];
   title: string;
   userId: string;
 };
+
+/**
+ * Repeat tasks and task templates share this table; the schedule is what tells
+ * them apart. A row without one is a blueprint the user stamps out on demand,
+ * and nothing recurs from it — both recurrence paths (`useTasks`, the
+ * mcp-server's `maybeCreateNextRecurringTask`) bail on a falsy schedule.
+ */
+export const isTaskTemplate = (template: TTemplate) =>
+  template.schedule === null;
 
 /** See `withSubtasksArray` in `api/tasks.ts` — the same pre-migration guard. */
 const withSubtasksArray = <T extends { subtasks?: TTemplateSubtask[] }>(
@@ -48,7 +61,11 @@ export type TCreateTemplate = {
   goalId?: string | null;
   listId?: string | null;
   priority: ETaskPriority;
-  schedule?: string;
+  /**
+   * The column has no default, so this is not optional in practice: pass a cron
+   * expression for a repeat task or `null` for a task template.
+   */
+  schedule?: string | null;
   subtasks?: TTemplateSubtask[];
   title: string;
 };
@@ -73,7 +90,8 @@ export type TUpdateTemplate = {
   goalId?: string | null;
   listId?: string | null;
   priority?: ETaskPriority;
-  schedule?: string;
+  /** Setting this to null turns a repeat task into a plain task template. */
+  schedule?: string | null;
   subtasks?: TTemplateSubtask[];
   title?: string;
 };

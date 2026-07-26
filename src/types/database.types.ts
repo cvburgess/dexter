@@ -218,7 +218,7 @@ export type Database = {
           id: string;
           list_id: string | null;
           priority: number;
-          schedule: string;
+          schedule: string | null;
           subtasks: Json;
           title: string;
           user_id: string;
@@ -230,7 +230,7 @@ export type Database = {
           id?: string;
           list_id?: string | null;
           priority?: number;
-          schedule?: string;
+          schedule?: string | null;
           subtasks?: Json;
           title?: string;
           user_id?: string;
@@ -242,7 +242,7 @@ export type Database = {
           id?: string;
           list_id?: string | null;
           priority?: number;
-          schedule?: string;
+          schedule?: string | null;
           subtasks?: Json;
           title?: string;
           user_id?: string;

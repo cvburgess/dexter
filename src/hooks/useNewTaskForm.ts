@@ -2,7 +2,8 @@ import { Temporal } from "@js-temporal/polyfill";
 import { useState } from "react";
 
 import { TList } from "@/api/lists";
-import { ETaskPriority, TCreateTask, TSubtask } from "@/api/tasks";
+import { ETaskPriority, ETaskStatus, TCreateTask, TSubtask } from "@/api/tasks";
+import { TTemplate } from "@/api/templates";
 import { withTitledRows } from "@/components/SubtaskFields";
 import { parseTaskShorthand } from "@/utils/parseTaskShorthand";
 
@@ -28,6 +29,8 @@ export type TNewTaskForm = {
   /** Checklist items to create alongside the task, in insertion order. */
   subtasks: TSubtask[];
   setSubtasks: (subtasks: TSubtask[]) => void;
+  /** Fills the form from a task template, leaving its dates alone (DEX-65). */
+  applyTemplate: (template: TTemplate) => void;
   /** The resolved payload for `createTask`, with tokens stripped from the title. */
   task: TCreateTask;
   canSave: boolean;
@@ -83,6 +86,26 @@ export const useNewTaskForm = (
   // not a checklist item.
   const savedSubtasks = withTitledRows(subtasks);
 
+  const applyTemplate = (template: TTemplate) => {
+    setTitle(template.title);
+    // The *override* setters, so the template's choices survive whatever
+    // shorthand tokens its title happens to contain.
+    setPriorityOverride(template.priority);
+    setListOverride(template.listId);
+    setAlarmTime(template.alarmTime);
+    // A template's checklist is a blueprint with no status; every item starts
+    // this task's copy open.
+    setSubtasks(
+      template.subtasks.map(({ id, title }) => ({
+        id,
+        title,
+        status: ETaskStatus.TODO,
+      })),
+    );
+    // `scheduledFor` and `dueOn` are left alone on purpose: a template carries
+    // neither, and the schedule should stay on the day the user was viewing.
+  };
+
   return {
     title,
     setTitle,
@@ -98,6 +121,7 @@ export const useNewTaskForm = (
     setAlarmTime,
     subtasks,
     setSubtasks,
+    applyTemplate,
     task: {
       title: cleanTitle,
       priority,
