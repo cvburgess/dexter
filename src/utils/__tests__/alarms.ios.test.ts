@@ -19,7 +19,7 @@ describe("scheduleTaskAlarm", () => {
   });
 
   it("passes the bundled sound filename to AlarmKit", async () => {
-    await scheduleTaskAlarm(alarm, "echos.wav");
+    await scheduleTaskAlarm({ ...alarm, soundName: "echos.wav" });
 
     expect(mockScheduleAlarm).toHaveBeenCalledWith(
       expect.objectContaining({ id: "task-1", soundName: "echos.wav" }),
@@ -38,8 +38,6 @@ describe("scheduleTaskAlarm", () => {
   it("throws when AlarmKit rejects the alarm", async () => {
     mockScheduleAlarm.mockResolvedValue(false);
 
-    await expect(scheduleTaskAlarm(alarm, "echos.wav")).rejects.toThrow(
-      "task-1",
-    );
+    await expect(scheduleTaskAlarm(alarm)).rejects.toThrow("task-1");
   });
 });

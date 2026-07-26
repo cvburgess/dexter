@@ -28,6 +28,14 @@ type TAlarmSoundOptions = {
   sounds: string[];
 };
 
+/** `projectName` is optional on every mod's request but always present for iOS;
+ * both mods below need it to address the app target's group. */
+const requireProjectName = (projectName?: string): string => {
+  if (!projectName)
+    throw new Error("[withAlarmSound] Missing iOS project name");
+  return projectName;
+};
+
 const withAlarmSound: ConfigPlugin<TAlarmSoundOptions> = (
   config,
   { sounds },
@@ -37,11 +45,10 @@ const withAlarmSound: ConfigPlugin<TAlarmSoundOptions> = (
   const withCopiedSounds = withDangerousMod(config, [
     "ios",
     (dangerousConfig) => {
-      const { platformProjectRoot, projectName, projectRoot } =
-        dangerousConfig.modRequest;
-      if (!projectName) {
-        throw new Error("[withAlarmSound] Missing iOS project name");
-      }
+      const { platformProjectRoot, projectRoot } = dangerousConfig.modRequest;
+      const projectName = requireProjectName(
+        dangerousConfig.modRequest.projectName,
+      );
 
       for (const sound of sounds) {
         const source = path.resolve(projectRoot, sound);
@@ -59,10 +66,7 @@ const withAlarmSound: ConfigPlugin<TAlarmSoundOptions> = (
   ]);
 
   return withXcodeProject(withCopiedSounds, (xcodeConfig) => {
-    const { projectName } = xcodeConfig.modRequest;
-    if (!projectName) {
-      throw new Error("[withAlarmSound] Missing iOS project name");
-    }
+    const projectName = requireProjectName(xcodeConfig.modRequest.projectName);
 
     for (const sound of sounds) {
       IOSConfig.XcodeUtils.addResourceFileToGroup({

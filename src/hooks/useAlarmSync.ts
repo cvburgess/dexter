@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Alert } from "react-native";
 
 import {
+  alarmSignature,
   alarmSoundFileName,
   cancelTaskAlarm,
   getScheduledAlarmIds,
@@ -9,7 +10,7 @@ import {
   scheduleTaskAlarm,
 } from "@/utils/alarms";
 
-import { usePreferences } from "./usePreferences";
+import { useAlarmSoundPreference } from "./usePreferences";
 import { useTasks } from "./useTasks";
 
 /**
@@ -26,36 +27,32 @@ import { useTasks } from "./useTasks";
  */
 export const useAlarmSync = (): void => {
   const [tasks, { isLoading }] = useTasks();
-  const [{ alarmSound }] = usePreferences();
+  const { alarmSound, isLoading: preferencesLoading } =
+    useAlarmSoundPreference();
   const soundName = alarmSoundFileName(alarmSound);
 
-  // Fire time (epoch seconds) we last scheduled per id this session — lets the
-  // reconcile detect a time edit on an alarm AlarmKit only reports by id.
-  const scheduledEpochs = useRef(new Map<string, number>());
-  // The sound those alarms were scheduled with, so switching sounds re-rings
-  // them (DEX-72).
-  const scheduledSound = useRef(soundName);
+  // What we last scheduled per id this session (see `alarmSignature`) — AlarmKit
+  // reports only ids back, so this is how an edit to an existing alarm is seen.
+  const scheduled = useRef(new Map<string, string>());
 
   useEffect(() => {
-    if (isLoading) return;
+    // Both queries serve placeholder data first. Acting on the placeholder
+    // preferences would schedule every alarm with the default sound and then
+    // re-schedule them all once the real row lands (DEX-72).
+    if (isLoading || preferencesLoading) return;
 
-    // A sound change leaves every fire time untouched, so the reconcile would
-    // see nothing to do and existing alarms would keep the old sound for the
-    // rest of the session. Forgetting what we scheduled makes them all look new,
-    // and `scheduleTaskAlarm` cancels before scheduling, so each one is replaced
-    // rather than duplicated. Stale-alarm cancellation is unaffected — the
-    // reconcile also unions in `getAllAlarms()`.
-    if (scheduledSound.current !== soundName) {
-      scheduledSound.current = soundName;
-      scheduledEpochs.current.clear();
-    }
+    // A sound change re-fires this effect without any task mutation, so two
+    // runs can overlap; the superseded one must stop recording what it did, or
+    // it would credit the new run's reconcile with the old sound.
+    let superseded = false;
 
     const sync = async () => {
       const { toSchedule, toCancel } = reconcileAlarms(
         tasks,
         getScheduledAlarmIds(),
-        scheduledEpochs.current,
+        scheduled.current,
         new Date(),
+        soundName,
       );
 
       // Tracks whether any alarm this run failed to schedule, so we warn the
@@ -66,17 +63,18 @@ export const useAlarmSync = (): void => {
         ...toCancel.map(async (id) => {
           try {
             await cancelTaskAlarm(id);
-            scheduledEpochs.current.delete(id);
+            if (!superseded) scheduled.current.delete(id);
           } catch (error) {
             console.warn(`[alarms] Failed to cancel alarm ${id}`, error);
           }
         }),
         ...toSchedule.map(async (alarm) => {
           try {
-            await scheduleTaskAlarm(alarm, soundName);
-            scheduledEpochs.current.set(alarm.id, alarm.epochSeconds);
+            await scheduleTaskAlarm(alarm);
+            if (!superseded)
+              scheduled.current.set(alarm.id, alarmSignature(alarm));
           } catch (error) {
-            // Leave the epoch unrecorded so a later reconcile retries. Flag the
+            // Leave it unrecorded so a later reconcile retries. Flag the
             // failure so the user isn't left counting on an alarm that won't
             // ring (e.g. AlarmKit authorization denied — DEX-48).
             anyScheduleFailed = true;
@@ -88,7 +86,7 @@ export const useAlarmSync = (): void => {
         }),
       ]);
 
-      if (anyScheduleFailed) {
+      if (anyScheduleFailed && !superseded) {
         Alert.alert(
           "Alarm not set",
           "We couldn't set one of your task alarms, so it won't ring. Check that alarms are enabled for Dexter in Settings.",
@@ -97,5 +95,8 @@ export const useAlarmSync = (): void => {
     };
 
     void sync();
-  }, [tasks, isLoading, soundName]);
+    return () => {
+      superseded = true;
+    };
+  }, [tasks, isLoading, preferencesLoading, soundName]);
 };

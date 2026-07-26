@@ -1,25 +1,14 @@
 import { assert, assertStringIncludes } from "@std/assert";
 
+import { statements } from "./sqlStatements.ts";
+
 // DEX-72: static guards over the alarm sound migration.
-//
-// Like `task_subtasks.test.ts`, backend CI runs `deno test` with no Postgres, so
-// these assert over the migration SQL text rather than a live database.
 
 const migrationUrl = new URL(
   "../../migrations/20260726193509_add_preferences_alarm_sound.sql",
   import.meta.url,
 );
 const sql = (await Deno.readTextFile(migrationUrl)).toLowerCase();
-
-function statements(source: string): string[] {
-  return source
-    .split("\n")
-    .filter((line) => !line.trimStart().startsWith("--"))
-    .join("\n")
-    .split(";")
-    .map((statement) => statement.replace(/\s+/g, " ").trim())
-    .filter(Boolean);
-}
 
 Deno.test("alarm_sound is added to preferences", () => {
   const statement = statements(sql).find((s) =>

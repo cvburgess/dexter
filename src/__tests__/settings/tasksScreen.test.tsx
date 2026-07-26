@@ -1,44 +1,31 @@
 import { fireEvent, render } from "@testing-library/react-native";
-import { Children, isValidElement } from "react";
 
 import { ETaskPriority } from "@/api/tasks";
 import { TTemplate } from "@/api/templates";
 import TasksScreen from "@/app/(app)/(tabs)/settings/tasks";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
+import { usePreferences } from "@/hooks/usePreferences";
 import { useTemplates } from "@/hooks/useTemplates";
+import {
+  pickerOptions,
+  pickerProps,
+  resetPicker,
+} from "@/testUtils/mockExpoUiPicker";
 
 jest.mock("@/hooks/useTemplates", () => ({ useTemplates: jest.fn() }));
 jest.mock("@/hooks/useIsMultiPane", () => ({ useIsMultiPane: jest.fn() }));
-
 // usePreferences pulls in the supabase client; the screen only reads the sound.
-const mockUpdatePreferences = jest.fn();
-const preferencesState = { alarmSound: "echos" };
-jest.mock("@/hooks/usePreferences", () => ({
-  usePreferences: () => [
-    { alarmSound: preferencesState.alarmSound },
-    { updatePreferences: mockUpdatePreferences },
-  ],
-}));
+jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 
 // The global @expo/ui mock renders Picker as null, so it can't be driven from a
-// test — capture its props locally instead (same approach as PickerField.test).
-let lastPickerProps: Record<string, unknown> | null = null;
-jest.mock("@expo/ui", () => {
-  const Host = ({ children }: { children: React.ReactNode }) => children;
-  const Picker = (props: Record<string, unknown>) => {
-    lastPickerProps = props;
-    return null;
-  };
-  Picker.Item = function PickerItem() {
-    return null;
-  };
-  return { Host, Picker };
-});
-
-const pickerOptions = (): { label: string; value: string }[] =>
-  Children.toArray(lastPickerProps?.children as React.ReactNode)
-    .filter(isValidElement)
-    .map((child) => child.props as { label: string; value: string });
+// test — capture its props instead.
+jest.mock("@expo/ui", () =>
+  jest
+    .requireActual<typeof import("@/testUtils/mockExpoUiPicker")>(
+      "@/testUtils/mockExpoUiPicker",
+    )
+    .mockExpoUiPicker(),
+);
 
 jest.mock("react-native-safe-area-context", () =>
   require("@/testUtils/mockSafeAreaEdges").mockSafeAreaContext(),
@@ -53,6 +40,10 @@ const mockUseTemplates = useTemplates as jest.MockedFunction<
 const mockUseIsMultiPane = useIsMultiPane as jest.MockedFunction<
   typeof useIsMultiPane
 >;
+const mockUsePreferences = usePreferences as jest.MockedFunction<
+  typeof usePreferences
+>;
+const mockUpdatePreferences = jest.fn();
 
 const makeTemplate = (overrides: Partial<TTemplate> = {}): TTemplate => ({
   id: "template-1",
@@ -77,8 +68,11 @@ describe("TasksScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseIsMultiPane.mockReturnValue(false);
-    lastPickerProps = null;
-    preferencesState.alarmSound = "echos";
+    mockUsePreferences.mockReturnValue([
+      { alarmSound: "echos" } as never,
+      { updatePreferences: mockUpdatePreferences },
+    ]);
+    resetPicker();
   });
 
   it("skips the left safe-area edge in two-pane mode (sidebar owns it)", () => {
@@ -129,13 +123,25 @@ describe("TasksScreen", () => {
       { label: "System", value: "system" },
       { label: "Echos", value: "echos" },
     ]);
-    expect(lastPickerProps?.selectedValue).toBe("echos");
+    expect(pickerProps()?.selectedValue).toBe("echos");
+  });
+
+  it("falls back to System for a stored sound this build doesn't ship", () => {
+    // Otherwise the picker renders with nothing selected and the user can't
+    // tell what their alarms will ring.
+    mockUsePreferences.mockReturnValue([
+      { alarmSound: "chimes" } as never,
+      { updatePreferences: mockUpdatePreferences },
+    ]);
+    renderWith([]);
+
+    expect(pickerProps()?.selectedValue).toBe("system");
   });
 
   it("saves the alarm sound when a different one is picked", () => {
     renderWith([]);
 
-    const onValueChange = lastPickerProps?.onValueChange as (
+    const onValueChange = pickerProps()?.onValueChange as (
       value: string,
     ) => void;
     onValueChange("system");

@@ -45,21 +45,28 @@ export const DEFAULT_ALARM_SOUND: TAlarmSound = "echos";
 export const ALARM_SOUNDS: readonly {
   value: TAlarmSound;
   label: string;
-  fileName: string | null;
+  fileName?: string;
 }[] = [
-  { value: "system", label: "System", fileName: null },
+  { value: "system", label: "System" },
   { value: "echos", label: "Echos", fileName: "echos.wav" },
 ];
 
 /**
- * Resolve a stored preference to the bundled filename to hand AlarmKit, or
- * `undefined` to leave it on the system sound. Unknown values resolve to
- * `undefined` too: a newer client (or a hand-edited row) may name a sound this
- * build doesn't ship, and falling back to the default sound is far better than
- * scheduling a filename that resolves to silence.
+ * The stored preference, if this build ships it. A newer client (or a
+ * hand-edited row) can name a sound this build doesn't bundle, and every
+ * consumer degrades the same way: to the system sound, rather than showing an
+ * empty picker or naming a file that would ring silently.
  */
+const knownAlarmSound = (sound: string) =>
+  ALARM_SOUNDS.find((option) => option.value === sound);
+
+/** A stored preference narrowed to a sound this build offers. */
+export const resolveAlarmSound = (sound: string): TAlarmSound =>
+  knownAlarmSound(sound)?.value ?? "system";
+
+/** The bundled filename to hand AlarmKit, or `undefined` for its own default. */
 export const alarmSoundFileName = (sound: string): string | undefined =>
-  ALARM_SOUNDS.find((option) => option.value === sound)?.fileName ?? undefined;
+  knownAlarmSound(sound)?.fileName;
 
 /** Format a `Date`'s local time-of-day as `"HH:MM"`. */
 const toTimeString = (date: Date): string =>
@@ -95,7 +102,20 @@ export type TAlarmSchedule = {
   id: string;
   title: string;
   epochSeconds: number;
+  /** Bundled sound file, or `undefined` for AlarmKit's own default. */
+  soundName?: string;
 };
+
+/**
+ * Everything about an alarm that AlarmKit won't tell us back — it reports only
+ * ids. The reconcile compares this against what it last scheduled to decide
+ * what needs re-scheduling, so it has to cover every field that reaches
+ * AlarmKit: a retitled task and a changed sound both move no fire time, and
+ * comparing fire times alone would leave the old alarm ringing until the next
+ * launch.
+ */
+export const alarmSignature = (alarm: TAlarmSchedule): string =>
+  [alarm.epochSeconds, alarm.title, alarm.soundName ?? ""].join("|");
 
 /**
  * Resolve a task's alarm to the absolute moment it should fire, or `null` when
@@ -138,15 +158,18 @@ export const alarmFireDate = (
  *
  * @param tasks         current tasks (the DB is the source of truth)
  * @param existingIds   ids AlarmKit currently has scheduled (`getAllAlarms()`)
- * @param scheduledEpochs  fire time (epoch seconds) this session last scheduled
- *                         per id; lets us detect a time edit on an existing alarm
+ * @param scheduled     {@link alarmSignature} this session last scheduled per
+ *                      id; lets us detect an edit to an existing alarm
  * @param now           reference time for the past-moment guard
+ * @param soundName     bundled sound every alarm rings with (a preference, so
+ *                      it applies to all of them); `undefined` = AlarmKit's own
  */
 export const reconcileAlarms = (
   tasks: TAlarmTask[],
   existingIds: string[],
-  scheduledEpochs: Map<string, number>,
+  scheduled: Map<string, string>,
   now: Date,
+  soundName?: string,
 ): { toSchedule: TAlarmSchedule[]; toCancel: string[] } => {
   const desired = new Map<string, TAlarmSchedule>();
 
@@ -158,18 +181,19 @@ export const reconcileAlarms = (
       id: task.id,
       title: task.title,
       epochSeconds: Math.floor(date.getTime() / 1000),
+      soundName,
     });
   }
 
-  // Schedule anything whose fire time we haven't already scheduled this session
-  // (new alarm, or a time edit that changed the epoch).
+  // Schedule anything we haven't already scheduled this session in exactly this
+  // shape — a new alarm, or an edit to the time, title, or sound.
   const toSchedule = [...desired.values()].filter(
-    (alarm) => scheduledEpochs.get(alarm.id) !== alarm.epochSeconds,
+    (alarm) => scheduled.get(alarm.id) !== alarmSignature(alarm),
   );
 
   // Cancel anything AlarmKit still holds (or we tracked) that is no longer
   // desired — completed, deleted, unscheduled, or its time now sits in the past.
-  const staleIds = new Set([...existingIds, ...scheduledEpochs.keys()]);
+  const staleIds = new Set([...existingIds, ...scheduled.keys()]);
   const toCancel = [...staleIds].filter((id) => !desired.has(id));
 
   return { toSchedule, toCancel };

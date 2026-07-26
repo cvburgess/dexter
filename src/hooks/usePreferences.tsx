@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import {
   EThemeMode,
@@ -10,6 +15,28 @@ import {
 import { DEFAULT_ALARM_SOUND } from "@/utils/alarms";
 
 import { supabase, useAuth } from "./useAuth";
+
+const defaultPreferences: TPreferences = {
+  alarmSound: DEFAULT_ALARM_SOUND,
+  calendarEndTime: "20:00:00",
+  calendarStartTime: "06:00:00",
+  calendarUrls: [],
+  darkTheme: "dark",
+  enableCalendar: false,
+  enableHabits: true,
+  enableJournal: true,
+  enableNotes: true,
+  lightTheme: "dexter",
+  templateNote: "",
+  templatePrompts: [],
+  themeMode: EThemeMode.SYSTEM,
+};
+
+const preferencesQueryOptions = queryOptions({
+  placeholderData: defaultPreferences,
+  queryKey: ["preferences"],
+  queryFn: () => getPreferences(supabase),
+});
 
 type TUsePreferences = [
   TPreferences,
@@ -29,13 +56,11 @@ export const usePreferences = (options?: THookOptions): TUsePreferences => {
   const queryClient = useQueryClient();
 
   const { data } = useQuery({
+    ...preferencesQueryOptions,
     // Gate on `userId` so unauthenticated screens (e.g. login, which still call
     // `useTheme` → `ThemeProvider`) don't fire a preferences query that RLS
     // would reject.
     enabled: !!userId && !options?.skipQuery,
-    placeholderData: defaultPreferences,
-    queryKey: ["preferences"],
-    queryFn: () => getPreferences(supabase),
   });
 
   // Ignore any cached row when signed out — the `["preferences"]` cache isn't
@@ -81,18 +106,28 @@ export const usePreferences = (options?: THookOptions): TUsePreferences => {
   return [preferences, { updatePreferences: update }];
 };
 
-const defaultPreferences: TPreferences = {
-  alarmSound: DEFAULT_ALARM_SOUND,
-  calendarEndTime: "20:00:00",
-  calendarStartTime: "06:00:00",
-  calendarUrls: [],
-  darkTheme: "dark",
-  enableCalendar: false,
-  enableHabits: true,
-  enableJournal: true,
-  enableNotes: true,
-  lightTheme: "dexter",
-  templateNote: "",
-  templatePrompts: [],
-  themeMode: EThemeMode.SYSTEM,
+/**
+ * Just the alarm sound, for `useAlarmSync` (DEX-72). Separate from
+ * `usePreferences` for two reasons: `isLoading` matters here and nowhere else —
+ * scheduling on the placeholder would ring every alarm with the default sound
+ * and then re-schedule the lot once the saved row lands — and `select` narrows
+ * the subscription, so the root of the authenticated tree doesn't re-render on
+ * every unrelated preference edit (a theme toggle, a calendar URL).
+ */
+export const useAlarmSoundPreference = (): {
+  alarmSound: string;
+  isLoading: boolean;
+} => {
+  const { userId } = useAuth();
+
+  const { data, isPlaceholderData } = useQuery({
+    ...preferencesQueryOptions,
+    enabled: !!userId,
+    select: (preferences) => preferences.alarmSound,
+  });
+
+  return {
+    alarmSound: data ?? DEFAULT_ALARM_SOUND,
+    isLoading: isPlaceholderData,
+  };
 };

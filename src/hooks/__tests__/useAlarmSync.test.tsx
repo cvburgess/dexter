@@ -14,18 +14,25 @@ const mockAlarms = {
 // Wrappers (not direct references) so `mockAlarms` is read at call time — the
 // jest.mock factory is hoisted above the `const mockAlarms` initializer, so a
 // direct reference would evaluate it while still undefined. getScheduledAlarmIds
-// forwards no args (its zero-arg signature can't take a spread).
-// `alarmSoundFileName` is the real (pure) implementation — the sound-change
-// behavior under test is only meaningful against real filenames.
-jest.mock("@/utils/alarms", () => ({
-  alarmSoundFileName: (sound: string) =>
-    sound === "echos" ? "echos.wav" : undefined,
-  reconcileAlarms: (...args: unknown[]) => mockAlarms.reconcileAlarms(...args),
-  scheduleTaskAlarm: (...args: unknown[]) =>
-    mockAlarms.scheduleTaskAlarm(...args),
-  cancelTaskAlarm: (...args: unknown[]) => mockAlarms.cancelTaskAlarm(...args),
-  getScheduledAlarmIds: () => mockAlarms.getScheduledAlarmIds(),
-}));
+// forwards no args (its zero-arg signature can't take a spread). The pure
+// helpers come from the real shared module: the hook's bookkeeping is only
+// meaningful against real signatures and filenames.
+jest.mock("@/utils/alarms", () => {
+  const shared = jest.requireActual<typeof import("@/utils/alarms.shared")>(
+    "@/utils/alarms.shared",
+  );
+  return {
+    alarmSignature: shared.alarmSignature,
+    alarmSoundFileName: shared.alarmSoundFileName,
+    reconcileAlarms: (...args: unknown[]) =>
+      mockAlarms.reconcileAlarms(...args),
+    scheduleTaskAlarm: (...args: unknown[]) =>
+      mockAlarms.scheduleTaskAlarm(...args),
+    cancelTaskAlarm: (...args: unknown[]) =>
+      mockAlarms.cancelTaskAlarm(...args),
+    getScheduledAlarmIds: () => mockAlarms.getScheduledAlarmIds(),
+  };
+});
 
 // useTasks pulls in the supabase client; the hook only needs the tuple shape.
 const tasksState = { isLoading: false };
@@ -34,9 +41,9 @@ jest.mock("../useTasks", () => ({
 }));
 
 // usePreferences pulls in the supabase client too; only the sound matters here.
-const preferencesState = { alarmSound: "echos" };
+const preferencesState = { alarmSound: "echos", isLoading: false };
 jest.mock("../usePreferences", () => ({
-  usePreferences: () => [{ alarmSound: preferencesState.alarmSound }, {}],
+  useAlarmSoundPreference: () => preferencesState,
 }));
 
 describe("useAlarmSync", () => {
@@ -47,6 +54,7 @@ describe("useAlarmSync", () => {
     jest.clearAllMocks();
     tasksState.isLoading = false;
     preferencesState.alarmSound = "echos";
+    preferencesState.isLoading = false;
     mockAlarms.getScheduledAlarmIds.mockReturnValue([]);
     alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
     // The hook console.warns each failure; silence it to keep test output clean.
@@ -89,48 +97,19 @@ describe("useAlarmSync", () => {
     expect(alertSpy).not.toHaveBeenCalled();
   });
 
-  it("schedules with the sound file the preference selects", async () => {
+  it("hands the reconcile the sound file the preference selects", async () => {
     mockAlarms.reconcileAlarms.mockReturnValue({
-      toSchedule: [{ id: "a", title: "A", epochSeconds: 1 }],
+      toSchedule: [],
       toCancel: [],
     });
-    mockAlarms.scheduleTaskAlarm.mockResolvedValue(undefined);
-
-    renderHook(() => useAlarmSync());
-
-    await waitFor(() =>
-      expect(mockAlarms.scheduleTaskAlarm).toHaveBeenCalledWith(
-        expect.objectContaining({ id: "a" }),
-        "echos.wav",
-      ),
-    );
-  });
-
-  // The reconcile only re-schedules an alarm whose fire time it hasn't seen, and
-  // a sound change moves no fire times — so without dropping that record the
-  // switch wouldn't reach AlarmKit until the next launch (DEX-72). Sizes are
-  // captured at call time because the hook passes the live Map by reference.
-  it("forgets scheduled alarms when the sound changes so they re-ring with it", async () => {
-    const scheduledCounts: number[] = [];
-    mockAlarms.reconcileAlarms.mockImplementation(
-      (
-        _tasks: unknown,
-        _ids: unknown,
-        scheduledEpochs: Map<string, number>,
-      ) => {
-        scheduledCounts.push(scheduledEpochs.size);
-        return {
-          toSchedule: [{ id: "a", title: "A", epochSeconds: 1 }],
-          toCancel: [],
-        };
-      },
-    );
-    mockAlarms.scheduleTaskAlarm.mockResolvedValue(undefined);
 
     const { rerender } = renderHook(() => useAlarmSync());
     await waitFor(() =>
-      expect(mockAlarms.scheduleTaskAlarm).toHaveBeenCalledWith(
-        expect.objectContaining({ id: "a" }),
+      expect(mockAlarms.reconcileAlarms).toHaveBeenLastCalledWith(
+        [],
+        [],
+        expect.any(Map),
+        expect.any(Date),
         "echos.wav",
       ),
     );
@@ -139,25 +118,47 @@ describe("useAlarmSync", () => {
     rerender({});
 
     await waitFor(() =>
-      expect(mockAlarms.scheduleTaskAlarm).toHaveBeenCalledWith(
-        expect.objectContaining({ id: "a" }),
+      expect(mockAlarms.reconcileAlarms).toHaveBeenLastCalledWith(
+        [],
+        [],
+        expect.any(Map),
+        expect.any(Date),
         undefined,
       ),
     );
-    expect(scheduledCounts).toEqual([0, 0]);
   });
 
-  it("keeps its record of scheduled alarms when the sound is unchanged", async () => {
-    const scheduledCounts: number[] = [];
+  // The preferences query serves the defaults as placeholder data, so acting
+  // before the saved row lands would ring every alarm with the default sound and
+  // then re-schedule the lot (DEX-72).
+  it("waits for the saved preferences before touching AlarmKit", async () => {
+    preferencesState.isLoading = true;
+    mockAlarms.reconcileAlarms.mockReturnValue({
+      toSchedule: [],
+      toCancel: [],
+    });
+
+    const { rerender } = renderHook(() => useAlarmSync());
+    expect(mockAlarms.reconcileAlarms).not.toHaveBeenCalled();
+
+    preferencesState.isLoading = false;
+    rerender({});
+
+    await waitFor(() => expect(mockAlarms.reconcileAlarms).toHaveBeenCalled());
+  });
+
+  // What's recorded has to be the full signature, not just the fire time —
+  // that's what lets the next reconcile notice a title or sound edit. Read at
+  // call time, because the hook passes the live Map by reference.
+  it("records the signature of what it scheduled, not just the fire time", async () => {
+    const seen: (string | undefined)[] = [];
     mockAlarms.reconcileAlarms.mockImplementation(
-      (
-        _tasks: unknown,
-        _ids: unknown,
-        scheduledEpochs: Map<string, number>,
-      ) => {
-        scheduledCounts.push(scheduledEpochs.size);
+      (_tasks: unknown, _ids: unknown, scheduled: Map<string, string>) => {
+        seen.push(scheduled.get("a"));
         return {
-          toSchedule: [{ id: "a", title: "A", epochSeconds: 1 }],
+          toSchedule: [
+            { id: "a", title: "A", epochSeconds: 1, soundName: "echos.wav" },
+          ],
           toCancel: [],
         };
       },
@@ -165,11 +166,10 @@ describe("useAlarmSync", () => {
     mockAlarms.scheduleTaskAlarm.mockResolvedValue(undefined);
 
     const { rerender } = renderHook(() => useAlarmSync());
-    await waitFor(() => expect(scheduledCounts).toEqual([0]));
+    await waitFor(() => expect(seen).toEqual([undefined]));
 
     rerender({});
 
-    // Still holding alarm "a" — only a sound change clears the record.
-    await waitFor(() => expect(scheduledCounts).toEqual([0, 1]));
+    await waitFor(() => expect(seen).toEqual([undefined, "1|A|echos.wav"]));
   });
 });
