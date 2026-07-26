@@ -28,6 +28,13 @@ DEMO_OTP=... \
 deno task seed-demo
 ```
 
+**Preview branches run this automatically.**
+`.github/workflows/preview-branch.yml` seeds each PR's Supabase preview branch
+once its `Supabase Preview` check succeeds, fetching the branch's own
+service-role key and supplying `DEMO_OTP` from the encrypted `../.env.preview`
+(see `docs/backend.md`). Run the script by hand only against a local stack or
+the production project.
+
 The demo account's email is the shared `DEMO_EMAIL` constant
 (`../functions/_shared/demoAuth.ts`), and its password is **derived from
 `DEMO_OTP`** — the same fixed code the `verify-demo-otp` Edge Function uses to
