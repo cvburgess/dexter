@@ -181,6 +181,7 @@ async function seed(
         priority: template.priority,
         list_id: template.listKey ? listIds.get(template.listKey)! : null,
         goal_id: template.goalKey ? goalIds.get(template.goalKey)! : null,
+        subtasks: template.subtasks ?? [],
       })),
     ),
   );
@@ -201,6 +202,7 @@ async function seed(
           ? templateIds.get(task.templateKey)!
           : null,
         alarm_time: task.alarmTime ?? null,
+        subtasks: task.subtasks ?? [],
       })),
     ),
   );

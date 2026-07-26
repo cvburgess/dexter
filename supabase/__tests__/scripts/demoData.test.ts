@@ -60,6 +60,60 @@ Deno.test("tasks have valid enums and title length", () => {
   }
 });
 
+Deno.test("subtasks are well-formed and uniquely keyed within their array", () => {
+  for (const task of data.tasks) {
+    if (!task.subtasks) continue;
+    const ids = new Set<string>();
+    for (const subtask of task.subtasks) {
+      assert(subtask.id.length > 0, `${task.title} subtask id`);
+      assert(!ids.has(subtask.id), `${task.title} duplicate subtask id`);
+      ids.add(subtask.id);
+      assert(
+        subtask.title.length > 0 && subtask.title.length <= 100,
+        `${task.title} subtask title length`,
+      );
+      assert(
+        subtask.status >= 0 && subtask.status <= 3,
+        `${task.title} subtask status`,
+      );
+    }
+  }
+
+  for (const template of data.templates) {
+    if (!template.subtasks) continue;
+    const ids = new Set<string>();
+    for (const subtask of template.subtasks) {
+      // Template subtasks are a blueprint: id + title, no status field at all.
+      assert(!("status" in subtask), `${template.key} template subtask status`);
+      assert(!ids.has(subtask.id), `${template.key} duplicate subtask id`);
+      ids.add(subtask.id);
+      assert(
+        subtask.title.length > 0 && subtask.title.length <= 100,
+        `${template.key} subtask title length`,
+      );
+    }
+  }
+});
+
+Deno.test("demo showcases subtask states for DEX-70", () => {
+  const withSubtasks = data.tasks.filter((t) => (t.subtasks?.length ?? 0) > 0);
+  assert(withSubtasks.length >= 2, "expected several tasks with checklists");
+
+  // A checklist mid-flight — some items closed, some still open — is the state
+  // the completion sweep and the in-card rendering are most worth showing.
+  const hasPartial = withSubtasks.some(
+    (t) =>
+      t.subtasks!.some((s) => s.status === DEMO_STATUS.TODO) &&
+      t.subtasks!.some((s) => s.status !== DEMO_STATUS.TODO),
+  );
+  assert(hasPartial, "expected a partially-completed checklist");
+
+  const templateWithSubtasks = data.templates.find(
+    (t) => (t.subtasks?.length ?? 0) > 0,
+  );
+  assert(templateWithSubtasks, "expected a repeat template with a checklist");
+});
+
 Deno.test("daily habits never exceed their step count", () => {
   for (const entry of data.dailyHabits) {
     assert(entry.steps >= 1, `${entry.habitKey} steps`);
