@@ -241,6 +241,61 @@ describe("TaskCard subtasks", () => {
       expect(onUpdate).not.toHaveBeenCalled();
     });
 
+    // `renderCard` freezes the prop, which is exactly the window this guards:
+    // leaving edit mode is synchronous while the optimistic cache write is a
+    // tick behind it. Reading `task.title` there paints the pre-edit title for
+    // a frame — the old text visibly blinking back before the new one settles.
+    it("shows the committed title before the write lands", () => {
+      renderCard(baseTask);
+
+      fireEvent.press(screen.getByTestId("task-title-task-1"));
+      const input = screen.getByTestId("task-title-task-1-input");
+      fireEvent.changeText(input, "Write the annual report");
+      fireEvent(input, "blur");
+
+      expect(screen.getByTestId("task-title-task-1")).toHaveTextContent(
+        "Write the annual report",
+      );
+    });
+
+    it("shows a committed subtask title before the write lands", () => {
+      renderCard(baseTask);
+
+      fireEvent.press(screen.getByTestId("subtask-title-sub-1"));
+      const input = screen.getByTestId("subtask-title-sub-1-input");
+      fireEvent.changeText(input, "Draft the outline");
+      fireEvent(input, "blur");
+
+      expect(screen.getByTestId("subtask-title-sub-1")).toHaveTextContent(
+        "Draft the outline",
+      );
+    });
+
+    it("drops the held title once the task catches up", () => {
+      // The held value is not an overlay that lingers: a rename arriving from
+      // another device after ours lands must win, not be masked by it.
+      const { rerender } = renderCard(baseTask);
+
+      fireEvent.press(screen.getByTestId("task-title-task-1"));
+      const input = screen.getByTestId("task-title-task-1-input");
+      fireEvent.changeText(input, "Write the annual report");
+      fireEvent(input, "blur");
+
+      rerender(
+        <TaskCard
+          task={{ ...baseTask, title: "Renamed elsewhere" }}
+          onUpdate={jest.fn()}
+          onDuplicate={jest.fn()}
+          onPromoteSubtask={jest.fn()}
+          onDelete={jest.fn()}
+        />,
+      );
+
+      expect(screen.getByTestId("task-title-task-1")).toHaveTextContent(
+        "Renamed elsewhere",
+      );
+    });
+
     it("is disabled on a completed task", () => {
       renderCard({ ...baseTask, status: ETaskStatus.DONE });
 

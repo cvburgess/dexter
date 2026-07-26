@@ -69,6 +69,18 @@ const connectorSegment = (index: number) => {
 /** Which row, if any, is currently in inline-edit mode. */
 type TEditing = { kind: "title" } | { kind: "subtask"; id: string } | null;
 
+/**
+ * A rename that has been committed but whose write hasn't reached the cache
+ * yet. Leaving edit mode is synchronous, while the optimistic write is a tick
+ * behind it — so without this the pre-edit title paints in between and the old
+ * text visibly blinks back before the new one settles.
+ *
+ * One slot, because `editing` is one slot: only a single row can be renaming.
+ */
+type TRenamed =
+  | { kind: "title"; from: string; to: string }
+  | { kind: "subtask"; id: string; from: string; to: string };
+
 type TTaskCardProps = {
   task: TTask;
   onUpdate: (diff: Omit<TUpdateTask, "id">) => void;
@@ -103,7 +115,33 @@ export function TaskCard({
   // through its optimistic cache write — so there is no overlay to go stale,
   // and a change arriving from another device is never masked.
   const [pending, setPending] = useState<TSubtask | null>(null);
-  const subtasks = pending ? [...task.subtasks, pending] : task.subtasks;
+
+  const [renamed, setRenamed] = useState<TRenamed | null>(null);
+  if (renamed !== null) {
+    const current =
+      renamed.kind === "title"
+        ? task.title
+        : task.subtasks.find((subtask) => subtask.id === renamed.id)?.title;
+    // The prop is authoritative again the moment it moves off what we renamed
+    // *from* — whether that's the optimistic write landing or a failure rolling
+    // it back. Derived during render, not in an effect, so the overlay never
+    // outlives the frame that makes it redundant.
+    if (current !== renamed.from) setRenamed(null);
+  }
+
+  // Display-only overlays. Every write still composes from `task.subtasks`, so
+  // an in-flight rename can never be folded into the next update as if it were
+  // server state.
+  const title = renamed?.kind === "title" ? renamed.to : task.title;
+  const renamedRows =
+    renamed?.kind === "subtask"
+      ? task.subtasks.map((subtask) =>
+          subtask.id === renamed.id
+            ? { ...subtask, title: renamed.to }
+            : subtask,
+        )
+      : task.subtasks;
+  const subtasks = pending ? [...renamedRows, pending] : renamedRows;
 
   // A row that unmounts commits from *its* last-render closure, which can name
   // a pending row that has since been replaced (tap "Add subtask" twice). The
@@ -148,6 +186,10 @@ export function TaskCard({
     // An emptied existing title reverts — a titleless subtask would be
     // unidentifiable — so there is simply nothing to write.
     if (title === "") return;
+
+    const from = task.subtasks.find((subtask) => subtask.id === id)?.title;
+    if (from !== undefined && from !== title)
+      setRenamed({ kind: "subtask", id, from, to: title });
 
     onUpdate({
       subtasks: task.subtasks.map((subtask) =>
@@ -263,16 +305,18 @@ export function TaskCard({
           onChangeStatus={(status) => onUpdate({ status })}
         />
         <EditableText
-          value={task.title}
+          value={title}
           editing={editing?.kind === "title"}
           // Renaming a finished task is disabled, matching the buttons below.
           editable={!isComplete}
           onStartEdit={() => setEditing({ kind: "title" })}
-          onCommit={(title) => {
+          onCommit={(committed) => {
             setEditing(null);
             // An emptied title reverts rather than wiping the task — a task with
             // no title would be unidentifiable and unrecoverable from the list.
-            if (title && title !== task.title) onUpdate({ title });
+            if (!committed || committed === task.title) return;
+            setRenamed({ kind: "title", from: task.title, to: committed });
+            onUpdate({ title: committed });
           }}
           testID={`task-title-${task.id}`}
           style={[
