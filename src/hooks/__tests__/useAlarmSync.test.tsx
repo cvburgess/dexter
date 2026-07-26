@@ -172,4 +172,44 @@ describe("useAlarmSync", () => {
 
     await waitFor(() => expect(seen).toEqual([undefined, "1|A|echos.wav"]));
   });
+
+  // A sound change (or any task edit) re-fires the effect with a schedule still
+  // in flight. Overlapping runs would each reconcile against a cache the other
+  // hasn't written yet — re-scheduling alarms that are already correct, and
+  // racing on the same id, so AlarmKit can end up holding the losing run's
+  // sound while the cache records the winner's.
+  it("queues a second run behind the first instead of overlapping it", async () => {
+    const seen: (string | undefined)[] = [];
+    mockAlarms.reconcileAlarms.mockImplementation(
+      (_tasks: unknown, _ids: unknown, scheduled: Map<string, string>) => {
+        seen.push(scheduled.get("a"));
+        return {
+          toSchedule: [
+            { id: "a", title: "A", epochSeconds: 1, soundName: "echos.wav" },
+          ],
+          toCancel: [],
+        };
+      },
+    );
+    let release: () => void = () => {};
+    mockAlarms.scheduleTaskAlarm.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    mockAlarms.scheduleTaskAlarm.mockResolvedValue(undefined);
+
+    const { rerender } = renderHook(() => useAlarmSync());
+    await waitFor(() => expect(seen).toEqual([undefined]));
+
+    // Re-render while the first run's schedule is still pending.
+    rerender({});
+    expect(seen).toEqual([undefined]);
+
+    release();
+
+    // The queued run reconciles against what the first one actually recorded.
+    await waitFor(() => expect(seen).toEqual([undefined, "1|A|echos.wav"]));
+  });
 });

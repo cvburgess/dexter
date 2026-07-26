@@ -35,16 +35,21 @@ export const useAlarmSync = (): void => {
   // reports only ids back, so this is how an edit to an existing alarm is seen.
   const scheduled = useRef(new Map<string, string>());
 
+  // Runs are queued, never overlapped. A sound change re-fires this effect with
+  // no task mutation of its own, and each run reconciles against `scheduled` —
+  // so two in-flight runs would each see a cache the other hasn't written yet,
+  // re-scheduling alarms that are already correct and racing on the same id
+  // (whichever native call lands last wins in AlarmKit, which need not be the
+  // one the cache ends up recording — leaving a stale sound or title ringing
+  // until the next launch). Serializing makes each reconcile see the finished
+  // state of the one before it.
+  const queue = useRef<Promise<void>>(Promise.resolve());
+
   useEffect(() => {
     // Both queries serve placeholder data first. Acting on the placeholder
     // preferences would schedule every alarm with the default sound and then
     // re-schedule them all once the real row lands (DEX-72).
     if (isLoading || preferencesLoading) return;
-
-    // A sound change re-fires this effect without any task mutation, so two
-    // runs can overlap; the superseded one must stop recording what it did, or
-    // it would credit the new run's reconcile with the old sound.
-    let superseded = false;
 
     const sync = async () => {
       const { toSchedule, toCancel } = reconcileAlarms(
@@ -63,7 +68,7 @@ export const useAlarmSync = (): void => {
         ...toCancel.map(async (id) => {
           try {
             await cancelTaskAlarm(id);
-            if (!superseded) scheduled.current.delete(id);
+            scheduled.current.delete(id);
           } catch (error) {
             console.warn(`[alarms] Failed to cancel alarm ${id}`, error);
           }
@@ -71,8 +76,7 @@ export const useAlarmSync = (): void => {
         ...toSchedule.map(async (alarm) => {
           try {
             await scheduleTaskAlarm(alarm);
-            if (!superseded)
-              scheduled.current.set(alarm.id, alarmSignature(alarm));
+            scheduled.current.set(alarm.id, alarmSignature(alarm));
           } catch (error) {
             // Leave it unrecorded so a later reconcile retries. Flag the
             // failure so the user isn't left counting on an alarm that won't
@@ -86,7 +90,7 @@ export const useAlarmSync = (): void => {
         }),
       ]);
 
-      if (anyScheduleFailed && !superseded) {
+      if (anyScheduleFailed) {
         Alert.alert(
           "Alarm not set",
           "We couldn't set one of your task alarms, so it won't ring. Check that alarms are enabled for Dexter in Settings.",
@@ -94,9 +98,10 @@ export const useAlarmSync = (): void => {
       }
     };
 
-    void sync();
-    return () => {
-      superseded = true;
-    };
+    // `catch` so a throw outside the per-alarm handlers (e.g. `getAllAlarms`)
+    // can't leave the queue permanently rejected and skip every later run.
+    queue.current = queue.current.then(sync).catch((error) => {
+      console.warn("[alarms] Alarm sync failed", error);
+    });
   }, [tasks, isLoading, preferencesLoading, soundName]);
 };

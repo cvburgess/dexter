@@ -37,8 +37,8 @@ export const DEFAULT_ALARM_SOUND: TAlarmSound = "echos";
 
 /**
  * The alarm sounds a user can pick from in Settings → Tasks. `fileName` is the
- * bundled resource AlarmKit rings (`null` means "leave AlarmKit on its default
- * sound"). Adding a sound means adding an entry here *and* the audio file to
+ * bundled resource AlarmKit rings (omit it to leave AlarmKit on its default
+ * sound). Adding a sound means adding an entry here *and* the audio file to
  * the `withAlarmSound` plugin's `sounds` list in `app.json` — a name AlarmKit
  * can't resolve in the bundle rings nothing.
  */

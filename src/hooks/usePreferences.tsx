@@ -128,6 +128,10 @@ export const useAlarmSoundPreference = (): {
 
   return {
     alarmSound: data ?? DEFAULT_ALARM_SOUND,
-    isLoading: isPlaceholderData,
+    // `isPlaceholderData` is also true while the query is *disabled* (it never
+    // leaves `pending`), so it has to be paired with `userId` — otherwise the
+    // hook reports "still loading" forever whenever there's no session, and the
+    // sync that cancels a departing user's alarms would never run.
+    isLoading: !!userId && isPlaceholderData,
   };
 };
