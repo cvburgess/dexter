@@ -10,44 +10,40 @@ import {
   toolJson,
 } from "./helpers.ts";
 
-const journalPromptSchema = z.object({
-  prompt: z.string(),
-  response: z.string(),
-});
-
-export function registerDayTools(server: McpServer, ctx: ToolContext): void {
+export function registerNoteTools(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
-    "get_day",
+    "get_note",
     {
-      title: "Get Day",
-      description: "Get notes and journal prompts for a specific date.",
+      title: "Get Note",
+      description: "Get the daily note for a specific date.",
       inputSchema: { date: dateSchema },
       annotations: { readOnlyHint: true, destructiveHint: false },
     },
     async ({ date }) => {
       const { data, error } = await ctx.supabase
-        .from("days")
+        .from("notes")
         .select("*")
         .eq("date", date)
         .eq("user_id", ctx.userId)
         .maybeSingle();
 
       if (error) return toolError(error.message);
-      if (!data) return toolError("Day not found");
+      if (!data) return toolError("Note not found");
       return toolJson(data);
     },
   );
 
   server.registerTool(
-    "upsert_day",
+    "upsert_note",
     {
-      title: "Upsert Day",
+      title: "Upsert Note",
       description:
-        "Create or update the authenticated user's day row for a date. Supports notes and prompts.",
+        "Create or update the authenticated user's daily note for a date.",
       inputSchema: {
         date: dateSchema,
-        notes: z.string().nullable().optional(),
-        prompts: z.array(journalPromptSchema).nullable().optional(),
+        // Not nullable: `notes.content` is NOT NULL, so clearing a note is an
+        // empty string rather than a null.
+        content: z.string().optional(),
       },
       annotations: {
         readOnlyHint: false,
@@ -55,21 +51,18 @@ export function registerDayTools(server: McpServer, ctx: ToolContext): void {
         idempotentHint: true,
       },
     },
-    async ({ date, notes, prompts }) => {
-      const values = compactUpdate({
-        date,
-        user_id: ctx.userId,
-        notes,
-        prompts,
-      });
+    async ({ date, content }) => {
+      const updates = compactUpdate({ content });
 
-      if (!hasUpdates(compactUpdate({ notes, prompts }))) {
+      if (!hasUpdates(updates)) {
         return toolError("No fields provided to upsert.");
       }
 
       const { data, error } = await ctx.supabase
-        .from("days")
-        .upsert(values, { onConflict: "date,user_id" })
+        .from("notes")
+        .upsert({ date, user_id: ctx.userId, ...updates }, {
+          onConflict: "user_id,date",
+        })
         .select()
         .single();
 

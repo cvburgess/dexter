@@ -5,10 +5,11 @@ import {
   RealtimeChannel,
 } from "@supabase/supabase-js";
 
-import { daysMutationKey } from "./useDays";
 import { goalsQueryOptions } from "./useGoals";
 import { HABITS_INVALIDATION_KEYS } from "./useHabits";
+import { journalsMutationKey } from "./useJournals";
 import { listsQueryOptions } from "./useLists";
+import { notesMutationKey } from "./useNotes";
 import { TASKS_MUTATION_KEY } from "./useTasks";
 import { supabase } from "./useAuth";
 
@@ -21,16 +22,29 @@ import { supabase } from "./useAuth";
 // call site there already inlines the literal), so they're listed directly.
 export const REALTIME_INVALIDATIONS: Record<string, readonly string[][]> = {
   daily_habits: [["dailyHabits"]],
-  days: [["days"]],
   goals: [goalsQueryOptions.queryKey],
   habits: HABITS_INVALIDATION_KEYS,
+  journals: [["journals"]],
   lists: [listsQueryOptions.queryKey],
+  notes: [["notes"]],
   preferences: [["preferences"]],
   repeat_task_templates: [["templates"]],
   tasks: [["tasks"]],
 };
 
 const REALTIME_TABLES = Object.keys(REALTIME_INVALIDATIONS);
+
+// Tables whose cache entries are keyed per date and written by a debounced
+// autosave, mapped to the mutation key that autosave tags itself with. Their
+// own writes echo back as realtime events, so invalidation has to skip the
+// date(s) still saving (see the guard in `invalidateTable`).
+const PER_DATE_MUTATION_KEYS: Record<
+  string,
+  (date: string) => readonly string[]
+> = {
+  journals: journalsMutationKey,
+  notes: notesMutationKey,
+};
 
 // How long to wait for more events on the same table before invalidating —
 // coalesces a burst (e.g. a bulk task update) into a single refetch instead
@@ -61,16 +75,17 @@ export const useRealtimeInvalidation = (userId: string | undefined) => {
     let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
     const invalidateTable = (table: (typeof REALTIME_TABLES)[number]) => {
-      if (table === "days") {
-        // `days` echoes our own autosave back as a realtime event — skip
-        // only the date(s) whose autosave is still in flight, so it can't
-        // race the debounced editor (see the comment on daysMutationKey),
+      const mutationKey = PER_DATE_MUTATION_KEYS[table];
+      if (mutationKey) {
+        // `notes`/`journals` echo our own autosave back as a realtime event —
+        // skip only the date(s) whose autosave is still in flight, so it can't
+        // race the debounced editor (see the comment on notesMutationKey),
         // without suppressing invalidation for every other cached date.
         void queryClient.invalidateQueries({
-          queryKey: ["days"],
+          queryKey: [table],
           predicate: (query) =>
             queryClient.isMutating({
-              mutationKey: daysMutationKey(query.queryKey[1] as string),
+              mutationKey: mutationKey(query.queryKey[1] as string),
             }) === 0,
         });
         return;

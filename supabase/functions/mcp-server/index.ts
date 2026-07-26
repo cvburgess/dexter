@@ -54,7 +54,7 @@ Deno.serve(withSentry(async (req: Request): Promise<Response> => {
       name: "dexter",
       version: "1.0.0",
       description:
-        "Manage Dexter planning data including tasks, goals, lists, habits, days, templates, and preferences.",
+        "Manage Dexter planning data including tasks, goals, lists, habits, notes, journals, templates, and preferences.",
     });
   }
 

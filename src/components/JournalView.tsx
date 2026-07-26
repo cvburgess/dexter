@@ -6,8 +6,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { TDay, TJournalPrompt } from "@/api/days";
-import { useDays } from "@/hooks/useDays";
+import { TJournal, TJournalPrompt } from "@/api/journals";
+import { useJournals } from "@/hooks/useJournals";
 import { useTheme } from "@/utils/theme";
 
 import { EmptyScreen } from "./EmptyScreen";
@@ -44,19 +44,19 @@ const responseHeight = (lines: number, spacing: number) =>
 
 /**
  * The Journal surface for a single day. Reads/writes the day's reflection
- * prompts via `useDays`, autosaving edits (debounced). Responses are plain text
+ * prompts via `useJournals`, autosaving edits (debounced). Responses are plain text
  * (unlike Notes' markdown editor), so this renders identically on web and
  * native. Prompts auto-seed from `preferences.templatePrompts` (via
- * `useDays.defaultDay`), so there is no template chooser — nothing persists
+ * `useJournals.defaultJournal`), so there is no template chooser — nothing persists
  * until the user answers. Remounted per date by `SwipeableDay` (keyed on the
  * day), which re-seeds the uncontrolled inputs when the day changes.
  */
 export function JournalView({ date, onEditingChange }: TJournalViewProps) {
-  const [day, { isLoading, upsertDayAsync }] = useDays(date);
+  const [journal, { isLoading, upsertJournalAsync }] = useJournals(date);
 
   if (isLoading) return <LoadingScreen />;
 
-  if (day.prompts.length === 0) {
+  if (journal.prompts.length === 0) {
     return <EmptyScreen message="Add journal prompts in Settings → Journal" />;
   }
 
@@ -69,9 +69,9 @@ export function JournalView({ date, onEditingChange }: TJournalViewProps) {
   // Response-only edits keep the labels, so autosaves don't remount.
   return (
     <JournalEditor
-      key={JSON.stringify(day.prompts.map((p) => p.prompt))}
-      prompts={day.prompts}
-      upsertDayAsync={upsertDayAsync}
+      key={JSON.stringify(journal.prompts.map((p) => p.prompt))}
+      prompts={journal.prompts}
+      upsertJournalAsync={upsertJournalAsync}
       onEditingChange={onEditingChange}
     />
   );
@@ -79,13 +79,15 @@ export function JournalView({ date, onEditingChange }: TJournalViewProps) {
 
 type TJournalEditorProps = {
   prompts: TJournalPrompt[];
-  upsertDayAsync: (diff: { prompts: TJournalPrompt[] }) => Promise<TDay>;
+  upsertJournalAsync: (diff: {
+    prompts: TJournalPrompt[];
+  }) => Promise<TJournal>;
   onEditingChange?: (editing: boolean) => void;
 };
 
 function JournalEditor({
   prompts,
-  upsertDayAsync,
+  upsertJournalAsync,
   onEditingChange,
 }: TJournalEditorProps) {
   const keyboard = useAnimatedKeyboard();
@@ -114,7 +116,8 @@ function JournalEditor({
   // Serializing (never two saves in flight) keeps overlapping debounced/retrying
   // saves from writing older responses over newer ones — both the server and the
   // React Query cache stay last-edit-wins. Mirrors NotesView. React Query's
-  // mutate is referentially stable, so closing over `upsertDayAsync` is stable.
+  // mutate is referentially stable, so closing over `upsertJournalAsync` is
+  // stable.
   const drainSaves = useCallback(async () => {
     if (savingRef.current) return;
     savingRef.current = true;
@@ -123,9 +126,9 @@ function JournalEditor({
         const pending = pendingRef.current;
         pendingRef.current = null;
         try {
-          await upsertDayAsync({ prompts: pending });
+          await upsertJournalAsync({ prompts: pending });
         } catch {
-          // Retries (in useDays) are exhausted. Requeue unless newer text
+          // Retries (in useJournals) are exhausted. Requeue unless newer text
           // already arrived, then stop so we don't hot-loop a persistent
           // failure — the next edit/unmount flush retries.
           if (pendingRef.current === null) pendingRef.current = pending;
@@ -135,7 +138,7 @@ function JournalEditor({
     } finally {
       savingRef.current = false;
     }
-  }, [upsertDayAsync]);
+  }, [upsertJournalAsync]);
 
   const flush = useCallback(() => {
     if (timeoutRef.current) {
@@ -148,11 +151,10 @@ function JournalEditor({
   const handleChangeResponse = useCallback(
     (index: number, text: string) => {
       responsesRef.current[index] = text;
-      // Rebuild the full array on every edit: `upsertDay({ prompts })` replaces
-      // the whole column, so a partial array would drop the other responses.
-      // Labels are invariant for this mount (the editor is keyed on them), so
-      // reading them off the prop is safe. (`notes` is preserved by the partial
-      // upsert.)
+      // Rebuild the full array on every edit: `upsertJournal({ prompts })`
+      // replaces the whole jsonb column, so a partial array would drop the other
+      // responses. Labels are invariant for this mount (the editor is keyed on
+      // them), so reading them off the prop is safe.
       pendingRef.current = prompts.map((prompt, i) => ({
         prompt: prompt.prompt,
         response: responsesRef.current[i],

@@ -94,6 +94,11 @@ async function wipeUserData(supabase: Client, userId: string): Promise<void> {
     "habits",
     "goals",
     "lists",
+    "notes",
+    "journals",
+    // `days` is superseded by notes/journals (DEX-51) and no longer written,
+    // but a demo account reset before that split still holds its rows — and the
+    // legacy dexter-app can still write it — so keep clearing it.
     "days",
   ] as const;
 
@@ -221,13 +226,23 @@ async function seed(
   );
 
   await runWrite(
-    "days",
-    supabase.from("days").insert(
-      data.days.map((day) => ({
+    "notes",
+    supabase.from("notes").insert(
+      data.notes.map((note) => ({
         user_id: userId,
-        date: addDaysIso(today, day.dateOffset),
-        notes: day.notes,
-        prompts: day.prompts,
+        date: addDaysIso(today, note.dateOffset),
+        content: note.content,
+      })),
+    ),
+  );
+
+  await runWrite(
+    "journals",
+    supabase.from("journals").insert(
+      data.journals.map((journal) => ({
+        user_id: userId,
+        date: addDaysIso(today, journal.dateOffset),
+        prompts: journal.prompts,
       })),
     ),
   );
