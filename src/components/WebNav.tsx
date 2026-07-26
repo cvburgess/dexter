@@ -167,7 +167,12 @@ export function WebNavDock() {
         {
           backgroundColor: theme.colors.background,
           borderTopColor: withOpacity(theme.colors.text, 0.1),
-          // Mobile browsers put the home indicator / URL bar under the dock.
+          // Reserves the home-indicator inset. Inert as things stand: on web
+          // react-native-safe-area-context reads `env(safe-area-inset-*)`,
+          // which only resolves non-zero when the page opts into
+          // `viewport-fit=cover` — Expo's default web template (this app has no
+          // `public/index.html` override) does not. Kept so the dock is already
+          // correct if that ever changes.
           paddingBottom: 8 + insets.bottom,
         },
       ]}
