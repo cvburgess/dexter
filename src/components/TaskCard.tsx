@@ -128,8 +128,16 @@ export function TaskCard({
 
   const subtasks = [...renamedRows, ...unsettled];
 
-  /** Clears edit mode only if this row still owns it — see `commitSubtaskTitle`. */
-  const stopEditing = (id: string) =>
+  /**
+   * Clear edit mode only if the row named still owns it. React runs the
+   * outgoing row's unmount cleanup *after* `editing` has already moved to the
+   * row the user just tapped, so clearing blindly cancels the edit they are
+   * starting — and the tap reads as having done nothing at all.
+   */
+  const stopEditingTitle = () =>
+    setEditing((current) => (current?.kind === "title" ? null : current));
+
+  const stopEditingSubtask = (id: string) =>
     setEditing((current) =>
       current?.kind === "subtask" && current.id === id ? null : current,
     );
@@ -146,10 +154,7 @@ export function TaskCard({
   };
 
   const commitSubtaskTitle = (id: string, title: string) => {
-    // Not unconditional: React runs the outgoing row's unmount cleanup *after*
-    // `editing` has already moved to the row the user just tapped, so clearing
-    // blindly would cancel the edit they are starting.
-    stopEditing(id);
+    stopEditingSubtask(id);
 
     // A row the cache doesn't have yet is one this card created — so whether
     // this is an append or an edit is decided by server state, never by how
@@ -303,7 +308,7 @@ export function TaskCard({
           editable={!isComplete}
           onStartEdit={() => setEditing({ kind: "title" })}
           onCommit={(committed) => {
-            setEditing(null);
+            stopEditingTitle();
             // An emptied title reverts rather than wiping the task — a task with
             // no title would be unidentifiable and unrecoverable from the list.
             if (!committed || committed === task.title) return;

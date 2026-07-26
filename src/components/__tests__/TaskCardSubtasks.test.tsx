@@ -173,6 +173,31 @@ describe("TaskCard subtasks", () => {
       expect(screen.getByTestId("subtask-title-sub-1-input")).toBeTruthy();
     });
 
+    // The outgoing input's unmount cleanup commits *after* `editing` has moved
+    // to the row just tapped, so a commit that cleared edit mode outright would
+    // cancel the edit being started and the tap would read as a dead press.
+    it("hands the edit over when a subtask is tapped mid-rename of the title", () => {
+      renderCard(baseTask);
+
+      fireEvent.press(screen.getByTestId("task-title-task-1"));
+      expect(screen.getByTestId("task-title-task-1-input")).toBeTruthy();
+
+      fireEvent.press(screen.getByTestId("subtask-title-sub-1"));
+
+      expect(screen.getByTestId("subtask-title-sub-1-input")).toBeTruthy();
+    });
+
+    it("hands the edit back when the title is tapped mid-rename of a subtask", () => {
+      renderCard(baseTask);
+
+      fireEvent.press(screen.getByTestId("subtask-title-sub-1"));
+      expect(screen.getByTestId("subtask-title-sub-1-input")).toBeTruthy();
+
+      fireEvent.press(screen.getByTestId("task-title-task-1"));
+
+      expect(screen.getByTestId("task-title-task-1-input")).toBeTruthy();
+    });
+
     it("saves an edited subtask title on blur", () => {
       const onUpdate = jest.fn();
       renderCard(baseTask, { onUpdate });

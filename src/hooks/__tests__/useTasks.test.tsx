@@ -8,9 +8,11 @@ import {
   createTask,
   ETaskPriority,
   ETaskStatus,
+  deleteTask,
   getTasks,
   TTask,
   updateTask,
+  updateTasks,
 } from "@/api/tasks";
 import { TTemplate } from "@/api/templates";
 
@@ -24,11 +26,15 @@ jest.mock("@/api/tasks", () => ({
   getTasks: jest.fn(),
   createTask: jest.fn(),
   updateTask: jest.fn(),
+  updateTasks: jest.fn(),
+  deleteTask: jest.fn(),
 }));
 
 const mockGetTasks = getTasks as jest.MockedFunction<typeof getTasks>;
 const mockCreateTask = createTask as jest.MockedFunction<typeof createTask>;
 const mockUpdateTask = updateTask as jest.MockedFunction<typeof updateTask>;
+const mockUpdateTasks = updateTasks as jest.MockedFunction<typeof updateTasks>;
+const mockDeleteTask = deleteTask as jest.MockedFunction<typeof deleteTask>;
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -107,6 +113,116 @@ describe("useTasks", () => {
     act(() => result.current[1].createTask({ title: "New task" }));
 
     await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(2));
+  });
+
+  describe("refetching after a mutation", () => {
+    // `useRealtimeInvalidation` drops a remote `tasks` event outright while a
+    // task mutation is in flight, and leans on the mutation to invalidate when
+    // it settles. A create/delete that only invalidated on success would strand
+    // another device's change made in that window.
+    it("refetches even when a create fails", async () => {
+      const { wrapper } = createWrapper();
+      mockCreateTask.mockRejectedValue(new Error("offline"));
+
+      const { result } = renderHook(() => useTasks(), { wrapper });
+      await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(1));
+
+      act(() => result.current[1].createTask({ title: "New task" }));
+
+      await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(2));
+    });
+
+    it("refetches even when a delete fails", async () => {
+      const { wrapper } = createWrapper();
+      mockDeleteTask.mockRejectedValue(new Error("offline"));
+
+      const { result } = renderHook(() => useTasks(), { wrapper });
+      await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(1));
+
+      act(() => result.current[1].deleteTask("task-1"));
+
+      await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(2));
+    });
+  });
+
+  describe("bulk updates share one key set", () => {
+    const cached: TTask[] = [
+      {
+        id: "task-1",
+        alarmTime: null,
+        title: "Ship the release",
+        dueOn: null,
+        goalId: null,
+        listId: "list-1",
+        priority: ETaskPriority.NEITHER,
+        scheduledFor: "2026-07-03",
+        status: ETaskStatus.TODO,
+        subtasks: [{ id: "sub-1", title: "Tag it", status: ETaskStatus.TODO }],
+        templateId: null,
+      },
+      {
+        id: "task-2",
+        alarmTime: null,
+        title: "Write the notes",
+        dueOn: null,
+        goalId: null,
+        listId: "list-2",
+        priority: ETaskPriority.NEITHER,
+        scheduledFor: null,
+        status: ETaskStatus.TODO,
+        subtasks: [],
+        templateId: null,
+      },
+    ];
+
+    const bulkUpdate = async (diffs: Parameters<typeof updateTasks>[1]) => {
+      const { wrapper, queryClient } = createWrapper();
+      mockGetTasks.mockResolvedValue(cached);
+      mockUpdateTasks.mockResolvedValue(cached);
+
+      const { result } = renderHook(() => useTasks(), { wrapper });
+      await waitFor(() =>
+        expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual(cached),
+      );
+
+      act(() => result.current[1].updateTasks(diffs));
+      await waitFor(() => expect(mockUpdateTasks).toHaveBeenCalled());
+
+      return mockUpdateTasks.mock.calls[0][1];
+    };
+
+    it("pads a swept key from the cache rather than nulling a not-null column", async () => {
+      // Only task-1 has a checklist, so only it picks up `subtasks` from the
+      // sweep — task-2 has to carry the key too, but as its stored value.
+      const rows = await bulkUpdate([
+        { id: "task-1", status: ETaskStatus.DONE },
+        { id: "task-2", status: ETaskStatus.DONE },
+      ]);
+
+      expect(rows[1].subtasks).toEqual([]);
+    });
+
+    it("pads a missing key from the cache rather than clearing the column", async () => {
+      // An upsert leaves an omitted column alone but overwrites on an explicit
+      // null, so padding with null would edit rows the caller never touched.
+      const rows = await bulkUpdate([
+        { id: "task-1", scheduledFor: "2026-08-01" },
+        { id: "task-2", listId: "list-9" },
+      ]);
+
+      expect(rows[0].listId).toBe("list-1");
+      expect(rows[1].scheduledFor).toBeNull();
+      expect(rows[1].listId).toBe("list-9");
+    });
+
+    it("leaves diffs that already share a key set untouched", async () => {
+      const diffs = [
+        { id: "task-1", listId: "list-9" },
+        { id: "task-2", listId: "list-9" },
+      ];
+
+      expect(await bulkUpdate(diffs)).toEqual(diffs);
+    });
   });
 
   it("carries the template's alarm time onto the next recurring occurrence", async () => {

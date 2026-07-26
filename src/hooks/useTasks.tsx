@@ -110,19 +110,39 @@ const withSubtaskSweep = (
  * Gives every row in a bulk upsert the same key set. PostgREST rejects a batch
  * whose objects differ in shape (`PGRST102`), which the sweep can cause by
  * adding `subtasks` to only the rows that happen to be completing.
+ *
+ * A key a row is missing is padded from that row's *cached* value, so the write
+ * restates what is already stored. Padding with `null` instead would be a real
+ * edit: this is an upsert, where an omitted column is left alone but an
+ * explicit null overwrites — so a batch of `[{id, scheduledFor}, {id, listId}]`
+ * would silently clear the very columns the caller didn't mention, and a padded
+ * `subtasks: null` would fail the whole batch against a `not null` column.
  */
-const normalizeBulkKeys = (diffs: TUpdateTask[]): TUpdateTask[] => {
+const normalizeBulkKeys = (
+  queryClient: QueryClient,
+  diffs: TUpdateTask[],
+): TUpdateTask[] => {
   const keys = new Set(diffs.flatMap((diff) => Object.keys(diff)));
   if (diffs.every((diff) => Object.keys(diff).length === keys.size)) {
     return diffs;
   }
 
-  return diffs.map(
-    (diff) =>
-      Object.fromEntries(
-        [...keys].map((key) => [key, diff[key as keyof TUpdateTask] ?? null]),
-      ) as unknown as TUpdateTask,
-  );
+  return diffs.map((diff) => {
+    const cached = findCachedTask(queryClient, diff.id);
+
+    return Object.fromEntries(
+      [...keys].map((key) => [
+        key,
+        // `in`, not `??`: a diff that deliberately clears a column carries an
+        // explicit null, and the padding must not read that as "missing".
+        // `null` remains the last resort for a row absent from the cache,
+        // where there is no stored value to restate.
+        key in diff
+          ? diff[key as keyof TUpdateTask]
+          : (cached?.[key as keyof TTask] ?? null),
+      ]),
+    ) as unknown as TUpdateTask;
+  });
 };
 
 /**
@@ -224,7 +244,11 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
   const { mutate: create } = useMutation<TTask[], Error, TCreateTask>({
     mutationKey: TASKS_MUTATION_KEY,
     mutationFn: (task) => createTask(supabase, task),
-    onSuccess: () => {
+    // On settle, not on success: `useRealtimeInvalidation` drops a remote
+    // `tasks` event outright while any task mutation is in flight, and this is
+    // the catch-up it counts on. Skipping it on failure would strand whatever
+    // another device changed in that window until the query went stale.
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
@@ -296,6 +320,7 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
         // PostgREST rejects a bulk upsert whose rows don't share a key set, so
         // every row carries `subtasks` once any of them needs it.
         normalizeBulkKeys(
+          queryClient,
           diffs.map((diff) => withSubtaskSweep(queryClient, diff)),
         ),
       ),
@@ -307,7 +332,8 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
   const { mutate: remove } = useMutation<void, Error, string>({
     mutationKey: TASKS_MUTATION_KEY,
     mutationFn: (id) => deleteTask(supabase, id),
-    onSuccess: () => {
+    // On settle, for the same reason as `create` above.
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
