@@ -52,9 +52,12 @@ export function MoreMenu({
   const theme = useTheme();
   const router = useRouter();
   const [lists] = useLists();
-  const [, { createTemplateFromTask, getTemplateById }] = useTemplates();
+  const [, { createTemplateFromTask, getTemplateById, saveTaskAsTemplate }] =
+    useTemplates();
 
-  const openRepeatSchedule = (templateId: string) =>
+  // One editor for both: it shows a repeat schedule or a template depending on
+  // whether the row it opens carries one.
+  const openTemplateEditor = (templateId: string) =>
     router.push({
       pathname: "/settings/tasks/[id]",
       params: { id: templateId },
@@ -70,13 +73,21 @@ export function MoreMenu({
     // Branch on the stored templateId, not the (possibly still-loading) template
     // lookup, so an existing repeat is never duplicated.
     if (task.templateId) {
-      openRepeatSchedule(task.templateId);
+      openTemplateEditor(task.templateId);
     } else {
       createTemplateFromTask(task, {
-        onSuccess: (template) => openRepeatSchedule(template.id),
+        onSuccess: (template) => openTemplateEditor(template.id),
       });
     }
   };
+
+  // Unlike Repeat, this never reuses `task.templateId` and never links the new
+  // row back to the task: saving a copy for later must leave the task it was
+  // taken from exactly as it was.
+  const onSaveAsTemplate = () =>
+    saveTaskAsTemplate(task, {
+      onSuccess: (template) => openTemplateEditor(template.id),
+    });
 
   // Alarms ring via native iOS AlarmKit only, so the item is iOS-only. A single
   // directly-tappable action, not a submenu.
@@ -112,10 +123,15 @@ export function MoreMenu({
     ...editSections.map((section, index) =>
       index === 0 ? section : { ...section, hideDivider: true },
     ),
-    ...getOtherSections(onDuplicate, onDelete, {
-      label: isRepeating ? "Edit repeat schedule" : "Repeat",
-      onSelect: onRepeat,
-    }),
+    ...getOtherSections(
+      onDuplicate,
+      onDelete,
+      {
+        label: isRepeating ? "Edit repeat schedule" : "Repeat",
+        onSelect: onRepeat,
+      },
+      onSaveAsTemplate,
+    ),
   ];
 
   return (
@@ -332,11 +348,17 @@ export const getTaskActionSections = (
   return options.length > 0 ? [{ options }] : [];
 };
 
-/** Duplicate/Repeat/Delete: untitled, because the icons and labels say it. */
+/**
+ * Duplicate/Repeat/Save as template/Delete: untitled, because the icons and
+ * labels say it. Repeat and "Save as template" sit next to each other because
+ * they make the same kind of thing — a `repeat_task_templates` row — and differ
+ * only in whether it carries a schedule (DEX-65).
+ */
 export const getOtherSections = (
   onDuplicate: () => void,
   onDelete: () => void,
   repeat: { label: string; onSelect: () => void },
+  onSaveAsTemplate: () => void,
 ): TIconMenuSection[] => [
   {
     options: [
@@ -355,6 +377,16 @@ export const getOtherSections = (
         title: repeat.label,
         icon: { ios: "repeat", android: "repeat", web: "repeat" } as const,
         onSelect: repeat.onSelect,
+      },
+      {
+        id: "save-as-template",
+        title: "Save as template",
+        icon: {
+          ios: "square.on.square.dashed",
+          android: "bookmark_add",
+          web: "bookmark_add",
+        } as const,
+        onSelect: onSaveAsTemplate,
       },
       {
         id: "delete",

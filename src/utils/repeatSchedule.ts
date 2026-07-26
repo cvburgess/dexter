@@ -154,6 +154,10 @@ export const parseSchedule = (
 export const describeSchedule = (
   schedule: string | null | undefined,
 ): string => {
+  // Guarded ahead of `parseSchedule`, whose daily fallback would otherwise
+  // describe a scheduleless task template as repeating every day (DEX-65).
+  if (!schedule) return "Doesn't repeat";
+
   const parsed = parseSchedule(schedule);
 
   switch (parsed.frequency) {

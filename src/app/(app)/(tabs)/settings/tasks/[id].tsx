@@ -56,7 +56,15 @@ const MONTHS = [
   "December",
 ];
 
-const FREQUENCIES: { value: TRepeatFrequency; label: string }[] = [
+/**
+ * "Never" is not a cadence, so it stays out of the shared `TRepeatFrequency`
+ * union — it means "this row has no schedule at all", which is what makes it a
+ * task template rather than a repeat task (DEX-65).
+ */
+type TEditorFrequency = TRepeatFrequency | "never";
+
+const FREQUENCIES: { value: TEditorFrequency; label: string }[] = [
+  { value: "never", label: "Never" },
   { value: "daily", label: "Daily" },
   { value: "weekly", label: "Weekly" },
   { value: "monthly", label: "Monthly" },
@@ -73,7 +81,7 @@ const dayOptions = (maxDay: number) =>
 
 // RN's Alert is a no-op on web, so fall back to the browser's alert there.
 const showSaveError = () => {
-  const message = "We couldn't save the repeat schedule. Please try again.";
+  const message = "We couldn't save your changes. Please try again.";
 
   if (Platform.OS === "web") {
     window.alert(message);
@@ -117,8 +125,10 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
   const [subtasks, setSubtasks] = useState<TTemplateSubtask[]>(
     existing.subtasks,
   );
-  const [frequency, setFrequency] = useState<TRepeatFrequency>(
-    parsed.frequency,
+  // `parseSchedule` falls back to daily for a null schedule, so the template
+  // case has to be read off the row itself rather than off the parse.
+  const [frequency, setFrequency] = useState<TEditorFrequency>(
+    existing.schedule === null ? "never" : parsed.frequency,
   );
   const [weekdays, setWeekdays] = useState<number[]>(
     parsed.frequency === "weekly" ? parsed.weekdays : [1],
@@ -136,8 +146,15 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
   const canSave =
     title.trim().length > 0 && (frequency !== "weekly" || weekdays.length > 0);
 
-  const buildCurrentSchedule = (): string => {
+  // A template, not a repeat — drives every piece of copy on the screen so the
+  // editor reads correctly the moment the frequency is switched, not only
+  // after it is saved.
+  const isTemplate = frequency === "never";
+
+  const buildCurrentSchedule = (): string | null => {
     switch (frequency) {
+      case "never":
+        return null;
       case "daily":
         return buildSchedule({ frequency: "daily" });
       case "weekly":
@@ -177,14 +194,24 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
     );
   };
 
-  const handleStopRepeating = async () => {
-    const confirmed = await confirm({
-      title: "Stop repeating?",
-      message:
-        "This deletes the repeat schedule. The current task stays, but no new occurrences will be created.",
-      confirmLabel: "Stop Repeating",
-      destructive: true,
-    });
+  const handleDelete = async () => {
+    const confirmed = await confirm(
+      isTemplate
+        ? {
+            title: "Delete template?",
+            message:
+              "This deletes the template. Tasks you already created from it are unaffected.",
+            confirmLabel: "Delete Template",
+            destructive: true,
+          }
+        : {
+            title: "Stop repeating?",
+            message:
+              "This deletes the repeat schedule. The current task stays, but no new occurrences will be created.",
+            confirmLabel: "Stop Repeating",
+            destructive: true,
+          },
+    );
     if (!confirmed) return;
     deleteTemplate(existing.id, {
       onSuccess: () => router.back(),
@@ -200,7 +227,7 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
     );
 
   useModalHeaderActions({
-    title: "Repeat Schedule",
+    title: isTemplate ? "Template" : "Repeat Schedule",
     canSave,
     onClose: handleClose,
     onSave: handleSave,
@@ -359,8 +386,8 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
         )}
 
         <View style={styles.dangerZone}>
-          <Button variant="dangerous" onPress={handleStopRepeating}>
-            Stop Repeating
+          <Button variant="dangerous" onPress={handleDelete}>
+            {isTemplate ? "Delete Template" : "Stop Repeating"}
           </Button>
         </View>
       </ScrollView>
