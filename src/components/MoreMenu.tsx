@@ -186,8 +186,9 @@ const getDateSections = (
   onPickDate: () => void,
 ): TIconMenuSection[] => {
   const meta = DATE_FIELD_META[field];
-  const today = Temporal.Now.plainDateISO().toString();
-  const tomorrow = Temporal.Now.plainDateISO().add({ days: 1 }).toString();
+  const now = Temporal.Now.plainDateISO();
+  const today = now.toString();
+  const tomorrow = now.add({ days: 1 }).toString();
   const { monday } = weekStartEnd(1);
   const nextMonday = monday.toString();
 

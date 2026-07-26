@@ -154,6 +154,41 @@ describe("MoreMenu", () => {
     ]);
   });
 
+  // The two submenus share one builder, so the only thing that can go wrong
+  // here is the field each one is bound to.
+  it("names the field when 'Pick a date…' is chosen in either date submenu", () => {
+    const onPickDate = jest.fn();
+    render(
+      <MoreMenu
+        task={makeTask()}
+        onChangePriority={jest.fn()}
+        onChangeSchedule={jest.fn()}
+        onChangeDeadline={jest.fn()}
+        onChangeList={jest.fn()}
+        onPickDate={onPickDate}
+        onSetAlarm={jest.fn()}
+        onClearAlarm={jest.fn()}
+        onDuplicate={jest.fn()}
+        onDelete={jest.fn()}
+      >
+        <Text>Task row</Text>
+      </MoreMenu>,
+    );
+
+    const { sections } = mockIconMenu.mock.calls[0][0];
+    const pickDateIn = (title: string) =>
+      sections
+        .find((section) => section.title === title)
+        ?.options.find((option) => option.title === "Pick a date…");
+
+    pickDateIn("Schedule")?.onSelect();
+    expect(onPickDate).toHaveBeenCalledWith("schedule");
+
+    pickDateIn("Deadline")?.onSelect();
+    expect(onPickDate).toHaveBeenCalledWith("deadline");
+    expect(onPickDate).toHaveBeenCalledTimes(2);
+  });
+
   it("labels the repeat action 'Repeat' when the task has no template", () => {
     render(
       <MoreMenu

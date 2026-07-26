@@ -37,6 +37,14 @@ type TSetDateModalProps = {
  * Purely presentational: it hands the chosen `"YYYY-MM-DD"` back to the caller,
  * which owns persistence (and, for the schedule, the alarm rules that go with
  * it). Clearing is the menu's job, so there is no Clear button here (DEX-87).
+ *
+ * On **web** the calendar still paints above this sheet: `DateField.web`
+ * portals its popover to `document.body` at `zIndex: 9999`, while
+ * react-native-web's `Modal` is a `position: fixed` sibling with no z-index, so
+ * the popover wins the stacking order. Picking a day works, but because that
+ * popover is outside the modal's subtree, RNW's focus trap pulls focus back on
+ * every `focus` event — so the calendar can't be driven by keyboard here (a
+ * click still lands, since click doesn't follow focus).
  */
 export function SetDateModal({
   field,
