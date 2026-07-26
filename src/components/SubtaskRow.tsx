@@ -11,9 +11,14 @@ import type { TIconMenuSection } from "./IconMenu.types";
 import { StatusButton } from "./StatusButton";
 
 // Subordinate to the parent's 32px status button, so the nesting reads at a
-// glance without needing a connector rail. Also the size the `⋯` menu host is
-// pinned to, hence one constant rather than a literal per call site.
-const STATUS_SIZE = 24;
+// glance. Also the size the `⋯` menu host is pinned to, hence one constant
+// rather than a literal per call site. Exported because TaskCard draws the
+// connector rail between the circles and has to know where they sit.
+export const SUBTASK_STATUS_SIZE = 24;
+const STATUS_SIZE = SUBTASK_STATUS_SIZE;
+
+/** Fixed: titles are single-line, so every row is exactly this tall. */
+export const SUBTASK_ROW_HEIGHT = 32;
 
 // The icons are hoisted; the sections themselves close over the row's callbacks
 // and so are rebuilt per render. That allocation is trivial next to the native
@@ -152,7 +157,7 @@ const styles = StyleSheet.create({
     // circles center under the parent's 32px ones, and the wider gap gives
     // that back, so subtask titles start on the parent title's left edge.
     gap: 12,
-    minHeight: 32,
+    minHeight: SUBTASK_ROW_HEIGHT,
   },
   // No `flex: 1` — EditableText's wrapper owns that; see its stylesheet.
   title: {
