@@ -1,0 +1,60 @@
+-- DEX-90: Drop the deprecated public.days table.
+--
+-- DEX-51 (20260726215745_split_notes_journals.sql) moved notes and the journal
+-- into their own tables and deliberately left `days` in place: it was the
+-- backfill source, the rollback path, and what already-released legacy
+-- `dexter-app` builds still read and wrote. Both of those reasons have now
+-- expired.
+--
+-- Gate, checked against production before writing this:
+-- * `dexter-app` v1.7.0 (DEX-89) shipped the Electron release and the Netlify
+--   PWA reading `notes`/`journals`, so nothing writes `days` any more.
+-- * The fleet has drained. `days` has no timestamp column, so "has anything
+--   been written since the split" is a content diff, not a `max(...)`: every
+--   `days` row with a non-empty `notes`, and every `days` row holding at least
+--   one non-empty prompt response, was joined to its `(user_id, date)`
+--   counterpart in `notes`/`journals`. Zero rows were missing and zero
+--   differed, so no second backfill pass was needed. (Row counts at the time:
+--   `days` 162 — unchanged since the DEX-89 release — `notes` 92,
+--   `journals` 48.)
+--
+-- One statement is enough. Dropping a table also removes it from every
+-- publication, so `days` leaves `supabase_realtime` here without an explicit
+-- `alter publication ... drop table` — which would additionally make this
+-- migration non-idempotent, since it errors on the already-missing relation.
+-- The PK, `idx_days_user_id`, the FK to `auth.users`, and the four RLS policies
+-- all drop with the table.
+--
+-- Note for anyone rolling DEX-51 back after this runs: that migration's own
+-- rollback comment says the new tables can simply be dropped because `days`
+-- still holds every backfilled row. That stops being true here. From this point
+-- on, restoring `days` means recreating it and backfilling *from*
+-- `notes`/`journals` — see below.
+--
+-- Rollback:
+--   create table if not exists public.days (
+--     "date" date default now() not null,
+--     user_id uuid default auth.uid() not null,
+--     notes text default ''::text,
+--     prompts jsonb not null default '[]'::jsonb
+--   );
+--   alter table only public.days
+--     add constraint days_pkey primary key (date, user_id);
+--   alter table only public.days
+--     add constraint days_user_id_fkey foreign key (user_id)
+--     references auth.users(id) on delete cascade;
+--   create index if not exists idx_days_user_id on public.days using btree (user_id);
+--   alter table public.days enable row level security;
+--   -- Four ownership policies, `to "authenticated"`, keyed
+--   -- `(select auth.uid()) = user_id` — the UPDATE one constraining `with check`
+--   -- as well as `using` (20260708040856 fixed the baseline's `with check (true)`).
+--   alter publication supabase_realtime add table public.days;
+--   insert into public.days (user_id, date, notes, prompts)
+--   select coalesce(n.user_id, j.user_id), coalesce(n.date, j.date),
+--          coalesce(n.content, ''), coalesce(j.prompts, '[]'::jsonb)
+--   from public.notes n
+--   full outer join public.journals j
+--     on j.user_id = n.user_id and j.date = n.date
+--   on conflict (date, user_id) do nothing;
+
+drop table if exists public.days;

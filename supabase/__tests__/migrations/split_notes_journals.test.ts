@@ -145,9 +145,11 @@ Deno.test("both tables join the realtime publication, guarded", () => {
   );
 });
 
-Deno.test("days is left intact for the legacy client and rollback", () => {
-  // The migration reads `days` (the backfill) but must never alter or drop it:
-  // it is the rollback path and what already-released dexter-app builds use.
+Deno.test("days is left intact by the split itself", () => {
+  // The migration reads `days` (the backfill) but must never alter or drop it.
+  // `days` is gone as of DEX-90 (20260727035544_drop_days.sql) — dropping it in
+  // a later, separate migration is what keeps this one replayable from the
+  // baseline, since both backfills above select `from public.days`.
   assert(
     !code.includes("drop table") && !code.includes("alter table public.days"),
     "the split must not modify or drop public.days",

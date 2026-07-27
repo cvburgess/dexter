@@ -96,12 +96,6 @@ async function wipeUserData(supabase: Client, userId: string): Promise<void> {
     "lists",
     "notes",
     "journals",
-    // `days` is superseded by notes/journals (DEX-51) and no longer written,
-    // but a demo account reset before that split still holds its rows — and the
-    // legacy dexter-app can still write it — so keep clearing it. Remove this
-    // entry in the same change that drops the table (DEX-90): `wipeUserData`
-    // throws on error, so a missing table would fail every preview-branch seed.
-    "days",
   ] as const;
 
   for (const table of tables) {

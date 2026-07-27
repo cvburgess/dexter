@@ -51,27 +51,6 @@ export type Database = {
           },
         ];
       };
-      days: {
-        Row: {
-          date: string;
-          notes: string | null;
-          prompts: Json | null;
-          user_id: string;
-        };
-        Insert: {
-          date?: string;
-          notes?: string | null;
-          prompts?: Json | null;
-          user_id?: string;
-        };
-        Update: {
-          date?: string;
-          notes?: string | null;
-          prompts?: Json | null;
-          user_id?: string;
-        };
-        Relationships: [];
-      };
       goals: {
         Row: {
           created_at: string;
