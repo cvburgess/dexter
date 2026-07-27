@@ -12,6 +12,7 @@ import {
   deleteTask,
   ETaskStatus,
   getTasks,
+  hasOpenTaskForTemplate,
   TCreateTask,
   TTask,
   TUpdateTask,
@@ -22,6 +23,7 @@ import { getTemplates, TTemplate } from "@/api/templates";
 import { getNextTaskDate } from "@/utils/repeatSchedule";
 import { subtasksFromTemplate, sweepSubtasks } from "@/utils/subtasks";
 import { isCompletionStatus } from "@/utils/taskFilters";
+import { OPEN_TASK_STATUSES } from "@/utils/taskStatus";
 
 import { supabase } from "./useAuth";
 
@@ -178,6 +180,15 @@ const maybeCreateNextRecurringTask = async (
   const template = templates.find(({ id }) => id === task.templateId);
   if (!template?.schedule) return;
 
+  // A repeat has exactly one open task. A template can gain a schedule after
+  // the fact, which retroactively turns every task stamped from it into an
+  // occurrence — without this, completing three of them would start three
+  // parallel chains. Safe to ask the server here specifically because this runs
+  // in `onSuccess`, after `mutationFn`'s write has landed: the task being
+  // completed is already terminal server-side, so it cannot match its own
+  // guard.
+  if (await hasOpenTaskForTemplate(supabase, template.id)) return;
+
   const nextDate = getNextTaskDate(
     { scheduledFor: task.scheduledFor },
     template.schedule,
@@ -214,7 +225,7 @@ const maybeCreateNextRecurringTask = async (
  */
 export const canonicalTaskFilters = (): TQueryFilter[] => [
   makeOrFilter([
-    ["status", "in", [ETaskStatus.TODO, ETaskStatus.IN_PROGRESS]],
+    ["status", "in", OPEN_TASK_STATUSES],
     [
       "scheduledFor",
       "gte",

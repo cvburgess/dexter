@@ -206,6 +206,18 @@ Deno.test("repeat task schedule validation enforces valid midnight cron fields",
   assertEquals(cronScheduleSchema.safeParse("0 0 1,99 * *").success, false);
 });
 
+// DEX-65: `update_template` widens the schedule to nullable so a repeat task
+// can be cleared back into a plain task template. The bare schema must still
+// reject null, or an invalid cron could slip past as one.
+Deno.test("a nullable schedule accepts null without loosening cron validation", () => {
+  assertEquals(cronScheduleSchema.nullable().safeParse(null).success, true);
+  assertEquals(cronScheduleSchema.safeParse(null).success, false);
+  assertEquals(
+    cronScheduleSchema.nullable().safeParse("0 12 * * *").success,
+    false,
+  );
+});
+
 Deno.test("daily habit writes only expose stepsComplete", () => {
   assertEquals(Object.keys(updateDailyHabitInputSchema).sort(), [
     "date",
@@ -282,6 +294,16 @@ class RecordingBuilder {
     return this;
   }
 
+  in(column: string, values: unknown[]): RecordingBuilder {
+    this.filters.push(`in:${column}:${values.join(",")}`);
+    return this;
+  }
+
+  limit(count: number): RecordingBuilder {
+    this.filters.push(`limit:${count}`);
+    return this;
+  }
+
   maybeSingle(): Promise<{ data: FakeRow | null; error: null }> {
     return Promise.resolve({ data: this.fake.take(this.table), error: null });
   }
@@ -293,15 +315,17 @@ class RecordingBuilder {
     });
   }
 
-  // Thenable so awaiting an insert/delete chain directly (no `.single()`)
-  // resolves like PostgREST and lets us record the delete.
+  // Thenable so awaiting a chain directly (no `.single()`) resolves like
+  // PostgREST: a row array for a select, and a recorded delete otherwise.
   then<T>(
-    onFulfilled: (value: { data: null; error: null }) => T,
+    onFulfilled: (value: { data: FakeRow[] | null; error: null }) => T,
   ): Promise<T> {
     if (this.op === "delete") {
       this.fake.deletes.push({ table: this.table, filters: this.filters });
+      return Promise.resolve({ data: null, error: null }).then(onFulfilled);
     }
-    return Promise.resolve({ data: null, error: null }).then(onFulfilled);
+    return Promise.resolve({ data: this.fake.rowsFor(this.table), error: null })
+      .then(onFulfilled);
   }
 }
 
@@ -310,10 +334,22 @@ class RecordingSupabase {
   updates: { table: string; payload: FakeRow }[] = [];
   deletes: { table: string; filters: string[] }[] = [];
 
-  constructor(private queues: Record<string, FakeRow[]>) {}
+  constructor(
+    private queues: Record<string, FakeRow[]>,
+    /**
+     * Rows a *list* select returns — one awaited without `.single()`, like the
+     * one-open-task guard. Fixed rather than queued, since each flow runs at
+     * most one; empty by default, which reads as "no other open task".
+     */
+    private lists: Record<string, FakeRow[]> = {},
+  ) {}
 
   take(table: string): FakeRow | null {
     return this.queues[table]?.shift() ?? null;
+  }
+
+  rowsFor(table: string): FakeRow[] {
+    return this.lists[table] ?? [];
   }
 
   from(table: string): RecordingBuilder {
@@ -374,6 +410,77 @@ Deno.test("update_task schedules the next occurrence when it completes a repeat 
   assertEquals(inserted.payload.title, "Water the plants");
   assertEquals(inserted.payload.status, 1);
   assertEquals(inserted.payload.user_id, RECUR_USER);
+});
+
+// A repeat has exactly one open task. Converting a template to a repeat makes
+// every task stamped from it an occurrence retroactively, so completing three
+// of them must not start three parallel chains. The completing task is already
+// terminal by the time this runs, so it can't match its own guard.
+Deno.test("update_task spawns nothing when another open task links to the template", async () => {
+  const registry = new ToolRegistry();
+  const supabase = new RecordingSupabase({
+    tasks: [
+      { status: 1 },
+      { status: 2, template_id: RECUR_TEMPLATE, scheduled_for: "2030-01-01" },
+    ],
+    repeat_task_templates: [
+      {
+        id: RECUR_TEMPLATE,
+        title: "Water the plants",
+        priority: 2,
+        list_id: null,
+        goal_id: null,
+        schedule: "0 0 * * *",
+      },
+    ],
+  }, {
+    // A sibling task stamped from the same template, still open.
+    tasks: [{ id: "00000000-0000-4000-8000-0000000000ee" }],
+  });
+
+  registerTaskTools(
+    registry as unknown as McpServer,
+    recordingContext(supabase, RECUR_USER),
+  );
+
+  await registry.run("update_task", { taskId: RECUR_TASK, status: 2 });
+
+  assertEquals(
+    supabase.inserts.filter((i) => i.table === "tasks").length,
+    0,
+  );
+});
+
+// The whole point of DEX-65: a template is a blueprint, so completing a task
+// linked to one must not spawn anything. `maybeCreateNextRecurringTask` bails
+// on a falsy schedule, which is what keeps a converted repeat from recurring.
+Deno.test("update_task spawns nothing when the linked template has no schedule", async () => {
+  const registry = new ToolRegistry();
+  const supabase = new RecordingSupabase({
+    tasks: [
+      { status: 1 },
+      { status: 2, template_id: RECUR_TEMPLATE, scheduled_for: "2030-01-01" },
+    ],
+    repeat_task_templates: [
+      {
+        id: RECUR_TEMPLATE,
+        title: "Trip packing",
+        priority: 2,
+        list_id: null,
+        goal_id: null,
+        schedule: null,
+      },
+    ],
+  });
+
+  registerTaskTools(
+    registry as unknown as McpServer,
+    recordingContext(supabase, RECUR_USER),
+  );
+
+  await registry.run("update_task", { taskId: RECUR_TASK, status: 2 });
+
+  assertEquals(supabase.inserts.filter((i) => i.table === "tasks").length, 0);
 });
 
 Deno.test("update_task does not re-create an occurrence for an already-complete task", async () => {
@@ -457,6 +564,8 @@ Deno.test("delete_task also deletes a linked repeat template", async () => {
   const registry = new ToolRegistry();
   const supabase = new RecordingSupabase({
     tasks: [{ template_id: RECUR_TEMPLATE }],
+    // Read back to check the link is a repeat schedule and not a saved template.
+    repeat_task_templates: [{ schedule: "0 0 * * *" }],
   });
 
   registerTaskTools(
@@ -475,6 +584,29 @@ Deno.test("delete_task also deletes a linked repeat template", async () => {
     `eq:id:${RECUR_TEMPLATE}`,
     `eq:user_id:${RECUR_USER}`,
   ]);
+});
+
+// A linked template with no schedule is a saved task template (DEX-65) — the
+// user's, not this task's. Deleting the task must not take it down too.
+Deno.test("delete_task keeps a linked task template", async () => {
+  const registry = new ToolRegistry();
+  const supabase = new RecordingSupabase({
+    tasks: [{ template_id: RECUR_TEMPLATE }],
+    repeat_task_templates: [{ schedule: null }],
+  });
+
+  registerTaskTools(
+    registry as unknown as McpServer,
+    recordingContext(supabase, RECUR_USER),
+  );
+
+  await registry.run("delete_task", { taskId: RECUR_TASK });
+
+  assert(supabase.deletes.some((d) => d.table === "tasks"));
+  assertEquals(
+    supabase.deletes.filter((d) => d.table === "repeat_task_templates").length,
+    0,
+  );
 });
 
 Deno.test("delete_task leaves standalone tasks' templates untouched", async () => {

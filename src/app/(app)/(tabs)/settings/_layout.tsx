@@ -9,6 +9,15 @@ import {
 } from "@/utils/stackOptions";
 import { useTheme } from "@/utils/theme";
 
+/**
+ * Anchors the stack so `settings/index` is always mounted underneath, even when
+ * a nested screen is entered directly — a hard refresh on a modal's URL, or
+ * `MoreMenu` pushing `tasks/[id]` from a task card. Without it that stack holds
+ * only the modal, so on web the modal floats over an empty black pane with no
+ * sidebar selection, and there is nothing to close back to.
+ */
+export const unstable_settings = { anchor: "index" };
+
 export default function SettingsLayout() {
   const theme = useTheme();
   const twoPane = useIsMultiPane();
@@ -27,14 +36,9 @@ export default function SettingsLayout() {
         name="appearance"
         options={createListScreenOptions(theme, "Appearance")}
       />
-      <Stack.Screen
-        name="tasks/index"
-        options={createListScreenOptions(theme, "Tasks")}
-      />
-      <Stack.Screen
-        name="tasks/[id]"
-        options={createModalScreenOptions(theme, "Repeat Schedule")}
-      />
+      {/* Its own nested stack, so the editor always has the list beneath it —
+          see `tasks/_layout.tsx`. That stack owns the headers. */}
+      <Stack.Screen name="tasks" options={{ headerShown: false }} />
       <Stack.Screen
         name="lists/index"
         options={createListScreenOptions(theme, "Lists")}

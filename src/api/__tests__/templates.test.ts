@@ -5,6 +5,8 @@ import {
   createTemplate,
   deleteTemplate,
   getTemplates,
+  isTaskTemplate,
+  TTemplate,
   updateTemplate,
 } from "@/api/templates";
 import { Database } from "@/types/database.types";
@@ -81,6 +83,41 @@ describe("createTemplate", () => {
     });
     expect(created).toMatchObject({ id: "template-1", listId: "list-1" });
   });
+
+  // The column has no default since DEX-65, so a null schedule has to travel to
+  // Postgres as an explicit null — dropping it would leave the row incomplete.
+  it("sends an explicit null schedule for a task template", async () => {
+    const single = jest.fn(() =>
+      Promise.resolve({
+        data: { id: "template-2", schedule: null },
+        error: null,
+      }),
+    );
+    const select = jest.fn(() => ({ single }));
+    const insert = jest.fn(() => ({ select }));
+    const from = jest.fn(() => ({ insert }));
+    const supabase = { from } as unknown as SupabaseClient<Database>;
+
+    const created = await createTemplate(supabase, {
+      title: "Trip packing",
+      priority: ETaskPriority.NEITHER,
+      schedule: null,
+    });
+
+    expect(insert).toHaveBeenCalledWith({
+      title: "Trip packing",
+      priority: ETaskPriority.NEITHER,
+      schedule: null,
+    });
+    expect(isTaskTemplate(created)).toBe(true);
+  });
+});
+
+describe("isTaskTemplate", () => {
+  it("treats a scheduleless row as a template and a scheduled one as a repeat", () => {
+    expect(isTaskTemplate({ schedule: null } as TTemplate)).toBe(true);
+    expect(isTaskTemplate({ schedule: "0 0 * * *" } as TTemplate)).toBe(false);
+  });
 });
 
 describe("updateTemplate", () => {
@@ -106,6 +143,23 @@ describe("updateTemplate", () => {
       goal_id: "goal-1",
     });
     expect(eq).toHaveBeenCalledWith("id", "template-1");
+  });
+
+  // Turning a repeat back into a template. `snakeCase` must keep the null
+  // rather than drop the key, or the schedule would silently stay put.
+  it("clears the schedule when null is passed", async () => {
+    const single = jest.fn(() =>
+      Promise.resolve({ data: { id: "template-1" }, error: null }),
+    );
+    const select = jest.fn(() => ({ single }));
+    const eq = jest.fn(() => ({ select }));
+    const update = jest.fn(() => ({ eq }));
+    const from = jest.fn(() => ({ update }));
+    const supabase = { from } as unknown as SupabaseClient<Database>;
+
+    await updateTemplate(supabase, { id: "template-1", schedule: null });
+
+    expect(update).toHaveBeenCalledWith({ schedule: null });
   });
 });
 

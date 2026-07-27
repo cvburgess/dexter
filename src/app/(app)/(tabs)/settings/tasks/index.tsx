@@ -1,20 +1,22 @@
 import { useRouter } from "expo-router";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
+import {
+  describeChecklist,
+  isRepeatTask,
+  isTaskTemplate,
+  TTemplate,
+} from "@/api/templates";
 import { PickerField } from "@/components/PickerField";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
+import { TemplateRow } from "@/components/TemplateRow";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
 import {
   ALARM_SOUNDS,
@@ -26,13 +28,43 @@ import {
   EDGES_SINGLE_PANE,
   EDGES_TWO_PANE,
 } from "@/utils/settingsSafeAreaEdges";
+import { isCompletionStatus } from "@/utils/taskFilters";
 import { useTheme } from "@/utils/theme";
+
+/** What a repeat with nothing left to fire from says instead of its cadence. */
+const STALLED_DESCRIPTION = "Not recurring — no open task to repeat from";
+
+const PLAY_ICON = {
+  ios: "play.fill",
+  android: "play_arrow",
+  web: "play_arrow",
+} as const;
 
 export default function TasksScreen() {
   const theme = useTheme();
-  const router = useRouter();
-  const [templates] = useTemplates();
+  const [templates, { createNextOccurrence }] = useTemplates();
+  const [tasks, { isLoading: isLoadingTasks }] = useTasks();
   const [{ alarmSound }, { updatePreferences }] = usePreferences();
+  // Two kinds of row live in one table; the schedule is what tells them apart
+  // (DEX-65). Both are edited by the same `tasks/[id]` screen.
+  const taskTemplates = templates.filter(isTaskTemplate);
+  const repeatTasks = templates.filter(isRepeatTask);
+
+  // A repeat has exactly one open task, and fires by *completing* it — so one
+  // with none can never fire again and is stalled, not merely idle. Answered
+  // from the cache: the canonical query already holds every incomplete task
+  // regardless of date (`useTasks`), so no extra query is needed.
+  //
+  // An unloaded cache is "unknown", not "empty": `useTasks` hands back a `[]`
+  // placeholder until its fetch lands, and reading that as stalled would paint
+  // every healthy repeat with the red warning and a repair button on first
+  // paint, then quietly correct itself.
+  const isStalled = (template: TTemplate) =>
+    !isLoadingTasks &&
+    !tasks.some(
+      (task) =>
+        task.templateId === template.id && !isCompletionStatus(task.status),
+    );
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = useIsMultiPane();
   const insets = useSafeAreaInsets();
@@ -75,64 +107,103 @@ export default function TasksScreen() {
           </View>
         )}
 
-        <View style={styles.section}>
-          <SettingsSectionTitle>Repeating Tasks</SettingsSectionTitle>
-          {templates.length === 0 ? (
-            <Text style={[styles.empty, { color: theme.colors.textSecondary }]}>
-              To repeat a task, open its menu and choose Repeat. Its schedule
-              will show up here.
-            </Text>
-          ) : (
-            <View style={{ gap: theme.gap }}>
-              {templates.map((template) => (
-                <TouchableOpacity
-                  key={template.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Edit ${template.title}`}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/settings/tasks/[id]",
-                      params: { id: template.id },
-                    })
-                  }
-                  style={[
-                    styles.card,
-                    {
-                      backgroundColor: theme.colors.card,
-                      borderRadius: theme.borderRadius,
-                    },
-                  ]}
-                >
-                  <Text
-                    numberOfLines={1}
-                    style={[styles.title, { color: theme.colors.text }]}
-                  >
-                    {template.title || "Untitled task"}
-                  </Text>
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      styles.subtitle,
-                      { color: theme.colors.textSecondary },
-                    ]}
-                  >
-                    {describeSchedule(template.schedule)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
+        <TemplateSection
+          title="Repeat tasks"
+          templates={repeatTasks}
+          describe={(template) => describeSchedule(template.schedule)}
+          emptyText="To repeat a task, open its menu and choose Repeat. Its schedule will show up here."
+          repair={{ isStalled, onPress: createNextOccurrence }}
+        />
+
+        <TemplateSection
+          title="Task templates"
+          templates={taskTemplates}
+          describe={describeChecklist}
+          emptyText="Open a task's menu and choose Save as template to reuse it later."
+        />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+type TTemplateSectionProps = {
+  title: string;
+  templates: TTemplate[];
+  /** The one-line summary under each row's title. */
+  describe: (template: TTemplate) => string;
+  emptyText: string;
+  /**
+   * Repeat tasks only: how to spot one that has run dry, and how to fix it. A
+   * task template is stamped out on demand and has nothing to stall.
+   */
+  repair?: {
+    isStalled: (template: TTemplate) => boolean;
+    onPress: (template: TTemplate) => void;
+  };
+};
+
+/**
+ * A titled list of template rows. Repeat tasks and task templates render
+ * identically and open the same editor — only the section's copy, the line
+ * under each title, and the repair action differ.
+ */
+function TemplateSection({
+  title,
+  templates,
+  describe,
+  emptyText,
+  repair,
+}: TTemplateSectionProps) {
+  const theme = useTheme();
+  const router = useRouter();
+
+  return (
+    <View style={styles.section}>
+      <SettingsSectionTitle>{title}</SettingsSectionTitle>
+      {templates.length === 0 ? (
+        <Text style={[styles.empty, { color: theme.colors.textSecondary }]}>
+          {emptyText}
+        </Text>
+      ) : (
+        <View style={{ gap: theme.gap }}>
+          {templates.map((template) => {
+            // The stalled state replaces the cadence rather than sitting beside
+            // it: "Every day" is what the row is failing to do, so restating it
+            // alongside the warning would read as a contradiction.
+            const stalled = repair?.isStalled(template) ?? false;
+
+            return (
+              <TemplateRow
+                key={template.id}
+                template={template}
+                description={stalled ? STALLED_DESCRIPTION : describe(template)}
+                isStalled={stalled}
+                action={
+                  stalled && repair
+                    ? {
+                        icon: PLAY_ICON,
+                        accessibilityLabel: `Create next ${template.title}`,
+                        onPress: () => repair.onPress(template),
+                      }
+                    : undefined
+                }
+                accessibilityLabel={`Edit ${template.title}`}
+                onPress={() =>
+                  router.push({
+                    pathname: "/settings/tasks/[id]",
+                    params: { id: template.id },
+                  })
+                }
+              />
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  card: {
-    gap: 4,
-    padding: 16,
-  },
   container: {
     flex: 1,
   },
@@ -145,12 +216,5 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: 10,
-  },
-  subtitle: {
-    fontSize: 13,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: "500",
   },
 });

@@ -10,6 +10,7 @@ import {
   ETaskStatus,
   deleteTask,
   getTasks,
+  hasOpenTaskForTemplate,
   TTask,
   updateTask,
   updateTasks,
@@ -28,6 +29,7 @@ jest.mock("@/api/tasks", () => ({
   updateTask: jest.fn(),
   updateTasks: jest.fn(),
   deleteTask: jest.fn(),
+  hasOpenTaskForTemplate: jest.fn(),
 }));
 
 const mockGetTasks = getTasks as jest.MockedFunction<typeof getTasks>;
@@ -35,6 +37,8 @@ const mockCreateTask = createTask as jest.MockedFunction<typeof createTask>;
 const mockUpdateTask = updateTask as jest.MockedFunction<typeof updateTask>;
 const mockUpdateTasks = updateTasks as jest.MockedFunction<typeof updateTasks>;
 const mockDeleteTask = deleteTask as jest.MockedFunction<typeof deleteTask>;
+const mockHasOpenTaskForTemplate =
+  hasOpenTaskForTemplate as jest.MockedFunction<typeof hasOpenTaskForTemplate>;
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -65,6 +69,9 @@ describe("useTasks", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetTasks.mockResolvedValue([]);
+    // The completing task is already terminal server-side by the time the
+    // recurrence guard runs, so the default is "nothing else is open".
+    mockHasOpenTaskForTemplate.mockResolvedValue(false);
   });
 
   it("fetches under a single stable query key, not one per caller", async () => {
@@ -278,6 +285,79 @@ describe("useTasks", () => {
     expect(created.alarmTime).toBe("17:30");
     expect(created.templateId).toBe("template-1");
     expect(created.scheduledFor).not.toBe(today);
+  });
+
+  // A repeat has exactly one open task. A template can gain a schedule after
+  // the fact, which retroactively turns every task stamped from it into an
+  // occurrence — completing three of them must not start three parallel chains.
+  describe("the one-open-task guard on completion", () => {
+    const template: TTemplate = {
+      id: "template-1",
+      alarmTime: null,
+      createdAt: "2026-01-01T00:00:00Z",
+      goalId: null,
+      listId: null,
+      priority: ETaskPriority.NEITHER,
+      schedule: "0 0 * * *", // daily
+      subtasks: [],
+      title: "Take meds",
+      userId: "user-1",
+    };
+
+    const completeLinkedTask = async () => {
+      const { wrapper, queryClient } = createWrapper();
+      const task: TTask = {
+        id: "task-1",
+        alarmTime: null,
+        title: "Take meds",
+        dueOn: null,
+        goalId: null,
+        listId: null,
+        priority: ETaskPriority.NEITHER,
+        scheduledFor: Temporal.Now.plainDateISO().toString(),
+        status: ETaskStatus.TODO,
+        subtasks: [],
+        templateId: "template-1",
+      };
+
+      mockGetTasks.mockResolvedValue([task]);
+      queryClient.setQueryData(["templates"], [template]);
+      mockUpdateTask.mockResolvedValue([{ ...task, status: ETaskStatus.DONE }]);
+
+      const { result } = renderHook(() => useTasks(), { wrapper });
+      await waitFor(() =>
+        expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual([task]),
+      );
+
+      act(() =>
+        result.current[1].updateTask({
+          id: "task-1",
+          status: ETaskStatus.DONE,
+        }),
+      );
+    };
+
+    it("spawns nothing when another open task already links to the template", async () => {
+      mockHasOpenTaskForTemplate.mockResolvedValue(true);
+
+      await completeLinkedTask();
+
+      await waitFor(() =>
+        expect(mockHasOpenTaskForTemplate).toHaveBeenCalledWith(
+          expect.anything(),
+          "template-1",
+        ),
+      );
+      expect(mockCreateTask).not.toHaveBeenCalled();
+    });
+
+    it("spawns the next occurrence when the completed task was the only open one", async () => {
+      await completeLinkedTask();
+
+      await waitFor(() => expect(mockCreateTask).toHaveBeenCalled());
+      const [, created] = mockCreateTask.mock.calls[0];
+      expect(created.templateId).toBe("template-1");
+    });
   });
 
   describe("subtask sweep on completion", () => {

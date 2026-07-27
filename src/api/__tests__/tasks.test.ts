@@ -7,6 +7,7 @@ import {
   ETaskPriority,
   ETaskStatus,
   getTasks,
+  hasOpenTaskForTemplate,
   promoteSubtaskInput,
   removeSubtask,
   TTask,
@@ -159,6 +160,63 @@ describe("appendSubtask", () => {
     appendSubtask(source.subtasks);
 
     expect(source.subtasks).toHaveLength(2);
+  });
+});
+
+// The one predicate behind "can this repeat still fire?". Recurrence spawns
+// from *completing* a linked task, so a template whose links are all closed out
+// is stalled — which is why the status filter is load-bearing rather than a
+// tidy-up: `template_id` also records provenance for tasks stamped from a
+// template, and those get checked off like any other.
+describe("hasOpenTaskForTemplate", () => {
+  const mockQuery = (result: { data: unknown[]; error: unknown }) => {
+    const limit = jest.fn(() => Promise.resolve(result));
+    const isIn = jest.fn(() => ({ limit }));
+    const eq = jest.fn(() => ({ in: isIn }));
+    const select = jest.fn(() => ({ eq }));
+    const from = jest.fn(() => ({ select }));
+    const supabase = { from } as unknown as SupabaseClient<Database>;
+    return { supabase, from, select, eq, isIn, limit };
+  };
+
+  it("asks only for open tasks linked to the template", async () => {
+    const { supabase, from, select, eq, isIn, limit } = mockQuery({
+      data: [{ id: "task-1" }],
+      error: null,
+    });
+
+    await expect(hasOpenTaskForTemplate(supabase, "template-1")).resolves.toBe(
+      true,
+    );
+
+    expect(from).toHaveBeenCalledWith("tasks");
+    expect(select).toHaveBeenCalledWith("id");
+    expect(eq).toHaveBeenCalledWith("template_id", "template-1");
+    expect(isIn).toHaveBeenCalledWith("status", [
+      ETaskStatus.TODO,
+      ETaskStatus.IN_PROGRESS,
+    ]);
+    // Existence, not a count — one row is enough.
+    expect(limit).toHaveBeenCalledWith(1);
+  });
+
+  // No date filter: an occurrence scheduled a year out still counts, and so
+  // does one from long before the canonical query's recent window.
+  it("is false when every linked task has been closed out", async () => {
+    const { supabase } = mockQuery({ data: [], error: null });
+
+    await expect(hasOpenTaskForTemplate(supabase, "template-1")).resolves.toBe(
+      false,
+    );
+  });
+
+  it("throws when Supabase returns an error", async () => {
+    const error = new Error("select failed");
+    const { supabase } = mockQuery({ data: [], error });
+
+    await expect(hasOpenTaskForTemplate(supabase, "template-1")).rejects.toBe(
+      error,
+    );
   });
 });
 

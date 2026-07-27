@@ -10,8 +10,13 @@ import {
   View,
 } from "react-native";
 
-import { ETaskPriority } from "@/api/tasks";
-import { TTemplate, TTemplateSubtask } from "@/api/templates";
+import { ETaskPriority, TTask } from "@/api/tasks";
+import {
+  NEW_TEMPLATE,
+  templateFieldsFromTask,
+  TTemplate,
+  TTemplateSubtask,
+} from "@/api/templates";
 import { Button } from "@/components/Button";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { FormRow } from "@/components/FormRow";
@@ -28,6 +33,7 @@ import { useConfirmation } from "@/hooks/useConfirmation";
 import { useGoals } from "@/hooks/useGoals";
 import { useLists } from "@/hooks/useLists";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
+import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
 import { DEFAULT_ALARM_TIME, isAlarmSupported } from "@/utils/alarms";
 import {
@@ -56,7 +62,15 @@ const MONTHS = [
   "December",
 ];
 
-const FREQUENCIES: { value: TRepeatFrequency; label: string }[] = [
+/**
+ * "Never" is not a cadence, so it stays out of the shared `TRepeatFrequency`
+ * union — it means "this row has no schedule at all", which is what makes it a
+ * task template rather than a repeat task (DEX-65).
+ */
+type TEditorFrequency = TRepeatFrequency | "never";
+
+const FREQUENCIES: { value: TEditorFrequency; label: string }[] = [
+  { value: "never", label: "Never" },
   { value: "daily", label: "Daily" },
   { value: "weekly", label: "Weekly" },
   { value: "monthly", label: "Monthly" },
@@ -73,7 +87,7 @@ const dayOptions = (maxDay: number) =>
 
 // RN's Alert is a no-op on web, so fall back to the browser's alert there.
 const showSaveError = () => {
-  const message = "We couldn't save the repeat schedule. Please try again.";
+  const message = "We couldn't save your changes. Please try again.";
 
   if (Platform.OS === "web") {
     window.alert(message);
@@ -82,9 +96,55 @@ const showSaveError = () => {
   }
 };
 
+/**
+ * The unsaved shape a menu action starts from, seeded off its task. Repeat
+ * opens on a daily cadence and Save as template on none, which is the only
+ * difference between the two — either can be changed before saving.
+ */
+const draftFromTask = (task: TTask, repeats: boolean): TTemplateDraft => ({
+  ...templateFieldsFromTask(task),
+  schedule: repeats ? buildSchedule({ frequency: "daily" }) : null,
+});
+
+/** An `existing` template, or the seed for one that hasn't been written yet. */
+type TTemplateDraft = Omit<TTemplate, "id" | "createdAt" | "userId">;
+
 export default function RepeatScheduleScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, fromTask, repeats } = useLocalSearchParams<{
+    id: string;
+    fromTask?: string;
+    repeats?: string;
+  }>();
   const [, { getTemplateById, isLoading }] = useTemplates();
+  const [tasks, { isLoading: isLoadingTasks }] = useTasks();
+
+  // Repeat and Save as template both route here before anything is stored,
+  // carrying the task to seed from — so ✕ leaves nothing behind and ✓ is what
+  // writes the row.
+  if (id === NEW_TEMPLATE) {
+    const task = tasks.find((candidate) => candidate.id === fromTask);
+    if (!task) {
+      return isLoadingTasks ? (
+        <LoadingScreen />
+      ) : (
+        <Redirect href="/settings/tasks" />
+      );
+    }
+    return (
+      <RepeatScheduleForm
+        draft={draftFromTask(task, repeats === "1")}
+        // Only a task that doesn't already come from a template — of either
+        // kind — is free to be linked. A task has one `template_id`, and
+        // re-pointing it would rewrite where it came from and could leave a
+        // repeat with nothing to fire from; `useTemplates` seeds the new row
+        // its own first occurrence instead. Under the current menu this is only
+        // reachable for a linked task via a deep link, but it is what makes
+        // that harmless.
+        linkTaskId={task.templateId ? undefined : task.id}
+      />
+    );
+  }
+
   const existing = getTemplateById(id);
 
   if (!existing) {
@@ -95,30 +155,46 @@ export default function RepeatScheduleScreen() {
   }
 
   // The `key` remounts the form if the resolved template changes.
-  return <RepeatScheduleForm key={existing.id} existing={existing} />;
+  return (
+    <RepeatScheduleForm
+      key={existing.id}
+      draft={existing}
+      existing={existing}
+    />
+  );
 }
 
-function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
+function RepeatScheduleForm({
+  draft,
+  existing,
+  linkTaskId,
+}: {
+  draft: TTemplateDraft;
+  /** Absent for a draft — the row does not exist yet. */
+  existing?: TTemplate;
+  /** The task a draft was seeded from, linked to the new row on save. */
+  linkTaskId?: string;
+}) {
   const theme = useTheme();
   const router = useRouter();
 
   const [lists] = useLists();
   const [goals] = useGoals();
-  const [, { updateTemplate, deleteTemplate }] = useTemplates();
+  const [, { createTemplate, updateTemplate, deleteTemplate }] = useTemplates();
   const { confirm, confirmationProps } = useConfirmation();
 
-  const parsed = parseSchedule(existing.schedule);
+  const parsed = parseSchedule(draft.schedule);
 
-  const [title, setTitle] = useState(existing.title);
-  const [priority, setPriority] = useState<ETaskPriority>(existing.priority);
-  const [listId, setListId] = useState<string | null>(existing.listId);
-  const [goalId, setGoalId] = useState<string | null>(existing.goalId);
-  const [alarmTime, setAlarmTime] = useState<string | null>(existing.alarmTime);
-  const [subtasks, setSubtasks] = useState<TTemplateSubtask[]>(
-    existing.subtasks,
-  );
-  const [frequency, setFrequency] = useState<TRepeatFrequency>(
-    parsed.frequency,
+  const [title, setTitle] = useState(draft.title);
+  const [priority, setPriority] = useState<ETaskPriority>(draft.priority);
+  const [listId, setListId] = useState<string | null>(draft.listId);
+  const [goalId, setGoalId] = useState<string | null>(draft.goalId);
+  const [alarmTime, setAlarmTime] = useState<string | null>(draft.alarmTime);
+  const [subtasks, setSubtasks] = useState<TTemplateSubtask[]>(draft.subtasks);
+  // `parseSchedule` falls back to daily for a null schedule, so the template
+  // case has to be read off the row itself rather than off the parse.
+  const [frequency, setFrequency] = useState<TEditorFrequency>(
+    draft.schedule === null ? "never" : parsed.frequency,
   );
   const [weekdays, setWeekdays] = useState<number[]>(
     parsed.frequency === "weekly" ? parsed.weekdays : [1],
@@ -136,8 +212,15 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
   const canSave =
     title.trim().length > 0 && (frequency !== "weekly" || weekdays.length > 0);
 
-  const buildCurrentSchedule = (): string => {
+  // A template, not a repeat — drives every piece of copy on the screen so the
+  // editor reads correctly the moment the frequency is switched, not only
+  // after it is saved.
+  const isTemplate = frequency === "never";
+
+  const buildCurrentSchedule = (): string | null => {
     switch (frequency) {
+      case "never":
+        return null;
       case "daily":
         return buildSchedule({ frequency: "daily" });
       case "weekly":
@@ -149,45 +232,64 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
     }
   };
 
-  const handleClose = () => router.back();
+  // Pops rather than navigating: the stack this screen was pushed onto already
+  // has the list under it (`tasks/_layout.tsx` anchors it), and popping keeps
+  // whatever is under *that* — without it the Tasks screen becomes the root of
+  // the settings tab and loses its own back button. `dismissTo` looks tidier
+  // but replaces the current screen when it can't find the target, which
+  // collapses exactly that history. The guard covers the one case the anchor
+  // can't: a cold deep link straight to this URL.
+  const handleClose = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/settings/tasks");
+  };
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;
     hasSaved.current = true;
 
-    updateTemplate(
-      {
-        id: existing.id,
-        title: title.trim(),
-        priority,
-        listId,
-        goalId,
-        alarmTime,
-        schedule: buildCurrentSchedule(),
-        // Drop any row left untitled — an empty row is an abandoned edit.
-        subtasks: withTitledRows(subtasks),
+    const fields = {
+      title: title.trim(),
+      priority,
+      listId,
+      goalId,
+      alarmTime,
+      schedule: buildCurrentSchedule(),
+      // Drop any row left untitled — an empty row is an abandoned edit.
+      subtasks: withTitledRows(subtasks),
+    };
+    const callbacks = {
+      onSuccess: handleClose,
+      onError: () => {
+        hasSaved.current = false;
+        showSaveError();
       },
-      {
-        onSuccess: () => router.back(),
-        onError: () => {
-          hasSaved.current = false;
-          showSaveError();
-        },
-      },
-    );
+    };
+
+    // A draft has no row yet — ✓ is what writes it. `createTemplate` links the
+    // source task whatever cadence it was saved on: the task did come from this
+    // template either way, and a scheduled row gets the open task it needs to
+    // fire from for free.
+    if (existing) updateTemplate({ id: existing.id, ...fields }, callbacks);
+    else createTemplate({ template: fields, linkTaskId }, callbacks);
   };
 
-  const handleStopRepeating = async () => {
+  // One destructive action, one message, whether or not the row has a schedule.
+  // "Stop repeating" used to live here too, but setting Repeats to Never now
+  // does that — and keeps the template — so a second button offering it only
+  // blurred the difference between dropping the schedule and deleting the row.
+  const handleDelete = async () => {
+    if (!existing) return;
     const confirmed = await confirm({
-      title: "Stop repeating?",
+      title: "Delete template?",
       message:
-        "This deletes the repeat schedule. The current task stays, but no new occurrences will be created.",
-      confirmLabel: "Stop Repeating",
+        "This deletes the template. Tasks you already created from it are unaffected.",
+      confirmLabel: "Delete Template",
       destructive: true,
     });
     if (!confirmed) return;
     deleteTemplate(existing.id, {
-      onSuccess: () => router.back(),
+      onSuccess: handleClose,
       onError: showSaveError,
     });
   };
@@ -200,7 +302,16 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
     );
 
   useModalHeaderActions({
-    title: "Repeat Schedule",
+    // Follows the picker in every case, drafts included: a draft opened from
+    // Repeat starts on a cadence, so titling it "New Template" would describe
+    // the wrong thing.
+    title: isTemplate
+      ? existing
+        ? "Template"
+        : "New Template"
+      : existing
+        ? "Repeat Schedule"
+        : "New Repeat Schedule",
     canSave,
     onClose: handleClose,
     onSave: handleSave,
@@ -358,11 +469,14 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
           />
         )}
 
-        <View style={styles.dangerZone}>
-          <Button variant="dangerous" onPress={handleStopRepeating}>
-            Stop Repeating
-          </Button>
-        </View>
+        {/* A draft has no row to delete — ✕ is how you abandon it. */}
+        {existing && (
+          <View style={styles.dangerZone}>
+            <Button variant="dangerous" onPress={handleDelete}>
+              Delete Template
+            </Button>
+          </View>
+        )}
       </ScrollView>
 
       <ConfirmationModal {...confirmationProps} />
