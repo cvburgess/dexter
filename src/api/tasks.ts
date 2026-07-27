@@ -197,6 +197,25 @@ export const updateTasks = async (
   return (camelCase(data) as TTask[]).map(withSubtasksArray);
 };
 
+/**
+ * Whether any task links to this template — of any status and any age, so this
+ * deliberately bypasses the canonical query's recent-window filter: a repeat
+ * whose only occurrence was completed months ago is still linked.
+ */
+export const hasTaskForTemplate = async (
+  supabase: SupabaseClient<Database>,
+  templateId: string,
+) => {
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("id")
+    .eq("template_id", templateId)
+    .limit(1);
+
+  if (error) throw error;
+  return data.length > 0;
+};
+
 export const deleteTask = async (
   supabase: SupabaseClient<Database>,
   id: string,

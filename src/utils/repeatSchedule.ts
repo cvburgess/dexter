@@ -76,6 +76,24 @@ export const getNextOccurrence = (
 };
 
 /**
+ * The first date (YYYY-MM-DD) a newly scheduled template should produce,
+ * counting `today` itself — unlike `getNextOccurrence`, which is always strictly
+ * after its reference because it answers "when does this recur *again*". Used
+ * when a template is promoted to a repeat and has no occurrence yet, where
+ * skipping a cadence that matches today would look like nothing happened.
+ */
+export const getFirstOccurrence = (
+  schedule: string | null | undefined,
+  today: string,
+): string | null => {
+  const dayBefore = new Date(`${today}T00:00:00Z`);
+  if (Number.isNaN(dayBefore.getTime())) return null;
+
+  dayBefore.setUTCDate(dayBefore.getUTCDate() - 1);
+  return getNextOccurrence(schedule, dayBefore.toISOString().slice(0, 10));
+};
+
+/**
  * The date (YYYY-MM-DD) to schedule the next occurrence of a completed repeat
  * task, or `null` when it should not recur. The reference point is
  * `max(today, scheduledFor)` so a rescheduled task's cadence follows its new

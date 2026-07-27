@@ -1,6 +1,7 @@
 import {
   buildSchedule,
   describeSchedule,
+  getFirstOccurrence,
   getNextOccurrence,
   getNextTaskDate,
   parseSchedule,
@@ -136,6 +137,31 @@ describe("parseSchedule", () => {
   it("falls back to daily for null or non-preset schedules", () => {
     expect(parseSchedule(null)).toEqual({ frequency: "daily" });
     expect(parseSchedule("0 0 */2 * *")).toEqual({ frequency: "daily" });
+  });
+});
+
+// Unlike `getNextOccurrence`, this one counts its reference date — promoting a
+// template to a cadence that matches today should produce a task today, not
+// look like nothing happened.
+describe("getFirstOccurrence", () => {
+  it("returns the reference date itself when the schedule matches it", () => {
+    expect(getFirstOccurrence("0 0 * * *", "2026-07-12")).toBe("2026-07-12");
+    // 2026-07-13 is a Monday.
+    expect(getFirstOccurrence("0 0 * * 1", "2026-07-13")).toBe("2026-07-13");
+  });
+
+  it("returns the next match when the schedule does not match it", () => {
+    expect(getFirstOccurrence("0 0 * * 1", "2026-07-14")).toBe("2026-07-20");
+    expect(getFirstOccurrence("0 0 15 * *", "2026-07-12")).toBe("2026-07-15");
+  });
+
+  it("crosses a month boundary without drifting", () => {
+    expect(getFirstOccurrence("0 0 1 * *", "2026-07-12")).toBe("2026-08-01");
+  });
+
+  it("returns null without a schedule or on an unparseable date", () => {
+    expect(getFirstOccurrence(null, "2026-07-12")).toBeNull();
+    expect(getFirstOccurrence("0 0 * * *", "not-a-date")).toBeNull();
   });
 });
 
