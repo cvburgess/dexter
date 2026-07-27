@@ -171,7 +171,7 @@ describe("RepeatScheduleScreen", () => {
       fireEvent.press(header.getByTestId("modal-close-button"));
 
       expect(mockCreateTemplate).not.toHaveBeenCalled();
-      expect(mockRouter.dismissTo).toHaveBeenCalledWith("/settings/tasks");
+      expect(mockRouter.back).toHaveBeenCalled();
     });
 
     it("creates the template from the task's fields on save", () => {
@@ -227,11 +227,11 @@ describe("RepeatScheduleScreen", () => {
     });
   });
 
-  // Opened straight from a task card's menu, this modal has nothing to pop back
-  // to on web: a bare `back()` was an unhandled GO_BACK and the ✕/✓ both looked
-  // dead. `dismissTo` always resolves to the list this editor details.
   describe("closing", () => {
-    it("returns to the template list after saving", () => {
+    // Popping, not navigating: the list is already underneath (the tasks stack
+    // anchors it), and replacing it instead would collapse what sits under
+    // *that*, leaving Tasks as the root of the settings tab with no back button.
+    it("pops back to the template list after saving", () => {
       mockUpdateTemplate.mockImplementation((_diff, { onSuccess }) =>
         onSuccess(),
       );
@@ -239,11 +239,11 @@ describe("RepeatScheduleScreen", () => {
 
       save();
 
-      expect(mockRouter.dismissTo).toHaveBeenCalledWith("/settings/tasks");
-      expect(mockRouter.back).not.toHaveBeenCalled();
+      expect(mockRouter.back).toHaveBeenCalled();
+      expect(mockRouter.replace).not.toHaveBeenCalled();
     });
 
-    it("returns to the template list after deleting", async () => {
+    it("pops back to the template list after deleting", async () => {
       mockConfirm.mockResolvedValue(true);
       mockDeleteTemplate.mockImplementation((_id, { onSuccess }) =>
         onSuccess(),
@@ -251,9 +251,21 @@ describe("RepeatScheduleScreen", () => {
       const screen = renderWith(makeTemplate());
 
       fireEvent.press(screen.getByText("Delete Template"));
-      await waitFor(() =>
-        expect(mockRouter.dismissTo).toHaveBeenCalledWith("/settings/tasks"),
+      await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    });
+
+    // The one case the anchor can't cover: a cold deep link straight to this URL.
+    it("falls back to the list when there is nothing to pop", () => {
+      mockRouter.canGoBack.mockReturnValue(false);
+      mockUpdateTemplate.mockImplementation((_diff, { onSuccess }) =>
+        onSuccess(),
       );
+      renderWith(makeTemplate());
+
+      save();
+
+      expect(mockRouter.back).not.toHaveBeenCalled();
+      expect(mockRouter.replace).toHaveBeenCalledWith("/settings/tasks");
     });
   });
 

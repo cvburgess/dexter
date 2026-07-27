@@ -225,12 +225,17 @@ function RepeatScheduleForm({
     }
   };
 
-  // Always lands on the list this editor details, rather than wherever the user
-  // happened to come from: `dismissTo` pops back to it when it is in the stack
-  // and replaces the current screen with it when it isn't. A bare `back()` was
-  // an unhandled GO_BACK when this screen was opened from a task card, which
-  // left both header buttons looking dead.
-  const handleClose = () => router.dismissTo("/settings/tasks");
+  // Pops rather than navigating: the stack this screen was pushed onto already
+  // has the list under it (`tasks/_layout.tsx` anchors it), and popping keeps
+  // whatever is under *that* — without it the Tasks screen becomes the root of
+  // the settings tab and loses its own back button. `dismissTo` looks tidier
+  // but replaces the current screen when it can't find the target, which
+  // collapses exactly that history. The guard covers the one case the anchor
+  // can't: a cold deep link straight to this URL.
+  const handleClose = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/settings/tasks");
+  };
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;
