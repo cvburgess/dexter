@@ -1,6 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
-import type { ReactElement } from "react";
 import {
   Alert,
   ScrollView,
@@ -8,8 +7,9 @@ import {
   Text,
   TouchableOpacity,
 } from "react-native";
-import type { StyleProp, ViewStyle } from "react-native";
-import { SafeAreaInsetsContext } from "react-native-safe-area-context";
+import type { ViewStyle } from "react-native";
+
+import { renderWithBottomInset } from "@/testUtils/renderWithBottomInset";
 
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -110,27 +110,10 @@ const task = (overrides: Partial<TTask> = {}): TTask => ({
   ...overrides,
 });
 
-// The project-wide safe-area mock (jest.setup.js) reads the real
-// SafeAreaInsetsContext and falls back to all-zero insets, so a test that
-// cares about the inset supplies one through the context rather than
-// re-mocking the module.
-const renderWithBottomInset = (bottom: number, ui: ReactElement) =>
-  render(
-    <SafeAreaInsetsContext.Provider
-      value={{ top: 0, right: 0, bottom, left: 0 }}
-    >
-      {ui}
-    </SafeAreaInsetsContext.Provider>,
-  );
-
-// A test instance's `props` is `any`; narrow to the one prop under assertion.
 const listContentStyle = (screen: ReturnType<typeof render>) =>
-  StyleSheet.flatten<ViewStyle>(
-    (
-      screen.UNSAFE_getByType(ScrollView).props as {
-        contentContainerStyle?: StyleProp<ViewStyle>;
-      }
-    ).contentContainerStyle,
+  StyleSheet.flatten(
+    screen.UNSAFE_getByType(ScrollView).props
+      .contentContainerStyle as ViewStyle[],
   );
 
 const confirmAlert = () =>

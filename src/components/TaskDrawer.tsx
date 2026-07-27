@@ -174,16 +174,6 @@ type TTaskDrawerProps = {
    */
   filterId?: TFilterId;
   onFilterChange?: (id: TFilterId) => void;
-  /**
-   * Bottom padding for the list's scrollable content, so its last row can be
-   * scrolled clear of whatever chrome sits below the drawer. Defaults to the
-   * safe-area bottom inset, which is what the docked large-screen pane needs
-   * (its host omits the bottom edge, so the native tab bar overlaps the pane).
-   * `TaskDrawerSheet` passes 0 instead: the sheet is presented *over* the tab
-   * bar and draws its own bottom chrome, so the inherited inset would leave a
-   * tab bar's worth of dead space below the last row.
-   */
-  bottomInset?: number;
 };
 
 /**
@@ -210,7 +200,6 @@ export function TaskDrawer({
   date,
   filterId: controlledFilterId,
   onFilterChange,
-  bottomInset,
 }: TTaskDrawerProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -324,10 +313,13 @@ export function TaskDrawer({
   const controlBorder = { borderColor: withOpacity(theme.colors.text, 0.15) };
   // `container`'s own 16pt padding sits inside a pane that itself extends
   // behind the tab bar, so it doesn't clear it — the inset has to go on the
-  // scrollable content on top of that.
+  // scrollable content on top of that. Memoized like this list's other props
+  // (renderItem/keyExtractor/getItemType): FlashList is wrapped in React.memo,
+  // so a fresh object each render would re-render the whole recycler on every
+  // keystroke in the search field.
   const listContentStyle = useMemo(
-    () => ({ paddingBottom: bottomInset ?? insets.bottom }),
-    [bottomInset, insets.bottom],
+    () => ({ paddingBottom: insets.bottom }),
+    [insets.bottom],
   );
 
   return (

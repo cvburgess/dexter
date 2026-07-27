@@ -18,10 +18,6 @@ type TTasksViewProps = {
   date: Temporal.PlainDate;
 };
 
-// The list's uniform edge padding (`styles.list`), pulled out so the bottom
-// edge can add the safe-area inset to it rather than replace it.
-const LIST_PADDING = 16;
-
 /**
  * Habits + the day's task list for `date` — the always-visible pane of the
  * Today tab. Composable so it can be shown alone (small screens) or beside
@@ -70,17 +66,17 @@ export function TasksView({ date }: TTasksViewProps) {
         <ScrollView
           style={styles.scroll}
           // The host SafeAreaView omits the bottom edge (the native tab bar
-          // owns it — see SmallScreenToday/LargeScreenToday), so the list
-          // reserves that inset here on top of its own padding. Padding the
-          // content rather than the container keeps cards scrolling *under*
-          // the translucent bar, which is what `minimizeBehavior="onScrollDown"`
-          // (see `(tabs)/_layout.tsx`) needs to have anything to reveal, while
-          // still letting the last card scroll fully clear of it. Same shape as
-          // EmptyScreen's own inset, so the list and the empty state that
-          // replaces it land on the same baseline.
+          // owns it — see SmallScreenToday/LargeScreenToday), so the list adds
+          // that inset to its own padding here. Padding the content rather than
+          // the container keeps cards scrolling *under* the translucent bar —
+          // what `minimizeBehavior="onScrollDown"` (see `(tabs)/_layout.tsx`)
+          // needs in order to have anything to reveal — while still letting the
+          // last card scroll fully clear of it. Same shape as EmptyScreen's own
+          // inset, so the list and the empty state that replaces it land on the
+          // same baseline.
           contentContainerStyle={[
             styles.list,
-            { paddingBottom: LIST_PADDING + insets.bottom },
+            { paddingBottom: 16 + insets.bottom },
           ]}
         >
           {tasks.map((item) => (
@@ -108,6 +104,6 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: 8,
-    padding: LIST_PADDING,
+    padding: 16,
   },
 });
