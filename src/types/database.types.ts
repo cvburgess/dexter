@@ -361,6 +361,16 @@ export type Database = {
     };
     Functions: {
       delete_user: { Args: never; Returns: undefined };
+      search_entries: {
+        Args: { query: string };
+        Returns: {
+          kind: string;
+          entry_date: string | null;
+          task: Json | null;
+          prompt: string | null;
+          content: string | null;
+        }[];
+      };
     };
     Enums: {
       [_ in never]: never;
