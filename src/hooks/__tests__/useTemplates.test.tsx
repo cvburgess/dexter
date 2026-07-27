@@ -7,7 +7,7 @@ import {
   createTask,
   ETaskPriority,
   ETaskStatus,
-  hasTaskForTemplate,
+  hasOpenTaskForTemplate,
   TTask,
   updateTask,
 } from "@/api/tasks";
@@ -33,7 +33,7 @@ jest.mock("@/api/tasks", () => ({
   ...jest.requireActual<typeof import("@/api/tasks")>("@/api/tasks"),
   updateTask: jest.fn(),
   createTask: jest.fn(),
-  hasTaskForTemplate: jest.fn(),
+  hasOpenTaskForTemplate: jest.fn(),
 }));
 
 const mockGetTemplates = getTemplates as jest.MockedFunction<
@@ -44,9 +44,8 @@ const mockCreateTemplate = createTemplate as jest.MockedFunction<
 >;
 const mockUpdateTask = updateTask as jest.MockedFunction<typeof updateTask>;
 const mockCreateTask = createTask as jest.MockedFunction<typeof createTask>;
-const mockHasTaskForTemplate = hasTaskForTemplate as jest.MockedFunction<
-  typeof hasTaskForTemplate
->;
+const mockHasOpenTaskForTemplate =
+  hasOpenTaskForTemplate as jest.MockedFunction<typeof hasOpenTaskForTemplate>;
 const mockUpdateTemplate = updateTemplate as jest.MockedFunction<
   typeof updateTemplate
 >;
@@ -91,14 +90,15 @@ describe("useTemplates", () => {
     } as unknown as TTemplate);
     mockUpdateTask.mockResolvedValue({} as never);
     mockCreateTask.mockResolvedValue({} as never);
-    mockHasTaskForTemplate.mockResolvedValue(false);
+    mockHasOpenTaskForTemplate.mockResolvedValue(false);
   });
 
-  // A schedule generates nothing on its own — recurrence spawns from completing
-  // a task that links to the template. Promoting a saved template to a repeat
-  // therefore has to leave an occurrence behind, or the row would sit under
-  // "Repeat tasks" describing a cadence it can never act on.
-  describe("updateTemplate seeding the first occurrence", () => {
+  // A repeat has exactly one open task. A schedule generates nothing on its own
+  // — recurrence spawns from completing a task that links to the template — so
+  // promoting a saved template to a repeat has to leave an open occurrence
+  // behind, or the row would sit under "Repeat tasks" describing a cadence it
+  // can never act on.
+  describe("updateTemplate seeding the next occurrence", () => {
     const promote = async (schedule: string | null) => {
       mockUpdateTemplate.mockResolvedValue({
         id: "template-1",
@@ -143,8 +143,8 @@ describe("useTemplates", () => {
       );
     });
 
-    it("leaves an already-occurring repeat alone", async () => {
-      mockHasTaskForTemplate.mockResolvedValue(true);
+    it("leaves a repeat with an open occurrence alone", async () => {
+      mockHasOpenTaskForTemplate.mockResolvedValue(true);
 
       await promote("0 0 * * *");
 
@@ -154,61 +154,48 @@ describe("useTemplates", () => {
     it("creates nothing when the row has no cadence", async () => {
       await promote(null);
 
-      expect(mockHasTaskForTemplate).not.toHaveBeenCalled();
+      expect(mockHasOpenTaskForTemplate).not.toHaveBeenCalled();
       expect(mockCreateTask).not.toHaveBeenCalled();
     });
   });
 
-  // Whether the source task gets linked is decided by the saved row, not by
-  // which menu item opened the draft: recurrence spawns from *completing a
-  // linked task*, so a repeat needs the link to ever fire — while a plain
-  // template must leave the task it came from alone, or that task would read as
-  // repeating and `delete_task` would take the template down with it.
+  // `tasks.template_id` means "this task came from that template", which is
+  // simply true of the task a draft was seeded from — whatever cadence it ends
+  // up saved on. So the link is recorded unconditionally; whether anything
+  // recurs from it is the template's schedule's business, read at completion
+  // time.
   describe("createTemplate", () => {
-    it("links the source task when the new row carries a schedule", async () => {
-      mockCreateTemplate.mockResolvedValue({
-        id: "template-1",
-        schedule: "0 0 * * *",
-      } as TTemplate);
-      const view = await renderUseTemplates();
+    it.each([["0 0 * * *"], [null]])(
+      "links the source task for a row saved with schedule %p",
+      async (schedule) => {
+        mockCreateTemplate.mockResolvedValue({
+          id: "template-1",
+          schedule,
+        } as TTemplate);
+        const view = await renderUseTemplates();
 
-      act(() => {
-        view.result.current[1].createTemplate({
-          template: { title: "Water the plants", priority: task.priority },
-          linkTaskId: task.id,
+        act(() => {
+          view.result.current[1].createTemplate({
+            template: { title: "Water the plants", priority: task.priority },
+            linkTaskId: task.id,
+          });
         });
-      });
 
-      await waitFor(() =>
-        expect(mockUpdateTask).toHaveBeenCalledWith(expect.anything(), {
-          id: "task-1",
-          templateId: "template-1",
-        }),
-      );
-    });
+        await waitFor(() =>
+          expect(mockUpdateTask).toHaveBeenCalledWith(expect.anything(), {
+            id: "task-1",
+            templateId: "template-1",
+          }),
+        );
+        // The linked task is the occurrence — no second one is seeded.
+        expect(mockCreateTask).not.toHaveBeenCalled();
+      },
+    );
 
-    it("leaves the source task alone when the new row has no schedule", async () => {
-      mockCreateTemplate.mockResolvedValue({
-        id: "template-1",
-        schedule: null,
-      } as TTemplate);
-      const view = await renderUseTemplates();
-
-      act(() => {
-        view.result.current[1].createTemplate({
-          template: { title: "Trip packing", priority: task.priority },
-          linkTaskId: task.id,
-        });
-      });
-
-      await waitFor(() => expect(mockCreateTemplate).toHaveBeenCalled());
-      expect(mockUpdateTask).not.toHaveBeenCalled();
-      expect(mockCreateTask).not.toHaveBeenCalled();
-    });
-
-    // The caller withholds `linkTaskId` when the source task already belongs to
-    // another repeat, since re-pointing it would strand *that* schedule. The new
-    // row still needs something to fire from, so it gets its own occurrence.
+    // The caller withholds `linkTaskId` when the source task already came from a
+    // template, since a task has one `template_id` and re-pointing it would
+    // rewrite where it came from. The new row still needs something to fire
+    // from, so it gets its own occurrence.
     it("seeds an occurrence for a scheduled row with no task to link", async () => {
       mockCreateTemplate.mockResolvedValue({
         id: "template-1",
@@ -238,6 +225,74 @@ describe("useTemplates", () => {
         ),
       );
       expect(mockUpdateTask).not.toHaveBeenCalled();
+    });
+  });
+
+  // The repair button behind a stalled repeat in Settings → Tasks. It runs the
+  // very code path the auto-seed does, guards included, so the fix can't drift
+  // from what was supposed to have prevented the problem.
+  describe("createNextOccurrence", () => {
+    const repeat = {
+      id: "template-1",
+      title: "Water the plants",
+      alarmTime: null,
+      priority: ETaskPriority.IMPORTANT,
+      listId: null,
+      goalId: null,
+      subtasks: [{ id: "sub-1", title: "Fill the can" }],
+      schedule: "0 0 * * *",
+    } as unknown as TTemplate;
+
+    const createNext = async (template: TTemplate) => {
+      const view = await renderUseTemplates();
+      act(() => {
+        view.result.current[1].createNextOccurrence(template);
+      });
+    };
+
+    it("creates the repeat's next open task", async () => {
+      await createNext(repeat);
+
+      await waitFor(() =>
+        expect(mockCreateTask).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            title: "Water the plants",
+            templateId: "template-1",
+            status: ETaskStatus.TODO,
+            // Counts today, so a daily repeat is actionable straight away.
+            scheduledFor: Temporal.Now.plainDateISO().toString(),
+            subtasks: [
+              {
+                id: expect.any(String),
+                title: "Fill the can",
+                status: ETaskStatus.TODO,
+              },
+            ],
+          }),
+        ),
+      );
+    });
+
+    // Idempotent: a second tap, or a tap on a repeat that isn't actually
+    // stalled, must not open a parallel chain.
+    it("creates nothing when the repeat already has an open task", async () => {
+      mockHasOpenTaskForTemplate.mockResolvedValue(true);
+
+      await createNext(repeat);
+
+      await waitFor(() =>
+        expect(mockHasOpenTaskForTemplate).toHaveBeenCalled(),
+      );
+      expect(mockCreateTask).not.toHaveBeenCalled();
+    });
+
+    it("creates nothing for a scheduleless task template", async () => {
+      await createNext({ ...repeat, schedule: null });
+
+      await waitFor(() => expect(mockGetTemplates).toHaveBeenCalled());
+      expect(mockHasOpenTaskForTemplate).not.toHaveBeenCalled();
+      expect(mockCreateTask).not.toHaveBeenCalled();
     });
   });
 });

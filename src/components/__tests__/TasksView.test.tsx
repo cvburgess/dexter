@@ -140,6 +140,7 @@ describe("TasksView", () => {
       [],
       {
         createTemplate: jest.fn(),
+        createNextOccurrence: jest.fn(),
         deleteTemplate: mockDeleteTemplate,
         getTemplateById: mockGetTemplateById,
         isLoading: false,

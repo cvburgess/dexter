@@ -16,6 +16,7 @@ import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { TemplateRow } from "@/components/TemplateRow";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
 import {
   ALARM_SOUNDS,
@@ -27,16 +28,37 @@ import {
   EDGES_SINGLE_PANE,
   EDGES_TWO_PANE,
 } from "@/utils/settingsSafeAreaEdges";
+import { isCompletionStatus } from "@/utils/taskFilters";
 import { useTheme } from "@/utils/theme";
+
+/** What a repeat with nothing left to fire from says instead of its cadence. */
+const STALLED_DESCRIPTION = "Not recurring — no open task to repeat from";
+
+const PLAY_ICON = {
+  ios: "play.fill",
+  android: "play_arrow",
+  web: "play_arrow",
+} as const;
 
 export default function TasksScreen() {
   const theme = useTheme();
-  const [templates] = useTemplates();
+  const [templates, { createNextOccurrence }] = useTemplates();
+  const [tasks] = useTasks();
   const [{ alarmSound }, { updatePreferences }] = usePreferences();
   // Two kinds of row live in one table; the schedule is what tells them apart
   // (DEX-65). Both are edited by the same `tasks/[id]` screen.
   const taskTemplates = templates.filter(isTaskTemplate);
   const repeatTasks = templates.filter(isRepeatTask);
+
+  // A repeat has exactly one open task, and fires by *completing* it — so one
+  // with none can never fire again and is stalled, not merely idle. Answered
+  // from the cache: the canonical query already holds every incomplete task
+  // regardless of date (`useTasks`), so no extra query is needed.
+  const isStalled = (template: TTemplate) =>
+    !tasks.some(
+      (task) =>
+        task.templateId === template.id && !isCompletionStatus(task.status),
+    );
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = useIsMultiPane();
   const insets = useSafeAreaInsets();
@@ -84,6 +106,7 @@ export default function TasksScreen() {
           templates={repeatTasks}
           describe={(template) => describeSchedule(template.schedule)}
           emptyText="To repeat a task, open its menu and choose Repeat. Its schedule will show up here."
+          repair={{ isStalled, onPress: createNextOccurrence }}
         />
 
         <TemplateSection
@@ -103,18 +126,27 @@ type TTemplateSectionProps = {
   /** The one-line summary under each row's title. */
   describe: (template: TTemplate) => string;
   emptyText: string;
+  /**
+   * Repeat tasks only: how to spot one that has run dry, and how to fix it. A
+   * task template is stamped out on demand and has nothing to stall.
+   */
+  repair?: {
+    isStalled: (template: TTemplate) => boolean;
+    onPress: (template: TTemplate) => void;
+  };
 };
 
 /**
  * A titled list of template rows. Repeat tasks and task templates render
- * identically and open the same editor — only the section's copy and the line
- * under each title differ.
+ * identically and open the same editor — only the section's copy, the line
+ * under each title, and the repair action differ.
  */
 function TemplateSection({
   title,
   templates,
   describe,
   emptyText,
+  repair,
 }: TTemplateSectionProps) {
   const theme = useTheme();
   const router = useRouter();
@@ -128,20 +160,37 @@ function TemplateSection({
         </Text>
       ) : (
         <View style={{ gap: theme.gap }}>
-          {templates.map((template) => (
-            <TemplateRow
-              key={template.id}
-              template={template}
-              description={describe(template)}
-              accessibilityLabel={`Edit ${template.title}`}
-              onPress={() =>
-                router.push({
-                  pathname: "/settings/tasks/[id]",
-                  params: { id: template.id },
-                })
-              }
-            />
-          ))}
+          {templates.map((template) => {
+            // The stalled state replaces the cadence rather than sitting beside
+            // it: "Every day" is what the row is failing to do, so restating it
+            // alongside the warning would read as a contradiction.
+            const stalled = repair?.isStalled(template) ?? false;
+
+            return (
+              <TemplateRow
+                key={template.id}
+                template={template}
+                description={stalled ? STALLED_DESCRIPTION : describe(template)}
+                isStalled={stalled}
+                action={
+                  stalled && repair
+                    ? {
+                        icon: PLAY_ICON,
+                        accessibilityLabel: `Create next ${template.title}`,
+                        onPress: () => repair.onPress(template),
+                      }
+                    : undefined
+                }
+                accessibilityLabel={`Edit ${template.title}`}
+                onPress={() =>
+                  router.push({
+                    pathname: "/settings/tasks/[id]",
+                    params: { id: template.id },
+                  })
+                }
+              />
+            );
+          })}
         </View>
       )}
     </View>

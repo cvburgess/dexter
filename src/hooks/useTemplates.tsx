@@ -1,7 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { createTask, hasTaskForTemplate, updateTask } from "@/api/tasks";
+import { createTask, hasOpenTaskForTemplate, updateTask } from "@/api/tasks";
 import {
   createTemplate,
   deleteTemplate,
@@ -26,10 +26,10 @@ export type TCreateTemplateVars = {
   template: TCreateTemplate;
   /**
    * The task the template was drafted from, if that task is free to be linked
-   * (it is not already an occurrence of another repeat). It is linked to the new
-   * row only if that row ends up carrying a schedule — recurrence spawns from
-   * *completing a linked task*, so a repeat needs the link to ever fire, while a
-   * plain template must leave the task it came from alone.
+   * (it does not already belong to a template). It is linked unconditionally:
+   * `tasks.template_id` means "this task came from that template", which is
+   * simply true here whether or not the new row carries a schedule. Whether the
+   * task recurs is a property of the template, read at completion time.
    */
   linkTaskId?: string;
 };
@@ -39,6 +39,15 @@ type TUseTemplates = [
   {
     createTemplate: (
       vars: TCreateTemplateVars,
+      callbacks?: TMutateCallbacks,
+    ) => void;
+    /**
+     * Gives a repeat its next open task — the manual half of the one-open-task
+     * invariant, for a repeat that has run dry. A no-op for a scheduleless row
+     * or one that still has an open task.
+     */
+    createNextOccurrence: (
+      template: TTemplate,
       callbacks?: TMutateCallbacks,
     ) => void;
     deleteTemplate: (id: string, callbacks?: TMutateCallbacks) => void;
@@ -52,22 +61,21 @@ type TUseTemplates = [
 ];
 
 /**
- * Gives a template that has just gained a schedule its first occurrence, unless
- * some task already links to it.
+ * Gives a repeat its one open task, unless it already has one.
  *
- * A schedule on its own generates nothing: recurrence spawns from *completing a
- * task whose `template_id` points at a scheduled row*, so a template promoted
- * to a repeat with no occurrence would sit under "Repeat tasks" describing a
- * cadence it could never act on. Creating from a draft links the source task
- * instead where that task is free to be linked, and a row that already has
- * occurrences keeps recurring from them.
+ * **A repeat has exactly one open task.** A schedule on its own generates
+ * nothing: recurrence spawns from *completing a task whose `template_id` points
+ * at a scheduled row*, so a repeat with no open task sits under "Repeat tasks"
+ * describing a cadence it can never act on. This is the one code path that
+ * fixes that, whether it runs automatically when a row gains a cadence or from
+ * the repair button on a stalled row in Settings.
  *
- * Counts today, so promoting to a cadence that matches today produces a task
- * now rather than looking like nothing happened.
+ * Counts today, so a cadence that matches today produces a task now rather than
+ * looking like nothing happened.
  */
-const seedFirstOccurrence = async (template: TTemplate): Promise<void> => {
+const seedNextOccurrence = async (template: TTemplate): Promise<void> => {
   if (!template.schedule) return;
-  if (await hasTaskForTemplate(supabase, template.id)) return;
+  if (await hasOpenTaskForTemplate(supabase, template.id)) return;
 
   const scheduledFor = getFirstOccurrence(
     template.schedule,
@@ -106,11 +114,11 @@ export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
       mutationFn: async ({ template, linkTaskId }) => {
         const created = await createTemplate(supabase, template);
 
-        // Gated on the schedule, not on which menu item started the draft: a
-        // scheduled row is a repeat and needs the link to ever fire, and a
-        // scheduleless one is a saved template that must not make its source task
-        // look like it repeats.
-        if (linkTaskId && created.schedule) {
+        // The task this was drafted from did come from this template, whatever
+        // cadence the draft was saved on — so record it. A scheduled row gets
+        // the open task it needs to fire from for free; a scheduleless one just
+        // records provenance, and nothing recurs until it gains a schedule.
+        if (linkTaskId) {
           await updateTask(supabase, {
             id: linkTaskId,
             templateId: created.id,
@@ -118,8 +126,8 @@ export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
         } else {
           // No task to fire from — give a scheduled row its own first
           // occurrence, the same guarantee `updateTemplate` makes. A no-op for
-          // a scheduleless row, which is the ordinary "Save as template" case.
-          await seedFirstOccurrence(created);
+          // a scheduleless row.
+          await seedNextOccurrence(created);
         }
 
         return created;
@@ -134,12 +142,22 @@ export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
   const { mutate: update } = useMutation<TTemplate, Error, TUpdateTemplate>({
     mutationFn: async (diff) => {
       const template = await updateTemplate(supabase, diff);
-      await seedFirstOccurrence(template);
+      await seedNextOccurrence(template);
       return template;
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["templates"] });
-      // `seedFirstOccurrence` may have written one.
+      // `seedNextOccurrence` may have written one.
+      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
+  // The repair button in Settings → Tasks, and literally the same code path the
+  // auto-seed above takes — a stalled repeat is fixed by the thing that was
+  // supposed to have prevented it.
+  const { mutate: createNext } = useMutation<void, Error, TTemplate>({
+    mutationFn: seedNextOccurrence,
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
@@ -160,6 +178,7 @@ export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
     templates,
     {
       createTemplate: create,
+      createNextOccurrence: createNext,
       deleteTemplate: remove,
       getTemplateById,
       isLoading: isPending,

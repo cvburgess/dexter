@@ -148,6 +148,8 @@ describe("NewTaskScreen", () => {
         scheduledFor: today.toString(),
         dueOn: today.add({ days: 2 }).toString(),
         alarmTime: null,
+        // Nothing seeded this form, so there is no provenance to record.
+        templateId: null,
         subtasks: [],
       },
       expect.objectContaining({ onSuccess: expect.any(Function) }),
@@ -413,6 +415,9 @@ describe("NewTaskScreen", () => {
           scheduledFor: today.toString(),
           dueOn: null,
           alarmTime: null,
+          // Where it came from, recorded. Nothing recurs from it — the picker
+          // only offers scheduleless rows.
+          templateId: "template-packing",
           // Fresh ids, so two tasks from one template never collide.
           subtasks: [
             {

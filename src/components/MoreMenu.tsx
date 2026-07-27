@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
 
 import { ETaskPriority, TTask } from "@/api/tasks";
-import { isRepeatTask, NEW_TEMPLATE } from "@/api/templates";
+import { isTaskTemplate, NEW_TEMPLATE } from "@/api/templates";
 import { isAlarmSupported } from "@/utils/alarms";
 import { useLists } from "@/hooks/useLists";
 import { useTemplates } from "@/hooks/useTemplates";
@@ -12,7 +12,7 @@ import { formatMonthDayYear } from "@/utils/formatPlainDate";
 import { Theme, useTheme } from "@/utils/theme";
 import { weekStartEnd } from "@/utils/weekStartEnd";
 
-import { IconMenu, TIconMenuSection } from "./IconMenu";
+import { IconMenu, TIconMenuOption, TIconMenuSection } from "./IconMenu";
 import { getListSections } from "./ListButton";
 import { PRIORITY_OPTIONS, priorityIconColor } from "./PriorityControl";
 import type { TTaskDateField } from "./SetDateModal";
@@ -83,25 +83,32 @@ export function MoreMenu({
       ...(repeats && { repeats: "1" }),
     });
 
-  // A linked template only means "this task repeats" while it still carries a
-  // schedule — since DEX-65 it may have been converted into a task template.
-  // An unresolved lookup means the templates query hasn't landed yet, not that
-  // the row is scheduleless: falling back to `false` there would label an
-  // established repeat "Repeat" until the fetch settles, while `onRepeat` still
-  // opened its existing schedule. This only picks the label; nothing is written.
-  const linkedTemplate = getTemplateById(task.templateId);
-  const isRepeating = linkedTemplate
-    ? isRepeatTask(linkedTemplate)
-    : task.templateId !== null;
-
-  const onRepeat = () => {
-    // Branch on the stored templateId, not the (possibly still-loading) template
-    // lookup, so an existing repeat is never duplicated.
-    if (task.templateId) openTemplateEditor({ id: task.templateId });
-    else openDraftFromTask(true);
-  };
-
-  const onSaveAsTemplate = () => openDraftFromTask(false);
+  // `tasks.template_id` has one meaning — this task came from that template —
+  // so it, and not the lookup, decides whether there is anything to make: a
+  // task that already belongs to a template offers only the edit for it, and
+  // never a second, orphaned copy. Bound to a local const so TS keeps the
+  // narrowing inside the `onEdit` closure.
+  //
+  // The resolved row picks only the noun. An unresolved lookup means the
+  // templates query hasn't landed yet, not that the row is scheduleless:
+  // falling back to the template wording would relabel an established repeat
+  // until the fetch settles. Both linked kinds open the same editor, so only
+  // the noun is ever at stake, and nothing here is written.
+  const templateId = task.templateId;
+  const linkedTemplate = getTemplateById(templateId);
+  const templateAction: TTemplateMenuAction = templateId
+    ? {
+        kind:
+          linkedTemplate && isTaskTemplate(linkedTemplate)
+            ? "template"
+            : "repeat",
+        onEdit: () => openTemplateEditor({ id: templateId }),
+      }
+    : {
+        kind: "unlinked",
+        onRepeat: () => openDraftFromTask(true),
+        onSaveAsTemplate: () => openDraftFromTask(false),
+      };
 
   // Alarms ring via native iOS AlarmKit only, so the item is iOS-only. A single
   // directly-tappable action, not a submenu.
@@ -139,11 +146,7 @@ export function MoreMenu({
     ),
     ...getOtherSections({
       onDuplicate,
-      repeat: {
-        label: isRepeating ? "Edit repeat schedule" : "Repeat",
-        onSelect: onRepeat,
-      },
-      onSaveAsTemplate,
+      template: templateAction,
       onDelete,
     }),
   ];
@@ -313,15 +316,6 @@ export const getDeadlineSections = (
   getDateSections("deadline", dueOn, onChangeDeadline, onPickDate);
 
 /**
- * Task-management actions, rendered as an inline "Other" group so the actions
- * are directly tappable rather than nested in a submenu. The optional alarm
- * toggle leads the group (iOS-only — AlarmKit does the ringing, DEX-48); it
- * flips between "Set alarm" and "Unset alarm" but keeps the same icon either
- * way. Duplicate / Repeat / Delete follow; the repeat item's label reflects
- * whether the task already has a repeat schedule, and Delete is marked
- * destructive so `IconMenu` styles it accordingly.
- */
-/**
  * The two edits that act on the task itself, rather than on the task as a whole
  * the way the actions below them do: copy it, repeat it, delete it.
  *
@@ -363,20 +357,96 @@ export const getTaskActionSections = (
 };
 
 /**
- * Duplicate/Repeat/Save as template/Delete: untitled, because the icons and
- * labels say it. Repeat and "Save as template" sit next to each other because
- * they make the same kind of thing — a `repeat_task_templates` row — and differ
- * only in whether it carries a schedule (DEX-65).
+ * What the menu offers for the template side of a task. A repeat task is just a
+ * template that re-occurs automatically, and `tasks.template_id` says only
+ * "this task came from that template" — so a task that already belongs to one
+ * has nothing to choose between and gets exactly one item: edit the thing that
+ * exists. Only a task belonging to no template can make one, in either kind
+ * (DEX-65).
+ */
+export type TTemplateMenuAction =
+  | { kind: "unlinked"; onRepeat: () => void; onSaveAsTemplate: () => void }
+  | { kind: "repeat"; onEdit: () => void }
+  | { kind: "template"; onEdit: () => void };
+
+const REPEAT_ICON = {
+  ios: "repeat",
+  android: "repeat",
+  web: "repeat",
+} as const;
+
+// `square.on.square.dashed` for both template rows, so saving one and later
+// editing it read as the same object. Material has no single equivalent, so the
+// two states split across its bookmark pair.
+const SAVE_TEMPLATE_ICON = {
+  ios: "square.on.square.dashed",
+  android: "bookmark_add",
+  web: "bookmark_add",
+} as const;
+
+const EDIT_TEMPLATE_ICON = {
+  ios: "square.on.square.dashed",
+  android: "bookmark",
+  web: "bookmark",
+} as const;
+
+/**
+ * The template rows, spliced between Duplicate and Delete. Ids stay distinct
+ * per kind even though only one kind ever renders at a time — `IconMenu.native`
+ * flattens every section into one id -> option map and dispatches by id, so a
+ * shared id would make the tests (and any future consumer) unable to tell which
+ * row it pressed.
+ */
+const getTemplateOptions = (action: TTemplateMenuAction): TIconMenuOption[] => {
+  switch (action.kind) {
+    case "unlinked":
+      return [
+        {
+          id: "repeat",
+          title: "Repeat",
+          icon: REPEAT_ICON,
+          onSelect: action.onRepeat,
+        },
+        {
+          id: "save-as-template",
+          title: "Save as template",
+          icon: SAVE_TEMPLATE_ICON,
+          onSelect: action.onSaveAsTemplate,
+        },
+      ];
+    case "repeat":
+      return [
+        {
+          id: "edit-repeat",
+          title: "Edit repeat schedule",
+          icon: REPEAT_ICON,
+          onSelect: action.onEdit,
+        },
+      ];
+    case "template":
+      return [
+        {
+          id: "edit-template",
+          title: "Edit template",
+          icon: EDIT_TEMPLATE_ICON,
+          onSelect: action.onEdit,
+        },
+      ];
+  }
+};
+
+/**
+ * Duplicate / the template rows / Delete: untitled, because the icons and
+ * labels say it. Delete is marked destructive so `IconMenu` styles it
+ * accordingly.
  */
 export const getOtherSections = ({
   onDuplicate,
-  repeat,
-  onSaveAsTemplate,
+  template,
   onDelete,
 }: {
   onDuplicate: () => void;
-  repeat: { label: string; onSelect: () => void };
-  onSaveAsTemplate: () => void;
+  template: TTemplateMenuAction;
   onDelete: () => void;
 }): TIconMenuSection[] => [
   {
@@ -391,22 +461,7 @@ export const getOtherSections = ({
         } as const,
         onSelect: onDuplicate,
       },
-      {
-        id: "repeat",
-        title: repeat.label,
-        icon: { ios: "repeat", android: "repeat", web: "repeat" } as const,
-        onSelect: repeat.onSelect,
-      },
-      {
-        id: "save-as-template",
-        title: "Save as template",
-        icon: {
-          ios: "square.on.square.dashed",
-          android: "bookmark_add",
-          web: "bookmark_add",
-        } as const,
-        onSelect: onSaveAsTemplate,
-      },
+      ...getTemplateOptions(template),
       {
         id: "delete",
         title: "Delete",

@@ -133,10 +133,13 @@ export default function RepeatScheduleScreen() {
     return (
       <RepeatScheduleForm
         draft={draftFromTask(task, repeats === "1")}
-        // Only a task that isn't already someone's occurrence is free to be
-        // linked. Re-pointing a task that belongs to another repeat would leave
-        // *that* schedule with nothing to fire from — `useTemplates` seeds the
-        // new row its own first occurrence instead.
+        // Only a task that doesn't already come from a template — of either
+        // kind — is free to be linked. A task has one `template_id`, and
+        // re-pointing it would rewrite where it came from and could leave a
+        // repeat with nothing to fire from; `useTemplates` seeds the new row
+        // its own first occurrence instead. Under the current menu this is only
+        // reachable for a linked task via a deep link, but it is what makes
+        // that harmless.
         linkTaskId={task.templateId ? undefined : task.id}
       />
     );
@@ -169,7 +172,7 @@ function RepeatScheduleForm({
   draft: TTemplateDraft;
   /** Absent for a draft — the row does not exist yet. */
   existing?: TTemplate;
-  /** The task a draft was seeded from, linked on save if it ends up repeating. */
+  /** The task a draft was seeded from, linked to the new row on save. */
   linkTaskId?: string;
 }) {
   const theme = useTheme();
@@ -264,8 +267,9 @@ function RepeatScheduleForm({
     };
 
     // A draft has no row yet — ✓ is what writes it. `createTemplate` links the
-    // source task only when the row ends up carrying a schedule, so a repeat can
-    // fire and a plain template leaves its task alone.
+    // source task whatever cadence it was saved on: the task did come from this
+    // template either way, and a scheduled row gets the open task it needs to
+    // fire from for free.
     if (existing) updateTemplate({ id: existing.id, ...fields }, callbacks);
     else createTemplate({ template: fields, linkTaskId }, callbacks);
   };

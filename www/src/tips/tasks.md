@@ -99,6 +99,12 @@ After all, there's only so much space.
   "templates" below)
 - **Delete**: Permanently deletes the task and all data associated with it
 
+Once a task came from a template - because you repeated it, saved it, or created
+it from the Template tab - those two entries are replaced by a single **Edit
+repeat schedule** or **Edit template**, which opens the one it belongs to. To
+turn a template into a repeat (or stop one repeating), open Settings → Tasks and
+change its **Repeats** setting.
+
 ## Templates
 
 Some tasks come back without being on a schedule. Packing for a trip, onboarding

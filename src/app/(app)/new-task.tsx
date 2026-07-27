@@ -12,7 +12,7 @@ import {
 } from "react-native";
 
 import { ETaskStatus } from "@/api/tasks";
-import { isTaskTemplate, TTemplate } from "@/api/templates";
+import { isTaskTemplate } from "@/api/templates";
 import { DateField } from "@/components/DateField";
 import { FormRow } from "@/components/FormRow";
 import { PickerField } from "@/components/PickerField";
@@ -79,9 +79,6 @@ export default function NewTaskScreen() {
   const { scheduledFor } = useLocalSearchParams<{ scheduledFor?: string }>();
   const form = useNewTaskForm(lists, scheduledFor);
   const [mode, setMode] = useState<TNewTaskMode>("new");
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
-    null,
-  );
   const hasSaved = useRef(false);
   const scrollRef = useRef<ScrollView>(null);
   // Set when a subtask row is added, consumed by the next content size change.
@@ -124,13 +121,6 @@ export default function NewTaskScreen() {
       form.setScheduledFor(Temporal.Now.plainDateISO().toString());
     }
     form.setAlarmTime(defaultAlarmTime());
-  };
-
-  // Selecting is not saving: the template seeds the form below it and the user
-  // can still edit anything before the task is created.
-  const handleSelectTemplate = (template: TTemplate) => {
-    setSelectedTemplateId(template.id);
-    form.applyTemplate(template);
   };
 
   const handleSave = () => {
@@ -190,12 +180,16 @@ export default function NewTaskScreen() {
           onChange={setMode}
         />
 
+        {/* Selecting is not saving: the template seeds the form below and the
+            user can still edit anything before the task is created. The form
+            holds the selection, so the outlined card and the task's
+            `template_id` can never disagree. */}
         {mode === "template" && (
           <TemplatePicker
             templates={templates}
-            selectedId={selectedTemplateId}
+            selectedId={form.templateId}
             isLoading={isLoadingTemplates}
-            onSelect={handleSelectTemplate}
+            onSelect={form.applyTemplate}
           />
         )}
 

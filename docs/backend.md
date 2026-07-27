@@ -175,8 +175,13 @@ publication it belongs to.
   alias in `functions/mcp-server/deno.json`). The legacy
   `create_next_recurring_task` trigger was dropped (migration
   `20260712142149_drop_recurring_task_trigger.sql`); `update_task`/`archive_task`
-  invoke the shared logic, and `delete_task` also deletes a linked template so
-  future occurrences stop. A recurred occurrence copies the template's
+  invoke the shared logic, and `delete_task` also deletes a linked *scheduled*
+  template so future occurrences stop — a linked scheduleless one is a saved
+  task template the user may still be stamping from, and survives. The spawn is
+  additionally skipped when another **open** task already links to the template,
+  so completing several tasks stamped from a since-scheduled template starts one
+  chain rather than several (the same one-open-task invariant the app enforces —
+  see `docs/frontend.md`). A recurred occurrence copies the template's
   `alarm_time` (see below) so repeat tasks keep their alarm.
 - **A `repeat_task_templates` row with a NULL `schedule` is a task template, not
   a repeat task (DEX-65).** `schedule` is nullable and has no default (migration

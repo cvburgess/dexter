@@ -32,6 +32,12 @@ export type TNewTaskForm = {
   setSubtasks: (subtasks: TSubtask[]) => void;
   /** Fills the form from a task template, leaving its dates alone (DEX-65). */
   applyTemplate: (template: TTemplate) => void;
+  /**
+   * The template the form was seeded from, or null when nothing seeded it. Both
+   * the picker's selection and the saved task's `template_id` read it, so the
+   * two can't disagree.
+   */
+  templateId: string | null;
   /** The resolved payload for `createTask`, with tokens stripped from the title. */
   task: TCreateTask;
   canSave: boolean;
@@ -66,6 +72,12 @@ export const useNewTaskForm = (
   );
   const [alarmTime, setAlarmTime] = useState<string | null>(null);
   const [subtasks, setSubtasks] = useState<TSubtask[]>([]);
+  // Provenance, not a mode: it records where the form's contents came from.
+  // Deliberately never cleared once set — editing a field or switching back to
+  // the New tab leaves the seeded values in place, so dropping the id would
+  // produce a task whose contents came from a template but which claims
+  // otherwise.
+  const [templateId, setTemplateId] = useState<string | null>(null);
 
   // `undefined` means "no manual override yet — follow the shorthand tokens".
   const [priorityOverride, setPriorityOverride] = useState<ETaskPriority>();
@@ -88,6 +100,7 @@ export const useNewTaskForm = (
   const savedSubtasks = withTitledRows(subtasks);
 
   const applyTemplate = (template: TTemplate) => {
+    setTemplateId(template.id);
     setTitle(template.title);
     // The *override* setters, so the template's choices survive whatever
     // shorthand tokens its title happens to contain. `dueOn` is pinned to its
@@ -124,6 +137,7 @@ export const useNewTaskForm = (
     subtasks,
     setSubtasks,
     applyTemplate,
+    templateId,
     task: {
       title: cleanTitle,
       priority,
@@ -131,6 +145,11 @@ export const useNewTaskForm = (
       scheduledFor,
       dueOn,
       alarmTime,
+      // Stamped from a template: `template_id` says only "this task came from
+      // that template". Nothing recurs from it — that is a property of the
+      // template's schedule, read at completion time — and the picker only
+      // offers scheduleless rows anyway.
+      templateId,
       // A task and its checklist are created in one insert.
       subtasks: savedSubtasks,
     },

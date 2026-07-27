@@ -23,6 +23,8 @@ describe("useNewTaskForm", () => {
     expect(result.current.listId).toBeNull();
     expect(result.current.dueOn).toBeNull();
     expect(result.current.scheduledFor).toBe(today().toString());
+    expect(result.current.templateId).toBeNull();
+    expect(result.current.task.templateId).toBeNull();
     expect(result.current.canSave).toBe(false);
   });
 
@@ -73,6 +75,7 @@ describe("useNewTaskForm", () => {
     expect(result.current.dueOn).toBe(today().add({ days: 3 }).toString());
     expect(result.current.canSave).toBe(true);
     expect(result.current.task).toEqual({
+      templateId: null,
       title: "Ship the report",
       priority: ETaskPriority.IMPORTANT_AND_URGENT,
       listId: homeList.id,
@@ -245,6 +248,30 @@ describe("useNewTaskForm", () => {
       expect(result.current.title).toBe("Trip packing");
       expect(result.current.priority).toBe(ETaskPriority.IMPORTANT);
       expect(result.current.listId).toBe("list-home");
+    });
+
+    // `template_id` means "this task came from that template", which is simply
+    // true of a stamped task — so the payload records it. The picker only
+    // offers scheduleless rows, so nothing recurs from the link.
+    it("stamps the template's id onto the form and the payload", () => {
+      const { result } = renderHook(() => useNewTaskForm([homeList]));
+
+      act(() => result.current.applyTemplate(template));
+
+      expect(result.current.templateId).toBe("template-1");
+      expect(result.current.task.templateId).toBe("template-1");
+    });
+
+    // The seeded values survive an edit, so the provenance has to as well —
+    // clearing it would produce a task whose contents came from a template but
+    // which claims otherwise.
+    it("keeps the id after the user edits a seeded field", () => {
+      const { result } = renderHook(() => useNewTaskForm([homeList]));
+
+      act(() => result.current.applyTemplate(template));
+      act(() => result.current.setTitle("Trip packing (Berlin)"));
+
+      expect(result.current.task.templateId).toBe("template-1");
     });
 
     // An alarm only rings once AlarmKit is authorized and the task has a day to

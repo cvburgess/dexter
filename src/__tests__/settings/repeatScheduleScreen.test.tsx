@@ -119,6 +119,7 @@ const templatesResult = (templates: TTemplate[]) =>
         templates.find((template) => template.id === id),
       isLoading: false,
       createTemplate: mockCreateTemplate,
+      createNextOccurrence: jest.fn(),
       updateTemplate: mockUpdateTemplate,
       deleteTemplate: mockDeleteTemplate,
     },
