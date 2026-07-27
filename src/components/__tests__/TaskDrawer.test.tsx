@@ -1,7 +1,15 @@
+import { FlashList } from "@shopify/flash-list";
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render } from "@testing-library/react-native";
-import type { ReactNode } from "react";
-import { ActivityIndicator, Text, TouchableOpacity } from "react-native";
+import type { ReactElement, ReactNode } from "react";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+} from "react-native";
+import type { StyleProp, ViewStyle } from "react-native";
+import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 
 import { TGoal } from "@/api/goals";
 import { TList } from "@/api/lists";
@@ -116,6 +124,29 @@ const goal = (overrides: Partial<TGoal> = {}): TGoal => ({
   createdAt: "",
   ...overrides,
 });
+
+// The project-wide safe-area mock (jest.setup.js) reads the real
+// SafeAreaInsetsContext and falls back to all-zero insets, so a test that
+// cares about the inset supplies one through the context rather than
+// re-mocking the module.
+const renderWithBottomInset = (bottom: number, ui: ReactElement) =>
+  render(
+    <SafeAreaInsetsContext.Provider
+      value={{ top: 0, right: 0, bottom, left: 0 }}
+    >
+      {ui}
+    </SafeAreaInsetsContext.Provider>,
+  );
+
+// A test instance's `props` is `any`; narrow to the one prop under assertion.
+const listContentStyle = (screen: ReturnType<typeof render>) =>
+  StyleSheet.flatten<ViewStyle>(
+    (
+      screen.UNSAFE_getByType(FlashList).props as {
+        contentContainerStyle?: StyleProp<ViewStyle>;
+      }
+    ).contentContainerStyle,
+  );
 
 const tasksResult = (
   tasks: TTask[] = [],
@@ -327,6 +358,26 @@ describe("TaskDrawer", () => {
     expect(
       screen.queryByText("Nothing here — you're all caught up."),
     ).toBeNull();
+  });
+
+  // Two hosts, two answers: the docked pane sits under the native tab bar and
+  // reserves its inset, while the sheet is presented over the bar and passes
+  // its own (DEX-91).
+  it("reserves the safe-area bottom inset for the docked pane's last row", () => {
+    mockUseTasks.mockReturnValue(tasksResult([task()]));
+    const screen = renderWithBottomInset(34, <TaskDrawer date={date} />);
+
+    expect(listContentStyle(screen).paddingBottom).toBe(34);
+  });
+
+  it("lets a host override the inset, as the bottom sheet does with 0", () => {
+    mockUseTasks.mockReturnValue(tasksResult([task()]));
+    const screen = renderWithBottomInset(
+      34,
+      <TaskDrawer date={date} bottomInset={0} />,
+    );
+
+    expect(listContentStyle(screen).paddingBottom).toBe(0);
   });
 
   it("renders every row of a multi-task list through the flattened FlashList data", () => {
