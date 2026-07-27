@@ -32,45 +32,34 @@ All backend config and migrations live under `/supabase`.
 For query optimization, schema design, and RLS guidance, see the repo skill at
 [`.claude/skills/supabase-postgres-best-practices/SKILL.md`](../.claude/skills/supabase-postgres-best-practices/SKILL.md).
 
-## Notes, journals, and the deprecated `days` table
+## Notes and journals
 
 Notes and the journal used to be two columns on one `public.days` row
 (`notes text`, `prompts jsonb`, keyed `(date, user_id)`). DEX-51 split them into
 `public.notes` (`content text`) and `public.journals` (`prompts jsonb`, with a
 `jsonb_typeof(prompts) = 'array'` check constraint), each keyed
 `(user_id, date)` — one row per user per date, no `id`, no `updated_at`
-(nothing in this schema maintains one).
+(nothing in this schema maintains one). DEX-90 then dropped `days`, once the
+legacy `dexter-app` (Electron/PWA), which shares this production project, had
+shipped a release reading the new tables.
 
-The backfill deliberately copies only rows the user actually put content in, so a
-day that was never written still reads as "no row" — which is what the notes
-template chooser keys off (`useNotes`' `exists`). For notes that means a non-empty
-`days.notes`; for journals it means **at least one non-empty response**, not
+The backfill deliberately copied only rows the user had actually put content in,
+so a day that was never written still reads as "no row" — which is what the notes
+template chooser keys off (`useNotes`' `exists`). For notes that meant a non-empty
+`days.notes`; for journals it meant **at least one non-empty response**, not
 merely a non-empty `prompts` array. Those are not the same test: the old shared
-row seeded template prompts on the first *note* write, so most `days` rows carry
+row seeded template prompts on the first *note* write, so most `days` rows carried
 scaffolding the user never answered (160 of 162 rows had a non-empty array; only
 47 held a response).
 
-`public.days` is **deprecated but intentionally still present**: the app, the MCP
-server, and every read path in this repo have moved off it (the one remaining
-reference is `scripts/seed-demo.ts`, which still clears it so a demo reset stays
-deterministic), but the same production project is shared with the legacy
-`dexter-app` (Electron/PWA) whose released builds still read and write it, and
-`days` remains the rollback path for the split. Until that client ships an
-update (`DEX-89`), edits made in this app and edits made in a legacy build do
-**not** see each other. Dropping the table is `DEX-90`, gated on that release.
-
-One consequence worth knowing before comparing the publication against the
-client: `days` is still in `supabase_realtime` but is deliberately **absent**
-from the app's `REALTIME_INVALIDATIONS` map, so its change events have no
-subscriber. That gap is intentional, not drift.
-
-**Rollout note:** the backfill is one-time, and there is no dual-write. Between
-the migration deploying and a client picking up the new bundle, anything that
-client writes lands in `days` and is invisible once it updates. The split is
-JS-only, so shipping an EAS update alongside the deploy closes the window
-immediately; re-running the two backfill inserts (both are
-`on conflict do nothing`, so they are rerunnable) recovers any date the new
-build has not written since.
+**If you ever need to roll DEX-51 back**, note that the drop migration
+(`20260727035544_drop_days.sql`) invalidates the split's own rollback comment:
+`days` is no longer a standing copy of the data, so restoring it means recreating
+the table and backfilling *from* `notes`/`journals`. The drop migration's header
+carries that DDL — as commented lines, so strip the leading `-- ` rather than
+pasting it verbatim, and run it **before** dropping `notes`/`journals`. Those two
+tables are the only copy of everything written since the split; drop them first
+and the backfill has nothing to read from.
 
 ## RLS policy invariants
 
@@ -102,15 +91,18 @@ Every user-owned table enables RLS with per-operation policies keyed on
 
 ## Realtime
 
-All ten user-owned tables (`tasks`, `repeat_task_templates`, `lists`,
-`goals`, `habits`, `daily_habits`, `notes`, `journals`, `days`, `preferences`)
+All nine user-owned tables (`tasks`, `repeat_task_templates`, `lists`,
+`goals`, `habits`, `daily_habits`, `notes`, `journals`, `preferences`)
 are added to the `supabase_realtime` publication via guarded migrations
-(`20260717193451_realtime_publication.sql` for the original eight,
+(`20260717193451_realtime_publication.sql` for the original eight — one of
+which, `days`, has since been dropped — and
 `20260726215745_split_notes_journals.sql` for `notes`/`journals`), so Postgres
-emits change events for them. Publication membership is **migration-managed** — do not add/remove
-tables via the dashboard, since a later migration re-adding an already-present
-table would no-op (the guard checks `pg_publication_tables`), but a
-dashboard-only addition would drift from what the migration declares.
+emits change events for them. Publication membership is **migration-managed** —
+do not add/remove tables via the dashboard, since a later migration re-adding an
+already-present table would no-op (the guard checks `pg_publication_tables`),
+but a dashboard-only addition would drift from what the migration declares.
+Removal needs no statement at all: dropping a table drops it from every
+publication it belongs to.
 
 - **RLS gates delivery**: Realtime evaluates `postgres_changes` subscriptions
   through the same RLS policies as normal queries, so a client only receives
@@ -120,9 +112,9 @@ dashboard-only addition would drift from what the migration declares.
   limitation, not specific to this schema): with default `REPLICA IDENTITY`,
   a DELETE's `old` record contains only primary-key columns, so a filter on
   any other column — including the `user_id=eq.<uuid>` filter the client
-  applies — can never match. Only `notes`, `journals`, `days`, and
-  `preferences` key on `user_id`; for the other six tables (`tasks`, `goals`,
-  `lists`, `habits`, `daily_habits`, `repeat_task_templates`), this means
+  applies — can never match. Only `notes`, `journals`, and `preferences` key on
+  `user_id`; for the other six tables (`tasks`, `goals`, `lists`, `habits`,
+  `daily_habits`, `repeat_task_templates`), this means
   DELETE-triggered realtime invalidation **never fires, by construction** — not
   an occasional miss, a structural gap for every deletion on those tables.
   Keeping `user_id` in a primary key is therefore a deliberate schema choice,
