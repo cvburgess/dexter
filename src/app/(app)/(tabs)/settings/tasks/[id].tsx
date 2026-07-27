@@ -96,26 +96,31 @@ const showSaveError = () => {
   }
 };
 
-/** The unsaved shape "Save as template" starts from, seeded off its task. */
-const draftFromTask = (task: TTask): TTemplateDraft => ({
+/**
+ * The unsaved shape a menu action starts from, seeded off its task. Repeat
+ * opens on a daily cadence and Save as template on none, which is the only
+ * difference between the two — either can be changed before saving.
+ */
+const draftFromTask = (task: TTask, repeats: boolean): TTemplateDraft => ({
   ...templateFieldsFromTask(task),
-  // A draft is always a plain template; the user can give it a cadence here.
-  schedule: null,
+  schedule: repeats ? buildSchedule({ frequency: "daily" }) : null,
 });
 
 /** An `existing` template, or the seed for one that hasn't been written yet. */
 type TTemplateDraft = Omit<TTemplate, "id" | "createdAt" | "userId">;
 
 export default function RepeatScheduleScreen() {
-  const { id, fromTask } = useLocalSearchParams<{
+  const { id, fromTask, repeats } = useLocalSearchParams<{
     id: string;
     fromTask?: string;
+    repeats?: string;
   }>();
   const [, { getTemplateById, isLoading }] = useTemplates();
   const [tasks, { isLoading: isLoadingTasks }] = useTasks();
 
-  // "Save as template" routes here before anything is stored, carrying the task
-  // to seed from — so ✕ can leave nothing behind and ✓ is what writes the row.
+  // Repeat and Save as template both route here before anything is stored,
+  // carrying the task to seed from — so ✕ leaves nothing behind and ✓ is what
+  // writes the row.
   if (id === NEW_TEMPLATE) {
     const task = tasks.find((candidate) => candidate.id === fromTask);
     if (!task) {
@@ -125,7 +130,12 @@ export default function RepeatScheduleScreen() {
         <Redirect href="/settings/tasks" />
       );
     }
-    return <RepeatScheduleForm draft={draftFromTask(task)} />;
+    return (
+      <RepeatScheduleForm
+        draft={draftFromTask(task, repeats === "1")}
+        linkTaskId={task.id}
+      />
+    );
   }
 
   const existing = getTemplateById(id);
@@ -150,10 +160,13 @@ export default function RepeatScheduleScreen() {
 function RepeatScheduleForm({
   draft,
   existing,
+  linkTaskId,
 }: {
   draft: TTemplateDraft;
   /** Absent for a draft — the row does not exist yet. */
   existing?: TTemplate;
+  /** The task a draft was seeded from, linked on save if it ends up repeating. */
+  linkTaskId?: string;
 }) {
   const theme = useTheme();
   const router = useRouter();
@@ -241,12 +254,11 @@ function RepeatScheduleForm({
       },
     };
 
-    // A draft has no row yet — ✓ is what writes it. Deliberately without a
-    // `templateId` link back to the task it was seeded from: linking would make
-    // that task read as repeating and would let the mcp-server's `delete_task`
-    // take the template down with it.
+    // A draft has no row yet — ✓ is what writes it. `createTemplate` links the
+    // source task only when the row ends up carrying a schedule, so a repeat can
+    // fire and a plain template leaves its task alone.
     if (existing) updateTemplate({ id: existing.id, ...fields }, callbacks);
-    else createTemplate(fields, callbacks);
+    else createTemplate({ template: fields, linkTaskId }, callbacks);
   };
 
   // One destructive action, one message, whether or not the row has a schedule.

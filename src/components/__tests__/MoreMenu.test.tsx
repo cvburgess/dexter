@@ -56,13 +56,12 @@ jest.mock("@/hooks/useLists", () => ({
 }));
 
 const mockGetTemplateById = jest.fn(() => undefined);
-const mockCreateTemplateFromTask = jest.fn();
+const mockCreateTemplate = jest.fn();
 jest.mock("@/hooks/useTemplates", () => ({
   useTemplates: () => [
     [],
     {
-      createTemplate: jest.fn(),
-      createTemplateFromTask: mockCreateTemplateFromTask,
+      createTemplate: mockCreateTemplate,
       deleteTemplate: jest.fn(),
       getTemplateById: mockGetTemplateById,
       isLoading: false,
@@ -343,7 +342,7 @@ describe("MoreMenu", () => {
     // Nothing is stored until the editor's ✓, so ✕ leaves no orphan row — and
     // navigating synchronously means two of these in a row can't have the
     // first's late callback push its editor over the second's.
-    expect(mockCreateTemplateFromTask).not.toHaveBeenCalled();
+    expect(mockCreateTemplate).not.toHaveBeenCalled();
     // `withAnchor` brings the tasks stack's anchor — its list — along when this
     // push first enters that navigator, so the modal has something to render
     // over and close back to rather than an empty black pane.
@@ -352,6 +351,80 @@ describe("MoreMenu", () => {
         pathname: "/settings/tasks/[id]",
         params: { id: "new", fromTask: "task-1" },
       },
+      { withAnchor: true },
+    );
+  });
+
+  // Repeat writes nothing up front either — it opens the same draft, differing
+  // only in the cadence it starts on. Pressing ✕ used to leave a daily repeat
+  // behind, and two Repeats in a row raced the same way Save as template did.
+  it("opens a repeating draft from Repeat, writing nothing yet", () => {
+    render(
+      <MoreMenu
+        task={makeTask({ templateId: null })}
+        onChangePriority={jest.fn()}
+        onChangeSchedule={jest.fn()}
+        onChangeDeadline={jest.fn()}
+        onChangeList={jest.fn()}
+        onPickDate={jest.fn()}
+        onSetAlarm={jest.fn()}
+        onClearAlarm={jest.fn()}
+        onDuplicate={jest.fn()}
+        onDelete={jest.fn()}
+      >
+        <Text>Task row</Text>
+      </MoreMenu>,
+    );
+
+    const { sections } = mockIconMenu.mock.calls[0][0];
+    sections
+      .flatMap((section) => section.options)
+      .find((option) => option.id === "repeat")
+      ?.onSelect();
+
+    expect(mockCreateTemplate).not.toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith(
+      {
+        pathname: "/settings/tasks/[id]",
+        params: { id: "new", fromTask: "task-1", repeats: "1" },
+      },
+      { withAnchor: true },
+    );
+  });
+
+  // An existing repeat is edited, never re-drafted, or the task would end up
+  // with a second template.
+  it("opens the linked template directly when the task already repeats", () => {
+    mockGetTemplateById.mockReturnValue({
+      id: "template-1",
+      schedule: "0 0 * * *",
+    } as never);
+
+    render(
+      <MoreMenu
+        task={makeTask({ templateId: "template-1" })}
+        onChangePriority={jest.fn()}
+        onChangeSchedule={jest.fn()}
+        onChangeDeadline={jest.fn()}
+        onChangeList={jest.fn()}
+        onPickDate={jest.fn()}
+        onSetAlarm={jest.fn()}
+        onClearAlarm={jest.fn()}
+        onDuplicate={jest.fn()}
+        onDelete={jest.fn()}
+      >
+        <Text>Task row</Text>
+      </MoreMenu>,
+    );
+
+    const { sections } = mockIconMenu.mock.calls[0][0];
+    sections
+      .flatMap((section) => section.options)
+      .find((option) => option.id === "repeat")
+      ?.onSelect();
+
+    expect(mockPush).toHaveBeenCalledWith(
+      { pathname: "/settings/tasks/[id]", params: { id: "template-1" } },
       { withAnchor: true },
     );
   });

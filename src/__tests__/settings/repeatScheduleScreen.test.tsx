@@ -121,7 +121,7 @@ const templatesResult = (templates: TTemplate[]) =>
       createTemplate: mockCreateTemplate,
       updateTemplate: mockUpdateTemplate,
       deleteTemplate: mockDeleteTemplate,
-    } as never,
+    },
   ]);
 
 const renderWith = (template: TTemplate) => {
@@ -130,9 +130,12 @@ const renderWith = (template: TTemplate) => {
   return render(<RepeatScheduleScreen />);
 };
 
-/** The "Save as template" entry point: a draft seeded from a task, unsaved. */
-const renderDraftFrom = (task: TTask) => {
-  mockParams.current = { id: "new", fromTask: task.id };
+/** The draft both menu items open: seeded from a task, nothing written yet. */
+const renderDraftFrom = (
+  task: TTask,
+  extraParams: Record<string, string> = {},
+) => {
+  mockParams.current = { id: "new", fromTask: task.id, ...extraParams };
   mockTasks.current = [task];
   templatesResult([]);
   return render(<RepeatScheduleScreen />);
@@ -179,15 +182,19 @@ describe("RepeatScheduleScreen", () => {
       expect(mockUpdateTemplate).not.toHaveBeenCalled();
       expect(mockCreateTemplate).toHaveBeenCalledWith(
         {
-          title: "Trip packing",
-          priority: ETaskPriority.IMPORTANT,
-          listId: "list-1",
-          goalId: null,
-          alarmTime: "08:00",
-          // A draft opens on Never — it is a template, not a repeat.
-          schedule: null,
-          // The blueprint drops each item's status.
-          subtasks: [{ id: "sub-1", title: "Passport" }],
+          template: {
+            title: "Trip packing",
+            priority: ETaskPriority.IMPORTANT,
+            listId: "list-1",
+            goalId: null,
+            alarmTime: "08:00",
+            // A Save-as-template draft opens on Never.
+            schedule: null,
+            // The blueprint drops each item's status.
+            subtasks: [{ id: "sub-1", title: "Passport" }],
+          },
+          // Passed either way; the hook links only if the row ends up scheduled.
+          linkTaskId: "task-1",
         },
         expect.anything(),
       );
@@ -199,6 +206,24 @@ describe("RepeatScheduleScreen", () => {
       expect(mockPickers["Repeats"].selectedValue).toBe("never");
       expect(headerOptions().title).toBe("New Template");
       expect(screen.queryByText("Delete Template")).toBe(null);
+    });
+
+    // The only difference between the two menu items: Repeat starts the same
+    // draft on a daily cadence rather than on Never.
+    it("opens on Daily when Repeat started it, and saves that cron", () => {
+      renderDraftFrom(seedTask, { repeats: "1" });
+
+      expect(mockPickers["Repeats"].selectedValue).toBe("daily");
+
+      save();
+
+      expect(mockCreateTemplate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          template: expect.objectContaining({ schedule: "0 0 * * *" }),
+          linkTaskId: "task-1",
+        }),
+        expect.anything(),
+      );
     });
   });
 

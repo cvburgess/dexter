@@ -69,25 +69,50 @@ describe("useTemplates", () => {
     mockUpdateTask.mockResolvedValue({} as never);
   });
 
-  describe("createTemplateFromTask", () => {
-    // The column lost its daily-cron default in DEX-65, so the repeat flow has
-    // to name its schedule or the row would land as a task template.
-    it("attaches an explicit daily schedule and links the task", async () => {
+  // Whether the source task gets linked is decided by the saved row, not by
+  // which menu item opened the draft: recurrence spawns from *completing a
+  // linked task*, so a repeat needs the link to ever fire — while a plain
+  // template must leave the task it came from alone, or that task would read as
+  // repeating and `delete_task` would take the template down with it.
+  describe("createTemplate", () => {
+    it("links the source task when the new row carries a schedule", async () => {
+      mockCreateTemplate.mockResolvedValue({
+        id: "template-1",
+        schedule: "0 0 * * *",
+      } as TTemplate);
       const view = await renderUseTemplates();
 
       act(() => {
-        view.result.current[1].createTemplateFromTask(task);
+        view.result.current[1].createTemplate({
+          template: { title: "Water the plants", priority: task.priority },
+          linkTaskId: task.id,
+        });
+      });
+
+      await waitFor(() =>
+        expect(mockUpdateTask).toHaveBeenCalledWith(expect.anything(), {
+          id: "task-1",
+          templateId: "template-1",
+        }),
+      );
+    });
+
+    it("leaves the source task alone when the new row has no schedule", async () => {
+      mockCreateTemplate.mockResolvedValue({
+        id: "template-1",
+        schedule: null,
+      } as TTemplate);
+      const view = await renderUseTemplates();
+
+      act(() => {
+        view.result.current[1].createTemplate({
+          template: { title: "Trip packing", priority: task.priority },
+          linkTaskId: task.id,
+        });
       });
 
       await waitFor(() => expect(mockCreateTemplate).toHaveBeenCalled());
-      expect(mockCreateTemplate).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({ schedule: "0 0 * * *" }),
-      );
-      expect(mockUpdateTask).toHaveBeenCalledWith(expect.anything(), {
-        id: "task-1",
-        templateId: "template-1",
-      });
+      expect(mockUpdateTask).not.toHaveBeenCalled();
     });
   });
 });

@@ -1,22 +1,15 @@
-import {
-  UseMutateFunction,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { updateTask, TTask } from "@/api/tasks";
+import { updateTask } from "@/api/tasks";
 import {
   createTemplate,
   deleteTemplate,
   getTemplates,
   TCreateTemplate,
-  templateFieldsFromTask,
   TTemplate,
   TUpdateTemplate,
   updateTemplate,
 } from "@/api/templates";
-import { buildSchedule } from "@/utils/repeatSchedule";
 
 import { supabase } from "./useAuth";
 
@@ -25,14 +18,24 @@ type TMutateCallbacks = {
   onSuccess?: () => void;
 };
 
+export type TCreateTemplateVars = {
+  template: TCreateTemplate;
+  /**
+   * The task the template was drafted from. It is linked to the new row only if
+   * that row ends up carrying a schedule — recurrence spawns from *completing a
+   * linked task*, so a repeat needs the link to ever fire, while a plain
+   * template must leave the task it came from alone.
+   */
+  linkTaskId?: string;
+};
+
 type TUseTemplates = [
   TTemplate[],
   {
     createTemplate: (
-      template: TCreateTemplate,
+      vars: TCreateTemplateVars,
       callbacks?: TMutateCallbacks,
     ) => void;
-    createTemplateFromTask: UseMutateFunction<TTemplate, Error, TTask>;
     deleteTemplate: (id: string, callbacks?: TMutateCallbacks) => void;
     getTemplateById: (id: string | null) => TTemplate | undefined;
     isLoading: boolean;
@@ -56,41 +59,30 @@ export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
     queryFn: () => getTemplates(supabase),
   });
 
-  const { mutate: create } = useMutation<TTemplate, Error, TCreateTemplate>({
-    mutationFn: (template) => createTemplate(supabase, template),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["templates"] });
-    },
-  });
+  const { mutate: create } = useMutation<TTemplate, Error, TCreateTemplateVars>(
+    {
+      mutationFn: async ({ template, linkTaskId }) => {
+        const created = await createTemplate(supabase, template);
 
-  const { mutate: createFromTask } = useMutation<TTemplate, Error, TTask>({
-    mutationFn: async (task) => {
-      const template = await createTemplate(supabase, {
-        ...templateFieldsFromTask(task),
-        // Explicit since DEX-65 dropped the column's daily-cron default: this
-        // is the "Repeat" flow, so the row must carry a schedule or it would
-        // land as a task template instead.
-        schedule: buildSchedule({ frequency: "daily" }),
-      });
+        // Gated on the schedule, not on which menu item started the draft: a
+        // scheduled row is a repeat and needs the link to ever fire, and a
+        // scheduleless one is a saved template that must not make its source task
+        // look like it repeats.
+        if (linkTaskId && created.schedule) {
+          await updateTask(supabase, {
+            id: linkTaskId,
+            templateId: created.id,
+          });
+        }
 
-      await updateTask(supabase, { id: task.id, templateId: template.id });
-
-      return template;
+        return created;
+      },
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: ["templates"] });
+        void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      },
     },
-    onSuccess: (template) => {
-      // Seed the row into the cache synchronously: this flow navigates straight
-      // to the editor by id, which reads it from cache before the invalidation
-      // refetch resolves — without this it would find nothing and redirect back
-      // to the list.
-      queryClient.setQueryData<TTemplate[]>(["templates"], (existing = []) => [
-        ...existing,
-        template,
-      ]);
-      void queryClient.invalidateQueries({ queryKey: ["templates"] });
-      // This flow also writes to the task (the `templateId` link above).
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
+  );
 
   const { mutate: update } = useMutation<TTemplate, Error, TUpdateTemplate>({
     mutationFn: (diff) => updateTemplate(supabase, diff),
@@ -115,7 +107,6 @@ export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
     templates,
     {
       createTemplate: create,
-      createTemplateFromTask: createFromTask,
       deleteTemplate: remove,
       getTemplateById,
       isLoading: isPending,

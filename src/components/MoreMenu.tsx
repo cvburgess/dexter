@@ -53,19 +53,35 @@ export function MoreMenu({
   const theme = useTheme();
   const router = useRouter();
   const [lists] = useLists();
-  const [, { createTemplateFromTask, getTemplateById }] = useTemplates();
+  const [, { getTemplateById }] = useTemplates();
 
-  // One editor for both: it shows a repeat schedule or a template depending on
-  // whether the row it opens carries one.
+  // One editor for all three entry points: it shows a repeat schedule, a saved
+  // template, or an unsaved draft depending on the route it is opened at.
   //
   // `withAnchor` carries the tasks stack's anchor — its list — along when this
   // push enters that navigator for the first time, so the modal always has the
   // list beneath it to render over and close back to (see `tasks/_layout.tsx`).
-  const openTemplateEditor = (templateId: string) =>
+  const openTemplateEditor = (params: { id: string; [key: string]: string }) =>
     router.push(
-      { pathname: "/settings/tasks/[id]", params: { id: templateId } },
+      { pathname: "/settings/tasks/[id]", params },
       { withAnchor: true },
     );
+
+  /**
+   * Both menu items open an unsaved draft seeded from this task rather than
+   * writing a row and then editing it, so nothing is stored until ✓ and ✕
+   * leaves nothing behind. They differ only in the cadence the draft opens on.
+   *
+   * Navigating synchronously matters too: when these wrote first and pushed
+   * from the mutation's callback, doing two in a row let the first one's late
+   * callback push its editor over the second's.
+   */
+  const openDraftFromTask = (repeats: boolean) =>
+    openTemplateEditor({
+      id: NEW_TEMPLATE,
+      fromTask: task.id,
+      ...(repeats && { repeats: "1" }),
+    });
 
   // A linked template only means "this task repeats" while it still carries a
   // schedule — since DEX-65 it may have been converted into a task template.
@@ -75,28 +91,11 @@ export function MoreMenu({
   const onRepeat = () => {
     // Branch on the stored templateId, not the (possibly still-loading) template
     // lookup, so an existing repeat is never duplicated.
-    if (task.templateId) {
-      openTemplateEditor(task.templateId);
-    } else {
-      createTemplateFromTask(task, {
-        onSuccess: (template) => openTemplateEditor(template.id),
-      });
-    }
+    if (task.templateId) openTemplateEditor({ id: task.templateId });
+    else openDraftFromTask(true);
   };
 
-  // Opens an unsaved draft seeded from this task rather than writing a row and
-  // then editing it: nothing is stored until the user confirms with ✓, and ✕
-  // leaves nothing behind. Navigating synchronously also keeps two of these in
-  // a row honest — a mutation's late callback used to push the editor for the
-  // *first* task over the second one's.
-  const onSaveAsTemplate = () =>
-    router.push(
-      {
-        pathname: "/settings/tasks/[id]",
-        params: { id: NEW_TEMPLATE, fromTask: task.id },
-      },
-      { withAnchor: true },
-    );
+  const onSaveAsTemplate = () => openDraftFromTask(false);
 
   // Alarms ring via native iOS AlarmKit only, so the item is iOS-only. A single
   // directly-tappable action, not a submenu.
