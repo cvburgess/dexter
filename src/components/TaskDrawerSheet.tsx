@@ -97,6 +97,12 @@ export function TaskDrawerSheet({ date, ref }: TTaskDrawerSheetProps) {
             date={date}
             filterId={filterId}
             onFilterChange={setFilterId}
+            // The sheet is presented over the tab bar and draws its own bottom
+            // chrome, so the drawer must not reserve the tab-bar-inclusive
+            // safe-area inset it would inherit from the Today screen's React
+            // tree — that would leave a tab bar's worth of dead space below the
+            // last row at the tall detent.
+            bottomInset={0}
           />
         ) : null}
       </BottomSheetView>

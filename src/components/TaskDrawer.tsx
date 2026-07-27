@@ -2,6 +2,7 @@ import { FlashList } from "@shopify/flash-list";
 import { Temporal } from "@js-temporal/polyfill";
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { TGoal } from "@/api/goals";
 import { TList } from "@/api/lists";
@@ -173,6 +174,16 @@ type TTaskDrawerProps = {
    */
   filterId?: TFilterId;
   onFilterChange?: (id: TFilterId) => void;
+  /**
+   * Bottom padding for the list's scrollable content, so its last row can be
+   * scrolled clear of whatever chrome sits below the drawer. Defaults to the
+   * safe-area bottom inset, which is what the docked large-screen pane needs
+   * (its host omits the bottom edge, so the native tab bar overlaps the pane).
+   * `TaskDrawerSheet` passes 0 instead: the sheet is presented *over* the tab
+   * bar and draws its own bottom chrome, so the inherited inset would leave a
+   * tab bar's worth of dead space below the last row.
+   */
+  bottomInset?: number;
 };
 
 /**
@@ -199,8 +210,10 @@ export function TaskDrawer({
   date,
   filterId: controlledFilterId,
   onFilterChange,
+  bottomInset,
 }: TTaskDrawerProps) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   // Controlled by the parent when both props are given (mobile sheet), else
   // self-managed (docked large-screen pane) — same optional-controlled shape
   // as a standard input.
@@ -309,6 +322,13 @@ export function TaskDrawer({
   );
 
   const controlBorder = { borderColor: withOpacity(theme.colors.text, 0.15) };
+  // `container`'s own 16pt padding sits inside a pane that itself extends
+  // behind the tab bar, so it doesn't clear it — the inset has to go on the
+  // scrollable content on top of that.
+  const listContentStyle = useMemo(
+    () => ({ paddingBottom: bottomInset ?? insets.bottom }),
+    [bottomInset, insets.bottom],
+  );
 
   return (
     <View style={[styles.container, { gap: theme.gap }]}>
@@ -362,6 +382,7 @@ export function TaskDrawer({
           getItemType={getItemType}
           ItemSeparatorComponent={ItemSeparator}
           style={styles.list}
+          contentContainerStyle={listContentStyle}
         />
       )}
     </View>
