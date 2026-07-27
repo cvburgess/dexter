@@ -132,6 +132,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      journals: {
+        Row: {
+          created_at: string;
+          date: string;
+          prompts: Json;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          date: string;
+          prompts?: Json;
+          user_id?: string;
+        };
+        Update: {
+          created_at?: string;
+          date?: string;
+          prompts?: Json;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       lists: {
         Row: {
           created_at: string;
@@ -155,6 +176,27 @@ export type Database = {
           id?: string;
           is_archived?: boolean;
           title?: string | null;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      notes: {
+        Row: {
+          content: string;
+          created_at: string;
+          date: string;
+          user_id: string;
+        };
+        Insert: {
+          content?: string;
+          created_at?: string;
+          date: string;
+          user_id?: string;
+        };
+        Update: {
+          content?: string;
+          created_at?: string;
+          date?: string;
           user_id?: string;
         };
         Relationships: [];

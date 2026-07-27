@@ -30,7 +30,7 @@ export type TCalendarEvent = {
 
 /**
  * The events for the viewed day plus load/permission state. Mirrors the
- * `[value, meta]` tuple shape used by `useTasks`/`useDays`.
+ * `[value, meta]` tuple shape used by `useTasks`/`useNotes`.
  */
 export type TUseCalendarEvents = [
   TCalendarEvent[],

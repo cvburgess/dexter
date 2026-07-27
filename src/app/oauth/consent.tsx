@@ -249,8 +249,8 @@ function ConsentForm({ appName, error, onApprove, onDeny }: TConsentFormProps) {
         Authorize Access
       </Text>
       <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-        {appName} wants to access your tasks, lists, goals, days, habits, and
-        journals.
+        {appName} wants to access your tasks, lists, goals, notes, journals, and
+        habits.
       </Text>
 
       {error ? (

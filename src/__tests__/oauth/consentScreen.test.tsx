@@ -67,7 +67,7 @@ describe("OAuthConsentScreen", () => {
 
     expect(
       await findByText(
-        "Claude wants to access your tasks, lists, goals, days, habits, and journals.",
+        "Claude wants to access your tasks, lists, goals, notes, journals, and habits.",
       ),
     ).toBeTruthy();
   });
