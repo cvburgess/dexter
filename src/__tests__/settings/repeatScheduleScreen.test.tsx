@@ -1,14 +1,24 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import type { ReactElement } from "react";
 
-import { ETaskPriority } from "@/api/tasks";
+import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import { TTemplate } from "@/api/templates";
 import RepeatScheduleScreen from "@/app/(app)/(tabs)/settings/tasks/[id]";
 import { useTemplates } from "@/hooks/useTemplates";
 
+// useTasks imports the supabase client from useAuth, which reads the app's URI
+// scheme at module scope — not available under Jest.
+jest.mock("@/hooks/useAuth", () => ({ supabase: {} }));
 jest.mock("@/hooks/useTemplates", () => ({ useTemplates: jest.fn() }));
 jest.mock("@/hooks/useLists", () => ({ useLists: () => [[], {}] }));
 jest.mock("@/hooks/useGoals", () => ({ useGoals: () => [[], {}] }));
+
+// The draft ("Save as template") path seeds itself from the task named by the
+// route's `fromTask` param.
+const mockTasks: { current: TTask[] } = { current: [] };
+jest.mock("@/hooks/useTasks", () => ({
+  useTasks: () => [mockTasks.current, { isLoading: false }],
+}));
 
 // The prompt itself is covered by ConfirmationModal's own tests; here it only
 // has to resolve so the delete path can be exercised.
@@ -40,6 +50,7 @@ jest.mock("@/components/PickerField", () => ({
 // the latest call is what the header would be showing.
 type THeaderOptions = {
   title?: string;
+  headerLeft: () => ReactElement;
   headerRight: () => ReactElement;
 };
 const mockRouter = {
@@ -50,13 +61,16 @@ const mockRouter = {
   canGoBack: jest.fn(() => true),
 };
 const mockNavigation = { setOptions: jest.fn<void, [THeaderOptions]>() };
+const mockParams: { current: Record<string, string> } = {
+  current: { id: "template-1" },
+};
 jest.mock("expo-router", () => ({
   Redirect: function Redirect() {
     return null;
   },
   useNavigation: () => mockNavigation,
   useRouter: () => mockRouter,
-  useLocalSearchParams: () => ({ id: "template-1" }),
+  useLocalSearchParams: () => mockParams.current,
 }));
 
 const headerOptions = (): THeaderOptions =>
@@ -65,8 +79,23 @@ const headerOptions = (): THeaderOptions =>
 const mockUseTemplates = useTemplates as jest.MockedFunction<
   typeof useTemplates
 >;
+const mockCreateTemplate = jest.fn();
 const mockUpdateTemplate = jest.fn();
 const mockDeleteTemplate = jest.fn();
+
+const seedTask: TTask = {
+  id: "task-1",
+  alarmTime: "08:00",
+  title: "Trip packing",
+  dueOn: "2026-08-01",
+  goalId: null,
+  listId: "list-1",
+  priority: ETaskPriority.IMPORTANT,
+  scheduledFor: "2026-07-26",
+  status: ETaskStatus.IN_PROGRESS,
+  subtasks: [{ id: "sub-1", title: "Passport", status: ETaskStatus.DONE }],
+  templateId: null,
+};
 
 const makeTemplate = (overrides: Partial<TTemplate> = {}): TTemplate => ({
   id: "template-1",
@@ -82,17 +111,30 @@ const makeTemplate = (overrides: Partial<TTemplate> = {}): TTemplate => ({
   ...overrides,
 });
 
-const renderWith = (template: TTemplate) => {
+const templatesResult = (templates: TTemplate[]) =>
   mockUseTemplates.mockReturnValue([
-    [template],
+    templates,
     {
       getTemplateById: (id: string | null) =>
-        id === template.id ? template : undefined,
+        templates.find((template) => template.id === id),
       isLoading: false,
+      createTemplate: mockCreateTemplate,
       updateTemplate: mockUpdateTemplate,
       deleteTemplate: mockDeleteTemplate,
     } as never,
   ]);
+
+const renderWith = (template: TTemplate) => {
+  mockParams.current = { id: template.id };
+  templatesResult([template]);
+  return render(<RepeatScheduleScreen />);
+};
+
+/** The "Save as template" entry point: a draft seeded from a task, unsaved. */
+const renderDraftFrom = (task: TTask) => {
+  mockParams.current = { id: "new", fromTask: task.id };
+  mockTasks.current = [task];
+  templatesResult([]);
   return render(<RepeatScheduleScreen />);
 };
 
@@ -107,6 +149,57 @@ describe("RepeatScheduleScreen", () => {
     mockRouter.canGoBack.mockReturnValue(true);
     mockConfirm.mockResolvedValue(true);
     for (const key of Object.keys(mockPickers)) delete mockPickers[key];
+  });
+
+  // "Save as template" routes here before anything is written, so ✓ is what
+  // creates the row and ✕ leaves nothing behind.
+  describe("a draft seeded from a task", () => {
+    it("writes nothing until saved", () => {
+      renderDraftFrom(seedTask);
+
+      expect(mockCreateTemplate).not.toHaveBeenCalled();
+      expect(mockUpdateTemplate).not.toHaveBeenCalled();
+    });
+
+    it("abandons the draft when closed", () => {
+      renderDraftFrom(seedTask);
+
+      const header = render(headerOptions().headerLeft());
+      fireEvent.press(header.getByTestId("modal-close-button"));
+
+      expect(mockCreateTemplate).not.toHaveBeenCalled();
+      expect(mockRouter.dismissTo).toHaveBeenCalledWith("/settings/tasks");
+    });
+
+    it("creates the template from the task's fields on save", () => {
+      renderDraftFrom(seedTask);
+
+      save();
+
+      expect(mockUpdateTemplate).not.toHaveBeenCalled();
+      expect(mockCreateTemplate).toHaveBeenCalledWith(
+        {
+          title: "Trip packing",
+          priority: ETaskPriority.IMPORTANT,
+          listId: "list-1",
+          goalId: null,
+          alarmTime: "08:00",
+          // A draft opens on Never — it is a template, not a repeat.
+          schedule: null,
+          // The blueprint drops each item's status.
+          subtasks: [{ id: "sub-1", title: "Passport" }],
+        },
+        expect.anything(),
+      );
+    });
+
+    it("opens on Never with no delete action, since there is nothing to delete", () => {
+      const screen = renderDraftFrom(seedTask);
+
+      expect(mockPickers["Repeats"].selectedValue).toBe("never");
+      expect(headerOptions().title).toBe("New Template");
+      expect(screen.queryByText("Delete Template")).toBe(null);
+    });
   });
 
   // Opened straight from a task card's menu, this modal has nothing to pop back

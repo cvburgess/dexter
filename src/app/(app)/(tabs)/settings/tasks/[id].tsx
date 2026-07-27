@@ -10,8 +10,13 @@ import {
   View,
 } from "react-native";
 
-import { ETaskPriority } from "@/api/tasks";
-import { TTemplate, TTemplateSubtask } from "@/api/templates";
+import { ETaskPriority, TTask } from "@/api/tasks";
+import {
+  NEW_TEMPLATE,
+  templateFieldsFromTask,
+  TTemplate,
+  TTemplateSubtask,
+} from "@/api/templates";
 import { Button } from "@/components/Button";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { FormRow } from "@/components/FormRow";
@@ -28,6 +33,7 @@ import { useConfirmation } from "@/hooks/useConfirmation";
 import { useGoals } from "@/hooks/useGoals";
 import { useLists } from "@/hooks/useLists";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
+import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
 import { DEFAULT_ALARM_TIME, isAlarmSupported } from "@/utils/alarms";
 import {
@@ -90,9 +96,38 @@ const showSaveError = () => {
   }
 };
 
+/** The unsaved shape "Save as template" starts from, seeded off its task. */
+const draftFromTask = (task: TTask): TTemplateDraft => ({
+  ...templateFieldsFromTask(task),
+  // A draft is always a plain template; the user can give it a cadence here.
+  schedule: null,
+});
+
+/** An `existing` template, or the seed for one that hasn't been written yet. */
+type TTemplateDraft = Omit<TTemplate, "id" | "createdAt" | "userId">;
+
 export default function RepeatScheduleScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, fromTask } = useLocalSearchParams<{
+    id: string;
+    fromTask?: string;
+  }>();
   const [, { getTemplateById, isLoading }] = useTemplates();
+  const [tasks, { isLoading: isLoadingTasks }] = useTasks();
+
+  // "Save as template" routes here before anything is stored, carrying the task
+  // to seed from — so ✕ can leave nothing behind and ✓ is what writes the row.
+  if (id === NEW_TEMPLATE) {
+    const task = tasks.find((candidate) => candidate.id === fromTask);
+    if (!task) {
+      return isLoadingTasks ? (
+        <LoadingScreen />
+      ) : (
+        <Redirect href="/settings/tasks" />
+      );
+    }
+    return <RepeatScheduleForm draft={draftFromTask(task)} />;
+  }
+
   const existing = getTemplateById(id);
 
   if (!existing) {
@@ -103,32 +138,43 @@ export default function RepeatScheduleScreen() {
   }
 
   // The `key` remounts the form if the resolved template changes.
-  return <RepeatScheduleForm key={existing.id} existing={existing} />;
+  return (
+    <RepeatScheduleForm
+      key={existing.id}
+      draft={existing}
+      existing={existing}
+    />
+  );
 }
 
-function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
+function RepeatScheduleForm({
+  draft,
+  existing,
+}: {
+  draft: TTemplateDraft;
+  /** Absent for a draft — the row does not exist yet. */
+  existing?: TTemplate;
+}) {
   const theme = useTheme();
   const router = useRouter();
 
   const [lists] = useLists();
   const [goals] = useGoals();
-  const [, { updateTemplate, deleteTemplate }] = useTemplates();
+  const [, { createTemplate, updateTemplate, deleteTemplate }] = useTemplates();
   const { confirm, confirmationProps } = useConfirmation();
 
-  const parsed = parseSchedule(existing.schedule);
+  const parsed = parseSchedule(draft.schedule);
 
-  const [title, setTitle] = useState(existing.title);
-  const [priority, setPriority] = useState<ETaskPriority>(existing.priority);
-  const [listId, setListId] = useState<string | null>(existing.listId);
-  const [goalId, setGoalId] = useState<string | null>(existing.goalId);
-  const [alarmTime, setAlarmTime] = useState<string | null>(existing.alarmTime);
-  const [subtasks, setSubtasks] = useState<TTemplateSubtask[]>(
-    existing.subtasks,
-  );
+  const [title, setTitle] = useState(draft.title);
+  const [priority, setPriority] = useState<ETaskPriority>(draft.priority);
+  const [listId, setListId] = useState<string | null>(draft.listId);
+  const [goalId, setGoalId] = useState<string | null>(draft.goalId);
+  const [alarmTime, setAlarmTime] = useState<string | null>(draft.alarmTime);
+  const [subtasks, setSubtasks] = useState<TTemplateSubtask[]>(draft.subtasks);
   // `parseSchedule` falls back to daily for a null schedule, so the template
   // case has to be read off the row itself rather than off the parse.
   const [frequency, setFrequency] = useState<TEditorFrequency>(
-    existing.schedule === null ? "never" : parsed.frequency,
+    draft.schedule === null ? "never" : parsed.frequency,
   );
   const [weekdays, setWeekdays] = useState<number[]>(
     parsed.frequency === "weekly" ? parsed.weekdays : [1],
@@ -177,26 +223,30 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
     if (hasSaved.current || !canSave) return;
     hasSaved.current = true;
 
-    updateTemplate(
-      {
-        id: existing.id,
-        title: title.trim(),
-        priority,
-        listId,
-        goalId,
-        alarmTime,
-        schedule: buildCurrentSchedule(),
-        // Drop any row left untitled — an empty row is an abandoned edit.
-        subtasks: withTitledRows(subtasks),
+    const fields = {
+      title: title.trim(),
+      priority,
+      listId,
+      goalId,
+      alarmTime,
+      schedule: buildCurrentSchedule(),
+      // Drop any row left untitled — an empty row is an abandoned edit.
+      subtasks: withTitledRows(subtasks),
+    };
+    const callbacks = {
+      onSuccess: handleClose,
+      onError: () => {
+        hasSaved.current = false;
+        showSaveError();
       },
-      {
-        onSuccess: handleClose,
-        onError: () => {
-          hasSaved.current = false;
-          showSaveError();
-        },
-      },
-    );
+    };
+
+    // A draft has no row yet — ✓ is what writes it. Deliberately without a
+    // `templateId` link back to the task it was seeded from: linking would make
+    // that task read as repeating and would let the mcp-server's `delete_task`
+    // take the template down with it.
+    if (existing) updateTemplate({ id: existing.id, ...fields }, callbacks);
+    else createTemplate(fields, callbacks);
   };
 
   // One destructive action, one message, whether or not the row has a schedule.
@@ -204,6 +254,7 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
   // does that — and keeps the template — so a second button offering it only
   // blurred the difference between dropping the schedule and deleting the row.
   const handleDelete = async () => {
+    if (!existing) return;
     const confirmed = await confirm({
       title: "Delete template?",
       message:
@@ -226,7 +277,11 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
     );
 
   useModalHeaderActions({
-    title: isTemplate ? "Template" : "Repeat Schedule",
+    title: !existing
+      ? "New Template"
+      : isTemplate
+        ? "Template"
+        : "Repeat Schedule",
     canSave,
     onClose: handleClose,
     onSave: handleSave,
@@ -384,11 +439,14 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
           />
         )}
 
-        <View style={styles.dangerZone}>
-          <Button variant="dangerous" onPress={handleDelete}>
-            Delete Template
-          </Button>
-        </View>
+        {/* A draft has no row to delete — ✕ is how you abandon it. */}
+        {existing && (
+          <View style={styles.dangerZone}>
+            <Button variant="dangerous" onPress={handleDelete}>
+              Delete Template
+            </Button>
+          </View>
+        )}
       </ScrollView>
 
       <ConfirmationModal {...confirmationProps} />

@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
 
 import { ETaskPriority, TTask } from "@/api/tasks";
-import { isRepeatTask } from "@/api/templates";
+import { isRepeatTask, NEW_TEMPLATE } from "@/api/templates";
 import { isAlarmSupported } from "@/utils/alarms";
 import { useLists } from "@/hooks/useLists";
 import { useTemplates } from "@/hooks/useTemplates";
@@ -53,8 +53,7 @@ export function MoreMenu({
   const theme = useTheme();
   const router = useRouter();
   const [lists] = useLists();
-  const [, { createTemplateFromTask, getTemplateById, saveTaskAsTemplate }] =
-    useTemplates();
+  const [, { createTemplateFromTask, getTemplateById }] = useTemplates();
 
   // One editor for both: it shows a repeat schedule or a template depending on
   // whether the row it opens carries one.
@@ -85,13 +84,19 @@ export function MoreMenu({
     }
   };
 
-  // Unlike Repeat, this never reuses `task.templateId` and never links the new
-  // row back to the task: saving a copy for later must leave the task it was
-  // taken from exactly as it was.
+  // Opens an unsaved draft seeded from this task rather than writing a row and
+  // then editing it: nothing is stored until the user confirms with ✓, and ✕
+  // leaves nothing behind. Navigating synchronously also keeps two of these in
+  // a row honest — a mutation's late callback used to push the editor for the
+  // *first* task over the second one's.
   const onSaveAsTemplate = () =>
-    saveTaskAsTemplate(task, {
-      onSuccess: (template) => openTemplateEditor(template.id),
-    });
+    router.push(
+      {
+        pathname: "/settings/tasks/[id]",
+        params: { id: NEW_TEMPLATE, fromTask: task.id },
+      },
+      { withAnchor: true },
+    );
 
   // Alarms ring via native iOS AlarmKit only, so the item is iOS-only. A single
   // directly-tappable action, not a submenu.

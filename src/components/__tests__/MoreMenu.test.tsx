@@ -57,10 +57,6 @@ jest.mock("@/hooks/useLists", () => ({
 
 const mockGetTemplateById = jest.fn(() => undefined);
 const mockCreateTemplateFromTask = jest.fn();
-const mockSaveTaskAsTemplate = jest.fn<
-  void,
-  [TTask, { onSuccess: (template: { id: string }) => void }]
->();
 jest.mock("@/hooks/useTemplates", () => ({
   useTemplates: () => [
     [],
@@ -70,7 +66,6 @@ jest.mock("@/hooks/useTemplates", () => ({
       deleteTemplate: jest.fn(),
       getTemplateById: mockGetTemplateById,
       isLoading: false,
-      saveTaskAsTemplate: mockSaveTaskAsTemplate,
       updateTemplate: jest.fn(),
     },
   ],
@@ -319,11 +314,8 @@ describe("MoreMenu", () => {
   // Saving a template must not touch the task it came from: linking would make
   // the task look like it repeats and would let `delete_task` take the template
   // down with it.
-  it("saves a template from the task without linking it, then opens the editor", () => {
+  it("opens an unsaved draft seeded from the task, writing nothing yet", () => {
     const task = makeTask({ templateId: null });
-    mockSaveTaskAsTemplate.mockImplementation((_task, { onSuccess }) => {
-      onSuccess({ id: "template-9" });
-    });
 
     render(
       <MoreMenu
@@ -348,16 +340,18 @@ describe("MoreMenu", () => {
       .find((option) => option.id === "save-as-template")
       ?.onSelect();
 
-    expect(mockSaveTaskAsTemplate).toHaveBeenCalledWith(
-      task,
-      expect.anything(),
-    );
+    // Nothing is stored until the editor's ✓, so ✕ leaves no orphan row — and
+    // navigating synchronously means two of these in a row can't have the
+    // first's late callback push its editor over the second's.
     expect(mockCreateTemplateFromTask).not.toHaveBeenCalled();
     // `withAnchor` brings the tasks stack's anchor — its list — along when this
     // push first enters that navigator, so the modal has something to render
     // over and close back to rather than an empty black pane.
     expect(mockPush).toHaveBeenCalledWith(
-      { pathname: "/settings/tasks/[id]", params: { id: "template-9" } },
+      {
+        pathname: "/settings/tasks/[id]",
+        params: { id: "new", fromTask: "task-1" },
+      },
       { withAnchor: true },
     );
   });
