@@ -66,16 +66,14 @@ describe("CalendarsScreen", () => {
     mockUseIsMultiPane.mockReturnValue(true);
     const screen = renderWith({ enableCalendar: true });
 
-    expect(screen.getByTestId("safe-area-edges-bottom,right")).toBeTruthy();
+    expect(screen.getByTestId("safe-area-edges-right")).toBeTruthy();
   });
 
   it("includes the left safe-area edge in single-column mode", () => {
     mockUseIsMultiPane.mockReturnValue(false);
     const screen = renderWith({ enableCalendar: true });
 
-    expect(
-      screen.getByTestId("safe-area-edges-bottom,left,right"),
-    ).toBeTruthy();
+    expect(screen.getByTestId("safe-area-edges-left,right")).toBeTruthy();
   });
 
   it("reflects the enabled state and toggles it", () => {

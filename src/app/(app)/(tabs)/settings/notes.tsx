@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { SettingsToggleCard } from "@/components/SettingsToggleCard";
 import { TextInput } from "@/components/TextInput";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
+import {
+  EDGES_SINGLE_PANE,
+  EDGES_TWO_PANE,
+} from "@/utils/settingsSafeAreaEdges";
 import { useTheme } from "@/utils/theme";
 
 export default function NotesScreen() {
@@ -14,6 +21,7 @@ export default function NotesScreen() {
   const [preferences, { updatePreferences }] = usePreferences();
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = useIsMultiPane();
+  const insets = useSafeAreaInsets();
 
   // Edit the template locally and commit on blur so we don't write a
   // preference on every keystroke. Re-sync from the stored value when it
@@ -34,13 +42,20 @@ export default function NotesScreen() {
 
   return (
     <SafeAreaView
-      edges={twoPane ? ["bottom", "right"] : ["bottom", "left", "right"]}
+      edges={twoPane ? EDGES_TWO_PANE : EDGES_SINGLE_PANE}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <ScrollView
+        // The edges above omit `bottom` so content scrolls under the
+        // translucent tab bar; adding the inset to the content's own bottom
+        // padding is what lets the last row clear it (DEX-91).
         contentContainerStyle={[
           styles.content,
-          { padding: theme.spacing, gap: theme.spacing },
+          {
+            padding: theme.spacing,
+            paddingBottom: theme.spacing + insets.bottom,
+            gap: theme.spacing,
+          },
         ]}
       >
         <SettingsToggleCard

@@ -7,7 +7,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 import { EThemeMode } from "@/api/preferences";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
@@ -32,6 +35,7 @@ export default function AppearanceScreen() {
   const theme = useTheme();
   const [preferences, { updatePreferences }] = usePreferences();
   const twoPane = useIsMultiPane();
+  const insets = useSafeAreaInsets();
 
   const { themeMode, lightTheme, darkTheme } = preferences;
   const showLight = themeMode !== EThemeMode.DARK;
@@ -43,9 +47,16 @@ export default function AppearanceScreen() {
       style={[styles.screen, { backgroundColor: theme.colors.background }]}
     >
       <ScrollView
+        // The edges above omit `bottom` so content scrolls under the
+        // translucent tab bar; adding the inset to the content's own bottom
+        // padding is what lets the last theme card clear it (DEX-91).
         contentContainerStyle={[
           styles.content,
-          { padding: theme.spacing, gap: theme.spacing },
+          {
+            padding: theme.spacing,
+            paddingBottom: theme.spacing + insets.bottom,
+            gap: theme.spacing,
+          },
         ]}
       >
         <Section title="Mode">

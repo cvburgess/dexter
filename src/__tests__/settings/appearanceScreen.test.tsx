@@ -1,9 +1,12 @@
 import { fireEvent, render } from "@testing-library/react-native";
+import { ScrollView, StyleSheet } from "react-native";
+import type { ViewStyle } from "react-native";
 
 import AppearanceScreen from "@/app/(app)/(tabs)/settings/appearance";
 import { EThemeMode } from "@/api/preferences";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
+import { renderWithBottomInset } from "@/testUtils/renderWithBottomInset";
 
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 jest.mock("@/hooks/useIsMultiPane", () => ({ useIsMultiPane: jest.fn() }));
@@ -53,15 +56,27 @@ describe("AppearanceScreen", () => {
     mockUseIsMultiPane.mockReturnValue(true);
     const screen = renderWith();
 
-    expect(screen.getByTestId("safe-area-edges-bottom,right")).toBeTruthy();
+    expect(screen.getByTestId("safe-area-edges-right")).toBeTruthy();
   });
 
   it("includes the left safe-area edge in single-column mode", () => {
     const screen = renderWith();
 
-    expect(
-      screen.getByTestId("safe-area-edges-bottom,left,right"),
-    ).toBeTruthy();
+    expect(screen.getByTestId("safe-area-edges-left,right")).toBeTruthy();
+  });
+
+  // The edges above omit `bottom` so cards scroll under the tab bar; the scroll
+  // content is what has to reserve the inset, or the last one can never be
+  // scrolled clear of it (DEX-91).
+  it("adds the safe-area bottom inset to the scroll content's own padding", () => {
+    mockPreferences();
+    const screen = renderWithBottomInset(34, <AppearanceScreen />);
+
+    const style = StyleSheet.flatten(
+      screen.UNSAFE_getByType(ScrollView).props
+        .contentContainerStyle as ViewStyle[],
+    );
+    expect(style.paddingBottom).toBe(Number(style.padding) + 34);
   });
 
   it("renders the mode control and both theme sections in SYSTEM mode", () => {

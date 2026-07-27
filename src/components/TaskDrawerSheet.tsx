@@ -5,8 +5,12 @@ import {
 } from "@expo/ui/community/bottom-sheet";
 import { Temporal } from "@js-temporal/polyfill";
 import type { Ref } from "react";
-import { useImperativeHandle, useRef, useState } from "react";
+import { useImperativeHandle, useMemo, useRef, useState } from "react";
 import { StyleSheet } from "react-native";
+import {
+  SafeAreaInsetsContext,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 import { TaskDrawer } from "@/components/TaskDrawer";
 import { TFilterId } from "@/utils/taskFilters";
@@ -63,6 +67,15 @@ export function TaskDrawerSheet({ date, ref }: TTaskDrawerSheetProps) {
   // controlled off this state.
   const [filterId, setFilterId] = useState<TFilterId>("none");
   const sheetRef = useRef<BottomSheetMethods>(null);
+  const insets = useSafeAreaInsets();
+  // The Today tab's screens sit under the native tab bar, so the inset they
+  // publish has the bar's height baked into `bottom`. This sheet is presented
+  // *over* that bar and draws its own bottom chrome, so for anything inside it
+  // that figure is simply wrong — zero it for the subtree (below) rather than
+  // having each child (TaskDrawer's list, the EmptyScreen it falls back to)
+  // correct for a host it can't see. Memoized so a filter change here doesn't
+  // hand the subtree a fresh context value and re-render every consumer of it.
+  const contentInsets = useMemo(() => ({ ...insets, bottom: 0 }), [insets]);
 
   // Deps `[]`: the handle only closes over the stable `sheetRef` and the stable
   // `setFilterId` setter, so it's built once rather than on every render.
@@ -92,13 +105,18 @@ export function TaskDrawerSheet({ date, ref }: TTaskDrawerSheetProps) {
           scrolls within the detent (with snap points set, the sheet isn't in
           fit-to-content mode, so BottomSheetView keeps `flex`). */}
       <BottomSheetView style={styles.content}>
-        {hasOpened ? (
-          <TaskDrawer
-            date={date}
-            filterId={filterId}
-            onFilterChange={setFilterId}
-          />
-        ) : null}
+        {/* `contentInsets` above zeroes the inherited bottom inset. Content is
+            still a plain React child of this tree, so the override reaches it
+            the same way `useTheme` already does. */}
+        <SafeAreaInsetsContext.Provider value={contentInsets}>
+          {hasOpened ? (
+            <TaskDrawer
+              date={date}
+              filterId={filterId}
+              onFilterChange={setFilterId}
+            />
+          ) : null}
+        </SafeAreaInsetsContext.Provider>
       </BottomSheetView>
     </BottomSheetModal>
   );

@@ -12,7 +12,10 @@ import Animated, {
   useAnimatedKeyboard,
   useAnimatedStyle,
 } from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 import { HeaderAddButton } from "@/components/HeaderAddButton";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
@@ -20,6 +23,10 @@ import { SettingsToggleCard } from "@/components/SettingsToggleCard";
 import { TextInput } from "@/components/TextInput";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
+import {
+  EDGES_SINGLE_PANE,
+  EDGES_TWO_PANE,
+} from "@/utils/settingsSafeAreaEdges";
 import { useTheme } from "@/utils/theme";
 
 export default function JournalScreen() {
@@ -29,12 +36,15 @@ export default function JournalScreen() {
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = useIsMultiPane();
   const keyboard = useAnimatedKeyboard();
+  const insets = useSafeAreaInsets();
 
   // Shrink the scroll area as the keyboard rises so there's always scroll room
   // past the last field instead of it running under the keyboard with nowhere
-  // to scroll to. No safe-area fallback needed here (unlike JournalView) — the
-  // SafeAreaView below already reserves the resting bottom inset; adding it
-  // again here would double that padding when the keyboard is closed.
+  // to scroll to. Deliberately the keyboard height alone, with no safe-area
+  // term: this pads the scroller's *frame*, so folding the tab bar's inset in
+  // here would end the viewport above the bar and cut content off at it. The
+  // bar's inset goes on the scroll content below instead, which lets rows pass
+  // under the bar and still scroll clear of it (DEX-91).
   const keyboardInsetStyle = useAnimatedStyle(() => ({
     paddingBottom: keyboard.height.value,
   }));
@@ -94,14 +104,21 @@ export default function JournalScreen() {
 
   return (
     <SafeAreaView
-      edges={twoPane ? ["bottom", "right"] : ["bottom", "left", "right"]}
+      edges={twoPane ? EDGES_TWO_PANE : EDGES_SINGLE_PANE}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <Animated.View style={[styles.container, keyboardInsetStyle]}>
         <ScrollView
+          // Carries the tab bar's inset (see keyboardInsetStyle above). While
+          // the keyboard is up it's slack the wrapper's padding has already
+          // pushed out of view, which costs nothing.
           contentContainerStyle={[
             styles.content,
-            { padding: theme.spacing, gap: theme.spacing },
+            {
+              padding: theme.spacing,
+              paddingBottom: theme.spacing + insets.bottom,
+              gap: theme.spacing,
+            },
           ]}
           keyboardShouldPersistTaps="handled"
         >
