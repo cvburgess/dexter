@@ -16,22 +16,16 @@ const migrationUrl = new URL(
 );
 const sql = (await Deno.readTextFile(migrationUrl)).toLowerCase();
 
-Deno.test("the migration drops public.days, idempotently", () => {
+Deno.test("the migration is one idempotent drop and nothing else", () => {
   const all = statements(sql);
 
+  // The single-statement count is the load-bearing half. `days` is in
+  // `supabase_realtime`, and the obvious instinct is to detach it first — but
+  // dropping a table removes it from every publication anyway, and
+  // `alter publication ... drop table` has no `if exists` form, so adding one
+  // would break re-runs (`supabase db reset`) on the already-missing relation.
   assert(all.length === 1, `expected a single statement, found ${all.length}`);
   assertStringIncludes(all[0], "drop table if exists public.days");
-});
-
-Deno.test("publication membership is left to the drop", () => {
-  // Dropping a table removes it from every publication, so `days` leaves
-  // `supabase_realtime` on its own. An explicit `alter publication ... drop
-  // table` would also break `supabase db reset` re-runs: unlike the drop, it
-  // has no `if exists` form and errors on the already-missing relation.
-  assert(
-    !statements(sql).some((s) => s.includes("alter publication")),
-    "the drop removes days from supabase_realtime; do not do it explicitly",
-  );
 });
 
 Deno.test("a rollback path is documented", () => {
