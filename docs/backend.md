@@ -91,14 +91,15 @@ Every user-owned table enables RLS with per-operation policies keyed on
 All nine user-owned tables (`tasks`, `repeat_task_templates`, `lists`,
 `goals`, `habits`, `daily_habits`, `notes`, `journals`, `preferences`)
 are added to the `supabase_realtime` publication via guarded migrations
-(`20260717193451_realtime_publication.sql` for the original eight,
+(`20260717193451_realtime_publication.sql` for the original eight — one of
+which, `days`, has since been dropped — and
 `20260726215745_split_notes_journals.sql` for `notes`/`journals`), so Postgres
-emits change events for them. (`days` was in that original eight; dropping a
-table removes it from every publication, so `20260727035544_drop_days.sql`
-needed no publication statement of its own.) Publication membership is **migration-managed** — do not add/remove
-tables via the dashboard, since a later migration re-adding an already-present
-table would no-op (the guard checks `pg_publication_tables`), but a
-dashboard-only addition would drift from what the migration declares.
+emits change events for them. Publication membership is **migration-managed** —
+do not add/remove tables via the dashboard, since a later migration re-adding an
+already-present table would no-op (the guard checks `pg_publication_tables`),
+but a dashboard-only addition would drift from what the migration declares.
+Removal needs no statement at all: dropping a table drops it from every
+publication it belongs to.
 
 - **RLS gates delivery**: Realtime evaluates `postgres_changes` subscriptions
   through the same RLS policies as normal queries, so a client only receives
@@ -109,8 +110,8 @@ dashboard-only addition would drift from what the migration declares.
   a DELETE's `old` record contains only primary-key columns, so a filter on
   any other column — including the `user_id=eq.<uuid>` filter the client
   applies — can never match. Only `notes`, `journals`, and `preferences` key on
-  `user_id`; for the other six tables (`tasks`, `goals`,
-  `lists`, `habits`, `daily_habits`, `repeat_task_templates`), this means
+  `user_id`; for the other six tables (`tasks`, `goals`, `lists`, `habits`,
+  `daily_habits`, `repeat_task_templates`), this means
   DELETE-triggered realtime invalidation **never fires, by construction** — not
   an occasional miss, a structural gap for every deletion on those tables.
   Keeping `user_id` in a primary key is therefore a deliberate schema choice,

@@ -31,7 +31,12 @@
 -- on, restoring `days` means recreating it and backfilling *from*
 -- `notes`/`journals` — see below.
 --
--- Rollback:
+-- Rollback: paste the block below. It is the table as it stood at the moment of
+-- the drop — the baseline's DDL (20260429214000), with 20260713003945's NOT NULL
+-- default on `prompts` and 20260708040856's fix to the UPDATE policy (the
+-- baseline shipped `with check (true)`, which let a user reassign `user_id`)
+-- already folded in.
+--
 --   create table if not exists public.days (
 --     "date" date default now() not null,
 --     user_id uuid default auth.uid() not null,
@@ -45,10 +50,25 @@
 --     references auth.users(id) on delete cascade;
 --   create index if not exists idx_days_user_id on public.days using btree (user_id);
 --   alter table public.days enable row level security;
---   -- Four ownership policies, `to "authenticated"`, keyed
---   -- `(select auth.uid()) = user_id` — the UPDATE one constraining `with check`
---   -- as well as `using` (20260708040856 fixed the baseline's `with check (true)`).
+--
+--   create policy "Users can select their own days" on "public"."days"
+--     as permissive for select to "authenticated"
+--     using (((select auth.uid()) = user_id));
+--   create policy "Users can insert their own days" on "public"."days"
+--     as permissive for insert to "authenticated"
+--     with check (((select auth.uid()) = user_id));
+--   create policy "Users can update their own days" on "public"."days"
+--     as permissive for update to "authenticated"
+--     using (((select auth.uid()) = user_id))
+--     with check (((select auth.uid()) = user_id));
+--   create policy "Users can delete their own days" on "public"."days"
+--     as permissive for delete to "authenticated"
+--     using (((select auth.uid()) = user_id));
+--
 --   alter publication supabase_realtime add table public.days;
+--
+--   -- One row per date either table knows about, hence the full outer join: a
+--   -- date may carry a note, a journal, or both.
 --   insert into public.days (user_id, date, notes, prompts)
 --   select coalesce(n.user_id, j.user_id), coalesce(n.date, j.date),
 --          coalesce(n.content, ''), coalesce(j.prompts, '[]'::jsonb)
