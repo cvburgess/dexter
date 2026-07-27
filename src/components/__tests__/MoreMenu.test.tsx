@@ -353,10 +353,13 @@ describe("MoreMenu", () => {
       expect.anything(),
     );
     expect(mockCreateTemplateFromTask).not.toHaveBeenCalled();
-    expect(mockPush).toHaveBeenCalledWith({
-      pathname: "/settings/tasks/[id]",
-      params: { id: "template-9" },
-    });
+    // The list first, then the editor: a modal renders over whatever is beneath
+    // it in the settings stack, and entering from a task card would otherwise
+    // leave that empty — a black pane on web with nothing to close back to.
+    expect(mockPush.mock.calls).toEqual([
+      ["/settings/tasks"],
+      [{ pathname: "/settings/tasks/[id]", params: { id: "template-9" } }],
+    ]);
   });
 
   it("shows 'Unset alarm' when the task already has an alarm", () => {

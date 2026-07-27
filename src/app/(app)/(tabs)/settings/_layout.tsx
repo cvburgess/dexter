@@ -9,6 +9,15 @@ import {
 } from "@/utils/stackOptions";
 import { useTheme } from "@/utils/theme";
 
+/**
+ * Anchors the stack so `settings/index` is always mounted underneath, even when
+ * a nested screen is entered directly — a hard refresh on a modal's URL, or
+ * `MoreMenu` pushing `tasks/[id]` from a task card. Without it that stack holds
+ * only the modal, so on web the modal floats over an empty black pane with no
+ * sidebar selection, and there is nothing to close back to.
+ */
+export const unstable_settings = { anchor: "index" };
+
 export default function SettingsLayout() {
   const theme = useTheme();
   const twoPane = useIsMultiPane();
