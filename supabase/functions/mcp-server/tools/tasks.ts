@@ -106,14 +106,18 @@ async function maybeCreateNextRecurringTask(
   // three of them would start three parallel chains. Both callers run this
   // after their own write has landed, so the task that triggered it is already
   // terminal (or deleted) and cannot match its own guard.
-  const { data: openTasks } = await ctx.supabase
+  //
+  // A failed lookup bails rather than spawning: an extra parallel chain is
+  // silent and permanent, whereas a repeat left with no open task is surfaced
+  // in Settings → Tasks with a one-tap repair.
+  const { data: openTasks, error: openTasksError } = await ctx.supabase
     .from("tasks")
     .select("id")
     .eq("template_id", template.id)
     .eq("user_id", ctx.userId)
     .in("status", OPEN_TASK_STATUSES)
     .limit(1);
-  if (openTasks && openTasks.length > 0) return;
+  if (openTasksError || !openTasks || openTasks.length > 0) return;
 
   const nextDate = getNextTaskDate(
     { scheduledFor: task.scheduled_for },

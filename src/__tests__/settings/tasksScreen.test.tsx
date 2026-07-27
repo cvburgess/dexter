@@ -83,9 +83,14 @@ const makeTask = (overrides: Partial<TTask> = {}): TTask => ({
 /**
  * Renders with every template holding one open task — the state the
  * one-open-task invariant guarantees, so a row describes its cadence rather
- * than warning about it. Pass `tasks` explicitly to render a stalled repeat.
+ * than warning about it. Pass `tasks` explicitly to render a stalled repeat,
+ * and `isLoading` for a tasks query that hasn't landed.
  */
-const renderWith = (templates: TTemplate[], tasks?: TTask[]) => {
+const renderWith = (
+  templates: TTemplate[],
+  tasks?: TTask[],
+  isLoading = false,
+) => {
   mockUseTemplates.mockReturnValue([
     templates,
     { createNextOccurrence: mockCreateNextOccurrence } as never,
@@ -95,7 +100,7 @@ const renderWith = (templates: TTemplate[], tasks?: TTask[]) => {
       templates.map((template, index) =>
         makeTask({ id: `task-${index}`, templateId: template.id }),
       ),
-    {} as never,
+    { isLoading } as never,
   ]);
   return render(<TasksScreen />);
 };
@@ -237,6 +242,17 @@ describe("TasksScreen", () => {
       expect(
         screen.getByText("Not recurring — no open task to repeat from"),
       ).toBeTruthy();
+    });
+
+    // An unloaded cache is "unknown", not "empty" — `useTasks` hands back a `[]`
+    // placeholder until its fetch lands. Reading that as stalled painted every
+    // healthy repeat red on first paint, then quietly corrected itself; if the
+    // query errors, the false alarm never clears.
+    it("waits for the tasks query rather than reading its placeholder as empty", () => {
+      const screen = renderWith([makeTemplate()], [], true);
+
+      expect(screen.getByText("Weekly on Mon")).toBeTruthy();
+      expect(screen.queryByLabelText(stalledLabel)).toBe(null);
     });
 
     // A task template is stamped out on demand and recurs from nothing, so it

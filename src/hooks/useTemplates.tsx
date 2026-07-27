@@ -96,6 +96,24 @@ const seedNextOccurrence = async (template: TTemplate): Promise<void> => {
   });
 };
 
+/**
+ * The seed as a best-effort step hanging off another write.
+ *
+ * Seeding is a *repair*, not part of the save the user asked for: the template
+ * row is already written by the time it runs, and a repeat left with no open
+ * task is surfaced and one-tap fixable in Settings → Tasks. Letting it reject
+ * would report a save that succeeded as a failure — which for `createTemplate`
+ * is worse than cosmetic, since the editor re-arms ✓ and the retry writes a
+ * second row.
+ */
+const trySeedNextOccurrence = async (template: TTemplate): Promise<void> => {
+  try {
+    await seedNextOccurrence(template);
+  } catch {
+    // Swallowed on purpose — see above.
+  }
+};
+
 type TUseTemplatesOptions = {
   skipQuery?: boolean;
 };
@@ -127,7 +145,7 @@ export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
           // No task to fire from — give a scheduled row its own first
           // occurrence, the same guarantee `updateTemplate` makes. A no-op for
           // a scheduleless row.
-          await seedNextOccurrence(created);
+          await trySeedNextOccurrence(created);
         }
 
         return created;
@@ -142,7 +160,7 @@ export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
   const { mutate: update } = useMutation<TTemplate, Error, TUpdateTemplate>({
     mutationFn: async (diff) => {
       const template = await updateTemplate(supabase, diff);
-      await seedNextOccurrence(template);
+      await trySeedNextOccurrence(template);
       return template;
     },
     onSettled: () => {

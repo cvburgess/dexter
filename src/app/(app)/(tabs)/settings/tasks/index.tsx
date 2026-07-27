@@ -43,7 +43,7 @@ const PLAY_ICON = {
 export default function TasksScreen() {
   const theme = useTheme();
   const [templates, { createNextOccurrence }] = useTemplates();
-  const [tasks] = useTasks();
+  const [tasks, { isLoading: isLoadingTasks }] = useTasks();
   const [{ alarmSound }, { updatePreferences }] = usePreferences();
   // Two kinds of row live in one table; the schedule is what tells them apart
   // (DEX-65). Both are edited by the same `tasks/[id]` screen.
@@ -54,7 +54,13 @@ export default function TasksScreen() {
   // with none can never fire again and is stalled, not merely idle. Answered
   // from the cache: the canonical query already holds every incomplete task
   // regardless of date (`useTasks`), so no extra query is needed.
+  //
+  // An unloaded cache is "unknown", not "empty": `useTasks` hands back a `[]`
+  // placeholder until its fetch lands, and reading that as stalled would paint
+  // every healthy repeat with the red warning and a repair button on first
+  // paint, then quietly correct itself.
   const isStalled = (template: TTemplate) =>
+    !isLoadingTasks &&
     !tasks.some(
       (task) =>
         task.templateId === template.id && !isCompletionStatus(task.status),
