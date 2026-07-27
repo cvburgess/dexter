@@ -166,7 +166,16 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
     }
   };
 
-  const handleClose = () => router.back();
+  // This editor is reached two ways: from the list in Settings → Tasks, which
+  // leaves something to pop, and straight from a task card's menu (Repeat /
+  // Save as template), which on web opens it with nothing beneath it in the
+  // settings stack. `back()` there is an unhandled GO_BACK, leaving the user
+  // stuck in a modal whose ✕ and ✓ both appear dead — so fall back to the list
+  // the modal belongs to.
+  const handleClose = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/settings/tasks");
+  };
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;
@@ -185,7 +194,7 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
         subtasks: withTitledRows(subtasks),
       },
       {
-        onSuccess: () => router.back(),
+        onSuccess: handleClose,
         onError: () => {
           hasSaved.current = false;
           showSaveError();
@@ -208,7 +217,7 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
     });
     if (!confirmed) return;
     deleteTemplate(existing.id, {
-      onSuccess: () => router.back(),
+      onSuccess: handleClose,
       onError: showSaveError,
     });
   };

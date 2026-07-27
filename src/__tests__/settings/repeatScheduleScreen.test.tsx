@@ -32,7 +32,12 @@ type THeaderOptions = {
   title?: string;
   headerRight: () => ReactElement;
 };
-const mockRouter = { back: jest.fn(), push: jest.fn() };
+const mockRouter = {
+  back: jest.fn(),
+  push: jest.fn(),
+  replace: jest.fn(),
+  canGoBack: jest.fn(() => true),
+};
 const mockNavigation = { setOptions: jest.fn<void, [THeaderOptions]>() };
 jest.mock("expo-router", () => ({
   Redirect: function Redirect() {
@@ -88,7 +93,38 @@ const save = () => {
 describe("RepeatScheduleScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRouter.canGoBack.mockReturnValue(true);
     for (const key of Object.keys(mockPickers)) delete mockPickers[key];
+  });
+
+  // Opened straight from a task card's menu, this modal has nothing beneath it
+  // in the settings stack on web: `back()` is an unhandled GO_BACK and the ✕/✓
+  // both appear dead. Falling back to the list is what unsticks it.
+  describe("closing", () => {
+    it("pops the stack when there is something to go back to", () => {
+      mockUpdateTemplate.mockImplementation((_diff, { onSuccess }) =>
+        onSuccess(),
+      );
+      renderWith(makeTemplate());
+
+      save();
+
+      expect(mockRouter.back).toHaveBeenCalled();
+      expect(mockRouter.replace).not.toHaveBeenCalled();
+    });
+
+    it("falls back to the template list when the stack is empty", () => {
+      mockRouter.canGoBack.mockReturnValue(false);
+      mockUpdateTemplate.mockImplementation((_diff, { onSuccess }) =>
+        onSuccess(),
+      );
+      renderWith(makeTemplate());
+
+      save();
+
+      expect(mockRouter.back).not.toHaveBeenCalled();
+      expect(mockRouter.replace).toHaveBeenCalledWith("/settings/tasks");
+    });
   });
 
   it("offers Never alongside the repeat frequencies", () => {
