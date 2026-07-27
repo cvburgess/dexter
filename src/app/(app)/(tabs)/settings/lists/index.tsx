@@ -1,7 +1,10 @@
 import { useNavigation, useRouter } from "expo-router";
 import { useLayoutEffect, useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 import { HeaderAddButton } from "@/components/HeaderAddButton";
 import { ListRow } from "@/components/ListRow";
@@ -9,6 +12,10 @@ import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { useLists } from "@/hooks/useLists";
 import { useTasks } from "@/hooks/useTasks";
+import {
+  EDGES_SINGLE_PANE,
+  EDGES_TWO_PANE,
+} from "@/utils/settingsSafeAreaEdges";
 import { isCompletionStatus } from "@/utils/taskFilters";
 import { useTheme } from "@/utils/theme";
 
@@ -20,6 +27,7 @@ export default function ListsScreen() {
   const [tasks] = useTasks();
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = useIsMultiPane();
+  const insets = useSafeAreaInsets();
 
   // Open (TODO/in-progress) task counts per list, derived from the canonical
   // task cache. Completed tasks aren't counted — the cache only holds the
@@ -55,13 +63,20 @@ export default function ListsScreen() {
 
   return (
     <SafeAreaView
-      edges={twoPane ? ["bottom", "right"] : ["bottom", "left", "right"]}
+      edges={twoPane ? EDGES_TWO_PANE : EDGES_SINGLE_PANE}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <ScrollView
+        // The edges above omit `bottom` so content scrolls under the
+        // translucent tab bar; adding the inset to the content's own bottom
+        // padding is what lets the last row clear it (DEX-91).
         contentContainerStyle={[
           styles.content,
-          { padding: theme.spacing, gap: theme.spacing },
+          {
+            padding: theme.spacing,
+            paddingBottom: theme.spacing + insets.bottom,
+            gap: theme.spacing,
+          },
         ]}
       >
         <View style={styles.section}>

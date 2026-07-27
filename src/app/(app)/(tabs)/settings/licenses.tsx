@@ -1,5 +1,8 @@
 import { FlatList, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import packageJson from "@/package.json";
@@ -20,6 +23,7 @@ type TLicenseItem = {
 export default function LicensesScreen() {
   const theme = useTheme();
   const twoPane = useIsMultiPane();
+  const insets = useSafeAreaInsets();
 
   // Combine dependencies and devDependencies, sort alphabetically, and look up
   // each license from the generated map (see `npm run licenses`). Deriving the
@@ -69,7 +73,14 @@ export default function LicensesScreen() {
         renderItem={renderItem}
         keyExtractor={(item) => item.name}
         ListHeaderComponent={ListHeaderComponent}
-        contentContainerStyle={{ gap: theme.gap, padding: theme.spacing }}
+        // `paddingBottom` adds the safe-area inset to the list's own padding —
+        // the edges above omit `bottom` so rows scroll under the tab bar
+        // (DEX-91).
+        contentContainerStyle={{
+          gap: theme.gap,
+          padding: theme.spacing,
+          paddingBottom: theme.spacing + insets.bottom,
+        }}
       />
     </SafeAreaView>
   );

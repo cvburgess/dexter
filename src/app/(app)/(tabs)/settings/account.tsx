@@ -83,6 +83,12 @@ export default function AccountScreen() {
   };
 
   return (
+    // The one settings screen that still claims the bottom edge, rather than
+    // omitting it and reserving the inset in scroll content like the rest
+    // (DEX-91) — there is no scroll container here, just a profile block and
+    // two buttons, so nothing could be scrolled out from under the tab bar.
+    // Give this screen a scroller and it should move to the shared
+    // EDGES_* constants with the others.
     <SafeAreaView
       edges={twoPane ? ["bottom", "right"] : ["bottom", "left", "right"]}
       style={[

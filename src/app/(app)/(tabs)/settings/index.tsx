@@ -1,19 +1,21 @@
 import { Redirect, useRouter } from "expo-router";
 import { FlatList, StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 import { SettingsRow } from "@/components/SettingsRow";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { SETTINGS_ITEMS } from "@/utils/settingsItems";
+import { EDGES_SINGLE_PANE } from "@/utils/settingsSafeAreaEdges";
 import { useTheme } from "@/utils/theme";
-
-// Hoisted so SafeAreaView's internal edges useMemo sees a stable reference.
-const SCREEN_EDGES = ["bottom", "left", "right"] as const;
 
 export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
   const twoPane = useIsMultiPane();
+  const insets = useSafeAreaInsets();
 
   // On wide screens the list becomes a persistent sidebar (SettingsSidebar) and
   // this index would otherwise render the same list again in the detail pane, so
@@ -23,14 +25,23 @@ export default function SettingsScreen() {
   }
 
   return (
+    // This screen only ever renders single-pane (the wide layout redirects
+    // above), so it takes the single-pane edges unconditionally.
     <SafeAreaView
-      edges={SCREEN_EDGES}
+      edges={EDGES_SINGLE_PANE}
       style={[styles.screen, { backgroundColor: theme.colors.background }]}
     >
       <FlatList
         // Ungrouped: each item is its own card, separated by margin (rather than
         // sharing a single grouped surface).
-        contentContainerStyle={{ gap: theme.gap, padding: theme.spacing }}
+        // `paddingBottom` adds the safe-area inset to the list's own padding:
+        // the edges above omit `bottom` so rows scroll under the translucent
+        // tab bar, and this is what lets the last one clear it (DEX-91).
+        contentContainerStyle={{
+          gap: theme.gap,
+          padding: theme.spacing,
+          paddingBottom: theme.spacing + insets.bottom,
+        }}
         data={SETTINGS_ITEMS}
         keyExtractor={(item) => item.slug}
         renderItem={({ item }) => (

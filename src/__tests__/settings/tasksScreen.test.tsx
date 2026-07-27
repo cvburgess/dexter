@@ -79,16 +79,14 @@ describe("TasksScreen", () => {
     mockUseIsMultiPane.mockReturnValue(true);
     const screen = renderWith([]);
 
-    expect(screen.getByTestId("safe-area-edges-bottom,right")).toBeTruthy();
+    expect(screen.getByTestId("safe-area-edges-right")).toBeTruthy();
   });
 
   it("includes the left safe-area edge in single-column mode", () => {
     mockUseIsMultiPane.mockReturnValue(false);
     const screen = renderWith([]);
 
-    expect(
-      screen.getByTestId("safe-area-edges-bottom,left,right"),
-    ).toBeTruthy();
+    expect(screen.getByTestId("safe-area-edges-left,right")).toBeTruthy();
   });
 
   it("explains where repeats come from when there are none", () => {

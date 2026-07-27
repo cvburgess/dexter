@@ -1,7 +1,10 @@
 import { fireEvent, render } from "@testing-library/react-native";
+import { FlatList, StyleSheet } from "react-native";
+import type { ViewStyle } from "react-native";
 
 import SettingsScreen from "@/app/(app)/(tabs)/settings";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
+import { renderWithBottomInset } from "@/testUtils/renderWithBottomInset";
 
 jest.mock("@/hooks/useIsMultiPane", () => ({ useIsMultiPane: jest.fn() }));
 
@@ -56,6 +59,19 @@ describe("SettingsScreen", () => {
     ]) {
       expect(screen.getByText(title)).toBeTruthy();
     }
+  });
+
+  // The screen omits the bottom safe-area edge so rows scroll under the tab
+  // bar; the list content is what reserves the inset, or the last row can never
+  // be scrolled clear of it (DEX-91).
+  it("adds the safe-area bottom inset to the list's own padding", () => {
+    const screen = renderWithBottomInset(34, <SettingsScreen />);
+
+    const style = StyleSheet.flatten(
+      screen.UNSAFE_getByType(FlatList).props
+        .contentContainerStyle as ViewStyle[],
+    );
+    expect(style.paddingBottom).toBe(Number(style.padding) + 34);
   });
 
   it("navigates to the matching subview when a row is pressed", () => {

@@ -1,5 +1,8 @@
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 import { CalendarSourceList } from "@/components/CalendarSourceList";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
@@ -7,6 +10,10 @@ import { SettingsToggleCard } from "@/components/SettingsToggleCard";
 import { TimeField } from "@/components/TimeField";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
+import {
+  EDGES_SINGLE_PANE,
+  EDGES_TWO_PANE,
+} from "@/utils/settingsSafeAreaEdges";
 import { useTheme } from "@/utils/theme";
 
 // Preferences store the daily window as Postgres `time` (`"HH:MM:SS"`), while
@@ -19,6 +26,7 @@ export default function CalendarsScreen() {
   const [preferences, { updatePreferences }] = usePreferences();
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = useIsMultiPane();
+  const insets = useSafeAreaInsets();
 
   const cardStyle = {
     backgroundColor: theme.colors.card,
@@ -27,13 +35,20 @@ export default function CalendarsScreen() {
 
   return (
     <SafeAreaView
-      edges={twoPane ? ["bottom", "right"] : ["bottom", "left", "right"]}
+      edges={twoPane ? EDGES_TWO_PANE : EDGES_SINGLE_PANE}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <ScrollView
+        // The edges above omit `bottom` so content scrolls under the
+        // translucent tab bar; adding the inset to the content's own bottom
+        // padding is what lets the last row clear it (DEX-91).
         contentContainerStyle={[
           styles.content,
-          { padding: theme.spacing, gap: theme.spacing },
+          {
+            padding: theme.spacing,
+            paddingBottom: theme.spacing + insets.bottom,
+            gap: theme.spacing,
+          },
         ]}
         keyboardShouldPersistTaps="handled"
       >
