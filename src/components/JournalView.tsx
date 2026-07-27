@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import Animated, {
-  useAnimatedKeyboard,
-  useAnimatedStyle,
-} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { TJournal, TJournalPrompt } from "@/api/journals";
@@ -90,17 +86,7 @@ function JournalEditor({
   upsertJournalAsync,
   onEditingChange,
 }: TJournalEditorProps) {
-  const keyboard = useAnimatedKeyboard();
   const insets = useSafeAreaInsets();
-
-  // Shrink the scroll area's own frame to the visible viewport as the keyboard
-  // rises, so there's always scroll room past the last field instead of it
-  // running under the keyboard with nowhere to scroll to. The host's
-  // SafeAreaView excludes "bottom" (the tab bar owns that inset), so fall back
-  // to the safe-area inset when the keyboard is closed.
-  const keyboardInsetStyle = useAnimatedStyle(() => ({
-    paddingBottom: Math.max(keyboard.height.value, insets.bottom),
-  }));
 
   // Track the latest per-index text so a save can rebuild the whole array,
   // seeded from the loaded responses. Seeded once at mount; the editor is
@@ -174,27 +160,41 @@ function JournalEditor({
   useEffect(() => () => onEditingChange?.(false), [onEditingChange]);
 
   return (
-    <Animated.View style={[styles.scroll, keyboardInsetStyle]}>
-      <ScrollView
-        contentContainerStyle={styles.list}
-        keyboardShouldPersistTaps="handled"
-      >
-        {prompts.map(({ prompt, response }, index) => (
-          <JournalResponseField
-            key={index}
-            prompt={prompt}
-            response={response}
-            onBlur={() => {
-              flush();
-              onEditingChange?.(false);
-            }}
-            onChangeText={(text) => handleChangeResponse(index, text)}
-            onFocus={() => onEditingChange?.(true)}
-            testID={`journal-response-${index}`}
-          />
-        ))}
-      </ScrollView>
-    </Animated.View>
+    <ScrollView
+      style={styles.scroll}
+      // Insets the content by the keyboard's height (iOS) so a focused field
+      // low on the screen is scrolled clear of it rather than left covered.
+      // Android resizes the window instead (Expo's default
+      // softwareKeyboardLayoutMode), and web has no overlay keyboard. Matches
+      // new-task.tsx and settings/tasks/[id].tsx (DEX-92). This replaced an
+      // animated wrapper that padded the scroller's *frame* by the keyboard
+      // height: that gave scroll room past the last field but never moved
+      // content, so the field stayed under the keyboard. Don't reintroduce it
+      // alongside this prop — the two would both subtract the keyboard.
+      automaticallyAdjustKeyboardInsets
+      // The host's SafeAreaView omits "bottom" (the tab bar owns that inset),
+      // so the content reserves it here — see docs/frontend.md.
+      contentContainerStyle={[
+        styles.list,
+        { paddingBottom: 16 + insets.bottom },
+      ]}
+      keyboardShouldPersistTaps="handled"
+    >
+      {prompts.map(({ prompt, response }, index) => (
+        <JournalResponseField
+          key={index}
+          prompt={prompt}
+          response={response}
+          onBlur={() => {
+            flush();
+            onEditingChange?.(false);
+          }}
+          onChangeText={(text) => handleChangeResponse(index, text)}
+          onFocus={() => onEditingChange?.(true)}
+          testID={`journal-response-${index}`}
+        />
+      ))}
+    </ScrollView>
   );
 }
 

@@ -1,4 +1,5 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
+import { ScrollView } from "react-native";
 
 import { TJournalPrompt } from "@/api/journals";
 import { useJournals } from "@/hooks/useJournals";
@@ -49,6 +50,20 @@ describe("JournalView", () => {
     expect(screen.getByText("Grateful for")).toBeTruthy();
     expect(screen.getByTestId("journal-response-0")).toBeTruthy();
     expect(screen.getByTestId("journal-response-1")).toBeTruthy();
+  });
+
+  // Without this, a focused response field low on the screen stays under the
+  // keyboard: the wrapper this replaced padded the scroller's frame, which gave
+  // scroll room but never moved content to the field (DEX-92).
+  it("lets iOS inset the scroll content by the keyboard", () => {
+    const screen = setup({
+      prompts: [{ prompt: "How was today?", response: "" }],
+    });
+
+    expect(
+      screen.UNSAFE_getByType(ScrollView).props
+        .automaticallyAdjustKeyboardInsets,
+    ).toBe(true);
   });
 
   it("autosaves a debounced upsert, replacing the edited entry by index", () => {
