@@ -166,16 +166,12 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
     }
   };
 
-  // This editor is reached two ways: from the list in Settings → Tasks, which
-  // leaves something to pop, and straight from a task card's menu (Repeat /
-  // Save as template), which on web opens it with nothing beneath it in the
-  // settings stack. `back()` there is an unhandled GO_BACK, leaving the user
-  // stuck in a modal whose ✕ and ✓ both appear dead — so fall back to the list
-  // the modal belongs to.
-  const handleClose = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace("/settings/tasks");
-  };
+  // Always lands on the list this editor details, rather than wherever the user
+  // happened to come from: `dismissTo` pops back to it when it is in the stack
+  // and replaces the current screen with it when it isn't. A bare `back()` was
+  // an unhandled GO_BACK when this screen was opened from a task card, which
+  // left both header buttons looking dead.
+  const handleClose = () => router.dismissTo("/settings/tasks");
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;

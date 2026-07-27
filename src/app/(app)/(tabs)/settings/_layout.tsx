@@ -36,14 +36,9 @@ export default function SettingsLayout() {
         name="appearance"
         options={createListScreenOptions(theme, "Appearance")}
       />
-      <Stack.Screen
-        name="tasks/index"
-        options={createListScreenOptions(theme, "Tasks")}
-      />
-      <Stack.Screen
-        name="tasks/[id]"
-        options={createModalScreenOptions(theme, "Repeat Schedule")}
-      />
+      {/* Its own nested stack, so the editor always has the list beneath it —
+          see `tasks/_layout.tsx`. That stack owns the headers. */}
+      <Stack.Screen name="tasks" options={{ headerShown: false }} />
       <Stack.Screen
         name="lists/index"
         options={createListScreenOptions(theme, "Lists")}

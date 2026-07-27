@@ -59,19 +59,14 @@ export function MoreMenu({
   // One editor for both: it shows a repeat schedule or a template depending on
   // whether the row it opens carries one.
   //
-  // The list is pushed first because the editor is its detail view, and a modal
-  // renders over whatever sits beneath it in the settings stack. Jumping
-  // straight here from a task card would leave that empty: on web the modal
-  // floats over a black pane with Tasks unselected in the sidebar, and closing
-  // or saving lands nowhere. Two pushes give it the list to sit on and return
-  // to.
-  const openTemplateEditor = (templateId: string) => {
-    router.push("/settings/tasks");
-    router.push({
-      pathname: "/settings/tasks/[id]",
-      params: { id: templateId },
-    });
-  };
+  // `withAnchor` carries the tasks stack's anchor — its list — along when this
+  // push enters that navigator for the first time, so the modal always has the
+  // list beneath it to render over and close back to (see `tasks/_layout.tsx`).
+  const openTemplateEditor = (templateId: string) =>
+    router.push(
+      { pathname: "/settings/tasks/[id]", params: { id: templateId } },
+      { withAnchor: true },
+    );
 
   // A linked template only means "this task repeats" while it still carries a
   // schedule — since DEX-65 it may have been converted into a task template.

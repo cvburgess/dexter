@@ -1,4 +1,4 @@
-import { act, fireEvent, render } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import type { ReactElement } from "react";
 
 import { ETaskPriority } from "@/api/tasks";
@@ -9,6 +9,16 @@ import { useTemplates } from "@/hooks/useTemplates";
 jest.mock("@/hooks/useTemplates", () => ({ useTemplates: jest.fn() }));
 jest.mock("@/hooks/useLists", () => ({ useLists: () => [[], {}] }));
 jest.mock("@/hooks/useGoals", () => ({ useGoals: () => [[], {}] }));
+
+// The prompt itself is covered by ConfirmationModal's own tests; here it only
+// has to resolve so the delete path can be exercised.
+const mockConfirm = jest.fn<Promise<boolean>, [unknown]>();
+jest.mock("@/hooks/useConfirmation", () => ({
+  useConfirmation: () => ({
+    confirm: mockConfirm,
+    confirmationProps: { visible: false, title: "", message: "", actions: [] },
+  }),
+}));
 
 // The screen renders several PickerFields and the shared @expo/ui mock only
 // keeps the last one, so capture them here keyed by their row label instead.
@@ -36,6 +46,7 @@ const mockRouter = {
   back: jest.fn(),
   push: jest.fn(),
   replace: jest.fn(),
+  dismissTo: jest.fn(),
   canGoBack: jest.fn(() => true),
 };
 const mockNavigation = { setOptions: jest.fn<void, [THeaderOptions]>() };
@@ -94,14 +105,15 @@ describe("RepeatScheduleScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRouter.canGoBack.mockReturnValue(true);
+    mockConfirm.mockResolvedValue(true);
     for (const key of Object.keys(mockPickers)) delete mockPickers[key];
   });
 
-  // Opened straight from a task card's menu, this modal has nothing beneath it
-  // in the settings stack on web: `back()` is an unhandled GO_BACK and the ✕/✓
-  // both appear dead. Falling back to the list is what unsticks it.
+  // Opened straight from a task card's menu, this modal has nothing to pop back
+  // to on web: a bare `back()` was an unhandled GO_BACK and the ✕/✓ both looked
+  // dead. `dismissTo` always resolves to the list this editor details.
   describe("closing", () => {
-    it("pops the stack when there is something to go back to", () => {
+    it("returns to the template list after saving", () => {
       mockUpdateTemplate.mockImplementation((_diff, { onSuccess }) =>
         onSuccess(),
       );
@@ -109,21 +121,21 @@ describe("RepeatScheduleScreen", () => {
 
       save();
 
-      expect(mockRouter.back).toHaveBeenCalled();
-      expect(mockRouter.replace).not.toHaveBeenCalled();
+      expect(mockRouter.dismissTo).toHaveBeenCalledWith("/settings/tasks");
+      expect(mockRouter.back).not.toHaveBeenCalled();
     });
 
-    it("falls back to the template list when the stack is empty", () => {
-      mockRouter.canGoBack.mockReturnValue(false);
-      mockUpdateTemplate.mockImplementation((_diff, { onSuccess }) =>
+    it("returns to the template list after deleting", async () => {
+      mockConfirm.mockResolvedValue(true);
+      mockDeleteTemplate.mockImplementation((_id, { onSuccess }) =>
         onSuccess(),
       );
-      renderWith(makeTemplate());
+      const screen = renderWith(makeTemplate());
 
-      save();
-
-      expect(mockRouter.back).not.toHaveBeenCalled();
-      expect(mockRouter.replace).toHaveBeenCalledWith("/settings/tasks");
+      fireEvent.press(screen.getByText("Delete Template"));
+      await waitFor(() =>
+        expect(mockRouter.dismissTo).toHaveBeenCalledWith("/settings/tasks"),
+      );
     });
   });
 
