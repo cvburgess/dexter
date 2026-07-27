@@ -20,16 +20,21 @@ import { supabase } from "./useAuth";
 // `goalsQueryOptions`/`listsQueryOptions` are exported for `(app)/_layout.tsx`'s
 // prefetch. The remaining tables have no such export in their hooks (every
 // call site there already inlines the literal), so they're listed directly.
+// The three searchable tables also invalidate `["search"]` (DEX-47) so an open
+// results list doesn't keep showing a note that has since been edited away.
+// React Query only refetches *active* queries, so this costs nothing unless the
+// Search tab is on screen — and for notes/journals the per-date mutation guard
+// below already skips the invalidation while their autosave is in flight.
 export const REALTIME_INVALIDATIONS: Record<string, readonly string[][]> = {
   daily_habits: [["dailyHabits"]],
   goals: [goalsQueryOptions.queryKey],
   habits: HABITS_INVALIDATION_KEYS,
-  journals: [["journals"]],
+  journals: [["journals"], ["search"]],
   lists: [listsQueryOptions.queryKey],
-  notes: [["notes"]],
+  notes: [["notes"], ["search"]],
   preferences: [["preferences"]],
   repeat_task_templates: [["templates"]],
-  tasks: [["tasks"]],
+  tasks: [["tasks"], ["search"]],
 };
 
 const REALTIME_TABLES = Object.keys(REALTIME_INVALIDATIONS);
@@ -90,6 +95,13 @@ export const useRealtimeInvalidation = (userId: string | undefined) => {
       }
 
       for (const queryKey of REALTIME_INVALIDATIONS[table]) {
+        // The guard below reads `queryKey[1]` as the date being autosaved, which
+        // only holds for the table's *own* per-date entries (`["notes", date]`).
+        // `["search", query]` (DEX-47) carries the search string in that slot, so
+        // guarding it would silently skip a real invalidation whenever someone
+        // searched for something date-shaped.
+        const isPerDateEntry = perDateMutationKey && queryKey[0] === table;
+
         void queryClient.invalidateQueries({
           queryKey,
           // `notes`/`journals` echo our own autosave back as a realtime event —
@@ -97,7 +109,7 @@ export const useRealtimeInvalidation = (userId: string | undefined) => {
           // can't race the debounced editor (see the comment on
           // notesMutationKey), without suppressing invalidation for every other
           // cached date. Every other table invalidates unconditionally.
-          ...(perDateMutationKey && {
+          ...(isPerDateEntry && {
             predicate: (query) =>
               queryClient.isMutating({
                 mutationKey: perDateMutationKey(query.queryKey[1] as string),

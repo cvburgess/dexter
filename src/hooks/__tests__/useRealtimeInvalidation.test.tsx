@@ -191,7 +191,39 @@ describe("useRealtimeInvalidation", () => {
       });
       act(() => jest.advanceTimersByTime(250));
 
-      expect(invalidateSpy).toHaveBeenCalledTimes(1);
+      // One flush, not three — expressed as "one call per key the table maps to"
+      // rather than a literal 1, so adding a key to `tasks` (as DEX-47's
+      // `["search"]` did) doesn't read as a coalescing regression.
+      expect(invalidateSpy).toHaveBeenCalledTimes(
+        REALTIME_INVALIDATIONS.tasks.length,
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("invalidates search alongside each of the three searchable tables", () => {
+    jest.useFakeTimers();
+    try {
+      const { wrapper, queryClient } = createWrapper();
+      const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
+      renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
+
+      // An open results list must not keep showing a note that has since been
+      // edited away, or miss a task that now matches (DEX-47).
+      for (const table of ["tasks", "notes", "journals"]) {
+        const binding = captured!.bindings.find((b) => b.table === table)!;
+        act(() => binding.handler({ table }));
+        act(() => jest.advanceTimersByTime(250));
+
+        // Asserted with an exact match, so it also pins that no `predicate`
+        // rides along: notes/journals guard their own per-date entries against
+        // an in-flight autosave, and that guard reads `queryKey[1]` as a date —
+        // which for `["search", query]` is the search string. Attaching it here
+        // would drop this invalidation for anyone searching a date-shaped term.
+        expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["search"] });
+        invalidateSpy.mockClear();
+      }
     } finally {
       jest.useRealTimers();
     }
