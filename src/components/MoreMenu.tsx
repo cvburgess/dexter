@@ -85,8 +85,14 @@ export function MoreMenu({
 
   // A linked template only means "this task repeats" while it still carries a
   // schedule — since DEX-65 it may have been converted into a task template.
+  // An unresolved lookup means the templates query hasn't landed yet, not that
+  // the row is scheduleless: falling back to `false` there would label an
+  // established repeat "Repeat" until the fetch settles, while `onRepeat` still
+  // opened its existing schedule. This only picks the label; nothing is written.
   const linkedTemplate = getTemplateById(task.templateId);
-  const isRepeating = linkedTemplate ? isRepeatTask(linkedTemplate) : false;
+  const isRepeating = linkedTemplate
+    ? isRepeatTask(linkedTemplate)
+    : task.templateId !== null;
 
   const onRepeat = () => {
     // Branch on the stored templateId, not the (possibly still-loading) template

@@ -294,11 +294,16 @@ function RepeatScheduleForm({
     );
 
   useModalHeaderActions({
-    title: !existing
-      ? "New Template"
-      : isTemplate
+    // Follows the picker in every case, drafts included: a draft opened from
+    // Repeat starts on a cadence, so titling it "New Template" would describe
+    // the wrong thing.
+    title: isTemplate
+      ? existing
         ? "Template"
-        : "Repeat Schedule",
+        : "New Template"
+      : existing
+        ? "Repeat Schedule"
+        : "New Repeat Schedule",
     canSave,
     onClose: handleClose,
     onSave: handleSave,
