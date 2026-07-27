@@ -1,5 +1,5 @@
 import { render } from "@testing-library/react-native";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 
 // Shared by the Today-tab surfaces' tests. The project-wide
@@ -10,11 +10,17 @@ import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 // mechanism TaskDrawerSheet uses in production to zero the inset inside the
 // sheet. Sibling of `mockSafeAreaEdges`, which covers the other half of the
 // convention (which `edges` a screen's SafeAreaView claims).
+//
+// Passed as RTL's `wrapper` rather than wrapped around `ui` directly, so a
+// `rerender(...)` from the returned screen keeps the provider instead of
+// re-rendering the subject with the mock's default all-zero insets.
 export const renderWithBottomInset = (bottom: number, ui: ReactElement) =>
-  render(
-    <SafeAreaInsetsContext.Provider
-      value={{ top: 0, right: 0, bottom, left: 0 }}
-    >
-      {ui}
-    </SafeAreaInsetsContext.Provider>,
-  );
+  render(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <SafeAreaInsetsContext.Provider
+        value={{ top: 0, right: 0, bottom, left: 0 }}
+      >
+        {children}
+      </SafeAreaInsetsContext.Provider>
+    ),
+  });
