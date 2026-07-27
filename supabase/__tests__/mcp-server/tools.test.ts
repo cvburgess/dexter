@@ -14,6 +14,10 @@ import { registerJournalTools } from "../../functions/mcp-server/tools/journals.
 import { registerNoteTools } from "../../functions/mcp-server/tools/notes.ts";
 import { updatePreferencesInputSchema } from "../../functions/mcp-server/tools/preferences.ts";
 import {
+  registerSearchTools,
+  searchSchema,
+} from "../../functions/mcp-server/tools/search.ts";
+import {
   applyTaskFilters,
   listTasksSchema,
   registerTaskTools,
@@ -92,14 +96,54 @@ class FakeMutationBuilder {
   }
 }
 
+/**
+ * The set-returning-function path (`search_entries`), which PostgREST lets you
+ * filter and limit like a table. Unlike `FakeMutationBuilder` it resolves at
+ * `.limit()` rather than `.single()`/`.maybeSingle()`, because that is the
+ * terminal call the search tool awaits.
+ */
+class FakeRpcBuilder {
+  readonly filters: string[] = [];
+  limitValue: number | null = null;
+
+  constructor(
+    readonly fn: string,
+    readonly args: Record<string, unknown>,
+    private readonly rows: Record<string, unknown>[] | null,
+    private readonly error: { message: string } | null,
+  ) {}
+
+  in(column: string, values: unknown[]): FakeRpcBuilder {
+    this.filters.push(`in:${column}:${values.join(",")}`);
+    return this;
+  }
+
+  limit(count: number): Promise<{
+    data: Record<string, unknown>[] | null;
+    error: { message: string } | null;
+  }> {
+    this.limitValue = count;
+    return Promise.resolve({ data: this.rows, error: this.error });
+  }
+}
+
 class FakeSupabase {
   lastBuilder: FakeMutationBuilder | null = null;
+  lastRpc: FakeRpcBuilder | null = null;
   /** Row every builder resolves to; set to `null` to simulate a missing row. */
   row: Record<string, unknown> | null = { ok: true };
+  /** Rows `rpc()` resolves to; set to `null` alongside `rpcError` to fail. */
+  rpcRows: Record<string, unknown>[] | null = [];
+  rpcError: { message: string } | null = null;
 
   from(table: string): FakeMutationBuilder {
     this.lastBuilder = new FakeMutationBuilder(table, this.row);
     return this.lastBuilder;
+  }
+
+  rpc(fn: string, args: Record<string, unknown>): FakeRpcBuilder {
+    this.lastRpc = new FakeRpcBuilder(fn, args, this.rpcRows, this.rpcError);
+    return this.lastRpc;
   }
 }
 
@@ -1025,10 +1069,11 @@ Deno.test("upsert_journal rejects a call that carries no fields", async () => {
   assertEquals(supabase.lastBuilder, null);
 });
 
-Deno.test("note and journal tools never accept a user id", () => {
+Deno.test("note, journal, and search tools never accept a user id", () => {
   const registries = [
     noteTools(new FakeSupabase()),
     journalTools(new FakeSupabase()),
+    searchTools(new FakeSupabase()),
   ];
 
   for (const registry of registries) {
@@ -1038,4 +1083,115 @@ Deno.test("note and journal tools never accept a user id", () => {
       assertEquals(keys.includes("user_id"), false, `${name} exposes user_id`);
     }
   }
+});
+
+// DEX-47: search. The handler is thin by design — the matching lives in the
+// `search_entries` RPC (see supabase/__tests__/migrations/search_entries.test.ts)
+// — so these pin the call it makes and the two paths where a thin handler still
+// gets it wrong: reporting "no results" as an error, and dropping the caller's
+// filters.
+
+function searchTools(supabase: FakeSupabase): ToolRegistry {
+  const registry = new ToolRegistry();
+  registerSearchTools(
+    registry as unknown as McpServer,
+    makeToolContext(supabase, NOTE_USER),
+  );
+  return registry;
+}
+
+Deno.test("search passes the raw query to the RPC and caps the result count", async () => {
+  const supabase = new FakeSupabase();
+
+  await searchTools(supabase).run(
+    "search",
+    searchSchema.parse({ query: "buy milk" }),
+  );
+
+  assertEquals(supabase.lastRpc?.fn, "search_entries");
+  // Unparsed and unescaped: term splitting and LIKE escaping are the RPC's job,
+  // so doing either here would double-escape the user's query.
+  assertEquals(supabase.lastRpc?.args, { query: "buy milk" });
+  assertEquals(supabase.lastRpc?.limitValue, 50);
+  assertEquals(supabase.lastRpc?.filters, []);
+});
+
+Deno.test("search never scopes by user id, leaving that to RLS", async () => {
+  const supabase = new FakeSupabase();
+
+  await searchTools(supabase).run(
+    "search",
+    searchSchema.parse({ query: "quarterly" }),
+  );
+
+  // `search_entries` is SECURITY INVOKER, so it runs under the caller's JWT and
+  // RLS scopes every branch. An `eq:user_id:` filter here would be a sign the
+  // function had been switched to SECURITY DEFINER without the tool catching up.
+  assertEquals(
+    supabase.lastRpc?.filters.some((filter) => filter.startsWith("eq:user_id")),
+    false,
+  );
+  assertEquals(supabase.lastBuilder, null);
+});
+
+Deno.test("search narrows to the requested kinds", async () => {
+  const supabase = new FakeSupabase();
+
+  await searchTools(supabase).run(
+    "search",
+    searchSchema.parse({
+      query: "retro",
+      kinds: ["note", "journal"],
+      limit: 5,
+    }),
+  );
+
+  assertEquals(supabase.lastRpc?.filters, ["in:kind:note,journal"]);
+  assertEquals(supabase.lastRpc?.limitValue, 5);
+});
+
+Deno.test("search rejects an empty query and an out-of-range limit", () => {
+  assertEquals(searchSchema.safeParse({ query: "" }).success, false);
+  assertEquals(searchSchema.safeParse({ query: "x", limit: 0 }).success, false);
+  assertEquals(
+    searchSchema.safeParse({ query: "x", limit: 201 }).success,
+    false,
+  );
+  assertEquals(
+    searchSchema.safeParse({ query: "x", kinds: ["habit"] }).success,
+    false,
+  );
+});
+
+Deno.test("search treats no results as an ordinary answer, not an error", async () => {
+  const supabase = new FakeSupabase();
+  // PostgREST returns null data for a set-returning function with no rows.
+  supabase.rpcRows = null;
+
+  const result = await searchTools(supabase).run(
+    "search",
+    searchSchema.parse({ query: "nothing matches this" }),
+  ) as { isError?: boolean; content: { text: string }[] };
+
+  // `toolError` reports to Sentry, so returning one here would page us every
+  // time an agent searched for something the user hasn't written about.
+  assertEquals(result.isError, undefined);
+  assertEquals(result.content[0].text, "[]");
+});
+
+Deno.test("search reports an RPC failure as a tool error", async () => {
+  const supabase = new FakeSupabase();
+  supabase.rpcRows = null;
+  supabase.rpcError = { message: "function search_entries does not exist" };
+
+  const result = await searchTools(supabase).run(
+    "search",
+    searchSchema.parse({ query: "anything" }),
+  ) as { isError?: boolean; content: { text: string }[] };
+
+  assertEquals(result.isError, true);
+  assertEquals(
+    result.content[0].text,
+    "function search_entries does not exist",
+  );
 });

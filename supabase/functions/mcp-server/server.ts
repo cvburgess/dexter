@@ -8,6 +8,7 @@ import { registerJournalTools } from "./tools/journals.ts";
 import { registerListTools } from "./tools/lists.ts";
 import { registerNoteTools } from "./tools/notes.ts";
 import { registerPreferenceTools } from "./tools/preferences.ts";
+import { registerSearchTools } from "./tools/search.ts";
 import { registerTaskTools } from "./tools/tasks.ts";
 import { registerTemplateTools } from "./tools/templates.ts";
 
@@ -35,6 +36,7 @@ export function createMcpServer(
   registerJournalTools(server, ctx);
   registerTemplateTools(server, ctx);
   registerPreferenceTools(server, ctx);
+  registerSearchTools(server, ctx);
 
   return server;
 }
