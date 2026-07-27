@@ -194,16 +194,15 @@ function RepeatScheduleForm({ existing }: { existing: TTemplate }) {
     );
   };
 
-  // One destructive action, whether or not the row has a schedule. "Stop
-  // repeating" used to live here too, but setting Repeats to Never now does
-  // that — and keeps the template — so a second button offering it only blurred
-  // the difference between dropping the schedule and deleting the row.
+  // One destructive action, one message, whether or not the row has a schedule.
+  // "Stop repeating" used to live here too, but setting Repeats to Never now
+  // does that — and keeps the template — so a second button offering it only
+  // blurred the difference between dropping the schedule and deleting the row.
   const handleDelete = async () => {
     const confirmed = await confirm({
       title: "Delete template?",
-      message: isTemplate
-        ? "This deletes the template. Tasks you already created from it are unaffected."
-        : "This deletes the template and its repeat schedule. The current task stays, but no new occurrences will be created. To keep the template and only stop it repeating, set Repeats to Never instead.",
+      message:
+        "This deletes the template. Tasks you already created from it are unaffected.",
       confirmLabel: "Delete Template",
       destructive: true,
     });
