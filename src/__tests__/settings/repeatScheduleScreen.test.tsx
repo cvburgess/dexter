@@ -152,12 +152,17 @@ describe("RepeatScheduleScreen", () => {
     expect(mockPickers["Month"]).toBeUndefined();
   });
 
-  it("names the destructive action for what it deletes", () => {
+  // Setting Repeats to Never is what stops a repeat while keeping the template,
+  // so the only destructive action left is deleting the row — and it reads the
+  // same either way rather than masquerading as "Stop Repeating".
+  it("offers one Delete Template action whether or not the row has a schedule", () => {
     const template = renderWith(makeTemplate({ schedule: null }));
     expect(template.getByText("Delete Template")).toBeTruthy();
+    expect(template.queryByText("Stop Repeating")).toBe(null);
 
     const repeat = renderWith(makeTemplate());
-    expect(repeat.getByText("Stop Repeating")).toBeTruthy();
+    expect(repeat.getByText("Delete Template")).toBeTruthy();
+    expect(repeat.queryByText("Stop Repeating")).toBe(null);
   });
 
   // The copy has to follow the picker, not the saved row, or a user switching
