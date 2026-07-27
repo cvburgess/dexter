@@ -32,7 +32,7 @@ All backend config and migrations live under `/supabase`.
 For query optimization, schema design, and RLS guidance, see the repo skill at
 [`.claude/skills/supabase-postgres-best-practices/SKILL.md`](../.claude/skills/supabase-postgres-best-practices/SKILL.md).
 
-## Notes, journals, and the deprecated `days` table
+## Notes and journals (formerly the `days` table)
 
 Notes and the journal used to be two columns on one `public.days` row
 (`notes text`, `prompts jsonb`, keyed `(date, user_id)`). DEX-51 split them into
@@ -50,27 +50,26 @@ row seeded template prompts on the first *note* write, so most `days` rows carry
 scaffolding the user never answered (160 of 162 rows had a non-empty array; only
 47 held a response).
 
-`public.days` is **deprecated but intentionally still present**: the app, the MCP
-server, and every read path in this repo have moved off it (the one remaining
-reference is `scripts/seed-demo.ts`, which still clears it so a demo reset stays
-deterministic), but the same production project is shared with the legacy
-`dexter-app` (Electron/PWA) whose released builds still read and write it, and
-`days` remains the rollback path for the split. Until that client ships an
-update (`DEX-89`), edits made in this app and edits made in a legacy build do
-**not** see each other. Dropping the table is `DEX-90`, gated on that release.
+`public.days` is **gone** — DEX-90 dropped it (from the `supabase_realtime`
+publication first, then the table), once DEX-89 shipped a legacy `dexter-app`
+build reading the new tables. Restoring it would mean recreating the table and
+backfilling from `notes`/`journals`; nothing reads or writes it today.
 
-One consequence worth knowing before comparing the publication against the
-client: `days` is still in `supabase_realtime` but is deliberately **absent**
-from the app's `REALTIME_INVALIDATIONS` map, so its change events have no
-subscriber. That gap is intentional, not drift.
+Anything still referencing `days` is stale and will fail against the live
+schema rather than degrade quietly. `wipeUserData` in `scripts/seed-demo.ts`
+was the last such reference: it kept clearing `days` for determinism, throws on
+any delete error, and listed `days` **last** — so every run wiped the demo
+account's other eight tables and then aborted before reseeding, leaving the
+account empty. That is the fix in this change.
 
-**Rollout note:** the backfill is one-time, and there is no dual-write. Between
-the migration deploying and a client picking up the new bundle, anything that
-client writes lands in `days` and is invisible once it updates. The split is
-JS-only, so shipping an EAS update alongside the deploy closes the window
-immediately; re-running the two backfill inserts (both are
-`on conflict do nothing`, so they are rerunnable) recovers any date the new
-build has not written since.
+**Rollout note (historical — the window is closed and `days` is dropped):** the
+backfill was one-time with no dual-write, so between the migration deploying and
+a client picking up the new bundle, anything that client wrote landed in `days`
+and became invisible once it updated. The split was JS-only, so shipping an EAS
+update alongside the deploy closed the window; while `days` still existed,
+re-running the two backfill inserts (both `on conflict do nothing`, so
+rerunnable) recovered any date the new build had not written since. That
+recovery path no longer exists — there is nothing left to backfill from.
 
 ## RLS policy invariants
 
@@ -102,8 +101,8 @@ Every user-owned table enables RLS with per-operation policies keyed on
 
 ## Realtime
 
-All ten user-owned tables (`tasks`, `repeat_task_templates`, `lists`,
-`goals`, `habits`, `daily_habits`, `notes`, `journals`, `days`, `preferences`)
+All nine user-owned tables (`tasks`, `repeat_task_templates`, `lists`,
+`goals`, `habits`, `daily_habits`, `notes`, `journals`, `preferences`)
 are added to the `supabase_realtime` publication via guarded migrations
 (`20260717193451_realtime_publication.sql` for the original eight,
 `20260726215745_split_notes_journals.sql` for `notes`/`journals`), so Postgres
@@ -120,7 +119,7 @@ dashboard-only addition would drift from what the migration declares.
   limitation, not specific to this schema): with default `REPLICA IDENTITY`,
   a DELETE's `old` record contains only primary-key columns, so a filter on
   any other column — including the `user_id=eq.<uuid>` filter the client
-  applies — can never match. Only `notes`, `journals`, `days`, and
+  applies — can never match. Only `notes`, `journals`, and
   `preferences` key on `user_id`; for the other six tables (`tasks`, `goals`,
   `lists`, `habits`, `daily_habits`, `repeat_task_templates`), this means
   DELETE-triggered realtime invalidation **never fires, by construction** — not
