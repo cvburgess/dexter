@@ -133,7 +133,11 @@ export default function RepeatScheduleScreen() {
     return (
       <RepeatScheduleForm
         draft={draftFromTask(task, repeats === "1")}
-        linkTaskId={task.id}
+        // Only a task that isn't already someone's occurrence is free to be
+        // linked. Re-pointing a task that belongs to another repeat would leave
+        // *that* schedule with nothing to fire from — `useTemplates` seeds the
+        // new row its own first occurrence instead.
+        linkTaskId={task.templateId ? undefined : task.id}
       />
     );
   }

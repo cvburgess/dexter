@@ -203,6 +203,41 @@ describe("useTemplates", () => {
 
       await waitFor(() => expect(mockCreateTemplate).toHaveBeenCalled());
       expect(mockUpdateTask).not.toHaveBeenCalled();
+      expect(mockCreateTask).not.toHaveBeenCalled();
+    });
+
+    // The caller withholds `linkTaskId` when the source task already belongs to
+    // another repeat, since re-pointing it would strand *that* schedule. The new
+    // row still needs something to fire from, so it gets its own occurrence.
+    it("seeds an occurrence for a scheduled row with no task to link", async () => {
+      mockCreateTemplate.mockResolvedValue({
+        id: "template-1",
+        title: "Water the plants",
+        alarmTime: null,
+        priority: ETaskPriority.IMPORTANT,
+        listId: null,
+        goalId: null,
+        subtasks: [],
+        schedule: "0 0 * * *",
+      } as unknown as TTemplate);
+      const view = await renderUseTemplates();
+
+      act(() => {
+        view.result.current[1].createTemplate({
+          template: { title: "Water the plants", priority: task.priority },
+        });
+      });
+
+      await waitFor(() =>
+        expect(mockCreateTask).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            templateId: "template-1",
+            scheduledFor: Temporal.Now.plainDateISO().toString(),
+          }),
+        ),
+      );
+      expect(mockUpdateTask).not.toHaveBeenCalled();
     });
   });
 });

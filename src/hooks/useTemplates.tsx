@@ -25,10 +25,11 @@ type TMutateCallbacks = {
 export type TCreateTemplateVars = {
   template: TCreateTemplate;
   /**
-   * The task the template was drafted from. It is linked to the new row only if
-   * that row ends up carrying a schedule — recurrence spawns from *completing a
-   * linked task*, so a repeat needs the link to ever fire, while a plain
-   * template must leave the task it came from alone.
+   * The task the template was drafted from, if that task is free to be linked
+   * (it is not already an occurrence of another repeat). It is linked to the new
+   * row only if that row ends up carrying a schedule — recurrence spawns from
+   * *completing a linked task*, so a repeat needs the link to ever fire, while a
+   * plain template must leave the task it came from alone.
    */
   linkTaskId?: string;
 };
@@ -58,8 +59,8 @@ type TUseTemplates = [
  * task whose `template_id` points at a scheduled row*, so a template promoted
  * to a repeat with no occurrence would sit under "Repeat tasks" describing a
  * cadence it could never act on. Creating from a draft links the source task
- * instead, and a row that already has occurrences keeps recurring from them —
- * this only covers the promote-an-existing-template case.
+ * instead where that task is free to be linked, and a row that already has
+ * occurrences keeps recurring from them.
  *
  * Counts today, so promoting to a cadence that matches today produces a task
  * now rather than looking like nothing happened.
@@ -114,6 +115,11 @@ export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
             id: linkTaskId,
             templateId: created.id,
           });
+        } else {
+          // No task to fire from — give a scheduled row its own first
+          // occurrence, the same guarantee `updateTemplate` makes. A no-op for
+          // a scheduleless row, which is the ordinary "Save as template" case.
+          await seedFirstOccurrence(created);
         }
 
         return created;

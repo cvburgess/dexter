@@ -58,11 +58,9 @@ jest.mock("@/hooks/useTemplates", () => ({
     templatesState.current,
     {
       createTemplate: jest.fn(),
-      createTemplateFromTask: jest.fn(),
       deleteTemplate: jest.fn(),
       getTemplateById: () => undefined,
       isLoading: false,
-      saveTaskAsTemplate: jest.fn(),
       updateTemplate: jest.fn(),
     },
   ],

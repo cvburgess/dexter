@@ -225,6 +225,26 @@ describe("RepeatScheduleScreen", () => {
         expect.anything(),
       );
     });
+
+    // A task that is already an occurrence of another repeat is not free to be
+    // linked: re-pointing its `template_id` would leave that schedule with no
+    // task to fire from, silently killing it. `useTemplates` seeds the new row
+    // its own first occurrence instead.
+    it("does not offer a task that already belongs to a repeat", () => {
+      renderDraftFrom(
+        { ...seedTask, templateId: "template-9" },
+        {
+          repeats: "1",
+        },
+      );
+
+      save();
+
+      expect(mockCreateTemplate).toHaveBeenCalledWith(
+        expect.objectContaining({ linkTaskId: undefined }),
+        expect.anything(),
+      );
+    });
   });
 
   describe("closing", () => {
