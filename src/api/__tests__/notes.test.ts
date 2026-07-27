@@ -1,0 +1,108 @@
+import { SupabaseClient } from "@supabase/supabase-js";
+
+import { getNote, upsertNote } from "@/api/notes";
+import { Database } from "@/types/database.types";
+
+// A PostgREST-shaped select builder: `.eq`/`.limit` return the same object so
+// calls can chain, and the read resolves through `.maybeSingle()`.
+type ChainMock = {
+  eq: jest.Mock;
+  limit: jest.Mock;
+  maybeSingle: jest.Mock;
+};
+
+const makeSelectClient = (data: unknown, error: Error | null = null) => {
+  const chain = {} as ChainMock;
+  chain.eq = jest.fn(() => chain);
+  chain.limit = jest.fn(() => chain);
+  chain.maybeSingle = jest.fn(() => Promise.resolve({ data, error }));
+
+  const select = jest.fn(() => chain);
+  const from = jest.fn(() => ({ select }));
+  return {
+    chain,
+    select,
+    from,
+    supabase: { from } as unknown as SupabaseClient<Database>,
+  };
+};
+
+const makeUpsertClient = (data: unknown, error: Error | null = null) => {
+  const single = jest.fn(() => Promise.resolve({ data, error }));
+  const select = jest.fn(() => ({ single }));
+  const upsert = jest.fn(() => ({ select }));
+  const from = jest.fn(() => ({ upsert }));
+  return {
+    upsert,
+    from,
+    supabase: { from } as unknown as SupabaseClient<Database>,
+  };
+};
+
+const row = {
+  date: "2026-07-12",
+  content: "hello",
+  user_id: "user-1",
+  created_at: "2026-07-12T00:00:00Z",
+};
+
+describe("getNote", () => {
+  it("selects the row for the requested date", async () => {
+    const { chain, select, from, supabase } = makeSelectClient(row);
+
+    const note = await getNote(supabase, "2026-07-12");
+
+    expect(from).toHaveBeenCalledWith("notes");
+    expect(select).toHaveBeenCalledWith("*");
+    expect(chain.eq).toHaveBeenCalledWith("date", "2026-07-12");
+    expect(note).toEqual(
+      expect.objectContaining({ date: "2026-07-12", content: "hello" }),
+    );
+  });
+
+  it("returns null when the day has no row", async () => {
+    const { supabase } = makeSelectClient(null);
+
+    // Distinct from an empty note: callers use this to tell "never started"
+    // apart from "started but blank" (the template chooser depends on it).
+    await expect(getNote(supabase, "2026-07-12")).resolves.toBeNull();
+  });
+
+  it("throws when Supabase returns an error", async () => {
+    const error = new Error("select failed");
+    const { supabase } = makeSelectClient(null, error);
+
+    await expect(getNote(supabase, "2026-07-12")).rejects.toBe(error);
+  });
+});
+
+describe("upsertNote", () => {
+  it("upserts on the (user_id, date) key", async () => {
+    const { upsert, from, supabase } = makeUpsertClient(row);
+
+    const note = await upsertNote(supabase, {
+      date: "2026-07-12",
+      content: "hello",
+    });
+
+    expect(from).toHaveBeenCalledWith("notes");
+    // `user_id` is never sent (column default + RLS), so the conflict target
+    // has to be named explicitly or PostgREST infers it from the payload.
+    expect(upsert).toHaveBeenCalledWith(
+      { date: "2026-07-12", content: "hello" },
+      { onConflict: "user_id,date" },
+    );
+    expect(note).toEqual(
+      expect.objectContaining({ date: "2026-07-12", content: "hello" }),
+    );
+  });
+
+  it("throws when Supabase returns an error", async () => {
+    const error = new Error("upsert failed");
+    const { supabase } = makeUpsertClient(null, error);
+
+    await expect(
+      upsertNote(supabase, { date: "2026-07-12", content: "hello" }),
+    ).rejects.toBe(error);
+  });
+});

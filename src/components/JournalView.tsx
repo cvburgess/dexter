@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import Animated, {
-  useAnimatedKeyboard,
-  useAnimatedStyle,
-} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { TDay, TJournalPrompt } from "@/api/days";
-import { useDays } from "@/hooks/useDays";
+import { TJournal, TJournalPrompt } from "@/api/journals";
+import { useJournals } from "@/hooks/useJournals";
 import { useTheme } from "@/utils/theme";
 
 import { EmptyScreen } from "./EmptyScreen";
@@ -44,19 +40,19 @@ const responseHeight = (lines: number, spacing: number) =>
 
 /**
  * The Journal surface for a single day. Reads/writes the day's reflection
- * prompts via `useDays`, autosaving edits (debounced). Responses are plain text
- * (unlike Notes' markdown editor), so this renders identically on web and
+ * prompts via `useJournals`, autosaving edits (debounced). Responses are plain
+ * text (unlike Notes' markdown editor), so this renders identically on web and
  * native. Prompts auto-seed from `preferences.templatePrompts` (via
- * `useDays.defaultDay`), so there is no template chooser — nothing persists
- * until the user answers. Remounted per date by `SwipeableDay` (keyed on the
- * day), which re-seeds the uncontrolled inputs when the day changes.
+ * `useJournals`' `defaultJournal`), so there is no template chooser — nothing
+ * persists until the user answers. Remounted per date by `SwipeableDay` (keyed
+ * on the day), which re-seeds the uncontrolled inputs when the day changes.
  */
 export function JournalView({ date, onEditingChange }: TJournalViewProps) {
-  const [day, { isLoading, upsertDayAsync }] = useDays(date);
+  const [journal, { isLoading, upsertJournalAsync }] = useJournals(date);
 
   if (isLoading) return <LoadingScreen />;
 
-  if (day.prompts.length === 0) {
+  if (journal.prompts.length === 0) {
     return <EmptyScreen message="Add journal prompts in Settings → Journal" />;
   }
 
@@ -69,9 +65,9 @@ export function JournalView({ date, onEditingChange }: TJournalViewProps) {
   // Response-only edits keep the labels, so autosaves don't remount.
   return (
     <JournalEditor
-      key={JSON.stringify(day.prompts.map((p) => p.prompt))}
-      prompts={day.prompts}
-      upsertDayAsync={upsertDayAsync}
+      key={JSON.stringify(journal.prompts.map((p) => p.prompt))}
+      prompts={journal.prompts}
+      upsertJournalAsync={upsertJournalAsync}
       onEditingChange={onEditingChange}
     />
   );
@@ -79,26 +75,18 @@ export function JournalView({ date, onEditingChange }: TJournalViewProps) {
 
 type TJournalEditorProps = {
   prompts: TJournalPrompt[];
-  upsertDayAsync: (diff: { prompts: TJournalPrompt[] }) => Promise<TDay>;
+  upsertJournalAsync: (diff: {
+    prompts: TJournalPrompt[];
+  }) => Promise<TJournal>;
   onEditingChange?: (editing: boolean) => void;
 };
 
 function JournalEditor({
   prompts,
-  upsertDayAsync,
+  upsertJournalAsync,
   onEditingChange,
 }: TJournalEditorProps) {
-  const keyboard = useAnimatedKeyboard();
   const insets = useSafeAreaInsets();
-
-  // Shrink the scroll area's own frame to the visible viewport as the keyboard
-  // rises, so there's always scroll room past the last field instead of it
-  // running under the keyboard with nowhere to scroll to. The host's
-  // SafeAreaView excludes "bottom" (the tab bar owns that inset), so fall back
-  // to the safe-area inset when the keyboard is closed.
-  const keyboardInsetStyle = useAnimatedStyle(() => ({
-    paddingBottom: Math.max(keyboard.height.value, insets.bottom),
-  }));
 
   // Track the latest per-index text so a save can rebuild the whole array,
   // seeded from the loaded responses. Seeded once at mount; the editor is
@@ -114,7 +102,8 @@ function JournalEditor({
   // Serializing (never two saves in flight) keeps overlapping debounced/retrying
   // saves from writing older responses over newer ones — both the server and the
   // React Query cache stay last-edit-wins. Mirrors NotesView. React Query's
-  // mutate is referentially stable, so closing over `upsertDayAsync` is stable.
+  // mutate is referentially stable, so closing over `upsertJournalAsync` is
+  // stable.
   const drainSaves = useCallback(async () => {
     if (savingRef.current) return;
     savingRef.current = true;
@@ -123,9 +112,9 @@ function JournalEditor({
         const pending = pendingRef.current;
         pendingRef.current = null;
         try {
-          await upsertDayAsync({ prompts: pending });
+          await upsertJournalAsync({ prompts: pending });
         } catch {
-          // Retries (in useDays) are exhausted. Requeue unless newer text
+          // Retries (in useJournals) are exhausted. Requeue unless newer text
           // already arrived, then stop so we don't hot-loop a persistent
           // failure — the next edit/unmount flush retries.
           if (pendingRef.current === null) pendingRef.current = pending;
@@ -135,7 +124,7 @@ function JournalEditor({
     } finally {
       savingRef.current = false;
     }
-  }, [upsertDayAsync]);
+  }, [upsertJournalAsync]);
 
   const flush = useCallback(() => {
     if (timeoutRef.current) {
@@ -148,11 +137,10 @@ function JournalEditor({
   const handleChangeResponse = useCallback(
     (index: number, text: string) => {
       responsesRef.current[index] = text;
-      // Rebuild the full array on every edit: `upsertDay({ prompts })` replaces
-      // the whole column, so a partial array would drop the other responses.
-      // Labels are invariant for this mount (the editor is keyed on them), so
-      // reading them off the prop is safe. (`notes` is preserved by the partial
-      // upsert.)
+      // Rebuild the full array on every edit: `upsertJournal({ prompts })`
+      // replaces the whole jsonb column, so a partial array would drop the other
+      // responses. Labels are invariant for this mount (the editor is keyed on
+      // them), so reading them off the prop is safe.
       pendingRef.current = prompts.map((prompt, i) => ({
         prompt: prompt.prompt,
         response: responsesRef.current[i],
@@ -172,27 +160,41 @@ function JournalEditor({
   useEffect(() => () => onEditingChange?.(false), [onEditingChange]);
 
   return (
-    <Animated.View style={[styles.scroll, keyboardInsetStyle]}>
-      <ScrollView
-        contentContainerStyle={styles.list}
-        keyboardShouldPersistTaps="handled"
-      >
-        {prompts.map(({ prompt, response }, index) => (
-          <JournalResponseField
-            key={index}
-            prompt={prompt}
-            response={response}
-            onBlur={() => {
-              flush();
-              onEditingChange?.(false);
-            }}
-            onChangeText={(text) => handleChangeResponse(index, text)}
-            onFocus={() => onEditingChange?.(true)}
-            testID={`journal-response-${index}`}
-          />
-        ))}
-      </ScrollView>
-    </Animated.View>
+    <ScrollView
+      style={styles.scroll}
+      // Insets the content by the keyboard's height (iOS) so a focused field
+      // low on the screen is scrolled clear of it rather than left covered.
+      // Android resizes the window instead (Expo's default
+      // softwareKeyboardLayoutMode), and web has no overlay keyboard. Matches
+      // new-task.tsx and settings/tasks/[id].tsx (DEX-92). This replaced an
+      // animated wrapper that padded the scroller's *frame* by the keyboard
+      // height: that gave scroll room past the last field but never moved
+      // content, so the field stayed under the keyboard. Don't reintroduce it
+      // alongside this prop — the two would both subtract the keyboard.
+      automaticallyAdjustKeyboardInsets
+      // The host's SafeAreaView omits "bottom" (the tab bar owns that inset),
+      // so the content reserves it here — see docs/frontend.md.
+      contentContainerStyle={[
+        styles.list,
+        { paddingBottom: 16 + insets.bottom },
+      ]}
+      keyboardShouldPersistTaps="handled"
+    >
+      {prompts.map(({ prompt, response }, index) => (
+        <JournalResponseField
+          key={index}
+          prompt={prompt}
+          response={response}
+          onBlur={() => {
+            flush();
+            onEditingChange?.(false);
+          }}
+          onChangeText={(text) => handleChangeResponse(index, text)}
+          onFocus={() => onEditingChange?.(true)}
+          testID={`journal-response-${index}`}
+        />
+      ))}
+    </ScrollView>
   );
 }
 

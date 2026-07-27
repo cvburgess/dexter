@@ -23,15 +23,13 @@ describe("LicensesScreen", () => {
     mockUseIsMultiPane.mockReturnValue(true);
     const screen = render(<LicensesScreen />);
 
-    expect(screen.getByTestId("safe-area-edges-bottom,right")).toBeTruthy();
+    expect(screen.getByTestId("safe-area-edges-right")).toBeTruthy();
   });
 
   it("includes the left safe-area edge in single-column mode", () => {
     const screen = render(<LicensesScreen />);
 
-    expect(
-      screen.getByTestId("safe-area-edges-bottom,left,right"),
-    ).toBeTruthy();
+    expect(screen.getByTestId("safe-area-edges-left,right")).toBeTruthy();
   });
 
   it("renders the intro header", () => {

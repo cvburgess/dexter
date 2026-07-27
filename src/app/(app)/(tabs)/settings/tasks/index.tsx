@@ -1,6 +1,9 @@
 import { useRouter } from "expo-router";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 import {
   describeChecklist,
@@ -20,6 +23,10 @@ import {
   resolveAlarmSound,
 } from "@/utils/alarms";
 import { describeSchedule } from "@/utils/repeatSchedule";
+import {
+  EDGES_SINGLE_PANE,
+  EDGES_TWO_PANE,
+} from "@/utils/settingsSafeAreaEdges";
 import { useTheme } from "@/utils/theme";
 
 export default function TasksScreen() {
@@ -32,16 +39,24 @@ export default function TasksScreen() {
   const repeatTasks = templates.filter(isRepeatTask);
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = useIsMultiPane();
+  const insets = useSafeAreaInsets();
 
   return (
     <SafeAreaView
-      edges={twoPane ? ["bottom", "right"] : ["bottom", "left", "right"]}
+      edges={twoPane ? EDGES_TWO_PANE : EDGES_SINGLE_PANE}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <ScrollView
+        // The edges above omit `bottom` so content scrolls under the
+        // translucent tab bar; adding the inset to the content's own bottom
+        // padding is what lets the last row clear it (DEX-91).
         contentContainerStyle={[
           styles.content,
-          { padding: theme.spacing, gap: theme.spacing },
+          {
+            padding: theme.spacing,
+            paddingBottom: theme.spacing + insets.bottom,
+            gap: theme.spacing,
+          },
         ]}
       >
         {/* Alarms only ring on iOS, so the sound picker has nothing to offer

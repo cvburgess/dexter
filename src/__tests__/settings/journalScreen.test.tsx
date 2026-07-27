@@ -1,4 +1,5 @@
 import { fireEvent, render } from "@testing-library/react-native";
+import { ScrollView } from "react-native";
 
 import JournalScreen from "@/app/(app)/(tabs)/settings/journal";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
@@ -52,16 +53,26 @@ describe("JournalScreen", () => {
     mockUseIsMultiPane.mockReturnValue(true);
     const screen = renderWith({ enableJournal: true });
 
-    expect(screen.getByTestId("safe-area-edges-bottom,right")).toBeTruthy();
+    expect(screen.getByTestId("safe-area-edges-right")).toBeTruthy();
   });
 
   it("includes the left safe-area edge in single-column mode", () => {
     mockUseIsMultiPane.mockReturnValue(false);
     const screen = renderWith({ enableJournal: true });
 
+    expect(screen.getByTestId("safe-area-edges-left,right")).toBeTruthy();
+  });
+
+  // Without this, a focused prompt low on the screen stays under the keyboard:
+  // the wrapper this replaced padded the scroller's frame, which gave scroll
+  // room but never moved content to the field (DEX-92).
+  it("lets iOS inset the scroll content by the keyboard", () => {
+    const screen = renderWith({ enableJournal: true });
+
     expect(
-      screen.getByTestId("safe-area-edges-bottom,left,right"),
-    ).toBeTruthy();
+      screen.UNSAFE_getByType(ScrollView).props
+        .automaticallyAdjustKeyboardInsets,
+    ).toBe(true);
   });
 
   it("reflects the enabled state and toggles it", () => {

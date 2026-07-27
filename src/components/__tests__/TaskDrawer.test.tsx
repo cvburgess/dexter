@@ -1,7 +1,16 @@
+import { FlashList } from "@shopify/flash-list";
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render } from "@testing-library/react-native";
 import type { ReactNode } from "react";
-import { ActivityIndicator, Text, TouchableOpacity } from "react-native";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+} from "react-native";
+import type { ViewStyle } from "react-native";
+
+import { renderWithBottomInset } from "@/testUtils/renderWithBottomInset";
 
 import { TGoal } from "@/api/goals";
 import { TList } from "@/api/lists";
@@ -116,6 +125,12 @@ const goal = (overrides: Partial<TGoal> = {}): TGoal => ({
   createdAt: "",
   ...overrides,
 });
+
+const listContentStyle = (screen: ReturnType<typeof render>) =>
+  StyleSheet.flatten(
+    screen.UNSAFE_getByType(FlashList).props
+      .contentContainerStyle as ViewStyle[],
+  );
 
 const tasksResult = (
   tasks: TTask[] = [],
@@ -327,6 +342,17 @@ describe("TaskDrawer", () => {
     expect(
       screen.queryByText("Nothing here — you're all caught up."),
     ).toBeNull();
+  });
+
+  // The drawer reserves whatever bottom inset its host publishes, so the last
+  // row clears the native tab bar in the docked pane (DEX-91). Hosts that
+  // aren't overlapped by the bar zero it for their subtree — see
+  // TaskDrawerSheet.test.
+  it("reserves the host's bottom inset below the list's last row", () => {
+    mockUseTasks.mockReturnValue(tasksResult([task()]));
+    const screen = renderWithBottomInset(34, <TaskDrawer date={date} />);
+
+    expect(listContentStyle(screen).paddingBottom).toBe(34);
   });
 
   it("renders every row of a multi-task list through the flattened FlashList data", () => {

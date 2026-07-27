@@ -186,11 +186,24 @@ Deno.test("demo showcases the states screenshots depend on", () => {
 });
 
 Deno.test("journal prompts pair a prompt with a response", () => {
-  for (const day of data.days) {
-    assert(day.prompts.length > 0, `day ${day.dateOffset} has no prompts`);
-    for (const { prompt, response } of day.prompts) {
+  for (const journal of data.journals) {
+    assert(
+      journal.prompts.length > 0,
+      `journal ${journal.dateOffset} has no prompts`,
+    );
+    for (const { prompt, response } of journal.prompts) {
       assert(prompt.length > 0 && response.length > 0);
     }
+  }
+});
+
+Deno.test("notes carry markdown content", () => {
+  assert(data.notes.length > 0, "expected seeded notes");
+  for (const note of data.notes) {
+    assert(
+      note.content.trim().length > 0,
+      `note ${note.dateOffset} has no content`,
+    );
   }
 });
 

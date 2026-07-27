@@ -1,6 +1,15 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
-import { Alert, Text, TouchableOpacity } from "react-native";
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+} from "react-native";
+import type { ViewStyle } from "react-native";
+
+import { renderWithBottomInset } from "@/testUtils/renderWithBottomInset";
 
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import { TTemplate } from "@/api/templates";
@@ -105,6 +114,12 @@ const task = (overrides: Partial<TTask> = {}): TTask => ({
   ...overrides,
 });
 
+const listContentStyle = (screen: ReturnType<typeof render>) =>
+  StyleSheet.flatten(
+    screen.UNSAFE_getByType(ScrollView).props
+      .contentContainerStyle as ViewStyle[],
+  );
+
 const confirmAlert = () =>
   jest.spyOn(Alert, "alert").mockImplementation((_title, _message, buttons) => {
     buttons?.find((b) => b.style === "destructive")?.onPress?.();
@@ -164,6 +179,25 @@ describe("TasksView", () => {
     mockUsePreferences.mockReturnValue(preferences({ enableHabits: false }));
     const screen = render(<TasksView date={date} />);
     expect(screen.queryByText("habit-tracker")).toBeNull();
+  });
+
+  // The host SafeAreaView omits the bottom edge so cards can scroll under the
+  // translucent tab bar; the list has to reserve that inset itself or its last
+  // card can never be scrolled clear of the bar (DEX-91).
+  it("adds the safe-area bottom inset to the list's own bottom padding", () => {
+    mockUseTasks.mockReturnValue(tasksResult([task()]));
+    const screen = renderWithBottomInset(34, <TasksView date={date} />);
+
+    expect(listContentStyle(screen).paddingBottom).toBe(50);
+  });
+
+  it("keeps the list's uniform padding when there is no bottom inset", () => {
+    mockUseTasks.mockReturnValue(tasksResult([task()]));
+    const screen = renderWithBottomInset(0, <TasksView date={date} />);
+
+    const style = listContentStyle(screen);
+    expect(style.paddingBottom).toBe(16);
+    expect(style.padding).toBe(16);
   });
 
   it("deletes a one-off task once the confirmation is accepted", async () => {

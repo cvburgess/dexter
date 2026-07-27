@@ -92,9 +92,13 @@ export interface DemoDailyHabit {
   stepsComplete: number;
 }
 
-export interface DemoDay {
+export interface DemoNote {
   dateOffset: number;
-  notes: string;
+  content: string;
+}
+
+export interface DemoJournal {
+  dateOffset: number;
   prompts: { prompt: string; response: string }[];
 }
 
@@ -115,7 +119,8 @@ export interface DemoDataset {
   templates: DemoTemplate[];
   tasks: DemoTask[];
   dailyHabits: DemoDailyHabit[];
-  days: DemoDay[];
+  notes: DemoNote[];
+  journals: DemoJournal[];
   preferences: DemoPreferences;
 }
 
@@ -375,11 +380,22 @@ export function buildDemoData(): DemoDataset {
     { habitKey: "read", dateOffset: 0, steps: 1, stepsComplete: 0 },
   ];
 
-  const days: DemoDay[] = [
+  const notes: DemoNote[] = [
     {
       dateOffset: -1,
-      notes:
+      content:
         "# Yesterday\n\n- Closed out the beta feedback backlog\n- Good momentum heading into launch week",
+    },
+    {
+      dateOffset: 0,
+      content:
+        "# Today\n\n- Rewrote the README\n- Reviewing App Store assets\n\n> Busy != productive.",
+    },
+  ];
+
+  const journals: DemoJournal[] = [
+    {
+      dateOffset: -1,
       prompts: [
         { prompt: PROMPTS[0], response: "Finished the calendar view redesign" },
         { prompt: PROMPTS[1], response: "A quiet morning to focus" },
@@ -389,8 +405,6 @@ export function buildDemoData(): DemoDataset {
     },
     {
       dateOffset: 0,
-      notes:
-        "# Today\n\n- Rewrote the README\n- Reviewing App Store assets\n\n> Busy != productive.",
       prompts: [
         { prompt: PROMPTS[0], response: "A great run this morning" },
         { prompt: PROMPTS[1], response: "This planner, honestly" },
@@ -417,7 +431,8 @@ export function buildDemoData(): DemoDataset {
     templates,
     tasks,
     dailyHabits,
-    days,
+    notes,
+    journals,
     preferences,
   };
 }

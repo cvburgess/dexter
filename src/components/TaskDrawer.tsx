@@ -2,6 +2,7 @@ import { FlashList } from "@shopify/flash-list";
 import { Temporal } from "@js-temporal/polyfill";
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { TGoal } from "@/api/goals";
 import { TList } from "@/api/lists";
@@ -201,6 +202,7 @@ export function TaskDrawer({
   onFilterChange,
 }: TTaskDrawerProps) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   // Controlled by the parent when both props are given (mobile sheet), else
   // self-managed (docked large-screen pane) — same optional-controlled shape
   // as a standard input.
@@ -309,6 +311,16 @@ export function TaskDrawer({
   );
 
   const controlBorder = { borderColor: withOpacity(theme.colors.text, 0.15) };
+  // `container`'s own 16pt padding sits inside a pane that itself extends
+  // behind the tab bar, so it doesn't clear it — the inset has to go on the
+  // scrollable content on top of that. Memoized like this list's other props
+  // (renderItem/keyExtractor/getItemType): FlashList is wrapped in React.memo,
+  // so a fresh object each render would re-render the whole recycler on every
+  // keystroke in the search field.
+  const listContentStyle = useMemo(
+    () => ({ paddingBottom: insets.bottom }),
+    [insets.bottom],
+  );
 
   return (
     <View style={[styles.container, { gap: theme.gap }]}>
@@ -362,6 +374,7 @@ export function TaskDrawer({
           getItemType={getItemType}
           ItemSeparatorComponent={ItemSeparator}
           style={styles.list}
+          contentContainerStyle={listContentStyle}
         />
       )}
     </View>

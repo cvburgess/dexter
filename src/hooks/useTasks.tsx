@@ -227,7 +227,7 @@ export const canonicalTaskFilters = (): TQueryFilter[] => [
 // `queryClient.isMutating` to skip refetching while one of our own writes is in
 // flight — Postgres echoes that write back as a realtime event, and a refetch
 // it triggers can resolve *after* a newer local edit and stamp stale rows over
-// it. Unscoped, unlike `daysMutationKey`: there is a single `["tasks"]` cache
+// it. Unscoped, unlike `notesMutationKey`: there is a single `["tasks"]` cache
 // entry, so there is no unrelated slice left to invalidate anyway. Every task
 // mutation carries it, and each one's own settle invalidation is the catch-up.
 export const TASKS_MUTATION_KEY = ["tasks"];
@@ -257,7 +257,7 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
   /**
    * Writes the diff into the `["tasks"]` cache before the request goes out and
    * restores the snapshot if it fails — the same optimistic pattern
-   * `usePreferences`, `useDays`, and `useHabits` already use.
+   * `usePreferences`, `useNotes`, and `useHabits` already use.
    *
    * This is what makes checklist editing correct rather than merely quick.
    * `subtasks` is replaced as a whole array, so any consumer that reads the

@@ -113,6 +113,11 @@ export function NoteEditor({
   // while editing, above the tab-bar safe area while reading. (The library
   // scrolls the caret within the input's own frame, and ignores the input's own
   // `padding` as a scroll inset — so this has to constrain the frame itself.)
+  //
+  // This is deliberately NOT the `automaticallyAdjustKeyboardInsets` pattern
+  // the journal surfaces moved to in DEX-92: that's a ScrollView prop, and
+  // there's no ScrollView here — the editor is a single rich-text input that
+  // does its own caret scrolling. Frame-shrinking is what that input needs.
   const editorInsetStyle = useAnimatedStyle(() => ({
     paddingBottom: Math.max(
       keyboard.height.value + (focused ? BAR_HEIGHT : 0),

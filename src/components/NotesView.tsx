@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { ETaskPriority } from "@/api/tasks";
-import { useDays } from "@/hooks/useDays";
+import { useNotes } from "@/hooks/useNotes";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTheme, withOpacity } from "@/utils/theme";
 
@@ -39,7 +39,7 @@ const CARD_TRAIL_OFF = 24;
 
 /**
  * The Notes surface for a single day. Reads/writes the day's markdown note via
- * `useDays`, autosaving edits (debounced). When the day has no note row yet and
+ * `useNotes`, autosaving edits (debounced). When the day has no note row yet and
  * a daily-note template is configured, it first offers the user a choice
  * between seeding the template and starting blank; both choices write a row, so
  * the choice persists across remounts/tab switches instead of re-prompting
@@ -52,7 +52,8 @@ export function NotesView({
   inset = true,
 }: TNotesViewProps) {
   const theme = useTheme();
-  const [day, { isLoading, exists, upsertDay, upsertDayAsync }] = useDays(date);
+  const [note, { isLoading, exists, upsertNote, upsertNoteAsync }] =
+    useNotes(date);
   const [preferences] = usePreferences();
   // Latches once the user commits to the editor (picks a choice or types).
   // `exists` persists the choice across remounts, but rolls back to false if a
@@ -68,7 +69,7 @@ export function NotesView({
   // Serializing (never two saves in flight) keeps overlapping debounced/retrying
   // saves from writing an older note over a newer one — both the server and the
   // React Query cache stay last-edit-wins. React Query's mutate is referentially
-  // stable, so closing over `upsertDayAsync` keeps this stable.
+  // stable, so closing over `upsertNoteAsync` keeps this stable.
   const drainSaves = useCallback(async () => {
     if (savingRef.current) return;
     savingRef.current = true;
@@ -77,9 +78,9 @@ export function NotesView({
         const pending = pendingRef.current;
         pendingRef.current = null;
         try {
-          await upsertDayAsync({ notes: pending });
+          await upsertNoteAsync({ content: pending });
         } catch {
-          // Retries (in useDays) are exhausted. Requeue unless newer text
+          // Retries (in useNotes) are exhausted. Requeue unless newer text
           // already arrived, then stop so we don't hot-loop a persistent
           // failure — the next edit/unmount flush retries.
           if (pendingRef.current === null) pendingRef.current = pending;
@@ -89,7 +90,7 @@ export function NotesView({
     } finally {
       savingRef.current = false;
     }
-  }, [upsertDayAsync]);
+  }, [upsertNoteAsync]);
 
   const flush = useCallback(() => {
     if (timeoutRef.current) {
@@ -127,7 +128,7 @@ export function NotesView({
           style={styles.button}
           onPress={() => {
             setCommitted(true);
-            upsertDay({ notes: preferences.templateNote });
+            upsertNote({ content: preferences.templateNote });
           }}
         >
           Use daily note template
@@ -137,7 +138,7 @@ export function NotesView({
           style={styles.button}
           onPress={() => {
             setCommitted(true);
-            upsertDay({ notes: "" });
+            upsertNote({ content: "" });
           }}
         >
           Blank note
@@ -179,7 +180,7 @@ export function NotesView({
         ]}
       >
         <NoteEditor
-          initialValue={day.notes ?? ""}
+          initialValue={note.content}
           onChangeMarkdown={handleChangeMarkdown}
           onFocusChange={onEditingChange}
           placeholder="Write today's note…"

@@ -8,11 +8,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import Animated, {
-  useAnimatedKeyboard,
-  useAnimatedStyle,
-} from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 import { HeaderAddButton } from "@/components/HeaderAddButton";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
@@ -20,6 +19,10 @@ import { SettingsToggleCard } from "@/components/SettingsToggleCard";
 import { TextInput } from "@/components/TextInput";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
+import {
+  EDGES_SINGLE_PANE,
+  EDGES_TWO_PANE,
+} from "@/utils/settingsSafeAreaEdges";
 import { useTheme } from "@/utils/theme";
 
 export default function JournalScreen() {
@@ -28,16 +31,7 @@ export default function JournalScreen() {
   const [preferences, { updatePreferences }] = usePreferences();
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = useIsMultiPane();
-  const keyboard = useAnimatedKeyboard();
-
-  // Shrink the scroll area as the keyboard rises so there's always scroll room
-  // past the last field instead of it running under the keyboard with nowhere
-  // to scroll to. No safe-area fallback needed here (unlike JournalView) — the
-  // SafeAreaView below already reserves the resting bottom inset; adding it
-  // again here would double that padding when the keyboard is closed.
-  const keyboardInsetStyle = useAnimatedStyle(() => ({
-    paddingBottom: keyboard.height.value,
-  }));
+  const insets = useSafeAreaInsets();
 
   // Edit prompts locally and commit on blur so we don't write a preference on
   // every keystroke. Re-sync from the stored value when it changes elsewhere
@@ -94,78 +88,90 @@ export default function JournalScreen() {
 
   return (
     <SafeAreaView
-      edges={twoPane ? ["bottom", "right"] : ["bottom", "left", "right"]}
+      edges={twoPane ? EDGES_TWO_PANE : EDGES_SINGLE_PANE}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      <Animated.View style={[styles.container, keyboardInsetStyle]}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.content,
-            { padding: theme.spacing, gap: theme.spacing },
-          ]}
-          keyboardShouldPersistTaps="handled"
-        >
-          <SettingsToggleCard
-            label="Journal"
-            value={preferences.enableJournal}
-            onValueChange={(enableJournal) =>
-              updatePreferences({ enableJournal })
-            }
-          />
+      <ScrollView
+        // Insets the content by the keyboard's height (iOS) so a focused prompt
+        // low on the screen is scrolled clear of it rather than left covered.
+        // Android resizes the window instead (Expo's default
+        // softwareKeyboardLayoutMode), and web has no overlay keyboard. Matches
+        // new-task.tsx and settings/tasks/[id].tsx (DEX-92). This replaced an
+        // animated wrapper that padded the scroller's *frame* by the keyboard
+        // height: that gave scroll room past the last field but never moved
+        // content, so the field stayed under the keyboard. Don't reintroduce it
+        // alongside this prop — the two would both subtract the keyboard.
+        automaticallyAdjustKeyboardInsets
+        // The edges above omit `bottom`, so the content carries the tab bar's
+        // inset (DEX-91).
+        contentContainerStyle={[
+          styles.content,
+          {
+            padding: theme.spacing,
+            paddingBottom: theme.spacing + insets.bottom,
+            gap: theme.spacing,
+          },
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
+        <SettingsToggleCard
+          label="Journal"
+          value={preferences.enableJournal}
+          onValueChange={(enableJournal) =>
+            updatePreferences({ enableJournal })
+          }
+        />
 
-          {preferences.enableJournal && (
-            <View style={styles.section}>
-              <SettingsSectionTitle>Journal prompts</SettingsSectionTitle>
-              {drafts.length === 0 ? (
-                <Text
-                  style={[styles.empty, { color: theme.colors.textSecondary }]}
-                >
-                  Tap ＋ to add your first prompt.
-                </Text>
-              ) : (
-                <View style={{ gap: theme.gap }}>
-                  {drafts.map((prompt, index) => (
-                    <View key={index} style={styles.promptRow}>
-                      <TextInput
-                        accessibilityLabel={`Journal prompt ${index + 1}`}
-                        onBlur={commitPrompt}
-                        onChangeText={(text) =>
-                          setDrafts((current) =>
-                            current.map((p, i) => (i === index ? text : p)),
-                          )
-                        }
-                        onFocus={() => (focusedRef.current = true)}
-                        placeholder="e.g. What went well today?"
-                        style={styles.promptInput}
-                        value={prompt}
-                      />
-                      <TouchableOpacity
-                        accessibilityLabel={`Delete prompt ${index + 1}`}
-                        accessibilityRole="button"
-                        onPress={() => deletePrompt(index)}
-                        style={styles.deleteButton}
-                        testID={`delete-prompt-${index}`}
-                      >
-                        <Ionicons
-                          color={theme.colors.error}
-                          name="trash-outline"
-                          size={22}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-              )}
+        {preferences.enableJournal && (
+          <View style={styles.section}>
+            <SettingsSectionTitle>Journal prompts</SettingsSectionTitle>
+            {drafts.length === 0 ? (
               <Text
-                style={[styles.hint, { color: theme.colors.textSecondary }]}
+                style={[styles.empty, { color: theme.colors.textSecondary }]}
               >
-                These prompts seed each new day&apos;s Journal. Editing them
-                doesn&apos;t change days you&apos;ve already answered.
+                Tap ＋ to add your first prompt.
               </Text>
-            </View>
-          )}
-        </ScrollView>
-      </Animated.View>
+            ) : (
+              <View style={{ gap: theme.gap }}>
+                {drafts.map((prompt, index) => (
+                  <View key={index} style={styles.promptRow}>
+                    <TextInput
+                      accessibilityLabel={`Journal prompt ${index + 1}`}
+                      onBlur={commitPrompt}
+                      onChangeText={(text) =>
+                        setDrafts((current) =>
+                          current.map((p, i) => (i === index ? text : p)),
+                        )
+                      }
+                      onFocus={() => (focusedRef.current = true)}
+                      placeholder="e.g. What went well today?"
+                      style={styles.promptInput}
+                      value={prompt}
+                    />
+                    <TouchableOpacity
+                      accessibilityLabel={`Delete prompt ${index + 1}`}
+                      accessibilityRole="button"
+                      onPress={() => deletePrompt(index)}
+                      style={styles.deleteButton}
+                      testID={`delete-prompt-${index}`}
+                    >
+                      <Ionicons
+                        color={theme.colors.error}
+                        name="trash-outline"
+                        size={22}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+            <Text style={[styles.hint, { color: theme.colors.textSecondary }]}>
+              These prompts seed each new day&apos;s Journal. Editing them
+              doesn&apos;t change days you&apos;ve already answered.
+            </Text>
+          </View>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }

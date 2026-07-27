@@ -1,7 +1,10 @@
 import { useNavigation, useRouter } from "expo-router";
 import { useLayoutEffect } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 import { HabitRow } from "@/components/HabitRow";
 import { HeaderAddButton } from "@/components/HeaderAddButton";
@@ -10,6 +13,10 @@ import { SettingsToggleCard } from "@/components/SettingsToggleCard";
 import { useHabits } from "@/hooks/useHabits";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
+import {
+  EDGES_SINGLE_PANE,
+  EDGES_TWO_PANE,
+} from "@/utils/settingsSafeAreaEdges";
 import { useTheme } from "@/utils/theme";
 
 export default function HabitsScreen() {
@@ -20,6 +27,7 @@ export default function HabitsScreen() {
   const [preferences, { updatePreferences }] = usePreferences();
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = useIsMultiPane();
+  const insets = useSafeAreaInsets();
 
   // A "+" in the header opens the create modal (mirrors New Task), but only when
   // habit tracking is on — otherwise there's no list to add to. Re-wired on
@@ -44,13 +52,20 @@ export default function HabitsScreen() {
 
   return (
     <SafeAreaView
-      edges={twoPane ? ["bottom", "right"] : ["bottom", "left", "right"]}
+      edges={twoPane ? EDGES_TWO_PANE : EDGES_SINGLE_PANE}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <ScrollView
+        // The edges above omit `bottom` so content scrolls under the
+        // translucent tab bar; adding the inset to the content's own bottom
+        // padding is what lets the last row clear it (DEX-91).
         contentContainerStyle={[
           styles.content,
-          { padding: theme.spacing, gap: theme.spacing },
+          {
+            padding: theme.spacing,
+            paddingBottom: theme.spacing + insets.bottom,
+            gap: theme.spacing,
+          },
         ]}
       >
         <SettingsToggleCard
