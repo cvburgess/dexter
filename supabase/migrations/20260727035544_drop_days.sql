@@ -29,13 +29,18 @@
 -- rollback comment says the new tables can simply be dropped because `days`
 -- still holds every backfilled row. That stops being true here. From this point
 -- on, restoring `days` means recreating it and backfilling *from*
--- `notes`/`journals` — see below.
+-- `notes`/`journals`, so it has to happen **while those tables still exist** —
+-- run the block below first, then DEX-51's rollback. Dropping `notes`/
+-- `journals` first destroys the only copy of every note and journal written
+-- since the split, and leaves `dexter-app` v1.7.0's missing-table fallback
+-- pointing at a `days` that is also gone.
 --
--- Rollback: paste the block below. It is the table as it stood at the moment of
--- the drop — the baseline's DDL (20260429214000), with 20260713003945's NOT NULL
--- default on `prompts` and 20260708040856's fix to the UPDATE policy (the
--- baseline shipped `with check (true)`, which let a user reassign `user_id`)
--- already folded in.
+-- Rollback: strip the leading `-- ` and run the block below — pasted verbatim
+-- every line is a comment, so psql executes nothing and reports no error. It is
+-- the table as it stood at the moment of the drop — the baseline's DDL
+-- (20260429214000), with 20260713003945's NOT NULL default on `prompts` and
+-- 20260708040856's fix to the UPDATE policy (the baseline shipped
+-- `with check (true)`, which let a user reassign `user_id`) already folded in.
 --
 --   create table if not exists public.days (
 --     "date" date default now() not null,

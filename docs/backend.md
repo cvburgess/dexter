@@ -56,7 +56,10 @@ scaffolding the user never answered (160 of 162 rows had a non-empty array; only
 (`20260727035544_drop_days.sql`) invalidates the split's own rollback comment:
 `days` is no longer a standing copy of the data, so restoring it means recreating
 the table and backfilling *from* `notes`/`journals`. The drop migration's header
-carries that DDL.
+carries that DDL — as commented lines, so strip the leading `-- ` rather than
+pasting it verbatim, and run it **before** dropping `notes`/`journals`. Those two
+tables are the only copy of everything written since the split; drop them first
+and the backfill has nothing to read from.
 
 ## RLS policy invariants
 
