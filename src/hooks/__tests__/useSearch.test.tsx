@@ -44,7 +44,7 @@ describe("useSearch", () => {
     expect(mockSearchEntries).toHaveBeenCalledWith({}, "milk");
   });
 
-  it("does not search a query below the minimum length", async () => {
+  it("does not search a query below the minimum length", () => {
     const { wrapper } = createWrapper();
     const short = "x".repeat(MIN_SEARCH_LENGTH - 1);
 
@@ -58,7 +58,7 @@ describe("useSearch", () => {
     expect(mockSearchEntries).not.toHaveBeenCalled();
   });
 
-  it("ignores surrounding whitespace when deciding to search", async () => {
+  it("ignores surrounding whitespace when deciding to search", () => {
     const { wrapper } = createWrapper();
 
     const { result } = renderHook(() => useSearch("   m   "), { wrapper });
@@ -71,10 +71,10 @@ describe("useSearch", () => {
   it("searches the trimmed query, so padded variants share a cache entry", async () => {
     const { wrapper } = createWrapper();
 
-    const { result, rerender } = renderHook(({ query }) => useSearch(query), {
-      wrapper,
-      initialProps: { query: "milk" },
-    });
+    const { result, rerender } = renderHook(
+      ({ query }: { query: string }) => useSearch(query),
+      { wrapper, initialProps: { query: "milk" } },
+    );
     await waitFor(() => expect(result.current[0]).toHaveLength(1));
 
     rerender({ query: "  milk  " });

@@ -80,7 +80,13 @@ export const useRealtimeInvalidation = (userId: string | undefined) => {
     let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
     const invalidateTable = (table: (typeof REALTIME_TABLES)[number]) => {
-      const perDateMutationKey = PER_DATE_MUTATION_KEYS[table];
+      // Annotated rather than inferred: indexing a `Record<string, …>` yields
+      // the value type with no `undefined`, so TypeScript would call the
+      // truthiness checks below redundant when in fact most tables have no
+      // entry here.
+      const perDateMutationKey:
+        ((date: string) => readonly string[]) | undefined =
+        PER_DATE_MUTATION_KEYS[table];
 
       if (
         table === "tasks" &&
@@ -95,13 +101,6 @@ export const useRealtimeInvalidation = (userId: string | undefined) => {
       }
 
       for (const queryKey of REALTIME_INVALIDATIONS[table]) {
-        // The guard below reads `queryKey[1]` as the date being autosaved, which
-        // only holds for the table's *own* per-date entries (`["notes", date]`).
-        // `["search", query]` (DEX-47) carries the search string in that slot, so
-        // guarding it would silently skip a real invalidation whenever someone
-        // searched for something date-shaped.
-        const isPerDateEntry = perDateMutationKey && queryKey[0] === table;
-
         void queryClient.invalidateQueries({
           queryKey,
           // `notes`/`journals` echo our own autosave back as a realtime event —
@@ -109,12 +108,20 @@ export const useRealtimeInvalidation = (userId: string | undefined) => {
           // can't race the debounced editor (see the comment on
           // notesMutationKey), without suppressing invalidation for every other
           // cached date. Every other table invalidates unconditionally.
-          ...(isPerDateEntry && {
-            predicate: (query) =>
-              queryClient.isMutating({
-                mutationKey: perDateMutationKey(query.queryKey[1] as string),
-              }) === 0,
-          }),
+          //
+          // The `queryKey[0] === table` half matters as much as the first: this
+          // predicate reads `queryKey[1]` as the date being autosaved, which is
+          // only true of the table's own per-date entries (`["notes", date]`).
+          // `["search", query]` (DEX-47) carries the search string in that slot,
+          // so guarding it too would silently drop a real invalidation whenever
+          // someone searched for something date-shaped.
+          ...(perDateMutationKey &&
+            queryKey[0] === table && {
+              predicate: (query) =>
+                queryClient.isMutating({
+                  mutationKey: perDateMutationKey(query.queryKey[1] as string),
+                }) === 0,
+            }),
         });
       }
     };

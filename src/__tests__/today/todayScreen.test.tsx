@@ -33,7 +33,14 @@ jest.mock("@/hooks/useIsMultiPane", () => ({ useIsMultiPane: jest.fn() }));
 jest.mock("@/hooks/useTasks", () => ({ useTasks: jest.fn() }));
 
 const mockPush = jest.fn();
-jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));
+// The `?date=&mode=&q=` deep link the Search tab builds (DEX-47). Mutable so a
+// test can set the params before rendering, the way arriving on the route with
+// them would.
+const mockSearchParams: { current: Record<string, string> } = { current: {} };
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ push: mockPush }),
+  useLocalSearchParams: () => mockSearchParams.current,
+}));
 
 // The always-visible Tasks pane owns its own data fetching (see
 // TasksView.test); stub it to a marker exposing the date it was given so this
@@ -237,6 +244,7 @@ const preferences = (
   ] as never;
 
 const mockTogglePane = jest.fn();
+const mockOpenPane = jest.fn();
 const panes = (
   overrides: Partial<{
     notes: boolean;
@@ -253,7 +261,7 @@ const panes = (
       drawer: false,
       ...overrides,
     },
-    { togglePane: mockTogglePane, isLoading: false },
+    { togglePane: mockTogglePane, openPane: mockOpenPane, isLoading: false },
   ] as never;
 
 const mockUseIsMultiPane = useIsMultiPane as jest.MockedFunction<
@@ -283,6 +291,7 @@ const overdueTask = (): TTask => ({
 describe("TodayScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSearchParams.current = {};
     mockUseIsMultiPane.mockReturnValue(false);
     mockUsePreferences.mockReturnValue(preferences());
     mockUseTodayPanes.mockReturnValue(panes());
@@ -612,6 +621,127 @@ describe("TodayScreen", () => {
       expect(mockPush).toHaveBeenCalledWith({
         pathname: "/new-task",
         params: { scheduledFor: Temporal.Now.plainDateISO().toString() },
+      });
+    });
+  });
+
+  // DEX-47: the `?date=&mode=&q=` deep link the Search tab builds. The link
+  // format itself is unit-tested in utils/__tests__/todayRoute.test.ts; these
+  // cover what this screen does on arrival.
+  describe("search deep links", () => {
+    it("opens the day named by ?date= instead of today", () => {
+      mockSearchParams.current = { date: "2026-07-14" };
+
+      const screen = render(<TodayScreen />);
+
+      expect(screen.getByText("tasks-view:2026-07-14")).toBeTruthy();
+      // The viewed day drives New Task's default schedule too, so a deep link
+      // has to publish the day it landed on, not the real today.
+      expect(lastPublishedDay()).toBe("2026-07-14");
+    });
+
+    it("falls back to today when ?date= is unparseable", () => {
+      // The route is linkable on web, so a hand-edited or stale URL is a real
+      // source of garbage — it must not crash the tab.
+      mockSearchParams.current = { date: "2026-02-30" };
+
+      const screen = render(<TodayScreen />);
+
+      expect(
+        screen.getByText(
+          `tasks-view:${Temporal.Now.plainDateISO().toString()}`,
+        ),
+      ).toBeTruthy();
+    });
+
+    it("selects the view named by ?mode=", () => {
+      mockSearchParams.current = { date: "2026-07-14", mode: "journal" };
+
+      const screen = render(<TodayScreen />);
+
+      expect(screen.getByText("journal-view:2026-07-14")).toBeTruthy();
+    });
+
+    it("ignores an unrecognized ?mode= rather than blanking the day", () => {
+      mockSearchParams.current = { date: "2026-07-14", mode: "nonsense" };
+
+      const screen = render(<TodayScreen />);
+
+      expect(screen.getByText("tasks-view:2026-07-14")).toBeTruthy();
+    });
+
+    it("opens the backlog sheet pre-filtered and pre-searched", () => {
+      // An unscheduled task has no day to open, so the link points at the
+      // drawer instead — seeded so the task the user tapped is on screen
+      // straight away rather than somewhere in the backlog.
+      mockSearchParams.current = { mode: "backlog", q: "quarterly" };
+
+      render(<TodayScreen />);
+
+      expect(mockPresentTaskDrawer).toHaveBeenCalledWith(
+        "unscheduled",
+        "quarterly",
+      );
+    });
+
+    it("does not touch the drawer without a backlog link", () => {
+      render(<TodayScreen />);
+
+      expect(mockPresentTaskDrawer).not.toHaveBeenCalled();
+    });
+
+    it("still selects the view when the day is left implicit", () => {
+      mockSearchParams.current = { mode: "notes" };
+
+      const screen = render(<TodayScreen />);
+
+      expect(
+        screen.getByText(
+          `notes-view:${Temporal.Now.plainDateISO().toString()}`,
+        ),
+      ).toBeTruthy();
+    });
+
+    describe("large screens", () => {
+      beforeEach(() => mockUseIsMultiPane.mockReturnValue(true));
+
+      it("opens the pane named by ?mode= and selects its tab", () => {
+        mockSearchParams.current = { date: "2026-07-14", mode: "journal" };
+
+        const screen = render(<TodayScreen />);
+
+        // `openPane`, not `togglePane`: following the link twice, or following
+        // it when the pane is already open, must not close it.
+        expect(mockOpenPane).toHaveBeenCalledWith("journal");
+        // Notes and Journal share one tabbed pane, which defaults to Notes —
+        // so opening the pane isn't enough, the tab has to follow too.
+        expect(screen.getByText("journal-view:2026-07-14")).toBeTruthy();
+      });
+
+      it("opens the docked drawer pre-filtered and pre-searched", () => {
+        mockUseTodayPanes.mockReturnValue(panes({ drawer: true }));
+        mockSearchParams.current = { mode: "backlog", q: "quarterly" };
+
+        render(<TodayScreen />);
+
+        expect(mockOpenPane).toHaveBeenCalledWith("drawer");
+        expect(mockTaskDrawer).toHaveBeenCalledWith(
+          expect.objectContaining({
+            filterId: "unscheduled",
+            search: "quarterly",
+          }),
+        );
+      });
+
+      it("leaves the panes and the tab alone without a mode", () => {
+        const screen = render(<TodayScreen />);
+
+        expect(mockOpenPane).not.toHaveBeenCalled();
+        expect(
+          screen.getByText(
+            `notes-view:${Temporal.Now.plainDateISO().toString()}`,
+          ),
+        ).toBeTruthy();
       });
     });
   });

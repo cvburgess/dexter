@@ -1,4 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
+import { useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 
 import { LargeScreenToday } from "@/components/LargeScreenToday";
@@ -8,6 +9,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { useTasks } from "@/hooks/useTasks";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
 import { backlogAttentionFilter } from "@/utils/taskFilters";
+import { parseDayDate, parseDayMode } from "@/utils/todayRoute";
 
 type TDayState = {
   date: Temporal.PlainDate;
@@ -22,8 +24,19 @@ type TDayState = {
 export default function TodayScreen() {
   const [preferences] = usePreferences();
   const multiPane = useIsMultiPane();
+  // `?date=&mode=&q=` — the deep-link contract the Search tab builds
+  // (`utils/todayRoute.ts`, DEX-47). Absent for an ordinary tab press, which is
+  // why every one of these is optional and the state below still seeds itself
+  // from today.
+  const params = useLocalSearchParams<{
+    date?: string;
+    mode?: string;
+    q?: string;
+  }>();
+  const requestedDate = parseDayDate(params.date);
+  const mode = parseDayMode(params.mode);
   const [day, setDay] = useState<TDayState>(() => ({
-    date: Temporal.Now.plainDateISO(),
+    date: requestedDate ?? Temporal.Now.plainDateISO(),
     direction: 0,
   }));
   // So "New Task" opened from this tab defaults its schedule to the viewed day.
@@ -53,12 +66,39 @@ export default function TodayScreen() {
       return { date: next, direction: Temporal.PlainDate.compare(next, date) };
     });
 
+  // Follow a `?date=` that arrives after mount. Navigating here from the Search
+  // tab re-renders this screen with new params rather than remounting it, so the
+  // initial state above only covers a cold open — this covers every later tap.
+  //
+  // Adjusted during render (React's supported pattern for deriving state from a
+  // changed prop, as `SmallScreenToday` already does for a disabled view) rather
+  // than in an effect: React re-runs this component before painting, so the day
+  // never renders wrong for a frame first. `appliedIso` is what makes it fire
+  // once per *change* — without it this would re-apply on every render and
+  // stomp the user's own day navigation. Compared as ISO strings, not
+  // `Temporal.PlainDate` objects, which are fresh instances every render.
+  const requestedIso = requestedDate?.toString() ?? null;
+  const [appliedIso, setAppliedIso] = useState(requestedIso);
+  if (requestedIso !== appliedIso) {
+    setAppliedIso(requestedIso);
+    if (requestedIso) {
+      const next = Temporal.PlainDate.from(requestedIso);
+      const direction = Temporal.PlainDate.compare(next, day.date);
+      // Skip when the link points at the day already on screen: `direction`
+      // drives the day-change animation, and restarting it for no movement
+      // reads as a flicker.
+      if (direction !== 0) setDay({ date: next, direction });
+    }
+  }
+
   return multiPane ? (
     <LargeScreenToday
       date={day.date}
       preferences={preferences}
       changeDate={changeDate}
       attentionFilter={attentionFilter}
+      mode={mode}
+      searchQuery={params.q}
     />
   ) : (
     <SmallScreenToday
@@ -68,6 +108,8 @@ export default function TodayScreen() {
       changeDate={changeDate}
       changeDateBy={changeDateBy}
       attentionFilter={attentionFilter}
+      mode={mode}
+      searchQuery={params.q}
     />
   );
 }

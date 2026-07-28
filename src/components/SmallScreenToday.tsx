@@ -1,5 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -16,6 +16,7 @@ import {
 import { TasksView } from "@/components/TasksView";
 import { TPreferences } from "@/api/preferences";
 import { TFilterId } from "@/utils/taskFilters";
+import { TDayMode } from "@/utils/todayRoute";
 import { useTheme } from "@/utils/theme";
 
 type TSmallScreenTodayProps = {
@@ -27,6 +28,14 @@ type TSmallScreenTodayProps = {
   // The Filter preset to pre-apply when opening Backlog (Overdue/left-behind),
   // or null when there's nothing needing attention. Drives the switcher's dot.
   attentionFilter: TFilterId | null;
+  /**
+   * Which surface a `?mode=` deep link asked for (DEX-47), or null for an
+   * ordinary tab press. `tasks`/`notes`/`journal` select the view; `backlog`
+   * opens the drawer sheet instead of changing the view at all.
+   */
+  mode: TDayMode | null;
+  /** The query behind a `mode=backlog` link, seeded into the drawer's search box. */
+  searchQuery?: string;
 };
 
 // The single-view (small-screen) Today layout: one full-width view at a time
@@ -40,16 +49,47 @@ export function SmallScreenToday({
   changeDate,
   changeDateBy,
   attentionFilter,
+  mode,
+  searchQuery,
 }: TSmallScreenTodayProps) {
   const theme = useTheme();
   const backlogAttention = attentionFilter !== null;
-  const [view, setView] = useState<TDayView>("tasks");
+  // Seeded from the route so a deep link is already right on the first render —
+  // the `appliedMode` adjustment below only fires on a *change*, so arriving
+  // with `?mode=` set would otherwise land on Tasks. `backlog` isn't a view
+  // (the sheet handles it), so it seeds Tasks like an ordinary tab press.
+  const [view, setView] = useState<TDayView>(
+    mode && mode !== "backlog" ? mode : "tasks",
+  );
   // Suspends notes day-swipe while the editor is focused, so horizontal drags
   // position the caret / select text instead of changing days.
   const [notesEditing, setNotesEditing] = useState(false);
   // Same for Journal: a focused response field owns horizontal drags.
   const [journalEditing, setJournalEditing] = useState(false);
   const taskDrawerRef = useRef<TTaskDrawerSheetHandle>(null);
+
+  // Select the view a `?mode=` deep link asked for (DEX-47). Adjusted during
+  // render, the same way the `viewDisabled` reset below is and for the same
+  // reason — no wrong-view frame, no effect. `appliedMode` makes it fire once
+  // per *change*, so the user can switch views afterwards without this snapping
+  // them back; following the same link twice is therefore a no-op, which is fine
+  // since the screen is already showing what it asks for.
+  const [appliedMode, setAppliedMode] = useState(mode);
+  if (mode !== appliedMode) {
+    setAppliedMode(mode);
+    // `backlog` is not a day view — the sheet below handles it.
+    if (mode && mode !== "backlog") setView(mode);
+  }
+
+  // The sheet is an imperative native API rather than React state, so poking it
+  // is exactly what an effect is for. Pre-filtered to Unscheduled (where a task
+  // with no date lives) and pre-searched, so the result the user tapped is on
+  // screen straight away instead of somewhere in the backlog.
+  useEffect(() => {
+    if (mode === "backlog") {
+      taskDrawerRef.current?.present("unscheduled", searchQuery ?? "");
+    }
+  }, [mode, searchQuery]);
 
   // Fall back to Tasks if the active view is disabled in settings (e.g. Notes
   // toggled off while viewing it). All views share `date`.

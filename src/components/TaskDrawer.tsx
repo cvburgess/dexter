@@ -174,6 +174,15 @@ type TTaskDrawerProps = {
    */
   filterId?: TFilterId;
   onFilterChange?: (id: TFilterId) => void;
+  /**
+   * Controls the title search from the parent when provided (with
+   * `onSearchChange`), the same optional-controlled shape as `filterId` above.
+   * Both hosts use it to seed the box when a Search-tab result for an
+   * unscheduled task opens the backlog (DEX-47), so the task the user tapped is
+   * on screen immediately rather than somewhere in the backlog.
+   */
+  search?: string;
+  onSearchChange?: (value: string) => void;
 };
 
 /**
@@ -200,6 +209,8 @@ export function TaskDrawer({
   date,
   filterId: controlledFilterId,
   onFilterChange,
+  search: controlledSearch,
+  onSearchChange,
 }: TTaskDrawerProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -210,7 +221,9 @@ export function TaskDrawer({
   const filterId = controlledFilterId ?? internalFilterId;
   const setFilterId = onFilterChange ?? setInternalFilterId;
   const [groupBy, setGroupBy] = useState<TGroupBy>("none");
-  const [search, setSearch] = useState("");
+  const [internalSearch, setInternalSearch] = useState("");
+  const search = controlledSearch ?? internalSearch;
+  const setSearch = onSearchChange ?? setInternalSearch;
 
   // Lists/goals are only needed once the matching grouping is selected —
   // skip the query otherwise rather than always subscribing to both tables.

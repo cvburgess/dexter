@@ -5,13 +5,19 @@ import { JournalView } from "@/components/JournalView";
 import { NotesView } from "@/components/NotesView";
 import { useTheme, withOpacity } from "@/utils/theme";
 
-type TTab = "notes" | "journal";
+export type TTab = "notes" | "journal";
 
 type TNotesJournalTabsProps = {
   /** ISO date (YYYY-MM-DD) of the day shown. */
   date: string;
   showNotes: boolean;
   showJournal: boolean;
+  /**
+   * Selects a tab from outside, for a `?mode=notes|journal` deep link from the
+   * Search tab (DEX-47). Null when the route asked for neither, which leaves
+   * whichever tab the user last picked alone.
+   */
+  requestedTab?: TTab | null;
 };
 
 /**
@@ -30,9 +36,27 @@ export function NotesJournalTabs({
   date,
   showNotes,
   showJournal,
+  requestedTab = null,
 }: TNotesJournalTabsProps) {
   const theme = useTheme();
-  const [tab, setTab] = useState<TTab>(showNotes ? "notes" : "journal");
+  // Seeded from the route so a deep link is right on the first render — the
+  // `appliedTab` adjustment below only fires on a *change*, so arriving with
+  // `requestedTab` set would otherwise land on the default tab.
+  const [tab, setTab] = useState<TTab>(
+    requestedTab ?? (showNotes ? "notes" : "journal"),
+  );
+
+  // Follow the route when it names a tab. Adjusted during render (React's
+  // supported pattern for deriving state from a changed prop — the same one the
+  // `activeTab` fallback below uses) so the pane never shows the wrong tab for a
+  // frame. `appliedTab` makes it fire once per change, so the user can switch
+  // tabs afterwards without this snapping them back; re-opening the *same* deep
+  // link is therefore a no-op, which is fine — the tab is already right.
+  const [appliedTab, setAppliedTab] = useState(requestedTab);
+  if (requestedTab !== appliedTab) {
+    setAppliedTab(requestedTab);
+    if (requestedTab) setTab(requestedTab);
+  }
   // Snap to whichever tab is still enabled if the active one gets toggled off.
   let activeTab = tab;
   if (tab === "notes" && !showNotes) activeTab = "journal";

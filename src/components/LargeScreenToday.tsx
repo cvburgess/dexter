@@ -1,6 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -19,6 +19,7 @@ import {
   TASKS_PANE_MAX_WIDTH,
 } from "@/utils/breakpoints";
 import { TFilterId } from "@/utils/taskFilters";
+import { TDayMode } from "@/utils/todayRoute";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 type TLargeScreenTodayProps = {
@@ -29,6 +30,15 @@ type TLargeScreenTodayProps = {
   // header toggle (Overdue/left-behind), or null when nothing needs attention.
   // Drives the drawer toggle's dot.
   attentionFilter: TFilterId | null;
+  /**
+   * Which surface a `?mode=` deep link asked for (DEX-47), or null for an
+   * ordinary tab press. Tasks is always visible here, so `tasks` is a no-op;
+   * `notes`/`journal` open that pane and select its tab, and `backlog` opens the
+   * docked drawer.
+   */
+  mode: TDayMode | null;
+  /** The query behind a `mode=backlog` link, seeded into the drawer's search box. */
+  searchQuery?: string;
 };
 
 // The multi-pane (large-screen) Today layout: Tasks plus optional Notes/Journal,
@@ -40,16 +50,61 @@ export function LargeScreenToday({
   preferences,
   changeDate,
   attentionFilter,
+  mode,
+  searchQuery,
 }: TLargeScreenTodayProps) {
   const theme = useTheme();
   const router = useRouter();
-  const [panes, { togglePane }] = useTodayPanes();
+  const [panes, { togglePane, openPane }] = useTodayPanes();
   const backlogAttention = attentionFilter !== null;
   // The docked drawer runs controlled off this so opening it via the header
   // toggle can pre-apply the attention filter (see `toggleDrawerPane`),
   // mirroring the small-screen "tap Backlog" flow. The small-screen sheet owns
   // its own filter internally instead (`TaskDrawerSheet`).
-  const [drawerFilterId, setDrawerFilterId] = useState<TFilterId>("none");
+  // Both seeded from the route so a `?mode=backlog` deep link is already applied
+  // on the first render — the `appliedLink` adjustment below only fires on a
+  // *change*, so arriving with the link set would otherwise show an unfiltered
+  // drawer. Same ownership reason as `drawerFilterId` for the search box: only
+  // this component can seed it before `TaskDrawer` mounts (DEX-47).
+  const isBacklogLink = mode === "backlog";
+  const [drawerFilterId, setDrawerFilterId] = useState<TFilterId>(
+    isBacklogLink ? "unscheduled" : "none",
+  );
+  const [drawerSearch, setDrawerSearch] = useState(
+    isBacklogLink ? (searchQuery ?? "") : "",
+  );
+
+  // Seed the drawer for a `?mode=backlog` deep link (DEX-47). Adjusted during
+  // render rather than in an effect so the drawer never paints unfiltered for a
+  // frame first; `appliedLink` makes it fire once per change, so the user can
+  // adjust the filter or search afterwards without this resetting them. Keyed on
+  // the query as well as the mode, since a second backlog link differs only
+  // there.
+  const link = `${mode ?? ""}:${searchQuery ?? ""}`;
+  const [appliedLink, setAppliedLink] = useState(link);
+  if (link !== appliedLink) {
+    setAppliedLink(link);
+    if (mode === "backlog") {
+      // Unscheduled is where a task with no date lives; the query puts the one
+      // the user tapped at the top of the drawer rather than in the backlog.
+      setDrawerFilterId("unscheduled");
+      setDrawerSearch(searchQuery ?? "");
+    }
+  }
+
+  // Opening a pane writes through to AsyncStorage — an external system, so an
+  // effect is the right home. `openPane` (not `togglePane`) is stable and does
+  // its own already-open check, which keeps `panes` out of the dependencies:
+  // with it here, every later pane toggle would re-run this and re-open a pane
+  // the user had just closed.
+  //
+  // No `preferences.enable*` guard: with the feature off the pane simply doesn't
+  // render, and `panes.notes`/`panes.journal` default to open anyway, so setting
+  // them is very nearly a no-op. `panes.drawer` is the one that defaults closed.
+  useEffect(() => {
+    if (!mode || mode === "tasks") return;
+    void openPane(mode === "backlog" ? "drawer" : mode);
+  }, [mode, openPane]);
 
   const showNotes = preferences.enableNotes && panes.notes;
   const showJournal = preferences.enableJournal && panes.journal;
@@ -128,6 +183,9 @@ export function LargeScreenToday({
               date={date.toString()}
               showJournal={showJournal}
               showNotes={showNotes}
+              requestedTab={
+                mode === "notes" || mode === "journal" ? mode : null
+              }
             />
           </View>
         )}
@@ -169,6 +227,8 @@ export function LargeScreenToday({
               date={date}
               filterId={drawerFilterId}
               onFilterChange={setDrawerFilterId}
+              search={drawerSearch}
+              onSearchChange={setDrawerSearch}
             />
           </View>
         )}

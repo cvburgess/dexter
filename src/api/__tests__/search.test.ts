@@ -4,8 +4,6 @@ import { searchEntries } from "@/api/search";
 import { ETaskPriority, ETaskStatus } from "@/api/tasks";
 import { Database } from "@/types/database.types";
 
-type RpcResult = { data: unknown; error: Error | null };
-
 const makeClient = (data: unknown, error: Error | null = null) => {
   const rpc = jest.fn(() => Promise.resolve({ data, error }));
   return {
@@ -54,22 +52,21 @@ describe("searchEntries", () => {
 
     const results = await searchEntries(supabase, "milk");
 
-    expect(results).toEqual([
-      {
-        kind: "task",
-        task: expect.objectContaining({
-          id: "task-1",
-          // The deep camelCase walk has to reach inside the jsonb payload, or
-          // TaskCard reads undefined for every multi-word column.
-          scheduledFor: "2026-07-14",
-          alarmTime: null,
-          title: "Buy milk",
-          // A bundle running ahead of the subtasks migration gets rows without
-          // the column, and every consumer dereferences it unguarded.
-          subtasks: [],
-        }),
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      kind: "task",
+      task: {
+        id: "task-1",
+        // The deep camelCase walk has to reach inside the jsonb payload, or
+        // TaskCard reads undefined for every multi-word column.
+        scheduledFor: "2026-07-14",
+        alarmTime: null,
+        title: "Buy milk",
+        // A bundle running ahead of the subtasks migration gets rows without
+        // the column, and every consumer dereferences it unguarded.
+        subtasks: [],
       },
-    ]);
+    });
   });
 
   it("maps note and journal rows onto their result shapes", async () => {
