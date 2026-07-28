@@ -18,7 +18,7 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { MIN_SEARCH_LENGTH, useSearch } from "@/hooks/useSearch";
 import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
-import { searchResultRoute } from "@/utils/todayRoute";
+import { canOpenSearchResult, searchResultRoute } from "@/utils/todayRoute";
 import { useTheme } from "@/utils/theme";
 
 // The flattened shape `FlashList` renders: section headers and results in one
@@ -108,13 +108,14 @@ export default function SearchScreen() {
   const openResult = useCallback(
     (result: TSearchResult) => {
       navigationCount.current += 1;
-      router.push(
-        searchResultRoute(
-          result,
-          matchedQuery,
-          String(navigationCount.current),
-        ),
+      const route = searchResultRoute(
+        result,
+        matchedQuery,
+        String(navigationCount.current),
       );
+      // Null for a completed, unscheduled task, which has nowhere to open —
+      // those render without an `onPress` below, so this is belt and braces.
+      if (route) router.push(route);
     },
     [router, matchedQuery],
   );
@@ -145,8 +146,12 @@ export default function SearchScreen() {
             task={task}
             // The card's title becomes a link rather than a rename affordance;
             // its status button and menus keep working, so a result can still be
-            // checked off without leaving Search.
-            onPress={() => openResult(result)}
+            // checked off without leaving Search. Omitted entirely for a result
+            // with nowhere to go (a completed, unscheduled task) so the title
+            // isn't a link that opens an empty drawer.
+            onPress={
+              canOpenSearchResult(result) ? () => openResult(result) : undefined
+            }
             onUpdate={(diff) => updateTask({ id: task.id, ...diff })}
             onDuplicate={() => createTask(duplicateTaskInput(task))}
             onPromoteSubtask={(promoted) => createTask(promoted)}

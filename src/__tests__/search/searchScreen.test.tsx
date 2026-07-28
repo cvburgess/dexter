@@ -269,6 +269,27 @@ describe("SearchScreen", () => {
     });
   });
 
+  it("does not link a completed, unscheduled task result", () => {
+    mockUseSearch.mockReturnValue(
+      searchResult([
+        {
+          kind: "task",
+          task: task({ scheduledFor: null, status: ETaskStatus.DONE }),
+        },
+      ]),
+    );
+    render(<SearchScreen />);
+    typeSearch("milk");
+
+    // It has nowhere to open: the backlog shows only incomplete tasks, so a
+    // link would land on an empty drawer. The card is still rendered — its
+    // status button is how the task gets reopened from here.
+    fireEvent.press(screen.getByLabelText("open-Buy milk"));
+
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(screen.getByText("task-card:Buy milk")).toBeTruthy();
+  });
+
   it("opens a note result on its day's notes view", () => {
     mockUseSearch.mockReturnValue(
       searchResult([

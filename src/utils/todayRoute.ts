@@ -2,6 +2,9 @@ import { Temporal } from "@js-temporal/polyfill";
 import type { Href } from "expo-router";
 
 import { TSearchResult } from "@/api/search";
+// From the import-free leaf module rather than `utils/taskFilters`, which pulls
+// in the whole task-filtering surface for one predicate.
+import { isCompletionStatus } from "@/utils/taskStatus";
 
 /**
  * The Today tab's deep-link contract (DEX-47), both directions: the builders
@@ -137,11 +140,35 @@ export const parseDayLink = (params: TDayLinkParams): TDayLink | null => {
 };
 
 /**
- * Where tapping a search result should land.
+ * Whether a search result has anywhere to open.
  *
- * A task with no scheduled date has no day to open, so it goes to the backlog
- * with the query carried along — the drawer seeds its own search box from it, so
- * the task is on screen immediately instead of somewhere in the backlog.
+ * False for exactly one case: a **completed** task with no scheduled date. It
+ * has no day to open, and the backlog — where an unscheduled task would
+ * otherwise go — can never show it: `selectBacklogTasks` filters to incomplete
+ * tasks before any preset runs, and the canonical `["tasks"]` fetch excludes
+ * completed rows with a null `scheduledFor` outright. Linking it would open an
+ * empty drawer reading "you're all caught up", which is a dead end rather than
+ * an answer.
+ *
+ * Nothing is lost by not linking it: the result card in Search *is* the useful
+ * surface, and `TaskCard` renders its `StatusButton` above the `isComplete`
+ * guard, so the task can still be reopened from the results.
+ *
+ * Shared with `searchResultRoute` below so the screen's "is this a link?" test
+ * and the route it would build can't disagree.
+ */
+export const canOpenSearchResult = (result: TSearchResult): boolean =>
+  result.kind !== "task" ||
+  result.task.scheduledFor !== null ||
+  !isCompletionStatus(result.task.status);
+
+/**
+ * Where tapping a search result should land, or null when it has nowhere to go
+ * (see `canOpenSearchResult`).
+ *
+ * An *incomplete* task with no scheduled date goes to the backlog with the query
+ * carried along — the drawer seeds its own search box from it, so the task is on
+ * screen immediately instead of somewhere in the backlog.
  *
  * `nonce` should differ per tap; see `TTodayRouteParams["n"]`.
  */
@@ -149,7 +176,9 @@ export const searchResultRoute = (
   result: TSearchResult,
   query: string,
   nonce: string,
-): Href => {
+): Href | null => {
+  if (!canOpenSearchResult(result)) return null;
+
   if (result.kind === "task") {
     return result.task.scheduledFor
       ? todayRoute({ date: result.task.scheduledFor, mode: "tasks", n: nonce })

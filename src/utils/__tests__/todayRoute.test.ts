@@ -3,6 +3,7 @@ import { Temporal } from "@js-temporal/polyfill";
 import { TSearchResult } from "@/api/search";
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import {
+  canOpenSearchResult,
   parseDayDate,
   parseDayLink,
   parseDayMode,
@@ -141,7 +142,7 @@ describe("searchResultRoute", () => {
   it("sends an unscheduled task to the backlog, carrying the query", () => {
     const result: TSearchResult = {
       kind: "task",
-      task: makeTask({ scheduledFor: null }),
+      task: makeTask({ scheduledFor: null, status: ETaskStatus.TODO }),
     };
 
     // No day to open, so the drawer seeds its own search box from `q` and the
@@ -150,6 +151,49 @@ describe("searchResultRoute", () => {
       pathname: "/today",
       params: { mode: "backlog", q: "milk", n: "1" },
     });
+  });
+
+  it("refuses to route a completed, unscheduled task anywhere", () => {
+    // The backlog can never show it — `selectBacklogTasks` filters to
+    // incomplete tasks, and the canonical fetch excludes completed rows with a
+    // null `scheduledFor` outright — so linking it would open an empty drawer.
+    for (const status of [
+      ETaskStatus.DONE,
+      ETaskStatus.WONT_DO,
+      ETaskStatus.DELEGATED,
+    ]) {
+      const result: TSearchResult = {
+        kind: "task",
+        task: makeTask({ scheduledFor: null, status }),
+      };
+
+      expect(canOpenSearchResult(result)).toBe(false);
+      expect(searchResultRoute(result, "milk", "1")).toBeNull();
+    }
+  });
+
+  it("still routes a completed task that has a day to open", () => {
+    const result: TSearchResult = {
+      kind: "task",
+      task: makeTask({ scheduledFor: "2026-07-14", status: ETaskStatus.DONE }),
+    };
+
+    expect(canOpenSearchResult(result)).toBe(true);
+    expect(searchResultRoute(result, "milk", "1")).toEqual({
+      pathname: "/today",
+      params: { date: "2026-07-14", mode: "tasks", n: "1" },
+    });
+  });
+
+  it("always routes notes and journal entries", () => {
+    // Neither has a completion state, so neither can hit the case above.
+    expect(
+      canOpenSearchResult({
+        kind: "note",
+        date: "2026-07-13",
+        content: "x",
+      }),
+    ).toBe(true);
   });
 
   it("sends a note to its day's notes view", () => {
