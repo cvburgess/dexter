@@ -1,5 +1,4 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -52,7 +51,6 @@ export function LargeScreenToday({
   link,
 }: TLargeScreenTodayProps) {
   const theme = useTheme();
-  const router = useRouter();
   const [panes, { togglePane, openPane }] = useTodayPanes();
   const backlogAttention = attentionFilter !== null;
   const mode = link?.mode ?? null;
@@ -111,15 +109,6 @@ export function LargeScreenToday({
   const showJournal = preferences.enableJournal && panes.journal;
   const showCalendar = preferences.enableCalendar && panes.calendar;
 
-  // The viewed day is right here (unlike NewTaskButton's tab-bar accessory,
-  // which reads it back from a module store because it renders outside the
-  // screen's React tree), so push straight to it.
-  const openNewTask = () =>
-    router.push({
-      pathname: "/new-task",
-      params: { scheduledFor: date.toString() },
-    });
-
   // Toggling the drawer pane; when it's opening (not closing) and there are
   // stragglers, pre-apply the filter the dot points to so it lands on the
   // same view as the small-screen "tap Backlog" flow.
@@ -171,12 +160,6 @@ export function LargeScreenToday({
             ionicon="file-tray-full-outline"
             onPress={toggleDrawerPane}
             sfSymbol="tray.full"
-          />
-          <GlassIconButton
-            accessibilityLabel="New Task"
-            ionicon="add-outline"
-            onPress={openNewTask}
-            sfSymbol="plus"
           />
         </View>
       </View>

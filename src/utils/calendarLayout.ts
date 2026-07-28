@@ -41,6 +41,9 @@ export const nowLineTopPx = (
  * `[0, contentHeight - viewportHeight]` so the scroll never goes negative or
  * overshoots the content; returns 0 when the content is shorter than the
  * viewport (nothing to scroll).
+ *
+ * The arithmetic is axis-agnostic despite the vertical naming — `WeekView`
+ * uses it on the horizontal axis to anchor today's column (DEX-96).
  */
 export const scrollOffsetForTarget = (
   targetPx: number,

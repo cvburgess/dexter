@@ -3,10 +3,10 @@ import { FlatList, StyleSheet } from "react-native";
 import type { ViewStyle } from "react-native";
 
 import SettingsScreen from "@/app/(app)/(tabs)/settings";
-import { useIsMultiPane } from "@/hooks/useIsMultiPane";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { renderWithBottomInset } from "@/testUtils/renderWithBottomInset";
 
-jest.mock("@/hooks/useIsMultiPane", () => ({ useIsMultiPane: jest.fn() }));
+jest.mock("@/hooks/useIsLargeDevice", () => ({ useIsLargeDevice: jest.fn() }));
 
 const mockRouter = { back: jest.fn(), push: jest.fn() };
 jest.mock("expo-router", () => {
@@ -19,25 +19,25 @@ jest.mock("expo-router", () => {
   };
 });
 
-const mockUseIsMultiPane = useIsMultiPane as jest.MockedFunction<
-  typeof useIsMultiPane
+const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
+  typeof useIsLargeDevice
 >;
 
 describe("SettingsScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseIsMultiPane.mockReturnValue(false);
+    mockUseIsLargeDevice.mockReturnValue(false);
   });
 
   it("redirects to the first settings item in two-pane mode", () => {
-    mockUseIsMultiPane.mockReturnValue(true);
+    mockUseIsLargeDevice.mockReturnValue(true);
     const screen = render(<SettingsScreen />);
 
     expect(screen.getByText("redirect:/settings/account")).toBeTruthy();
   });
 
   it("renders the row list instead of redirecting in single-column mode", () => {
-    mockUseIsMultiPane.mockReturnValue(false);
+    mockUseIsLargeDevice.mockReturnValue(false);
     const screen = render(<SettingsScreen />);
 
     expect(screen.queryByText(/^redirect:/)).toBeNull();

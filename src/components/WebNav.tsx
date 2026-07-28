@@ -12,6 +12,7 @@ import {
   SettingsIcon,
   type TSettingsIconName,
 } from "@/components/SettingsIcon";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { WEB_NAV_RAIL_WIDTH } from "@/utils/breakpoints";
 import { newTaskRoute } from "@/utils/newTaskRoute";
 import { useTheme, withOpacity } from "@/utils/theme";
@@ -28,6 +29,14 @@ type TWebNavItem = {
   icon: TSettingsIconName;
   /** Floats this item (and everything after it) to the far end of the rail. */
   pinnedToBottom?: boolean;
+  /**
+   * Hides this destination below `LARGE_DEVICE_MIN_WIDTH` (DEX-96). Declared
+   * on the item rather than filtered at each render site so the rail and the
+   * dock can't disagree about which destinations exist — the same reasoning as
+   * `pinnedToBottom`. The route stays registered either way; only the nav
+   * affordance goes away.
+   */
+  largeScreenOnly?: boolean;
 };
 
 /**
@@ -40,6 +49,13 @@ type TWebNavItem = {
  */
 export const WEB_NAV_ITEMS: TWebNavItem[] = [
   { key: "today", href: "/today", label: "Today", icon: "sunny-outline" },
+  {
+    key: "week",
+    href: "/week",
+    label: "Week",
+    icon: "calendar-outline",
+    largeScreenOnly: true,
+  },
   { key: "search", href: "/search", label: "Search", icon: "search-outline" },
   {
     key: "settings",
@@ -65,11 +81,18 @@ const isActive = (pathname: string, href: TWebNavHref) =>
 function useWebNav() {
   const router = useRouter();
   const pathname = usePathname();
+  const largeDevice = useIsLargeDevice();
 
   // Resolved at press time, not render time — see `newTaskRoute`.
   const openNewTask = () => router.push(newTaskRoute());
 
-  return { openNewTask, pathname };
+  // Filtered here rather than in each variant so the rail and the dock always
+  // offer the same destinations.
+  const items = WEB_NAV_ITEMS.filter(
+    (item) => largeDevice || !item.largeScreenOnly,
+  );
+
+  return { items, openNewTask, pathname };
 }
 
 /**
@@ -111,7 +134,7 @@ const navItemProps = (item: TWebNavItem, selected: boolean) => ({
  */
 export function WebNavRail() {
   const theme = useTheme();
-  const { openNewTask, pathname } = useWebNav();
+  const { items, openNewTask, pathname } = useWebNav();
 
   return (
     <View
@@ -126,7 +149,7 @@ export function WebNavRail() {
         },
       ]}
     >
-      {WEB_NAV_ITEMS.map((item) => {
+      {items.map((item) => {
         const selected = isActive(pathname, item.href);
 
         return (
@@ -189,7 +212,7 @@ export function WebNavRail() {
 export function WebNavDock() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { openNewTask, pathname } = useWebNav();
+  const { items, openNewTask, pathname } = useWebNav();
 
   return (
     <View
@@ -210,7 +233,7 @@ export function WebNavDock() {
         },
       ]}
     >
-      {WEB_NAV_ITEMS.map((item) => {
+      {items.map((item) => {
         const selected = isActive(pathname, item.href);
         const color = selected
           ? theme.colors.primary

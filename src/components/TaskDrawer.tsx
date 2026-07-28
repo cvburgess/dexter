@@ -16,6 +16,7 @@ import { TextInput } from "@/components/TextInput";
 import { useGoals } from "@/hooks/useGoals";
 import { useLists } from "@/hooks/useLists";
 import { useTasks } from "@/hooks/useTasks";
+import { formatWeekdayMonthDay } from "@/utils/formatPlainDate";
 import { searchTerms } from "@/utils/searchHighlight";
 import {
   filterTasks,
@@ -182,8 +183,17 @@ export function groupTasks(
 }
 
 type TTaskDrawerProps = {
-  /** The day currently being viewed on the Today tab — the drawer shows tasks not scheduled for it. */
+  /** The day a row's "+" schedules its task onto. */
   date: Temporal.PlainDate;
+  /**
+   * The days the host already has on screen, which the drawer therefore leaves
+   * out of the backlog. Defaults to `[date]` — the Today tab's single day. The
+   * Week tab passes all seven of its columns (DEX-96), since offering back six
+   * days the user is already looking at isn't a backlog.
+   *
+   * Memoize it at the call site: it feeds the `tasks` memo below.
+   */
+  daysOnScreen?: Temporal.PlainDate[];
   /**
    * Controls the Filter preset from the parent when provided (with
    * `onFilterChange`) — used by the mobile sheet to pre-apply the attention
@@ -205,7 +215,8 @@ type TTaskDrawerProps = {
 
 /**
  * Shared task-drawer content: Filter/Group/Search controls over every
- * incomplete task not scheduled for `date`, with a tap-to-schedule affordance
+ * incomplete task not scheduled onto a day the host already shows (see
+ * `daysOnScreen`), with a tap-to-schedule affordance
  * per row. Hosted two ways: an `@expo/ui` bottom sheet on small screens
  * (`TaskDrawerSheet`) and a docked pane on large screens (`today/index.tsx`).
  * The controls+search sit above a `FlashList` of the (possibly large, in
@@ -225,6 +236,7 @@ type TTaskDrawerProps = {
  */
 export function TaskDrawer({
   date,
+  daysOnScreen,
   filterId: controlledFilterId,
   onFilterChange,
   search: controlledSearch,
@@ -249,14 +261,16 @@ export function TaskDrawer({
   const [goals] = useGoals({ skipQuery: groupBy !== "goalId" });
   const [allTasks, { isLoading, updateTask, createTask, deleteTask }] =
     useTasks();
+  // The `?? [date]` fallback lives inside the memo: as an inline prop default
+  // it would allocate a fresh array every render and defeat it.
   const tasks = useMemo(
     () =>
       filterTasks(
-        selectBacklogTasks(allTasks, date),
+        selectBacklogTasks(allTasks, daysOnScreen ?? [date]),
         filterId,
         Temporal.Now.plainDateISO(),
       ),
-    [allTasks, date, filterId],
+    [allTasks, date, daysOnScreen, filterId],
   );
 
   const groups = useMemo(
@@ -321,7 +335,9 @@ export function TaskDrawer({
             />
           </View>
           <GlassIconButton
-            accessibilityLabel={`Schedule "${task.title}" for this day`}
+            // Names the target day rather than saying "this day": on the Week
+            // tab the drawer sits beside seven of them (DEX-96).
+            accessibilityLabel={`Schedule "${task.title}" for ${formatWeekdayMonthDay(date)}`}
             sfSymbol="plus"
             ionicon="add-outline"
             onPress={() =>

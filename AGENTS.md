@@ -68,6 +68,7 @@ Common local commands:
 - `cd src && npm start`
 - `cd src && npm test`
 - `cd src && npm run lint`
+- `cd src && npm run typecheck`
 - `cd src && npm run format`
 
 ## Supabase (`/supabase`)
@@ -118,4 +119,5 @@ Common local commands:
 
 - **No plaintext `.env` files are committed.** Use local env files or your host's secret manager; document new `EXPO_PUBLIC_*` or function secrets in the relevant README or `docs/backend.md`. The one exception is `supabase/.env.preview`, whose values are dotenvx-encrypted so Supabase's branching executor can apply Edge Function secrets to preview branches — its private key (`supabase/.env.keys`) is gitignored and must never be committed. See `docs/backend.md`.
 - **Supabase local dev** (`supabase start`) requires Docker.
+- **A green `npm test` is not a typecheck.** Jest runs through Babel, which strips types without checking them, so a type error passes the whole suite silently. Run `npm run typecheck` (`tsc --noEmit`) alongside the tests — it is what catches things like casting a `<Text>`'s flattened style to `ViewStyle` and reading `.color` off it.
 - **`npm run lint` does not cover all of `/src`.** `expo lint` only walks `src`, `app`, and `components` relative to its working directory, so from `/src` it lints `app/` and `components/` but silently skips `hooks/`, `utils/`, `api/`, `providers/`, `plugins/`, `testUtils/`, and the top-level `__tests__/`. A clean `npm run lint` is not proof those directories lint — run `npx eslint <path>` on them directly.

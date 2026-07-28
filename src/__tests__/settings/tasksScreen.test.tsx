@@ -3,7 +3,7 @@ import { fireEvent, render } from "@testing-library/react-native";
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import { TTemplate } from "@/api/templates";
 import TasksScreen from "@/app/(app)/(tabs)/settings/tasks";
-import { useIsMultiPane } from "@/hooks/useIsMultiPane";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
@@ -17,7 +17,7 @@ jest.mock("@/hooks/useTemplates", () => ({ useTemplates: jest.fn() }));
 // useTasks pulls in the supabase client via useAuth; the screen only reads the
 // cached tasks to tell a live repeat from a stalled one.
 jest.mock("@/hooks/useTasks", () => ({ useTasks: jest.fn() }));
-jest.mock("@/hooks/useIsMultiPane", () => ({ useIsMultiPane: jest.fn() }));
+jest.mock("@/hooks/useIsLargeDevice", () => ({ useIsLargeDevice: jest.fn() }));
 // usePreferences pulls in the supabase client; the screen only reads the sound.
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 
@@ -41,8 +41,8 @@ jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));
 const mockUseTemplates = useTemplates as jest.MockedFunction<
   typeof useTemplates
 >;
-const mockUseIsMultiPane = useIsMultiPane as jest.MockedFunction<
-  typeof useIsMultiPane
+const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
+  typeof useIsLargeDevice
 >;
 const mockUsePreferences = usePreferences as jest.MockedFunction<
   typeof usePreferences
@@ -108,7 +108,7 @@ const renderWith = (
 describe("TasksScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseIsMultiPane.mockReturnValue(false);
+    mockUseIsLargeDevice.mockReturnValue(false);
     mockUsePreferences.mockReturnValue([
       { alarmSound: "echos" } as never,
       { updatePreferences: mockUpdatePreferences },
@@ -117,14 +117,14 @@ describe("TasksScreen", () => {
   });
 
   it("skips the left safe-area edge in two-pane mode (sidebar owns it)", () => {
-    mockUseIsMultiPane.mockReturnValue(true);
+    mockUseIsLargeDevice.mockReturnValue(true);
     const screen = renderWith([]);
 
     expect(screen.getByTestId("safe-area-edges-right")).toBeTruthy();
   });
 
   it("includes the left safe-area edge in single-column mode", () => {
-    mockUseIsMultiPane.mockReturnValue(false);
+    mockUseIsLargeDevice.mockReturnValue(false);
     const screen = renderWith([]);
 
     expect(screen.getByTestId("safe-area-edges-left,right")).toBeTruthy();

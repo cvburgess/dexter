@@ -3,13 +3,13 @@ import { fireEvent, render } from "@testing-library/react-native";
 import { TList } from "@/api/lists";
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import ListsScreen from "@/app/(app)/(tabs)/settings/lists";
-import { useIsMultiPane } from "@/hooks/useIsMultiPane";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { useLists } from "@/hooks/useLists";
 import { useTasks } from "@/hooks/useTasks";
 
 jest.mock("@/hooks/useLists", () => ({ useLists: jest.fn() }));
 jest.mock("@/hooks/useTasks", () => ({ useTasks: jest.fn() }));
-jest.mock("@/hooks/useIsMultiPane", () => ({ useIsMultiPane: jest.fn() }));
+jest.mock("@/hooks/useIsLargeDevice", () => ({ useIsLargeDevice: jest.fn() }));
 
 jest.mock("react-native-safe-area-context", () =>
   require("@/testUtils/mockSafeAreaEdges").mockSafeAreaContext(),
@@ -24,8 +24,8 @@ jest.mock("expo-router", () => ({
 
 const mockUseLists = useLists as jest.MockedFunction<typeof useLists>;
 const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
-const mockUseIsMultiPane = useIsMultiPane as jest.MockedFunction<
-  typeof useIsMultiPane
+const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
+  typeof useIsLargeDevice
 >;
 
 const makeList = (overrides: Partial<TList> = {}): TList => ({
@@ -71,18 +71,18 @@ const renderHeader = () => {
 describe("ListsScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseIsMultiPane.mockReturnValue(false);
+    mockUseIsLargeDevice.mockReturnValue(false);
   });
 
   it("skips the left safe-area edge in two-pane mode (sidebar owns it)", () => {
-    mockUseIsMultiPane.mockReturnValue(true);
+    mockUseIsLargeDevice.mockReturnValue(true);
     const screen = renderWith();
 
     expect(screen.getByTestId("safe-area-edges-right")).toBeTruthy();
   });
 
   it("includes the left safe-area edge in single-column mode", () => {
-    mockUseIsMultiPane.mockReturnValue(false);
+    mockUseIsLargeDevice.mockReturnValue(false);
     const screen = renderWith();
 
     expect(screen.getByTestId("safe-area-edges-left,right")).toBeTruthy();

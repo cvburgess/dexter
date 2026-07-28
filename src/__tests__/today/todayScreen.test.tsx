@@ -9,7 +9,7 @@ import {
 
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import TodayScreen from "@/app/(app)/(tabs)/today";
-import { useIsMultiPane } from "@/hooks/useIsMultiPane";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTasks } from "@/hooks/useTasks";
 import { useTodayPanes } from "@/hooks/useTodayPanes";
@@ -24,7 +24,7 @@ const mockPublishViewedDay = usePublishViewedDay as jest.MockedFunction<
 
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 jest.mock("@/hooks/useTodayPanes", () => ({ useTodayPanes: jest.fn() }));
-jest.mock("@/hooks/useIsMultiPane", () => ({ useIsMultiPane: jest.fn() }));
+jest.mock("@/hooks/useIsLargeDevice", () => ({ useIsLargeDevice: jest.fn() }));
 // TodayScreen reads the canonical task cache only to drive the Backlog
 // attention dot + the filter tapping Backlog pre-applies (DEX-58); the mocked
 // TasksView/TaskDrawer own the real fetch in their own suites. A jest.fn so
@@ -264,8 +264,8 @@ const panes = (
     { togglePane: mockTogglePane, openPane: mockOpenPane, isLoading: false },
   ] as never;
 
-const mockUseIsMultiPane = useIsMultiPane as jest.MockedFunction<
-  typeof useIsMultiPane
+const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
+  typeof useIsLargeDevice
 >;
 
 const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
@@ -292,7 +292,7 @@ describe("TodayScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSearchParams.current = {};
-    mockUseIsMultiPane.mockReturnValue(false);
+    mockUseIsLargeDevice.mockReturnValue(false);
     mockUsePreferences.mockReturnValue(preferences());
     mockUseTodayPanes.mockReturnValue(panes());
     mockUseTasks.mockReturnValue(tasksResult());
@@ -460,7 +460,7 @@ describe("TodayScreen", () => {
   });
 
   describe("large screens (multi-pane)", () => {
-    beforeEach(() => mockUseIsMultiPane.mockReturnValue(true));
+    beforeEach(() => mockUseIsLargeDevice.mockReturnValue(true));
 
     it("shows the always-visible Tasks pane plus every enabled pane by default", () => {
       const screen = render(<TodayScreen />);
@@ -618,15 +618,14 @@ describe("TodayScreen", () => {
       expect(() => getByGestureTestId("day-swipe")).toThrow();
     });
 
-    it("opens the new-task modal scheduled for the viewed day", () => {
+    it("offers no create button of its own in the header", () => {
+      // The nav rail (web) and the tab-bar accessory (native) both carry a
+      // "+", so a third one in the header was redundant. Both read the viewed
+      // day back through `usePublishViewedDay`/`newTaskRoute`, which the
+      // "publishes the viewed day" cases below cover.
       const screen = render(<TodayScreen />);
 
-      fireEvent.press(screen.getByLabelText("New Task"));
-
-      expect(mockPush).toHaveBeenCalledWith({
-        pathname: "/new-task",
-        params: { scheduledFor: Temporal.Now.plainDateISO().toString() },
-      });
+      expect(screen.queryByLabelText("New Task")).toBeNull();
     });
   });
 
@@ -752,7 +751,7 @@ describe("TodayScreen", () => {
     });
 
     describe("large screens", () => {
-      beforeEach(() => mockUseIsMultiPane.mockReturnValue(true));
+      beforeEach(() => mockUseIsLargeDevice.mockReturnValue(true));
 
       it("opens the pane named by ?mode= and selects its tab", () => {
         mockSearchParams.current = { date: "2026-07-14", mode: "journal" };

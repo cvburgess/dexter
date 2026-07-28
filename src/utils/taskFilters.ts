@@ -33,17 +33,24 @@ export function selectTasksForDate(
 }
 
 /**
- * Incomplete tasks unscheduled or scheduled for a day other than `date` — the
- * Backlog drawer's base scope (on-device equivalent of the former
+ * Incomplete tasks that are unscheduled or scheduled for a day *not* already on
+ * screen — the Backlog drawer's base scope (on-device equivalent of the former
  * `notScheduledForDateFilters` server query, DEX-57).
+ *
+ * `daysOnScreen` is however many days the host is showing: one on the Today tab,
+ * seven on the Week tab (DEX-96). The rule is the same either way — offer what
+ * isn't already in front of the user — so this takes a cardinality rather than a
+ * mode, and there is no separate week variant to keep in step with this one.
  */
 export function selectBacklogTasks(
   tasks: TTask[],
-  date: Temporal.PlainDate,
+  daysOnScreen: Temporal.PlainDate[],
 ): TTask[] {
-  const iso = date.toString();
+  const shown = new Set(daysOnScreen.map((day) => day.toString()));
   return tasks.filter(
-    (task) => isIncomplete(task) && task.scheduledFor !== iso,
+    (task) =>
+      isIncomplete(task) &&
+      (task.scheduledFor === null || !shown.has(task.scheduledFor)),
   );
 }
 

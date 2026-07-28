@@ -4,7 +4,7 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
-import { useIsMultiPane } from "@/hooks/useIsMultiPane";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import packageJson from "@/package.json";
 import licensesJson from "@/utils/licenses.json";
 import {
@@ -22,7 +22,7 @@ type TLicenseItem = {
 
 export default function LicensesScreen() {
   const theme = useTheme();
-  const twoPane = useIsMultiPane();
+  const twoPane = useIsLargeDevice();
   const insets = useSafeAreaInsets();
 
   // Combine dependencies and devDependencies, sort alphabetically, and look up

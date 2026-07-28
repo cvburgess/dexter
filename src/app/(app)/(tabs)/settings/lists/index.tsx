@@ -9,7 +9,7 @@ import {
 import { HeaderAddButton } from "@/components/HeaderAddButton";
 import { ListRow } from "@/components/ListRow";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
-import { useIsMultiPane } from "@/hooks/useIsMultiPane";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { useLists } from "@/hooks/useLists";
 import { useTasks } from "@/hooks/useTasks";
 import {
@@ -26,7 +26,7 @@ export default function ListsScreen() {
   const [lists] = useLists();
   const [tasks] = useTasks();
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
-  const twoPane = useIsMultiPane();
+  const twoPane = useIsLargeDevice();
   const insets = useSafeAreaInsets();
 
   // Open (TODO/in-progress) task counts per list, derived from the canonical

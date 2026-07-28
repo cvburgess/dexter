@@ -1,9 +1,9 @@
 import { render } from "@testing-library/react-native";
 
 import SettingsLayout from "@/app/(app)/(tabs)/settings/_layout";
-import { useIsMultiPane } from "@/hooks/useIsMultiPane";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 
-jest.mock("@/hooks/useIsMultiPane", () => ({ useIsMultiPane: jest.fn() }));
+jest.mock("@/hooks/useIsLargeDevice", () => ({ useIsLargeDevice: jest.fn() }));
 
 // Stub the sidebar to a marker so this test only exercises _layout's own
 // mount/unmount decision, not the sidebar's internals (its own tests cover
@@ -22,25 +22,25 @@ jest.mock("expo-router", () => {
   return { Stack };
 });
 
-const mockUseIsMultiPane = useIsMultiPane as jest.MockedFunction<
-  typeof useIsMultiPane
+const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
+  typeof useIsLargeDevice
 >;
 
 describe("SettingsLayout", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseIsMultiPane.mockReturnValue(false);
+    mockUseIsLargeDevice.mockReturnValue(false);
   });
 
   it("mounts the persistent sidebar in two-pane mode", () => {
-    mockUseIsMultiPane.mockReturnValue(true);
+    mockUseIsLargeDevice.mockReturnValue(true);
     const screen = render(<SettingsLayout />);
 
     expect(screen.getByText("settings-sidebar")).toBeTruthy();
   });
 
   it("does not mount the sidebar in single-column mode", () => {
-    mockUseIsMultiPane.mockReturnValue(false);
+    mockUseIsLargeDevice.mockReturnValue(false);
     const screen = render(<SettingsLayout />);
 
     expect(screen.queryByText("settings-sidebar")).toBeNull();

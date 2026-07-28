@@ -1,5 +1,6 @@
 import { FlashList } from "@shopify/flash-list";
 import { Temporal } from "@js-temporal/polyfill";
+import { weekDays } from "@/utils/weekStartEnd";
 import { fireEvent, render } from "@testing-library/react-native";
 import type { ReactNode } from "react";
 import {
@@ -352,6 +353,59 @@ describe("TaskDrawer", () => {
     ).toBeTruthy();
   });
 
+  describe("daysOnScreen scoping (DEX-96)", () => {
+    // 2026-07-27 (Mon) – 2026-08-02 (Sun).
+    const monday = Temporal.PlainDate.from("2026-07-27");
+    const inWeek = task({
+      id: "in-week",
+      title: "Inside the week",
+      scheduledFor: "2026-07-30",
+    });
+    const outOfWeek = task({
+      id: "out-of-week",
+      title: "Outside the week",
+      scheduledFor: "2026-08-10",
+    });
+
+    it("hides every task scheduled inside the week", () => {
+      mockUseTasks.mockReturnValue(tasksResult([inWeek, outOfWeek]));
+
+      const screen = render(
+        <TaskDrawer date={monday} daysOnScreen={weekDays(monday)} />,
+      );
+
+      expect(screen.getByText("Outside the week")).toBeTruthy();
+      expect(screen.queryByText("Inside the week")).toBeNull();
+    });
+
+    it("still shows a same-week task when no daysOnScreen is given", () => {
+      // Without the prop the drawer scopes to [date] alone, so a task on another
+      // day of that week belongs in the Today backlog.
+      mockUseTasks.mockReturnValue(tasksResult([inWeek, outOfWeek]));
+
+      const screen = render(<TaskDrawer date={monday} />);
+
+      expect(screen.getByText("Inside the week")).toBeTruthy();
+      expect(screen.getByText("Outside the week")).toBeTruthy();
+    });
+
+    it("schedules onto `date`, not every day on screen", () => {
+      mockUseTasks.mockReturnValue(tasksResult([outOfWeek]));
+
+      const screen = render(
+        <TaskDrawer date={monday} daysOnScreen={weekDays(monday)} />,
+      );
+      fireEvent.press(
+        screen.getByLabelText('Schedule "Outside the week" for Monday, Jul 27'),
+      );
+
+      expect(mockUpdateTask).toHaveBeenCalledWith({
+        id: "out-of-week",
+        scheduledFor: "2026-07-27",
+      });
+    });
+  });
+
   it("shows a loading indicator (not the empty state) while the first fetch is in flight", () => {
     mockUseTasks.mockReturnValue(tasksResult([], true));
     const screen = render(<TaskDrawer date={date} />);
@@ -424,7 +478,7 @@ describe("TaskDrawer", () => {
     const screen = render(<TaskDrawer date={date} />);
 
     fireEvent.press(
-      screen.getByLabelText('Schedule "Write report" for this day'),
+      screen.getByLabelText('Schedule "Write report" for Thursday, Jul 16'),
     );
 
     expect(mockUpdateTask).toHaveBeenCalledWith({
