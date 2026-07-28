@@ -1,6 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   Alert,
   Platform,
@@ -12,11 +12,17 @@ import {
 } from "react-native";
 
 import { ETaskStatus } from "@/api/tasks";
+import { isTaskTemplate } from "@/api/templates";
 import { DateField } from "@/components/DateField";
 import { FormRow } from "@/components/FormRow";
 import { PickerField } from "@/components/PickerField";
 import { PriorityControl } from "@/components/PriorityControl";
+import {
+  SegmentedControl,
+  TSegmentedControlOption,
+} from "@/components/SegmentedControl";
 import { SubtaskFields } from "@/components/SubtaskFields";
+import { TemplatePicker } from "@/components/TemplatePicker";
 import { TextInput } from "@/components/TextInput";
 import { TimeField } from "@/components/TimeField";
 import { ModalScreen } from "@/components/ModalScreen";
@@ -25,6 +31,7 @@ import { useLists } from "@/hooks/useLists";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useNewTaskForm } from "@/hooks/useNewTaskForm";
 import { useTasks } from "@/hooks/useTasks";
+import { useTemplates } from "@/hooks/useTemplates";
 import {
   currentAlarmTime,
   defaultAlarmTime,
@@ -37,6 +44,19 @@ import { useTheme } from "@/utils/theme";
 // The universal Picker's item values cannot be null, so "no list" gets a
 // sentinel that can never collide with a list id.
 const NO_LIST = "";
+
+/**
+ * Where the task's starting point comes from: nothing, a saved template, or
+ * (eventually) a spoken description. AI is a deliberate placeholder — the tab
+ * exists so the shape of the modal is settled before the feature lands.
+ */
+type TNewTaskMode = "new" | "template" | "ai";
+
+const MODE_OPTIONS: TSegmentedControlOption<TNewTaskMode>[] = [
+  { value: "new", label: "New" },
+  { value: "template", label: "Template" },
+  { value: "ai", label: "AI" },
+];
 
 // RN's Alert is a no-op on web, so fall back to the browser's alert there.
 const showSaveError = () => {
@@ -54,17 +74,24 @@ export default function NewTaskScreen() {
   const router = useRouter();
   const [lists, { isLoading: isLoadingLists }] = useLists();
   const [, { createTask }] = useTasks({ skipQuery: true });
+  const [allTemplates, { isLoading: isLoadingTemplates }] = useTemplates();
   // Set by NewTaskButton to the day the user was viewing; absent → today.
   const { scheduledFor } = useLocalSearchParams<{ scheduledFor?: string }>();
   const form = useNewTaskForm(lists, scheduledFor);
+  const [mode, setMode] = useState<TNewTaskMode>("new");
   const hasSaved = useRef(false);
   const scrollRef = useRef<ScrollView>(null);
   // Set when a subtask row is added, consumed by the next content size change.
   const pendingScroll = useRef(false);
 
+  // Repeat tasks share the templates table; only the scheduleless rows are
+  // blueprints a new task can start from.
+  const templates = allTemplates.filter(isTaskTemplate);
+
   // Saving waits for lists so `#list` tokens in the title can resolve, and
-  // is one-shot so a double tap can't create duplicate tasks.
-  const canSave = form.canSave && !isLoadingLists;
+  // is one-shot so a double tap can't create duplicate tasks. The AI tab has no
+  // form behind it yet, so there is nothing there to save.
+  const canSave = form.canSave && !isLoadingLists && mode !== "ai";
 
   const handleClose = () => router.back();
 
@@ -146,114 +173,150 @@ export default function NewTaskScreen() {
         }}
         style={{ backgroundColor: theme.colors.background }}
       >
-        <TextInput
-          autoFocus
-          placeholder="What needs to be done?"
-          returnKeyType="done"
-          testID="new-task-title"
-          value={form.title}
-          onChangeText={form.setTitle}
-          onSubmitEditing={handleSave}
+        <SegmentedControl
+          options={MODE_OPTIONS}
+          testIDPrefix="new-task-mode"
+          value={mode}
+          onChange={setMode}
         />
 
-        <FormRow label="Priority" minHeight={32}>
-          <PriorityControl
-            priority={form.priority}
-            onChangePriority={form.setPriority}
+        {/* Selecting is not saving: the template seeds the form below and the
+            user can still edit anything before the task is created. The form
+            holds the selection, so the outlined card and the task's
+            `template_id` can never disagree. */}
+        {mode === "template" && (
+          <TemplatePicker
+            templates={templates}
+            selectedId={form.templateId}
+            isLoading={isLoadingTemplates}
+            onSelect={form.applyTemplate}
           />
-        </FormRow>
-
-        <PickerField
-          label="List"
-          minHeight={32}
-          testID="new-task-list"
-          options={[
-            { label: "None", value: NO_LIST },
-            ...lists.map((list) => ({
-              label: `${list.emoji} ${list.title}`,
-              value: list.id,
-            })),
-          ]}
-          selectedValue={form.listId ?? NO_LIST}
-          onValueChange={(listId) =>
-            form.setListId(listId === NO_LIST ? null : listId)
-          }
-        />
-
-        <FormRow label="Schedule" minHeight={32}>
-          <ClearableDateField
-            field="schedule"
-            value={form.scheduledFor}
-            onChange={handleChangeSchedule}
-          />
-        </FormRow>
-
-        <FormRow label="Deadline" minHeight={32}>
-          <ClearableDateField
-            field="deadline"
-            value={form.dueOn}
-            onChange={form.setDueOn}
-          />
-        </FormRow>
-
-        {isAlarmSupported && (
-          <FormRow label="Alarm" minHeight={32}>
-            {form.alarmTime === null ? (
-              <TouchableOpacity
-                accessibilityRole="button"
-                testID="new-task-add-alarm"
-                onPress={handleAddAlarm}
-              >
-                <Text
-                  style={[styles.labelDetail, { color: theme.colors.primary }]}
-                >
-                  Add alarm
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={[styles.alarmControls, { gap: theme.gap }]}>
-                <TimeField
-                  accentColor={theme.colors.primary}
-                  testID="new-task-alarm"
-                  // Bound to now only when the task is scheduled for today, so a
-                  // same-day alarm can't be set in the past; a future day allows
-                  // any time.
-                  min={
-                    form.scheduledFor === Temporal.Now.plainDateISO().toString()
-                      ? currentAlarmTime()
-                      : undefined
-                  }
-                  value={form.alarmTime}
-                  onChange={form.setAlarmTime}
-                />
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  testID="new-task-clear-alarm"
-                  onPress={() => form.setAlarmTime(null)}
-                >
-                  <Text
-                    style={[
-                      styles.labelDetail,
-                      { color: theme.colors.textSecondary },
-                    ]}
-                  >
-                    Clear
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </FormRow>
         )}
 
-        <SubtaskFields
-          value={form.subtasks}
-          onChange={form.setSubtasks}
-          makeRow={(id) => ({ id, title: "", status: ETaskStatus.TODO })}
-          onAddRow={() => {
-            pendingScroll.current = true;
-          }}
-          testIDPrefix="new-task"
-        />
+        {mode === "ai" ? (
+          <Text
+            style={[styles.placeholder, { color: theme.colors.textSecondary }]}
+            testID="new-task-ai-placeholder"
+          >
+            Coming soon: describe a task out loud and Dexter will fill this in
+            for you.
+          </Text>
+        ) : (
+          <>
+            <TextInput
+              autoFocus
+              placeholder="What needs to be done?"
+              returnKeyType="done"
+              testID="new-task-title"
+              value={form.title}
+              onChangeText={form.setTitle}
+              onSubmitEditing={handleSave}
+            />
+
+            <FormRow label="Priority" minHeight={32}>
+              <PriorityControl
+                priority={form.priority}
+                onChangePriority={form.setPriority}
+              />
+            </FormRow>
+
+            <PickerField
+              label="List"
+              minHeight={32}
+              testID="new-task-list"
+              options={[
+                { label: "None", value: NO_LIST },
+                ...lists.map((list) => ({
+                  label: `${list.emoji} ${list.title}`,
+                  value: list.id,
+                })),
+              ]}
+              selectedValue={form.listId ?? NO_LIST}
+              onValueChange={(listId) =>
+                form.setListId(listId === NO_LIST ? null : listId)
+              }
+            />
+
+            <FormRow label="Schedule" minHeight={32}>
+              <ClearableDateField
+                field="schedule"
+                value={form.scheduledFor}
+                onChange={handleChangeSchedule}
+              />
+            </FormRow>
+
+            <FormRow label="Deadline" minHeight={32}>
+              <ClearableDateField
+                field="deadline"
+                value={form.dueOn}
+                onChange={form.setDueOn}
+              />
+            </FormRow>
+
+            {isAlarmSupported && (
+              <FormRow label="Alarm" minHeight={32}>
+                {form.alarmTime === null ? (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    testID="new-task-add-alarm"
+                    onPress={handleAddAlarm}
+                  >
+                    <Text
+                      style={[
+                        styles.labelDetail,
+                        { color: theme.colors.primary },
+                      ]}
+                    >
+                      Add alarm
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={[styles.alarmControls, { gap: theme.gap }]}>
+                    <TimeField
+                      accentColor={theme.colors.primary}
+                      testID="new-task-alarm"
+                      // Bound to now only when the task is scheduled for today,
+                      // so a same-day alarm can't be set in the past; a future
+                      // day allows any time.
+                      min={
+                        form.scheduledFor ===
+                        Temporal.Now.plainDateISO().toString()
+                          ? currentAlarmTime()
+                          : undefined
+                      }
+                      value={form.alarmTime}
+                      onChange={form.setAlarmTime}
+                    />
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      testID="new-task-clear-alarm"
+                      onPress={() => form.setAlarmTime(null)}
+                    >
+                      <Text
+                        style={[
+                          styles.labelDetail,
+                          { color: theme.colors.textSecondary },
+                        ]}
+                      >
+                        Clear
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </FormRow>
+            )}
+
+            <SubtaskFields
+              value={form.subtasks}
+              onChange={form.setSubtasks}
+              makeRow={(id) => ({ id, title: "", status: ETaskStatus.TODO })}
+              onAddRow={() => {
+                pendingScroll.current = true;
+              }}
+              testIDPrefix="new-task"
+            />
+          </>
+        )}
       </ScrollView>
     </ModalScreen>
   );
@@ -329,5 +392,9 @@ const styles = StyleSheet.create({
   },
   labelDetail: {
     fontSize: 14,
+  },
+  placeholder: {
+    fontSize: 14,
+    paddingVertical: 8,
   },
 });

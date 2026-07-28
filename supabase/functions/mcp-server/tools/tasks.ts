@@ -5,7 +5,11 @@ import { getNextTaskDate } from "@src/utils/repeatSchedule.ts";
 import { subtasksFromTemplate, sweepSubtasks } from "@src/utils/subtasks.ts";
 // The app's own enum and terminal-status predicate, not a copy of them — see the
 // module header for why this one is safe to import from Deno.
-import { ETaskStatus, isCompletionStatus } from "@src/utils/taskStatus.ts";
+import {
+  ETaskStatus,
+  isCompletionStatus,
+  OPEN_TASK_STATUSES,
+} from "@src/utils/taskStatus.ts";
 
 import type { ToolContext } from "../server.ts";
 import {
@@ -95,6 +99,25 @@ async function maybeCreateNextRecurringTask(
     .eq("user_id", ctx.userId)
     .maybeSingle();
   if (!template?.schedule) return;
+
+  // A repeat has exactly one open task — the app's guard, server-side. A
+  // template can gain a schedule after the fact, which retroactively turns
+  // every task stamped from it into an occurrence; without this, completing
+  // three of them would start three parallel chains. Both callers run this
+  // after their own write has landed, so the task that triggered it is already
+  // terminal (or deleted) and cannot match its own guard.
+  //
+  // A failed lookup bails rather than spawning: an extra parallel chain is
+  // silent and permanent, whereas a repeat left with no open task is surfaced
+  // in Settings → Tasks with a one-tap repair.
+  const { data: openTasks, error: openTasksError } = await ctx.supabase
+    .from("tasks")
+    .select("id")
+    .eq("template_id", template.id)
+    .eq("user_id", ctx.userId)
+    .in("status", OPEN_TASK_STATUSES)
+    .limit(1);
+  if (openTasksError || !openTasks || openTasks.length > 0) return;
 
   const nextDate = getNextTaskDate(
     { scheduledFor: task.scheduled_for },
@@ -416,7 +439,9 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
       description:
         "Permanently delete a task. If the task has a linked repeat schedule, " +
         "its template is deleted too, which stops future occurrences from being " +
-        "created — confirm this with the user before deleting a repeat task.",
+        "created — confirm this with the user before deleting a repeat task. " +
+        "A linked template with no schedule is a saved task template rather " +
+        "than this task's repeat, and is left alone.",
       inputSchema: { taskId: uuidSchema },
       annotations: { readOnlyHint: false, destructiveHint: true },
     },
@@ -440,13 +465,30 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
       if (error) return toolError(error.message);
 
       if (task?.template_id) {
-        const { error: templateError } = await ctx.supabase
+        // Only a template that still carries a schedule is this task's repeat.
+        // A scheduleless one is a saved task template (DEX-65) — the user's,
+        // not this task's — and deleting it here would destroy it silently.
+        // A failed lookup must not be read as "scheduleless": silently skipping
+        // the delete would strand the repeat schedule with no linked task while
+        // still reporting success.
+        const { data: template, error: lookupError } = await ctx.supabase
           .from("repeat_task_templates")
-          .delete()
+          .select("schedule")
           .eq("id", task.template_id)
-          .eq("user_id", ctx.userId);
+          .eq("user_id", ctx.userId)
+          .maybeSingle();
 
-        if (templateError) return toolError(templateError.message);
+        if (lookupError) return toolError(lookupError.message);
+
+        if (template?.schedule) {
+          const { error: templateError } = await ctx.supabase
+            .from("repeat_task_templates")
+            .delete()
+            .eq("id", task.template_id)
+            .eq("user_id", ctx.userId);
+
+          if (templateError) return toolError(templateError.message);
+        }
       }
 
       return toolJson({ success: true, taskId });

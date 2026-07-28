@@ -74,13 +74,19 @@ export function registerTemplateTools(
       title: "Create Repeat Task Template",
       description:
         "Create a repeat task template with a validated cron schedule. " +
+        "Omit `schedule` (or pass null) to create a plain task template " +
+        "instead — a reusable blueprint the user stamps out on demand, which " +
+        "never generates occurrences on its own. " +
         "`subtasks` is an optional checklist blueprint of `{id, title}` " +
         "items — no status, since each generated occurrence starts its own " +
         "copy fresh and open.",
       inputSchema: {
         title: z.string().min(1),
         priority: taskPrioritySchema.optional(),
-        schedule: cronScheduleSchema.optional(),
+        // Nullable as well as optional, mirroring `update_template`: null is
+        // the value that *means* "task template", so a caller that states it
+        // explicitly must not be rejected.
+        schedule: cronScheduleSchema.nullable().optional(),
         goalId: uuidSchema.nullable().optional(),
         listId: uuidSchema.nullable().optional(),
         subtasks: templateSubtasksSchema.optional(),
@@ -94,7 +100,9 @@ export function registerTemplateTools(
           user_id: ctx.userId,
           title,
           priority,
-          schedule,
+          // The column has no default since DEX-65, so an omitted schedule has
+          // to reach it as an explicit null rather than a dropped key.
+          schedule: schedule ?? null,
           goal_id: goalId ?? null,
           list_id: listId ?? null,
           subtasks: subtasks ?? [],
@@ -112,7 +120,9 @@ export function registerTemplateTools(
     {
       title: "Update Repeat Task Template",
       description:
-        "Update one or more repeat task template fields. `subtasks` REPLACES " +
+        "Update one or more repeat task template fields. Setting `schedule` " +
+        "to null turns the row into a plain task template, so it stops " +
+        "generating occurrences. `subtasks` REPLACES " +
         "the whole checklist blueprint — read the template first, modify the " +
         "array, and send it back in full. Changing it affects future " +
         "occurrences only; checklists already materialized onto existing " +
@@ -121,7 +131,9 @@ export function registerTemplateTools(
         templateId: uuidSchema,
         title: z.string().min(1).optional(),
         priority: taskPrioritySchema.optional(),
-        schedule: cronScheduleSchema.optional(),
+        // Nullable so a repeat can be cleared back to a template. `compactUpdate`
+        // drops only `undefined`, so an explicit null reaches the column.
+        schedule: cronScheduleSchema.nullable().optional(),
         goalId: uuidSchema.nullable().optional(),
         listId: uuidSchema.nullable().optional(),
         subtasks: templateSubtasksSchema.optional(),

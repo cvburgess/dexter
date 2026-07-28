@@ -95,4 +95,31 @@ After all, there's only so much space.
   above)
 - **Add subtask**: Start a checklist inside the task (see "subtasks" above)
 - **Repeat**: Schedule repeating tasks - daily, weekly, monthly, or annually
+- **Save as template**: Keep the task as a reusable starting point (see
+  "templates" below)
 - **Delete**: Permanently deletes the task and all data associated with it
+
+Once a task came from a template - because you repeated it, saved it, or created
+it from the Template tab - those two entries are replaced by a single **Edit
+repeat schedule** or **Edit template**, which opens the one it belongs to. To
+turn a template into a repeat (or stop one repeating), open Settings → Tasks and
+change its **Repeats** setting.
+
+## Templates
+
+Some tasks come back without being on a schedule. Packing for a trip, onboarding
+a new hire, the checklist you run before every release — you want the same
+starting point, just not every Tuesday.
+
+Save one from any task's `⋯` menu with **Save as template**. The template keeps
+the title, priority, list, and checklist, but no dates — the original task
+carries on unchanged.
+
+To use one, tap **+** to create a task and switch to the **Template** tab. Pick
+a template and the form fills in, still fully editable, so you can adjust
+anything before saving. The new task lands on the day you were viewing.
+
+Templates live in Settings → Tasks, next to your repeat schedules — they're
+really the same thing wearing different hats. If a repeating task turns out not
+to need a schedule after all, open it and set **Repeats** to **Never**: it keeps
+everything else and moves over to your templates.

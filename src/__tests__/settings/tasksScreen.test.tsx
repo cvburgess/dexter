@@ -1,10 +1,11 @@
 import { fireEvent, render } from "@testing-library/react-native";
 
-import { ETaskPriority } from "@/api/tasks";
+import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import { TTemplate } from "@/api/templates";
 import TasksScreen from "@/app/(app)/(tabs)/settings/tasks";
 import { useIsMultiPane } from "@/hooks/useIsMultiPane";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
 import {
   pickerOptions,
@@ -13,6 +14,9 @@ import {
 } from "@/testUtils/mockExpoUiPicker";
 
 jest.mock("@/hooks/useTemplates", () => ({ useTemplates: jest.fn() }));
+// useTasks pulls in the supabase client via useAuth; the screen only reads the
+// cached tasks to tell a live repeat from a stalled one.
+jest.mock("@/hooks/useTasks", () => ({ useTasks: jest.fn() }));
 jest.mock("@/hooks/useIsMultiPane", () => ({ useIsMultiPane: jest.fn() }));
 // usePreferences pulls in the supabase client; the screen only reads the sound.
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
@@ -43,7 +47,9 @@ const mockUseIsMultiPane = useIsMultiPane as jest.MockedFunction<
 const mockUsePreferences = usePreferences as jest.MockedFunction<
   typeof usePreferences
 >;
+const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
 const mockUpdatePreferences = jest.fn();
+const mockCreateNextOccurrence = jest.fn();
 
 const makeTemplate = (overrides: Partial<TTemplate> = {}): TTemplate => ({
   id: "template-1",
@@ -59,8 +65,43 @@ const makeTemplate = (overrides: Partial<TTemplate> = {}): TTemplate => ({
   ...overrides,
 });
 
-const renderWith = (templates: TTemplate[]) => {
-  mockUseTemplates.mockReturnValue([templates, {} as never]);
+const makeTask = (overrides: Partial<TTask> = {}): TTask => ({
+  id: "task-1",
+  alarmTime: null,
+  dueOn: null,
+  goalId: null,
+  listId: null,
+  priority: ETaskPriority.NEITHER,
+  scheduledFor: "2026-07-27",
+  status: ETaskStatus.TODO,
+  subtasks: [],
+  templateId: "template-1",
+  title: "Water the plants",
+  ...overrides,
+});
+
+/**
+ * Renders with every template holding one open task — the state the
+ * one-open-task invariant guarantees, so a row describes its cadence rather
+ * than warning about it. Pass `tasks` explicitly to render a stalled repeat,
+ * and `isLoading` for a tasks query that hasn't landed.
+ */
+const renderWith = (
+  templates: TTemplate[],
+  tasks?: TTask[],
+  isLoading = false,
+) => {
+  mockUseTemplates.mockReturnValue([
+    templates,
+    { createNextOccurrence: mockCreateNextOccurrence } as never,
+  ]);
+  mockUseTasks.mockReturnValue([
+    tasks ??
+      templates.map((template, index) =>
+        makeTask({ id: `task-${index}`, templateId: template.id }),
+      ),
+    { isLoading } as never,
+  ]);
   return render(<TasksScreen />);
 };
 
@@ -89,27 +130,141 @@ describe("TasksScreen", () => {
     expect(screen.getByTestId("safe-area-edges-left,right")).toBeTruthy();
   });
 
-  it("explains where repeats come from when there are none", () => {
+  it("explains where each kind of saved task comes from when there are none", () => {
     const screen = renderWith([]);
 
     expect(screen.getByText(/open its menu and choose Repeat/i)).toBeTruthy();
+    expect(screen.getByText(/choose Save as template/i)).toBeTruthy();
   });
 
-  it("lists each template with a human-readable schedule", () => {
+  it("lists each repeat task with a human-readable schedule", () => {
     const screen = renderWith([makeTemplate()]);
 
+    expect(screen.getByText("Repeat tasks")).toBeTruthy();
     expect(screen.getByText("Water the plants")).toBeTruthy();
     expect(screen.getByText("Weekly on Mon")).toBeTruthy();
   });
 
-  it("opens the editor when a template row is tapped", () => {
-    const screen = renderWith([makeTemplate()]);
+  // Both kinds live in one table; the schedule is the only thing separating
+  // them, so a mix must not leak across the two sections (DEX-65).
+  it("sorts scheduleless rows into Task templates, described by their checklist", () => {
+    const screen = renderWith([
+      makeTemplate(),
+      makeTemplate({
+        id: "template-2",
+        schedule: null,
+        title: "Trip packing",
+        subtasks: [
+          { id: "s1", title: "Passport" },
+          { id: "s2", title: "Charger" },
+        ],
+      }),
+    ]);
+
+    expect(screen.getByText("Task templates")).toBeTruthy();
+    expect(screen.getByText("Trip packing")).toBeTruthy();
+    expect(screen.getByText("2 steps")).toBeTruthy();
+    // The repeat section keeps its own row and says nothing about the template.
+    expect(screen.getByText("Weekly on Mon")).toBeTruthy();
+    expect(screen.queryByText("Doesn't repeat")).toBe(null);
+  });
+
+  it("opens the same editor from either section", () => {
+    const screen = renderWith([
+      makeTemplate(),
+      makeTemplate({ id: "template-2", schedule: null, title: "Trip packing" }),
+    ]);
 
     fireEvent.press(screen.getByLabelText("Edit Water the plants"));
-
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/settings/tasks/[id]",
       params: { id: "template-1" },
+    });
+
+    fireEvent.press(screen.getByLabelText("Edit Trip packing"));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/settings/tasks/[id]",
+      params: { id: "template-2" },
+    });
+  });
+
+  // A repeat fires by *completing* one of its tasks, so one with none left open
+  // can never fire again. It says so instead of quietly describing a cadence it
+  // will never act on, and the button is the recovery path for a spawn that
+  // failed mid-flight — which the cadence-time auto-seed can never see.
+  describe("a stalled repeat", () => {
+    const stalledLabel = "Create next Water the plants";
+
+    it("says it isn't recurring and offers to create the next task", () => {
+      const screen = renderWith([makeTemplate()], []);
+
+      expect(
+        screen.getByText("Not recurring — no open task to repeat from"),
+      ).toBeTruthy();
+      // The cadence is what the row is failing to do, so it isn't restated.
+      expect(screen.queryByText("Weekly on Mon")).toBe(null);
+
+      fireEvent.press(screen.getByLabelText(stalledLabel));
+      expect(mockCreateNextOccurrence).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "template-1" }),
+      );
+    });
+
+    // The repair button is a second tap target inside the row, so the row must
+    // still open the editor rather than being swallowed by it.
+    it("still opens the editor from the row itself", () => {
+      const screen = renderWith([makeTemplate()], []);
+
+      fireEvent.press(screen.getByLabelText("Edit Water the plants"));
+
+      expect(mockPush).toHaveBeenCalledWith({
+        pathname: "/settings/tasks/[id]",
+        params: { id: "template-1" },
+      });
+      expect(mockCreateNextOccurrence).not.toHaveBeenCalled();
+    });
+
+    it("says nothing of the sort while an open task remains", () => {
+      const screen = renderWith([makeTemplate()]);
+
+      expect(screen.getByText("Weekly on Mon")).toBeTruthy();
+      expect(screen.queryByLabelText(stalledLabel)).toBe(null);
+    });
+
+    // A completed occurrence is not an open one: the link stays behind, so
+    // counting links rather than open tasks would call this repeat healthy.
+    it("ignores a linked task that has been checked off", () => {
+      const screen = renderWith(
+        [makeTemplate()],
+        [makeTask({ status: ETaskStatus.DONE })],
+      );
+
+      expect(
+        screen.getByText("Not recurring — no open task to repeat from"),
+      ).toBeTruthy();
+    });
+
+    // An unloaded cache is "unknown", not "empty" — `useTasks` hands back a `[]`
+    // placeholder until its fetch lands. Reading that as stalled painted every
+    // healthy repeat red on first paint, then quietly corrected itself; if the
+    // query errors, the false alarm never clears.
+    it("waits for the tasks query rather than reading its placeholder as empty", () => {
+      const screen = renderWith([makeTemplate()], [], true);
+
+      expect(screen.getByText("Weekly on Mon")).toBeTruthy();
+      expect(screen.queryByLabelText(stalledLabel)).toBe(null);
+    });
+
+    // A task template is stamped out on demand and recurs from nothing, so it
+    // has nothing to stall.
+    it("never flags a task template", () => {
+      const screen = renderWith(
+        [makeTemplate({ id: "template-2", schedule: null, title: "Packing" })],
+        [],
+      );
+
+      expect(screen.getByText("No checklist")).toBeTruthy();
+      expect(screen.queryByLabelText("Create next Packing")).toBe(null);
     });
   });
 

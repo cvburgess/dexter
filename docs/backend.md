@@ -232,9 +232,26 @@ publication it belongs to.
   alias in `functions/mcp-server/deno.json`). The legacy
   `create_next_recurring_task` trigger was dropped (migration
   `20260712142149_drop_recurring_task_trigger.sql`); `update_task`/`archive_task`
-  invoke the shared logic, and `delete_task` also deletes a linked template so
-  future occurrences stop. A recurred occurrence copies the template's
+  invoke the shared logic, and `delete_task` also deletes a linked *scheduled*
+  template so future occurrences stop — a linked scheduleless one is a saved
+  task template the user may still be stamping from, and survives. The spawn is
+  additionally skipped when another **open** task already links to the template,
+  so completing several tasks stamped from a since-scheduled template starts one
+  chain rather than several (the same one-open-task invariant the app enforces —
+  see `docs/frontend.md`). A recurred occurrence copies the template's
   `alarm_time` (see below) so repeat tasks keep their alarm.
+- **A `repeat_task_templates` row with a NULL `schedule` is a task template, not
+  a repeat task (DEX-65).** `schedule` is nullable and has no default (migration
+  `20260726215225_repeat_task_templates_nullable_schedule.sql`); both RLS
+  policies already guarded the cron regex with `schedule IS NULL OR …`. Nothing
+  recurs from a scheduleless row — every recurrence path bails on a falsy
+  schedule — so the same table serves both the repeat schedules under Settings →
+  Tasks → Repeat tasks and the reusable blueprints under Task templates, and
+  switching a row between them is just writing or clearing `schedule`. Because
+  the column lost its default, **every insert must state its schedule**: the
+  app's "Repeat" flow passes an explicit daily cron and "Save as template"
+  passes `null`. `create_template` with `schedule` omitted therefore creates a
+  task template, and `update_template` accepts `schedule: null` to clear one.
 - **Subtasks are a jsonb array, not rows (`subtasks`).** `tasks` and
   `repeat_task_templates` each carry `subtasks jsonb NOT NULL DEFAULT '[]'`
   (migration `20260721182025_add_task_subtasks.sql`). A subtask is a
@@ -428,7 +445,7 @@ Backend and app deploys run from GitHub Actions in `.github/workflows/`:
 
 - **`deploy.yml`** — on push to `main` touching `supabase/**` or `src/**` (or
   manual `workflow_dispatch`). Detects which paths changed, then runs, in order:
-  `migrate` (`supabase db push`), `deploy-functions`
+  `migrate` (`supabase db push --include-all`), `deploy-functions`
   (`supabase functions deploy`), and `deploy-eas` (web export → `eas deploy`
   → OTA `eas update`). The migrate/functions jobs run only when `supabase/**`
   changed; the EAS job runs only when `src/**` changed and the backend jobs
@@ -447,6 +464,17 @@ Backend and app deploys run from GitHub Actions in `.github/workflows/`:
   `git_branch` input targets an existing preview branch on demand.
 - **`preview.yml`** — `workflow_dispatch` EAS preview OTA update (`eas update
   --auto`) that comments on the PR.
+
+> **Migrations can apply out of timestamp order.** PRs merge in a different
+> order than their migrations were authored, so a migration timestamped before
+> another PR's can reach production after it. Plain `supabase db push` refuses
+> that case outright ("Found local migration files to be inserted before the
+> last migration on remote database") and fails the whole deploy, which is why
+> `migrate` passes `--include-all`. The rule that falls out: **every migration
+> must stand alone.** Never write one that depends on a later-timestamped
+> migration having already run, and prefer `IF EXISTS` / `IF NOT EXISTS` so a
+> replay is harmless. If two migrations genuinely must land in a fixed order,
+> put them in the same PR.
 
 EAS deploys/updates rely on **EAS Update** wiring in `src/`: the `export:web`
 script (`expo export --platform web`), the `expo-updates` dependency, and the

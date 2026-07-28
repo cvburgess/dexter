@@ -53,3 +53,14 @@ export const isCompletionStatus = (
   status === ETaskStatus.DONE ||
   status === ETaskStatus.WONT_DO ||
   status === ETaskStatus.DELEGATED;
+
+/**
+ * The complement of `isCompletionStatus`, as an array for `.in("status", …)`
+ * query filters. The canonical task fetch, `hasOpenTaskForTemplate`, and the
+ * MCP server's recurrence guard all read it, so "still open" means one thing on
+ * both sides. Keep it in step with `isCompletionStatus` when a status is added.
+ */
+export const OPEN_TASK_STATUSES: ETaskStatus[] = [
+  ETaskStatus.TODO,
+  ETaskStatus.IN_PROGRESS,
+];

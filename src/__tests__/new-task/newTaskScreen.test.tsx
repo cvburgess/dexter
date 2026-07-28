@@ -1,7 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render } from "@testing-library/react-native";
 
-import { ETaskPriority } from "@/api/tasks";
+import { ETaskPriority, ETaskStatus } from "@/api/tasks";
 import NewTaskScreen from "@/app/(app)/new-task";
 import { useTasks } from "@/hooks/useTasks";
 
@@ -27,6 +27,41 @@ jest.mock("@/hooks/useLists", () => ({
       updateList: jest.fn(),
       getListById: () => undefined,
       isLoading: listsState.isLoading,
+    },
+  ],
+}));
+
+// Repeat tasks and task templates share one table; only the scheduleless rows
+// should reach the Template tab.
+const packingTemplate = {
+  id: "template-packing",
+  alarmTime: null,
+  createdAt: "2026-01-01T00:00:00Z",
+  goalId: null,
+  listId: "list-home",
+  priority: ETaskPriority.IMPORTANT,
+  schedule: null,
+  subtasks: [{ id: "sub-1", title: "Passport" }],
+  title: "Trip packing",
+  userId: "user-1",
+};
+const standupTemplate = {
+  ...packingTemplate,
+  id: "template-standup",
+  schedule: "0 0 * * 1",
+  subtasks: [],
+  title: "Weekly standup",
+};
+const templatesState: { current: unknown[] } = { current: [] };
+jest.mock("@/hooks/useTemplates", () => ({
+  useTemplates: () => [
+    templatesState.current,
+    {
+      createTemplate: jest.fn(),
+      deleteTemplate: jest.fn(),
+      getTemplateById: () => undefined,
+      isLoading: false,
+      updateTemplate: jest.fn(),
     },
   ],
 }));
@@ -57,6 +92,7 @@ describe("NewTaskScreen", () => {
     jest.clearAllMocks();
     listsState.isLoading = false;
     mockSearchParams.current = {};
+    templatesState.current = [];
     mockCreateTask.mockImplementation((_task, callbacks) => {
       callbacks?.onSuccess?.();
     });
@@ -112,6 +148,8 @@ describe("NewTaskScreen", () => {
         scheduledFor: today.toString(),
         dueOn: today.add({ days: 2 }).toString(),
         alarmTime: null,
+        // Nothing seeded this form, so there is no provenance to record.
+        templateId: null,
         subtasks: [],
       },
       expect.objectContaining({ onSuccess: expect.any(Function) }),
@@ -301,5 +339,114 @@ describe("NewTaskScreen", () => {
       expect.objectContaining({ scheduledFor: today.toString() }),
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
+  });
+
+  describe("modes", () => {
+    it("starts on New, showing the form and no template list", () => {
+      templatesState.current = [packingTemplate];
+      const screen = render(<NewTaskScreen />);
+
+      expect(screen.getByTestId("new-task-title")).toBeTruthy();
+      expect(screen.queryByTestId("template-option-template-packing")).toBe(
+        null,
+      );
+    });
+
+    // A repeat task is a row in the same table, but it is a schedule, not a
+    // blueprint — offering it here would create a task that silently recurs.
+    it("lists only scheduleless templates in Template mode", () => {
+      templatesState.current = [packingTemplate, standupTemplate];
+      const screen = render(<NewTaskScreen />);
+
+      fireEvent.press(screen.getByTestId("new-task-mode-template"));
+
+      expect(
+        screen.getByTestId("template-option-template-packing"),
+      ).toBeTruthy();
+      expect(screen.queryByTestId("template-option-template-standup")).toBe(
+        null,
+      );
+    });
+
+    it("explains how to make one when there are no templates yet", () => {
+      templatesState.current = [standupTemplate];
+      const screen = render(<NewTaskScreen />);
+
+      fireEvent.press(screen.getByTestId("new-task-mode-template"));
+
+      expect(screen.getByTestId("template-picker-empty")).toBeTruthy();
+    });
+
+    // Selecting seeds the form rather than saving, so the form stays visible
+    // and everything it filled in is still editable.
+    it("marks the chosen template selected and fills the form from it", () => {
+      templatesState.current = [packingTemplate];
+      const screen = render(<NewTaskScreen />);
+
+      fireEvent.press(screen.getByTestId("new-task-mode-template"));
+      fireEvent.press(screen.getByTestId("template-option-template-packing"));
+
+      expect(
+        screen.getByTestId("template-option-template-packing").props
+          .accessibilityState,
+      ).toMatchObject({ selected: true });
+      expect(screen.getByTestId("new-task-title").props.value).toBe(
+        "Trip packing",
+      );
+    });
+
+    it("creates a plain task from the selected template, checklist and all", () => {
+      const today = Temporal.Now.plainDateISO();
+      templatesState.current = [packingTemplate];
+      const screen = render(<NewTaskScreen />);
+
+      fireEvent.press(screen.getByTestId("new-task-mode-template"));
+      fireEvent.press(screen.getByTestId("template-option-template-packing"));
+      const save = render(headerOptions().headerRight());
+      fireEvent.press(save.getByTestId("modal-done-button"));
+
+      expect(mockCreateTask).toHaveBeenCalledWith(
+        {
+          title: "Trip packing",
+          priority: ETaskPriority.IMPORTANT,
+          listId: "list-home",
+          // The template carries no dates; the task still lands on the day the
+          // user was viewing.
+          scheduledFor: today.toString(),
+          dueOn: null,
+          alarmTime: null,
+          // Where it came from, recorded. Nothing recurs from it — the picker
+          // only offers scheduleless rows.
+          templateId: "template-packing",
+          // Fresh ids, so two tasks from one template never collide.
+          subtasks: [
+            {
+              id: expect.any(String),
+              title: "Passport",
+              status: ETaskStatus.TODO,
+            },
+          ],
+        },
+        expect.objectContaining({ onSuccess: expect.any(Function) }),
+      );
+    });
+
+    it("shows the AI placeholder and refuses to save from it", () => {
+      const screen = render(<NewTaskScreen />);
+
+      fireEvent.changeText(screen.getByTestId("new-task-title"), "Pay bills");
+      fireEvent.press(screen.getByTestId("new-task-mode-ai"));
+
+      expect(screen.getByTestId("new-task-ai-placeholder")).toBeTruthy();
+      expect(screen.queryByTestId("new-task-title")).toBe(null);
+
+      const save = render(headerOptions().headerRight());
+      fireEvent.press(save.getByTestId("modal-done-button"));
+
+      expect(mockCreateTask).not.toHaveBeenCalled();
+      expect(headerOptions().unstable_headerRightItems()[0].disabled).toBe(
+        true,
+      );
+    });
   });
 });

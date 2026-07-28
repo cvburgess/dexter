@@ -23,6 +23,8 @@ describe("useNewTaskForm", () => {
     expect(result.current.listId).toBeNull();
     expect(result.current.dueOn).toBeNull();
     expect(result.current.scheduledFor).toBe(today().toString());
+    expect(result.current.templateId).toBeNull();
+    expect(result.current.task.templateId).toBeNull();
     expect(result.current.canSave).toBe(false);
   });
 
@@ -73,6 +75,7 @@ describe("useNewTaskForm", () => {
     expect(result.current.dueOn).toBe(today().add({ days: 3 }).toString());
     expect(result.current.canSave).toBe(true);
     expect(result.current.task).toEqual({
+      templateId: null,
       title: "Ship the report",
       priority: ETaskPriority.IMPORTANT_AND_URGENT,
       listId: homeList.id,
@@ -217,6 +220,146 @@ describe("useNewTaskForm", () => {
       expect(result.current.task.subtasks?.map(({ title }) => title)).toEqual([
         "Real",
       ]);
+    });
+  });
+
+  describe("applyTemplate", () => {
+    const template = {
+      id: "template-1",
+      alarmTime: "07:30",
+      createdAt: "2026-01-01T00:00:00Z",
+      goalId: null,
+      listId: "list-home",
+      priority: ETaskPriority.IMPORTANT,
+      schedule: null,
+      subtasks: [
+        { id: "s1", title: "Passport" },
+        { id: "s2", title: "Charger" },
+      ],
+      title: "Trip packing",
+      userId: "user-1",
+    };
+
+    it("fills the form from the template", () => {
+      const { result } = renderHook(() => useNewTaskForm([homeList]));
+
+      act(() => result.current.applyTemplate(template));
+
+      expect(result.current.title).toBe("Trip packing");
+      expect(result.current.priority).toBe(ETaskPriority.IMPORTANT);
+      expect(result.current.listId).toBe("list-home");
+    });
+
+    // `template_id` means "this task came from that template", which is simply
+    // true of a stamped task — so the payload records it. The picker only
+    // offers scheduleless rows, so nothing recurs from the link.
+    it("stamps the template's id onto the form and the payload", () => {
+      const { result } = renderHook(() => useNewTaskForm([homeList]));
+
+      act(() => result.current.applyTemplate(template));
+
+      expect(result.current.templateId).toBe("template-1");
+      expect(result.current.task.templateId).toBe("template-1");
+    });
+
+    // The seeded values survive an edit, so the provenance has to as well —
+    // clearing it would produce a task whose contents came from a template but
+    // which claims otherwise.
+    it("keeps the id after the user edits a seeded field", () => {
+      const { result } = renderHook(() => useNewTaskForm([homeList]));
+
+      act(() => result.current.applyTemplate(template));
+      act(() => result.current.setTitle("Trip packing (Berlin)"));
+
+      expect(result.current.task.templateId).toBe("template-1");
+    });
+
+    // An alarm only rings once AlarmKit is authorized and the task has a day to
+    // fire on. This path can promise neither, and the modal's "Add alarm" is
+    // what asks for permission — so a copied alarm would silently never ring.
+    it("does not carry the template's alarm across", () => {
+      const { result } = renderHook(() => useNewTaskForm([homeList]));
+
+      act(() => result.current.applyTemplate(template));
+
+      expect(result.current.alarmTime).toBeNull();
+      expect(result.current.task.alarmTime).toBeNull();
+    });
+
+    // A template's checklist is a blueprint with no status, so every item has
+    // to start this task's own copy open.
+    it("materializes the checklist blueprint as open subtasks", () => {
+      const { result } = renderHook(() => useNewTaskForm([homeList]));
+
+      act(() => result.current.applyTemplate(template));
+
+      expect(result.current.task.subtasks).toEqual([
+        { id: expect.any(String), title: "Passport", status: ETaskStatus.TODO },
+        { id: expect.any(String), title: "Charger", status: ETaskStatus.TODO },
+      ]);
+    });
+
+    // Every other copy-onto-a-different-row path re-keys (see `withFreshIds`),
+    // so two tasks stamped from one template never share subtask ids.
+    it("mints fresh subtask ids rather than reusing the template's", () => {
+      const first = renderHook(() => useNewTaskForm([homeList]));
+      const second = renderHook(() => useNewTaskForm([homeList]));
+
+      act(() => first.result.current.applyTemplate(template));
+      act(() => second.result.current.applyTemplate(template));
+
+      const ids = (rows: { id: string }[] = []) => rows.map(({ id }) => id);
+      const firstIds = ids(first.result.current.task.subtasks);
+      const secondIds = ids(second.result.current.task.subtasks);
+
+      expect(firstIds).not.toEqual(["s1", "s2"]);
+      expect(firstIds).not.toEqual(secondIds);
+    });
+
+    // The template editor's title field does no shorthand parsing, so a title
+    // containing `due:5` round-trips into storage verbatim and would otherwise
+    // move the deadline when the template is applied.
+    it("ignores a due: token in the template's own title", () => {
+      const { result } = renderHook(() => useNewTaskForm([homeList]));
+
+      act(() => result.current.setDueOn("2026-07-20"));
+      act(() =>
+        result.current.applyTemplate({ ...template, title: "Pay rent due:5" }),
+      );
+
+      expect(result.current.dueOn).toBe("2026-07-20");
+    });
+
+    // The template carries no dates, so the day the user was viewing has to
+    // survive the moment they pick one.
+    it("leaves the schedule and deadline alone", () => {
+      const { result } = renderHook(() =>
+        useNewTaskForm([homeList], "2026-07-08"),
+      );
+
+      act(() => result.current.setDueOn("2026-07-20"));
+      act(() => result.current.applyTemplate(template));
+
+      expect(result.current.scheduledFor).toBe("2026-07-08");
+      expect(result.current.dueOn).toBe("2026-07-20");
+    });
+
+    // The title arrives from the template, and it may well contain a `!` or a
+    // `#list` that was only ever meant as text.
+    it("keeps the template's own priority and list over its title's shorthand", () => {
+      const { result } = renderHook(() => useNewTaskForm([homeList]));
+
+      act(() =>
+        result.current.applyTemplate({
+          ...template,
+          title: "!!!! Pack #home",
+          priority: ETaskPriority.NEITHER,
+          listId: null,
+        }),
+      );
+
+      expect(result.current.priority).toBe(ETaskPriority.NEITHER);
+      expect(result.current.listId).toBeNull();
     });
   });
 });

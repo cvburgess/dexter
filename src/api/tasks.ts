@@ -2,7 +2,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 
 import { camelCase, snakeCase } from "@/utils/changeCase";
 import { makeSubtaskId, withFreshIds } from "@/utils/subtasks";
-import { ETaskStatus } from "@/utils/taskStatus";
+import { ETaskStatus, OPEN_TASK_STATUSES } from "@/utils/taskStatus";
 import { Database, TablesInsert, TablesUpdate } from "@/types/database.types";
 
 import { applyFilters, TQueryFilter } from "./applyFilters";
@@ -199,6 +199,31 @@ export const updateTasks = async (
 
   if (error) throw error;
   return (camelCase(data) as TTask[]).map(withSubtasksArray);
+};
+
+/**
+ * Whether an *open* task links to this template — the one predicate behind "can
+ * this repeat still fire?". Recurrence spawns from *completing* a linked task,
+ * so only a todo/in-progress one can ever fire it; since a template's link now
+ * records provenance for stamped tasks too, its links may all be long since
+ * checked off, which leaves the repeat stalled rather than live.
+ *
+ * Any age, so this still deliberately bypasses the canonical query's
+ * recent-window filter: an occurrence scheduled a year out counts.
+ */
+export const hasOpenTaskForTemplate = async (
+  supabase: SupabaseClient<Database>,
+  templateId: string,
+) => {
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("id")
+    .eq("template_id", templateId)
+    .in("status", OPEN_TASK_STATUSES)
+    .limit(1);
+
+  if (error) throw error;
+  return data.length > 0;
 };
 
 export const deleteTask = async (
