@@ -8,17 +8,11 @@ import { useSearch } from "@/hooks/useSearch";
 import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
 
-// `requireActual` below pulls in useSearch's real module graph, which reaches
-// useAuth → expo-linking → the expo-constants manifest this unit test doesn't
-// set up. Same stub the useSearch suite uses.
-jest.mock("@/hooks/useAuth", () => ({ supabase: {} }));
-jest.mock("@/hooks/useSearch", () => {
-  const actual =
-    jest.requireActual<typeof import("@/hooks/useSearch")>("@/hooks/useSearch");
-  // Keep the real MIN_SEARCH_LENGTH — the screen prints it in its prompt, so a
-  // stubbed value would let the copy and the hook's floor drift apart.
-  return { ...actual, useSearch: jest.fn() };
-});
+// A plain stub: the screen only uses `useSearch` from this module now, so there
+// is nothing to preserve with `requireActual` — which also means this suite no
+// longer has to stub `useAuth` to keep the real module graph (and its
+// expo-constants manifest requirement) out of the way.
+jest.mock("@/hooks/useSearch", () => ({ useSearch: jest.fn() }));
 jest.mock("@/hooks/useTasks", () => ({ useTasks: jest.fn() }));
 jest.mock("@/hooks/useTemplates", () => ({ useTemplates: jest.fn() }));
 jest.mock("react-native-safe-area-context", () =>
@@ -156,12 +150,14 @@ describe("SearchScreen", () => {
 
   afterEach(() => jest.useRealTimers());
 
-  it("prompts for a longer query before searching anything", () => {
+  it("shows the idle prompt before a query is long enough to search", () => {
     mockUseSearch.mockReturnValue(searchResult([], { enabled: false }));
 
     render(<SearchScreen />);
 
-    expect(screen.getByText(/Type at least 2 characters/)).toBeTruthy();
+    expect(
+      screen.getByText("Search your tasks, notes, and journal."),
+    ).toBeTruthy();
   });
 
   it("passes what the user types to the search hook", () => {

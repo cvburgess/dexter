@@ -15,7 +15,7 @@ import { SearchField } from "@/components/SearchField";
 import { SearchResultCard } from "@/components/SearchResultCard";
 import { TaskCard } from "@/components/TaskCard";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { MIN_SEARCH_LENGTH, useSearch } from "@/hooks/useSearch";
+import { useSearch } from "@/hooks/useSearch";
 import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
 import { canOpenSearchResult, searchResultRoute } from "@/utils/todayRoute";
@@ -224,9 +224,7 @@ export default function SearchScreen() {
         placeholder="Search tasks, notes, and journal"
       />
       {!enabled ? (
-        <EmptyScreen
-          message={`Type at least ${MIN_SEARCH_LENGTH} characters to search your tasks, notes, and journal.`}
-        />
+        <EmptyScreen message="Search your tasks, notes, and journal." />
       ) : isLoading ? (
         // Only on a cold query — `keepPreviousData` keeps the previous results
         // on screen while a subsequent search resolves.
