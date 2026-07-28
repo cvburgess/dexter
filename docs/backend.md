@@ -61,6 +61,49 @@ pasting it verbatim, and run it **before** dropping `notes`/`journals`. Those tw
 tables are the only copy of everything written since the split; drop them first
 and the backfill has nothing to read from.
 
+## Search
+
+`public.search_entries(query text)` (DEX-47,
+`20260727232854_add_search_entries.sql`) is the whole of search. It returns a
+uniform `(kind, entry_date, task, prompt, content)` row set over three sources:
+`tasks.title` plus any subtask title in `tasks.subtasks`, `notes.content`, and —
+one row per matching prompt, not per day — each `{prompt, response}` element of
+`journals.prompts`. Both the app (`src/api/search.ts`) and the MCP server's
+`search` tool call it, so "search" means one thing however it is asked for, and
+the function is the abstraction boundary: swapping the matching strategy changes
+its body and neither caller.
+
+**It is `SECURITY INVOKER` — the first in this schema**, and that is load-bearing
+rather than stylistic. It runs under the caller's JWT, so RLS scopes all three
+branches to the caller's own rows. A `DEFINER` function would bypass RLS and make
+correct scoping depend on a hand-written `user_id = auth.uid()` filter in every
+branch — three chances to leak another user's journal. This is also why the MCP
+`search` tool, alone among the tools, adds no `user_id` filter; a test in
+`__tests__/mcp-server/tools.test.ts` pins that, since an `eq:user_id` filter
+appearing there later would signal the function had been switched to `DEFINER`
+without the tool catching up.
+
+**Matching is substring `ilike`, ANDed across whitespace-separated terms** — so
+"buy milk" finds a note reading "milk, remember to buy". Not `tsvector`, for two
+reasons: the UI highlights the matched text, and substring matching hands the
+client exact offsets, whereas full-text search stems (a genuine hit often
+contains no literal occurrence of the term, leaving nothing to mark); and
+mid-word queries work, so "eisen" finds "eisenhower". What FTS would add is
+relevance ranking, and at this corpus size — 92 notes and 48 journals in
+production at time of writing — there is no result set to rank.
+
+Two details in the function are load-bearing and easy to drop in a rewrite, both
+pinned by `__tests__/migrations/search_entries.test.ts`: each term escapes LIKE's
+`\`, `%`, and `_` metacharacters (unescaped, a query containing `%` matches every
+row), and each of the three branches carries its own
+`exists (select 1 from terms)` guard (with zero terms the `not exists` test is
+vacuously true, so a blank query would return the caller's entire corpus).
+
+There is **no index**, deliberately: a seq scan over this data is
+sub-millisecond. If that ever changes, `create extension pg_trgm` plus a
+`using gin (content gin_trgm_ops)` index makes a leading-wildcard `ilike`
+indexable without changing the query at all.
+
 ## RLS policy invariants
 
 Every user-owned table enables RLS with per-operation policies keyed on
@@ -156,8 +199,10 @@ publication it belongs to.
   Trusted origins include localhost/dev clients, common AI client origins,
   `https://dexterplanner.com`, and `https://app.dexterplanner.com`.
 - MCP tool groups cover tasks, goals, lists, habits and daily habit progress,
-  notes, journals, repeat task templates, and preferences. Tool inputs never
-  accept `user_id`; user ownership is derived from the validated bearer token.
+  notes, journals, repeat task templates, preferences, and search. Tool inputs
+  never accept `user_id`; user ownership is derived from the validated bearer
+  token. The one exception to how that ownership is enforced is `search`, which
+  adds no `.eq("user_id", …)` filter of its own — see "Search" below.
 - **Task status is shared, not mirrored.** `src/utils/taskStatus.ts` holds
   `ETaskStatus` and `isCompletionStatus` and is imported by the app, by
   `mcp-server`, and by `scripts/demoData.ts` over the `@src/` alias, so a new
