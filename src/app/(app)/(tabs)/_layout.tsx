@@ -1,6 +1,7 @@
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 
 import { NewTaskButton } from "@/components/NewTaskButton";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { useTheme } from "@/utils/theme";
 
 /**
@@ -10,6 +11,13 @@ import { useTheme } from "@/utils/theme";
  */
 export default function TabsLayout() {
   const theme = useTheme();
+  // Week is a large-screen destination (DEX-96): seven columns don't fit a
+  // phone, so the tab isn't offered there. Only the *trigger* is conditional
+  // — the `week/` route stays registered, and the screen itself explains
+  // itself if it is ever reached narrow. Adding or removing a trigger remounts
+  // the tab navigator, so this must not be a value that flips often; see
+  // `useIsLargeDevice` for why window width is safe to treat as fixed today.
+  const largeDevice = useIsLargeDevice();
 
   return (
     <NativeTabs
@@ -23,6 +31,12 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Icon sf="sun.max" md="light_mode" />
         <NativeTabs.Trigger.Label>Today</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
+      {largeDevice && (
+        <NativeTabs.Trigger name="week">
+          <NativeTabs.Trigger.Icon sf="calendar" md="calendar_month" />
+          <NativeTabs.Trigger.Label>Week</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+      )}
       <NativeTabs.Trigger name="settings">
         <NativeTabs.Trigger.Icon sf="gear" md="settings" />
         <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>

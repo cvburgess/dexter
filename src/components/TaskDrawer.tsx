@@ -16,10 +16,12 @@ import { TextInput } from "@/components/TextInput";
 import { useGoals } from "@/hooks/useGoals";
 import { useLists } from "@/hooks/useLists";
 import { useTasks } from "@/hooks/useTasks";
+import { formatWeekdayMonthDay } from "@/utils/formatPlainDate";
 import { searchTerms } from "@/utils/searchHighlight";
 import {
   filterTasks,
   selectBacklogTasks,
+  selectBacklogTasksForWeek,
   TFilterId,
 } from "@/utils/taskFilters";
 import { useTheme, withOpacity } from "@/utils/theme";
@@ -182,8 +184,19 @@ export function groupTasks(
 }
 
 type TTaskDrawerProps = {
-  /** The day currently being viewed on the Today tab — the drawer shows tasks not scheduled for it. */
+  /**
+   * The day a row's "+" schedules its task onto. On the Today tab this is
+   * also the day the drawer's scope excludes; on the Week tab `weekStart`
+   * below widens that scope while this stays the single target day.
+   */
   date: Temporal.PlainDate;
+  /**
+   * When set, scopes the drawer to tasks not scheduled anywhere in the
+   * Monday–Sunday week starting here, instead of "not scheduled for `date`"
+   * (DEX-96). The Week tab has all seven of those days on screen already, so
+   * the day-scoped form would list six of its own columns back to the user.
+   */
+  weekStart?: Temporal.PlainDate;
   /**
    * Controls the Filter preset from the parent when provided (with
    * `onFilterChange`) — used by the mobile sheet to pre-apply the attention
@@ -225,6 +238,7 @@ type TTaskDrawerProps = {
  */
 export function TaskDrawer({
   date,
+  weekStart,
   filterId: controlledFilterId,
   onFilterChange,
   search: controlledSearch,
@@ -252,11 +266,13 @@ export function TaskDrawer({
   const tasks = useMemo(
     () =>
       filterTasks(
-        selectBacklogTasks(allTasks, date),
+        weekStart
+          ? selectBacklogTasksForWeek(allTasks, weekStart)
+          : selectBacklogTasks(allTasks, date),
         filterId,
         Temporal.Now.plainDateISO(),
       ),
-    [allTasks, date, filterId],
+    [allTasks, date, weekStart, filterId],
   );
 
   const groups = useMemo(
@@ -321,7 +337,9 @@ export function TaskDrawer({
             />
           </View>
           <GlassIconButton
-            accessibilityLabel={`Schedule "${task.title}" for this day`}
+            // Names the target day rather than saying "this day": on the Week
+            // tab the drawer sits beside seven of them (DEX-96).
+            accessibilityLabel={`Schedule "${task.title}" for ${formatWeekdayMonthDay(date)}`}
             sfSymbol="plus"
             ionicon="add-outline"
             onPress={() =>

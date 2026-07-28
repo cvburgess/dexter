@@ -32,6 +32,10 @@ export default function TabsLayout() {
           }}
         >
           <Tabs.Screen name="today" />
+          {/* Registered at every width, unlike its nav item (DEX-96): the
+              route has to resolve for a `/week` URL typed or bookmarked on a
+              narrow window, where the screen renders an explanation. */}
+          <Tabs.Screen name="week" />
           <Tabs.Screen name="settings" />
           <Tabs.Screen name="search" />
         </Tabs>

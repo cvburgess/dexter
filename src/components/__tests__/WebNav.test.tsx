@@ -3,6 +3,7 @@ import { fireEvent, render } from "@testing-library/react-native";
 import type { ReactElement } from "react";
 
 import { WEB_NAV_ITEMS, WebNavDock, WebNavRail } from "@/components/WebNav";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 
 const mockRouter = { navigate: jest.fn(), push: jest.fn() };
 const mockPathname = { current: "/today" };
@@ -37,6 +38,18 @@ jest.mock("@/hooks/useViewedDay", () => ({
   getViewedDay: () => mockViewedDay.current,
 }));
 
+jest.mock("@/hooks/useIsLargeDevice", () => ({
+  useIsLargeDevice: jest.fn(),
+}));
+const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
+  typeof useIsLargeDevice
+>;
+
+// The destinations offered at a given width. Most of these assertions are about
+// wiring rather than the breakpoint, so they run wide — where every item shows.
+const visibleItems = (largeDevice: boolean) =>
+  WEB_NAV_ITEMS.filter((item) => largeDevice || !item.largeScreenOnly);
+
 // Both variants render the same destinations and wire them the same way, so the
 // shared behavior is exercised against each rather than only the rail.
 const variants = [
@@ -49,15 +62,42 @@ describe.each(variants)("$name", ({ Component }) => {
     jest.clearAllMocks();
     mockPathname.current = "/today";
     mockViewedDay.current = null;
+    mockUseIsLargeDevice.mockReturnValue(true);
   });
 
   it("renders every destination plus the create-task button", () => {
     const screen = render(<Component />);
 
-    WEB_NAV_ITEMS.forEach((item) => {
+    visibleItems(true).forEach((item) => {
       expect(screen.getByTestId(`web-nav-${item.key}`)).toBeTruthy();
     });
     expect(screen.getByTestId("web-nav-new-task")).toBeTruthy();
+  });
+
+  describe("large-screen-only destinations (DEX-96)", () => {
+    it("offers Week on a large screen", () => {
+      const screen = render(<Component />);
+
+      expect(screen.getByTestId("web-nav-week")).toBeTruthy();
+      expect(screen.getByTestId("web-nav-week").props.href).toBe("/week");
+    });
+
+    it("hides Week below the breakpoint", () => {
+      mockUseIsLargeDevice.mockReturnValue(false);
+      const screen = render(<Component />);
+
+      expect(screen.queryByTestId("web-nav-week")).toBeNull();
+    });
+
+    it("keeps every other destination below the breakpoint", () => {
+      mockUseIsLargeDevice.mockReturnValue(false);
+      const screen = render(<Component />);
+
+      visibleItems(false).forEach((item) => {
+        expect(screen.getByTestId(`web-nav-${item.key}`)).toBeTruthy();
+      });
+      expect(screen.getByTestId("web-nav-new-task")).toBeTruthy();
+    });
   });
 
   it("marks the current destination as selected", () => {
@@ -78,7 +118,7 @@ describe.each(variants)("$name", ({ Component }) => {
   it("renders each destination as a real link to its route", () => {
     const screen = render(<Component />);
 
-    WEB_NAV_ITEMS.forEach((item) => {
+    visibleItems(true).forEach((item) => {
       expect(screen.getByTestId(`web-nav-${item.key}`).props.href).toBe(
         item.href,
       );
