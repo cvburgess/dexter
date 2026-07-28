@@ -38,8 +38,9 @@ export function registerSearchTools(server: McpServer, ctx: ToolContext): void {
         "Matching is case-insensitive substring matching, and every whitespace-separated " +
         'term must appear somewhere in the entry — so "buy milk" also finds a note reading ' +
         '"milk, remember to buy". Tasks match on their own title or any subtask title; ' +
-        "notes match on their markdown content; journal entries match on the prompt or the " +
-        "response, and are returned one row per matching prompt. Results are ordered most " +
+        "notes match on their markdown content; journal entries match on the response only " +
+        "(prompts come from a shared template, so searching them would return every entry), " +
+        "and are returned one row per matching response. Results are ordered most " +
         "recent first. Each result carries a `kind` of task, note, or journal: tasks include " +
         "the full task row in `task`, notes put their full content in `content`, and journal " +
         "entries put the question in `prompt` and the answer in `content`. `entry_date` is " +

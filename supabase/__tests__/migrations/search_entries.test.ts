@@ -125,23 +125,46 @@ Deno.test("notes match on content", () => {
   assertStringIncludes(fn, "n.content not ilike terms.pattern");
 });
 
-Deno.test("journals return one row per matching prompt, null-guarded", () => {
+Deno.test("journals return one row per matching response, null-guarded", () => {
   const fn = searchFunction();
 
   assertStringIncludes(fn, "from public.journals j");
-  // Per matching prompt, not per day: the UI shows which question the hit came
-  // from, and a day holds several.
+  // Per matching response, not per day: the UI shows which question the hit
+  // came from, and a day holds several.
   assertStringIncludes(
     fn,
     "cross join lateral jsonb_array_elements(j.prompts)",
   );
+  // The prompt is still *returned* — the result card shows it for context.
   assertStringIncludes(fn, "p ->> 'prompt'");
   assertStringIncludes(fn, "p ->> 'response'");
   // `prompts` is only constrained to be an array, not to the shape of its
   // elements. A null `->>` would make `not ilike` evaluate to NULL, the inner
   // `exists` find nothing, and the row match every query.
-  assertStringIncludes(fn, "coalesce(p ->> 'prompt', '')");
   assertStringIncludes(fn, "coalesce(p ->> 'response', '')");
+});
+
+Deno.test("journal prompts are returned but never matched against", () => {
+  const fn = searchFunction();
+
+  // Prompts come from a shared template (`preferences.templatePrompts`), so
+  // every day carries the same handful of questions. Searching them makes a word
+  // like "well" — from "What went well?" — return every journal entry the user
+  // has ever written, burying the days they actually wrote that word in. Only
+  // the responses are the user's own text.
+  //
+  // Scoped to the journal branch's predicate, since `p ->> 'prompt'` legitimately
+  // appears in its SELECT list.
+  const journalBranch = fn.slice(fn.indexOf("from public.journals j"));
+
+  assertStringIncludes(
+    journalBranch,
+    "where coalesce(p ->> 'response', '') not ilike terms.pattern",
+  );
+  assert(
+    !journalBranch.includes("coalesce(p ->> 'prompt'"),
+    "the journal branch must not match against the prompt",
+  );
 });
 
 Deno.test("results come back most-recent-first with undated tasks last", () => {

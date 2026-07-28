@@ -67,8 +67,20 @@ and the backfill has nothing to read from.
 `20260727232854_add_search_entries.sql`) is the whole of search. It returns a
 uniform `(kind, entry_date, task, prompt, content)` row set over three sources:
 `tasks.title` plus any subtask title in `tasks.subtasks`, `notes.content`, and —
-one row per matching prompt, not per day — each `{prompt, response}` element of
-`journals.prompts`. Both the app (`src/api/search.ts`) and the MCP server's
+one row per matching response, not per day — the `response` of each
+`{prompt, response}` element of `journals.prompts`.
+
+**Journal prompts are returned but never matched against.** The prompt comes
+back with each hit so the result card can show which question was answered, but
+searching it would be actively harmful: prompts are seeded from a shared
+template (`preferences.templatePrompts`), so every day carries the same handful
+of questions, and a query like "well" — from "What went well?" — would return
+every journal entry the user has ever written, burying the days they actually
+wrote that word. Only responses are the user's own text. A consequence worth
+knowing: an unanswered prompt can never be a hit, since an empty response cannot
+contain a term.
+
+Both the app (`src/api/search.ts`) and the MCP server's
 `search` tool call it, so "search" means one thing however it is asked for, and
 the function is the abstraction boundary: swapping the matching strategy changes
 its body and neither caller.

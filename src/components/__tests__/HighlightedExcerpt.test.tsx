@@ -32,7 +32,7 @@ describe("HighlightedExcerpt", () => {
   });
 
   it("renders the text unemphasized when nothing matches", () => {
-    // A journal hit can match on the prompt while the response is what shows.
+    // Defensive — see buildExcerpt's own note on Postgres/JS case-folding.
     render(<HighlightedExcerpt text="an unrelated response" query="prompt" />);
 
     expect(fontWeightOf("an unrelated response")).toBeUndefined();

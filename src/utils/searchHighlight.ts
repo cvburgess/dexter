@@ -87,9 +87,13 @@ const head = (haystack: string, radius: number): TExcerptSegment[] => {
  * An excerpt of `text` windowed around its first match on `query`, split into
  * matched and unmatched runs.
  *
- * Returns the head of the text when nothing matches, which is a real case rather
- * than a defensive one: a journal result matches on the prompt *or* the
- * response, so the half that didn't match still has to render.
+ * Returns the head of the text when nothing matches. Every row reaching this
+ * has already matched in Postgres, so that should be unreachable — but the two
+ * matchers are not the same code: `ilike` case-folds by collation while this
+ * uses JavaScript's `toLowerCase()`, and the two disagree on some Unicode (the
+ * Turkish dotless ı being the standard example). Rendering the head of the text
+ * degrades gracefully; throwing or rendering nothing would turn a cosmetic
+ * mismatch into a blank result card.
  */
 export function buildExcerpt(
   text: string,

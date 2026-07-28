@@ -52,8 +52,10 @@ const rowToResult = (row: TSearchRow): TSearchResult | null => {
       ? {
           kind: "journal",
           date: row.entryDate,
-          // A prompt with no response (or vice versa) still matches on the half
-          // that has text, so neither is required — only the date is.
+          // Neither is required — only the date is. In practice the response is
+          // always present: it's the only field `search_entries` matches on, so
+          // an empty one can't be a hit. The prompt is the question it answered,
+          // shown for context but never searched.
           prompt: row.prompt ?? "",
           content: row.content ?? "",
         }
@@ -65,7 +67,8 @@ const rowToResult = (row: TSearchRow): TSearchResult | null => {
 
 /**
  * Searches task titles (including subtask titles), note content, and journal
- * prompts/responses for `query`.
+ * responses for `query`. Journal *prompts* come back with each hit for context
+ * but are not searched — see the migration for why.
  *
  * The matching lives entirely in the `search_entries` RPC — term splitting, LIKE
  * escaping, and per-user scoping (the function is `security invoker`, so RLS

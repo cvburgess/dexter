@@ -86,8 +86,10 @@ describe("buildExcerpt", () => {
   });
 
   it("falls back to the head of the text when nothing matches", () => {
-    // A real case, not a defensive one: a journal hit matches on the prompt or
-    // the response, so the half that didn't match still has to render.
+    // Defensive: every row reaching the excerpt has already matched in
+    // Postgres, but `ilike` case-folds by collation while this uses JS
+    // `toLowerCase()`, and the two disagree on some Unicode. Degrading to the
+    // head of the text beats a blank card.
     const segments = buildExcerpt("an unrelated response", "prompt");
 
     expect(segments).toEqual([{ text: "an unrelated response", match: false }]);

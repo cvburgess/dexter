@@ -127,12 +127,25 @@ as $function$
 
     union all
 
-    -- One result per *matching prompt*, not per journal day: the UI shows which
-    -- question the hit came from, and a day holds several. `coalesce` guards the
-    -- `->>`s because `prompts` only guarantees an array (see the
-    -- journals_prompts_is_array constraint), not the shape of its elements — a
-    -- null there would make `not ilike` evaluate to NULL, the inner `exists`
-    -- find nothing, and the row match every query.
+    -- One result per *matching response*, not per journal day: the UI shows
+    -- which question the hit came from, and a day holds several.
+    --
+    -- Matched on the **response only**. The prompt is still selected — the
+    -- result card shows it for context — but it is deliberately not searchable:
+    -- prompts come from a shared template (`preferences.templatePrompts`), so
+    -- every day carries the same handful of questions. Searching them means a
+    -- word like "well" from "What went well?" returns every journal entry the
+    -- user has ever written, burying the days they actually wrote that word in.
+    -- Only the responses are the user's own text.
+    --
+    -- A consequence worth knowing: an unanswered prompt can no longer match
+    -- anything, since an empty response can't contain a term. That is the
+    -- intent — a blank day is not a search hit.
+    --
+    -- `coalesce` guards the `->>` because `prompts` only guarantees an array
+    -- (see the journals_prompts_is_array constraint), not the shape of its
+    -- elements — a null there would make `not ilike` evaluate to NULL, the
+    -- inner `exists` find nothing, and the row match every query.
     select
       'journal'::text,
       j.date,
@@ -144,8 +157,7 @@ as $function$
     where exists (select 1 from terms)
       and not exists (
         select 1 from terms
-        where coalesce(p ->> 'prompt', '') || ' ' || coalesce(p ->> 'response', '')
-          not ilike terms.pattern
+        where coalesce(p ->> 'response', '') not ilike terms.pattern
       )
   ) as results
 
