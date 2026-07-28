@@ -16,7 +16,7 @@ import {
 import { TasksView } from "@/components/TasksView";
 import { TPreferences } from "@/api/preferences";
 import { TFilterId } from "@/utils/taskFilters";
-import { TDayMode } from "@/utils/todayRoute";
+import { TDayLink } from "@/utils/todayRoute";
 import { useTheme } from "@/utils/theme";
 
 type TSmallScreenTodayProps = {
@@ -29,13 +29,12 @@ type TSmallScreenTodayProps = {
   // or null when there's nothing needing attention. Drives the switcher's dot.
   attentionFilter: TFilterId | null;
   /**
-   * Which surface a `?mode=` deep link asked for (DEX-47), or null for an
-   * ordinary tab press. `tasks`/`notes`/`journal` select the view; `backlog`
-   * opens the drawer sheet instead of changing the view at all.
+   * The deep link this screen was opened with (DEX-47), or null for an ordinary
+   * tab press. `mode` selects the view — except `backlog`, which opens the
+   * drawer sheet instead of changing the view at all — and `query` seeds the
+   * drawer's search box. Keyed on `id` so re-following the same link works.
    */
-  mode: TDayMode | null;
-  /** The query behind a `mode=backlog` link, seeded into the drawer's search box. */
-  searchQuery?: string;
+  link: TDayLink | null;
 };
 
 // The single-view (small-screen) Today layout: one full-width view at a time
@@ -49,13 +48,13 @@ export function SmallScreenToday({
   changeDate,
   changeDateBy,
   attentionFilter,
-  mode,
-  searchQuery,
+  link,
 }: TSmallScreenTodayProps) {
   const theme = useTheme();
   const backlogAttention = attentionFilter !== null;
+  const mode = link?.mode ?? null;
   // Seeded from the route so a deep link is already right on the first render —
-  // the `appliedMode` adjustment below only fires on a *change*, so arriving
+  // the `appliedLinkId` adjustment below only fires on a *change*, so arriving
   // with `?mode=` set would otherwise land on Tasks. `backlog` isn't a view
   // (the sheet handles it), so it seeds Tasks like an ordinary tab press.
   const [view, setView] = useState<TDayView>(
@@ -70,13 +69,13 @@ export function SmallScreenToday({
 
   // Select the view a `?mode=` deep link asked for (DEX-47). Adjusted during
   // render, the same way the `viewDisabled` reset below is and for the same
-  // reason — no wrong-view frame, no effect. `appliedMode` makes it fire once
-  // per *change*, so the user can switch views afterwards without this snapping
-  // them back; following the same link twice is therefore a no-op, which is fine
-  // since the screen is already showing what it asks for.
-  const [appliedMode, setAppliedMode] = useState(mode);
-  if (mode !== appliedMode) {
-    setAppliedMode(mode);
+  // reason — no wrong-view frame, no effect. Keyed on `link.id`, which changes
+  // per navigation, so the user can switch views afterwards without this
+  // snapping them back *and* re-following the same link still works.
+  const linkId = link?.id ?? null;
+  const [appliedLinkId, setAppliedLinkId] = useState(linkId);
+  if (linkId !== appliedLinkId) {
+    setAppliedLinkId(linkId);
     // `backlog` is not a day view — the sheet below handles it.
     if (mode && mode !== "backlog") setView(mode);
   }
@@ -84,12 +83,18 @@ export function SmallScreenToday({
   // The sheet is an imperative native API rather than React state, so poking it
   // is exactly what an effect is for. Pre-filtered to Unscheduled (where a task
   // with no date lives) and pre-searched, so the result the user tapped is on
-  // screen straight away instead of somewhere in the backlog.
+  // screen straight away instead of somewhere in the backlog. Keyed on `linkId`
+  // for the same reason as above — tapping the same result again after
+  // dismissing the sheet has to re-present it.
+  // Depends on primitives rather than `link`, which is a fresh object every
+  // render. `mode` and `linkQuery` are both encoded in `linkId`, so listing them
+  // costs no extra firings and keeps the dependency list honest.
+  const linkQuery = link?.query;
   useEffect(() => {
     if (mode === "backlog") {
-      taskDrawerRef.current?.present("unscheduled", searchQuery ?? "");
+      taskDrawerRef.current?.present("unscheduled", linkQuery ?? "");
     }
-  }, [mode, searchQuery]);
+  }, [linkId, mode, linkQuery]);
 
   // Fall back to Tasks if the active view is disabled in settings (e.g. Notes
   // toggled off while viewing it). All views share `date`.
@@ -130,7 +135,10 @@ export function SmallScreenToday({
             view={activeView}
             onChangeView={setView}
             onOpenDrawer={() =>
-              taskDrawerRef.current?.present(attentionFilter ?? undefined)
+              // Clears any search a `mode=backlog` deep link left seeded: this
+              // entry point means "show me my backlog", not "show it still
+              // filtered by a search from three screens ago" (DEX-47).
+              taskDrawerRef.current?.present(attentionFilter ?? undefined, "")
             }
             attention={backlogAttention}
             enableNotes={preferences.enableNotes}

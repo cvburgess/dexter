@@ -18,6 +18,15 @@ type TNotesJournalTabsProps = {
    * whichever tab the user last picked alone.
    */
   requestedTab?: TTab | null;
+  /**
+   * Identifies the navigation `requestedTab` came from, changing on every one.
+   *
+   * `requestedTab` is a string union with no identity of its own, so on its own
+   * it can't distinguish "still the same link" from "the user followed that link
+   * again" — and after they'd switched tabs manually, the second visit would do
+   * nothing.
+   */
+  requestedTabLinkId?: string | null;
 };
 
 /**
@@ -37,11 +46,12 @@ export function NotesJournalTabs({
   showNotes,
   showJournal,
   requestedTab = null,
+  requestedTabLinkId = null,
 }: TNotesJournalTabsProps) {
   const theme = useTheme();
   // Seeded from the route so a deep link is right on the first render — the
-  // `appliedTab` adjustment below only fires on a *change*, so arriving with
-  // `requestedTab` set would otherwise land on the default tab.
+  // adjustment below only fires on a *change*, so arriving with `requestedTab`
+  // set would otherwise land on the default tab.
   const [tab, setTab] = useState<TTab>(
     requestedTab ?? (showNotes ? "notes" : "journal"),
   );
@@ -49,12 +59,12 @@ export function NotesJournalTabs({
   // Follow the route when it names a tab. Adjusted during render (React's
   // supported pattern for deriving state from a changed prop — the same one the
   // `activeTab` fallback below uses) so the pane never shows the wrong tab for a
-  // frame. `appliedTab` makes it fire once per change, so the user can switch
-  // tabs afterwards without this snapping them back; re-opening the *same* deep
-  // link is therefore a no-op, which is fine — the tab is already right.
-  const [appliedTab, setAppliedTab] = useState(requestedTab);
-  if (requestedTab !== appliedTab) {
-    setAppliedTab(requestedTab);
+  // frame. Keyed on the link's id, which changes per navigation, so the user can
+  // switch tabs afterwards without this snapping them back *and* following the
+  // same link again still re-selects it.
+  const [appliedLinkId, setAppliedLinkId] = useState(requestedTabLinkId);
+  if (requestedTabLinkId !== appliedLinkId) {
+    setAppliedLinkId(requestedTabLinkId);
     if (requestedTab) setTab(requestedTab);
   }
   // Snap to whichever tab is still enabled if the active one gets toggled off.

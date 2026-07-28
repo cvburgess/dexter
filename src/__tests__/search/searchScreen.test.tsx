@@ -81,11 +81,23 @@ const typeSearch = (text: string) => {
 
 const searchResult = (
   results: TSearchResult[] = [],
-  overrides: { isLoading?: boolean; enabled?: boolean } = {},
+  overrides: {
+    isLoading?: boolean;
+    enabled?: boolean;
+    matchedQuery?: string;
+  } = {},
 ): ReturnType<typeof useSearch> =>
-  [results, { isLoading: false, enabled: true, ...overrides }] as ReturnType<
-    typeof useSearch
-  >;
+  [
+    results,
+    {
+      isLoading: false,
+      enabled: true,
+      // What the rows on screen actually matched — the excerpts highlight
+      // against this rather than the live query.
+      matchedQuery: "milk",
+      ...overrides,
+    },
+  ] as ReturnType<typeof useSearch>;
 
 const task = (overrides: Partial<TTask> = {}): TTask => ({
   id: "task-1",
@@ -238,7 +250,7 @@ describe("SearchScreen", () => {
 
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/today",
-      params: { date: "2026-07-14", mode: "tasks" },
+      params: { date: "2026-07-14", mode: "tasks", n: "1" },
     });
   });
 
@@ -253,7 +265,7 @@ describe("SearchScreen", () => {
 
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/today",
-      params: { mode: "backlog", q: "milk" },
+      params: { mode: "backlog", q: "milk", n: "1" },
     });
   });
 
@@ -269,7 +281,7 @@ describe("SearchScreen", () => {
 
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/today",
-      params: { date: "2026-07-13", mode: "notes" },
+      params: { date: "2026-07-13", mode: "notes", n: "1" },
     });
   });
 
@@ -290,7 +302,7 @@ describe("SearchScreen", () => {
 
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/today",
-      params: { date: "2026-07-12", mode: "journal" },
+      params: { date: "2026-07-12", mode: "journal", n: "1" },
     });
   });
 });

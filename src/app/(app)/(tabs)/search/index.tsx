@@ -1,6 +1,6 @@
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import {
   SafeAreaView,
@@ -60,7 +60,11 @@ export default function SearchScreen() {
   // settled value, so typing "eisenhower" is one round trip rather than nine —
   // each of which is a full scan of the account's tasks, notes, and journals.
   const searchedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);
-  const [results, { isLoading, enabled }] = useSearch(searchedQuery);
+  // `matchedQuery` is the query the rows on screen actually matched, which lags
+  // `searchedQuery` while a newer search is in flight — highlighting with the
+  // newer one would blank every excerpt until the results caught up.
+  const [results, { isLoading, enabled, matchedQuery }] =
+    useSearch(searchedQuery);
   // `skipQuery`: this screen wants the mutations, not the task list — its
   // results come from the server. Subscribing to the canonical `["tasks"]`
   // query would re-render the (long-lived) Search tab on every task change made
@@ -94,10 +98,25 @@ export default function SearchScreen() {
     [results],
   );
 
+  // Separates one navigation from the next. Cross-tab navigation reuses the
+  // mounted Today screen and only swaps its params, so without this a second tap
+  // on the same result produces identical params and Today — having already
+  // applied them — does nothing but switch tabs. A counter rather than a
+  // timestamp so the link is deterministic in tests.
+  const navigationCount = useRef(0);
+
   const openResult = useCallback(
-    (result: TSearchResult) =>
-      router.push(searchResultRoute(result, searchedQuery)),
-    [router, searchedQuery],
+    (result: TSearchResult) => {
+      navigationCount.current += 1;
+      router.push(
+        searchResultRoute(
+          result,
+          matchedQuery,
+          String(navigationCount.current),
+        ),
+      );
+    },
+    [router, matchedQuery],
   );
 
   const renderItem = useCallback(
@@ -148,14 +167,14 @@ export default function SearchScreen() {
           date={result.date}
           prompt={result.kind === "journal" ? result.prompt : undefined}
           content={result.content}
-          query={searchedQuery}
+          query={matchedQuery}
           onPress={() => openResult(result)}
         />
       );
     },
     [
       theme,
-      searchedQuery,
+      matchedQuery,
       openResult,
       updateTask,
       createTask,

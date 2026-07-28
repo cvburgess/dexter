@@ -70,6 +70,16 @@ type TTodayRouteParams = {
   mode?: TDayMode;
   /** Seeds the task drawer's own search box; only meaningful with `mode: "backlog"`. */
   q?: string;
+  /**
+   * Distinguishes one navigation from the next.
+   *
+   * Cross-tab navigation reuses the mounted Today screen and only swaps its
+   * params, so the screen can only tell "this link changed" by comparing values
+   * — and two taps on the same search result produce identical values. Without
+   * something to separate them, tapping a result, navigating to another day, and
+   * tapping the same result again switches tabs and then does nothing.
+   */
+  n?: string;
 };
 
 /** The Today tab, optionally pointed at a specific day and surface. */
@@ -84,24 +94,71 @@ export const todayRoute = (params: TTodayRouteParams = {}): Href => {
 };
 
 /**
+ * Everything the Today tab needs from its route params, with an `id` that
+ * changes whenever the link is *followed* rather than only when its contents
+ * differ. Null when the route carries no link at all (an ordinary tab press).
+ *
+ * Consumers key their "apply once" guards on `id`, which is what makes
+ * re-following the same link work.
+ */
+export type TDayLink = {
+  id: string;
+  date: Temporal.PlainDate | null;
+  mode: TDayMode | null;
+  query: string | undefined;
+};
+
+type TDayLinkParams = {
+  date?: TRouteParam;
+  mode?: TRouteParam;
+  q?: TRouteParam;
+  n?: TRouteParam;
+};
+
+export const parseDayLink = (params: TDayLinkParams): TDayLink | null => {
+  const date = parseDayDate(params.date);
+  const mode = parseDayMode(params.mode);
+  const query = parseDayQuery(params.q);
+
+  // Neither a day nor a surface named: nothing to apply, so the tab behaves as
+  // if it were pressed normally.
+  if (!date && !mode) return null;
+
+  // `n` is absent from a hand-written or bookmarked URL, in which case the id
+  // is derived purely from the contents and the link applies exactly once —
+  // which is the right behavior for a link that was typed rather than tapped.
+  const nonce = firstParam(params.n) ?? "";
+  return {
+    id: `${nonce}|${date?.toString() ?? ""}|${mode ?? ""}|${query ?? ""}`,
+    date,
+    mode,
+    query,
+  };
+};
+
+/**
  * Where tapping a search result should land.
  *
  * A task with no scheduled date has no day to open, so it goes to the backlog
  * with the query carried along — the drawer seeds its own search box from it, so
  * the task is on screen immediately instead of somewhere in the backlog.
+ *
+ * `nonce` should differ per tap; see `TTodayRouteParams["n"]`.
  */
 export const searchResultRoute = (
   result: TSearchResult,
   query: string,
+  nonce: string,
 ): Href => {
   if (result.kind === "task") {
     return result.task.scheduledFor
-      ? todayRoute({ date: result.task.scheduledFor, mode: "tasks" })
-      : todayRoute({ mode: "backlog", q: query });
+      ? todayRoute({ date: result.task.scheduledFor, mode: "tasks", n: nonce })
+      : todayRoute({ mode: "backlog", q: query, n: nonce });
   }
 
   return todayRoute({
     date: result.date,
     mode: result.kind === "note" ? "notes" : "journal",
+    n: nonce,
   });
 };

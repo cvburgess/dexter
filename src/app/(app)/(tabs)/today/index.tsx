@@ -9,7 +9,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { useTasks } from "@/hooks/useTasks";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
 import { backlogAttentionFilter } from "@/utils/taskFilters";
-import { parseDayDate, parseDayMode, parseDayQuery } from "@/utils/todayRoute";
+import { parseDayLink } from "@/utils/todayRoute";
 
 type TDayState = {
   date: Temporal.PlainDate;
@@ -24,22 +24,20 @@ type TDayState = {
 export default function TodayScreen() {
   const [preferences] = usePreferences();
   const multiPane = useIsMultiPane();
-  // `?date=&mode=&q=` — the deep-link contract the Search tab builds
-  // (`utils/todayRoute.ts`, DEX-47). Absent for an ordinary tab press, which is
-  // why every one of these is optional and the state below still seeds itself
-  // from today.
-  // Typed loosely on purpose: `useLocalSearchParams` hands back a `string[]` for
-  // a repeated key, so each parser below narrows rather than trusting the shape.
+  // `?date=&mode=&q=&n=` — the deep-link contract the Search tab builds
+  // (`utils/todayRoute.ts`, DEX-47). Null for an ordinary tab press, which is
+  // why the state below still seeds itself from today. Typed loosely on purpose:
+  // `useLocalSearchParams` hands back a `string[]` for a repeated key, so
+  // `parseDayLink` narrows rather than trusting the shape.
   const params = useLocalSearchParams<{
     date?: string | string[];
     mode?: string | string[];
     q?: string | string[];
+    n?: string | string[];
   }>();
-  const requestedDate = parseDayDate(params.date);
-  const mode = parseDayMode(params.mode);
-  const searchQuery = parseDayQuery(params.q);
+  const link = parseDayLink(params);
   const [day, setDay] = useState<TDayState>(() => ({
-    date: requestedDate ?? Temporal.Now.plainDateISO(),
+    date: link?.date ?? Temporal.Now.plainDateISO(),
     direction: 0,
   }));
   // So "New Task" opened from this tab defaults its schedule to the viewed day.
@@ -76,20 +74,20 @@ export default function TodayScreen() {
   // Adjusted during render (React's supported pattern for deriving state from a
   // changed prop, as `SmallScreenToday` already does for a disabled view) rather
   // than in an effect: React re-runs this component before painting, so the day
-  // never renders wrong for a frame first. `appliedIso` is what makes it fire
-  // once per *change* — without it this would re-apply on every render and
-  // stomp the user's own day navigation. Compared as ISO strings, not
-  // `Temporal.PlainDate` objects, which are fresh instances every render.
-  const requestedIso = requestedDate?.toString() ?? null;
-  const [appliedIso, setAppliedIso] = useState(requestedIso);
-  if (requestedIso !== appliedIso) {
-    setAppliedIso(requestedIso);
-    if (requestedDate) {
-      const direction = Temporal.PlainDate.compare(requestedDate, day.date);
+  // never renders wrong for a frame first. `appliedLinkId` is what makes it fire
+  // once per navigation — without it this would re-apply on every render and
+  // stomp the user's own day navigation. Keyed on `link.id` rather than the date
+  // itself, so re-following a link the user has since navigated away from still
+  // takes effect (see `TTodayRouteParams["n"]`).
+  const [appliedLinkId, setAppliedLinkId] = useState(link?.id ?? null);
+  if ((link?.id ?? null) !== appliedLinkId) {
+    setAppliedLinkId(link?.id ?? null);
+    if (link?.date) {
+      const direction = Temporal.PlainDate.compare(link.date, day.date);
       // Skip when the link points at the day already on screen: `direction`
       // drives the day-change animation, and restarting it for no movement
       // reads as a flicker.
-      if (direction !== 0) setDay({ date: requestedDate, direction });
+      if (direction !== 0) setDay({ date: link.date, direction });
     }
   }
 
@@ -99,8 +97,7 @@ export default function TodayScreen() {
       preferences={preferences}
       changeDate={changeDate}
       attentionFilter={attentionFilter}
-      mode={mode}
-      searchQuery={searchQuery}
+      link={link}
     />
   ) : (
     <SmallScreenToday
@@ -110,8 +107,7 @@ export default function TodayScreen() {
       changeDate={changeDate}
       changeDateBy={changeDateBy}
       attentionFilter={attentionFilter}
-      mode={mode}
-      searchQuery={searchQuery}
+      link={link}
     />
   );
 }

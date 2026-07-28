@@ -88,19 +88,26 @@ export const useRealtimeInvalidation = (userId: string | undefined) => {
     let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
     const invalidateTable = (table: (typeof REALTIME_TABLES)[number]) => {
-      if (
-        table === "tasks" &&
-        queryClient.isMutating({ mutationKey: TASKS_MUTATION_KEY }) > 0
-      ) {
-        // Our own write echoes back here. The optimistic cache already holds
-        // it, and the refetch this would start can resolve *after* a newer
-        // local edit — stamping stale rows over it, so the edit visibly
-        // reverts. Skipping loses nothing: the in-flight mutation invalidates
-        // on settle, which is the catch-up for anything genuinely remote.
-        return;
-      }
-
       for (const queryKey of REALTIME_INVALIDATIONS[table]) {
+        if (
+          queryKey[0] === "tasks" &&
+          queryClient.isMutating({ mutationKey: TASKS_MUTATION_KEY }) > 0
+        ) {
+          // Our own write echoes back here. The optimistic cache already holds
+          // it, and the refetch this would start can resolve *after* a newer
+          // local edit — stamping stale rows over it, so the edit visibly
+          // reverts. Skipping loses nothing: the `["tasks"]` cache is what the
+          // in-flight mutation invalidates on settle, which is the catch-up for
+          // anything genuinely remote.
+          //
+          // Scoped to the `["tasks"]` key rather than the whole `tasks` table:
+          // `["search"]` (DEX-47) has no optimistic path — the Search tab's
+          // results come straight from the `search_entries` RPC — so skipping
+          // it here would leave a card the user just checked off or deleted on
+          // that very screen showing its old state, with no later catch-up.
+          continue;
+        }
+
         // Looked up per *key*, not per table: the guard below reads
         // `queryKey[1]` as a date, which is a property of the key rather than of
         // the table that triggered it. One table can invalidate several keys —

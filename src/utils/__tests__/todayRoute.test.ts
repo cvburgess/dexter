@@ -4,6 +4,7 @@ import { TSearchResult } from "@/api/search";
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import {
   parseDayDate,
+  parseDayLink,
   parseDayMode,
   searchResultRoute,
   todayRoute,
@@ -73,6 +74,57 @@ describe("parseDayDate", () => {
   });
 });
 
+describe("parseDayLink", () => {
+  it("returns null when the route names neither a day nor a surface", () => {
+    // An ordinary tab press — the Today tab must behave as if nothing was asked
+    // for, rather than applying an empty link.
+    expect(parseDayLink({})).toBeNull();
+    expect(parseDayLink({ q: "milk" })).toBeNull();
+  });
+
+  it("gives two follows of the same link different ids", () => {
+    // The whole point: cross-tab navigation reuses the mounted Today screen and
+    // only swaps its params, so a value-based comparison can't tell "already
+    // applied" from "applied, user navigated away, and asked again".
+    const first = parseDayLink({ date: "2026-07-14", mode: "notes", n: "1" });
+    const second = parseDayLink({ date: "2026-07-14", mode: "notes", n: "2" });
+
+    expect(first?.id).not.toBe(second?.id);
+    expect(second?.date).toEqual(Temporal.PlainDate.from("2026-07-14"));
+    expect(second?.mode).toBe("notes");
+  });
+
+  it("gives a link with no nonce a stable id, so it applies exactly once", () => {
+    // A hand-typed or bookmarked URL carries no `n`. Re-rendering must not
+    // re-apply it and yank the user back to that day.
+    const link = parseDayLink({ date: "2026-07-14", mode: "notes" });
+    const again = parseDayLink({ date: "2026-07-14", mode: "notes" });
+
+    expect(link?.id).toBe(again?.id);
+  });
+
+  it("distinguishes links that differ only in their query", () => {
+    const first = parseDayLink({ mode: "backlog", q: "milk", n: "1" });
+    const second = parseDayLink({ mode: "backlog", q: "bread", n: "1" });
+
+    expect(first?.id).not.toBe(second?.id);
+    expect(first?.query).toBe("milk");
+  });
+
+  it("narrows repeated params and drops an unparseable date", () => {
+    const link = parseDayLink({
+      date: ["2026-02-30"],
+      mode: ["journal", "notes"],
+      q: ["milk", "bread"],
+      n: ["1"],
+    });
+
+    expect(link?.date).toBeNull();
+    expect(link?.mode).toBe("journal");
+    expect(link?.query).toBe("milk");
+  });
+});
+
 describe("searchResultRoute", () => {
   it("sends a scheduled task to its day's task list", () => {
     const result: TSearchResult = {
@@ -80,9 +132,9 @@ describe("searchResultRoute", () => {
       task: makeTask({ scheduledFor: "2026-07-14" }),
     };
 
-    expect(searchResultRoute(result, "milk")).toEqual({
+    expect(searchResultRoute(result, "milk", "1")).toEqual({
       pathname: "/today",
-      params: { date: "2026-07-14", mode: "tasks" },
+      params: { date: "2026-07-14", mode: "tasks", n: "1" },
     });
   });
 
@@ -94,9 +146,9 @@ describe("searchResultRoute", () => {
 
     // No day to open, so the drawer seeds its own search box from `q` and the
     // task is on screen immediately instead of buried in the backlog.
-    expect(searchResultRoute(result, "milk")).toEqual({
+    expect(searchResultRoute(result, "milk", "1")).toEqual({
       pathname: "/today",
-      params: { mode: "backlog", q: "milk" },
+      params: { mode: "backlog", q: "milk", n: "1" },
     });
   });
 
@@ -107,9 +159,9 @@ describe("searchResultRoute", () => {
       content: "bought the milk",
     };
 
-    expect(searchResultRoute(result, "milk")).toEqual({
+    expect(searchResultRoute(result, "milk", "1")).toEqual({
       pathname: "/today",
-      params: { date: "2026-07-13", mode: "notes" },
+      params: { date: "2026-07-13", mode: "notes", n: "1" },
     });
   });
 
@@ -121,9 +173,9 @@ describe("searchResultRoute", () => {
       content: "remembered the milk",
     };
 
-    expect(searchResultRoute(result, "milk")).toEqual({
+    expect(searchResultRoute(result, "milk", "1")).toEqual({
       pathname: "/today",
-      params: { date: "2026-07-12", mode: "journal" },
+      params: { date: "2026-07-12", mode: "journal", n: "1" },
     });
   });
 });

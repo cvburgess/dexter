@@ -19,7 +19,7 @@ import {
   TASKS_PANE_MAX_WIDTH,
 } from "@/utils/breakpoints";
 import { TFilterId } from "@/utils/taskFilters";
-import { TDayMode } from "@/utils/todayRoute";
+import { TDayLink } from "@/utils/todayRoute";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 type TLargeScreenTodayProps = {
@@ -31,14 +31,13 @@ type TLargeScreenTodayProps = {
   // Drives the drawer toggle's dot.
   attentionFilter: TFilterId | null;
   /**
-   * Which surface a `?mode=` deep link asked for (DEX-47), or null for an
-   * ordinary tab press. Tasks is always visible here, so `tasks` is a no-op;
+   * The deep link this screen was opened with (DEX-47), or null for an ordinary
+   * tab press. Tasks is always visible here, so `mode: "tasks"` is a no-op;
    * `notes`/`journal` open that pane and select its tab, and `backlog` opens the
-   * docked drawer.
+   * docked drawer seeded with `query`. Keyed on `id` so re-following the same
+   * link works.
    */
-  mode: TDayMode | null;
-  /** The query behind a `mode=backlog` link, seeded into the drawer's search box. */
-  searchQuery?: string;
+  link: TDayLink | null;
 };
 
 // The multi-pane (large-screen) Today layout: Tasks plus optional Notes/Journal,
@@ -50,45 +49,44 @@ export function LargeScreenToday({
   preferences,
   changeDate,
   attentionFilter,
-  mode,
-  searchQuery,
+  link,
 }: TLargeScreenTodayProps) {
   const theme = useTheme();
   const router = useRouter();
   const [panes, { togglePane, openPane }] = useTodayPanes();
   const backlogAttention = attentionFilter !== null;
-  // The docked drawer runs controlled off this so opening it via the header
+  const mode = link?.mode ?? null;
+  const linkId = link?.id ?? null;
+  // The docked drawer runs controlled off these so opening it via the header
   // toggle can pre-apply the attention filter (see `toggleDrawerPane`),
   // mirroring the small-screen "tap Backlog" flow. The small-screen sheet owns
-  // its own filter internally instead (`TaskDrawerSheet`).
+  // its own state internally instead (`TaskDrawerSheet`).
+  //
   // Both seeded from the route so a `?mode=backlog` deep link is already applied
-  // on the first render — the `appliedLink` adjustment below only fires on a
+  // on the first render — the `appliedLinkId` adjustment below only fires on a
   // *change*, so arriving with the link set would otherwise show an unfiltered
-  // drawer. Same ownership reason as `drawerFilterId` for the search box: only
-  // this component can seed it before `TaskDrawer` mounts (DEX-47).
+  // drawer.
   const isBacklogLink = mode === "backlog";
   const [drawerFilterId, setDrawerFilterId] = useState<TFilterId>(
     isBacklogLink ? "unscheduled" : "none",
   );
   const [drawerSearch, setDrawerSearch] = useState(
-    isBacklogLink ? (searchQuery ?? "") : "",
+    isBacklogLink ? (link?.query ?? "") : "",
   );
 
   // Seed the drawer for a `?mode=backlog` deep link (DEX-47). Adjusted during
   // render rather than in an effect so the drawer never paints unfiltered for a
-  // frame first; `appliedLink` makes it fire once per change, so the user can
-  // adjust the filter or search afterwards without this resetting them. Keyed on
-  // the query as well as the mode, since a second backlog link differs only
-  // there.
-  const link = `${mode ?? ""}:${searchQuery ?? ""}`;
-  const [appliedLink, setAppliedLink] = useState(link);
-  if (link !== appliedLink) {
-    setAppliedLink(link);
+  // frame first. Keyed on `link.id`, which changes per navigation, so the user
+  // can adjust the filter or search afterwards without this resetting them *and*
+  // re-following the same link still re-seeds it.
+  const [appliedLinkId, setAppliedLinkId] = useState(linkId);
+  if (linkId !== appliedLinkId) {
+    setAppliedLinkId(linkId);
     if (mode === "backlog") {
       // Unscheduled is where a task with no date lives; the query puts the one
       // the user tapped at the top of the drawer rather than in the backlog.
       setDrawerFilterId("unscheduled");
-      setDrawerSearch(searchQuery ?? "");
+      setDrawerSearch(link?.query ?? "");
     }
   }
 
@@ -101,10 +99,13 @@ export function LargeScreenToday({
   // No `preferences.enable*` guard: with the feature off the pane simply doesn't
   // render, and `panes.notes`/`panes.journal` default to open anyway, so setting
   // them is very nearly a no-op. `panes.drawer` is the one that defaults closed.
+  // `linkId` is in the dependencies alongside `mode` because re-following the
+  // same link has to re-open a pane the user closed in between; `mode` is
+  // encoded in `linkId`, so listing both costs no extra firings.
   useEffect(() => {
     if (!mode || mode === "tasks") return;
     void openPane(mode === "backlog" ? "drawer" : mode);
-  }, [mode, openPane]);
+  }, [linkId, mode, openPane]);
 
   const showNotes = preferences.enableNotes && panes.notes;
   const showJournal = preferences.enableJournal && panes.journal;
@@ -123,7 +124,13 @@ export function LargeScreenToday({
   // stragglers, pre-apply the filter the dot points to so it lands on the
   // same view as the small-screen "tap Backlog" flow.
   const toggleDrawerPane = () => {
-    if (!panes.drawer && attentionFilter) setDrawerFilterId(attentionFilter);
+    if (!panes.drawer) {
+      if (attentionFilter) setDrawerFilterId(attentionFilter);
+      // Clears any search a `mode=backlog` deep link left seeded: this entry
+      // point means "show me my backlog", not "show it still filtered by a
+      // search from three screens ago" (DEX-47).
+      setDrawerSearch("");
+    }
     // `togglePane` persists to AsyncStorage; fire-and-forget like the other
     // pane toggles (which pass it straight to `onPress`).
     void togglePane("drawer");
@@ -186,6 +193,10 @@ export function LargeScreenToday({
               requestedTab={
                 mode === "notes" || mode === "journal" ? mode : null
               }
+              // The tab is a string union, so it carries no identity of its own
+              // — this is what tells the pane that a *second* navigation asked
+              // for the same tab it is already showing.
+              requestedTabLinkId={linkId}
             />
           </View>
         )}

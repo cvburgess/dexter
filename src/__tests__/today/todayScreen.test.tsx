@@ -333,7 +333,10 @@ describe("TodayScreen", () => {
 
       fireEvent.press(screen.getByLabelText("Open task drawer"));
 
-      expect(mockPresentTaskDrawer).toHaveBeenCalledWith(undefined);
+      // The empty search clears anything a `mode=backlog` deep link had seeded:
+      // this entry point means "show me my backlog", not "show it still filtered
+      // by a search from three screens ago" (DEX-47).
+      expect(mockPresentTaskDrawer).toHaveBeenCalledWith(undefined, "");
     });
 
     it("pre-applies the Overdue filter when opening Backlog with an overdue task", () => {
@@ -342,7 +345,7 @@ describe("TodayScreen", () => {
 
       fireEvent.press(screen.getByLabelText("Open task drawer"));
 
-      expect(mockPresentTaskDrawer).toHaveBeenCalledWith("overdue");
+      expect(mockPresentTaskDrawer).toHaveBeenCalledWith("overdue", "");
     });
 
     it("defaults to the Tasks view", () => {
@@ -688,6 +691,50 @@ describe("TodayScreen", () => {
       render(<TodayScreen />);
 
       expect(mockPresentTaskDrawer).not.toHaveBeenCalled();
+    });
+
+    it("re-applies a link the user has since navigated away from", () => {
+      // The real regression this guards: cross-tab navigation reuses this
+      // mounted screen and only swaps its params, so tapping a result, moving to
+      // another day, and tapping the *same* result again produces identical
+      // date/mode values. Without the per-navigation `n`, the second tap would
+      // switch tabs and then do nothing.
+      mockSearchParams.current = { date: "2026-07-14", mode: "tasks", n: "1" };
+      const screen = render(<TodayScreen />);
+      expect(screen.getByText("tasks-view:2026-07-14")).toBeTruthy();
+
+      // The user pages forward a day themselves.
+      fireEvent.press(screen.getByLabelText("Next day"));
+      expect(screen.getByText("tasks-view:2026-07-15")).toBeTruthy();
+
+      // Same result tapped again — only `n` differs.
+      mockSearchParams.current = { date: "2026-07-14", mode: "tasks", n: "2" };
+      screen.rerender(<TodayScreen />);
+
+      expect(screen.getByText("tasks-view:2026-07-14")).toBeTruthy();
+    });
+
+    it("does not drag the user back to the link's day on an unrelated re-render", () => {
+      mockSearchParams.current = { date: "2026-07-14", mode: "tasks", n: "1" };
+      const screen = render(<TodayScreen />);
+      fireEvent.press(screen.getByLabelText("Next day"));
+
+      // Same params, no new navigation.
+      screen.rerender(<TodayScreen />);
+
+      expect(screen.getByText("tasks-view:2026-07-15")).toBeTruthy();
+    });
+
+    it("re-presents the backlog sheet when the same result is tapped again", () => {
+      mockSearchParams.current = { mode: "backlog", q: "quarterly", n: "1" };
+      const screen = render(<TodayScreen />);
+      expect(mockPresentTaskDrawer).toHaveBeenCalledTimes(1);
+
+      // The user dismissed the sheet and tapped the same result again.
+      mockSearchParams.current = { mode: "backlog", q: "quarterly", n: "2" };
+      screen.rerender(<TodayScreen />);
+
+      expect(mockPresentTaskDrawer).toHaveBeenCalledTimes(2);
     });
 
     it("still selects the view when the day is left implicit", () => {

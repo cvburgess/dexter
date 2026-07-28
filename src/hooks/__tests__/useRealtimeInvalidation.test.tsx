@@ -327,7 +327,7 @@ describe("useRealtimeInvalidation", () => {
   it("skips refetching tasks while one of our own writes is in flight, then catches up once it settles", async () => {
     jest.useFakeTimers();
     try {
-      const { wrapper } = createWrapper();
+      const { wrapper, queryClient } = createWrapper();
       renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
 
       let resolveUpdate: () => void = () => {};
@@ -350,6 +350,7 @@ describe("useRealtimeInvalidation", () => {
       );
       await waitFor(() => expect(mockUpdateTask.mock.calls.length).toBe(1));
 
+      const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
       const binding = captured!.bindings.find((b) => b.table === "tasks")!;
       act(() => binding.handler({ table: "tasks" }));
       act(() => jest.advanceTimersByTime(250));
@@ -357,6 +358,17 @@ describe("useRealtimeInvalidation", () => {
       // Postgres echoing our own write back must not start a refetch: it can
       // resolve after a *newer* local edit and stamp stale rows over it.
       expect(mockGetTasks.mock.calls.length).toBe(fetchCountBeforeEvent);
+      // ...but the skip is scoped to the `["tasks"]` key, not the whole table.
+      // `["search"]` has no optimistic cache to protect (its rows come straight
+      // from the RPC), and the mutation's settle invalidation only covers
+      // `["tasks"]` — so suppressing it here would leave a card the user just
+      // checked off *on the Search tab* showing its old status indefinitely.
+      expect(invalidateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ["search"] }),
+      );
+      expect(invalidateSpy).not.toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ["tasks"] }),
+      );
 
       act(() => resolveUpdate());
 

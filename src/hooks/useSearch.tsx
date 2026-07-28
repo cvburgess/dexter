@@ -19,6 +19,13 @@ type TUseSearch = [
     isLoading: boolean;
     /** Whether `query` is long enough to have been searched at all. */
     enabled: boolean;
+    /**
+     * The query the returned results actually correspond to, which lags `query`
+     * while a newer search is in flight (see `placeholderData` below). Highlight
+     * with this rather than the live query, or every excerpt on screen loses its
+     * highlight and jumps to the head of its note until the new results land.
+     */
+    matchedQuery: string;
   },
 ];
 
@@ -39,11 +46,18 @@ export const useSearch = (query: string): TUseSearch => {
   const trimmed = query.trim();
   const enabled = trimmed.length >= MIN_SEARCH_LENGTH;
 
-  const { data = EMPTY_RESULTS, isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     // Keyed on the trimmed query, so "  todo" and "todo" share one cache entry
     // — and so does re-typing a query the user already ran.
     queryKey: ["search", trimmed],
-    queryFn: () => searchEntries(supabase, trimmed),
+    // The query travels *with* its results rather than being inferred from
+    // `isPlaceholderData` and a ref: while `keepPreviousData` is holding the
+    // previous rows, `data.query` is still the query those rows matched, which
+    // is what the excerpts have to highlight against.
+    queryFn: async () => ({
+      query: trimmed,
+      results: await searchEntries(supabase, trimmed),
+    }),
     enabled,
     // Hold the previous query's results while the next one is in flight.
     // Without this every keystroke makes `data` undefined for a beat, which
@@ -53,5 +67,8 @@ export const useSearch = (query: string): TUseSearch => {
     placeholderData: keepPreviousData,
   });
 
-  return [data, { isLoading, enabled }];
+  return [
+    data?.results ?? EMPTY_RESULTS,
+    { isLoading, enabled, matchedQuery: data?.query ?? trimmed },
+  ];
 };
