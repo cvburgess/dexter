@@ -56,6 +56,8 @@ Agents may have access to MCP servers for common tasks (configure per environmen
 
 **Test file placement:** Never place test files inside `/src/app/` — Expo Router treats this directory as routes. Place tests in `__tests__/` directories adjacent to source files.
 
+**Migration ordering:** Production applies migrations with `supabase db push --include-all`, so a migration can land *after* one with a later timestamp (PRs merge in a different order than their migrations were authored). Never write a migration that depends on a later-timestamped one having already run — if two must land in order, ship them in one PR. See `docs/backend.md`.
+
 ## App (`/src`)
 
 Primary reference: `docs/frontend.md`
