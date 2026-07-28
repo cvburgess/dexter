@@ -1,8 +1,10 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render } from "@testing-library/react-native";
+import type { ComponentProps } from "react";
 import { Text, TouchableOpacity } from "react-native";
 
 import WeekScreen from "@/app/(app)/(tabs)/week";
+import type { WeekView } from "@/components/WeekView";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
@@ -17,36 +19,31 @@ jest.mock("@/hooks/useViewedDay", () => ({
 }));
 
 // WeekView is exercised through its own pieces (WeekNav/WeekDayColumn tests);
-// stub it to a marker that echoes the props this route decides — which week is
-// on screen, and which day the "+" entry points target — plus a control for
-// driving week changes back through the route's own state.
-const mockWeekView = jest.fn(
-  ({
-    monday,
-    onChangeWeek,
-    targetDate,
-    enableHabits,
-  }: {
-    monday: Temporal.PlainDate;
-    onChangeWeek: (next: Temporal.PlainDate) => void;
-    targetDate: Temporal.PlainDate;
-    enableHabits: boolean;
-  }) => (
-    <>
-      <Text>{`week-view:${monday.toString()}`}</Text>
-      <Text>{`target:${targetDate.toString()}`}</Text>
-      <Text>{`habits:${String(enableHabits)}`}</Text>
-      <TouchableOpacity
-        accessibilityLabel="next-week"
-        onPress={() => onChangeWeek(monday.add({ weeks: 1 }))}
-      >
-        <Text>next</Text>
-      </TouchableOpacity>
-    </>
-  ),
+// stub it to markers that echo the props this route decides — which week is on
+// screen, and which day the "+" entry points target — plus a control for
+// driving week changes back through the route's own state. Typed off the real
+// component so a prop rename fails here rather than silently drifting; the
+// `mock` prefix is what satisfies Jest's hoisting rule.
+const mockWeekView = ({
+  monday,
+  onChangeWeek,
+  targetDate,
+  enableHabits,
+}: ComponentProps<typeof WeekView>) => (
+  <>
+    <Text>{`week-view:${monday.toString()}`}</Text>
+    <Text>{`target:${targetDate.toString()}`}</Text>
+    <Text>{`habits:${String(enableHabits)}`}</Text>
+    <TouchableOpacity
+      accessibilityLabel="next-week"
+      onPress={() => onChangeWeek(monday.add({ weeks: 1 }))}
+    >
+      <Text>next</Text>
+    </TouchableOpacity>
+  </>
 );
 jest.mock("@/components/WeekView", () => ({
-  WeekView: (props: Parameters<typeof mockWeekView>[0]) => mockWeekView(props),
+  WeekView: (props: ComponentProps<typeof WeekView>) => mockWeekView(props),
 }));
 
 const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<

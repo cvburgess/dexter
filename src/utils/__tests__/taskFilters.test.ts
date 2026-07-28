@@ -1,13 +1,13 @@
 import { Temporal } from "@js-temporal/polyfill";
 
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
+import { weekDays } from "@/utils/weekStartEnd";
 
 import {
   backlogAttentionFilter,
   filterTasks,
   isCompletionStatus,
   selectBacklogTasks,
-  selectBacklogTasksForWeek,
   selectTasksForDate,
 } from "../taskFilters";
 
@@ -67,7 +67,7 @@ describe("selectTasksForDate", () => {
   });
 });
 
-describe("selectBacklogTasksForWeek", () => {
+describe("selectBacklogTasks over a whole week (DEX-96)", () => {
   // 2026-07-27 (Mon) – 2026-08-02 (Sun).
   const monday = Temporal.PlainDate.from("2026-07-27");
 
@@ -80,18 +80,17 @@ describe("selectBacklogTasksForWeek", () => {
       task({ id: "mon-after", scheduledFor: "2026-08-03" }),
     ];
 
-    expect(selectBacklogTasksForWeek(tasks, monday).map((t) => t.id)).toEqual([
-      "sun-before",
-      "mon-after",
-    ]);
+    expect(
+      selectBacklogTasks(tasks, weekDays(monday)).map((t) => t.id),
+    ).toEqual(["sun-before", "mon-after"]);
   });
 
   it("includes unscheduled incomplete tasks", () => {
     const tasks = [task({ id: "1", scheduledFor: null })];
 
-    expect(selectBacklogTasksForWeek(tasks, monday).map((t) => t.id)).toEqual([
-      "1",
-    ]);
+    expect(
+      selectBacklogTasks(tasks, weekDays(monday)).map((t) => t.id),
+    ).toEqual(["1"]);
   });
 
   it("excludes completed tasks even when scheduled outside the week", () => {
@@ -109,9 +108,9 @@ describe("selectBacklogTasksForWeek", () => {
       task({ id: "open", scheduledFor: "2026-07-01" }),
     ];
 
-    expect(selectBacklogTasksForWeek(tasks, monday).map((t) => t.id)).toEqual([
-      "open",
-    ]);
+    expect(
+      selectBacklogTasks(tasks, weekDays(monday)).map((t) => t.id),
+    ).toEqual(["open"]);
   });
 
   it("spans a month boundary within the week", () => {
@@ -119,7 +118,7 @@ describe("selectBacklogTasksForWeek", () => {
     // mis-scope 2026-08-01 (a Saturday inside the week).
     const tasks = [task({ id: "sat", scheduledFor: "2026-08-01" })];
 
-    expect(selectBacklogTasksForWeek(tasks, monday)).toEqual([]);
+    expect(selectBacklogTasks(tasks, weekDays(monday))).toEqual([]);
   });
 });
 
@@ -130,13 +129,13 @@ describe("selectBacklogTasks", () => {
       task({ id: "2", scheduledFor: "2026-07-17" }),
     ];
 
-    expect(selectBacklogTasks(tasks, date).map((t) => t.id)).toEqual(["2"]);
+    expect(selectBacklogTasks(tasks, [date]).map((t) => t.id)).toEqual(["2"]);
   });
 
   it("includes unscheduled incomplete tasks", () => {
     const tasks = [task({ id: "1", scheduledFor: null })];
 
-    expect(selectBacklogTasks(tasks, date).map((t) => t.id)).toEqual(["1"]);
+    expect(selectBacklogTasks(tasks, [date]).map((t) => t.id)).toEqual(["1"]);
   });
 
   it("excludes completed and won't-do tasks", () => {
@@ -154,7 +153,7 @@ describe("selectBacklogTasks", () => {
       }),
     ];
 
-    expect(selectBacklogTasks(tasks, date).map((t) => t.id)).toEqual(["3"]);
+    expect(selectBacklogTasks(tasks, [date]).map((t) => t.id)).toEqual(["3"]);
   });
 });
 

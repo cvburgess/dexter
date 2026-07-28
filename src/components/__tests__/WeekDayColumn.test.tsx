@@ -1,5 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { fireEvent, render } from "@testing-library/react-native";
+import { fireEvent, render, renderHook } from "@testing-library/react-native";
 import { useRouter } from "expo-router";
 import { StyleSheet, Text } from "react-native";
 import type { ViewStyle } from "react-native";
@@ -8,7 +8,7 @@ import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
 import { formatMonthDay, formatWeekday } from "@/utils/formatPlainDate";
-import { Theme, useTheme, withOpacity } from "@/utils/theme";
+import { useTheme, withOpacity } from "@/utils/theme";
 
 import { WeekDayColumn } from "../WeekDayColumn";
 
@@ -90,21 +90,9 @@ const chipStyle = (
       .style as ViewStyle[],
   );
 
-/**
- * The theme the component resolves under test, read through the same hook it
- * uses. Asserting against this rather than a hardcoded hex keeps these tests
- * honest if the no-provider fallback theme ever changes.
- */
-const resolvedTheme = (): Theme => {
-  let theme: Theme | undefined;
-  const Probe = () => {
-    theme = useTheme();
-    return null;
-  };
-  render(<Probe />);
-  if (!theme) throw new Error("useTheme did not resolve");
-  return theme;
-};
+// Resolved through the same hook the component uses rather than hardcoded, so
+// these assertions keep holding if the no-provider fallback theme changes.
+const theme = renderHook(() => useTheme()).result.current;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -118,7 +106,9 @@ beforeEach(() => {
 
 describe("WeekDayColumn", () => {
   it("labels the column with the weekday and numeric date", () => {
-    const screen = render(<WeekDayColumn date={date} enableHabits={false} />);
+    const screen = render(
+      <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
+    );
 
     expect(screen.getByText("Wednesday")).toBeTruthy();
     expect(screen.getByText("7/29")).toBeTruthy();
@@ -132,20 +122,26 @@ describe("WeekDayColumn", () => {
       ]),
     );
 
-    const screen = render(<WeekDayColumn date={date} enableHabits={false} />);
+    const screen = render(
+      <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
+    );
 
     expect(screen.getByText("Mine")).toBeTruthy();
     expect(screen.queryByText("Tomorrow's")).toBeNull();
   });
 
   it("shows a short empty state so it fits a narrow column", () => {
-    const screen = render(<WeekDayColumn date={date} enableHabits={false} />);
+    const screen = render(
+      <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
+    );
 
     expect(screen.getByText("No tasks")).toBeTruthy();
   });
 
   it("opens the create-task modal already scheduled for its own day", () => {
-    const screen = render(<WeekDayColumn date={date} enableHabits={false} />);
+    const screen = render(
+      <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
+    );
 
     fireEvent.press(screen.getByLabelText("New task on Wednesday 7/29"));
 
@@ -157,14 +153,16 @@ describe("WeekDayColumn", () => {
 
   describe("habits", () => {
     it("renders the tracker when habits are enabled", () => {
-      const screen = render(<WeekDayColumn date={date} enableHabits />);
+      const screen = render(
+        <WeekDayColumn date={date} enableHabits isToday={false} />,
+      );
 
       expect(screen.getByText("habit-tracker:nudge=false")).toBeTruthy();
     });
 
     it("suppresses the create-a-habit nudge", () => {
       // Seven columns would otherwise show seven copies of the same link.
-      render(<WeekDayColumn date={date} enableHabits />);
+      render(<WeekDayColumn date={date} enableHabits isToday={false} />);
 
       expect(mockHabitTracker).toHaveBeenCalledWith(
         expect.objectContaining({ showCreateNudge: false }),
@@ -172,7 +170,9 @@ describe("WeekDayColumn", () => {
     });
 
     it("hides the tracker when habits are disabled", () => {
-      const screen = render(<WeekDayColumn date={date} enableHabits={false} />);
+      const screen = render(
+        <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
+      );
 
       expect(screen.queryByText(/habit-tracker/)).toBeNull();
     });
@@ -182,11 +182,8 @@ describe("WeekDayColumn", () => {
     const today = Temporal.Now.plainDateISO();
 
     it("fills the chip with the inverted ink color", () => {
-      // Resolved through the same hook the component uses rather than
-      // hardcoded, so this keeps holding if the default theme changes.
-      const theme = resolvedTheme();
       const screen = render(
-        <WeekDayColumn date={today} enableHabits={false} />,
+        <WeekDayColumn date={today} enableHabits={false} isToday />,
       );
 
       // The pair WebNavRail uses for its selected tile.
@@ -196,9 +193,8 @@ describe("WeekDayColumn", () => {
     });
 
     it("draws today's label in the background color so it reads on the fill", () => {
-      const theme = resolvedTheme();
       const screen = render(
-        <WeekDayColumn date={today} enableHabits={false} />,
+        <WeekDayColumn date={today} enableHabits={false} isToday />,
       );
 
       expect(
@@ -210,7 +206,7 @@ describe("WeekDayColumn", () => {
 
     it("announces itself as today to assistive tech", () => {
       const screen = render(
-        <WeekDayColumn date={today} enableHabits={false} />,
+        <WeekDayColumn date={today} enableHabits={false} isToday />,
       );
 
       expect(
@@ -221,17 +217,15 @@ describe("WeekDayColumn", () => {
     });
 
     it("leaves other days' chips unfilled and unlabelled as today", () => {
-      const theme = resolvedTheme();
-      const screen = render(<WeekDayColumn date={date} enableHabits={false} />);
+      const screen = render(
+        <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
+      );
 
       // No ", today" suffix, and no fill.
       expect(
         screen.getByLabelText(`${formatWeekday(date)} ${formatMonthDay(date)}`),
       ).toBeTruthy();
       expect(chipStyle(screen, date).backgroundColor).toBe("transparent");
-      expect(chipStyle(screen, date).backgroundColor).not.toBe(
-        withOpacity(theme.colors.text, 0.8),
-      );
     });
   });
 });

@@ -4,8 +4,6 @@ import { weekDays, weekOf, weekStartEnd } from "../weekStartEnd";
 
 describe("weekOf", () => {
   // 2026-07-27 is a Monday, so this run covers every weekday of one week.
-  const monday = Temporal.PlainDate.from("2026-07-27");
-
   it.each([
     ["Monday", "2026-07-27"],
     ["Tuesday", "2026-07-28"],
@@ -16,17 +14,6 @@ describe("weekOf", () => {
     ["Sunday", "2026-08-02"],
   ])("anchors %s on the same Monday", (_weekday, iso) => {
     const week = weekOf(Temporal.PlainDate.from(iso));
-    expect(week.monday.toString()).toBe("2026-07-27");
-    expect(week.sunday.toString()).toBe("2026-08-02");
-  });
-
-  it("is idempotent — the week of a Monday starts on that Monday", () => {
-    expect(weekOf(monday).monday.toString()).toBe(monday.toString());
-  });
-
-  it("spans a month boundary without rolling into the wrong week", () => {
-    // 2026-08-01 is a Saturday, so its week starts in July.
-    const week = weekOf(Temporal.PlainDate.from("2026-08-01"));
     expect(week.monday.toString()).toBe("2026-07-27");
     expect(week.sunday.toString()).toBe("2026-08-02");
   });
@@ -52,12 +39,6 @@ describe("weekDays", () => {
       "2026-08-02",
     ]);
   });
-
-  it("starts on Monday and ends on Sunday", () => {
-    const days = weekDays(weekOf(Temporal.Now.plainDateISO()).monday);
-    expect(days[0].dayOfWeek).toBe(1);
-    expect(days[6].dayOfWeek).toBe(7);
-  });
 });
 
 describe("weekStartEnd", () => {
@@ -79,12 +60,6 @@ describe("weekStartEnd", () => {
     );
     expect(weekStartEnd(-2).monday.toString()).toBe(
       base.subtract({ days: 14 }).toString(),
-    );
-  });
-
-  it("agrees with weekOf for the current week", () => {
-    expect(weekStartEnd().monday.toString()).toBe(
-      weekOf(Temporal.Now.plainDateISO()).monday.toString(),
     );
   });
 });

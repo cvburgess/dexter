@@ -33,43 +33,24 @@ export function selectTasksForDate(
 }
 
 /**
- * Incomplete tasks unscheduled or scheduled for a day other than `date` — the
- * Backlog drawer's base scope (on-device equivalent of the former
+ * Incomplete tasks that are unscheduled or scheduled for a day *not* already on
+ * screen — the Backlog drawer's base scope (on-device equivalent of the former
  * `notScheduledForDateFilters` server query, DEX-57).
+ *
+ * `daysOnScreen` is however many days the host is showing: one on the Today tab,
+ * seven on the Week tab (DEX-96). The rule is the same either way — offer what
+ * isn't already in front of the user — so this takes a cardinality rather than a
+ * mode, and there is no separate week variant to keep in step with this one.
  */
 export function selectBacklogTasks(
   tasks: TTask[],
-  date: Temporal.PlainDate,
+  daysOnScreen: Temporal.PlainDate[],
 ): TTask[] {
-  const iso = date.toString();
-  return tasks.filter(
-    (task) => isIncomplete(task) && task.scheduledFor !== iso,
-  );
-}
-
-/**
- * Incomplete tasks unscheduled or scheduled outside the Monday–Sunday week
- * starting at `monday` — the Week tab's backlog scope (DEX-96), and the
- * on-device equivalent of the legacy QuickPlanner's `notThisWeek` server
- * filter. The week form of `selectBacklogTasks` above: the Week tab shows
- * seven days at once, so "not scheduled for the viewed day" would list six of
- * the columns already on screen back to the user.
- *
- * ISO `YYYY-MM-DD` strings compare correctly with plain string operators, so
- * the bounds need no Temporal parsing per task.
- */
-export function selectBacklogTasksForWeek(
-  tasks: TTask[],
-  monday: Temporal.PlainDate,
-): TTask[] {
-  const start = monday.toString();
-  const end = monday.add({ days: 6 }).toString();
+  const shown = new Set(daysOnScreen.map((day) => day.toString()));
   return tasks.filter(
     (task) =>
       isIncomplete(task) &&
-      (task.scheduledFor === null ||
-        task.scheduledFor < start ||
-        task.scheduledFor > end),
+      (task.scheduledFor === null || !shown.has(task.scheduledFor)),
   );
 }
 

@@ -10,8 +10,13 @@ import { useTheme, withOpacity } from "@/utils/theme";
 
 type TWeekDayColumnProps = {
   date: Temporal.PlainDate;
-  /** Mirrors `preferences.enableHabits`; read once by the parent for all seven columns. */
   enableHabits: boolean;
+  /**
+   * Passed in rather than recomputed here: `Temporal.Now.plainDateISO()`
+   * re-resolves the system time zone on every call, and the parent already
+   * has to find today's column to anchor the scroll.
+   */
+  isToday: boolean;
 };
 
 /**
@@ -24,12 +29,19 @@ type TWeekDayColumnProps = {
  * `WebNavRail` uses for its selected tile, and a direct port of the legacy
  * app's `bg-base-content/80 text-base-100` badge.
  */
-export function WeekDayColumn({ date, enableHabits }: TWeekDayColumnProps) {
+export function WeekDayColumn({
+  date,
+  enableHabits,
+  isToday,
+}: TWeekDayColumnProps) {
   const theme = useTheme();
   const router = useRouter();
 
-  const isToday = Temporal.Now.plainDateISO().equals(date);
   const iso = date.toString();
+  // One source for the day's wording, so the chip, its accessibility label,
+  // and the "+" button can't drift apart.
+  const label = `${formatWeekday(date)} ${formatMonthDay(date)}`;
+  const chipColor = isToday ? theme.colors.background : theme.colors.text;
 
   return (
     <View style={styles.container} testID={`week-column-${iso}`}>
@@ -38,9 +50,7 @@ export function WeekDayColumn({ date, enableHabits }: TWeekDayColumnProps) {
           // Not a button: the chip is a label, and the whole point of the
           // Week tab is that every day is already on screen — there is
           // nothing for tapping a day to navigate to.
-          accessibilityLabel={`${formatWeekday(date)} ${formatMonthDay(date)}${
-            isToday ? ", today" : ""
-          }`}
+          accessibilityLabel={isToday ? `${label}, today` : label}
           accessible
           style={[
             styles.chip,
@@ -56,25 +66,19 @@ export function WeekDayColumn({ date, enableHabits }: TWeekDayColumnProps) {
         >
           <Text
             numberOfLines={1}
-            style={[
-              styles.chipTitle,
-              { color: isToday ? theme.colors.background : theme.colors.text },
-            ]}
+            style={[styles.chipTitle, { color: chipColor }]}
           >
             {formatWeekday(date)}
           </Text>
           <Text
             numberOfLines={1}
-            style={[
-              styles.chipSubtitle,
-              { color: isToday ? theme.colors.background : theme.colors.text },
-            ]}
+            style={[styles.chipSubtitle, { color: chipColor }]}
           >
             {formatMonthDay(date)}
           </Text>
         </View>
         <GlassIconButton
-          accessibilityLabel={`New task on ${formatWeekday(date)} ${formatMonthDay(date)}`}
+          accessibilityLabel={`New task on ${label}`}
           ionicon="add-outline"
           onPress={() =>
             router.push({

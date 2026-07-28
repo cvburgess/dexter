@@ -21,7 +21,6 @@ import { searchTerms } from "@/utils/searchHighlight";
 import {
   filterTasks,
   selectBacklogTasks,
-  selectBacklogTasksForWeek,
   TFilterId,
 } from "@/utils/taskFilters";
 import { useTheme, withOpacity } from "@/utils/theme";
@@ -184,19 +183,17 @@ export function groupTasks(
 }
 
 type TTaskDrawerProps = {
-  /**
-   * The day a row's "+" schedules its task onto. On the Today tab this is
-   * also the day the drawer's scope excludes; on the Week tab `weekStart`
-   * below widens that scope while this stays the single target day.
-   */
+  /** The day a row's "+" schedules its task onto. */
   date: Temporal.PlainDate;
   /**
-   * When set, scopes the drawer to tasks not scheduled anywhere in the
-   * Monday–Sunday week starting here, instead of "not scheduled for `date`"
-   * (DEX-96). The Week tab has all seven of those days on screen already, so
-   * the day-scoped form would list six of its own columns back to the user.
+   * The days the host already has on screen, which the drawer therefore leaves
+   * out of the backlog. Defaults to `[date]` — the Today tab's single day. The
+   * Week tab passes all seven of its columns (DEX-96), since offering back six
+   * days the user is already looking at isn't a backlog.
+   *
+   * Memoize it at the call site: it feeds the `tasks` memo below.
    */
-  weekStart?: Temporal.PlainDate;
+  daysOnScreen?: Temporal.PlainDate[];
   /**
    * Controls the Filter preset from the parent when provided (with
    * `onFilterChange`) — used by the mobile sheet to pre-apply the attention
@@ -218,7 +215,8 @@ type TTaskDrawerProps = {
 
 /**
  * Shared task-drawer content: Filter/Group/Search controls over every
- * incomplete task not scheduled for `date`, with a tap-to-schedule affordance
+ * incomplete task not scheduled onto a day the host already shows (see
+ * `daysOnScreen`), with a tap-to-schedule affordance
  * per row. Hosted two ways: an `@expo/ui` bottom sheet on small screens
  * (`TaskDrawerSheet`) and a docked pane on large screens (`today/index.tsx`).
  * The controls+search sit above a `FlashList` of the (possibly large, in
@@ -238,7 +236,7 @@ type TTaskDrawerProps = {
  */
 export function TaskDrawer({
   date,
-  weekStart,
+  daysOnScreen,
   filterId: controlledFilterId,
   onFilterChange,
   search: controlledSearch,
@@ -263,16 +261,16 @@ export function TaskDrawer({
   const [goals] = useGoals({ skipQuery: groupBy !== "goalId" });
   const [allTasks, { isLoading, updateTask, createTask, deleteTask }] =
     useTasks();
+  // The `?? [date]` fallback lives inside the memo: as an inline prop default
+  // it would allocate a fresh array every render and defeat it.
   const tasks = useMemo(
     () =>
       filterTasks(
-        weekStart
-          ? selectBacklogTasksForWeek(allTasks, weekStart)
-          : selectBacklogTasks(allTasks, date),
+        selectBacklogTasks(allTasks, daysOnScreen ?? [date]),
         filterId,
         Temporal.Now.plainDateISO(),
       ),
-    [allTasks, date, weekStart, filterId],
+    [allTasks, date, daysOnScreen, filterId],
   );
 
   const groups = useMemo(

@@ -41,7 +41,12 @@ export function HabitTracker({
 
   // Every non-archived habit — used only to tell "no habits at all" (show the
   // create nudge) apart from "none scheduled for this weekday" (show nothing).
-  const [allHabits, { isLoading: allHabitsLoading }] = useHabits();
+  // Skipped when the nudge is suppressed, since nothing else reads it: the
+  // Week tab mounts seven of these, and each would otherwise add an observer
+  // (and, landing cold on /week, a request) for data it never renders.
+  const [allHabits, { isLoading: allHabitsLoading }] = useHabits({
+    skipQuery: !showCreateNudge,
+  });
 
   // Active, unpaused habits for this weekday — the source of truth for future
   // dates, and what `createDailyHabits` bootstraps against for today/past.

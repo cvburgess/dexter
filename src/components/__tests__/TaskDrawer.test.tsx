@@ -1,5 +1,6 @@
 import { FlashList } from "@shopify/flash-list";
 import { Temporal } from "@js-temporal/polyfill";
+import { weekDays } from "@/utils/weekStartEnd";
 import { fireEvent, render } from "@testing-library/react-native";
 import type { ReactNode } from "react";
 import {
@@ -352,7 +353,7 @@ describe("TaskDrawer", () => {
     ).toBeTruthy();
   });
 
-  describe("weekStart scoping (DEX-96)", () => {
+  describe("daysOnScreen scoping (DEX-96)", () => {
     // 2026-07-27 (Mon) – 2026-08-02 (Sun).
     const monday = Temporal.PlainDate.from("2026-07-27");
     const inWeek = task({
@@ -369,14 +370,16 @@ describe("TaskDrawer", () => {
     it("hides every task scheduled inside the week", () => {
       mockUseTasks.mockReturnValue(tasksResult([inWeek, outOfWeek]));
 
-      const screen = render(<TaskDrawer date={monday} weekStart={monday} />);
+      const screen = render(
+        <TaskDrawer date={monday} daysOnScreen={weekDays(monday)} />,
+      );
 
       expect(screen.getByText("Outside the week")).toBeTruthy();
       expect(screen.queryByText("Inside the week")).toBeNull();
     });
 
-    it("still shows a same-week task when no weekStart is given", () => {
-      // Without the prop the drawer keeps its day scope, so a task on another
+    it("still shows a same-week task when no daysOnScreen is given", () => {
+      // Without the prop the drawer scopes to [date] alone, so a task on another
       // day of that week belongs in the Today backlog.
       mockUseTasks.mockReturnValue(tasksResult([inWeek, outOfWeek]));
 
@@ -386,10 +389,12 @@ describe("TaskDrawer", () => {
       expect(screen.getByText("Outside the week")).toBeTruthy();
     });
 
-    it("schedules onto `date`, not the whole week", () => {
+    it("schedules onto `date`, not every day on screen", () => {
       mockUseTasks.mockReturnValue(tasksResult([outOfWeek]));
 
-      const screen = render(<TaskDrawer date={monday} weekStart={monday} />);
+      const screen = render(
+        <TaskDrawer date={monday} daysOnScreen={weekDays(monday)} />,
+      );
       fireEvent.press(
         screen.getByLabelText('Schedule "Outside the week" for Monday, Jul 27'),
       );

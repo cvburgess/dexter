@@ -1,6 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { EmptyScreen } from "@/components/EmptyScreen";
@@ -38,11 +38,7 @@ export default function WeekScreen() {
   // week's Monday otherwise, so a task created while looking at another week
   // lands in the week being looked at rather than silently on today.
   const today = Temporal.Now.plainDateISO();
-  const sunday = monday.add({ days: 6 });
-  const showsToday =
-    Temporal.PlainDate.compare(today, monday) >= 0 &&
-    Temporal.PlainDate.compare(today, sunday) <= 0;
-  const targetDate = showsToday ? today : monday;
+  const targetDate = weekOf(today).monday.equals(monday) ? today : monday;
 
   usePublishViewedDay(targetDate);
 
@@ -52,9 +48,9 @@ export default function WeekScreen() {
         edges={["top", "left", "right"]}
         style={[styles.narrow, { backgroundColor: theme.colors.background }]}
       >
-        <View style={styles.narrowBody}>
-          <EmptyScreen message="The Week view needs a wider screen. Use the Today tab here, or open Dexter on a tablet or desktop." />
-        </View>
+        {/* EmptyScreen already fills and centers, and reserves the bottom
+            inset itself — it needs no wrapper of its own. */}
+        <EmptyScreen message="The Week view needs a wider screen. Use the Today tab here, or open Dexter on a tablet or desktop." />
       </SafeAreaView>
     );
   }
@@ -72,9 +68,5 @@ export default function WeekScreen() {
 const styles = StyleSheet.create({
   narrow: {
     flex: 1,
-  },
-  narrowBody: {
-    flex: 1,
-    justifyContent: "center",
   },
 });

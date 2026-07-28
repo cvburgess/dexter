@@ -1,6 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { LayoutChangeEvent, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -50,26 +50,48 @@ export function WeekView({
   // didn't persist its Quick Planner toggle either.
   const [showDrawer, setShowDrawer] = useState(false);
 
-  const days = weekDays(monday);
+  // Memoized because `date` identity propagates: `DayTaskList` memoizes its
+  // per-day filter on it, and `HabitTracker`'s row-bootstrapping effect lists
+  // it as a dependency — a fresh array each render would re-filter seven task
+  // lists and re-fire that write effect on every unrelated re-render.
+  const days = useMemo(() => weekDays(monday), [monday]);
+  // Read once rather than per column: `Temporal.Now.plainDateISO()` resolves
+  // the system time zone on every call, making it the most expensive Temporal
+  // operation by a wide margin. Also keeps a render that straddles midnight
+  // internally consistent.
+  const today = Temporal.Now.plainDateISO();
+  const todayIndex = days.findIndex((day) => day.equals(today));
 
   const scrollRef = useRef<ScrollView>(null);
-  const viewportWidth = useRef(0);
-  const contentWidth = useRef(0);
-  // Guards the one-shot scroll per week: `onLayout` fires again on rotation
-  // and on any re-layout, and re-scrolling then would yank the user back to
-  // today after they had scrolled elsewhere. Keyed on the week so paging away
-  // and back re-anchors.
+  // Guards the one-shot anchor per week: `onLayout` fires again on any
+  // re-layout, and re-scrolling then would yank the user back to today after
+  // they had scrolled elsewhere. Keyed on the week so paging away and back
+  // re-anchors. Same shape as `CalendarView`'s `didScrollToNowRef`.
   const anchoredWeek = useRef<string | null>(null);
 
-  const anchorToday = (x: number) => {
+  // Derived from the layout contract rather than measured, so this needs only
+  // the scroller's own `onLayout` — no coordination with a child's layout or
+  // with `onContentSizeChange`, either of which could land first and strand
+  // the anchor. Whenever the week overflows (the only case where scrolling
+  // exists) every column sits at exactly its minimum, since that is what
+  // stopped them shrinking; when it doesn't overflow, this underestimates the
+  // content and `scrollOffsetForTarget` clamps to 0 — which is the right
+  // answer there anyway.
+  const columnPitch = WEEK_COLUMN_MIN_WIDTH + theme.gap;
+  const minContentWidth = 7 * WEEK_COLUMN_MIN_WIDTH + 6 * theme.gap;
+
+  const anchorToday = (viewportWidth: number) => {
     const key = monday.toString();
-    if (anchoredWeek.current === key) return;
-    if (!viewportWidth.current || !contentWidth.current) return;
+    if (todayIndex < 0 || anchoredWeek.current === key) return;
     anchoredWeek.current = key;
     scrollRef.current?.scrollTo({
       // Anchors today in the left third rather than dead center, so the rest
       // of the week — the part you can still plan — stays in frame.
-      x: scrollOffsetForTarget(x, viewportWidth.current, contentWidth.current),
+      x: scrollOffsetForTarget(
+        todayIndex * columnPitch,
+        viewportWidth,
+        minContentWidth,
+      ),
       animated: false,
     });
   };
@@ -111,12 +133,9 @@ export function WeekView({
       <View style={[styles.body, { gap: theme.gap }]}>
         <ScrollView
           horizontal
-          onContentSizeChange={(width) => {
-            contentWidth.current = width;
-          }}
-          onLayout={(event: LayoutChangeEvent) => {
-            viewportWidth.current = event.nativeEvent.layout.width;
-          }}
+          onLayout={(event: LayoutChangeEvent) =>
+            anchorToday(event.nativeEvent.layout.width)
+          }
           ref={scrollRef}
           showsHorizontalScrollIndicator={false}
           style={styles.weekScroll}
@@ -125,18 +144,13 @@ export function WeekView({
           // the columns sit at their minimum against a gap of empty space.
           contentContainerStyle={[styles.weekRow, { gap: theme.gap }]}
         >
-          {days.map((day) => (
-            <View
-              key={day.toString()}
-              onLayout={
-                Temporal.Now.plainDateISO().equals(day)
-                  ? (event: LayoutChangeEvent) =>
-                      anchorToday(event.nativeEvent.layout.x)
-                  : undefined
-              }
-              style={styles.column}
-            >
-              <WeekDayColumn date={day} enableHabits={enableHabits} />
+          {days.map((day, index) => (
+            <View key={day.toString()} style={styles.column}>
+              <WeekDayColumn
+                date={day}
+                enableHabits={enableHabits}
+                isToday={index === todayIndex}
+              />
             </View>
           ))}
         </ScrollView>
@@ -150,7 +164,7 @@ export function WeekView({
               },
             ]}
           >
-            <TaskDrawer date={targetDate} weekStart={monday} />
+            <TaskDrawer daysOnScreen={days} date={targetDate} />
           </View>
         )}
       </View>

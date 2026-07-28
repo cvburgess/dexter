@@ -24,13 +24,10 @@ type TWeekNavProps = {
 export function WeekNav({ monday, onChangeWeek }: TWeekNavProps) {
   const theme = useTheme();
 
-  // ISO week numbering: `yearOfWeek` is not always `year`. A week owned by the
-  // neighbouring year (Dec 30 2024 is week 1 of 2025; Jan 1 2027 is week 53 of
-  // 2026) would otherwise be labelled with the wrong year — the legacy app's
-  // bug, which used `.year`. Both accessors are ISO-calendar only and this app
-  // is ISO throughout, but `?? year` keeps a non-ISO calendar from rendering
-  // "undefined" rather than a slightly wrong year.
-  const label = `Week ${monday.weekOfYear ?? ""}, ${monday.yearOfWeek ?? monday.year}`;
+  // `yearOfWeek`, not `year`: an ISO week can belong to the neighbouring
+  // calendar year (Dec 30 2024 is week 1 of 2025; Jan 1 2027 is week 53 of
+  // 2026), which the legacy app got wrong by labelling with `.year`.
+  const label = `Week ${monday.weekOfYear}, ${monday.yearOfWeek}`;
 
   return (
     <View style={styles.container}>
