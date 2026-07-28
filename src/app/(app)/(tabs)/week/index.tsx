@@ -1,5 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -15,13 +15,15 @@ import { weekOf } from "@/utils/weekStartEnd";
  * The Week tab (DEX-96) — seven day columns at once, for planning a week
  * rather than working a day.
  *
- * Large screens only. The *route* is registered unconditionally on every
- * device even though the tab/nav entry isn't (see `(tabs)/_layout.tsx` and
- * `WEB_NAV_ITEMS`): mounting and unmounting the route itself would remount the
- * tab navigator, and the route still has to resolve for a `/week` URL typed or
- * bookmarked on web. Below the breakpoint it renders an explanation instead of
- * the grid — the same "branch inside, keep the wrapper stable" rule
- * `settings/_layout.tsx` follows.
+ * Large screens only. On **web** the route is registered at every width even
+ * though its `WEB_NAV_ITEMS` entry isn't (`_layout.web.tsx` lists
+ * `<Tabs.Screen name="week" />` unconditionally), because a `/week` URL typed
+ * or bookmarked in a narrow window still has to resolve — which is what the
+ * below-the-breakpoint branch here answers with. On **native** it can't work
+ * that way: `NativeTabs` only registers routes that have a trigger, so dropping
+ * the trigger on a phone drops the route too and this branch is unreachable
+ * there. Branching inside rather than swapping the wrapper still matters on
+ * iPad, where a Split View resize crosses the breakpoint live.
  */
 export default function WeekScreen() {
   const [preferences] = usePreferences();
@@ -37,8 +39,16 @@ export default function WeekScreen() {
   // which is what the user means by "new task" on the current week — and the
   // week's Monday otherwise, so a task created while looking at another week
   // lands in the week being looked at rather than silently on today.
-  const today = Temporal.Now.plainDateISO();
-  const targetDate = weekOf(today).monday.equals(monday) ? today : monday;
+  //
+  // Memoized because the identity is load-bearing: `usePublishViewedDay` keys
+  // its focus effect on it, so a fresh `PlainDate` each render would tear the
+  // effect down and re-register it on every unrelated re-render, momentarily
+  // clearing the module-scoped viewed day the tab-bar "+" reads.
+  const today = useMemo(() => Temporal.Now.plainDateISO(), []);
+  const targetDate = useMemo(
+    () => (weekOf(today).monday.equals(monday) ? today : monday),
+    [monday, today],
+  );
 
   usePublishViewedDay(targetDate);
 

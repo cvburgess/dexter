@@ -63,10 +63,13 @@ export function WeekView({
   const todayIndex = days.findIndex((day) => day.equals(today));
 
   const scrollRef = useRef<ScrollView>(null);
-  // Guards the one-shot anchor per week: `onLayout` fires again on any
-  // re-layout, and re-scrolling then would yank the user back to today after
-  // they had scrolled elsewhere. Keyed on the week so paging away and back
-  // re-anchors. Same shape as `CalendarView`'s `didScrollToNowRef`.
+  // Guards the anchor so it runs once: `onLayout` fires again on any re-layout
+  // (opening the backlog pane, a device rotation), and re-scrolling then would
+  // yank the user back to today after they had scrolled elsewhere. Keyed on the
+  // week rather than a bare boolean only so the guard reads as "this week is
+  // anchored" — paging weeks doesn't change the scroller's own layout, so it
+  // doesn't re-fire `onLayout` and the horizontal offset is deliberately left
+  // where the user put it. Same shape as `CalendarView`'s `didScrollToNowRef`.
   const anchoredWeek = useRef<string | null>(null);
 
   // Derived from the layout contract rather than measured, so this needs only

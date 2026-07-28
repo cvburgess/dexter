@@ -12,11 +12,16 @@ import { useTheme } from "@/utils/theme";
 export default function TabsLayout() {
   const theme = useTheme();
   // Week is a large-screen destination (DEX-96): seven columns don't fit a
-  // phone, so the tab isn't offered there. Only the *trigger* is conditional
-  // — the `week/` route stays registered, and the screen itself explains
-  // itself if it is ever reached narrow. Adding or removing a trigger remounts
-  // the tab navigator, so this must not be a value that flips often; see
-  // `useIsLargeDevice` for why window width is safe to treat as fixed today.
+  // phone, so the tab isn't offered there. Note the reach of dropping the
+  // trigger — `NativeTabs` is built with expo-router's
+  // `useOnlyUserDefinedScreens`, so a route with no trigger is not registered
+  // with the navigator at all. On a phone `/week` therefore does not resolve
+  // (nothing in the app links to it there), and `week/index.tsx`'s
+  // below-the-breakpoint branch is reachable only on web, where
+  // `_layout.web.tsx` registers the screen unconditionally. Adding or removing
+  // a trigger also remounts the tab navigator, so this must not be a value that
+  // flips often; see `useIsLargeDevice` for why window width is safe to treat
+  // as fixed today.
   const largeDevice = useIsLargeDevice();
 
   return (

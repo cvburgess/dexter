@@ -2,7 +2,7 @@ import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render, renderHook } from "@testing-library/react-native";
 import { useRouter } from "expo-router";
 import { StyleSheet, Text } from "react-native";
-import type { ViewStyle } from "react-native";
+import type { TextStyle, ViewStyle } from "react-native";
 
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import { useTasks } from "@/hooks/useTasks";
@@ -199,7 +199,7 @@ describe("WeekDayColumn", () => {
 
       expect(
         StyleSheet.flatten(
-          screen.getByText(formatWeekday(today)).props.style as ViewStyle[],
+          screen.getByText(formatWeekday(today)).props.style as TextStyle[],
         ).color,
       ).toBe(theme.colors.background);
     });
