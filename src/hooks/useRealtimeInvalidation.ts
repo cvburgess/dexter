@@ -20,27 +20,40 @@ import { supabase } from "./useAuth";
 // `goalsQueryOptions`/`listsQueryOptions` are exported for `(app)/_layout.tsx`'s
 // prefetch. The remaining tables have no such export in their hooks (every
 // call site there already inlines the literal), so they're listed directly.
+// The three searchable tables also invalidate `["search"]` (DEX-47) so an open
+// results list doesn't keep showing a note that has since been edited away.
+// React Query only refetches *active* queries, so this costs nothing unless the
+// Search tab is on screen — and for notes/journals the per-date mutation guard
+// below already skips the invalidation while their autosave is in flight.
 export const REALTIME_INVALIDATIONS: Record<string, readonly string[][]> = {
   daily_habits: [["dailyHabits"]],
   goals: [goalsQueryOptions.queryKey],
   habits: HABITS_INVALIDATION_KEYS,
-  journals: [["journals"]],
+  journals: [["journals"], ["search"]],
   lists: [listsQueryOptions.queryKey],
-  notes: [["notes"]],
+  notes: [["notes"], ["search"]],
   preferences: [["preferences"]],
   repeat_task_templates: [["templates"]],
-  tasks: [["tasks"]],
+  tasks: [["tasks"], ["search"]],
 };
 
 const REALTIME_TABLES = Object.keys(REALTIME_INVALIDATIONS);
 
-// Tables whose cache entries are keyed per date and written by a debounced
-// autosave, mapped to the mutation key that autosave tags itself with. Their
-// own writes echo back as realtime events, so invalidation has to skip the
-// date(s) still saving (see the guard in `invalidateTable`).
-const PER_DATE_MUTATION_KEYS: Record<
-  string,
-  (date: string) => readonly string[]
+// Query keys whose cache entries are keyed per date (`["notes", date]`) and
+// written by a debounced autosave, mapped to the mutation key that autosave tags
+// itself with. Their own writes echo back as realtime events, so invalidation
+// has to skip the date(s) still saving (see the guard in `invalidateTable`).
+//
+// Keyed by the *query key's* first element, not by table name. Those happen to
+// coincide for notes and journals, but not in general — `repeat_task_templates`
+// invalidates `["templates"]` — and it is the key that determines whether
+// `queryKey[1]` is a date. `["search", query]` (DEX-47) holds a search string
+// there, so it must not be found here.
+//
+// `Partial` because most keys have no entry: a bare `Record` would type every
+// lookup as defined and make the guard below read as redundant.
+const PER_DATE_MUTATION_KEYS: Partial<
+  Record<string, (date: string) => readonly string[]>
 > = {
   journals: journalsMutationKey,
   notes: notesMutationKey,
@@ -75,28 +88,40 @@ export const useRealtimeInvalidation = (userId: string | undefined) => {
     let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
     const invalidateTable = (table: (typeof REALTIME_TABLES)[number]) => {
-      const perDateMutationKey = PER_DATE_MUTATION_KEYS[table];
-
-      if (
-        table === "tasks" &&
-        queryClient.isMutating({ mutationKey: TASKS_MUTATION_KEY }) > 0
-      ) {
-        // Our own write echoes back here. The optimistic cache already holds
-        // it, and the refetch this would start can resolve *after* a newer
-        // local edit — stamping stale rows over it, so the edit visibly
-        // reverts. Skipping loses nothing: the in-flight mutation invalidates
-        // on settle, which is the catch-up for anything genuinely remote.
-        return;
-      }
-
       for (const queryKey of REALTIME_INVALIDATIONS[table]) {
+        if (
+          queryKey[0] === "tasks" &&
+          queryClient.isMutating({ mutationKey: TASKS_MUTATION_KEY }) > 0
+        ) {
+          // Our own write echoes back here. The optimistic cache already holds
+          // it, and the refetch this would start can resolve *after* a newer
+          // local edit — stamping stale rows over it, so the edit visibly
+          // reverts. Skipping loses nothing: the `["tasks"]` cache is what the
+          // in-flight mutation invalidates on settle, which is the catch-up for
+          // anything genuinely remote.
+          //
+          // Scoped to the `["tasks"]` key rather than the whole `tasks` table:
+          // `["search"]` (DEX-47) has no optimistic path — the Search tab's
+          // results come straight from the `search_entries` RPC — so skipping
+          // it here would leave a card the user just checked off or deleted on
+          // that very screen showing its old state, with no later catch-up.
+          continue;
+        }
+
+        // Looked up per *key*, not per table: the guard below reads
+        // `queryKey[1]` as a date, which is a property of the key rather than of
+        // the table that triggered it. One table can invalidate several keys —
+        // `notes` invalidates both `["notes", date]` and `["search", query]`
+        // (DEX-47), and only the first has a date in that slot.
+        const perDateMutationKey = PER_DATE_MUTATION_KEYS[queryKey[0]];
+
         void queryClient.invalidateQueries({
           queryKey,
           // `notes`/`journals` echo our own autosave back as a realtime event —
           // skip only the date(s) whose autosave is still in flight, so it
           // can't race the debounced editor (see the comment on
           // notesMutationKey), without suppressing invalidation for every other
-          // cached date. Every other table invalidates unconditionally.
+          // cached date. Every other key invalidates unconditionally.
           ...(perDateMutationKey && {
             predicate: (query) =>
               queryClient.isMutating({

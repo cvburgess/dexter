@@ -191,7 +191,39 @@ describe("useRealtimeInvalidation", () => {
       });
       act(() => jest.advanceTimersByTime(250));
 
-      expect(invalidateSpy).toHaveBeenCalledTimes(1);
+      // One flush, not three — expressed as "one call per key the table maps to"
+      // rather than a literal 1, so adding a key to `tasks` (as DEX-47's
+      // `["search"]` did) doesn't read as a coalescing regression.
+      expect(invalidateSpy).toHaveBeenCalledTimes(
+        REALTIME_INVALIDATIONS.tasks.length,
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("invalidates search alongside each of the three searchable tables", () => {
+    jest.useFakeTimers();
+    try {
+      const { wrapper, queryClient } = createWrapper();
+      const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
+      renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
+
+      // An open results list must not keep showing a note that has since been
+      // edited away, or miss a task that now matches (DEX-47).
+      for (const table of ["tasks", "notes", "journals"]) {
+        const binding = captured!.bindings.find((b) => b.table === table)!;
+        act(() => binding.handler({ table }));
+        act(() => jest.advanceTimersByTime(250));
+
+        // Asserted with an exact match, so it also pins that no `predicate`
+        // rides along: notes/journals guard their own per-date entries against
+        // an in-flight autosave, and that guard reads `queryKey[1]` as a date —
+        // which for `["search", query]` is the search string. Attaching it here
+        // would drop this invalidation for anyone searching a date-shaped term.
+        expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["search"] });
+        invalidateSpy.mockClear();
+      }
     } finally {
       jest.useRealTimers();
     }
@@ -295,7 +327,7 @@ describe("useRealtimeInvalidation", () => {
   it("skips refetching tasks while one of our own writes is in flight, then catches up once it settles", async () => {
     jest.useFakeTimers();
     try {
-      const { wrapper } = createWrapper();
+      const { wrapper, queryClient } = createWrapper();
       renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
 
       let resolveUpdate: () => void = () => {};
@@ -318,6 +350,7 @@ describe("useRealtimeInvalidation", () => {
       );
       await waitFor(() => expect(mockUpdateTask.mock.calls.length).toBe(1));
 
+      const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
       const binding = captured!.bindings.find((b) => b.table === "tasks")!;
       act(() => binding.handler({ table: "tasks" }));
       act(() => jest.advanceTimersByTime(250));
@@ -325,6 +358,17 @@ describe("useRealtimeInvalidation", () => {
       // Postgres echoing our own write back must not start a refetch: it can
       // resolve after a *newer* local edit and stamp stale rows over it.
       expect(mockGetTasks.mock.calls.length).toBe(fetchCountBeforeEvent);
+      // ...but the skip is scoped to the `["tasks"]` key, not the whole table.
+      // `["search"]` has no optimistic cache to protect (its rows come straight
+      // from the RPC), and the mutation's settle invalidation only covers
+      // `["tasks"]` — so suppressing it here would leave a card the user just
+      // checked off *on the Search tab* showing its old status indefinitely.
+      expect(invalidateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ["search"] }),
+      );
+      expect(invalidateSpy).not.toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ["tasks"] }),
+      );
 
       act(() => resolveUpdate());
 

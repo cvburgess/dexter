@@ -1,6 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -19,6 +19,7 @@ import {
   TASKS_PANE_MAX_WIDTH,
 } from "@/utils/breakpoints";
 import { TFilterId } from "@/utils/taskFilters";
+import { TDayLink } from "@/utils/todayRoute";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 type TLargeScreenTodayProps = {
@@ -29,6 +30,14 @@ type TLargeScreenTodayProps = {
   // header toggle (Overdue/left-behind), or null when nothing needs attention.
   // Drives the drawer toggle's dot.
   attentionFilter: TFilterId | null;
+  /**
+   * The deep link this screen was opened with (DEX-47), or null for an ordinary
+   * tab press. Tasks is always visible here, so `mode: "tasks"` is a no-op;
+   * `notes`/`journal` open that pane and select its tab, and `backlog` opens the
+   * docked drawer seeded with `query`. Keyed on `id` so re-following the same
+   * link works.
+   */
+  link: TDayLink | null;
 };
 
 // The multi-pane (large-screen) Today layout: Tasks plus optional Notes/Journal,
@@ -40,16 +49,63 @@ export function LargeScreenToday({
   preferences,
   changeDate,
   attentionFilter,
+  link,
 }: TLargeScreenTodayProps) {
   const theme = useTheme();
   const router = useRouter();
-  const [panes, { togglePane }] = useTodayPanes();
+  const [panes, { togglePane, openPane }] = useTodayPanes();
   const backlogAttention = attentionFilter !== null;
-  // The docked drawer runs controlled off this so opening it via the header
+  const mode = link?.mode ?? null;
+  const linkId = link?.id ?? null;
+  // The docked drawer runs controlled off these so opening it via the header
   // toggle can pre-apply the attention filter (see `toggleDrawerPane`),
   // mirroring the small-screen "tap Backlog" flow. The small-screen sheet owns
-  // its own filter internally instead (`TaskDrawerSheet`).
-  const [drawerFilterId, setDrawerFilterId] = useState<TFilterId>("none");
+  // its own state internally instead (`TaskDrawerSheet`).
+  //
+  // Both seeded from the route so a `?mode=backlog` deep link is already applied
+  // on the first render — the `appliedLinkId` adjustment below only fires on a
+  // *change*, so arriving with the link set would otherwise show an unfiltered
+  // drawer.
+  const isBacklogLink = mode === "backlog";
+  const [drawerFilterId, setDrawerFilterId] = useState<TFilterId>(
+    isBacklogLink ? "unscheduled" : "none",
+  );
+  const [drawerSearch, setDrawerSearch] = useState(
+    isBacklogLink ? (link?.query ?? "") : "",
+  );
+
+  // Seed the drawer for a `?mode=backlog` deep link (DEX-47). Adjusted during
+  // render rather than in an effect so the drawer never paints unfiltered for a
+  // frame first. Keyed on `link.id`, which changes per navigation, so the user
+  // can adjust the filter or search afterwards without this resetting them *and*
+  // re-following the same link still re-seeds it.
+  const [appliedLinkId, setAppliedLinkId] = useState(linkId);
+  if (linkId !== appliedLinkId) {
+    setAppliedLinkId(linkId);
+    if (mode === "backlog") {
+      // Unscheduled is where a task with no date lives; the query puts the one
+      // the user tapped at the top of the drawer rather than in the backlog.
+      setDrawerFilterId("unscheduled");
+      setDrawerSearch(link?.query ?? "");
+    }
+  }
+
+  // Opening a pane writes through to AsyncStorage — an external system, so an
+  // effect is the right home. `openPane` (not `togglePane`) is stable and does
+  // its own already-open check, which keeps `panes` out of the dependencies:
+  // with it here, every later pane toggle would re-run this and re-open a pane
+  // the user had just closed.
+  //
+  // No `preferences.enable*` guard: with the feature off the pane simply doesn't
+  // render, and `panes.notes`/`panes.journal` default to open anyway, so setting
+  // them is very nearly a no-op. `panes.drawer` is the one that defaults closed.
+  // `linkId` is in the dependencies alongside `mode` because re-following the
+  // same link has to re-open a pane the user closed in between; `mode` is
+  // encoded in `linkId`, so listing both costs no extra firings.
+  useEffect(() => {
+    if (!mode || mode === "tasks") return;
+    void openPane(mode === "backlog" ? "drawer" : mode);
+  }, [linkId, mode, openPane]);
 
   const showNotes = preferences.enableNotes && panes.notes;
   const showJournal = preferences.enableJournal && panes.journal;
@@ -68,7 +124,17 @@ export function LargeScreenToday({
   // stragglers, pre-apply the filter the dot points to so it lands on the
   // same view as the small-screen "tap Backlog" flow.
   const toggleDrawerPane = () => {
-    if (!panes.drawer && attentionFilter) setDrawerFilterId(attentionFilter);
+    if (!panes.drawer) {
+      // Resets *both* the filter and the search a `mode=backlog` deep link left
+      // seeded: this entry point means "show me my backlog", not "show it still
+      // narrowed to Unscheduled by a link I followed three screens ago"
+      // (DEX-47). Falling back to `"none"` rather than leaving the previous
+      // filter is what stops that seeded Unscheduled from surviving; little is
+      // lost, since an attention filter already overrode whatever the user had
+      // selected, so the filter never reliably persisted between opens.
+      setDrawerFilterId(attentionFilter ?? "none");
+      setDrawerSearch("");
+    }
     // `togglePane` persists to AsyncStorage; fire-and-forget like the other
     // pane toggles (which pass it straight to `onPress`).
     void togglePane("drawer");
@@ -128,6 +194,13 @@ export function LargeScreenToday({
               date={date.toString()}
               showJournal={showJournal}
               showNotes={showNotes}
+              requestedTab={
+                mode === "notes" || mode === "journal" ? mode : null
+              }
+              // The tab is a string union, so it carries no identity of its own
+              // — this is what tells the pane that a *second* navigation asked
+              // for the same tab it is already showing.
+              requestedTabLinkId={linkId}
             />
           </View>
         )}
@@ -169,6 +242,8 @@ export function LargeScreenToday({
               date={date}
               filterId={drawerFilterId}
               onFilterChange={setDrawerFilterId}
+              search={drawerSearch}
+              onSearchChange={setDrawerSearch}
             />
           </View>
         )}

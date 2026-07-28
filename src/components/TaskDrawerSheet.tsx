@@ -16,14 +16,16 @@ import { TaskDrawer } from "@/components/TaskDrawer";
 import { TFilterId } from "@/utils/taskFilters";
 
 /**
- * Imperative handle for the mobile drawer sheet. `present(filter)` optionally
- * pre-applies a Filter preset before opening — the Today screen passes the
- * attention filter (Overdue/Left Behind) so tapping "Backlog" lands on the
- * relevant view (DEX-58). Called with no argument, it just opens the sheet and
- * leaves the current filter as-is.
+ * Imperative handle for the mobile drawer sheet. `present(filter, search)`
+ * optionally pre-applies a Filter preset and seeds the search box before
+ * opening — the Today screen passes the attention filter (Overdue/Left Behind)
+ * so tapping "Backlog" lands on the relevant view (DEX-58), and passes
+ * `unscheduled` plus the query when a Search-tab result for an unscheduled task
+ * opens the backlog (DEX-47). Called with no arguments, it just opens the sheet
+ * and leaves both as they were.
  */
 export type TTaskDrawerSheetHandle = {
-  present: (filter?: TFilterId) => void;
+  present: (filter?: TFilterId, search?: string) => void;
 };
 
 type TTaskDrawerSheetProps = {
@@ -66,6 +68,9 @@ export function TaskDrawerSheet({ date, ref }: TTaskDrawerSheetProps) {
   // `present(filter)` can set it before the sheet opens; TaskDrawer runs
   // controlled off this state.
   const [filterId, setFilterId] = useState<TFilterId>("none");
+  // Owned here for the same reason as `filterId`: `present()` has to be able to
+  // seed it before the sheet (and the deferred TaskDrawer below) opens.
+  const [search, setSearch] = useState("");
   const sheetRef = useRef<BottomSheetMethods>(null);
   const insets = useSafeAreaInsets();
   // The Today tab's screens sit under the native tab bar, so the inset they
@@ -78,14 +83,16 @@ export function TaskDrawerSheet({ date, ref }: TTaskDrawerSheetProps) {
   const contentInsets = useMemo(() => ({ ...insets, bottom: 0 }), [insets]);
 
   // Deps `[]`: the handle only closes over the stable `sheetRef` and the stable
-  // `setFilterId` setter, so it's built once rather than on every render.
+  // `setFilterId`/`setSearch` setters, so it's built once rather than on every
+  // render.
   useImperativeHandle(
     ref,
     () => ({
-      present: (filter) => {
-        // Set the filter first so the deferred TaskDrawer mounts already filtered;
-        // omitting `filter` leaves whatever the user last had selected.
+      present: (filter, seedSearch) => {
+        // Set both first so the deferred TaskDrawer mounts already filtered and
+        // searched; omitting either leaves whatever the user last had.
         if (filter) setFilterId(filter);
+        if (seedSearch !== undefined) setSearch(seedSearch);
         sheetRef.current?.present();
       },
     }),
@@ -114,6 +121,8 @@ export function TaskDrawerSheet({ date, ref }: TTaskDrawerSheetProps) {
               date={date}
               filterId={filterId}
               onFilterChange={setFilterId}
+              search={search}
+              onSearchChange={setSearch}
             />
           ) : null}
         </SafeAreaInsetsContext.Provider>

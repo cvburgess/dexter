@@ -66,6 +66,15 @@ type TTaskCardProps = {
    * delete the subtask and create nothing in its place.
    */
   onPromoteSubtask: (task: TCreateTask) => void;
+  /**
+   * Turns the title into a link instead of a rename affordance — the Search
+   * tab's results open the task rather than editing it in place (DEX-47).
+   *
+   * Only the title changes. `StatusButton`, the date/list buttons, the subtask
+   * rows, and the long-press `MoreMenu` all keep working, so a result can still
+   * be checked off or rescheduled without leaving Search.
+   */
+  onPress?: () => void;
 };
 
 export function TaskCard({
@@ -74,6 +83,7 @@ export function TaskCard({
   onDuplicate,
   onDelete,
   onPromoteSubtask,
+  onPress,
 }: TTaskCardProps) {
   const theme = useTheme();
   const [alarmModalVisible, setAlarmModalVisible] = useState(false);
@@ -335,7 +345,11 @@ export function TaskCard({
           value={title}
           editing={editing?.kind === "title"}
           // Renaming a finished task is disabled, matching the buttons below.
+          // No `&& !onPress` here — `EditableText` already gives `onPress`
+          // precedence over `editable`, and stating it twice would let a future
+          // change to one site read as contradicting the other.
           editable={!isComplete}
+          onPress={onPress}
           onStartEdit={() => setEditing({ kind: "title" })}
           onCommit={(committed) => {
             stopEditingTitle();

@@ -1,4 +1,4 @@
-import { act, render } from "@testing-library/react-native";
+import { act, fireEvent, render } from "@testing-library/react-native";
 import type { ReactNode } from "react";
 import { StyleSheet, type TextStyle, type ViewStyle } from "react-native";
 
@@ -485,5 +485,40 @@ describe("TaskCard", () => {
     };
 
     expect(backgroundAlpha(done)).toBeLessThan(backgroundAlpha(incomplete));
+  });
+
+  // DEX-47: the Search tab renders these same cards, but there a tap should
+  // open the task rather than start renaming it in place.
+  describe("onPress", () => {
+    const renderWithPress = (onPress?: () => void) =>
+      render(
+        <TaskCard
+          task={baseTask}
+          onUpdate={jest.fn()}
+          onDuplicate={jest.fn()}
+          onPromoteSubtask={jest.fn()}
+          onDelete={jest.fn()}
+          onPress={onPress}
+        />,
+      );
+
+    it("calls onPress instead of entering inline edit when given one", () => {
+      const onPress = jest.fn();
+      const screen = renderWithPress(onPress);
+
+      fireEvent.press(screen.getByTestId("task-title-task-1"));
+
+      expect(onPress).toHaveBeenCalledTimes(1);
+      // The inline input would have replaced the label; it must not appear.
+      expect(screen.queryByTestId("task-title-task-1-input")).toBeNull();
+    });
+
+    it("still enters inline edit when no onPress is given", () => {
+      const screen = renderWithPress();
+
+      fireEvent.press(screen.getByTestId("task-title-task-1"));
+
+      expect(screen.getByTestId("task-title-task-1-input")).toBeTruthy();
+    });
   });
 });

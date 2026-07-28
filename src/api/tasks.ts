@@ -67,9 +67,13 @@ export const getTasks = async (
  * before the migration runs gets rows with no `subtasks` column at all, and
  * every consumer here dereferences it without guarding. Mirrors the `alarmTime`
  * `== null` handling in `TaskCard` (DEX-48) for the same reason.
+ *
+ * Exported for `api/search.ts`, whose task results come back as jsonb from the
+ * `search_entries` RPC rather than through `getTasks` — same rows, same guard.
  */
-const withSubtasksArray = <T extends { subtasks?: TSubtask[] }>(row: T): T =>
-  Array.isArray(row.subtasks) ? row : { ...row, subtasks: [] };
+export const withSubtasksArray = <T extends { subtasks?: TSubtask[] }>(
+  row: T,
+): T => (Array.isArray(row.subtasks) ? row : { ...row, subtasks: [] });
 
 export type TCreateTask = {
   alarmTime?: string | null;

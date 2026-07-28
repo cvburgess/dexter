@@ -33,7 +33,7 @@ Prioritize with the Eisenhower Matrix, plan your day intentionally, brain-dump t
 - [x] Fully deletable data — no third-party analytics, and we never sell your data
 - [ ] Week-at-a-glance view
 - [ ] Focus blocks (Pomodoro technique)
-- [ ] Full-text search for tasks and notes
+- [x] Search across tasks, notes, and journal entries
 - [ ] Subtasks
 - [ ] Fully exportable data
 

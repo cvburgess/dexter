@@ -1,4 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
+import { useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 
 import { LargeScreenToday } from "@/components/LargeScreenToday";
@@ -8,6 +9,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { useTasks } from "@/hooks/useTasks";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
 import { backlogAttentionFilter } from "@/utils/taskFilters";
+import { parseDayLink } from "@/utils/todayRoute";
 
 type TDayState = {
   date: Temporal.PlainDate;
@@ -22,8 +24,20 @@ type TDayState = {
 export default function TodayScreen() {
   const [preferences] = usePreferences();
   const multiPane = useIsMultiPane();
+  // `?date=&mode=&q=&n=` — the deep-link contract the Search tab builds
+  // (`utils/todayRoute.ts`, DEX-47). Null for an ordinary tab press, which is
+  // why the state below still seeds itself from today. Typed loosely on purpose:
+  // `useLocalSearchParams` hands back a `string[]` for a repeated key, so
+  // `parseDayLink` narrows rather than trusting the shape.
+  const params = useLocalSearchParams<{
+    date?: string | string[];
+    mode?: string | string[];
+    q?: string | string[];
+    n?: string | string[];
+  }>();
+  const link = parseDayLink(params);
   const [day, setDay] = useState<TDayState>(() => ({
-    date: Temporal.Now.plainDateISO(),
+    date: link?.date ?? Temporal.Now.plainDateISO(),
     direction: 0,
   }));
   // So "New Task" opened from this tab defaults its schedule to the viewed day.
@@ -53,12 +67,37 @@ export default function TodayScreen() {
       return { date: next, direction: Temporal.PlainDate.compare(next, date) };
     });
 
+  // Follow a `?date=` that arrives after mount. Navigating here from the Search
+  // tab re-renders this screen with new params rather than remounting it, so the
+  // initial state above only covers a cold open — this covers every later tap.
+  //
+  // Adjusted during render (React's supported pattern for deriving state from a
+  // changed prop, as `SmallScreenToday` already does for a disabled view) rather
+  // than in an effect: React re-runs this component before painting, so the day
+  // never renders wrong for a frame first. `appliedLinkId` is what makes it fire
+  // once per navigation — without it this would re-apply on every render and
+  // stomp the user's own day navigation. Keyed on `link.id` rather than the date
+  // itself, so re-following a link the user has since navigated away from still
+  // takes effect (see `TTodayRouteParams["n"]`).
+  const [appliedLinkId, setAppliedLinkId] = useState(link?.id ?? null);
+  if ((link?.id ?? null) !== appliedLinkId) {
+    setAppliedLinkId(link?.id ?? null);
+    if (link?.date) {
+      const direction = Temporal.PlainDate.compare(link.date, day.date);
+      // Skip when the link points at the day already on screen: `direction`
+      // drives the day-change animation, and restarting it for no movement
+      // reads as a flicker.
+      if (direction !== 0) setDay({ date: link.date, direction });
+    }
+  }
+
   return multiPane ? (
     <LargeScreenToday
       date={day.date}
       preferences={preferences}
       changeDate={changeDate}
       attentionFilter={attentionFilter}
+      link={link}
     />
   ) : (
     <SmallScreenToday
@@ -68,6 +107,7 @@ export default function TodayScreen() {
       changeDate={changeDate}
       changeDateBy={changeDateBy}
       attentionFilter={attentionFilter}
+      link={link}
     />
   );
 }

@@ -16,6 +16,7 @@ import { TextInput } from "@/components/TextInput";
 import { useGoals } from "@/hooks/useGoals";
 import { useLists } from "@/hooks/useLists";
 import { useTasks } from "@/hooks/useTasks";
+import { searchTerms } from "@/utils/searchHighlight";
 import {
   filterTasks,
   selectBacklogTasks,
@@ -99,11 +100,28 @@ export function groupMenuOptions(
   return buildMenuOptions(GROUP_META, selected, onSelect);
 }
 
-/** Live, case-insensitive title filter — matches the legacy QuickPlanner's client-side search. */
+/**
+ * Live, case-insensitive task filter — the legacy QuickPlanner's client-side
+ * search.
+ *
+ * Splits and ANDs whitespace-separated terms via the shared `searchTerms`, and
+ * matches subtask titles as well as the task's own, so it agrees with what the
+ * `search_entries` RPC would have matched. That agreement is load-bearing since
+ * DEX-47: a Search-tab result for an unscheduled task opens this drawer seeded
+ * with the query the RPC answered, so a whole-query `includes` would filter out
+ * the very task the user tapped whenever its terms appear out of order
+ * ("buy milk" vs a task titled "Milk — remember to buy") or matched a subtask.
+ */
 export function searchTasksByTitle(tasks: TTask[], search: string): TTask[] {
-  const query = search.trim().toLowerCase();
-  if (!query) return tasks;
-  return tasks.filter((task) => task.title.toLowerCase().includes(query));
+  const terms = searchTerms(search);
+  if (terms.length === 0) return tasks;
+
+  return tasks.filter((task) => {
+    const haystack = [task.title, ...task.subtasks.map((sub) => sub.title)]
+      .join(" ")
+      .toLowerCase();
+    return terms.every((term) => haystack.includes(term));
+  });
 }
 
 /**
@@ -174,6 +192,15 @@ type TTaskDrawerProps = {
    */
   filterId?: TFilterId;
   onFilterChange?: (id: TFilterId) => void;
+  /**
+   * Controls the title search from the parent when provided (with
+   * `onSearchChange`), the same optional-controlled shape as `filterId` above.
+   * Both hosts use it to seed the box when a Search-tab result for an
+   * unscheduled task opens the backlog (DEX-47), so the task the user tapped is
+   * on screen immediately rather than somewhere in the backlog.
+   */
+  search?: string;
+  onSearchChange?: (value: string) => void;
 };
 
 /**
@@ -200,6 +227,8 @@ export function TaskDrawer({
   date,
   filterId: controlledFilterId,
   onFilterChange,
+  search: controlledSearch,
+  onSearchChange,
 }: TTaskDrawerProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -210,7 +239,9 @@ export function TaskDrawer({
   const filterId = controlledFilterId ?? internalFilterId;
   const setFilterId = onFilterChange ?? setInternalFilterId;
   const [groupBy, setGroupBy] = useState<TGroupBy>("none");
-  const [search, setSearch] = useState("");
+  const [internalSearch, setInternalSearch] = useState("");
+  const search = controlledSearch ?? internalSearch;
+  const setSearch = onSearchChange ?? setInternalSearch;
 
   // Lists/goals are only needed once the matching grouping is selected —
   // skip the query otherwise rather than always subscribing to both tables.
