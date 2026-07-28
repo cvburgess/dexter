@@ -74,10 +74,14 @@ export function WeekDayColumn({
           {formatMonthDay(date)}
         </Text>
       </View>
-      {enableHabits && <HabitTracker date={date} showCreateNudge={false} />}
+      {enableHabits && (
+        <View style={styles.habits}>
+          <HabitTracker date={date} showCreateNudge={false} />
+        </View>
+      )}
       {/* No empty state: seven "no tasks" messages side by side read as noise,
           and an empty column is already self-evident. */}
-      <DayTaskList date={date} emptyMessage={null} />
+      <DayTaskList date={date} emptyMessage={null} inset={false} />
     </View>
   );
 }
@@ -90,20 +94,30 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  // Spans the column (the container's default `stretch` does that) inset by
-  // the same 16pt the task list uses, with the two lines stacked and centered
-  // like the legacy badge. Height is pinned, and deliberately *not* `flex` —
-  // the container is a flex column, so growing would stretch the chip down the
-  // column instead of across it. Pinning also keeps a column whose day name
-  // renders taller from sitting a pixel off from its neighbours.
+  // Runs the full width of the column (the container's default `stretch` does
+  // that), flush like the task list below it — a side gutter here would stack
+  // with the neighbouring column's and double every gap in the grid. The two
+  // lines are stacked and centered like the legacy badge. Height is pinned,
+  // and deliberately *not* `flex` — the container is a flex column, so growing
+  // would stretch the chip down the column instead of across it. Pinning also
+  // keeps a column whose day name renders taller from sitting a pixel off from
+  // its neighbours.
   chip: {
     alignItems: "center",
     borderWidth: StyleSheet.hairlineWidth,
     height: 44,
     justifyContent: "center",
-    marginHorizontal: 16,
     overflow: "hidden",
     paddingHorizontal: 8,
+  },
+  // Balances the habit row's two sides. `HabitTracker` centers a 40pt ring in
+  // a 56pt band, so it already carries 8pt of its own above and below; below
+  // that, `DayTaskList`'s list padding adds another 16pt before the first
+  // card. Matching that 16 here makes the ring sit 24pt clear of both the chip
+  // and the first task. It lives on the habit row rather than as a chip margin
+  // so the chip still sits 16pt off the task list when habits are switched off.
+  habits: {
+    marginTop: 16,
   },
   chipTitle: {
     fontSize: 14,

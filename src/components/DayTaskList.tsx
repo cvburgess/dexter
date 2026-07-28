@@ -21,6 +21,14 @@ type TDayTaskListProps = {
    * messages side by side read as noise rather than information (DEX-96).
    */
   emptyMessage?: string | null;
+  /**
+   * Whether to inset the list from its container's sides with the standard
+   * 16pt gutter. Same shape and name as `NotesView`'s. The Week tab passes
+   * `false` so its columns run flush (DEX-96): a gutter on each column would
+   * stack with its neighbour's, doubling every gap in the grid, and the row's
+   * own `gap` already separates them.
+   */
+  inset?: boolean;
 };
 
 /**
@@ -35,6 +43,7 @@ type TDayTaskListProps = {
 export function DayTaskList({
   date,
   emptyMessage = "No tasks scheduled for this day.",
+  inset = true,
 }: TDayTaskListProps) {
   const { confirm, confirmationProps } = useConfirmation();
   const insets = useSafeAreaInsets();
@@ -94,6 +103,7 @@ export function DayTaskList({
           // that replaces it land on the same baseline.
           contentContainerStyle={[
             styles.list,
+            !inset && styles.listFlush,
             { paddingBottom: 16 + insets.bottom },
           ]}
         >
@@ -123,5 +133,10 @@ const styles = StyleSheet.create({
   list: {
     gap: 8,
     padding: 16,
+  },
+  // Drops only the side gutter — the vertical padding above the first card and
+  // below the last (which carries the tab-bar inset) still applies.
+  listFlush: {
+    paddingHorizontal: 0,
   },
 });

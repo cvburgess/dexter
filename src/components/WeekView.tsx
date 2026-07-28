@@ -79,8 +79,16 @@ export function WeekView({
   // stopped them shrinking; when it doesn't overflow, this underestimates the
   // content and `scrollOffsetForTarget` clamps to 0 — which is the right
   // answer there anyway.
-  const columnPitch = WEEK_COLUMN_MIN_WIDTH + theme.gap;
-  const minContentWidth = 7 * WEEK_COLUMN_MIN_WIDTH + 6 * theme.gap;
+  // The *entire* space between two columns: the columns themselves run flush
+  // (see `WeekDayColumn`), so nothing stacks on top of this the way two 16pt
+  // gutters used to. Matches the row's own `paddingHorizontal`, so the space
+  // between columns equals the space outside the first and last — the grid
+  // reads as evenly spaced rather than edge-heavy. Load-bearing beyond
+  // spacing: the anchor math below derives the column pitch from it, so the
+  // two must move together or today scrolls to the wrong offset.
+  const columnGap = theme.spacing;
+  const columnPitch = WEEK_COLUMN_MIN_WIDTH + columnGap;
+  const minContentWidth = 7 * WEEK_COLUMN_MIN_WIDTH + 6 * columnGap;
 
   const anchorToday = (viewportWidth: number) => {
     const key = monday.toString();
@@ -132,7 +140,7 @@ export function WeekView({
           // `flexGrow: 1` is what lets the seven columns divide the full width
           // when they all fit; without it the row shrinks to its content and
           // the columns sit at their minimum against a gap of empty space.
-          contentContainerStyle={[styles.weekRow, { gap: theme.gap }]}
+          contentContainerStyle={[styles.weekRow, { gap: columnGap }]}
         >
           {days.map((day, index) => (
             <View key={day.toString()} style={styles.column}>
