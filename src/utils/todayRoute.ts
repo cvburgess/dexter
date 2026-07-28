@@ -36,6 +36,17 @@ export const parseDayMode = (value: TRouteParam): TDayMode | null => {
 };
 
 /**
+ * The query carried by a `mode=backlog` link, or undefined when absent.
+ *
+ * Goes through `firstParam` like the others rather than being read raw: a
+ * repeated key makes `useLocalSearchParams` hand back a `string[]`, and this one
+ * flows furthest — into the drawer's search box — so typing it as a bare string
+ * would be the one hole in this module's boundary.
+ */
+export const parseDayQuery = (value: TRouteParam): string | undefined =>
+  firstParam(value);
+
+/**
  * The requested day, or null when absent or unparseable.
  *
  * A hand-edited or stale URL is a real source of garbage here (the route is

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { StyleSheet, Text } from "react-native";
 
 import { buildExcerpt } from "@/utils/searchHighlight";
@@ -25,7 +26,10 @@ export function HighlightedExcerpt({
   numberOfLines = 3,
 }: THighlightedExcerptProps) {
   const theme = useTheme();
-  const segments = buildExcerpt(text, query);
+  // Memoized because the inputs are whole notes: `buildExcerpt` regex-replaces
+  // and lowercases the entire text to produce ~160 characters of output, and
+  // this renders once per visible result row.
+  const segments = useMemo(() => buildExcerpt(text, query), [text, query]);
 
   return (
     <Text

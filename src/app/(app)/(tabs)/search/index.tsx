@@ -1,7 +1,7 @@
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
-import { useCallback, useDeferredValue, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -10,11 +10,14 @@ import {
 import { TSearchResult } from "@/api/search";
 import { duplicateTaskInput } from "@/api/tasks";
 import { EmptyScreen } from "@/components/EmptyScreen";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { SearchResultCard } from "@/components/SearchResultCard";
 import { TaskCard } from "@/components/TaskCard";
 import { TextInput } from "@/components/TextInput";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { MIN_SEARCH_LENGTH, useSearch } from "@/hooks/useSearch";
 import { useTasks } from "@/hooks/useTasks";
+import { useTemplates } from "@/hooks/useTemplates";
 import { searchResultRoute } from "@/utils/todayRoute";
 import { useTheme } from "@/utils/theme";
 
@@ -32,6 +35,14 @@ const SECTIONS: { kind: TSearchResult["kind"]; title: string }[] = [
 ];
 
 /**
+ * How long typing has to settle before the query runs. Every search is a full
+ * scan of the account's tasks, notes, and journals, so this is about round
+ * trips, not render cost — long enough to collapse a burst of typing, short
+ * enough that pausing feels like it searched immediately.
+ */
+const SEARCH_DEBOUNCE_MS = 250;
+
+/**
  * The Search tab (DEX-47): one query across task titles (including subtask
  * titles), note content, and journal prompts/responses.
  *
@@ -45,14 +56,19 @@ export default function SearchScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [query, setQuery] = useState("");
-  // Keeps typing responsive without hand-rolling a debounce: React paints the
-  // field's new value immediately and re-renders the (much heavier) results list
-  // at a lower priority, dropping intermediate values while the user is still
-  // typing. `useSearch` keys off this, so a fast typist fires a request for
-  // where they paused rather than one per keystroke.
-  const deferredQuery = useDeferredValue(query);
-  const [results, { isLoading, enabled }] = useSearch(deferredQuery);
-  const [, { updateTask, createTask, deleteTask }] = useTasks();
+  // The field renders `query` so typing stays immediate; the search runs on the
+  // settled value, so typing "eisenhower" is one round trip rather than nine —
+  // each of which is a full scan of the account's tasks, notes, and journals.
+  const searchedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);
+  const [results, { isLoading, enabled }] = useSearch(searchedQuery);
+  // `skipQuery`: this screen wants the mutations, not the task list — its
+  // results come from the server. Subscribing to the canonical `["tasks"]`
+  // query would re-render the (long-lived) Search tab on every task change made
+  // anywhere else in the app.
+  const [, { updateTask, createTask, deleteTask }] = useTasks({
+    skipQuery: true,
+  });
+  const [, { deleteTemplate }] = useTemplates({ skipQuery: true });
 
   const listItems = useMemo<TSearchListItem[]>(
     () =>
@@ -80,8 +96,8 @@ export default function SearchScreen() {
 
   const openResult = useCallback(
     (result: TSearchResult) =>
-      router.push(searchResultRoute(result, deferredQuery)),
-    [router, deferredQuery],
+      router.push(searchResultRoute(result, searchedQuery)),
+    [router, searchedQuery],
   );
 
   const renderItem = useCallback(
@@ -115,7 +131,14 @@ export default function SearchScreen() {
             onUpdate={(diff) => updateTask({ id: task.id, ...diff })}
             onDuplicate={() => createTask(duplicateTaskInput(task))}
             onPromoteSubtask={(promoted) => createTask(promoted)}
-            onDelete={() => deleteTask(task.id)}
+            onDelete={() => {
+              // The task→template FK is ON DELETE SET NULL, so a repeating
+              // task's schedule has to be removed explicitly or it keeps
+              // creating occurrences of a task the user just deleted (DEX-21,
+              // same as TasksView).
+              if (task.templateId) deleteTemplate(task.templateId);
+              deleteTask(task.id);
+            }}
           />
         );
       }
@@ -125,12 +148,20 @@ export default function SearchScreen() {
           date={result.date}
           prompt={result.kind === "journal" ? result.prompt : undefined}
           content={result.content}
-          query={deferredQuery}
+          query={searchedQuery}
           onPress={() => openResult(result)}
         />
       );
     },
-    [theme, deferredQuery, openResult, updateTask, createTask, deleteTask],
+    [
+      theme,
+      searchedQuery,
+      openResult,
+      updateTask,
+      createTask,
+      deleteTask,
+      deleteTemplate,
+    ],
   );
 
   const keyExtractor = useCallback((item: TSearchListItem) => item.id, []);
@@ -174,9 +205,9 @@ export default function SearchScreen() {
           message={`Type at least ${MIN_SEARCH_LENGTH} characters to search your tasks, notes, and journal.`}
         />
       ) : isLoading ? (
-        <View style={styles.state}>
-          <ActivityIndicator color={theme.colors.textSecondary} />
-        </View>
+        // Only on a cold query — `keepPreviousData` keeps the previous results
+        // on screen while a subsequent search resolves.
+        <LoadingScreen />
       ) : listItems.length === 0 ? (
         <EmptyScreen message="No matches." />
       ) : (
@@ -202,11 +233,6 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 16,
     padding: 16,
-  },
-  state: {
-    alignItems: "center",
-    flex: 1,
-    justifyContent: "center",
   },
   // Fills the space below the field; FlashList owns its own scrolling.
   list: {

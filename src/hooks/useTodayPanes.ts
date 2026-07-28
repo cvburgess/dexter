@@ -74,21 +74,38 @@ export const useTodayPanes = (): TUseTodayPanes => {
     staleTime: Infinity,
   });
 
-  // Derives `next` from the query cache via `setQueryData`'s updater form
-  // (applied synchronously) rather than the `data` closed over at the last
-  // render, so two toggles fired back to back — before either's AsyncStorage
-  // write resolves and re-renders this hook — each read the other's update
-  // instead of clobbering it.
-  const togglePane = useCallback(
-    async (pane: TTodayPane) => {
+  /**
+   * The one write path: applies `update` to the cached panes and persists the
+   * result.
+   *
+   * Derives the next value from the query cache via `setQueryData`'s updater
+   * form (applied synchronously) rather than the `data` closed over at the last
+   * render, so two changes fired back to back — before either's AsyncStorage
+   * write resolves and re-renders this hook — each read the other's update
+   * instead of clobbering it. An updater that returns its input unchanged skips
+   * the storage write entirely.
+   */
+  const updatePanes = useCallback(
+    async (update: (panes: TTodayPanes) => TTodayPanes) => {
+      let previous: TTodayPanes | undefined;
       const next = queryClient.setQueryData<TTodayPanes>(
         ["todayPanes"],
-        (prev = DEFAULT_PANES) => ({ ...prev, [pane]: !prev[pane] }),
+        (prev = DEFAULT_PANES) => {
+          previous = prev;
+          return update(prev);
+        },
       );
-      if (next)
+      if (next && next !== previous) {
         await AsyncStorage.setItem(TODAY_PANES_KEY, JSON.stringify(next));
+      }
     },
     [queryClient],
+  );
+
+  const togglePane = useCallback(
+    (pane: TTodayPane) =>
+      updatePanes((prev) => ({ ...prev, [pane]: !prev[pane] })),
+    [updatePanes],
   );
 
   /**
@@ -99,27 +116,13 @@ export const useTodayPanes = (): TUseTodayPanes => {
    * `panes[pane]` check at the call site: that check would have to read `panes`,
    * which would put it in the caller's effect dependencies — so every later pane
    * toggle would re-run the effect and re-open a pane the user had just closed.
-   * Doing the check inside the updater keeps this callback stable and the
-   * caller's dependency list down to the route params.
+   * Returning `prev` unchanged when the pane is already open keeps this callback
+   * stable and the caller's dependency list down to the route params.
    */
   const openPane = useCallback(
-    async (pane: TTodayPane) => {
-      let opened = false;
-      const next = queryClient.setQueryData<TTodayPanes>(
-        ["todayPanes"],
-        (prev = DEFAULT_PANES) => {
-          if (prev[pane]) return prev;
-          opened = true;
-          return { ...prev, [pane]: true };
-        },
-      );
-      // Skip the storage write when nothing changed, so following a deep link
-      // to an already-open pane doesn't touch the device.
-      if (opened && next) {
-        await AsyncStorage.setItem(TODAY_PANES_KEY, JSON.stringify(next));
-      }
-    },
-    [queryClient],
+    (pane: TTodayPane) =>
+      updatePanes((prev) => (prev[pane] ? prev : { ...prev, [pane]: true })),
+    [updatePanes],
   );
 
   return [data, { togglePane, openPane, isLoading }];

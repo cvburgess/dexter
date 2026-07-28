@@ -213,6 +213,34 @@ describe("searchTasksByTitle", () => {
   it("returns nothing when no title matches", () => {
     expect(searchTasksByTitle(tasks, "xyz")).toEqual([]);
   });
+
+  // DEX-47: a Search-tab result for an unscheduled task opens this drawer seeded
+  // with the query the RPC answered, so this filter has to agree with what
+  // `search_entries` matched — otherwise the drawer hides the very task the
+  // user just tapped.
+  it("requires every term but not their order, matching the search RPC", () => {
+    const outOfOrder = [task({ id: "3", title: "Milk — remember to buy" })];
+
+    expect(searchTasksByTitle(outOfOrder, "buy milk").map((t) => t.id)).toEqual(
+      ["3"],
+    );
+    // Still an AND, not an OR: a term that appears nowhere excludes the task.
+    expect(searchTasksByTitle(outOfOrder, "buy bread")).toEqual([]);
+  });
+
+  it("matches subtask titles, which the search RPC also covers", () => {
+    const withSubtask = [
+      task({
+        id: "4",
+        title: "Groceries",
+        subtasks: [{ id: "s1", title: "Oat milk", status: ETaskStatus.TODO }],
+      }),
+    ];
+
+    expect(searchTasksByTitle(withSubtask, "oat").map((t) => t.id)).toEqual([
+      "4",
+    ]);
+  });
 });
 
 describe("groupTasks", () => {

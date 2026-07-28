@@ -345,9 +345,10 @@ export function TaskCard({
           value={title}
           editing={editing?.kind === "title"}
           // Renaming a finished task is disabled, matching the buttons below.
-          // A card that navigates isn't renameable either — its title is the
-          // link (see `onPress`).
-          editable={!isComplete && !onPress}
+          // No `&& !onPress` here — `EditableText` already gives `onPress`
+          // precedence over `editable`, and stating it twice would let a future
+          // change to one site read as contradicting the other.
+          editable={!isComplete}
           onPress={onPress}
           onStartEdit={() => setEditing({ kind: "title" })}
           onCommit={(committed) => {

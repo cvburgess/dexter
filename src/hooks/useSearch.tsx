@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { searchEntries, TSearchResult } from "@/api/search";
 
@@ -45,6 +45,12 @@ export const useSearch = (query: string): TUseSearch => {
     queryKey: ["search", trimmed],
     queryFn: () => searchEntries(supabase, trimmed),
     enabled,
+    // Hold the previous query's results while the next one is in flight.
+    // Without this every keystroke makes `data` undefined for a beat, which
+    // swaps the results list out for a spinner — tearing down the FlashList
+    // (and its recycling pools and layout measurements) and rebuilding every
+    // row, once per character typed.
+    placeholderData: keepPreviousData,
   });
 
   return [data, { isLoading, enabled }];

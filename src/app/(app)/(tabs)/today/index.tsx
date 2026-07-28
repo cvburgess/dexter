@@ -9,7 +9,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { useTasks } from "@/hooks/useTasks";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
 import { backlogAttentionFilter } from "@/utils/taskFilters";
-import { parseDayDate, parseDayMode } from "@/utils/todayRoute";
+import { parseDayDate, parseDayMode, parseDayQuery } from "@/utils/todayRoute";
 
 type TDayState = {
   date: Temporal.PlainDate;
@@ -28,13 +28,16 @@ export default function TodayScreen() {
   // (`utils/todayRoute.ts`, DEX-47). Absent for an ordinary tab press, which is
   // why every one of these is optional and the state below still seeds itself
   // from today.
+  // Typed loosely on purpose: `useLocalSearchParams` hands back a `string[]` for
+  // a repeated key, so each parser below narrows rather than trusting the shape.
   const params = useLocalSearchParams<{
-    date?: string;
-    mode?: string;
-    q?: string;
+    date?: string | string[];
+    mode?: string | string[];
+    q?: string | string[];
   }>();
   const requestedDate = parseDayDate(params.date);
   const mode = parseDayMode(params.mode);
+  const searchQuery = parseDayQuery(params.q);
   const [day, setDay] = useState<TDayState>(() => ({
     date: requestedDate ?? Temporal.Now.plainDateISO(),
     direction: 0,
@@ -81,13 +84,12 @@ export default function TodayScreen() {
   const [appliedIso, setAppliedIso] = useState(requestedIso);
   if (requestedIso !== appliedIso) {
     setAppliedIso(requestedIso);
-    if (requestedIso) {
-      const next = Temporal.PlainDate.from(requestedIso);
-      const direction = Temporal.PlainDate.compare(next, day.date);
+    if (requestedDate) {
+      const direction = Temporal.PlainDate.compare(requestedDate, day.date);
       // Skip when the link points at the day already on screen: `direction`
       // drives the day-change animation, and restarting it for no movement
       // reads as a flicker.
-      if (direction !== 0) setDay({ date: next, direction });
+      if (direction !== 0) setDay({ date: requestedDate, direction });
     }
   }
 
@@ -98,7 +100,7 @@ export default function TodayScreen() {
       changeDate={changeDate}
       attentionFilter={attentionFilter}
       mode={mode}
-      searchQuery={params.q}
+      searchQuery={searchQuery}
     />
   ) : (
     <SmallScreenToday
@@ -109,7 +111,7 @@ export default function TodayScreen() {
       changeDateBy={changeDateBy}
       attentionFilter={attentionFilter}
       mode={mode}
-      searchQuery={params.q}
+      searchQuery={searchQuery}
     />
   );
 }
