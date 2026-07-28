@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
-import { Text, TouchableOpacity } from "react-native";
+import { Text, TextInput as RNTextInput, TouchableOpacity } from "react-native";
 
 import { TSearchResult } from "@/api/search";
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
@@ -24,6 +24,32 @@ jest.mock("@/hooks/useTemplates", () => ({ useTemplates: jest.fn() }));
 jest.mock("react-native-safe-area-context", () =>
   require("@/testUtils/mockSafeAreaEdges").mockSafeAreaContext(),
 );
+
+// On native `SearchField` is `Stack.SearchBar`, which renders `null` and hangs
+// itself off the screen's navigation options — there's no element for a test to
+// type into. Stub it with a plain input carrying the same accessibility label so
+// this suite can drive the query; the real component's two halves are covered by
+// SearchField.web.test.tsx and, on native, only by the device.
+const mockSearchField = ({
+  value,
+  onChangeText,
+  placeholder,
+}: {
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder: string;
+}) => (
+  <RNTextInput
+    accessibilityLabel="Search"
+    placeholder={placeholder}
+    value={value}
+    onChangeText={onChangeText}
+  />
+);
+jest.mock("@/components/SearchField", () => ({
+  SearchField: (props: Parameters<typeof mockSearchField>[0]) =>
+    mockSearchField(props),
+}));
 
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));

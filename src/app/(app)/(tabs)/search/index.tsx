@@ -11,9 +11,9 @@ import { TSearchResult } from "@/api/search";
 import { duplicateTaskInput } from "@/api/tasks";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { SearchField } from "@/components/SearchField";
 import { SearchResultCard } from "@/components/SearchResultCard";
 import { TaskCard } from "@/components/TaskCard";
-import { TextInput } from "@/components/TextInput";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { MIN_SEARCH_LENGTH, useSearch } from "@/hooks/useSearch";
 import { useTasks } from "@/hooks/useTasks";
@@ -214,15 +214,14 @@ export default function SearchScreen() {
       edges={["top", "left", "right"]}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      <TextInput
-        accessibilityLabel="Search"
-        placeholder="Search tasks, notes, and journal"
+      {/* Platform-split: the native search bar renders into the navigation
+          header (and, on iOS 26+, the tab bar) and returns null here, so this
+          contributes no layout on native; web renders a themed in-body field
+          instead. See components/SearchField.tsx. */}
+      <SearchField
         value={query}
         onChangeText={setQuery}
-        autoCapitalize="none"
-        autoCorrect={false}
-        clearButtonMode="while-editing"
-        returnKeyType="search"
+        placeholder="Search tasks, notes, and journal"
       />
       {!enabled ? (
         <EmptyScreen
