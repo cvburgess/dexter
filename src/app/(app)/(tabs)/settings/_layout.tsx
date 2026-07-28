@@ -2,7 +2,7 @@ import { Stack } from "expo-router";
 import { View } from "react-native";
 
 import { SettingsSidebar } from "@/components/SettingsSidebar";
-import { useIsMultiPane } from "@/hooks/useIsMultiPane";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import {
   createListScreenOptions,
   createModalScreenOptions,
@@ -20,7 +20,7 @@ export const unstable_settings = { anchor: "index" };
 
 export default function SettingsLayout() {
   const theme = useTheme();
-  const twoPane = useIsMultiPane();
+  const twoPane = useIsLargeDevice();
 
   const stack = (
     <Stack>

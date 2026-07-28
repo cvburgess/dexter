@@ -4,12 +4,12 @@ import type { ViewStyle } from "react-native";
 
 import AppearanceScreen from "@/app/(app)/(tabs)/settings/appearance";
 import { EThemeMode } from "@/api/preferences";
-import { useIsMultiPane } from "@/hooks/useIsMultiPane";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
 import { renderWithBottomInset } from "@/testUtils/renderWithBottomInset";
 
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
-jest.mock("@/hooks/useIsMultiPane", () => ({ useIsMultiPane: jest.fn() }));
+jest.mock("@/hooks/useIsLargeDevice", () => ({ useIsLargeDevice: jest.fn() }));
 
 jest.mock("react-native-safe-area-context", () =>
   require("@/testUtils/mockSafeAreaEdges").mockSafeAreaContext(),
@@ -18,8 +18,8 @@ jest.mock("react-native-safe-area-context", () =>
 const mockUsePreferences = usePreferences as jest.MockedFunction<
   typeof usePreferences
 >;
-const mockUseIsMultiPane = useIsMultiPane as jest.MockedFunction<
-  typeof useIsMultiPane
+const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
+  typeof useIsLargeDevice
 >;
 const mockUpdate = jest.fn();
 
@@ -49,11 +49,11 @@ const renderWith = (overrides = {}) => {
 describe("AppearanceScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseIsMultiPane.mockReturnValue(false);
+    mockUseIsLargeDevice.mockReturnValue(false);
   });
 
   it("skips the left safe-area edge in two-pane mode (sidebar owns it)", () => {
-    mockUseIsMultiPane.mockReturnValue(true);
+    mockUseIsLargeDevice.mockReturnValue(true);
     const screen = renderWith();
 
     expect(screen.getByTestId("safe-area-edges-right")).toBeTruthy();

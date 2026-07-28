@@ -17,7 +17,7 @@ import { useShowNavRail } from "@/hooks/useShowNavRail";
 export default function TabsLayout() {
   // The layout owns the decision and the nav components just render, the same
   // split as settings/_layout.tsx. The threshold is the rail's own
-  // (`WEB_RAIL_MIN_WIDTH`), not `useIsMultiPane`'s — see the comment there for
+  // (`WEB_RAIL_MIN_WIDTH`), not `useIsLargeDevice`'s — see the comment there for
   // why the two differ by the rail's width.
   const rail = useShowNavRail();
 

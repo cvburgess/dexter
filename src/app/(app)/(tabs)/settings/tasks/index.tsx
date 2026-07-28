@@ -14,7 +14,7 @@ import {
 import { PickerField } from "@/components/PickerField";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { TemplateRow } from "@/components/TemplateRow";
-import { useIsMultiPane } from "@/hooks/useIsMultiPane";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
@@ -66,7 +66,7 @@ export default function TasksScreen() {
         task.templateId === template.id && !isCompletionStatus(task.status),
     );
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
-  const twoPane = useIsMultiPane();
+  const twoPane = useIsLargeDevice();
   const insets = useSafeAreaInsets();
 
   return (

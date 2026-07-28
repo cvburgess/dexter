@@ -6,7 +6,7 @@ import {
 } from "react-native-safe-area-context";
 
 import { SettingsRow } from "@/components/SettingsRow";
-import { useIsMultiPane } from "@/hooks/useIsMultiPane";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { SETTINGS_ITEMS } from "@/utils/settingsItems";
 import { EDGES_SINGLE_PANE } from "@/utils/settingsSafeAreaEdges";
 import { useTheme } from "@/utils/theme";
@@ -14,7 +14,7 @@ import { useTheme } from "@/utils/theme";
 export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const twoPane = useIsMultiPane();
+  const twoPane = useIsLargeDevice();
   const insets = useSafeAreaInsets();
 
   // On wide screens the list becomes a persistent sidebar (SettingsSidebar) and

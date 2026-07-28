@@ -18,7 +18,7 @@ import {
   TSegmentedControlOption,
 } from "@/components/SegmentedControl";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
-import { useIsMultiPane } from "@/hooks/useIsMultiPane";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
 import {
   EDGES_SINGLE_PANE,
@@ -38,7 +38,7 @@ const DARK_THEMES = THEMES.filter((t) => t.mode === "dark");
 export default function AppearanceScreen() {
   const theme = useTheme();
   const [preferences, { updatePreferences }] = usePreferences();
-  const twoPane = useIsMultiPane();
+  const twoPane = useIsLargeDevice();
   const insets = useSafeAreaInsets();
 
   const { themeMode, lightTheme, darkTheme } = preferences;

@@ -2,12 +2,12 @@ import { fireEvent, render } from "@testing-library/react-native";
 
 import HabitsScreen from "@/app/(app)/(tabs)/settings/habits";
 import { useHabits } from "@/hooks/useHabits";
-import { useIsMultiPane } from "@/hooks/useIsMultiPane";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
 
 jest.mock("@/hooks/useHabits", () => ({ useHabits: jest.fn() }));
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
-jest.mock("@/hooks/useIsMultiPane", () => ({ useIsMultiPane: jest.fn() }));
+jest.mock("@/hooks/useIsLargeDevice", () => ({ useIsLargeDevice: jest.fn() }));
 
 jest.mock("react-native-safe-area-context", () =>
   require("@/testUtils/mockSafeAreaEdges").mockSafeAreaContext(),
@@ -24,8 +24,8 @@ const mockUseHabits = useHabits as jest.MockedFunction<typeof useHabits>;
 const mockUsePreferences = usePreferences as jest.MockedFunction<
   typeof usePreferences
 >;
-const mockUseIsMultiPane = useIsMultiPane as jest.MockedFunction<
-  typeof useIsMultiPane
+const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
+  typeof useIsLargeDevice
 >;
 const mockUpdate = jest.fn();
 
@@ -48,18 +48,18 @@ const renderHeader = () => {
 describe("HabitsScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseIsMultiPane.mockReturnValue(false);
+    mockUseIsLargeDevice.mockReturnValue(false);
   });
 
   it("skips the left safe-area edge in two-pane mode (sidebar owns it)", () => {
-    mockUseIsMultiPane.mockReturnValue(true);
+    mockUseIsLargeDevice.mockReturnValue(true);
     const screen = renderWith({ enableHabits: true });
 
     expect(screen.getByTestId("safe-area-edges-right")).toBeTruthy();
   });
 
   it("includes the left safe-area edge in single-column mode", () => {
-    mockUseIsMultiPane.mockReturnValue(false);
+    mockUseIsLargeDevice.mockReturnValue(false);
     const screen = renderWith({ enableHabits: true });
 
     expect(screen.getByTestId("safe-area-edges-left,right")).toBeTruthy();

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 
 import { LargeScreenToday } from "@/components/LargeScreenToday";
 import { SmallScreenToday } from "@/components/SmallScreenToday";
-import { useIsMultiPane } from "@/hooks/useIsMultiPane";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTasks } from "@/hooks/useTasks";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
@@ -23,7 +23,7 @@ type TDayState = {
 // other.
 export default function TodayScreen() {
   const [preferences] = usePreferences();
-  const multiPane = useIsMultiPane();
+  const multiPane = useIsLargeDevice();
   // `?date=&mode=&q=&n=` — the deep-link contract the Search tab builds
   // (`utils/todayRoute.ts`, DEX-47). Null for an ordinary tab press, which is
   // why the state below still seeds itself from today. Typed loosely on purpose:

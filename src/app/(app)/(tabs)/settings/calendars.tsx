@@ -8,7 +8,7 @@ import { CalendarSourceList } from "@/components/CalendarSourceList";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { SettingsToggleCard } from "@/components/SettingsToggleCard";
 import { TimeField } from "@/components/TimeField";
-import { useIsMultiPane } from "@/hooks/useIsMultiPane";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
 import {
   EDGES_SINGLE_PANE,
@@ -25,7 +25,7 @@ export default function CalendarsScreen() {
   const theme = useTheme();
   const [preferences, { updatePreferences }] = usePreferences();
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
-  const twoPane = useIsMultiPane();
+  const twoPane = useIsLargeDevice();
   const insets = useSafeAreaInsets();
 
   const cardStyle = {

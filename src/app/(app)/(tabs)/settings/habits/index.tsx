@@ -11,7 +11,7 @@ import { HeaderAddButton } from "@/components/HeaderAddButton";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { SettingsToggleCard } from "@/components/SettingsToggleCard";
 import { useHabits } from "@/hooks/useHabits";
-import { useIsMultiPane } from "@/hooks/useIsMultiPane";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
 import {
   EDGES_SINGLE_PANE,
@@ -26,7 +26,7 @@ export default function HabitsScreen() {
   const [habits, { updateHabit }] = useHabits();
   const [preferences, { updatePreferences }] = usePreferences();
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
-  const twoPane = useIsMultiPane();
+  const twoPane = useIsLargeDevice();
   const insets = useSafeAreaInsets();
 
   // A "+" in the header opens the create modal (mirrors New Task), but only when
