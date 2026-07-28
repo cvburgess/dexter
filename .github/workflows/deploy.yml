@@ -53,8 +53,15 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
+      # `--include-all` applies any local migration missing from the remote
+      # history, even one whose timestamp sorts before the remote HEAD. PRs
+      # merge in a different order than their migrations were authored, so a
+      # migration written before another PR's can land after it; without this
+      # flag `db push` exits 1 and blocks the whole deploy (DEX-65 / #81).
+      # The tradeoff: a migration can be applied out of timestamp order, so
+      # each one must stand alone — see docs/backend.md.
       - name: Apply Migrations
-        run: supabase db push --password ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase db push --include-all --password ${{ secrets.SUPABASE_DB_PASSWORD }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 

@@ -32,6 +32,12 @@ Create `supabase/migrations/<timestamp>_<description>.sql` following these conve
 **SQL conventions:**
 - Add a comment header explaining what the migration does and why
 - Use `IF NOT EXISTS` / `IF EXISTS` for idempotent DDL where possible
+- **Each migration must stand alone.** PRs merge in a different order than their
+  migrations were authored, and production applies them with
+  `supabase db push --include-all`, so a migration can land *after* one with a
+  later timestamp. Never depend on a later-timestamped migration having already
+  run; if two migrations must land in a fixed order, ship them in one PR. See
+  `docs/backend.md` → Deployment (CI/CD).
 - Use `public.` schema prefix for all table references
 - Use `timestamptz` for timestamps (not `timestamp`)
 - Use `jsonb` for JSON columns (not `json`)

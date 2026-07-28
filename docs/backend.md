@@ -388,7 +388,7 @@ Backend and app deploys run from GitHub Actions in `.github/workflows/`:
 
 - **`deploy.yml`** — on push to `main` touching `supabase/**` or `src/**` (or
   manual `workflow_dispatch`). Detects which paths changed, then runs, in order:
-  `migrate` (`supabase db push`), `deploy-functions`
+  `migrate` (`supabase db push --include-all`), `deploy-functions`
   (`supabase functions deploy`), and `deploy-eas` (web export → `eas deploy`
   → OTA `eas update`). The migrate/functions jobs run only when `supabase/**`
   changed; the EAS job runs only when `src/**` changed and the backend jobs
@@ -407,6 +407,17 @@ Backend and app deploys run from GitHub Actions in `.github/workflows/`:
   `git_branch` input targets an existing preview branch on demand.
 - **`preview.yml`** — `workflow_dispatch` EAS preview OTA update (`eas update
   --auto`) that comments on the PR.
+
+> **Migrations can apply out of timestamp order.** PRs merge in a different
+> order than their migrations were authored, so a migration timestamped before
+> another PR's can reach production after it. Plain `supabase db push` refuses
+> that case outright ("Found local migration files to be inserted before the
+> last migration on remote database") and fails the whole deploy, which is why
+> `migrate` passes `--include-all`. The rule that falls out: **every migration
+> must stand alone.** Never write one that depends on a later-timestamped
+> migration having already run, and prefer `IF EXISTS` / `IF NOT EXISTS` so a
+> replay is harmless. If two migrations genuinely must land in a fixed order,
+> put them in the same PR.
 
 EAS deploys/updates rely on **EAS Update** wiring in `src/`: the `export:web`
 script (`expo export --platform web`), the `expo-updates` dependency, and the
