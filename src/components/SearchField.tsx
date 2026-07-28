@@ -46,6 +46,16 @@ export function SearchField({ onChangeText, placeholder }: TSearchFieldProps) {
       // The whole screen is the search results, so the field should stay put
       // rather than hiding as the list scrolls.
       hideWhenScrolling={false}
+      // Focus on mount, so opening the tab lands with the keyboard up rather
+      // than needing a second tap on the field.
+      //
+      // Mount, not tab press: native tabs keep this screen mounted once it has
+      // been visited, so this fires on the first visit of a session and not on
+      // later switches back. Focusing on every visit would need the ref's
+      // `SearchBarCommands.focus()` driven from `useFocusEffect` (or a
+      // `tabPress` listener); deliberately not doing that, since re-focusing
+      // every time would put the keyboard over results the user came back to read.
+      autoFocus
       autoCapitalize="none"
       // The native field is uncontrolled, so this event *is* the query. Note
       // it's a `NativeSyntheticEvent`, not a string — the text is on
