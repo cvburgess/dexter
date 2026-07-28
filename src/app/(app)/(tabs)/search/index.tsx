@@ -15,7 +15,7 @@ import { SearchField } from "@/components/SearchField";
 import { SearchResultCard } from "@/components/SearchResultCard";
 import { TaskCard } from "@/components/TaskCard";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { useSearch } from "@/hooks/useSearch";
+import { MIN_SEARCH_LENGTH, useSearch } from "@/hooks/useSearch";
 import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
 import { canOpenSearchResult, searchResultRoute } from "@/utils/todayRoute";
@@ -73,6 +73,13 @@ export default function SearchScreen() {
     skipQuery: true,
   });
   const [, { deleteTemplate }] = useTemplates({ skipQuery: true });
+
+  // Whether the *field* holds a searchable query, as opposed to `enabled`, which
+  // the hook derives from the debounced value. The two disagree for up to one
+  // debounce window, and keying the idle prompt off `enabled` told a user who
+  // had just typed two characters that they hadn't typed anything — most
+  // visibly when recovering from a query they'd deleted below the floor.
+  const willSearch = query.trim().length >= MIN_SEARCH_LENGTH;
 
   const listItems = useMemo<TSearchListItem[]>(
     () =>
@@ -223,11 +230,13 @@ export default function SearchScreen() {
         onChangeText={setQuery}
         placeholder="Search tasks, notes, and journal"
       />
-      {!enabled ? (
+      {!willSearch ? (
         <EmptyScreen message="Search your tasks, notes, and journal." />
-      ) : isLoading ? (
-        // Only on a cold query — `keepPreviousData` keeps the previous results
-        // on screen while a subsequent search resolves.
+      ) : isLoading || !enabled ? (
+        // `!enabled` covers the debounce window, where the hook is still keyed
+        // on a query shorter than the floor while the field already isn't.
+        // Otherwise only a cold query shows this — `keepPreviousData` keeps the
+        // previous results on screen while a subsequent search resolves.
         <LoadingScreen />
       ) : listItems.length === 0 ? (
         <EmptyScreen message="No matches." />

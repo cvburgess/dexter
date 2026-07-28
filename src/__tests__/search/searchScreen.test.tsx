@@ -8,11 +8,18 @@ import { useSearch } from "@/hooks/useSearch";
 import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
 
-// A plain stub: the screen only uses `useSearch` from this module now, so there
-// is nothing to preserve with `requireActual` — which also means this suite no
-// longer has to stub `useAuth` to keep the real module graph (and its
-// expo-constants manifest requirement) out of the way.
-jest.mock("@/hooks/useSearch", () => ({ useSearch: jest.fn() }));
+// `requireActual` keeps the real MIN_SEARCH_LENGTH, which the screen reads to
+// decide whether the *field* holds a searchable query — a stubbed `undefined`
+// would make every comparison against it false and pin the screen to its idle
+// state. That pulls in useSearch's real module graph, which reaches useAuth →
+// expo-linking → the expo-constants manifest this unit test doesn't set up,
+// hence the stub below it.
+jest.mock("@/hooks/useAuth", () => ({ supabase: {} }));
+jest.mock("@/hooks/useSearch", () => {
+  const actual =
+    jest.requireActual<typeof import("@/hooks/useSearch")>("@/hooks/useSearch");
+  return { ...actual, useSearch: jest.fn() };
+});
 jest.mock("@/hooks/useTasks", () => ({ useTasks: jest.fn() }));
 jest.mock("@/hooks/useTemplates", () => ({ useTemplates: jest.fn() }));
 jest.mock("react-native-safe-area-context", () =>
@@ -187,8 +194,36 @@ describe("SearchScreen", () => {
     expect(mockUseSearch).not.toHaveBeenCalledWith("mi");
   });
 
+  it("does not fall back to the idle prompt during the debounce window", () => {
+    // `enabled` comes from the hook, which is keyed on the *debounced* query, so
+    // it lags the field by up to one debounce. Gating the idle state on it told
+    // a user who had just typed two characters that they hadn't typed anything.
+    mockUseSearch.mockReturnValue(searchResult([], { enabled: false }));
+    render(<SearchScreen />);
+
+    // Typed, but the debounce hasn't fired — the field is searchable while the
+    // hook is still keyed on "".
+    fireEvent.changeText(screen.getByLabelText("Search"), "milk");
+
+    expect(
+      screen.queryByText("Search your tasks, notes, and journal."),
+    ).toBeNull();
+  });
+
+  it("returns to the idle prompt when the field is cleared", () => {
+    mockUseSearch.mockReturnValue(searchResult([], { enabled: false }));
+    render(<SearchScreen />);
+
+    typeSearch("");
+
+    expect(
+      screen.getByText("Search your tasks, notes, and journal."),
+    ).toBeTruthy();
+  });
+
   it("reports when a searched query matched nothing", () => {
     render(<SearchScreen />);
+    typeSearch("milk");
 
     // Distinct from the prompt state above: this one ran and came back empty.
     expect(screen.getByText("No matches.")).toBeTruthy();
@@ -209,6 +244,7 @@ describe("SearchScreen", () => {
     );
 
     render(<SearchScreen />);
+    typeSearch("milk");
 
     expect(screen.getByText("Tasks")).toBeTruthy();
     expect(screen.getByText("Notes")).toBeTruthy();
@@ -225,6 +261,7 @@ describe("SearchScreen", () => {
     );
 
     render(<SearchScreen />);
+    typeSearch("milk");
 
     expect(screen.getByText("Tasks")).toBeTruthy();
     expect(screen.queryByText("Notes")).toBeNull();
@@ -238,6 +275,7 @@ describe("SearchScreen", () => {
       ]),
     );
     render(<SearchScreen />);
+    typeSearch("milk");
 
     fireEvent.press(screen.getByLabelText("delete-Buy milk"));
 
@@ -252,6 +290,7 @@ describe("SearchScreen", () => {
       searchResult([{ kind: "task", task: task({ templateId: null }) }]),
     );
     render(<SearchScreen />);
+    typeSearch("milk");
 
     fireEvent.press(screen.getByLabelText("delete-Buy milk"));
 
@@ -319,6 +358,7 @@ describe("SearchScreen", () => {
       ]),
     );
     render(<SearchScreen />);
+    typeSearch("milk");
 
     fireEvent.press(screen.getByLabelText("Jul 13, 2026"));
 
@@ -340,6 +380,7 @@ describe("SearchScreen", () => {
       ]),
     );
     render(<SearchScreen />);
+    typeSearch("milk");
 
     fireEvent.press(screen.getByLabelText("What went well?, Jul 12, 2026"));
 
