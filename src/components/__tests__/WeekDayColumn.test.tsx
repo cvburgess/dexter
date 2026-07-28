@@ -1,6 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { fireEvent, render, renderHook } from "@testing-library/react-native";
-import { useRouter } from "expo-router";
+import { render, renderHook } from "@testing-library/react-native";
 import { StyleSheet, Text } from "react-native";
 import type { TextStyle, ViewStyle } from "react-native";
 
@@ -20,9 +19,6 @@ jest.mock("@/hooks/useTasks", () => ({
   useTasks: jest.fn(),
 }));
 jest.mock("@/hooks/useTemplates", () => ({ useTemplates: jest.fn() }));
-
-const mockPush = jest.fn();
-jest.mock("expo-router", () => ({ useRouter: jest.fn() }));
 
 // The habit tracker runs its own queries and is covered by its own tests;
 // stub it to a marker that echoes the props this column wires up.
@@ -49,7 +45,6 @@ const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
 const mockUseTemplates = useTemplates as jest.MockedFunction<
   typeof useTemplates
 >;
-const mockUseRouter = useRouter as jest.MockedFunction<typeof useRouter>;
 
 const tasksResult = (tasks: TTask[] = []) =>
   [
@@ -101,7 +96,6 @@ beforeEach(() => {
     [],
     { deleteTemplate: jest.fn(), getTemplateById: jest.fn() },
   ] as never);
-  mockUseRouter.mockReturnValue({ push: mockPush } as never);
 });
 
 describe("WeekDayColumn", () => {
@@ -130,25 +124,25 @@ describe("WeekDayColumn", () => {
     expect(screen.queryByText("Tomorrow's")).toBeNull();
   });
 
-  it("shows a short empty state so it fits a narrow column", () => {
+  it("renders no empty-state message when the day has no tasks", () => {
+    // Seven of them side by side read as noise, and an empty column already
+    // says what it needs to.
     const screen = render(
       <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
     );
 
-    expect(screen.getByText("No tasks")).toBeTruthy();
+    expect(screen.queryByText(/no tasks/i)).toBeNull();
+    // The chip still renders, so this isn't passing on an empty tree.
+    expect(screen.getByText("Wednesday")).toBeTruthy();
   });
 
-  it("opens the create-task modal already scheduled for its own day", () => {
+  it("offers no per-column create affordance", () => {
+    // Creating goes through the tab's single "+" (see WeekView).
     const screen = render(
       <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
     );
 
-    fireEvent.press(screen.getByLabelText("New task on Wednesday 7/29"));
-
-    expect(mockPush).toHaveBeenCalledWith({
-      pathname: "/new-task",
-      params: { scheduledFor: "2026-07-29" },
-    });
+    expect(screen.queryByLabelText(/new task/i)).toBeNull();
   });
 
   describe("habits", () => {

@@ -15,8 +15,12 @@ import { selectTasksForDate } from "@/utils/taskFilters";
 
 type TDayTaskListProps = {
   date: Temporal.PlainDate;
-  /** Shown in place of the list when the day has no tasks. */
-  emptyMessage?: string;
+  /**
+   * Shown in place of the list when the day has no tasks. `null` renders
+   * nothing at all — what the Week tab's columns want, since seven empty-state
+   * messages side by side read as noise rather than information (DEX-96).
+   */
+  emptyMessage?: string | null;
 };
 
 /**
@@ -74,7 +78,8 @@ export function DayTaskList({
           mounting makes worse (expo/expo#42576). The cards themselves pin
           their heights (see TaskCard/StatusButton) so layout stays stable. */}
       {tasks.length === 0 ? (
-        !isLoading && <EmptyScreen message={emptyMessage} />
+        !isLoading &&
+        emptyMessage !== null && <EmptyScreen message={emptyMessage} />
       ) : (
         <ScrollView
           style={styles.scroll}

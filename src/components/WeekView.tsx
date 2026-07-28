@@ -1,5 +1,4 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { useRouter } from "expo-router";
 import { useMemo, useRef, useState } from "react";
 import { LayoutChangeEvent, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -21,9 +20,10 @@ type TWeekViewProps = {
   monday: Temporal.PlainDate;
   onChangeWeek: (monday: Temporal.PlainDate) => void;
   /**
-   * The day the header's "+" and the backlog's per-row "+" schedule onto —
-   * today when it falls inside this week, otherwise the week's Monday. Chosen
-   * by the route so both entry points agree; see `week/index.tsx`.
+   * The day the backlog's per-row "+" schedules onto — today when it falls
+   * inside this week, otherwise the week's Monday. The route picks it and also
+   * publishes it as the viewed day, so the nav rail's "+" agrees; see
+   * `week/index.tsx`.
    */
   targetDate: Temporal.PlainDate;
   enableHabits: boolean;
@@ -44,7 +44,6 @@ export function WeekView({
   enableHabits,
 }: TWeekViewProps) {
   const theme = useTheme();
-  const router = useRouter();
   // Local rather than `useTodayPanes`: sharing the `drawer` pane would mean
   // opening the backlog here also opened it on Today, and the legacy view
   // didn't persist its Quick Planner toggle either.
@@ -99,12 +98,6 @@ export function WeekView({
     });
   };
 
-  const openNewTask = () =>
-    router.push({
-      pathname: "/new-task",
-      params: { scheduledFor: targetDate.toString() },
-    });
-
   return (
     <SafeAreaView
       edges={["top", "left", "right"]}
@@ -124,12 +117,6 @@ export function WeekView({
             ionicon="file-tray-full-outline"
             onPress={() => setShowDrawer((open) => !open)}
             sfSymbol="tray.full"
-          />
-          <GlassIconButton
-            accessibilityLabel="New Task"
-            ionicon="add-outline"
-            onPress={openNewTask}
-            sfSymbol="plus"
           />
         </View>
       </View>

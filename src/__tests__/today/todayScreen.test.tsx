@@ -618,15 +618,14 @@ describe("TodayScreen", () => {
       expect(() => getByGestureTestId("day-swipe")).toThrow();
     });
 
-    it("opens the new-task modal scheduled for the viewed day", () => {
+    it("offers no create button of its own in the header", () => {
+      // The nav rail (web) and the tab-bar accessory (native) both carry a
+      // "+", so a third one in the header was redundant. Both read the viewed
+      // day back through `usePublishViewedDay`/`newTaskRoute`, which the
+      // "publishes the viewed day" cases below cover.
       const screen = render(<TodayScreen />);
 
-      fireEvent.press(screen.getByLabelText("New Task"));
-
-      expect(mockPush).toHaveBeenCalledWith({
-        pathname: "/new-task",
-        params: { scheduledFor: Temporal.Now.plainDateISO().toString() },
-      });
+      expect(screen.queryByLabelText("New Task")).toBeNull();
     });
   });
 
