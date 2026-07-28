@@ -48,6 +48,32 @@ export function selectBacklogTasks(
 }
 
 /**
+ * Incomplete tasks unscheduled or scheduled outside the Monday–Sunday week
+ * starting at `monday` — the Week tab's backlog scope (DEX-96), and the
+ * on-device equivalent of the legacy QuickPlanner's `notThisWeek` server
+ * filter. The week form of `selectBacklogTasks` above: the Week tab shows
+ * seven days at once, so "not scheduled for the viewed day" would list six of
+ * the columns already on screen back to the user.
+ *
+ * ISO `YYYY-MM-DD` strings compare correctly with plain string operators, so
+ * the bounds need no Temporal parsing per task.
+ */
+export function selectBacklogTasksForWeek(
+  tasks: TTask[],
+  monday: Temporal.PlainDate,
+): TTask[] {
+  const start = monday.toString();
+  const end = monday.add({ days: 6 }).toString();
+  return tasks.filter(
+    (task) =>
+      isIncomplete(task) &&
+      (task.scheduledFor === null ||
+        task.scheduledFor < start ||
+        task.scheduledFor > end),
+  );
+}
+
+/**
  * Applies the Backlog's Filter-menu preset on top of an already-scoped task
  * array (on-device equivalent of the former `taskFilters` server presets,
  * DEX-57). `"none"` is a no-op. `dueOn`/`scheduledFor` are ISO `YYYY-MM-DD`

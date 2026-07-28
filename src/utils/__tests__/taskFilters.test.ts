@@ -7,6 +7,7 @@ import {
   filterTasks,
   isCompletionStatus,
   selectBacklogTasks,
+  selectBacklogTasksForWeek,
   selectTasksForDate,
 } from "../taskFilters";
 
@@ -63,6 +64,62 @@ describe("selectTasksForDate", () => {
       "2",
       "1",
     ]);
+  });
+});
+
+describe("selectBacklogTasksForWeek", () => {
+  // 2026-07-27 (Mon) – 2026-08-02 (Sun).
+  const monday = Temporal.PlainDate.from("2026-07-27");
+
+  it("excludes every day of the week, including both boundaries", () => {
+    const tasks = [
+      task({ id: "sun-before", scheduledFor: "2026-07-26" }),
+      task({ id: "mon", scheduledFor: "2026-07-27" }),
+      task({ id: "thu", scheduledFor: "2026-07-30" }),
+      task({ id: "sun", scheduledFor: "2026-08-02" }),
+      task({ id: "mon-after", scheduledFor: "2026-08-03" }),
+    ];
+
+    expect(selectBacklogTasksForWeek(tasks, monday).map((t) => t.id)).toEqual([
+      "sun-before",
+      "mon-after",
+    ]);
+  });
+
+  it("includes unscheduled incomplete tasks", () => {
+    const tasks = [task({ id: "1", scheduledFor: null })];
+
+    expect(selectBacklogTasksForWeek(tasks, monday).map((t) => t.id)).toEqual([
+      "1",
+    ]);
+  });
+
+  it("excludes completed tasks even when scheduled outside the week", () => {
+    const tasks = [
+      task({
+        id: "done",
+        scheduledFor: "2026-07-01",
+        status: ETaskStatus.DONE,
+      }),
+      task({
+        id: "wont",
+        scheduledFor: null,
+        status: ETaskStatus.WONT_DO,
+      }),
+      task({ id: "open", scheduledFor: "2026-07-01" }),
+    ];
+
+    expect(selectBacklogTasksForWeek(tasks, monday).map((t) => t.id)).toEqual([
+      "open",
+    ]);
+  });
+
+  it("spans a month boundary within the week", () => {
+    // The week straddles July/August, so a naive month comparison would
+    // mis-scope 2026-08-01 (a Saturday inside the week).
+    const tasks = [task({ id: "sat", scheduledFor: "2026-08-01" })];
+
+    expect(selectBacklogTasksForWeek(tasks, monday)).toEqual([]);
   });
 });
 
