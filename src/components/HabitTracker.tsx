@@ -14,6 +14,14 @@ const TRACKER_HEIGHT = 56;
 
 type THabitTrackerProps = {
   date: Temporal.PlainDate;
+  /**
+   * Whether to offer the first-run "Create a habit" link when the account has
+   * no habits at all. The Week tab passes `false`: it renders one tracker per
+   * day column, and seven copies of the same call-to-action reads as noise
+   * rather than an invitation. The legacy app suppressed it outside the Day
+   * view for the same reason.
+   */
+  showCreateNudge?: boolean;
 };
 
 /**
@@ -21,7 +29,10 @@ type THabitTrackerProps = {
  * dexter-app's `DailyHabits`. Future dates show dimmed, inert rings because
  * their daily rows aren't created until the day arrives.
  */
-export function HabitTracker({ date }: THabitTrackerProps) {
+export function HabitTracker({
+  date,
+  showCreateNudge = true,
+}: THabitTrackerProps) {
   const theme = useTheme();
   const router = useRouter();
 
@@ -84,7 +95,7 @@ export function HabitTracker({ date }: THabitTrackerProps) {
   }
 
   // First-run nudge (today/past only): the user has no habits at all yet.
-  if (!isFutureDate && allHabits.length === 0) {
+  if (showCreateNudge && !isFutureDate && allHabits.length === 0) {
     return (
       <TouchableOpacity
         accessibilityRole="link"
