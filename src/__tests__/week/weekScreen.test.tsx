@@ -29,10 +29,12 @@ const mockWeekView = ({
   onChangeWeek,
   targetDate,
   enableHabits,
+  today,
 }: ComponentProps<typeof WeekView>) => (
   <>
     <Text>{`week-view:${monday.toString()}`}</Text>
     <Text>{`target:${targetDate.toString()}`}</Text>
+    <Text>{`today:${today.toString()}`}</Text>
     <Text>{`habits:${String(enableHabits)}`}</Text>
     <TouchableOpacity
       accessibilityLabel="next-week"
@@ -120,6 +122,16 @@ describe("WeekScreen", () => {
       render(<WeekScreen />);
 
       expect(mockUsePublishViewedDay).toHaveBeenCalledWith(today);
+    });
+
+    it("hands WeekView the same day it derived the target from", () => {
+      // One clock read for the screen. When these came from separate reads and
+      // one was frozen at mount, an app left open across midnight moved the
+      // today chip while still scheduling onto yesterday.
+      const screen = render(<WeekScreen />);
+
+      expect(screen.getByText(`today:${today.toString()}`)).toBeTruthy();
+      expect(screen.getByText(`target:${today.toString()}`)).toBeTruthy();
     });
   });
 

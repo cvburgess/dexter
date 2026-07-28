@@ -27,6 +27,15 @@ type TWeekViewProps = {
    */
   targetDate: Temporal.PlainDate;
   enableHabits: boolean;
+  /**
+   * The real calendar day, passed down rather than read from the clock here so
+   * this and `targetDate` are always derived from the same instant — reading it
+   * separately let an app left open across midnight move the today chip while
+   * still scheduling onto yesterday. `Temporal.Now.plainDateISO()` re-resolves
+   * the system time zone on every call, so sharing one read is also the
+   * cheaper arrangement.
+   */
+  today: Temporal.PlainDate;
 };
 
 /**
@@ -42,6 +51,7 @@ export function WeekView({
   onChangeWeek,
   targetDate,
   enableHabits,
+  today,
 }: TWeekViewProps) {
   const theme = useTheme();
   // Local rather than `useTodayPanes`: sharing the `drawer` pane would mean
@@ -54,11 +64,6 @@ export function WeekView({
   // it as a dependency — a fresh array each render would re-filter seven task
   // lists and re-fire that write effect on every unrelated re-render.
   const days = useMemo(() => weekDays(monday), [monday]);
-  // Read once rather than per column: `Temporal.Now.plainDateISO()` resolves
-  // the system time zone on every call, making it the most expensive Temporal
-  // operation by a wide margin. Also keeps a render that straddles midnight
-  // internally consistent.
-  const today = Temporal.Now.plainDateISO();
   const todayIndex = days.findIndex((day) => day.equals(today));
 
   const scrollRef = useRef<ScrollView>(null);

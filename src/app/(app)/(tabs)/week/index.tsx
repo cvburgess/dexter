@@ -40,15 +40,24 @@ export default function WeekScreen() {
   // week's Monday otherwise, so a task created while looking at another week
   // lands in the week being looked at rather than silently on today.
   //
-  // Memoized because the identity is load-bearing: `usePublishViewedDay` keys
-  // its focus effect on it, so a fresh `PlainDate` each render would tear the
+  // Read live rather than frozen at mount, and read *here* for the whole
+  // screen: `WeekView` takes it as a prop instead of calling the clock again,
+  // so the day the columns highlight and the day tasks get scheduled onto
+  // cannot disagree. They did when this was captured once — an app left open
+  // across midnight moved the today chip but kept scheduling onto yesterday.
+  const today = Temporal.Now.plainDateISO();
+
+  // Keyed on the ISO string, not the `PlainDate`, so the memo still returns a
+  // stable object across renders within a day while tracking the real date
+  // across midnight. That identity is load-bearing: `usePublishViewedDay` keys
+  // its focus effect on it, and a fresh `PlainDate` each render would tear the
   // effect down and re-register it on every unrelated re-render, momentarily
-  // clearing the module-scoped viewed day the tab-bar "+" reads.
-  const today = useMemo(() => Temporal.Now.plainDateISO(), []);
-  const targetDate = useMemo(
-    () => (weekOf(today).monday.equals(monday) ? today : monday),
-    [monday, today],
-  );
+  // clearing the module-scoped viewed day the nav rail's "+" reads.
+  const todayIso = today.toString();
+  const targetDate = useMemo(() => {
+    const day = Temporal.PlainDate.from(todayIso);
+    return weekOf(day).monday.equals(monday) ? day : monday;
+  }, [monday, todayIso]);
 
   usePublishViewedDay(targetDate);
 
@@ -71,6 +80,7 @@ export default function WeekScreen() {
       monday={monday}
       onChangeWeek={setMonday}
       targetDate={targetDate}
+      today={today}
     />
   );
 }
