@@ -333,10 +333,12 @@ describe("TodayScreen", () => {
 
       fireEvent.press(screen.getByLabelText("Open task drawer"));
 
-      // The empty search clears anything a `mode=backlog` deep link had seeded:
-      // this entry point means "show me my backlog", not "show it still filtered
-      // by a search from three screens ago" (DEX-47).
-      expect(mockPresentTaskDrawer).toHaveBeenCalledWith(undefined, "");
+      // Both arguments reset what a `mode=backlog` deep link may have seeded:
+      // this entry point means "show me my backlog", not "show it still narrowed
+      // to Unscheduled and filtered by a search from three screens ago"
+      // (DEX-47). `"none"`, not `undefined` — `undefined` would leave the
+      // seeded Unscheduled filter in place.
+      expect(mockPresentTaskDrawer).toHaveBeenCalledWith("none", "");
     });
 
     it("pre-applies the Overdue filter when opening Backlog with an overdue task", () => {
@@ -777,6 +779,33 @@ describe("TodayScreen", () => {
             filterId: "unscheduled",
             search: "quarterly",
           }),
+        );
+      });
+
+      it("clears a deep link's seeded filter when the header reopens the drawer", () => {
+        // The header's Backlog action means "show me my backlog". Without this
+        // it inherited the link's Unscheduled filter and showed only a slice of
+        // it — the search was cleared but the filter was not.
+        mockUseTodayPanes.mockReturnValue(panes({ drawer: true }));
+        mockSearchParams.current = { mode: "backlog", q: "quarterly", n: "1" };
+        const screen = render(<TodayScreen />);
+        expect(mockTaskDrawer).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            filterId: "unscheduled",
+            search: "quarterly",
+          }),
+        );
+
+        // Close, then reopen from the header with nothing needing attention.
+        fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
+        mockUseTodayPanes.mockReturnValue(panes({ drawer: false }));
+        screen.rerender(<TodayScreen />);
+        mockUseTodayPanes.mockReturnValue(panes({ drawer: true }));
+        fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
+        screen.rerender(<TodayScreen />);
+
+        expect(mockTaskDrawer).toHaveBeenLastCalledWith(
+          expect.objectContaining({ filterId: "none", search: "" }),
         );
       });
 

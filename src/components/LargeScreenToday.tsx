@@ -125,10 +125,14 @@ export function LargeScreenToday({
   // same view as the small-screen "tap Backlog" flow.
   const toggleDrawerPane = () => {
     if (!panes.drawer) {
-      if (attentionFilter) setDrawerFilterId(attentionFilter);
-      // Clears any search a `mode=backlog` deep link left seeded: this entry
-      // point means "show me my backlog", not "show it still filtered by a
-      // search from three screens ago" (DEX-47).
+      // Resets *both* the filter and the search a `mode=backlog` deep link left
+      // seeded: this entry point means "show me my backlog", not "show it still
+      // narrowed to Unscheduled by a link I followed three screens ago"
+      // (DEX-47). Falling back to `"none"` rather than leaving the previous
+      // filter is what stops that seeded Unscheduled from surviving; little is
+      // lost, since an attention filter already overrode whatever the user had
+      // selected, so the filter never reliably persisted between opens.
+      setDrawerFilterId(attentionFilter ?? "none");
       setDrawerSearch("");
     }
     // `togglePane` persists to AsyncStorage; fire-and-forget like the other

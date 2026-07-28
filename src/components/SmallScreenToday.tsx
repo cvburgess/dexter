@@ -135,10 +135,17 @@ export function SmallScreenToday({
             view={activeView}
             onChangeView={setView}
             onOpenDrawer={() =>
-              // Clears any search a `mode=backlog` deep link left seeded: this
-              // entry point means "show me my backlog", not "show it still
-              // filtered by a search from three screens ago" (DEX-47).
-              taskDrawerRef.current?.present(attentionFilter ?? undefined, "")
+              // Resets *both* the filter and the search a `mode=backlog` deep
+              // link left seeded: this entry point means "show me my backlog",
+              // not "show it still narrowed to Unscheduled by a link I followed
+              // three screens ago" (DEX-47).
+              //
+              // `"none"` rather than `undefined` when nothing needs attention —
+              // `undefined` leaves the previous filter in place, which is how
+              // the seeded Unscheduled used to survive. Little is lost: opening
+              // with an attention filter already overrode whatever the user had
+              // selected, so the filter never reliably persisted between opens.
+              taskDrawerRef.current?.present(attentionFilter ?? "none", "")
             }
             attention={backlogAttention}
             enableNotes={preferences.enableNotes}
