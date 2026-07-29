@@ -69,11 +69,19 @@ const mockNavigation = { setOptions: jest.fn<void, [THeaderOptions]>() };
 const mockParams: { current: Record<string, string> } = {
   current: { id: "template-1" },
 };
-jest.mock("expo-router", () => ({
-  useNavigation: () => mockNavigation,
-  useRouter: () => mockRouter,
-  useLocalSearchParams: () => mockParams.current,
-}));
+// Stands in for react-navigation's focus lifecycle: `DismissModal` only pops a
+// focused screen, since `router.back()` acts on whichever navigator has focus.
+jest.mock("expo-router", () => {
+  const { useEffect } = require("react");
+  return {
+    useNavigation: () => mockNavigation,
+    useRouter: () => mockRouter,
+    useLocalSearchParams: () => mockParams.current,
+    useFocusEffect: (effect: () => void | (() => void)) => {
+      useEffect(() => effect(), [effect]);
+    },
+  };
+});
 
 const headerOptions = (): THeaderOptions =>
   mockNavigation.setOptions.mock.calls.at(-1)![0];

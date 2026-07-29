@@ -40,11 +40,24 @@ const mockRouter = {
 };
 const mockNavigation = { setOptions: jest.fn() };
 const mockSearchParams: { current: Record<string, string> } = { current: {} };
-jest.mock("expo-router", () => ({
-  useNavigation: () => mockNavigation,
-  useRouter: () => mockRouter,
-  useLocalSearchParams: () => mockSearchParams.current,
-}));
+// Stands in for react-navigation's focus lifecycle: the effect runs while the
+// screen is focused, which is the case for every in-app open of this modal.
+// `mockIsFocused` lets a test hold the screen in the background instead.
+const mockIsFocused = { current: true };
+jest.mock("expo-router", () => {
+  const { useEffect } = require("react");
+  return {
+    useNavigation: () => mockNavigation,
+    useRouter: () => mockRouter,
+    useLocalSearchParams: () => mockSearchParams.current,
+    useFocusEffect: (effect: () => void | (() => void)) => {
+      useEffect(() => {
+        if (!mockIsFocused.current) return;
+        return effect();
+      }, [effect]);
+    },
+  };
+});
 
 // jest.setup renders `@expo/ui`'s SwiftUI DatePicker as null, which hides the
 // lower bound `TimeField.ios` hands it. Capture the props instead so the alarm
@@ -109,6 +122,7 @@ describe("EditTaskScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRouter.canGoBack.mockReturnValue(true);
+    mockIsFocused.current = true;
     mockSearchParams.current = { id: "task-1" };
     mockUpdateTask.mockImplementation((_diff, callbacks) => {
       callbacks?.onSuccess?.();
@@ -407,6 +421,18 @@ describe("EditTaskScreen", () => {
 
     expect(mockRouter.back).not.toHaveBeenCalled();
     expect(mockRouter.replace).toHaveBeenCalledWith("/");
+  });
+
+  // `router.back()` pops whichever navigator is focused, and a modal screen
+  // stays mounted while its tab is in the background — so a refetch that drops
+  // the task there must not pop the screen the user is actually looking at.
+  it("waits for focus before dismissing a backgrounded screen", () => {
+    mockIsFocused.current = false;
+    setTasks([]);
+    render(<EditTaskScreen />);
+
+    expect(mockRouter.back).not.toHaveBeenCalled();
+    expect(mockRouter.replace).not.toHaveBeenCalled();
   });
 
   // `isLoading` is `isPlaceholderData`, which react-query drops to `false` on
