@@ -752,32 +752,9 @@ Deno.test("create_template seeds nothing for a scheduleless task template", asyn
   assertEquals(supabase.inserts.filter((i) => i.table === "tasks").length, 0);
 });
 
-Deno.test("a seeded occurrence gets a fresh copy of the template's checklist", async () => {
-  const supabase = new RecordingSupabase({
-    repeat_task_templates: [{
-      ...SEEDED_TEMPLATE,
-      schedule: "0 0 * * *",
-      subtasks: [{ id: "a", title: "Fill the can" }, {
-        id: "b",
-        title: "Check the soil",
-      }],
-    }],
-  });
-
-  await templateTools(supabase).run("create_template", {
-    title: "Water the plants",
-    schedule: "0 0 * * *",
-  });
-
-  const inserted = supabase.inserts.find((i) => i.table === "tasks");
-  assert(inserted);
-  assertEquals(
-    (inserted.payload.subtasks as { title: string; status: number }[]).map((
-      subtask,
-    ) => [subtask.title, subtask.status]),
-    [["Fill the can", 1], ["Check the soil", 1]],
-  );
-});
+// A seeded occurrence's checklist is not covered separately: seeding and
+// completion-driven recurrence share `insertOccurrence`, so "a recurring
+// occurrence gets a fresh copy of the template's checklist" below covers both.
 
 Deno.test("update_template seeds an occurrence when a task template gains a cadence", async () => {
   const supabase = new RecordingSupabase({

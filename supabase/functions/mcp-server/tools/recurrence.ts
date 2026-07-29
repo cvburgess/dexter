@@ -94,8 +94,12 @@ export async function insertOccurrence(
  * Uses `getFirstOccurrence`, not `getNextOccurrence`: it counts today, so a
  * cadence that matches today produces a task now rather than looking like
  * nothing happened.
+ *
+ * Module-private: every server caller wants the best-effort form below. The app
+ * exports its equivalent because the ▶ repair button in Settings → Tasks wants
+ * failures surfaced; the server has no such caller.
  */
-export async function seedNextOccurrence(
+async function seedNextOccurrence(
   ctx: ToolContext,
   template: TemplateRow,
 ): Promise<void> {

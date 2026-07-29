@@ -268,7 +268,12 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         "Create a new task for the authenticated user. `subtasks` is an " +
         "optional checklist of `{id, title, status}` items stored on the task " +
         "itself — they are not tasks and have no fields beyond these. Mint " +
-        "each `id` yourself; it only needs to be unique within this array.",
+        "each `id` yourself; it only needs to be unique within this array. " +
+        "Leave `templateId` unset unless you are deliberately stamping a task " +
+        "from a template: a repeat has exactly one open task, so pointing a " +
+        "second open task at a *scheduled* template makes it generate two " +
+        "parallel chains. To create a repeat, use `create_template` — it " +
+        "produces the first occurrence for you.",
       inputSchema: {
         title: z.string().min(1).max(100),
         dueOn: dateSchema.nullable().optional(),
@@ -320,7 +325,10 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         "read the task first, modify the array, and send it back in full. " +
         "Setting `status` to done (2), won't-do (3), or delegated (4) also " +
         "sweeps every subtask to that status automatically, so do not send " +
-        "`subtasks` just to close them; send it only to make a different change.",
+        "`subtasks` just to close them; send it only to make a different " +
+        "change. Do not send `templateId` unless you mean to re-link the task: " +
+        "clearing it to null on a repeat's only open task leaves the schedule " +
+        "with nothing to recur from, and it stops generating.",
       inputSchema: {
         taskId: uuidSchema,
         title: z.string().min(1).max(100).optional(),

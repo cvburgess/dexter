@@ -180,6 +180,10 @@ export function registerTemplateTools(
       // Promoting a task template to a repeat gives it the open task it needs to
       // fire from. A no-op when the row already has one, or when this update
       // cleared `schedule` back to null (DEX-94).
+      //
+      // Deliberately not gated on `schedule` being part of *this* update, which
+      // would save a lookup on metadata-only edits: like the app's
+      // `updateTemplate`, any edit to a repeat that has run dry also repairs it.
       await trySeedNextOccurrence(ctx, data);
       return toolJson(data);
     },
