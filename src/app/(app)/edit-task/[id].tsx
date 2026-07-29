@@ -5,7 +5,10 @@ import { Alert, Platform, ScrollView } from "react-native";
 import { TTask } from "@/api/tasks";
 import { DismissModal } from "@/components/DismissModal";
 import { LoadingScreen } from "@/components/LoadingScreen";
-import { ModalErrorScreen } from "@/components/ModalErrorScreen";
+import {
+  loadFailedMessage,
+  ModalErrorScreen,
+} from "@/components/ModalErrorScreen";
 import { ModalScreen } from "@/components/ModalScreen";
 import { TaskForm } from "@/components/TaskForm";
 import { WebModalHeader } from "@/components/WebModalHeader";
@@ -49,25 +52,19 @@ export default function EditTaskScreen() {
   // The fetch failed, which is not the same as "there is no such task" — say
   // so and offer the retry rather than throwing the user out (DEX-100).
   if (isError) {
-    return <TasksUnavailable onRetry={refetch} />;
+    return (
+      <ModalErrorScreen
+        fallback="/"
+        message={loadFailedMessage("tasks")}
+        onRetry={refetch}
+      />
+    );
   }
 
   // Loaded, with no match: a deleted task, a stale deep link, or a row that
   // aged out of the canonical window. Close the modal rather than navigating
   // the whole app, so whatever it was opened over survives.
   return <DismissModal fallback="/" />;
-}
-
-function TasksUnavailable({ onRetry }: { onRetry: () => void }) {
-  const dismiss = useDismissModal("/");
-
-  return (
-    <ModalErrorScreen
-      message="Couldn't load your tasks. Check your connection and try again."
-      onClose={dismiss}
-      onRetry={onRetry}
-    />
-  );
 }
 
 function EditTaskForm({ task }: { task: TTask }) {

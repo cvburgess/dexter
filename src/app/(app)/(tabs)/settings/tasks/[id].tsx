@@ -22,7 +22,10 @@ import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { DismissModal } from "@/components/DismissModal";
 import { FormRow } from "@/components/FormRow";
 import { LoadingScreen } from "@/components/LoadingScreen";
-import { ModalErrorScreen } from "@/components/ModalErrorScreen";
+import {
+  loadFailedMessage,
+  ModalErrorScreen,
+} from "@/components/ModalErrorScreen";
 import { PickerField } from "@/components/PickerField";
 import { PriorityControl } from "@/components/PriorityControl";
 import { SubtaskFields, withTitledRows } from "@/components/SubtaskFields";
@@ -118,7 +121,18 @@ export default function RepeatScheduleScreen() {
     fromTask?: string;
     repeats?: string;
   }>();
-  const [, { getTemplateById, isError, isLoading, refetch }] = useTemplates();
+  // Both queries are aliased, not just one: this screen resolves a template
+  // *and* a task, and a bare `isLoading` in a file routed at `settings/tasks`
+  // reads like the tasks query when it is in fact the templates one.
+  const [
+    ,
+    {
+      getTemplateById,
+      isError: isTemplatesError,
+      isLoading: isLoadingTemplates,
+      refetch: refetchTemplates,
+    },
+  ] = useTemplates();
   const [
     tasks,
     { isError: isTasksError, isLoading: isLoadingTasks, refetch: refetchTasks },
@@ -131,13 +145,11 @@ export default function RepeatScheduleScreen() {
     const task = tasks.find((candidate) => candidate.id === fromTask);
     if (!task) {
       if (isLoadingTasks) return <LoadingScreen />;
-      // A failed fetch is not a missing task — `isLoading` is `false` in both
-      // cases, so without this branch an offline seed looks like a deleted
-      // row (DEX-100).
       if (isTasksError) {
         return (
-          <Unavailable
-            message="Couldn't load your tasks. Check your connection and try again."
+          <ModalErrorScreen
+            fallback="/settings/tasks"
+            message={loadFailedMessage("tasks")}
             onRetry={refetchTasks}
           />
         );
@@ -164,12 +176,13 @@ export default function RepeatScheduleScreen() {
   if (!existing) {
     // Still fetching: wait for the template so the form initializes from its
     // saved values.
-    if (isLoading) return <LoadingScreen />;
-    if (isError) {
+    if (isLoadingTemplates) return <LoadingScreen />;
+    if (isTemplatesError) {
       return (
-        <Unavailable
-          message="Couldn't load your repeat schedules. Check your connection and try again."
-          onRetry={refetch}
+        <ModalErrorScreen
+          fallback="/settings/tasks"
+          message={loadFailedMessage("repeat schedules")}
+          onRetry={refetchTemplates}
         />
       );
     }
@@ -185,20 +198,6 @@ export default function RepeatScheduleScreen() {
       draft={existing}
       existing={existing}
     />
-  );
-}
-
-function Unavailable({
-  message,
-  onRetry,
-}: {
-  message: string;
-  onRetry: () => void;
-}) {
-  const dismiss = useDismissModal("/settings/tasks");
-
-  return (
-    <ModalErrorScreen message={message} onClose={dismiss} onRetry={onRetry} />
   );
 }
 
