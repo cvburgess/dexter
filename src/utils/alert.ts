@@ -1,7 +1,6 @@
-// Base (native) implementation of the one-button alert. RN's `Alert` is a
-// no-op on web, so the browser fallback lives in `alert.web.ts` and the bundler
-// selects that variant there. This base file also lets TypeScript resolve
-// `@/utils/alert` (it does not resolve platform extensions).
+// Base (native) implementation of the one-button alert; `alert.web.ts` is the
+// browser fallback and the bundler selects it on web. This base file also lets
+// TypeScript resolve `@/utils/alert` (it does not resolve platform extensions).
 import { Alert } from "react-native";
 
 /**
