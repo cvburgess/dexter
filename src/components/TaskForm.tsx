@@ -88,6 +88,30 @@ export function TaskForm({
     form.setAlarmTime(defaultAlarmTime());
   };
 
+  // Bound the picker to now only when the task is scheduled for today, so a
+  // same-day alarm can't be *set* in the past; a future day allows any time.
+  //
+  // Dropped entirely when the alarm the form already carries is earlier than
+  // that bound. Editing opens on a saved alarm (create never can — it seeds
+  // `defaultAlarmTime()`, which is always ahead of now), and an 08:00 alarm on
+  // a task scheduled today is in the past by lunchtime. A range that excludes
+  // the current selection makes SwiftUI's `DatePicker` clamp it — and write the
+  // clamped value back through the binding — so merely opening the edit modal
+  // would move the alarm to now and ✓ would persist it. Web's
+  // `input[type=time]` is less destructive but still marks the value invalid.
+  const minAlarmTime =
+    form.scheduledFor === Temporal.Now.plainDateISO().toString()
+      ? currentAlarmTime()
+      : undefined;
+  // Lexicographic compare is safe: both are zero-padded 24-hour times, and a
+  // stored `"HH:MM:SS"` still orders correctly against a `"HH:MM"` bound.
+  const alarmMin =
+    minAlarmTime !== undefined &&
+    form.alarmTime !== null &&
+    form.alarmTime < minAlarmTime
+      ? undefined
+      : minAlarmTime;
+
   return (
     <>
       <TextInput
@@ -161,14 +185,7 @@ export function TaskForm({
               <TimeField
                 accentColor={theme.colors.primary}
                 testID={`${testIDPrefix}-alarm`}
-                // Bound to now only when the task is scheduled for today, so a
-                // same-day alarm can't be set in the past; a future day allows
-                // any time.
-                min={
-                  form.scheduledFor === Temporal.Now.plainDateISO().toString()
-                    ? currentAlarmTime()
-                    : undefined
-                }
+                min={alarmMin}
                 value={form.alarmTime}
                 onChange={form.setAlarmTime}
               />

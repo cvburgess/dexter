@@ -131,9 +131,12 @@ export function MoreMenu({
   ];
 
   const sections = [
-    ...editSections.map((section, index) =>
-      index === 0 ? section : { ...section, hideDivider: true },
-    ),
+    // Every one of them, the first included: `IconMenu.native` emits a plain
+    // section *without* `hideDivider` as its own `displayInline` group, which
+    // the system menu draws with separators — so leaving the Edit task row
+    // unmarked ruled it off from the shortcuts below it on iOS/Android while
+    // web (which only draws a divider above section > 0) showed no such rule.
+    ...editSections.map((section) => ({ ...section, hideDivider: true })),
     ...getOtherSections({
       onDuplicate,
       template: templateAction,

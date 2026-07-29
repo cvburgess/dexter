@@ -146,13 +146,15 @@ describe("MoreMenu", () => {
   });
 
   // Edit task through Add subtask read as one unruled group; only the
-  // duplicate/repeat/delete actions are set apart.
+  // duplicate/repeat/delete actions are set apart. The Edit task row carries
+  // the flag too: `IconMenu.native` draws an unmarked plain section as its own
+  // separated inline group, which would rule it off from the shortcuts below.
   it("rules off only the final action group", () => {
     renderMenu(makeTask(), { onAddSubtask: jest.fn() });
 
     expect(
       renderedSections().map((section) => Boolean(section.hideDivider)),
-    ).toEqual([false, true, true, true, false]);
+    ).toEqual([true, true, true, true, false]);
   });
 
   it("opens the edit modal from the Edit task row", () => {

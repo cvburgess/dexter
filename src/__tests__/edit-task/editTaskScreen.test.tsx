@@ -1,3 +1,4 @@
+import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render } from "@testing-library/react-native";
 
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
@@ -45,6 +46,19 @@ jest.mock("expo-router", () => ({
   useNavigation: () => mockNavigation,
   useRouter: () => mockRouter,
   useLocalSearchParams: () => mockSearchParams.current,
+}));
+
+// jest.setup renders `@expo/ui`'s SwiftUI DatePicker as null, which hides the
+// lower bound `TimeField.ios` hands it. Capture the props instead so the alarm
+// picker's range is assertable; keyed by testID, since `DateField.ios` renders
+// through the very same primitive.
+const datePickerProps: Record<string, { range?: { start: Date } }> = {};
+jest.mock("@expo/ui/swift-ui", () => ({
+  DatePicker: (props: { testID?: string; range?: { start: Date } }) => {
+    if (props.testID) datePickerProps[props.testID] = props;
+    return null;
+  },
+  Host: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 // The header buttons are wired via navigation.setOptions on every render;
@@ -245,6 +259,40 @@ describe("EditTaskScreen", () => {
       expect.objectContaining({ scheduledFor: null, alarmTime: null }),
       expect.anything(),
     );
+  });
+
+  // The create form can only ever seed `defaultAlarmTime()` (now + a few
+  // minutes), so this is edit-only: a saved 08:00 alarm on a task scheduled
+  // today is in the past by lunchtime, and a range that excludes it makes
+  // SwiftUI clamp the selection to now — silently moving an alarm the user
+  // only came to look at, and persisting it on ✓.
+  //
+  // The clock is pinned because both cases are stated relative to "now": with a
+  // real clock, a run just after midnight would leave a morning alarm in the
+  // *future* and invert the first assertion.
+  describe("alarm picker bounds (clock pinned to midday)", () => {
+    beforeEach(() => jest.useFakeTimers({ now: new Date(2026, 6, 29, 12, 0) }));
+    afterEach(() => jest.useRealTimers());
+
+    const scheduledToday = (alarmTime: string) => {
+      setTasks([
+        {
+          ...savedTask,
+          scheduledFor: Temporal.Now.plainDateISO().toString(),
+          alarmTime,
+        },
+      ]);
+      render(<EditTaskScreen />);
+      return datePickerProps["edit-task-alarm"]?.range;
+    };
+
+    it("does not bound the picker below an alarm already in the past", () => {
+      expect(scheduledToday("08:00")).toBeUndefined();
+    });
+
+    it("still bounds the picker to now for an alarm later today", () => {
+      expect(scheduledToday("23:59")).toBeDefined();
+    });
   });
 
   it("pulls an unscheduled task onto today when an alarm is added", async () => {
