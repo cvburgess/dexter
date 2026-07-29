@@ -111,13 +111,13 @@ const makeTemplate = (overrides: Partial<TTemplate> = {}): TTemplate => ({
   ...overrides,
 });
 
-const templatesResult = (templates: TTemplate[]) =>
+const templatesResult = (templates: TTemplate[], isLoading = false) =>
   mockUseTemplates.mockReturnValue([
     templates,
     {
       getTemplateById: (id: string | null) =>
         templates.find((template) => template.id === id),
-      isLoading: false,
+      isLoading,
       createTemplate: mockCreateTemplate,
       createNextOccurrence: jest.fn(),
       updateTemplate: mockUpdateTemplate,
@@ -287,6 +287,46 @@ describe("RepeatScheduleScreen", () => {
 
       expect(mockRouter.back).not.toHaveBeenCalled();
       expect(mockRouter.replace).toHaveBeenCalledWith("/settings/tasks");
+    });
+
+    // The form owns the only header on web, and it doesn't render until the
+    // template resolves — so before DEX-101 the wait was a bare spinner with no
+    // way out but the backdrop (DEX-101).
+    describe("while the template is still loading", () => {
+      beforeEach(() => {
+        mockParams.current = { id: "template-1" };
+        templatesResult([], true);
+      });
+
+      it("still offers a working close button", () => {
+        render(<RepeatScheduleScreen />);
+
+        const close = render(headerOptions().headerLeft());
+        fireEvent.press(close.getByTestId("modal-close-button"));
+
+        expect(mockRouter.back).toHaveBeenCalledTimes(1);
+        expect(mockUpdateTemplate).not.toHaveBeenCalled();
+      });
+
+      it("leaves save disabled — there is nothing to save yet", () => {
+        render(<RepeatScheduleScreen />);
+
+        const header = render(headerOptions().headerRight());
+        expect(
+          header.getByTestId("modal-done-button").props.accessibilityState,
+        ).toEqual(expect.objectContaining({ disabled: true }));
+      });
+
+      it("falls back to the list on a cold deep link", () => {
+        mockRouter.canGoBack.mockReturnValue(false);
+        render(<RepeatScheduleScreen />);
+
+        const close = render(headerOptions().headerLeft());
+        fireEvent.press(close.getByTestId("modal-close-button"));
+
+        expect(mockRouter.back).not.toHaveBeenCalled();
+        expect(mockRouter.replace).toHaveBeenCalledWith("/settings/tasks");
+      });
     });
   });
 

@@ -371,7 +371,62 @@ describe("EditTaskScreen", () => {
     render(<EditTaskScreen />);
 
     expect(mockRedirect).not.toHaveBeenCalled();
-    expect(mockNavigation.setOptions).not.toHaveBeenCalled();
+  });
+
+  // The form owns the only header on web, and it doesn't render until the task
+  // resolves — so before DEX-101 a cold deep link was a bare spinner with no
+  // way out but the backdrop.
+  describe("while the task is still loading", () => {
+    beforeEach(() => setTasks([], true));
+
+    it("still offers a working close button", () => {
+      render(<EditTaskScreen />);
+
+      const close = render(headerOptions().headerLeft());
+      fireEvent.press(close.getByTestId("modal-close-button"));
+
+      expect(mockRouter.back).toHaveBeenCalledTimes(1);
+      expect(mockUpdateTask).not.toHaveBeenCalled();
+    });
+
+    it("leaves save disabled — there is nothing to save yet", () => {
+      render(<EditTaskScreen />);
+
+      expect(headerOptions().unstable_headerRightItems()[0].disabled).toBe(
+        true,
+      );
+    });
+
+    // The case the guard exists for: closing before the fetch lands has to
+    // behave the same as closing after it.
+    it("replaces rather than popping on a cold deep link", () => {
+      mockRouter.canGoBack.mockReturnValue(false);
+      render(<EditTaskScreen />);
+
+      headerOptions().unstable_headerLeftItems()[0].onPress();
+
+      expect(mockRouter.back).not.toHaveBeenCalled();
+      expect(mockRouter.replace).toHaveBeenCalledWith("/");
+    });
+
+    // The resolved form re-wires the header on mount, so the disabled ✓ from
+    // the loading state must not survive the swap.
+    it("hands the header over to the form once the task lands", () => {
+      const screen = render(<EditTaskScreen />);
+      expect(headerOptions().unstable_headerRightItems()[0].disabled).toBe(
+        true,
+      );
+
+      setTasks([savedTask]);
+      screen.rerender(<EditTaskScreen />);
+
+      expect(headerOptions().unstable_headerRightItems()[0].disabled).toBe(
+        false,
+      );
+      expect(screen.getByTestId("edit-task-title").props.value).toBe(
+        "Write the report",
+      );
+    });
   });
 
   it("redirects once the task is known to be gone", () => {
