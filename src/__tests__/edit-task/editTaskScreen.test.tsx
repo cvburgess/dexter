@@ -40,9 +40,7 @@ const mockRouter = {
 };
 const mockNavigation = { setOptions: jest.fn() };
 const mockSearchParams: { current: Record<string, string> } = { current: {} };
-const mockRedirect = jest.fn((_props: { href: string }) => null);
 jest.mock("expo-router", () => ({
-  Redirect: (props: { href: string }) => mockRedirect(props),
   useNavigation: () => mockNavigation,
   useRouter: () => mockRouter,
   useLocalSearchParams: () => mockSearchParams.current,
@@ -87,15 +85,21 @@ const savedTask: TTask = {
 
 const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
 const mockUpdateTask = jest.fn();
+const mockRefetch = jest.fn();
 
-/** Points the mocked hook at a task list and a loading state. */
-const setTasks = (tasks: TTask[], isLoading = false) =>
+/** Points the mocked hook at a task list and a query state. */
+const setTasks = (
+  tasks: TTask[],
+  { isError = false, isLoading = false } = {},
+) =>
   mockUseTasks.mockReturnValue([
     tasks,
     {
       createTask: jest.fn(),
       deleteTask: jest.fn(),
+      isError,
       isLoading,
+      refetch: mockRefetch,
       updateTask: mockUpdateTask,
       updateTasks: jest.fn(),
     },
@@ -366,20 +370,100 @@ describe("EditTaskScreen", () => {
     expect(mockRouter.replace).toHaveBeenCalledWith("/");
   });
 
-  it("waits for the fetch rather than redirecting on a cold load", () => {
-    setTasks([], true);
+  it("waits for the fetch rather than dismissing on a cold load", () => {
+    setTasks([], { isLoading: true });
     render(<EditTaskScreen />);
 
-    expect(mockRedirect).not.toHaveBeenCalled();
+    expect(mockRouter.back).not.toHaveBeenCalled();
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+    // No header wiring either, which is what proves the spinner rendered
+    // rather than the form or the error state.
     expect(mockNavigation.setOptions).not.toHaveBeenCalled();
   });
 
-  it("redirects once the task is known to be gone", () => {
-    setTasks([], false);
+  // Closes the modal rather than navigating the app, so the screen it was
+  // opened over is still there (DEX-100).
+  it("dismisses the modal once the task is known to be gone", () => {
+    setTasks([]);
     render(<EditTaskScreen />);
 
-    expect(mockRedirect).toHaveBeenCalledWith(
-      expect.objectContaining({ href: "/" }),
+    expect(mockRouter.back).toHaveBeenCalled();
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+  });
+
+  it("only dismisses once when the absent state re-renders", () => {
+    setTasks([]);
+    const screen = render(<EditTaskScreen />);
+
+    screen.rerender(<EditTaskScreen />);
+
+    expect(mockRouter.back).toHaveBeenCalledTimes(1);
+  });
+
+  it("replaces to the root when a deleted task was deep-linked cold", () => {
+    mockRouter.canGoBack.mockReturnValue(false);
+    setTasks([]);
+    render(<EditTaskScreen />);
+
+    expect(mockRouter.back).not.toHaveBeenCalled();
+    expect(mockRouter.replace).toHaveBeenCalledWith("/");
+  });
+
+  // `isLoading` is `isPlaceholderData`, which react-query drops to `false` on
+  // error while `tasks` falls back to `[]` — so without an explicit `isError`
+  // a failed fetch is indistinguishable from a deleted task (DEX-100).
+  describe("when the tasks query fails", () => {
+    beforeEach(() => setTasks([], { isError: true }));
+
+    it("reports the failure instead of dismissing", () => {
+      const screen = render(<EditTaskScreen />);
+
+      expect(
+        screen.getByText(
+          "Couldn't load your tasks. Check your connection and try again.",
+        ),
+      ).toBeTruthy();
+      expect(mockRouter.back).not.toHaveBeenCalled();
+      expect(mockRouter.replace).not.toHaveBeenCalled();
+    });
+
+    it("retries the fetch and shows the form once it succeeds", () => {
+      const screen = render(<EditTaskScreen />);
+
+      fireEvent.press(screen.getByTestId("modal-error-retry"));
+      expect(mockRefetch).toHaveBeenCalledTimes(1);
+
+      setTasks([savedTask]);
+      screen.rerender(<EditTaskScreen />);
+
+      expect(screen.getByTestId("edit-task-title").props.value).toBe(
+        "Write the report",
+      );
+    });
+
+    it("closes from the header without a live save action", () => {
+      render(<EditTaskScreen />);
+
+      const close = render(headerOptions().headerLeft());
+      fireEvent.press(close.getByTestId("modal-close-button"));
+
+      expect(mockRouter.back).toHaveBeenCalled();
+      expect(headerOptions().unstable_headerRightItems()[0].disabled).toBe(
+        true,
+      );
+    });
+  });
+
+  // A background refetch can fail long after the first load resolved. The
+  // cache still holds the task, so the form the user is typing into must
+  // survive it rather than being replaced by the error state.
+  it("keeps the form mounted when a refetch fails after the task resolved", () => {
+    setTasks([savedTask], { isError: true });
+    const screen = render(<EditTaskScreen />);
+
+    expect(screen.getByTestId("edit-task-title").props.value).toBe(
+      "Write the report",
     );
+    expect(screen.queryByTestId("modal-error-retry")).toBeNull();
   });
 });
