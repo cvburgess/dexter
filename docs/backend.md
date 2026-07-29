@@ -234,12 +234,25 @@ publication it belongs to.
   `20260712142149_drop_recurring_task_trigger.sql`); `update_task`/`archive_task`
   invoke the shared logic, and `delete_task` also deletes a linked *scheduled*
   template so future occurrences stop — a linked scheduleless one is a saved
-  task template the user may still be stamping from, and survives. The spawn is
-  additionally skipped when another **open** task already links to the template,
-  so completing several tasks stamped from a since-scheduled template starts one
-  chain rather than several (the same one-open-task invariant the app enforces —
-  see `docs/frontend.md`). A recurred occurrence copies the template's
-  `alarm_time` (see below) so repeat tasks keep their alarm.
+  task template the user may still be stamping from, and survives. A recurred
+  occurrence copies the template's `alarm_time` (see below) so repeat tasks keep
+  their alarm.
+- **Both halves of the one-open-task invariant live in
+  `functions/mcp-server/tools/recurrence.ts`** (DEX-94), the server's mirror of
+  `src/api/tasks.ts` + `src/hooks/useTemplates.tsx` — see `docs/frontend.md` for
+  the invariant itself. *Don't create a second:* `hasOpenTaskForTemplate` skips
+  the spawn when another **open** task already links to the template, so
+  completing several tasks stamped from a since-scheduled template starts one
+  chain rather than several; a failed lookup reads as "has one", since an extra
+  parallel chain is silent and permanent while a stalled repeat is surfaced and
+  repairable. *Don't leave zero:* `create_template` and `update_template` seed a
+  first occurrence via `getFirstOccurrence` (which counts today), so an agent
+  creating a repeat — or promoting a task template to one — can't leave a cadence
+  that never fires. The seed is best-effort and never fails the template write,
+  which has already landed. It is deliberately **not** applied to `create_task` /
+  `update_task`'s `templateId` argument: the app has the identical gap, guarding
+  it would cost a lookup on every task write, and Settings → Tasks already flags
+  a stalled repeat beside a one-tap repair.
 - **A `repeat_task_templates` row with a NULL `schedule` is a task template, not
   a repeat task (DEX-65).** `schedule` is nullable and has no default (migration
   `20260726215225_repeat_task_templates_nullable_schedule.sql`); both RLS
