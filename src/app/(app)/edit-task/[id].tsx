@@ -1,4 +1,4 @@
-import { Redirect, useLocalSearchParams } from "expo-router";
+import { Href, Redirect, useLocalSearchParams } from "expo-router";
 import { useRef } from "react";
 import { Alert, Platform, ScrollView } from "react-native";
 
@@ -13,6 +13,10 @@ import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTaskForm } from "@/hooks/useTaskForm";
 import { useTaskFormScroll } from "@/hooks/useTaskFormScroll";
 import { useTasks } from "@/hooks/useTasks";
+
+/** Where this modal returns to when it can't just pop — one value, because a
+ * stale link and a ✕ have to land in the same place. */
+const HOME: Href = "/";
 
 // RN's Alert is a no-op on web, so fall back to the browser's alert there.
 const showSaveError = () => {
@@ -31,18 +35,13 @@ export default function EditTaskScreen() {
 
   const task = tasks.find((candidate) => candidate.id === id);
 
-  if (!task) {
-    // Still fetching: wait for the task so the form initializes from its saved
-    // values. The wait carries its own header — the form's is the only one on
-    // web, so a bare spinner would have no ✕ (DEX-101). Once loaded with no
-    // match (a deleted task, a stale deep link), the id is invalid — bail back
-    // to the app rather than spin forever.
-    return isLoading ? (
-      <ModalLoadingScreen closeFallback="/" />
-    ) : (
-      <Redirect href="/" />
-    );
-  }
+  // Still fetching: wait for the task so the form initializes from its saved
+  // values.
+  if (!task && isLoading) return <ModalLoadingScreen closeFallback={HOME} />;
+
+  // Loaded with no match (a deleted task, a stale deep link): the id is
+  // invalid — bail back to the app rather than spin forever.
+  if (!task) return <Redirect href={HOME} />;
 
   // The `key` remounts the form if the resolved task changes, so the fields
   // can't carry one task's edits onto another.
@@ -55,7 +54,7 @@ function EditTaskForm({ task }: { task: TTask }) {
   const form = useTaskForm(lists, { task });
   const hasSaved = useRef(false);
   const { scrollViewProps, scrollToEndOnNextLayout } = useTaskFormScroll();
-  const handleClose = useModalClose("/");
+  const handleClose = useModalClose(HOME);
 
   // One-shot, like the create modal: a double tap can't fire two writes. The
   // whole field set goes in one `updateTask` — `goalId` and `status` are not on

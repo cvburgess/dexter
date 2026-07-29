@@ -15,9 +15,13 @@ type TModalLoadingScreenProps = {
 
 /**
  * The waiting state for a modal screen whose form can't render until its row
- * resolves. A bare `<LoadingScreen />` would leave the modal with no way out:
- * on web `createModalScreenOptions` sets `headerShown: false`, so
- * `WebModalHeader` is the only header there is, and it lives in the form (DEX-101).
+ * resolves. A bare `<LoadingScreen />` would leave the modal with no way out,
+ * because the ✕/✓ chrome lives in the form — and on web that is the *only*
+ * header: expo-router's web modal stack renders the screen straight into its
+ * drawer with no header slot at all (`ModalStackRouteDrawer` reads only the
+ * sheet detents and `webModalStyle`), so `createModalScreenOptions.web`'s
+ * `headerShown: false` documents that rather than causing it. Flipping the flag
+ * would change nothing (DEX-101).
  *
  * Render this instead of `<LoadingScreen />` from any modal gate, so ✕ exists
  * in every branch. ✓ is present but disabled — there is nothing to save yet.

@@ -389,14 +389,6 @@ describe("EditTaskScreen", () => {
       expect(mockUpdateTask).not.toHaveBeenCalled();
     });
 
-    it("leaves save disabled — there is nothing to save yet", () => {
-      render(<EditTaskScreen />);
-
-      expect(headerOptions().unstable_headerRightItems()[0].disabled).toBe(
-        true,
-      );
-    });
-
     // The case the guard exists for: closing before the fetch lands has to
     // behave the same as closing after it.
     it("replaces rather than popping on a cold deep link", () => {

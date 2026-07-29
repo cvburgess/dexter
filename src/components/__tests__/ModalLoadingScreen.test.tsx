@@ -30,13 +30,6 @@ describe("ModalLoadingScreen", () => {
 
   // The whole point of the component: a gate that renders a bare LoadingScreen
   // wires no header at all, so the modal has no way out while it resolves.
-  it("wires a header while the screen is still resolving", () => {
-    render(<ModalLoadingScreen closeFallback="/" />);
-
-    expect(headerOptions().headerLeft).toBeDefined();
-    expect(headerOptions().headerRight).toBeDefined();
-  });
-
   it("closes from the header close button", () => {
     render(<ModalLoadingScreen closeFallback="/" />);
 

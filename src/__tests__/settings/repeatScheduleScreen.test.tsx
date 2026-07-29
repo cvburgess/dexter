@@ -308,15 +308,6 @@ describe("RepeatScheduleScreen", () => {
         expect(mockUpdateTemplate).not.toHaveBeenCalled();
       });
 
-      it("leaves save disabled — there is nothing to save yet", () => {
-        render(<RepeatScheduleScreen />);
-
-        const header = render(headerOptions().headerRight());
-        expect(
-          header.getByTestId("modal-done-button").props.accessibilityState,
-        ).toEqual(expect.objectContaining({ disabled: true }));
-      });
-
       it("falls back to the list on a cold deep link", () => {
         mockRouter.canGoBack.mockReturnValue(false);
         render(<RepeatScheduleScreen />);

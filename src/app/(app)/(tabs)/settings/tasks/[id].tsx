@@ -1,4 +1,4 @@
-import { Redirect, useLocalSearchParams } from "expo-router";
+import { Href, Redirect, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import {
   Alert,
@@ -43,6 +43,10 @@ import {
   TRepeatFrequency,
 } from "@/utils/repeatSchedule";
 import { useTheme } from "@/utils/theme";
+
+/** Where this modal returns to when it can't just pop — one value, because a
+ * stale link and a ✕ have to land in the same place. */
+const HOME: Href = "/settings/tasks";
 
 // The universal Picker's item values cannot be null, so "none" gets a sentinel
 // that can never collide with a real id.
@@ -126,9 +130,9 @@ export default function RepeatScheduleScreen() {
     const task = tasks.find((candidate) => candidate.id === fromTask);
     if (!task) {
       return isLoadingTasks ? (
-        <ModalLoadingScreen closeFallback="/settings/tasks" />
+        <ModalLoadingScreen closeFallback={HOME} />
       ) : (
-        <Redirect href="/settings/tasks" />
+        <Redirect href={HOME} />
       );
     }
     return (
@@ -148,18 +152,14 @@ export default function RepeatScheduleScreen() {
 
   const existing = getTemplateById(id);
 
-  if (!existing) {
-    // Still fetching: wait for the template so the form initializes from its
-    // saved values. The wait carries its own header — the form's is the only
-    // one on web, so a bare spinner would have no ✕ (DEX-101). Once loaded with
-    // no match (stale link / deleted template), the id is invalid — bail back
-    // to the list rather than spin forever.
-    return isLoading ? (
-      <ModalLoadingScreen closeFallback="/settings/tasks" />
-    ) : (
-      <Redirect href="/settings/tasks" />
-    );
-  }
+  // Still fetching: wait for the template so the form initializes from its
+  // saved values.
+  if (!existing && isLoading)
+    return <ModalLoadingScreen closeFallback={HOME} />;
+
+  // Loaded with no match (stale link / deleted template): the id is invalid —
+  // bail back to the list rather than spin forever.
+  if (!existing) return <Redirect href={HOME} />;
 
   // The `key` remounts the form if the resolved template changes.
   return (
@@ -244,7 +244,7 @@ function RepeatScheduleForm({
   // becomes the root of the settings tab and loses its own back button.
   // `dismissTo` looks tidier but replaces the current screen when it can't find
   // the target, which collapses exactly that history.
-  const handleClose = useModalClose("/settings/tasks");
+  const handleClose = useModalClose(HOME);
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;

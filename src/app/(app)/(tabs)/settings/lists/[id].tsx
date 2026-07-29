@@ -1,4 +1,4 @@
-import { Redirect, useLocalSearchParams } from "expo-router";
+import { Href, Redirect, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import {
   Alert,
@@ -24,6 +24,10 @@ import { useModalClose } from "@/hooks/useModalClose";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTheme, withOpacity } from "@/utils/theme";
 
+/** Where this modal returns to when it can't just pop — one value, because a
+ * stale link and a ✕ have to land in the same place. */
+const HOME: Href = "/settings/lists";
+
 const DEFAULT_EMOJI = "📋";
 
 // RN's Alert is a no-op on web, so fall back to the browser's alert there.
@@ -48,18 +52,14 @@ export default function ListScreen() {
   const isEditing = id !== "new";
   const existing = getListById(isEditing ? id : null);
 
-  if (isEditing && !existing) {
-    // Still fetching: wait for the list so the form initializes from its saved
-    // values. The wait carries its own header — the form's is the only one on
-    // web, so a bare spinner would have no ✕ (DEX-101). Once loaded with no
-    // match (stale link / deleted list), the id is invalid — bail back to the
-    // list rather than spin forever.
-    return isLoading ? (
-      <ModalLoadingScreen closeFallback="/settings/lists" />
-    ) : (
-      <Redirect href="/settings/lists" />
-    );
-  }
+  // Still fetching: wait for the list so the form initializes from its saved
+  // values.
+  if (isEditing && !existing && isLoading)
+    return <ModalLoadingScreen closeFallback={HOME} />;
+
+  // Loaded with no match (stale link / deleted list): the id is invalid — bail
+  // back to the list rather than spin forever.
+  if (isEditing && !existing) return <Redirect href={HOME} />;
 
   // The `key` remounts the form if the resolved list changes.
   return <ListForm key={existing?.id ?? "new"} existing={existing} />;
@@ -80,7 +80,7 @@ function ListForm({ existing }: { existing?: TList }) {
 
   const canSave = title.trim().length > 0;
 
-  const handleClose = useModalClose("/settings/lists");
+  const handleClose = useModalClose(HOME);
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;

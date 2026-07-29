@@ -1,4 +1,4 @@
-import { Redirect, useLocalSearchParams } from "expo-router";
+import { Href, Redirect, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import {
   Alert,
@@ -27,6 +27,10 @@ import { useModalClose } from "@/hooks/useModalClose";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTheme, withOpacity } from "@/utils/theme";
 
+/** Where this modal returns to when it can't just pop — one value, because a
+ * stale link and a ✕ have to land in the same place. */
+const HOME: Href = "/settings/habits";
+
 const ALL_DAYS = [1, 2, 3, 4, 5, 6, 7];
 const DEFAULT_EMOJI = "😄";
 const MAX_STEPS = 999;
@@ -53,18 +57,14 @@ export default function HabitScreen() {
   const isEditing = id !== "new";
   const existing = getHabitById(isEditing ? id : null);
 
-  if (isEditing && !existing) {
-    // Still fetching: wait for the habit so the form initializes from its saved
-    // values. The wait carries its own header — the form's is the only one on
-    // web, so a bare spinner would have no ✕ (DEX-101). Once loaded with no
-    // match (stale link / deleted habit), the id is invalid — bail back to the
-    // list rather than spin forever.
-    return isLoading ? (
-      <ModalLoadingScreen closeFallback="/settings/habits" />
-    ) : (
-      <Redirect href="/settings/habits" />
-    );
-  }
+  // Still fetching: wait for the habit so the form initializes from its saved
+  // values.
+  if (isEditing && !existing && isLoading)
+    return <ModalLoadingScreen closeFallback={HOME} />;
+
+  // Loaded with no match (stale link / deleted habit): the id is invalid — bail
+  // back to the list rather than spin forever.
+  if (isEditing && !existing) return <Redirect href={HOME} />;
 
   // The `key` remounts the form if the resolved habit changes.
   return <HabitForm key={existing?.id ?? "new"} existing={existing} />;
@@ -93,7 +93,7 @@ function HabitForm({ existing }: { existing?: THabit }) {
   const canSave =
     title.trim().length > 0 && stepsValid && daysActive.length > 0;
 
-  const handleClose = useModalClose("/settings/habits");
+  const handleClose = useModalClose(HOME);
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;
