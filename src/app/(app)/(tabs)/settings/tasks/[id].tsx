@@ -1,8 +1,6 @@
-import { Redirect, useLocalSearchParams } from "expo-router";
+import { Href, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import {
-  Alert,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,20 +17,25 @@ import {
 } from "@/api/templates";
 import { Button } from "@/components/Button";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
+import { DismissModal } from "@/components/DismissModal";
 import { FormRow } from "@/components/FormRow";
-import { LoadingScreen } from "@/components/LoadingScreen";
+import {
+  loadFailedMessage,
+  ModalErrorScreen,
+} from "@/components/ModalErrorScreen";
+import { ModalLoadingScreen } from "@/components/ModalLoadingScreen";
+import { ModalScreen } from "@/components/ModalScreen";
 import { PickerField } from "@/components/PickerField";
 import { PriorityControl } from "@/components/PriorityControl";
 import { SubtaskFields, withTitledRows } from "@/components/SubtaskFields";
 import { TextInput } from "@/components/TextInput";
 import { TimeField } from "@/components/TimeField";
-import { WeekdayPicker } from "@/components/WeekdayPicker";
-import { ModalScreen } from "@/components/ModalScreen";
 import { WebModalHeader } from "@/components/WebModalHeader";
+import { WeekdayPicker } from "@/components/WeekdayPicker";
 import { useConfirmation } from "@/hooks/useConfirmation";
+import { useDismissModal } from "@/hooks/useDismissModal";
 import { useGoals } from "@/hooks/useGoals";
 import { useLists } from "@/hooks/useLists";
-import { useModalClose } from "@/hooks/useModalClose";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
@@ -42,7 +45,12 @@ import {
   parseSchedule,
   TRepeatFrequency,
 } from "@/utils/repeatSchedule";
+import { showSaveError } from "@/utils/showSaveError";
 import { useTheme } from "@/utils/theme";
+
+/** Where this modal returns to when it can't just pop — one value, because a
+ * stale link and a ✕ have to land in the same place. */
+const HOME: Href = "/settings/tasks";
 
 // The universal Picker's item values cannot be null, so "none" gets a sentinel
 // that can never collide with a real id.
@@ -86,17 +94,6 @@ const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 const dayOptions = (maxDay: number) =>
   Array.from({ length: maxDay }, (_, i) => i + 1);
 
-// RN's Alert is a no-op on web, so fall back to the browser's alert there.
-const showSaveError = () => {
-  const message = "We couldn't save your changes. Please try again.";
-
-  if (Platform.OS === "web") {
-    window.alert(message);
-  } else {
-    Alert.alert("Something went wrong", message);
-  }
-};
-
 /**
  * The unsaved shape a menu action starts from, seeded off its task. Repeat
  * opens on a daily cadence and Save as template on none, which is the only
@@ -116,8 +113,22 @@ export default function RepeatScheduleScreen() {
     fromTask?: string;
     repeats?: string;
   }>();
-  const [, { getTemplateById, isLoading }] = useTemplates();
-  const [tasks, { isLoading: isLoadingTasks }] = useTasks();
+  // Both queries are aliased, not just one: this screen resolves a template
+  // *and* a task, and a bare `isLoading` in a file routed at `settings/tasks`
+  // reads like the tasks query when it is in fact the templates one.
+  const [
+    ,
+    {
+      getTemplateById,
+      isError: isTemplatesError,
+      isLoading: isLoadingTemplates,
+      refetch: refetchTemplates,
+    },
+  ] = useTemplates();
+  const [
+    tasks,
+    { isError: isTasksError, isLoading: isLoadingTasks, refetch: refetchTasks },
+  ] = useTasks();
 
   // Repeat and Save as template both route here before anything is stored,
   // carrying the task to seed from — so ✕ leaves nothing behind and ✓ is what
@@ -125,11 +136,17 @@ export default function RepeatScheduleScreen() {
   if (id === NEW_TEMPLATE) {
     const task = tasks.find((candidate) => candidate.id === fromTask);
     if (!task) {
-      return isLoadingTasks ? (
-        <LoadingScreen />
-      ) : (
-        <Redirect href="/settings/tasks" />
-      );
+      if (isLoadingTasks) return <ModalLoadingScreen fallback={HOME} />;
+      if (isTasksError) {
+        return (
+          <ModalErrorScreen
+            fallback={HOME}
+            message={loadFailedMessage("tasks")}
+            onRetry={refetchTasks}
+          />
+        );
+      }
+      return <DismissModal fallback={HOME} />;
     }
     return (
       <RepeatScheduleForm
@@ -150,9 +167,20 @@ export default function RepeatScheduleScreen() {
 
   if (!existing) {
     // Still fetching: wait for the template so the form initializes from its
-    // saved values. Once loaded with no match (stale link / deleted template),
-    // the id is invalid — bail back to the list rather than spin forever.
-    return isLoading ? <LoadingScreen /> : <Redirect href="/settings/tasks" />;
+    // saved values.
+    if (isLoadingTemplates) return <ModalLoadingScreen fallback={HOME} />;
+    if (isTemplatesError) {
+      return (
+        <ModalErrorScreen
+          fallback={HOME}
+          message={loadFailedMessage("repeat schedules")}
+          onRetry={refetchTemplates}
+        />
+      );
+    }
+    // Loaded with no match (stale link / deleted template): the id is invalid,
+    // so close rather than spin forever.
+    return <DismissModal fallback={HOME} />;
   }
 
   // The `key` remounts the form if the resolved template changes.
@@ -232,10 +260,11 @@ function RepeatScheduleForm({
     }
   };
 
-  // The anchor on `tasks/_layout.tsx` puts the list under this screen however
-  // it was reached, so closing pops; the fallback covers the one case the
-  // anchor can't, a cold deep link straight to this URL.
-  const handleClose = useModalClose("/settings/tasks");
+  // Pops rather than navigating: the stack this screen was pushed onto already
+  // has the list under it (`tasks/_layout.tsx` anchors it), and popping keeps
+  // whatever is under *that* — without it the Tasks screen becomes the root of
+  // the settings tab and loses its own back button.
+  const handleClose = useDismissModal(HOME);
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;
@@ -255,7 +284,7 @@ function RepeatScheduleForm({
       onSuccess: handleClose,
       onError: () => {
         hasSaved.current = false;
-        showSaveError();
+        showSaveError("changes");
       },
     };
 
@@ -283,7 +312,7 @@ function RepeatScheduleForm({
     if (!confirmed) return;
     deleteTemplate(existing.id, {
       onSuccess: handleClose,
-      onError: showSaveError,
+      onError: () => showSaveError("changes"),
     });
   };
 

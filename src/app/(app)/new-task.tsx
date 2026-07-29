@@ -1,6 +1,6 @@
-import { useLocalSearchParams } from "expo-router";
+import { Href, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
-import { Alert, Platform, ScrollView, StyleSheet, Text } from "react-native";
+import { ScrollView, StyleSheet, Text } from "react-native";
 
 import { isTaskTemplate } from "@/api/templates";
 import { ModalScreen } from "@/components/ModalScreen";
@@ -11,13 +11,14 @@ import {
 import { TaskForm } from "@/components/TaskForm";
 import { TemplatePicker } from "@/components/TemplatePicker";
 import { WebModalHeader } from "@/components/WebModalHeader";
+import { useDismissModal } from "@/hooks/useDismissModal";
 import { useLists } from "@/hooks/useLists";
-import { useModalClose } from "@/hooks/useModalClose";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTaskForm } from "@/hooks/useTaskForm";
 import { useTaskFormScroll } from "@/hooks/useTaskFormScroll";
 import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
+import { showSaveError } from "@/utils/showSaveError";
 import { useTheme } from "@/utils/theme";
 
 /**
@@ -33,16 +34,9 @@ const MODE_OPTIONS: TSegmentedControlOption<TNewTaskMode>[] = [
   { value: "ai", label: "AI" },
 ];
 
-// RN's Alert is a no-op on web, so fall back to the browser's alert there.
-const showSaveError = () => {
-  const message = "We couldn't save your task. Please try again.";
-
-  if (Platform.OS === "web") {
-    window.alert(message);
-  } else {
-    Alert.alert("Something went wrong", message);
-  }
-};
+/** Where this modal returns to when it can't just pop — one value, because a
+ * cold deep link and a ✕ have to land in the same place. */
+const HOME: Href = "/";
 
 export default function NewTaskScreen() {
   const theme = useTheme();
@@ -65,12 +59,7 @@ export default function NewTaskScreen() {
   // form behind it yet, so there is nothing there to save.
   const canSave = form.canSave && !isLoadingLists && mode !== "ai";
 
-  // Pops rather than navigating, so whatever the modal was opened over stays
-  // put. The guard covers the one case a push can't: a cold deep link straight
-  // to `/new-task`, which leaves the stack holding only this screen — an
-  // unguarded `back()` there is an unhandled `GO_BACK` that makes ✕ look dead
-  // and leaves ✓ creating the task without ever closing.
-  const handleClose = useModalClose("/");
+  const handleClose = useDismissModal(HOME);
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;
@@ -79,7 +68,7 @@ export default function NewTaskScreen() {
       onSuccess: handleClose,
       onError: () => {
         hasSaved.current = false;
-        showSaveError();
+        showSaveError("task");
       },
     });
   };

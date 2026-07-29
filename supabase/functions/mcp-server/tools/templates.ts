@@ -12,6 +12,7 @@ import {
   toolJson,
   uuidSchema,
 } from "./helpers.ts";
+import { trySeedNextOccurrence } from "./recurrence.ts";
 
 function templateError(message: string): ReturnType<typeof toolError> {
   if (
@@ -74,6 +75,11 @@ export function registerTemplateTools(
       title: "Create Repeat Task Template",
       description:
         "Create a repeat task template with a validated cron schedule. " +
+        "A scheduled row is given its first occurrence automatically, so do " +
+        "not also create a task for it or point an existing task at it: a " +
+        "repeat has exactly one open task, and a second one leaves the user " +
+        "looking at a duplicate. To turn a task the user already has into a " +
+        "repeat, create the template and then delete the original task. " +
         "Omit `schedule` (or pass null) to create a plain task template " +
         "instead — a reusable blueprint the user stamps out on demand, which " +
         "never generates occurrences on its own. " +
@@ -111,6 +117,12 @@ export function registerTemplateTools(
         .single();
 
       if (error) return templateError(error.message);
+
+      // A repeat has exactly one open task, and a schedule on its own generates
+      // nothing — recurrence spawns from *completing* a task linked to the row.
+      // Without this the tool would report success on a repeat that is born
+      // stalled (DEX-94). A no-op for a scheduleless task template.
+      await trySeedNextOccurrence(ctx, data);
       return toolJson(data);
     },
   );
@@ -120,9 +132,11 @@ export function registerTemplateTools(
     {
       title: "Update Repeat Task Template",
       description:
-        "Update one or more repeat task template fields. Setting `schedule` " +
-        "to null turns the row into a plain task template, so it stops " +
-        "generating occurrences. `subtasks` REPLACES " +
+        "Update one or more repeat task template fields. Giving a row a " +
+        "`schedule` also gives it its first occurrence, unless an open task " +
+        "already links to it — so do not create one yourself. Setting " +
+        "`schedule` to null turns the row into a plain task template, so it " +
+        "stops generating occurrences. `subtasks` REPLACES " +
         "the whole checklist blueprint — read the template first, modify the " +
         "array, and send it back in full. Changing it affects future " +
         "occurrences only; checklists already materialized onto existing " +
@@ -169,6 +183,15 @@ export function registerTemplateTools(
         .single();
 
       if (error) return templateError(error.message);
+
+      // Promoting a task template to a repeat gives it the open task it needs to
+      // fire from. A no-op when the row already has one, or when this update
+      // cleared `schedule` back to null (DEX-94).
+      //
+      // Deliberately not gated on `schedule` being part of *this* update, which
+      // would save a lookup on metadata-only edits: like the app's
+      // `updateTemplate`, any edit to a repeat that has run dry also repairs it.
+      await trySeedNextOccurrence(ctx, data);
       return toolJson(data);
     },
   );

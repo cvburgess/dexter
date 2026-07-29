@@ -29,7 +29,7 @@ type THeaderOptions = {
 const mockRouter = {
   back: jest.fn(),
   replace: jest.fn(),
-  // `useModalClose` guards on `canDismiss`, not the global `canGoBack`.
+  // `useDismissModal` guards on `canDismiss`, not the global `canGoBack`.
   canDismiss: jest.fn(() => true),
 };
 const mockNavigation = { setOptions: jest.fn<void, [THeaderOptions]>() };

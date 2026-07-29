@@ -52,7 +52,16 @@ type TUseTemplates = [
     ) => void;
     deleteTemplate: (id: string, callbacks?: TMutateCallbacks) => void;
     getTemplateById: (id: string | null) => TTemplate | undefined;
+    /**
+     * The fetch failed. Distinct from an empty result: `isLoading` is
+     * `isPending`, which drops to `false` on error while `templates` falls back
+     * to `[]` — so without this a failed fetch is indistinguishable from
+     * "this template was deleted" (DEX-100).
+     */
+    isError: boolean;
     isLoading: boolean;
+    /** Re-runs the fetch; the retry behind a failed load. */
+    refetch: () => void;
     updateTemplate: (
       template: TUpdateTemplate,
       callbacks?: TMutateCallbacks,
@@ -121,7 +130,12 @@ type TUseTemplatesOptions = {
 export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
   const queryClient = useQueryClient();
 
-  const { data: templates = [], isPending } = useQuery({
+  const {
+    data: templates = [],
+    isError,
+    isPending,
+    refetch,
+  } = useQuery({
     enabled: !options?.skipQuery,
     queryKey: ["templates"],
     queryFn: () => getTemplates(supabase),
@@ -199,7 +213,11 @@ export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
       createNextOccurrence: createNext,
       deleteTemplate: remove,
       getTemplateById,
+      isError,
       isLoading: isPending,
+      // Swallows the promise so a caller can hand this straight to an
+      // `onPress` — the result is already in `templates`/`isError`.
+      refetch: () => void refetch(),
       updateTemplate: update,
     },
   ];

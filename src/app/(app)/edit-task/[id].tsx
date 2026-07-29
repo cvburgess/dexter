@@ -1,46 +1,64 @@
-import { Redirect, useLocalSearchParams } from "expo-router";
+import { Href, useLocalSearchParams } from "expo-router";
 import { useRef } from "react";
-import { Alert, Platform, ScrollView } from "react-native";
+import { ScrollView } from "react-native";
 
 import { TTask } from "@/api/tasks";
-import { LoadingScreen } from "@/components/LoadingScreen";
+import { DismissModal } from "@/components/DismissModal";
+import {
+  loadFailedMessage,
+  ModalErrorScreen,
+} from "@/components/ModalErrorScreen";
+import { ModalLoadingScreen } from "@/components/ModalLoadingScreen";
 import { ModalScreen } from "@/components/ModalScreen";
 import { TaskForm } from "@/components/TaskForm";
 import { WebModalHeader } from "@/components/WebModalHeader";
+import { useDismissModal } from "@/hooks/useDismissModal";
 import { useLists } from "@/hooks/useLists";
-import { useModalClose } from "@/hooks/useModalClose";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTaskForm } from "@/hooks/useTaskForm";
 import { useTaskFormScroll } from "@/hooks/useTaskFormScroll";
 import { useTasks } from "@/hooks/useTasks";
+import { showSaveError } from "@/utils/showSaveError";
 
-// RN's Alert is a no-op on web, so fall back to the browser's alert there.
-const showSaveError = () => {
-  const message = "We couldn't save your task. Please try again.";
-
-  if (Platform.OS === "web") {
-    window.alert(message);
-  } else {
-    Alert.alert("Something went wrong", message);
-  }
-};
+/** Where this modal returns to when it can't just pop — one value, because a
+ * stale link and a ✕ have to land in the same place. */
+const HOME: Href = "/";
 
 export default function EditTaskScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [tasks, { isLoading }] = useTasks();
+  const [tasks, { isError, isLoading, refetch }] = useTasks();
 
   const task = tasks.find((candidate) => candidate.id === id);
 
-  if (!task) {
-    // Still fetching: wait for the task so the form initializes from its saved
-    // values. Once loaded with no match (a deleted task, a stale deep link),
-    // the id is invalid — bail back to the app rather than spin forever.
-    return isLoading ? <LoadingScreen /> : <Redirect href="/" />;
+  // Resolving the task wins over every other state: a background refetch that
+  // fails after a successful load leaves the cache populated, and the form the
+  // user is typing into must survive that.
+  if (task) {
+    // The `key` remounts the form if the resolved task changes, so the fields
+    // can't carry one task's edits onto another.
+    return <EditTaskForm key={task.id} task={task} />;
   }
 
-  // The `key` remounts the form if the resolved task changes, so the fields
-  // can't carry one task's edits onto another.
-  return <EditTaskForm key={task.id} task={task} />;
+  // Still fetching: wait for the task so the form initializes from its saved
+  // values.
+  if (isLoading) return <ModalLoadingScreen fallback={HOME} />;
+
+  // The fetch failed, which is not the same as "there is no such task" — say
+  // so and offer the retry rather than throwing the user out (DEX-100).
+  if (isError) {
+    return (
+      <ModalErrorScreen
+        fallback={HOME}
+        message={loadFailedMessage("tasks")}
+        onRetry={refetch}
+      />
+    );
+  }
+
+  // Loaded, with no match: a deleted task, a stale deep link, or a row that
+  // aged out of the canonical window. Close the modal rather than navigating
+  // the whole app, so whatever it was opened over survives.
+  return <DismissModal fallback={HOME} />;
 }
 
 function EditTaskForm({ task }: { task: TTask }) {
@@ -49,13 +67,7 @@ function EditTaskForm({ task }: { task: TTask }) {
   const form = useTaskForm(lists, { task });
   const hasSaved = useRef(false);
   const { scrollViewProps, scrollToEndOnNextLayout } = useTaskFormScroll();
-
-  // Pops rather than navigating, so whatever the modal was opened over stays
-  // put. The guard covers the one case a push can't: a cold deep link straight
-  // to `/edit-task/<id>`, which leaves the stack holding only this screen — and
-  // an unguarded `back()` there is an unhandled `GO_BACK` that makes ✕ look
-  // dead and leaves ✓ writing the update without ever closing.
-  const handleClose = useModalClose("/");
+  const handleClose = useDismissModal(HOME);
 
   // One-shot, like the create modal: a double tap can't fire two writes. The
   // whole field set goes in one `updateTask` — `goalId` and `status` are not on
@@ -69,7 +81,7 @@ function EditTaskForm({ task }: { task: TTask }) {
         onSuccess: handleClose,
         onError: () => {
           hasSaved.current = false;
-          showSaveError();
+          showSaveError("task");
         },
       },
     );

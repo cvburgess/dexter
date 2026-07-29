@@ -66,7 +66,7 @@ jest.mock("@/hooks/useTemplates", () => ({
   ],
 }));
 
-// `useModalClose` guards on `canDismiss` — not the global `canGoBack`, which
+// `useDismissModal` guards on `canDismiss` — not the global `canGoBack`, which
 // is also true when the only "back" available is a tab jump. Default to "there
 // is something beneath us", which is every in-app entry into this modal.
 const mockRouter = {
@@ -110,7 +110,9 @@ describe("NewTaskScreen", () => {
       {
         createTask: mockCreateTask,
         deleteTask: jest.fn(),
+        isError: false,
         isLoading: false,
+        refetch: jest.fn(),
         updateTask: jest.fn(),
         updateTasks: jest.fn(),
       },

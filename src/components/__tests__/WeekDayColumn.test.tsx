@@ -52,7 +52,9 @@ const tasksResult = (tasks: TTask[] = []) =>
     {
       createTask: jest.fn(),
       deleteTask: jest.fn(),
+      isError: false,
       isLoading: false,
+      refetch: jest.fn(),
       updateTask: jest.fn(),
       updateTasks: jest.fn(),
     },

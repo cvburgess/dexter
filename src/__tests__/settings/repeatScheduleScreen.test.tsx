@@ -16,8 +16,13 @@ jest.mock("@/hooks/useGoals", () => ({ useGoals: () => [[], {}] }));
 // The draft ("Save as template") path seeds itself from the task named by the
 // route's `fromTask` param.
 const mockTasks: { current: TTask[] } = { current: [] };
+const mockTasksQuery = { isError: false, isLoading: false };
+const mockRefetchTasks = jest.fn();
 jest.mock("@/hooks/useTasks", () => ({
-  useTasks: () => [mockTasks.current, { isLoading: false }],
+  useTasks: () => [
+    mockTasks.current,
+    { ...mockTasksQuery, refetch: mockRefetchTasks },
+  ],
 }));
 
 // The prompt itself is covered by ConfirmationModal's own tests; here it only
@@ -58,7 +63,7 @@ const mockRouter = {
   push: jest.fn(),
   replace: jest.fn(),
   dismissTo: jest.fn(),
-  // `useModalClose` guards on `canDismiss`, not `canGoBack` — the latter is
+  // `useDismissModal` guards on `canDismiss`, not `canGoBack` — the latter is
   // global and is also true when the only "back" available is a tab jump.
   canDismiss: jest.fn(() => true),
 };
@@ -66,14 +71,19 @@ const mockNavigation = { setOptions: jest.fn<void, [THeaderOptions]>() };
 const mockParams: { current: Record<string, string> } = {
   current: { id: "template-1" },
 };
-jest.mock("expo-router", () => ({
-  Redirect: function Redirect() {
-    return null;
-  },
-  useNavigation: () => mockNavigation,
-  useRouter: () => mockRouter,
-  useLocalSearchParams: () => mockParams.current,
-}));
+// Stands in for react-navigation's focus lifecycle: `DismissModal` only pops a
+// focused screen, since `router.back()` acts on whichever navigator has focus.
+jest.mock("expo-router", () => {
+  const { useEffect } = require("react");
+  return {
+    useNavigation: () => mockNavigation,
+    useRouter: () => mockRouter,
+    useLocalSearchParams: () => mockParams.current,
+    useFocusEffect: (effect: () => void | (() => void)) => {
+      useEffect(() => effect(), [effect]);
+    },
+  };
+});
 
 const headerOptions = (): THeaderOptions =>
   mockNavigation.setOptions.mock.calls.at(-1)![0];
@@ -84,6 +94,7 @@ const mockUseTemplates = useTemplates as jest.MockedFunction<
 const mockCreateTemplate = jest.fn();
 const mockUpdateTemplate = jest.fn();
 const mockDeleteTemplate = jest.fn();
+const mockRefetchTemplates = jest.fn();
 
 const seedTask: TTask = {
   id: "task-1",
@@ -113,13 +124,18 @@ const makeTemplate = (overrides: Partial<TTemplate> = {}): TTemplate => ({
   ...overrides,
 });
 
-const templatesResult = (templates: TTemplate[]) =>
+const templatesResult = (
+  templates: TTemplate[],
+  { isError = false, isLoading = false } = {},
+) =>
   mockUseTemplates.mockReturnValue([
     templates,
     {
       getTemplateById: (id: string | null) =>
         templates.find((template) => template.id === id),
-      isLoading: false,
+      isError,
+      isLoading,
+      refetch: mockRefetchTemplates,
       createTemplate: mockCreateTemplate,
       createNextOccurrence: jest.fn(),
       updateTemplate: mockUpdateTemplate,
@@ -154,6 +170,8 @@ describe("RepeatScheduleScreen", () => {
     jest.clearAllMocks();
     mockRouter.canDismiss.mockReturnValue(true);
     mockConfirm.mockResolvedValue(true);
+    mockTasksQuery.isError = false;
+    mockTasksQuery.isLoading = false;
     for (const key of Object.keys(mockPickers)) delete mockPickers[key];
   });
 
@@ -290,6 +308,37 @@ describe("RepeatScheduleScreen", () => {
       expect(mockRouter.back).not.toHaveBeenCalled();
       expect(mockRouter.replace).toHaveBeenCalledWith("/settings/tasks");
     });
+
+    // The form owns the only header on web, and it doesn't render until the
+    // template resolves — so before DEX-101 the wait was a bare spinner with no
+    // way out but the backdrop (DEX-101).
+    describe("while the template is still loading", () => {
+      beforeEach(() => {
+        mockParams.current = { id: "template-1" };
+        templatesResult([], { isLoading: true });
+      });
+
+      it("still offers a working close button", () => {
+        render(<RepeatScheduleScreen />);
+
+        const close = render(headerOptions().headerLeft());
+        fireEvent.press(close.getByTestId("modal-close-button"));
+
+        expect(mockRouter.back).toHaveBeenCalledTimes(1);
+        expect(mockUpdateTemplate).not.toHaveBeenCalled();
+      });
+
+      it("falls back to the list on a cold deep link", () => {
+        mockRouter.canDismiss.mockReturnValue(false);
+        render(<RepeatScheduleScreen />);
+
+        const close = render(headerOptions().headerLeft());
+        fireEvent.press(close.getByTestId("modal-close-button"));
+
+        expect(mockRouter.back).not.toHaveBeenCalled();
+        expect(mockRouter.replace).toHaveBeenCalledWith("/settings/tasks");
+      });
+    });
   });
 
   it("offers Never alongside the repeat frequencies", () => {
@@ -375,5 +424,86 @@ describe("RepeatScheduleScreen", () => {
     act(() => mockPickers["Repeats"].onValueChange("never"));
 
     expect(headerOptions().title).toBe("Template");
+  });
+
+  // Both bail-outs used to read `isLoading ? spinner : <Redirect />`, which
+  // treats a failed fetch as a deleted row — `isLoading` is `false` in both
+  // cases, so an offline open silently threw the user back to the list
+  // (DEX-100).
+  describe("when the record can't be resolved", () => {
+    it("waits for the template fetch rather than closing", () => {
+      mockParams.current = { id: "template-1" };
+      templatesResult([], { isLoading: true });
+      const screen = render(<RepeatScheduleScreen />);
+
+      expect(mockRouter.back).not.toHaveBeenCalled();
+      expect(mockRouter.replace).not.toHaveBeenCalled();
+      // The spinner, not the form and not the error state. This used to assert
+      // no header was wired at all, which DEX-101 inverted — the loading branch
+      // now carries one so ✕ exists — so discriminate on the body instead.
+      expect(screen.queryByTestId("modal-error-retry")).toBeNull();
+      expect(mockPickers["Repeats"]).toBeUndefined();
+    });
+
+    it("dismisses once the template is known to be gone", () => {
+      mockParams.current = { id: "template-1" };
+      templatesResult([]);
+      render(<RepeatScheduleScreen />);
+
+      expect(mockRouter.back).toHaveBeenCalled();
+      expect(mockRouter.replace).not.toHaveBeenCalled();
+    });
+
+    it("replaces to the list when a deleted template was deep-linked cold", () => {
+      mockRouter.canDismiss.mockReturnValue(false);
+      mockParams.current = { id: "template-1" };
+      templatesResult([]);
+      render(<RepeatScheduleScreen />);
+
+      expect(mockRouter.replace).toHaveBeenCalledWith("/settings/tasks");
+    });
+
+    it("reports a failed template fetch and retries it", () => {
+      mockParams.current = { id: "template-1" };
+      templatesResult([], { isError: true });
+      const screen = render(<RepeatScheduleScreen />);
+
+      expect(
+        screen.getByText(
+          "Couldn't load your repeat schedules. Check your connection and try again.",
+        ),
+      ).toBeTruthy();
+      expect(mockRouter.back).not.toHaveBeenCalled();
+
+      fireEvent.press(screen.getByTestId("modal-error-retry"));
+      expect(mockRefetchTemplates).toHaveBeenCalledTimes(1);
+    });
+
+    it("dismisses when the task a draft would seed from is gone", () => {
+      mockParams.current = { id: "new", fromTask: "task-1" };
+      mockTasks.current = [];
+      templatesResult([]);
+      render(<RepeatScheduleScreen />);
+
+      expect(mockRouter.back).toHaveBeenCalled();
+    });
+
+    it("reports a failed tasks fetch on the draft path and retries it", () => {
+      mockParams.current = { id: "new", fromTask: "task-1" };
+      mockTasks.current = [];
+      mockTasksQuery.isError = true;
+      templatesResult([]);
+      const screen = render(<RepeatScheduleScreen />);
+
+      expect(
+        screen.getByText(
+          "Couldn't load your tasks. Check your connection and try again.",
+        ),
+      ).toBeTruthy();
+      expect(mockRouter.back).not.toHaveBeenCalled();
+
+      fireEvent.press(screen.getByTestId("modal-error-retry"));
+      expect(mockRefetchTasks).toHaveBeenCalledTimes(1);
+    });
   });
 });

@@ -1,8 +1,6 @@
-import { Redirect, useLocalSearchParams } from "expo-router";
+import { Href, Redirect, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import {
-  Alert,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,28 +12,22 @@ import { TCreateList, TList } from "@/api/lists";
 import { Button } from "@/components/Button";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { EmojiPicker } from "@/components/EmojiPicker";
-import { LoadingScreen } from "@/components/LoadingScreen";
-import { TextInput } from "@/components/TextInput";
+import { ModalLoadingScreen } from "@/components/ModalLoadingScreen";
 import { ModalScreen } from "@/components/ModalScreen";
+import { TextInput } from "@/components/TextInput";
 import { WebModalHeader } from "@/components/WebModalHeader";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useLists } from "@/hooks/useLists";
-import { useModalClose } from "@/hooks/useModalClose";
+import { useDismissModal } from "@/hooks/useDismissModal";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
+import { showSaveError } from "@/utils/showSaveError";
 import { useTheme, withOpacity } from "@/utils/theme";
 
+/** Where this modal returns to when it can't just pop — one value, because a
+ * stale link and a ✕ have to land in the same place. */
+const HOME: Href = "/settings/lists";
+
 const DEFAULT_EMOJI = "📋";
-
-// RN's Alert is a no-op on web, so fall back to the browser's alert there.
-const showSaveError = () => {
-  const message = "We couldn't save your list. Please try again.";
-
-  if (Platform.OS === "web") {
-    window.alert(message);
-  } else {
-    Alert.alert("Something went wrong", message);
-  }
-};
 
 export default function ListScreen() {
   // "/settings/lists/new" is the create route; any other id edits that list.
@@ -48,12 +40,14 @@ export default function ListScreen() {
   const isEditing = id !== "new";
   const existing = getListById(isEditing ? id : null);
 
-  if (isEditing && !existing) {
-    // Still fetching: wait for the list so the form initializes from its saved
-    // values. Once loaded with no match (stale link / deleted list), the id is
-    // invalid — bail back to the list rather than spin forever.
-    return isLoading ? <LoadingScreen /> : <Redirect href="/settings/lists" />;
-  }
+  // Still fetching: wait for the list so the form initializes from its saved
+  // values.
+  if (isEditing && !existing && isLoading)
+    return <ModalLoadingScreen fallback={HOME} />;
+
+  // Loaded with no match (stale link / deleted list): the id is invalid — bail
+  // back to the list rather than spin forever.
+  if (isEditing && !existing) return <Redirect href={HOME} />;
 
   // The `key` remounts the form if the resolved list changes.
   return <ListForm key={existing?.id ?? "new"} existing={existing} />;
@@ -74,7 +68,7 @@ function ListForm({ existing }: { existing?: TList }) {
 
   const canSave = title.trim().length > 0;
 
-  const handleClose = useModalClose("/settings/lists");
+  const handleClose = useDismissModal(HOME);
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;
@@ -84,7 +78,7 @@ function ListForm({ existing }: { existing?: TList }) {
       onSuccess: handleClose,
       onError: () => {
         hasSaved.current = false;
-        showSaveError();
+        showSaveError("list");
       },
     };
 
@@ -108,7 +102,7 @@ function ListForm({ existing }: { existing?: TList }) {
     if (!confirmed) return;
     updateList(
       { id: existing.id, isArchived: true },
-      { onSuccess: handleClose, onError: showSaveError },
+      { onSuccess: handleClose, onError: () => showSaveError("list") },
     );
   };
 
