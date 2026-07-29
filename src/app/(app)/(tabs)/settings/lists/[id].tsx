@@ -1,4 +1,4 @@
-import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import {
   Alert,
@@ -14,12 +14,13 @@ import { TCreateList, TList } from "@/api/lists";
 import { Button } from "@/components/Button";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { EmojiPicker } from "@/components/EmojiPicker";
-import { LoadingScreen } from "@/components/LoadingScreen";
-import { TextInput } from "@/components/TextInput";
+import { ModalLoadingScreen } from "@/components/ModalLoadingScreen";
 import { ModalScreen } from "@/components/ModalScreen";
+import { TextInput } from "@/components/TextInput";
 import { WebModalHeader } from "@/components/WebModalHeader";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useLists } from "@/hooks/useLists";
+import { useModalClose } from "@/hooks/useModalClose";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTheme, withOpacity } from "@/utils/theme";
 
@@ -49,9 +50,15 @@ export default function ListScreen() {
 
   if (isEditing && !existing) {
     // Still fetching: wait for the list so the form initializes from its saved
-    // values. Once loaded with no match (stale link / deleted list), the id is
-    // invalid — bail back to the list rather than spin forever.
-    return isLoading ? <LoadingScreen /> : <Redirect href="/settings/lists" />;
+    // values. The wait carries its own header — the form's is the only one on
+    // web, so a bare spinner would have no ✕ (DEX-101). Once loaded with no
+    // match (stale link / deleted list), the id is invalid — bail back to the
+    // list rather than spin forever.
+    return isLoading ? (
+      <ModalLoadingScreen closeFallback="/settings/lists" />
+    ) : (
+      <Redirect href="/settings/lists" />
+    );
   }
 
   // The `key` remounts the form if the resolved list changes.
@@ -60,7 +67,6 @@ export default function ListScreen() {
 
 function ListForm({ existing }: { existing?: TList }) {
   const theme = useTheme();
-  const router = useRouter();
 
   const [, { createList, updateList }] = useLists();
   const { confirm, confirmationProps } = useConfirmation();
@@ -74,14 +80,14 @@ function ListForm({ existing }: { existing?: TList }) {
 
   const canSave = title.trim().length > 0;
 
-  const handleClose = () => router.back();
+  const handleClose = useModalClose("/settings/lists");
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;
     hasSaved.current = true;
 
     const callbacks = {
-      onSuccess: () => router.back(),
+      onSuccess: handleClose,
       onError: () => {
         hasSaved.current = false;
         showSaveError();
@@ -108,7 +114,7 @@ function ListForm({ existing }: { existing?: TList }) {
     if (!confirmed) return;
     updateList(
       { id: existing.id, isArchived: true },
-      { onSuccess: () => router.back(), onError: showSaveError },
+      { onSuccess: handleClose, onError: showSaveError },
     );
   };
 

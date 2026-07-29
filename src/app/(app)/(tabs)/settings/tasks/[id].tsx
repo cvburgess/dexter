@@ -1,4 +1,4 @@
-import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import {
   Alert,
@@ -20,18 +20,19 @@ import {
 import { Button } from "@/components/Button";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { FormRow } from "@/components/FormRow";
-import { LoadingScreen } from "@/components/LoadingScreen";
+import { ModalLoadingScreen } from "@/components/ModalLoadingScreen";
+import { ModalScreen } from "@/components/ModalScreen";
 import { PickerField } from "@/components/PickerField";
 import { PriorityControl } from "@/components/PriorityControl";
 import { SubtaskFields, withTitledRows } from "@/components/SubtaskFields";
 import { TextInput } from "@/components/TextInput";
 import { TimeField } from "@/components/TimeField";
-import { WeekdayPicker } from "@/components/WeekdayPicker";
-import { ModalScreen } from "@/components/ModalScreen";
 import { WebModalHeader } from "@/components/WebModalHeader";
+import { WeekdayPicker } from "@/components/WeekdayPicker";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useGoals } from "@/hooks/useGoals";
 import { useLists } from "@/hooks/useLists";
+import { useModalClose } from "@/hooks/useModalClose";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
@@ -125,7 +126,7 @@ export default function RepeatScheduleScreen() {
     const task = tasks.find((candidate) => candidate.id === fromTask);
     if (!task) {
       return isLoadingTasks ? (
-        <LoadingScreen />
+        <ModalLoadingScreen closeFallback="/settings/tasks" />
       ) : (
         <Redirect href="/settings/tasks" />
       );
@@ -149,9 +150,15 @@ export default function RepeatScheduleScreen() {
 
   if (!existing) {
     // Still fetching: wait for the template so the form initializes from its
-    // saved values. Once loaded with no match (stale link / deleted template),
-    // the id is invalid — bail back to the list rather than spin forever.
-    return isLoading ? <LoadingScreen /> : <Redirect href="/settings/tasks" />;
+    // saved values. The wait carries its own header — the form's is the only
+    // one on web, so a bare spinner would have no ✕ (DEX-101). Once loaded with
+    // no match (stale link / deleted template), the id is invalid — bail back
+    // to the list rather than spin forever.
+    return isLoading ? (
+      <ModalLoadingScreen closeFallback="/settings/tasks" />
+    ) : (
+      <Redirect href="/settings/tasks" />
+    );
   }
 
   // The `key` remounts the form if the resolved template changes.
@@ -176,7 +183,6 @@ function RepeatScheduleForm({
   linkTaskId?: string;
 }) {
   const theme = useTheme();
-  const router = useRouter();
 
   const [lists] = useLists();
   const [goals] = useGoals();
@@ -232,17 +238,13 @@ function RepeatScheduleForm({
     }
   };
 
-  // Pops rather than navigating: the stack this screen was pushed onto already
-  // has the list under it (`tasks/_layout.tsx` anchors it), and popping keeps
-  // whatever is under *that* — without it the Tasks screen becomes the root of
-  // the settings tab and loses its own back button. `dismissTo` looks tidier
-  // but replaces the current screen when it can't find the target, which
-  // collapses exactly that history. The guard covers the one case the anchor
-  // can't: a cold deep link straight to this URL.
-  const handleClose = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace("/settings/tasks");
-  };
+  // Popping matters here beyond the usual: the stack this screen was pushed
+  // onto already has the list under it (`tasks/_layout.tsx` anchors it), and
+  // popping keeps whatever is under *that* — without it the Tasks screen
+  // becomes the root of the settings tab and loses its own back button.
+  // `dismissTo` looks tidier but replaces the current screen when it can't find
+  // the target, which collapses exactly that history.
+  const handleClose = useModalClose("/settings/tasks");
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;
