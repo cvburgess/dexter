@@ -24,9 +24,10 @@ type TLargeScreenHeaderProps = {
  * has only a drawer toggle), which is why this is a two-slot shell rather than
  * a component that knows what goes in it.
  *
- * `PeriodNav` already carries 12pt of vertical padding, so 4pt here brings the
- * row to 16pt overall — matching the sides and the pane rows' `paddingTop` —
- * instead of stacking a full 16pt on top of it.
+ * The horizontal gutter is `theme.spacing`, the same token the pane rows below
+ * use, so the nav stays lined up over the pane it labels. `PeriodNav` already
+ * carries 12pt of vertical padding, so 4pt here brings the row to that same
+ * 16pt overall instead of stacking a full gutter on top of it.
  */
 export function LargeScreenHeader({
   children,
@@ -38,7 +39,10 @@ export function LargeScreenHeader({
     <View
       style={[
         styles.header,
-        { borderBottomColor: withOpacity(theme.colors.text, 0.1) },
+        {
+          borderBottomColor: withOpacity(theme.colors.text, 0.1),
+          paddingHorizontal: theme.spacing,
+        },
       ]}
     >
       {children}
@@ -54,7 +58,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     paddingBottom: 4,
-    paddingHorizontal: 16,
     paddingTop: 4,
   },
   actions: {

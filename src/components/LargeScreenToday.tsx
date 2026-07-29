@@ -157,13 +157,20 @@ export function LargeScreenToday({
           </>
         }
       >
-        {/* Matches the Tasks pane's width below so DayNav centers over it,
-            the same way it centers over the single view on small screens. */}
         <View style={[styles.fixedPane, styles.taskHeaderSlot]}>
           <DayNav date={date} onChangeDate={changeDate} />
         </View>
       </LargeScreenHeader>
-      <View style={[styles.paneRow, { gap: theme.gap }]}>
+      <View
+        style={[
+          styles.paneRow,
+          {
+            gap: theme.gap,
+            paddingHorizontal: theme.spacing,
+            paddingTop: theme.spacing,
+          },
+        ]}
+      >
         <View style={styles.fixedPane}>
           <TasksView date={date} />
         </View>
@@ -247,11 +254,12 @@ const styles = StyleSheet.create({
   taskHeaderSlot: {
     alignItems: "center",
   },
+  // `theme.spacing` for the gutter, not a literal: `LargeScreenHeader` above
+  // uses the same token, which is what keeps the DayNav slot lined up over the
+  // Tasks pane.
   paneRow: {
     flex: 1,
     flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingTop: 16,
   },
   // Tasks is capped at a mobile-typical width so it doesn't stretch to fill a
   // wide window.

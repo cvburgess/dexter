@@ -92,7 +92,9 @@ export function WeekView({
   // between columns equals the space outside the first and last — the grid
   // reads as evenly spaced rather than edge-heavy. Load-bearing beyond
   // spacing: the anchor math below derives the column pitch from it, so the
-  // two must move together or today scrolls to the wrong offset.
+  // two must move together or today scrolls to the wrong offset. Both read
+  // `theme.spacing`, so that agreement is structural rather than two literals
+  // that happen to match.
   const columnGap = theme.spacing;
   const columnPitch = WEEK_COLUMN_MIN_WIDTH + columnGap;
   const minContentWidth = 7 * WEEK_COLUMN_MIN_WIDTH + 6 * columnGap;
@@ -131,7 +133,16 @@ export function WeekView({
       >
         <WeekNav monday={monday} onChangeWeek={onChangeWeek} />
       </LargeScreenHeader>
-      <View style={[styles.body, { gap: theme.gap }]}>
+      <View
+        style={[
+          styles.body,
+          {
+            gap: theme.gap,
+            paddingHorizontal: theme.spacing,
+            paddingTop: theme.spacing,
+          },
+        ]}
+      >
         <ScrollView
           horizontal
           onLayout={(event: LayoutChangeEvent) =>
@@ -177,11 +188,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  // Gutter from `theme.spacing`, the same token `LargeScreenHeader` above and
+  // `columnGap` below read — which is what lets the anchor math derive the
+  // column pitch and the grid read as evenly spaced rather than edge-heavy.
   body: {
     flex: 1,
     flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingTop: 16,
   },
   weekScroll: {
     flex: 1,

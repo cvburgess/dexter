@@ -31,10 +31,14 @@ export const CALENDAR_PANE_MAX_WIDTH = 240;
 // Notes/Journal/Calendar instead of competing with Tasks for space.
 export const DRAWER_PANE_MAX_WIDTH = 360;
 
-// Min width (in dp) for a pane of TaskCard rows: Today's Tasks pane, and the
-// docked task drawer on both Today and Week. Below this a card's controls stop
-// fitting on its row, so these panes stop shrinking here and the flexing panes
-// beside them give up the space instead.
+// Min width (in dp) for a full task-list pane: Today's Tasks pane, and the
+// docked task drawer on both Today and Week. The floor of the same
+// mobile-typical range `TASKS_PANE_MAX_WIDTH` caps — these panes stop shrinking
+// here and the flexing panes beside them give up the space instead. Not a
+// TaskCard minimum: the Week tab's day columns render the same cards far
+// narrower (`WEEK_COLUMN_MIN_WIDTH`), trading a cramped card for seeing seven
+// days at once. This is where a *list* pane, with its filter and search chrome,
+// stops reading as one.
 export const TASK_LIST_PANE_MIN_WIDTH = 280;
 
 // Min width (in dp) for one day column in the Week tab (DEX-96). The legacy

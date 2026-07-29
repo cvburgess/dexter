@@ -2,11 +2,7 @@ import { Temporal } from "@js-temporal/polyfill";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { DateField } from "@/components/DateField";
-import {
-  PERIOD_NAV_CENTER_MIN_WIDTH,
-  PeriodNav,
-  PeriodNavLabel,
-} from "@/components/PeriodNav";
+import { PeriodNav, PeriodNavLabel } from "@/components/PeriodNav";
 import { formatWeekdayMonthDay } from "@/utils/formatPlainDate";
 import { dateToPlainDate, plainDateToDate } from "@/utils/plainDate";
 import { useTheme } from "@/utils/theme";
@@ -55,11 +51,10 @@ export function DayNav({ date, onChangeDate }: TDayNavProps) {
 }
 
 const styles = StyleSheet.create({
-  // The picker is the one center control that isn't a `PeriodNavLabel`, so it
-  // takes the slot's width itself rather than inheriting it from the label.
+  // Centers the picker inside the slot `PeriodNav` sized, rather than letting
+  // it stretch across the full width the way a label does.
   picker: {
     alignItems: "center",
     justifyContent: "center",
-    minWidth: PERIOD_NAV_CENTER_MIN_WIDTH,
   },
 });

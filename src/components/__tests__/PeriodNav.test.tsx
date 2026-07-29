@@ -9,12 +9,27 @@ import { WeekNav } from "../WeekNav";
 import { formatWeekdayMonthDay } from "@/utils/formatPlainDate";
 
 // `DayNav` imports `DateField`, which wraps a native picker with no test
-// double — the same stub `DayNav.test.tsx` uses. Nothing here renders it (the
-// alignment cases below use a non-today date, which takes the label branch),
-// but the module still has to load.
+// double. Nothing here renders it — the alignment cases below use a non-today
+// date, which takes the label branch — but the module still has to load.
 jest.mock("../DateField", () => ({ DateField: () => null }));
 
+// Pinned from outside the module on purpose: `PeriodNav` keeps the width
+// private, so this is the assertion that a deliberate change to it is
+// deliberate. Both tabs' chevrons land on the same x only because the slot is
+// this wide regardless of what the label says.
+const CENTER_SLOT_WIDTH = 160;
+
+const styleOf = (node: ReactTestInstance) =>
+  StyleSheet.flatten<TextStyle & ViewStyle>(node.props.style);
+
 describe("PeriodNav", () => {
+  const renderNav = (overrides: Partial<typeof props> = {}) =>
+    render(
+      <PeriodNav {...props} {...overrides}>
+        <Text>center</Text>
+      </PeriodNav>,
+    );
+
   const props = {
     nextLabel: "Next thing",
     onNext: jest.fn(),
@@ -22,58 +37,57 @@ describe("PeriodNav", () => {
     prevLabel: "Previous thing",
   };
 
-  it("labels each chevron with the caller's accessibility label", () => {
-    const screen = render(
-      <PeriodNav {...props}>
-        <Text>center</Text>
-      </PeriodNav>,
-    );
+  it("renders both chevrons and the center slot", () => {
+    const screen = renderNav();
 
     expect(screen.getByLabelText("Previous thing")).toBeTruthy();
-    expect(screen.getByLabelText("Next thing")).toBeTruthy();
-  });
-
-  it("renders the center slot between the chevrons", () => {
-    const screen = render(
-      <PeriodNav {...props}>
-        <Text>center</Text>
-      </PeriodNav>,
-    );
-
     expect(screen.getByText("center")).toBeTruthy();
+    expect(screen.getByLabelText("Next thing")).toBeTruthy();
   });
 
   it("calls onPrev when the previous chevron is pressed", () => {
     const onPrev = jest.fn();
-    const screen = render(
-      <PeriodNav {...props} onPrev={onPrev}>
-        <Text>center</Text>
-      </PeriodNav>,
-    );
 
-    fireEvent.press(screen.getByLabelText("Previous thing"));
+    fireEvent.press(renderNav({ onPrev }).getByLabelText("Previous thing"));
 
     expect(onPrev).toHaveBeenCalledTimes(1);
   });
 
   it("calls onNext when the next chevron is pressed", () => {
     const onNext = jest.fn();
-    const screen = render(
-      <PeriodNav {...props} onNext={onNext}>
-        <Text>center</Text>
-      </PeriodNav>,
-    );
 
-    fireEvent.press(screen.getByLabelText("Next thing"));
+    fireEvent.press(renderNav({ onNext }).getByLabelText("Next thing"));
 
     expect(onNext).toHaveBeenCalledTimes(1);
   });
+
+  // The slot, not the label, carries the width — so `DayNav`'s calendar picker
+  // gets it too, without restating the number.
+  it("sizes the center slot rather than its contents", () => {
+    const screen = renderNav();
+
+    expect(styleOf(screen.getByTestId("period-nav-center")).minWidth).toBe(
+      CENTER_SLOT_WIDTH,
+    );
+  });
 });
 
-// The Today and Week header rows have to sit on the same baseline, and the
-// chevrons have to stay put as the center label's text width changes. That used
-// to be held by a comment in each nav; `PeriodNav` makes it structural, and
-// these guard against a local override creeping back in (DEX-97).
+describe("PeriodNavLabel", () => {
+  it("centers its text at the shared type metrics", () => {
+    const screen = render(<PeriodNavLabel>Friday, Jul 3</PeriodNavLabel>);
+
+    const style = styleOf(screen.getByText("Friday, Jul 3"));
+
+    expect(style.textAlign).toBe("center");
+    expect(style.fontSize).toBe(16);
+  });
+});
+
+// The Today and Week header rows have to sit on the same baseline. That used to
+// be held by a comment in each nav; `PeriodNav` makes it structural, and this
+// catches the regression that survives the extraction — one nav quietly
+// dropping the shared component, or wrapping its label in a competing style
+// (DEX-97).
 describe("shared metrics between DayNav and WeekNav", () => {
   // Derived from the real "today" so `DayNav` never takes its picker branch,
   // which has no `PeriodNavLabel` to compare against.
@@ -81,46 +95,23 @@ describe("shared metrics between DayNav and WeekNav", () => {
   // A Monday — ISO week 31 of 2026, which is what `WeekNav` renders.
   const monday = Temporal.PlainDate.from("2026-07-27");
 
-  const dayNav = () =>
-    render(<DayNav date={notToday} onChangeDate={jest.fn()} />);
-  const weekNav = () =>
-    render(<WeekNav monday={monday} onChangeWeek={jest.fn()} />);
+  it("renders both center labels at identical metrics", () => {
+    const day = render(<DayNav date={notToday} onChangeDate={jest.fn()} />);
+    const week = render(<WeekNav monday={monday} onChangeWeek={jest.fn()} />);
 
-  const styleOf = <T extends TextStyle | ViewStyle>(node: ReactTestInstance) =>
-    StyleSheet.flatten<T>(node.props.style);
-
-  it("centers the label at the same size and fixed width", () => {
-    const day = styleOf<TextStyle>(
-      dayNav().getByText(formatWeekdayMonthDay(notToday)),
-    );
-    const week = styleOf<TextStyle>(weekNav().getByText("Week 31, 2026"));
-
-    expect(day.minWidth).toBe(160);
-    expect(week).toEqual(day);
-  });
-
-  it("gives both chevrons the same hit area", () => {
-    const day = dayNav();
-    const week = weekNav();
-
-    expect(styleOf<ViewStyle>(week.getByLabelText("Previous week"))).toEqual(
-      styleOf<ViewStyle>(day.getByLabelText("Previous day")),
-    );
-    expect(styleOf<ViewStyle>(week.getByLabelText("Next week"))).toEqual(
-      styleOf<ViewStyle>(day.getByLabelText("Next day")),
+    expect(styleOf(week.getByText("Week 31, 2026"))).toEqual(
+      styleOf(day.getByText(formatWeekdayMonthDay(notToday))),
     );
   });
-});
 
-describe("PeriodNavLabel", () => {
-  it("renders its text at the shared center-slot width", () => {
-    const screen = render(<PeriodNavLabel>Friday, Jul 3</PeriodNavLabel>);
+  it("gives both navs the same center slot width", () => {
+    const day = render(<DayNav date={notToday} onChangeDate={jest.fn()} />);
+    const week = render(<WeekNav monday={monday} onChangeWeek={jest.fn()} />);
 
-    const style = StyleSheet.flatten<TextStyle>(
-      screen.getByText("Friday, Jul 3").props.style,
-    );
+    const slotWidth = (screen: typeof day) =>
+      styleOf(screen.getByTestId("period-nav-center")).minWidth;
 
-    expect(style.minWidth).toBe(160);
-    expect(style.textAlign).toBe("center");
+    expect(slotWidth(day)).toBe(CENTER_SLOT_WIDTH);
+    expect(slotWidth(week)).toBe(CENTER_SLOT_WIDTH);
   });
 });

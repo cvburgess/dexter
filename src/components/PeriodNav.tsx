@@ -3,15 +3,6 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { useTheme } from "@/utils/theme";
 
-/**
- * Width (in dp) of the nav's center slot. Fixed rather than intrinsic so the
- * chevrons stay put as the label's text width changes ("Friday, Jul 3" →
- * "Wednesday, Sep 10"), and so the Today and Week tabs' arrows land on the same
- * x — see `PeriodNav`. Exported for the one center control that isn't a
- * `PeriodNavLabel`: `DayNav`'s calendar picker.
- */
-export const PERIOD_NAV_CENTER_MIN_WIDTH = 160;
-
 type TPeriodNavProps = {
   onPrev: () => void;
   onNext: () => void;
@@ -20,9 +11,9 @@ type TPeriodNavProps = {
   /** Accessibility label for the › chevron, e.g. "Next week". */
   nextLabel: string;
   /**
-   * The center slot, between the two chevrons — a `PeriodNavLabel` for the
-   * plain "jump back to now" shortcut both tabs have, or any control sized to
-   * `PERIOD_NAV_CENTER_MIN_WIDTH`.
+   * The center slot's contents, between the two chevrons — a `PeriodNavLabel`
+   * for the "jump back to now" shortcut both tabs have, or any other control.
+   * The slot sizes it; the caller doesn't restate the width.
    */
   children: ReactNode;
 };
@@ -33,7 +24,9 @@ type TPeriodNavProps = {
  * Owning the arrow hit area, the 24pt chevrons, and the center slot's width
  * here is what keeps the two tabs' header rows on the same baseline: the
  * metrics live in one place, so they can't drift the way they could when each
- * nav carried its own copy guarded by a comment (DEX-97).
+ * nav carried its own copy guarded by a comment (DEX-97). The slot's width is
+ * fixed rather than intrinsic so the chevrons also stay put as the label's text
+ * changes ("Friday, Jul 3" → "Wednesday, Sep 10").
  *
  * Purely presentational — the period arithmetic and what the center does stay
  * with the caller, which is the only part the two navs genuinely disagree on.
@@ -56,7 +49,9 @@ export function PeriodNav({
       >
         <Text style={[styles.arrowText, { color: theme.colors.text }]}>‹</Text>
       </TouchableOpacity>
-      {children}
+      <View style={styles.center} testID="period-nav-center">
+        {children}
+      </View>
       <TouchableOpacity
         accessibilityLabel={nextLabel}
         onPress={onNext}
@@ -92,10 +87,15 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "600",
   },
+  // The default `alignItems: "stretch"` is load-bearing: it hands the full slot
+  // width to whatever the caller puts here, so a tappable label's hit area is
+  // the whole 160 rather than just its text.
+  center: {
+    minWidth: 160,
+  },
   label: {
     fontSize: 16,
     fontWeight: "600",
-    minWidth: PERIOD_NAV_CENTER_MIN_WIDTH,
     textAlign: "center",
   },
 });
