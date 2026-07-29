@@ -2,14 +2,10 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
 import { getNextTaskDate } from "@src/utils/repeatSchedule.ts";
-import { subtasksFromTemplate, sweepSubtasks } from "@src/utils/subtasks.ts";
+import { sweepSubtasks } from "@src/utils/subtasks.ts";
 // The app's own enum and terminal-status predicate, not a copy of them — see the
 // module header for why this one is safe to import from Deno.
-import {
-  ETaskStatus,
-  isCompletionStatus,
-  OPEN_TASK_STATUSES,
-} from "@src/utils/taskStatus.ts";
+import { ETaskStatus, isCompletionStatus } from "@src/utils/taskStatus.ts";
 
 import type { ToolContext } from "../server.ts";
 import {
@@ -18,7 +14,6 @@ import {
   getTodayIsoDate,
   hasUpdates,
   storedSubtasksSchema,
-  storedTemplateSubtasksSchema,
   subtaskSchema,
   subtasksSchema,
   taskPrioritySchema,
@@ -27,6 +22,7 @@ import {
   toolJson,
   uuidSchema,
 } from "./helpers.ts";
+import { hasOpenTaskForTemplate, insertOccurrence } from "./recurrence.ts";
 
 type Subtask = z.infer<typeof subtaskSchema>;
 
@@ -100,24 +96,13 @@ async function maybeCreateNextRecurringTask(
     .maybeSingle();
   if (!template?.schedule) return;
 
-  // A repeat has exactly one open task — the app's guard, server-side. A
-  // template can gain a schedule after the fact, which retroactively turns
-  // every task stamped from it into an occurrence; without this, completing
-  // three of them would start three parallel chains. Both callers run this
-  // after their own write has landed, so the task that triggered it is already
-  // terminal (or deleted) and cannot match its own guard.
-  //
-  // A failed lookup bails rather than spawning: an extra parallel chain is
-  // silent and permanent, whereas a repeat left with no open task is surfaced
-  // in Settings → Tasks with a one-tap repair.
-  const { data: openTasks, error: openTasksError } = await ctx.supabase
-    .from("tasks")
-    .select("id")
-    .eq("template_id", template.id)
-    .eq("user_id", ctx.userId)
-    .in("status", OPEN_TASK_STATUSES)
-    .limit(1);
-  if (openTasksError || !openTasks || openTasks.length > 0) return;
+  // A repeat has exactly one open task. A template can gain a schedule after the
+  // fact, which retroactively turns every task stamped from it into an
+  // occurrence; without this, completing three of them would start three
+  // parallel chains. Both callers run this after their own write has landed, so
+  // the task that triggered it is already terminal (or deleted) and cannot match
+  // its own guard.
+  if (await hasOpenTaskForTemplate(ctx, template.id)) return;
 
   const nextDate = getNextTaskDate(
     { scheduledFor: task.scheduled_for },
@@ -126,30 +111,8 @@ async function maybeCreateNextRecurringTask(
   );
   if (!nextDate) return;
 
-  await ctx.supabase.from("tasks").insert({
-    user_id: ctx.userId,
-    title: template.title,
-    alarm_time: template.alarm_time,
-    priority: template.priority,
-    list_id: template.list_id,
-    goal_id: template.goal_id,
-    scheduled_for: nextDate,
-    template_id: template.id,
-    status: ETaskStatus.TODO,
-    // Each occurrence gets its own copy of the template's checklist, reset to
-    // open. Array items carry no template link, so no orphan-spawn hazard.
-    subtasks: subtasksFromTemplate(
-      readTemplateSubtasks(template.subtasks),
-      ETaskStatus.TODO,
-    ),
-  });
+  await insertOccurrence(ctx, template, nextDate);
 }
-
-/** Template checklist items carry no status — a template is a blueprint, not state. */
-const readTemplateSubtasks = (value: unknown): { title: string }[] => {
-  const parsed = storedTemplateSubtasksSchema.safeParse(value);
-  return parsed.success ? parsed.data : [];
-};
 
 const statusFilterSchema = z.union([
   taskStatusSchema,
@@ -305,7 +268,12 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         "Create a new task for the authenticated user. `subtasks` is an " +
         "optional checklist of `{id, title, status}` items stored on the task " +
         "itself — they are not tasks and have no fields beyond these. Mint " +
-        "each `id` yourself; it only needs to be unique within this array.",
+        "each `id` yourself; it only needs to be unique within this array. " +
+        "Leave `templateId` unset unless you are deliberately stamping a task " +
+        "from a template: a repeat has exactly one open task, so pointing a " +
+        "second open task at a *scheduled* template makes it generate two " +
+        "parallel chains. To create a repeat, use `create_template` — it " +
+        "produces the first occurrence for you.",
       inputSchema: {
         title: z.string().min(1).max(100),
         dueOn: dateSchema.nullable().optional(),
@@ -357,7 +325,13 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         "read the task first, modify the array, and send it back in full. " +
         "Setting `status` to done (2), won't-do (3), or delegated (4) also " +
         "sweeps every subtask to that status automatically, so do not send " +
-        "`subtasks` just to close them; send it only to make a different change.",
+        "`subtasks` just to close them; send it only to make a different " +
+        "change. Do not send `templateId` unless you mean to re-link the task. " +
+        "Clearing it to null on a repeat's only open task leaves the schedule " +
+        "with nothing to recur from, and it stops generating. Pointing it at a " +
+        "*scheduled* template that already has an open task — every repeat " +
+        "`create_template` makes does — leaves that repeat showing a duplicate " +
+        "task until both are completed.",
       inputSchema: {
         taskId: uuidSchema,
         title: z.string().min(1).max(100).optional(),

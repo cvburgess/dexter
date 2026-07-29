@@ -22,6 +22,7 @@ import {
   listTasksSchema,
   registerTaskTools,
 } from "../../functions/mcp-server/tools/tasks.ts";
+import { registerTemplateTools } from "../../functions/mcp-server/tools/templates.ts";
 
 type ToolHandler = (args: Record<string, unknown>) => Promise<unknown>;
 
@@ -302,6 +303,7 @@ Deno.test("create_task derives user_id from authenticated context", async () => 
 // `.single()`/`.maybeSingle()` reads and records inserts/deletes, so the
 // multi-step recurrence and delete-cleanup flows can be asserted end to end.
 type FakeRow = Record<string, unknown>;
+type FakeError = { message: string } | null;
 
 class RecordingBuilder {
   op: "select" | "insert" | "update" | "delete" = "select";
@@ -348,28 +350,38 @@ class RecordingBuilder {
     return this;
   }
 
-  maybeSingle(): Promise<{ data: FakeRow | null; error: null }> {
-    return Promise.resolve({ data: this.fake.take(this.table), error: null });
+  maybeSingle(): Promise<{ data: FakeRow | null; error: FakeError }> {
+    const error = this.fake.errorFor(this.table);
+    return Promise.resolve({
+      data: error ? null : this.fake.take(this.table),
+      error,
+    });
   }
 
-  single(): Promise<{ data: FakeRow; error: null }> {
+  single(): Promise<{ data: FakeRow | null; error: FakeError }> {
+    const error = this.fake.errorFor(this.table);
     return Promise.resolve({
-      data: this.fake.take(this.table) ?? {},
-      error: null,
+      data: error ? null : (this.fake.take(this.table) ?? {}),
+      error,
     });
   }
 
   // Thenable so awaiting a chain directly (no `.single()`) resolves like
   // PostgREST: a row array for a select, and a recorded delete otherwise.
   then<T>(
-    onFulfilled: (value: { data: FakeRow[] | null; error: null }) => T,
+    onFulfilled: (value: { data: FakeRow[] | null; error: FakeError }) => T,
   ): Promise<T> {
+    const error = this.fake.errorFor(this.table);
     if (this.op === "delete") {
-      this.fake.deletes.push({ table: this.table, filters: this.filters });
-      return Promise.resolve({ data: null, error: null }).then(onFulfilled);
+      if (!error) {
+        this.fake.deletes.push({ table: this.table, filters: this.filters });
+      }
+      return Promise.resolve({ data: null, error }).then(onFulfilled);
     }
-    return Promise.resolve({ data: this.fake.rowsFor(this.table), error: null })
-      .then(onFulfilled);
+    return Promise.resolve({
+      data: error ? null : this.fake.rowsFor(this.table),
+      error,
+    }).then(onFulfilled);
   }
 }
 
@@ -386,6 +398,12 @@ class RecordingSupabase {
      * most one; empty by default, which reads as "no other open task".
      */
     private lists: Record<string, FakeRow[]> = {},
+    /**
+     * Per-table PostgREST errors, so the bail-on-error branches can be
+     * exercised — `hasOpenTaskForTemplate` reads a failed lookup as "has one"
+     * rather than spawning a second chain.
+     */
+    private errors: Record<string, { message: string }> = {},
   ) {}
 
   take(table: string): FakeRow | null {
@@ -394,6 +412,10 @@ class RecordingSupabase {
 
   rowsFor(table: string): FakeRow[] {
     return this.lists[table] ?? [];
+  }
+
+  errorFor(table: string): FakeError {
+    return this.errors[table] ?? null;
   }
 
   from(table: string): RecordingBuilder {
@@ -669,6 +691,166 @@ Deno.test("delete_task leaves standalone tasks' templates untouched", async () =
   assertEquals(
     supabase.deletes.filter((d) => d.table === "repeat_task_templates").length,
     0,
+  );
+});
+
+// DEX-94: the other half of the one-open-task invariant, server-side. A schedule
+// on its own generates nothing — recurrence spawns from *completing* a task
+// linked to the row — so a template write that leaves a cadence with no open
+// task produces a repeat that can never fire, and reports success doing it.
+function templateTools(supabase: RecordingSupabase): ToolRegistry {
+  const registry = new ToolRegistry();
+  registerTemplateTools(
+    registry as unknown as McpServer,
+    recordingContext(supabase, RECUR_USER),
+  );
+  return registry;
+}
+
+const SEEDED_TEMPLATE = {
+  id: RECUR_TEMPLATE,
+  title: "Water the plants",
+  alarm_time: null,
+  priority: 2,
+  list_id: null,
+  goal_id: null,
+  subtasks: [],
+};
+
+Deno.test("create_template seeds the first occurrence for a scheduled row", async () => {
+  const supabase = new RecordingSupabase({
+    repeat_task_templates: [{ ...SEEDED_TEMPLATE, schedule: "0 0 * * *" }],
+  });
+
+  await templateTools(supabase).run("create_template", {
+    title: "Water the plants",
+    schedule: "0 0 * * *",
+  });
+
+  const inserted = supabase.inserts.find((i) => i.table === "tasks");
+  assert(inserted, "expected a first occurrence to be inserted");
+  assertEquals(inserted.payload.template_id, RECUR_TEMPLATE);
+  assertEquals(inserted.payload.title, "Water the plants");
+  assertEquals(inserted.payload.status, 1);
+  assertEquals(inserted.payload.user_id, RECUR_USER);
+  // `getFirstOccurrence` counts today, unlike `getNextOccurrence`, so a daily
+  // cadence lands a task now rather than looking like nothing happened.
+  assertEquals(inserted.payload.scheduled_for, getTodayIsoDate());
+});
+
+// A scheduleless row is a task template — a blueprint the user stamps on demand,
+// which must not quietly materialize a task of its own.
+Deno.test("create_template seeds nothing for a scheduleless task template", async () => {
+  const supabase = new RecordingSupabase({
+    repeat_task_templates: [{ ...SEEDED_TEMPLATE, schedule: null }],
+  });
+
+  await templateTools(supabase).run("create_template", {
+    title: "Trip packing",
+  });
+
+  assertEquals(supabase.inserts.filter((i) => i.table === "tasks").length, 0);
+});
+
+// A seeded occurrence's checklist is not covered separately: seeding and
+// completion-driven recurrence share `insertOccurrence`, so "a recurring
+// occurrence gets a fresh copy of the template's checklist" below covers both.
+
+Deno.test("update_template seeds an occurrence when a task template gains a cadence", async () => {
+  const supabase = new RecordingSupabase({
+    repeat_task_templates: [{ ...SEEDED_TEMPLATE, schedule: "0 0 * * *" }],
+  });
+
+  await templateTools(supabase).run("update_template", {
+    templateId: RECUR_TEMPLATE,
+    schedule: "0 0 * * *",
+  });
+
+  assertEquals(supabase.inserts.filter((i) => i.table === "tasks").length, 1);
+});
+
+// The row's stamped tasks are already occurrences once it gains a cadence, so
+// seeding on top of one would start a second parallel chain.
+Deno.test("update_template seeds nothing when the row already has an open task", async () => {
+  const supabase = new RecordingSupabase({
+    repeat_task_templates: [{ ...SEEDED_TEMPLATE, schedule: "0 0 * * *" }],
+  }, {
+    tasks: [{ id: "00000000-0000-4000-8000-0000000000ee" }],
+  });
+
+  await templateTools(supabase).run("update_template", {
+    templateId: RECUR_TEMPLATE,
+    schedule: "0 0 * * *",
+  });
+
+  assertEquals(supabase.inserts.filter((i) => i.table === "tasks").length, 0);
+});
+
+Deno.test("update_template seeds nothing when the update clears the schedule", async () => {
+  const supabase = new RecordingSupabase({
+    repeat_task_templates: [{ ...SEEDED_TEMPLATE, schedule: null }],
+  });
+
+  await templateTools(supabase).run("update_template", {
+    templateId: RECUR_TEMPLATE,
+    schedule: null,
+  });
+
+  assertEquals(supabase.inserts.filter((i) => i.table === "tasks").length, 0);
+});
+
+// Seeding is a repair hanging off a write that already landed. Reporting a
+// successful save as a failure is worse than a stalled repeat, which Settings →
+// Tasks flags with a one-tap fix: an agent that retries a failed
+// `create_template` writes a second row.
+Deno.test("create_template still succeeds when the open-task lookup fails", async () => {
+  const supabase = new RecordingSupabase(
+    { repeat_task_templates: [{ ...SEEDED_TEMPLATE, schedule: "0 0 * * *" }] },
+    {},
+    { tasks: { message: "connection reset" } },
+  );
+
+  const result = await templateTools(supabase).run("create_template", {
+    title: "Water the plants",
+    schedule: "0 0 * * *",
+  }) as { isError?: boolean; content: { text: string }[] };
+
+  assertEquals(result.isError, undefined);
+  assertEquals(
+    (JSON.parse(result.content[0].text) as { id: string }).id,
+    RECUR_TEMPLATE,
+  );
+  // A failed lookup reads as "already has one" rather than spawning, so the
+  // repeat is left stalled rather than running two chains.
+  assertEquals(supabase.inserts.filter((i) => i.table === "tasks").length, 0);
+});
+
+Deno.test("update_template still succeeds when the seed throws", async () => {
+  const supabase = new RecordingSupabase({
+    repeat_task_templates: [{ ...SEEDED_TEMPLATE, schedule: "0 0 * * *" }],
+  });
+  const exploding = {
+    from(table: string) {
+      if (table === "tasks") throw new Error("network down");
+      return supabase.from(table);
+    },
+  };
+
+  const registry = new ToolRegistry();
+  registerTemplateTools(
+    registry as unknown as McpServer,
+    recordingContext(exploding as unknown as RecordingSupabase, RECUR_USER),
+  );
+
+  const result = await registry.run("update_template", {
+    templateId: RECUR_TEMPLATE,
+    schedule: "0 0 * * *",
+  }) as { isError?: boolean; content: { text: string }[] };
+
+  assertEquals(result.isError, undefined);
+  assertEquals(
+    (JSON.parse(result.content[0].text) as { id: string }).id,
+    RECUR_TEMPLATE,
   );
 });
 
