@@ -77,7 +77,7 @@ Based on the investigation, classify each issue. **Evaluate the noise rules firs
 
 - Environment is `development` (dev-only errors, HMR artifacts, etc.)
 - Error is transient/expected (network offline, user-caused, etc.) AND event count is very low
-- The code has already been fixed — check with `git log` for recent commits touching the culprit file
+- The code has already been fixed — check with `git log` against the **root-cause file Step 3 identified**, not the raw culprit path. Sentry's culprit is often a reporting funnel (`_shared/sentry.ts`, `toolError`, `QueryProvider`) that changes for unrelated reasons, so a recent commit there says nothing about this error. The commit must plausibly address *this* error, not merely touch the file; if Step 3 found no root-cause file, this rule does not apply
 - Error is in third-party code with no first-party fix possible
 
 **Otherwise, create a Linear bug issue** if ANY of these are true:
