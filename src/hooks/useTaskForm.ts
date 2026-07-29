@@ -2,14 +2,20 @@ import { Temporal } from "@js-temporal/polyfill";
 import { useState } from "react";
 
 import { TList } from "@/api/lists";
-import { ETaskPriority, ETaskStatus, TCreateTask, TSubtask } from "@/api/tasks";
+import {
+  ETaskPriority,
+  ETaskStatus,
+  TCreateTask,
+  TSubtask,
+  TTask,
+} from "@/api/tasks";
 import { TTemplate } from "@/api/templates";
 import { withTitledRows } from "@/components/SubtaskFields";
 import { parseTaskShorthand } from "@/utils/parseTaskShorthand";
 import { subtasksFromTemplate } from "@/utils/subtasks";
 
-export type TNewTaskForm = {
-  /** Raw title input, shorthand tokens included. */
+export type TTaskForm = {
+  /** Raw title input. In create mode it still carries any shorthand tokens. */
   title: string;
   setTitle: (title: string) => void;
   priority: ETaskPriority;
@@ -27,20 +33,38 @@ export type TNewTaskForm = {
   /** Time-of-day the alarm fires (`"HH:MM"`), or null when no alarm is set. */
   alarmTime: string | null;
   setAlarmTime: (alarmTime: string | null) => void;
-  /** Checklist items to create alongside the task, in insertion order. */
+  /** Checklist items to save alongside the task, in insertion order. */
   subtasks: TSubtask[];
   setSubtasks: (subtasks: TSubtask[]) => void;
   /** Fills the form from a task template, leaving its dates alone (DEX-65). */
   applyTemplate: (template: TTemplate) => void;
   /**
-   * The template the form was seeded from, or null when nothing seeded it. Both
-   * the picker's selection and the saved task's `template_id` read it, so the
-   * two can't disagree.
+   * The template the form was seeded from — or, when editing, the one the task
+   * already came from — or null when nothing seeded it. Both the picker's
+   * selection and the saved task's `template_id` read it, so the two can't
+   * disagree.
    */
   templateId: string | null;
-  /** The resolved payload for `createTask`, with tokens stripped from the title. */
+  /**
+   * The resolved payload. In create mode the title has had its tokens stripped;
+   * in edit mode it is the title verbatim. `goalId` and `status` are absent
+   * either way — the form does not own them, so saving can't clobber them.
+   */
   task: TCreateTask;
   canSave: boolean;
+};
+
+type TUseTaskFormOptions = {
+  /**
+   * Create mode: the ISO date to schedule the new task for; defaults to today.
+   * Ignored when `task` is set — an existing task brings its own schedule.
+   */
+  defaultScheduledFor?: string;
+  /**
+   * Edit mode: the saved task to seed every field from. Its presence is what
+   * takes the form out of create mode.
+   */
+  task?: TTask;
 };
 
 // The default can arrive from an untrusted route param (deep link), so normalize
@@ -57,43 +81,65 @@ const resolveScheduledFor = (value?: string): string => {
 };
 
 /**
- * State for the create-task form. Shorthand tokens typed into the title
- * (`!` priority, `#list-slug`, `due:N`) drive the matching controls live;
- * once a control is changed manually, the manual value wins over tokens.
+ * State for the task form, shared by the create modal (`new-task`) and the edit
+ * modal (`edit-task/[id]`).
+ *
+ * **Shorthand tokens are create-only.** In create mode, `!` priority,
+ * `#list-slug`, and `due:N` typed into the title drive the matching controls
+ * live; once a control is changed manually, the manual value wins over tokens.
+ * In edit mode the title is seeded from a saved row that may legitimately
+ * contain a `!` or a `#` — parsing it would strip those characters and re-drive
+ * the controls off text the user never meant as shorthand (DEX-98). So editing
+ * seeds each override slot from the task's own column and never runs the parser.
  */
-export const useNewTaskForm = (
+export const useTaskForm = (
   lists: TList[],
-  /** ISO date to schedule the task for; defaults to today when omitted. */
-  defaultScheduledFor?: string,
-): TNewTaskForm => {
-  const [title, setTitle] = useState("");
+  { defaultScheduledFor, task }: TUseTaskFormOptions = {},
+): TTaskForm => {
+  const isEditing = task !== undefined;
+
+  const [title, setTitle] = useState(task?.title ?? "");
   const [scheduledFor, setScheduledFor] = useState<string | null>(() =>
-    resolveScheduledFor(defaultScheduledFor),
+    task ? task.scheduledFor : resolveScheduledFor(defaultScheduledFor),
   );
-  const [alarmTime, setAlarmTime] = useState<string | null>(null);
-  const [subtasks, setSubtasks] = useState<TSubtask[]>([]);
+  const [alarmTime, setAlarmTime] = useState<string | null>(
+    task?.alarmTime ?? null,
+  );
+  const [subtasks, setSubtasks] = useState<TSubtask[]>(task?.subtasks ?? []);
   // Provenance, not a mode: it records where the form's contents came from.
   // Deliberately never cleared once set — editing a field or switching back to
   // the New tab leaves the seeded values in place, so dropping the id would
   // produce a task whose contents came from a template but which claims
-  // otherwise.
-  const [templateId, setTemplateId] = useState<string | null>(null);
+  // otherwise. Editing carries an existing task's link through untouched.
+  const [templateId, setTemplateId] = useState<string | null>(
+    task?.templateId ?? null,
+  );
 
   // `undefined` means "no manual override yet — follow the shorthand tokens".
-  const [priorityOverride, setPriorityOverride] = useState<ETaskPriority>();
-  const [listOverride, setListOverride] = useState<string | null>();
-  const [dueOnOverride, setDueOnOverride] = useState<string | null>();
+  // Editing has no tokens to follow, so every slot starts filled from the task
+  // and these are simply the live values.
+  const [priorityOverride, setPriorityOverride] = useState<
+    ETaskPriority | undefined
+  >(task?.priority);
+  const [listOverride, setListOverride] = useState<string | null | undefined>(
+    task ? task.listId : undefined,
+  );
+  const [dueOnOverride, setDueOnOverride] = useState<string | null | undefined>(
+    task ? task.dueOn : undefined,
+  );
 
-  const parsed = parseTaskShorthand(title, lists);
+  // Not merely ignored in edit mode — never run, so a saved title can't be
+  // rewritten by the parser on its way to the payload.
+  const parsed = isEditing ? undefined : parseTaskShorthand(title, lists);
 
   const priority =
-    priorityOverride ?? parsed.priority ?? ETaskPriority.UNPRIORITIZED;
+    priorityOverride ?? parsed?.priority ?? ETaskPriority.UNPRIORITIZED;
   const listId =
-    listOverride !== undefined ? listOverride : (parsed.listId ?? null);
+    listOverride !== undefined ? listOverride : (parsed?.listId ?? null);
   const dueOn =
-    dueOnOverride !== undefined ? dueOnOverride : (parsed.dueOn ?? null);
+    dueOnOverride !== undefined ? dueOnOverride : (parsed?.dueOn ?? null);
 
-  const cleanTitle = parsed.title.trim();
+  const cleanTitle = (parsed?.title ?? title).trim();
 
   // Only titled rows reach the payload — an empty row is a half-finished edit,
   // not a checklist item.
@@ -150,7 +196,7 @@ export const useNewTaskForm = (
       // template's schedule, read at completion time — and the picker only
       // offers scheduleless rows anyway.
       templateId,
-      // A task and its checklist are created in one insert.
+      // A task and its checklist are written in one statement.
       subtasks: savedSubtasks,
     },
     canSave: cleanTitle.length > 0,

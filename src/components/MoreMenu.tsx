@@ -5,28 +5,18 @@ import type { StyleProp, ViewStyle } from "react-native";
 
 import { ETaskPriority, TTask } from "@/api/tasks";
 import { isTaskTemplate, NEW_TEMPLATE } from "@/api/templates";
-import { isAlarmSupported } from "@/utils/alarms";
-import { useLists } from "@/hooks/useLists";
 import { useTemplates } from "@/hooks/useTemplates";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
 import { Theme, useTheme } from "@/utils/theme";
 import { weekStartEnd } from "@/utils/weekStartEnd";
 
 import { IconMenu, TIconMenuOption, TIconMenuSection } from "./IconMenu";
-import { getListSections } from "./ListButton";
 import { PRIORITY_OPTIONS, priorityIconColor } from "./PriorityControl";
-import type { TTaskDateField } from "./SetDateModal";
 
 type TMoreMenuProps = {
   task: TTask;
   onChangePriority: (priority: ETaskPriority) => void;
   onChangeSchedule: (scheduledFor: string | null) => void;
-  onChangeDeadline: (dueOn: string | null) => void;
-  onChangeList: (listId: string | null) => void;
-  /** Opens the date picker for the named field, seeded to its current value. */
-  onPickDate: (field: TTaskDateField) => void;
-  onSetAlarm: () => void;
-  onClearAlarm: () => void;
   onAddSubtask?: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -34,16 +24,19 @@ type TMoreMenuProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-/** Wraps `children` (the whole task card) with a long-press menu for priority, schedule, deadline, list, and task actions. */
+/**
+ * Wraps `children` (the whole task card) with a long-press menu.
+ *
+ * Deliberately short. Everything that needs a picker to change — the list, the
+ * deadline, the alarm, an arbitrary date — lives in the edit modal, which this
+ * menu's first item opens; a menu row whose only job was to launch a sheet was
+ * a detour, not a shortcut (DEX-98). What stays is what a single tap can
+ * finish: priority, the schedule presets, and the task-level actions.
+ */
 export function MoreMenu({
   task,
   onChangePriority,
   onChangeSchedule,
-  onChangeDeadline,
-  onChangeList,
-  onPickDate,
-  onSetAlarm,
-  onClearAlarm,
   onAddSubtask,
   onDuplicate,
   onDelete,
@@ -52,7 +45,6 @@ export function MoreMenu({
 }: TMoreMenuProps) {
   const theme = useTheme();
   const router = useRouter();
-  const [lists] = useLists();
   const [, { getTemplateById }] = useTemplates();
 
   // One editor for all three entry points: it shows a repeat schedule, a saved
@@ -83,6 +75,12 @@ export function MoreMenu({
       ...(repeats && { repeats: "1" }),
     });
 
+  // No `withAnchor`: this route is declared on the root `(app)` stack (like
+  // `new-task`), which the tab navigator already sits inside, so the push has
+  // the app beneath it to render over and close back to.
+  const openTaskEditor = () =>
+    router.push({ pathname: "/edit-task/[id]", params: { id: task.id } });
+
   // `tasks.template_id` has one meaning — this task came from that template —
   // so it, and not the lookup, decides whether there is anything to make: a
   // task that already belongs to a template offers only the edit for it, and
@@ -110,40 +108,35 @@ export function MoreMenu({
         onSaveAsTemplate: () => openDraftFromTask(false),
       };
 
-  // Alarms ring via native iOS AlarmKit only, so the item is iOS-only. A single
-  // directly-tappable action, not a submenu.
-  const alarm = isAlarmSupported
-    ? {
-        title: task.alarmTime ? "Unset alarm" : "Set alarm",
-        onSelect: task.alarmTime ? onClearAlarm : onSetAlarm,
-      }
-    : undefined;
-
-  // Everything that edits the task: what it is, when it happens, where it
-  // lives, and what it contains. One unruled group, however many sections it
-  // takes to build — only the actions below it are set apart.
+  // Everything that edits the task: the full form, then the two changes quick
+  // enough to be worth a tap of their own, then the checklist. One unruled
+  // group, however many sections it takes to build — only the actions below it
+  // are set apart.
   const editSections = [
+    // The way into every field at once, first in the menu — it is the general
+    // case the rows below it are shortcuts for.
+    {
+      options: [
+        {
+          id: "edit-task",
+          title: "Edit task",
+          icon: EDIT_TASK_ICON,
+          onSelect: openTaskEditor,
+        },
+      ],
+    },
     ...getPrioritySections(task.priority, onChangePriority, theme),
-    ...getScheduleSections(task.scheduledFor, onChangeSchedule, () =>
-      onPickDate("schedule"),
-    ),
-    ...getDeadlineSections(task.dueOn, onChangeDeadline, () =>
-      onPickDate("deadline"),
-    ),
-    // ListButton's sections, collapsed into a titled submenu like the others.
-    ...getListSections(lists, task.listId, onChangeList).map((section) => ({
-      ...section,
-      title: "List",
-      icon: { ios: "face.smiling", android: "mood", web: "mood" } as const,
-      isSubmenu: true,
-    })),
-    ...getTaskActionSections(alarm, onAddSubtask),
+    ...getScheduleSections(task.scheduledFor, onChangeSchedule, openTaskEditor),
+    ...getTaskActionSections(onAddSubtask),
   ];
 
   const sections = [
-    ...editSections.map((section, index) =>
-      index === 0 ? section : { ...section, hideDivider: true },
-    ),
+    // Every one of them, the first included: `IconMenu.native` emits a plain
+    // section *without* `hideDivider` as its own `displayInline` group, which
+    // the system menu draws with separators — so leaving the Edit task row
+    // unmarked ruled it off from the shortcuts below it on iOS/Android while
+    // web (which only draws a divider above section > 0) showed no such rule.
+    ...editSections.map((section) => ({ ...section, hideDivider: true })),
     ...getOtherSections({
       onDuplicate,
       template: templateAction,
@@ -162,6 +155,12 @@ export function MoreMenu({
     </IconMenu>
   );
 }
+
+const EDIT_TASK_ICON = {
+  ios: "square.and.pencil",
+  android: "edit_square",
+  web: "edit_square",
+} as const;
 
 export const getPrioritySections = (
   priority: ETaskPriority,
@@ -188,52 +187,36 @@ export const getPrioritySections = (
   },
 ];
 
-/**
- * The two date submenus differ only in their copy and icon — the presets, the
- * "Pick a date…" row, and the rule for when a custom date or a clear action
- * appears are identical.
- */
-const DATE_FIELD_META = {
-  schedule: {
-    title: "Schedule",
-    icon: {
-      ios: "calendar",
-      android: "calendar_today",
-      web: "calendar_today",
-    },
-    clearTitle: "Unschedule",
-  },
-  deadline: {
-    title: "Deadline",
-    icon: {
-      ios: "calendar.badge.clock",
-      android: "calendar_clock",
-      web: "calendar_clock",
-    },
-    clearTitle: "Clear deadline",
-  },
+const SCHEDULE_ICON = {
+  ios: "calendar",
+  android: "calendar_today",
+  web: "calendar_today",
 } as const;
 
-const getDateSections = (
-  field: TTaskDateField,
-  value: string | null,
-  onChange: (value: string | null) => void,
-  onPickDate: () => void,
+/**
+ * The schedule submenu: the days worth a single tap, plus the two rows that
+ * hand off to the edit modal for anything else.
+ *
+ * Option ids stay namespaced even though schedule is now the only date field
+ * here — `IconMenu.native` flattens every section into one id -> option map
+ * before handing the tree to the system menu, so an un-namespaced date id would
+ * collide with any future section offering the same days.
+ */
+export const getScheduleSections = (
+  scheduledFor: string | null,
+  onChangeSchedule: (scheduledFor: string | null) => void,
+  onEditTask: () => void,
 ): TIconMenuSection[] => {
-  const meta = DATE_FIELD_META[field];
-  // Option ids are the menu's dispatch keys, and `IconMenu.native` flattens
-  // every section into one id -> option map before handing the tree to the
-  // system menu. Schedule and Deadline offer the very same dates, so an
-  // un-namespaced id would let the later submenu (Deadline) shadow the earlier
-  // one and route Schedule's taps to the deadline handler.
-  const optionId = (suffix: string) => `${field}-${suffix}`;
+  const optionId = (suffix: string) => `schedule-${suffix}`;
   const now = Temporal.Now.plainDateISO();
   const today = now.toString();
   const tomorrow = now.add({ days: 1 }).toString();
   const { monday } = weekStartEnd(1);
   const nextMonday = monday.toString();
 
-  const currentDate = value ? Temporal.PlainDate.from(value) : null;
+  const currentDate = scheduledFor
+    ? Temporal.PlainDate.from(scheduledFor)
+    : null;
   const isWithinNextWeek =
     currentDate !== null &&
     currentDate.until(monday).days <= 0 &&
@@ -243,14 +226,14 @@ const getDateSections = (
     {
       id: optionId(today),
       title: "Today",
-      isSelected: value === today,
-      onSelect: () => onChange(today),
+      isSelected: scheduledFor === today,
+      onSelect: () => onChangeSchedule(today),
     },
     {
       id: optionId(tomorrow),
       title: "Tomorrow",
-      isSelected: value === tomorrow,
-      onSelect: () => onChange(tomorrow),
+      isSelected: scheduledFor === tomorrow,
+      onSelect: () => onChangeSchedule(tomorrow),
     },
   ];
 
@@ -259,102 +242,79 @@ const getDateSections = (
       id: optionId(nextMonday),
       title: "Next Week",
       isSelected: false,
-      onSelect: () => onChange(nextMonday),
+      onSelect: () => onChangeSchedule(nextMonday),
     });
   }
 
   // The date already set, when it isn't one of the presets above. Selecting it
-  // opens the picker seeded to it — a way *into* the calendar rather than the
-  // no-op row it used to be (DEX-87).
-  if (currentDate && value !== today && value !== tomorrow) {
+  // opens the editor seeded to the task — a way *into* the date field rather
+  // than the no-op row it used to be (DEX-87).
+  if (currentDate && scheduledFor !== today && scheduledFor !== tomorrow) {
     options.push({
       id: optionId(currentDate.toString()),
       title: formatMonthDayYear(currentDate),
       isSelected: true,
-      onSelect: onPickDate,
+      onSelect: onEditTask,
     });
   }
 
+  // Any other day is a form field, not a menu row: the edit modal owns the
+  // calendar, and opening it from here costs the same one tap the sheet did
+  // while also putting every other field within reach (DEX-98).
   options.push({
     id: optionId("pick-date"),
     title: "Pick a date…",
     isSelected: false,
-    onSelect: onPickDate,
+    onSelect: onEditTask,
   });
 
   if (currentDate) {
     options.push({
       id: optionId("clear"),
-      title: meta.clearTitle,
+      title: "Unschedule",
       isSelected: false,
-      onSelect: () => onChange(null),
+      onSelect: () => onChangeSchedule(null),
     });
   }
 
   return [
     {
-      title: meta.title,
-      icon: meta.icon,
+      title: "Schedule",
+      icon: SCHEDULE_ICON,
       isSubmenu: true,
       options,
     },
   ];
 };
 
-export const getScheduleSections = (
-  scheduledFor: string | null,
-  onChangeSchedule: (scheduledFor: string | null) => void,
-  onPickDate: () => void,
-): TIconMenuSection[] =>
-  getDateSections("schedule", scheduledFor, onChangeSchedule, onPickDate);
-
-export const getDeadlineSections = (
-  dueOn: string | null,
-  onChangeDeadline: (dueOn: string | null) => void,
-  onPickDate: () => void,
-): TIconMenuSection[] =>
-  getDateSections("deadline", dueOn, onChangeDeadline, onPickDate);
-
 /**
- * The two edits that act on the task itself, rather than on the task as a whole
- * the way the actions below them do: copy it, repeat it, delete it.
+ * The one edit that acts on the task's contents rather than on the task as a
+ * whole the way the actions below it do.
  *
- * Both are optional (alarms are iOS-only; subtasks are only offered where a
- * checklist can be added), so the section drops out entirely when neither is.
+ * Optional — subtasks are only offered where a checklist can be added — so the
+ * section drops out entirely when it isn't.
  */
 export const getTaskActionSections = (
-  alarm?: { title: string; onSelect: () => void },
   onAddSubtask?: () => void,
-): TIconMenuSection[] => {
-  const options = [
-    ...(alarm
-      ? [
-          {
-            id: "alarm",
-            title: alarm.title,
-            icon: { ios: "alarm", android: "alarm", web: "alarm" } as const,
-            onSelect: alarm.onSelect,
-          },
-        ]
-      : []),
-    ...(onAddSubtask
-      ? [
-          {
-            id: "add-subtask",
-            title: "Add subtask",
-            icon: {
-              ios: "checklist",
-              android: "checklist",
-              web: "checklist",
-            } as const,
-            onSelect: onAddSubtask,
-          },
-        ]
-      : []),
-  ];
-
-  return options.length > 0 ? [{ options }] : [];
-};
+): TIconMenuSection[] =>
+  onAddSubtask
+    ? [
+        {
+          options: [
+            {
+              id: "add-subtask",
+              title: "Add subtask",
+              icon: {
+                ios: "checklist",
+                android: "checklist",
+                web: "checklist",
+              } as const,
+              onSelect: onAddSubtask,
+            },
+          ],
+        },
+      ]
+    : [];
 
 /**
  * What the menu offers for the template side of a task. A repeat task is just a

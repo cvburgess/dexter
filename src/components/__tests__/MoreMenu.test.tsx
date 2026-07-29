@@ -10,7 +10,6 @@ import { weekStartEnd } from "@/utils/weekStartEnd";
 
 import type { TIconMenuSection } from "../IconMenu.types";
 import {
-  getDeadlineSections,
   getOtherSections,
   getPrioritySections,
   getScheduleSections,
@@ -44,18 +43,6 @@ jest.mock("../IconMenu", () => ({
   IconMenu: (props: Parameters<typeof mockIconMenu>[0]) => mockIconMenu(props),
 }));
 
-jest.mock("@/hooks/useLists", () => ({
-  useLists: () => [
-    [],
-    {
-      createList: jest.fn(),
-      deleteList: jest.fn(),
-      updateList: jest.fn(),
-      getListById: () => undefined,
-    },
-  ],
-}));
-
 const mockGetTemplateById = jest.fn(() => undefined);
 const mockCreateTemplate = jest.fn();
 jest.mock("@/hooks/useTemplates", () => ({
@@ -74,14 +61,34 @@ jest.mock("@/hooks/useTemplates", () => ({
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));
 
-// The two untitled inline groups at the foot of the menu: the alarm/subtask
-// edits, then Duplicate / the template rows / Delete.
-const inlineOptionTitles = () => {
-  const { sections } = mockIconMenu.mock.calls[0][0];
-  return sections
+/** Renders the menu with the props every test would otherwise restate. */
+const renderMenu = (task: TTask = makeTask(), props = {}) =>
+  render(
+    <MoreMenu
+      task={task}
+      onChangePriority={jest.fn()}
+      onChangeSchedule={jest.fn()}
+      onDuplicate={jest.fn()}
+      onDelete={jest.fn()}
+      {...props}
+    >
+      <Text>Task row</Text>
+    </MoreMenu>,
+  );
+
+const renderedSections = () => mockIconMenu.mock.calls[0][0].sections;
+
+const optionById = (id: string) =>
+  renderedSections()
+    .flatMap((section) => section.options)
+    .find((option) => option.id === id);
+
+// The untitled inline groups: Edit task, the subtask edit, then Duplicate /
+// the template rows / Delete.
+const inlineOptionTitles = () =>
+  renderedSections()
     .filter((section) => !section.isSubmenu)
     .map((section) => section.options.map((option) => option.title));
-};
 
 describe("MoreMenu", () => {
   beforeEach(() => {
@@ -90,134 +97,120 @@ describe("MoreMenu", () => {
   });
 
   it("opens on long-press with no menu title, wrapping its children", () => {
-    const screen = render(
-      <MoreMenu
-        task={makeTask()}
-        onChangePriority={jest.fn()}
-        onChangeSchedule={jest.fn()}
-        onChangeDeadline={jest.fn()}
-        onChangeList={jest.fn()}
-        onPickDate={jest.fn()}
-        onSetAlarm={jest.fn()}
-        onClearAlarm={jest.fn()}
-        onDuplicate={jest.fn()}
-        onDelete={jest.fn()}
-      >
-        <Text>Task row</Text>
-      </MoreMenu>,
-    );
+    const screen = renderMenu();
 
     expect(screen.getByText("Task row")).toBeTruthy();
     expect(mockIconMenu).toHaveBeenCalledWith(
       expect.objectContaining({ trigger: "longPress" }),
     );
     expect(mockIconMenu.mock.calls[0][0]).not.toHaveProperty("menuTitle");
-
-    const { sections } = mockIconMenu.mock.calls[0][0];
-    expect(sections.map((section) => section.title)).toEqual([
-      "Priority",
-      "Schedule",
-      "Deadline",
-      "List",
-      undefined,
-      undefined,
-    ]);
-    // Priority/Schedule/Deadline/List collapse into submenus; the two action
-    // groups are inline, so their actions are directly tappable.
-    expect(sections.map((section) => Boolean(section.isSubmenu))).toEqual([
-      true,
-      true,
-      true,
-      true,
-      false,
-      false,
-    ]);
-    expect(
-      sections.map((section) =>
-        typeof section.icon === "object" ? section.icon.ios : section.icon,
-      ),
-    ).toEqual([
-      "exclamationmark",
-      "calendar",
-      "calendar.badge.clock",
-      "face.smiling",
-      undefined,
-      undefined,
-    ]);
-    // Priority through the alarm/subtask actions read as one unruled group;
-    // only the duplicate/repeat/delete actions are set apart.
-    expect(sections.map((section) => Boolean(section.hideDivider))).toEqual([
-      false,
-      true,
-      true,
-      true,
-      true,
-      false,
-    ]);
   });
 
-  // The two submenus share one builder, so the only thing that can go wrong
-  // here is the field each one is bound to.
-  it("names the field when 'Pick a date…' is chosen in either date submenu", () => {
-    const onPickDate = jest.fn();
-    render(
-      <MoreMenu
-        task={makeTask()}
-        onChangePriority={jest.fn()}
-        onChangeSchedule={jest.fn()}
-        onChangeDeadline={jest.fn()}
-        onChangeList={jest.fn()}
-        onPickDate={onPickDate}
-        onSetAlarm={jest.fn()}
-        onClearAlarm={jest.fn()}
-        onDuplicate={jest.fn()}
-        onDelete={jest.fn()}
-      >
-        <Text>Task row</Text>
-      </MoreMenu>,
+  // The point of DEX-98: List, Deadline, and the alarm are gone, and every
+  // field they used to reach now lives behind the one Edit task row.
+  it("puts Edit task first and drops the List, Deadline and alarm rows", () => {
+    renderMenu(makeTask({ alarmTime: "08:00", listId: "list-home" }), {
+      onAddSubtask: jest.fn(),
+    });
+
+    const titles = renderedSections().map((section) => section.title);
+    expect(titles).toEqual([
+      undefined,
+      "Priority",
+      "Schedule",
+      undefined,
+      undefined,
+    ]);
+    expect(titles).not.toContain("List");
+    expect(titles).not.toContain("Deadline");
+
+    const allTitles = renderedSections().flatMap((section) =>
+      section.options.map((option) => option.title),
     );
+    expect(allTitles[0]).toBe("Edit task");
+    expect(allTitles).not.toContain("Set alarm");
+    expect(allTitles).not.toContain("Unset alarm");
+  });
 
-    const { sections } = mockIconMenu.mock.calls[0][0];
-    const pickDateIn = (title: string) =>
-      sections
-        .find((section) => section.title === title)
-        ?.options.find((option) => option.title === "Pick a date…");
+  it("marks Priority and Schedule as submenus and the rest inline", () => {
+    renderMenu(makeTask(), { onAddSubtask: jest.fn() });
 
-    pickDateIn("Schedule")?.onSelect();
-    expect(onPickDate).toHaveBeenCalledWith("schedule");
+    expect(
+      renderedSections().map((section) => Boolean(section.isSubmenu)),
+    ).toEqual([false, true, true, false, false]);
+    expect(
+      renderedSections().map((section) =>
+        typeof section.icon === "object" ? section.icon.ios : section.icon,
+      ),
+    ).toEqual([undefined, "exclamationmark", "calendar", undefined, undefined]);
+  });
 
-    pickDateIn("Deadline")?.onSelect();
-    expect(onPickDate).toHaveBeenCalledWith("deadline");
-    expect(onPickDate).toHaveBeenCalledTimes(2);
+  // Edit task through Add subtask read as one unruled group; only the
+  // duplicate/repeat/delete actions are set apart. The Edit task row carries
+  // the flag too: `IconMenu.native` draws an unmarked plain section as its own
+  // separated inline group, which would rule it off from the shortcuts below.
+  it("rules off only the final action group", () => {
+    renderMenu(makeTask(), { onAddSubtask: jest.fn() });
+
+    expect(
+      renderedSections().map((section) => Boolean(section.hideDivider)),
+    ).toEqual([true, true, true, true, false]);
+  });
+
+  it("opens the edit modal from the Edit task row", () => {
+    renderMenu();
+
+    optionById("edit-task")?.onSelect();
+
+    // No `withAnchor`: the route is on the root `(app)` stack, which already
+    // has the tab navigator beneath it.
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/edit-task/[id]",
+      params: { id: "task-1" },
+    });
+  });
+
+  // "Pick a date…" used to open a sheet that could only set the schedule. It
+  // now opens the form that owns every date the task has (DEX-98).
+  it("opens the edit modal from 'Pick a date…' rather than a picker sheet", () => {
+    renderMenu();
+
+    optionById("schedule-pick-date")?.onSelect();
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/edit-task/[id]",
+      params: { id: "task-1" },
+    });
+  });
+
+  it("opens the edit modal from the current custom-date row", () => {
+    const farOut = Temporal.Now.plainDateISO().add({ days: 60 }).toString();
+    renderMenu(makeTask({ scheduledFor: farOut }));
+
+    renderedSections()
+      .find((section) => section.title === "Schedule")
+      ?.options.find((option) => option.isSelected)
+      ?.onSelect();
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/edit-task/[id]",
+      params: { id: "task-1" },
+    });
   });
 
   // `IconMenu.native` flattens every section into one id -> option map and
   // dispatches the system menu's press by id, so a duplicate silently routes one
-  // row's tap to another's handler. Schedule and Deadline offer the same dates,
-  // which is exactly where that collides.
+  // row's tap to another's handler.
   it("gives every option a menu-wide unique id", () => {
-    render(
-      <MoreMenu
-        task={makeTask({
-          scheduledFor: Temporal.Now.plainDateISO().toString(),
-          dueOn: Temporal.Now.plainDateISO().toString(),
-        })}
-        onChangePriority={jest.fn()}
-        onChangeSchedule={jest.fn()}
-        onChangeDeadline={jest.fn()}
-        onChangeList={jest.fn()}
-        onPickDate={jest.fn()}
-        onSetAlarm={jest.fn()}
-        onClearAlarm={jest.fn()}
-        onDuplicate={jest.fn()}
-        onDelete={jest.fn()}
-      >
-        <Text>Task row</Text>
-      </MoreMenu>,
+    renderMenu(
+      makeTask({
+        scheduledFor: Temporal.Now.plainDateISO().toString(),
+        dueOn: Temporal.Now.plainDateISO().toString(),
+      }),
+      { onAddSubtask: jest.fn() },
     );
 
-    const { sections } = mockIconMenu.mock.calls[0][0];
-    const ids = sections.flatMap((section) =>
+    const ids = renderedSections().flatMap((section) =>
       section.options.map((option) => option.id),
     );
 
@@ -227,25 +220,10 @@ describe("MoreMenu", () => {
   // Only a task that belongs to no template can make one, and it can make
   // either kind — so this is the one case that shows two template rows.
   it("offers both Repeat and Save as template when the task has no template", () => {
-    render(
-      <MoreMenu
-        task={makeTask({ templateId: null })}
-        onChangePriority={jest.fn()}
-        onChangeSchedule={jest.fn()}
-        onChangeDeadline={jest.fn()}
-        onChangeList={jest.fn()}
-        onPickDate={jest.fn()}
-        onSetAlarm={jest.fn()}
-        onClearAlarm={jest.fn()}
-        onDuplicate={jest.fn()}
-        onDelete={jest.fn()}
-      >
-        <Text>Task row</Text>
-      </MoreMenu>,
-    );
+    renderMenu(makeTask({ templateId: null }));
 
     expect(inlineOptionTitles()).toEqual([
-      ["Set alarm"],
+      ["Edit task"],
       ["Duplicate", "Repeat", "Save as template", "Delete"],
     ]);
   });
@@ -259,25 +237,10 @@ describe("MoreMenu", () => {
       schedule: "0 0 * * *",
     } as never);
 
-    render(
-      <MoreMenu
-        task={makeTask({ templateId: "template-1" })}
-        onChangePriority={jest.fn()}
-        onChangeSchedule={jest.fn()}
-        onChangeDeadline={jest.fn()}
-        onChangeList={jest.fn()}
-        onPickDate={jest.fn()}
-        onSetAlarm={jest.fn()}
-        onClearAlarm={jest.fn()}
-        onDuplicate={jest.fn()}
-        onDelete={jest.fn()}
-      >
-        <Text>Task row</Text>
-      </MoreMenu>,
-    );
+    renderMenu(makeTask({ templateId: "template-1" }));
 
     expect(inlineOptionTitles()).toEqual([
-      ["Set alarm"],
+      ["Edit task"],
       ["Duplicate", "Edit repeat schedule", "Delete"],
     ]);
   });
@@ -290,24 +253,9 @@ describe("MoreMenu", () => {
       schedule: null,
     } as never);
 
-    render(
-      <MoreMenu
-        task={makeTask({ templateId: "template-1" })}
-        onChangePriority={jest.fn()}
-        onChangeSchedule={jest.fn()}
-        onChangeDeadline={jest.fn()}
-        onChangeList={jest.fn()}
-        onPickDate={jest.fn()}
-        onSetAlarm={jest.fn()}
-        onClearAlarm={jest.fn()}
-        onDuplicate={jest.fn()}
-        onDelete={jest.fn()}
-      >
-        <Text>Task row</Text>
-      </MoreMenu>,
-    );
+    renderMenu(makeTask({ templateId: "template-1" }));
 
-    expect(inlineOptionTitles()[1]).toEqual([
+    expect(inlineOptionTitles().at(-1)).toEqual([
       "Duplicate",
       "Edit template",
       "Delete",
@@ -320,24 +268,9 @@ describe("MoreMenu", () => {
   it("keeps the repeat wording while the linked template is still loading", () => {
     mockGetTemplateById.mockReturnValue(undefined);
 
-    render(
-      <MoreMenu
-        task={makeTask({ templateId: "template-1" })}
-        onChangePriority={jest.fn()}
-        onChangeSchedule={jest.fn()}
-        onChangeDeadline={jest.fn()}
-        onChangeList={jest.fn()}
-        onPickDate={jest.fn()}
-        onSetAlarm={jest.fn()}
-        onClearAlarm={jest.fn()}
-        onDuplicate={jest.fn()}
-        onDelete={jest.fn()}
-      >
-        <Text>Task row</Text>
-      </MoreMenu>,
-    );
+    renderMenu(makeTask({ templateId: "template-1" }));
 
-    expect(inlineOptionTitles()[1]).toEqual([
+    expect(inlineOptionTitles().at(-1)).toEqual([
       "Duplicate",
       "Edit repeat schedule",
       "Delete",
@@ -347,30 +280,9 @@ describe("MoreMenu", () => {
   // Save as template opens a draft rather than writing a row, so ✕ leaves
   // nothing behind — the link to the source task is made by the editor's ✓.
   it("opens an unsaved draft seeded from the task, writing nothing yet", () => {
-    const task = makeTask({ templateId: null });
+    renderMenu(makeTask({ templateId: null }));
 
-    render(
-      <MoreMenu
-        task={task}
-        onChangePriority={jest.fn()}
-        onChangeSchedule={jest.fn()}
-        onChangeDeadline={jest.fn()}
-        onChangeList={jest.fn()}
-        onPickDate={jest.fn()}
-        onSetAlarm={jest.fn()}
-        onClearAlarm={jest.fn()}
-        onDuplicate={jest.fn()}
-        onDelete={jest.fn()}
-      >
-        <Text>Task row</Text>
-      </MoreMenu>,
-    );
-
-    const { sections } = mockIconMenu.mock.calls[0][0];
-    sections
-      .flatMap((section) => section.options)
-      .find((option) => option.id === "save-as-template")
-      ?.onSelect();
+    optionById("save-as-template")?.onSelect();
 
     // Nothing is stored until the editor's ✓, so ✕ leaves no orphan row — and
     // navigating synchronously means two of these in a row can't have the
@@ -389,31 +301,11 @@ describe("MoreMenu", () => {
   });
 
   // Repeat writes nothing up front either — it opens the same draft, differing
-  // only in the cadence it starts on. Pressing ✕ used to leave a daily repeat
-  // behind, and two Repeats in a row raced the same way Save as template did.
+  // only in the cadence it starts on.
   it("opens a repeating draft from Repeat, writing nothing yet", () => {
-    render(
-      <MoreMenu
-        task={makeTask({ templateId: null })}
-        onChangePriority={jest.fn()}
-        onChangeSchedule={jest.fn()}
-        onChangeDeadline={jest.fn()}
-        onChangeList={jest.fn()}
-        onPickDate={jest.fn()}
-        onSetAlarm={jest.fn()}
-        onClearAlarm={jest.fn()}
-        onDuplicate={jest.fn()}
-        onDelete={jest.fn()}
-      >
-        <Text>Task row</Text>
-      </MoreMenu>,
-    );
+    renderMenu(makeTask({ templateId: null }));
 
-    const { sections } = mockIconMenu.mock.calls[0][0];
-    sections
-      .flatMap((section) => section.options)
-      .find((option) => option.id === "repeat")
-      ?.onSelect();
+    optionById("repeat")?.onSelect();
 
     expect(mockCreateTemplate).not.toHaveBeenCalled();
     expect(mockPush).toHaveBeenCalledWith(
@@ -432,34 +324,15 @@ describe("MoreMenu", () => {
     [null, "edit-template"],
   ])(
     "opens the linked template directly (schedule %p, via %s)",
-    (schedule, optionId) => {
+    (schedule, optionId_) => {
       mockGetTemplateById.mockReturnValue({
         id: "template-1",
         schedule,
       } as never);
 
-      render(
-        <MoreMenu
-          task={makeTask({ templateId: "template-1" })}
-          onChangePriority={jest.fn()}
-          onChangeSchedule={jest.fn()}
-          onChangeDeadline={jest.fn()}
-          onChangeList={jest.fn()}
-          onPickDate={jest.fn()}
-          onSetAlarm={jest.fn()}
-          onClearAlarm={jest.fn()}
-          onDuplicate={jest.fn()}
-          onDelete={jest.fn()}
-        >
-          <Text>Task row</Text>
-        </MoreMenu>,
-      );
+      renderMenu(makeTask({ templateId: "template-1" }));
 
-      const { sections } = mockIconMenu.mock.calls[0][0];
-      sections
-        .flatMap((section) => section.options)
-        .find((option) => option.id === optionId)
-        ?.onSelect();
+      optionById(optionId_)?.onSelect();
 
       expect(mockCreateTemplate).not.toHaveBeenCalled();
       expect(mockPush).toHaveBeenCalledWith(
@@ -468,27 +341,6 @@ describe("MoreMenu", () => {
       );
     },
   );
-
-  it("shows 'Unset alarm' when the task already has an alarm", () => {
-    render(
-      <MoreMenu
-        task={makeTask({ alarmTime: "08:00" })}
-        onChangePriority={jest.fn()}
-        onChangeSchedule={jest.fn()}
-        onChangeDeadline={jest.fn()}
-        onChangeList={jest.fn()}
-        onPickDate={jest.fn()}
-        onSetAlarm={jest.fn()}
-        onClearAlarm={jest.fn()}
-        onDuplicate={jest.fn()}
-        onDelete={jest.fn()}
-      >
-        <Text>Task row</Text>
-      </MoreMenu>,
-    );
-
-    expect(inlineOptionTitles()[0]).toEqual(["Unset alarm"]);
-  });
 });
 
 describe("getOtherSections", () => {
@@ -515,7 +367,6 @@ describe("getOtherSections", () => {
       "Save as template",
       "Delete",
     ]);
-    // No alarm or subtask item — those sit in their own group above.
 
     const deleteOption = section.options.find(
       (option) => option.title === "Delete",
@@ -580,48 +431,24 @@ describe("getOtherSections", () => {
 });
 
 describe("getTaskActionSections", () => {
-  it("offers the alarm and subtask actions as one untitled inline group", () => {
-    const onSetAlarm = jest.fn();
+  it("offers the subtask action as one untitled inline group", () => {
     const onAddSubtask = jest.fn();
-    const [section] = getTaskActionSections(
-      { title: "Set alarm", onSelect: onSetAlarm },
-      onAddSubtask,
-    );
+    const [section] = getTaskActionSections(onAddSubtask);
 
     expect(section.title).toBeUndefined();
-    // Directly-tappable actions, not a submenu.
+    // A directly-tappable action, not a submenu.
     expect(section.isSubmenu).toBeUndefined();
     expect(section.options.map((option) => option.title)).toEqual([
-      "Set alarm",
       "Add subtask",
     ]);
 
-    const [alarmOption, subtaskOption] = section.options;
-    // Same icon whether setting or unsetting.
-    expect(alarmOption.icon).toEqual({
-      ios: "alarm",
-      android: "alarm",
-      web: "alarm",
-    });
-
-    alarmOption.onSelect();
-    expect(onSetAlarm).toHaveBeenCalledTimes(1);
-
-    subtaskOption.onSelect();
+    section.options[0].onSelect();
     expect(onAddSubtask).toHaveBeenCalledTimes(1);
   });
 
-  it("omits the alarm item when none is passed (non-iOS)", () => {
-    const [section] = getTaskActionSections(undefined, jest.fn());
-
-    expect(section.options.map((option) => option.title)).toEqual([
-      "Add subtask",
-    ]);
-  });
-
-  // Nothing to act on: a card with no alarm support and no checklist affordance
-  // should not open a menu with an empty divider in it.
-  it("drops the group entirely when neither action is available", () => {
+  // Nothing to act on: a card with no checklist affordance should not open a
+  // menu with an empty divider in it.
+  it("drops the group entirely when no subtask handler is given", () => {
     expect(getTaskActionSections()).toEqual([]);
   });
 });
@@ -743,13 +570,26 @@ describe("getScheduleSections", () => {
     expect(onChangeSchedule).toHaveBeenCalledWith(null);
   });
 
-  it("always offers 'Pick a date…', which opens the picker", () => {
-    const onPickDate = jest.fn();
-    const [unscheduled] = getScheduleSections(null, jest.fn(), onPickDate);
+  // The presets still write straight through; only the arbitrary-date rows
+  // hand off to the form.
+  it("calls onChangeSchedule with the picked preset", () => {
+    const onChangeSchedule = jest.fn();
+    const onEditTask = jest.fn();
+    const [section] = getScheduleSections(null, onChangeSchedule, onEditTask);
+
+    section.options.find((option) => option.title === "Tomorrow")?.onSelect();
+
+    expect(onChangeSchedule).toHaveBeenCalledWith(tomorrow.toString());
+    expect(onEditTask).not.toHaveBeenCalled();
+  });
+
+  it("always offers 'Pick a date…', which opens the edit modal", () => {
+    const onEditTask = jest.fn();
+    const [unscheduled] = getScheduleSections(null, jest.fn(), onEditTask);
     const [scheduled] = getScheduleSections(
       today.toString(),
       jest.fn(),
-      onPickDate,
+      onEditTask,
     );
 
     for (const section of [unscheduled, scheduled]) {
@@ -760,79 +600,21 @@ describe("getScheduleSections", () => {
       pickOption?.onSelect();
     }
 
-    expect(onPickDate).toHaveBeenCalledTimes(2);
+    expect(onEditTask).toHaveBeenCalledTimes(2);
   });
 
-  // Previously a no-op row that told the user their date and did nothing.
-  it("opens the picker from the custom-date row rather than doing nothing", () => {
+  it("opens the edit modal from the custom-date row rather than doing nothing", () => {
     const onChangeSchedule = jest.fn();
-    const onPickDate = jest.fn();
+    const onEditTask = jest.fn();
     const [section] = getScheduleSections(
       today.add({ days: 60 }).toString(),
       onChangeSchedule,
-      onPickDate,
+      onEditTask,
     );
 
     section.options.find((option) => option.isSelected)?.onSelect();
 
-    expect(onPickDate).toHaveBeenCalledTimes(1);
+    expect(onEditTask).toHaveBeenCalledTimes(1);
     expect(onChangeSchedule).not.toHaveBeenCalled();
-  });
-});
-
-describe("getDeadlineSections", () => {
-  const today = Temporal.Now.plainDateISO();
-
-  it("mirrors the Schedule presets under its own title and icon", () => {
-    const [section] = getDeadlineSections(null, jest.fn(), jest.fn());
-
-    expect(section.title).toBe("Deadline");
-    expect(section.isSubmenu).toBe(true);
-    expect(section.options.map((option) => option.title)).toEqual(
-      expect.arrayContaining(["Today", "Tomorrow", "Pick a date…"]),
-    );
-    // Nothing to clear until a deadline is set.
-    expect(section.options.map((option) => option.title)).not.toContain(
-      "Clear deadline",
-    );
-  });
-
-  it("selects the matching preset and offers Clear deadline once set", () => {
-    const [section] = getDeadlineSections(
-      today.toString(),
-      jest.fn(),
-      jest.fn(),
-    );
-
-    expect(
-      section.options.find((option) => option.title === "Today")?.isSelected,
-    ).toBe(true);
-    expect(section.options.map((option) => option.title)).toContain(
-      "Clear deadline",
-    );
-  });
-
-  it("calls onChangeDeadline with the picked preset", () => {
-    const onChangeDeadline = jest.fn();
-    const [section] = getDeadlineSections(null, onChangeDeadline, jest.fn());
-
-    section.options.find((option) => option.title === "Today")?.onSelect();
-
-    expect(onChangeDeadline).toHaveBeenCalledWith(today.toString());
-  });
-
-  it("calls onChangeDeadline with null when Clear deadline is selected", () => {
-    const onChangeDeadline = jest.fn();
-    const [section] = getDeadlineSections(
-      today.toString(),
-      onChangeDeadline,
-      jest.fn(),
-    );
-
-    section.options
-      .find((option) => option.title === "Clear deadline")
-      ?.onSelect();
-
-    expect(onChangeDeadline).toHaveBeenCalledWith(null);
   });
 });

@@ -81,7 +81,7 @@ jest.mock("expo-router", () => ({
 const headerOptions = () => mockNavigation.setOptions.mock.calls.at(-1)?.[0];
 
 // The @expo/ui form controls are native components with no test doubles;
-// control state logic is covered by the useNewTaskForm hook tests. They are
+// control state logic is covered by the useTaskForm hook tests. They are
 // mocked globally in jest.setup.js.
 
 const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;

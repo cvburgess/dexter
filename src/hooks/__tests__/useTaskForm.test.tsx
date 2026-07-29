@@ -2,8 +2,8 @@ import { Temporal } from "@js-temporal/polyfill";
 import { act, renderHook } from "@testing-library/react-native";
 
 import { TList } from "@/api/lists";
-import { ETaskPriority, ETaskStatus } from "@/api/tasks";
-import { useNewTaskForm } from "@/hooks/useNewTaskForm";
+import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
+import { useTaskForm } from "@/hooks/useTaskForm";
 
 const homeList: TList = {
   id: "list-home",
@@ -13,11 +13,26 @@ const homeList: TList = {
   createdAt: "2026-01-01T00:00:00Z",
 };
 
+const makeTask = (overrides: Partial<TTask> = {}): TTask => ({
+  id: "task-1",
+  alarmTime: null,
+  dueOn: null,
+  goalId: null,
+  listId: null,
+  priority: ETaskPriority.NEITHER,
+  scheduledFor: null,
+  status: ETaskStatus.TODO,
+  subtasks: [],
+  templateId: null,
+  title: "Saved task",
+  ...overrides,
+});
+
 const today = () => Temporal.Now.plainDateISO();
 
-describe("useNewTaskForm", () => {
+describe("useTaskForm", () => {
   it("defaults to an unprioritized, unlisted task scheduled for today", () => {
-    const { result } = renderHook(() => useNewTaskForm([]));
+    const { result } = renderHook(() => useTaskForm([]));
 
     expect(result.current.priority).toBe(ETaskPriority.UNPRIORITIZED);
     expect(result.current.listId).toBeNull();
@@ -29,27 +44,31 @@ describe("useNewTaskForm", () => {
   });
 
   it("schedules for the provided default date instead of today", () => {
-    const { result } = renderHook(() => useNewTaskForm([], "2026-07-08"));
+    const { result } = renderHook(() =>
+      useTaskForm([], { defaultScheduledFor: "2026-07-08" }),
+    );
 
     expect(result.current.scheduledFor).toBe("2026-07-08");
     expect(result.current.task.scheduledFor).toBe("2026-07-08");
   });
 
   it("falls back to today when no default date is provided", () => {
-    const { result } = renderHook(() => useNewTaskForm([], undefined));
+    const { result } = renderHook(() => useTaskForm([]));
 
     expect(result.current.scheduledFor).toBe(today().toString());
   });
 
   it("falls back to today when the default date is malformed", () => {
     // e.g. a deep link like /new-task?scheduledFor=garbage
-    const { result } = renderHook(() => useNewTaskForm([], "not-a-date"));
+    const { result } = renderHook(() =>
+      useTaskForm([], { defaultScheduledFor: "not-a-date" }),
+    );
 
     expect(result.current.scheduledFor).toBe(today().toString());
   });
 
   it("carries a cleared schedule through to the payload as unscheduled", () => {
-    const { result } = renderHook(() => useNewTaskForm([]));
+    const { result } = renderHook(() => useTaskForm([]));
 
     act(() => result.current.setScheduledFor(null));
 
@@ -58,7 +77,7 @@ describe("useNewTaskForm", () => {
   });
 
   it("cannot save a whitespace-only title", () => {
-    const { result } = renderHook(() => useNewTaskForm([]));
+    const { result } = renderHook(() => useTaskForm([]));
 
     act(() => result.current.setTitle("   "));
 
@@ -66,7 +85,7 @@ describe("useNewTaskForm", () => {
   });
 
   it("live-updates priority, list, and deadline from shorthand tokens", () => {
-    const { result } = renderHook(() => useNewTaskForm([homeList]));
+    const { result } = renderHook(() => useTaskForm([homeList]));
 
     act(() => result.current.setTitle("!!! Ship the report #home due:3"));
 
@@ -92,7 +111,7 @@ describe("useNewTaskForm", () => {
     ["!!!", ETaskPriority.IMPORTANT_AND_URGENT],
     ["!!!!", ETaskPriority.NEITHER],
   ])("maps the %s token to the right priority", (token, priority) => {
-    const { result } = renderHook(() => useNewTaskForm([]));
+    const { result } = renderHook(() => useTaskForm([]));
 
     act(() => result.current.setTitle(`${token} Pay bills`));
 
@@ -101,7 +120,7 @@ describe("useNewTaskForm", () => {
   });
 
   it("ignores an unknown list slug", () => {
-    const { result } = renderHook(() => useNewTaskForm([homeList]));
+    const { result } = renderHook(() => useTaskForm([homeList]));
 
     act(() => result.current.setTitle("Pay bills #nonexistent"));
 
@@ -111,7 +130,7 @@ describe("useNewTaskForm", () => {
   });
 
   it("reverts to defaults when tokens are deleted from the title", () => {
-    const { result } = renderHook(() => useNewTaskForm([homeList]));
+    const { result } = renderHook(() => useTaskForm([homeList]));
 
     act(() => result.current.setTitle("! Pay bills #home"));
     act(() => result.current.setTitle("Pay bills"));
@@ -121,7 +140,7 @@ describe("useNewTaskForm", () => {
   });
 
   it("keeps a manual priority over a typed token", () => {
-    const { result } = renderHook(() => useNewTaskForm([]));
+    const { result } = renderHook(() => useTaskForm([]));
 
     act(() => result.current.setTitle("! Pay bills"));
     act(() => result.current.setPriority(ETaskPriority.IMPORTANT));
@@ -132,7 +151,7 @@ describe("useNewTaskForm", () => {
   });
 
   it("keeps a manually cleared list over a typed token", () => {
-    const { result } = renderHook(() => useNewTaskForm([homeList]));
+    const { result } = renderHook(() => useTaskForm([homeList]));
 
     act(() => result.current.setTitle("Pay bills #home"));
     act(() => result.current.setListId(null));
@@ -141,7 +160,7 @@ describe("useNewTaskForm", () => {
   });
 
   it("keeps a manual deadline over a typed due token", () => {
-    const { result } = renderHook(() => useNewTaskForm([]));
+    const { result } = renderHook(() => useTaskForm([]));
     const manualDate = today().add({ days: 10 }).toString();
 
     act(() => result.current.setTitle("Pay bills due:2"));
@@ -152,7 +171,7 @@ describe("useNewTaskForm", () => {
   });
 
   it("uses the schedule control's value in the payload", () => {
-    const { result } = renderHook(() => useNewTaskForm([]));
+    const { result } = renderHook(() => useTaskForm([]));
     const nextWeek = today().add({ days: 7 }).toString();
 
     act(() => result.current.setTitle("Plan sprint"));
@@ -162,14 +181,14 @@ describe("useNewTaskForm", () => {
   });
 
   it("defaults to no alarm", () => {
-    const { result } = renderHook(() => useNewTaskForm([]));
+    const { result } = renderHook(() => useTaskForm([]));
 
     expect(result.current.alarmTime).toBeNull();
     expect(result.current.task.alarmTime).toBeNull();
   });
 
   it("carries a set alarm time into the payload, and clears it back to null", () => {
-    const { result } = renderHook(() => useNewTaskForm([]));
+    const { result } = renderHook(() => useTaskForm([]));
 
     act(() => result.current.setAlarmTime("09:00"));
     expect(result.current.alarmTime).toBe("09:00");
@@ -181,14 +200,14 @@ describe("useNewTaskForm", () => {
 
   describe("subtasks", () => {
     it("starts with an empty checklist", () => {
-      const { result } = renderHook(() => useNewTaskForm([]));
+      const { result } = renderHook(() => useTaskForm([]));
 
       expect(result.current.subtasks).toEqual([]);
       expect(result.current.task.subtasks).toEqual([]);
     });
 
     it("carries titled subtasks into the create payload, in order", () => {
-      const { result } = renderHook(() => useNewTaskForm([]));
+      const { result } = renderHook(() => useTaskForm([]));
 
       act(() =>
         result.current.setSubtasks([
@@ -205,7 +224,7 @@ describe("useNewTaskForm", () => {
     });
 
     it("omits an untitled row from the payload without discarding it from the form", () => {
-      const { result } = renderHook(() => useNewTaskForm([]));
+      const { result } = renderHook(() => useTaskForm([]));
 
       act(() =>
         result.current.setSubtasks([
@@ -241,7 +260,7 @@ describe("useNewTaskForm", () => {
     };
 
     it("fills the form from the template", () => {
-      const { result } = renderHook(() => useNewTaskForm([homeList]));
+      const { result } = renderHook(() => useTaskForm([homeList]));
 
       act(() => result.current.applyTemplate(template));
 
@@ -254,7 +273,7 @@ describe("useNewTaskForm", () => {
     // true of a stamped task — so the payload records it. The picker only
     // offers scheduleless rows, so nothing recurs from the link.
     it("stamps the template's id onto the form and the payload", () => {
-      const { result } = renderHook(() => useNewTaskForm([homeList]));
+      const { result } = renderHook(() => useTaskForm([homeList]));
 
       act(() => result.current.applyTemplate(template));
 
@@ -266,7 +285,7 @@ describe("useNewTaskForm", () => {
     // clearing it would produce a task whose contents came from a template but
     // which claims otherwise.
     it("keeps the id after the user edits a seeded field", () => {
-      const { result } = renderHook(() => useNewTaskForm([homeList]));
+      const { result } = renderHook(() => useTaskForm([homeList]));
 
       act(() => result.current.applyTemplate(template));
       act(() => result.current.setTitle("Trip packing (Berlin)"));
@@ -278,7 +297,7 @@ describe("useNewTaskForm", () => {
     // fire on. This path can promise neither, and the modal's "Add alarm" is
     // what asks for permission — so a copied alarm would silently never ring.
     it("does not carry the template's alarm across", () => {
-      const { result } = renderHook(() => useNewTaskForm([homeList]));
+      const { result } = renderHook(() => useTaskForm([homeList]));
 
       act(() => result.current.applyTemplate(template));
 
@@ -289,7 +308,7 @@ describe("useNewTaskForm", () => {
     // A template's checklist is a blueprint with no status, so every item has
     // to start this task's own copy open.
     it("materializes the checklist blueprint as open subtasks", () => {
-      const { result } = renderHook(() => useNewTaskForm([homeList]));
+      const { result } = renderHook(() => useTaskForm([homeList]));
 
       act(() => result.current.applyTemplate(template));
 
@@ -302,8 +321,8 @@ describe("useNewTaskForm", () => {
     // Every other copy-onto-a-different-row path re-keys (see `withFreshIds`),
     // so two tasks stamped from one template never share subtask ids.
     it("mints fresh subtask ids rather than reusing the template's", () => {
-      const first = renderHook(() => useNewTaskForm([homeList]));
-      const second = renderHook(() => useNewTaskForm([homeList]));
+      const first = renderHook(() => useTaskForm([homeList]));
+      const second = renderHook(() => useTaskForm([homeList]));
 
       act(() => first.result.current.applyTemplate(template));
       act(() => second.result.current.applyTemplate(template));
@@ -320,7 +339,7 @@ describe("useNewTaskForm", () => {
     // containing `due:5` round-trips into storage verbatim and would otherwise
     // move the deadline when the template is applied.
     it("ignores a due: token in the template's own title", () => {
-      const { result } = renderHook(() => useNewTaskForm([homeList]));
+      const { result } = renderHook(() => useTaskForm([homeList]));
 
       act(() => result.current.setDueOn("2026-07-20"));
       act(() =>
@@ -334,7 +353,7 @@ describe("useNewTaskForm", () => {
     // survive the moment they pick one.
     it("leaves the schedule and deadline alone", () => {
       const { result } = renderHook(() =>
-        useNewTaskForm([homeList], "2026-07-08"),
+        useTaskForm([homeList], { defaultScheduledFor: "2026-07-08" }),
       );
 
       act(() => result.current.setDueOn("2026-07-20"));
@@ -347,7 +366,7 @@ describe("useNewTaskForm", () => {
     // The title arrives from the template, and it may well contain a `!` or a
     // `#list` that was only ever meant as text.
     it("keeps the template's own priority and list over its title's shorthand", () => {
-      const { result } = renderHook(() => useNewTaskForm([homeList]));
+      const { result } = renderHook(() => useTaskForm([homeList]));
 
       act(() =>
         result.current.applyTemplate({
@@ -360,6 +379,154 @@ describe("useNewTaskForm", () => {
 
       expect(result.current.priority).toBe(ETaskPriority.NEITHER);
       expect(result.current.listId).toBeNull();
+    });
+  });
+
+  describe("edit mode", () => {
+    it("seeds every field from the task rather than from create defaults", () => {
+      const task = makeTask({
+        alarmTime: "07:15",
+        dueOn: "2026-08-01",
+        listId: "list-home",
+        priority: ETaskPriority.IMPORTANT,
+        scheduledFor: "2026-07-20",
+        subtasks: [{ id: "s1", title: "Passport", status: ETaskStatus.DONE }],
+        templateId: "template-1",
+        title: "Pack for Berlin",
+      });
+
+      const { result } = renderHook(() => useTaskForm([homeList], { task }));
+
+      expect(result.current.title).toBe("Pack for Berlin");
+      expect(result.current.priority).toBe(ETaskPriority.IMPORTANT);
+      expect(result.current.listId).toBe("list-home");
+      expect(result.current.scheduledFor).toBe("2026-07-20");
+      expect(result.current.dueOn).toBe("2026-08-01");
+      expect(result.current.alarmTime).toBe("07:15");
+      expect(result.current.subtasks).toEqual(task.subtasks);
+      expect(result.current.canSave).toBe(true);
+    });
+
+    // An unscheduled task stays unscheduled: `defaultScheduledFor` describes
+    // where a *new* task should land, and applying it here would silently
+    // reschedule a task the user only opened to rename.
+    it("keeps an unscheduled task unscheduled, ignoring the create default", () => {
+      const { result } = renderHook(() =>
+        useTaskForm([homeList], {
+          task: makeTask({ scheduledFor: null }),
+          defaultScheduledFor: "2026-07-08",
+        }),
+      );
+
+      expect(result.current.scheduledFor).toBeNull();
+      expect(result.current.task.scheduledFor).toBeNull();
+    });
+
+    // The whole point of gating the parser: a saved title is text, not input.
+    it("leaves shorthand characters in a saved title alone", () => {
+      const { result } = renderHook(() =>
+        useTaskForm([homeList], {
+          task: makeTask({ title: "Ship it!! #home due:3" }),
+        }),
+      );
+
+      expect(result.current.title).toBe("Ship it!! #home due:3");
+      expect(result.current.task.title).toBe("Ship it!! #home due:3");
+      // Read off the task's own columns, never re-derived from those tokens.
+      expect(result.current.priority).toBe(ETaskPriority.NEITHER);
+      expect(result.current.listId).toBeNull();
+      expect(result.current.dueOn).toBeNull();
+    });
+
+    // Typing tokens while editing is just typing — the row's own columns keep
+    // their values, and the characters survive into the payload.
+    it("does not parse tokens typed into the title while editing", () => {
+      const { result } = renderHook(() =>
+        useTaskForm([homeList], { task: makeTask() }),
+      );
+
+      act(() => result.current.setTitle("!!! Rewrite the deck #home due:2"));
+
+      expect(result.current.task.title).toBe(
+        "!!! Rewrite the deck #home due:2",
+      );
+      expect(result.current.priority).toBe(ETaskPriority.NEITHER);
+      expect(result.current.listId).toBeNull();
+      expect(result.current.dueOn).toBeNull();
+    });
+
+    it("still trims the title and refuses to save an emptied one", () => {
+      const { result } = renderHook(() =>
+        useTaskForm([homeList], { task: makeTask() }),
+      );
+
+      act(() => result.current.setTitle("  Renamed  "));
+      expect(result.current.task.title).toBe("Renamed");
+
+      act(() => result.current.setTitle("   "));
+      expect(result.current.canSave).toBe(false);
+    });
+
+    // The payload is spread into `updateTask`, so a field the form doesn't own
+    // must stay out of it entirely rather than go along as a stale value.
+    it("omits goalId and status from the payload so an update can't clobber them", () => {
+      const { result } = renderHook(() =>
+        useTaskForm([homeList], {
+          task: makeTask({ goalId: "goal-1", status: ETaskStatus.IN_PROGRESS }),
+        }),
+      );
+
+      expect(result.current.task).not.toHaveProperty("goalId");
+      expect(result.current.task).not.toHaveProperty("status");
+    });
+
+    // Provenance is the task's, not the form's — writing the payload back has
+    // to leave `template_id` pointing where it already pointed.
+    it("carries the task's template link through unchanged", () => {
+      const { result } = renderHook(() =>
+        useTaskForm([homeList], {
+          task: makeTask({ templateId: "template-1" }),
+        }),
+      );
+
+      act(() => result.current.setTitle("Renamed"));
+
+      expect(result.current.task.templateId).toBe("template-1");
+    });
+
+    it("carries manual edits into the payload", () => {
+      const { result } = renderHook(() =>
+        useTaskForm([homeList], { task: makeTask() }),
+      );
+
+      act(() => result.current.setPriority(ETaskPriority.URGENT));
+      act(() => result.current.setListId("list-home"));
+      act(() => result.current.setDueOn("2026-09-09"));
+      act(() => result.current.setScheduledFor(null));
+
+      expect(result.current.task).toMatchObject({
+        priority: ETaskPriority.URGENT,
+        listId: "list-home",
+        dueOn: "2026-09-09",
+        scheduledFor: null,
+      });
+    });
+
+    // Clearing a seeded value has to stick: `undefined` means "follow the
+    // tokens" in create mode, so a null that collapsed back to the task's own
+    // value would make the list unclearable.
+    it("lets a seeded list and deadline be cleared back to null", () => {
+      const { result } = renderHook(() =>
+        useTaskForm([homeList], {
+          task: makeTask({ listId: "list-home", dueOn: "2026-08-01" }),
+        }),
+      );
+
+      act(() => result.current.setListId(null));
+      act(() => result.current.setDueOn(null));
+
+      expect(result.current.task.listId).toBeNull();
+      expect(result.current.task.dueOn).toBeNull();
     });
   });
 });
