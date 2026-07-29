@@ -317,6 +317,11 @@ publication it belongs to.
   tools return instead of throwing) also reports to Sentry. `ics-proxy` wraps
   its handler the same way and captures unexpected upstream-fetch failures
   without leaking internal error details in the sanitized client response.
+  Reported errors are triaged with the `/triage-sentry` skill
+  (`.claude/skills/triage-sentry/SKILL.md`), which maps the
+  `/var/tmp/sb-compile-edge-runtime/functions/` culprit paths Sentry records
+  back onto `supabase/functions/`. It needs a Sentry MCP connection, which this
+  repo does not configure.
 
 ## Demo account login (App Store review)
 
