@@ -1,7 +1,12 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { DateField } from "@/components/DateField";
+import {
+  PERIOD_NAV_CENTER_MIN_WIDTH,
+  PeriodNav,
+  PeriodNavLabel,
+} from "@/components/PeriodNav";
 import { formatWeekdayMonthDay } from "@/utils/formatPlainDate";
 import { dateToPlainDate, plainDateToDate } from "@/utils/plainDate";
 import { useTheme } from "@/utils/theme";
@@ -19,14 +24,12 @@ export function DayNav({ date, onChangeDate }: TDayNavProps) {
   const isToday = Temporal.Now.plainDateISO().equals(date);
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity
-        accessibilityLabel="Previous day"
-        onPress={() => onChangeDate(date.subtract({ days: 1 }))}
-        style={styles.arrow}
-      >
-        <Text style={[styles.arrowText, { color: theme.colors.text }]}>‹</Text>
-      </TouchableOpacity>
+    <PeriodNav
+      nextLabel="Next day"
+      onNext={() => onChangeDate(date.add({ days: 1 }))}
+      onPrev={() => onChangeDate(date.subtract({ days: 1 }))}
+      prevLabel="Previous day"
+    >
       {isToday ? (
         <View
           accessible
@@ -44,46 +47,19 @@ export function DayNav({ date, onChangeDate }: TDayNavProps) {
           accessibilityLabel="Go to today"
           onPress={() => onChangeDate(Temporal.Now.plainDateISO())}
         >
-          <Text style={[styles.date, { color: theme.colors.text }]}>
-            {formatWeekdayMonthDay(date)}
-          </Text>
+          <PeriodNavLabel>{formatWeekdayMonthDay(date)}</PeriodNavLabel>
         </TouchableOpacity>
       )}
-      <TouchableOpacity
-        accessibilityLabel="Next day"
-        onPress={() => onChangeDate(date.add({ days: 1 }))}
-        style={styles.arrow}
-      >
-        <Text style={[styles.arrowText, { color: theme.colors.text }]}>›</Text>
-      </TouchableOpacity>
-    </View>
+    </PeriodNav>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-  },
-  arrow: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-  },
-  arrowText: {
-    fontSize: 24,
-    fontWeight: "600",
-  },
-  date: {
-    fontSize: 16,
-    fontWeight: "600",
-    minWidth: 160,
-    textAlign: "center",
-  },
+  // The picker is the one center control that isn't a `PeriodNavLabel`, so it
+  // takes the slot's width itself rather than inheriting it from the label.
   picker: {
     alignItems: "center",
     justifyContent: "center",
-    minWidth: 160,
+    minWidth: PERIOD_NAV_CENTER_MIN_WIDTH,
   },
 });

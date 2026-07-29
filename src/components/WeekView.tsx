@@ -4,11 +4,13 @@ import { LayoutChangeEvent, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GlassIconButton } from "@/components/GlassIconButton";
+import { LargeScreenHeader } from "@/components/LargeScreenHeader";
 import { TaskDrawer } from "@/components/TaskDrawer";
 import { WeekDayColumn } from "@/components/WeekDayColumn";
 import { WeekNav } from "@/components/WeekNav";
 import {
   DRAWER_PANE_MAX_WIDTH,
+  TASK_LIST_PANE_MIN_WIDTH,
   WEEK_COLUMN_MIN_WIDTH,
 } from "@/utils/breakpoints";
 import { scrollOffsetForTarget } from "@/utils/calendarLayout";
@@ -43,8 +45,8 @@ type TWeekViewProps = {
  * columns, with an optional docked backlog — the legacy dexter-app's Week view
  * minus drag-and-drop, which is descoped.
  *
- * Header metrics are shared with `LargeScreenToday` so switching tabs doesn't
- * shift the nav row.
+ * The header row is `LargeScreenHeader`, shared with `LargeScreenToday`, so
+ * switching tabs doesn't shift the nav row.
  */
 export function WeekView({
   monday,
@@ -116,14 +118,8 @@ export function WeekView({
       edges={["top", "left", "right"]}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      <View
-        style={[
-          styles.header,
-          { borderBottomColor: withOpacity(theme.colors.text, 0.1) },
-        ]}
-      >
-        <WeekNav monday={monday} onChangeWeek={onChangeWeek} />
-        <View style={[styles.headerActions, { gap: theme.gap }]}>
+      <LargeScreenHeader
+        actions={
           <GlassIconButton
             accessibilityLabel="Toggle task drawer pane"
             active={showDrawer}
@@ -131,8 +127,10 @@ export function WeekView({
             onPress={() => setShowDrawer((open) => !open)}
             sfSymbol="tray.full"
           />
-        </View>
-      </View>
+        }
+      >
+        <WeekNav monday={monday} onChangeWeek={onChangeWeek} />
+      </LargeScreenHeader>
       <View style={[styles.body, { gap: theme.gap }]}>
         <ScrollView
           horizontal
@@ -179,22 +177,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  // Same metrics as LargeScreenToday's multiPaneHeader: WeekNav carries its own
-  // 12pt vertical padding, so 4pt here brings the row to 16pt overall, matching
-  // the sides.
-  header: {
-    alignItems: "center",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingBottom: 4,
-    paddingHorizontal: 16,
-    paddingTop: 4,
-  },
-  headerActions: {
-    alignItems: "center",
-    flexDirection: "row",
-  },
   body: {
     flex: 1,
     flexDirection: "row",
@@ -219,7 +201,7 @@ const styles = StyleSheet.create({
   drawerPane: {
     borderWidth: StyleSheet.hairlineWidth,
     maxWidth: DRAWER_PANE_MAX_WIDTH,
-    minWidth: 280,
+    minWidth: TASK_LIST_PANE_MIN_WIDTH,
     overflow: "hidden",
     width: DRAWER_PANE_MAX_WIDTH,
   },

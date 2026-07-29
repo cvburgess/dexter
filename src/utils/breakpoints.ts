@@ -31,6 +31,12 @@ export const CALENDAR_PANE_MAX_WIDTH = 240;
 // Notes/Journal/Calendar instead of competing with Tasks for space.
 export const DRAWER_PANE_MAX_WIDTH = 360;
 
+// Min width (in dp) for a pane of TaskCard rows: Today's Tasks pane, and the
+// docked task drawer on both Today and Week. Below this a card's controls stop
+// fitting on its row, so these panes stop shrinking here and the flexing panes
+// beside them give up the space instead.
+export const TASK_LIST_PANE_MIN_WIDTH = 280;
+
 // Min width (in dp) for one day column in the Week tab (DEX-96). The legacy
 // dexter-app's "compact" column width, which is what its card-size toggle
 // switched to precisely so a full week fit without horizontal scrolling. The
