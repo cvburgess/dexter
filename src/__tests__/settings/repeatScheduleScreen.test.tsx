@@ -306,6 +306,37 @@ describe("RepeatScheduleScreen", () => {
       expect(mockRouter.back).not.toHaveBeenCalled();
       expect(mockRouter.replace).toHaveBeenCalledWith("/settings/tasks");
     });
+
+    // The form owns the only header on web, and it doesn't render until the
+    // template resolves — so before DEX-101 the wait was a bare spinner with no
+    // way out but the backdrop (DEX-101).
+    describe("while the template is still loading", () => {
+      beforeEach(() => {
+        mockParams.current = { id: "template-1" };
+        templatesResult([], { isLoading: true });
+      });
+
+      it("still offers a working close button", () => {
+        render(<RepeatScheduleScreen />);
+
+        const close = render(headerOptions().headerLeft());
+        fireEvent.press(close.getByTestId("modal-close-button"));
+
+        expect(mockRouter.back).toHaveBeenCalledTimes(1);
+        expect(mockUpdateTemplate).not.toHaveBeenCalled();
+      });
+
+      it("falls back to the list on a cold deep link", () => {
+        mockRouter.canGoBack.mockReturnValue(false);
+        render(<RepeatScheduleScreen />);
+
+        const close = render(headerOptions().headerLeft());
+        fireEvent.press(close.getByTestId("modal-close-button"));
+
+        expect(mockRouter.back).not.toHaveBeenCalled();
+        expect(mockRouter.replace).toHaveBeenCalledWith("/settings/tasks");
+      });
+    });
   });
 
   it("offers Never alongside the repeat frequencies", () => {
@@ -401,11 +432,15 @@ describe("RepeatScheduleScreen", () => {
     it("waits for the template fetch rather than closing", () => {
       mockParams.current = { id: "template-1" };
       templatesResult([], { isLoading: true });
-      render(<RepeatScheduleScreen />);
+      const screen = render(<RepeatScheduleScreen />);
 
       expect(mockRouter.back).not.toHaveBeenCalled();
       expect(mockRouter.replace).not.toHaveBeenCalled();
-      expect(mockNavigation.setOptions).not.toHaveBeenCalled();
+      // The spinner, not the form and not the error state. This used to assert
+      // no header was wired at all, which DEX-101 inverted — the loading branch
+      // now carries one so ✕ exists — so discriminate on the body instead.
+      expect(screen.queryByTestId("modal-error-retry")).toBeNull();
+      expect(mockPickers["Repeats"]).toBeUndefined();
     });
 
     it("dismisses once the template is known to be gone", () => {

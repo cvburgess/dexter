@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from "expo-router";
+import { Href, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import {
   ScrollView,
@@ -19,19 +19,19 @@ import { Button } from "@/components/Button";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { DismissModal } from "@/components/DismissModal";
 import { FormRow } from "@/components/FormRow";
-import { LoadingScreen } from "@/components/LoadingScreen";
 import {
   loadFailedMessage,
   ModalErrorScreen,
 } from "@/components/ModalErrorScreen";
+import { ModalLoadingScreen } from "@/components/ModalLoadingScreen";
+import { ModalScreen } from "@/components/ModalScreen";
 import { PickerField } from "@/components/PickerField";
 import { PriorityControl } from "@/components/PriorityControl";
 import { SubtaskFields, withTitledRows } from "@/components/SubtaskFields";
 import { TextInput } from "@/components/TextInput";
 import { TimeField } from "@/components/TimeField";
-import { WeekdayPicker } from "@/components/WeekdayPicker";
-import { ModalScreen } from "@/components/ModalScreen";
 import { WebModalHeader } from "@/components/WebModalHeader";
+import { WeekdayPicker } from "@/components/WeekdayPicker";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useDismissModal } from "@/hooks/useDismissModal";
 import { useGoals } from "@/hooks/useGoals";
@@ -47,6 +47,10 @@ import {
 } from "@/utils/repeatSchedule";
 import { showSaveError } from "@/utils/showSaveError";
 import { useTheme } from "@/utils/theme";
+
+/** Where this modal returns to when it can't just pop — one value, because a
+ * stale link and a ✕ have to land in the same place. */
+const HOME: Href = "/settings/tasks";
 
 // The universal Picker's item values cannot be null, so "none" gets a sentinel
 // that can never collide with a real id.
@@ -132,17 +136,17 @@ export default function RepeatScheduleScreen() {
   if (id === NEW_TEMPLATE) {
     const task = tasks.find((candidate) => candidate.id === fromTask);
     if (!task) {
-      if (isLoadingTasks) return <LoadingScreen />;
+      if (isLoadingTasks) return <ModalLoadingScreen fallback={HOME} />;
       if (isTasksError) {
         return (
           <ModalErrorScreen
-            fallback="/settings/tasks"
+            fallback={HOME}
             message={loadFailedMessage("tasks")}
             onRetry={refetchTasks}
           />
         );
       }
-      return <DismissModal fallback="/settings/tasks" />;
+      return <DismissModal fallback={HOME} />;
     }
     return (
       <RepeatScheduleForm
@@ -164,11 +168,11 @@ export default function RepeatScheduleScreen() {
   if (!existing) {
     // Still fetching: wait for the template so the form initializes from its
     // saved values.
-    if (isLoadingTemplates) return <LoadingScreen />;
+    if (isLoadingTemplates) return <ModalLoadingScreen fallback={HOME} />;
     if (isTemplatesError) {
       return (
         <ModalErrorScreen
-          fallback="/settings/tasks"
+          fallback={HOME}
           message={loadFailedMessage("repeat schedules")}
           onRetry={refetchTemplates}
         />
@@ -176,7 +180,7 @@ export default function RepeatScheduleScreen() {
     }
     // Loaded with no match (stale link / deleted template): the id is invalid,
     // so close rather than spin forever.
-    return <DismissModal fallback="/settings/tasks" />;
+    return <DismissModal fallback={HOME} />;
   }
 
   // The `key` remounts the form if the resolved template changes.
@@ -260,7 +264,7 @@ function RepeatScheduleForm({
   // has the list under it (`tasks/_layout.tsx` anchors it), and popping keeps
   // whatever is under *that* — without it the Tasks screen becomes the root of
   // the settings tab and loses its own back button.
-  const handleClose = useDismissModal("/settings/tasks");
+  const handleClose = useDismissModal(HOME);
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;

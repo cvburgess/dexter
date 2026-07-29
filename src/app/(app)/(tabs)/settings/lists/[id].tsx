@@ -1,4 +1,4 @@
-import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { Href, Redirect, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import {
   ScrollView,
@@ -12,15 +12,20 @@ import { TCreateList, TList } from "@/api/lists";
 import { Button } from "@/components/Button";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { EmojiPicker } from "@/components/EmojiPicker";
-import { LoadingScreen } from "@/components/LoadingScreen";
-import { TextInput } from "@/components/TextInput";
+import { ModalLoadingScreen } from "@/components/ModalLoadingScreen";
 import { ModalScreen } from "@/components/ModalScreen";
+import { TextInput } from "@/components/TextInput";
 import { WebModalHeader } from "@/components/WebModalHeader";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useLists } from "@/hooks/useLists";
+import { useDismissModal } from "@/hooks/useDismissModal";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { showSaveError } from "@/utils/showSaveError";
 import { useTheme, withOpacity } from "@/utils/theme";
+
+/** Where this modal returns to when it can't just pop — one value, because a
+ * stale link and a ✕ have to land in the same place. */
+const HOME: Href = "/settings/lists";
 
 const DEFAULT_EMOJI = "📋";
 
@@ -35,12 +40,14 @@ export default function ListScreen() {
   const isEditing = id !== "new";
   const existing = getListById(isEditing ? id : null);
 
-  if (isEditing && !existing) {
-    // Still fetching: wait for the list so the form initializes from its saved
-    // values. Once loaded with no match (stale link / deleted list), the id is
-    // invalid — bail back to the list rather than spin forever.
-    return isLoading ? <LoadingScreen /> : <Redirect href="/settings/lists" />;
-  }
+  // Still fetching: wait for the list so the form initializes from its saved
+  // values.
+  if (isEditing && !existing && isLoading)
+    return <ModalLoadingScreen fallback={HOME} />;
+
+  // Loaded with no match (stale link / deleted list): the id is invalid — bail
+  // back to the list rather than spin forever.
+  if (isEditing && !existing) return <Redirect href={HOME} />;
 
   // The `key` remounts the form if the resolved list changes.
   return <ListForm key={existing?.id ?? "new"} existing={existing} />;
@@ -48,7 +55,6 @@ export default function ListScreen() {
 
 function ListForm({ existing }: { existing?: TList }) {
   const theme = useTheme();
-  const router = useRouter();
 
   const [, { createList, updateList }] = useLists();
   const { confirm, confirmationProps } = useConfirmation();
@@ -62,14 +68,14 @@ function ListForm({ existing }: { existing?: TList }) {
 
   const canSave = title.trim().length > 0;
 
-  const handleClose = () => router.back();
+  const handleClose = useDismissModal(HOME);
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;
     hasSaved.current = true;
 
     const callbacks = {
-      onSuccess: () => router.back(),
+      onSuccess: handleClose,
       onError: () => {
         hasSaved.current = false;
         showSaveError("list");
@@ -96,7 +102,7 @@ function ListForm({ existing }: { existing?: TList }) {
     if (!confirmed) return;
     updateList(
       { id: existing.id, isArchived: true },
-      { onSuccess: () => router.back(), onError: () => showSaveError("list") },
+      { onSuccess: handleClose, onError: () => showSaveError("list") },
     );
   };
 

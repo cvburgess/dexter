@@ -1,4 +1,4 @@
-import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { Href, Redirect, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import {
   ScrollView,
@@ -14,16 +14,21 @@ import { Button } from "@/components/Button";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { EmojiPicker } from "@/components/EmojiPicker";
 import { FormRow } from "@/components/FormRow";
-import { LoadingScreen } from "@/components/LoadingScreen";
-import { TextInput } from "@/components/TextInput";
-import { WeekdayPicker } from "@/components/WeekdayPicker";
+import { ModalLoadingScreen } from "@/components/ModalLoadingScreen";
 import { ModalScreen } from "@/components/ModalScreen";
+import { TextInput } from "@/components/TextInput";
 import { WebModalHeader } from "@/components/WebModalHeader";
+import { WeekdayPicker } from "@/components/WeekdayPicker";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useHabits } from "@/hooks/useHabits";
+import { useDismissModal } from "@/hooks/useDismissModal";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { showSaveError } from "@/utils/showSaveError";
 import { useTheme, withOpacity } from "@/utils/theme";
+
+/** Where this modal returns to when it can't just pop — one value, because a
+ * stale link and a ✕ have to land in the same place. */
+const HOME: Href = "/settings/habits";
 
 const ALL_DAYS = [1, 2, 3, 4, 5, 6, 7];
 const DEFAULT_EMOJI = "😄";
@@ -40,12 +45,14 @@ export default function HabitScreen() {
   const isEditing = id !== "new";
   const existing = getHabitById(isEditing ? id : null);
 
-  if (isEditing && !existing) {
-    // Still fetching: wait for the habit so the form initializes from its saved
-    // values. Once loaded with no match (stale link / deleted habit), the id is
-    // invalid — bail back to the list rather than spin forever.
-    return isLoading ? <LoadingScreen /> : <Redirect href="/settings/habits" />;
-  }
+  // Still fetching: wait for the habit so the form initializes from its saved
+  // values.
+  if (isEditing && !existing && isLoading)
+    return <ModalLoadingScreen fallback={HOME} />;
+
+  // Loaded with no match (stale link / deleted habit): the id is invalid — bail
+  // back to the list rather than spin forever.
+  if (isEditing && !existing) return <Redirect href={HOME} />;
 
   // The `key` remounts the form if the resolved habit changes.
   return <HabitForm key={existing?.id ?? "new"} existing={existing} />;
@@ -53,7 +60,6 @@ export default function HabitScreen() {
 
 function HabitForm({ existing }: { existing?: THabit }) {
   const theme = useTheme();
-  const router = useRouter();
 
   const [, { createHabit, updateHabit, deleteHabit }] = useHabits();
   const { confirm, confirmationProps } = useConfirmation();
@@ -75,14 +81,14 @@ function HabitForm({ existing }: { existing?: THabit }) {
   const canSave =
     title.trim().length > 0 && stepsValid && daysActive.length > 0;
 
-  const handleClose = () => router.back();
+  const handleClose = useDismissModal(HOME);
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;
     hasSaved.current = true;
 
     const callbacks = {
-      onSuccess: () => router.back(),
+      onSuccess: handleClose,
       onError: () => {
         hasSaved.current = false;
         showSaveError("habit");
@@ -123,7 +129,7 @@ function HabitForm({ existing }: { existing?: THabit }) {
     if (!confirmed) return;
     updateHabit(
       { id: existing.id, isArchived: true },
-      { onSuccess: () => router.back(), onError: () => showSaveError("habit") },
+      { onSuccess: handleClose, onError: () => showSaveError("habit") },
     );
   };
 
@@ -137,7 +143,7 @@ function HabitForm({ existing }: { existing?: THabit }) {
     });
     if (!confirmed) return;
     deleteHabit(existing.id, {
-      onSuccess: () => router.back(),
+      onSuccess: handleClose,
       onError: () => showSaveError("habit"),
     });
   };
