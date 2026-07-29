@@ -19,10 +19,15 @@ type TLargeScreenHeaderProps = {
  * hairline separating the row from the panes below — matching the legacy
  * desktop app.
  *
- * Shared so switching tabs doesn't shift the nav row. The two tabs' header
- * *contents* diverge (Today has pane toggles and an attention indicator; Week
- * has only a drawer toggle), which is why this is a two-slot shell rather than
- * a component that knows what goes in it.
+ * Shared so the row keeps the same height and the nav sits on the same
+ * baseline on both tabs — switching tabs doesn't shift it *vertically*. The
+ * two navs' horizontal positions still differ, and deliberately: Today centers
+ * `DayNav` inside a slot capped to the Tasks pane's width so it sits over that
+ * pane (see `LargeScreenToday`'s `taskHeaderSlot`), while Week's `WeekNav`
+ * starts flush at the gutter. The two tabs' header *contents* diverge too
+ * (Today has pane toggles and an attention indicator; Week has only a drawer
+ * toggle), which is why this is a two-slot shell rather than a component that
+ * knows what goes in it.
  *
  * The horizontal gutter is `theme.spacing`, the same token the pane rows below
  * use, so the nav stays lined up over the pane it labels. `PeriodNav` already
