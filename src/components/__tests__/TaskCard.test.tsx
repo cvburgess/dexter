@@ -1,10 +1,9 @@
-import { act, fireEvent, render } from "@testing-library/react-native";
+import { fireEvent, render } from "@testing-library/react-native";
 import type { ReactNode } from "react";
 import { StyleSheet, type TextStyle, type ViewStyle } from "react-native";
 
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 
-import type { TTaskDateField } from "../SetDateModal";
 import { TaskCard } from "../TaskCard";
 
 jest.mock("@/hooks/useLists", () => ({
@@ -32,28 +31,10 @@ type MoreMenuMockProps = {
   children: ReactNode;
   // TaskCard passes an async handler here (it may await a confirmation).
   onChangeSchedule: (scheduledFor: string | null) => Promise<void>;
-  onChangeDeadline: (dueOn: string | null) => void;
-  onPickDate: (field: TTaskDateField) => void;
 };
 const mockMoreMenu = jest.fn((props: MoreMenuMockProps) => props.children);
 jest.mock("../MoreMenu", () => ({
   MoreMenu: (props: Parameters<typeof mockMoreMenu>[0]) => mockMoreMenu(props),
-}));
-
-// The picker sheet itself is covered by SetDateModal.test.tsx; here only the
-// props TaskCard hands it (and what it does with a confirmed date) matter.
-type SetDateModalMockProps = {
-  field: TTaskDateField;
-  visible: boolean;
-  initialDate: string | null;
-  onCancel: () => void;
-  // TaskCard's handler is async — it may await a confirmation.
-  onConfirm: (date: string) => Promise<void>;
-};
-const mockSetDateModal = jest.fn((_props: SetDateModalMockProps) => null);
-jest.mock("../SetDateModal", () => ({
-  SetDateModal: (props: Parameters<typeof mockSetDateModal>[0]) =>
-    mockSetDateModal(props),
 }));
 
 // A subset of ConfirmOptions the schedule handler passes; enough to simulate
@@ -105,7 +86,6 @@ const baseTask: TTask = {
 describe("TaskCard", () => {
   beforeEach(() => {
     mockMoreMenu.mockClear();
-    mockSetDateModal.mockClear();
     mockConfirm.mockReset();
   });
 
@@ -206,122 +186,6 @@ describe("TaskCard", () => {
 
     expect(mockConfirm).not.toHaveBeenCalled();
     expect(onUpdate).toHaveBeenCalledWith({ scheduledFor: "2026-07-03" });
-  });
-
-  const renderCard = (task: TTask, onUpdate: jest.Mock) =>
-    render(
-      <TaskCard
-        task={task}
-        onUpdate={onUpdate}
-        onDuplicate={jest.fn()}
-        onPromoteSubtask={jest.fn()}
-        onDelete={jest.fn()}
-      />,
-    );
-
-  /** The props the date sheet was last rendered with. */
-  const latestDateModal = () => {
-    const { calls } = mockSetDateModal.mock;
-    return calls[calls.length - 1][0];
-  };
-
-  /** Open the date picker for a field and hand back the sheet's latest props. */
-  const openPicker = (
-    task: TTask,
-    onUpdate: jest.Mock,
-    field: TTaskDateField,
-  ) => {
-    renderCard(task, onUpdate);
-    act(() => mockMoreMenu.mock.calls[0][0].onPickDate(field));
-    return latestDateModal();
-  };
-
-  it("writes a deadline straight through — nothing is bound to it, so there is nothing to confirm", () => {
-    const onUpdate = jest.fn();
-    renderCard(baseTask, onUpdate);
-
-    mockMoreMenu.mock.calls[0][0].onChangeDeadline("2026-08-01");
-
-    expect(mockConfirm).not.toHaveBeenCalled();
-    expect(onUpdate).toHaveBeenCalledWith({ dueOn: "2026-08-01" });
-  });
-
-  it("clears the deadline when the menu asks for it", () => {
-    const onUpdate = jest.fn();
-    renderCard({ ...baseTask, dueOn: "2026-08-01" }, onUpdate);
-
-    mockMoreMenu.mock.calls[0][0].onChangeDeadline(null);
-
-    expect(onUpdate).toHaveBeenCalledWith({ dueOn: null });
-  });
-
-  it("keeps the date sheet closed until the menu asks for it", () => {
-    renderCard(baseTask, jest.fn());
-
-    expect(mockSetDateModal).toHaveBeenCalledWith(
-      expect.objectContaining({ visible: false }),
-    );
-  });
-
-  it("opens the deadline picker seeded to the task's deadline and saves the pick", async () => {
-    const onUpdate = jest.fn();
-    const task = { ...baseTask, dueOn: "2026-08-01" };
-    const modal = openPicker(task, onUpdate, "deadline");
-
-    expect(modal.visible).toBe(true);
-    expect(modal.field).toBe("deadline");
-    expect(modal.initialDate).toBe("2026-08-01");
-
-    await act(async () => modal.onConfirm("2026-09-15"));
-
-    expect(onUpdate).toHaveBeenCalledWith({ dueOn: "2026-09-15" });
-  });
-
-  it("opens the schedule picker seeded to the task's scheduled day", () => {
-    const modal = openPicker(baseTask, jest.fn(), "schedule");
-
-    expect(modal.field).toBe("schedule");
-    expect(modal.initialDate).toBe("2026-07-03");
-  });
-
-  // The picker is a second way into the same change, so it must not bypass the
-  // alarm rules the menu's presets go through.
-  it("routes a picked schedule through the alarm prompt", async () => {
-    tapAction("Keep alarm");
-    const onUpdate = jest.fn();
-    const modal = openPicker(alarmTask, onUpdate, "schedule");
-
-    await act(async () => modal.onConfirm("2026-07-20"));
-
-    expect(mockConfirm).toHaveBeenCalledTimes(1);
-    expect(onUpdate).toHaveBeenCalledWith({ scheduledFor: "2026-07-20" });
-  });
-
-  // That prompt is a native Alert, and UIKit drops one presented while the
-  // sheet's view controller is still animating away — which would swallow the
-  // reschedule entirely. The sheet has to outlive the prompt.
-  it("keeps the sheet up until the reschedule prompt resolves", async () => {
-    let resolvePrompt!: (confirmed: boolean) => void;
-    mockConfirm.mockImplementation(
-      () =>
-        new Promise<boolean>((resolve) => {
-          resolvePrompt = resolve;
-        }),
-    );
-    const modal = openPicker(alarmTask, jest.fn(), "schedule");
-
-    let confirmed!: Promise<void>;
-    act(() => {
-      confirmed = modal.onConfirm("2026-07-20");
-    });
-    expect(latestDateModal().visible).toBe(true);
-
-    await act(async () => {
-      resolvePrompt(true);
-      await confirmed;
-    });
-
-    expect(latestDateModal().visible).toBe(false);
   });
 
   it("renders the title and due date, wrapped in the long-press menu, with no list button when no list is chosen", () => {

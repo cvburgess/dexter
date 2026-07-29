@@ -38,7 +38,7 @@ type TUseTasks = [
     createTask: (task: TCreateTask, callbacks?: TMutateCallbacks) => void;
     deleteTask: (id: string) => void;
     isLoading: boolean;
-    updateTask: (task: TUpdateTask) => void;
+    updateTask: (task: TUpdateTask, callbacks?: TMutateCallbacks) => void;
     updateTasks: (tasks: TUpdateTask[]) => void;
   },
 ];
@@ -320,9 +320,15 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
    * Folds the sweep in here rather than inside `mutationFn` so it reads the
    * cache *before* this update's own optimistic write lands — and after any
    * previous one, which is the whole point.
+   *
+   * `callbacks` are react-query's per-call `MutateOptions`, forwarded so a
+   * caller can act on the settled write the way `createTask` already lets one:
+   * the edit modal keeps itself open and reports the failure rather than
+   * closing over an optimistic change that has since rolled back (DEX-98).
+   * They run in addition to the mutation-level handlers above, never instead.
    */
-  const updateWithSweep = (diff: TUpdateTask) =>
-    update(withSubtaskSweep(queryClient, diff));
+  const updateWithSweep = (diff: TUpdateTask, callbacks?: TMutateCallbacks) =>
+    update(withSubtaskSweep(queryClient, diff), callbacks);
 
   const { mutate: bulkUpdate } = useMutation<TTask[], Error, TUpdateTask[]>({
     mutationKey: TASKS_MUTATION_KEY,

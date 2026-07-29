@@ -63,6 +63,10 @@ export default function AppLayout() {
         name="new-task"
         options={createModalScreenOptions(theme, "New Task")}
       />
+      <Stack.Screen
+        name="edit-task/[id]"
+        options={createModalScreenOptions(theme, "Edit Task")}
+      />
     </Stack>
   );
 }

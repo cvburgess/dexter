@@ -1,6 +1,5 @@
-import { Temporal } from "@js-temporal/polyfill";
 import { useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import {
   appendSubtask,
@@ -12,7 +11,6 @@ import {
   TUpdateTask,
 } from "@/api/tasks";
 import { useConfirmation } from "@/hooks/useConfirmation";
-import { currentAlarmTime, requestAlarmAuthorization } from "@/utils/alarms";
 import { isCompletionStatus } from "@/utils/taskFilters";
 import { useTheme, withOpacity } from "@/utils/theme";
 
@@ -21,8 +19,6 @@ import { DueDateButton } from "./DueDateButton";
 import { EditableText } from "./EditableText";
 import { ListButton } from "./ListButton";
 import { MoreMenu } from "./MoreMenu";
-import { SetAlarmModal } from "./SetAlarmModal";
-import { SetDateModal, type TTaskDateField } from "./SetDateModal";
 import { StatusButton } from "./StatusButton";
 import {
   SUBTASK_GAP,
@@ -86,14 +82,6 @@ export function TaskCard({
   onPress,
 }: TTaskCardProps) {
   const theme = useTheme();
-  const [alarmModalVisible, setAlarmModalVisible] = useState(false);
-  // Which date the picker is editing, kept alongside `visible` rather than
-  // derived from a nullable field: the modal stays mounted to animate out, and
-  // a field that blanked on close would retitle the sheet mid-dismissal.
-  const [dateModal, setDateModal] = useState<{
-    field: TTaskDateField;
-    visible: boolean;
-  }>({ field: "schedule", visible: false });
   const [editing, setEditing] = useState<TEditing>(null);
   const { confirm, confirmationProps } = useConfirmation();
   const isComplete = isCompletionStatus(task.status);
@@ -267,51 +255,6 @@ export function TaskCard({
     });
   };
 
-  // Persist the picked alarm time. Alarms fire on the scheduled date, so an
-  // unscheduled task is pulled onto today. AlarmKit needs permission before it
-  // can ring, so a set that's denied is surfaced rather than silently stored.
-  const handleConfirmAlarm = async (alarmTime: string) => {
-    setAlarmModalVisible(false);
-
-    const authorized = await requestAlarmAuthorization();
-    if (!authorized) {
-      Alert.alert(
-        "Alarms are turned off",
-        "Enable alarms for Dexter in Settings to be reminded at a set time.",
-      );
-      return;
-    }
-
-    onUpdate({
-      alarmTime,
-      ...(task.scheduledFor === null
-        ? { scheduledFor: Temporal.Now.plainDateISO().toString() }
-        : {}),
-    });
-  };
-
-  const closeDateModal = () =>
-    setDateModal((current) => ({ ...current, visible: false }));
-
-  // The picker only ever produces a date — clearing stays in the menu. A
-  // schedule pick is routed through `handleChangeSchedule` rather than writing
-  // `scheduledFor` here, so moving an alarmed task still prompts (DEX-87).
-  const handleConfirmDate = async (date: string) => {
-    if (dateModal.field === "deadline") {
-      closeDateModal();
-      onUpdate({ dueOn: date });
-      return;
-    }
-    // Nothing to prompt about on a deadline, so that branch closes first and
-    // feels instant. A schedule can prompt, and that prompt is a native
-    // `Alert` (see ConfirmationModal.native) — UIKit drops an alert presented
-    // while this sheet's view controller is still animating away, which would
-    // silently swallow the whole reschedule. So let it resolve first and close
-    // afterwards, leaving the alert stacked over the sheet the way iOS expects.
-    await handleChangeSchedule(date);
-    closeDateModal();
-  };
-
   const priorityColor = theme.colors.priority[task.priority];
   // The color everything on the card (title, button outlines/icons, border)
   // is drawn in — matches dexter-app's Card.tsx, which derives all of it
@@ -439,11 +382,6 @@ export function TaskCard({
         task={task}
         onChangePriority={(priority) => onUpdate({ priority })}
         onChangeSchedule={handleChangeSchedule}
-        onChangeDeadline={(dueOn) => onUpdate({ dueOn })}
-        onChangeList={(listId) => onUpdate({ listId })}
-        onPickDate={(field) => setDateModal({ field, visible: true })}
-        onSetAlarm={() => setAlarmModalVisible(true)}
-        onClearAlarm={() => onUpdate({ alarmTime: null })}
         onAddSubtask={addSubtask}
         onDuplicate={onDuplicate}
         onDelete={onDelete}
@@ -451,30 +389,6 @@ export function TaskCard({
       >
         {card}
       </MoreMenu>
-      <SetAlarmModal
-        visible={alarmModalVisible}
-        initialTime={task.alarmTime}
-        // The alarm fires on the task's scheduled day; an unscheduled task is
-        // pulled to today (see handleConfirmAlarm), so bound the picker to now
-        // only when that day is today — a future day makes any time valid.
-        minTime={
-          (task.scheduledFor ?? Temporal.Now.plainDateISO().toString()) ===
-          Temporal.Now.plainDateISO().toString()
-            ? currentAlarmTime()
-            : undefined
-        }
-        onCancel={() => setAlarmModalVisible(false)}
-        onConfirm={handleConfirmAlarm}
-      />
-      <SetDateModal
-        field={dateModal.field}
-        visible={dateModal.visible}
-        initialDate={
-          dateModal.field === "deadline" ? task.dueOn : task.scheduledFor
-        }
-        onCancel={closeDateModal}
-        onConfirm={handleConfirmDate}
-      />
       <ConfirmationModal {...confirmationProps} />
     </>
   );
