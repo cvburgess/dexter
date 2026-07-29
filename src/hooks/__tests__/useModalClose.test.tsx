@@ -1,4 +1,5 @@
-import { render } from "@testing-library/react-native";
+import { fireEvent, render } from "@testing-library/react-native";
+import { Text } from "react-native";
 
 import { useModalClose } from "../useModalClose";
 
@@ -12,12 +13,19 @@ jest.mock("expo-router", () => ({
   useRouter: () => mockRouter,
 }));
 
-let close: () => void;
-
 function Harness({ fallbackHref }: { fallbackHref: string }) {
-  close = useModalClose(fallbackHref);
-  return null;
+  const close = useModalClose(fallbackHref);
+  return (
+    <Text testID="close" onPress={close}>
+      close
+    </Text>
+  );
 }
+
+const close = (fallbackHref: string) => {
+  const screen = render(<Harness fallbackHref={fallbackHref} />);
+  fireEvent.press(screen.getByTestId("close"));
+};
 
 describe("useModalClose", () => {
   beforeEach(() => {
@@ -26,8 +34,7 @@ describe("useModalClose", () => {
   });
 
   it("pops when there is a stack screen underneath", () => {
-    render(<Harness fallbackHref="/settings/lists" />);
-    close();
+    close("/settings/lists");
 
     expect(mockRouter.back).toHaveBeenCalledTimes(1);
     expect(mockRouter.replace).not.toHaveBeenCalled();
@@ -35,8 +42,8 @@ describe("useModalClose", () => {
 
   it("falls back to the list when there is nothing to pop", () => {
     mockRouter.canDismiss.mockReturnValue(false);
-    render(<Harness fallbackHref="/settings/lists" />);
-    close();
+
+    close("/settings/lists");
 
     expect(mockRouter.replace).toHaveBeenCalledWith("/settings/lists");
     expect(mockRouter.back).not.toHaveBeenCalled();
@@ -48,8 +55,8 @@ describe("useModalClose", () => {
   it("ignores canGoBack, which cannot tell a stack pop from a tab jump", () => {
     mockRouter.canDismiss.mockReturnValue(false);
     mockRouter.canGoBack.mockReturnValue(true);
-    render(<Harness fallbackHref="/settings/tasks" />);
-    close();
+
+    close("/settings/tasks");
 
     expect(mockRouter.replace).toHaveBeenCalledWith("/settings/tasks");
     expect(mockRouter.back).not.toHaveBeenCalled();
