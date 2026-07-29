@@ -35,6 +35,8 @@ If `$ARGUMENTS` contains a specific Sentry issue ID (e.g. `DEXTER-APP-E`) or URL
 
 If `$ARGUMENTS` is "all" or a general description, search for matching unresolved issues with `search_issues` across both projects.
 
+If `$ARGUMENTS` is empty, treat it as "all" and search both projects for unresolved issues.
+
 ### Step 2: Get issue details
 
 For each issue, fetch full details with `get_issue_details`. Extract:
@@ -69,7 +71,7 @@ Set `model: "sonnet"` and `subagent_type: "Explore"`.
 
 ### Step 4: Classify the issue
 
-Based on the investigation, classify each issue:
+Based on the investigation, classify each issue. **Evaluate the noise rules first — they take precedence.** Only if none of them match do you consider the bug rules; an issue that matches a noise rule is noise even when it also looks like a bug (a dev-only error with many events is still dev noise, and an already-fixed crash that hit production users is still resolved, not re-filed).
 
 **Resolve as noise** if ANY of these are true:
 
@@ -78,7 +80,7 @@ Based on the investigation, classify each issue:
 - The code has already been fixed — check with `git log` for recent commits touching the culprit file
 - Error is in third-party code with no first-party fix possible
 
-**Create a Linear bug issue** if ANY of these are true:
+**Otherwise, create a Linear bug issue** if ANY of these are true:
 
 - Error is in first-party code with a clear root cause
 - Error affects production users
@@ -90,6 +92,8 @@ Based on the investigation, classify each issue:
 #### For noise — resolve in Sentry
 
 Use `update_issue` to set status to `resolved`. Never use `ignored`.
+
+Note that Sentry re-opens a resolved issue as a regression the next time it receives an event, so recurring noise (dev-only errors especially) will come back into the queue. That is expected — re-resolve it; don't reclassify it as a bug just because it reappeared.
 
 Report to the user: issue ID and the reason for resolution.
 
@@ -142,4 +146,4 @@ Summarize every action taken in a table:
 - Include the Sentry issue link in every Linear bug issue
 - This skill triages and files issues — it never modifies app code. Suggest the fix in the Linear issue; leave implementation to `/implement-issue`
 - Sentry MCP has no comment tool here, so don't try to post the Linear URL back onto the Sentry issue — the Linear issue's Sentry link is the connection, and the summary table is the record
-- When in doubt about whether something is noise vs a real bug, create the Linear issue — better a tracked issue that gets closed than a missed bug
+- When no rule in Step 4 clearly applies, create the Linear issue — better a tracked issue that gets closed than a missed bug. This is a tiebreak for genuinely unclassified issues, not an override of the noise rules, which always win when they match
