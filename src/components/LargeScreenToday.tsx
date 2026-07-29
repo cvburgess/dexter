@@ -7,6 +7,7 @@ import { CalendarView } from "@/components/CalendarView";
 import { DayNav } from "@/components/DayNav";
 import { DayPaneToggles } from "@/components/DayPaneToggles";
 import { GlassIconButton } from "@/components/GlassIconButton";
+import { LargeScreenHeader } from "@/components/LargeScreenHeader";
 import { NotesJournalTabs } from "@/components/NotesJournalTabs";
 import { TaskDrawer } from "@/components/TaskDrawer";
 import { TasksView } from "@/components/TasksView";
@@ -15,6 +16,7 @@ import { TPreferences } from "@/api/preferences";
 import {
   CALENDAR_PANE_MAX_WIDTH,
   DRAWER_PANE_MAX_WIDTH,
+  TASK_LIST_PANE_MIN_WIDTH,
   TASKS_PANE_MAX_WIDTH,
 } from "@/utils/breakpoints";
 import { TFilterId } from "@/utils/taskFilters";
@@ -134,36 +136,41 @@ export function LargeScreenToday({
       edges={["top", "left", "right"]}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      <View
-        style={[
-          styles.multiPaneHeader,
-          { borderBottomColor: withOpacity(theme.colors.text, 0.1) },
-        ]}
+      <LargeScreenHeader
+        actions={
+          <>
+            <DayPaneToggles
+              enableCalendar={preferences.enableCalendar}
+              enableJournal={preferences.enableJournal}
+              enableNotes={preferences.enableNotes}
+              onTogglePane={togglePane}
+              panes={panes}
+            />
+            <GlassIconButton
+              accessibilityLabel="Toggle task drawer pane"
+              active={panes.drawer}
+              indicator={backlogAttention}
+              ionicon="file-tray-full-outline"
+              onPress={toggleDrawerPane}
+              sfSymbol="tray.full"
+            />
+          </>
+        }
       >
-        {/* Matches the Tasks pane's width below so DayNav centers over it,
-            the same way it centers over the single view on small screens. */}
         <View style={[styles.fixedPane, styles.taskHeaderSlot]}>
           <DayNav date={date} onChangeDate={changeDate} />
         </View>
-        <View style={[styles.headerActions, { gap: theme.gap }]}>
-          <DayPaneToggles
-            enableCalendar={preferences.enableCalendar}
-            enableJournal={preferences.enableJournal}
-            enableNotes={preferences.enableNotes}
-            onTogglePane={togglePane}
-            panes={panes}
-          />
-          <GlassIconButton
-            accessibilityLabel="Toggle task drawer pane"
-            active={panes.drawer}
-            indicator={backlogAttention}
-            ionicon="file-tray-full-outline"
-            onPress={toggleDrawerPane}
-            sfSymbol="tray.full"
-          />
-        </View>
-      </View>
-      <View style={[styles.paneRow, { gap: theme.gap }]}>
+      </LargeScreenHeader>
+      <View
+        style={[
+          styles.paneRow,
+          {
+            gap: theme.gap,
+            paddingHorizontal: theme.spacing,
+            paddingTop: theme.spacing,
+          },
+        ]}
+      >
         <View style={styles.fixedPane}>
           <TasksView date={date} />
         </View>
@@ -239,43 +246,27 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  // Large screens: the DayNav slot is capped to the Tasks pane's width (below)
-  // and pane toggles/New Task sit at the far right — a line under the row
-  // separates it from the panes, matching the legacy desktop app. DayNav
-  // already carries its own 12pt vertical padding (DayNav.tsx), so top/bottom
-  // here only need 4pt more to bring the total to 16pt — matching the sides
-  // and `paneRow.paddingTop` — instead of stacking a full 16pt on top of it.
-  multiPaneHeader: {
-    alignItems: "center",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingBottom: 4,
-    paddingHorizontal: 16,
-    paddingTop: 4,
-  },
   // DayNav centers within this slot's width (cross-axis alignment on the
   // default column direction), same as it's centered over the full width on
-  // small screens.
+  // small screens. The slot itself is capped to the Tasks pane's width (below)
+  // so the nav sits over that pane; the row around it is `LargeScreenHeader`,
+  // shared with the Week tab.
   taskHeaderSlot: {
     alignItems: "center",
   },
-  headerActions: {
-    alignItems: "center",
-    flexDirection: "row",
-  },
+  // `theme.spacing` for the gutter, not a literal: `LargeScreenHeader` above
+  // uses the same token, which is what keeps the DayNav slot lined up over the
+  // Tasks pane.
   paneRow: {
     flex: 1,
     flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingTop: 16,
   },
   // Tasks is capped at a mobile-typical width so it doesn't stretch to fill a
   // wide window.
   fixedPane: {
     flex: 1,
     maxWidth: TASKS_PANE_MAX_WIDTH,
-    minWidth: 280,
+    minWidth: TASK_LIST_PANE_MIN_WIDTH,
   },
   // Notes and Journal share one tabbed pane that flexes to fill whatever
   // space remains. NotesJournalTabs draws its own border (only the active
@@ -313,7 +304,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     flex: 1,
     maxWidth: DRAWER_PANE_MAX_WIDTH,
-    minWidth: 280,
+    minWidth: TASK_LIST_PANE_MIN_WIDTH,
     overflow: "hidden",
   },
 });
