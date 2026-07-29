@@ -93,6 +93,39 @@ describe("useTemplates", () => {
     mockHasOpenTaskForTemplate.mockResolvedValue(false);
   });
 
+  // `isLoading` is `isPending`, which drops to `false` on error while
+  // `templates` falls back to `[]` — so without `isError` a failed fetch looks
+  // exactly like a deleted template to the editor screen (DEX-100).
+  it("reports a failed fetch rather than an empty template list", async () => {
+    mockGetTemplates.mockRejectedValue(new Error("network error"));
+
+    const { result } = renderHook(() => useTemplates(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current[1].isError).toBe(true));
+    expect(result.current[0]).toEqual([]);
+    expect(result.current[1].isLoading).toBe(false);
+  });
+
+  it("recovers from a failed fetch on refetch", async () => {
+    mockGetTemplates.mockRejectedValueOnce(new Error("network error"));
+
+    const { result } = renderHook(() => useTemplates(), {
+      wrapper: createWrapper(),
+    });
+    await waitFor(() => expect(result.current[1].isError).toBe(true));
+
+    const template = { id: "template-1", title: "Water the plants" };
+    mockGetTemplates.mockResolvedValue([template as TTemplate]);
+    act(() => result.current[1].refetch());
+
+    await waitFor(() =>
+      expect(result.current[1].getTemplateById("template-1")).toEqual(template),
+    );
+    expect(result.current[1].isError).toBe(false);
+  });
+
   // A repeat has exactly one open task. A schedule generates nothing on its own
   // — recurrence spawns from completing a task that links to the template — so
   // promoting a saved template to a repeat has to leave an open occurrence

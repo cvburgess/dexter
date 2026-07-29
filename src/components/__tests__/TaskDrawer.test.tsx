@@ -142,7 +142,9 @@ const tasksResult = (
     {
       createTask: jest.fn(),
       deleteTask: jest.fn(),
+      isError: false,
       isLoading,
+      refetch: jest.fn(),
       updateTask: mockUpdateTask,
       updateTasks: jest.fn(),
     },

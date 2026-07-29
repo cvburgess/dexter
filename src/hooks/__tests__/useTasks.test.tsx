@@ -86,6 +86,48 @@ describe("useTasks", () => {
     ).toHaveLength(1);
   });
 
+  // The whole point of `isError`: react-query only serves `placeholderData`
+  // while the query is pending, so on failure `tasks` falls back to `[]` and
+  // `isLoading` reads `false` — indistinguishable from an empty account
+  // without this flag (DEX-100).
+  it("reports a failed fetch rather than an empty task list", async () => {
+    const { wrapper } = createWrapper();
+    mockGetTasks.mockRejectedValue(new Error("network error"));
+
+    const { result } = renderHook(() => useTasks(), { wrapper });
+
+    await waitFor(() => expect(result.current[1].isError).toBe(true));
+    expect(result.current[0]).toEqual([]);
+    expect(result.current[1].isLoading).toBe(false);
+  });
+
+  it("recovers from a failed fetch on refetch", async () => {
+    const { wrapper } = createWrapper();
+    mockGetTasks.mockRejectedValueOnce(new Error("network error"));
+
+    const { result } = renderHook(() => useTasks(), { wrapper });
+    await waitFor(() => expect(result.current[1].isError).toBe(true));
+
+    const task: TTask = {
+      id: "task-1",
+      alarmTime: null,
+      title: "Recovered",
+      dueOn: null,
+      goalId: null,
+      listId: null,
+      priority: ETaskPriority.UNPRIORITIZED,
+      scheduledFor: null,
+      status: ETaskStatus.TODO,
+      subtasks: [],
+      templateId: null,
+    };
+    mockGetTasks.mockResolvedValue([task]);
+    act(() => result.current[1].refetch());
+
+    await waitFor(() => expect(result.current[0]).toEqual([task]));
+    expect(result.current[1].isError).toBe(false);
+  });
+
   it("fetches with the canonical task filters", async () => {
     const { wrapper } = createWrapper();
 

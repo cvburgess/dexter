@@ -35,7 +35,7 @@ describe("ModalLoadingScreen on web", () => {
   });
 
   it("renders a close button in the tree, not only in the navigator header", () => {
-    const screen = render(<ModalLoadingScreen closeFallback="/" />);
+    const screen = render(<ModalLoadingScreen fallback="/" />);
 
     fireEvent.press(screen.getByTestId("modal-close-button"));
 
@@ -45,7 +45,7 @@ describe("ModalLoadingScreen on web", () => {
   // Present so the header doesn't reflow when the form takes over, but greyed
   // out — there is nothing to save until the row lands.
   it("renders save disabled", () => {
-    const screen = render(<ModalLoadingScreen closeFallback="/" />);
+    const screen = render(<ModalLoadingScreen fallback="/" />);
 
     expect(
       screen.getByTestId("modal-done-button").props.accessibilityState,

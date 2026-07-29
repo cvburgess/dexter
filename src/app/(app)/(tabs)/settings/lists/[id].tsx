@@ -18,7 +18,7 @@ import { TextInput } from "@/components/TextInput";
 import { WebModalHeader } from "@/components/WebModalHeader";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useLists } from "@/hooks/useLists";
-import { useModalClose } from "@/hooks/useModalClose";
+import { useDismissModal } from "@/hooks/useDismissModal";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { showSaveError } from "@/utils/showSaveError";
 import { useTheme, withOpacity } from "@/utils/theme";
@@ -43,7 +43,7 @@ export default function ListScreen() {
   // Still fetching: wait for the list so the form initializes from its saved
   // values.
   if (isEditing && !existing && isLoading)
-    return <ModalLoadingScreen closeFallback={HOME} />;
+    return <ModalLoadingScreen fallback={HOME} />;
 
   // Loaded with no match (stale link / deleted list): the id is invalid — bail
   // back to the list rather than spin forever.
@@ -68,7 +68,7 @@ function ListForm({ existing }: { existing?: TList }) {
 
   const canSave = title.trim().length > 0;
 
-  const handleClose = useModalClose(HOME);
+  const handleClose = useDismissModal(HOME);
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;

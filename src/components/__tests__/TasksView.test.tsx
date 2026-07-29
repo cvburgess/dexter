@@ -82,7 +82,9 @@ const tasksResult = (tasks: TTask[] = [], isLoading = false) =>
     {
       createTask: jest.fn(),
       deleteTask: mockDeleteTask,
+      isError: false,
       isLoading,
+      refetch: jest.fn(),
       updateTask: jest.fn(),
       updateTasks: jest.fn(),
     },
@@ -143,7 +145,9 @@ describe("TasksView", () => {
         createNextOccurrence: jest.fn(),
         deleteTemplate: mockDeleteTemplate,
         getTemplateById: mockGetTemplateById,
+        isError: false,
         isLoading: false,
+        refetch: jest.fn(),
         updateTemplate: jest.fn(),
       },
     ] as ReturnType<typeof useTemplates>);

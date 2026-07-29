@@ -1,14 +1,19 @@
-import { Href, Redirect, useLocalSearchParams } from "expo-router";
+import { Href, useLocalSearchParams } from "expo-router";
 import { useRef } from "react";
 import { ScrollView } from "react-native";
 
 import { TTask } from "@/api/tasks";
+import { DismissModal } from "@/components/DismissModal";
+import {
+  loadFailedMessage,
+  ModalErrorScreen,
+} from "@/components/ModalErrorScreen";
 import { ModalLoadingScreen } from "@/components/ModalLoadingScreen";
 import { ModalScreen } from "@/components/ModalScreen";
 import { TaskForm } from "@/components/TaskForm";
 import { WebModalHeader } from "@/components/WebModalHeader";
+import { useDismissModal } from "@/hooks/useDismissModal";
 import { useLists } from "@/hooks/useLists";
-import { useModalClose } from "@/hooks/useModalClose";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTaskForm } from "@/hooks/useTaskForm";
 import { useTaskFormScroll } from "@/hooks/useTaskFormScroll";
@@ -21,21 +26,39 @@ const HOME: Href = "/";
 
 export default function EditTaskScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [tasks, { isLoading }] = useTasks();
+  const [tasks, { isError, isLoading, refetch }] = useTasks();
 
   const task = tasks.find((candidate) => candidate.id === id);
 
+  // Resolving the task wins over every other state: a background refetch that
+  // fails after a successful load leaves the cache populated, and the form the
+  // user is typing into must survive that.
+  if (task) {
+    // The `key` remounts the form if the resolved task changes, so the fields
+    // can't carry one task's edits onto another.
+    return <EditTaskForm key={task.id} task={task} />;
+  }
+
   // Still fetching: wait for the task so the form initializes from its saved
   // values.
-  if (!task && isLoading) return <ModalLoadingScreen closeFallback={HOME} />;
+  if (isLoading) return <ModalLoadingScreen fallback={HOME} />;
 
-  // Loaded with no match (a deleted task, a stale deep link): the id is
-  // invalid — bail back to the app rather than spin forever.
-  if (!task) return <Redirect href={HOME} />;
+  // The fetch failed, which is not the same as "there is no such task" — say
+  // so and offer the retry rather than throwing the user out (DEX-100).
+  if (isError) {
+    return (
+      <ModalErrorScreen
+        fallback={HOME}
+        message={loadFailedMessage("tasks")}
+        onRetry={refetch}
+      />
+    );
+  }
 
-  // The `key` remounts the form if the resolved task changes, so the fields
-  // can't carry one task's edits onto another.
-  return <EditTaskForm key={task.id} task={task} />;
+  // Loaded, with no match: a deleted task, a stale deep link, or a row that
+  // aged out of the canonical window. Close the modal rather than navigating
+  // the whole app, so whatever it was opened over survives.
+  return <DismissModal fallback={HOME} />;
 }
 
 function EditTaskForm({ task }: { task: TTask }) {
@@ -44,7 +67,7 @@ function EditTaskForm({ task }: { task: TTask }) {
   const form = useTaskForm(lists, { task });
   const hasSaved = useRef(false);
   const { scrollViewProps, scrollToEndOnNextLayout } = useTaskFormScroll();
-  const handleClose = useModalClose(HOME);
+  const handleClose = useDismissModal(HOME);
 
   // One-shot, like the create modal: a double tap can't fire two writes. The
   // whole field set goes in one `updateTask` — `goalId` and `status` are not on
