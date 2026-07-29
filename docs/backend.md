@@ -452,9 +452,11 @@ Backend and app deploys run from GitHub Actions in `.github/workflows/`:
   succeeded or were skipped.
 - **`test-backend.yml`** — on any `supabase/**` PR/push: `deno fmt --check` plus
   `deno test`. Backend tests set their own env, so no secrets are required.
-- **`test-frontend.yml`** — the `src/**` counterpart: `npm run lint`,
-  `npm run typecheck`, `npm test`. `jest.setup.js` defaults the `EXPO_PUBLIC_*`
-  vars, so this needs no secrets either (DEX-95).
+- **`test-frontend.yml`** — the `src/**` counterpart: `npm run format:check`,
+  `npm run typecheck`, `npm run lint`, `npm test` (cheapest check first).
+  `jest.setup.js` defaults the `EXPO_PUBLIC_*` vars, so this needs no secrets
+  either (DEX-95). Note `deploy.yml` does not depend on it — a red test run
+  does not block the production deploy.
 - **`preview-branch.yml`** — fills the gaps Supabase's native branching leaves
   on a PR's preview branch. A `resolve` job gates on the `Supabase Preview`
   check reporting success (so it never fires on a PR without a preview),

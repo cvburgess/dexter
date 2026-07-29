@@ -22,7 +22,7 @@ EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 | `npm start`                       | Dev server                |
 | `npm run web`                     | Web only                  |
 | `npm run ios` / `npm run android` | Open simulator / device   |
-| `npm run lint`                    | `expo lint`               |
+| `npm run lint`                    | `eslint .`                |
 | `npm run format`                  | Prettier                  |
 | `npm test`                        | Jest                      |
 | `npm run typecheck`               | `tsc --noEmit`            |

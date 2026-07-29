@@ -62,19 +62,25 @@ module.exports = defineConfig([
   {
     // Test code talks to Jest mocks, which are untyped by construction: a
     // `jest.mock` factory is hoisted above the imports (so it must `require`),
-    // mocked module shapes come back as `any`, and mock components are inline
-    // arrows that sometimes use hooks. Enforcing the type-aware rules here
-    // would mean a cast at every call site and buy no safety — the assertions
-    // are the safety net. Rules that catch real mistakes in tests too
-    // (`no-unused-vars`, `import/no-duplicates`, `no-misused-promises`, ...)
-    // stay on.
-    files: [
-      "**/__tests__/**",
-      "**/*.test.ts",
-      "**/*.test.tsx",
-      "testUtils/**",
-      "jest.setup.js",
-    ],
+    // and a mocked module's shape comes back as `any`. Typing every one of
+    // those boundaries would mean a cast at each call site to restate what the
+    // mock already declares, so the `no-unsafe-*` family and `no-require-imports`
+    // are off here.
+    //
+    // Everything else stays on, deliberately. Rules that catch real mistakes in
+    // tests are worth the handful of fixes they cost: `rules-of-hooks` (name
+    // mock components in PascalCase), `react/display-name` (give stubs a named
+    // function), `require-await`, `no-unused-vars`, `import/no-duplicates`,
+    // `no-misused-promises`. A test harness with a conditional hook should fail
+    // lint, not surface later as a flaky test.
+    //
+    // Tests all live in `__tests__/` directories (see CLAUDE.md), so that glob
+    // plus the two shared-infrastructure files is the whole surface.
+    files: ["**/__tests__/**", "testUtils/**", "jest.setup.js"],
+    languageOptions: {
+      // jest.setup.js is plain JS, so the `@types/jest` globals never reach it.
+      globals: { jest: "readonly" },
+    },
     rules: {
       "@typescript-eslint/no-require-imports": "off",
       "@typescript-eslint/no-unsafe-argument": "off",
@@ -82,16 +88,6 @@ module.exports = defineConfig([
       "@typescript-eslint/no-unsafe-call": "off",
       "@typescript-eslint/no-unsafe-member-access": "off",
       "@typescript-eslint/no-unsafe-return": "off",
-      "@typescript-eslint/require-await": "off",
-      "react-hooks/rules-of-hooks": "off",
-      "react/display-name": "off",
-    },
-  },
-  {
-    // jest.setup.js is plain JS, so the TypeScript globals never reach it.
-    files: ["jest.setup.js"],
-    languageOptions: {
-      globals: { jest: "readonly" },
     },
   },
 ]);

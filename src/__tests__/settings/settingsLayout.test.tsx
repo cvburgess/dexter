@@ -18,7 +18,9 @@ jest.mock("@/components/SettingsSidebar", () => {
 // structure around the sidebar is still exercised.
 jest.mock("expo-router", () => {
   const Stack = ({ children }: { children?: React.ReactNode }) => children;
-  Stack.Screen = () => null;
+  Stack.Screen = function StackScreen() {
+    return null;
+  };
   return { Stack };
 });
 

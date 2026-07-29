@@ -41,7 +41,9 @@ jest.mock("@expo/ui/community/menu", () => ({
 jest.mock("@expo/ui", () => {
   const Host = ({ children }) => children;
   const Picker = () => null;
-  Picker.Item = () => null;
+  Picker.Item = function PickerItem() {
+    return null;
+  };
   return { Host, Picker };
 });
 

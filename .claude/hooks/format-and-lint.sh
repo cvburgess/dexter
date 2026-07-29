@@ -16,8 +16,12 @@ REL_PATH="${FILE_PATH#$PROJECT_DIR/}"
 
 if [[ "$REL_PATH" == src/* ]]; then
   cd "$PROJECT_DIR/src"
-  npm run lint -- --fix "$FILE_PATH" 2>/dev/null || true
-  npm run format -- "$FILE_PATH" 2>/dev/null || true
+  # Call the tools directly rather than through `npm run`: both scripts now
+  # carry their own target (`eslint .`, `prettier --write .`), so an appended
+  # path would widen the run to all of /src instead of narrowing it to the
+  # edited file — and `--fix`/`--write` would then rewrite the whole tree.
+  npx eslint --fix "$FILE_PATH" 2>/dev/null || true
+  npx prettier --write "$FILE_PATH" 2>/dev/null || true
 elif [[ "$REL_PATH" == supabase/* ]]; then
   deno fmt "$FILE_PATH" 2>/dev/null || true
 elif [[ "$REL_PATH" == www/* ]]; then

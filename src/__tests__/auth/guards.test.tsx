@@ -53,7 +53,9 @@ jest.mock("expo-router", () => {
   const Stack = ({ children }: { children?: React.ReactNode }) => (
     <Text>stack{children}</Text>
   );
-  Stack.Screen = () => null;
+  Stack.Screen = function StackScreen() {
+    return null;
+  };
   return { Redirect, Stack };
 });
 
