@@ -75,6 +75,11 @@ export function registerTemplateTools(
       title: "Create Repeat Task Template",
       description:
         "Create a repeat task template with a validated cron schedule. " +
+        "A scheduled row is given its first occurrence automatically, so do " +
+        "not also create a task for it or point an existing task at it: a " +
+        "repeat has exactly one open task, and a second one leaves the user " +
+        "looking at a duplicate. To turn a task the user already has into a " +
+        "repeat, create the template and then delete the original task. " +
         "Omit `schedule` (or pass null) to create a plain task template " +
         "instead — a reusable blueprint the user stamps out on demand, which " +
         "never generates occurrences on its own. " +
@@ -127,9 +132,11 @@ export function registerTemplateTools(
     {
       title: "Update Repeat Task Template",
       description:
-        "Update one or more repeat task template fields. Setting `schedule` " +
-        "to null turns the row into a plain task template, so it stops " +
-        "generating occurrences. `subtasks` REPLACES " +
+        "Update one or more repeat task template fields. Giving a row a " +
+        "`schedule` also gives it its first occurrence, unless an open task " +
+        "already links to it — so do not create one yourself. Setting " +
+        "`schedule` to null turns the row into a plain task template, so it " +
+        "stops generating occurrences. `subtasks` REPLACES " +
         "the whole checklist blueprint — read the template first, modify the " +
         "array, and send it back in full. Changing it affects future " +
         "occurrences only; checklists already materialized onto existing " +
