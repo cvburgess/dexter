@@ -113,7 +113,18 @@ export function MoreMenu({
   // group, however many sections it takes to build — only the actions below it
   // are set apart.
   const editSections = [
-    ...getEditTaskSections(openTaskEditor),
+    // The way into every field at once, first in the menu — it is the general
+    // case the rows below it are shortcuts for.
+    {
+      options: [
+        {
+          id: "edit-task",
+          title: "Edit task",
+          icon: EDIT_TASK_ICON,
+          onSelect: openTaskEditor,
+        },
+      ],
+    },
     ...getPrioritySections(task.priority, onChangePriority, theme),
     ...getScheduleSections(task.scheduledFor, onChangeSchedule, openTaskEditor),
     ...getTaskActionSections(onAddSubtask),
@@ -142,28 +153,11 @@ export function MoreMenu({
   );
 }
 
-/**
- * The way into every field at once, first in the menu — it is the general case
- * the rows beneath it are shortcuts for.
- */
-export const getEditTaskSections = (
-  onEditTask: () => void,
-): TIconMenuSection[] => [
-  {
-    options: [
-      {
-        id: "edit-task",
-        title: "Edit task",
-        icon: {
-          ios: "square.and.pencil",
-          android: "edit_square",
-          web: "edit_square",
-        } as const,
-        onSelect: onEditTask,
-      },
-    ],
-  },
-];
+const EDIT_TASK_ICON = {
+  ios: "square.and.pencil",
+  android: "edit_square",
+  web: "edit_square",
+} as const;
 
 export const getPrioritySections = (
   priority: ETaskPriority,

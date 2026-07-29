@@ -29,7 +29,14 @@ jest.mock("@/hooks/useLists", () => ({
   ],
 }));
 
-const mockRouter = { back: jest.fn(), push: jest.fn() };
+// `canGoBack` decides between popping and replacing; default to "there is
+// something beneath us", which is every in-app entry into this modal.
+const mockRouter = {
+  back: jest.fn(),
+  push: jest.fn(),
+  replace: jest.fn(),
+  canGoBack: jest.fn(() => true),
+};
 const mockNavigation = { setOptions: jest.fn() };
 const mockSearchParams: { current: Record<string, string> } = { current: {} };
 const mockRedirect = jest.fn((_props: { href: string }) => null);
@@ -83,6 +90,7 @@ const setTasks = (tasks: TTask[], isLoading = false) =>
 describe("EditTaskScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRouter.canGoBack.mockReturnValue(true);
     mockSearchParams.current = { id: "task-1" };
     mockUpdateTask.mockImplementation((_diff, callbacks) => {
       callbacks?.onSuccess?.();
@@ -284,6 +292,30 @@ describe("EditTaskScreen", () => {
     const [diff] = mockUpdateTask.mock.calls[0];
     expect(diff).not.toHaveProperty("goalId");
     expect(diff).not.toHaveProperty("status");
+  });
+
+  // A cold deep link to /edit-task/<id> leaves the stack holding only this
+  // modal, where `back()` is an unhandled GO_BACK: ✕ looks dead and ✓ writes
+  // without ever closing. Mirrors settings/tasks/[id]'s guard.
+  it("replaces rather than popping when there is nothing beneath it", () => {
+    mockRouter.canGoBack.mockReturnValue(false);
+    render(<EditTaskScreen />);
+
+    const close = render(headerOptions().headerLeft());
+    fireEvent.press(close.getByTestId("modal-close-button"));
+
+    expect(mockRouter.back).not.toHaveBeenCalled();
+    expect(mockRouter.replace).toHaveBeenCalledWith("/");
+  });
+
+  it("closes after a save reached from a cold deep link", () => {
+    mockRouter.canGoBack.mockReturnValue(false);
+    render(<EditTaskScreen />);
+
+    pressSave();
+
+    expect(mockUpdateTask).toHaveBeenCalledTimes(1);
+    expect(mockRouter.replace).toHaveBeenCalledWith("/");
   });
 
   it("waits for the fetch rather than redirecting on a cold load", () => {

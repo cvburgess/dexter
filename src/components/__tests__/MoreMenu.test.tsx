@@ -10,7 +10,6 @@ import { weekStartEnd } from "@/utils/weekStartEnd";
 
 import type { TIconMenuSection } from "../IconMenu.types";
 import {
-  getEditTaskSections,
   getOtherSections,
   getPrioritySections,
   getScheduleSections,
@@ -340,22 +339,6 @@ describe("MoreMenu", () => {
       );
     },
   );
-});
-
-describe("getEditTaskSections", () => {
-  it("offers one untitled, directly-tappable row", () => {
-    const onEditTask = jest.fn();
-    const [section] = getEditTaskSections(onEditTask);
-
-    expect(section.title).toBeUndefined();
-    expect(section.isSubmenu).toBeUndefined();
-    expect(section.options.map((option) => option.title)).toEqual([
-      "Edit task",
-    ]);
-
-    section.options[0].onSelect();
-    expect(onEditTask).toHaveBeenCalledTimes(1);
-  });
 });
 
 describe("getOtherSections", () => {
