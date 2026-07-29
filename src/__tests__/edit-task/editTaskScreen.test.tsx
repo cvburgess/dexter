@@ -30,13 +30,14 @@ jest.mock("@/hooks/useLists", () => ({
   ],
 }));
 
-// `canGoBack` decides between popping and replacing; default to "there is
-// something beneath us", which is every in-app entry into this modal.
+// `useDismissModal` guards on `canDismiss` — not the global `canGoBack`, which
+// is also true when the only "back" available is a tab jump. Default to "there
+// is something beneath us", which is every in-app entry into this modal.
 const mockRouter = {
   back: jest.fn(),
   push: jest.fn(),
   replace: jest.fn(),
-  canGoBack: jest.fn(() => true),
+  canDismiss: jest.fn(() => true),
 };
 const mockNavigation = { setOptions: jest.fn() };
 const mockSearchParams: { current: Record<string, string> } = { current: {} };
@@ -121,7 +122,7 @@ const setTasks = (
 describe("EditTaskScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockRouter.canGoBack.mockReturnValue(true);
+    mockRouter.canDismiss.mockReturnValue(true);
     mockIsFocused.current = true;
     mockSearchParams.current = { id: "task-1" };
     mockUpdateTask.mockImplementation((_diff, callbacks) => {
@@ -364,7 +365,7 @@ describe("EditTaskScreen", () => {
   // modal, where `back()` is an unhandled GO_BACK: ✕ looks dead and ✓ writes
   // without ever closing. Mirrors settings/tasks/[id]'s guard.
   it("replaces rather than popping when there is nothing beneath it", () => {
-    mockRouter.canGoBack.mockReturnValue(false);
+    mockRouter.canDismiss.mockReturnValue(false);
     render(<EditTaskScreen />);
 
     const close = render(headerOptions().headerLeft());
@@ -375,7 +376,7 @@ describe("EditTaskScreen", () => {
   });
 
   it("closes after a save reached from a cold deep link", () => {
-    mockRouter.canGoBack.mockReturnValue(false);
+    mockRouter.canDismiss.mockReturnValue(false);
     render(<EditTaskScreen />);
 
     pressSave();
@@ -411,7 +412,7 @@ describe("EditTaskScreen", () => {
     // The case the guard exists for: closing before the fetch lands has to
     // behave the same as closing after it.
     it("replaces rather than popping on a cold deep link", () => {
-      mockRouter.canGoBack.mockReturnValue(false);
+      mockRouter.canDismiss.mockReturnValue(false);
       render(<EditTaskScreen />);
 
       headerOptions().unstable_headerLeftItems()[0].onPress();
@@ -460,7 +461,7 @@ describe("EditTaskScreen", () => {
   });
 
   it("replaces to the root when a deleted task was deep-linked cold", () => {
-    mockRouter.canGoBack.mockReturnValue(false);
+    mockRouter.canDismiss.mockReturnValue(false);
     setTasks([]);
     render(<EditTaskScreen />);
 

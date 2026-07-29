@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Href, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text } from "react-native";
 
@@ -11,6 +11,7 @@ import {
 import { TaskForm } from "@/components/TaskForm";
 import { TemplatePicker } from "@/components/TemplatePicker";
 import { WebModalHeader } from "@/components/WebModalHeader";
+import { useDismissModal } from "@/hooks/useDismissModal";
 import { useLists } from "@/hooks/useLists";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTaskForm } from "@/hooks/useTaskForm";
@@ -33,9 +34,12 @@ const MODE_OPTIONS: TSegmentedControlOption<TNewTaskMode>[] = [
   { value: "ai", label: "AI" },
 ];
 
+/** Where this modal returns to when it can't just pop — one value, because a
+ * cold deep link and a ✕ have to land in the same place. */
+const HOME: Href = "/";
+
 export default function NewTaskScreen() {
   const theme = useTheme();
-  const router = useRouter();
   const [lists, { isLoading: isLoadingLists }] = useLists();
   const [, { createTask }] = useTasks({ skipQuery: true });
   const [allTemplates, { isLoading: isLoadingTemplates }] = useTemplates();
@@ -55,13 +59,13 @@ export default function NewTaskScreen() {
   // form behind it yet, so there is nothing there to save.
   const canSave = form.canSave && !isLoadingLists && mode !== "ai";
 
-  const handleClose = () => router.back();
+  const handleClose = useDismissModal(HOME);
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;
     hasSaved.current = true;
     createTask(form.task, {
-      onSuccess: () => router.back(),
+      onSuccess: handleClose,
       onError: () => {
         hasSaved.current = false;
         showSaveError("task");

@@ -7,7 +7,7 @@ const mockNavigation = { setOptions: jest.fn() };
 const mockRouter = {
   back: jest.fn(),
   replace: jest.fn(),
-  canGoBack: jest.fn(() => true),
+  canDismiss: jest.fn(() => true),
 };
 jest.mock("expo-router", () => ({
   useNavigation: () => mockNavigation,
@@ -19,7 +19,7 @@ const headerOptions = () => mockNavigation.setOptions.mock.calls.at(-1)?.[0];
 describe("ModalLoadingScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockRouter.canGoBack.mockReturnValue(true);
+    mockRouter.canDismiss.mockReturnValue(true);
   });
 
   it("shows a spinner", () => {
@@ -40,7 +40,7 @@ describe("ModalLoadingScreen", () => {
   });
 
   it("replaces with the fallback when there is nothing beneath it", () => {
-    mockRouter.canGoBack.mockReturnValue(false);
+    mockRouter.canDismiss.mockReturnValue(false);
     render(<ModalLoadingScreen fallback="/settings/tasks" />);
 
     headerOptions().unstable_headerLeftItems()[0].onPress();

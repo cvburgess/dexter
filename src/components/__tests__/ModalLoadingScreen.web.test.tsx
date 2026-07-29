@@ -6,7 +6,7 @@ const mockNavigation = { setOptions: jest.fn() };
 const mockRouter = {
   back: jest.fn(),
   replace: jest.fn(),
-  canGoBack: jest.fn(() => true),
+  canDismiss: jest.fn(() => true),
 };
 jest.mock("expo-router", () => ({
   useNavigation: () => mockNavigation,
@@ -31,7 +31,7 @@ jest.mock("@/components/ModalScreen", () =>
 describe("ModalLoadingScreen on web", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockRouter.canGoBack.mockReturnValue(true);
+    mockRouter.canDismiss.mockReturnValue(true);
   });
 
   it("renders a close button in the tree, not only in the navigator header", () => {
