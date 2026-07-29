@@ -165,7 +165,10 @@ export const parseIcsEventsForDate = (
 ): TCalendarEvent[] => {
   let calendar: ICAL.Component;
   try {
-    calendar = new ICAL.Component(ICAL.parse(icsText));
+    // ical.js declares `parse` as returning `any`. It produces a jCal array —
+    // the shape the Component constructor takes — so narrow it to `unknown[]`
+    // rather than letting `any` leak into the call.
+    calendar = new ICAL.Component(ICAL.parse(icsText) as unknown[]);
   } catch {
     return [];
   }

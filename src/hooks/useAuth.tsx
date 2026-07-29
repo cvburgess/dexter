@@ -80,16 +80,24 @@ export const verifyDemoOtp = async (
   email: string,
   token: string,
 ): Promise<{ error: Error | null }> => {
-  const { data, error } = await supabase.functions.invoke("verify-demo-otp", {
+  const response = await supabase.functions.invoke<{
+    session?: { access_token: string; refresh_token: string };
+  }>("verify-demo-otp", {
     body: { email: email.trim(), token: token.trim() },
   });
-  if (error) return { error };
 
-  const session = (
-    data as {
-      session?: { access_token: string; refresh_token: string };
-    } | null
-  )?.session;
+  // `FunctionsResponse` types its failure `error` as `any`, so narrow it here
+  // rather than passing it off as the `Error` this helper promises.
+  if (response.error) {
+    return {
+      error:
+        response.error instanceof Error
+          ? response.error
+          : new Error("Could not verify the demo code"),
+    };
+  }
+
+  const session = response.data?.session;
   if (!session) return { error: new Error("Invalid code") };
 
   const { error: sessionError } = await supabase.auth.setSession({

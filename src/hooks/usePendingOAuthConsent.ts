@@ -32,6 +32,11 @@ export function usePendingOAuthConsent(enabled: boolean): PendingOAuthConsent {
 
   useEffect(() => {
     if (!enabled) {
+      // Deliberate synchronous reset: if the session goes away, the previously
+      // consumed id must not be reported to the next sign-in as though it were
+      // freshly resolved. It only runs when `enabled` flips false — the render
+      // it triggers is the point, not a cascade.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
       setResolved(null);
       return;
     }

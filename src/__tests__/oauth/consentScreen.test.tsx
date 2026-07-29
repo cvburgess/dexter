@@ -46,7 +46,6 @@ const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const session = { user: { id: "user-1" } } as Session;
 const signedIn = { initializing: false, session, userId: "user-1" };
 const signedOut = { initializing: false, session: null };
-const initializingState = { initializing: true, session: null };
 
 describe("OAuthConsentScreen", () => {
   beforeEach(async () => {

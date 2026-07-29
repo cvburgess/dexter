@@ -34,9 +34,7 @@ jest.mock("@/hooks/useAuth", () => ({
     // `@/hooks/useNotes` (imported above) requires this module immediately —
     // a direct reference would capture `mockChannel` before it's assigned.
     // The wrapper only reads it lazily, once a test actually calls in.
-    /* eslint-disable-next-line @typescript-eslint/no-unsafe-return -- jest.fn() is untyped; see comment above for why this can't be a typed passthrough. */
     channel: (...args: unknown[]) => mockChannel(...args),
-    /* eslint-disable-next-line @typescript-eslint/no-unsafe-return -- same as above. */
     removeChannel: (...args: unknown[]) => mockRemoveChannel(...args),
   },
 }));

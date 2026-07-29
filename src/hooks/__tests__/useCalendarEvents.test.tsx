@@ -6,10 +6,14 @@ import { ReactNode } from "react";
 
 import { usePreferences } from "@/hooks/usePreferences";
 
-import { useCalendarEvents as useNativeCalendarEvents } from "../useCalendarEvents";
 // The web/native hooks are separate platform variants that we test side by side.
-// eslint-disable-next-line import/no-duplicates -- the resolver collapses the `.web` suffix to the same module, but this must stay a distinct import so the web implementation is exercised.
+// The resolver collapses the `.web` suffix to the same module, but these must
+// stay distinct imports so both implementations are exercised. The rule reports
+// on the first of the pair, so the directive belongs here.
+/* eslint-disable import/no-duplicates */
+import { useCalendarEvents as useNativeCalendarEvents } from "../useCalendarEvents";
 import { useCalendarEvents as useWebCalendarEvents } from "../useCalendarEvents.web";
+/* eslint-enable import/no-duplicates */
 
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 jest.mock("@/hooks/useEnabledDeviceCalendars", () => ({

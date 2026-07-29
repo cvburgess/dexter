@@ -12,7 +12,7 @@ const readEnabledIds = async (): Promise<string[] | null> => {
   const raw = await AsyncStorage.getItem(ENABLED_CALENDARS_KEY);
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw);
+    const parsed: unknown = JSON.parse(raw);
     return Array.isArray(parsed) ? (parsed as string[]) : null;
   } catch {
     return null;
