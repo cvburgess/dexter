@@ -12,6 +12,7 @@ import {
   toolJson,
   uuidSchema,
 } from "./helpers.ts";
+import { trySeedNextOccurrence } from "./recurrence.ts";
 
 function templateError(message: string): ReturnType<typeof toolError> {
   if (
@@ -111,6 +112,12 @@ export function registerTemplateTools(
         .single();
 
       if (error) return templateError(error.message);
+
+      // A repeat has exactly one open task, and a schedule on its own generates
+      // nothing — recurrence spawns from *completing* a task linked to the row.
+      // Without this the tool would report success on a repeat that is born
+      // stalled (DEX-94). A no-op for a scheduleless task template.
+      await trySeedNextOccurrence(ctx, data);
       return toolJson(data);
     },
   );
@@ -169,6 +176,11 @@ export function registerTemplateTools(
         .single();
 
       if (error) return templateError(error.message);
+
+      // Promoting a task template to a repeat gives it the open task it needs to
+      // fire from. A no-op when the row already has one, or when this update
+      // cleared `schedule` back to null (DEX-94).
+      await trySeedNextOccurrence(ctx, data);
       return toolJson(data);
     },
   );
