@@ -203,6 +203,7 @@ The app reports errors and performance data via [`@sentry/react-native`](https:/
   - `preview` and `production` in `src/eas.json` build with `ios.buildConfiguration: "Release"` and upload source maps + debug symbols. This requires a `SENTRY_AUTH_TOKEN` **EAS secret** (build-time only, never `EXPO_PUBLIC_*`, never hardcoded) — set it with `eas secret:create --scope project --name SENTRY_AUTH_TOKEN --value <token>`.
   - `development`, `simulator`, and `e2e-test` set `SENTRY_DISABLE_AUTO_UPLOAD: "true"` in their `eas.json` `env` block, since those Debug builds don't have (and don't need) a `SENTRY_AUTH_TOKEN`.
 - **Manual verification**: trigger a test error with `setTimeout(() => { throw new Error("Sentry test"); });` from anywhere in the app and confirm it appears in the Sentry dashboard for the `dexter-app` project.
+- **Triage**: the `/triage-sentry` skill (`.claude/skills/triage-sentry/SKILL.md`) investigates a Sentry issue's root cause and either resolves it as noise or files a Linear bug. It needs a Sentry MCP connection, which this repo does not configure.
 
 ## Data Layer
 
