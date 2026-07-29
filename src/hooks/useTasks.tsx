@@ -37,7 +37,17 @@ type TUseTasks = [
   {
     createTask: (task: TCreateTask, callbacks?: TMutateCallbacks) => void;
     deleteTask: (id: string) => void;
+    /**
+     * The canonical fetch failed. Distinct from an empty result: `isLoading`
+     * cannot stand in for it, since react-query only serves `placeholderData`
+     * while the query is pending — on error `tasks` falls back to `[]` and
+     * `isLoading` is `false`, which reads exactly like "you have no tasks"
+     * (DEX-100).
+     */
+    isError: boolean;
     isLoading: boolean;
+    /** Re-runs the canonical fetch; the retry behind a failed load. */
+    refetch: () => void;
     updateTask: (task: TUpdateTask, callbacks?: TMutateCallbacks) => void;
     updateTasks: (tasks: TUpdateTask[]) => void;
   },
@@ -246,7 +256,12 @@ export const TASKS_MUTATION_KEY = ["tasks"];
 export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
   const queryClient = useQueryClient();
 
-  const { data: tasks = [], isPlaceholderData } = useQuery({
+  const {
+    data: tasks = [],
+    isError,
+    isPlaceholderData,
+    refetch,
+  } = useQuery({
     enabled: !options?.skipQuery,
     placeholderData: [],
     queryKey: ["tasks"],
@@ -361,7 +376,11 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
     {
       createTask: create,
       deleteTask: remove,
+      isError,
       isLoading: isPlaceholderData,
+      // Swallows the promise so a caller can hand this straight to an `onPress`
+      // — the refetch's own result is already in `tasks`/`isError`.
+      refetch: () => void refetch(),
       updateTask: updateWithSweep,
       updateTasks: bulkUpdate,
     },

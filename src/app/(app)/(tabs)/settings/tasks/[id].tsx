@@ -1,4 +1,4 @@
-import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import {
   Alert,
@@ -19,8 +19,10 @@ import {
 } from "@/api/templates";
 import { Button } from "@/components/Button";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
+import { DismissModal } from "@/components/DismissModal";
 import { FormRow } from "@/components/FormRow";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { ModalErrorScreen } from "@/components/ModalErrorScreen";
 import { PickerField } from "@/components/PickerField";
 import { PriorityControl } from "@/components/PriorityControl";
 import { SubtaskFields, withTitledRows } from "@/components/SubtaskFields";
@@ -30,6 +32,7 @@ import { WeekdayPicker } from "@/components/WeekdayPicker";
 import { ModalScreen } from "@/components/ModalScreen";
 import { WebModalHeader } from "@/components/WebModalHeader";
 import { useConfirmation } from "@/hooks/useConfirmation";
+import { useDismissModal } from "@/hooks/useDismissModal";
 import { useGoals } from "@/hooks/useGoals";
 import { useLists } from "@/hooks/useLists";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
@@ -115,8 +118,11 @@ export default function RepeatScheduleScreen() {
     fromTask?: string;
     repeats?: string;
   }>();
-  const [, { getTemplateById, isLoading }] = useTemplates();
-  const [tasks, { isLoading: isLoadingTasks }] = useTasks();
+  const [, { getTemplateById, isError, isLoading, refetch }] = useTemplates();
+  const [
+    tasks,
+    { isError: isTasksError, isLoading: isLoadingTasks, refetch: refetchTasks },
+  ] = useTasks();
 
   // Repeat and Save as template both route here before anything is stored,
   // carrying the task to seed from — so ✕ leaves nothing behind and ✓ is what
@@ -124,11 +130,19 @@ export default function RepeatScheduleScreen() {
   if (id === NEW_TEMPLATE) {
     const task = tasks.find((candidate) => candidate.id === fromTask);
     if (!task) {
-      return isLoadingTasks ? (
-        <LoadingScreen />
-      ) : (
-        <Redirect href="/settings/tasks" />
-      );
+      if (isLoadingTasks) return <LoadingScreen />;
+      // A failed fetch is not a missing task — `isLoading` is `false` in both
+      // cases, so without this branch an offline seed looks like a deleted
+      // row (DEX-100).
+      if (isTasksError) {
+        return (
+          <Unavailable
+            message="Couldn't load your tasks. Check your connection and try again."
+            onRetry={refetchTasks}
+          />
+        );
+      }
+      return <DismissModal fallback="/settings/tasks" />;
     }
     return (
       <RepeatScheduleForm
@@ -149,9 +163,19 @@ export default function RepeatScheduleScreen() {
 
   if (!existing) {
     // Still fetching: wait for the template so the form initializes from its
-    // saved values. Once loaded with no match (stale link / deleted template),
-    // the id is invalid — bail back to the list rather than spin forever.
-    return isLoading ? <LoadingScreen /> : <Redirect href="/settings/tasks" />;
+    // saved values.
+    if (isLoading) return <LoadingScreen />;
+    if (isError) {
+      return (
+        <Unavailable
+          message="Couldn't load your repeat schedules. Check your connection and try again."
+          onRetry={refetch}
+        />
+      );
+    }
+    // Loaded with no match (stale link / deleted template): the id is invalid,
+    // so close rather than spin forever.
+    return <DismissModal fallback="/settings/tasks" />;
   }
 
   // The `key` remounts the form if the resolved template changes.
@@ -161,6 +185,20 @@ export default function RepeatScheduleScreen() {
       draft={existing}
       existing={existing}
     />
+  );
+}
+
+function Unavailable({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  const dismiss = useDismissModal("/settings/tasks");
+
+  return (
+    <ModalErrorScreen message={message} onClose={dismiss} onRetry={onRetry} />
   );
 }
 
@@ -176,7 +214,6 @@ function RepeatScheduleForm({
   linkTaskId?: string;
 }) {
   const theme = useTheme();
-  const router = useRouter();
 
   const [lists] = useLists();
   const [goals] = useGoals();
@@ -235,14 +272,8 @@ function RepeatScheduleForm({
   // Pops rather than navigating: the stack this screen was pushed onto already
   // has the list under it (`tasks/_layout.tsx` anchors it), and popping keeps
   // whatever is under *that* — without it the Tasks screen becomes the root of
-  // the settings tab and loses its own back button. `dismissTo` looks tidier
-  // but replaces the current screen when it can't find the target, which
-  // collapses exactly that history. The guard covers the one case the anchor
-  // can't: a cold deep link straight to this URL.
-  const handleClose = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace("/settings/tasks");
-  };
+  // the settings tab and loses its own back button.
+  const handleClose = useDismissModal("/settings/tasks");
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;
