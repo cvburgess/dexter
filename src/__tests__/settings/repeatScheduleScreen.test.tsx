@@ -58,7 +58,9 @@ const mockRouter = {
   push: jest.fn(),
   replace: jest.fn(),
   dismissTo: jest.fn(),
-  canGoBack: jest.fn(() => true),
+  // `useModalClose` guards on `canDismiss`, not `canGoBack` — the latter is
+  // global and is also true when the only "back" available is a tab jump.
+  canDismiss: jest.fn(() => true),
 };
 const mockNavigation = { setOptions: jest.fn<void, [THeaderOptions]>() };
 const mockParams: { current: Record<string, string> } = {
@@ -150,7 +152,7 @@ const save = () => {
 describe("RepeatScheduleScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockRouter.canGoBack.mockReturnValue(true);
+    mockRouter.canDismiss.mockReturnValue(true);
     mockConfirm.mockResolvedValue(true);
     for (const key of Object.keys(mockPickers)) delete mockPickers[key];
   });
@@ -277,7 +279,7 @@ describe("RepeatScheduleScreen", () => {
 
     // The one case the anchor can't cover: a cold deep link straight to this URL.
     it("falls back to the list when there is nothing to pop", () => {
-      mockRouter.canGoBack.mockReturnValue(false);
+      mockRouter.canDismiss.mockReturnValue(false);
       mockUpdateTemplate.mockImplementation((_diff, { onSuccess }) =>
         onSuccess(),
       );

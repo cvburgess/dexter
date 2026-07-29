@@ -15,11 +15,23 @@ jest.mock("@/components/SettingsSidebar", () => {
 
 // The real Stack/Stack.Screen require a navigation container this unit test
 // doesn't mount; render children through a passthrough so the wrapping View
-// structure around the sidebar is still exercised.
+// structure around the sidebar is still exercised. Stack.Screen echoes the
+// options that decide who owns each screen's header, so they're assertable.
 jest.mock("expo-router", () => {
+  const { Text } =
+    jest.requireActual<typeof import("react-native")>("react-native");
   const Stack = ({ children }: { children?: React.ReactNode }) => children;
-  Stack.Screen = function StackScreen() {
-    return null;
+  Stack.Screen = function StackScreen({
+    name,
+    options,
+  }: {
+    name: string;
+    options?: { title?: string; headerShown?: boolean };
+  }) {
+    const header = options?.headerShown === false ? "hidden" : "shown";
+    return (
+      <Text>{`screen:${name}|header:${header}|title:${options?.title ?? ""}`}</Text>
+    );
   };
   return { Stack };
 });
@@ -46,5 +58,35 @@ describe("SettingsLayout", () => {
     const screen = render(<SettingsLayout />);
 
     expect(screen.queryByText("settings-sidebar")).toBeNull();
+  });
+
+  // Tasks is the one section that is a nested stack of its own, and this stack
+  // has to keep its header: `tasks/index` is that nested stack's root, and a
+  // stack's root screen gets no native back button however much history sits
+  // under the navigator. Hiding it here is what stranded the Tasks list with
+  // the tab bar as its only way out (DEX-93).
+  it("owns the header for the nested tasks stack", () => {
+    const screen = render(<SettingsLayout />);
+
+    expect(
+      screen.getByText("screen:tasks|header:shown|title:Tasks"),
+    ).toBeTruthy();
+  });
+
+  it("registers the flat lists and habits editors alongside their lists", () => {
+    const screen = render(<SettingsLayout />);
+
+    expect(
+      screen.getByText("screen:lists/index|header:shown|title:Lists"),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("screen:lists/[id]|header:shown|title:List"),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("screen:habits/index|header:shown|title:Habits"),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("screen:habits/[id]|header:shown|title:Habit"),
+    ).toBeTruthy();
   });
 });

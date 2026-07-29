@@ -1,4 +1,4 @@
-import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import {
   Alert,
@@ -23,6 +23,7 @@ import { ModalScreen } from "@/components/ModalScreen";
 import { WebModalHeader } from "@/components/WebModalHeader";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useHabits } from "@/hooks/useHabits";
+import { useModalClose } from "@/hooks/useModalClose";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTheme, withOpacity } from "@/utils/theme";
 
@@ -65,7 +66,6 @@ export default function HabitScreen() {
 
 function HabitForm({ existing }: { existing?: THabit }) {
   const theme = useTheme();
-  const router = useRouter();
 
   const [, { createHabit, updateHabit, deleteHabit }] = useHabits();
   const { confirm, confirmationProps } = useConfirmation();
@@ -87,14 +87,14 @@ function HabitForm({ existing }: { existing?: THabit }) {
   const canSave =
     title.trim().length > 0 && stepsValid && daysActive.length > 0;
 
-  const handleClose = () => router.back();
+  const handleClose = useModalClose("/settings/habits");
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;
     hasSaved.current = true;
 
     const callbacks = {
-      onSuccess: () => router.back(),
+      onSuccess: handleClose,
       onError: () => {
         hasSaved.current = false;
         showSaveError();
@@ -135,7 +135,7 @@ function HabitForm({ existing }: { existing?: THabit }) {
     if (!confirmed) return;
     updateHabit(
       { id: existing.id, isArchived: true },
-      { onSuccess: () => router.back(), onError: showSaveError },
+      { onSuccess: handleClose, onError: showSaveError },
     );
   };
 
@@ -149,7 +149,7 @@ function HabitForm({ existing }: { existing?: THabit }) {
     });
     if (!confirmed) return;
     deleteHabit(existing.id, {
-      onSuccess: () => router.back(),
+      onSuccess: handleClose,
       onError: showSaveError,
     });
   };

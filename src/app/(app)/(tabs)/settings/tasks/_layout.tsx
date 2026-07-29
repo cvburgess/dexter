@@ -20,6 +20,10 @@ import { useTheme } from "@/utils/theme";
  * on a cold navigation both pushes coalesce before this navigator exists.
  * Callers pair this with `withAnchor: true` so the anchor comes along when the
  * navigation enters this stack for the first time.
+ *
+ * The list's header is **not** declared here — the parent settings stack owns
+ * it (`settings/_layout.tsx`), because this screen is this stack's root and a
+ * stack's root screen never gets a native back button (DEX-93).
  */
 export const unstable_settings = { anchor: "index" };
 
@@ -30,7 +34,10 @@ export default function TasksSettingsLayout() {
     <Stack>
       <Stack.Screen
         name="index"
-        options={createListScreenOptions(theme, "Tasks")}
+        options={{
+          ...createListScreenOptions(theme, "Tasks"),
+          headerShown: false,
+        }}
       />
       <Stack.Screen
         name="[id]"

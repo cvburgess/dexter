@@ -37,8 +37,18 @@ export default function SettingsLayout() {
         options={createListScreenOptions(theme, "Appearance")}
       />
       {/* Its own nested stack, so the editor always has the list beneath it —
-          see `tasks/_layout.tsx`. That stack owns the headers. */}
-      <Stack.Screen name="tasks" options={{ headerShown: false }} />
+          see `tasks/_layout.tsx`. The list's header stays *here* rather than
+          moving down with it: `tasks/index` is the root of that nested stack,
+          and a stack's root screen gets no native back button and no
+          swipe-back, however much history sits under the navigator itself. The
+          back item is drawn by the platform from its own controller's stack,
+          not from React Navigation's parent-aware `canGoBack`, so the only way
+          to give the Tasks list a back button is for the parent to own the
+          header (DEX-93). */}
+      <Stack.Screen
+        name="tasks"
+        options={createListScreenOptions(theme, "Tasks")}
+      />
       <Stack.Screen
         name="lists/index"
         options={createListScreenOptions(theme, "Lists")}

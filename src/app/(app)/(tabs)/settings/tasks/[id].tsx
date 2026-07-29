@@ -1,4 +1,4 @@
-import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import {
   Alert,
@@ -32,6 +32,7 @@ import { WebModalHeader } from "@/components/WebModalHeader";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useGoals } from "@/hooks/useGoals";
 import { useLists } from "@/hooks/useLists";
+import { useModalClose } from "@/hooks/useModalClose";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
@@ -176,7 +177,6 @@ function RepeatScheduleForm({
   linkTaskId?: string;
 }) {
   const theme = useTheme();
-  const router = useRouter();
 
   const [lists] = useLists();
   const [goals] = useGoals();
@@ -232,17 +232,10 @@ function RepeatScheduleForm({
     }
   };
 
-  // Pops rather than navigating: the stack this screen was pushed onto already
-  // has the list under it (`tasks/_layout.tsx` anchors it), and popping keeps
-  // whatever is under *that* — without it the Tasks screen becomes the root of
-  // the settings tab and loses its own back button. `dismissTo` looks tidier
-  // but replaces the current screen when it can't find the target, which
-  // collapses exactly that history. The guard covers the one case the anchor
-  // can't: a cold deep link straight to this URL.
-  const handleClose = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace("/settings/tasks");
-  };
+  // The anchor on `tasks/_layout.tsx` puts the list under this screen however
+  // it was reached, so closing pops; the fallback covers the one case the
+  // anchor can't, a cold deep link straight to this URL.
+  const handleClose = useModalClose("/settings/tasks");
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;

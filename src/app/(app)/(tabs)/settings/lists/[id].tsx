@@ -1,4 +1,4 @@
-import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import {
   Alert,
@@ -20,6 +20,7 @@ import { ModalScreen } from "@/components/ModalScreen";
 import { WebModalHeader } from "@/components/WebModalHeader";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useLists } from "@/hooks/useLists";
+import { useModalClose } from "@/hooks/useModalClose";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTheme, withOpacity } from "@/utils/theme";
 
@@ -60,7 +61,6 @@ export default function ListScreen() {
 
 function ListForm({ existing }: { existing?: TList }) {
   const theme = useTheme();
-  const router = useRouter();
 
   const [, { createList, updateList }] = useLists();
   const { confirm, confirmationProps } = useConfirmation();
@@ -74,14 +74,14 @@ function ListForm({ existing }: { existing?: TList }) {
 
   const canSave = title.trim().length > 0;
 
-  const handleClose = () => router.back();
+  const handleClose = useModalClose("/settings/lists");
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;
     hasSaved.current = true;
 
     const callbacks = {
-      onSuccess: () => router.back(),
+      onSuccess: handleClose,
       onError: () => {
         hasSaved.current = false;
         showSaveError();
@@ -108,7 +108,7 @@ function ListForm({ existing }: { existing?: TList }) {
     if (!confirmed) return;
     updateList(
       { id: existing.id, isArchived: true },
-      { onSuccess: () => router.back(), onError: showSaveError },
+      { onSuccess: handleClose, onError: showSaveError },
     );
   };
 
