@@ -1,8 +1,6 @@
 import { Href, Redirect, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import {
-  Alert,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,6 +20,7 @@ import { useConfirmation } from "@/hooks/useConfirmation";
 import { useLists } from "@/hooks/useLists";
 import { useModalClose } from "@/hooks/useModalClose";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
+import { showSaveError } from "@/utils/showSaveError";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 /** Where this modal returns to when it can't just pop — one value, because a
@@ -29,17 +28,6 @@ import { useTheme, withOpacity } from "@/utils/theme";
 const HOME: Href = "/settings/lists";
 
 const DEFAULT_EMOJI = "📋";
-
-// RN's Alert is a no-op on web, so fall back to the browser's alert there.
-const showSaveError = () => {
-  const message = "We couldn't save your list. Please try again.";
-
-  if (Platform.OS === "web") {
-    window.alert(message);
-  } else {
-    Alert.alert("Something went wrong", message);
-  }
-};
 
 export default function ListScreen() {
   // "/settings/lists/new" is the create route; any other id edits that list.
@@ -90,7 +78,7 @@ function ListForm({ existing }: { existing?: TList }) {
       onSuccess: handleClose,
       onError: () => {
         hasSaved.current = false;
-        showSaveError();
+        showSaveError("list");
       },
     };
 
@@ -114,7 +102,7 @@ function ListForm({ existing }: { existing?: TList }) {
     if (!confirmed) return;
     updateList(
       { id: existing.id, isArchived: true },
-      { onSuccess: handleClose, onError: showSaveError },
+      { onSuccess: handleClose, onError: () => showSaveError("list") },
     );
   };
 

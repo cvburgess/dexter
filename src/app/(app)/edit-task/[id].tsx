@@ -1,6 +1,6 @@
 import { Href, Redirect, useLocalSearchParams } from "expo-router";
 import { useRef } from "react";
-import { Alert, Platform, ScrollView } from "react-native";
+import { ScrollView } from "react-native";
 
 import { TTask } from "@/api/tasks";
 import { ModalLoadingScreen } from "@/components/ModalLoadingScreen";
@@ -13,21 +13,11 @@ import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTaskForm } from "@/hooks/useTaskForm";
 import { useTaskFormScroll } from "@/hooks/useTaskFormScroll";
 import { useTasks } from "@/hooks/useTasks";
+import { showSaveError } from "@/utils/showSaveError";
 
 /** Where this modal returns to when it can't just pop — one value, because a
  * stale link and a ✕ have to land in the same place. */
 const HOME: Href = "/";
-
-// RN's Alert is a no-op on web, so fall back to the browser's alert there.
-const showSaveError = () => {
-  const message = "We couldn't save your task. Please try again.";
-
-  if (Platform.OS === "web") {
-    window.alert(message);
-  } else {
-    Alert.alert("Something went wrong", message);
-  }
-};
 
 export default function EditTaskScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -68,7 +58,7 @@ function EditTaskForm({ task }: { task: TTask }) {
         onSuccess: handleClose,
         onError: () => {
           hasSaved.current = false;
-          showSaveError();
+          showSaveError("task");
         },
       },
     );

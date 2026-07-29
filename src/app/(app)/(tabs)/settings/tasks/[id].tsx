@@ -1,8 +1,6 @@
 import { Href, Redirect, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import {
-  Alert,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -42,6 +40,7 @@ import {
   parseSchedule,
   TRepeatFrequency,
 } from "@/utils/repeatSchedule";
+import { showSaveError } from "@/utils/showSaveError";
 import { useTheme } from "@/utils/theme";
 
 /** Where this modal returns to when it can't just pop — one value, because a
@@ -89,17 +88,6 @@ const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
 const dayOptions = (maxDay: number) =>
   Array.from({ length: maxDay }, (_, i) => i + 1);
-
-// RN's Alert is a no-op on web, so fall back to the browser's alert there.
-const showSaveError = () => {
-  const message = "We couldn't save your changes. Please try again.";
-
-  if (Platform.OS === "web") {
-    window.alert(message);
-  } else {
-    Alert.alert("Something went wrong", message);
-  }
-};
 
 /**
  * The unsaved shape a menu action starts from, seeded off its task. Repeat
@@ -264,7 +252,7 @@ function RepeatScheduleForm({
       onSuccess: handleClose,
       onError: () => {
         hasSaved.current = false;
-        showSaveError();
+        showSaveError("changes");
       },
     };
 
@@ -292,7 +280,7 @@ function RepeatScheduleForm({
     if (!confirmed) return;
     deleteTemplate(existing.id, {
       onSuccess: handleClose,
-      onError: showSaveError,
+      onError: () => showSaveError("changes"),
     });
   };
 
