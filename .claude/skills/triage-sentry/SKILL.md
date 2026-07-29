@@ -3,7 +3,7 @@ name: triage-sentry
 description: Triage Sentry issues by investigating root cause, then either resolving noise in Sentry or creating a Linear bug issue. Use when the user wants to triage, review, or act on Sentry errors.
 argument-hint: [Sentry issue ID, URL, or "all" to triage open issues]
 disable-model-invocation: true
-allowed-tools: Agent, Read, Grep, Glob, Bash(git log*), mcp__sentry__search_issues, mcp__sentry__get_issue_details, mcp__sentry__update_issue, mcp__sentry__find_organizations, mcp__sentry__find_projects, mcp__claude_ai_Sentry__search_issues, mcp__claude_ai_Sentry__get_issue_details, mcp__claude_ai_Sentry__update_issue, mcp__claude_ai_Sentry__find_organizations, mcp__claude_ai_Sentry__find_projects, mcp__linear-server__get_issue, mcp__linear-server__list_teams, mcp__linear-server__list_issue_labels, mcp__linear-server__save_issue, mcp__claude_ai_Linear__get_issue, mcp__claude_ai_Linear__list_teams, mcp__claude_ai_Linear__list_issue_labels, mcp__claude_ai_Linear__save_issue
+allowed-tools: Agent, Read, Grep, Glob, Bash(git log*), mcp__sentry__search_issues, mcp__sentry__get_issue_details, mcp__sentry__update_issue, mcp__sentry__find_organizations, mcp__sentry__find_projects, mcp__claude_ai_Sentry__search_issues, mcp__claude_ai_Sentry__get_issue_details, mcp__claude_ai_Sentry__update_issue, mcp__claude_ai_Sentry__find_organizations, mcp__claude_ai_Sentry__find_projects, mcp__linear-server__list_issue_labels, mcp__linear-server__save_issue, mcp__claude_ai_Linear__list_issue_labels, mcp__claude_ai_Linear__save_issue
 ---
 
 # Triage Sentry Issues
@@ -22,6 +22,8 @@ The Sentry organization is `cvburgess` with region URL `https://us.sentry.io`. P
 
 - `dexter-app` — Expo (React Native) app. Confirmed by the `@sentry/react-native/expo` config plugin block in `src/app.json`.
 - `dexter-api` — Supabase edge functions. Reporting goes through `supabase/functions/_shared/sentry.ts`.
+
+If either slug fails to resolve, call `find_projects` for the `cvburgess` org and use the real slugs rather than retrying the hardcoded ones.
 
 ## Instructions
 
@@ -122,7 +124,7 @@ The issue **description** (Markdown) must follow this template:
 < How to trigger this error, if known from the Sentry event context >
 ```
 
-Then call `save_issue` with `team: "DEX"` (per CLAUDE.md), `title`, `description`, `labels: ["Bug"]`, and `state: "Ready"` so the issue lands in the team's `Ready` column instead of the default `In Refinement` — the same convention as `.claude/skills/create-issue/SKILL.md`. If the user specifies a different team or state, use that instead.
+Then call `save_issue` with `team: "DEX"` (per CLAUDE.md), `title`, `description`, `labels: ["Bug"]` (confirm the label exists with `list_issue_labels` if the call is rejected), and `state: "Ready"` so the issue lands in the team's `Ready` column instead of the default `In Refinement` — the same convention as `.claude/skills/create-issue/SKILL.md`. If the user specifies a different team or state, use that instead.
 
 ### Step 6: Report results
 
