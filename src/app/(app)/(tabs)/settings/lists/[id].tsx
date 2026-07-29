@@ -1,8 +1,6 @@
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import {
-  Alert,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,20 +19,10 @@ import { WebModalHeader } from "@/components/WebModalHeader";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useLists } from "@/hooks/useLists";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
+import { showSaveError } from "@/utils/showSaveError";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 const DEFAULT_EMOJI = "📋";
-
-// RN's Alert is a no-op on web, so fall back to the browser's alert there.
-const showSaveError = () => {
-  const message = "We couldn't save your list. Please try again.";
-
-  if (Platform.OS === "web") {
-    window.alert(message);
-  } else {
-    Alert.alert("Something went wrong", message);
-  }
-};
 
 export default function ListScreen() {
   // "/settings/lists/new" is the create route; any other id edits that list.
@@ -84,7 +72,7 @@ function ListForm({ existing }: { existing?: TList }) {
       onSuccess: () => router.back(),
       onError: () => {
         hasSaved.current = false;
-        showSaveError();
+        showSaveError("list");
       },
     };
 
@@ -108,7 +96,7 @@ function ListForm({ existing }: { existing?: TList }) {
     if (!confirmed) return;
     updateList(
       { id: existing.id, isArchived: true },
-      { onSuccess: () => router.back(), onError: showSaveError },
+      { onSuccess: () => router.back(), onError: () => showSaveError("list") },
     );
   };
 

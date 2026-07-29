@@ -1,6 +1,6 @@
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useRef } from "react";
-import { Alert, Platform, ScrollView } from "react-native";
+import { ScrollView } from "react-native";
 
 import { TTask } from "@/api/tasks";
 import { LoadingScreen } from "@/components/LoadingScreen";
@@ -12,17 +12,7 @@ import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTaskForm } from "@/hooks/useTaskForm";
 import { useTaskFormScroll } from "@/hooks/useTaskFormScroll";
 import { useTasks } from "@/hooks/useTasks";
-
-// RN's Alert is a no-op on web, so fall back to the browser's alert there.
-const showSaveError = () => {
-  const message = "We couldn't save your task. Please try again.";
-
-  if (Platform.OS === "web") {
-    window.alert(message);
-  } else {
-    Alert.alert("Something went wrong", message);
-  }
-};
+import { showSaveError } from "@/utils/showSaveError";
 
 export default function EditTaskScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -72,7 +62,7 @@ function EditTaskForm({ task }: { task: TTask }) {
         onSuccess: handleClose,
         onError: () => {
           hasSaved.current = false;
-          showSaveError();
+          showSaveError("task");
         },
       },
     );

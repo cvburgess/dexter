@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
-import { Alert, Platform, ScrollView, StyleSheet, Text } from "react-native";
+import { ScrollView, StyleSheet, Text } from "react-native";
 
 import { isTaskTemplate } from "@/api/templates";
 import { ModalScreen } from "@/components/ModalScreen";
@@ -17,6 +17,7 @@ import { useTaskForm } from "@/hooks/useTaskForm";
 import { useTaskFormScroll } from "@/hooks/useTaskFormScroll";
 import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
+import { showSaveError } from "@/utils/showSaveError";
 import { useTheme } from "@/utils/theme";
 
 /**
@@ -31,17 +32,6 @@ const MODE_OPTIONS: TSegmentedControlOption<TNewTaskMode>[] = [
   { value: "template", label: "Template" },
   { value: "ai", label: "AI" },
 ];
-
-// RN's Alert is a no-op on web, so fall back to the browser's alert there.
-const showSaveError = () => {
-  const message = "We couldn't save your task. Please try again.";
-
-  if (Platform.OS === "web") {
-    window.alert(message);
-  } else {
-    Alert.alert("Something went wrong", message);
-  }
-};
 
 export default function NewTaskScreen() {
   const theme = useTheme();
@@ -74,7 +64,7 @@ export default function NewTaskScreen() {
       onSuccess: () => router.back(),
       onError: () => {
         hasSaved.current = false;
-        showSaveError();
+        showSaveError("task");
       },
     });
   };

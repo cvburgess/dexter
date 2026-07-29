@@ -1,8 +1,6 @@
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import {
-  Alert,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,22 +22,12 @@ import { WebModalHeader } from "@/components/WebModalHeader";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useHabits } from "@/hooks/useHabits";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
+import { showSaveError } from "@/utils/showSaveError";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 const ALL_DAYS = [1, 2, 3, 4, 5, 6, 7];
 const DEFAULT_EMOJI = "😄";
 const MAX_STEPS = 999;
-
-// RN's Alert is a no-op on web, so fall back to the browser's alert there.
-const showSaveError = () => {
-  const message = "We couldn't save your habit. Please try again.";
-
-  if (Platform.OS === "web") {
-    window.alert(message);
-  } else {
-    Alert.alert("Something went wrong", message);
-  }
-};
 
 export default function HabitScreen() {
   // "/settings/habits/new" is the create route; any other id edits that habit.
@@ -97,7 +85,7 @@ function HabitForm({ existing }: { existing?: THabit }) {
       onSuccess: () => router.back(),
       onError: () => {
         hasSaved.current = false;
-        showSaveError();
+        showSaveError("habit");
       },
     };
 
@@ -135,7 +123,7 @@ function HabitForm({ existing }: { existing?: THabit }) {
     if (!confirmed) return;
     updateHabit(
       { id: existing.id, isArchived: true },
-      { onSuccess: () => router.back(), onError: showSaveError },
+      { onSuccess: () => router.back(), onError: () => showSaveError("habit") },
     );
   };
 
@@ -150,7 +138,7 @@ function HabitForm({ existing }: { existing?: THabit }) {
     if (!confirmed) return;
     deleteHabit(existing.id, {
       onSuccess: () => router.back(),
-      onError: showSaveError,
+      onError: () => showSaveError("habit"),
     });
   };
 
