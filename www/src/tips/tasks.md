@@ -89,15 +89,22 @@ Each list is represented by an emoji you choose to keep it kind of cute.
 The more options menu is a catch all for buttons that didn't fit on the card.
 After all, there's only so much space.
 
+- **Edit task**: Open the whole task in a form — title, priority, list,
+  schedule, deadline, alarm, and checklist, all in one place
 - **Priority**: Assign a priority to the task (changes the card color)
 - **Schedule**: Pick a day to work on the task (see "due date vs do date" above)
-- **Deadline**: Set or clear the day the task is due (see "due date vs do date"
-  above)
 - **Add subtask**: Start a checklist inside the task (see "subtasks" above)
+- **Duplicate**: Make an independent copy of the task
 - **Repeat**: Schedule repeating tasks - daily, weekly, monthly, or annually
 - **Save as template**: Keep the task as a reusable starting point (see
   "templates" below)
 - **Delete**: Permanently deletes the task and all data associated with it
+
+The menu keeps the changes that take a single tap. Anything that needs a picker
+— the list, the deadline, an alarm, or a day that isn't one of the presets —
+lives in **Edit task**, which is the same form you get when you create a task.
+Schedule still offers Today, Tomorrow, and Next Week directly; choosing "Pick a
+date…" opens the form.
 
 Once a task came from a template - because you repeated it, saved it, or created
 it from the Template tab - those two entries are replaced by a single **Edit
