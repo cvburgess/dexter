@@ -48,7 +48,7 @@ jest.mock("expo-linking", () => ({
       queryParams: Object.fromEntries(new URLSearchParams(queryString)),
     };
   }),
-  getInitialURL: jest.fn(async () => null),
+  getInitialURL: jest.fn(() => Promise.resolve(null)),
   addEventListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
 

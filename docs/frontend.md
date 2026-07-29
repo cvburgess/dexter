@@ -140,7 +140,7 @@ npm start          # dev server (QR / simulator / press w for web)
 npm run web        # web only
 npm run ios        # native build + run iOS
 npm run android    # native build + run Android
-npm run lint       # expo lint
+npm run lint       # eslint . (all of /src — see AGENTS.md's Gotchas)
 npm run format     # Prettier
 npm test           # Jest (jest-expo)
 npm run typecheck  # tsc --noEmit
@@ -168,7 +168,7 @@ Production release to the App Store is a manual **Build and Submit** workflow (`
 - **React Compiler** enabled via `experiments.reactCompiler` in `app.json`
 - **`react-native-gesture-handler`** / **`react-native-reanimated`** back the Today tab's swipe-to-change-days gesture (`components/SwipeableDay.tsx`). `GestureHandlerRootView` is mounted once at the root in `app/_layout.tsx`, which any future gesture-driven feature (e.g. task drag-and-drop) can build on.
 - **TypeScript 6** — `tsconfig.json` extends `expo/tsconfig.base`
-- **ESLint** — `expo lint` (bootstraps `eslint-config-expo` on first run)
+- **ESLint** — `eslint .` over the whole of `/src`. `eslint.config.js` layers `typescript-eslint`'s type-checked rules over `eslint-config-expo/flat`, and relaxes the untypeable ones for test files (see [`docs/testing.md`](testing.md))
 - **Web render mode** — `web.output: "single"` (SPA) so the Supabase-backed `AuthProvider` doesn't have to run under Node SSR.
 
 ## Environment

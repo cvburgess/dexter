@@ -1,0 +1,42 @@
+name: Test Frontend
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ["src/**", ".github/workflows/test-frontend.yml"]
+  push:
+    branches: [main]
+    paths: ["src/**", ".github/workflows/test-frontend.yml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Cheapest check first, so a red run short-circuits before the slow ones.
+      - name: Format check
+        run: npm run format:check
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # No EXPO_PUBLIC_* secrets are wired in — `jest.setup.js` defaults them.
+      - name: Test
+        run: npm test

@@ -62,29 +62,29 @@ jest.mock("@/components/TasksView", () => ({
 // to catch a missing `key` (a stale-content bug a marker's `date` prop alone
 // can't reveal, since the prop updates fine even without a remount).
 const mockNotesViewMount = jest.fn();
-const mockNotesView = ({ date }: { date: string }) => {
+const MockNotesView = ({ date }: { date: string }) => {
   useEffect(() => mockNotesViewMount(), []);
   return <Text>notes-view:{date}</Text>;
 };
 jest.mock("@/components/NotesView", () => ({
-  NotesView: (props: Parameters<typeof mockNotesView>[0]) =>
-    mockNotesView(props),
+  NotesView: (props: Parameters<typeof MockNotesView>[0]) =>
+    MockNotesView(props),
 }));
-const mockJournalView = ({ date }: { date: string }) => (
+const MockJournalView = ({ date }: { date: string }) => (
   <Text>journal-view:{date}</Text>
 );
 jest.mock("@/components/JournalView", () => ({
-  JournalView: (props: Parameters<typeof mockJournalView>[0]) =>
-    mockJournalView(props),
+  JournalView: (props: Parameters<typeof MockJournalView>[0]) =>
+    MockJournalView(props),
 }));
 const mockCalendarViewMount = jest.fn();
-const mockCalendarView = ({ date }: { date: Temporal.PlainDate }) => {
+const MockCalendarView = ({ date }: { date: Temporal.PlainDate }) => {
   useEffect(() => mockCalendarViewMount(), []);
   return <Text>calendar-view:{date.toString()}</Text>;
 };
 jest.mock("@/components/CalendarView", () => ({
-  CalendarView: (props: Parameters<typeof mockCalendarView>[0]) =>
-    mockCalendarView(props),
+  CalendarView: (props: Parameters<typeof MockCalendarView>[0]) =>
+    MockCalendarView(props),
 }));
 // The docked large-screen drawer pane; its own filter/group/search behavior
 // is covered by TaskDrawer.test. Stub it to a marker exposing its date, and

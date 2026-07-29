@@ -32,6 +32,12 @@ export function usePendingOAuthConsent(enabled: boolean): PendingOAuthConsent {
 
   useEffect(() => {
     if (!enabled) {
+      // Deliberate synchronous reset: if the session goes away, the previously
+      // consumed id must not be reported to the next sign-in as though it were
+      // freshly resolved. On mount `resolved` is already null so this is a
+      // no-op; the only render it triggers is the one that clears a stale
+      // resolution, which is the point rather than a cascade.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
       setResolved(null);
       return;
     }

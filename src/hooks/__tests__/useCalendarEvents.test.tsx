@@ -6,10 +6,15 @@ import { ReactNode } from "react";
 
 import { usePreferences } from "@/hooks/usePreferences";
 
-import { useCalendarEvents as useNativeCalendarEvents } from "../useCalendarEvents";
 // The web/native hooks are separate platform variants that we test side by side.
-// eslint-disable-next-line import/no-duplicates -- the resolver collapses the `.web` suffix to the same module, but this must stay a distinct import so the web implementation is exercised.
+// The resolver collapses the `.web` suffix to the same module, but these must
+// stay distinct imports so both implementations are exercised. The rule reports
+// on both lines, so a single `disable-next-line` won't cover it — hence the
+// block pair.
+/* eslint-disable import/no-duplicates */
+import { useCalendarEvents as useNativeCalendarEvents } from "../useCalendarEvents";
 import { useCalendarEvents as useWebCalendarEvents } from "../useCalendarEvents.web";
+/* eslint-enable import/no-duplicates */
 
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 jest.mock("@/hooks/useEnabledDeviceCalendars", () => ({
@@ -44,9 +49,11 @@ const createWrapper = () => {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
-  );
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+  };
 };
 
 const ICS = [
@@ -65,10 +72,9 @@ const ICS = [
 describe("useCalendarEvents (web)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    global.fetch = jest.fn(async () => ({
-      ok: true,
-      text: async () => ICS,
-    })) as unknown as typeof fetch;
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, text: () => Promise.resolve(ICS) }),
+    ) as unknown as typeof fetch;
   });
 
   it("fetches and parses configured feeds", async () => {
@@ -109,7 +115,7 @@ describe("useCalendarEvents (web)", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
-  it("stays idle with no feeds configured", async () => {
+  it("stays idle with no feeds configured", () => {
     setPreferences({ calendarUrls: [] });
 
     const { result } = renderHook(() => useWebCalendarEvents(DAY), {
@@ -123,11 +129,13 @@ describe("useCalendarEvents (web)", () => {
 
   it("surfaces an error when every feed fails", async () => {
     setPreferences({ calendarUrls: ["https://example.com/cal.ics"] });
-    global.fetch = jest.fn(async () => ({
-      ok: false,
-      status: 502,
-      text: async () => "",
-    })) as unknown as typeof fetch;
+    global.fetch = jest.fn(() =>
+      Promise.resolve({
+        ok: false,
+        status: 502,
+        text: () => Promise.resolve(""),
+      }),
+    ) as unknown as typeof fetch;
 
     const { result } = renderHook(() => useWebCalendarEvents(DAY), {
       wrapper: createWrapper(),

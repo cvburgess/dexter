@@ -13,7 +13,8 @@ export * from "./alarms.shared";
 export const configureAlarms = (): void => {};
 
 /** Alarms can't ring off iOS, so authorization is never granted. */
-export const requestAlarmAuthorization = async (): Promise<boolean> => false;
+export const requestAlarmAuthorization = (): Promise<boolean> =>
+  Promise.resolve(false);
 
 export const scheduleTaskAlarm = async (
   _alarm: TAlarmSchedule,

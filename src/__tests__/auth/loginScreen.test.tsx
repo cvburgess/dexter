@@ -2,7 +2,6 @@ import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
 import LoginScreen from "@/app/(auth)/login";
 import {
-  isDemoEmail,
   signInWithEmail,
   signInWithGoogle,
   verifyDemoOtp,
