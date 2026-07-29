@@ -101,7 +101,9 @@ describe("NewTaskScreen", () => {
       {
         createTask: mockCreateTask,
         deleteTask: jest.fn(),
+        isError: false,
         isLoading: false,
+        refetch: jest.fn(),
         updateTask: jest.fn(),
         updateTasks: jest.fn(),
       },
