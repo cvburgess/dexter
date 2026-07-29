@@ -1,0 +1,39 @@
+name: Test Frontend
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ["src/**", ".github/workflows/test-frontend.yml"]
+  push:
+    branches: [main]
+    paths: ["src/**", ".github/workflows/test-frontend.yml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # No EXPO_PUBLIC_* secrets are wired in: `jest.setup.js` defaults them,
+      # and neither eslint nor tsc reads them. Add them here if that changes.
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
