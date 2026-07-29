@@ -1,9 +1,6 @@
 import { Stack } from "expo-router";
 
-import {
-  createListScreenOptions,
-  createModalScreenOptions,
-} from "@/utils/stackOptions";
+import { createModalScreenOptions } from "@/utils/stackOptions";
 import { useTheme } from "@/utils/theme";
 
 /**
@@ -32,11 +29,14 @@ export default function TasksSettingsLayout() {
 
   return (
     <Stack>
+      {/* No title or header styling: with the header hidden, the only option
+          left that does anything is the background the screen transitions in
+          over. The parent names this screen. */}
       <Stack.Screen
         name="index"
         options={{
-          ...createListScreenOptions(theme, "Tasks"),
           headerShown: false,
+          contentStyle: { backgroundColor: theme.colors.background },
         }}
       />
       <Stack.Screen

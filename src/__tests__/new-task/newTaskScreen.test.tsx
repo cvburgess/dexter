@@ -66,7 +66,15 @@ jest.mock("@/hooks/useTemplates", () => ({
   ],
 }));
 
-const mockRouter = { back: jest.fn(), push: jest.fn() };
+// `useModalClose` guards on `canDismiss` — not the global `canGoBack`, which
+// is also true when the only "back" available is a tab jump. Default to "there
+// is something beneath us", which is every in-app entry into this modal.
+const mockRouter = {
+  back: jest.fn(),
+  push: jest.fn(),
+  replace: jest.fn(),
+  canDismiss: jest.fn(() => true),
+};
 const mockNavigation = { setOptions: jest.fn() };
 // Holds the route params NewTaskButton passes (e.g. the viewed day); reset per test.
 const mockSearchParams: { current: Record<string, string> } = { current: {} };
@@ -90,6 +98,7 @@ const mockCreateTask = jest.fn();
 describe("NewTaskScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRouter.canDismiss.mockReturnValue(true);
     listsState.isLoading = false;
     mockSearchParams.current = {};
     templatesState.current = [];
@@ -127,6 +136,20 @@ describe("NewTaskScreen", () => {
 
     expect(mockRouter.back).toHaveBeenCalled();
     expect(mockCreateTask).not.toHaveBeenCalled();
+  });
+
+  // A cold deep link to /new-task leaves the stack holding only this modal,
+  // where `back()` is an unhandled GO_BACK: ✕ looks dead and ✓ writes the task
+  // without ever closing. Mirrors edit-task/[id]'s guard.
+  it("replaces rather than popping when there is nothing beneath it", () => {
+    mockRouter.canDismiss.mockReturnValue(false);
+    render(<NewTaskScreen />);
+
+    const close = render(headerOptions().headerLeft());
+    fireEvent.press(close.getByTestId("modal-close-button"));
+
+    expect(mockRouter.back).not.toHaveBeenCalled();
+    expect(mockRouter.replace).toHaveBeenCalledWith("/");
   });
 
   it("creates a task from the parsed title and dismisses the modal", () => {

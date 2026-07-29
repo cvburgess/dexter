@@ -1,4 +1,4 @@
-import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams } from "expo-router";
 import { useRef } from "react";
 import { Alert, Platform, ScrollView } from "react-native";
 
@@ -8,6 +8,7 @@ import { ModalScreen } from "@/components/ModalScreen";
 import { TaskForm } from "@/components/TaskForm";
 import { WebModalHeader } from "@/components/WebModalHeader";
 import { useLists } from "@/hooks/useLists";
+import { useModalClose } from "@/hooks/useModalClose";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTaskForm } from "@/hooks/useTaskForm";
 import { useTaskFormScroll } from "@/hooks/useTaskFormScroll";
@@ -43,7 +44,6 @@ export default function EditTaskScreen() {
 }
 
 function EditTaskForm({ task }: { task: TTask }) {
-  const router = useRouter();
   const [lists] = useLists();
   const [, { updateTask }] = useTasks({ skipQuery: true });
   const form = useTaskForm(lists, { task });
@@ -55,10 +55,7 @@ function EditTaskForm({ task }: { task: TTask }) {
   // to `/edit-task/<id>`, which leaves the stack holding only this screen — and
   // an unguarded `back()` there is an unhandled `GO_BACK` that makes ✕ look
   // dead and leaves ✓ writing the update without ever closing.
-  const handleClose = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace("/");
-  };
+  const handleClose = useModalClose("/");
 
   // One-shot, like the create modal: a double tap can't fire two writes. The
   // whole field set goes in one `updateTask` — `goalId` and `status` are not on

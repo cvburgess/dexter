@@ -30,13 +30,14 @@ jest.mock("@/hooks/useLists", () => ({
   ],
 }));
 
-// `canGoBack` decides between popping and replacing; default to "there is
-// something beneath us", which is every in-app entry into this modal.
+// `useModalClose` guards on `canDismiss` — not the global `canGoBack`, which
+// is also true when the only "back" available is a tab jump. Default to "there
+// is something beneath us", which is every in-app entry into this modal.
 const mockRouter = {
   back: jest.fn(),
   push: jest.fn(),
   replace: jest.fn(),
-  canGoBack: jest.fn(() => true),
+  canDismiss: jest.fn(() => true),
 };
 const mockNavigation = { setOptions: jest.fn() };
 const mockSearchParams: { current: Record<string, string> } = { current: {} };
@@ -104,7 +105,7 @@ const setTasks = (tasks: TTask[], isLoading = false) =>
 describe("EditTaskScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockRouter.canGoBack.mockReturnValue(true);
+    mockRouter.canDismiss.mockReturnValue(true);
     mockSearchParams.current = { id: "task-1" };
     mockUpdateTask.mockImplementation((_diff, callbacks) => {
       callbacks?.onSuccess?.();
@@ -346,7 +347,7 @@ describe("EditTaskScreen", () => {
   // modal, where `back()` is an unhandled GO_BACK: ✕ looks dead and ✓ writes
   // without ever closing. Mirrors settings/tasks/[id]'s guard.
   it("replaces rather than popping when there is nothing beneath it", () => {
-    mockRouter.canGoBack.mockReturnValue(false);
+    mockRouter.canDismiss.mockReturnValue(false);
     render(<EditTaskScreen />);
 
     const close = render(headerOptions().headerLeft());
@@ -357,7 +358,7 @@ describe("EditTaskScreen", () => {
   });
 
   it("closes after a save reached from a cold deep link", () => {
-    mockRouter.canGoBack.mockReturnValue(false);
+    mockRouter.canDismiss.mockReturnValue(false);
     render(<EditTaskScreen />);
 
     pressSave();

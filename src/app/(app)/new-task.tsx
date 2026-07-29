@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import { Alert, Platform, ScrollView, StyleSheet, Text } from "react-native";
 
@@ -12,6 +12,7 @@ import { TaskForm } from "@/components/TaskForm";
 import { TemplatePicker } from "@/components/TemplatePicker";
 import { WebModalHeader } from "@/components/WebModalHeader";
 import { useLists } from "@/hooks/useLists";
+import { useModalClose } from "@/hooks/useModalClose";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { useTaskForm } from "@/hooks/useTaskForm";
 import { useTaskFormScroll } from "@/hooks/useTaskFormScroll";
@@ -45,7 +46,6 @@ const showSaveError = () => {
 
 export default function NewTaskScreen() {
   const theme = useTheme();
-  const router = useRouter();
   const [lists, { isLoading: isLoadingLists }] = useLists();
   const [, { createTask }] = useTasks({ skipQuery: true });
   const [allTemplates, { isLoading: isLoadingTemplates }] = useTemplates();
@@ -65,13 +65,18 @@ export default function NewTaskScreen() {
   // form behind it yet, so there is nothing there to save.
   const canSave = form.canSave && !isLoadingLists && mode !== "ai";
 
-  const handleClose = () => router.back();
+  // Pops rather than navigating, so whatever the modal was opened over stays
+  // put. The guard covers the one case a push can't: a cold deep link straight
+  // to `/new-task`, which leaves the stack holding only this screen — an
+  // unguarded `back()` there is an unhandled `GO_BACK` that makes ✕ look dead
+  // and leaves ✓ creating the task without ever closing.
+  const handleClose = useModalClose("/");
 
   const handleSave = () => {
     if (hasSaved.current || !canSave) return;
     hasSaved.current = true;
     createTask(form.task, {
-      onSuccess: () => router.back(),
+      onSuccess: handleClose,
       onError: () => {
         hasSaved.current = false;
         showSaveError();
