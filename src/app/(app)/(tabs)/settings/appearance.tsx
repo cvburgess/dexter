@@ -1,4 +1,3 @@
-import { SymbolView } from "expo-symbols";
 import { ReactNode } from "react";
 import {
   ScrollView,
@@ -17,6 +16,7 @@ import {
   SegmentedControl,
   TSegmentedControlOption,
 } from "@/components/SegmentedControl";
+import { Icon } from "@/components/Icon";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -24,7 +24,7 @@ import {
   EDGES_SINGLE_PANE,
   EDGES_TWO_PANE,
 } from "@/utils/settingsSafeAreaEdges";
-import { Theme, THEMES, themes, useTheme, withOpacity } from "@/utils/theme";
+import { Theme, THEMES, themes, useTheme } from "@/utils/theme";
 
 const MODE_OPTIONS: TSegmentedControlOption<EThemeMode>[] = [
   { value: EThemeMode.SYSTEM, label: "System" },
@@ -57,9 +57,12 @@ export default function AppearanceScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            padding: theme.spacing,
-            paddingBottom: theme.spacing + insets.bottom,
-            gap: theme.spacing,
+            padding: theme.space.md,
+            paddingBottom: theme.space.md + insets.bottom,
+            // `lg` between sections, `xs` within one (`Section`): the groups had
+            // been separated by the same step that separated a title from its
+            // own content, so nothing read as grouped (DEX-61).
+            gap: theme.space.lg,
           },
         ]}
       >
@@ -111,8 +114,10 @@ export default function AppearanceScreen() {
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
+  const theme = useTheme();
+
   return (
-    <View style={styles.section}>
+    <View style={{ gap: theme.space.xs }}>
       <SettingsSectionTitle>{title}</SettingsSectionTitle>
       {children}
     </View>
@@ -151,35 +156,41 @@ function ThemeCard({
         styles.card,
         {
           backgroundColor: palette.colors.card,
-          borderRadius: uiTheme.borderRadius,
+          borderRadius: uiTheme.radii.md,
           borderColor: selected
             ? uiTheme.colors.primary
-            : withOpacity(uiTheme.colors.text, 0.1),
+            : uiTheme.colors.border,
           borderWidth: selected ? 2 : StyleSheet.hairlineWidth,
+          gap: uiTheme.space.sm,
+          padding: uiTheme.space.sm,
         },
       ]}
       testID={`appearance-theme-${name}`}
     >
-      <View style={styles.swatches}>
+      <View style={[styles.swatches, { gap: uiTheme.space.xs }]}>
         {swatches.map((color, i) => (
           <View
             key={i}
             style={[
               styles.swatch,
-              { backgroundColor: color, borderRadius: uiTheme.borderRadius },
+              {
+                backgroundColor: color,
+                borderRadius: uiTheme.radii.md,
+                height: uiTheme.controls.sm,
+              },
             ]}
           />
         ))}
       </View>
       <View style={styles.cardFooter}>
-        <Text style={[styles.cardLabel, { color: palette.colors.text }]}>
+        <Text style={[uiTheme.fonts.title, { color: palette.colors.text }]}>
           {label}
         </Text>
         {selected && (
-          <SymbolView
-            name="checkmark.circle.fill"
-            size={18}
-            tintColor={uiTheme.colors.primary}
+          <Icon
+            sf="checkmark.circle.fill"
+            ionicon="checkmark-circle"
+            color={uiTheme.colors.primary}
           />
         )}
       </View>
@@ -189,40 +200,30 @@ function ThemeCard({
 
 const styles = StyleSheet.create({
   card: {
-    gap: 10,
+    // Wide enough for the longest theme name beside its checkmark; the swatch
+    // row below it has no intrinsic width of its own.
     minWidth: 140,
     overflow: "hidden",
-    padding: 12,
   },
   cardFooter: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  cardLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
   cards: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12,
   },
   content: {
     flexGrow: 1,
-  },
-  section: {
-    gap: 10,
   },
   screen: {
     flex: 1,
   },
   swatch: {
     flex: 1,
-    height: 28,
   },
   swatches: {
     flexDirection: "row",
-    gap: 6,
   },
 });

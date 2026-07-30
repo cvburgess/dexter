@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { useTheme } from "@/utils/theme";
+import { Theme, useTheme, withOpacity } from "@/utils/theme";
 
 import {
   type ConfirmationActionRole,
@@ -50,7 +50,7 @@ export function ConfirmationModal(props: ConfirmationModalProps) {
   return (
     // A plain div for the backdrop: `position: fixed` is web-only and outside
     // React Native's style types (same approach as DateField.web's popover).
-    <div style={BACKDROP_STYLE} onClick={onClose}>
+    <div style={backdropStyle(theme)} onClick={onClose}>
       <div
         style={CARD_WRAPPER_STYLE}
         // The card is inside the backdrop, so a click on it would otherwise
@@ -62,37 +62,44 @@ export function ConfirmationModal(props: ConfirmationModalProps) {
             styles.container,
             {
               backgroundColor: theme.colors.card,
-              borderRadius: theme.borderRadius,
+              borderRadius: theme.radii.md,
+              // Derived from `text`, not a fixed black: a shadow tuned for a
+              // light surface is invisible on a dark one (DEX-61).
+              boxShadow: `0px 2px 8px ${withOpacity(theme.colors.text, 0.25)}`,
+              padding: theme.space.md,
             },
           ]}
         >
           <Text
             style={[
-              styles.title,
-              { color: theme.colors.text, marginBottom: theme.spacing / 2 },
+              theme.fonts.title,
+              { color: theme.colors.text, marginBottom: theme.space.sm },
             ]}
           >
             {title}
           </Text>
           <Text
             style={[
-              styles.message,
+              theme.fonts.body,
               {
                 color: theme.colors.textSecondary,
-                marginBottom: theme.spacing,
+                marginBottom: theme.space.md,
               },
             ]}
           >
             {message}
           </Text>
-          <View style={[styles.buttons, { marginTop: theme.spacing / 2 }]}>
+          <View style={[styles.buttons, { marginTop: theme.space.sm }]}>
             {actions.map((action, index) => (
               <TouchableOpacity
                 key={`${action.label}-${index}`}
                 style={[
-                  styles.button,
+                  {
+                    paddingVertical: theme.space.sm,
+                    paddingHorizontal: theme.space.xs,
+                  },
                   index < actions.length - 1
-                    ? { marginRight: theme.spacing }
+                    ? { marginRight: theme.space.md }
                     : null,
                 ]}
                 onPress={() => {
@@ -102,7 +109,7 @@ export function ConfirmationModal(props: ConfirmationModalProps) {
               >
                 <Text
                   style={[
-                    styles.buttonText,
+                    theme.fonts.title,
                     {
                       color: colorForRole(action.role),
                       fontWeight: action.role === "cancel" ? "400" : "600",
@@ -120,42 +127,33 @@ export function ConfirmationModal(props: ConfirmationModalProps) {
   );
 }
 
-const BACKDROP_STYLE = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 9999,
-  backgroundColor: "rgba(0, 0, 0, 0.5)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 40,
-} as const;
+/**
+ * Dims the page with the app's *own* background rather than a fixed black wash:
+ * a black scrim all but disappears over a dark theme's surface, while the
+ * background color always pushes the page back a step on either scheme
+ * (DEX-61).
+ */
+const backdropStyle = (theme: Theme) =>
+  ({
+    position: "fixed",
+    inset: 0,
+    zIndex: 9999,
+    backgroundColor: withOpacity(theme.colors.background, 0.85),
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: theme.space.lg,
+  }) as const;
 
 const CARD_WRAPPER_STYLE = { width: "100%", maxWidth: 400 } as const;
 
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    padding: 20,
-    boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.25)",
     elevation: 5,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  message: {
-    fontSize: 14,
   },
   buttons: {
     flexDirection: "row",
     justifyContent: "flex-end",
-  },
-  button: {
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  buttonText: {
-    fontSize: 16,
   },
 });

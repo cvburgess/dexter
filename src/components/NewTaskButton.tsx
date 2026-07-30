@@ -25,12 +25,19 @@ export function NewTaskButton() {
     <TouchableOpacity
       accessibilityLabel="New Task"
       accessibilityRole="button"
-      style={[styles.button, { backgroundColor: theme.colors.primary }]}
+      style={[
+        styles.button,
+        {
+          backgroundColor: theme.colors.primary,
+          borderRadius: theme.radii.full,
+        },
+      ]}
       onPress={openNewTask}
     >
       <Text
         style={[
-          placement === "inline" ? styles.inlineLabel : styles.label,
+          // The inline slot beside a minimized tab bar has room for less.
+          placement === "inline" ? theme.fonts.caption : theme.fonts.title,
           { color: theme.colors.primaryContent },
         ]}
       >
@@ -43,16 +50,7 @@ export function NewTaskButton() {
 const styles = StyleSheet.create({
   button: {
     alignItems: "center",
-    borderRadius: 999,
     flex: 1,
     justifyContent: "center",
-  },
-  inlineLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "600",
   },
 });

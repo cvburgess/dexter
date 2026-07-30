@@ -1,8 +1,9 @@
-import { SymbolView } from "expo-symbols";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { ETaskPriority } from "@/api/tasks";
 import { Theme, useTheme } from "@/utils/theme";
+
+import { Icon } from "./Icon";
 
 type TPriorityControlProps = {
   priority: ETaskPriority;
@@ -17,26 +18,22 @@ export const PRIORITY_OPTIONS = [
   {
     label: "Urgent",
     value: ETaskPriority.URGENT,
-    icon: { ios: "alarm", android: "alarm", web: "alarm" },
+    icon: { sf: "alarm", ionicon: "alarm-outline" },
   },
   {
     label: "Important",
     value: ETaskPriority.IMPORTANT,
-    icon: { ios: "star", android: "star", web: "star" },
+    icon: { sf: "star", ionicon: "star-outline" },
   },
   {
     label: "Important & Urgent",
     value: ETaskPriority.IMPORTANT_AND_URGENT,
-    icon: {
-      ios: "flame",
-      android: "local_fire_department",
-      web: "local_fire_department",
-    },
+    icon: { sf: "flame", ionicon: "flame-outline" },
   },
   {
     label: "Neither",
     value: ETaskPriority.NEITHER,
-    icon: { ios: "umbrella", android: "umbrella", web: "umbrella" },
+    icon: { sf: "umbrella", ionicon: "umbrella-outline" },
   },
 ] as const;
 
@@ -103,6 +100,13 @@ export function PriorityControl({
             key={option.value}
             style={[
               styles.option,
+              {
+                borderRadius: theme.radii.full,
+                // Wider than it is tall, so four chips read as one segmented
+                // control rather than four circles.
+                paddingHorizontal: theme.space.md,
+                paddingVertical: theme.space.sm,
+              },
               isSelected && { backgroundColor: selected.background },
             ]}
             onPress={() =>
@@ -111,7 +115,7 @@ export function PriorityControl({
               )
             }
           >
-            <SymbolView name={option.icon} size={20} tintColor={iconColor} />
+            <Icon {...option.icon} color={iconColor} />
           </TouchableOpacity>
         );
       })}
@@ -122,10 +126,7 @@ export function PriorityControl({
 const styles = StyleSheet.create({
   option: {
     alignItems: "center",
-    borderRadius: 999,
     justifyContent: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 6,
   },
   row: {
     alignItems: "center",

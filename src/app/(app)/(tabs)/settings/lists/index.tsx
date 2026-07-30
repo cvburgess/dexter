@@ -73,28 +73,38 @@ export default function ListsScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            padding: theme.spacing,
-            paddingBottom: theme.spacing + insets.bottom,
-            gap: theme.spacing,
+            padding: theme.space.md,
+            paddingBottom: theme.space.md + insets.bottom,
+            // `lg` between sections, `xs` within one (`styles.section`): the
+            // groups had been separated by the same step that separated a
+            // title from its own content, so nothing read as grouped (DEX-61).
+            gap: theme.space.lg,
           },
         ]}
       >
-        <View style={styles.section}>
+        <View style={{ gap: theme.space.xs }}>
           <SettingsSectionTitle>Lists</SettingsSectionTitle>
           {lists.length === 0 ? (
-            <Text style={[styles.empty, { color: theme.colors.textSecondary }]}>
+            <Text
+              style={[
+                theme.fonts.body,
+                { paddingVertical: theme.space.sm },
+                { color: theme.colors.textSecondary },
+              ]}
+            >
               Tap ＋ to create your first list.
             </Text>
           ) : (
-            <View style={{ gap: theme.gap }}>
+            <View style={{ gap: theme.space.sm }}>
               {lists.map((list) => (
                 <View
                   key={list.id}
                   style={[
                     styles.card,
+                    { paddingHorizontal: theme.space.md },
                     {
                       backgroundColor: theme.colors.card,
-                      borderRadius: theme.borderRadius,
+                      borderRadius: theme.radii.md,
                     },
                   ]}
                 >
@@ -121,13 +131,5 @@ const styles = StyleSheet.create({
   },
   card: {
     overflow: "hidden",
-    paddingHorizontal: 16,
-  },
-  empty: {
-    fontSize: 14,
-    paddingVertical: 8,
-  },
-  section: {
-    gap: 10,
   },
 });

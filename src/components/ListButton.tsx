@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { TList } from "@/api/lists";
 import { useLists } from "@/hooks/useLists";
-import { withOpacity } from "@/utils/theme";
+import { useTheme, withOpacity } from "@/utils/theme";
 
 import { IconMenu, TIconMenuSection } from "./IconMenu";
 
@@ -17,24 +17,34 @@ export function ListButton({
   contentColor,
   onChangeList,
 }: TListButtonProps) {
+  const theme = useTheme();
   const [lists, { getListById }] = useLists();
   const selectedList = getListById(listId);
   const sections = getListSections(lists, listId, onChangeList);
+  // Pin the trigger to the button's size so the menu wrapper can never
+  // influence the task card row's height.
+  const box = { height: theme.controls.sm, width: theme.controls.sm };
 
   return (
     <IconMenu
       accessibilityLabel="List"
       menuTitle="List"
       sections={sections}
-      style={styles.menu}
+      style={box}
     >
       <View
         style={[
           styles.button,
-          { borderColor: withOpacity(contentColor, 0.25) },
+          box,
+          {
+            // Content-derived, like the status circle: a neutral hairline would
+            // wash out against the priority fill behind it.
+            borderColor: withOpacity(contentColor, 0.25),
+            borderRadius: theme.radii.full,
+          },
         ]}
       >
-        <Text style={styles.glyph}>
+        <Text style={{ fontSize: theme.fonts.title.fontSize }}>
           {selectedList ? selectedList.emoji : "🚫"}
         </Text>
       </View>
@@ -66,21 +76,9 @@ export const getListSections = (
 ];
 
 const styles = StyleSheet.create({
-  // Pin the trigger to the button's size so the menu wrapper can never
-  // influence the task card row's height.
-  menu: {
-    height: 32,
-    width: 32,
-  },
   button: {
     alignItems: "center",
-    borderRadius: 999,
     borderWidth: 1,
-    height: 32,
     justifyContent: "center",
-    width: 32,
-  },
-  glyph: {
-    fontSize: 16,
   },
 });

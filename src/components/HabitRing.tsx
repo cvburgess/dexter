@@ -143,7 +143,10 @@ export function HabitRing({
           can't bleed past the ring. */}
       <View style={styles.emojiWrap} pointerEvents="none">
         <Animated.View style={[styles.glyph, { opacity: emojiOpacity }]}>
-          <Text style={styles.emoji} numberOfLines={1}>
+          <Text
+            style={[styles.emoji, { fontSize: theme.icons.sm }]}
+            numberOfLines={1}
+          >
             {emoji}
           </Text>
         </Animated.View>
@@ -180,7 +183,6 @@ const styles = StyleSheet.create({
     width: SIZE,
   },
   emoji: {
-    fontSize: 14,
     textAlign: "center",
   },
   emojiWrap: {

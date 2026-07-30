@@ -12,6 +12,7 @@ import { useConfirmation } from "@/hooks/useConfirmation";
 import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
 import { selectTasksForDate } from "@/utils/taskFilters";
+import { useTheme } from "@/utils/theme";
 
 type TDayTaskListProps = {
   date: Temporal.PlainDate;
@@ -46,6 +47,7 @@ export function DayTaskList({
   inset = true,
 }: TDayTaskListProps) {
   const { confirm, confirmationProps } = useConfirmation();
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [allTasks, { isLoading, updateTask, createTask, deleteTask }] =
     useTasks();
@@ -102,9 +104,9 @@ export function DayTaskList({
           // shape as EmptyScreen's own inset, so the list and the empty state
           // that replaces it land on the same baseline.
           contentContainerStyle={[
-            styles.list,
+            { gap: theme.space.sm, padding: theme.space.md },
             !inset && styles.listFlush,
-            { paddingBottom: 16 + insets.bottom },
+            { paddingBottom: theme.space.md + insets.bottom },
           ]}
         >
           {tasks.map((item) => (
@@ -129,10 +131,6 @@ const styles = StyleSheet.create({
   // scroll when they overflow, instead of being clipped.
   scroll: {
     flex: 1,
-  },
-  list: {
-    gap: 8,
-    padding: 16,
   },
   // Drops only the side gutter — the vertical padding above the first card and
   // below the last (which carries the tab-bar inset) still applies.

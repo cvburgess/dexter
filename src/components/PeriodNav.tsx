@@ -41,13 +41,24 @@ export function PeriodNav({
   const theme = useTheme();
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        { paddingVertical: theme.space.sm },
+        { paddingVertical: theme.space.sm },
+      ]}
+    >
       <TouchableOpacity
         accessibilityLabel={prevLabel}
         onPress={onPrev}
-        style={styles.arrow}
+        style={{
+          paddingHorizontal: theme.space.md,
+          paddingVertical: theme.space.sm,
+        }}
       >
-        <Text style={[styles.arrowText, { color: theme.colors.text }]}>‹</Text>
+        <Text style={[theme.fonts.heading, { color: theme.colors.text }]}>
+          ‹
+        </Text>
       </TouchableOpacity>
       <View style={styles.center} testID="period-nav-center">
         {children}
@@ -55,9 +66,14 @@ export function PeriodNav({
       <TouchableOpacity
         accessibilityLabel={nextLabel}
         onPress={onNext}
-        style={styles.arrow}
+        style={{
+          paddingHorizontal: theme.space.md,
+          paddingVertical: theme.space.sm,
+        }}
       >
-        <Text style={[styles.arrowText, { color: theme.colors.text }]}>›</Text>
+        <Text style={[theme.fonts.heading, { color: theme.colors.text }]}>
+          ›
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -68,7 +84,11 @@ export function PeriodNavLabel({ children }: { children: ReactNode }) {
   const theme = useTheme();
 
   return (
-    <Text style={[styles.label, { color: theme.colors.text }]}>{children}</Text>
+    <Text
+      style={[theme.fonts.title, styles.label, { color: theme.colors.text }]}
+    >
+      {children}
+    </Text>
   );
 }
 
@@ -77,15 +97,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-  },
-  arrow: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-  },
-  arrowText: {
-    fontSize: 24,
-    fontWeight: "600",
   },
   // The default `alignItems: "stretch"` is load-bearing: it hands the full slot
   // width to whatever the caller puts here, so a tappable label's hit area is
@@ -94,8 +105,6 @@ const styles = StyleSheet.create({
     minWidth: 160,
   },
   label: {
-    fontSize: 16,
-    fontWeight: "600",
     textAlign: "center",
   },
 });

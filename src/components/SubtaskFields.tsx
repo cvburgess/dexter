@@ -6,8 +6,7 @@ import { useTheme } from "@/utils/theme";
 
 import { EditableText } from "./EditableText";
 import { FormRow } from "./FormRow";
-import { SUBTASK_GAP, SubtaskConnectors } from "./SubtaskConnector";
-import { SUBTASK_ROW_HEIGHT, SUBTASK_STATUS_SIZE } from "./SubtaskRow";
+import { subtaskGeometry, SubtaskConnectors } from "./SubtaskConnector";
 
 /**
  * The minimum a row needs to be edited here. Generic over the rest so this
@@ -57,6 +56,7 @@ export function SubtaskFields<S extends TEditableRow>({
   testIDPrefix,
 }: TSubtaskFieldsProps<S>) {
   const theme = useTheme();
+  const checklist = subtaskGeometry(theme);
   const [editingId, setEditingId] = useState<string | null>(null);
   // The title a row had when its edit began. Keystrokes are mirrored into form
   // state live (so Save never loses them), which overwrites the stored title —
@@ -119,20 +119,20 @@ export function SubtaskFields<S extends TEditableRow>({
 
   return (
     <>
-      <FormRow label="Subtasks" minHeight={32}>
+      <FormRow label="Subtasks" minHeight={theme.controls.sm}>
         <TouchableOpacity
           accessibilityRole="button"
           testID={`${testIDPrefix}-add-subtask`}
           onPress={addRow}
         >
-          <Text style={[styles.action, { color: theme.colors.primary }]}>
+          <Text style={[theme.fonts.body, { color: theme.colors.primary }]}>
             Add subtask
           </Text>
         </TouchableOpacity>
       </FormRow>
 
       {value.length > 0 && (
-        <View style={styles.rows}>
+        <View style={{ gap: checklist.gap }}>
           {/* The rail links the rows to each other only: the row above them is
               a section heading, not a parent task. */}
           <SubtaskConnectors
@@ -143,11 +143,23 @@ export function SubtaskFields<S extends TEditableRow>({
             inset={0}
           />
           {value.map((row) => (
-            <View key={row.id} style={styles.row}>
+            <View
+              key={row.id}
+              style={[
+                styles.row,
+                // Matching `SubtaskRow`, so titles line up with a saved checklist's.
+                { gap: theme.space.md, height: checklist.rowHeight },
+              ]}
+            >
               <View
                 style={[
                   styles.marker,
-                  { borderColor: theme.colors.textSecondary },
+                  {
+                    borderColor: theme.colors.textSecondary,
+                    borderRadius: theme.radii.full,
+                    height: checklist.statusSize,
+                    width: checklist.statusSize,
+                  },
                 ]}
               />
               <EditableText
@@ -166,7 +178,7 @@ export function SubtaskFields<S extends TEditableRow>({
                 maxLength={SUBTASK_TITLE_MAX_LENGTH}
                 placeholder="Subtask"
                 testID={`${testIDPrefix}-subtask-${row.id}`}
-                style={[styles.title, { color: theme.colors.text }]}
+                style={[theme.fonts.body, { color: theme.colors.text }]}
               />
               <TouchableOpacity
                 accessibilityRole="button"
@@ -175,7 +187,13 @@ export function SubtaskFields<S extends TEditableRow>({
                 onPress={() => removeRow(row.id)}
               >
                 <Text
-                  style={[styles.remove, { color: theme.colors.textSecondary }]}
+                  style={[
+                    theme.fonts.body,
+                    {
+                      color: theme.colors.textSecondary,
+                      paddingHorizontal: theme.space.xs,
+                    },
+                  ]}
                 >
                   ✕
                 </Text>
@@ -188,37 +206,18 @@ export function SubtaskFields<S extends TEditableRow>({
   );
 }
 
+// Rows are not indented, and sit on the card checklist's exact geometry
+// (`subtaskGeometry`, which the rail is positioned from too): a form row should
+// look like the subtask it is about to become, not like a sub-field of the row
+// above it.
 const styles = StyleSheet.create({
-  action: {
-    fontSize: 14,
-  },
-  // Not indented, and on the card checklist's exact geometry (`SubtaskConnector`
-  // positions the rail from the same numbers): a form row should look like the
-  // subtask it is about to become, not like a sub-field of the row above it.
-  rows: {
-    gap: SUBTASK_GAP,
-  },
   row: {
     alignItems: "center",
     flexDirection: "row",
-    // 12 to match SubtaskRow, so titles line up with a saved checklist's.
-    gap: 12,
-    height: SUBTASK_ROW_HEIGHT,
   },
   // The circle StatusButton draws for a TODO subtask, but inert: a row here is
   // a value being composed, and has no status to toggle yet.
   marker: {
-    borderRadius: 999,
     borderWidth: 1,
-    height: SUBTASK_STATUS_SIZE,
-    width: SUBTASK_STATUS_SIZE,
-  },
-  // No `flex: 1` — EditableText's wrapper owns that; see its stylesheet.
-  title: {
-    fontSize: 14,
-  },
-  remove: {
-    fontSize: 14,
-    paddingHorizontal: 4,
   },
 });

@@ -6,6 +6,10 @@ import { Theme } from "./theme";
  * Options for a standard list/detail screen with a visible header, themed so
  * the navigation header and screen body follow the active color scheme. Without
  * this, a bare `<Stack>` renders the default (light) header even in dark mode.
+ *
+ * The header sits on `background`, not `card`: on `card` it read as a white bar
+ * above a cream body in the light themes, and on a large screen it also had to
+ * sit flush beside the settings sidebar (DEX-61).
  */
 export function createListScreenOptions(
   theme: Theme,
@@ -14,7 +18,7 @@ export function createListScreenOptions(
   return {
     title,
     headerTintColor: theme.colors.text,
-    headerStyle: { backgroundColor: theme.colors.card },
+    headerStyle: { backgroundColor: theme.colors.background },
     contentStyle: { backgroundColor: theme.colors.background },
   };
 }
@@ -35,7 +39,7 @@ export function createModalScreenOptions(
     presentation: "formSheet",
     headerShown: true,
     headerTintColor: theme.colors.text,
-    headerStyle: { backgroundColor: theme.colors.card },
+    headerStyle: { backgroundColor: theme.colors.background },
     contentStyle: { backgroundColor: theme.colors.background },
   };
 }

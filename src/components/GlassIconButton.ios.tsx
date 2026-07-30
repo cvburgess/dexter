@@ -1,14 +1,12 @@
 import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
-import { SymbolView } from "expo-symbols";
 import { ReactNode } from "react";
 import { StyleSheet, View } from "react-native";
 
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 import { finishButton, indicatorLabel } from "./GlassIconButton.indicator";
 import { TGlassIconButtonProps } from "./GlassIconButton.types";
-
-const DEFAULT_SIZE = 40;
+import { Icon } from "./Icon";
 
 /**
  * iOS circular action button using Apple's liquid glass (`expo-glass-effect`),
@@ -19,19 +17,30 @@ const DEFAULT_SIZE = 40;
  */
 export function GlassIconButton({
   sfSymbol,
+  ionicon,
   accessibilityLabel,
-  size = DEFAULT_SIZE,
+  size,
   onPress,
   active,
   indicator,
 }: TGlassIconButtonProps) {
   const theme = useTheme();
-  const circle = { width: size, height: size, borderRadius: size / 2 };
+  const diameter = size ?? theme.controls.md;
+  const circle = {
+    width: diameter,
+    height: diameter,
+    borderRadius: theme.radii.full,
+  };
   // Only an explicit `active={false}` switches away from the default primary
   // tint — `undefined` and `true` both resolve to it.
   const tintColor = active === false ? theme.colors.text : theme.colors.primary;
   const icon = (
-    <SymbolView name={sfSymbol} size={size * 0.5} tintColor={tintColor} />
+    <Icon
+      sf={sfSymbol}
+      ionicon={ionicon}
+      size={diameter * 0.5}
+      color={tintColor}
+    />
   );
 
   const label = indicatorLabel(accessibilityLabel, indicator);
@@ -56,7 +65,7 @@ export function GlassIconButton({
         circle,
         {
           backgroundColor: theme.colors.card,
-          borderColor: withOpacity(theme.colors.text, 0.1),
+          borderColor: theme.colors.border,
         },
       ]}
     >

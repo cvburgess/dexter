@@ -20,8 +20,22 @@ export function EmptyScreen({ message, children }: TEmptyScreenProps) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { paddingBottom: 24 + insets.bottom }]}>
-      <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          gap: theme.space.sm,
+          padding: theme.space.lg,
+          paddingBottom: theme.space.lg + insets.bottom,
+        },
+      ]}
+    >
+      <Text
+        style={[
+          styles.message,
+          { ...theme.fonts.body, color: theme.colors.textSecondary },
+        ]}
+      >
         {message}
       </Text>
       {children}
@@ -33,9 +47,7 @@ const styles = StyleSheet.create({
   container: {
     alignItems: "center",
     flex: 1,
-    gap: 12,
     justifyContent: "center",
-    padding: 24,
   },
-  message: { fontSize: 15, textAlign: "center" },
+  message: { textAlign: "center" },
 });

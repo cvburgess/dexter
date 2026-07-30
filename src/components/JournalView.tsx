@@ -86,6 +86,7 @@ function JournalEditor({
   upsertJournalAsync,
   onEditingChange,
 }: TJournalEditorProps) {
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
 
   // Track the latest per-index text so a save can rebuild the whole array,
@@ -174,10 +175,11 @@ function JournalEditor({
       automaticallyAdjustKeyboardInsets
       // The host's SafeAreaView omits "bottom" (the tab bar owns that inset),
       // so the content reserves it here — see docs/frontend.md.
-      contentContainerStyle={[
-        styles.list,
-        { paddingBottom: 16 + insets.bottom },
-      ]}
+      contentContainerStyle={{
+        gap: theme.space.lg,
+        padding: theme.space.md,
+        paddingBottom: theme.space.md + insets.bottom,
+      }}
       keyboardShouldPersistTaps="handled"
     >
       {prompts.map(({ prompt, response }, index) => (
@@ -223,17 +225,19 @@ function JournalResponseField({
 }: TJournalResponseFieldProps) {
   const theme = useTheme();
   const [height, setHeight] = useState(() =>
-    responseHeight(response.split("\n").length, theme.spacing),
+    responseHeight(response.split("\n").length, theme.space.md),
   );
 
   const handleChangeText = (text: string) => {
-    setHeight(responseHeight(text.split("\n").length, theme.spacing));
+    setHeight(responseHeight(text.split("\n").length, theme.space.md));
     onChangeText(text);
   };
 
   return (
-    <View style={styles.row}>
-      <Text style={[styles.label, { color: theme.colors.text }]}>{prompt}</Text>
+    <View style={{ gap: theme.space.sm }}>
+      <Text style={[theme.fonts.title, { color: theme.colors.text }]}>
+        {prompt}
+      </Text>
       <TextInput
         accessibilityLabel={prompt}
         defaultValue={response}
@@ -253,16 +257,5 @@ function JournalResponseField({
 const styles = StyleSheet.create({
   scroll: {
     flex: 1,
-  },
-  list: {
-    gap: 20,
-    padding: 16,
-  },
-  row: {
-    gap: 8,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "600",
   },
 });

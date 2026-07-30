@@ -107,7 +107,7 @@ export function HabitTracker({
         onPress={() => router.push("/settings/habits")}
         style={styles.empty}
       >
-        <Text style={[styles.emptyText, { color: theme.colors.primary }]}>
+        <Text style={[theme.fonts.body, { color: theme.colors.primary }]}>
           Create a habit
         </Text>
       </TouchableOpacity>
@@ -126,7 +126,11 @@ export function HabitTracker({
       horizontal
       showsHorizontalScrollIndicator={false}
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        { gap: theme.space.sm, paddingHorizontal: theme.space.md },
+        { gap: theme.space.sm, paddingHorizontal: theme.space.md },
+      ]}
     >
       {isFutureDate
         ? habits.map((habit) => (
@@ -159,16 +163,11 @@ const styles = StyleSheet.create({
   content: {
     alignItems: "center",
     flexGrow: 1,
-    gap: 14,
     justifyContent: "center",
-    paddingHorizontal: 16,
   },
   empty: {
     alignItems: "center",
     height: TRACKER_HEIGHT,
     justifyContent: "center",
-  },
-  emptyText: {
-    fontSize: 14,
   },
 });

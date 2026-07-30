@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { ScrollView, StyleSheet } from "react-native";
+import { ScrollView } from "react-native";
 
 import { useTheme } from "@/utils/theme";
 
@@ -44,13 +44,15 @@ export function useTaskFormScroll(): TTaskFormScroll {
       // covers stay reachable. Android resizes the window instead (Expo's
       // default softwareKeyboardLayoutMode), and web has no overlay keyboard.
       automaticallyAdjustKeyboardInsets: true,
-      contentContainerStyle: [
-        styles.container,
-        // `spacing`, not `gap`: the rows are labelled sections rather than
-        // controls in a group, and want more air between them than the theme's
-        // in-group gap gives.
-        { gap: theme.spacing, padding: theme.spacing },
-      ],
+      // `md`, not `sm`: the rows are labelled sections rather than controls in a
+      // group, and want more air between them than the in-group gap gives. The
+      // heavier bottom padding clears the sheet's edge, so the last field isn't
+      // flush against it.
+      contentContainerStyle: {
+        gap: theme.space.md,
+        padding: theme.space.md,
+        paddingBottom: theme.space.lg,
+      },
       keyboardShouldPersistTaps: "handled",
       // A subtask row is added and autofocused in one go, so it has to be on
       // screen before the user types. Subtasks are the last field, making the
@@ -66,9 +68,3 @@ export function useTaskFormScroll(): TTaskFormScroll {
     },
   };
 }
-
-const styles = StyleSheet.create({
-  container: {
-    paddingBottom: 32,
-  },
-});

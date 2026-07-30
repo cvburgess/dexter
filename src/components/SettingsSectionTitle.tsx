@@ -20,7 +20,10 @@ export function SettingsSectionTitle({
 
   return (
     <Text
-      style={[styles.title, { color: theme.colors.textSecondary }]}
+      style={[
+        styles.title,
+        { ...theme.fonts.caption, color: theme.colors.textSecondary },
+      ]}
       testID={testID}
     >
       {children}
@@ -30,8 +33,6 @@ export function SettingsSectionTitle({
 
 const styles = StyleSheet.create({
   title: {
-    fontSize: 13,
-    fontWeight: "600",
     textTransform: "uppercase",
   },
 });

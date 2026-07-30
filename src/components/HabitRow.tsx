@@ -25,7 +25,16 @@ export function HabitRow({ habit, updateHabit }: THabitRowProps) {
     // A plain View, not a Touchable: the row hosts two separate tap targets
     // (edit + pause). Nesting one Touchable inside another renders as a
     // <button> inside a <button> on web, which is invalid DOM.
-    <View style={[styles.row, { opacity: habit.isPaused ? 0.5 : 1 }]}>
+    <View
+      style={[
+        styles.row,
+        {
+          gap: theme.space.sm,
+          opacity: habit.isPaused ? 0.5 : 1,
+          paddingVertical: theme.space.sm,
+        },
+      ]}
+    >
       <TouchableOpacity
         accessibilityRole="button"
         accessibilityLabel={`Edit ${habit.title}`}
@@ -35,30 +44,32 @@ export function HabitRow({ habit, updateHabit }: THabitRowProps) {
             params: { id: habit.id },
           })
         }
-        style={styles.main}
+        style={[styles.main, { gap: theme.space.sm }]}
       >
         <View
           style={[
             styles.tile,
             {
               backgroundColor: withOpacity(theme.colors.text, 0.06),
-              borderRadius: theme.borderRadius,
+              borderRadius: theme.radii.md,
+              height: theme.controls.md,
+              width: theme.controls.md,
             },
           ]}
         >
-          <Text style={styles.emoji}>{habit.emoji}</Text>
+          <Text style={{ fontSize: theme.icons.md }}>{habit.emoji}</Text>
         </View>
 
-        <View style={styles.labels}>
+        <View style={[styles.labels, { gap: theme.space.xs }]}>
           <Text
             numberOfLines={1}
-            style={[styles.title, { color: theme.colors.text }]}
+            style={[theme.fonts.title, { color: theme.colors.text }]}
           >
             {habit.title}
           </Text>
           <Text
             numberOfLines={1}
-            style={[styles.subtitle, { color: theme.colors.textSecondary }]}
+            style={[theme.fonts.caption, { color: theme.colors.textSecondary }]}
           >
             {subtitle}
           </Text>
@@ -68,59 +79,46 @@ export function HabitRow({ habit, updateHabit }: THabitRowProps) {
       <TouchableOpacity
         accessibilityRole="button"
         accessibilityLabel={habit.isPaused ? "Resume habit" : "Pause habit"}
-        hitSlop={8}
+        hitSlop={theme.space.sm}
         onPress={() => updateHabit({ id: habit.id, isPaused: !habit.isPaused })}
-        style={styles.pause}
+        style={[
+          styles.pause,
+          { height: theme.controls.md, width: theme.controls.sm },
+        ]}
       >
         <Ionicons
           color={theme.colors.textSecondary}
           name={habit.isPaused ? "play" : "pause"}
-          size={20}
+          size={theme.icons.md}
         />
       </TouchableOpacity>
     </View>
   );
 }
 
-const TILE_SIZE = 40;
-
 const styles = StyleSheet.create({
-  emoji: {
-    fontSize: 20,
-  },
   labels: {
     flex: 1,
-    gap: 2,
   },
   main: {
     alignItems: "center",
     flex: 1,
     flexDirection: "row",
-    gap: 12,
   },
+  // As tall as the emoji tile beside it, so the toggle centers on the row
+  // rather than on its own label block; narrower, since it holds one glyph.
   pause: {
     alignItems: "center",
-    height: TILE_SIZE,
     justifyContent: "center",
-    width: 32,
   },
   row: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 12,
-    paddingVertical: 8,
   },
-  subtitle: {
-    fontSize: 13,
-  },
+  // The emoji is this row's leading icon, so it takes the icon scale rather
+  // than a type role — see `docs/design.md`.
   tile: {
     alignItems: "center",
-    height: TILE_SIZE,
     justifyContent: "center",
-    width: TILE_SIZE,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: "500",
   },
 });

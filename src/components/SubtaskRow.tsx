@@ -3,32 +3,22 @@ import { StyleSheet, Text, View } from "react-native";
 import { ETaskStatus, TSubtask } from "@/api/tasks";
 import { SUBTASK_TITLE_MAX_LENGTH } from "@/utils/subtasks";
 import { isCompletionStatus } from "@/utils/taskFilters";
-import { withOpacity } from "@/utils/theme";
+import { useTheme, withOpacity } from "@/utils/theme";
 
 import { EditableText } from "./EditableText";
 import { IconMenu } from "./IconMenu";
 import type { TIconMenuSection } from "./IconMenu.types";
 import { StatusButton } from "./StatusButton";
-
-// Subordinate to the parent's 32px status button, so the nesting reads at a
-// glance. Also the size the `⋯` menu host is pinned to, hence one constant
-// rather than a literal per call site. Exported because TaskCard draws the
-// connector rail between the circles and has to know where they sit.
-export const SUBTASK_STATUS_SIZE = 24;
-const STATUS_SIZE = SUBTASK_STATUS_SIZE;
-
-/** Fixed: titles are single-line, so every row is exactly this tall. */
-export const SUBTASK_ROW_HEIGHT = 32;
+import { subtaskGeometry } from "./SubtaskConnector";
 
 // The icons are hoisted; the sections themselves close over the row's callbacks
 // and so are rebuilt per render. That allocation is trivial next to the native
 // menu host each row mounts, which is the cost that actually scales.
 const PROMOTE_ICON = {
-  ios: "arrow.up.forward.square",
-  android: "open_in_new",
-  web: "open_in_new",
+  sf: "arrow.up.forward.square",
+  ionicon: "open-outline",
 } as const;
-const DELETE_ICON = { ios: "trash", android: "delete", web: "delete" } as const;
+const DELETE_ICON = { sf: "trash", ionicon: "trash-outline" } as const;
 
 const actionSections = (
   onPromote: () => void,
@@ -92,14 +82,32 @@ export function SubtaskRow({
   onDelete,
   interactive = true,
 }: TSubtaskRowProps) {
+  const theme = useTheme();
+  const { statusSize, rowHeight } = subtaskGeometry(theme);
   const isComplete = isCompletionStatus(subtask.status);
+  // Like StatusButton, the native menu host is pinned to its trigger's exact
+  // size — an unpinned host reports 0 height while sizing and collapses the row.
+  const box = { height: statusSize, width: statusSize };
 
   return (
-    <View style={styles.row} testID={`subtask-row-${subtask.id}`}>
+    <View
+      style={[
+        styles.row,
+        {
+          // Wider than the parent row's `sm`: the checklist is inset so the
+          // subtask circles center under the parent's larger ones, and the extra
+          // gap gives that back, so subtask titles start on the parent title's
+          // left edge.
+          gap: theme.space.md,
+          minHeight: rowHeight,
+        },
+      ]}
+      testID={`subtask-row-${subtask.id}`}
+    >
       <StatusButton
         status={subtask.status}
         contentColor={contentColor}
-        size={STATUS_SIZE}
+        size={statusSize}
         accessibilityLabel="Subtask status"
         interactive={interactive}
         onChangeStatus={onChangeStatus}
@@ -115,7 +123,7 @@ export function SubtaskRow({
         placeholder="Subtask"
         testID={`subtask-title-${subtask.id}`}
         style={[
-          styles.title,
+          theme.fonts.body,
           {
             color: contentColor,
             textDecorationLine: isComplete ? "line-through" : "none",
@@ -125,18 +133,25 @@ export function SubtaskRow({
       {!interactive ? null : (
         <IconMenu
           accessibilityLabel="Subtask actions"
-          style={styles.menu}
+          style={box}
           sections={actionSections(onPromote, onDelete)}
         >
           <View
             style={[
               styles.menuTrigger,
-              { borderColor: withOpacity(contentColor, 0.25) },
+              box,
+              {
+                // Circled like StatusButton, at the same diameter, so the row's
+                // two controls read as a pair and both sit subordinate to the
+                // parent's.
+                borderColor: withOpacity(contentColor, 0.25),
+                borderRadius: theme.radii.full,
+              },
             ]}
           >
             <Text
               style={[
-                styles.menuGlyph,
+                theme.fonts.title,
                 { color: withOpacity(contentColor, 0.6) },
               ]}
             >
@@ -153,35 +168,10 @@ const styles = StyleSheet.create({
   row: {
     alignItems: "center",
     flexDirection: "row",
-    // 12, not the parent row's 8: the checklist is inset 4px so the 24px
-    // circles center under the parent's 32px ones, and the wider gap gives
-    // that back, so subtask titles start on the parent title's left edge.
-    gap: 12,
-    minHeight: SUBTASK_ROW_HEIGHT,
   },
-  // No `flex: 1` — EditableText's wrapper owns that; see its stylesheet.
-  title: {
-    fontSize: 13,
-    fontWeight: "400",
-  },
-  // Like StatusButton, the native menu host is pinned to its trigger's exact
-  // size — an unpinned host reports 0 height while sizing and collapses the row.
-  menu: {
-    height: STATUS_SIZE,
-    width: STATUS_SIZE,
-  },
-  // Circled like StatusButton, at the same 24px, so the row's two controls read
-  // as a pair and both sit subordinate to the parent's 32px buttons.
   menuTrigger: {
     alignItems: "center",
-    borderRadius: 999,
     borderWidth: 1,
-    height: STATUS_SIZE,
     justifyContent: "center",
-    width: STATUS_SIZE,
-  },
-  menuGlyph: {
-    fontSize: 16,
-    fontWeight: "600",
   },
 });

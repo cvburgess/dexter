@@ -21,7 +21,7 @@ import {
 } from "@/utils/breakpoints";
 import { TFilterId } from "@/utils/taskFilters";
 import { TDayLink } from "@/utils/todayRoute";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 type TLargeScreenTodayProps = {
   date: Temporal.PlainDate;
@@ -165,9 +165,9 @@ export function LargeScreenToday({
         style={[
           styles.paneRow,
           {
-            gap: theme.gap,
-            paddingHorizontal: theme.spacing,
-            paddingTop: theme.spacing,
+            gap: theme.space.sm,
+            paddingHorizontal: theme.space.md,
+            paddingTop: theme.space.md,
           },
         ]}
       >
@@ -199,8 +199,11 @@ export function LargeScreenToday({
             style={[
               styles.calendarPane,
               {
-                borderColor: withOpacity(theme.colors.text, 0.1),
-                borderRadius: theme.borderRadius,
+                borderColor: theme.colors.border,
+                borderRadius: theme.radii.md,
+                // Matches TasksView's own list padding, so both panes give their
+                // content the same breathing room from the pane's edge.
+                padding: theme.space.md,
               },
             ]}
           >
@@ -215,8 +218,8 @@ export function LargeScreenToday({
             style={[
               styles.drawerPane,
               {
-                borderColor: withOpacity(theme.colors.text, 0.1),
-                borderRadius: theme.borderRadius,
+                borderColor: theme.colors.border,
+                borderRadius: theme.radii.md,
                 // Calendar (rendered above, when shown) already carries the
                 // unconditional auto margin and always renders before this
                 // pane, so its leading margin absorbs the row's leftover
@@ -254,9 +257,9 @@ const styles = StyleSheet.create({
   taskHeaderSlot: {
     alignItems: "center",
   },
-  // `theme.spacing` for the gutter, not a literal: `LargeScreenHeader` above
-  // uses the same token, which is what keeps the DayNav slot lined up over the
-  // Tasks pane.
+  // `space.md` for the gutter, not a literal: `LargeScreenHeader` above uses
+  // the same token, which is what keeps the DayNav slot lined up over the Tasks
+  // pane.
   paneRow: {
     flex: 1,
     flexDirection: "row",
@@ -282,9 +285,7 @@ const styles = StyleSheet.create({
   // margin is unconditional — it's the one that needs to absorb the row's
   // leftover space; `drawerPane` below drops its own when Calendar is
   // present so the two dock flush together instead of splitting the space
-  // across both auto margins. `padding` matches TasksView's own list padding
-  // so both panes give their content the same breathing room from their
-  // pane's edge.
+  // across both auto margins.
   calendarPane: {
     borderWidth: StyleSheet.hairlineWidth,
     flex: 1,
@@ -292,7 +293,6 @@ const styles = StyleSheet.create({
     maxWidth: CALENDAR_PANE_MAX_WIDTH,
     minWidth: 200,
     overflow: "hidden",
-    padding: 16,
   },
   // Docked at the row's far right, after Calendar (legacy QuickDrawer
   // parity). `marginLeft` is set inline per-render (0 when Calendar is also

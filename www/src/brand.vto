@@ -1,0 +1,311 @@
+---
+title: Brand Guide
+layout: layouts/base.vto
+fullBleed: true
+---
+
+{{# Every color and number on this page is rendered from `_data/brand.json`,
+    which mirrors `src/utils/theme.ts` — the app's canonical token source. The
+    swatches use inline `style` attributes rather than daisyUI classes on
+    purpose: this page has to show the *app's* palette, not the site's. #}}
+
+<div class="w-full flex flex-col items-center">
+
+<section class="py-12 w-full">
+  <div class="max-w-4xl mx-auto px-8 text-left">
+    <h1 class="text-4xl md:text-5xl font-black mb-4">Dexter Brand Guide</h1>
+    <p class="text-lg text-balanced">
+      Dexter ships five themes across iOS, Android, and the web. Every color,
+      size, and space in the app comes from one token file —
+      <code>src/utils/theme.ts</code> — and this page is that file, rendered.
+    </p>
+  </div>
+</section>
+
+{{> const swatch = (hex, label, sub) => `
+  <div class="flex flex-col gap-1">
+    <div class="h-16 rounded-lg border border-base-content/20" style="background: ${hex}"></div>
+    <span class="text-sm font-semibold">${label}</span>
+    <code class="text-xs opacity-70">${sub ?? hex}</code>
+  </div>
+` }}
+
+<!-- ============================ Colors ============================ -->
+{{ layout "layouts/brandSection.vto" { title: "Colors" } }}
+  <p class="mb-8 text-balanced">
+    Each theme is a full palette. Surfaces come in three steps —
+    <strong>sunken</strong> for chrome that should recede, <strong>background</strong>
+    for content, <strong>card</strong> for anything lifted off the page. The border
+    is opaque and tuned per theme rather than derived from an alpha of the text
+    color, because one alpha that reads on a light surface disappears on a dark one.
+  </p>
+
+  {{ for theme of brand.themes }}
+    <div
+      class="mb-10 rounded-xl border border-base-content/20 overflow-hidden"
+      style="background: {{ theme.background }}; color: {{ theme.text }}"
+    >
+      <div class="px-6 py-4 flex items-baseline gap-3" style="background: {{ theme.surfaceSunken }}">
+        <h3 class="text-2xl font-bold">{{ theme.label }}</h3>
+        <span class="text-sm opacity-70">{{ theme.mode }} · <code>{{ theme.name }}</code></span>
+      </div>
+
+      <div class="p-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {{ swatch(theme.surfaceSunken, "surfaceSunken") }}
+        {{ swatch(theme.background, "background") }}
+        {{ swatch(theme.card, "card") }}
+        {{ swatch(theme.border, "border") }}
+        {{ swatch(theme.primary, "primary") }}
+        {{ swatch(theme.primaryContent, "primaryContent") }}
+        {{ swatch(theme.text, "text") }}
+        {{ swatch(theme.textSecondary, "textSecondary") }}
+        {{ swatch(theme.success, "success") }}
+        {{ swatch(theme.successContent, "successContent") }}
+        {{ swatch(theme.error, "error") }}
+        {{ swatch(theme.errorContent, "errorContent") }}
+      </div>
+
+      <div class="px-6 pb-6">
+        <h4 class="text-sm font-semibold uppercase tracking-wide opacity-70 mb-3">
+          Task priority
+        </h4>
+        <div class="grid grid-cols-1 sm:grid-cols-5 gap-4">
+          {{ for index, label of brand.priorityLabels }}
+            <div class="flex flex-col gap-1">
+              <div class="flex h-16 rounded-lg overflow-hidden border border-base-content/20">
+                <div class="w-1/2" style="background: {{ theme.priority[index] }}"></div>
+                <div class="w-1/2" style="background: {{ theme.priorityMuted[index] }}"></div>
+              </div>
+              <span class="text-sm font-semibold">{{ label }}</span>
+              <code class="text-xs opacity-70">{{ theme.priority[index] }}</code>
+              <code class="text-xs opacity-70">{{ theme.priorityMuted[index] }}</code>
+            </div>
+          {{ /for }}
+        </div>
+        <p class="text-sm opacity-70 mt-3 text-balanced">
+          Left half is the <strong>accent</strong> — dots, bars, badges. Right half
+          is the <strong>muted</strong> fill a task card is painted with: the same
+          accent pre-blended over this theme's background at 80%. Pre-blending
+          keeps the card opaque, so it can't shift color when it sits over a pane
+          that isn't the standard background.
+        </p>
+      </div>
+    </div>
+  {{ /for }}
+{{ /layout }}
+
+<!-- ========================= Theme preview ========================= -->
+{{ layout "layouts/brandSection.vto" { title: "In context", background: true } }}
+  <p class="mb-8 text-balanced">
+    The same task card in every theme — a priority-muted fill, the theme's
+    hairline border, and content drawn in the matching priority-content color.
+  </p>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    {{ for theme of brand.themes }}
+      <div class="rounded-xl p-6 flex flex-col gap-3" style="background: {{ theme.background }}">
+        <span class="text-xs font-semibold uppercase tracking-wide" style="color: {{ theme.textSecondary }}">
+          {{ theme.label }}
+        </span>
+        {{ for index of [0, 1, 3] }}
+          <div
+            class="rounded-xl p-4 flex items-center gap-3 border"
+            style="
+              background: {{ theme.priorityMuted[index] }};
+              border-color: {{ theme.border }};
+              color: {{ theme.priorityContent[index] }};
+            "
+          >
+            <span
+              class="inline-flex items-center justify-center rounded-full border shrink-0"
+              style="width: 32px; height: 32px; border-color: {{ theme.priorityContent[index] }}"
+            >○</span>
+            <span class="text-sm">{{ brand.priorityLabels[index] }}</span>
+            <span
+              class="ml-auto inline-flex items-center justify-center rounded-full border text-xs font-semibold shrink-0"
+              style="
+                min-width: 32px; height: 32px; padding: 0 6px;
+                background: {{ theme.priority[index] }};
+                border-color: {{ theme.priorityContent[index] }};
+                color: {{ theme.priorityContent[index] }};
+              "
+            >3</span>
+          </div>
+        {{ /for }}
+      </div>
+    {{ /for }}
+  </div>
+{{ /layout }}
+
+<!-- ========================== Typography ========================== -->
+{{ layout "layouts/brandSection.vto" { title: "Typography" } }}
+  <p class="mb-8 text-balanced">
+    Dexter uses the platform's own UI font — San Francisco on Apple platforms,
+    Roboto on Android, the system stack on the web. There are five type roles,
+    and each pairs a size with the weight it is always drawn at, so applying a
+    role sets both. Pick the role by what the text is <em>for</em>, not by
+    measuring it: a 15pt semibold label is a <code>title</code> even though 15 is
+    closer to <code>body</code>'s size.
+  </p>
+
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Role</th>
+          <th>Weight</th>
+          <th>Comfortable</th>
+          <th>Compact</th>
+          <th>Used for</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ for index, role of brand.fontRoles }}
+          <tr>
+            <td><code>{{ role.name }}</code></td>
+            <td>{{ role.weight }}</td>
+            <td>{{ brand.density[0].fonts[index] }}px</td>
+            <td>{{ brand.density[1].fonts[index] }}px</td>
+            <td>{{ role.use }}</td>
+          </tr>
+        {{ /for }}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mt-8 flex flex-col gap-2">
+    {{ for index, role of brand.fontRoles }}
+      <p style="font-size: {{ brand.density[0].fonts[index] }}px; font-weight: {{ role.weight }}">
+        {{ role.name }} — Get and stay organized
+      </p>
+    {{ /for }}
+  </div>
+{{ /layout }}
+
+<!-- ======================== Density tiers ======================== -->
+{{ layout "layouts/brandSection.vto" { title: "Density", background: true } }}
+  <p class="mb-8 text-balanced">
+    Every numeric token comes in two tiers. The app picks <code>compact</code> at
+    and above 768px and <code>comfortable</code> below it. The tiers are written
+    out in full rather than scaled from one another — spacing wants to tighten
+    harder than type does, and a scaled-down caption stops being legible well
+    before the padding stops being roomy.
+  </p>
+
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Tier</th>
+          <th>Applies</th>
+          <th>space</th>
+          <th>controls</th>
+          <th>icons</th>
+          <th>radius</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ for tier of brand.density }}
+          <tr>
+            <td><code>{{ tier.tier }}</code></td>
+            <td>{{ tier.applies }}</td>
+            <td>{{ tier.space.join(" / ") }}</td>
+            <td>{{ tier.controls.join(" / ") }}</td>
+            <td>{{ tier.icons.join(" / ") }}</td>
+            <td>{{ tier.radii[0] }}</td>
+          </tr>
+        {{ /for }}
+      </tbody>
+    </table>
+  </div>
+{{ /layout }}
+
+<!-- ========================== Spacing =========================== -->
+{{ layout "layouts/brandSection.vto" { title: "Spacing" } }}
+  <p class="mb-8 text-balanced">
+    Four steps, used for padding, margins, and flex gaps alike. Bars below are
+    drawn at the comfortable tier.
+  </p>
+
+  <div class="flex flex-col gap-4">
+    {{ for index, step of brand.spaceSteps }}
+      <div class="flex items-center gap-4">
+        <code class="w-8 shrink-0">{{ step.name }}</code>
+        <div class="h-6 bg-primary rounded" style="width: {{ brand.density[0].space[index] * 4 }}px"></div>
+        <span class="text-sm opacity-70 shrink-0">
+          {{ brand.density[0].space[index] }} / {{ brand.density[1].space[index] }}px
+        </span>
+        <span class="text-sm">{{ step.use }}</span>
+      </div>
+    {{ /for }}
+  </div>
+{{ /layout }}
+
+<!-- ========================== Radius ============================ -->
+{{ layout "layouts/brandSection.vto" { title: "Border radius", background: true } }}
+  <p class="mb-8 text-balanced">
+    Dexter has <strong>one</strong> corner radius —
+    <code>{{ brand.density[0].radii[0] }}px</code> — shared by cards, inputs,
+    panes, tiles, and buttons, and deliberately the same on both density tiers: a
+    card should read as the same card on a phone and a desktop, just a smaller
+    one. Shapes meant to be round use a full radius instead. There is no
+    small/large radius; if something looks like it needs one, it is usually the
+    wrong size rather than the wrong radius.
+  </p>
+
+  <div class="flex flex-wrap gap-6 items-end">
+    <div class="flex flex-col gap-2 items-center">
+      <div class="w-24 h-24 bg-primary" style="border-radius: {{ brand.density[0].radii[0] }}px"></div>
+      <code class="text-sm">radii.md</code>
+    </div>
+    <div class="flex flex-col gap-2 items-center">
+      <div class="w-24 h-24 bg-primary rounded-full"></div>
+      <code class="text-sm">radii.full</code>
+    </div>
+  </div>
+{{ /layout }}
+
+<!-- ======================== Iconography ========================= -->
+{{ layout "layouts/brandSection.vto" { title: "Iconography" } }}
+  <p class="mb-4 text-balanced">
+    Dexter draws <strong>SF Symbols on iOS</strong> and
+    <strong>Ionicons on Android and the web</strong>. Every icon in the app names
+    both, and both travel together through one <code>Icon</code> component, so
+    neither platform can silently fall back to a third icon set.
+  </p>
+  <p class="mb-8 text-balanced">
+    Two places are exceptions and say so in the code: the native tab bar, whose
+    API accepts only an SF Symbol plus an Android drawable; and the note editor's
+    bold/italic/underline/strikethrough toggles, for which Ionicons has no glyph.
+  </p>
+
+  <p class="text-balanced">
+    The app mark is a husky in <span class="font-semibold">line art</span> on
+    cream. The vector at <code>src/assets/app.icon/Assets/Vector.svg</code> is the
+    source every platform icon is generated from.
+  </p>
+
+  <div class="flex flex-wrap gap-8 items-center mt-8">
+    <div class="flex flex-col gap-2 items-center">
+      <img src="/assets/app-icon.png" alt="Dexter app icon" width="96" height="96" class="rounded-xl" />
+      <a href="/assets/app-icon.png" download class="link link-hover text-sm">app-icon.png</a>
+    </div>
+    <div class="flex flex-col gap-2 items-center">
+      <img src="/assets/web-icon.svg" alt="Dexter web icon" width="96" height="96" class="rounded-xl" />
+      <a href="/assets/web-icon.svg" download class="link link-hover text-sm">web-icon.svg</a>
+    </div>
+  </div>
+{{ /layout }}
+
+<!-- ========================== Using it ========================== -->
+{{ layout "layouts/brandSection.vto" { title: "Using these tokens", background: true } }}
+  <p class="text-balanced">
+    <code>src/utils/theme.ts</code> is canonical. Nothing in the app writes a
+    style value as a literal — every color, size, radius, space, and icon size is
+    read from <code>useTheme()</code>. The full rules, including the short list of
+    documented exceptions, live in
+    <a class="link" href="{{ metadata.links.github }}/blob/main/docs/design.md">docs/design.md</a>.
+  </p>
+{{ /layout }}
+
+</div>

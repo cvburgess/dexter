@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text } from "react-native";
 
 import { HighlightedExcerpt } from "@/components/HighlightedExcerpt";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 type TSearchResultCardProps = {
   /** ISO date (YYYY-MM-DD) of the day the entry belongs to. */
@@ -47,16 +47,24 @@ export function SearchResultCard({
         styles.card,
         {
           backgroundColor: theme.colors.card,
-          borderColor: withOpacity(theme.colors.text, 0.1),
-          borderRadius: theme.borderRadius,
+          borderColor: theme.colors.border,
+          borderRadius: theme.radii.md,
+          gap: theme.space.xs,
+          padding: theme.space.sm,
         },
       ]}
     >
-      <Text style={[styles.date, { color: theme.colors.textSecondary }]}>
+      <Text
+        style={[
+          theme.fonts.caption,
+          styles.date,
+          { color: theme.colors.textSecondary },
+        ]}
+      >
         {label}
       </Text>
       {prompt ? (
-        <Text style={[styles.prompt, { color: theme.colors.text }]}>
+        <Text style={[theme.fonts.title, { color: theme.colors.text }]}>
           {prompt}
         </Text>
       ) : null}
@@ -68,16 +76,8 @@ export function SearchResultCard({
 const styles = StyleSheet.create({
   card: {
     borderWidth: StyleSheet.hairlineWidth,
-    gap: 4,
-    padding: 12,
   },
   date: {
-    fontSize: 12,
-    fontWeight: "600",
     textTransform: "uppercase",
-  },
-  prompt: {
-    fontSize: 14,
-    fontWeight: "600",
   },
 });

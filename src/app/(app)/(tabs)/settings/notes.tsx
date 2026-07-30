@@ -52,9 +52,12 @@ export default function NotesScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            padding: theme.spacing,
-            paddingBottom: theme.spacing + insets.bottom,
-            gap: theme.spacing,
+            padding: theme.space.md,
+            paddingBottom: theme.space.md + insets.bottom,
+            // `lg` between sections, `xs` within one (`styles.section`): the
+            // groups had been separated by the same step that separated a
+            // title from its own content, so nothing read as grouped (DEX-61).
+            gap: theme.space.lg,
           },
         ]}
       >
@@ -65,7 +68,7 @@ export default function NotesScreen() {
         />
 
         {preferences.enableNotes && (
-          <View style={styles.section}>
+          <View style={{ gap: theme.space.xs }}>
             <SettingsSectionTitle>Daily note template</SettingsSectionTitle>
             <TextInput
               accessibilityLabel="Daily note template"
@@ -78,7 +81,12 @@ export default function NotesScreen() {
               textAlignVertical="top"
               value={draft}
             />
-            <Text style={[styles.hint, { color: theme.colors.textSecondary }]}>
+            <Text
+              style={[
+                theme.fonts.caption,
+                { color: theme.colors.textSecondary },
+              ]}
+            >
               When set, opening a blank daily note offers to start from this
               template.
             </Text>
@@ -95,12 +103,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flexGrow: 1,
-  },
-  hint: {
-    fontSize: 13,
-  },
-  section: {
-    gap: 10,
   },
   template: {
     minHeight: 160,

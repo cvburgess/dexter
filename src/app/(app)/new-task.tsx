@@ -1,6 +1,6 @@
 import { Href, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
-import { ScrollView, StyleSheet, Text } from "react-native";
+import { ScrollView, Text } from "react-native";
 
 import { isTaskTemplate } from "@/api/templates";
 import { ModalScreen } from "@/components/ModalScreen";
@@ -105,7 +105,11 @@ export default function NewTaskScreen() {
 
         {mode === "ai" ? (
           <Text
-            style={[styles.placeholder, { color: theme.colors.textSecondary }]}
+            style={[
+              theme.fonts.body,
+              { paddingVertical: theme.space.sm },
+              { color: theme.colors.textSecondary },
+            ]}
             testID="new-task-ai-placeholder"
           >
             Coming soon: describe a task out loud and Dexter will fill this in
@@ -125,10 +129,3 @@ export default function NewTaskScreen() {
     </ModalScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  placeholder: {
-    fontSize: 14,
-    paddingVertical: 8,
-  },
-});

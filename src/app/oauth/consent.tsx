@@ -188,14 +188,19 @@ function ConsentCard({ children }: { children: ReactNode }) {
 
   return (
     <SafeAreaView
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      style={[
+        styles.container,
+        { padding: theme.space.md },
+        { backgroundColor: theme.colors.background },
+      ]}
     >
       <View
         style={[
           styles.card,
+          { padding: theme.space.lg, gap: theme.space.sm },
           {
             backgroundColor: theme.colors.card,
-            borderRadius: theme.borderRadius,
+            borderRadius: theme.radii.md,
           },
         ]}
       >
@@ -210,10 +215,22 @@ function AuthorizedNotice() {
 
   return (
     <>
-      <Text style={[styles.title, { color: theme.colors.text }]}>
+      <Text
+        style={[
+          theme.fonts.heading,
+          styles.title,
+          { color: theme.colors.text },
+        ]}
+      >
         Authorized
       </Text>
-      <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+      <Text
+        style={[
+          theme.fonts.body,
+          styles.subtitle,
+          { color: theme.colors.textSecondary },
+        ]}
+      >
         You can close this window and return to the app that requested access.
       </Text>
     </>
@@ -226,7 +243,13 @@ function PendingIndicator({ message }: { message: string }) {
   return (
     <>
       <ActivityIndicator size="large" color={theme.colors.primary} />
-      <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+      <Text
+        style={[
+          theme.fonts.body,
+          styles.subtitle,
+          { color: theme.colors.textSecondary },
+        ]}
+      >
         {message}
       </Text>
     </>
@@ -245,16 +268,34 @@ function ConsentForm({ appName, error, onApprove, onDeny }: TConsentFormProps) {
 
   return (
     <>
-      <Text style={[styles.title, { color: theme.colors.text }]}>
+      <Text
+        style={[
+          theme.fonts.heading,
+          styles.title,
+          { color: theme.colors.text },
+        ]}
+      >
         Authorize Access
       </Text>
-      <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+      <Text
+        style={[
+          theme.fonts.body,
+          styles.subtitle,
+          { color: theme.colors.textSecondary },
+        ]}
+      >
         {appName} wants to access your tasks, lists, goals, notes, journals, and
         habits.
       </Text>
 
       {error ? (
-        <Text style={[styles.error, { color: theme.colors.error }]}>
+        <Text
+          style={[
+            theme.fonts.body,
+            styles.error,
+            { color: theme.colors.error },
+          ]}
+        >
           {error}
         </Text>
       ) : null}
@@ -279,26 +320,19 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 16,
   },
   card: {
-    padding: 24,
     maxWidth: 400,
     width: "100%",
-    gap: 12,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "700",
     textAlign: "center",
   },
   subtitle: {
     textAlign: "center",
-    fontSize: 14,
     lineHeight: 20,
   },
   error: {
-    fontSize: 14,
     textAlign: "center",
   },
 });

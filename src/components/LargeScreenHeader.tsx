@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { StyleSheet, View } from "react-native";
 
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 type TLargeScreenHeaderProps = {
   /**
@@ -29,10 +29,10 @@ type TLargeScreenHeaderProps = {
  * toggle), which is why this is a two-slot shell rather than a component that
  * knows what goes in it.
  *
- * The horizontal gutter is `theme.spacing`, the same token the pane rows below
- * use, so the nav stays lined up over the pane it labels. `PeriodNav` already
- * carries 12pt of vertical padding, so 4pt here brings the row to that same
- * 16pt overall instead of stacking a full gutter on top of it.
+ * The horizontal gutter is `space.md`, the same token the pane rows below use,
+ * so the nav stays lined up over the pane it labels. `PeriodNav` already carries
+ * its own vertical padding, so the row adds only `xs` rather than stacking a
+ * full gutter on top of it.
  */
 export function LargeScreenHeader({
   children,
@@ -45,13 +45,14 @@ export function LargeScreenHeader({
       style={[
         styles.header,
         {
-          borderBottomColor: withOpacity(theme.colors.text, 0.1),
-          paddingHorizontal: theme.spacing,
+          borderBottomColor: theme.colors.border,
+          paddingHorizontal: theme.space.md,
+          paddingVertical: theme.space.xs,
         },
       ]}
     >
       {children}
-      <View style={[styles.actions, { gap: theme.gap }]}>{actions}</View>
+      <View style={[styles.actions, { gap: theme.space.sm }]}>{actions}</View>
     </View>
   );
 }
@@ -62,8 +63,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingBottom: 4,
-    paddingTop: 4,
   },
   actions: {
     alignItems: "center",

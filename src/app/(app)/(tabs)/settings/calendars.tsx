@@ -30,7 +30,7 @@ export default function CalendarsScreen() {
 
   const cardStyle = {
     backgroundColor: theme.colors.card,
-    borderRadius: theme.borderRadius,
+    borderRadius: theme.radii.md,
   };
 
   return (
@@ -45,9 +45,12 @@ export default function CalendarsScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            padding: theme.spacing,
-            paddingBottom: theme.spacing + insets.bottom,
-            gap: theme.spacing,
+            padding: theme.space.md,
+            paddingBottom: theme.space.md + insets.bottom,
+            // `lg` between sections, `xs` within one (`styles.section`): the
+            // groups had been separated by the same step that separated a
+            // title from its own content, so nothing read as grouped (DEX-61).
+            gap: theme.space.lg,
           },
         ]}
         keyboardShouldPersistTaps="handled"
@@ -62,12 +65,18 @@ export default function CalendarsScreen() {
 
         {preferences.enableCalendar && (
           <>
-            <View style={styles.section}>
+            <View style={{ gap: theme.space.xs }}>
               <SettingsSectionTitle>Daily timeline</SettingsSectionTitle>
-              <View style={{ gap: theme.gap }}>
-                <View style={[styles.timeRow, cardStyle]}>
+              <View style={{ gap: theme.space.sm }}>
+                <View
+                  style={[
+                    styles.timeRow,
+                    { padding: theme.space.md },
+                    cardStyle,
+                  ]}
+                >
                   <Text
-                    style={[styles.timeLabel, { color: theme.colors.text }]}
+                    style={[theme.fonts.title, { color: theme.colors.text }]}
                   >
                     Start time
                   </Text>
@@ -85,9 +94,15 @@ export default function CalendarsScreen() {
                     }
                   />
                 </View>
-                <View style={[styles.timeRow, cardStyle]}>
+                <View
+                  style={[
+                    styles.timeRow,
+                    { padding: theme.space.md },
+                    cardStyle,
+                  ]}
+                >
                   <Text
-                    style={[styles.timeLabel, { color: theme.colors.text }]}
+                    style={[theme.fonts.title, { color: theme.colors.text }]}
                   >
                     End time
                   </Text>
@@ -121,16 +136,9 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
   },
-  section: {
-    gap: 10,
-  },
   timeRow: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
-    padding: 16,
-  },
-  timeLabel: {
-    fontSize: 16,
   },
 });

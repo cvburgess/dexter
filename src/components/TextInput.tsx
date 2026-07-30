@@ -16,10 +16,11 @@ export function TextInput({ style, ...props }: TextInputProps) {
       style={[
         styles.input,
         {
+          ...theme.fonts.title,
           color: theme.colors.text,
           backgroundColor: theme.colors.card,
-          borderRadius: theme.borderRadius,
-          padding: theme.spacing,
+          borderRadius: theme.radii.md,
+          padding: theme.space.md,
         },
         style,
       ]}
@@ -30,7 +31,6 @@ export function TextInput({ style, ...props }: TextInputProps) {
 
 const styles = StyleSheet.create({
   input: {
-    fontSize: 16,
     width: "100%",
     // The field's own background and radius already mark it as focusable; the
     // browser's ring on top of them is the chrome the legacy app did without.

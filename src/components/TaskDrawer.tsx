@@ -23,7 +23,7 @@ import {
   selectBacklogTasks,
   TFilterId,
 } from "@/utils/taskFilters";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 export type TGroupBy = "none" | "listId" | "priority" | "goalId";
 
@@ -308,7 +308,11 @@ export function TaskDrawer({
       if (item.type === "header") {
         return (
           <Text
-            style={[styles.groupTitle, { color: theme.colors.textSecondary }]}
+            style={[
+              theme.fonts.caption,
+              styles.groupTitle,
+              { color: theme.colors.textSecondary },
+            ]}
           >
             {item.title}
           </Text>
@@ -317,7 +321,7 @@ export function TaskDrawer({
 
       const { task } = item;
       return (
-        <View style={[styles.row, { gap: theme.gap }]}>
+        <View style={[styles.row, { gap: theme.space.sm }]}>
           <View style={styles.cardWrapper}>
             <TaskCard
               // FlashList recycles a row by reusing its React key from a pool
@@ -353,12 +357,12 @@ export function TaskDrawer({
   const keyExtractor = useCallback((item: TDrawerListItem) => item.id, []);
   const getItemType = useCallback((item: TDrawerListItem) => item.type, []);
   const ItemSeparator = useCallback(
-    () => <View style={{ height: theme.gap }} />,
-    [theme.gap],
+    () => <View style={{ height: theme.space.sm }} />,
+    [theme.space.sm],
   );
 
-  const controlBorder = { borderColor: withOpacity(theme.colors.text, 0.15) };
-  // `container`'s own 16pt padding sits inside a pane that itself extends
+  const controlBorder = { borderColor: theme.colors.border };
+  // `container`'s own padding sits inside a pane that itself extends
   // behind the tab bar, so it doesn't clear it — the inset has to go on the
   // scrollable content on top of that. Memoized like this list's other props
   // (renderItem/keyExtractor/getItemType): FlashList is wrapped in React.memo,
@@ -370,13 +374,18 @@ export function TaskDrawer({
   );
 
   return (
-    <View style={[styles.container, { gap: theme.gap }]}>
-      <View style={[styles.controls, { gap: theme.gap }]}>
+    <View
+      style={[
+        styles.container,
+        { gap: theme.space.sm, padding: theme.space.md },
+      ]}
+    >
+      <View style={[styles.controls, { gap: theme.space.sm }]}>
         <IconMenu
           accessibilityLabel="Filter"
           menuTitle="Filter"
           sections={[{ options: filterMenuOptions(filterId, setFilterId) }]}
-          style={styles.controlButton}
+          style={[styles.controlButton, { height: theme.controls.md }]}
         >
           <View style={[styles.controlButtonInner, controlBorder]}>
             <Text style={{ color: theme.colors.text }} numberOfLines={1}>
@@ -444,7 +453,6 @@ const styles = StyleSheet.create({
   // the ScrollView's `contentContainerStyle` spacing.
   container: {
     flex: 1,
-    padding: 16,
   },
   controls: {
     flexDirection: "row",
@@ -454,7 +462,6 @@ const styles = StyleSheet.create({
   // StatusButton/ListButton/DayViewSwitcher pin theirs).
   controlButton: {
     flex: 1,
-    height: 40,
   },
   // Explicit height (not `flex: 1`) so the native `@expo/ui` menu host has an
   // intrinsic content height to size to — as sheet content it otherwise
@@ -464,11 +471,8 @@ const styles = StyleSheet.create({
   controlButtonInner: {
     alignItems: "center",
     alignSelf: "stretch",
-    borderRadius: 999,
     borderWidth: 1,
-    height: 40,
     justifyContent: "center",
-    paddingHorizontal: 12,
   },
   state: {
     alignItems: "center",
@@ -481,8 +485,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   groupTitle: {
-    fontSize: 12,
-    fontWeight: "600",
     textTransform: "uppercase",
   },
   row: {

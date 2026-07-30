@@ -138,11 +138,13 @@ describe("MoreMenu", () => {
     expect(
       renderedSections().map((section) => Boolean(section.isSubmenu)),
     ).toEqual([false, true, true, false, false]);
-    expect(
-      renderedSections().map((section) =>
-        typeof section.icon === "object" ? section.icon.ios : section.icon,
-      ),
-    ).toEqual([undefined, "exclamationmark", "calendar", undefined, undefined]);
+    expect(renderedSections().map((section) => section.icon?.sf)).toEqual([
+      undefined,
+      "exclamationmark",
+      "calendar",
+      undefined,
+      undefined,
+    ]);
   });
 
   // Edit task through Add subtask read as one unruled group; only the

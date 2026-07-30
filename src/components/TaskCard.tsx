@@ -20,18 +20,14 @@ import { EditableText } from "./EditableText";
 import { ListButton } from "./ListButton";
 import { MoreMenu } from "./MoreMenu";
 import { StatusButton } from "./StatusButton";
-import {
-  SUBTASK_GAP,
-  SUBTASK_INSET,
-  SUBTASK_OFFSET,
-  SubtaskConnectors,
-} from "./SubtaskConnector";
+import { subtaskGeometry, SubtaskConnectors } from "./SubtaskConnector";
 import { SubtaskRow } from "./SubtaskRow";
 
 // Matches dexter-app's cardColors: incomplete cards sit on the priority color
-// at 80% opacity; complete cards fade the same color to a 3% tint with muted
-// (25% opacity) text, regardless of priority.
-const INCOMPLETE_OPACITY = 0.8;
+// muted toward the surface (`colors.priorityMuted`, pre-blended in theme.ts);
+// complete cards fade the raw color to a 3% tint with muted (25% opacity) text,
+// regardless of priority. The complete tint stays an alpha deliberately — it is
+// meant to read as *absence* of a card, not as a fourth surface color.
 const COMPLETE_OPACITY = 0.03;
 const COMPLETE_TEXT_OPACITY = 0.25;
 
@@ -82,6 +78,7 @@ export function TaskCard({
   onPress,
 }: TTaskCardProps) {
   const theme = useTheme();
+  const checklist = subtaskGeometry(theme);
   const [editing, setEditing] = useState<TEditing>(null);
   const { confirm, confirmationProps } = useConfirmation();
   const isComplete = isCompletionStatus(task.status);
@@ -268,17 +265,24 @@ export function TaskCard({
       style={[
         styles.container,
         {
-          backgroundColor: withOpacity(
-            priorityColor,
-            isComplete ? COMPLETE_OPACITY : INCOMPLETE_OPACITY,
-          ),
-          borderColor: withOpacity(contentColor, 0.1),
-          borderRadius: theme.borderRadius,
+          backgroundColor: isComplete
+            ? withOpacity(priorityColor, COMPLETE_OPACITY)
+            : theme.colors.priorityMuted[task.priority],
+          borderColor: theme.colors.border,
+          borderRadius: theme.radii.md,
+          // Floor of padding (×2) + the inline control height. A completed
+          // card's only height-defining child is the StatusButton's native menu
+          // host, whose async sizing can transiently report 0 — without this
+          // floor the row (or a whole list of completed tasks) collapses blank.
+          // A floor, not a fixed height, so multi-line titles and subtasks can
+          // still grow the card.
+          minHeight: theme.space.md * 2 + theme.controls.sm,
+          padding: theme.space.md,
         },
       ]}
       testID={`task-card-${task.id}`}
     >
-      <View style={styles.titleRow}>
+      <View style={[styles.titleRow, { gap: theme.space.sm }]}>
         <StatusButton
           status={task.status}
           contentColor={contentColor}
@@ -304,8 +308,8 @@ export function TaskCard({
           }}
           testID={`task-title-${task.id}`}
           style={[
-            styles.title,
             {
+              ...theme.fonts.body,
               color: contentColor,
               textDecorationLine: isComplete ? "line-through" : "none",
             },
@@ -329,7 +333,18 @@ export function TaskCard({
         )}
       </View>
       {subtasks.length > 0 && (
-        <View style={styles.subtasks}>
+        <View
+          style={[
+            {
+              gap: checklist.gap,
+              // Not indented: the checklist runs the full width of the title
+              // row, so a subtask's controls sit directly under the parent's,
+              // both columns of circles on the same vertical axes.
+              paddingHorizontal: checklist.inset,
+              paddingTop: checklist.offset,
+            },
+          ]}
+        >
           <SubtaskConnectors
             count={subtasks.length}
             color={withOpacity(contentColor, 0.25)}
@@ -406,31 +421,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     // A column now: the title row, then the checklist stacked beneath it.
     flexDirection: "column",
-    // Floor of padding (16×2) + button height (32). A completed card's only
-    // height-defining child is the StatusButton's native menu host, whose
-    // async sizing can transiently report 0 — without this floor the row
-    // (or a whole list of completed tasks) collapses blank. A floor, not a
-    // fixed height, so multi-line titles and subtasks can still grow the card.
-    minHeight: 64,
     overflow: "hidden",
-    padding: 16,
   },
   titleRow: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 8,
-  },
-  // No `flex: 1` — EditableText's wrapper owns that; see its stylesheet.
-  title: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  subtasks: {
-    gap: SUBTASK_GAP,
-    // Not indented: the checklist runs the full width of the title row, so a
-    // subtask's controls sit directly under the parent's, both columns of
-    // circles on the same vertical axes.
-    paddingHorizontal: SUBTASK_INSET,
-    paddingTop: SUBTASK_OFFSET,
   },
 });

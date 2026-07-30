@@ -30,30 +30,35 @@ export function ListRow({ list, openCount }: TListRowProps) {
           params: { id: list.id },
         })
       }
-      style={styles.row}
+      style={[
+        styles.row,
+        { gap: theme.space.sm, paddingVertical: theme.space.sm },
+      ]}
     >
       <View
         style={[
           styles.tile,
           {
             backgroundColor: withOpacity(theme.colors.text, 0.06),
-            borderRadius: theme.borderRadius,
+            borderRadius: theme.radii.md,
+            height: theme.controls.md,
+            width: theme.controls.md,
           },
         ]}
       >
-        <Text style={styles.emoji}>{list.emoji}</Text>
+        <Text style={{ fontSize: theme.icons.md }}>{list.emoji}</Text>
       </View>
 
-      <View style={styles.labels}>
+      <View style={[styles.labels, { gap: theme.space.xs }]}>
         <Text
           numberOfLines={1}
-          style={[styles.title, { color: theme.colors.text }]}
+          style={[theme.fonts.title, { color: theme.colors.text }]}
         >
           {list.title}
         </Text>
         <Text
           numberOfLines={1}
-          style={[styles.subtitle, { color: theme.colors.textSecondary }]}
+          style={[theme.fonts.caption, { color: theme.colors.textSecondary }]}
         >
           {subtitle}
         </Text>
@@ -62,33 +67,18 @@ export function ListRow({ list, openCount }: TListRowProps) {
   );
 }
 
-const TILE_SIZE = 40;
-
 const styles = StyleSheet.create({
-  emoji: {
-    fontSize: 20,
-  },
   labels: {
     flex: 1,
-    gap: 2,
   },
   row: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 12,
-    paddingVertical: 8,
   },
-  subtitle: {
-    fontSize: 13,
-  },
+  // The emoji is this row's leading icon, so it takes the icon scale rather
+  // than a type role — see `docs/design.md`.
   tile: {
     alignItems: "center",
-    height: TILE_SIZE,
     justifyContent: "center",
-    width: TILE_SIZE,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: "500",
   },
 });

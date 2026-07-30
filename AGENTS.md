@@ -92,6 +92,7 @@ Common local commands:
 ## Documentation map (`/docs`)
 
 - `frontend.md` — **Read first for any `/src` work.** App architecture and commands
+- `design.md` — **Read before touching any style value.** The token system in `src/utils/theme.ts`
 - `backend.md` — **Read first for any `/supabase` work.** Backend layout and operations
 - `website.md` — Marketing site in `/www` and **dexterplanner.com**
 - `testing.md` — Testing conventions

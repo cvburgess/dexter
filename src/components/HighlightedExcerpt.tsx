@@ -34,7 +34,11 @@ export function HighlightedExcerpt({
   return (
     <Text
       numberOfLines={numberOfLines}
-      style={[styles.excerpt, { color: theme.colors.textSecondary }]}
+      style={[
+        theme.fonts.body,
+        styles.excerpt,
+        { color: theme.colors.textSecondary },
+      ]}
     >
       {segments.map((segment, index) => (
         <Text
@@ -63,7 +67,6 @@ export function HighlightedExcerpt({
 
 const styles = StyleSheet.create({
   excerpt: {
-    fontSize: 14,
     lineHeight: 20,
   },
   match: {

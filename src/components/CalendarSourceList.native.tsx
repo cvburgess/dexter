@@ -4,7 +4,7 @@ import { StyleSheet, Switch, Text, View } from "react-native";
 
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { useEnabledDeviceCalendars } from "@/hooks/useEnabledDeviceCalendars";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { Theme, useTheme, withOpacity } from "@/utils/theme";
 
 // Minimal structural shape for the calendars we render — decoupled from
 // expo-calendar's exact exported type names.
@@ -54,19 +54,19 @@ export function CalendarSourceList() {
   };
 
   return (
-    <View style={styles.section}>
+    <View style={{ gap: theme.space.xs }}>
       <SettingsSectionTitle>Calendars</SettingsSectionTitle>
       {permissionDenied ? (
-        <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
+        <Text style={[theme.fonts.body, messageStyle(theme)]}>
           Calendar access is off. Enable it in your system settings to choose
           which calendars appear.
         </Text>
       ) : calendars.length === 0 ? (
-        <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
+        <Text style={[theme.fonts.body, messageStyle(theme)]}>
           No calendars found on this device.
         </Text>
       ) : (
-        <View style={{ gap: theme.gap }}>
+        <View style={{ gap: theme.space.sm }}>
           {calendars.map((calendar) => (
             <View
               key={calendar.id}
@@ -74,15 +74,30 @@ export function CalendarSourceList() {
                 styles.row,
                 {
                   backgroundColor: theme.colors.card,
-                  borderRadius: theme.borderRadius,
+                  borderRadius: theme.radii.md,
+                  gap: theme.space.sm,
                   opacity: isEnabled(calendar.id) ? 1 : 0.5,
+                  padding: theme.space.md,
                 },
               ]}
             >
-              <View style={[styles.dot, { backgroundColor: calendar.color }]} />
+              <View
+                style={{
+                  backgroundColor: calendar.color,
+                  // A circle, so the radius is `full` rather than a point on
+                  // the scale.
+                  borderRadius: theme.radii.full,
+                  height: theme.space.md - theme.space.xs,
+                  width: theme.space.md - theme.space.xs,
+                }}
+              />
               <Text
                 numberOfLines={1}
-                style={[styles.title, { color: theme.colors.text }]}
+                style={[
+                  theme.fonts.title,
+                  styles.title,
+                  { color: theme.colors.text },
+                ]}
               >
                 {calendar.title}
               </Text>
@@ -103,27 +118,17 @@ export function CalendarSourceList() {
   );
 }
 
+const messageStyle = (theme: Theme) => ({
+  color: theme.colors.textSecondary,
+  paddingVertical: theme.space.sm,
+});
+
 const styles = StyleSheet.create({
-  section: {
-    gap: 10,
-  },
   row: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 12,
-    padding: 16,
-  },
-  dot: {
-    borderRadius: 6,
-    height: 12,
-    width: 12,
   },
   title: {
     flex: 1,
-    fontSize: 16,
-  },
-  message: {
-    fontSize: 14,
-    paddingVertical: 8,
   },
 });

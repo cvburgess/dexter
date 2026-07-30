@@ -5,7 +5,10 @@
   </head>
   <body>
     {{ include "partials/header.vto" }}
-    <main class="min-h-screen max-w-screen flex flex-col items-center gap-4 mx-8 mt-8 mb-24">
+    {{# `fullBleed` drops the horizontal inset so a page can run banded sections
+        edge to edge (see brand.vto, whose brandSection wrapper carries the inset
+        itself). Every other page keeps the margin it has always had. #}}
+    <main class="min-h-screen max-w-screen flex flex-col items-center gap-4 {{ fullBleed ? "" : "mx-8" }} mt-8 mb-24">
       {{ content }}
     </main>
     {{ include "partials/footer.vto" }}

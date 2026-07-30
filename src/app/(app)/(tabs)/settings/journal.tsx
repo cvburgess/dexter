@@ -107,9 +107,12 @@ export default function JournalScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            padding: theme.spacing,
-            paddingBottom: theme.spacing + insets.bottom,
-            gap: theme.spacing,
+            padding: theme.space.md,
+            paddingBottom: theme.space.md + insets.bottom,
+            // `lg` between sections, `xs` within one (`styles.section`): the
+            // groups had been separated by the same step that separated a
+            // title from its own content, so nothing read as grouped (DEX-61).
+            gap: theme.space.lg,
           },
         ]}
         keyboardShouldPersistTaps="handled"
@@ -123,18 +126,29 @@ export default function JournalScreen() {
         />
 
         {preferences.enableJournal && (
-          <View style={styles.section}>
+          <View style={{ gap: theme.space.xs }}>
             <SettingsSectionTitle>Journal prompts</SettingsSectionTitle>
             {drafts.length === 0 ? (
               <Text
-                style={[styles.empty, { color: theme.colors.textSecondary }]}
+                style={[
+                  theme.fonts.body,
+                  { paddingVertical: theme.space.sm },
+                  { color: theme.colors.textSecondary },
+                ]}
               >
                 Tap ＋ to add your first prompt.
               </Text>
             ) : (
-              <View style={{ gap: theme.gap }}>
+              <View style={{ gap: theme.space.sm }}>
                 {drafts.map((prompt, index) => (
-                  <View key={index} style={styles.promptRow}>
+                  <View
+                    key={index}
+                    style={[
+                      styles.promptRow,
+                      { gap: theme.space.sm },
+                      { gap: theme.space.sm },
+                    ]}
+                  >
                     <TextInput
                       accessibilityLabel={`Journal prompt ${index + 1}`}
                       onBlur={commitPrompt}
@@ -152,7 +166,11 @@ export default function JournalScreen() {
                       accessibilityLabel={`Delete prompt ${index + 1}`}
                       accessibilityRole="button"
                       onPress={() => deletePrompt(index)}
-                      style={styles.deleteButton}
+                      style={[
+                        styles.deleteButton,
+                        { padding: theme.space.xs },
+                        { padding: theme.space.xs },
+                      ]}
                       testID={`delete-prompt-${index}`}
                     >
                       <Ionicons
@@ -165,7 +183,12 @@ export default function JournalScreen() {
                 ))}
               </View>
             )}
-            <Text style={[styles.hint, { color: theme.colors.textSecondary }]}>
+            <Text
+              style={[
+                theme.fonts.caption,
+                { color: theme.colors.textSecondary },
+              ]}
+            >
               These prompts seed each new day&apos;s Journal. Editing them
               doesn&apos;t change days you&apos;ve already answered.
             </Text>
@@ -186,14 +209,6 @@ const styles = StyleSheet.create({
   deleteButton: {
     alignItems: "center",
     justifyContent: "center",
-    padding: 4,
-  },
-  empty: {
-    fontSize: 14,
-    paddingVertical: 8,
-  },
-  hint: {
-    fontSize: 13,
   },
   promptInput: {
     flex: 1,
@@ -201,9 +216,5 @@ const styles = StyleSheet.create({
   promptRow: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 8,
-  },
-  section: {
-    gap: 10,
   },
 });

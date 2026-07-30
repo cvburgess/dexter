@@ -157,9 +157,8 @@ export function MoreMenu({
 }
 
 const EDIT_TASK_ICON = {
-  ios: "square.and.pencil",
-  android: "edit_square",
-  web: "edit_square",
+  sf: "square.and.pencil",
+  ionicon: "create-outline",
 } as const;
 
 export const getPrioritySections = (
@@ -169,11 +168,7 @@ export const getPrioritySections = (
 ): TIconMenuSection[] => [
   {
     title: "Priority",
-    icon: {
-      ios: "exclamationmark",
-      android: "priority_high",
-      web: "priority_high",
-    },
+    icon: { sf: "exclamationmark", ionicon: "alert-outline" },
     isSubmenu: true,
     // `PRIORITY_OPTIONS` is ordered to match the shorthand tokens: `!` → `!!!!`.
     options: PRIORITY_OPTIONS.map(({ label, value, icon }) => ({
@@ -188,9 +183,8 @@ export const getPrioritySections = (
 ];
 
 const SCHEDULE_ICON = {
-  ios: "calendar",
-  android: "calendar_today",
-  web: "calendar_today",
+  sf: "calendar",
+  ionicon: "calendar-outline",
 } as const;
 
 /**
@@ -304,11 +298,7 @@ export const getTaskActionSections = (
             {
               id: "add-subtask",
               title: "Add subtask",
-              icon: {
-                ios: "checklist",
-                android: "checklist",
-                web: "checklist",
-              } as const,
+              icon: { sf: "checklist", ionicon: "list-outline" } as const,
               onSelect: onAddSubtask,
             },
           ],
@@ -330,24 +320,21 @@ export type TTemplateMenuAction =
   | { kind: "template"; onEdit: () => void };
 
 const REPEAT_ICON = {
-  ios: "repeat",
-  android: "repeat",
-  web: "repeat",
+  sf: "repeat",
+  ionicon: "repeat",
 } as const;
 
 // `square.on.square.dashed` for both template rows, so saving one and later
 // editing it read as the same object. Material has no single equivalent, so the
 // two states split across its bookmark pair.
 const SAVE_TEMPLATE_ICON = {
-  ios: "square.on.square.dashed",
-  android: "bookmark_add",
-  web: "bookmark_add",
+  sf: "square.on.square.dashed",
+  ionicon: "bookmark-outline",
 } as const;
 
 const EDIT_TEMPLATE_ICON = {
-  ios: "square.on.square.dashed",
-  android: "bookmark",
-  web: "bookmark",
+  sf: "square.on.square.dashed",
+  ionicon: "bookmark",
 } as const;
 
 /**
@@ -414,18 +401,14 @@ export const getOtherSections = ({
       {
         id: "duplicate",
         title: "Duplicate",
-        icon: {
-          ios: "plus.square.on.square",
-          android: "content_copy",
-          web: "content_copy",
-        } as const,
+        icon: { sf: "plus.square.on.square", ionicon: "copy-outline" } as const,
         onSelect: onDuplicate,
       },
       ...getTemplateOptions(template),
       {
         id: "delete",
         title: "Delete",
-        icon: { ios: "trash", android: "delete", web: "delete" } as const,
+        icon: { sf: "trash", ionicon: "trash-outline" } as const,
         isDestructive: true,
         onSelect: onDelete,
       },
