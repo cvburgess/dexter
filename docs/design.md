@@ -145,7 +145,7 @@ type does, and literals keep every value an integer.
 | | `space` xs/sm/md/lg | `fonts` caption/body/title/heading/display | `radii` md/full | `controls` md/sm | `icons` sm/md |
 | --- | --- | --- | --- | --- | --- |
 | comfortable | 4 / 8 / 16 / 24 | 12 / 14 / 16 / 24 / 40 | 12 / 999 | 40 / 32 | 14 / 20 |
-| compact | 3 / 6 / 12 / 18 | 11 / 13 / 15 / 20 / 32 | 12 / 999 | 32 / 26 | 12 / 18 |
+| compact | 3 / 6 / 12 / 18 | 11 / 13 / 14 / 20 / 32 | 12 / 999 | 32 / 26 | 12 / 18 |
 
 Because `StyleSheet.create` values are static, anything that varies by tier goes
 in the inline style array — the pattern `docs/frontend.md` already prescribes for

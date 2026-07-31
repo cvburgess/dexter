@@ -144,7 +144,7 @@ export const DENSITY: Record<TDensity, TDensityTokens> = {
     fonts: {
       caption: { fontSize: 11, fontWeight: "600" },
       body: { fontSize: 13, fontWeight: "400" },
-      title: { fontSize: 15, fontWeight: "600" },
+      title: { fontSize: 14, fontWeight: "600" },
       heading: { fontSize: 20, fontWeight: "700" },
       display: { fontSize: 32, fontWeight: "900" },
     },
