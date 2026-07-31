@@ -59,7 +59,7 @@ export default function AppearanceScreen() {
           {
             padding: theme.space.md,
             paddingBottom: theme.space.md + insets.bottom,
-            // `lg` between sections, `xs` within one (`Section`): the groups had
+            // `lg` between sections, `sm` within one (`Section`): the groups had
             // been separated by the same step that separated a title from its
             // own content, so nothing read as grouped (DEX-61).
             gap: theme.space.lg,
@@ -77,7 +77,7 @@ export default function AppearanceScreen() {
 
         {showLight && (
           <Section title="Light theme">
-            <View style={styles.cards}>
+            <View style={[styles.cards, { gap: theme.space.sm }]}>
               {LIGHT_THEMES.map(({ name, label }) => (
                 <ThemeCard
                   key={name}
@@ -94,7 +94,7 @@ export default function AppearanceScreen() {
 
         {showDark && (
           <Section title="Dark theme">
-            <View style={styles.cards}>
+            <View style={[styles.cards, { gap: theme.space.sm }]}>
               {DARK_THEMES.map(({ name, label }) => (
                 <ThemeCard
                   key={name}
@@ -117,7 +117,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   const theme = useTheme();
 
   return (
-    <View style={{ gap: theme.space.xs }}>
+    <View style={{ gap: theme.space.sm }}>
       <SettingsSectionTitle>{title}</SettingsSectionTitle>
       {children}
     </View>
@@ -162,7 +162,10 @@ function ThemeCard({
             : uiTheme.colors.border,
           borderWidth: selected ? 2 : StyleSheet.hairlineWidth,
           gap: uiTheme.space.sm,
-          padding: uiTheme.space.sm,
+          // `md`, the standard inset: the card is a miniature of the app's own
+          // surface, so it reads better with the gutter a real pane would have
+          // than with the tighter in-group step the row between cards uses.
+          padding: uiTheme.space.md,
         },
       ]}
       testID={`appearance-theme-${name}`}
@@ -210,6 +213,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
   },
+  // The row wraps, so its gap (applied inline, since it's density-dependent)
+  // separates the cards both across and down — a wrapped second row needs the
+  // same breathing room as the one above it.
   cards: {
     flexDirection: "row",
     flexWrap: "wrap",

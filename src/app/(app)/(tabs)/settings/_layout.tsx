@@ -22,20 +22,30 @@ export default function SettingsLayout() {
   const theme = useTheme();
   const twoPane = useIsLargeDevice();
 
+  /**
+   * A detail screen's header options, minus its back item on a large screen.
+   *
+   * That back item leads to `settings/index` — the list of sections — because
+   * `unstable_settings.anchor` keeps index mounted beneath every detail screen.
+   * In two-pane mode the sidebar *is* that list and never leaves, so the
+   * chevron offers a trip to something already on screen, and on the section a
+   * user is already looking at (DEX-61).
+   *
+   * Titles stay in both modes. This includes `tasks`, whose back button is the
+   * whole point of the parent owning its header (DEX-93) — that reasoning is
+   * about the single-column case, where the list would otherwise be stranded
+   * with no way out. On a large screen the sidebar is the way out.
+   */
+  const listOptions = (title: string) => ({
+    ...createListScreenOptions(theme, title),
+    headerBackVisible: !twoPane,
+  });
+
   const stack = (
     <Stack>
-      <Stack.Screen
-        name="index"
-        options={createListScreenOptions(theme, "Settings")}
-      />
-      <Stack.Screen
-        name="account"
-        options={createListScreenOptions(theme, "Account")}
-      />
-      <Stack.Screen
-        name="appearance"
-        options={createListScreenOptions(theme, "Appearance")}
-      />
+      <Stack.Screen name="index" options={listOptions("Settings")} />
+      <Stack.Screen name="account" options={listOptions("Account")} />
+      <Stack.Screen name="appearance" options={listOptions("Appearance")} />
       {/* Its own nested stack, so the editor always has the list beneath it —
           see `tasks/_layout.tsx`. The list's header stays *here* rather than
           moving down with it: `tasks/index` is the root of that nested stack,
@@ -45,42 +55,21 @@ export default function SettingsLayout() {
           not from React Navigation's parent-aware `canGoBack`, so the only way
           to give the Tasks list a back button is for the parent to own the
           header (DEX-93). */}
-      <Stack.Screen
-        name="tasks"
-        options={createListScreenOptions(theme, "Tasks")}
-      />
-      <Stack.Screen
-        name="lists/index"
-        options={createListScreenOptions(theme, "Lists")}
-      />
+      <Stack.Screen name="tasks" options={listOptions("Tasks")} />
+      <Stack.Screen name="lists/index" options={listOptions("Lists")} />
       <Stack.Screen
         name="lists/[id]"
         options={createModalScreenOptions(theme, "List")}
       />
-      <Stack.Screen
-        name="calendars"
-        options={createListScreenOptions(theme, "Calendars")}
-      />
-      <Stack.Screen
-        name="habits/index"
-        options={createListScreenOptions(theme, "Habits")}
-      />
+      <Stack.Screen name="calendars" options={listOptions("Calendars")} />
+      <Stack.Screen name="habits/index" options={listOptions("Habits")} />
       <Stack.Screen
         name="habits/[id]"
         options={createModalScreenOptions(theme, "Habit")}
       />
-      <Stack.Screen
-        name="journal"
-        options={createListScreenOptions(theme, "Journal")}
-      />
-      <Stack.Screen
-        name="notes"
-        options={createListScreenOptions(theme, "Notes")}
-      />
-      <Stack.Screen
-        name="licenses"
-        options={createListScreenOptions(theme, "Licenses")}
-      />
+      <Stack.Screen name="journal" options={listOptions("Journal")} />
+      <Stack.Screen name="notes" options={listOptions("Notes")} />
+      <Stack.Screen name="licenses" options={listOptions("Licenses")} />
     </Stack>
   );
 

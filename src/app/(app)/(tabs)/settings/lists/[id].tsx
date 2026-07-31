@@ -131,13 +131,7 @@ function ListForm({ existing }: { existing?: TList }) {
         keyboardShouldPersistTaps="handled"
         style={{ backgroundColor: theme.colors.background }}
       >
-        <View
-          style={[
-            styles.titleRow,
-            { gap: theme.space.sm },
-            { gap: theme.space.sm },
-          ]}
-        >
+        <View style={[styles.titleRow, { gap: theme.space.sm }]}>
           <TouchableOpacity
             accessibilityRole="button"
             accessibilityLabel="Choose emoji"

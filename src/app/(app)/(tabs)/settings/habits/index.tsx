@@ -64,7 +64,7 @@ export default function HabitsScreen() {
           {
             padding: theme.space.md,
             paddingBottom: theme.space.md + insets.bottom,
-            // `lg` between sections, `xs` within one (`styles.section`): the
+            // `lg` between sections, `sm` within one (`styles.section`): the
             // groups had been separated by the same step that separated a
             // title from its own content, so nothing read as grouped (DEX-61).
             gap: theme.space.lg,
@@ -78,7 +78,7 @@ export default function HabitsScreen() {
         />
 
         {preferences.enableHabits && (
-          <View style={{ gap: theme.space.xs }}>
+          <View style={{ gap: theme.space.sm }}>
             <SettingsSectionTitle>Habits</SettingsSectionTitle>
             {habits.length === 0 ? (
               <Text

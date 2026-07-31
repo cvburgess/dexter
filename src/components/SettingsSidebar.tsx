@@ -33,10 +33,15 @@ export function SettingsSidebar() {
       style={[
         styles.container,
         {
-          // Sunken, not `background`: the sidebar is chrome beside the detail
-          // pane, and sharing the pane's surface made the two read as one
-          // undifferentiated sheet (DEX-61).
-          backgroundColor: theme.colors.surfaceSunken,
+          // `background`, matching the detail pane it sits beside rather than
+          // the app's nav rail further left. The two panes are one settings
+          // surface; the rail is the chrome around it, and giving this the
+          // rail's `surfaceSunken` grouped it with the wrong neighbour.
+          //
+          // That makes the hairline below load-bearing — it is now the only
+          // thing dividing the master list from the detail, so it can't be
+          // dropped without the two running together.
+          backgroundColor: theme.colors.background,
           borderRightColor: theme.colors.border,
         },
       ]}
@@ -80,8 +85,8 @@ export function SettingsSidebar() {
                     : "transparent",
                   borderRadius: theme.radii.md,
                   gap: theme.space.sm,
-                  paddingHorizontal: theme.space.sm,
-                  paddingVertical: theme.space.sm,
+                  paddingHorizontal: theme.space.md,
+                  paddingVertical: theme.space.md,
                 },
               ]}
               testID={`settings-sidebar-${item.slug}`}

@@ -97,11 +97,7 @@ export default function LoginScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <SafeAreaView
-        style={[
-          styles.content,
-          { padding: theme.space.lg },
-          { padding: theme.space.lg },
-        ]}
+        style={[styles.content, { padding: theme.space.lg }]}
         edges={["top", "left", "right"]}
       >
         <Text style={[theme.fonts.heading, { color: theme.colors.text }]}>
