@@ -251,7 +251,13 @@ export function WebNavDock() {
           <Link asChild href={item.href} key={item.key}>
             <Pressable
               {...navItemProps(item, selected)}
-              style={[styles.dockItem, { gap: theme.space.xs }]}
+              // Flattened for the same reason as the rail's tile above — the
+              // `Slot` behind `asChild` can't merge an array style with the
+              // props it injects, and errors out instead of styling the item.
+              style={StyleSheet.flatten([
+                styles.dockItem,
+                { gap: theme.space.xs },
+              ])}
             >
               <View style={[styles.dockIconSlot, iconSlotStyle(theme)]}>
                 <SettingsIcon

@@ -23,9 +23,21 @@ jest.mock("expo-router", () => {
       children,
       href,
     }: {
-      children: ReactElement<{ href?: string }>;
+      children: ReactElement<{ href?: string; style?: unknown }>;
       href: string;
     }) {
+      // The real `Slot` refuses an array style on its child — it can't merge one
+      // with the props it clones in, and logs an `[expo-router]` error instead
+      // of rendering. Enforcing that here is what makes the rest of this suite a
+      // regression guard: the dock shipped with an array style that nothing
+      // caught, because the dock only renders below `WEB_RAIL_MIN_WIDTH` and no
+      // test rendered the real `Link`.
+      if (Array.isArray(children.props.style)) {
+        throw new Error(
+          "<Link asChild> needs a flattened style on its child, not an array — " +
+            "see StyleSheet.flatten in WebNav.tsx",
+        );
+      }
       return cloneElement(children, { href });
     },
     usePathname: () => mockPathname.current,
