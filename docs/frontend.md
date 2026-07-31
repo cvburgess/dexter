@@ -114,7 +114,7 @@ It defines a `themes` registry keyed by name — `dexter`, `light`, `dim`, `dark
 - On **web**, the first paint has no reliable `prefers-color-scheme` signal, so `useResolvedColorScheme` renders `light` then resolves the real scheme in a layout effect (before paint, no visible flash).
 - **Navigation surfaces must be themed explicitly.** A bare `<Stack>` renders a default (light) header even in dark mode, so nested tab layouts pass their screens through `createListScreenOptions(theme, title)` and modals through `createModalScreenOptions(theme, title)` (both from `utils/stackOptions.ts`, with `.web.ts` variants). The root Stack sets a themed `contentStyle` background so the gap before a screen paints (cold start, auth redirects) matches the scheme.
 - **`withOpacity(color, alpha)`** applies/compounds an alpha channel on a hex or `rgba()` color — use it to dim content, and to derive scrims and shadows from a theme color instead of hardcoding black rgba. It is *not* the way to tint a surface; see `docs/design.md`.
-- **Density is a screen-size tier, not a multiplier.** `useTheme()` reads `useIsLargeDevice()` and returns the `compact` tier at and above 768px, `comfortable` below. A test that mocks the breakpoint gets the matching tier for free.
+- **Density is a pointer tier, not a multiplier.** `useTheme()` returns the `compact` tier only on **web** at and above 768px (`useIsLargeDevice()`); native stays `comfortable` at every width, because compact's 26dp `controls.sm` is under the iOS minimum tap target and reads cramped on an iPad. A test that mocks the breakpoint gets the matching tier for free, but asserting compact also means saying it's on web — see `docs/design.md`.
 
 ## App icons
 

@@ -17,7 +17,7 @@ A theme has two halves, composed by `useTheme()`:
 | Half | Varies by | Lives in |
 | --- | --- | --- |
 | `colors` (`TThemeColors`) | which theme the user picked | `themes` |
-| everything else (`TDensityTokens`) | screen size | `DENSITY` |
+| everything else (`TDensityTokens`) | screen size and platform | `DENSITY` |
 
 `resolveTheme()` picks the palette; `useTheme()` adds the density tier. A
 component only ever sees the composed `Theme`, so neither half is a special
@@ -136,8 +136,9 @@ habit tiles, habit rings) is sized from `icons`, not from a font role.
 
 ## Density tiers
 
-Two explicit tiers, selected by `useIsLargeDevice()` — `compact` at and above
-`LARGE_DEVICE_MIN_WIDTH` (768), `comfortable` below it. Both are written out in
+Two explicit tiers. **`compact` is web-only**, applying at and above
+`LARGE_DEVICE_MIN_WIDTH` (768); everything else — every native device at every
+width, and web below the breakpoint — is `comfortable`. Both are written out in
 full rather than derived from a multiplier: spacing wants to tighten harder than
 type does, and literals keep every value an integer.
 
@@ -152,7 +153,16 @@ colors. In practice a `StyleSheet` entry ends up holding only layout
 (`flexDirection`, `alignItems`, `position`, `flex`), which is the right split.
 
 Density keys off `useIsLargeDevice()` rather than `useWindowDimensions` directly,
-so a test that already mocks the breakpoint gets the matching tier for free.
+so a test that already mocks the breakpoint gets the matching tier for free. It
+also checks `Platform.OS`, so a test asserting the compact tier has to say it is
+on web — jest-expo's preset runs as iOS.
+
+**Why `compact` stops at the browser.** It is a *pointer* tier, not a width
+tier: it exists because the phone-tuned sizing read too large next to the legacy
+desktop web app, where a cursor hits a 26dp target as easily as a 40dp one. A
+tablet has the width but not the input — `controls.sm` at 26dp is well under the
+44pt iOS minimum tap target, and an iPad on this tier reads cramped rather than
+refined. Reach for a new tier before widening this one to touch.
 
 ## Iconography
 

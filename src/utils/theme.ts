@@ -112,9 +112,10 @@ export interface Theme extends TDensityTokens {
 }
 
 /**
- * How dense the numeric tokens are. `compact` applies at and above
+ * How dense the numeric tokens are. `compact` applies on **web** at and above
  * `LARGE_DEVICE_MIN_WIDTH`, where the phone-tuned sizing read noticeably too
- * large and bold next to the legacy app (DEX-61).
+ * large and bold next to the legacy app (DEX-61). Native stays `comfortable` at
+ * every width — see `useTheme` for why.
  */
 export type TDensity = "comfortable" | "compact";
 
@@ -392,8 +393,7 @@ export function resolveTheme(
 export const ThemeContext = createContext<TThemePalette | null>(null);
 
 /**
- * The active theme: the user's palette plus the density tier for this screen
- * size.
+ * The active theme: the user's palette plus the density tier for this screen.
  *
  * Density keys off `useIsLargeDevice` rather than `useWindowDimensions`
  * directly, so a test that already mocks the breakpoint gets the matching tier
@@ -409,7 +409,15 @@ export function useTheme(): Theme {
     (scheme === "dark"
       ? themes[DEFAULT_DARK_THEME]
       : themes[DEFAULT_LIGHT_THEME]);
-  const density: TDensity = isLargeDevice ? "compact" : "comfortable";
+  // Compact is a *pointer* tier, not a width tier. It exists because the
+  // phone-tuned sizing read noticeably too large next to the legacy desktop web
+  // app (DEX-61) — a mouse-at-a-desk problem, where a cursor hits a 26dp target
+  // as easily as a 40dp one. A large touch device has the width but not the
+  // input: `controls.sm` at 26dp is well under the 44pt iOS minimum tap target,
+  // so an iPad on this tier reads cramped rather than refined. Native therefore
+  // stays comfortable at every width, and `compact` is web-only.
+  const density: TDensity =
+    isLargeDevice && Platform.OS === "web" ? "compact" : "comfortable";
 
   return useMemo(
     () => ({ colors: palette.colors, ...DENSITY[density] }),

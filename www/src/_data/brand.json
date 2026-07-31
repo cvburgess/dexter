@@ -201,7 +201,7 @@
   "density": [
     {
       "tier": "comfortable",
-      "applies": "Below 768px \u2014 phones",
+      "applies": "Every native device, and web below 768px",
       "space": [
         4,
         8,
@@ -230,7 +230,7 @@
     },
     {
       "tier": "compact",
-      "applies": "768px and up \u2014 tablets, desktop",
+      "applies": "Web at 768px and up \u2014 desktop browsers",
       "space": [
         3,
         6,

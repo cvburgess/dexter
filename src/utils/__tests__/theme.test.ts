@@ -1,5 +1,5 @@
 import { renderHook } from "@testing-library/react-native";
-import { useColorScheme } from "react-native";
+import { Platform, useColorScheme } from "react-native";
 
 import { EThemeMode } from "@/api/preferences";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
@@ -127,12 +127,20 @@ describe("theme palettes", () => {
 });
 
 describe("density tiers", () => {
+  // `compact` is web-only (see `useTheme`), and jest-expo's preset runs this
+  // suite as iOS — so every compact assertion has to say so explicitly.
+  // `restoreAllMocks` puts `Platform.OS` back; it leaves the module mocks above
+  // alone, since those are factory `jest.fn()`s rather than spies.
+  const asWeb = () => jest.replaceProperty(Platform, "OS", "web");
+
   afterEach(() => {
+    jest.restoreAllMocks();
     mockUseColorScheme.mockReset();
     mockUseIsLargeDevice.mockReturnValue(false);
   });
 
   it("uses the comfortable tier below the large-device breakpoint", () => {
+    asWeb();
     mockUseIsLargeDevice.mockReturnValue(false);
 
     const { result } = renderHook(() => useTheme());
@@ -142,7 +150,8 @@ describe("density tiers", () => {
     expect(result.current.controls.md).toBe(40);
   });
 
-  it("uses the compact tier at and above the large-device breakpoint", () => {
+  it("uses the compact tier on a wide web viewport", () => {
+    asWeb();
     mockUseIsLargeDevice.mockReturnValue(true);
 
     const { result } = renderHook(() => useTheme());
@@ -152,7 +161,21 @@ describe("density tiers", () => {
     expect(result.current.controls.md).toBe(32);
   });
 
-  it("switches tiers when the window crosses the breakpoint", () => {
+  // The tier DEX-61 tuned for a desktop pointer puts `controls.sm` at 26dp,
+  // well under the 44pt iOS minimum tap target, so a tablet reads cramped on
+  // it. Native opts out at every width.
+  it("stays comfortable on a large native device", () => {
+    mockUseIsLargeDevice.mockReturnValue(true);
+
+    const { result } = renderHook(() => useTheme());
+
+    expect(result.current.space).toBe(DENSITY.comfortable.space);
+    expect(result.current.fonts.body.fontSize).toBe(14);
+    expect(result.current.controls.md).toBe(40);
+  });
+
+  it("switches tiers when the web window crosses the breakpoint", () => {
+    asWeb();
     mockUseIsLargeDevice.mockReturnValue(false);
     const { result, rerender } = renderHook(() => useTheme());
     expect(result.current.space.md).toBe(16);

@@ -185,11 +185,14 @@ fullBleed: true
 <!-- ======================== Density tiers ======================== -->
 {{ layout "layouts/brandSection.vto" { title: "Density", background: true } }}
   <p class="mb-8 text-balanced">
-    Every numeric token comes in two tiers. The app picks <code>compact</code> at
-    and above 768px and <code>comfortable</code> below it. The tiers are written
-    out in full rather than scaled from one another — spacing wants to tighten
-    harder than type does, and a scaled-down caption stops being legible well
-    before the padding stops being roomy.
+    Every numeric token comes in two tiers. <code>compact</code> is a pointer
+    tier, not a size one: the web app picks it at and above 768px, where a cursor
+    hits a small target as easily as a large one. Everything touched with a
+    finger — every phone and tablet — stays <code>comfortable</code>, however
+    wide the screen. The tiers are written out in full rather than scaled from
+    one another — spacing wants to tighten harder than type does, and a
+    scaled-down caption stops being legible well before the padding stops being
+    roomy.
   </p>
 
   <div class="overflow-x-auto">
