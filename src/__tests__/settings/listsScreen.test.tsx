@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react-native";
+import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
 import { TList } from "@/api/lists";
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
@@ -22,6 +22,18 @@ jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush }),
 }));
 
+// The prompt itself is covered by ConfirmationModal's own tests; here it only
+// has to resolve so the archive path can be exercised (as in
+// `listEditorScreen.test.tsx`).
+const mockConfirm = jest.fn<Promise<boolean>, [unknown]>();
+jest.mock("@/hooks/useConfirmation", () => ({
+  useConfirmation: () => ({
+    confirm: mockConfirm,
+    confirmationProps: { visible: false, title: "", message: "", actions: [] },
+  }),
+}));
+
+const mockUpdateList = jest.fn();
 const mockUseLists = useLists as jest.MockedFunction<typeof useLists>;
 const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
 const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
@@ -56,7 +68,10 @@ const renderWith = ({
   lists = [],
   tasks = [],
 }: { lists?: TList[]; tasks?: TTask[] } = {}) => {
-  mockUseLists.mockReturnValue([lists, {} as never]);
+  mockUseLists.mockReturnValue([
+    lists,
+    { updateList: mockUpdateList } as never,
+  ]);
   mockUseTasks.mockReturnValue([tasks, {} as never]);
   return render(<ListsScreen />);
 };
@@ -152,5 +167,36 @@ describe("ListsScreen", () => {
       pathname: "/settings/lists/[id]",
       params: { id: "list-1" },
     });
+  });
+
+  it("archives a list once the prompt is confirmed", async () => {
+    mockConfirm.mockResolvedValue(true);
+    const screen = renderWith({
+      lists: [makeList({ id: "list-1", title: "Work" })],
+    });
+
+    fireEvent.press(screen.getByLabelText("Archive Work"));
+
+    await waitFor(() =>
+      expect(mockUpdateList).toHaveBeenCalledWith(
+        { id: "list-1", isArchived: true },
+        expect.anything(),
+      ),
+    );
+    // The row's own tap target is separate from the button inside it, so
+    // archiving must not also open the editor.
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("leaves the list alone when the prompt is cancelled", async () => {
+    mockConfirm.mockResolvedValue(false);
+    const screen = renderWith({
+      lists: [makeList({ id: "list-1", title: "Work" })],
+    });
+
+    fireEvent.press(screen.getByLabelText("Archive Work"));
+
+    await waitFor(() => expect(mockConfirm).toHaveBeenCalled());
+    expect(mockUpdateList).not.toHaveBeenCalled();
   });
 });

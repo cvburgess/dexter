@@ -59,10 +59,9 @@ export default function AppearanceScreen() {
           {
             padding: theme.space.md,
             paddingBottom: theme.space.md + insets.bottom,
-            // `lg` between sections, `sm` within one (`Section`): the groups had
-            // been separated by the same step that separated a title from its
-            // own content, so nothing read as grouped (DEX-61).
-            gap: theme.space.lg,
+            // The in-group step only: `SettingsSectionTitle` carries the `lg`
+            // between sections itself, so it applies wherever it renders (DEX-61).
+            gap: theme.space.sm,
           },
         ]}
       >
@@ -155,7 +154,7 @@ function ThemeCard({
       style={[
         styles.card,
         {
-          backgroundColor: palette.colors.card,
+          backgroundColor: palette.colors.surfaceSunken,
           borderRadius: uiTheme.radii.md,
           borderColor: selected
             ? uiTheme.colors.primary

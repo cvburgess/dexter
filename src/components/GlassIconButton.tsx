@@ -37,7 +37,7 @@ export function GlassIconButton({
           width: diameter,
           height: diameter,
           borderRadius: theme.radii.full,
-          backgroundColor: theme.colors.card,
+          backgroundColor: theme.colors.surfaceSunken,
           borderColor: theme.colors.border,
         },
       ]}

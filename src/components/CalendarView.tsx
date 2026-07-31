@@ -311,7 +311,15 @@ function HourRow({
       <Text
         style={[
           styles.hourLabel,
-          { top: top - 7, color: theme.colors.textSecondary },
+          theme.fonts.subtitle,
+          {
+            // Centers the label on the line it names: `top` is the line, and
+            // half the label's own size lifts its middle onto it. Derived from
+            // the role rather than fixed, or the two drift apart the moment the
+            // density tier changes the size out from under it.
+            top: top - Math.round(theme.fonts.subtitle.fontSize / 2),
+            color: theme.colors.textSecondary,
+          },
         ]}
       >
         {formatHourLabel(hour)}

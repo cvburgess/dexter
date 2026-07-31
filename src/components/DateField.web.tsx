@@ -107,7 +107,7 @@ export function DateField({
           left: anchor.left,
           width: POPOVER_WIDTH,
           zIndex: 9999,
-          backgroundColor: theme.colors.card,
+          backgroundColor: theme.colors.surfaceSunken,
           border: `1px solid ${theme.colors.border}`,
           borderRadius: theme.radii.md,
           // Derived from `text`, not a fixed black: a shadow tuned for a light

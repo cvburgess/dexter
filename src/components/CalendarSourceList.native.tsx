@@ -73,7 +73,7 @@ export function CalendarSourceList() {
               style={[
                 styles.row,
                 {
-                  backgroundColor: theme.colors.card,
+                  backgroundColor: theme.colors.surfaceSunken,
                   borderRadius: theme.radii.md,
                   gap: theme.space.sm,
                   opacity: isEnabled(calendar.id) ? 1 : 0.5,

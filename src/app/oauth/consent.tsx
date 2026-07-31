@@ -199,7 +199,7 @@ function ConsentCard({ children }: { children: ReactNode }) {
           styles.card,
           { padding: theme.space.lg, gap: theme.space.sm },
           {
-            backgroundColor: theme.colors.card,
+            backgroundColor: theme.colors.surfaceSunken,
             borderRadius: theme.radii.md,
           },
         ]}

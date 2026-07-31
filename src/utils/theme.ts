@@ -18,21 +18,25 @@ import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 export interface TThemeColors {
   primary: string;
   primaryContent: string;
-  /** The main content surface — screen bodies, panes, the sheet behind cards. */
-  background: string;
-  /** Elevated on top of `background` — cards, inputs, stack headers, nav tiles. */
-  card: string;
   /**
-   * Sunken *below* `background` — the nav rail, the web dock, and the settings
-   * sidebar. Chrome that should recede behind the content it sits beside
-   * (DEX-61); everything else belongs on `background` or `card`.
+   * The content sheet, and the lightest surface in the theme (daisyUI
+   * `base-100`) — screen bodies, panes, the sheet behind cards, and the nav
+   * rail's tiles. Content is the brightest plane in the app; everything that
+   * frames it recedes to `surfaceSunken`.
+   */
+  background: string;
+  /**
+   * Sunken *below* `background` (daisyUI `base-200`) — cards, inputs, rows,
+   * menus, and the web nav rail and dock. Anything that frames or holds
+   * content rather than being content (DEX-61).
    */
   surfaceSunken: string;
   /**
-   * Hairline borders and dividers. Opaque and tuned per theme rather than an
-   * alpha of `text`: a single alpha that reads correctly on light surfaces is
-   * invisible on dark ones (DEX-61), so light themes get a border darker than
-   * their surface and dark themes get one lighter than theirs.
+   * Hairline borders and dividers, always a step *darker* than the surfaces
+   * above — dark themes included, where the line is drawn by taking light away
+   * rather than adding it. Opaque and tuned per theme rather than an alpha of
+   * `text`: a single alpha that reads correctly on a light surface is invisible
+   * on a dark one (DEX-61).
    */
   border: string;
   text: string;
@@ -54,10 +58,10 @@ export interface TThemeColors {
   priority: string[];
   /**
    * Solid card fills, indexed the same way. Each is the matching `priority`
-   * accent pre-blended over this theme's `background` at
-   * `CARD_FILL_ALPHA` — the tint task cards used to composite at render time.
-   * Pre-blending makes the fill opaque, so a card no longer shifts color when
-   * it sits over a pane that isn't `background` (DEX-61).
+   * accent pre-blended over this theme's `background` — the pane a card sits
+   * on — at `CARD_FILL_ALPHA`, the alpha task cards used to composite at render
+   * time. Pre-blending makes the fill opaque, so a card no longer shifts color
+   * when it sits over a pane that isn't `background` (DEX-61).
    */
   priorityMuted: string[];
   /** Text color readable on top of the matching `priority` color (the daisyUI tokens' `-content` pair). */
@@ -154,7 +158,7 @@ export const DENSITY: Record<TDensity, TDensityTokens> = {
     space: { xs: 3, sm: 6, md: 12, lg: 18 },
     fonts: {
       subtitle: { fontSize: 11, fontWeight: "400" },
-      body: { fontSize: 13, fontWeight: "400" },
+      body: { fontSize: 12, fontWeight: "400" },
       control: { fontSize: 14, fontWeight: "600" },
       title: { fontSize: 14, fontWeight: "600" },
       heading: { fontSize: 20, fontWeight: "700" },
@@ -195,13 +199,17 @@ const mutePriorities = (priority: string[], background: string): string[] =>
   priority.map((color) => blend(color, background, CARD_FILL_ALPHA));
 
 // Each theme is a daisyUI theme ported oklch → hex. The TThemeColors fields map
-// onto daisyUI tokens as: background = base-200, card = base-100,
-// surfaceSunken = base-300, text = base-content, primary/error/success = the
-// matching token + its `-content` pair, and the priority arrays =
-// [warning, error, info, base-100, neutral] with their `-content` pairs.
-// `border` is the exception: daisyUI has no border token, and base-300 would be
-// darker than the surface in a dark theme — i.e. invisible — so each theme
-// supplies one tuned to sit *against* its own surface. "dexter" is Dexter's
+// onto daisyUI tokens as: background = base-100, surfaceSunken = base-200,
+// text = base-content, primary/error/success = the matching token + its
+// `-content` pair, and the priority arrays = [warning, error, info, base-100,
+// neutral] with their `-content` pairs. The two surfaces are anchored where
+// dexter-app anchors them — content on base-100, chrome on base-200 — so the
+// app reads at the same brightness as the legacy web app rather than a rung
+// darker (DEX-61).
+// `border` is the exception: daisyUI has no border token, so the dark themes
+// take base-300 (the step below chrome, and what dexter-app draws its own
+// borders with) while the light themes go one step beyond theirs, since a light
+// theme's base-300 is nearly its base-200. "dexter" is Dexter's
 // custom brand theme (green primary on a warm base); the rest are faithful
 // ports of the daisyUI themes of the same name.
 const DEXTER_PRIORITY = ["#fcb700", "#ff627d", "#00bafe", "#fffbf4", "#593d31"];
@@ -209,9 +217,8 @@ const dexter: TThemePalette = {
   colors: {
     primary: "#00674f",
     primaryContent: "#c3ffcf",
-    background: "#f7f1e7",
-    card: "#fffbf4",
-    surfaceSunken: "#efe7d9",
+    background: "#fffbf4",
+    surfaceSunken: "#f7f1e7",
     border: "#e0d5c2",
     text: "#593d31",
     textSecondary: "rgba(89, 61, 49, 0.6)",
@@ -220,7 +227,7 @@ const dexter: TThemePalette = {
     success: "#00d390",
     successContent: "#004c39",
     priority: DEXTER_PRIORITY,
-    priorityMuted: mutePriorities(DEXTER_PRIORITY, "#f7f1e7"),
+    priorityMuted: mutePriorities(DEXTER_PRIORITY, "#fffbf4"),
     priorityContent: ["#793205", "#4d0218", "#042e49", "#593d31", "#fffbf4"],
   },
 };
@@ -230,9 +237,8 @@ const light: TThemePalette = {
   colors: {
     primary: "#422ad5",
     primaryContent: "#e0e7ff",
-    background: "#f8f8f8",
-    card: "#ffffff",
-    surfaceSunken: "#ededed",
+    background: "#ffffff",
+    surfaceSunken: "#f8f8f8",
     border: "#e0e0e0",
     text: "#18181b",
     textSecondary: "rgba(24, 24, 27, 0.6)",
@@ -241,7 +247,7 @@ const light: TThemePalette = {
     success: "#00d390",
     successContent: "#004c39",
     priority: LIGHT_PRIORITY,
-    priorityMuted: mutePriorities(LIGHT_PRIORITY, "#f8f8f8"),
+    priorityMuted: mutePriorities(LIGHT_PRIORITY, "#ffffff"),
     priorityContent: ["#793205", "#4d0218", "#042e49", "#18181b", "#e4e4e7"],
   },
 };
@@ -253,10 +259,9 @@ const dim: TThemePalette = {
   colors: {
     primary: "#9fe88d",
     primaryContent: "#091307",
-    background: "#242933",
-    card: "#2a303c",
-    surfaceSunken: "#1c212b",
-    border: "#3a4150",
+    background: "#2a303c",
+    surfaceSunken: "#242933",
+    border: "#1c212b",
     text: "#b2ccd6",
     textSecondary: "rgba(178, 204, 214, 0.6)",
     error: "#ffae9b",
@@ -264,7 +269,7 @@ const dim: TThemePalette = {
     success: "#62efbd",
     successContent: "#03140d",
     priority: DIM_PRIORITY,
-    priorityMuted: mutePriorities(DIM_PRIORITY, "#242933"),
+    priorityMuted: mutePriorities(DIM_PRIORITY, "#2a303c"),
     priorityContent: ["#141003", "#160b09", "#011316", "#b2ccd6", "#b2ccd6"],
   },
 };
@@ -274,10 +279,9 @@ const dark: TThemePalette = {
   colors: {
     primary: "#605dff",
     primaryContent: "#edf1fe",
-    background: "#191e24",
-    card: "#1d232a",
-    surfaceSunken: "#15191e",
-    border: "#2f363d",
+    background: "#1d232a",
+    surfaceSunken: "#191e24",
+    border: "#15191e",
     text: "#ecf9ff",
     textSecondary: "rgba(236, 249, 255, 0.6)",
     error: "#ff627d",
@@ -285,7 +289,7 @@ const dark: TThemePalette = {
     success: "#00d390",
     successContent: "#004c39",
     priority: DARK_PRIORITY,
-    priorityMuted: mutePriorities(DARK_PRIORITY, "#191e24"),
+    priorityMuted: mutePriorities(DARK_PRIORITY, "#1d232a"),
     priorityContent: ["#793205", "#4d0218", "#042e49", "#ecf9ff", "#e4e4e7"],
   },
 };
@@ -295,10 +299,9 @@ const abyss: TThemePalette = {
   colors: {
     primary: "#bdff00",
     primaryContent: "#427600",
-    background: "#00111d",
-    card: "#001e29",
-    surfaceSunken: "#000c15",
-    border: "#0a3542",
+    background: "#001e29",
+    surfaceSunken: "#00111d",
+    border: "#000c15",
     text: "#ffd6a7",
     textSecondary: "rgba(255, 214, 167, 0.6)",
     error: "#f04e4f",
@@ -306,7 +309,7 @@ const abyss: TThemePalette = {
     success: "#01df72",
     successContent: "#022d14",
     priority: ABYSS_PRIORITY,
-    priorityMuted: mutePriorities(ABYSS_PRIORITY, "#00111d"),
+    priorityMuted: mutePriorities(ABYSS_PRIORITY, "#001e29"),
     priorityContent: ["#854200", "#690000", "#042e49", "#ffd6a7", "#ffd6a7"],
   },
 };

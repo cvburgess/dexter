@@ -49,7 +49,7 @@ export default function SettingsScreen() {
             style={[
               styles.card,
               {
-                backgroundColor: theme.colors.card,
+                backgroundColor: theme.colors.surfaceSunken,
                 borderRadius: theme.radii.md,
               },
             ]}

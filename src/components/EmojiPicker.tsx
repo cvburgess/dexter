@@ -27,13 +27,13 @@ export function EmojiPicker({ open, onClose, onSelect }: TEmojiPickerProps) {
         // a black wash all but disappears over a dark theme (DEX-61).
         backdrop: withOpacity(theme.colors.background, 0.85),
         knob: theme.colors.primary,
-        container: theme.colors.card,
+        container: theme.colors.surfaceSunken,
         header: theme.colors.text,
         category: {
           icon: theme.colors.textSecondary,
           iconActive: theme.colors.primary,
           container: theme.colors.background,
-          containerActive: theme.colors.card,
+          containerActive: theme.colors.surfaceSunken,
         },
         search: {
           text: theme.colors.text,

@@ -46,7 +46,7 @@ export function SearchResultCard({
       style={[
         styles.card,
         {
-          backgroundColor: theme.colors.card,
+          backgroundColor: theme.colors.surfaceSunken,
           borderColor: theme.colors.border,
           borderRadius: theme.radii.md,
           gap: theme.space.xs,

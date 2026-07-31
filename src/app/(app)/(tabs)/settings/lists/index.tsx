@@ -6,9 +6,12 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
+import { TList } from "@/api/lists";
+import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { HeaderAddButton } from "@/components/HeaderAddButton";
 import { ListRow } from "@/components/ListRow";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
+import { useConfirmation } from "@/hooks/useConfirmation";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { useLists } from "@/hooks/useLists";
 import { useTasks } from "@/hooks/useTasks";
@@ -16,6 +19,7 @@ import {
   EDGES_SINGLE_PANE,
   EDGES_TWO_PANE,
 } from "@/utils/settingsSafeAreaEdges";
+import { showSaveError } from "@/utils/showSaveError";
 import { isCompletionStatus } from "@/utils/taskFilters";
 import { useTheme } from "@/utils/theme";
 
@@ -23,8 +27,9 @@ export default function ListsScreen() {
   const theme = useTheme();
   const navigation = useNavigation();
   const router = useRouter();
-  const [lists] = useLists();
+  const [lists, { updateList }] = useLists();
   const [tasks] = useTasks();
+  const { confirm, confirmationProps } = useConfirmation();
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = useIsLargeDevice();
   const insets = useSafeAreaInsets();
@@ -41,6 +46,26 @@ export default function ListsScreen() {
     }
     return counts;
   }, [tasks]);
+
+  // Same prompt and copy as the edit modal's Archive action
+  // (`settings/lists/[id].tsx`), since it is the same write from a second
+  // place: the row disappears from every screen and there is no unarchive
+  // anywhere in the app, so this asks first even though the pause toggle it
+  // sits beside does not.
+  const archiveList = async (list: TList) => {
+    const confirmed = await confirm({
+      title: `Archive ${list.title}?`,
+      message:
+        "Archiving hides this list and cancels any of its open tasks. This can't be undone from here.",
+      confirmLabel: "Archive",
+      destructive: true,
+    });
+    if (!confirmed) return;
+    updateList(
+      { id: list.id, isArchived: true },
+      { onError: () => showSaveError("list") },
+    );
+  };
 
   // A "+" in the header opens the create modal (mirrors Habits). Re-wired on
   // every render so the push handler stays current.
@@ -75,10 +100,9 @@ export default function ListsScreen() {
           {
             padding: theme.space.md,
             paddingBottom: theme.space.md + insets.bottom,
-            // `lg` between sections, `sm` within one (`styles.section`): the
-            // groups had been separated by the same step that separated a
-            // title from its own content, so nothing read as grouped (DEX-61).
-            gap: theme.space.lg,
+            // The in-group step only: `SettingsSectionTitle` carries the `lg`
+            // between sections itself, so it applies wherever it renders (DEX-61).
+            gap: theme.space.sm,
           },
         ]}
       >
@@ -103,7 +127,7 @@ export default function ListsScreen() {
                     styles.card,
                     { paddingHorizontal: theme.space.md },
                     {
-                      backgroundColor: theme.colors.card,
+                      backgroundColor: theme.colors.surfaceSunken,
                       borderRadius: theme.radii.md,
                     },
                   ]}
@@ -111,6 +135,7 @@ export default function ListsScreen() {
                   <ListRow
                     list={list}
                     openCount={openCounts.get(list.id) ?? 0}
+                    onArchive={() => archiveList(list)}
                   />
                 </View>
               ))}
@@ -118,6 +143,10 @@ export default function ListsScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* One modal for the whole screen: `archiveList` awaits it, and every
+          row's button routes through that. */}
+      <ConfirmationModal {...confirmationProps} />
     </SafeAreaView>
   );
 }

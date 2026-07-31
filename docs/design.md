@@ -25,20 +25,33 @@ case at the call site.
 
 ## Surfaces
 
-Three steps, dark to light in a light theme and light to dark in a dark one:
+Two steps, and the direction is the point: **content is the lightest plane in
+the app, and everything that frames content recedes from it.**
 
-| Token | Sits | Used for |
+| Token | daisyUI | Used for |
 | --- | --- | --- |
-| `surfaceSunken` | **below** `background` | The app's nav rail and dock |
-| `background` | the baseline | Screen bodies, panes, the sheet behind cards |
-| `card` | **above** `background` | Cards, inputs, stack headers, nav tiles |
+| `background` | `base-100` | Screen bodies, panes, the sheet behind cards, the nav rail's tiles |
+| `surfaceSunken` | `base-200` | Cards, inputs, rows, menus, stack chrome, the web nav rail and dock |
 
-The distinction is what makes chrome recede behind the content beside it. A pane
-of content is always `background`; the navigation that frames it is
-`surfaceSunken`; anything that should read as lifted off the page is `card`.
-Nothing else is a surface — do not invent a fourth by alpha-filling one of these.
+This is the inverse of a "cards float above the page" ramp, and it is deliberate
+(DEX-61). The legacy web app anchors its content on `base-100` and paints every
+input, card, and nav surface with `base-200`; anchoring content a rung lower
+made every screen in this app read a step darker than the app it replaces, which
+is what the two surfaces are tuned against. In a dark theme the difference is
+large — `base-100` is ~30% brighter than `base-200` in relative luminance, where
+in a light theme the same pair is white against near-white.
 
-`surfaceSunken` marks the app's *outermost* navigation, not every list that
+Ask "is this content, or is it holding content?" A pane, a screen body, a stack
+header and a nav tile are content and get `background`. A task card, a text
+input, a settings row, a menu, and the rail those tiles sit on hold content and
+get `surfaceSunken`. Nothing else is a surface — do not invent a third by
+alpha-filling one of these.
+
+The nav rail is the one place both tokens meet head-on: the rail is
+`surfaceSunken` and its tiles are `background`, so each tile reads as a piece of
+the content sheet floating on the chrome — the legacy nav exactly.
+
+Sinking a surface marks the app's *outermost* chrome, not every list that
 happens to sit on the left. The settings sidebar is deliberately `background`:
 it and the detail pane are two halves of one settings surface, and sinking it
 grouped it with the nav rail further left instead. Its hairline right border is
@@ -59,6 +72,12 @@ That is the point of it: a card composited at 80% alpha takes on whatever pane
 is behind it, so the same task read as two different colors depending on which
 column it was in. Pre-blending makes the fill opaque and stable.
 
+`priority[NEITHER]` is the theme's `base-100` — the same value as `background` —
+so its muted fill resolves to the pane itself and an unprioritized card reads as
+a bare row rather than a block. That is legacy behavior, and `theme.test.ts`
+pins it; a card that needs to be visible without a priority needs a border, not
+a fourth surface.
+
 The one deliberate alpha left on a card is the completed state — a 3% tint of
 the raw `priority[i]`. It is meant to read as the *absence* of a card rather
 than as a fourth surface color, so it does not get a token.
@@ -67,14 +86,23 @@ than as a fourth surface color, so it does not get a token.
 
 `colors.border` is the app's one hairline. It is opaque and tuned per theme
 rather than derived as an alpha of `text`: a single alpha that reads correctly
-on a light surface is invisible on a dark one. Light themes get a border darker
-than their surface; dark themes get one *lighter* than theirs.
+on a light surface is invisible on a dark one.
 
-Use it for every divider and every hairline outline. The two places that
-correctly do something else both draw on a colored fill rather than on a
-surface, and derive their outline from the fill's own content color:
-`StatusButton`'s circle and `ListButton`'s, where a neutral hairline would wash
-out against the priority color behind it.
+**A divider is always darker than the surfaces it divides**, on a dark theme as
+much as a light one — a line is drawn by taking light away, never by adding it
+back. It is the bottom of the same ramp `background` and `surfaceSunken` sit on:
+the dark themes take daisyUI's `base-300` (the step below chrome, and what
+dexter-app draws its own borders with), the light themes one step beyond theirs,
+since a light theme's `base-300` is nearly its `base-200`. `theme.test.ts` pins
+the ordering.
+
+Use it for every divider and every hairline outline. The places that correctly
+do something else derive their line from what it is drawn *on* rather than from
+a surface: `StatusButton`'s circle and `ListButton`'s take the fill's own
+content color, where a neutral hairline would wash out against the priority
+color behind it, and `CalendarView`'s hour lines take `text` at 25% so they read
+as the faintest member of the same family as the hour labels they tie to, rather
+than as the app's structural hairline.
 
 ## Radius
 
@@ -99,11 +127,19 @@ probably the wrong size rather than the wrong radius.
 - `lg` separates *groups* — the gap between settings sections, and the bottom
   padding that clears a sheet's edge.
 
-The `lg`-between / `sm`-within pairing on the settings screens is deliberate:
-the two had been the same step, so nothing on those screens read as grouped.
-The inner step is `sm` rather than `xs` because a section title labels a whole
-group rather than a single control — at `xs` it sat close enough to its first
-row to read as part of it.
+The `lg`-between / `sm`-within pairing is deliberate: the two had been the same
+step, so nothing read as grouped. The inner step is `sm` rather than `xs`
+because a section title labels a whole group rather than a single control — at
+`xs` it sat close enough to its first row to read as part of it.
+
+**The group step lives in `SettingsSectionTitle`, not in the screens.** It
+carries `lg` above itself and `sm` below, and every screen supplies only the
+in-group `gap` those margins add to. When the `lg` was a `gap` on the settings
+screens instead, a title rendered anywhere else — Search's result list — got no
+separation at all and its sections ran together. A component that owns the space
+around itself is the exception here, not the rule, and this is the one that
+earns it: the heading is not a member of the group it heads, so no uniform
+parent `gap` can place it correctly.
 
 ## Type scale
 
@@ -113,8 +149,8 @@ both — spread it into a style rather than reading `.fontSize` off it.
 | Role | Weight | Answers | Used for |
 | --- | --- | --- | --- |
 | `subtitle` | 400 | what else should I know about this thing | The second line under a `title` — a row's detail, a section's explanation |
-| `body` | 400 | — | Running prose, empty states, row labels, calendar event names |
-| `control` | 600 | — | Buttons, text inputs, date/time pickers |
+| `body` | 400 | — | Running prose, empty states, row labels, calendar event names, what a text input holds |
+| `control` | 600 | — | Buttons and the web date/time pickers |
 | `title` | 600 | what is this thing | A component's primary line — a row's name, a field's label, a section heading |
 | `heading` | 700 | what screen am I on | Screen and detail-pane headings |
 | `display` | 900 | — | The login splash only |
@@ -122,17 +158,27 @@ both — spread it into a style rather than reading `.fontSize` off it.
 `title` and `subtitle` are a **pair**: seven components render one directly
 above the other (`ListRow`, `HabitRow`, `SettingsRow`, `TemplateRow`,
 `SearchResultCard`, `WeekDayColumn`, `SettingsSectionTitle`). If you are
-reaching for `subtitle`, there should be a `title` above it.
+reaching for `subtitle`, there should be a `title` above it — or, in the one
+case that isn't a pair, something else it annotates: `CalendarView`'s hour
+labels and event times take `subtitle` because they label the *grid*, and it is
+the smallest role there is.
 
 `heading` is not "a bigger `title`" — it is a different axis. `title` names a
 *component*; `heading` names the *screen or pane*, and there is one per view.
 
-**`control` must never drop below 16 on `comfortable`.** iOS Safari zooms the
-page whenever a focused input's font-size is under 16px, and `components/TextInput.tsx`
-has no `.web` variant, so it renders on mobile web where `comfortable` applies.
-`control` carries the same values as `title` today and exists as its own role
-precisely so that tuning `title` for density cannot silently reintroduce that
-zoom.
+**A field's text is `body`; a button's label is `control`.** What a text input
+holds is the user's own content — a calendar URL, a journal prompt, a note
+template — so it is set like content, at `body`'s 400. `control` stays 600 for
+the things you press: `Button`, `NewTaskButton`, `WeekdayPicker`,
+`ConfirmationModal.web`, the settings action links, and the web date/time
+fields, which read as pickers rather than as places to type.
+
+**Known cost: iOS Safari zooms the page whenever a focused input's font-size is
+under 16px.** `components/TextInput.tsx` has no `.web` variant, so it renders on
+mobile web where `comfortable` applies, and `body` is 14 there. `control`'s
+16-on-`comfortable` floor was what prevented that, and fields no longer sit
+behind it. The fix, if the zoom shows up in practice, is a 16px floor on web in
+`TextInput` rather than pushing the whole role back up.
 
 **Pick the role, not the nearest size.** The roles carry weight as well as size,
 so a 15pt semibold label is a `title` even though 15 is closer to `body`'s size.
@@ -143,8 +189,7 @@ Asking "what is this text *for*" gives the right answer; measuring it does not.
 `controls.md` is the diameter of a round icon button or a tile;
 `controls.sm` is an inline control inside a row (the status circle, the list
 button, the due-date badge). Sizes that sit *between* the two are derived from
-them rather than added to the scale — the web nav rail's tile is
-`controls.md + space.sm`, and a subtask's circle is three quarters of
+them rather than added to the scale — a subtask's circle is three quarters of
 `controls.sm` (see `subtaskGeometry` in `components/SubtaskConnector.tsx`, which
 derives the whole checklist layout from one place so the connector rail can't
 drift away from the rows it joins).
@@ -170,7 +215,7 @@ type does, and literals keep every value an integer.
 | | `space` xs/sm/md/lg | `fonts` subtitle/body/control/title/heading/display | `radii` md/full | `controls` md/sm | `icons` sm/md |
 | --- | --- | --- | --- | --- | --- |
 | comfortable | 4 / 8 / 16 / 24 | 12 / 14 / 16 / 16 / 24 / 40 | 12 / 999 | 40 / 32 | 14 / 20 |
-| compact | 3 / 6 / 12 / 18 | 11 / 13 / 14 / 14 / 20 / 32 | 12 / 999 | 32 / 26 | 12 / 18 |
+| compact | 3 / 6 / 12 / 18 | 11 / 12 / 14 / 14 / 20 / 32 | 12 / 999 | 32 / 26 | 12 / 18 |
 
 Because `StyleSheet.create` values are static, anything that varies by tier goes
 in the inline style array — the pattern `docs/frontend.md` already prescribes for
@@ -248,18 +293,28 @@ uncomfortable.
   the settings sidebar's 280pt width, the web menu's 220pt minimum width, a
   three-digit numeric field's 56pt minimum. These are "how wide must this be to
   hold its content", which no scale answers.
+- **The web nav rail's geometry** — `WEB_NAV_RAIL_WIDTH`, `WEB_NAV_TILE_SIZE`,
+  and `WEB_NAV_ICON_SIZE` in `utils/breakpoints.ts` (76 / 48 / 26). The rail is
+  web-only chrome ported one-for-one from the legacy desktop nav, and it is
+  proportioned against that app rather than against a control size that also has
+  to work under a thumb: derived from the compact tier the tile came out at 38
+  with a 19pt glyph, which read as a toolbar button rather than a destination.
+  The three live together because they only make sense together.
 - **`0`.** A reset (`padding: 0` to undo an inherited inset) is not a spacing
   step.
 
 ## Where the palettes came from
 
 Each theme is a daisyUI theme ported oklch → hex, mapping
-`background = base-200`, `card = base-100`, `surfaceSunken = base-300`,
-`text = base-content`, and the priority arrays =
-`[warning, error, info, base-100, neutral]` with their `-content` pairs.
-`border` is the exception: daisyUI has no border token, and `base-300` would be
-*darker* than the surface in a dark theme, so each theme supplies one tuned to
-sit against its own surface.
+`background = base-100`, `surfaceSunken = base-200`, `text = base-content`, and
+the priority arrays = `[warning, error, info, base-100, neutral]` with their
+`-content` pairs. `base-300` is not ported: the two surfaces above are where
+dexter-app anchors content and chrome, and a third step went unused once the
+ramp was anchored there.
+
+`border` is the other exception: daisyUI has no border token, and `base-300`
+would be *darker* than the surface in a dark theme, so each theme supplies one
+tuned to sit against its own surface.
 
 `dexter` is Dexter's own brand theme (green primary on a warm base); the rest are
 faithful ports of the daisyUI themes of the same name.

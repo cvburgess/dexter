@@ -19,7 +19,7 @@ export function TimeField({ min, onChange, testID, value }: TTimeFieldProps) {
       min={min}
       onChange={(event) => onChange(event.target.value)}
       style={{
-        backgroundColor: theme.colors.card,
+        backgroundColor: theme.colors.surfaceSunken,
         border: `1px solid ${theme.colors.border}`,
         borderRadius: theme.radii.md,
         color: theme.colors.text,

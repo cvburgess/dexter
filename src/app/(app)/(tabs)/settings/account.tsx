@@ -146,7 +146,7 @@ function UserProfile({ session }: { session: Session }) {
         styles.profile,
         { padding: theme.space.md },
         {
-          backgroundColor: theme.colors.card,
+          backgroundColor: theme.colors.surfaceSunken,
           borderRadius: theme.radii.md,
           gap: theme.space.sm,
         },

@@ -53,7 +53,7 @@ export function TemplateRow({
   const cardStyle = [
     styles.card,
     {
-      backgroundColor: theme.colors.card,
+      backgroundColor: theme.colors.surfaceSunken,
       borderRadius: theme.radii.md,
       // Matches the theme cards in Settings → Appearance.
       borderColor: selected ? theme.colors.primary : theme.colors.border,

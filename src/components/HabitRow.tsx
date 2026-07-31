@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { THabit, TUpdateHabit } from "@/api/habits";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 type THabitRowProps = {
   habit: THabit;
@@ -44,14 +44,17 @@ export function HabitRow({ habit, updateHabit }: THabitRowProps) {
             params: { id: habit.id },
           })
         }
-        style={[styles.main, { gap: theme.space.sm }]}
+        // `md` between the emoji and its labels, not the row's `sm`: with the
+        // tile's fill gone the glyph has no edge of its own, so it needs the
+        // wider step to read as separate from the title beside it.
+        style={[styles.main, { gap: theme.space.md }]}
       >
         <View
           style={[
             styles.tile,
             {
-              backgroundColor: withOpacity(theme.colors.text, 0.06),
-              borderRadius: theme.radii.md,
+              // No fill behind the emoji: the glyph is the icon, and a tinted
+              // square under it read as a second, competing shape in the row.
               height: theme.controls.md,
               width: theme.controls.md,
             },

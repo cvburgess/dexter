@@ -61,7 +61,7 @@ export function SearchField({ onChangeText, placeholder }: TSearchFieldProps) {
       // it's a `NativeSyntheticEvent`, not a string — the text is on
       // `nativeEvent`, unlike React Native's own `TextInput.onChangeText`.
       onChangeText={(event) => onChangeText(event.nativeEvent.text)}
-      barTintColor={theme.colors.card}
+      barTintColor={theme.colors.surfaceSunken}
       textColor={theme.colors.text}
       tintColor={theme.colors.primary}
       // Android-only knobs; harmless on iOS, and without them the Android bar

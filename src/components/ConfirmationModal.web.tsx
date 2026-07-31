@@ -61,7 +61,7 @@ export function ConfirmationModal(props: ConfirmationModalProps) {
           style={[
             styles.container,
             {
-              backgroundColor: theme.colors.card,
+              backgroundColor: theme.colors.surfaceSunken,
               borderRadius: theme.radii.md,
               // Derived from `text`, not a fixed black: a shadow tuned for a
               // light surface is invisible on a dark one (DEX-61).

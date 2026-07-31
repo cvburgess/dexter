@@ -296,6 +296,9 @@ export function TaskCard({
           // precedence over `editable`, and stating it twice would let a future
           // change to one site read as contradicting the other.
           editable={!isComplete}
+          // Two lines before truncating: a card is a fixed-width column on
+          // every layout, and one line clipped most real task titles.
+          numberOfLines={2}
           onPress={onPress}
           onStartEdit={() => setEditing({ kind: "title" })}
           onCommit={(committed) => {

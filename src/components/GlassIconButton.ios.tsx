@@ -64,7 +64,7 @@ export function GlassIconButton({
         styles.fallback,
         circle,
         {
-          backgroundColor: theme.colors.card,
+          backgroundColor: theme.colors.surfaceSunken,
           borderColor: theme.colors.border,
         },
       ]}

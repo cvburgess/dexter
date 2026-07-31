@@ -13,7 +13,11 @@ import {
   type TSettingsIconName,
 } from "@/components/SettingsIcon";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
-import { WEB_NAV_RAIL_WIDTH } from "@/utils/breakpoints";
+import {
+  WEB_NAV_ICON_SIZE,
+  WEB_NAV_RAIL_WIDTH,
+  WEB_NAV_TILE_SIZE,
+} from "@/utils/breakpoints";
 import { newTaskRoute } from "@/utils/newTaskRoute";
 import { Theme, useTheme, withOpacity } from "@/utils/theme";
 
@@ -135,11 +139,6 @@ const navItemProps = (item: TWebNavItem, selected: boolean) => ({
 export function WebNavRail() {
   const theme = useTheme();
   const { items, openNewTask, pathname } = useWebNav();
-  // Legacy parity: a square card a step larger than a standard icon button, so
-  // the rail's tiles read as destinations rather than controls. Its glyph is
-  // half the tile, which is what keeps the proportion on both density tiers.
-  const tile = theme.controls.md + theme.space.sm;
-  const glyph = Math.round(tile / 2);
 
   return (
     <View
@@ -150,9 +149,10 @@ export function WebNavRail() {
         {
           // Sunken, not `background`: the rail is chrome beside the content
           // pane, and on the same surface the two read as one sheet (DEX-61).
-          // The tiles' own `card` fill is what lifts them off it.
+          // The tiles' own `background` fill is what lifts them off it — they
+          // read as pieces of the content sheet floating on the chrome.
           backgroundColor: theme.colors.surfaceSunken,
-          gap: theme.space.sm,
+          gap: theme.space.md,
           paddingVertical: theme.space.md,
         },
       ]}
@@ -168,11 +168,11 @@ export function WebNavRail() {
               // can't merge an array style with the props it injects.
               style={StyleSheet.flatten([
                 styles.tile,
-                tileStyle(theme, tile),
+                tileStyle(theme),
                 {
                   backgroundColor: selected
                     ? withOpacity(theme.colors.text, 0.8)
-                    : theme.colors.card,
+                    : theme.colors.background,
                   // Absorbs the rail's leftover height, pushing this item — and
                   // the "+" that follows it — to the bottom.
                   marginTop: item.pinnedToBottom ? "auto" : 0,
@@ -182,7 +182,7 @@ export function WebNavRail() {
               <SettingsIcon
                 color={selected ? theme.colors.background : theme.colors.text}
                 name={item.icon}
-                size={glyph}
+                size={WEB_NAV_ICON_SIZE}
               />
             </Pressable>
           </Link>
@@ -195,7 +195,7 @@ export function WebNavRail() {
         onPress={openNewTask}
         style={[
           styles.tile,
-          tileStyle(theme, tile),
+          tileStyle(theme),
           { backgroundColor: theme.colors.primary },
         ]}
         testID="web-nav-new-task"
@@ -203,7 +203,7 @@ export function WebNavRail() {
         <SettingsIcon
           color={theme.colors.primaryContent}
           name="add"
-          size={glyph}
+          size={WEB_NAV_ICON_SIZE}
         />
       </TouchableOpacity>
     </View>
@@ -318,12 +318,12 @@ export function WebNavDock() {
   );
 }
 
-/** The rail tile's density-dependent box; see `WebNavRail`. */
-const tileStyle = (theme: Theme, size: number) => ({
+/** The rail tile's box; see `WebNavRail` and `WEB_NAV_TILE_SIZE`. */
+const tileStyle = (theme: Theme) => ({
   borderRadius: theme.radii.md,
   boxShadow: `0 1px 3px ${withOpacity(theme.colors.text, 0.12)}`,
-  height: size,
-  width: size,
+  height: WEB_NAV_TILE_SIZE,
+  width: WEB_NAV_TILE_SIZE,
 });
 
 /**

@@ -79,10 +79,9 @@ export default function TasksScreen() {
           {
             padding: theme.space.md,
             paddingBottom: theme.space.md + insets.bottom,
-            // `lg` between sections, `sm` within one (`styles.section`): the
-            // groups had been separated by the same step that separated a
-            // title from its own content, so nothing read as grouped (DEX-61).
-            gap: theme.space.lg,
+            // The in-group step only: `SettingsSectionTitle` carries the `lg`
+            // between sections itself, so it applies wherever it renders (DEX-61).
+            gap: theme.space.sm,
           },
         ]}
       >

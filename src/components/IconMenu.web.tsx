@@ -149,7 +149,7 @@ export function IconMenu({
               style={[
                 styles.menu,
                 {
-                  backgroundColor: theme.colors.card,
+                  backgroundColor: theme.colors.surfaceSunken,
                   borderRadius: theme.radii.md,
                   boxShadow: `0px 2px 8px ${withOpacity(theme.colors.text, 0.25)}`,
                   position: "absolute",

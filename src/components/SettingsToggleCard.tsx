@@ -25,7 +25,7 @@ export function SettingsToggleCard({
       style={[
         styles.card,
         {
-          backgroundColor: theme.colors.card,
+          backgroundColor: theme.colors.surfaceSunken,
           borderRadius: theme.radii.md,
           padding: theme.space.md,
         },

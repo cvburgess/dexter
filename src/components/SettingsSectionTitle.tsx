@@ -28,7 +28,17 @@ type TSettingsSectionTitleProps = {
  * leave spacing to the parent's `gap`. A section's rows are a group and the
  * heading is not one of them, so the margins are what set it apart from both
  * the section above and the content below — a uniform `gap` on the parent
- * can't say that. The margins add to that gap rather than replacing it.
+ * can't say that.
+ *
+ * The `lg` above is the *group* step, carried here rather than applied by each
+ * parent (DEX-61). It used to be a `gap: lg` on the settings screens' scroll
+ * content, which meant a title rendered anywhere else — Search's result list —
+ * got no separation at all and its sections ran together. Every screen adds its
+ * own in-group `gap` on top, so a heading lands on `lg + gap` above and
+ * `sm + gap` below wherever it is rendered. The one place this reads oddly is
+ * the first section on a screen, which gains the group step under the header
+ * with no group above it to separate from; a `first` prop would fix that at the
+ * cost of every caller having to know its own position.
  */
 export function SettingsSectionTitle({
   children,
@@ -43,7 +53,7 @@ export function SettingsSectionTitle({
         // `xs` is the label-to-labelled step: the subtitle belongs to the title
         // above it, so the pair reads as one heading.
         gap: theme.space.xs,
-        marginTop: theme.space.sm,
+        marginTop: theme.space.lg,
         marginBottom: theme.space.sm,
       }}
     >

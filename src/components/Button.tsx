@@ -31,9 +31,9 @@ export function Button({
       case "primary":
         return theme.colors.primary;
       case "dangerous":
-        return theme.colors.card;
+        return theme.colors.surfaceSunken;
       case "default":
-        return theme.colors.card;
+        return theme.colors.surfaceSunken;
     }
   };
 

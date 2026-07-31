@@ -1,19 +1,13 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
 import { useNavigation } from "expo-router";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
 import { HeaderAddButton } from "@/components/HeaderAddButton";
+import { RowDeleteButton, rowDeleteInset } from "@/components/RowDeleteButton";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { SettingsToggleCard } from "@/components/SettingsToggleCard";
 import { TextInput } from "@/components/TextInput";
@@ -109,10 +103,9 @@ export default function JournalScreen() {
           {
             padding: theme.space.md,
             paddingBottom: theme.space.md + insets.bottom,
-            // `lg` between sections, `sm` within one (`styles.section`): the
-            // groups had been separated by the same step that separated a
-            // title from its own content, so nothing read as grouped (DEX-61).
-            gap: theme.space.lg,
+            // The in-group step only: `SettingsSectionTitle` carries the `lg`
+            // between sections itself, so it applies wherever it renders (DEX-61).
+            gap: theme.space.sm,
           },
         ]}
         keyboardShouldPersistTaps="handled"
@@ -143,10 +136,7 @@ export default function JournalScreen() {
             ) : (
               <View style={{ gap: theme.space.sm }}>
                 {drafts.map((prompt, index) => (
-                  <View
-                    key={index}
-                    style={[styles.promptRow, { gap: theme.space.sm }]}
-                  >
+                  <View key={index} style={styles.promptRow}>
                     <TextInput
                       accessibilityLabel={`Journal prompt ${index + 1}`}
                       onBlur={commitPrompt}
@@ -157,22 +147,14 @@ export default function JournalScreen() {
                       }
                       onFocus={() => (focusedRef.current = true)}
                       placeholder="e.g. What went well today?"
-                      style={styles.promptInput}
+                      style={{ paddingRight: rowDeleteInset(theme) }}
                       value={prompt}
                     />
-                    <TouchableOpacity
+                    <RowDeleteButton
                       accessibilityLabel={`Delete prompt ${index + 1}`}
-                      accessibilityRole="button"
                       onPress={() => deletePrompt(index)}
-                      style={[styles.deleteButton, { padding: theme.space.xs }]}
                       testID={`delete-prompt-${index}`}
-                    >
-                      <Ionicons
-                        color={theme.colors.error}
-                        name="trash-outline"
-                        size={22}
-                      />
-                    </TouchableOpacity>
+                    />
                   </View>
                 ))}
               </View>
@@ -191,15 +173,9 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
   },
-  deleteButton: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  promptInput: {
-    flex: 1,
-  },
+  // The anchor `RowDeleteButton` parks against; the field fills it.
   promptRow: {
-    alignItems: "center",
-    flexDirection: "row",
+    justifyContent: "center",
+    position: "relative",
   },
 });

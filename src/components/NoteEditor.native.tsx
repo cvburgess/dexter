@@ -180,7 +180,7 @@ export function NoteEditor({
             styles.accessory,
             barStyle,
             {
-              backgroundColor: theme.colors.card,
+              backgroundColor: theme.colors.surfaceSunken,
               borderTopColor: theme.colors.border,
               paddingHorizontal: theme.space.md,
             },

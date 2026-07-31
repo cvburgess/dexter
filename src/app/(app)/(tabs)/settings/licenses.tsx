@@ -41,7 +41,7 @@ export default function LicensesScreen() {
   const renderItem = ({ item }: { item: TLicenseItem }) => (
     <View
       style={{
-        backgroundColor: theme.colors.card,
+        backgroundColor: theme.colors.surfaceSunken,
         borderRadius: theme.radii.md,
         padding: theme.space.md,
       }}
