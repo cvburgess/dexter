@@ -83,8 +83,9 @@ const optionById = (id: string) =>
     .flatMap((section) => section.options)
     .find((option) => option.id === id);
 
-// The untitled inline groups: Edit task, the subtask edit, then Duplicate /
-// the template rows / Delete.
+// The untitled inline groups: the subtask edit and Edit task, then Duplicate /
+// the template rows / Delete. The subtask group drops out when a task can't
+// take one, so a menu without it starts at Edit task.
 const inlineOptionTitles = () =>
   renderedSections()
     .filter((section) => !section.isSubmenu)
@@ -108,16 +109,16 @@ describe("MoreMenu", () => {
 
   // The point of DEX-98: List, Deadline, and the alarm are gone, and every
   // field they used to reach now lives behind the one Edit task row.
-  it("puts Edit task first and drops the List, Deadline and alarm rows", () => {
+  it("drops the List, Deadline and alarm rows", () => {
     renderMenu(makeTask({ alarmTime: "08:00", listId: "list-home" }), {
       onAddSubtask: jest.fn(),
     });
 
     const titles = renderedSections().map((section) => section.title);
     expect(titles).toEqual([
-      undefined,
       "Priority",
       "Schedule",
+      undefined,
       undefined,
       undefined,
     ]);
@@ -127,9 +128,25 @@ describe("MoreMenu", () => {
     const allTitles = renderedSections().flatMap((section) =>
       section.options.map((option) => option.title),
     );
-    expect(allTitles[0]).toBe("Edit task");
     expect(allTitles).not.toContain("Set alarm");
     expect(allTitles).not.toContain("Unset alarm");
+  });
+
+  // Edit task is the general case the shortcuts above it stand in for, so it
+  // closes the group rather than opening it. Asserted as a relationship rather
+  // than an index, so inserting another shortcut doesn't falsely fail.
+  it("puts Edit task last in the edit group, below Add subtask", () => {
+    renderMenu(makeTask(), { onAddSubtask: jest.fn() });
+
+    const allTitles = renderedSections().flatMap((section) =>
+      section.options.map((option) => option.title),
+    );
+    expect(allTitles.indexOf("Edit task")).toBeGreaterThan(
+      allTitles.indexOf("Add subtask"),
+    );
+    expect(allTitles.indexOf("Edit task")).toBeLessThan(
+      allTitles.indexOf("Duplicate"),
+    );
   });
 
   it("marks Priority and Schedule as submenus and the rest inline", () => {
@@ -137,20 +154,21 @@ describe("MoreMenu", () => {
 
     expect(
       renderedSections().map((section) => Boolean(section.isSubmenu)),
-    ).toEqual([false, true, true, false, false]);
+    ).toEqual([true, true, false, false, false]);
     expect(renderedSections().map((section) => section.icon?.sf)).toEqual([
-      undefined,
       "exclamationmark",
       "calendar",
+      undefined,
       undefined,
       undefined,
     ]);
   });
 
-  // Edit task through Add subtask read as one unruled group; only the
-  // duplicate/repeat/delete actions are set apart. The Edit task row carries
-  // the flag too: `IconMenu.native` draws an unmarked plain section as its own
-  // separated inline group, which would rule it off from the shortcuts below.
+  // The priority and schedule shortcuts through Edit task read as one unruled
+  // group; only the duplicate/repeat/delete actions are set apart. The Edit
+  // task row carries the flag too: `IconMenu.native` draws an unmarked plain
+  // section as its own separated inline group, which would rule it off from
+  // the shortcuts beside it.
   it("rules off only the final action group", () => {
     renderMenu(makeTask(), { onAddSubtask: jest.fn() });
 

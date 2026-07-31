@@ -108,13 +108,19 @@ export function MoreMenu({
         onSaveAsTemplate: () => openDraftFromTask(false),
       };
 
-  // Everything that edits the task: the full form, then the two changes quick
-  // enough to be worth a tap of their own, then the checklist. One unruled
+  // Everything that edits the task: the two changes quick enough to be worth a
+  // tap of their own, then the checklist, then the full form. One unruled
   // group, however many sections it takes to build — only the actions below it
   // are set apart.
   const editSections = [
-    // The way into every field at once, first in the menu — it is the general
-    // case the rows below it are shortcuts for.
+    ...getPrioritySections(task.priority, onChangePriority, theme),
+    ...getScheduleSections(task.scheduledFor, onChangeSchedule, openTaskEditor),
+    ...getTaskActionSections(onAddSubtask),
+    // The way into every field at once, last in the group: the rows above are
+    // the shortcuts worth reaching for by name, and this is the general case
+    // they fall back to. Note it is the only one of them that always renders —
+    // the checklist section drops out when a task can't take subtasks — so it
+    // is also what keeps this group from ever being empty.
     {
       options: [
         {
@@ -125,16 +131,13 @@ export function MoreMenu({
         },
       ],
     },
-    ...getPrioritySections(task.priority, onChangePriority, theme),
-    ...getScheduleSections(task.scheduledFor, onChangeSchedule, openTaskEditor),
-    ...getTaskActionSections(onAddSubtask),
   ];
 
   const sections = [
-    // Every one of them, the first included: `IconMenu.native` emits a plain
-    // section *without* `hideDivider` as its own `displayInline` group, which
-    // the system menu draws with separators — so leaving the Edit task row
-    // unmarked ruled it off from the shortcuts below it on iOS/Android while
+    // Every one of them, the Edit task row included: `IconMenu.native` emits a
+    // plain section *without* `hideDivider` as its own `displayInline` group,
+    // which the system menu draws with separators — so leaving that row
+    // unmarked ruled it off from the shortcuts beside it on iOS/Android while
     // web (which only draws a divider above section > 0) showed no such rule.
     ...editSections.map((section) => ({ ...section, hideDivider: true })),
     ...getOtherSections({
