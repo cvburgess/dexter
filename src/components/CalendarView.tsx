@@ -404,7 +404,7 @@ function EventBlock({
             style={[
               theme.fonts.subtitle,
               styles.eventSecondary,
-              styles.eventTitleInline,
+              styles.eventTimeInline,
               { color: theme.colors.textSecondary, marginLeft: theme.space.xs },
             ]}
           >
@@ -582,5 +582,8 @@ const styles = StyleSheet.create({
   },
   eventTitleInline: {
     flexShrink: 1, // truncate the title, don't push the time off-block
+  },
+  eventTimeInline: {
+    flexShrink: 0, // the pair above only works if the clock itself can't shrink
   },
 });
