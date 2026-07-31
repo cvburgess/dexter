@@ -57,9 +57,19 @@ export function WeekDayColumn({
               : "transparent",
             borderColor: theme.colors.border,
             borderRadius: theme.radii.md,
+            // `xs` is the step that separates a label from the thing it labels
+            // (see docs/design.md), which is exactly what the date is to the
+            // day name above it. The two lines had been flush.
+            gap: theme.space.xs,
             // Two stacked lines plus their padding; pinned so a column whose day
             // name renders taller can't sit a pixel off from its neighbours.
-            height: theme.controls.md + theme.space.xs,
+            // The height *is* the vertical padding here — the lines are centered
+            // in it, so `paddingVertical` would only eat the content box rather
+            // than add breathing room. `space.lg` on top of the control step is
+            // the top of the spacing scale, which is what the `title`-sized day
+            // name wants above and below it; at `xs` this cleared its text by
+            // about four points and read as cramped.
+            height: theme.controls.md + theme.space.lg,
             paddingHorizontal: theme.space.sm,
           },
         ]}
@@ -67,7 +77,10 @@ export function WeekDayColumn({
       >
         <Text
           numberOfLines={1}
-          style={[theme.fonts.caption, { color: chipColor }]}
+          // `title`, not `caption`: the day name is the column's heading, and
+          // it carries the same 600 weight a step up in size — so this reads as
+          // a role change rather than a caption someone nudged bigger.
+          style={[theme.fonts.title, { color: chipColor }]}
         >
           {formatWeekday(date)}
         </Text>
@@ -114,8 +127,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-  // The subtitle is the same role as the line above it, dimmed rather than
-  // resized so the two stay on one rhythm.
+  // The date stays `caption` — a role below the day name and dimmed — so the
+  // pair reads as one label with a clear primary line rather than two
+  // competing ones.
   chipSubtitle: {
     opacity: 0.8,
   },
