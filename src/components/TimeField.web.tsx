@@ -24,7 +24,7 @@ export function TimeField({ min, onChange, testID, value }: TTimeFieldProps) {
         borderRadius: theme.radii.md,
         color: theme.colors.text,
         colorScheme: "light dark",
-        fontSize: theme.fonts.title.fontSize,
+        fontSize: theme.fonts.control.fontSize,
         padding: `${theme.space.sm}px ${theme.space.sm}px`,
       }}
     />

@@ -58,7 +58,7 @@ export function ListRow({ list, openCount }: TListRowProps) {
         </Text>
         <Text
           numberOfLines={1}
-          style={[theme.fonts.caption, { color: theme.colors.textSecondary }]}
+          style={[theme.fonts.subtitle, { color: theme.colors.textSecondary }]}
         >
           {subtitle}
         </Text>

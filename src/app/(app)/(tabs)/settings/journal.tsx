@@ -109,7 +109,7 @@ export default function JournalScreen() {
           {
             padding: theme.space.md,
             paddingBottom: theme.space.md + insets.bottom,
-            // `lg` between sections, `xs` within one (`styles.section`): the
+            // `lg` between sections, `sm` within one (`styles.section`): the
             // groups had been separated by the same step that separated a
             // title from its own content, so nothing read as grouped (DEX-61).
             gap: theme.space.lg,
@@ -126,8 +126,10 @@ export default function JournalScreen() {
         />
 
         {preferences.enableJournal && (
-          <View style={{ gap: theme.space.xs }}>
-            <SettingsSectionTitle>Journal prompts</SettingsSectionTitle>
+          <View style={{ gap: theme.space.sm }}>
+            <SettingsSectionTitle subtitle="These prompts seed each new day's Journal. Editing them doesn't change days you've already answered.">
+              Journal prompts
+            </SettingsSectionTitle>
             {drafts.length === 0 ? (
               <Text
                 style={[
@@ -143,11 +145,7 @@ export default function JournalScreen() {
                 {drafts.map((prompt, index) => (
                   <View
                     key={index}
-                    style={[
-                      styles.promptRow,
-                      { gap: theme.space.sm },
-                      { gap: theme.space.sm },
-                    ]}
+                    style={[styles.promptRow, { gap: theme.space.sm }]}
                   >
                     <TextInput
                       accessibilityLabel={`Journal prompt ${index + 1}`}
@@ -166,11 +164,7 @@ export default function JournalScreen() {
                       accessibilityLabel={`Delete prompt ${index + 1}`}
                       accessibilityRole="button"
                       onPress={() => deletePrompt(index)}
-                      style={[
-                        styles.deleteButton,
-                        { padding: theme.space.xs },
-                        { padding: theme.space.xs },
-                      ]}
+                      style={[styles.deleteButton, { padding: theme.space.xs }]}
                       testID={`delete-prompt-${index}`}
                     >
                       <Ionicons
@@ -183,15 +177,6 @@ export default function JournalScreen() {
                 ))}
               </View>
             )}
-            <Text
-              style={[
-                theme.fonts.caption,
-                { color: theme.colors.textSecondary },
-              ]}
-            >
-              These prompts seed each new day&apos;s Journal. Editing them
-              doesn&apos;t change days you&apos;ve already answered.
-            </Text>
           </View>
         )}
       </ScrollView>

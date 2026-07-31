@@ -70,7 +70,7 @@ export function WeekdayPicker({
           >
             <Text
               style={[
-                theme.fonts.caption,
+                theme.fonts.control,
                 {
                   color: isSelected
                     ? theme.colors.primaryContent

@@ -268,7 +268,7 @@ export function WebNavDock() {
               </View>
               <Text
                 style={[
-                  theme.fonts.caption,
+                  theme.fonts.body,
                   { color, fontWeight: selected ? "500" : "400" },
                 ]}
               >
@@ -307,7 +307,7 @@ export function WebNavDock() {
         </View>
         <Text
           style={[
-            theme.fonts.caption,
+            theme.fonts.body,
             { color: withOpacity(theme.colors.text, 0.8) },
           ]}
         >

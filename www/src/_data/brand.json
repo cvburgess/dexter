@@ -212,6 +212,7 @@
         12,
         14,
         16,
+        16,
         24,
         40
       ],
@@ -230,7 +231,7 @@
     },
     {
       "tier": "compact",
-      "applies": "Web at 768px and up \u2014 desktop browsers",
+      "applies": "Web at 768px and up — desktop browsers",
       "space": [
         3,
         6,
@@ -240,6 +241,7 @@
       "fonts": [
         11,
         13,
+        14,
         14,
         20,
         32
@@ -260,24 +262,29 @@
   ],
   "fontRoles": [
     {
-      "name": "caption",
-      "weight": 600,
-      "use": "Metadata, section titles, timestamps"
+      "name": "subtitle",
+      "weight": 400,
+      "use": "The second line under a title"
     },
     {
       "name": "body",
       "weight": 400,
-      "use": "Default prose \u2014 task titles, row labels"
+      "use": "Running prose, row labels, event names"
+    },
+    {
+      "name": "control",
+      "weight": 600,
+      "use": "Buttons, text inputs, date/time pickers"
     },
     {
       "name": "title",
       "weight": 600,
-      "use": "Emphasized rows, buttons, primary labels"
+      "use": "A component's primary line"
     },
     {
       "name": "heading",
       "weight": 700,
-      "use": "Screen and detail-pane headings"
+      "use": "The screen or pane you are on"
     },
     {
       "name": "display",
@@ -300,7 +307,7 @@
     },
     {
       "name": "lg",
-      "use": "Between groups \u2014 settings sections, sheet edges"
+      "use": "Between groups — settings sections, sheet edges"
     }
   ]
 }

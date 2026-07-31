@@ -16,7 +16,7 @@ export function TextInput({ style, ...props }: TextInputProps) {
       style={[
         styles.input,
         {
-          ...theme.fonts.title,
+          ...theme.fonts.control,
           color: theme.colors.text,
           backgroundColor: theme.colors.card,
           borderRadius: theme.radii.md,

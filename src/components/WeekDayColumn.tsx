@@ -77,9 +77,9 @@ export function WeekDayColumn({
       >
         <Text
           numberOfLines={1}
-          // `title`, not `caption`: the day name is the column's heading, and
-          // it carries the same 600 weight a step up in size — so this reads as
-          // a role change rather than a caption someone nudged bigger.
+          // `title`, not `subtitle`: the day name is the column's heading, and
+          // the date below it is the subtitle — the same two-line pairing the
+          // task, habit and settings rows use.
           style={[theme.fonts.title, { color: chipColor }]}
         >
           {formatWeekday(date)}
@@ -87,7 +87,7 @@ export function WeekDayColumn({
         <Text
           numberOfLines={1}
           style={[
-            theme.fonts.caption,
+            theme.fonts.subtitle,
             styles.chipSubtitle,
             { color: chipColor },
           ]}
@@ -127,8 +127,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-  // The date stays `caption` — a role below the day name and dimmed — so the
-  // pair reads as one label with a clear primary line rather than two
+  // The date is the day name's `subtitle` — a role below it and dimmed — so
+  // the pair reads as one label with a clear primary line rather than two
   // competing ones.
   chipSubtitle: {
     opacity: 0.8,

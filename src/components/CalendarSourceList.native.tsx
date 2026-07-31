@@ -54,7 +54,7 @@ export function CalendarSourceList() {
   };
 
   return (
-    <View style={{ gap: theme.space.xs }}>
+    <View style={{ gap: theme.space.sm }}>
       <SettingsSectionTitle>Calendars</SettingsSectionTitle>
       {permissionDenied ? (
         <Text style={[theme.fonts.body, messageStyle(theme)]}>

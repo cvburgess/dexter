@@ -409,7 +409,7 @@ function RepeatScheduleForm({
                 accessibilityRole="button"
               >
                 <Text
-                  style={[theme.fonts.title, { color: theme.colors.primary }]}
+                  style={[theme.fonts.control, { color: theme.colors.primary }]}
                 >
                   Add alarm
                 </Text>
@@ -426,7 +426,7 @@ function RepeatScheduleForm({
                   accessibilityRole="button"
                 >
                   <Text
-                    style={[theme.fonts.title, { color: theme.colors.error }]}
+                    style={[theme.fonts.control, { color: theme.colors.error }]}
                   >
                     Remove
                   </Text>

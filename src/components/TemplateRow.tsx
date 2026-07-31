@@ -74,7 +74,7 @@ export function TemplateRow({
       <Text
         numberOfLines={1}
         style={[
-          theme.fonts.caption,
+          theme.fonts.subtitle,
           {
             color: isStalled ? theme.colors.error : theme.colors.textSecondary,
           },

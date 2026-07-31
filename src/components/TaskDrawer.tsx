@@ -309,7 +309,7 @@ export function TaskDrawer({
         return (
           <Text
             style={[
-              theme.fonts.caption,
+              theme.fonts.title,
               styles.groupTitle,
               { color: theme.colors.textSecondary },
             ]}

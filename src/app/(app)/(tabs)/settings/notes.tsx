@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -54,7 +54,7 @@ export default function NotesScreen() {
           {
             padding: theme.space.md,
             paddingBottom: theme.space.md + insets.bottom,
-            // `lg` between sections, `xs` within one (`styles.section`): the
+            // `lg` between sections, `sm` within one (`styles.section`): the
             // groups had been separated by the same step that separated a
             // title from its own content, so nothing read as grouped (DEX-61).
             gap: theme.space.lg,
@@ -68,8 +68,10 @@ export default function NotesScreen() {
         />
 
         {preferences.enableNotes && (
-          <View style={{ gap: theme.space.xs }}>
-            <SettingsSectionTitle>Daily note template</SettingsSectionTitle>
+          <View style={{ gap: theme.space.sm }}>
+            <SettingsSectionTitle subtitle="When set, opening a blank daily note offers to start from this template.">
+              Daily note template
+            </SettingsSectionTitle>
             <TextInput
               accessibilityLabel="Daily note template"
               multiline
@@ -81,15 +83,6 @@ export default function NotesScreen() {
               textAlignVertical="top"
               value={draft}
             />
-            <Text
-              style={[
-                theme.fonts.caption,
-                { color: theme.colors.textSecondary },
-              ]}
-            >
-              When set, opening a blank daily note offers to start from this
-              template.
-            </Text>
           </View>
         )}
       </ScrollView>

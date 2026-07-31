@@ -43,8 +43,10 @@ export function CalendarSourceList() {
     writeUrls(drafts.filter((_, i) => i !== index));
 
   return (
-    <View style={{ gap: theme.space.xs }}>
-      <SettingsSectionTitle>Calendar feeds</SettingsSectionTitle>
+    <View style={{ gap: theme.space.sm }}>
+      <SettingsSectionTitle subtitle="Use a secret/private URL when your provider offers one.">
+        Calendar feeds
+      </SettingsSectionTitle>
       {drafts.length === 0 ? (
         <Text
           style={[
@@ -95,11 +97,6 @@ export function CalendarSourceList() {
       <Button variant="default" onPress={addUrl}>
         Add feed
       </Button>
-      <Text
-        style={[theme.fonts.caption, { color: theme.colors.textSecondary }]}
-      >
-        Use a secret/private URL when your provider offers one.
-      </Text>
     </View>
   );
 }

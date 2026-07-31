@@ -78,13 +78,23 @@ export interface TDensityTokens {
   /** Padding, margins, and flex gaps. `md` is the standard screen inset. */
   space: { xs: number; sm: number; md: number; lg: number };
   fonts: {
-    /** Metadata, section titles, timestamps. */
-    caption: TFont<"600">;
-    /** Default body copy — task titles, row labels. */
+    /** The second line under a `title` — a row's detail, a section's explanation. */
+    subtitle: TFont<"400">;
+    /** Default body copy — task titles, row labels, calendar event names. */
     body: TFont<"400">;
-    /** Emphasized rows, buttons, primary labels. */
+    /**
+     * Interactive controls: buttons, text inputs, date/time pickers.
+     *
+     * **Never below 16 on `comfortable`.** iOS Safari zooms the page when a
+     * focused input's font-size is under 16px, and `TextInput` has no `.web`
+     * variant, so it renders on mobile web where `comfortable` applies. Split
+     * from `title` (which carries the same values) precisely so tuning `title`
+     * for density can't silently reintroduce that zoom.
+     */
+    control: TFont<"600">;
+    /** A component's primary line — a row's name, a field's label. */
     title: TFont<"600">;
-    /** Screen and detail-pane headings. */
+    /** Names the screen or pane you are on. */
     heading: TFont<"700">;
     /** The login splash only. */
     display: TFont<"900">;
@@ -121,7 +131,7 @@ export type TDensity = "comfortable" | "compact";
 
 /**
  * Both tiers are written out in full rather than derived from a multiplier:
- * spacing wants to tighten harder than type does (a scaled-down caption stops
+ * spacing wants to tighten harder than type does (a scaled-down subtitle stops
  * being legible well before the padding stops being roomy), and literals keep
  * every value an integer and reviewable against `docs/design.md`.
  */
@@ -129,8 +139,9 @@ export const DENSITY: Record<TDensity, TDensityTokens> = {
   comfortable: {
     space: { xs: 4, sm: 8, md: 16, lg: 24 },
     fonts: {
-      caption: { fontSize: 12, fontWeight: "600" },
+      subtitle: { fontSize: 12, fontWeight: "400" },
       body: { fontSize: 14, fontWeight: "400" },
+      control: { fontSize: 16, fontWeight: "600" },
       title: { fontSize: 16, fontWeight: "600" },
       heading: { fontSize: 24, fontWeight: "700" },
       display: { fontSize: 40, fontWeight: "900" },
@@ -142,8 +153,9 @@ export const DENSITY: Record<TDensity, TDensityTokens> = {
   compact: {
     space: { xs: 3, sm: 6, md: 12, lg: 18 },
     fonts: {
-      caption: { fontSize: 11, fontWeight: "600" },
+      subtitle: { fontSize: 11, fontWeight: "400" },
       body: { fontSize: 13, fontWeight: "400" },
+      control: { fontSize: 14, fontWeight: "600" },
       title: { fontSize: 14, fontWeight: "600" },
       heading: { fontSize: 20, fontWeight: "700" },
       display: { fontSize: 32, fontWeight: "900" },

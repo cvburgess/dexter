@@ -56,7 +56,7 @@ export function SearchResultCard({
     >
       <Text
         style={[
-          theme.fonts.caption,
+          theme.fonts.subtitle,
           styles.date,
           { color: theme.colors.textSecondary },
         ]}

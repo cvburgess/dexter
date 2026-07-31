@@ -364,14 +364,14 @@ function EventBlock({
         <>
           <Text
             numberOfLines={heightPx >= TWO_LINE_TITLE_MIN_HEIGHT ? 2 : 1}
-            style={[theme.fonts.caption, { color: theme.colors.text }]}
+            style={[theme.fonts.body, { color: theme.colors.text }]}
           >
             {event.title}
           </Text>
           <Text
             numberOfLines={1}
             style={[
-              theme.fonts.caption,
+              theme.fonts.subtitle,
               styles.eventSecondary,
               { color: theme.colors.textSecondary },
             ]}
@@ -384,7 +384,7 @@ function EventBlock({
           <Text
             numberOfLines={1}
             style={[
-              theme.fonts.caption,
+              theme.fonts.body,
               styles.eventTitleInline,
               { color: theme.colors.text },
             ]}
@@ -394,7 +394,7 @@ function EventBlock({
           <Text
             numberOfLines={1}
             style={[
-              theme.fonts.caption,
+              theme.fonts.subtitle,
               styles.eventSecondary,
               styles.eventTitleInline,
               { color: theme.colors.textSecondary, marginLeft: theme.space.xs },
@@ -446,7 +446,7 @@ function AllDayRow({
       <Text
         numberOfLines={1}
         style={[
-          theme.fonts.caption,
+          theme.fonts.subtitle,
           styles.allDayGutter,
           { color: theme.colors.textSecondary },
         ]}
@@ -469,7 +469,7 @@ function AllDayRow({
         <AccentBar accent={accent} theme={theme} />
         <Text
           numberOfLines={1}
-          style={[theme.fonts.caption, { color: theme.colors.text }]}
+          style={[theme.fonts.body, { color: theme.colors.text }]}
         >
           {event.title}
         </Text>

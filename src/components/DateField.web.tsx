@@ -146,8 +146,8 @@ export function DateField({
           color: theme.colors.text,
           cursor: "pointer",
           fontFamily: SYSTEM_FONT,
-          fontSize: theme.fonts.title.fontSize,
-          fontWeight: theme.fonts.title.fontWeight,
+          fontSize: theme.fonts.control.fontSize,
+          fontWeight: theme.fonts.control.fontWeight,
           padding: 0,
         }}
       >

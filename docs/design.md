@@ -29,7 +29,7 @@ Three steps, dark to light in a light theme and light to dark in a dark one:
 
 | Token | Sits | Used for |
 | --- | --- | --- |
-| `surfaceSunken` | **below** `background` | The web nav rail, the web dock, the settings sidebar |
+| `surfaceSunken` | **below** `background` | The app's nav rail and dock |
 | `background` | the baseline | Screen bodies, panes, the sheet behind cards |
 | `card` | **above** `background` | Cards, inputs, stack headers, nav tiles |
 
@@ -37,6 +37,12 @@ The distinction is what makes chrome recede behind the content beside it. A pane
 of content is always `background`; the navigation that frames it is
 `surfaceSunken`; anything that should read as lifted off the page is `card`.
 Nothing else is a surface — do not invent a fourth by alpha-filling one of these.
+
+`surfaceSunken` marks the app's *outermost* navigation, not every list that
+happens to sit on the left. The settings sidebar is deliberately `background`:
+it and the detail pane are two halves of one settings surface, and sinking it
+grouped it with the nav rail further left instead. Its hairline right border is
+what separates the two, so that border is load-bearing.
 
 ## Priority colors
 
@@ -93,21 +99,40 @@ probably the wrong size rather than the wrong radius.
 - `lg` separates *groups* — the gap between settings sections, and the bottom
   padding that clears a sheet's edge.
 
-The `lg`-between / `xs`-within pairing on the settings screens is deliberate:
+The `lg`-between / `sm`-within pairing on the settings screens is deliberate:
 the two had been the same step, so nothing on those screens read as grouped.
+The inner step is `sm` rather than `xs` because a section title labels a whole
+group rather than a single control — at `xs` it sat close enough to its first
+row to read as part of it.
 
 ## Type scale
 
-Five roles. Each is a `{ fontSize, fontWeight }` pair, so applying a role sets
+Six roles. Each is a `{ fontSize, fontWeight }` pair, so applying a role sets
 both — spread it into a style rather than reading `.fontSize` off it.
 
-| Role | Weight | Used for |
-| --- | --- | --- |
-| `caption` | 600 | Metadata, section titles, timestamps, calendar event text |
-| `body` | 400 | Default prose — task titles, row labels, the note editor |
-| `title` | 600 | Emphasized rows, buttons, primary labels, form fields |
-| `heading` | 700 | Screen and detail-pane headings |
-| `display` | 900 | The login splash only |
+| Role | Weight | Answers | Used for |
+| --- | --- | --- | --- |
+| `subtitle` | 400 | what else should I know about this thing | The second line under a `title` — a row's detail, a section's explanation |
+| `body` | 400 | — | Running prose, empty states, row labels, calendar event names |
+| `control` | 600 | — | Buttons, text inputs, date/time pickers |
+| `title` | 600 | what is this thing | A component's primary line — a row's name, a field's label, a section heading |
+| `heading` | 700 | what screen am I on | Screen and detail-pane headings |
+| `display` | 900 | — | The login splash only |
+
+`title` and `subtitle` are a **pair**: seven components render one directly
+above the other (`ListRow`, `HabitRow`, `SettingsRow`, `TemplateRow`,
+`SearchResultCard`, `WeekDayColumn`, `SettingsSectionTitle`). If you are
+reaching for `subtitle`, there should be a `title` above it.
+
+`heading` is not "a bigger `title`" — it is a different axis. `title` names a
+*component*; `heading` names the *screen or pane*, and there is one per view.
+
+**`control` must never drop below 16 on `comfortable`.** iOS Safari zooms the
+page whenever a focused input's font-size is under 16px, and `components/TextInput.tsx`
+has no `.web` variant, so it renders on mobile web where `comfortable` applies.
+`control` carries the same values as `title` today and exists as its own role
+precisely so that tuning `title` for density cannot silently reintroduce that
+zoom.
 
 **Pick the role, not the nearest size.** The roles carry weight as well as size,
 so a 15pt semibold label is a `title` even though 15 is closer to `body`'s size.
@@ -142,10 +167,10 @@ width, and web below the breakpoint — is `comfortable`. Both are written out i
 full rather than derived from a multiplier: spacing wants to tighten harder than
 type does, and literals keep every value an integer.
 
-| | `space` xs/sm/md/lg | `fonts` caption/body/title/heading/display | `radii` md/full | `controls` md/sm | `icons` sm/md |
+| | `space` xs/sm/md/lg | `fonts` subtitle/body/control/title/heading/display | `radii` md/full | `controls` md/sm | `icons` sm/md |
 | --- | --- | --- | --- | --- | --- |
-| comfortable | 4 / 8 / 16 / 24 | 12 / 14 / 16 / 24 / 40 | 12 / 999 | 40 / 32 | 14 / 20 |
-| compact | 3 / 6 / 12 / 18 | 11 / 13 / 14 / 20 / 32 | 12 / 999 | 32 / 26 | 12 / 18 |
+| comfortable | 4 / 8 / 16 / 24 | 12 / 14 / 16 / 16 / 24 / 40 | 12 / 999 | 40 / 32 | 14 / 20 |
+| compact | 3 / 6 / 12 / 18 | 11 / 13 / 14 / 14 / 20 / 32 | 12 / 999 | 32 / 26 | 12 / 18 |
 
 Because `StyleSheet.create` values are static, anything that varies by tier goes
 in the inline style array — the pattern `docs/frontend.md` already prescribes for

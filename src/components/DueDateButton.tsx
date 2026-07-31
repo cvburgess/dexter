@@ -49,7 +49,7 @@ export function DueDateButton({
         },
       ]}
     >
-      <Text style={[theme.fonts.caption, { color: foregroundColor }]}>
+      <Text style={[theme.fonts.body, { color: foregroundColor }]}>
         {daysUntilDue}
       </Text>
     </View>

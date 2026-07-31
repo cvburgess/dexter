@@ -215,7 +215,9 @@ export function NoteEditor({
             hitSlop={theme.space.sm}
             onPress={() => inputRef.current?.blur()}
           >
-            <Text style={[theme.fonts.title, { color: theme.colors.primary }]}>
+            <Text
+              style={[theme.fonts.control, { color: theme.colors.primary }]}
+            >
               Done
             </Text>
           </Pressable>

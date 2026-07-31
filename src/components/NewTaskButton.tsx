@@ -37,7 +37,7 @@ export function NewTaskButton() {
       <Text
         style={[
           // The inline slot beside a minimized tab bar has room for less.
-          placement === "inline" ? theme.fonts.caption : theme.fonts.title,
+          placement === "inline" ? theme.fonts.body : theme.fonts.control,
           { color: theme.colors.primaryContent },
         ]}
       >

@@ -44,7 +44,7 @@ export function ListButton({
           },
         ]}
       >
-        <Text style={{ fontSize: theme.fonts.title.fontSize }}>
+        <Text style={{ fontSize: theme.fonts.control.fontSize }}>
           {selectedList ? selectedList.emoji : "🚫"}
         </Text>
       </View>

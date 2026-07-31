@@ -109,7 +109,7 @@ export function ConfirmationModal(props: ConfirmationModalProps) {
               >
                 <Text
                   style={[
-                    theme.fonts.title,
+                    theme.fonts.control,
                     {
                       color: colorForRole(action.role),
                       fontWeight: action.role === "cancel" ? "400" : "600",

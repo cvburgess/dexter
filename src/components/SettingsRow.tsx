@@ -44,7 +44,7 @@ export function SettingsRow({
           {title}
         </Text>
         <Text
-          style={{ ...theme.fonts.caption, color: theme.colors.textSecondary }}
+          style={{ ...theme.fonts.subtitle, color: theme.colors.textSecondary }}
         >
           {subtitle}
         </Text>

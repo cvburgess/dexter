@@ -160,7 +160,7 @@ export function IconMenu({
               contentContainerStyle={{ paddingVertical: theme.space.sm }}
             >
               {menuTitle ? (
-                <Text style={[theme.fonts.caption, sectionTitleStyle(theme)]}>
+                <Text style={[theme.fonts.title, sectionTitleStyle(theme)]}>
                   {menuTitle}
                 </Text>
               ) : null}
@@ -250,7 +250,7 @@ function MenuSection({
     return (
       <View style={dividerStyle}>
         {section.title ? (
-          <Text style={[theme.fonts.caption, sectionTitleStyle(theme)]}>
+          <Text style={[theme.fonts.title, sectionTitleStyle(theme)]}>
             {section.title}
           </Text>
         ) : null}

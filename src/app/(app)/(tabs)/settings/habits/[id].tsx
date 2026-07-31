@@ -180,13 +180,7 @@ function HabitForm({ existing }: { existing?: THabit }) {
         keyboardShouldPersistTaps="handled"
         style={{ backgroundColor: theme.colors.background }}
       >
-        <View
-          style={[
-            styles.titleRow,
-            { gap: theme.space.sm },
-            { gap: theme.space.sm },
-          ]}
-        >
+        <View style={[styles.titleRow, { gap: theme.space.sm }]}>
           <TouchableOpacity
             accessibilityRole="button"
             accessibilityLabel="Choose emoji"
@@ -220,13 +214,7 @@ function HabitForm({ existing }: { existing?: THabit }) {
         </View>
 
         <FormRow label="Times per day">
-          <View
-            style={[
-              styles.stepsControl,
-              { gap: theme.space.sm },
-              { gap: theme.space.sm },
-            ]}
-          >
+          <View style={[styles.stepsControl, { gap: theme.space.sm }]}>
             <NativeTextInput
               accessibilityLabel="Times per day"
               value={steps}
@@ -234,7 +222,7 @@ function HabitForm({ existing }: { existing?: THabit }) {
               keyboardType="number-pad"
               maxLength={3}
               style={[
-                theme.fonts.title,
+                theme.fonts.control,
                 styles.stepsInput,
                 {
                   borderColor: inputBorder,

@@ -70,7 +70,7 @@ export function Button({
       {isLoading ? (
         <ActivityIndicator color={getTextColor()} />
       ) : (
-        <Text style={{ ...theme.fonts.title, color: getTextColor() }}>
+        <Text style={{ ...theme.fonts.control, color: getTextColor() }}>
           {children}
         </Text>
       )}
