@@ -26,8 +26,9 @@ if [[ ! "$PR" =~ ^[0-9]+$ ]]; then
   exit 2
 fi
 
-# Deliberately unpaginated: no PR in this repo has come near 100 review threads
-# or 5 comments in a single thread. Revisit if one does.
+# reviewThreads is deliberately unpaginated: no PR in this repo has come near
+# 100 review threads. Revisit if one does. comments(first: 1) is not a cap —
+# the finding is always the thread's root comment; replies are not needed.
 THREADS_JSON="$(gh api graphql \
   -F owner="$OWNER" -F repo="$NAME" -F number="$PR" \
   -f query='
@@ -38,7 +39,7 @@ THREADS_JSON="$(gh api graphql \
             nodes {
               isResolved
               id
-              comments(first: 5) {
+              comments(first: 1) {
                 nodes {
                   databaseId
                   author { login }
@@ -56,7 +57,6 @@ THREADS_JSON="$(gh api graphql \
   ' --jq '
     [.data.repository.pullRequest.reviewThreads.nodes[]
      | {threadId: .id, resolved: .isResolved, root: .comments.nodes[0]}
-     | select(.root != null)
      | select(.root.author.login == "cursor" or .root.author.login == "cursor[bot]")]
   ')"
 
