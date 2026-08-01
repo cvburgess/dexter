@@ -173,11 +173,15 @@ function JournalEditor({
       // content, so the field stayed under the keyboard. Don't reintroduce it
       // alongside this prop — the two would both subtract the keyboard.
       automaticallyAdjustKeyboardInsets
+      // Vertical only — the side gutter is the caller's (`SwipeableDay` on the
+      // phone, the Journal branch of `NotesJournalTabs` in the tabbed pane);
+      // see docs/design.md, "Who owns spacing".
+      //
       // The host's SafeAreaView omits "bottom" (the tab bar owns that inset),
       // so the content reserves it here — see docs/frontend.md.
       contentContainerStyle={{
         gap: theme.space.lg,
-        padding: theme.space.md,
+        paddingTop: theme.space.md,
         paddingBottom: theme.space.md + insets.bottom,
       }}
       keyboardShouldPersistTaps="handled"

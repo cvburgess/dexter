@@ -18,14 +18,15 @@ type TNotesViewProps = {
    * while editing. */
   onEditingChange?: (editing: boolean) => void;
   /**
-   * Whether to inset the card with the small-screen gutter (16pt top/sides)
-   * and draw its own tinted background/border. The large-screen
-   * multi-column layout passes `false` so the card sits flush and transparent
-   * within its own column instead of floating with extra margin and a card
-   * color that would double up on the tabbed pane's own border (see
-   * NotesJournalTabs).
+   * Whether the note draws as a floating card — its own border, the `NEITHER`
+   * task fill, and the gap above it — or fills its container flush and
+   * transparent. Appearance, not layout: the side gutter is the caller's either
+   * way (see docs/design.md, "Who owns spacing").
+   *
+   * `NotesJournalTabs` passes `false`, since the tabbed pane already draws a
+   * border around the whole column and a second one inside it would double up.
    */
-  inset?: boolean;
+  card?: boolean;
 };
 
 // Autosave cadence: long enough to coalesce a burst of keystrokes into one
@@ -49,7 +50,7 @@ const CARD_TRAIL_OFF = 24;
 export function NotesView({
   date,
   onEditingChange,
-  inset = true,
+  card = true,
 }: TNotesViewProps) {
   const theme = useTheme();
   const [note, { isLoading, exists, upsertNote, upsertNoteAsync }] =
@@ -148,17 +149,15 @@ export function NotesView({
   }
 
   // Experiment: sit the note on a card styled like an incomplete "Neither"
-  // task (`priorityMuted`, the same solid fill TaskCard draws), inset with the
-  // same gutter as the task list.
+  // task (`priorityMuted`, the same solid fill TaskCard draws).
 
-  // `inset` bundles three chrome decisions that only ever change together —
+  // `card` bundles the chrome decisions that only ever change together —
   // derive them here once rather than three scattered ternaries in the JSX.
-  const chrome = inset
+  // A floating card needs the gap above it; a flush fill doesn't. The *side*
+  // gutter is in neither branch — that one is the caller's.
+  const chrome = card
     ? {
-        wrapper: [
-          styles.cardWrapper,
-          { paddingHorizontal: theme.space.md, paddingTop: theme.space.md },
-        ],
+        wrapper: [styles.cardWrapper, { paddingTop: theme.space.md }],
         card: styles.card,
         backgroundColor: theme.colors.priorityMuted[ETaskPriority.NEITHER],
       }
@@ -193,9 +192,8 @@ export function NotesView({
 }
 
 const styles = StyleSheet.create({
-  // Same gutter the task list uses (today/index.tsx `list`) on the top and
-  // sides — but no bottom gutter, so the card runs to the bottom edge. The
-  // inset itself is applied inline; see `chrome` above.
+  // No bottom gutter, so the card runs to the bottom edge and trails off (see
+  // `card` below). The top gap is applied inline; see `chrome` above.
   cardWrapper: {
     flex: 1,
   },

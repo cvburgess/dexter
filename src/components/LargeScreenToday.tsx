@@ -165,7 +165,7 @@ export function LargeScreenToday({
         style={[
           styles.paneRow,
           {
-            gap: theme.space.sm,
+            gap: theme.space.md,
             paddingHorizontal: theme.space.md,
             paddingTop: theme.space.md,
           },
@@ -260,6 +260,12 @@ const styles = StyleSheet.create({
   // `space.md` for the gutter, not a literal: `LargeScreenHeader` above uses
   // the same token, which is what keeps the DayNav slot lined up over the Tasks
   // pane.
+  //
+  // The `gap` reads that same token, matching the Week tab's column gap
+  // (DEX-115) — so the space between two panes equals the space outside the
+  // first and last, and the two tabs space their content identically. The panes
+  // themselves run flush; nothing stacks on top of this gap (see
+  // docs/design.md, "Who owns spacing").
   paneRow: {
     flex: 1,
     flexDirection: "row",

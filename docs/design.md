@@ -158,6 +158,43 @@ around itself is the exception here, not the rule, and this is the one that
 earns it: the heading is not a member of the group it heads, so no uniform
 parent `gap` can place it correctly.
 
+## Who owns spacing
+
+**A component never pads itself away from its container's edge. Whoever placed
+it does.** (DEX-115)
+
+The same components are laid out differently on a phone, an iPad, the web app
+and a Mac window, and each of those wants a different gutter — or none. A
+component that hard-codes one can only be placed one way, and every host that
+wants something else has to opt out through a prop. That is how the Today view
+ended up with the Tasks pane sitting `md + sm` from Notes while Notes sat `sm`
+from Calendar: the pane row supplied a gutter and the task list supplied
+another.
+
+What a component *does* own:
+
+- **Space between its own parts** — a list's `gap`, a card's internal padding,
+  the inner padding of a pane that draws its own border.
+- **Anything tied to its own scrolling.** `insets.bottom` added to a
+  `contentContainerStyle` is the clearest case: it exists so content scrolls
+  *under* the translucent tab bar, which only works from inside the scroller.
+  Moving it to a parent shrinks the viewport and the last row can never clear
+  the bar. `DayTaskList`, `JournalView` and `CalendarView` all keep their
+  vertical padding for this reason.
+- **Appearance variants.** `NotesView`'s `card` prop turns the note's border and
+  fill on or off — that is chrome, not layout, and a prop is the right shape for
+  it. The give-away is that it changes what the component *is*, not where it
+  sits.
+
+Where the gutters actually live now: `SwipeableDay` supplies the phone's day
+gutter once for whichever of Tasks/Notes/Journal/Calendar is on screen;
+`LargeScreenToday` and `WeekView` supply theirs on the pane row; the Week
+columns and the Today panes deliberately supply none, so the row's own `gap` is
+the whole space between them.
+
+Reach for a `padding`/`inset` prop only after checking whether the caller can
+just wrap the thing in a padded view — it almost always can.
+
 ## Type scale
 
 Six roles. Each is a `{ fontSize, fontWeight }` pair, so applying a role sets
