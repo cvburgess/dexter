@@ -1,5 +1,6 @@
 import { usePathname, useRouter } from "expo-router";
 import {
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -50,7 +51,14 @@ export function SettingsSidebar() {
         contentContainerStyle={{
           padding: theme.space.md,
           paddingLeft: theme.space.md + insets.left,
-          paddingTop: theme.space.md + insets.top,
+          // Web gets a second `md` because `insets.top` is always 0 there —
+          // there is no status bar to clear, and the viewport never opts into
+          // `viewport-fit=cover` (see WebNav), so nothing else pushes the
+          // heading off the top edge the way the inset does on native.
+          paddingTop:
+            theme.space.md +
+            insets.top +
+            (Platform.OS === "web" ? theme.space.md : 0),
           paddingBottom: theme.space.md + insets.bottom,
           gap: theme.space.sm,
         }}
@@ -65,9 +73,11 @@ export function SettingsSidebar() {
             // hanging a step left of every icon under it — matching the rows'
             // padding is what puts them on one edge. Keep the two in step.
             paddingHorizontal: theme.space.md,
-            // `lg`, the group separator: this is a screen heading over a nav
-            // list, not a label on the first row of it.
-            marginBottom: theme.space.lg,
+            // Enough to read as a heading over the list rather than a label on
+            // the first row of it, which is what the `xs` here used to do. Not
+            // the `lg` group separator: the rows are already tall and spaced,
+            // so a full group step floated the heading off on its own.
+            marginBottom: theme.space.md,
           }}
         >
           Settings
