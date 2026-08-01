@@ -2,10 +2,20 @@ import { render } from "@testing-library/react-native";
 import type { ReactNode } from "react";
 
 import TabsLayout from "@/app/(app)/(tabs)/_layout";
-import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 
-jest.mock("@/hooks/useIsLargeDevice", () => ({
-  useIsLargeDevice: jest.fn(),
+// `IS_TABLET` is a module-scope constant (utils/deviceType.ts), not a hook, so
+// there is nothing to mock per render. A getter defers the read to render time:
+// the factory is hoisted above the imports and runs while the module graph is
+// still initialising, so it must not touch `mockIsTablet` (still in its TDZ) —
+// returning a plain object with a getter does exactly that. Babel compiles
+// `import { IS_TABLET }` to a property access at each use site to preserve live
+// bindings, so every render re-reads it. The `mock` name prefix is what
+// babel-plugin-jest-hoist allows through its out-of-scope check.
+let mockIsTablet = false;
+jest.mock("@/utils/deviceType", () => ({
+  get IS_TABLET() {
+    return mockIsTablet;
+  },
 }));
 
 // NativeTabs renders a real platform tab bar through react-native-screens,
@@ -31,57 +41,80 @@ jest.mock("expo-router/unstable-native-tabs", () => {
   return { NativeTabs };
 });
 
+// The shell is covered by AppShell.test; here it only has to be identifiable.
+jest.mock("@/components/AppShell", () => {
+  const { Text } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+  return {
+    AppShell: function AppShell({ rail }: { rail: boolean }) {
+      return <Text>{`shell:rail=${rail}`}</Text>;
+    },
+  };
+});
+
 jest.mock("@/components/NewTaskButton", () => ({
   NewTaskButton: function NewTaskButton() {
     return null;
   },
 }));
 
-const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
-  typeof useIsLargeDevice
->;
-
 describe("TabsLayout", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseIsLargeDevice.mockReturnValue(false);
+    // Phones are the default here and under jest generally: unmocked,
+    // `Platform.isPad` is undefined, so `IS_TABLET` is false everywhere else in
+    // the suite too.
+    mockIsTablet = false;
   });
 
-  it("always declares the core destinations", () => {
-    const screen = render(<TabsLayout />);
+  describe("on a phone", () => {
+    it("declares the core destinations in order", () => {
+      const screen = render(<TabsLayout />);
 
-    expect(screen.getByText("trigger:today")).toBeTruthy();
-    expect(screen.getByText("trigger:settings")).toBeTruthy();
-    expect(screen.getByText("trigger:search")).toBeTruthy();
+      const order = screen
+        .getAllByText(/^trigger:/)
+        .map((node) => String(node.props.children));
+      expect(order).toEqual([
+        "trigger:today",
+        "trigger:settings",
+        "trigger:search",
+      ]);
+    });
+
+    // DEX-96 + DEX-104: seven day columns don't fit a phone, and a phone is now
+    // the only thing that reaches this branch — so Week is absent
+    // unconditionally rather than gated on window width. That is what keeps the
+    // trigger set (and therefore the registered routes, via
+    // `useOnlyUserDefinedScreens`) from depending on a value that can change
+    // mid-session.
+    it("never offers the Week tab, at any width", () => {
+      const screen = render(<TabsLayout />);
+
+      expect(screen.queryByText("trigger:week")).toBeNull();
+    });
+
+    it("does not render the rail shell", () => {
+      const screen = render(<TabsLayout />);
+
+      expect(screen.queryByText(/^shell:/)).toBeNull();
+    });
   });
 
-  // DEX-96: seven day columns don't fit a phone, so the tab isn't offered
-  // there. Only the trigger is conditional — the route stays registered.
-  it("offers the Week tab on a large device", () => {
-    mockUseIsLargeDevice.mockReturnValue(true);
-    const screen = render(<TabsLayout />);
+  describe("on a tablet", () => {
+    beforeEach(() => {
+      mockIsTablet = true;
+    });
 
-    expect(screen.getByText("trigger:week")).toBeTruthy();
-  });
+    it("renders the shared shell with the rail pinned", () => {
+      const screen = render(<TabsLayout />);
 
-  it("omits the Week tab on a small device", () => {
-    const screen = render(<TabsLayout />);
+      expect(screen.getByText("shell:rail=true")).toBeTruthy();
+    });
 
-    expect(screen.queryByText("trigger:week")).toBeNull();
-  });
+    it("declares no native triggers", () => {
+      const screen = render(<TabsLayout />);
 
-  it("keeps Week directly after Today so the order matches the web nav", () => {
-    mockUseIsLargeDevice.mockReturnValue(true);
-    const screen = render(<TabsLayout />);
-
-    const order = screen
-      .getAllByText(/^trigger:/)
-      .map((node) => String(node.props.children));
-    expect(order).toEqual([
-      "trigger:today",
-      "trigger:week",
-      "trigger:settings",
-      "trigger:search",
-    ]);
+      expect(screen.queryAllByText(/^trigger:/)).toHaveLength(0);
+    });
   });
 });

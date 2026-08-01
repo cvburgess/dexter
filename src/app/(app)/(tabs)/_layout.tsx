@@ -1,37 +1,36 @@
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 
+import { AppShell } from "@/components/AppShell";
 import { NewTaskButton } from "@/components/NewTaskButton";
-import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
+import { IS_TABLET } from "@/utils/deviceType";
 import { useTheme } from "@/utils/theme";
 
 /**
- * The native tab bar (iOS/Android). Web declares the same destinations
- * separately, as `NAV_ITEMS` in `components/AppNav.tsx` — keep the two in
- * sync when a tab is added or removed.
+ * The native tabs layout — which, since DEX-104, means the **phone** tab bar.
+ * Tablets take the same rail + JS `Tabs` shell as web
+ * (`components/AppShell.tsx`), because iPadOS's adaptive sidebar reads worse
+ * than the rail on a large screen.
+ *
+ * Phones declare their destinations here; every other surface declares them as
+ * `NAV_ITEMS` in `components/AppNav.tsx`. Keep the two in sync when a tab is
+ * added or removed — but note they are no longer the same list, and shouldn't
+ * be: Week is a large-screen destination with no place on a phone at all.
  */
 export default function TabsLayout() {
   const theme = useTheme();
-  // Week is a large-screen destination (DEX-96): seven columns don't fit a
-  // phone, so the tab isn't offered there. Note the reach of dropping the
-  // trigger — `NativeTabs` is built with expo-router's
-  // `useOnlyUserDefinedScreens`, so a route with no trigger is not registered
-  // with the navigator at all. On a phone `/week` therefore does not resolve
-  // (nothing in the app links to it there), and `week/index.tsx`'s
-  // below-the-breakpoint branch is reachable only on web, where
-  // `_layout.web.tsx` registers the screen unconditionally. Adding or removing
-  // a trigger also remounts the tab navigator, so this must not be a value that
-  // flips often; see `useIsLargeDevice` for why window width is safe to treat
-  // as fixed today.
-  const largeDevice = useIsLargeDevice();
+
+  // A constant, not a hook, so this branch is fixed for the process lifetime —
+  // the navigator is chosen once and never swapped under a running app. That is
+  // also what lets the `week` trigger below simply not exist rather than be
+  // gated on width: a phone is never a tablet, so no window-dependent value
+  // decides the trigger set any more. `NativeTabs` is built on expo-router's
+  // `useOnlyUserDefinedScreens`, so changing that set unregisters routes and
+  // remounts the navigator, resetting every tab's state.
+  if (IS_TABLET) return <AppShell rail />;
 
   return (
     <NativeTabs
       minimizeBehavior="onScrollDown"
-      // iPadOS/macOS render the adaptive sidebar instead of a bottom tab bar,
-      // so the large-screen layouts (Today's panes, the Settings sidebar) are no
-      // longer stacked underneath a second navigation surface (DEX-61). No
-      // effect on iPhone.
-      sidebarAdaptable
       tintColor={theme.colors.primary}
     >
       <NativeTabs.BottomAccessory>
@@ -41,12 +40,10 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Icon sf="sun.max" md="light_mode" />
         <NativeTabs.Trigger.Label>Today</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      {largeDevice && (
-        <NativeTabs.Trigger name="week">
-          <NativeTabs.Trigger.Icon sf="calendar" md="calendar_month" />
-          <NativeTabs.Trigger.Label>Week</NativeTabs.Trigger.Label>
-        </NativeTabs.Trigger>
-      )}
+      {/* No `week` trigger: seven columns don't fit a phone (DEX-96), and a
+          phone is the only thing that reaches this branch. Its route is
+          therefore never registered here, so `/week` doesn't resolve on a
+          phone — nothing links to it there. */}
       <NativeTabs.Trigger name="settings">
         <NativeTabs.Trigger.Icon sf="gear" md="settings" />
         <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
