@@ -509,6 +509,13 @@ export function TaskDrawer({
         placeholder="Search"
         value={search}
         onChangeText={setSearch}
+        // Filter, Group and Search are one cluster of controls; the list below
+        // is a different thing entirely, and at the container's in-group `sm`
+        // the first card read as one more control. Tops that up to the group
+        // step, the same way a group heading does — see docs/design.md,
+        // "Spacing". Supplied here rather than inside `TextInput`, which is
+        // shared app-wide and owns no spacing of its own.
+        style={{ marginBottom: theme.space.lg - theme.space.sm }}
       />
       {isLoading && !hasTasks ? (
         // `isLoading` reflects the canonical `useTasks()` query shared with
