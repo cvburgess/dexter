@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
-# Fetch the latest BugBot review's comments for a PR, merged with their
-# GraphQL review-thread ids, as one JSON array on stdout:
+# Fetch every *unresolved* BugBot review thread on a PR — regardless of which
+# review posted it — as one JSON array on stdout:
 #
 #   [{ "comment_id", "thread_id", "path", "line", "body", "resolved" }, ...]
 #
-# Handles the author-name discrepancy: the app is "cursor[bot]" on the REST
-# reviews API but "cursor" on GraphQL review-thread comments.
+# Driven entirely by the GraphQL reviewThreads query, so findings from an
+# earlier review are not dropped when BugBot reviews a PR more than once.
+# Threads the skill has already handled fall out on their own, because it
+# resolves each thread as it goes.
+#
+# On GraphQL the app's author login is usually "cursor" but sometimes
+# "cursor[bot]"; both are accepted.
+#
+# Prints an empty array (exit 0) when there is nothing unresolved to address.
 #
 # Usage: fetch-bugbot-threads.sh <pr-number>
 set -euo pipefail
 
-REPO="cvburgess/dexter"
 OWNER="cvburgess"
 NAME="dexter"
 
@@ -20,16 +26,8 @@ if [[ ! "$PR" =~ ^[0-9]+$ ]]; then
   exit 2
 fi
 
-REVIEW_ID="$(gh api "repos/$REPO/pulls/$PR/reviews?per_page=100" \
-  --jq '[.[] | select(.user.login == "cursor[bot]" or .user.login == "cursor")] | last | .id // empty')"
-if [[ -z "$REVIEW_ID" ]]; then
-  echo "no BugBot review found on PR #$PR" >&2
-  exit 1
-fi
-
-COMMENTS_JSON="$(gh api "repos/$REPO/pulls/$PR/reviews/$REVIEW_ID/comments" \
-  --jq '[.[] | {id: .id, path: .path, line: (.line // .original_line), body: .body}]')"
-
+# Deliberately unpaginated: no PR in this repo has come near 100 review threads
+# or 5 comments in a single thread. Revisit if one does.
 THREADS_JSON="$(gh api graphql \
   -F owner="$OWNER" -F repo="$NAME" -F number="$PR" \
   -f query='
@@ -44,6 +42,10 @@ THREADS_JSON="$(gh api graphql \
                 nodes {
                   databaseId
                   author { login }
+                  path
+                  line
+                  originalLine
+                  body
                 }
               }
             }
@@ -53,23 +55,29 @@ THREADS_JSON="$(gh api graphql \
     }
   ' --jq '
     [.data.repository.pullRequest.reviewThreads.nodes[]
-     | {threadId: .id, resolved: .isResolved, comments: [.comments.nodes[] | {id: .databaseId, author: .author.login}]}
-     | select(.comments | any(.author == "cursor" or .author == "cursor[bot]"))]
+     | {threadId: .id, resolved: .isResolved, root: .comments.nodes[0]}
+     | select(.root != null)
+     | select(.root.author.login == "cursor" or .root.author.login == "cursor[bot]")]
   ')"
 
-COMMENTS_JSON="$COMMENTS_JSON" THREADS_JSON="$THREADS_JSON" node -e '
-  const comments = JSON.parse(process.env.COMMENTS_JSON);
+PR="$PR" THREADS_JSON="$THREADS_JSON" node -e '
   const threads = JSON.parse(process.env.THREADS_JSON);
-  const rows = comments.map((c) => {
-    const thread = threads.find((t) => t.comments.some((tc) => tc.id === c.id));
-    return {
-      comment_id: c.id,
-      thread_id: thread ? thread.threadId : null,
-      path: c.path,
-      line: c.line,
-      body: c.body,
-      resolved: thread ? thread.resolved : null,
-    };
-  });
+  const rows = threads
+    .filter((t) => !t.resolved)
+    .map((t) => ({
+      comment_id: t.root.databaseId,
+      thread_id: t.threadId,
+      path: t.root.path,
+      line: t.root.line ?? t.root.originalLine,
+      body: t.root.body,
+      resolved: t.resolved,
+    }));
+  if (rows.length === 0) {
+    console.error(
+      threads.length
+        ? `no unresolved BugBot threads on PR #${process.env.PR}`
+        : `no BugBot threads found on PR #${process.env.PR}`,
+    );
+  }
   console.log(JSON.stringify(rows, null, 2));
 '

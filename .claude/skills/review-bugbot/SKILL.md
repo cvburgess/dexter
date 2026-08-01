@@ -15,7 +15,7 @@ Review BugBot (cursor[bot]) PR comments, determine which are valid, and fix them
 ## Execution requirements
 
 - **`gh` needs network access.** In sandboxed environments, run `gh` with network permission enabled (e.g. unrestricted network for GitHub API). Retrying with network access if the first attempt returns `Forbidden` or connection errors.
-- **REST vs GraphQL usernames:** PR **reviews** list the app as `cursor[bot]`. **Review thread comments** often show the author as `cursor`. Use the filters below so both match.
+- **Two author logins:** GraphQL review thread comments usually show the app as `cursor`, but sometimes `cursor[bot]`. Any filter on the author must accept both.
 
 ## Instructions
 
@@ -38,11 +38,11 @@ Run the fetch script with the PR number:
 .claude/skills/review-bugbot/scripts/fetch-bugbot-threads.sh {number}
 ```
 
-It finds the latest BugBot review (handling the author-name discrepancy: `cursor[bot]` on the REST reviews API, `cursor` on GraphQL review threads), fetches that review's comments, matches each to its GraphQL review thread, and prints one JSON array of `{comment_id, thread_id, path, line, body, resolved}` objects.
+It queries the PR's GraphQL review threads, keeps the unresolved ones whose first comment is BugBot (matching both author logins, `cursor` and `cursor[bot]`), and prints one JSON array of `{comment_id, thread_id, path, line, body, resolved}` objects.
 
-Note: threads may show as `resolved: true` in GraphQL after new commits push, but still need to be addressed if they appear in the latest review.
+Every unresolved BugBot thread comes back, not just the latest review's — when BugBot reviews a PR twice, the earlier review's findings are still listed. Threads you resolve in Step 7 drop out of later runs on their own.
 
-If the script reports no BugBot review, inform the user and stop.
+If the script returns an empty array, inform the user there are no unresolved BugBot threads and stop.
 
 ### Step 3: Parse each comment
 
