@@ -316,9 +316,18 @@ Two documented exceptions:
 Neither is a token; both are derived with `withOpacity` from a theme color, and
 which color depends on the job:
 
-- **Shadows and hairline scrims** derive from `colors.text`. A shadow tuned for
-  a light surface is invisible on a dark one, and `text` is the maximum-contrast
-  color against whatever surface it sits on.
+- **Hairline scrims** derive from `colors.text`. One tuned for a light surface
+  is invisible on a dark one, and `text` is the maximum-contrast color against
+  whatever surface it sits on.
+- **Shadows are black**, on every theme. A shadow is the absence of light — the
+  same rule that makes a divider always darker than the surfaces it divides.
+  Deriving one from `text` inverts it on the dark themes, where the ink is
+  light: the web nav's tiles wore a pale halo rather than a shadow until this
+  was corrected. The values themselves are Tailwind's `shadow-md`/`shadow-lg`
+  ported literally from dexter-app (see `tileStyle` in `components/WebNav.tsx`)
+  — two layers each, a wide soft drop with a negative spread over a tighter
+  layer that keeps the shape's own edge defined. A single-layer shadow reads as
+  a smudged hairline instead of a lift.
 - **Full-screen backdrops** (the web confirmation modal, the emoji picker)
   derive from `colors.background` at high opacity. A black wash all but
   disappears over a dark theme, while the app's own background always pushes the
