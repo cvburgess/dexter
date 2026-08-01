@@ -1,9 +1,12 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render } from "@testing-library/react-native";
 import type { ReactElement } from "react";
+import { StyleSheet } from "react-native";
 
-import { WEB_NAV_ITEMS, WebNavDock, WebNavRail } from "@/components/WebNav";
+import { NAV_ITEMS, NavDock, NavRail } from "@/components/AppNav";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
+import { renderWithInsets } from "@/testUtils/renderWithBottomInset";
+import { NAV_RAIL_WIDTH } from "@/utils/breakpoints";
 
 const mockRouter = { navigate: jest.fn(), push: jest.fn() };
 const mockPathname = { current: "/today" };
@@ -30,12 +33,12 @@ jest.mock("expo-router", () => {
       // with the props it clones in, and logs an `[expo-router]` error instead
       // of rendering. Enforcing that here is what makes the rest of this suite a
       // regression guard: the dock shipped with an array style that nothing
-      // caught, because the dock only renders below `WEB_RAIL_MIN_WIDTH` and no
+      // caught, because the dock only renders below `RAIL_MIN_WIDTH` and no
       // test rendered the real `Link`.
       if (Array.isArray(children.props.style)) {
         throw new Error(
           "<Link asChild> needs a flattened style on its child, not an array — " +
-            "see StyleSheet.flatten in WebNav.tsx",
+            "see StyleSheet.flatten in AppNav.tsx",
         );
       }
       return cloneElement(children, { href });
@@ -60,13 +63,13 @@ const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
 // The destinations offered at a given width. Most of these assertions are about
 // wiring rather than the breakpoint, so they run wide — where every item shows.
 const visibleItems = (largeDevice: boolean) =>
-  WEB_NAV_ITEMS.filter((item) => largeDevice || !item.largeScreenOnly);
+  NAV_ITEMS.filter((item) => largeDevice || !item.largeScreenOnly);
 
 // Both variants render the same destinations and wire them the same way, so the
 // shared behavior is exercised against each rather than only the rail.
 const variants = [
-  { name: "WebNavRail", Component: WebNavRail },
-  { name: "WebNavDock", Component: WebNavDock },
+  { name: "NavRail", Component: NavRail },
+  { name: "NavDock", Component: NavDock },
 ] as const;
 
 describe.each(variants)("$name", ({ Component }) => {
@@ -81,24 +84,24 @@ describe.each(variants)("$name", ({ Component }) => {
     const screen = render(<Component />);
 
     visibleItems(true).forEach((item) => {
-      expect(screen.getByTestId(`web-nav-${item.key}`)).toBeTruthy();
+      expect(screen.getByTestId(`nav-${item.key}`)).toBeTruthy();
     });
-    expect(screen.getByTestId("web-nav-new-task")).toBeTruthy();
+    expect(screen.getByTestId("nav-new-task")).toBeTruthy();
   });
 
   describe("large-screen-only destinations (DEX-96)", () => {
     it("offers Week on a large screen", () => {
       const screen = render(<Component />);
 
-      expect(screen.getByTestId("web-nav-week")).toBeTruthy();
-      expect(screen.getByTestId("web-nav-week").props.href).toBe("/week");
+      expect(screen.getByTestId("nav-week")).toBeTruthy();
+      expect(screen.getByTestId("nav-week").props.href).toBe("/week");
     });
 
     it("hides Week below the breakpoint", () => {
       mockUseIsLargeDevice.mockReturnValue(false);
       const screen = render(<Component />);
 
-      expect(screen.queryByTestId("web-nav-week")).toBeNull();
+      expect(screen.queryByTestId("nav-week")).toBeNull();
     });
 
     it("keeps every other destination below the breakpoint", () => {
@@ -106,34 +109,32 @@ describe.each(variants)("$name", ({ Component }) => {
       const screen = render(<Component />);
 
       visibleItems(false).forEach((item) => {
-        expect(screen.getByTestId(`web-nav-${item.key}`)).toBeTruthy();
+        expect(screen.getByTestId(`nav-${item.key}`)).toBeTruthy();
       });
-      expect(screen.getByTestId("web-nav-new-task")).toBeTruthy();
+      expect(screen.getByTestId("nav-new-task")).toBeTruthy();
     });
   });
 
   it("marks the current destination as selected", () => {
     const screen = render(<Component />);
 
-    expect(screen.getByTestId("web-nav-today")).toBeSelected();
-    expect(screen.getByTestId("web-nav-settings")).not.toBeSelected();
+    expect(screen.getByTestId("nav-today")).toBeSelected();
+    expect(screen.getByTestId("nav-settings")).not.toBeSelected();
   });
 
   it("keeps Settings selected inside its nested routes", () => {
     mockPathname.current = "/settings/lists/abc";
     const screen = render(<Component />);
 
-    expect(screen.getByTestId("web-nav-settings")).toBeSelected();
-    expect(screen.getByTestId("web-nav-today")).not.toBeSelected();
+    expect(screen.getByTestId("nav-settings")).toBeSelected();
+    expect(screen.getByTestId("nav-today")).not.toBeSelected();
   });
 
   it("renders each destination as a real link to its route", () => {
     const screen = render(<Component />);
 
     visibleItems(true).forEach((item) => {
-      expect(screen.getByTestId(`web-nav-${item.key}`).props.href).toBe(
-        item.href,
-      );
+      expect(screen.getByTestId(`nav-${item.key}`).props.href).toBe(item.href);
     });
   });
 
@@ -141,11 +142,9 @@ describe.each(variants)("$name", ({ Component }) => {
     mockPathname.current = "/search";
     const screen = render(<Component />);
 
-    expect(screen.getByTestId("web-nav-search").props["aria-current"]).toBe(
-      "page",
-    );
+    expect(screen.getByTestId("nav-search").props["aria-current"]).toBe("page");
     expect(
-      screen.getByTestId("web-nav-today").props["aria-current"],
+      screen.getByTestId("nav-today").props["aria-current"],
     ).toBeUndefined();
   });
 
@@ -153,7 +152,7 @@ describe.each(variants)("$name", ({ Component }) => {
     mockViewedDay.current = Temporal.PlainDate.from("2026-07-08");
     const screen = render(<Component />);
 
-    fireEvent.press(screen.getByTestId("web-nav-new-task"));
+    fireEvent.press(screen.getByTestId("nav-new-task"));
 
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: "/new-task",
@@ -164,8 +163,51 @@ describe.each(variants)("$name", ({ Component }) => {
   it("opens the new-task modal with no date when no day is on screen", () => {
     const screen = render(<Component />);
 
-    fireEvent.press(screen.getByTestId("web-nav-new-task"));
+    fireEvent.press(screen.getByTestId("nav-new-task"));
 
     expect(mockRouter.push).toHaveBeenCalledWith("/new-task");
+  });
+});
+
+// The rail's own concern, not the dock's: on a tablet it owns the physical left
+// edge of the display with no stack header above it, so it has to clear the
+// status bar, the home indicator, and a landscape cutout itself (DEX-104).
+describe("NavRail safe-area insets", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseIsLargeDevice.mockReturnValue(true);
+  });
+
+  const railStyle = (screen: ReturnType<typeof render>) =>
+    StyleSheet.flatten(screen.getByLabelText("Main navigation").props.style);
+
+  it("absorbs the top, bottom and left insets", () => {
+    const base = railStyle(renderWithInsets({}, <NavRail />));
+    const inset = railStyle(
+      renderWithInsets({ top: 24, left: 8, bottom: 20 }, <NavRail />),
+    );
+
+    // Measured against the zero-inset render rather than a hardcoded token, so
+    // retuning `space.md` doesn't break these.
+    expect(inset.paddingTop).toBe(Number(base.paddingTop) + 24);
+    expect(inset.paddingBottom).toBe(Number(base.paddingBottom) + 20);
+    expect(inset.paddingLeft).toBe(8);
+  });
+
+  // The rail grows rather than padding inward: eating the cutout out of the
+  // fixed 76dp would squeeze the tiles the inset exists to protect.
+  it("widens by the left inset instead of padding into its own width", () => {
+    const screen = renderWithInsets({ left: 8 }, <NavRail />);
+
+    expect(railStyle(screen).width).toBe(NAV_RAIL_WIDTH + 8);
+  });
+
+  // Web's insets are always 0 (nothing opts into `viewport-fit=cover`), so this
+  // is the guard that the tablet work left web's rail exactly as it was.
+  it("is exactly the rail width when there are no insets", () => {
+    const screen = renderWithInsets({}, <NavRail />);
+
+    expect(railStyle(screen).width).toBe(NAV_RAIL_WIDTH);
+    expect(railStyle(screen).paddingLeft).toBe(0);
   });
 });

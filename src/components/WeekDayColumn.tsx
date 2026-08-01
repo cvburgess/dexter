@@ -25,7 +25,7 @@ type TWeekDayColumnProps = {
  *
  * The chip's "today" treatment is the app's established active-large-screen-nav
  * fill — the inverted ink color behind the background color, the same pair
- * `WebNavRail` uses for its selected tile, and a direct port of the legacy
+ * `NavRail` uses for its selected tile, and a direct port of the legacy
  * app's `bg-base-content/80 text-base-100` badge.
  */
 export function WeekDayColumn({

@@ -15,15 +15,16 @@ import { weekOf } from "@/utils/weekStartEnd";
  * The Week tab (DEX-96) — seven day columns at once, for planning a week
  * rather than working a day.
  *
- * Large screens only. On **web** the route is registered at every width even
- * though its `WEB_NAV_ITEMS` entry isn't (`_layout.web.tsx` lists
- * `<Tabs.Screen name="week" />` unconditionally), because a `/week` URL typed
- * or bookmarked in a narrow window still has to resolve — which is what the
- * below-the-breakpoint branch here answers with. On **native** it can't work
- * that way: `NativeTabs` only registers routes that have a trigger, so dropping
- * the trigger on a phone drops the route too and this branch is unreachable
- * there. Branching inside rather than swapping the wrapper still matters on
- * iPad, where a Split View resize crosses the breakpoint live.
+ * Large screens only. On **web and tablets** the route is registered at every
+ * width even though its `NAV_ITEMS` entry isn't (`components/AppShell.tsx`
+ * lists `<Tabs.Screen name="week" />` unconditionally), because a `/week` URL
+ * typed, bookmarked, or deep-linked below the breakpoint still has to resolve —
+ * which is what the below-the-breakpoint branch here answers with. On a
+ * **phone** it can't work that way, and doesn't need to: `NativeTabs` only
+ * registers routes that have a trigger, and `_layout.tsx` declares no `week`
+ * trigger at all, so the route simply doesn't exist there. Branching inside
+ * rather than swapping the wrapper is what lets a tablet cross the breakpoint
+ * live — an iPad rotating, or resizing in Split View — without remounting.
  */
 export default function WeekScreen() {
   const [preferences] = usePreferences();
@@ -69,7 +70,11 @@ export default function WeekScreen() {
       >
         {/* EmptyScreen already fills and centers, and reserves the bottom
             inset itself — it needs no wrapper of its own. */}
-        <EmptyScreen message="The Week view needs a wider screen. Use the Today tab here, or open Dexter on a tablet or desktop." />
+        {/* Deliberately doesn't name a device: since DEX-104 a tablet reaches
+            this branch too (an iPad in a narrow Split View slice, or a
+            deep-linked `/week` on a small Android tablet), where "open Dexter
+            on a tablet" would be advice the user has already taken. */}
+        <EmptyScreen message="The Week view needs a wider screen. Use the Today tab here, or open Dexter on a larger one." />
       </SafeAreaView>
     );
   }

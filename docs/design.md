@@ -31,7 +31,7 @@ the app, and everything that frames content recedes from it.**
 | Token | daisyUI | Used for |
 | --- | --- | --- |
 | `background` | `base-100` | Screen bodies, panes, the sheet behind cards, the nav rail's tiles |
-| `surfaceSunken` | `base-200` | Cards, inputs, rows, menus, stack chrome, the web nav rail and dock |
+| `surfaceSunken` | `base-200` | Cards, inputs, rows, menus, stack chrome, the nav rail and dock |
 
 This is the inverse of a "cards float above the page" ramp, and it is deliberate
 (DEX-61). The legacy web app anchors its content on `base-100` and paints every
@@ -322,9 +322,9 @@ which color depends on the job:
 - **Shadows are black**, on every theme. A shadow is the absence of light — the
   same rule that makes a divider always darker than the surfaces it divides.
   Deriving one from `text` inverts it on the dark themes, where the ink is
-  light: the web nav's tiles wore a pale halo rather than a shadow until this
+  light: the nav's tiles wore a pale halo rather than a shadow until this
   was corrected. The values themselves are Tailwind's `shadow-md`/`shadow-lg`
-  ported literally from dexter-app (see `tileStyle` in `components/WebNav.tsx`)
+  ported literally from dexter-app (see `tileStyle` in `components/AppNav.tsx`)
   — two layers each, a wide soft drop with a negative spread over a tighter
   layer that keeps the shape's own edge defined. A single-layer shadow reads as
   a smudged hairline instead of a lift.
@@ -356,13 +356,16 @@ uncomfortable.
   the settings sidebar's 280pt width, the web menu's 220pt minimum width, a
   three-digit numeric field's 56pt minimum. These are "how wide must this be to
   hold its content", which no scale answers.
-- **The web nav rail's geometry** — `WEB_NAV_RAIL_WIDTH`, `WEB_NAV_TILE_SIZE`,
-  and `WEB_NAV_ICON_SIZE` in `utils/breakpoints.ts` (76 / 48 / 26). The rail is
-  web-only chrome ported one-for-one from the legacy desktop nav, and it is
-  proportioned against that app rather than against a control size that also has
-  to work under a thumb: derived from the compact tier the tile came out at 38
-  with a 19pt glyph, which read as a toolbar button rather than a destination.
-  The three live together because they only make sense together.
+- **The nav rail's geometry** — `NAV_RAIL_WIDTH`, `NAV_TILE_SIZE`, and
+  `NAV_ICON_SIZE` in `utils/breakpoints.ts` (76 / 48 / 26). The rail is ported
+  one-for-one from the legacy desktop nav and proportioned against that app
+  rather than against a control size derived from the density tier: from the
+  compact tier the tile came out at 38 with a 19pt glyph, which read as a
+  toolbar button rather than a destination. It is no longer web-only — the rail
+  renders on every tablet (DEX-104) — and the 48pt tile happens to clear the
+  44pt iOS minimum tap target, which is what makes it touch-legal there even
+  though compact density is not. The three live together because they only make
+  sense together.
 - **`0`.** A reset (`padding: 0` to undo an inherited inset) is not a spacing
   step.
 

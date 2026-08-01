@@ -53,7 +53,7 @@ export function SettingsSidebar() {
           paddingLeft: theme.space.md + insets.left,
           // Web gets a second `md` because `insets.top` is always 0 there —
           // there is no status bar to clear, and the viewport never opts into
-          // `viewport-fit=cover` (see WebNav), so nothing else pushes the
+          // `viewport-fit=cover` (see AppNav), so nothing else pushes the
           // heading off the top edge the way the inset does on native.
           paddingTop:
             theme.space.md +

@@ -5,27 +5,35 @@
 // one of those breakpoints stays in sync — see `hooks/useIsLargeDevice.ts`.
 export const LARGE_DEVICE_MIN_WIDTH = 768;
 
-// Width (in dp) of the web nav rail (`components/WebNav.tsx`).
-export const WEB_NAV_RAIL_WIDTH = 76;
+// Width (in dp) of the nav rail (`components/AppNav.tsx`).
+export const NAV_RAIL_WIDTH = 76;
 
 // The rail's tile and glyph, in dp. Ported one-for-one from the legacy
 // dexter-app's `DesktopNav` (a `size-12` tile holding a 26dp Phosphor icon),
 // which is why they sit here beside the rail width they're proportioned
-// against rather than on the density scale: the rail is web-only chrome whose
-// geometry answers to the legacy desktop app, not to a control size that has
-// to work on a phone. Anything smaller reads as a toolbar button rather than a
-// destination — see `docs/design.md`.
-export const WEB_NAV_TILE_SIZE = 48;
-export const WEB_NAV_ICON_SIZE = 26;
+// against rather than on the density scale: the rail's geometry answers to the
+// legacy desktop app, not to a control size derived from the density tier.
+// Anything smaller reads as a toolbar button rather than a destination — see
+// `docs/design.md`. The 48dp tile also clears the 44pt iOS minimum tap target,
+// which is what makes the rail touch-legal on a tablet (DEX-104).
+export const NAV_TILE_SIZE = 48;
+export const NAV_ICON_SIZE = 26;
 
-// Width (in dp) at or above which web shows the nav rail rather than the bottom
-// dock. Deliberately not `LARGE_DEVICE_MIN_WIDTH`: the rail takes its width *out
-// of* the tab content, while Today and Settings decide on multi-pane from the
-// window width via `useIsLargeDevice`. Gating the rail on window ≥
+// Width (in dp) at or above which **web** shows the nav rail rather than the
+// bottom dock. Deliberately not `LARGE_DEVICE_MIN_WIDTH`: the rail takes its
+// width *out of* the tab content, while Today and Settings decide on multi-pane
+// from the window width via `useIsLargeDevice`. Gating the rail on window ≥
 // LARGE_DEVICE_MIN_WIDTH + rail width keeps those two in agreement — whenever
 // the rail is up, the content beside it still clears the large-screen
 // threshold. The dock costs height, not width, so it never has the same problem.
-export const WEB_RAIL_MIN_WIDTH = LARGE_DEVICE_MIN_WIDTH + WEB_NAV_RAIL_WIDTH;
+//
+// **Web only, despite the un-prefixed name.** Tablets show the rail at every
+// width and bypass this gate entirely (DEX-104), so between 768 and 844dp of
+// window they run the large-screen layouts against 692–768dp of content — an
+// accepted trade for navigation that never moves. If that reads badly on
+// device, the fix is to subtract the rail width inside `useIsLargeDevice`,
+// which leaves its call sites untouched.
+export const RAIL_MIN_WIDTH = LARGE_DEVICE_MIN_WIDTH + NAV_RAIL_WIDTH;
 
 // Width (in dp) of the Tasks pane in a multi-column layout — fixed, not a cap:
 // the list holds its size and the panes beside it absorb whatever the window

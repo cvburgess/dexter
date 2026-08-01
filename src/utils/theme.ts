@@ -233,7 +233,7 @@ const mutePriorities = (
 // `UNPRIORITIZED` is the other deviation from the port (DEX-114). daisyUI's
 // `neutral` is a *dark* swatch on every theme, so on the dark themes an
 // unprioritized card came out near-black against an already dark pane while the
-// active nav tile — `withOpacity(text, 0.8)`, see `WebNav` — went light. The two
+// active nav tile — `withOpacity(text, 0.8)`, see `AppNav` — went light. The two
 // are meant to be the same mark: a block of the app's ink with the surface
 // showing through the type on it. dexter only got that right by accident, its
 // `neutral` and `base-content` being the same brown. Taking `base-content`
