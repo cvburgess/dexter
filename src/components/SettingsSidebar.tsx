@@ -1,5 +1,6 @@
 import { usePathname, useRouter } from "expo-router";
 import {
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -50,7 +51,14 @@ export function SettingsSidebar() {
         contentContainerStyle={{
           padding: theme.space.md,
           paddingLeft: theme.space.md + insets.left,
-          paddingTop: theme.space.md + insets.top,
+          // Web gets a second `md` because `insets.top` is always 0 there —
+          // there is no status bar to clear, and the viewport never opts into
+          // `viewport-fit=cover` (see WebNav), so nothing else pushes the
+          // heading off the top edge the way the inset does on native.
+          paddingTop:
+            theme.space.md +
+            insets.top +
+            (Platform.OS === "web" ? theme.space.md : 0),
           paddingBottom: theme.space.md + insets.bottom,
           gap: theme.space.sm,
         }}
@@ -59,7 +67,17 @@ export function SettingsSidebar() {
           style={{
             ...theme.fonts.heading,
             color: theme.colors.text,
-            marginBottom: theme.space.xs,
+            // The rows below carry their own `md` inset so a selected row's
+            // fill can extend past its content to the pane's gutter. The
+            // heading has no fill and so no inset of its own, which left it
+            // hanging a step left of every icon under it — matching the rows'
+            // padding is what puts them on one edge. Keep the two in step.
+            paddingHorizontal: theme.space.md,
+            // Enough to read as a heading over the list rather than a label on
+            // the first row of it, which is what the `xs` here used to do. Not
+            // the `lg` group separator: the rows are already tall and spaced,
+            // so a full group step floated the heading off on its own.
+            marginBottom: theme.space.md,
           }}
         >
           Settings
@@ -67,8 +85,10 @@ export function SettingsSidebar() {
 
         {SETTINGS_ITEMS.map((item) => {
           const selected = pathname === `/settings/${item.slug}`;
+          // One const, read by both the icon and the label below, so the two
+          // can't disagree about a selected row's ink.
           const contentColor = selected
-            ? theme.colors.primaryContent
+            ? theme.colors.primary
             : theme.colors.text;
 
           return (
@@ -80,8 +100,16 @@ export function SettingsSidebar() {
               style={[
                 styles.row,
                 {
+                  // A selected row sinks into the sidebar rather than being a
+                  // solid primary slab on it, with `primary` moving to the ink
+                  // (DEX-110). `surfaceSunken` is the token because a settings
+                  // row *holds* content — see docs/design.md's surface rule —
+                  // and the sidebar around it is `background`, so this is the
+                  // one step down that rule allows. There is no third surface
+                  // to reach for; the issue's `base-300` is deliberately not
+                  // ported.
                   backgroundColor: selected
-                    ? theme.colors.primary
+                    ? theme.colors.surfaceSunken
                     : "transparent",
                   borderRadius: theme.radii.md,
                   gap: theme.space.sm,

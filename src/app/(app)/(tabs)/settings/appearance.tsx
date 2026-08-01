@@ -160,7 +160,12 @@ function ThemeCard({
             ? uiTheme.colors.primary
             : uiTheme.colors.border,
           borderWidth: selected ? 2 : StyleSheet.hairlineWidth,
-          gap: uiTheme.space.sm,
+          // The card's two children are the swatch row and the footer, so this
+          // is the swatches-to-title gap and nothing else. `md` rather than the
+          // in-group `sm`: at `sm` the name crowded the color it names, which
+          // read as the swatches having a caption rather than the card being
+          // one thing (DEX-109).
+          gap: uiTheme.space.md,
           // `md`, the standard inset: the card is a miniature of the app's own
           // surface, so it reads better with the gutter a real pane would have
           // than with the tighter in-group step the row between cards uses.

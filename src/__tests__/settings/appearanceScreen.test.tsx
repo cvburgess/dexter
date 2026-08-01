@@ -79,6 +79,20 @@ describe("AppearanceScreen", () => {
     expect(style.paddingBottom).toBe(Number(style.padding) + 34);
   });
 
+  // DEX-109. A theme card's only two children are its swatch row and its title
+  // row, so the card's single `gap` is the space between the colors and the
+  // name. Asserting it against the card's own padding rather than a literal
+  // pins the intent — one step, the standard inset, at either density — and
+  // fails if it drops back to the tighter in-group step it used to be.
+  it("gives a theme card's swatches and title the same air as the card's inset", () => {
+    const screen = renderWith();
+
+    const style = StyleSheet.flatten(
+      screen.getByTestId("appearance-theme-dexter").props.style as ViewStyle[],
+    );
+    expect(style.gap).toBe(style.padding);
+  });
+
   it("renders the mode control and both theme sections in SYSTEM mode", () => {
     const screen = renderWith();
 

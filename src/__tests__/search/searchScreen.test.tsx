@@ -22,8 +22,15 @@ jest.mock("@/hooks/useSearch", () => {
 });
 jest.mock("@/hooks/useTasks", () => ({ useTasks: jest.fn() }));
 jest.mock("@/hooks/useTemplates", () => ({ useTemplates: jest.fn() }));
+// Both halves of this screen's safe-area handling are stubbed: the context (for
+// `useSafeAreaInsets`, which reserves the tab bar in the list's own content) and
+// `react-native-screens`' SafeAreaView, which frames the screen. See the
+// DEX-107 test at the bottom of this file for why they are two different things.
 jest.mock("react-native-safe-area-context", () =>
   require("@/testUtils/mockSafeAreaEdges").mockSafeAreaContext(),
+);
+jest.mock("react-native-screens/experimental", () =>
+  require("@/testUtils/mockSafeAreaEdges").mockScreensSafeArea(),
 );
 
 // On native `SearchField` is `Stack.SearchBar`, which renders `null` and hangs
@@ -388,5 +395,23 @@ describe("SearchScreen", () => {
       pathname: "/today",
       params: { date: "2026-07-12", mode: "journal", n: "1" },
     });
+  });
+
+  it("frames itself from the screen's safe area, not the tab's (DEX-107)", () => {
+    render(<SearchScreen />);
+
+    // Jest can't measure an inset, but it can pin the thing that regressed:
+    // which provider the top edge comes from. The frame has to resolve against
+    // the stack screen's own view — whose safe area includes the translucent
+    // header `Stack.SearchBar` forces — and not the per-tab SafeAreaProvider,
+    // whose top inset is only the status bar. Swapping this back to the
+    // context's SafeAreaView reopens the bug; the safe-area section of
+    // `docs/frontend.md` carries the mechanism.
+    expect(
+      screen.getByTestId("screen-safe-area-edges-left,right,top"),
+    ).toBeTruthy();
+    // Never `bottom`: the list scrolls under the tab bar and reserves that inset
+    // in its own content (DEX-91).
+    expect(screen.queryByTestId(/screen-safe-area-edges-.*bottom/)).toBeNull();
   });
 });
