@@ -1,6 +1,6 @@
-import { FlashList } from "@shopify/flash-list";
+import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { Temporal } from "@js-temporal/polyfill";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -386,14 +386,27 @@ export function TaskDrawer({
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: TDrawerListItem }) => {
+    ({ item, index }: { item: TDrawerListItem; index: number }) => {
       if (item.type === "header") {
         return (
           <Text
             style={[
               theme.fonts.title,
               styles.groupTitle,
-              { color: theme.colors.textSecondary },
+              {
+                color: theme.colors.textSecondary,
+                // Tops the row separator up to the group step: `lg` separates
+                // groups where `sm` separates rows within one (see
+                // docs/design.md, "Spacing"), and the separator has already
+                // contributed its `sm`. Without it a group's heading sat as
+                // close to the previous group's last task as that task sat to
+                // its own neighbours, and the groups ran together.
+                //
+                // Not on the first row, which has nothing above it to separate
+                // from — and this is a *recycled* row, so the margin has to be
+                // computed per render rather than baked into the stylesheet.
+                marginTop: index === 0 ? 0 : theme.space.lg - theme.space.sm,
+              },
             ]}
           >
             {item.title}
@@ -442,6 +455,20 @@ export function TaskDrawer({
     () => <View style={{ height: theme.space.sm }} />,
     [theme.space.sm],
   );
+
+  // Re-derive the list from a control and the old scroll offset is meaningless:
+  // the rows under it are different rows. Grouping is the clearest case — the
+  // whole list re-sections and, halfway down, the user lands in the middle of
+  // some group they didn't pick — but a filter or a search narrows it just as
+  // completely.
+  //
+  // Keyed on the three *inputs*, deliberately not on the derived `listItems`:
+  // that identity also changes when a task is edited, so checking a task off
+  // would yank the list back to the top under the user's finger.
+  const listRef = useRef<FlashListRef<TDrawerListItem>>(null);
+  useEffect(() => {
+    listRef.current?.scrollToTop({ animated: false });
+  }, [filterId, groupBy, search]);
 
   // `container`'s own padding sits inside a pane that itself extends
   // behind the tab bar, so it doesn't clear it — the inset has to go on the
@@ -495,6 +522,7 @@ export function TaskDrawer({
         <EmptyScreen message="Nothing here — you're all caught up." />
       ) : (
         <FlashList
+          ref={listRef}
           data={listItems}
           renderItem={renderItem}
           keyExtractor={keyExtractor}

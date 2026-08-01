@@ -1,7 +1,7 @@
 import { FlashList } from "@shopify/flash-list";
 import { Temporal } from "@js-temporal/polyfill";
 import { weekDays } from "@/utils/weekStartEnd";
-import { fireEvent, render } from "@testing-library/react-native";
+import { act, fireEvent, render } from "@testing-library/react-native";
 import type { ReactNode } from "react";
 import {
   ActivityIndicator,
@@ -80,6 +80,17 @@ const selectFilterOption = (id: string) => {
     ([props]) => props.accessibilityLabel === "Filter",
   )?.[0];
   filterMenu?.sections
+    ?.flatMap((section) => section.options)
+    .find((option) => option.id === id)
+    ?.onSelect();
+};
+
+/** Invokes a grouping option's onSelect from the captured Group IconMenu. */
+const selectGroupOption = (id: string) => {
+  const groupMenu = mockIconMenu.mock.calls.find(
+    ([props]) => props.accessibilityLabel === "Group",
+  )?.[0];
+  groupMenu?.sections
     ?.flatMap((section) => section.options)
     .find((option) => option.id === id)
     ?.onSelect();
@@ -573,5 +584,31 @@ describe("TaskDrawer", () => {
 
     expect(labelColor(screen, "No Grouping")).toBe(colors.text);
     expect(outlineColor(screen, "drawer-group-surface")).toBe(colors.border);
+  });
+
+  // A group heading carries the group step above it, on top of the row
+  // separator's own `sm`. Without it a heading sat as close to the previous
+  // group's last task as that task sat to its own neighbours, and the sections
+  // ran together. The first heading is the exception — nothing above it to
+  // separate from.
+  it("separates a group heading from the group above it, but not the first", () => {
+    mockUseTasks.mockReturnValue(
+      tasksResult([
+        task({ id: "1", title: "A", priority: ETaskPriority.URGENT }),
+        task({ id: "2", title: "B", priority: ETaskPriority.UNPRIORITIZED }),
+      ]),
+    );
+    const screen = render(<TaskDrawer date={date} />);
+
+    act(() => selectGroupOption("priority"));
+
+    const marginOf = (heading: string) =>
+      StyleSheet.flatten(screen.getByText(heading).props.style as TextStyle[])
+        .marginTop;
+
+    // `space.lg - space.sm` on the comfortable tier: the separator has already
+    // contributed its `sm`, so this tops the pair up to the group step.
+    expect(marginOf("Urgent")).toBe(0);
+    expect(marginOf("Unprioritized")).toBe(16);
   });
 });
