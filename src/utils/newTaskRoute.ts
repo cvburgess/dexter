@@ -9,7 +9,7 @@ import { getViewedDay } from "@/hooks/useViewedDay";
  * focused day screen, which clears the viewed day (`hooks/useViewedDay.tsx`), so
  * a value read any earlier or later would always fall back to today. Shared by
  * every create-task entry point — `NewTaskButton` (the iOS tab-bar accessory)
- * and `WebNav`'s rail/dock "+" — so that contract lives in one place.
+ * and `AppNav`'s rail/dock "+" — so that contract lives in one place.
  */
 export const newTaskRoute = (): Href => {
   const viewedDay = getViewedDay();

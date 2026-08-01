@@ -15,9 +15,9 @@ import {
 } from "@/components/SettingsIcon";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import {
-  WEB_NAV_ICON_SIZE,
-  WEB_NAV_RAIL_WIDTH,
-  WEB_NAV_TILE_SIZE,
+  NAV_ICON_SIZE,
+  NAV_RAIL_WIDTH,
+  NAV_TILE_SIZE,
 } from "@/utils/breakpoints";
 import { newTaskRoute } from "@/utils/newTaskRoute";
 import { Theme, useTheme, withOpacity } from "@/utils/theme";
@@ -25,11 +25,11 @@ import { Theme, useTheme, withOpacity } from "@/utils/theme";
 // The string branch of `Href` — every nav destination is a static path, so the
 // object form (`{pathname, params}`) never applies and prefix-matching an active
 // route stays type-safe.
-type TWebNavHref = Extract<Href, string>;
+type TNavHref = Extract<Href, string>;
 
-type TWebNavItem = {
+type TNavItem = {
   key: string;
-  href: TWebNavHref;
+  href: TNavHref;
   label: string;
   icon: TSettingsIconName;
   /** Floats this item (and everything after it) to the far end of the rail. */
@@ -45,14 +45,16 @@ type TWebNavItem = {
 };
 
 /**
- * The app's web navigation destinations, in rail order (top to bottom) and dock
+ * The app's navigation destinations, in rail order (top to bottom) and dock
  * order (left to right). Keep in sync with the native tab triggers in
  * `app/(app)/(tabs)/_layout.tsx` when a tab is added or removed — the two
- * declarations are deliberately separate (different icon vocabularies, and web
- * adds a "+" that native hosts as a tab-bar accessory instead), so nothing
- * enforces it automatically.
+ * declarations are deliberately separate (different icon vocabularies, and this
+ * list adds a "+" that the native tab bar hosts as an accessory instead), so
+ * nothing enforces it automatically. That sync is narrower than it used to be:
+ * since DEX-104 the native triggers are the **phone** tab bar only, so a
+ * tablet-or-wider destination like Week lives here alone.
  */
-export const WEB_NAV_ITEMS: TWebNavItem[] = [
+export const NAV_ITEMS: TNavItem[] = [
   { key: "today", href: "/today", label: "Today", icon: "sunny-outline" },
   {
     key: "week",
@@ -75,7 +77,7 @@ export const WEB_NAV_ITEMS: TWebNavItem[] = [
 
 // Settings has nested routes (/settings/account, /settings/lists/[id]), so an
 // exact match would drop the highlight as soon as a subview opens.
-const isActive = (pathname: string, href: TWebNavHref) =>
+const isActive = (pathname: string, href: TNavHref) =>
   pathname === href || pathname.startsWith(`${href}/`);
 
 /**
@@ -83,7 +85,7 @@ const isActive = (pathname: string, href: TWebNavHref) =>
  * to open the create-task modal. Destinations themselves are `Link`s rather than
  * handlers — see `navItemProps`.
  */
-function useWebNav() {
+function useAppNav() {
   const router = useRouter();
   const pathname = usePathname();
   const largeDevice = useIsLargeDevice();
@@ -93,7 +95,7 @@ function useWebNav() {
 
   // Filtered here rather than in each variant so the rail and the dock always
   // offer the same destinations.
-  const items = WEB_NAV_ITEMS.filter(
+  const items = NAV_ITEMS.filter(
     (item) => largeDevice || !item.largeScreenOnly,
   );
 
@@ -123,23 +125,26 @@ function useWebNav() {
  * kept alongside because it's the cross-platform signal (and what the tests
  * assert), but `aria-current` is the one a screen reader announces here.
  */
-const navItemProps = (item: TWebNavItem, selected: boolean) => ({
+const navItemProps = (item: TNavItem, selected: boolean) => ({
   accessibilityLabel: item.label,
   accessibilityState: { selected },
   "aria-current": selected ? ("page" as const) : undefined,
-  testID: `web-nav-${item.key}`,
+  testID: `nav-${item.key}`,
 });
 
 /**
- * The web navigation rail shown on wide viewports (see `(tabs)/_layout.web.tsx`).
- * Ports the legacy dexter-app's `DesktopNav`: a narrow full-height column of
- * floating rounded icon tiles on the sunken background, the active one filled
- * with the inverted ink color, and the gear pinned to the bottom. The "+" below
- * it is Dexter's create-task entry point on web (DEX-74).
+ * The navigation rail: on **every tablet** at every width, and on web above
+ * `RAIL_MIN_WIDTH` (see `components/AppShell.tsx`). Ports the legacy
+ * dexter-app's `DesktopNav`: a narrow full-height column of floating rounded
+ * icon tiles on the sunken background, the active one filled with the inverted
+ * ink color, and the gear pinned to the bottom. The "+" below it is Dexter's
+ * create-task entry point wherever this renders (DEX-74, DEX-104) — including
+ * Android tablets, which have never had one, since the iOS `BottomAccessory`
+ * that hosts it on phones has no Android equivalent.
  */
-export function WebNavRail() {
+export function NavRail() {
   const theme = useTheme();
-  const { items, openNewTask, pathname } = useWebNav();
+  const { items, openNewTask, pathname } = useAppNav();
 
   return (
     <View
@@ -163,7 +168,7 @@ export function WebNavRail() {
       ]}
     >
       {items.map((item) => (
-        <WebNavRailTile
+        <NavRailTile
           item={item}
           key={item.key}
           selected={isActive(pathname, item.href)}
@@ -179,12 +184,12 @@ export function WebNavRail() {
           tileStyle(theme),
           { backgroundColor: theme.colors.primary },
         ]}
-        testID="web-nav-new-task"
+        testID="nav-new-task"
       >
         <SettingsIcon
           color={theme.colors.primaryContent}
           name="add"
-          size={WEB_NAV_ICON_SIZE}
+          size={NAV_ICON_SIZE}
         />
       </TouchableOpacity>
     </View>
@@ -200,11 +205,11 @@ export function WebNavRail() {
  * instead. Ports dexter-app's `hover:shadow-lg transition-shadow`, minus the
  * transition: RN has no CSS transitions, so the lift snaps rather than eases.
  */
-function WebNavRailTile({
+function NavRailTile({
   item,
   selected,
 }: {
-  item: TWebNavItem;
+  item: TNavItem;
   selected: boolean;
 }) {
   const theme = useTheme();
@@ -234,7 +239,7 @@ function WebNavRailTile({
         <SettingsIcon
           color={selected ? theme.colors.background : theme.colors.text}
           name={item.icon}
-          size={WEB_NAV_ICON_SIZE}
+          size={NAV_ICON_SIZE}
         />
       </Pressable>
     </Link>
@@ -242,14 +247,20 @@ function WebNavRailTile({
 }
 
 /**
- * The web navigation dock shown on narrow viewports — the legacy dexter-app's
- * `MobileNav`. Same destinations as the rail, laid out as a labelled bottom bar
- * with the active item tinted with the primary color instead of filled.
+ * The navigation dock shown on narrow **web** viewports — the legacy
+ * dexter-app's `MobileNav`. Same destinations as the rail, laid out as a
+ * labelled bottom bar with the active item tinted with the primary color
+ * instead of filled.
+ *
+ * Web-only in practice, unlike the rail: phones render the native tab bar and
+ * tablets render the rail at every width (DEX-104), so nothing native reaches
+ * this. Kept platform-neutral anyway — it costs nothing and the narrow-window
+ * case is the one most likely to want it back.
  */
-export function WebNavDock() {
+export function NavDock() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { items, openNewTask, pathname } = useWebNav();
+  const { items, openNewTask, pathname } = useAppNav();
 
   return (
     <View
@@ -315,7 +326,7 @@ export function WebNavDock() {
         accessibilityRole="button"
         onPress={openNewTask}
         style={[styles.dockItem, { gap: theme.space.xs }]}
-        testID="web-nav-new-task"
+        testID="nav-new-task"
       >
         <View
           style={[
@@ -362,18 +373,24 @@ export function WebNavDock() {
  * the same reason a divider is always darker than what it divides. Deriving it
  * from the ink painted a pale halo around the tiles on the dark themes — see
  * docs/design.md, "Scrims and shadows".
+ *
+ * The CSS string form renders on native too, so the rail keeps its lift on a
+ * tablet: RN 0.86's `processBoxShadow` parses it (negative spread included) and
+ * `@react-native/normalize-colors` handles the `rgb(R G B / A)` slash notation
+ * used here. No `shadow*`/`elevation` fallback is needed.
  */
 const TILE_SHADOW =
   "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)";
 const TILE_SHADOW_HOVER =
   "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)";
 
-/** The rail tile's box; see `WebNavRail` and `WEB_NAV_TILE_SIZE`. */
+/** The rail tile's box; see `NavRail` and `NAV_TILE_SIZE`. */
+
 const tileStyle = (theme: Theme, hovered = false) => ({
   borderRadius: theme.radii.md,
   boxShadow: hovered ? TILE_SHADOW_HOVER : TILE_SHADOW,
-  height: WEB_NAV_TILE_SIZE,
-  width: WEB_NAV_TILE_SIZE,
+  height: NAV_TILE_SIZE,
+  width: NAV_TILE_SIZE,
 });
 
 /**
@@ -391,7 +408,7 @@ const styles = StyleSheet.create({
     // pinning the gear to the bottom (`marginTop: "auto"`) only works if the
     // rail actually fills the viewport height.
     alignSelf: "stretch",
-    width: WEB_NAV_RAIL_WIDTH,
+    width: NAV_RAIL_WIDTH,
   },
   // Lifted off the rail's sunken background by a soft shadow rather than a
   // border; `tileStyle` carries the box.

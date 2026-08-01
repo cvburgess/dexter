@@ -7,16 +7,16 @@ import { useShowNavRail } from "@/hooks/useShowNavRail";
 jest.mock("@/hooks/useShowNavRail", () => ({ useShowNavRail: jest.fn() }));
 
 // Stub both nav variants to markers so this test only exercises _layout.web's
-// own rail-vs-dock decision, not the nav's internals (WebNav.test covers those).
-jest.mock("@/components/WebNav", () => {
+// own rail-vs-dock decision, not the nav's internals (AppNav.test covers those).
+jest.mock("@/components/AppNav", () => {
   const { Text } =
     jest.requireActual<typeof import("react-native")>("react-native");
   return {
-    WebNavDock: function WebNavDock() {
-      return <Text>web-nav-dock</Text>;
+    NavDock: function NavDock() {
+      return <Text>nav-dock</Text>;
     },
-    WebNavRail: function WebNavRail() {
-      return <Text>web-nav-rail</Text>;
+    NavRail: function NavRail() {
+      return <Text>nav-rail</Text>;
     },
   };
 });
@@ -49,19 +49,19 @@ describe("TabsLayoutWeb", () => {
     mockUseShowNavRail.mockReturnValue(true);
     const screen = render(<TabsLayoutWeb />);
 
-    expect(screen.getByText("web-nav-rail")).toBeTruthy();
-    expect(screen.queryByText("web-nav-dock")).toBeNull();
+    expect(screen.getByText("nav-rail")).toBeTruthy();
+    expect(screen.queryByText("nav-dock")).toBeNull();
   });
 
   it("mounts the dock on narrow viewports", () => {
     mockUseShowNavRail.mockReturnValue(false);
     const screen = render(<TabsLayoutWeb />);
 
-    expect(screen.getByText("web-nav-dock")).toBeTruthy();
-    expect(screen.queryByText("web-nav-rail")).toBeNull();
+    expect(screen.getByText("nav-dock")).toBeTruthy();
+    expect(screen.queryByText("nav-rail")).toBeNull();
   });
 
-  // The Week *nav item* is gated on width (WebNav.test covers that), but the
+  // The Week *nav item* is gated on width (AppNav.test covers that), but the
   // route must resolve at every width or a `/week` URL opened in a narrow
   // window would be a navigation error rather than the screen's own
   // explanation (DEX-96).

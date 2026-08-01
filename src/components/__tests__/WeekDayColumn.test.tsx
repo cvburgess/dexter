@@ -182,7 +182,7 @@ describe("WeekDayColumn", () => {
         <WeekDayColumn date={today} enableHabits={false} isToday />,
       );
 
-      // The pair WebNavRail uses for its selected tile.
+      // The pair NavRail uses for its selected tile.
       expect(chipStyle(screen, today).backgroundColor).toBe(
         withOpacity(theme.colors.text, 0.8),
       );

@@ -16,7 +16,7 @@ import { weekOf } from "@/utils/weekStartEnd";
  * rather than working a day.
  *
  * Large screens only. On **web** the route is registered at every width even
- * though its `WEB_NAV_ITEMS` entry isn't (`_layout.web.tsx` lists
+ * though its `NAV_ITEMS` entry isn't (`_layout.web.tsx` lists
  * `<Tabs.Screen name="week" />` unconditionally), because a `/week` URL typed
  * or bookmarked in a narrow window still has to resolve — which is what the
  * below-the-breakpoint branch here answers with. On **native** it can't work

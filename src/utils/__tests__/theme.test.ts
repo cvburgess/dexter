@@ -277,7 +277,7 @@ describe("palette invariants", () => {
 
   // The unprioritized card and the active nav tile are the same mark: a block
   // of the app's ink with the surface showing through the type on it. The tile
-  // is `withOpacity(text, 0.8)` (`WebNav`), so the accent has to *be* `text` —
+  // is `withOpacity(text, 0.8)` (`AppNav`), so the accent has to *be* `text` —
   // daisyUI's `neutral` is a dark swatch on every theme, which flipped the pair
   // apart on the dark ones (DEX-114). dexter satisfied this by accident, its
   // `neutral` and `base-content` being the same brown; now all five hold.

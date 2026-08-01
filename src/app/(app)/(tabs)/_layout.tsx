@@ -6,7 +6,7 @@ import { useTheme } from "@/utils/theme";
 
 /**
  * The native tab bar (iOS/Android). Web declares the same destinations
- * separately, as `WEB_NAV_ITEMS` in `components/WebNav.tsx` — keep the two in
+ * separately, as `NAV_ITEMS` in `components/AppNav.tsx` — keep the two in
  * sync when a tab is added or removed.
  */
 export default function TabsLayout() {
