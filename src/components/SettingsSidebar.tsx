@@ -67,8 +67,10 @@ export function SettingsSidebar() {
 
         {SETTINGS_ITEMS.map((item) => {
           const selected = pathname === `/settings/${item.slug}`;
+          // One const, read by both the icon and the label below, so the two
+          // can't disagree about a selected row's ink.
           const contentColor = selected
-            ? theme.colors.primaryContent
+            ? theme.colors.primary
             : theme.colors.text;
 
           return (
@@ -80,8 +82,16 @@ export function SettingsSidebar() {
               style={[
                 styles.row,
                 {
+                  // A selected row sinks into the sidebar rather than being a
+                  // solid primary slab on it, with `primary` moving to the ink
+                  // (DEX-110). `surfaceSunken` is the token because a settings
+                  // row *holds* content — see docs/design.md's surface rule —
+                  // and the sidebar around it is `background`, so this is the
+                  // one step down that rule allows. There is no third surface
+                  // to reach for; the issue's `base-300` is deliberately not
+                  // ported.
                   backgroundColor: selected
-                    ? theme.colors.primary
+                    ? theme.colors.surfaceSunken
                     : "transparent",
                   borderRadius: theme.radii.md,
                   gap: theme.space.sm,

@@ -361,7 +361,16 @@ export function TaskDrawer({
     [theme.space.sm],
   );
 
-  const controlBorder = { borderColor: theme.colors.border };
+  // The themed half of the Filter/Group buttons — everything in
+  // `controlButtonInner` that has to come from the theme rather than the
+  // stylesheet. `radii.md` is the app's one corner radius, shared with the
+  // `TextInput` directly below these two and with the pane around them
+  // (DEX-106); these buttons were the only chrome in the drawer drawing square.
+  const controlButtonSurface = {
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.md,
+    paddingHorizontal: theme.space.sm,
+  };
   // `container`'s own padding sits inside a pane that itself extends
   // behind the tab bar, so it doesn't clear it — the inset has to go on the
   // scrollable content on top of that. Memoized like this list's other props
@@ -387,8 +396,11 @@ export function TaskDrawer({
           sections={[{ options: filterMenuOptions(filterId, setFilterId) }]}
           style={[styles.controlButton, { height: theme.controls.md }]}
         >
-          <View style={[styles.controlButtonInner, controlBorder]}>
-            <Text style={{ color: theme.colors.text }} numberOfLines={1}>
+          <View style={[styles.controlButtonInner, controlButtonSurface]}>
+            <Text
+              style={{ ...theme.fonts.control, color: theme.colors.text }}
+              numberOfLines={1}
+            >
               {titleFor(FILTER_META, filterId)}
             </Text>
           </View>
@@ -397,10 +409,13 @@ export function TaskDrawer({
           accessibilityLabel="Group"
           menuTitle="Group"
           sections={[{ options: groupMenuOptions(groupBy, setGroupBy) }]}
-          style={styles.controlButton}
+          style={[styles.controlButton, { height: theme.controls.md }]}
         >
-          <View style={[styles.controlButtonInner, controlBorder]}>
-            <Text style={{ color: theme.colors.text }} numberOfLines={1}>
+          <View style={[styles.controlButtonInner, controlButtonSurface]}>
+            <Text
+              style={{ ...theme.fonts.control, color: theme.colors.text }}
+              numberOfLines={1}
+            >
               {titleFor(GROUP_META, groupBy)}
             </Text>
           </View>
@@ -457,17 +472,20 @@ const styles = StyleSheet.create({
   controls: {
     flexDirection: "row",
   },
-  // Pinned size: the native `@expo/ui` menu host sizes asynchronously, and a
-  // content-sized trigger can render untappable on device (same reason
-  // StatusButton/ListButton/DayViewSwitcher pin theirs).
+  // Width only. **Both** buttons must also be given `height: theme.controls.md`
+  // inline, and they have to agree: the native `@expo/ui` menu host sizes
+  // asynchronously and measures its RN child, so a flex-only trigger has no
+  // height until a bounded ancestor resolves one — which the bottom sheet never
+  // does, collapsing the button to ~2pt and untappable (same reason
+  // StatusButton/ListButton/DayViewSwitcher pin theirs). DEX-61 dropped the
+  // height from both and restored it on Filter alone, which is what left the
+  // pair mismatched in the docked pane (DEX-106).
   controlButton: {
     flex: 1,
   },
-  // Explicit height (not `flex: 1`) so the native `@expo/ui` menu host has an
-  // intrinsic content height to size to — as sheet content it otherwise
-  // collapsed to ~2px (the menu measures its RN child, and a flex-only child
-  // has no height until a bounded ancestor resolves, which the sheet's
-  // content doesn't provide). `alignSelf: stretch` fills the menu's width.
+  // The rest of the button is themed inline — see `controlButtonSurface` above
+  // for the radius, border color, and horizontal padding. `alignSelf: stretch`
+  // fills the menu's width.
   controlButtonInner: {
     alignItems: "center",
     alignSelf: "stretch",

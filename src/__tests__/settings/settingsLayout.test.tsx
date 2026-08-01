@@ -6,8 +6,8 @@ import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 jest.mock("@/hooks/useIsLargeDevice", () => ({ useIsLargeDevice: jest.fn() }));
 
 // Stub the sidebar to a marker so this test only exercises _layout's own
-// mount/unmount decision, not the sidebar's internals (its own tests cover
-// those).
+// mount/unmount decision, not the sidebar's internals — those are
+// SettingsSidebar.test's.
 jest.mock("@/components/SettingsSidebar", () => {
   const { Text } = require("react-native");
   return { SettingsSidebar: () => <Text>settings-sidebar</Text> };

@@ -41,17 +41,28 @@ jest.mock("@/hooks/useGoals", () => ({ useGoals: jest.fn() }));
 
 // The native `@expo/ui` menu host can't be driven from a unit test (see
 // ListButton.test); render only the trigger, and capture the sections so a
-// menu option's onSelect can be invoked directly.
+// menu option's onSelect can be invoked directly. `style` is captured too —
+// the menu host sizes its RN child, so the height passed here is the only
+// thing keeping the trigger tappable (DEX-106).
 const mockIconMenu = jest.fn(
   (props: {
     accessibilityLabel?: string;
     sections?: TIconMenuSection[];
+    style?: ViewStyle | ViewStyle[];
     children: ReactNode;
   }) => props.children,
 );
 jest.mock("../IconMenu", () => ({
   IconMenu: (props: Parameters<typeof mockIconMenu>[0]) => mockIconMenu(props),
 }));
+
+/** The style handed to a captured IconMenu trigger, flattened. */
+const triggerStyle = (label: string) =>
+  StyleSheet.flatten(
+    mockIconMenu.mock.calls.find(
+      ([props]) => props.accessibilityLabel === label,
+    )?.[0].style,
+  );
 
 /** Invokes a filter option's onSelect from the captured Filter IconMenu. */
 const selectFilterOption = (id: string) => {
@@ -353,6 +364,21 @@ describe("TaskDrawer", () => {
     expect(
       screen.getByText("Nothing here — you're all caught up."),
     ).toBeTruthy();
+  });
+
+  // DEX-106. The `@expo/ui` menu host measures its RN child, so a trigger with
+  // no height has none until a bounded ancestor resolves one — which the bottom
+  // sheet never does, collapsing the button to ~2pt and untappable. DEX-61
+  // dropped the height from both of these and restored it on Filter alone,
+  // which is what left the pair mismatched. They have to agree.
+  it("gives both the Filter and Group triggers the same pinned height", () => {
+    render(<TaskDrawer date={date} />);
+
+    const filter = triggerStyle("Filter");
+    const group = triggerStyle("Group");
+
+    expect(filter.height).toBeGreaterThan(0);
+    expect(group.height).toBe(filter.height);
   });
 
   describe("daysOnScreen scoping (DEX-96)", () => {
