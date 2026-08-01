@@ -70,7 +70,11 @@ export default function WeekScreen() {
       >
         {/* EmptyScreen already fills and centers, and reserves the bottom
             inset itself — it needs no wrapper of its own. */}
-        <EmptyScreen message="The Week view needs a wider screen. Use the Today tab here, or open Dexter on a tablet or desktop." />
+        {/* Deliberately doesn't name a device: since DEX-104 a tablet reaches
+            this branch too (an iPad in a narrow Split View slice, or a
+            deep-linked `/week` on a small Android tablet), where "open Dexter
+            on a tablet" would be advice the user has already taken. */}
+        <EmptyScreen message="The Week view needs a wider screen. Use the Today tab here, or open Dexter on a larger one." />
       </SafeAreaView>
     );
   }

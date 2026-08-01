@@ -404,7 +404,6 @@ const TILE_SHADOW_HOVER =
   "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)";
 
 /** The rail tile's box; see `NavRail` and `NAV_TILE_SIZE`. */
-
 const tileStyle = (theme: Theme, hovered = false) => ({
   borderRadius: theme.radii.md,
   boxShadow: hovered ? TILE_SHADOW_HOVER : TILE_SHADOW,

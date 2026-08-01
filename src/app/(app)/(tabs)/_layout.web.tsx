@@ -16,5 +16,7 @@ import { useShowNavRail } from "@/hooks/useShowNavRail";
  * render, the same split as `settings/_layout.tsx`.
  */
 export default function TabsLayout() {
-  return <AppShell rail={useShowNavRail()} />;
+  const rail = useShowNavRail();
+
+  return <AppShell rail={rail} />;
 }
