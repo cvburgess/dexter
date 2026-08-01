@@ -73,10 +73,27 @@ is behind it, so the same task read as two different colors depending on which
 column it was in. Pre-blending makes the fill opaque and stable.
 
 `priority[NEITHER]` is the theme's `base-100` — the same value as `background` —
-so its muted fill resolves to the pane itself and an unprioritized card reads as
-a bare row rather than a block. That is legacy behavior, and `theme.test.ts`
-pins it; a card that needs to be visible without a priority needs a border, not
-a fourth surface.
+so blending it would resolve to the pane itself and a `NEITHER` card would have
+no edge at all. `priorityMuted[NEITHER]` is therefore **`surfaceSunken`
+outright, not a blend** (DEX-114), and `theme.test.ts` pins that. It is not a
+fourth surface: a `NEITHER` card holds content, so it takes the same token every
+other content-holding surface does.
+
+`priority[UNPRIORITIZED]` is **always the theme's `text`** — the app's ink —
+rather than daisyUI's `neutral`, and `priorityContent[UNPRIORITIZED]` is its
+`background`. An unprioritized card and the active nav tile are meant to read as
+the same mark: a block of ink with the surface showing through the type on it.
+The tile is `withOpacity(text, 0.8)` and the card fill blends the same ink at
+`CARD_FILL_ALPHA` (0.8), so anchoring the accent on `text` makes them land
+together by construction. `neutral` is a *dark* swatch in every daisyUI theme,
+which held on the light themes by luck and inverted the pair on the dark ones —
+a light nav tile beside a near-black card (DEX-114). `theme.test.ts` pins it
+across all five themes.
+
+**Task cards have no outline** (DEX-114). The fill is the whole shape. A
+hairline around a block of priority color read as a second edge, and the
+unprioritized card it did earn its keep on now separates itself from the pane by
+sitting a rung lower.
 
 The one deliberate alpha left on a card is the completed state — a 3% tint of
 the raw `priority[i]`. It is meant to read as the *absence* of a card rather
@@ -307,10 +324,13 @@ uncomfortable.
 
 Each theme is a daisyUI theme ported oklch → hex, mapping
 `background = base-100`, `surfaceSunken = base-200`, `text = base-content`, and
-the priority arrays = `[warning, error, info, base-100, neutral]` with their
-`-content` pairs. `base-300` is not ported: the two surfaces above are where
-dexter-app anchors content and chrome, and a third step went unused once the
-ramp was anchored there.
+the priority arrays = `[warning, error, info, base-100, base-content]` with
+their `-content` pairs. `base-300` is not ported: the two surfaces above are
+where dexter-app anchors content and chrome, and a third step went unused once
+the ramp was anchored there.
+
+`UNPRIORITIZED` taking `base-content` rather than daisyUI's `neutral` is the
+deviation (DEX-114) — see the priority section above for why.
 
 `border` is the other exception: daisyUI has no border token, and `base-300`
 would be *darker* than the surface in a dark theme, so each theme supplies one

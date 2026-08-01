@@ -9,6 +9,7 @@ import {
 import { Platform, useColorScheme } from "react-native";
 
 import { EThemeMode } from "@/api/preferences";
+import { ETaskPriority } from "@/api/tasks";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 
 /**
@@ -52,6 +53,10 @@ export interface TThemeColors {
    * those same priorities to the daisyUI `warning` / `error` / `info` /
    * `base-100` / `neutral` tokens respectively.
    *
+   * `UNPRIORITIZED` is the one slot that does **not** take its daisyUI token:
+   * it is always this theme's `text`, the app's ink (DEX-114). See the palette
+   * notes below `mutePriorities` for why.
+   *
    * These are the full-strength accents — dots, bars, badges, and the overdue
    * due-date pill. For the card *fill*, use `priorityMuted`.
    */
@@ -62,6 +67,8 @@ export interface TThemeColors {
    * on — at `CARD_FILL_ALPHA`, the alpha task cards used to composite at render
    * time. Pre-blending makes the fill opaque, so a card no longer shifts color
    * when it sits over a pane that isn't `background` (DEX-61).
+   *
+   * `NEITHER` is `surfaceSunken` rather than a blend — see `mutePriorities`.
    */
   priorityMuted: string[];
   /** Text color readable on top of the matching `priority` color (the daisyUI tokens' `-content` pair). */
@@ -194,18 +201,45 @@ function blend(color: string, over: string, alpha: number): string {
     .join("")}`;
 }
 
-/** Pre-blends a theme's priority accents into the solid card fills. */
-const mutePriorities = (priority: string[], background: string): string[] =>
-  priority.map((color) => blend(color, background, CARD_FILL_ALPHA));
+/**
+ * Pre-blends a theme's priority accents into the solid card fills.
+ *
+ * `NEITHER` is the exception and takes `surfaceSunken` outright: its accent
+ * *is* `base-100`, so blending it over the `background` pane returns the pane
+ * itself and a `NEITHER` card dissolved into whatever it sat on. Cards carry no
+ * outline (DEX-114), so the fill is the only thing left to draw the card — it
+ * has to be a surface the pane isn't.
+ */
+const mutePriorities = (
+  priority: string[],
+  background: string,
+  surfaceSunken: string,
+): string[] => {
+  const muted = priority.map((color) =>
+    blend(color, background, CARD_FILL_ALPHA),
+  );
+  muted[ETaskPriority.NEITHER] = surfaceSunken;
+  return muted;
+};
 
 // Each theme is a daisyUI theme ported oklch → hex. The TThemeColors fields map
 // onto daisyUI tokens as: background = base-100, surfaceSunken = base-200,
 // text = base-content, primary/error/success = the matching token + its
 // `-content` pair, and the priority arrays = [warning, error, info, base-100,
-// neutral] with their `-content` pairs. The two surfaces are anchored where
+// base-content] with their `-content` pairs. The two surfaces are anchored where
 // dexter-app anchors them — content on base-100, chrome on base-200 — so the
 // app reads at the same brightness as the legacy web app rather than a rung
 // darker (DEX-61).
+// `UNPRIORITIZED` is the other deviation from the port (DEX-114). daisyUI's
+// `neutral` is a *dark* swatch on every theme, so on the dark themes an
+// unprioritized card came out near-black against an already dark pane while the
+// active nav tile — `withOpacity(text, 0.8)`, see `WebNav` — went light. The two
+// are meant to be the same mark: a block of the app's ink with the surface
+// showing through the type on it. dexter only got that right by accident, its
+// `neutral` and `base-content` being the same brown. Taking `base-content`
+// outright makes it hold on all five themes, and because the fill blends the
+// ink at `CARD_FILL_ALPHA` (0.8) it lands on the tile's own 80% ink by
+// construction rather than by coincidence.
 // `border` is the exception: daisyUI has no border token, so the dark themes
 // take base-300 (the step below chrome, and what dexter-app draws its own
 // borders with) while the light themes go one step beyond theirs, since a light
@@ -227,12 +261,12 @@ const dexter: TThemePalette = {
     success: "#00d390",
     successContent: "#004c39",
     priority: DEXTER_PRIORITY,
-    priorityMuted: mutePriorities(DEXTER_PRIORITY, "#fffbf4"),
+    priorityMuted: mutePriorities(DEXTER_PRIORITY, "#fffbf4", "#f7f1e7"),
     priorityContent: ["#793205", "#4d0218", "#042e49", "#593d31", "#fffbf4"],
   },
 };
 
-const LIGHT_PRIORITY = ["#fcb700", "#ff627d", "#00bafe", "#ffffff", "#09090b"];
+const LIGHT_PRIORITY = ["#fcb700", "#ff627d", "#00bafe", "#ffffff", "#18181b"];
 const light: TThemePalette = {
   colors: {
     primary: "#422ad5",
@@ -247,14 +281,14 @@ const light: TThemePalette = {
     success: "#00d390",
     successContent: "#004c39",
     priority: LIGHT_PRIORITY,
-    priorityMuted: mutePriorities(LIGHT_PRIORITY, "#ffffff"),
-    priorityContent: ["#793205", "#4d0218", "#042e49", "#18181b", "#e4e4e7"],
+    priorityMuted: mutePriorities(LIGHT_PRIORITY, "#ffffff", "#f8f8f8"),
+    priorityContent: ["#793205", "#4d0218", "#042e49", "#18181b", "#ffffff"],
   },
 };
 
 // daisyUI "dim" — muted dark accents (the look DEX-23 shipped as the app's
 // original single dark theme).
-const DIM_PRIORITY = ["#efd057", "#ffae9b", "#28ebff", "#2a303c", "#1c212b"];
+const DIM_PRIORITY = ["#efd057", "#ffae9b", "#28ebff", "#2a303c", "#b2ccd6"];
 const dim: TThemePalette = {
   colors: {
     primary: "#9fe88d",
@@ -269,12 +303,12 @@ const dim: TThemePalette = {
     success: "#62efbd",
     successContent: "#03140d",
     priority: DIM_PRIORITY,
-    priorityMuted: mutePriorities(DIM_PRIORITY, "#2a303c"),
-    priorityContent: ["#141003", "#160b09", "#011316", "#b2ccd6", "#b2ccd6"],
+    priorityMuted: mutePriorities(DIM_PRIORITY, "#2a303c", "#242933"),
+    priorityContent: ["#141003", "#160b09", "#011316", "#b2ccd6", "#2a303c"],
   },
 };
 
-const DARK_PRIORITY = ["#fcb700", "#ff627d", "#00bafe", "#1d232a", "#09090b"];
+const DARK_PRIORITY = ["#fcb700", "#ff627d", "#00bafe", "#1d232a", "#ecf9ff"];
 const dark: TThemePalette = {
   colors: {
     primary: "#605dff",
@@ -289,12 +323,12 @@ const dark: TThemePalette = {
     success: "#00d390",
     successContent: "#004c39",
     priority: DARK_PRIORITY,
-    priorityMuted: mutePriorities(DARK_PRIORITY, "#1d232a"),
-    priorityContent: ["#793205", "#4d0218", "#042e49", "#ecf9ff", "#e4e4e7"],
+    priorityMuted: mutePriorities(DARK_PRIORITY, "#1d232a", "#191e24"),
+    priorityContent: ["#793205", "#4d0218", "#042e49", "#ecf9ff", "#1d232a"],
   },
 };
 
-const ABYSS_PRIORITY = ["#ffbf00", "#f04e4f", "#00bafe", "#001e29", "#003843"];
+const ABYSS_PRIORITY = ["#ffbf00", "#f04e4f", "#00bafe", "#001e29", "#ffd6a7"];
 const abyss: TThemePalette = {
   colors: {
     primary: "#bdff00",
@@ -309,8 +343,8 @@ const abyss: TThemePalette = {
     success: "#01df72",
     successContent: "#022d14",
     priority: ABYSS_PRIORITY,
-    priorityMuted: mutePriorities(ABYSS_PRIORITY, "#001e29"),
-    priorityContent: ["#854200", "#690000", "#042e49", "#ffd6a7", "#ffd6a7"],
+    priorityMuted: mutePriorities(ABYSS_PRIORITY, "#001e29", "#00111d"),
+    priorityContent: ["#854200", "#690000", "#042e49", "#ffd6a7", "#001e29"],
   },
 };
 

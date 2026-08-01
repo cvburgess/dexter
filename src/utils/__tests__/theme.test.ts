@@ -94,7 +94,8 @@ describe("theme palettes", () => {
       "#ff627d",
       "#00bafe",
       "#1d232a",
-      "#09090b",
+      // base-content, not daisyUI's `neutral` — see below.
+      "#ecf9ff",
     ]);
   });
 
@@ -104,14 +105,14 @@ describe("theme palettes", () => {
       "#ffae9b",
       "#28ebff",
       "#2a303c",
-      "#1c212b",
+      "#b2ccd6",
     ]);
     expect(themes.dim.colors.priorityContent).toEqual([
       "#141003",
       "#160b09",
       "#011316",
       "#b2ccd6",
-      "#b2ccd6",
+      "#2a303c",
     ]);
   });
 
@@ -262,10 +263,8 @@ describe("palette invariants", () => {
 
     priorityMuted.forEach((muted, i) => {
       expect(muted).toMatch(/^#[0-9a-f]{6}$/);
-      // The fill is a muted version of the accent, never the accent itself —
-      // except at NEITHER, whose accent *is* the pane it blends over (see
-      // below), so muting it can only land back on the accent.
-      if (i !== 3) expect(muted).not.toBe(priority[i]);
+      // The fill is a muted version of the accent, never the accent itself.
+      expect(muted).not.toBe(priority[i]);
     });
   });
 
@@ -276,17 +275,29 @@ describe("palette invariants", () => {
     expect(themes.dexter.colors.priorityMuted[1]).toBe("#ff8195");
   });
 
-  // Legacy parity: an unprioritized card is `base-100` at 80% over a `base-100`
-  // pane, so it resolves to the pane itself and the card reads as a bare row
-  // rather than a fourth surface. `priority[NEITHER]` is that same `base-100`.
-  it.each(names)(
-    "%s dissolves the unprioritized fill into the pane",
-    (name) => {
-      const { background, priorityMuted } = themes[name].colors;
+  // The unprioritized card and the active nav tile are the same mark: a block
+  // of the app's ink with the surface showing through the type on it. The tile
+  // is `withOpacity(text, 0.8)` (`WebNav`), so the accent has to *be* `text` —
+  // daisyUI's `neutral` is a dark swatch on every theme, which flipped the pair
+  // apart on the dark ones (DEX-114). dexter satisfied this by accident, its
+  // `neutral` and `base-content` being the same brown; now all five hold.
+  it.each(names)("%s draws the unprioritized card in its ink", (name) => {
+    const { priority, priorityContent, text, background } = themes[name].colors;
 
-      expect(priorityMuted[3]).toBe(background);
-    },
-  );
+    expect(priority[4]).toBe(text);
+    expect(priorityContent[4]).toBe(background);
+  });
+
+  // `priority[NEITHER]` is the theme's `base-100`, so blending it over the
+  // `background` pane returns the pane and the card dissolved into it. Cards
+  // carry no outline (DEX-114), so the fill has to draw the card by itself:
+  // NEITHER takes `surfaceSunken` outright instead of a blend.
+  it.each(names)("%s sinks the unprioritized fill below the pane", (name) => {
+    const { background, surfaceSunken, priorityMuted } = themes[name].colors;
+
+    expect(priorityMuted[3]).toBe(surfaceSunken);
+    expect(priorityMuted[3]).not.toBe(background);
+  });
 });
 
 describe("resolveTheme", () => {

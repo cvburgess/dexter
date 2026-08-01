@@ -28,6 +28,11 @@ import { SubtaskRow } from "./SubtaskRow";
 // complete cards fade the raw color to a 3% tint with muted (25% opacity) text,
 // regardless of priority. The complete tint stays an alpha deliberately — it is
 // meant to read as *absence* of a card, not as a fourth surface color.
+//
+// The fill is the *only* thing that shapes a card: there is no outline
+// (DEX-114). A hairline around a block of color read as a second edge on every
+// prioritized card, and the unprioritized card it did earn its keep on is now
+// `surfaceSunken` instead, which separates it from the pane on its own.
 const COMPLETE_OPACITY = 0.03;
 const COMPLETE_TEXT_OPACITY = 0.25;
 
@@ -268,7 +273,6 @@ export function TaskCard({
           backgroundColor: isComplete
             ? withOpacity(priorityColor, COMPLETE_OPACITY)
             : theme.colors.priorityMuted[task.priority],
-          borderColor: theme.colors.border,
           borderRadius: theme.radii.md,
           // Floor of padding (×2) + the inline control height. A completed
           // card's only height-defining child is the StatusButton's native menu
@@ -421,7 +425,6 @@ const styles = StyleSheet.create({
     // single-line height (the complete branch renders without the MoreMenu
     // wrapper that would otherwise supply the stretch).
     alignSelf: "stretch",
-    borderWidth: 1,
     // A column now: the title row, then the checklist stacked beneath it.
     flexDirection: "column",
     overflow: "hidden",
