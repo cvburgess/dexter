@@ -182,6 +182,88 @@ export function groupTasks(
   ].filter((group) => group.tasks.length > 0);
 }
 
+type TDrawerControlProps = {
+  /** Names the menu for assistive tech and titles the native menu sheet. */
+  label: string;
+  /** The current selection's resolved title — what the button reads. */
+  title: string;
+  options: TIconMenuOption[];
+  /**
+   * Whether this control has moved off its default (the `"none"` entry each
+   * meta list leads with: "No Filter" / "No Grouping").
+   */
+  active: boolean;
+  testID: string;
+};
+
+/**
+ * One of the drawer's two menu buttons. Filter and Group are the same control
+ * with different contents, and they had drifted apart twice — once on height
+ * (DEX-106), once on their border radius — so they share a body rather than
+ * two call sites that have to be kept in step.
+ *
+ * **Active means "off its default", and it shows in both the label and the
+ * outline.** The label already names the selection, but "Overdue" and "No
+ * Grouping" read identically when both are plain ink inside a plain hairline,
+ * so an applied filter was invisible until you opened the menu.
+ */
+function DrawerControl({
+  label,
+  title,
+  options,
+  active,
+  testID,
+}: TDrawerControlProps) {
+  const theme = useTheme();
+
+  // Filter, Group, and the search field under them are one cluster and should
+  // read as one size. `controls.md + space.sm` is the same expression `Button`
+  // uses for "a full-width control stands a step taller than a round icon
+  // button", and it lands within a point of what `TextInput`'s own padding
+  // resolves to on both density tiers — so the three line up without this
+  // reaching into the shared input.
+  const height = theme.controls.md + theme.space.sm;
+
+  return (
+    <IconMenu
+      accessibilityLabel={label}
+      menuTitle={label}
+      sections={[{ options }]}
+      style={[styles.controlButton, { height }]}
+    >
+      <View
+        style={[
+          styles.controlButtonInner,
+          {
+            borderColor: active ? theme.colors.primary : theme.colors.border,
+            // `radii.md` is the app's one corner radius, shared with the
+            // `TextInput` below these two and with the pane around them
+            // (DEX-106); these buttons were the drawer's only square chrome.
+            borderRadius: theme.radii.md,
+            // The same height as the menu host, so the bordered box fills it
+            // instead of hugging its label — without this the pill shrank to
+            // the text and read as squashed against the search field. Explicit,
+            // not `flex: 1`: see `controlButton` in the stylesheet.
+            height,
+            paddingHorizontal: theme.space.sm,
+          },
+        ]}
+        testID={testID}
+      >
+        <Text
+          style={{
+            ...theme.fonts.control,
+            color: active ? theme.colors.primary : theme.colors.text,
+          }}
+          numberOfLines={1}
+        >
+          {title}
+        </Text>
+      </View>
+    </IconMenu>
+  );
+}
+
 type TTaskDrawerProps = {
   /** The day a row's "+" schedules its task onto. */
   date: Temporal.PlainDate;
@@ -361,31 +443,6 @@ export function TaskDrawer({
     [theme.space.sm],
   );
 
-  // Filter, Group, and the search field under them are one cluster and should
-  // read as one size. `controls.md + space.sm` is the same expression `Button`
-  // uses for "a full-width control stands a step taller than a round icon
-  // button", and it lands within a point of what `TextInput`'s own padding
-  // resolves to on both density tiers — so the three line up without this
-  // reaching into the shared input.
-  const controlHeight = theme.controls.md + theme.space.sm;
-
-  // The themed half of the Filter/Group buttons — everything in
-  // `controlButtonInner` that has to come from the theme rather than the
-  // stylesheet. `radii.md` is the app's one corner radius, shared with the
-  // `TextInput` directly below these two and with the pane around them
-  // (DEX-106); these buttons were the only chrome in the drawer drawing square.
-  const controlButtonSurface = {
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.md,
-    // Fills the menu host rather than hugging its label. The host was already
-    // `controls.md` tall, but this bordered box had no height of its own, so
-    // the pill shrank to the text and read as squashed against the search field
-    // below it (DEX-106 follow-up). An explicit height, not `flex: 1` — the
-    // native menu measures its RN child, so a flex-only child resolves to
-    // nothing (see `controlButton`).
-    height: controlHeight,
-    paddingHorizontal: theme.space.sm,
-  };
   // `container`'s own padding sits inside a pane that itself extends
   // behind the tab bar, so it doesn't clear it — the inset has to go on the
   // scrollable content on top of that. Memoized like this list's other props
@@ -405,36 +462,20 @@ export function TaskDrawer({
       ]}
     >
       <View style={[styles.controls, { gap: theme.space.sm }]}>
-        <IconMenu
-          accessibilityLabel="Filter"
-          menuTitle="Filter"
-          sections={[{ options: filterMenuOptions(filterId, setFilterId) }]}
-          style={[styles.controlButton, { height: controlHeight }]}
-        >
-          <View style={[styles.controlButtonInner, controlButtonSurface]}>
-            <Text
-              style={{ ...theme.fonts.control, color: theme.colors.text }}
-              numberOfLines={1}
-            >
-              {titleFor(FILTER_META, filterId)}
-            </Text>
-          </View>
-        </IconMenu>
-        <IconMenu
-          accessibilityLabel="Group"
-          menuTitle="Group"
-          sections={[{ options: groupMenuOptions(groupBy, setGroupBy) }]}
-          style={[styles.controlButton, { height: controlHeight }]}
-        >
-          <View style={[styles.controlButtonInner, controlButtonSurface]}>
-            <Text
-              style={{ ...theme.fonts.control, color: theme.colors.text }}
-              numberOfLines={1}
-            >
-              {titleFor(GROUP_META, groupBy)}
-            </Text>
-          </View>
-        </IconMenu>
+        <DrawerControl
+          label="Filter"
+          title={titleFor(FILTER_META, filterId)}
+          options={filterMenuOptions(filterId, setFilterId)}
+          active={filterId !== "none"}
+          testID="drawer-filter-surface"
+        />
+        <DrawerControl
+          label="Group"
+          title={titleFor(GROUP_META, groupBy)}
+          options={groupMenuOptions(groupBy, setGroupBy)}
+          active={groupBy !== "none"}
+          testID="drawer-group-surface"
+        />
       </View>
       <TextInput
         accessibilityLabel="Search"

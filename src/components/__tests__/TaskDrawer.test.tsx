@@ -9,9 +9,10 @@ import {
   Text,
   TouchableOpacity,
 } from "react-native";
-import type { ViewStyle } from "react-native";
+import type { TextStyle, ViewStyle } from "react-native";
 
 import { renderWithBottomInset } from "@/testUtils/renderWithBottomInset";
+import { themes } from "@/utils/theme";
 
 import { TGoal } from "@/api/goals";
 import { TList } from "@/api/lists";
@@ -55,6 +56,15 @@ const mockIconMenu = jest.fn(
 jest.mock("../IconMenu", () => ({
   IconMenu: (props: Parameters<typeof mockIconMenu>[0]) => mockIconMenu(props),
 }));
+
+/** The resolved color of a control button's label. */
+const labelColor = (screen: ReturnType<typeof render>, label: string) =>
+  StyleSheet.flatten(screen.getByText(label).props.style as TextStyle[]).color;
+
+/** The resolved border color of the bordered box around a control's label. */
+const outlineColor = (screen: ReturnType<typeof render>, testID: string) =>
+  StyleSheet.flatten(screen.getByTestId(testID).props.style as ViewStyle[])
+    .borderColor;
 
 /** The style handed to a captured IconMenu trigger, flattened. */
 const triggerStyle = (label: string) =>
@@ -546,5 +556,22 @@ describe("TaskDrawer", () => {
     selectFilterOption("overdue");
 
     expect(onFilterChange).toHaveBeenCalledWith("overdue");
+  });
+
+  // "Overdue" and "No Grouping" looked identical when both were plain ink in a
+  // plain hairline, so an applied filter was invisible until you opened the
+  // menu. Only a control that has moved off its `"none"` default wears the
+  // accent — label and outline together.
+  it("accents a control's label and outline only while it is off its default", () => {
+    const screen = render(
+      <TaskDrawer date={date} filterId="overdue" onFilterChange={jest.fn()} />,
+    );
+    const { colors } = themes.dexter;
+
+    expect(labelColor(screen, "Overdue")).toBe(colors.primary);
+    expect(outlineColor(screen, "drawer-filter-surface")).toBe(colors.primary);
+
+    expect(labelColor(screen, "No Grouping")).toBe(colors.text);
+    expect(outlineColor(screen, "drawer-group-surface")).toBe(colors.border);
   });
 });
