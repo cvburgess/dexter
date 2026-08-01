@@ -1,6 +1,7 @@
 import { ReactNode, useEffect } from "react";
 import { Dimensions, LayoutChangeEvent, StyleSheet } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { useTheme } from "@/utils/theme";
 import Animated, {
   interpolate,
   runOnJS,
@@ -59,6 +60,7 @@ function SwipeableDayContent({
   enabled = true,
   children,
 }: Omit<TSwipeableDayProps, "dateKey">) {
+  const theme = useTheme();
   const translateX = useSharedValue(0);
   const width = useSharedValue(Dimensions.get("window").width);
   // Day-intro progress, 0 → 1: fades/slides the freshly mounted day in from
@@ -123,7 +125,15 @@ function SwipeableDayContent({
     <GestureDetector gesture={pan}>
       <Animated.View
         onLayout={onLayout}
-        style={[styles.container, animatedStyle]}
+        // The phone's day gutter, supplied once here for whichever view is on
+        // screen — none of Tasks/Notes/Journal/Calendar carries a gutter of its
+        // own (see docs/design.md, "Who owns spacing"). `onLayout` reports the
+        // padded box, so the swipe threshold still measures the full screen.
+        style={[
+          styles.container,
+          { paddingHorizontal: theme.space.md },
+          animatedStyle,
+        ]}
         collapsable={false}
       >
         <Animated.View style={[styles.container, introStyle]}>

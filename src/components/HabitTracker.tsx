@@ -126,10 +126,10 @@ export function HabitTracker({
       horizontal
       showsHorizontalScrollIndicator={false}
       style={styles.container}
-      contentContainerStyle={[
-        styles.content,
-        { gap: theme.space.sm, paddingHorizontal: theme.space.md },
-      ]}
+      // `gap` only: the row's side gutter is whoever placed it — the phone gets
+      // one from `SwipeableDay`, the Today pane and the Week columns want none
+      // (see docs/design.md, "Who owns spacing").
+      contentContainerStyle={[styles.content, { gap: theme.space.sm }]}
     >
       {isFutureDate
         ? habits.map((habit) => (

@@ -27,10 +27,21 @@ export const WEB_NAV_ICON_SIZE = 26;
 // threshold. The dock costs height, not width, so it never has the same problem.
 export const WEB_RAIL_MIN_WIDTH = LARGE_DEVICE_MIN_WIDTH + WEB_NAV_RAIL_WIDTH;
 
-// Max width (in dp) for the Tasks pane in a multi-column layout — matches the
-// app's existing wide-screen content cap (see login.tsx, oauth/consent.tsx) so
-// it reads like a typical mobile screen instead of stretching edge to edge.
-export const TASKS_PANE_MAX_WIDTH = 400;
+// Width (in dp) of the Tasks pane in a multi-column layout — fixed, not a cap:
+// the list holds its size and the panes beside it absorb whatever the window
+// gives or takes (DEX-111). A task card is the same object on every screen, and
+// letting it stretch with the window made it a different shape on every one.
+//
+// The legacy dexter-app's `w-standard` (`src/app.css`), which is
+// `calc(var(--spacing) * 70)` = 70 × 4px against Tailwind v4's default
+// `--spacing`. `Column.tsx` gives it to the task column in both the board and
+// day views. The same arithmetic puts `w-compact` at 160, which is exactly what
+// `WEEK_COLUMN_MIN_WIDTH` below was independently pinned to — so the conversion
+// is corroborated rather than assumed.
+//
+// Coincides with `TASK_LIST_PANE_MIN_WIDTH`, but is not the same idea: that one
+// is the floor a *flexing* drawer stops shrinking at. These are free to diverge.
+export const TASKS_PANE_WIDTH = 280;
 
 // Max width (in dp) for the Calendar pane — a day timeline reads fine
 // narrower than a task list, so it gets its own (smaller) cap.
@@ -41,10 +52,10 @@ export const CALENDAR_PANE_MAX_WIDTH = 240;
 // Notes/Journal/Calendar instead of competing with Tasks for space.
 export const DRAWER_PANE_MAX_WIDTH = 360;
 
-// Min width (in dp) for a full task-list pane: Today's Tasks pane, and the
-// docked task drawer on both Today and Week. The floor of the same
-// mobile-typical range `TASKS_PANE_MAX_WIDTH` caps — these panes stop shrinking
-// here and the flexing panes beside them give up the space instead. Not a
+// Min width (in dp) for a docked task-drawer pane, on both Today and Week.
+// (Today's own Tasks pane no longer flexes at all — see `TASKS_PANE_WIDTH`.)
+// These panes stop shrinking here and the flexing panes beside them give up the
+// space instead. Not a
 // TaskCard minimum: the Week tab's day columns render the same cards far
 // narrower (`WEEK_COLUMN_MIN_WIDTH`), trading a cramped card for seeing seven
 // days at once. This is where a *list* pane, with its filter and search chrome,

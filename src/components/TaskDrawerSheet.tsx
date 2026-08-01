@@ -14,6 +14,7 @@ import {
 
 import { TaskDrawer } from "@/components/TaskDrawer";
 import { TFilterId } from "@/utils/taskFilters";
+import { useTheme } from "@/utils/theme";
 
 /**
  * Imperative handle for the mobile drawer sheet. `present(filter, search)`
@@ -53,6 +54,7 @@ const SNAP_POINTS = ["55%", "90%"];
  * "visible" prop).
  */
 export function TaskDrawerSheet({ date, ref }: TTaskDrawerSheetProps) {
+  const theme = useTheme();
   // `BottomSheetModal` mounts its children immediately regardless of
   // presentation state — only the sheet's own visibility is deferred until
   // `present()`. TaskDrawer's `useTasks()` is the same canonical query the
@@ -111,7 +113,13 @@ export function TaskDrawerSheet({ date, ref }: TTaskDrawerSheetProps) {
       {/* `flex: 1` gives TaskDrawer a bounded box to fill so its FlashList
           scrolls within the detent (with snap points set, the sheet isn't in
           fit-to-content mode, so BottomSheetView keeps `flex`). */}
-      <BottomSheetView style={styles.content}>
+      {/* The sheet host paints no surface of its own, so without this the
+          backlog sat on whatever was behind it and its cards and text read
+          against the Today screen. The settings editors' background, so a modal
+          is a modal wherever it is presented from. */}
+      <BottomSheetView
+        style={[styles.content, { backgroundColor: theme.colors.background }]}
+      >
         {/* `contentInsets` above zeroes the inherited bottom inset. Content is
             still a plain React child of this tree, so the override reaches it
             the same way `useTheme` already does. */}

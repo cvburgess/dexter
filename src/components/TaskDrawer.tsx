@@ -1,6 +1,6 @@
-import { FlashList } from "@shopify/flash-list";
+import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { Temporal } from "@js-temporal/polyfill";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -182,6 +182,88 @@ export function groupTasks(
   ].filter((group) => group.tasks.length > 0);
 }
 
+type TDrawerControlProps = {
+  /** Names the menu for assistive tech and titles the native menu sheet. */
+  label: string;
+  /** The current selection's resolved title — what the button reads. */
+  title: string;
+  options: TIconMenuOption[];
+  /**
+   * Whether this control has moved off its default (the `"none"` entry each
+   * meta list leads with: "No Filter" / "No Grouping").
+   */
+  active: boolean;
+  testID: string;
+};
+
+/**
+ * One of the drawer's two menu buttons. Filter and Group are the same control
+ * with different contents, and they had drifted apart twice — once on height
+ * (DEX-106), once on their border radius — so they share a body rather than
+ * two call sites that have to be kept in step.
+ *
+ * **Active means "off its default", and it shows in both the label and the
+ * outline.** The label already names the selection, but "Overdue" and "No
+ * Grouping" read identically when both are plain ink inside a plain hairline,
+ * so an applied filter was invisible until you opened the menu.
+ */
+function DrawerControl({
+  label,
+  title,
+  options,
+  active,
+  testID,
+}: TDrawerControlProps) {
+  const theme = useTheme();
+
+  // Filter, Group, and the search field under them are one cluster and should
+  // read as one size. `controls.md + space.sm` is the same expression `Button`
+  // uses for "a full-width control stands a step taller than a round icon
+  // button", and it lands within a point of what `TextInput`'s own padding
+  // resolves to on both density tiers — so the three line up without this
+  // reaching into the shared input.
+  const height = theme.controls.md + theme.space.sm;
+
+  return (
+    <IconMenu
+      accessibilityLabel={label}
+      menuTitle={label}
+      sections={[{ options }]}
+      style={[styles.controlButton, { height }]}
+    >
+      <View
+        style={[
+          styles.controlButtonInner,
+          {
+            borderColor: active ? theme.colors.primary : theme.colors.border,
+            // `radii.md` is the app's one corner radius, shared with the
+            // `TextInput` below these two and with the pane around them
+            // (DEX-106); these buttons were the drawer's only square chrome.
+            borderRadius: theme.radii.md,
+            // The same height as the menu host, so the bordered box fills it
+            // instead of hugging its label — without this the pill shrank to
+            // the text and read as squashed against the search field. Explicit,
+            // not `flex: 1`: see `controlButton` in the stylesheet.
+            height,
+            paddingHorizontal: theme.space.sm,
+          },
+        ]}
+        testID={testID}
+      >
+        <Text
+          style={{
+            ...theme.fonts.control,
+            color: active ? theme.colors.primary : theme.colors.text,
+          }}
+          numberOfLines={1}
+        >
+          {title}
+        </Text>
+      </View>
+    </IconMenu>
+  );
+}
+
 type TTaskDrawerProps = {
   /** The day a row's "+" schedules its task onto. */
   date: Temporal.PlainDate;
@@ -304,14 +386,27 @@ export function TaskDrawer({
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: TDrawerListItem }) => {
+    ({ item, index }: { item: TDrawerListItem; index: number }) => {
       if (item.type === "header") {
         return (
           <Text
             style={[
               theme.fonts.title,
               styles.groupTitle,
-              { color: theme.colors.textSecondary },
+              {
+                color: theme.colors.textSecondary,
+                // Tops the row separator up to the group step: `lg` separates
+                // groups where `sm` separates rows within one (see
+                // docs/design.md, "Spacing"), and the separator has already
+                // contributed its `sm`. Without it a group's heading sat as
+                // close to the previous group's last task as that task sat to
+                // its own neighbours, and the groups ran together.
+                //
+                // Not on the first row, which has nothing above it to separate
+                // from — and this is a *recycled* row, so the margin has to be
+                // computed per render rather than baked into the stylesheet.
+                marginTop: index === 0 ? 0 : theme.space.lg - theme.space.sm,
+              },
             ]}
           >
             {item.title}
@@ -361,16 +456,20 @@ export function TaskDrawer({
     [theme.space.sm],
   );
 
-  // The themed half of the Filter/Group buttons — everything in
-  // `controlButtonInner` that has to come from the theme rather than the
-  // stylesheet. `radii.md` is the app's one corner radius, shared with the
-  // `TextInput` directly below these two and with the pane around them
-  // (DEX-106); these buttons were the only chrome in the drawer drawing square.
-  const controlButtonSurface = {
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.md,
-    paddingHorizontal: theme.space.sm,
-  };
+  // Re-derive the list from a control and the old scroll offset is meaningless:
+  // the rows under it are different rows. Grouping is the clearest case — the
+  // whole list re-sections and, halfway down, the user lands in the middle of
+  // some group they didn't pick — but a filter or a search narrows it just as
+  // completely.
+  //
+  // Keyed on the three *inputs*, deliberately not on the derived `listItems`:
+  // that identity also changes when a task is edited, so checking a task off
+  // would yank the list back to the top under the user's finger.
+  const listRef = useRef<FlashListRef<TDrawerListItem>>(null);
+  useEffect(() => {
+    listRef.current?.scrollToTop({ animated: false });
+  }, [filterId, groupBy, search]);
+
   // `container`'s own padding sits inside a pane that itself extends
   // behind the tab bar, so it doesn't clear it — the inset has to go on the
   // scrollable content on top of that. Memoized like this list's other props
@@ -390,42 +489,33 @@ export function TaskDrawer({
       ]}
     >
       <View style={[styles.controls, { gap: theme.space.sm }]}>
-        <IconMenu
-          accessibilityLabel="Filter"
-          menuTitle="Filter"
-          sections={[{ options: filterMenuOptions(filterId, setFilterId) }]}
-          style={[styles.controlButton, { height: theme.controls.md }]}
-        >
-          <View style={[styles.controlButtonInner, controlButtonSurface]}>
-            <Text
-              style={{ ...theme.fonts.control, color: theme.colors.text }}
-              numberOfLines={1}
-            >
-              {titleFor(FILTER_META, filterId)}
-            </Text>
-          </View>
-        </IconMenu>
-        <IconMenu
-          accessibilityLabel="Group"
-          menuTitle="Group"
-          sections={[{ options: groupMenuOptions(groupBy, setGroupBy) }]}
-          style={[styles.controlButton, { height: theme.controls.md }]}
-        >
-          <View style={[styles.controlButtonInner, controlButtonSurface]}>
-            <Text
-              style={{ ...theme.fonts.control, color: theme.colors.text }}
-              numberOfLines={1}
-            >
-              {titleFor(GROUP_META, groupBy)}
-            </Text>
-          </View>
-        </IconMenu>
+        <DrawerControl
+          label="Filter"
+          title={titleFor(FILTER_META, filterId)}
+          options={filterMenuOptions(filterId, setFilterId)}
+          active={filterId !== "none"}
+          testID="drawer-filter-surface"
+        />
+        <DrawerControl
+          label="Group"
+          title={titleFor(GROUP_META, groupBy)}
+          options={groupMenuOptions(groupBy, setGroupBy)}
+          active={groupBy !== "none"}
+          testID="drawer-group-surface"
+        />
       </View>
       <TextInput
         accessibilityLabel="Search"
         placeholder="Search"
         value={search}
         onChangeText={setSearch}
+        // Filter, Group and Search are one cluster of controls; the list below
+        // is a different thing entirely, and at the container's in-group `sm`
+        // the first card read as one more control. Tops that up to the group
+        // step, the same way a group heading does — see docs/design.md,
+        // "Spacing". Supplied here rather than inside `TextInput`, which is
+        // shared app-wide and owns no spacing of its own.
+        style={{ marginBottom: theme.space.lg - theme.space.sm }}
       />
       {isLoading && !hasTasks ? (
         // `isLoading` reflects the canonical `useTasks()` query shared with
@@ -439,6 +529,7 @@ export function TaskDrawer({
         <EmptyScreen message="Nothing here — you're all caught up." />
       ) : (
         <FlashList
+          ref={listRef}
           data={listItems}
           renderItem={renderItem}
           keyExtractor={keyExtractor}

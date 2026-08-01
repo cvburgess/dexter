@@ -1,4 +1,5 @@
 import { type Href, Link, usePathname, useRouter } from "expo-router";
+import { useState } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -152,42 +153,22 @@ export function WebNavRail() {
           // The tiles' own `background` fill is what lifts them off it — they
           // read as pieces of the content sheet floating on the chrome.
           backgroundColor: theme.colors.surfaceSunken,
-          gap: theme.space.md,
+          // `lg`, the group step: each tile is its own destination rather than
+          // one control in a cluster, and at `md` they read as a stack. The
+          // shadow needs the room too — `shadow-md` drops 4pt with a 6pt blur,
+          // so tiles a tight gap apart cast onto each other.
+          gap: theme.space.lg,
           paddingVertical: theme.space.md,
         },
       ]}
     >
-      {items.map((item) => {
-        const selected = isActive(pathname, item.href);
-
-        return (
-          <Link asChild href={item.href} key={item.key}>
-            <Pressable
-              {...navItemProps(item, selected)}
-              // Flattened, not an array: `Link`'s `Slot` clones this child and
-              // can't merge an array style with the props it injects.
-              style={StyleSheet.flatten([
-                styles.tile,
-                tileStyle(theme),
-                {
-                  backgroundColor: selected
-                    ? withOpacity(theme.colors.text, 0.8)
-                    : theme.colors.background,
-                  // Absorbs the rail's leftover height, pushing this item — and
-                  // the "+" that follows it — to the bottom.
-                  marginTop: item.pinnedToBottom ? "auto" : 0,
-                },
-              ])}
-            >
-              <SettingsIcon
-                color={selected ? theme.colors.background : theme.colors.text}
-                name={item.icon}
-                size={WEB_NAV_ICON_SIZE}
-              />
-            </Pressable>
-          </Link>
-        );
-      })}
+      {items.map((item) => (
+        <WebNavRailTile
+          item={item}
+          key={item.key}
+          selected={isActive(pathname, item.href)}
+        />
+      ))}
 
       <TouchableOpacity
         accessibilityLabel="New Task"
@@ -207,6 +188,56 @@ export function WebNavRail() {
         />
       </TouchableOpacity>
     </View>
+  );
+}
+
+/**
+ * One rail destination.
+ *
+ * A component of its own so it can hold its own hover state. The tile's style
+ * has to be flattened (see below), which rules out `Pressable`'s style-function
+ * form — the usual way to read `hovered` — so the state is lifted into React
+ * instead. Ports dexter-app's `hover:shadow-lg transition-shadow`, minus the
+ * transition: RN has no CSS transitions, so the lift snaps rather than eases.
+ */
+function WebNavRailTile({
+  item,
+  selected,
+}: {
+  item: TWebNavItem;
+  selected: boolean;
+}) {
+  const theme = useTheme();
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <Link asChild href={item.href}>
+      <Pressable
+        {...navItemProps(item, selected)}
+        onHoverIn={() => setHovered(true)}
+        onHoverOut={() => setHovered(false)}
+        // Flattened, not an array: `Link`'s `Slot` clones this child and
+        // can't merge an array style with the props it injects.
+        style={StyleSheet.flatten([
+          styles.tile,
+          tileStyle(theme, hovered),
+          {
+            backgroundColor: selected
+              ? withOpacity(theme.colors.text, 0.8)
+              : theme.colors.background,
+            // Absorbs the rail's leftover height, pushing this item — and
+            // the "+" that follows it — to the bottom.
+            marginTop: item.pinnedToBottom ? "auto" : 0,
+          },
+        ])}
+      >
+        <SettingsIcon
+          color={selected ? theme.colors.background : theme.colors.text}
+          name={item.icon}
+          size={WEB_NAV_ICON_SIZE}
+        />
+      </Pressable>
+    </Link>
   );
 }
 
@@ -318,10 +349,29 @@ export function WebNavDock() {
   );
 }
 
+/**
+ * Tailwind v4's `shadow-md` and `shadow-lg` — the exact pair dexter-app's
+ * `Nav.tsx` lifts its tiles with (`shadow-md hover:shadow-lg`), ported
+ * literally rather than approximated. Both are two-layer: a wide soft drop with
+ * a negative spread, plus a tighter second layer that keeps the tile's own edge
+ * defined. What this app drew before was a single `0 1px 3px` — effectively the
+ * first half of Tailwind's `shadow-sm`, a rung down and missing the second
+ * layer, which read as a smudged hairline rather than a lift.
+ *
+ * Black, not `colors.text`: a shadow is the absence of light on every theme,
+ * the same reason a divider is always darker than what it divides. Deriving it
+ * from the ink painted a pale halo around the tiles on the dark themes — see
+ * docs/design.md, "Scrims and shadows".
+ */
+const TILE_SHADOW =
+  "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)";
+const TILE_SHADOW_HOVER =
+  "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)";
+
 /** The rail tile's box; see `WebNavRail` and `WEB_NAV_TILE_SIZE`. */
-const tileStyle = (theme: Theme) => ({
+const tileStyle = (theme: Theme, hovered = false) => ({
   borderRadius: theme.radii.md,
-  boxShadow: `0 1px 3px ${withOpacity(theme.colors.text, 0.12)}`,
+  boxShadow: hovered ? TILE_SHADOW_HOVER : TILE_SHADOW,
   height: WEB_NAV_TILE_SIZE,
   width: WEB_NAV_TILE_SIZE,
 });

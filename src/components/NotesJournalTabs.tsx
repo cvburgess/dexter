@@ -92,9 +92,15 @@ export function NotesJournalTabs({
             re-seeds the editor on a day change without also resetting which
             tab is selected. */}
         {activeTab === "notes" ? (
-          <NotesView date={date} inset={false} key={date} />
+          <NotesView card={false} date={date} key={date} />
         ) : (
-          <JournalView date={date} key={date} />
+          // Journal's fields need the pane's inner gutter; Notes fills the pane
+          // flush (its editor supplies its own padding), so the gutter goes on
+          // this branch rather than on the pane itself — see docs/design.md,
+          // "Who owns spacing".
+          <View style={[styles.journal, { paddingHorizontal: theme.space.md }]}>
+            <JournalView date={date} key={date} />
+          </View>
         )}
       </View>
     </View>
@@ -205,5 +211,10 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     flex: 1,
     overflow: "hidden",
+  },
+  // Wraps the Journal tab only; the gutter itself is applied inline so it can
+  // read the theme.
+  journal: {
+    flex: 1,
   },
 });

@@ -17,7 +17,6 @@ import { useTheme, withOpacity } from "@/utils/theme";
 import { ConfirmationModal } from "./ConfirmationModal";
 import { DueDateButton } from "./DueDateButton";
 import { EditableText } from "./EditableText";
-import { ListButton } from "./ListButton";
 import { MoreMenu } from "./MoreMenu";
 import { StatusButton } from "./StatusButton";
 import { subtaskGeometry, SubtaskConnectors } from "./SubtaskConnector";
@@ -28,6 +27,11 @@ import { SubtaskRow } from "./SubtaskRow";
 // complete cards fade the raw color to a 3% tint with muted (25% opacity) text,
 // regardless of priority. The complete tint stays an alpha deliberately — it is
 // meant to read as *absence* of a card, not as a fourth surface color.
+//
+// The fill is the *only* thing that shapes a card: there is no outline
+// (DEX-114). A hairline around a block of color read as a second edge on every
+// prioritized card, and the unprioritized card it did earn its keep on is now
+// `surfaceSunken` instead, which separates it from the pane on its own.
 const COMPLETE_OPACITY = 0.03;
 const COMPLETE_TEXT_OPACITY = 0.25;
 
@@ -268,7 +272,6 @@ export function TaskCard({
           backgroundColor: isComplete
             ? withOpacity(priorityColor, COMPLETE_OPACITY)
             : theme.colors.priorityMuted[task.priority],
-          borderColor: theme.colors.border,
           borderRadius: theme.radii.md,
           // Floor of padding (×2) + the inline control height. A completed
           // card's only height-defining child is the StatusButton's native menu
@@ -318,21 +321,28 @@ export function TaskCard({
             },
           ]}
         />
+        {/* The list emoji used to sit here, beside the due date (`ListButton`,
+            still in the tree, still exported and still tested). Hidden rather
+            than removed (DEX-113): the card reads cleaner without it, but the
+            emoji may come back somewhere else, and `ListButton` is still the
+            only list picker outside the task form. `task.listId` is untouched.
+
+            Prefixing the title with the emoji ("🏠 Wash the cat") was tried
+            and rejected — no emoji on the card at all is the point. */}
         {!isComplete && (
-          <>
-            <DueDateButton
-              dueOn={task.dueOn}
-              priorityColor={priorityColor}
-              contentColor={contentColor}
-            />
-            {task.listId !== null && (
-              <ListButton
-                listId={task.listId}
-                contentColor={contentColor}
-                onChangeList={(listId) => onUpdate({ listId })}
-              />
-            )}
-          </>
+          <DueDateButton
+            dueOn={task.dueOn}
+            priorityColor={priorityColor}
+            contentColor={contentColor}
+            // A step beyond the row's `gap` (DEX-111). The title is `flex: 1`,
+            // so a long one runs right up to the edge of its box and the badge
+            // read as attached to the last word. Passed in rather than baked
+            // into the badge, which owns no spacing of its own — see
+            // docs/design.md, "Who owns spacing". Passed rather than wrapped
+            // because the badge renders nothing when the task has no due date,
+            // and a wrapper would keep applying its margin regardless.
+            style={{ marginLeft: theme.space.sm }}
+          />
         )}
       </View>
       {subtasks.length > 0 && (
@@ -421,7 +431,6 @@ const styles = StyleSheet.create({
     // single-line height (the complete branch renders without the MoreMenu
     // wrapper that would otherwise supply the stretch).
     alignSelf: "stretch",
-    borderWidth: 1,
     // A column now: the title row, then the checklist stacked beneath it.
     flexDirection: "column",
     overflow: "hidden",

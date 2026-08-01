@@ -194,13 +194,28 @@ describe("TasksView", () => {
     expect(listContentStyle(screen).paddingBottom).toBe(50);
   });
 
-  it("keeps the list's uniform padding when there is no bottom inset", () => {
+  it("keeps the list's vertical padding when there is no bottom inset", () => {
     mockUseTasks.mockReturnValue(tasksResult([task()]));
     const screen = renderWithBottomInset(0, <TasksView date={date} />);
 
     const style = listContentStyle(screen);
     expect(style.paddingBottom).toBe(16);
-    expect(style.padding).toBe(16);
+    expect(style.paddingTop).toBe(16);
+  });
+
+  // The side gutter belongs to whoever placed the list (DEX-115): the phone
+  // gets one from `SwipeableDay`, while the Today pane and the Week columns
+  // want none — a gutter here stacked on top of theirs, which is what made the
+  // Tasks pane sit further from Notes than Notes sat from Calendar.
+  it("leaves the list's side gutter to its container", () => {
+    mockUseTasks.mockReturnValue(tasksResult([task()]));
+    const screen = renderWithBottomInset(0, <TasksView date={date} />);
+
+    const style = listContentStyle(screen);
+    expect(style.padding).toBeUndefined();
+    expect(style.paddingHorizontal).toBeUndefined();
+    expect(style.paddingLeft).toBeUndefined();
+    expect(style.paddingRight).toBeUndefined();
   });
 
   it("deletes a one-off task once the confirmation is accepted", async () => {

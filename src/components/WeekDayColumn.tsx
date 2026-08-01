@@ -102,7 +102,7 @@ export function WeekDayColumn({
       )}
       {/* No empty state: seven "no tasks" messages side by side read as noise,
           and an empty column is already self-evident. */}
-      <DayTaskList date={date} emptyMessage={null} inset={false} />
+      <DayTaskList date={date} emptyMessage={null} />
     </View>
   );
 }

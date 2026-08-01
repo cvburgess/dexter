@@ -55,8 +55,19 @@ export function ListRow({ list, openCount, onArchive }: TListRowProps) {
             {
               // No fill behind the emoji: the glyph is the icon, and a tinted
               // square under it read as a second, competing shape in the row.
+              //
+              // Height is a control size so the row keeps its height and the
+              // archive button beside it stays centered on the row rather than
+              // on the label block. Width is the *icon* scale, matching
+              // `SettingsRow`'s leading glyph: at `controls.md` the emoji wore
+              // 10pt of dead space on each side, which read as an indent from
+              // the card's edge and pushed the title 20pt further right than
+              // the settings rows' (DEX-61). An emoji's advance runs a little
+              // wider than its font size, so the glyph overflows this box by a
+              // point or two — nothing clips it, and a fixed box is what keeps
+              // every title in the list aligned.
               height: theme.controls.md,
-              width: theme.controls.md,
+              width: theme.icons.md,
             },
           ]}
         >

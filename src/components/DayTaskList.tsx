@@ -22,14 +22,6 @@ type TDayTaskListProps = {
    * messages side by side read as noise rather than information (DEX-96).
    */
   emptyMessage?: string | null;
-  /**
-   * Whether to inset the list from its container's sides with the standard
-   * 16pt gutter. Same shape and name as `NotesView`'s. The Week tab passes
-   * `false` so its columns run flush (DEX-96): a gutter on each column would
-   * stack with its neighbour's, doubling every gap in the grid, and the row's
-   * own `gap` already separates them.
-   */
-  inset?: boolean;
 };
 
 /**
@@ -44,7 +36,6 @@ type TDayTaskListProps = {
 export function DayTaskList({
   date,
   emptyMessage = "No tasks scheduled for this day.",
-  inset = true,
 }: TDayTaskListProps) {
   const { confirm, confirmationProps } = useConfirmation();
   const theme = useTheme();
@@ -94,6 +85,12 @@ export function DayTaskList({
       ) : (
         <ScrollView
           style={styles.scroll}
+          // Vertical only — the side gutter belongs to whoever placed this list
+          // (see docs/design.md, "Who owns spacing"). The phone gets one from
+          // `SwipeableDay`; the Today pane and the Week columns want none, and
+          // a gutter per column would stack with its neighbour's and double
+          // every gap in the grid (DEX-96).
+          //
           // The host SafeAreaView omits the bottom edge (the native tab bar
           // owns it — see SmallScreenToday/LargeScreenToday/WeekView), so the
           // list adds that inset to its own padding here. Padding the content
@@ -103,11 +100,11 @@ export function DayTaskList({
           // while still letting the last card scroll fully clear of it. Same
           // shape as EmptyScreen's own inset, so the list and the empty state
           // that replaces it land on the same baseline.
-          contentContainerStyle={[
-            { gap: theme.space.sm, padding: theme.space.md },
-            !inset && styles.listFlush,
-            { paddingBottom: theme.space.md + insets.bottom },
-          ]}
+          contentContainerStyle={{
+            gap: theme.space.sm,
+            paddingTop: theme.space.md,
+            paddingBottom: theme.space.md + insets.bottom,
+          }}
         >
           {tasks.map((item) => (
             <TaskCard
@@ -131,10 +128,5 @@ const styles = StyleSheet.create({
   // scroll when they overflow, instead of being clipped.
   scroll: {
     flex: 1,
-  },
-  // Drops only the side gutter — the vertical padding above the first card and
-  // below the last (which carries the tab-bar inset) still applies.
-  listFlush: {
-    paddingHorizontal: 0,
   },
 });

@@ -73,10 +73,27 @@ is behind it, so the same task read as two different colors depending on which
 column it was in. Pre-blending makes the fill opaque and stable.
 
 `priority[NEITHER]` is the theme's `base-100` — the same value as `background` —
-so its muted fill resolves to the pane itself and an unprioritized card reads as
-a bare row rather than a block. That is legacy behavior, and `theme.test.ts`
-pins it; a card that needs to be visible without a priority needs a border, not
-a fourth surface.
+so blending it would resolve to the pane itself and a `NEITHER` card would have
+no edge at all. `priorityMuted[NEITHER]` is therefore **`surfaceSunken`
+outright, not a blend** (DEX-114), and `theme.test.ts` pins that. It is not a
+fourth surface: a `NEITHER` card holds content, so it takes the same token every
+other content-holding surface does.
+
+`priority[UNPRIORITIZED]` is **always the theme's `text`** — the app's ink —
+rather than daisyUI's `neutral`, and `priorityContent[UNPRIORITIZED]` is its
+`background`. An unprioritized card and the active nav tile are meant to read as
+the same mark: a block of ink with the surface showing through the type on it.
+The tile is `withOpacity(text, 0.8)` and the card fill blends the same ink at
+`CARD_FILL_ALPHA` (0.8), so anchoring the accent on `text` makes them land
+together by construction. `neutral` is a *dark* swatch in every daisyUI theme,
+which held on the light themes by luck and inverted the pair on the dark ones —
+a light nav tile beside a near-black card (DEX-114). `theme.test.ts` pins it
+across all five themes.
+
+**Task cards have no outline** (DEX-114). The fill is the whole shape. A
+hairline around a block of priority color read as a second edge, and the
+unprioritized card it did earn its keep on now separates itself from the pane by
+sitting a rung lower.
 
 The one deliberate alpha left on a card is the completed state — a 3% tint of
 the raw `priority[i]`. It is meant to read as the *absence* of a card rather
@@ -140,6 +157,43 @@ separation at all and its sections ran together. A component that owns the space
 around itself is the exception here, not the rule, and this is the one that
 earns it: the heading is not a member of the group it heads, so no uniform
 parent `gap` can place it correctly.
+
+## Who owns spacing
+
+**A component never pads itself away from its container's edge. Whoever placed
+it does.** (DEX-115)
+
+The same components are laid out differently on a phone, an iPad, the web app
+and a Mac window, and each of those wants a different gutter — or none. A
+component that hard-codes one can only be placed one way, and every host that
+wants something else has to opt out through a prop. That is how the Today view
+ended up with the Tasks pane sitting `md + sm` from Notes while Notes sat `sm`
+from Calendar: the pane row supplied a gutter and the task list supplied
+another.
+
+What a component *does* own:
+
+- **Space between its own parts** — a list's `gap`, a card's internal padding,
+  the inner padding of a pane that draws its own border.
+- **Anything tied to its own scrolling.** `insets.bottom` added to a
+  `contentContainerStyle` is the clearest case: it exists so content scrolls
+  *under* the translucent tab bar, which only works from inside the scroller.
+  Moving it to a parent shrinks the viewport and the last row can never clear
+  the bar. `DayTaskList`, `JournalView` and `CalendarView` all keep their
+  vertical padding for this reason.
+- **Appearance variants.** `NotesView`'s `card` prop turns the note's border and
+  fill on or off — that is chrome, not layout, and a prop is the right shape for
+  it. The give-away is that it changes what the component *is*, not where it
+  sits.
+
+Where the gutters actually live now: `SwipeableDay` supplies the phone's day
+gutter once for whichever of Tasks/Notes/Journal/Calendar is on screen;
+`LargeScreenToday` and `WeekView` supply theirs on the pane row; the Week
+columns and the Today panes deliberately supply none, so the row's own `gap` is
+the whole space between them.
+
+Reach for a `padding`/`inset` prop only after checking whether the caller can
+just wrap the thing in a padded view — it almost always can.
 
 ## Type scale
 
@@ -262,9 +316,18 @@ Two documented exceptions:
 Neither is a token; both are derived with `withOpacity` from a theme color, and
 which color depends on the job:
 
-- **Shadows and hairline scrims** derive from `colors.text`. A shadow tuned for
-  a light surface is invisible on a dark one, and `text` is the maximum-contrast
-  color against whatever surface it sits on.
+- **Hairline scrims** derive from `colors.text`. One tuned for a light surface
+  is invisible on a dark one, and `text` is the maximum-contrast color against
+  whatever surface it sits on.
+- **Shadows are black**, on every theme. A shadow is the absence of light — the
+  same rule that makes a divider always darker than the surfaces it divides.
+  Deriving one from `text` inverts it on the dark themes, where the ink is
+  light: the web nav's tiles wore a pale halo rather than a shadow until this
+  was corrected. The values themselves are Tailwind's `shadow-md`/`shadow-lg`
+  ported literally from dexter-app (see `tileStyle` in `components/WebNav.tsx`)
+  — two layers each, a wide soft drop with a negative spread over a tighter
+  layer that keeps the shape's own edge defined. A single-layer shadow reads as
+  a smudged hairline instead of a lift.
 - **Full-screen backdrops** (the web confirmation modal, the emoji picker)
   derive from `colors.background` at high opacity. A black wash all but
   disappears over a dark theme, while the app's own background always pushes the
@@ -307,10 +370,13 @@ uncomfortable.
 
 Each theme is a daisyUI theme ported oklch → hex, mapping
 `background = base-100`, `surfaceSunken = base-200`, `text = base-content`, and
-the priority arrays = `[warning, error, info, base-100, neutral]` with their
-`-content` pairs. `base-300` is not ported: the two surfaces above are where
-dexter-app anchors content and chrome, and a third step went unused once the
-ramp was anchored there.
+the priority arrays = `[warning, error, info, base-100, base-content]` with
+their `-content` pairs. `base-300` is not ported: the two surfaces above are
+where dexter-app anchors content and chrome, and a third step went unused once
+the ramp was anchored there.
+
+`UNPRIORITIZED` taking `base-content` rather than daisyUI's `neutral` is the
+deviation (DEX-114) — see the priority section above for why.
 
 `border` is the other exception: daisyUI has no border token, and `base-300`
 would be *darker* than the surface in a dark theme, so each theme supplies one

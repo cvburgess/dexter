@@ -61,7 +61,7 @@ export default function HabitScreen() {
 function HabitForm({ existing }: { existing?: THabit }) {
   const theme = useTheme();
 
-  const [, { createHabit, updateHabit, deleteHabit }] = useHabits();
+  const [, { createHabit, updateHabit }] = useHabits();
   const { confirm, confirmationProps } = useConfirmation();
 
   const isEditing = !!existing;
@@ -121,8 +121,8 @@ function HabitForm({ existing }: { existing?: THabit }) {
     if (!existing) return;
     const confirmed = await confirm({
       title: `Archive ${existing.title}?`,
-      message:
-        "Archiving hides the habit but keeps its history. To erase all history, delete it instead.",
+      // No "delete it instead" any more — there is nothing to point at (DEX-108).
+      message: "Archiving hides the habit but keeps its history.",
       confirmLabel: "Archive",
       destructive: true,
     });
@@ -131,21 +131,6 @@ function HabitForm({ existing }: { existing?: THabit }) {
       { id: existing.id, isArchived: true },
       { onSuccess: handleClose, onError: () => showSaveError("habit") },
     );
-  };
-
-  const handleDelete = async () => {
-    if (!existing) return;
-    const confirmed = await confirm({
-      title: `Delete ${existing.title}?`,
-      message: "This permanently deletes the habit and all of its history.",
-      confirmLabel: "Delete",
-      destructive: true,
-    });
-    if (!confirmed) return;
-    deleteHabit(existing.id, {
-      onSuccess: handleClose,
-      onError: () => showSaveError("habit"),
-    });
   };
 
   const toggleDay = (day: number) =>
@@ -251,13 +236,14 @@ function HabitForm({ existing }: { existing?: THabit }) {
           />
         </FormRow>
 
+        {/* Archive only, no delete (DEX-108) — the app archives things, it
+            doesn't destroy them, and a habit's history is the point of tracking
+            it. `deleteHabit` still exists on the hook for the API layer; nothing
+            in the UI reaches it. Lists have worked this way all along. */}
         {isEditing && (
-          <View style={{ gap: theme.space.sm, marginTop: theme.space.sm }}>
+          <View style={{ marginTop: theme.space.sm }}>
             <Button variant="dangerous" onPress={handleArchive}>
               Archive
-            </Button>
-            <Button variant="dangerous" onPress={handleDelete}>
-              Delete
             </Button>
           </View>
         )}

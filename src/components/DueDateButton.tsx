@@ -1,5 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 
 import { useTheme } from "@/utils/theme";
 
@@ -7,6 +7,14 @@ type TDueDateButtonProps = {
   dueOn: string | null;
   priorityColor: string;
   contentColor: string;
+  /**
+   * Where the caller is placing this badge — the gap between it and whatever
+   * precedes it. The badge carries no spacing of its own (see docs/design.md,
+   * "Who owns spacing"), and taking it as a style rather than a wrapper matters
+   * here: this renders nothing at all without a `dueOn`, and a wrapper would go
+   * on applying its margin to a badge that isn't there.
+   */
+  style?: StyleProp<ViewStyle>;
 };
 
 /**
@@ -20,6 +28,7 @@ export function DueDateButton({
   dueOn,
   priorityColor,
   contentColor,
+  style,
 }: TDueDateButtonProps) {
   const theme = useTheme();
 
@@ -47,6 +56,7 @@ export function DueDateButton({
           minWidth: theme.controls.sm,
           paddingHorizontal: theme.space.xs,
         },
+        style,
       ]}
     >
       <Text style={[theme.fonts.body, { color: foregroundColor }]}>
