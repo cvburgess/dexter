@@ -334,6 +334,14 @@ export function TaskCard({
             dueOn={task.dueOn}
             priorityColor={priorityColor}
             contentColor={contentColor}
+            // A step beyond the row's `gap` (DEX-111). The title is `flex: 1`,
+            // so a long one runs right up to the edge of its box and the badge
+            // read as attached to the last word. Passed in rather than baked
+            // into the badge, which owns no spacing of its own — see
+            // docs/design.md, "Who owns spacing". Passed rather than wrapped
+            // because the badge renders nothing when the task has no due date,
+            // and a wrapper would keep applying its margin regardless.
+            style={{ marginLeft: theme.space.sm }}
           />
         )}
       </View>

@@ -17,7 +17,7 @@ import {
   CALENDAR_PANE_MAX_WIDTH,
   DRAWER_PANE_MAX_WIDTH,
   TASK_LIST_PANE_MIN_WIDTH,
-  TASKS_PANE_MAX_WIDTH,
+  TASKS_PANE_WIDTH,
 } from "@/utils/breakpoints";
 import { TFilterId } from "@/utils/taskFilters";
 import { TDayLink } from "@/utils/todayRoute";
@@ -270,12 +270,14 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
   },
-  // Tasks is capped at a mobile-typical width so it doesn't stretch to fill a
-  // wide window.
+  // Tasks holds one fixed width rather than flexing (DEX-111): a task card is
+  // the same object on every screen, and stretching with the window made it a
+  // different shape on each. The panes beside it absorb the difference. Shared
+  // with `taskHeaderSlot` above, which is what keeps DayNav centered over this
+  // pane — a fixed width locks the two together instead of leaving the header
+  // to track a flexing column.
   fixedPane: {
-    flex: 1,
-    maxWidth: TASKS_PANE_MAX_WIDTH,
-    minWidth: TASK_LIST_PANE_MIN_WIDTH,
+    width: TASKS_PANE_WIDTH,
   },
   // Notes and Journal share one tabbed pane that flexes to fill whatever
   // space remains. NotesJournalTabs draws its own border (only the active
