@@ -53,7 +53,7 @@ describe("AppShell", () => {
   it.each([
     ["row", true],
     ["column", false],
-  ])("lays the shell out as a %s", (direction, rail) => {
+  ] as const)("lays the shell out as a %s", (direction, rail) => {
     const screen = render(<AppShell rail={rail} />);
 
     expect(screen.root).toHaveStyle({ flexDirection: direction });

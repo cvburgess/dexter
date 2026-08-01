@@ -144,6 +144,7 @@ const navItemProps = (item: TNavItem, selected: boolean) => ({
  */
 export function NavRail() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const { items, openNewTask, pathname } = useAppNav();
 
   return (
@@ -163,7 +164,25 @@ export function NavRail() {
           // shadow needs the room too — `shadow-md` drops 4pt with a 6pt blur,
           // so tiles a tight gap apart cast onto each other.
           gap: theme.space.lg,
-          paddingVertical: theme.space.md,
+          // The rail owns the physical left edge with nothing above it, so it
+          // absorbs three insets — the same reasoning as `SettingsSidebar`,
+          // which is the other component that holds an edge in a two-pane
+          // layout. `top` because there is no stack header to clear the status
+          // bar for it, `bottom` so the home indicator doesn't cross the "+",
+          // and `left` for a landscape display cutout. `right` is deliberately
+          // unclaimed: the content pane is on that side.
+          //
+          // The width *grows* by the left inset rather than padding into the
+          // fixed 76dp, or a cutout would squeeze the tiles it's meant to clear.
+          // All three are 0 on web (no `viewport-fit=cover` — see `NavDock`),
+          // so this reduces to exactly the previous `width`/`paddingVertical`
+          // there. Unlike `SettingsSidebar` the rail takes no extra web-side
+          // padding: that compensates for a heading, and the top tile doesn't
+          // need it.
+          paddingBottom: theme.space.md + insets.bottom,
+          paddingLeft: insets.left,
+          paddingTop: theme.space.md + insets.top,
+          width: NAV_RAIL_WIDTH + insets.left,
         },
       ]}
     >
@@ -408,7 +427,7 @@ const styles = StyleSheet.create({
     // pinning the gear to the bottom (`marginTop: "auto"`) only works if the
     // rail actually fills the viewport height.
     alignSelf: "stretch",
-    width: NAV_RAIL_WIDTH,
+    // `width` is set inline, not here: it varies with the left safe-area inset.
   },
   // Lifted off the rail's sunken background by a soft shadow rather than a
   // border; `tileStyle` carries the box.
