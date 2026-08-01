@@ -129,7 +129,6 @@ export function HabitTracker({
       contentContainerStyle={[
         styles.content,
         { gap: theme.space.sm, paddingHorizontal: theme.space.md },
-        { gap: theme.space.sm, paddingHorizontal: theme.space.md },
       ]}
     >
       {isFutureDate
