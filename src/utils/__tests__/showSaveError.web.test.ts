@@ -10,7 +10,11 @@ jest.mock("../alert", () =>
 
 describe("showSaveError (web)", () => {
   // Jest's environment has a `window` but no `alert` on it, so there is nothing
-  // to spy on — assign the stub and put the original back afterwards.
+  // to spy on — assign the stub and put the original back afterwards. The
+  // reference is only ever stored and re-assigned, never called detached, so
+  // `unbound-method` (which flags it as of typescript-eslint 8.65) has nothing
+  // to protect here.
+  // eslint-disable-next-line @typescript-eslint/unbound-method
   const originalAlert = window.alert;
   const windowAlert = jest.fn();
 
