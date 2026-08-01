@@ -361,6 +361,14 @@ export function TaskDrawer({
     [theme.space.sm],
   );
 
+  // Filter, Group, and the search field under them are one cluster and should
+  // read as one size. `controls.md + space.sm` is the same expression `Button`
+  // uses for "a full-width control stands a step taller than a round icon
+  // button", and it lands within a point of what `TextInput`'s own padding
+  // resolves to on both density tiers — so the three line up without this
+  // reaching into the shared input.
+  const controlHeight = theme.controls.md + theme.space.sm;
+
   // The themed half of the Filter/Group buttons — everything in
   // `controlButtonInner` that has to come from the theme rather than the
   // stylesheet. `radii.md` is the app's one corner radius, shared with the
@@ -369,6 +377,13 @@ export function TaskDrawer({
   const controlButtonSurface = {
     borderColor: theme.colors.border,
     borderRadius: theme.radii.md,
+    // Fills the menu host rather than hugging its label. The host was already
+    // `controls.md` tall, but this bordered box had no height of its own, so
+    // the pill shrank to the text and read as squashed against the search field
+    // below it (DEX-106 follow-up). An explicit height, not `flex: 1` — the
+    // native menu measures its RN child, so a flex-only child resolves to
+    // nothing (see `controlButton`).
+    height: controlHeight,
     paddingHorizontal: theme.space.sm,
   };
   // `container`'s own padding sits inside a pane that itself extends
@@ -394,7 +409,7 @@ export function TaskDrawer({
           accessibilityLabel="Filter"
           menuTitle="Filter"
           sections={[{ options: filterMenuOptions(filterId, setFilterId) }]}
-          style={[styles.controlButton, { height: theme.controls.md }]}
+          style={[styles.controlButton, { height: controlHeight }]}
         >
           <View style={[styles.controlButtonInner, controlButtonSurface]}>
             <Text
@@ -409,7 +424,7 @@ export function TaskDrawer({
           accessibilityLabel="Group"
           menuTitle="Group"
           sections={[{ options: groupMenuOptions(groupBy, setGroupBy) }]}
-          style={[styles.controlButton, { height: theme.controls.md }]}
+          style={[styles.controlButton, { height: controlHeight }]}
         >
           <View style={[styles.controlButtonInner, controlButtonSurface]}>
             <Text
