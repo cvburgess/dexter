@@ -33,11 +33,13 @@ fullBleed: true
 <!-- ============================ Colors ============================ -->
 {{ layout "layouts/brandSection.vto" { title: "Colors" } }}
   <p class="mb-8 text-balanced">
-    Each theme is a full palette. Surfaces come in three steps —
-    <strong>sunken</strong> for chrome that should recede, <strong>background</strong>
-    for content, <strong>card</strong> for anything lifted off the page. The border
-    is opaque and tuned per theme rather than derived from an alpha of the text
-    color, because one alpha that reads on a light surface disappears on a dark one.
+    Each theme is a full palette. Surfaces come in two steps, and the direction
+    is the point: <strong>background</strong> is the content sheet and the
+    lightest surface in the theme, and <strong>sunken</strong> is everything
+    that frames content — cards, inputs, rows, the nav rail. A divider goes
+    further down the same ramp: the border is opaque and tuned per theme rather
+    than derived from an alpha of the text color, because one alpha that reads
+    on a light surface disappears on a dark one.
   </p>
 
   {{ for theme of brand.themes }}
@@ -51,9 +53,8 @@ fullBleed: true
       </div>
 
       <div class="p-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {{ swatch(theme.surfaceSunken, "surfaceSunken") }}
         {{ swatch(theme.background, "background") }}
-        {{ swatch(theme.card, "card") }}
+        {{ swatch(theme.surfaceSunken, "surfaceSunken") }}
         {{ swatch(theme.border, "border") }}
         {{ swatch(theme.primary, "primary") }}
         {{ swatch(theme.primaryContent, "primaryContent") }}
