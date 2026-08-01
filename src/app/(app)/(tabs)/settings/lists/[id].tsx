@@ -124,10 +124,14 @@ function ListForm({ existing }: { existing?: TList }) {
       />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={[
-          { paddingBottom: theme.space.lg },
-          { gap: theme.space.sm, padding: theme.space.md },
-        ]}
+        contentContainerStyle={{
+          gap: theme.space.sm,
+          padding: theme.space.md,
+          // After the shorthand, not before it: both resolve to the same
+          // bottom inset, but reading it in this order doesn't require
+          // knowing that.
+          paddingBottom: theme.space.lg,
+        }}
         keyboardShouldPersistTaps="handled"
         style={{ backgroundColor: theme.colors.background }}
       >

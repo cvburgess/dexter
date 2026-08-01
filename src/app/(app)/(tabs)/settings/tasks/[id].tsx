@@ -351,10 +351,12 @@ function RepeatScheduleForm({
         // Insets the content by the keyboard's height (iOS) so a subtask row it
         // covers stays reachable. Android resizes the window instead.
         automaticallyAdjustKeyboardInsets
-        contentContainerStyle={[
-          { paddingBottom: theme.space.lg },
-          { gap: theme.space.sm, padding: theme.space.md },
-        ]}
+        contentContainerStyle={{
+          gap: theme.space.sm,
+          padding: theme.space.md,
+          // See `lists/[id].tsx`: the longhand reads clearer last.
+          paddingBottom: theme.space.lg,
+        }}
         keyboardShouldPersistTaps="handled"
         style={{ backgroundColor: theme.colors.background }}
       >

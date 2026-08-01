@@ -173,10 +173,12 @@ function HabitForm({ existing }: { existing?: THabit }) {
       />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={[
-          { paddingBottom: theme.space.lg },
-          { gap: theme.space.sm, padding: theme.space.md },
-        ]}
+        contentContainerStyle={{
+          gap: theme.space.sm,
+          padding: theme.space.md,
+          // See `lists/[id].tsx`: the longhand reads clearer last.
+          paddingBottom: theme.space.lg,
+        }}
         keyboardShouldPersistTaps="handled"
         style={{ backgroundColor: theme.colors.background }}
       >
