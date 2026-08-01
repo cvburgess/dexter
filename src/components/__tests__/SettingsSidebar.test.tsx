@@ -100,4 +100,21 @@ describe("SettingsSidebar", () => {
 
     expect(labelColor("Appearance")).toBe(colors.text);
   });
+
+  // The rows inset their own content so a selected row's fill can run out to
+  // the pane's gutter; the heading has no fill and so no inset, which left it
+  // hanging a step to the left of every icon beneath it. Assert the two
+  // paddings against each other rather than a literal — the alignment is the
+  // requirement, whichever token it ends up being.
+  it("lines the heading up with the rows' content, not the pane's edge", () => {
+    render(<SettingsSidebar />);
+
+    const heading = StyleSheet.flatten(
+      screen.getByText("Settings").props.style as TextStyle[],
+    );
+
+    expect(heading.paddingHorizontal).toBe(
+      rowStyle("account").paddingHorizontal,
+    );
+  });
 });

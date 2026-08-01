@@ -59,7 +59,15 @@ export function SettingsSidebar() {
           style={{
             ...theme.fonts.heading,
             color: theme.colors.text,
-            marginBottom: theme.space.xs,
+            // The rows below carry their own `md` inset so a selected row's
+            // fill can extend past its content to the pane's gutter. The
+            // heading has no fill and so no inset of its own, which left it
+            // hanging a step left of every icon under it — matching the rows'
+            // padding is what puts them on one edge. Keep the two in step.
+            paddingHorizontal: theme.space.md,
+            // `lg`, the group separator: this is a screen heading over a nav
+            // list, not a label on the first row of it.
+            marginBottom: theme.space.lg,
           }}
         >
           Settings
