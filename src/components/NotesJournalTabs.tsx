@@ -3,7 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { JournalView } from "@/components/JournalView";
 import { NotesView } from "@/components/NotesView";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 export type TTab = "notes" | "journal";
 
@@ -72,7 +72,7 @@ export function NotesJournalTabs({
   if (tab === "notes" && !showNotes) activeTab = "journal";
   else if (tab === "journal" && !showJournal) activeTab = "notes";
   const showTabBar = showNotes && showJournal;
-  const borderColor = withOpacity(theme.colors.text, 0.1);
+  const borderColor = theme.colors.border;
 
   return (
     <View style={styles.container}>
@@ -84,10 +84,7 @@ export function NotesJournalTabs({
         />
       )}
       <View
-        style={[
-          styles.content,
-          { borderColor, borderRadius: theme.borderRadius },
-        ]}
+        style={[styles.content, { borderColor, borderRadius: theme.radii.md }]}
       >
         {/* Keyed on date: NotesView/JournalView seed their editors
             uncontrolled and rely on a remount to re-seed for a new day (see
@@ -113,8 +110,15 @@ function TabBar({
   borderColor: string;
   onChangeTab: (tab: TTab) => void;
 }) {
+  const theme = useTheme();
+
   return (
-    <View style={styles.tabBar}>
+    <View
+      style={[
+        styles.tabBar,
+        { gap: theme.space.xs, paddingHorizontal: theme.space.sm },
+      ]}
+    >
       <TabButton
         activeTab={activeTab}
         borderColor={borderColor}
@@ -156,20 +160,20 @@ function TabButton({
       accessibilityState={{ selected: active }}
       onPress={() => onPress(tab)}
       style={[
-        styles.tab,
+        { paddingHorizontal: theme.space.md, paddingVertical: theme.space.sm },
         active && [
           styles.activeTab,
           {
             borderColor,
-            borderTopLeftRadius: theme.borderRadius,
-            borderTopRightRadius: theme.borderRadius,
+            borderTopLeftRadius: theme.radii.md,
+            borderTopRightRadius: theme.radii.md,
           },
         ],
       ]}
     >
       <Text
         style={[
-          styles.tabLabel,
+          theme.fonts.body,
           {
             color: active ? theme.colors.text : theme.colors.textSecondary,
             fontWeight: active ? "700" : "500",
@@ -188,12 +192,6 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: "row",
-    gap: 4,
-    paddingHorizontal: 8,
-  },
-  tab: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
   },
   // Border on top + sides only, pulled down by a hairline to overlap (and so
   // visually merge with) the content body's own top border below it.
@@ -202,9 +200,6 @@ const styles = StyleSheet.create({
     borderRightWidth: StyleSheet.hairlineWidth,
     borderTopWidth: StyleSheet.hairlineWidth,
     marginBottom: -StyleSheet.hairlineWidth,
-  },
-  tabLabel: {
-    fontSize: 14,
   },
   content: {
     borderWidth: StyleSheet.hairlineWidth,

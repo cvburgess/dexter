@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -52,9 +52,11 @@ export default function NotesScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            padding: theme.spacing,
-            paddingBottom: theme.spacing + insets.bottom,
-            gap: theme.spacing,
+            padding: theme.space.md,
+            paddingBottom: theme.space.md + insets.bottom,
+            // The in-group step only: `SettingsSectionTitle` carries the `lg`
+            // between sections itself, so it applies wherever it renders (DEX-61).
+            gap: theme.space.sm,
           },
         ]}
       >
@@ -65,8 +67,10 @@ export default function NotesScreen() {
         />
 
         {preferences.enableNotes && (
-          <View style={styles.section}>
-            <SettingsSectionTitle>Daily note template</SettingsSectionTitle>
+          <View style={{ gap: theme.space.sm }}>
+            <SettingsSectionTitle subtitle="When set, opening a blank daily note offers to start from this template.">
+              Daily note template
+            </SettingsSectionTitle>
             <TextInput
               accessibilityLabel="Daily note template"
               multiline
@@ -78,10 +82,6 @@ export default function NotesScreen() {
               textAlignVertical="top"
               value={draft}
             />
-            <Text style={[styles.hint, { color: theme.colors.textSecondary }]}>
-              When set, opening a blank daily note offers to start from this
-              template.
-            </Text>
           </View>
         )}
       </ScrollView>
@@ -95,12 +95,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flexGrow: 1,
-  },
-  hint: {
-    fontSize: 13,
-  },
-  section: {
-    gap: 10,
   },
   template: {
     minHeight: 160,

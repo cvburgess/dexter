@@ -24,7 +24,7 @@ import { useHabits } from "@/hooks/useHabits";
 import { useDismissModal } from "@/hooks/useDismissModal";
 import { useModalHeaderActions } from "@/hooks/useModalHeaderActions";
 import { showSaveError } from "@/utils/showSaveError";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 /** Where this modal returns to when it can't just pop — one value, because a
  * stale link and a ✕ have to land in the same place. */
@@ -162,7 +162,7 @@ function HabitForm({ existing }: { existing?: THabit }) {
     onSave: handleSave,
   });
 
-  const inputBorder = withOpacity(theme.colors.text, 0.1);
+  const inputBorder = theme.colors.border;
 
   return (
     <ModalScreen>
@@ -173,24 +173,35 @@ function HabitForm({ existing }: { existing?: THabit }) {
       />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={[
-          styles.container,
-          { gap: theme.gap, padding: theme.spacing },
-        ]}
+        contentContainerStyle={{
+          gap: theme.space.sm,
+          padding: theme.space.md,
+          // See `lists/[id].tsx`: the longhand reads clearer last.
+          paddingBottom: theme.space.lg,
+        }}
         keyboardShouldPersistTaps="handled"
         style={{ backgroundColor: theme.colors.background }}
       >
-        <View style={styles.titleRow}>
+        <View style={[styles.titleRow, { gap: theme.space.sm }]}>
           <TouchableOpacity
             accessibilityRole="button"
             accessibilityLabel="Choose emoji"
             onPress={() => setPickerOpen(true)}
             style={[
               styles.emoji,
-              { borderColor: inputBorder, borderRadius: theme.borderRadius },
+              {
+                borderColor: inputBorder,
+                borderRadius: theme.radii.md,
+                // A tap target a step above a standard icon button — the emoji
+                // is the screen's identity, not one of its controls.
+                height: theme.controls.md + theme.space.sm,
+                width: theme.controls.md + theme.space.sm,
+              },
             ]}
           >
-            <Text style={styles.emojiGlyph}>{emoji}</Text>
+            <Text style={{ fontSize: theme.icons.md + theme.space.xs }}>
+              {emoji}
+            </Text>
           </TouchableOpacity>
           <TextInput
             accessibilityLabel="Habit title"
@@ -205,7 +216,7 @@ function HabitForm({ existing }: { existing?: THabit }) {
         </View>
 
         <FormRow label="Times per day">
-          <View style={styles.stepsControl}>
+          <View style={[styles.stepsControl, { gap: theme.space.sm }]}>
             <NativeTextInput
               accessibilityLabel="Times per day"
               value={steps}
@@ -213,19 +224,19 @@ function HabitForm({ existing }: { existing?: THabit }) {
               keyboardType="number-pad"
               maxLength={3}
               style={[
+                theme.fonts.control,
                 styles.stepsInput,
                 {
                   borderColor: inputBorder,
-                  borderRadius: theme.borderRadius,
+                  borderRadius: theme.radii.md,
                   color: theme.colors.text,
+                  height: theme.controls.md,
+                  paddingHorizontal: theme.space.sm,
                 },
               ]}
             />
             <Text
-              style={[
-                styles.labelDetail,
-                { color: theme.colors.textSecondary },
-              ]}
+              style={[theme.fonts.body, { color: theme.colors.textSecondary }]}
             >
               × daily
             </Text>
@@ -241,7 +252,7 @@ function HabitForm({ existing }: { existing?: THabit }) {
         </FormRow>
 
         {isEditing && (
-          <View style={styles.dangerZone}>
+          <View style={{ gap: theme.space.sm, marginTop: theme.space.sm }}>
             <Button variant="dangerous" onPress={handleArchive}>
               Archive
             </Button>
@@ -267,37 +278,19 @@ function HabitForm({ existing }: { existing?: THabit }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    paddingBottom: 32,
-  },
-  dangerZone: {
-    gap: 12,
-    marginTop: 12,
-  },
   emoji: {
     alignItems: "center",
     borderWidth: StyleSheet.hairlineWidth,
-    height: 50,
     justifyContent: "center",
-    width: 50,
-  },
-  emojiGlyph: {
-    fontSize: 24,
-  },
-  labelDetail: {
-    fontSize: 14,
   },
   stepsControl: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 8,
   },
   stepsInput: {
     borderWidth: StyleSheet.hairlineWidth,
-    fontSize: 16,
-    height: 40,
+    // Wide enough for three digits plus the field's own padding.
     minWidth: 56,
-    paddingHorizontal: 8,
     textAlign: "center",
   },
   titleInput: {
@@ -306,6 +299,5 @@ const styles = StyleSheet.create({
   titleRow: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 12,
   },
 });

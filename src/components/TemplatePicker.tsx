@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
 import { describeChecklist, TTemplate } from "@/api/templates";
 import { TemplateRow } from "@/components/TemplateRow";
@@ -33,7 +33,13 @@ export function TemplatePicker({
   if (templates.length === 0) {
     return (
       <Text
-        style={[styles.empty, { color: theme.colors.textSecondary }]}
+        style={[
+          theme.fonts.body,
+          {
+            color: theme.colors.textSecondary,
+            paddingVertical: theme.space.sm,
+          },
+        ]}
         testID="template-picker-empty"
       >
         No templates yet. Open a task&apos;s menu and choose Save as template to
@@ -43,7 +49,7 @@ export function TemplatePicker({
   }
 
   return (
-    <View style={{ gap: theme.gap }}>
+    <View style={{ gap: theme.space.sm }}>
       {templates.map((template) => (
         <TemplateRow
           key={template.id}
@@ -57,10 +63,3 @@ export function TemplatePicker({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  empty: {
-    fontSize: 14,
-    paddingVertical: 8,
-  },
-});

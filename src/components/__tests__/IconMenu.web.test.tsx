@@ -1,11 +1,20 @@
 import { fireEvent, render } from "@testing-library/react-native";
-import { StyleSheet, Text, type StyleProp, type ViewStyle } from "react-native";
+import {
+  StyleSheet,
+  Text,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
+} from "react-native";
+
+import { DENSITY } from "@/utils/theme";
 
 import { IconMenu } from "../IconMenu.web";
 import { TIconMenuSection } from "../IconMenu.types";
 
-/** `styles.checkmark`'s width — the slot that aligns a checkable row. */
-const CHECKMARK_WIDTH = 18;
+// The checkmark column is as wide as the icons it aligns with — `icons.md` on
+// the comfortable tier, which is what jest-expo's phone-width window resolves to.
+const CHECKMARK_WIDTH = DENSITY.comfortable.icons.md;
 
 /**
  * Host (not composite) elements whose flattened style matches — the menu's
@@ -216,7 +225,10 @@ describe("IconMenu (web)", () => {
       nativeEvent: { clientX: 10, clientY: 10 },
     });
 
-    const style = screen.getByText("Backlog").props.style as { color?: string };
+    // Flattened: the label now composes a type role with its color (DEX-61).
+    const style = StyleSheet.flatten(
+      screen.getByText("Backlog").props.style as TextStyle[],
+    );
     expect(style.color).toBe("#fcb700");
   });
 

@@ -27,6 +27,11 @@ export default function TabsLayout() {
   return (
     <NativeTabs
       minimizeBehavior="onScrollDown"
+      // iPadOS/macOS render the adaptive sidebar instead of a bottom tab bar,
+      // so the large-screen layouts (Today's panes, the Settings sidebar) are no
+      // longer stacked underneath a second navigation surface (DEX-61). No
+      // effect on iPhone.
+      sidebarAdaptable
       tintColor={theme.colors.primary}
     >
       <NativeTabs.BottomAccessory>

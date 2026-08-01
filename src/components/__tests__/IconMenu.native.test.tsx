@@ -141,7 +141,7 @@ describe("IconMenu (native)", () => {
           {
             id: "backlog",
             title: "Backlog",
-            icon: "tray.full",
+            icon: { sf: "tray.full", ionicon: "file-tray-full-outline" },
             iconColor: "#fcb700",
             onSelect: jest.fn(),
           },

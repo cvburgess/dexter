@@ -8,6 +8,16 @@ export const LARGE_DEVICE_MIN_WIDTH = 768;
 // Width (in dp) of the web nav rail (`components/WebNav.tsx`).
 export const WEB_NAV_RAIL_WIDTH = 76;
 
+// The rail's tile and glyph, in dp. Ported one-for-one from the legacy
+// dexter-app's `DesktopNav` (a `size-12` tile holding a 26dp Phosphor icon),
+// which is why they sit here beside the rail width they're proportioned
+// against rather than on the density scale: the rail is web-only chrome whose
+// geometry answers to the legacy desktop app, not to a control size that has
+// to work on a phone. Anything smaller reads as a toolbar button rather than a
+// destination — see `docs/design.md`.
+export const WEB_NAV_TILE_SIZE = 48;
+export const WEB_NAV_ICON_SIZE = 26;
+
 // Width (in dp) at or above which web shows the nav rail rather than the bottom
 // dock. Deliberately not `LARGE_DEVICE_MIN_WIDTH`: the rail takes its width *out
 // of* the tab content, while Today and Settings decide on multi-pane from the

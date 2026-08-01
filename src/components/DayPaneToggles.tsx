@@ -2,6 +2,7 @@ import { StyleSheet, View } from "react-native";
 
 import { VIEW_META } from "@/components/DayViewSwitcher";
 import { GlassIconButton } from "@/components/GlassIconButton";
+import type { TIconName } from "@/components/Icon.types";
 import { TTodayPane, TTodayPanes } from "@/hooks/useTodayPanes";
 import { useTheme } from "@/utils/theme";
 
@@ -24,8 +25,7 @@ type TDayPaneTogglesProps = {
 type TPaneToggleOption = {
   pane: TDisplayPane;
   label: string;
-  icon: (typeof VIEW_META)[TDisplayPane]["icon"];
-  ionicon: (typeof VIEW_META)[TDisplayPane]["ionicon"];
+  icon: TIconName;
   active: boolean;
   onToggle: () => void;
 };
@@ -52,7 +52,6 @@ export function paneToggleOptions(
     pane,
     label: VIEW_META[pane].label,
     icon: VIEW_META[pane].icon,
-    ionicon: VIEW_META[pane].ionicon,
     active: panes[pane],
     onToggle: () => onTogglePane(pane),
   }));
@@ -81,15 +80,15 @@ export function DayPaneToggles({
   );
 
   return (
-    <View style={[styles.row, { gap: theme.gap }]}>
+    <View style={[styles.row, { gap: theme.space.sm }]}>
       {options.map((option) => (
         <GlassIconButton
           key={option.pane}
           accessibilityLabel={`Toggle ${option.label.toLowerCase()} pane`}
           active={option.active}
-          ionicon={option.ionicon}
+          ionicon={option.icon.ionicon}
           onPress={option.onToggle}
-          sfSymbol={option.icon}
+          sfSymbol={option.icon.sf}
         />
       ))}
     </View>

@@ -1,94 +1,135 @@
 import { useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
+import { Icon } from "@/components/Icon";
 import { TList } from "@/api/lists";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 type TListRowProps = {
   list: TList;
   openCount: number;
+  /**
+   * Archives the list. Confirmation and the write itself live on the screen,
+   * which owns the one `ConfirmationModal` the rows share — a modal per row
+   * would mount one for every list on screen.
+   */
+  onArchive: () => void;
 };
 
 /**
- * A compact list row: emoji tile, title, and its open-task count. Tapping the
- * row opens the create/edit modal. Unlike HabitRow there's no inline toggle, so
- * the whole row is a single tap target.
+ * A compact list row: emoji tile, title, its open-task count, and an archive
+ * button. Tapping the row itself opens the create/edit modal.
+ *
+ * Shaped like `HabitRow` and for the same reason: the row hosts two separate
+ * tap targets, and nesting one Touchable inside another renders as a `<button>`
+ * inside a `<button>` on web, which is invalid DOM.
  */
-export function ListRow({ list, openCount }: TListRowProps) {
+export function ListRow({ list, openCount, onArchive }: TListRowProps) {
   const theme = useTheme();
   const router = useRouter();
 
   const subtitle = `${openCount} open`;
 
   return (
-    <TouchableOpacity
-      accessibilityRole="button"
-      accessibilityLabel={`Edit ${list.title}`}
-      onPress={() =>
-        router.push({
-          pathname: "/settings/lists/[id]",
-          params: { id: list.id },
-        })
-      }
-      style={styles.row}
-    >
-      <View
+    <View style={[styles.row, { gap: theme.space.sm }]}>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={`Edit ${list.title}`}
+        onPress={() =>
+          router.push({
+            pathname: "/settings/lists/[id]",
+            params: { id: list.id },
+          })
+        }
         style={[
-          styles.tile,
-          {
-            backgroundColor: withOpacity(theme.colors.text, 0.06),
-            borderRadius: theme.borderRadius,
-          },
+          styles.main,
+          // `md` between the emoji and its labels, matching `HabitRow`: with
+          // the tile's fill gone the glyph has no edge of its own, so it needs
+          // the wider step to read as separate from the title beside it.
+          { gap: theme.space.md, paddingVertical: theme.space.sm },
         ]}
       >
-        <Text style={styles.emoji}>{list.emoji}</Text>
-      </View>
+        <View
+          style={[
+            styles.tile,
+            {
+              // No fill behind the emoji: the glyph is the icon, and a tinted
+              // square under it read as a second, competing shape in the row.
+              height: theme.controls.md,
+              width: theme.controls.md,
+            },
+          ]}
+        >
+          <Text style={{ fontSize: theme.icons.md }}>{list.emoji}</Text>
+        </View>
 
-      <View style={styles.labels}>
-        <Text
-          numberOfLines={1}
-          style={[styles.title, { color: theme.colors.text }]}
-        >
-          {list.title}
-        </Text>
-        <Text
-          numberOfLines={1}
-          style={[styles.subtitle, { color: theme.colors.textSecondary }]}
-        >
-          {subtitle}
-        </Text>
-      </View>
-    </TouchableOpacity>
+        <View style={[styles.labels, { gap: theme.space.xs }]}>
+          <Text
+            numberOfLines={1}
+            style={[theme.fonts.title, { color: theme.colors.text }]}
+          >
+            {list.title}
+          </Text>
+          <Text
+            numberOfLines={1}
+            style={[
+              theme.fonts.subtitle,
+              { color: theme.colors.textSecondary },
+            ]}
+          >
+            {subtitle}
+          </Text>
+        </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={`Archive ${list.title}`}
+        hitSlop={theme.space.sm}
+        onPress={onArchive}
+        style={[
+          styles.archive,
+          { height: theme.controls.md, width: theme.controls.sm },
+        ]}
+        testID={`archive-list-${list.id}`}
+      >
+        {/* `error`, not the `textSecondary` habits' pause toggle uses: pausing
+            a habit is reversible in place, and archiving takes the list off
+            every screen it appears on. */}
+        <Icon
+          color={theme.colors.error}
+          ionicon="archive-outline"
+          sf="archivebox"
+          size={theme.icons.md}
+        />
+      </TouchableOpacity>
+    </View>
   );
 }
 
-const TILE_SIZE = 40;
-
 const styles = StyleSheet.create({
-  emoji: {
-    fontSize: 20,
-  },
   labels: {
     flex: 1,
-    gap: 2,
+  },
+  main: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
   },
   row: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 12,
-    paddingVertical: 8,
   },
-  subtitle: {
-    fontSize: 13,
+  // As tall as the emoji tile beside it, so the button centers on the row
+  // rather than on its own label block; narrower, since it holds one glyph.
+  archive: {
+    alignItems: "center",
+    justifyContent: "center",
   },
+  // The emoji is this row's leading icon, so it takes the icon scale rather
+  // than a type role — see `docs/design.md`.
   tile: {
     alignItems: "center",
-    height: TILE_SIZE,
     justifyContent: "center",
-    width: TILE_SIZE,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: "500",
   },
 });

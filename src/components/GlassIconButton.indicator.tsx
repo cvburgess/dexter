@@ -64,6 +64,7 @@ export function finishButton(
           styles.dot,
           {
             backgroundColor: theme.colors.priority[0],
+            borderRadius: theme.radii.full,
             // A ring in the surface color separates the dot from the button edge.
             borderColor: theme.colors.background,
           },
@@ -74,9 +75,11 @@ export function finishButton(
   );
 }
 
+// The dot's own geometry is decorative rather than part of the control scale —
+// it is sized to read as a badge on any button diameter, so it stays literal
+// (see the exceptions list in `docs/design.md`).
 const styles = StyleSheet.create({
   dot: {
-    borderRadius: 999,
     borderWidth: 1.5,
     height: 11,
     position: "absolute",

@@ -34,11 +34,7 @@ import { useTheme } from "@/utils/theme";
 /** What a repeat with nothing left to fire from says instead of its cadence. */
 const STALLED_DESCRIPTION = "Not recurring — no open task to repeat from";
 
-const PLAY_ICON = {
-  ios: "play.fill",
-  android: "play_arrow",
-  web: "play_arrow",
-} as const;
+const PLAY_ICON = { sf: "play.fill", ionicon: "play" } as const;
 
 export default function TasksScreen() {
   const theme = useTheme();
@@ -81,16 +77,18 @@ export default function TasksScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            padding: theme.spacing,
-            paddingBottom: theme.spacing + insets.bottom,
-            gap: theme.spacing,
+            padding: theme.space.md,
+            paddingBottom: theme.space.md + insets.bottom,
+            // The in-group step only: `SettingsSectionTitle` carries the `lg`
+            // between sections itself, so it applies wherever it renders (DEX-61).
+            gap: theme.space.sm,
           },
         ]}
       >
         {/* Alarms only ring on iOS, so the sound picker has nothing to offer
             elsewhere (DEX-72). */}
         {isAlarmSupported && (
-          <View style={styles.section}>
+          <View style={{ gap: theme.space.sm }}>
             <SettingsSectionTitle>Alarms</SettingsSectionTitle>
             <PickerField
               label="Sound"
@@ -158,14 +156,20 @@ function TemplateSection({
   const router = useRouter();
 
   return (
-    <View style={styles.section}>
+    <View style={{ gap: theme.space.sm }}>
       <SettingsSectionTitle>{title}</SettingsSectionTitle>
       {templates.length === 0 ? (
-        <Text style={[styles.empty, { color: theme.colors.textSecondary }]}>
+        <Text
+          style={[
+            theme.fonts.body,
+            { paddingVertical: theme.space.sm },
+            { color: theme.colors.textSecondary },
+          ]}
+        >
           {emptyText}
         </Text>
       ) : (
-        <View style={{ gap: theme.gap }}>
+        <View style={{ gap: theme.space.sm }}>
           {templates.map((template) => {
             // The stalled state replaces the cadence rather than sitting beside
             // it: "Every day" is what the row is failing to do, so restating it
@@ -209,12 +213,5 @@ const styles = StyleSheet.create({
   },
   content: {
     flexGrow: 1,
-  },
-  empty: {
-    fontSize: 14,
-    paddingVertical: 8,
-  },
-  section: {
-    gap: 10,
   },
 });

@@ -1,13 +1,14 @@
-import type { SymbolViewProps } from "expo-symbols";
 import type { ReactNode } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
+
+import type { TIconName } from "./Icon.types";
 
 /** A single selectable row in an `IconMenu` section. */
 export type TIconMenuOption = {
   id: string;
   title: string;
-  /** Icon rendered beside the label (SF Symbol / Material Symbol names). */
-  icon?: SymbolViewProps["name"];
+  /** Icon rendered beside the label. */
+  icon?: TIconName;
   /**
    * Tint for the icon. Applied on all platforms — on iOS the SF Symbol is
    * tinted through SwiftUI's `.tint` (see `patches/@expo+ui`, which fixes the
@@ -34,8 +35,8 @@ export type TIconMenuOption = {
  */
 export type TIconMenuSection = {
   title?: string;
-  /** Icon rendered beside the section title (SF Symbol / Material Symbol names). */
-  icon?: SymbolViewProps["name"];
+  /** Icon rendered beside the section title. */
+  icon?: TIconName;
   isSubmenu?: boolean;
   /**
    * Drops the rule above this section, so it reads as a continuation of the one

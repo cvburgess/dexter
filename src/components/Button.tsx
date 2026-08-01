@@ -31,9 +31,9 @@ export function Button({
       case "primary":
         return theme.colors.primary;
       case "dangerous":
-        return theme.colors.card;
+        return theme.colors.surfaceSunken;
       case "default":
-        return theme.colors.card;
+        return theme.colors.surfaceSunken;
     }
   };
 
@@ -52,11 +52,13 @@ export function Button({
     <TouchableOpacity
       style={[
         {
-          padding: theme.spacing,
-          borderRadius: theme.borderRadius,
+          padding: theme.space.md,
+          borderRadius: theme.radii.md,
           alignItems: "center",
           justifyContent: "center",
-          minHeight: 50,
+          // A step taller than a round icon button, so a full-width button
+          // still reads as the heavier tap target on either density tier.
+          minHeight: theme.controls.md + theme.space.sm,
           backgroundColor: getBackgroundColor(),
         },
         (disabled || isLoading) && styles.disabled,
@@ -68,7 +70,9 @@ export function Button({
       {isLoading ? (
         <ActivityIndicator color={getTextColor()} />
       ) : (
-        <Text style={[styles.text, { color: getTextColor() }]}>{children}</Text>
+        <Text style={{ ...theme.fonts.control, color: getTextColor() }}>
+          {children}
+        </Text>
       )}
     </TouchableOpacity>
   );
@@ -77,9 +81,5 @@ export function Button({
 const styles = StyleSheet.create({
   disabled: {
     opacity: 0.5,
-  },
-  text: {
-    fontSize: 16,
-    fontWeight: "600",
   },
 });

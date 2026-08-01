@@ -38,9 +38,9 @@ export default function SettingsScreen() {
         // the edges above omit `bottom` so rows scroll under the translucent
         // tab bar, and this is what lets the last one clear it (DEX-91).
         contentContainerStyle={{
-          gap: theme.gap,
-          padding: theme.spacing,
-          paddingBottom: theme.spacing + insets.bottom,
+          gap: theme.space.sm,
+          padding: theme.space.md,
+          paddingBottom: theme.space.md + insets.bottom,
         }}
         data={SETTINGS_ITEMS}
         keyExtractor={(item) => item.slug}
@@ -49,8 +49,8 @@ export default function SettingsScreen() {
             style={[
               styles.card,
               {
-                backgroundColor: theme.colors.card,
-                borderRadius: theme.borderRadius,
+                backgroundColor: theme.colors.surfaceSunken,
+                borderRadius: theme.radii.md,
               },
             ]}
           >

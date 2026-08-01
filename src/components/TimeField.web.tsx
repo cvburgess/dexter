@@ -1,4 +1,4 @@
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 import { TTimeFieldProps } from "./TimeField.types";
 
@@ -19,13 +19,13 @@ export function TimeField({ min, onChange, testID, value }: TTimeFieldProps) {
       min={min}
       onChange={(event) => onChange(event.target.value)}
       style={{
-        backgroundColor: theme.colors.card,
-        border: `1px solid ${withOpacity(theme.colors.text, 0.15)}`,
-        borderRadius: theme.borderRadius,
+        backgroundColor: theme.colors.surfaceSunken,
+        border: `1px solid ${theme.colors.border}`,
+        borderRadius: theme.radii.md,
         color: theme.colors.text,
         colorScheme: "light dark",
-        fontSize: 16,
-        padding: "8px 10px",
+        fontSize: theme.fonts.control.fontSize,
+        padding: `${theme.space.sm}px ${theme.space.sm}px`,
       }}
     />
   );

@@ -22,9 +22,12 @@ export function WebModalHeader({
       style={[
         styles.container,
         {
-          backgroundColor: theme.colors.card,
-          borderBottomColor: theme.colors.textSecondary,
-          paddingVertical: theme.spacing,
+          backgroundColor: theme.colors.surfaceSunken,
+          // The shared hairline token, not `textSecondary`: this header was the
+          // one border in the app drawn a full step darker than every other
+          // (DEX-61).
+          borderBottomColor: theme.colors.border,
+          paddingVertical: theme.space.md,
         },
       ]}
     >

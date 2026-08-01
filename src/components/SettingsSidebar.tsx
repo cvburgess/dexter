@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SettingsIcon } from "@/components/SettingsIcon";
 import { SETTINGS_ITEMS } from "@/utils/settingsItems";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 /**
  * The persistent master list shown alongside the detail pane on large screens
@@ -33,21 +33,35 @@ export function SettingsSidebar() {
       style={[
         styles.container,
         {
+          // `background`, matching the detail pane it sits beside rather than
+          // the app's nav rail further left. The two panes are one settings
+          // surface; the rail is the chrome around it, and giving this the
+          // rail's `surfaceSunken` grouped it with the wrong neighbour.
+          //
+          // That makes the hairline below load-bearing — it is now the only
+          // thing dividing the master list from the detail, so it can't be
+          // dropped without the two running together.
           backgroundColor: theme.colors.background,
-          borderRightColor: withOpacity(theme.colors.text, 0.1),
+          borderRightColor: theme.colors.border,
         },
       ]}
     >
       <ScrollView
         contentContainerStyle={{
-          padding: theme.spacing,
-          paddingLeft: theme.spacing + insets.left,
-          paddingTop: theme.spacing + insets.top,
-          paddingBottom: theme.spacing + insets.bottom,
-          gap: theme.gap,
+          padding: theme.space.md,
+          paddingLeft: theme.space.md + insets.left,
+          paddingTop: theme.space.md + insets.top,
+          paddingBottom: theme.space.md + insets.bottom,
+          gap: theme.space.sm,
         }}
       >
-        <Text style={[styles.heading, { color: theme.colors.text }]}>
+        <Text
+          style={{
+            ...theme.fonts.heading,
+            color: theme.colors.text,
+            marginBottom: theme.space.xs,
+          }}
+        >
           Settings
         </Text>
 
@@ -69,13 +83,20 @@ export function SettingsSidebar() {
                   backgroundColor: selected
                     ? theme.colors.primary
                     : "transparent",
-                  borderRadius: theme.borderRadius,
+                  borderRadius: theme.radii.md,
+                  gap: theme.space.sm,
+                  paddingHorizontal: theme.space.md,
+                  paddingVertical: theme.space.md,
                 },
               ]}
               testID={`settings-sidebar-${item.slug}`}
             >
-              <SettingsIcon name={item.icon} size={20} color={contentColor} />
-              <Text style={[styles.label, { color: contentColor }]}>
+              <SettingsIcon
+                name={item.icon}
+                size={theme.icons.md}
+                color={contentColor}
+              />
+              <Text style={{ ...theme.fonts.title, color: contentColor }}>
                 {item.title}
               </Text>
             </TouchableOpacity>
@@ -91,20 +112,8 @@ const styles = StyleSheet.create({
     borderRightWidth: StyleSheet.hairlineWidth,
     width: 280,
   },
-  heading: {
-    fontSize: 22,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
   row: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
   },
 });

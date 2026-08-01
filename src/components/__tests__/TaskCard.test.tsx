@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { StyleSheet, type TextStyle, type ViewStyle } from "react-native";
 
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
+import { themes } from "@/utils/theme";
 
 import { TaskCard } from "../TaskCard";
 
@@ -341,14 +342,19 @@ describe("TaskCard", () => {
       />,
     );
 
-    const backgroundAlpha = (screen: ReturnType<typeof render>) => {
-      const card = screen.getByTestId("task-card-task-1");
-      const background = StyleSheet.flatten(card.props.style as ViewStyle[])
-        .backgroundColor as string;
-      return Number(background.match(/[\d.]+(?=\)$)/)?.[0]);
-    };
+    const background = (screen: ReturnType<typeof render>) =>
+      StyleSheet.flatten(
+        screen.getByTestId("task-card-task-1").props.style as ViewStyle[],
+      ).backgroundColor as string;
 
-    expect(backgroundAlpha(done)).toBeLessThan(backgroundAlpha(incomplete));
+    // An incomplete card is the solid pre-blended fill (DEX-61); a complete one
+    // fades the raw priority color to a faint tint, so it still reads as the
+    // fainter of the two.
+    expect(background(incomplete)).toBe(
+      themes.dexter.colors.priorityMuted[baseTask.priority],
+    );
+    const doneAlpha = Number(background(done).match(/[\d.]+(?=\)$)/)?.[0]);
+    expect(doneAlpha).toBeLessThan(1);
   });
 
   // DEX-47: the Search tab renders these same cards, but there a tap should

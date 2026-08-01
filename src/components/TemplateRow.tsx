@@ -1,8 +1,10 @@
-import { SymbolView, SymbolViewProps } from "expo-symbols";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { TTemplate } from "@/api/templates";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
+
+import { Icon } from "./Icon";
+import type { TIconName } from "./Icon.types";
 
 type TTemplateRowProps = {
   template: TTemplate;
@@ -21,7 +23,7 @@ type TTemplateRowProps = {
    * stalled repeat. Its presence restructures the row — see the comment below.
    */
   action?: {
-    icon: SymbolViewProps["name"];
+    icon: TIconName;
     accessibilityLabel: string;
     onPress: () => void;
   };
@@ -51,28 +53,28 @@ export function TemplateRow({
   const cardStyle = [
     styles.card,
     {
-      backgroundColor: theme.colors.card,
-      borderRadius: theme.borderRadius,
+      backgroundColor: theme.colors.surfaceSunken,
+      borderRadius: theme.radii.md,
       // Matches the theme cards in Settings → Appearance.
-      borderColor: selected
-        ? theme.colors.primary
-        : withOpacity(theme.colors.text, 0.1),
+      borderColor: selected ? theme.colors.primary : theme.colors.border,
       borderWidth: selected ? 2 : StyleSheet.hairlineWidth,
+      gap: theme.space.sm,
+      padding: theme.space.md,
     },
   ];
 
   const body = (
-    <View style={styles.body}>
+    <View style={[styles.body, { gap: theme.space.xs }]}>
       <Text
         numberOfLines={1}
-        style={[styles.title, { color: theme.colors.text }]}
+        style={[theme.fonts.title, { color: theme.colors.text }]}
       >
         {template.title || "Untitled task"}
       </Text>
       <Text
         numberOfLines={1}
         style={[
-          styles.description,
+          theme.fonts.subtitle,
           {
             color: isStalled ? theme.colors.error : theme.colors.textSecondary,
           },
@@ -84,17 +86,10 @@ export function TemplateRow({
   );
 
   const check = selected ? (
-    <SymbolView
-      // Needs all three platforms: `expo-symbols` renders nothing for a
-      // bare SF Symbol name off iOS, which would leave the picker's only
-      // selection glyph missing on Android and web.
-      name={{
-        ios: "checkmark.circle.fill",
-        android: "check_circle",
-        web: "check_circle",
-      }}
-      size={18}
-      tintColor={theme.colors.primary}
+    <Icon
+      sf="checkmark.circle.fill"
+      ionicon="checkmark-circle"
+      color={theme.colors.primary}
     />
   ) : null;
 
@@ -118,15 +113,11 @@ export function TemplateRow({
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityLabel={action.accessibilityLabel}
-          hitSlop={8}
+          hitSlop={theme.space.sm}
           onPress={action.onPress}
-          style={styles.action}
+          style={[styles.action, { width: theme.icons.md }]}
         >
-          <SymbolView
-            name={action.icon}
-            size={18}
-            tintColor={theme.colors.primary}
-          />
+          <Icon {...action.icon} color={theme.colors.primary} />
         </TouchableOpacity>
       </View>
     );
@@ -151,28 +142,17 @@ const styles = StyleSheet.create({
   action: {
     alignItems: "center",
     justifyContent: "center",
-    width: 24,
   },
   body: {
     flex: 1,
-    gap: 4,
   },
   card: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 12,
-    padding: 16,
-  },
-  description: {
-    fontSize: 13,
   },
   main: {
     alignItems: "center",
     flex: 1,
     flexDirection: "row",
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: "500",
   },
 });

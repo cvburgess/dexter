@@ -41,23 +41,41 @@ export default function LicensesScreen() {
   const renderItem = ({ item }: { item: TLicenseItem }) => (
     <View
       style={{
-        backgroundColor: theme.colors.card,
-        borderRadius: theme.borderRadius,
-        padding: theme.spacing,
+        backgroundColor: theme.colors.surfaceSunken,
+        borderRadius: theme.radii.md,
+        padding: theme.space.md,
       }}
     >
-      <Text style={[styles.licenseName, { color: theme.colors.text }]}>
+      <Text
+        style={[
+          theme.fonts.title,
+          { marginBottom: theme.space.xs },
+          { color: theme.colors.text },
+        ]}
+      >
         {item.name}
       </Text>
-      <Text style={[styles.licenseType, { color: theme.colors.textSecondary }]}>
+      <Text
+        style={[
+          theme.fonts.body,
+          { marginTop: theme.space.xs },
+          { color: theme.colors.textSecondary },
+        ]}
+      >
         License: {item.license}
       </Text>
     </View>
   );
 
   const ListHeaderComponent = () => (
-    <View style={styles.header}>
-      <Text style={[styles.description, { color: theme.colors.textSecondary }]}>
+    <View style={{ marginBottom: theme.space.sm }}>
+      <Text
+        style={[
+          theme.fonts.body,
+          styles.description,
+          { color: theme.colors.textSecondary },
+        ]}
+      >
         This app uses the following open source libraries:
       </Text>
     </View>
@@ -77,9 +95,9 @@ export default function LicensesScreen() {
         // the edges above omit `bottom` so rows scroll under the tab bar
         // (DEX-91).
         contentContainerStyle={{
-          gap: theme.gap,
-          padding: theme.spacing,
-          paddingBottom: theme.spacing + insets.bottom,
+          gap: theme.space.sm,
+          padding: theme.space.md,
+          paddingBottom: theme.space.md + insets.bottom,
         }}
       />
     </SafeAreaView>
@@ -91,19 +109,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   description: {
-    fontSize: 14,
     lineHeight: 20,
-  },
-  header: {
-    marginBottom: 8,
-  },
-  licenseName: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  licenseType: {
-    fontSize: 14,
-    marginTop: 4,
   },
 });

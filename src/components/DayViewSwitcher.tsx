@@ -1,42 +1,33 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
-import type { SymbolViewProps } from "expo-symbols";
-import type { ComponentProps } from "react";
-
 import { useTheme } from "@/utils/theme";
 
 import { GlassIconButton } from "./GlassIconButton";
+import type { TIconName } from "./Icon.types";
 import { IconMenu } from "./IconMenu";
 import { TIconMenuOption, TIconMenuSection } from "./IconMenu.types";
 
 /** The day views selectable from the Today tab. */
 export type TDayView = "tasks" | "notes" | "journal" | "calendar";
 
-const BUTTON_SIZE = 40;
-
 /**
  * Icon metadata for each day view, shared with `DayPaneToggles` (the
  * large-screen equivalent) so both surfaces use the same icons/labels.
  */
-export const VIEW_META: Record<
-  TDayView,
-  {
-    label: string;
-    /** SF Symbol (iOS) + Ionicons (Android/web) for the circular button icon. */
-    icon: SymbolViewProps["name"];
-    ionicon: ComponentProps<typeof Ionicons>["name"];
-  }
-> = {
-  tasks: { label: "Tasks", icon: "checklist", ionicon: "list-outline" },
+export const VIEW_META: Record<TDayView, { label: string; icon: TIconName }> = {
+  tasks: {
+    label: "Tasks",
+    icon: { sf: "checklist", ionicon: "list-outline" },
+  },
   notes: {
     label: "Notes",
-    icon: "note.text",
-    ionicon: "document-text-outline",
+    icon: { sf: "note.text", ionicon: "document-text-outline" },
   },
-  journal: { label: "Journal", icon: "book", ionicon: "book-outline" },
+  journal: {
+    label: "Journal",
+    icon: { sf: "book", ionicon: "book-outline" },
+  },
   calendar: {
     label: "Calendar",
-    icon: "calendar",
-    ionicon: "calendar-outline",
+    icon: { sf: "calendar", ionicon: "calendar-outline" },
   },
 };
 
@@ -130,7 +121,7 @@ export function DayViewSwitcher({
         {
           id: "drawer",
           title: "Backlog",
-          icon: "tray.full",
+          icon: { sf: "tray.full", ionicon: "file-tray-full-outline" },
           iconColor: attentionColor,
           titleColor: attentionColor,
           onSelect: onOpenDrawer,
@@ -146,14 +137,13 @@ export function DayViewSwitcher({
     <IconMenu
       accessibilityLabel="Switch view"
       sections={sections}
-      style={{ width: BUTTON_SIZE, height: BUTTON_SIZE }}
+      style={{ width: theme.controls.md, height: theme.controls.md }}
     >
       <GlassIconButton
         accessibilityLabel="Switch view"
         indicator={attention}
-        ionicon={VIEW_META[view].ionicon}
-        sfSymbol={VIEW_META[view].icon}
-        size={BUTTON_SIZE}
+        ionicon={VIEW_META[view].icon.ionicon}
+        sfSymbol={VIEW_META[view].icon.sf}
       />
     </IconMenu>
   );

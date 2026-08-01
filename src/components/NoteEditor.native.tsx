@@ -12,7 +12,7 @@ import {
   type StyleState,
 } from "react-native-enriched-markdown";
 
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 import { TNoteEditorProps } from "./NoteEditor.types";
 
@@ -43,8 +43,16 @@ const BAR_HEIGHT = 44;
 type TFormatControl = {
   /** `StyleState` key whose `isActive` drives this button's highlight. */
   key: keyof StyleState;
-  /** SF Symbol (iOS) + Material Symbol (Android/web) — needs both so the icon
-   * renders off iOS: `expo-symbols` yields nothing for a bare string name. */
+  /**
+   * SF Symbol (iOS) + Material Symbol (Android) — needs both so the icon renders
+   * off iOS: `expo-symbols` yields nothing for a bare string name.
+   *
+   * The one place in the app that still names a Material Symbol rather than
+   * going through `Icon` (DEX-61): Ionicons has no bold/italic/underline/
+   * strikethrough glyph, so there is nothing to convert these four to. This file
+   * is `.native.tsx`, so the web half of the fallback is unreachable and only
+   * Android draws them. See `docs/design.md`.
+   */
   symbol: SymbolViewProps["name"];
   label: string;
   /** Instance method toggled on press. */
@@ -158,7 +166,10 @@ export function NoteEditor({
           selectionColor={theme.colors.primary}
           style={StyleSheet.flatten([
             styles.editor,
-            { color: theme.colors.text },
+            // Body copy, not a heading: the writing surface takes the same role
+            // token as the rest of the app's prose.
+            theme.fonts.body,
+            { color: theme.colors.text, padding: theme.space.md },
           ])}
           testID={testID}
         />
@@ -169,12 +180,13 @@ export function NoteEditor({
             styles.accessory,
             barStyle,
             {
-              backgroundColor: theme.colors.card,
-              borderTopColor: withOpacity(theme.colors.text, 0.1),
+              backgroundColor: theme.colors.surfaceSunken,
+              borderTopColor: theme.colors.border,
+              paddingHorizontal: theme.space.md,
             },
           ]}
         >
-          <View style={styles.tools}>
+          <View style={[styles.tools, { gap: theme.space.lg }]}>
             {FORMAT_CONTROLS.map((control) => {
               const active = state?.[control.key].isActive ?? false;
               return (
@@ -183,13 +195,13 @@ export function NoteEditor({
                   accessibilityLabel={control.label}
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
-                  hitSlop={12}
+                  hitSlop={theme.space.sm}
                   onPress={() => inputRef.current?.[control.method]()}
                   style={styles.tool}
                 >
                   <SymbolView
                     name={control.symbol}
-                    size={20}
+                    size={theme.icons.md}
                     tintColor={
                       active ? theme.colors.primary : theme.colors.textSecondary
                     }
@@ -200,10 +212,12 @@ export function NoteEditor({
           </View>
           <Pressable
             accessibilityRole="button"
-            hitSlop={12}
+            hitSlop={theme.space.sm}
             onPress={() => inputRef.current?.blur()}
           >
-            <Text style={[styles.doneLabel, { color: theme.colors.primary }]}>
+            <Text
+              style={[theme.fonts.control, { color: theme.colors.primary }]}
+            >
               Done
             </Text>
           </Pressable>
@@ -224,8 +238,6 @@ const styles = StyleSheet.create({
   },
   editor: {
     flex: 1,
-    fontSize: 16,
-    padding: 16,
   },
   accessory: {
     alignItems: "center",
@@ -235,21 +247,15 @@ const styles = StyleSheet.create({
     height: BAR_HEIGHT,
     justifyContent: "space-between",
     left: 0,
-    paddingHorizontal: 16,
     position: "absolute",
     right: 0,
   },
   tools: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 20,
   },
   tool: {
     alignItems: "center",
     justifyContent: "center",
-  },
-  doneLabel: {
-    fontSize: 16,
-    fontWeight: "600",
   },
 });

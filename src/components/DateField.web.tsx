@@ -107,11 +107,13 @@ export function DateField({
           left: anchor.left,
           width: POPOVER_WIDTH,
           zIndex: 9999,
-          backgroundColor: theme.colors.card,
-          border: `1px solid ${withOpacity(theme.colors.text, 0.15)}`,
-          borderRadius: theme.borderRadius,
-          boxShadow: "0 4px 16px rgba(0, 0, 0, 0.2)",
-          padding: 8,
+          backgroundColor: theme.colors.surfaceSunken,
+          border: `1px solid ${theme.colors.border}`,
+          borderRadius: theme.radii.md,
+          // Derived from `text`, not a fixed black: a shadow tuned for a light
+          // surface is invisible on a dark one (DEX-61).
+          boxShadow: `0 4px 16px ${withOpacity(theme.colors.text, 0.2)}`,
+          padding: theme.space.sm,
         }}
       >
         <DayPicker
@@ -144,8 +146,8 @@ export function DateField({
           color: theme.colors.text,
           cursor: "pointer",
           fontFamily: SYSTEM_FONT,
-          fontSize: 16,
-          fontWeight: 600,
+          fontSize: theme.fonts.control.fontSize,
+          fontWeight: theme.fonts.control.fontWeight,
           padding: 0,
         }}
       >

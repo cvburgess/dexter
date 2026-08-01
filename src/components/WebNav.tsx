@@ -13,9 +13,13 @@ import {
   type TSettingsIconName,
 } from "@/components/SettingsIcon";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
-import { WEB_NAV_RAIL_WIDTH } from "@/utils/breakpoints";
+import {
+  WEB_NAV_ICON_SIZE,
+  WEB_NAV_RAIL_WIDTH,
+  WEB_NAV_TILE_SIZE,
+} from "@/utils/breakpoints";
 import { newTaskRoute } from "@/utils/newTaskRoute";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { Theme, useTheme, withOpacity } from "@/utils/theme";
 
 // The string branch of `Href` — every nav destination is a static path, so the
 // object form (`{pathname, params}`) never applies and prefix-matching an active
@@ -143,9 +147,13 @@ export function WebNavRail() {
       style={[
         styles.rail,
         {
-          backgroundColor: theme.colors.background,
-          gap: theme.gap,
-          paddingVertical: theme.spacing,
+          // Sunken, not `background`: the rail is chrome beside the content
+          // pane, and on the same surface the two read as one sheet (DEX-61).
+          // The tiles' own `background` fill is what lifts them off it — they
+          // read as pieces of the content sheet floating on the chrome.
+          backgroundColor: theme.colors.surfaceSunken,
+          gap: theme.space.md,
+          paddingVertical: theme.space.md,
         },
       ]}
     >
@@ -160,11 +168,11 @@ export function WebNavRail() {
               // can't merge an array style with the props it injects.
               style={StyleSheet.flatten([
                 styles.tile,
+                tileStyle(theme),
                 {
                   backgroundColor: selected
                     ? withOpacity(theme.colors.text, 0.8)
-                    : theme.colors.card,
-                  borderRadius: theme.borderRadius,
+                    : theme.colors.background,
                   // Absorbs the rail's leftover height, pushing this item — and
                   // the "+" that follows it — to the bottom.
                   marginTop: item.pinnedToBottom ? "auto" : 0,
@@ -174,7 +182,7 @@ export function WebNavRail() {
               <SettingsIcon
                 color={selected ? theme.colors.background : theme.colors.text}
                 name={item.icon}
-                size={26}
+                size={WEB_NAV_ICON_SIZE}
               />
             </Pressable>
           </Link>
@@ -187,17 +195,15 @@ export function WebNavRail() {
         onPress={openNewTask}
         style={[
           styles.tile,
-          {
-            backgroundColor: theme.colors.primary,
-            borderRadius: theme.borderRadius,
-          },
+          tileStyle(theme),
+          { backgroundColor: theme.colors.primary },
         ]}
         testID="web-nav-new-task"
       >
         <SettingsIcon
           color={theme.colors.primaryContent}
           name="add"
-          size={26}
+          size={WEB_NAV_ICON_SIZE}
         />
       </TouchableOpacity>
     </View>
@@ -221,15 +227,17 @@ export function WebNavDock() {
       style={[
         styles.dock,
         {
-          backgroundColor: theme.colors.background,
-          borderTopColor: withOpacity(theme.colors.text, 0.1),
+          // Sunken for the same reason as the rail above.
+          backgroundColor: theme.colors.surfaceSunken,
+          borderTopColor: theme.colors.border,
+          paddingTop: theme.space.sm,
           // Reserves the home-indicator inset. Inert as things stand: on web
           // react-native-safe-area-context reads `env(safe-area-inset-*)`,
           // which only resolves non-zero when the page opts into
           // `viewport-fit=cover` — Expo's default web template (this app has no
           // `public/index.html` override) does not. Kept so the dock is already
           // correct if that ever changes.
-          paddingBottom: 8 + insets.bottom,
+          paddingBottom: theme.space.sm + insets.bottom,
         },
       ]}
     >
@@ -243,14 +251,24 @@ export function WebNavDock() {
           <Link asChild href={item.href} key={item.key}>
             <Pressable
               {...navItemProps(item, selected)}
-              style={styles.dockItem}
+              // Flattened for the same reason as the rail's tile above — the
+              // `Slot` behind `asChild` can't merge an array style with the
+              // props it injects, and errors out instead of styling the item.
+              style={StyleSheet.flatten([
+                styles.dockItem,
+                { gap: theme.space.xs },
+              ])}
             >
-              <View style={styles.dockIconSlot}>
-                <SettingsIcon color={color} name={item.icon} size={20} />
+              <View style={[styles.dockIconSlot, iconSlotStyle(theme)]}>
+                <SettingsIcon
+                  color={color}
+                  name={item.icon}
+                  size={theme.icons.md}
+                />
               </View>
               <Text
                 style={[
-                  styles.dockLabel,
+                  theme.fonts.body,
                   { color, fontWeight: selected ? "500" : "400" },
                 ]}
               >
@@ -265,28 +283,31 @@ export function WebNavDock() {
         accessibilityLabel="New Task"
         accessibilityRole="button"
         onPress={openNewTask}
-        style={styles.dockItem}
+        style={[styles.dockItem, { gap: theme.space.xs }]}
         testID="web-nav-new-task"
       >
         <View
           style={[
             styles.dockIconSlot,
-            styles.dockNewTaskChip,
+            iconSlotStyle(theme),
             {
               backgroundColor: theme.colors.primary,
-              borderRadius: theme.borderRadius,
+              borderRadius: theme.radii.md,
+              // Wider than the icon band is tall so the glyph has breathing room
+              // inside the primary fill instead of running edge to edge.
+              width: theme.icons.md + theme.space.md,
             },
           ]}
         >
           <SettingsIcon
             color={theme.colors.primaryContent}
             name="add"
-            size={20}
+            size={theme.icons.md}
           />
         </View>
         <Text
           style={[
-            styles.dockLabel,
+            theme.fonts.body,
             { color: withOpacity(theme.colors.text, 0.8) },
           ]}
         >
@@ -297,6 +318,22 @@ export function WebNavDock() {
   );
 }
 
+/** The rail tile's box; see `WebNavRail` and `WEB_NAV_TILE_SIZE`. */
+const tileStyle = (theme: Theme) => ({
+  borderRadius: theme.radii.md,
+  boxShadow: `0 1px 3px ${withOpacity(theme.colors.text, 0.12)}`,
+  height: WEB_NAV_TILE_SIZE,
+  width: WEB_NAV_TILE_SIZE,
+});
+
+/**
+ * A fixed-height icon band so every dock label sits on the same baseline,
+ * whether the item is a bare icon or the "+" chip beside it.
+ */
+const iconSlotStyle = (theme: Theme) => ({
+  height: theme.icons.md + theme.space.xs,
+});
+
 const styles = StyleSheet.create({
   rail: {
     alignItems: "center",
@@ -306,40 +343,24 @@ const styles = StyleSheet.create({
     alignSelf: "stretch",
     width: WEB_NAV_RAIL_WIDTH,
   },
-  // Legacy parity: a 48pt square card that sits a step above the rail's sunken
-  // background, lifted by a soft shadow rather than a border.
+  // Lifted off the rail's sunken background by a soft shadow rather than a
+  // border; `tileStyle` carries the box.
   tile: {
     alignItems: "center",
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.12)",
-    height: 48,
     justifyContent: "center",
-    width: 48,
   },
   dock: {
     borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
-    paddingTop: 8,
   },
   // Equal columns rather than `space-around`, which would distribute around the
   // labels' differing widths and leave "New Task" crowding its neighbor.
   dockItem: {
     alignItems: "center",
     flex: 1,
-    gap: 2,
   },
-  // A fixed-height icon band so every label sits on the same baseline, whether
-  // the item is a bare icon or the "+" chip below.
   dockIconSlot: {
     alignItems: "center",
-    height: 24,
     justifyContent: "center",
-  },
-  dockLabel: {
-    fontSize: 11,
-  },
-  // Wider than the icon band is tall so the glyph has breathing room inside the
-  // primary fill instead of running edge to edge.
-  dockNewTaskChip: {
-    width: 34,
   },
 });

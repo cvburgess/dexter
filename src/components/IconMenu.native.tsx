@@ -29,7 +29,10 @@ export function IconMenu({
   const toAction = (option: TIconMenuOption): TMenuAction => ({
     id: option.id,
     title: option.title,
-    image: typeof option.icon === "string" ? option.icon : option.icon?.ios,
+    // The SF Symbol name. `MenuView`'s `image` takes one string, so Android —
+    // which would want a drawable name — draws no icon; that was already true
+    // before the Ionicons switch (DEX-61) and is unchanged by it.
+    image: option.icon?.sf,
     imageColor: option.iconColor,
     // Android label color. iOS colors the icon from `imageColor` (via the
     // `patches/@expo+ui` tint fix) but can't recolor a menu label
@@ -63,10 +66,7 @@ export function IconMenu({
               {
                 id: `section-${index}`,
                 title: section.title ?? "",
-                image:
-                  typeof section.icon === "string"
-                    ? section.icon
-                    : section.icon?.ios,
+                image: section.icon?.sf,
                 displayInline: !section.isSubmenu,
                 subactions: section.options.map(toAction),
               },

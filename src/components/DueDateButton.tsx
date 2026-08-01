@@ -1,6 +1,8 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { StyleSheet, Text, View } from "react-native";
 
+import { useTheme } from "@/utils/theme";
+
 type TDueDateButtonProps = {
   dueOn: string | null;
   priorityColor: string;
@@ -19,6 +21,8 @@ export function DueDateButton({
   priorityColor,
   contentColor,
 }: TDueDateButtonProps) {
+  const theme = useTheme();
+
   if (!dueOn) return null;
 
   const daysUntilDue = Temporal.Now.plainDateISO().until(
@@ -32,9 +36,20 @@ export function DueDateButton({
   return (
     <View
       testID="due-date-badge"
-      style={[styles.badge, { backgroundColor, borderColor: foregroundColor }]}
+      style={[
+        styles.badge,
+        {
+          backgroundColor,
+          borderColor: foregroundColor,
+          borderRadius: theme.radii.full,
+          height: theme.controls.sm,
+          // A pill, not a circle: a three-digit countdown has to fit.
+          minWidth: theme.controls.sm,
+          paddingHorizontal: theme.space.xs,
+        },
+      ]}
     >
-      <Text style={[styles.text, { color: foregroundColor }]}>
+      <Text style={[theme.fonts.body, { color: foregroundColor }]}>
         {daysUntilDue}
       </Text>
     </View>
@@ -44,15 +59,7 @@ export function DueDateButton({
 const styles = StyleSheet.create({
   badge: {
     alignItems: "center",
-    borderRadius: 999,
     borderWidth: 1,
-    height: 32,
     justifyContent: "center",
-    minWidth: 32,
-    paddingHorizontal: 6,
-  },
-  text: {
-    fontSize: 13,
-    fontWeight: "600",
   },
 });

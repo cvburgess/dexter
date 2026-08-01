@@ -4,7 +4,7 @@ import { StyleSheet, View } from "react-native";
 import { ETaskPriority } from "@/api/tasks";
 import { useNotes } from "@/hooks/useNotes";
 import { usePreferences } from "@/hooks/usePreferences";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 import { Button } from "./Button";
 import { EmptyScreen } from "./EmptyScreen";
@@ -148,21 +148,22 @@ export function NotesView({
   }
 
   // Experiment: sit the note on a card styled like an incomplete "Neither"
-  // task (TaskCard: priority color at 80%, content color at 10% for the
-  // border), inset with the same 16pt gutter as the task list.
-  const priorityColor = theme.colors.priority[ETaskPriority.NEITHER];
-  const contentColor = theme.colors.priorityContent[ETaskPriority.NEITHER];
+  // task (`priorityMuted`, the same solid fill TaskCard draws), inset with the
+  // same gutter as the task list.
 
   // `inset` bundles three chrome decisions that only ever change together —
   // derive them here once rather than three scattered ternaries in the JSX.
   const chrome = inset
     ? {
-        wrapper: styles.cardWrapper,
+        wrapper: [
+          styles.cardWrapper,
+          { paddingHorizontal: theme.space.md, paddingTop: theme.space.md },
+        ],
         card: styles.card,
-        backgroundColor: withOpacity(priorityColor, 0.8),
+        backgroundColor: theme.colors.priorityMuted[ETaskPriority.NEITHER],
       }
     : {
-        wrapper: [styles.cardWrapper, styles.cardWrapperFlush],
+        wrapper: styles.cardWrapper,
         card: [styles.card, styles.cardBorderless],
         backgroundColor: "transparent",
       };
@@ -174,8 +175,8 @@ export function NotesView({
           chrome.card,
           {
             backgroundColor: chrome.backgroundColor,
-            borderColor: withOpacity(contentColor, 0.1),
-            borderRadius: theme.borderRadius,
+            borderColor: theme.colors.border,
+            borderRadius: theme.radii.md,
           },
         ]}
       >
@@ -192,22 +193,14 @@ export function NotesView({
 }
 
 const styles = StyleSheet.create({
-  // Same 16pt gutter the task list uses (today/index.tsx `list`) on the top and
-  // sides — but no bottom gutter, so the card runs to the bottom edge.
+  // Same gutter the task list uses (today/index.tsx `list`) on the top and
+  // sides — but no bottom gutter, so the card runs to the bottom edge. The
+  // inset itself is applied inline; see `chrome` above.
   cardWrapper: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 16,
   },
-  // The large-screen layout already gives every pane its own column gutter
-  // (see today/index.tsx), so the card runs flush there instead of doubling
-  // up on inset.
-  cardWrapperFlush: {
-    paddingHorizontal: 0,
-    paddingTop: 0,
-  },
-  // Matches TaskCard's container: theme radius, 1pt border, clipped corners. The
-  // editor's own 16pt padding supplies the inner padding (TaskCard uses 16).
+  // Matches TaskCard's container: theme radius, 1pt border, clipped corners.
+  // The editor's own padding supplies the inner padding, on the same token.
   // The negative bottom margin pushes the rounded bottom corners past the screen
   // edge so the card looks like it trails off rather than ending in the viewport;
   // the matching paddingBottom keeps the editor *content* on-screen (only the

@@ -1,4 +1,3 @@
-import { SymbolView } from "expo-symbols";
 import { type MouseEvent, useEffect, useRef, useState } from "react";
 import {
   Dimensions,
@@ -11,18 +10,21 @@ import {
   View,
 } from "react-native";
 
-import { useTheme, withOpacity } from "@/utils/theme";
+import { Theme, useTheme, withOpacity } from "@/utils/theme";
 
+import { Icon } from "./Icon";
 import type {
   IconMenuProps,
   TIconMenuOption,
   TIconMenuSection,
 } from "./IconMenu.types";
 
+// The menu's own dimensions: a popover is sized to hold labels comfortably and
+// to stop short of the viewport edge, which is not a question the spacing scale
+// answers. Its insets and type *are* tokenized.
 const MENU_WIDTH = 220;
 const MENU_MARGIN = 8;
-/** Icon size, and so the width of the checkmark column that aligns with it. */
-const ICON_SIZE = 18;
+const MENU_MAX_HEIGHT = 320;
 
 // Explicit `titleColor` override, else destructive red, else default text —
 // shared by the leaf and submenu option rows so their label color can't drift.
@@ -49,9 +51,7 @@ export function IconMenu({
   style,
 }: IconMenuProps) {
   const theme = useTheme();
-  // Divider tint derived from the text color so it reads on both schemes,
-  // rather than a fixed gray that washes out on dark backgrounds.
-  const dividerBorderColor = withOpacity(theme.colors.text, 0.15);
+  const dividerBorderColor = theme.colors.border;
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const isLongPress = trigger === "longPress";
@@ -135,27 +135,32 @@ export function IconMenu({
       </div>
       {anchor ? (
         <Modal visible transparent animationType="fade" onRequestClose={close}>
-          <Pressable style={styles.overlay} onPress={close}>
+          <Pressable
+            style={[
+              styles.overlay,
+              // Scrim and shadow are both derived from `text`, like the divider
+              // above: a fixed black wash is all but invisible over a dark
+              // theme's surface (DEX-61), where the contrast color is light.
+              { backgroundColor: withOpacity(theme.colors.text, 0.15) },
+            ]}
+            onPress={close}
+          >
             <ScrollView
               style={[
                 styles.menu,
                 {
-                  backgroundColor: theme.colors.card,
-                  borderRadius: theme.borderRadius,
+                  backgroundColor: theme.colors.surfaceSunken,
+                  borderRadius: theme.radii.md,
+                  boxShadow: `0px 2px 8px ${withOpacity(theme.colors.text, 0.25)}`,
                   position: "absolute",
                   top: anchor.y,
                   left: anchor.x,
                 },
               ]}
-              contentContainerStyle={styles.menuContent}
+              contentContainerStyle={{ paddingVertical: theme.space.sm }}
             >
               {menuTitle ? (
-                <Text
-                  style={[
-                    styles.menuTitle,
-                    { color: theme.colors.textSecondary },
-                  ]}
-                >
+                <Text style={[theme.fonts.title, sectionTitleStyle(theme)]}>
                   {menuTitle}
                 </Text>
               ) : null}
@@ -191,6 +196,20 @@ export function IconMenu({
   );
 }
 
+// Sizes that vary by density can't live in `StyleSheet.create`, so the rules
+// shared between the section header and its rows are built per theme instead.
+const sectionTitleStyle = (theme: Theme) => ({
+  color: theme.colors.textSecondary,
+  paddingHorizontal: theme.space.md,
+  paddingVertical: theme.space.xs,
+});
+
+const optionRowStyle = (theme: Theme) => ({
+  gap: theme.space.sm,
+  paddingHorizontal: theme.space.md,
+  paddingVertical: theme.space.sm,
+});
+
 function MenuSection({
   section,
   dividerBorderColor,
@@ -204,12 +223,19 @@ function MenuSection({
   dividerBorderColor: string | null;
   expanded: boolean;
   onToggleExpanded: () => void;
-  theme: ReturnType<typeof useTheme>;
+  theme: Theme;
   onSelectOption: (option: TIconMenuOption) => void;
 }) {
   const dividerStyle =
     dividerBorderColor !== null
-      ? [styles.sectionDivider, { borderTopColor: dividerBorderColor }]
+      ? [
+          styles.sectionDivider,
+          {
+            borderTopColor: dividerBorderColor,
+            marginTop: theme.space.xs,
+            paddingTop: theme.space.xs,
+          },
+        ]
       : undefined;
 
   // The checkmark column is reserved per section, not per row, so a group whose
@@ -224,9 +250,7 @@ function MenuSection({
     return (
       <View style={dividerStyle}>
         {section.title ? (
-          <Text
-            style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}
-          >
+          <Text style={[theme.fonts.title, sectionTitleStyle(theme)]}>
             {section.title}
           </Text>
         ) : null}
@@ -245,16 +269,21 @@ function MenuSection({
 
   return (
     <View style={dividerStyle}>
-      <Pressable style={styles.option} onPress={onToggleExpanded}>
-        {section.icon ? (
-          <SymbolView
-            name={section.icon}
-            size={ICON_SIZE}
-            tintColor={theme.colors.text}
-          />
-        ) : null}
-        <Text style={{ color: theme.colors.text }}>{section.title}</Text>
-        <Text style={[styles.chevron, { color: theme.colors.textSecondary }]}>
+      <Pressable
+        style={[styles.option, optionRowStyle(theme)]}
+        onPress={onToggleExpanded}
+      >
+        {section.icon ? <Icon {...section.icon} /> : null}
+        <Text style={[theme.fonts.body, { color: theme.colors.text }]}>
+          {section.title}
+        </Text>
+        <Text
+          style={[
+            theme.fonts.body,
+            styles.chevron,
+            { color: theme.colors.textSecondary },
+          ]}
+        >
           {expanded ? "⌄" : "›"}
         </Text>
       </Pressable>
@@ -285,7 +314,7 @@ function MenuOptionRow({
   indented?: boolean;
   /** Whether to reserve the leading checkmark column; see `MenuSection`. */
   showCheckmark?: boolean;
-  theme: ReturnType<typeof useTheme>;
+  theme: Theme;
   onSelect: () => void;
 }) {
   return (
@@ -295,21 +324,25 @@ function MenuOptionRow({
       // submenu with nothing to check needs an indent of its own.
       style={[
         styles.option,
-        indented && !showCheckmark && styles.optionIndented,
+        optionRowStyle(theme),
+        indented &&
+          !showCheckmark && {
+            paddingLeft: theme.space.md + theme.space.sm,
+          },
       ]}
       onPress={onSelect}
     >
       {showCheckmark ? (
-        <Text style={styles.checkmark}>{option.isSelected ? "✓" : ""}</Text>
+        // As wide as the icons above it, so a checked row's label starts where
+        // its parent's does.
+        <Text style={{ width: theme.icons.md }}>
+          {option.isSelected ? "✓" : ""}
+        </Text>
       ) : null}
-      {option.icon ? (
-        <SymbolView
-          name={option.icon}
-          size={ICON_SIZE}
-          tintColor={option.iconColor ?? theme.colors.text}
-        />
-      ) : null}
-      <Text style={{ color: labelColor(option, theme) }}>{option.title}</Text>
+      {option.icon ? <Icon {...option.icon} color={option.iconColor} /> : null}
+      <Text style={[theme.fonts.body, { color: labelColor(option, theme) }]}>
+        {option.title}
+      </Text>
     </Pressable>
   );
 }
@@ -317,36 +350,16 @@ function MenuOptionRow({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.15)",
   },
   menu: {
     minWidth: MENU_WIDTH,
-    maxHeight: 320,
-    boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.25)",
+    maxHeight: MENU_MAX_HEIGHT,
     elevation: 5,
-  },
-  menuContent: {
-    paddingVertical: 8,
-  },
-  menuTitle: {
-    fontSize: 12,
-    fontWeight: "600",
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: "600",
-    paddingHorizontal: 16,
-    paddingVertical: 4,
   },
   sectionDivider: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    marginTop: 4,
-    paddingTop: 4,
   },
   chevron: {
-    fontSize: 14,
     // Pushed to the far end of the row, whose own horizontal padding is the
     // only inset it needs — its own would double the gap the labels get.
     marginLeft: "auto",
@@ -354,16 +367,5 @@ const styles = StyleSheet.create({
   option: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  optionIndented: {
-    paddingLeft: 28,
-  },
-  // As wide as the icons above it, so a checked row's label starts where its
-  // parent's does rather than 2px shy of it.
-  checkmark: {
-    width: ICON_SIZE,
   },
 });

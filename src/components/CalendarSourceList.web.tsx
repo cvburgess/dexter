@@ -1,8 +1,9 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
-import { useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useNavigation } from "expo-router";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
 
-import { Button } from "@/components/Button";
+import { HeaderAddButton } from "@/components/HeaderAddButton";
+import { RowDeleteButton, rowDeleteInset } from "@/components/RowDeleteButton";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { TextInput } from "@/components/TextInput";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -17,6 +18,7 @@ import { useTheme } from "@/utils/theme";
  */
 export function CalendarSourceList() {
   const theme = useTheme();
+  const navigation = useNavigation();
   const [preferences, { updatePreferences }] = usePreferences();
 
   const [drafts, setDrafts] = useState(preferences.calendarUrls);
@@ -42,12 +44,43 @@ export function CalendarSourceList() {
   const deleteUrl = (index: number) =>
     writeUrls(drafts.filter((_, i) => i !== index));
 
+  // A "+" in the header adds a feed, matching Habits and Journal. Wired from
+  // here rather than from `settings/calendars.tsx` because the drafts array
+  // this appends to lives here — and because the screen also renders on native,
+  // where there are no feeds to add. Re-wired on every render so the handler
+  // closes over the latest drafts; cleared on unmount, which is what the other
+  // two express as `visible` — this list only mounts while Calendar is on, so
+  // toggling it off must take the affordance with it.
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <HeaderAddButton
+          accessibilityLabel="Add feed"
+          onPress={addUrl}
+          testID="add-feed-button"
+        />
+      ),
+    });
+    return () => navigation.setOptions({ headerRight: undefined });
+  });
+
   return (
-    <View style={styles.section}>
-      <SettingsSectionTitle>Calendar feeds</SettingsSectionTitle>
+    <View style={{ gap: theme.space.sm }}>
+      <SettingsSectionTitle subtitle="Use a secret/private URL when your provider offers one.">
+        Calendar feeds
+      </SettingsSectionTitle>
       {drafts.length === 0 ? (
-        <Text style={[styles.empty, { color: theme.colors.textSecondary }]}>
-          Add a public .ics feed URL to see its events on the timeline.
+        <Text
+          style={[
+            theme.fonts.body,
+            {
+              color: theme.colors.textSecondary,
+              paddingVertical: theme.space.sm,
+            },
+          ]}
+        >
+          Tap ＋ to add a public .ics feed URL and see its events on the
+          timeline.
         </Text>
       ) : (
         drafts.map((url, index) => (
@@ -65,57 +98,25 @@ export function CalendarSourceList() {
               }
               onFocus={() => (focusedRef.current = true)}
               placeholder="https://example.com/calendar.ics"
-              style={styles.input}
+              style={{ paddingRight: rowDeleteInset(theme) }}
               value={url}
             />
-            <TouchableOpacity
+            <RowDeleteButton
               accessibilityLabel={`Delete feed ${index + 1}`}
-              accessibilityRole="button"
               onPress={() => deleteUrl(index)}
-              style={styles.delete}
               testID={`delete-feed-${index}`}
-            >
-              <Ionicons
-                color={theme.colors.error}
-                name="trash-outline"
-                size={22}
-              />
-            </TouchableOpacity>
+            />
           </View>
         ))
       )}
-      <Button variant="default" onPress={addUrl}>
-        Add feed
-      </Button>
-      <Text style={[styles.hint, { color: theme.colors.textSecondary }]}>
-        Use a secret/private URL when your provider offers one.
-      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  section: {
-    gap: 10,
-  },
+  // The anchor `RowDeleteButton` parks against; the field fills it.
   row: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-  },
-  input: {
-    flex: 1,
-  },
-  delete: {
-    alignItems: "center",
     justifyContent: "center",
-    padding: 4,
-  },
-  empty: {
-    fontSize: 14,
-    paddingVertical: 8,
-  },
-  hint: {
-    fontSize: 13,
+    position: "relative",
   },
 });

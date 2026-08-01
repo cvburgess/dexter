@@ -95,13 +95,13 @@ export default function AccountScreen() {
         styles.container,
         {
           backgroundColor: theme.colors.background,
-          padding: theme.spacing,
+          padding: theme.space.md,
         },
       ]}
     >
       {session ? <UserProfile session={session} /> : null}
 
-      <View style={{ gap: theme.gap }}>
+      <View style={{ gap: theme.space.sm }}>
         <Button
           variant="dangerous"
           onPress={handleLogOut}
@@ -144,10 +144,11 @@ function UserProfile({ session }: { session: Session }) {
     <View
       style={[
         styles.profile,
+        { padding: theme.space.md },
         {
-          backgroundColor: theme.colors.card,
-          borderRadius: theme.borderRadius,
-          gap: theme.gap,
+          backgroundColor: theme.colors.surfaceSunken,
+          borderRadius: theme.radii.md,
+          gap: theme.space.sm,
         },
       ]}
     >
@@ -167,7 +168,7 @@ function UserProfile({ session }: { session: Session }) {
         >
           <Text
             style={[
-              styles.avatarInitial,
+              theme.fonts.heading,
               { color: theme.colors.primaryContent },
             ]}
           >
@@ -179,14 +180,14 @@ function UserProfile({ session }: { session: Session }) {
       <View style={styles.identity}>
         {name ? (
           <Text
-            style={[styles.name, { color: theme.colors.text }]}
+            style={[theme.fonts.title, { color: theme.colors.text }]}
             testID="account-name"
           >
             {name}
           </Text>
         ) : null}
         <Text
-          style={[styles.email, { color: theme.colors.textSecondary }]}
+          style={[theme.fonts.body, { color: theme.colors.textSecondary }]}
           testID="account-email"
         >
           {user.email}
@@ -206,7 +207,6 @@ const styles = StyleSheet.create({
   profile: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
   },
   avatar: {
     width: AVATAR_SIZE,
@@ -217,18 +217,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarInitial: {
-    fontSize: 28,
-    fontWeight: "700",
-  },
   identity: {
     flex: 1,
-  },
-  name: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  email: {
-    fontSize: 14,
   },
 });

@@ -36,6 +36,16 @@ const HOUR_HEIGHT = 72;
 /** Width reserved for the hour labels down the left edge. */
 const GUTTER_WIDTH = 50;
 /**
+ * The timeline's own right inset, and the gutter's right padding. Part of the
+ * coordinate system below rather than the spacing scale: the hour labels, the
+ * hour lines, the now line and the events area are all positioned from
+ * `GUTTER_WIDTH` and this, and they misalign the moment one of them moves
+ * independently of the others (DEX-61).
+ */
+const GUTTER_INSET = 8;
+/** Diameter of the dot capping the "now" line. */
+const NOW_DOT_SIZE = 8;
+/**
  * Blocks at least this tall stack the time under the title; shorter ones render
  * the time inline to the right (no vertical room to stack). Half an hour at the
  * current scale, so a 30-minute event shows its time under the name.
@@ -69,8 +79,26 @@ const borderStyle = (accent: string, response?: TEventResponse): ViewStyle =>
   response === "invited" ? { borderColor: accent, borderWidth: 1 } : {};
 
 /** Full-opacity accent bar inset inside an event's rectangle. */
-function AccentBar({ accent }: { accent: string }) {
-  return <View style={[styles.accentBar, { backgroundColor: accent }]} />;
+function AccentBar({
+  accent,
+  theme,
+}: {
+  accent: string;
+  theme: ReturnType<typeof useTheme>;
+}) {
+  return (
+    <View
+      style={[
+        styles.accentBar,
+        {
+          backgroundColor: accent,
+          bottom: theme.space.xs,
+          left: theme.space.xs,
+          top: theme.space.xs,
+        },
+      ]}
+    />
+  );
 }
 /** Fallback window if stored times are missing or inverted. */
 const DEFAULT_START_HOUR = 6;
@@ -211,7 +239,16 @@ export function CalendarView({ date }: TCalendarViewProps) {
   return (
     <View style={styles.container}>
       {allDayEvents.length > 0 && (
-        <View style={[styles.allDayBar, { borderBottomColor: dividerColor }]}>
+        <View
+          style={[
+            styles.allDayBar,
+            {
+              borderBottomColor: dividerColor,
+              gap: theme.space.xs,
+              paddingVertical: theme.space.sm,
+            },
+          ]}
+        >
           {allDayEvents.map((event) => (
             <AllDayRow key={event.id} event={event} theme={theme} />
           ))}
@@ -274,7 +311,15 @@ function HourRow({
       <Text
         style={[
           styles.hourLabel,
-          { top: top - 7, color: theme.colors.textSecondary },
+          theme.fonts.subtitle,
+          {
+            // Centers the label on the line it names: `top` is the line, and
+            // half the label's own size lifts its middle onto it. Derived from
+            // the role rather than fixed, or the two drift apart the moment the
+            // density tier changes the size out from under it.
+            top: top - Math.round(theme.fonts.subtitle.fontSize / 2),
+            color: theme.colors.textSecondary,
+          },
         ]}
       >
         {formatHourLabel(hour)}
@@ -302,8 +347,12 @@ function EventBlock({
     <View
       style={[
         styles.eventBlock,
-        // Short blocks can't spare the full vertical padding.
-        !stacked && styles.eventBlockInline,
+        {
+          paddingLeft: theme.space.md,
+          paddingRight: theme.space.sm,
+          // Short blocks can't spare the full vertical padding.
+          paddingVertical: stacked ? theme.space.xs : 1,
+        },
         {
           top: topPx,
           height: heightPx - EVENT_GAP,
@@ -311,25 +360,29 @@ function EventBlock({
           width: `${(1 / columnCount) * 100}%`,
           backgroundColor: withOpacity(accent, fillOpacity(event.response)),
           ...borderStyle(accent, event.response),
-          borderRadius: theme.borderRadius,
+          borderRadius: theme.radii.md,
           // Dim events that have already ended, matching the disabled
           // treatment used in settings lists.
           opacity: isPast ? 0.5 : 1,
         },
       ]}
     >
-      <AccentBar accent={accent} />
+      <AccentBar accent={accent} theme={theme} />
       {stacked ? (
         <>
           <Text
             numberOfLines={heightPx >= TWO_LINE_TITLE_MIN_HEIGHT ? 2 : 1}
-            style={[styles.eventTitle, { color: theme.colors.text }]}
+            style={[theme.fonts.body, { color: theme.colors.text }]}
           >
             {event.title}
           </Text>
           <Text
             numberOfLines={1}
-            style={[styles.eventTime, { color: theme.colors.textSecondary }]}
+            style={[
+              theme.fonts.subtitle,
+              styles.eventSecondary,
+              { color: theme.colors.textSecondary },
+            ]}
           >
             {formatTime(event.start)}
           </Text>
@@ -339,7 +392,7 @@ function EventBlock({
           <Text
             numberOfLines={1}
             style={[
-              styles.eventTitle,
+              theme.fonts.body,
               styles.eventTitleInline,
               { color: theme.colors.text },
             ]}
@@ -349,9 +402,10 @@ function EventBlock({
           <Text
             numberOfLines={1}
             style={[
-              styles.eventTime,
+              theme.fonts.subtitle,
+              styles.eventSecondary,
               styles.eventTimeInline,
-              { color: theme.colors.textSecondary },
+              { color: theme.colors.textSecondary, marginLeft: theme.space.xs },
             ]}
           >
             {formatTime(event.start)}
@@ -372,7 +426,13 @@ function NowLine({
   return (
     <View pointerEvents="none" style={[styles.nowLineRow, { top }]}>
       <View
-        style={[styles.nowDot, { backgroundColor: theme.colors.primary }]}
+        style={[
+          styles.nowDot,
+          {
+            backgroundColor: theme.colors.primary,
+            borderRadius: theme.radii.full,
+          },
+        ]}
       />
       <View
         style={[styles.nowLine, { backgroundColor: theme.colors.primary }]}
@@ -393,7 +453,11 @@ function AllDayRow({
     <View style={styles.allDayRow}>
       <Text
         numberOfLines={1}
-        style={[styles.allDayGutter, { color: theme.colors.textSecondary }]}
+        style={[
+          theme.fonts.subtitle,
+          styles.allDayGutter,
+          { color: theme.colors.textSecondary },
+        ]}
       >
         all-day
       </Text>
@@ -403,14 +467,17 @@ function AllDayRow({
           {
             backgroundColor: withOpacity(accent, fillOpacity(event.response)),
             ...borderStyle(accent, event.response),
-            borderRadius: theme.borderRadius,
+            borderRadius: theme.radii.md,
+            paddingLeft: theme.space.md,
+            paddingRight: theme.space.xs,
+            paddingVertical: theme.space.xs,
           },
         ]}
       >
-        <AccentBar accent={accent} />
+        <AccentBar accent={accent} theme={theme} />
         <Text
           numberOfLines={1}
-          style={[styles.allDayText, { color: theme.colors.text }]}
+          style={[theme.fonts.body, { color: theme.colors.text }]}
         >
           {event.title}
         </Text>
@@ -425,8 +492,6 @@ const styles = StyleSheet.create({
   },
   allDayBar: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 4,
-    paddingVertical: 8,
   },
   allDayRow: {
     alignItems: "center",
@@ -435,39 +500,30 @@ const styles = StyleSheet.create({
   // Full gutter width so the all-day block lines up with the timeline events
   // (which start at GUTTER_WIDTH), rather than starting 8px further left.
   allDayGutter: {
-    fontSize: 11,
-    paddingRight: 8,
+    paddingRight: GUTTER_INSET,
     textAlign: "right",
     width: GUTTER_WIDTH,
   },
   // Left padding leaves room for the inset accent bar (see `accentBar`).
   allDayBlock: {
     flex: 1,
-    marginRight: 8,
+    marginRight: GUTTER_INSET,
     overflow: "hidden",
-    paddingLeft: 14,
-    paddingRight: 6,
-    paddingVertical: 4,
-  },
-  allDayText: {
-    fontSize: 13,
-    fontWeight: "500",
   },
   scrollContent: {
     paddingTop: SCROLL_TOP_PADDING,
   },
   hourLabel: {
-    fontSize: 11,
     left: 0,
     position: "absolute",
     textAlign: "right",
-    width: GUTTER_WIDTH - 8,
+    width: GUTTER_WIDTH - GUTTER_INSET,
   },
   hourLine: {
     height: StyleSheet.hairlineWidth,
     left: GUTTER_WIDTH,
     position: "absolute",
-    right: 8,
+    right: GUTTER_INSET,
   },
   // Zero-height row whose top edge sits exactly at "now"; alignItems center
   // makes the dot and line straddle that line. Spans from just left of the
@@ -476,14 +532,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     height: 0,
-    left: GUTTER_WIDTH - 4,
+    left: GUTTER_WIDTH - NOW_DOT_SIZE / 2,
     position: "absolute",
-    right: 8,
+    right: GUTTER_INSET,
   },
   nowDot: {
-    borderRadius: 4,
-    height: 8,
-    width: 8,
+    height: NOW_DOT_SIZE,
+    width: NOW_DOT_SIZE,
   },
   nowLine: {
     borderRadius: 1,
@@ -491,7 +546,7 @@ const styles = StyleSheet.create({
     height: 2,
     // Pull the line back under the dot so it starts at the gutter edge,
     // aligning with the hour lines.
-    marginLeft: -4,
+    marginLeft: -NOW_DOT_SIZE / 2,
   },
   // Positioned over the gridlines; event blocks are absolute within it, so their
   // percentage widths divide this area (the space right of the hour gutter).
@@ -499,36 +554,26 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: GUTTER_WIDTH,
     position: "absolute",
-    right: 8,
+    right: GUTTER_INSET,
     top: 0,
   },
   // Left padding leaves room for the inset accent bar (see `accentBar`).
   eventBlock: {
     overflow: "hidden",
-    paddingLeft: 16,
-    paddingRight: 8,
-    paddingVertical: 4,
     position: "absolute",
   },
-  // Short blocks are too thin for the full vertical padding.
-  eventBlockInline: {
-    paddingVertical: 1,
-  },
-  // Full-opacity accent bar inset inside every event's rectangle.
+  // Full-opacity accent bar inset inside every event's rectangle. Its width and
+  // corner are decorative marks rather than points on the radius scale — see
+  // `docs/design.md`.
   accentBar: {
     borderRadius: 2,
-    bottom: 4,
-    left: 6,
     position: "absolute",
-    top: 4,
     width: 3,
   },
-  eventTitle: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  eventTime: {
-    fontSize: 11,
+  // The time reads as secondary to the title it sits with, dimmed rather than
+  // set a step smaller — both are already at the smallest type role.
+  eventSecondary: {
+    fontWeight: "400",
   },
   // Short blocks: title and time share one row, time just right of the title.
   eventInlineRow: {
@@ -539,7 +584,6 @@ const styles = StyleSheet.create({
     flexShrink: 1, // truncate the title, don't push the time off-block
   },
   eventTimeInline: {
-    flexShrink: 0,
-    marginLeft: 6,
+    flexShrink: 0, // the pair above only works if the clock itself can't shrink
   },
 });

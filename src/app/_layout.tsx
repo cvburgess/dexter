@@ -93,24 +93,41 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 
   return (
     <View
-      style={[styles.errorRoot, { backgroundColor: theme.colors.background }]}
+      style={[
+        styles.errorRoot,
+        {
+          backgroundColor: theme.colors.background,
+          gap: theme.space.sm,
+          padding: theme.space.lg,
+        },
+      ]}
     >
-      <Text style={[styles.errorTitle, { color: theme.colors.text }]}>
+      <Text style={[theme.fonts.title, { color: theme.colors.text }]}>
         Something went wrong
       </Text>
-      <Text style={[styles.errorMessage, { color: theme.colors.text }]}>
+      <Text
+        style={[
+          theme.fonts.body,
+          styles.errorMessage,
+          { color: theme.colors.text },
+        ]}
+      >
         {error.message}
       </Text>
       <Pressable
         accessibilityRole="button"
         onPress={retry}
-        style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
+        style={{
+          backgroundColor: theme.colors.primary,
+          // The app's one corner radius, like every other button.
+          borderRadius: theme.radii.md,
+          marginTop: theme.space.sm,
+          paddingHorizontal: theme.space.md,
+          paddingVertical: theme.space.sm,
+        }}
       >
         <Text
-          style={[
-            styles.retryButtonText,
-            { color: theme.colors.primaryContent },
-          ]}
+          style={[theme.fonts.title, { color: theme.colors.primaryContent }]}
         >
           Try again
         </Text>
@@ -127,25 +144,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 12,
-    padding: 24,
-  },
-  errorTitle: {
-    fontSize: 18,
-    fontWeight: "600",
   },
   errorMessage: {
-    fontSize: 14,
     opacity: 0.7,
     textAlign: "center",
-  },
-  retryButton: {
-    marginTop: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    fontWeight: "600",
   },
 });

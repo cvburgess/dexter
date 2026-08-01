@@ -351,10 +351,12 @@ function RepeatScheduleForm({
         // Insets the content by the keyboard's height (iOS) so a subtask row it
         // covers stays reachable. Android resizes the window instead.
         automaticallyAdjustKeyboardInsets
-        contentContainerStyle={[
-          styles.container,
-          { gap: theme.gap, padding: theme.spacing },
-        ]}
+        contentContainerStyle={{
+          gap: theme.space.sm,
+          padding: theme.space.md,
+          // See `lists/[id].tsx`: the longhand reads clearer last.
+          paddingBottom: theme.space.lg,
+        }}
         keyboardShouldPersistTaps="handled"
         style={{ backgroundColor: theme.colors.background }}
       >
@@ -409,13 +411,13 @@ function RepeatScheduleForm({
                 accessibilityRole="button"
               >
                 <Text
-                  style={[styles.alarmAction, { color: theme.colors.primary }]}
+                  style={[theme.fonts.control, { color: theme.colors.primary }]}
                 >
                   Add alarm
                 </Text>
               </TouchableOpacity>
             ) : (
-              <View style={[styles.alarmControl, { gap: theme.gap }]}>
+              <View style={[styles.alarmControl, { gap: theme.space.sm }]}>
                 <TimeField
                   accentColor={theme.colors.primary}
                   value={alarmTime}
@@ -426,7 +428,7 @@ function RepeatScheduleForm({
                   accessibilityRole="button"
                 >
                   <Text
-                    style={[styles.alarmAction, { color: theme.colors.error }]}
+                    style={[theme.fonts.control, { color: theme.colors.error }]}
                   >
                     Remove
                   </Text>
@@ -493,7 +495,7 @@ function RepeatScheduleForm({
 
         {/* A draft has no row to delete — ✕ is how you abandon it. */}
         {existing && (
-          <View style={styles.dangerZone}>
+          <View style={{ gap: theme.space.sm, marginTop: theme.space.sm }}>
             <Button variant="dangerous" onPress={handleDelete}>
               Delete Template
             </Button>
@@ -507,19 +509,8 @@ function RepeatScheduleForm({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    paddingBottom: 32,
-  },
-  dangerZone: {
-    gap: 12,
-    marginTop: 12,
-  },
   alarmControl: {
     alignItems: "center",
     flexDirection: "row",
-  },
-  alarmAction: {
-    fontSize: 16,
-    fontWeight: "600",
   },
 });

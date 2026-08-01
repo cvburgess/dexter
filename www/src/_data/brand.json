@@ -1,0 +1,308 @@
+{
+  "themes": [
+    {
+      "name": "dexter",
+      "label": "Dexter",
+      "mode": "light",
+      "primary": "#00674f",
+      "primaryContent": "#c3ffcf",
+      "background": "#fffbf4",
+      "surfaceSunken": "#f7f1e7",
+      "border": "#e0d5c2",
+      "text": "#593d31",
+      "textSecondary": "rgba(89, 61, 49, 0.6)",
+      "error": "#ff627d",
+      "errorContent": "#4d0218",
+      "success": "#00d390",
+      "successContent": "#004c39",
+      "priority": [
+        "#fcb700",
+        "#ff627d",
+        "#00bafe",
+        "#fffbf4",
+        "#593d31"
+      ],
+      "priorityMuted": [
+        "#fdc531",
+        "#ff8195",
+        "#33c7fc",
+        "#fffbf4",
+        "#7a6358"
+      ],
+      "priorityContent": [
+        "#793205",
+        "#4d0218",
+        "#042e49",
+        "#593d31",
+        "#fffbf4"
+      ]
+    },
+    {
+      "name": "light",
+      "label": "Light",
+      "mode": "light",
+      "primary": "#422ad5",
+      "primaryContent": "#e0e7ff",
+      "background": "#ffffff",
+      "surfaceSunken": "#f8f8f8",
+      "border": "#e0e0e0",
+      "text": "#18181b",
+      "textSecondary": "rgba(24, 24, 27, 0.6)",
+      "error": "#ff627d",
+      "errorContent": "#4d0218",
+      "success": "#00d390",
+      "successContent": "#004c39",
+      "priority": [
+        "#fcb700",
+        "#ff627d",
+        "#00bafe",
+        "#ffffff",
+        "#09090b"
+      ],
+      "priorityMuted": [
+        "#fdc533",
+        "#ff8197",
+        "#33c8fe",
+        "#ffffff",
+        "#3a3a3c"
+      ],
+      "priorityContent": [
+        "#793205",
+        "#4d0218",
+        "#042e49",
+        "#18181b",
+        "#e4e4e7"
+      ]
+    },
+    {
+      "name": "dim",
+      "label": "Dim",
+      "mode": "dark",
+      "primary": "#9fe88d",
+      "primaryContent": "#091307",
+      "background": "#2a303c",
+      "surfaceSunken": "#242933",
+      "border": "#1c212b",
+      "text": "#b2ccd6",
+      "textSecondary": "rgba(178, 204, 214, 0.6)",
+      "error": "#ffae9b",
+      "errorContent": "#160b09",
+      "success": "#62efbd",
+      "successContent": "#03140d",
+      "priority": [
+        "#efd057",
+        "#ffae9b",
+        "#28ebff",
+        "#2a303c",
+        "#1c212b"
+      ],
+      "priorityMuted": [
+        "#c8b052",
+        "#d49588",
+        "#28c6d8",
+        "#2a303c",
+        "#1f242e"
+      ],
+      "priorityContent": [
+        "#141003",
+        "#160b09",
+        "#011316",
+        "#b2ccd6",
+        "#b2ccd6"
+      ]
+    },
+    {
+      "name": "dark",
+      "label": "Dark",
+      "mode": "dark",
+      "primary": "#605dff",
+      "primaryContent": "#edf1fe",
+      "background": "#1d232a",
+      "surfaceSunken": "#191e24",
+      "border": "#15191e",
+      "text": "#ecf9ff",
+      "textSecondary": "rgba(236, 249, 255, 0.6)",
+      "error": "#ff627d",
+      "errorContent": "#4d0218",
+      "success": "#00d390",
+      "successContent": "#004c39",
+      "priority": [
+        "#fcb700",
+        "#ff627d",
+        "#00bafe",
+        "#1d232a",
+        "#09090b"
+      ],
+      "priorityMuted": [
+        "#cf9908",
+        "#d2556c",
+        "#069cd4",
+        "#1d232a",
+        "#0d0e11"
+      ],
+      "priorityContent": [
+        "#793205",
+        "#4d0218",
+        "#042e49",
+        "#ecf9ff",
+        "#e4e4e7"
+      ]
+    },
+    {
+      "name": "abyss",
+      "label": "Abyss",
+      "mode": "dark",
+      "primary": "#bdff00",
+      "primaryContent": "#427600",
+      "background": "#001e29",
+      "surfaceSunken": "#00111d",
+      "border": "#000c15",
+      "text": "#ffd6a7",
+      "textSecondary": "rgba(255, 214, 167, 0.6)",
+      "error": "#f04e4f",
+      "errorContent": "#690000",
+      "success": "#01df72",
+      "successContent": "#022d14",
+      "priority": [
+        "#ffbf00",
+        "#f04e4f",
+        "#00bafe",
+        "#001e29",
+        "#003843"
+      ],
+      "priorityMuted": [
+        "#cc9f08",
+        "#c04447",
+        "#009bd3",
+        "#001e29",
+        "#00333e"
+      ],
+      "priorityContent": [
+        "#854200",
+        "#690000",
+        "#042e49",
+        "#ffd6a7",
+        "#ffd6a7"
+      ]
+    }
+  ],
+  "priorityLabels": [
+    "Important & Urgent",
+    "Urgent",
+    "Important",
+    "Neither",
+    "Unprioritized"
+  ],
+  "density": [
+    {
+      "tier": "comfortable",
+      "applies": "Every native device, and web below 768px",
+      "space": [
+        4,
+        8,
+        16,
+        24
+      ],
+      "fonts": [
+        12,
+        14,
+        16,
+        16,
+        24,
+        40
+      ],
+      "radii": [
+        12,
+        999
+      ],
+      "controls": [
+        40,
+        32
+      ],
+      "icons": [
+        14,
+        20
+      ]
+    },
+    {
+      "tier": "compact",
+      "applies": "Web at 768px and up \u2014 desktop browsers",
+      "space": [
+        3,
+        6,
+        12,
+        18
+      ],
+      "fonts": [
+        11,
+        12,
+        14,
+        14,
+        20,
+        32
+      ],
+      "radii": [
+        12,
+        999
+      ],
+      "controls": [
+        32,
+        26
+      ],
+      "icons": [
+        12,
+        18
+      ]
+    }
+  ],
+  "fontRoles": [
+    {
+      "name": "subtitle",
+      "weight": 400,
+      "use": "The second line under a title"
+    },
+    {
+      "name": "body",
+      "weight": 400,
+      "use": "Running prose, row labels, event names, what a field holds"
+    },
+    {
+      "name": "control",
+      "weight": 600,
+      "use": "Buttons and the web date/time pickers"
+    },
+    {
+      "name": "title",
+      "weight": 600,
+      "use": "A component's primary line"
+    },
+    {
+      "name": "heading",
+      "weight": 700,
+      "use": "The screen or pane you are on"
+    },
+    {
+      "name": "display",
+      "weight": 900,
+      "use": "The login splash"
+    }
+  ],
+  "spaceSteps": [
+    {
+      "name": "xs",
+      "use": "A label and the thing it labels"
+    },
+    {
+      "name": "sm",
+      "use": "Controls in a row, cards in a list"
+    },
+    {
+      "name": "md",
+      "use": "The standard screen inset and pane gutter"
+    },
+    {
+      "name": "lg",
+      "use": "Between groups \u2014 settings sections, sheet edges"
+    }
+  ]
+}

@@ -24,21 +24,34 @@ export function SettingsRow({
     <TouchableOpacity
       accessibilityRole="button"
       onPress={onPress}
-      style={styles.container}
+      style={[
+        styles.container,
+        {
+          gap: theme.space.sm,
+          paddingHorizontal: theme.space.md,
+          paddingVertical: theme.space.sm,
+        },
+      ]}
       testID={testID}
     >
-      <SettingsIcon name={icon} size={22} color={theme.colors.primary} />
-      <View style={styles.labels}>
-        <Text style={[styles.title, { color: theme.colors.text }]}>
+      <SettingsIcon
+        name={icon}
+        size={theme.icons.md}
+        color={theme.colors.primary}
+      />
+      <View style={[styles.labels, { gap: theme.space.xs }]}>
+        <Text style={{ ...theme.fonts.title, color: theme.colors.text }}>
           {title}
         </Text>
-        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+        <Text
+          style={{ ...theme.fonts.subtitle, color: theme.colors.textSecondary }}
+        >
           {subtitle}
         </Text>
       </View>
       <SettingsIcon
         name="chevron-forward-outline"
-        size={14}
+        size={theme.icons.sm}
         color={theme.colors.textSecondary}
       />
     </TouchableOpacity>
@@ -49,19 +62,8 @@ const styles = StyleSheet.create({
   container: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
   },
   labels: {
     flex: 1,
-    gap: 2,
-  },
-  subtitle: {
-    fontSize: 13,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: "500",
   },
 });

@@ -1,4 +1,3 @@
-import { SymbolView } from "expo-symbols";
 import { ReactNode } from "react";
 import {
   ScrollView,
@@ -17,6 +16,7 @@ import {
   SegmentedControl,
   TSegmentedControlOption,
 } from "@/components/SegmentedControl";
+import { Icon } from "@/components/Icon";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -24,7 +24,7 @@ import {
   EDGES_SINGLE_PANE,
   EDGES_TWO_PANE,
 } from "@/utils/settingsSafeAreaEdges";
-import { Theme, THEMES, themes, useTheme, withOpacity } from "@/utils/theme";
+import { Theme, THEMES, themes, useTheme } from "@/utils/theme";
 
 const MODE_OPTIONS: TSegmentedControlOption<EThemeMode>[] = [
   { value: EThemeMode.SYSTEM, label: "System" },
@@ -57,9 +57,11 @@ export default function AppearanceScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            padding: theme.spacing,
-            paddingBottom: theme.spacing + insets.bottom,
-            gap: theme.spacing,
+            padding: theme.space.md,
+            paddingBottom: theme.space.md + insets.bottom,
+            // The in-group step only: `SettingsSectionTitle` carries the `lg`
+            // between sections itself, so it applies wherever it renders (DEX-61).
+            gap: theme.space.sm,
           },
         ]}
       >
@@ -74,7 +76,7 @@ export default function AppearanceScreen() {
 
         {showLight && (
           <Section title="Light theme">
-            <View style={styles.cards}>
+            <View style={[styles.cards, { gap: theme.space.sm }]}>
               {LIGHT_THEMES.map(({ name, label }) => (
                 <ThemeCard
                   key={name}
@@ -91,7 +93,7 @@ export default function AppearanceScreen() {
 
         {showDark && (
           <Section title="Dark theme">
-            <View style={styles.cards}>
+            <View style={[styles.cards, { gap: theme.space.sm }]}>
               {DARK_THEMES.map(({ name, label }) => (
                 <ThemeCard
                   key={name}
@@ -111,8 +113,10 @@ export default function AppearanceScreen() {
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
+  const theme = useTheme();
+
   return (
-    <View style={styles.section}>
+    <View style={{ gap: theme.space.sm }}>
       <SettingsSectionTitle>{title}</SettingsSectionTitle>
       {children}
     </View>
@@ -150,36 +154,45 @@ function ThemeCard({
       style={[
         styles.card,
         {
-          backgroundColor: palette.colors.card,
-          borderRadius: uiTheme.borderRadius,
+          backgroundColor: palette.colors.surfaceSunken,
+          borderRadius: uiTheme.radii.md,
           borderColor: selected
             ? uiTheme.colors.primary
-            : withOpacity(uiTheme.colors.text, 0.1),
+            : uiTheme.colors.border,
           borderWidth: selected ? 2 : StyleSheet.hairlineWidth,
+          gap: uiTheme.space.sm,
+          // `md`, the standard inset: the card is a miniature of the app's own
+          // surface, so it reads better with the gutter a real pane would have
+          // than with the tighter in-group step the row between cards uses.
+          padding: uiTheme.space.md,
         },
       ]}
       testID={`appearance-theme-${name}`}
     >
-      <View style={styles.swatches}>
+      <View style={[styles.swatches, { gap: uiTheme.space.xs }]}>
         {swatches.map((color, i) => (
           <View
             key={i}
             style={[
               styles.swatch,
-              { backgroundColor: color, borderRadius: uiTheme.borderRadius },
+              {
+                backgroundColor: color,
+                borderRadius: uiTheme.radii.md,
+                height: uiTheme.controls.sm,
+              },
             ]}
           />
         ))}
       </View>
       <View style={styles.cardFooter}>
-        <Text style={[styles.cardLabel, { color: palette.colors.text }]}>
+        <Text style={[uiTheme.fonts.title, { color: palette.colors.text }]}>
           {label}
         </Text>
         {selected && (
-          <SymbolView
-            name="checkmark.circle.fill"
-            size={18}
-            tintColor={uiTheme.colors.primary}
+          <Icon
+            sf="checkmark.circle.fill"
+            ionicon="checkmark-circle"
+            color={uiTheme.colors.primary}
           />
         )}
       </View>
@@ -189,40 +202,33 @@ function ThemeCard({
 
 const styles = StyleSheet.create({
   card: {
-    gap: 10,
+    // Wide enough for the longest theme name beside its checkmark; the swatch
+    // row below it has no intrinsic width of its own.
     minWidth: 140,
     overflow: "hidden",
-    padding: 12,
   },
   cardFooter: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  cardLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
+  // The row wraps, so its gap (applied inline, since it's density-dependent)
+  // separates the cards both across and down — a wrapped second row needs the
+  // same breathing room as the one above it.
   cards: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12,
   },
   content: {
     flexGrow: 1,
-  },
-  section: {
-    gap: 10,
   },
   screen: {
     flex: 1,
   },
   swatch: {
     flex: 1,
-    height: 28,
   },
   swatches: {
     flexDirection: "row",
-    gap: 6,
   },
 });

@@ -4,7 +4,9 @@ import { Theme } from "./theme";
 
 /**
  * Options for a standard list/detail screen with a visible header, themed so
- * the header and screen body follow the active color scheme.
+ * the header and screen body follow the active color scheme. The header shares
+ * the body's `background` rather than sinking to `surfaceSunken` — see the
+ * native variant for why.
  */
 export function createListScreenOptions(
   theme: Theme,
@@ -13,7 +15,7 @@ export function createListScreenOptions(
   return {
     title,
     headerTintColor: theme.colors.text,
-    headerStyle: { backgroundColor: theme.colors.card },
+    headerStyle: { backgroundColor: theme.colors.background },
     contentStyle: { backgroundColor: theme.colors.background },
   };
 }

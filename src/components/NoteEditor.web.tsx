@@ -19,11 +19,14 @@ export function NoteEditor({ initialValue, testID }: TNoteEditorProps) {
 
   return (
     <ScrollView
-      contentContainerStyle={styles.content}
+      contentContainerStyle={{ padding: theme.space.md }}
       style={styles.container}
       testID={testID}
     >
-      <Text selectable style={[styles.text, { color: theme.colors.text }]}>
+      <Text
+        selectable
+        style={[theme.fonts.body, styles.text, { color: theme.colors.text }]}
+      >
         {initialValue}
       </Text>
     </ScrollView>
@@ -34,11 +37,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
-    padding: 16,
-  },
   text: {
-    fontSize: 16,
     lineHeight: 24,
   },
 });

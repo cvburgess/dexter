@@ -14,7 +14,7 @@ import {
   WEEK_COLUMN_MIN_WIDTH,
 } from "@/utils/breakpoints";
 import { scrollOffsetForTarget } from "@/utils/calendarLayout";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 import { weekDays } from "@/utils/weekStartEnd";
 
 type TWeekViewProps = {
@@ -93,9 +93,9 @@ export function WeekView({
   // reads as evenly spaced rather than edge-heavy. Load-bearing beyond
   // spacing: the anchor math below derives the column pitch from it, so the
   // two must move together or today scrolls to the wrong offset. Both read
-  // `theme.spacing`, so that agreement is structural rather than two literals
-  // that happen to match.
-  const columnGap = theme.spacing;
+  // `space.md`, so that agreement is structural rather than two literals that
+  // happen to match.
+  const columnGap = theme.space.md;
   const columnPitch = WEEK_COLUMN_MIN_WIDTH + columnGap;
   const minContentWidth = 7 * WEEK_COLUMN_MIN_WIDTH + 6 * columnGap;
 
@@ -137,9 +137,9 @@ export function WeekView({
         style={[
           styles.body,
           {
-            gap: theme.gap,
-            paddingHorizontal: theme.spacing,
-            paddingTop: theme.spacing,
+            gap: theme.space.sm,
+            paddingHorizontal: theme.space.md,
+            paddingTop: theme.space.md,
           },
         ]}
       >
@@ -171,8 +171,8 @@ export function WeekView({
             style={[
               styles.drawerPane,
               {
-                borderColor: withOpacity(theme.colors.text, 0.1),
-                borderRadius: theme.borderRadius,
+                borderColor: theme.colors.border,
+                borderRadius: theme.radii.md,
               },
             ]}
           >
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  // Gutter from `theme.spacing`, the same token `LargeScreenHeader` above and
+  // Gutter from `space.md`, the same token `LargeScreenHeader` above and
   // `columnGap` below read — which is what lets the anchor math derive the
   // column pitch and the grid read as evenly spaced rather than edge-heavy.
   body: {

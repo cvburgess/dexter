@@ -174,14 +174,12 @@ export function TaskForm({
               testID={`${testIDPrefix}-add-alarm`}
               onPress={handleAddAlarm}
             >
-              <Text
-                style={[styles.labelDetail, { color: theme.colors.primary }]}
-              >
+              <Text style={[theme.fonts.body, { color: theme.colors.primary }]}>
                 Add alarm
               </Text>
             </TouchableOpacity>
           ) : (
-            <View style={[styles.alarmControls, { gap: theme.gap }]}>
+            <View style={[styles.alarmControls, { gap: theme.space.sm }]}>
               <TimeField
                 accentColor={theme.colors.primary}
                 testID={`${testIDPrefix}-alarm`}
@@ -196,7 +194,7 @@ export function TaskForm({
               >
                 <Text
                   style={[
-                    styles.labelDetail,
+                    theme.fonts.body,
                     { color: theme.colors.textSecondary },
                   ]}
                 >
@@ -247,7 +245,7 @@ function ClearableDateField({
         testID={`${testIDPrefix}-add-${field}`}
         onPress={() => onChange(Temporal.Now.plainDateISO().toString())}
       >
-        <Text style={[styles.labelDetail, { color: theme.colors.primary }]}>
+        <Text style={[theme.fonts.body, { color: theme.colors.primary }]}>
           Add {field}
         </Text>
       </TouchableOpacity>
@@ -255,7 +253,7 @@ function ClearableDateField({
   }
 
   return (
-    <View style={[styles.dateControls, { gap: theme.gap }]}>
+    <View style={[styles.dateControls, { gap: theme.space.sm }]}>
       <DateField
         accentColor={theme.colors.primary}
         testID={`${testIDPrefix}-${field}`}
@@ -267,9 +265,7 @@ function ClearableDateField({
         testID={`${testIDPrefix}-clear-${field}`}
         onPress={() => onChange(null)}
       >
-        <Text
-          style={[styles.labelDetail, { color: theme.colors.textSecondary }]}
-        >
+        <Text style={[theme.fonts.body, { color: theme.colors.textSecondary }]}>
           Clear
         </Text>
       </TouchableOpacity>
@@ -285,8 +281,5 @@ const styles = StyleSheet.create({
   alarmControls: {
     alignItems: "center",
     flexDirection: "row",
-  },
-  labelDetail: {
-    fontSize: 14,
   },
 });

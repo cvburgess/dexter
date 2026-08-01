@@ -1,19 +1,13 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
 import { useNavigation } from "expo-router";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
 import { HeaderAddButton } from "@/components/HeaderAddButton";
+import { RowDeleteButton, rowDeleteInset } from "@/components/RowDeleteButton";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { SettingsToggleCard } from "@/components/SettingsToggleCard";
 import { TextInput } from "@/components/TextInput";
@@ -107,9 +101,11 @@ export default function JournalScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            padding: theme.spacing,
-            paddingBottom: theme.spacing + insets.bottom,
-            gap: theme.spacing,
+            padding: theme.space.md,
+            paddingBottom: theme.space.md + insets.bottom,
+            // The in-group step only: `SettingsSectionTitle` carries the `lg`
+            // between sections itself, so it applies wherever it renders (DEX-61).
+            gap: theme.space.sm,
           },
         ]}
         keyboardShouldPersistTaps="handled"
@@ -123,16 +119,22 @@ export default function JournalScreen() {
         />
 
         {preferences.enableJournal && (
-          <View style={styles.section}>
-            <SettingsSectionTitle>Journal prompts</SettingsSectionTitle>
+          <View style={{ gap: theme.space.sm }}>
+            <SettingsSectionTitle subtitle="These prompts seed each new day's Journal. Editing them doesn't change days you've already answered.">
+              Journal prompts
+            </SettingsSectionTitle>
             {drafts.length === 0 ? (
               <Text
-                style={[styles.empty, { color: theme.colors.textSecondary }]}
+                style={[
+                  theme.fonts.body,
+                  { paddingVertical: theme.space.sm },
+                  { color: theme.colors.textSecondary },
+                ]}
               >
                 Tap ＋ to add your first prompt.
               </Text>
             ) : (
-              <View style={{ gap: theme.gap }}>
+              <View style={{ gap: theme.space.sm }}>
                 {drafts.map((prompt, index) => (
                   <View key={index} style={styles.promptRow}>
                     <TextInput
@@ -145,30 +147,18 @@ export default function JournalScreen() {
                       }
                       onFocus={() => (focusedRef.current = true)}
                       placeholder="e.g. What went well today?"
-                      style={styles.promptInput}
+                      style={{ paddingRight: rowDeleteInset(theme) }}
                       value={prompt}
                     />
-                    <TouchableOpacity
+                    <RowDeleteButton
                       accessibilityLabel={`Delete prompt ${index + 1}`}
-                      accessibilityRole="button"
                       onPress={() => deletePrompt(index)}
-                      style={styles.deleteButton}
                       testID={`delete-prompt-${index}`}
-                    >
-                      <Ionicons
-                        color={theme.colors.error}
-                        name="trash-outline"
-                        size={22}
-                      />
-                    </TouchableOpacity>
+                    />
                   </View>
                 ))}
               </View>
             )}
-            <Text style={[styles.hint, { color: theme.colors.textSecondary }]}>
-              These prompts seed each new day&apos;s Journal. Editing them
-              doesn&apos;t change days you&apos;ve already answered.
-            </Text>
           </View>
         )}
       </ScrollView>
@@ -183,27 +173,9 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
   },
-  deleteButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 4,
-  },
-  empty: {
-    fontSize: 14,
-    paddingVertical: 8,
-  },
-  hint: {
-    fontSize: 13,
-  },
-  promptInput: {
-    flex: 1,
-  },
+  // The anchor `RowDeleteButton` parks against; the field fills it.
   promptRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-  },
-  section: {
-    gap: 10,
+    justifyContent: "center",
+    position: "relative",
   },
 });

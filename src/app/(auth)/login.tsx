@@ -96,12 +96,21 @@ export default function LoginScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      <SafeAreaView style={styles.content} edges={["top", "left", "right"]}>
+      <SafeAreaView
+        style={[styles.content, { padding: theme.space.lg }]}
+        edges={["top", "left", "right"]}
+      >
         <Text style={[theme.fonts.heading, { color: theme.colors.text }]}>
           Dexter
         </Text>
 
-        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+        <Text
+          style={[
+            theme.fonts.title,
+            { marginBottom: theme.space.lg },
+            { color: theme.colors.textSecondary },
+          ]}
+        >
           {codeSent
             ? "Enter the code from your email"
             : "Sign up or log in to start planning"}
@@ -151,9 +160,9 @@ function Banner({ tone, children, testID }: TBannerProps) {
         styles.banner,
         {
           backgroundColor,
-          borderRadius: theme.borderRadius,
-          padding: theme.spacing,
-          marginBottom: theme.spacing,
+          borderRadius: theme.radii.md,
+          padding: theme.space.md,
+          marginBottom: theme.space.md,
         },
       ]}
     >
@@ -205,7 +214,7 @@ function CodeEntryForm({
         autoComplete="one-time-code"
         textContentType="oneTimeCode"
         editable={!loading}
-        style={{ marginBottom: theme.spacing }}
+        style={{ marginBottom: theme.space.md }}
       />
       <Button
         variant="primary"
@@ -255,7 +264,14 @@ function EmailLoginForm({
         Continue with Google
       </Button>
 
-      <Text style={[styles.divider, { color: theme.colors.textSecondary }]}>
+      <Text
+        style={[
+          theme.fonts.body,
+          styles.divider,
+          { marginVertical: theme.space.md },
+          { color: theme.colors.textSecondary },
+        ]}
+      >
         OR
       </Text>
 
@@ -270,7 +286,7 @@ function EmailLoginForm({
         keyboardType="email-address"
         textContentType="emailAddress"
         editable={!loading}
-        style={{ marginBottom: theme.spacing }}
+        style={{ marginBottom: theme.space.md }}
       />
       <Button
         variant="primary"
@@ -292,21 +308,14 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: "center",
-    padding: 32,
     maxWidth: 400,
     width: "100%",
     alignSelf: "center",
-  },
-  subtitle: {
-    fontSize: 16,
-    marginBottom: 32,
   },
   banner: {
     width: "100%",
   },
   divider: {
-    fontSize: 14,
-    marginVertical: 16,
     textAlign: "center",
   },
 });

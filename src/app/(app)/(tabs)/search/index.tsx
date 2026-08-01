@@ -1,7 +1,7 @@
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -13,6 +13,7 @@ import { EmptyScreen } from "@/components/EmptyScreen";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { SearchField } from "@/components/SearchField";
 import { SearchResultCard } from "@/components/SearchResultCard";
+import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { TaskCard } from "@/components/TaskCard";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { MIN_SEARCH_LENGTH, useSearch } from "@/hooks/useSearch";
@@ -130,13 +131,9 @@ export default function SearchScreen() {
   const renderItem = useCallback(
     ({ item }: { item: TSearchListItem }) => {
       if (item.type === "header") {
-        return (
-          <Text
-            style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}
-          >
-            {item.title}
-          </Text>
-        );
+        // The same component the settings screens use: this screen carried a
+        // second, near-identical copy of its style (DEX-61).
+        return <SettingsSectionTitle>{item.title}</SettingsSectionTitle>;
       }
 
       const { result } = item;
@@ -185,7 +182,6 @@ export default function SearchScreen() {
       );
     },
     [
-      theme,
       matchedQuery,
       openResult,
       updateTask,
@@ -203,8 +199,8 @@ export default function SearchScreen() {
     return item.result.kind === "task" ? "task" : "entry";
   }, []);
   const ItemSeparator = useCallback(
-    () => <View style={{ height: theme.gap }} />,
-    [theme.gap],
+    () => <View style={{ height: theme.space.sm }} />,
+    [theme.space.sm],
   );
 
   // The host SafeAreaView omits the bottom edge (the native tab bar owns it), so
@@ -212,14 +208,21 @@ export default function SearchScreen() {
   // end the viewport above the bar and cut the last row off at it, instead of
   // letting content scroll past underneath.
   const listContentStyle = useMemo(
-    () => ({ paddingBottom: insets.bottom + theme.spacing }),
-    [insets.bottom, theme.spacing],
+    () => ({ paddingBottom: insets.bottom + theme.space.md }),
+    [insets.bottom, theme.space.md],
   );
 
   return (
     <SafeAreaView
       edges={["top", "left", "right"]}
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.colors.background,
+          gap: theme.space.md,
+          padding: theme.space.md,
+        },
+      ]}
     >
       {/* Platform-split: the native search bar renders into the navigation
           header (and, on iOS 26+, the tab bar) and returns null here, so this
@@ -261,17 +264,9 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    gap: 16,
-    padding: 16,
   },
   // Fills the space below the field; FlashList owns its own scrolling.
   list: {
     flex: 1,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    paddingBottom: 4,
-    textTransform: "uppercase",
   },
 });

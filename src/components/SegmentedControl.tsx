@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 export type TSegmentedControlOption<T extends string | number> = {
   label: string;
@@ -33,9 +33,11 @@ export function SegmentedControl<T extends string | number>({
       style={[
         styles.segmented,
         {
-          backgroundColor: theme.colors.card,
-          borderColor: withOpacity(theme.colors.text, 0.1),
-          borderRadius: theme.borderRadius,
+          backgroundColor: theme.colors.surfaceSunken,
+          borderColor: theme.colors.border,
+          borderRadius: theme.radii.md,
+          gap: theme.space.xs,
+          padding: theme.space.xs,
         },
       ]}
     >
@@ -53,7 +55,10 @@ export function SegmentedControl<T extends string | number>({
                 backgroundColor: selected
                   ? theme.colors.primary
                   : "transparent",
-                borderRadius: theme.borderRadius - 4,
+                // Inset by the track's own padding so the nested corner stays
+                // concentric with it — the app's one derived radius.
+                borderRadius: theme.radii.md - theme.space.xs,
+                paddingVertical: theme.space.sm,
               },
             ]}
             testID={
@@ -63,14 +68,12 @@ export function SegmentedControl<T extends string | number>({
             }
           >
             <Text
-              style={[
-                styles.segmentLabel,
-                {
-                  color: selected
-                    ? theme.colors.primaryContent
-                    : theme.colors.text,
-                },
-              ]}
+              style={{
+                ...theme.fonts.body,
+                color: selected
+                  ? theme.colors.primaryContent
+                  : theme.colors.text,
+              }}
             >
               {option.label}
             </Text>
@@ -85,16 +88,9 @@ const styles = StyleSheet.create({
   segment: {
     alignItems: "center",
     flex: 1,
-    paddingVertical: 10,
-  },
-  segmentLabel: {
-    fontSize: 15,
-    fontWeight: "500",
   },
   segmented: {
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
-    gap: 4,
-    padding: 4,
   },
 });

@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { useTheme, withOpacity } from "@/utils/theme";
+import { useTheme } from "@/utils/theme";
 
 /** Which day-of-week numbering the caller's `selected`/`onToggle` values use:
  * cron (0 = Sunday, per settings/tasks/[id].tsx's repeat schedules) or
@@ -40,11 +40,11 @@ export function WeekdayPicker({
   onToggle,
 }: TWeekdayPickerProps) {
   const theme = useTheme();
-  const inputBorder = withOpacity(theme.colors.text, 0.1);
+  const inputBorder = theme.colors.border;
   const values = VALUES_BY_SOURCE[valueSource];
 
   return (
-    <View style={styles.days}>
+    <View style={[styles.days, { gap: theme.space.xs }]}>
       {values.map((value, index) => {
         const dayName = DAY_NAMES[index];
         const isSelected = selected.includes(value);
@@ -62,12 +62,15 @@ export function WeekdayPicker({
                   ? theme.colors.primary
                   : "transparent",
                 borderColor: inputBorder,
+                borderRadius: theme.radii.full,
+                height: theme.controls.sm,
+                width: theme.controls.sm,
               },
             ]}
           >
             <Text
               style={[
-                styles.dayLabel,
+                theme.fonts.control,
                 {
                   color: isSelected
                     ? theme.colors.primaryContent
@@ -87,18 +90,10 @@ export function WeekdayPicker({
 const styles = StyleSheet.create({
   day: {
     alignItems: "center",
-    borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    height: 32,
     justifyContent: "center",
-    width: 32,
-  },
-  dayLabel: {
-    fontSize: 13,
-    fontWeight: "600",
   },
   days: {
     flexDirection: "row",
-    gap: 4,
   },
 });

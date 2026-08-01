@@ -25,12 +25,15 @@ export function SettingsToggleCard({
       style={[
         styles.card,
         {
-          backgroundColor: theme.colors.card,
-          borderRadius: theme.borderRadius,
+          backgroundColor: theme.colors.surfaceSunken,
+          borderRadius: theme.radii.md,
+          padding: theme.space.md,
         },
       ]}
     >
-      <Text style={[styles.label, { color: theme.colors.text }]}>{label}</Text>
+      <Text style={{ ...theme.fonts.title, color: theme.colors.text }}>
+        {label}
+      </Text>
       <Switch
         accessibilityLabel={label}
         value={value}
@@ -49,10 +52,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
-    padding: 16,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "500",
   },
 });

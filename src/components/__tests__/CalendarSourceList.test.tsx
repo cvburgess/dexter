@@ -14,6 +14,11 @@ jest.mock("@/hooks/useEnabledDeviceCalendars", () => ({
   useEnabledDeviceCalendars: jest.fn(),
 }));
 
+const mockSetOptions = jest.fn();
+jest.mock("expo-router", () => ({
+  useNavigation: () => ({ setOptions: mockSetOptions }),
+}));
+
 const mockUsePreferences = usePreferences as jest.MockedFunction<
   typeof usePreferences
 >;
@@ -41,10 +46,23 @@ describe("CalendarSourceList (web / .ics feeds)", () => {
 
   beforeEach(() => jest.clearAllMocks());
 
-  it("appends an empty feed when Add feed is pressed", () => {
-    const screen = renderWith([]);
-    fireEvent.press(screen.getByText("Add feed"));
+  // The "Add feed" affordance lives in the navigation header (set via
+  // setOptions), so it isn't in the list's own tree. Render the latest
+  // headerRight to press it.
+  const renderHeader = () =>
+    render(mockSetOptions.mock.calls.at(-1)?.[0].headerRight());
+
+  it("appends an empty feed when the header's + is pressed", () => {
+    renderWith([]);
+    const header = renderHeader();
+    fireEvent.press(header.getByTestId("add-feed-button"));
     expect(mockUpdate).toHaveBeenCalledWith({ calendarUrls: [""] });
+  });
+
+  it("clears the header's + when the list unmounts", () => {
+    const screen = renderWith([]);
+    screen.unmount();
+    expect(mockSetOptions).toHaveBeenLastCalledWith({ headerRight: undefined });
   });
 
   it("commits an edited feed on blur, replacing it by index", () => {

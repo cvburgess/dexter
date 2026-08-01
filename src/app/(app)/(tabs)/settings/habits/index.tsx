@@ -62,9 +62,11 @@ export default function HabitsScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            padding: theme.spacing,
-            paddingBottom: theme.spacing + insets.bottom,
-            gap: theme.spacing,
+            padding: theme.space.md,
+            paddingBottom: theme.space.md + insets.bottom,
+            // The in-group step only: `SettingsSectionTitle` carries the `lg`
+            // between sections itself, so it applies wherever it renders (DEX-61).
+            gap: theme.space.sm,
           },
         ]}
       >
@@ -75,24 +77,29 @@ export default function HabitsScreen() {
         />
 
         {preferences.enableHabits && (
-          <View style={styles.section}>
+          <View style={{ gap: theme.space.sm }}>
             <SettingsSectionTitle>Habits</SettingsSectionTitle>
             {habits.length === 0 ? (
               <Text
-                style={[styles.empty, { color: theme.colors.textSecondary }]}
+                style={[
+                  theme.fonts.body,
+                  { paddingVertical: theme.space.sm },
+                  { color: theme.colors.textSecondary },
+                ]}
               >
                 Tap ＋ to create your first habit.
               </Text>
             ) : (
-              <View style={{ gap: theme.gap }}>
+              <View style={{ gap: theme.space.sm }}>
                 {habits.map((habit) => (
                   <View
                     key={habit.id}
                     style={[
                       styles.card,
+                      { paddingHorizontal: theme.space.md },
                       {
-                        backgroundColor: theme.colors.card,
-                        borderRadius: theme.borderRadius,
+                        backgroundColor: theme.colors.surfaceSunken,
+                        borderRadius: theme.radii.md,
                       },
                     ]}
                   >
@@ -117,13 +124,5 @@ const styles = StyleSheet.create({
   },
   card: {
     overflow: "hidden",
-    paddingHorizontal: 16,
-  },
-  empty: {
-    fontSize: 14,
-    paddingVertical: 8,
-  },
-  section: {
-    gap: 10,
   },
 });

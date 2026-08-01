@@ -55,27 +55,48 @@ export function WeekDayColumn({
             backgroundColor: isToday
               ? withOpacity(theme.colors.text, 0.8)
               : "transparent",
-            borderColor: withOpacity(theme.colors.text, 0.1),
-            borderRadius: theme.borderRadius,
+            borderColor: theme.colors.border,
+            borderRadius: theme.radii.md,
+            // `xs` is the step that separates a label from the thing it labels
+            // (see docs/design.md), which is exactly what the date is to the
+            // day name above it. The two lines had been flush.
+            gap: theme.space.xs,
+            // Two stacked lines plus their padding; pinned so a column whose day
+            // name renders taller can't sit a pixel off from its neighbours.
+            // The height *is* the vertical padding here — the lines are centered
+            // in it, so `paddingVertical` would only eat the content box rather
+            // than add breathing room. `space.lg` on top of the control step is
+            // the top of the spacing scale, which is what the `title`-sized day
+            // name wants above and below it; at `xs` this cleared its text by
+            // about four points and read as cramped.
+            height: theme.controls.md + theme.space.lg,
+            paddingHorizontal: theme.space.sm,
           },
         ]}
         testID={`week-chip-${iso}`}
       >
         <Text
           numberOfLines={1}
-          style={[styles.chipTitle, { color: chipColor }]}
+          // `title`, not `subtitle`: the day name is the column's heading, and
+          // the date below it is the subtitle — the same two-line pairing the
+          // task, habit and settings rows use.
+          style={[theme.fonts.title, { color: chipColor }]}
         >
           {formatWeekday(date)}
         </Text>
         <Text
           numberOfLines={1}
-          style={[styles.chipSubtitle, { color: chipColor }]}
+          style={[
+            theme.fonts.subtitle,
+            styles.chipSubtitle,
+            { color: chipColor },
+          ]}
         >
           {formatMonthDay(date)}
         </Text>
       </View>
       {enableHabits && (
-        <View style={styles.habits}>
+        <View style={{ marginTop: theme.space.md }}>
           <HabitTracker date={date} showCreateNudge={false} />
         </View>
       )}
@@ -97,34 +118,19 @@ const styles = StyleSheet.create({
   // Runs the full width of the column (the container's default `stretch` does
   // that), flush like the task list below it — a side gutter here would stack
   // with the neighbouring column's and double every gap in the grid. The two
-  // lines are stacked and centered like the legacy badge. Height is pinned,
-  // and deliberately *not* `flex` — the container is a flex column, so growing
-  // would stretch the chip down the column instead of across it. Pinning also
-  // keeps a column whose day name renders taller from sitting a pixel off from
-  // its neighbours.
+  // lines are stacked and centered like the legacy badge. Its height is pinned
+  // inline, and deliberately *not* `flex` — the container is a flex column, so
+  // growing would stretch the chip down the column instead of across it.
   chip: {
     alignItems: "center",
     borderWidth: StyleSheet.hairlineWidth,
-    height: 44,
     justifyContent: "center",
     overflow: "hidden",
-    paddingHorizontal: 8,
   },
-  // Balances the habit row's two sides. `HabitTracker` centers a 40pt ring in
-  // a 56pt band, so it already carries 8pt of its own above and below; below
-  // that, `DayTaskList`'s list padding adds another 16pt before the first
-  // card. Matching that 16 here makes the ring sit 24pt clear of both the chip
-  // and the first task. It lives on the habit row rather than as a chip margin
-  // so the chip still sits 16pt off the task list when habits are switched off.
-  habits: {
-    marginTop: 16,
-  },
-  chipTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
+  // The date is the day name's `subtitle` — a role below it and dimmed — so
+  // the pair reads as one label with a clear primary line rather than two
+  // competing ones.
   chipSubtitle: {
-    fontSize: 11,
     opacity: 0.8,
   },
 });

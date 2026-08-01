@@ -1,14 +1,12 @@
-import Ionicons from "@react-native-vector-icons/ionicons";
-import type { SymbolViewProps } from "expo-symbols";
-import type { ComponentProps } from "react";
+import type { TIconName } from "./Icon.types";
 
 export type TGlassIconButtonProps = {
   /** SF Symbol shown on iOS. */
-  sfSymbol: SymbolViewProps["name"];
+  sfSymbol: TIconName["sf"];
   /** Ionicons name shown on Android/web (SF Symbols don't render there). */
-  ionicon: ComponentProps<typeof Ionicons>["name"];
+  ionicon: TIconName["ionicon"];
   accessibilityLabel: string;
-  /** Diameter of the circular button (default 40). */
+  /** Diameter of the circular button. Defaults to `theme.controls.md`. */
   size?: number;
   /**
    * Optional press handler. Omit when used purely as an `IconMenu` trigger —
