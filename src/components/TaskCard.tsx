@@ -17,7 +17,6 @@ import { useTheme, withOpacity } from "@/utils/theme";
 import { ConfirmationModal } from "./ConfirmationModal";
 import { DueDateButton } from "./DueDateButton";
 import { EditableText } from "./EditableText";
-import { ListButton } from "./ListButton";
 import { MoreMenu } from "./MoreMenu";
 import { StatusButton } from "./StatusButton";
 import { subtaskGeometry, SubtaskConnectors } from "./SubtaskConnector";
@@ -322,21 +321,20 @@ export function TaskCard({
             },
           ]}
         />
+        {/* The list emoji used to sit here, beside the due date (`ListButton`,
+            still in the tree, still exported and still tested). Hidden rather
+            than removed (DEX-113): the card reads cleaner without it, but the
+            emoji may come back somewhere else, and `ListButton` is still the
+            only list picker outside the task form. `task.listId` is untouched.
+
+            Prefixing the title with the emoji ("🏠 Wash the cat") was tried
+            and rejected — no emoji on the card at all is the point. */}
         {!isComplete && (
-          <>
-            <DueDateButton
-              dueOn={task.dueOn}
-              priorityColor={priorityColor}
-              contentColor={contentColor}
-            />
-            {task.listId !== null && (
-              <ListButton
-                listId={task.listId}
-                contentColor={contentColor}
-                onChangeList={(listId) => onUpdate({ listId })}
-              />
-            )}
-          </>
+          <DueDateButton
+            dueOn={task.dueOn}
+            priorityColor={priorityColor}
+            contentColor={contentColor}
+          />
         )}
       </View>
       {subtasks.length > 0 && (

@@ -224,7 +224,12 @@ describe("TaskCard", () => {
     );
   });
 
-  it("shows the list button when the task has a list", () => {
+  // Hidden, not removed (DEX-113): `ListButton` is still in the tree and still
+  // has its own tests, and the task keeps its `listId` — the emoji may come
+  // back somewhere other than the card. This pins that the card draws no emoji
+  // at all, in the title or beside it, so neither restoring the component nor
+  // prefixing the title can quietly put one back.
+  it("draws no list emoji even when the task has a list", () => {
     const task = { ...baseTask, listId: "list-1" };
     const screen = render(
       <TaskCard
@@ -236,7 +241,8 @@ describe("TaskCard", () => {
       />,
     );
 
-    expect(screen.getByText("🏠")).toBeTruthy();
+    expect(screen.getByText("Write the report")).toBeTruthy();
+    expect(screen.queryByLabelText("List")).toBeNull();
   });
 
   // Every terminal status gets identical treatment — they share one
