@@ -12,7 +12,7 @@ jest.mock("@/hooks/useHabits", () => ({ useHabits: jest.fn() }));
 jest.mock("@/components/EmojiPicker", () => ({ EmojiPicker: () => null }));
 
 // The prompt itself is covered by ConfirmationModal's own tests; here it only
-// has to resolve so the archive/delete paths can be exercised.
+// has to resolve so the archive path can be exercised.
 const mockConfirm = jest.fn<Promise<boolean>, [unknown]>();
 jest.mock("@/hooks/useConfirmation", () => ({
   useConfirmation: () => ({
@@ -127,13 +127,15 @@ describe("HabitScreen", () => {
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
   });
 
-  it("pops after deleting", async () => {
-    mockDeleteHabit.mockImplementation((_id, { onSuccess }) => onSuccess());
+  // Archive is the only way out (DEX-108). The app archives things rather than
+  // destroying them, and a habit's history is the point of having tracked it —
+  // `deleteHabit` still exists on the hook, but nothing in the UI reaches it.
+  it("offers archive and no delete", () => {
     const screen = renderWith(makeHabit());
 
-    fireEvent.press(screen.getByText("Delete"));
-
-    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(screen.getByText("Archive")).toBeTruthy();
+    expect(screen.queryByText("Delete")).toBeNull();
+    expect(mockDeleteHabit).not.toHaveBeenCalled();
   });
 
   // The case a bare `router.back()` couldn't cover: a cold deep link straight

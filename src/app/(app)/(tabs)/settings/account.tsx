@@ -101,9 +101,18 @@ export default function AccountScreen() {
     >
       {session ? <UserProfile session={session} /> : null}
 
-      <View style={{ gap: theme.space.sm }}>
+      {/* Two very different actions that had been drawn identically — both
+          full-width `dangerous` buttons, so the one that ends a session looked
+          exactly like the one that destroys every row the account owns
+          (DEX-108). The legacy web app's split, restored: log out is the
+          ordinary, wide, neutral action; delete account is small, sized to its
+          own label, and the only thing on the screen wearing the error color.
+          Weight carries the warning, so the button can't be reached for by
+          muscle memory. */}
+      <View style={[styles.actions, { gap: theme.space.sm }]}>
         <Button
-          variant="dangerous"
+          variant="default"
+          style={styles.logOut}
           onPress={handleLogOut}
           isLoading={pending}
           disabled={pending}
@@ -203,6 +212,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "space-between",
+  },
+  // A row, so "Delete Account" sizes to its own label instead of stretching:
+  // a full-width button reads as the screen's primary action, which is the last
+  // thing this one should look like.
+  actions: {
+    alignItems: "center",
+    flexDirection: "row",
+  },
+  // Takes the leftover width, so log out stays the easy, obvious action.
+  logOut: {
+    flex: 1,
   },
   profile: {
     flexDirection: "row",

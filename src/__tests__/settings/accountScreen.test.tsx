@@ -1,9 +1,19 @@
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
-import { Alert } from "react-native";
+import {
+  Alert,
+  StyleSheet,
+  type TextStyle,
+  type ViewStyle,
+} from "react-native";
 
 import AccountScreen from "@/app/(app)/(tabs)/settings/account";
 import { deleteAccount, signOut } from "@/hooks/useAuth";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
+import { themes } from "@/utils/theme";
+
+/** The resolved color of a button's label, for comparing the two variants. */
+const labelColor = (screen: ReturnType<typeof render>, label: string) =>
+  StyleSheet.flatten(screen.getByText(label).props.style as TextStyle[]).color;
 
 jest.mock("@/hooks/useAuth", () => ({
   signOut: jest.fn(),
@@ -79,6 +89,28 @@ describe("AccountScreen", () => {
     expect(screen.getByTestId("account-email")).toHaveTextContent(
       "ada@example.com",
     );
+  });
+
+  // The two actions had been drawn identically — both full-width `dangerous`
+  // buttons — so ending a session looked exactly like destroying the account
+  // (DEX-108). Only one of them wears the error color now, and only the other
+  // takes the row's leftover width.
+  it("draws log out and delete account with different weight", () => {
+    const screen = render(<AccountScreen />);
+    const { colors } = themes.dexter;
+
+    const logOut = screen.getByTestId("settings-log-out-button");
+    const deleteAccountButton = screen.getByTestId(
+      "settings-delete-account-button",
+    );
+
+    expect(labelColor(screen, "Log Out")).toBe(colors.text);
+    expect(labelColor(screen, "Delete Account")).toBe(colors.error);
+
+    expect(StyleSheet.flatten(logOut.props.style as ViewStyle[]).flex).toBe(1);
+    expect(
+      StyleSheet.flatten(deleteAccountButton.props.style as ViewStyle[]).flex,
+    ).toBeUndefined();
   });
 
   it("signs out and clears cached data when the log out is confirmed", async () => {
