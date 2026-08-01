@@ -2,10 +2,8 @@ import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-screens/experimental";
 
 import { TSearchResult } from "@/api/search";
 import { duplicateTaskInput } from "@/api/tasks";
@@ -42,6 +40,18 @@ const SECTIONS: { kind: TSearchResult["kind"]; title: string }[] = [
  * enough that pausing feels like it searched immediately.
  */
 const SEARCH_DEBOUNCE_MS = 250;
+
+/**
+ * Which edges the screen frame claims. A partial record rather than the array
+ * `react-native-safe-area-context` takes, because this screen frames itself with
+ * `react-native-screens`' `SafeAreaView` instead — see the render for why.
+ * Hoisted to module scope to match `utils/settingsSafeAreaEdges.ts`, which keeps
+ * the value out of the render for the same readability reason.
+ *
+ * No `bottom` — the native tab bar owns it, and the list reserves that inset in
+ * its own content instead (DEX-91, `listContentStyle` below).
+ */
+const SCREEN_EDGES = { top: true, left: true, right: true } as const;
 
 /**
  * The Search tab (DEX-47): one query across task titles (including subtask
@@ -206,15 +216,39 @@ export default function SearchScreen() {
   // The host SafeAreaView omits the bottom edge (the native tab bar owns it), so
   // the list reserves that inset in its own *content* — padding the frame would
   // end the viewport above the bar and cut the last row off at it, instead of
-  // letting content scroll past underneath.
+  // letting content scroll past underneath. `useSafeAreaInsets` is still the
+  // right source here: it reads the tab-level provider, whose bottom inset is
+  // exactly the tab bar plus the home indicator.
   const listContentStyle = useMemo(
     () => ({ paddingBottom: insets.bottom + theme.space.md }),
     [insets.bottom, theme.space.md],
   );
 
   return (
+    // The one screen in the tabs framed by `react-native-screens`' SafeAreaView
+    // rather than `react-native-safe-area-context`'s, and it has to be (DEX-107).
+    //
+    // `Stack.SearchBar` sets `headerSearchBarOptions`, which makes expo-router
+    // force the header *translucent* on iOS; react-native-screens answers that by
+    // setting `edgesForExtendedLayout = UIRectEdgeAll` and zeroing the screen's
+    // content offset, i.e. it lays the body out underneath the navigation bar on
+    // purpose and leaves the inset to the scroll view. Its one automatic
+    // compensation — flipping the first scroll view's
+    // `contentInsetAdjustmentBehavior` back to `automatic` — walks a strict
+    // first-child chain once, at mount, and at mount this screen renders the idle
+    // `EmptyScreen`, not the list. So nothing compensates.
+    //
+    // `useSafeAreaInsets` can't cover for it either: expo-router mounts a
+    // SafeAreaProvider per native tab screen, *above* this Stack, so its top inset
+    // is the status bar and nothing more. On iPhone that went unnoticed because
+    // UIKit hides the bar while the field is focused; on iPad the field is
+    // integrated into a bar that stays put, and ~63pt of it sat over the results.
+    //
+    // This SafeAreaView resolves its insets from `RNSScreenView` — the stack
+    // screen's own view, whose safe area already includes that bar — and updates
+    // as UIKit hides and shows it. Reverting the import reopens DEX-107.
     <SafeAreaView
-      edges={["top", "left", "right"]}
+      edges={SCREEN_EDGES}
       style={[
         styles.container,
         {
