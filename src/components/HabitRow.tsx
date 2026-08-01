@@ -55,8 +55,14 @@ export function HabitRow({ habit, updateHabit }: THabitRowProps) {
             {
               // No fill behind the emoji: the glyph is the icon, and a tinted
               // square under it read as a second, competing shape in the row.
+              //
+              // Height is a control size so the row keeps its height and the
+              // pause toggle beside it stays centered on the row rather than on
+              // the label block. Width is the *icon* scale, matching
+              // `SettingsRow`'s leading glyph — see `ListRow`, which carries the
+              // same pair for the same reason (DEX-61).
               height: theme.controls.md,
-              width: theme.controls.md,
+              width: theme.icons.md,
             },
           ]}
         >

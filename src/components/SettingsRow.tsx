@@ -27,7 +27,12 @@ export function SettingsRow({
       style={[
         styles.container,
         {
-          gap: theme.space.sm,
+          // `md`, not the in-group `sm`: the leading icon and the title/subtitle
+          // pair are two different things sharing a row, not two controls in a
+          // cluster, and at `sm` the glyph crowded the title. This row is
+          // small-screen only — wide screens redirect the list to a detail and
+          // `SettingsSidebar` takes over (see settings/index.tsx).
+          gap: theme.space.md,
           paddingHorizontal: theme.space.md,
           paddingVertical: theme.space.sm,
         },
