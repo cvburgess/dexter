@@ -28,6 +28,16 @@ export type TSearchFieldProps = {
  * this is what lets the `role="search"` tab collapse into a search field in the
  * tab bar itself.
  *
+ * **A screen that renders this has to frame itself differently** (DEX-107).
+ * Attaching a search bar makes expo-router force the header *translucent*, and
+ * react-native-screens answers that by laying the screen body out underneath the
+ * navigation bar. `react-native-safe-area-context` can't see that bar — its
+ * provider is mounted per tab screen, above the Stack — so the host has to take
+ * its top inset from `react-native-screens/experimental`'s `SafeAreaView`, which
+ * resolves against the stack screen's own view. `app/(app)/(tabs)/search/index.tsx`
+ * is the worked example; the safe-area section of `docs/frontend.md` has the
+ * mechanism. The same applies to `headerLargeTitle`, which forces it too.
+ *
  * `components/SearchField.web.tsx` is the web half: `react-native-screens` has
  * no web implementation of the header search bar, so the web build keeps an
  * in-body themed `TextInput`. Without that split, web would have no way to type

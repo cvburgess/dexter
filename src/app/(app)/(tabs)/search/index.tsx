@@ -227,26 +227,15 @@ export default function SearchScreen() {
   return (
     // The one screen in the tabs framed by `react-native-screens`' SafeAreaView
     // rather than `react-native-safe-area-context`'s, and it has to be (DEX-107).
-    //
-    // `Stack.SearchBar` sets `headerSearchBarOptions`, which makes expo-router
-    // force the header *translucent* on iOS; react-native-screens answers that by
-    // setting `edgesForExtendedLayout = UIRectEdgeAll` and zeroing the screen's
-    // content offset, i.e. it lays the body out underneath the navigation bar on
-    // purpose and leaves the inset to the scroll view. Its one automatic
-    // compensation — flipping the first scroll view's
-    // `contentInsetAdjustmentBehavior` back to `automatic` — walks a strict
-    // first-child chain once, at mount, and at mount this screen renders the idle
-    // `EmptyScreen`, not the list. So nothing compensates.
-    //
-    // `useSafeAreaInsets` can't cover for it either: expo-router mounts a
-    // SafeAreaProvider per native tab screen, *above* this Stack, so its top inset
-    // is the status bar and nothing more. On iPhone that went unnoticed because
-    // UIKit hides the bar while the field is focused; on iPad the field is
-    // integrated into a bar that stays put, and ~63pt of it sat over the results.
-    //
-    // This SafeAreaView resolves its insets from `RNSScreenView` — the stack
-    // screen's own view, whose safe area already includes that bar — and updates
-    // as UIKit hides and shows it. Reverting the import reopens DEX-107.
+    // `Stack.SearchBar` forces this screen's header *translucent*, so the body is
+    // laid out underneath the navigation bar — and the SafeAreaProvider the
+    // context reads is mounted per tab screen, above this Stack, so its top inset
+    // is the status bar and nothing more. On iPad, where the field is integrated
+    // into a bar that stays visible, ~63pt of header sat over the results. This
+    // SafeAreaView resolves against `RNSScreenView` — the stack screen's own
+    // view, whose safe area includes that bar — and follows it as UIKit hides and
+    // shows it. Reverting the import reopens DEX-107; the safe-area section of
+    // `docs/frontend.md` carries the full mechanism.
     <SafeAreaView
       edges={SCREEN_EDGES}
       style={[

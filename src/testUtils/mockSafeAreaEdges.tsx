@@ -41,7 +41,8 @@ export const mockSafeAreaContext = () => {
 // The testID lists the claimed edges alphabetically, since a record has no
 // meaningful order of its own.
 export const mockScreensSafeArea = () => {
-  const { View } = require("react-native");
+  const { View } =
+    jest.requireActual<typeof import("react-native")>("react-native");
   return {
     SafeAreaView: ({
       children,

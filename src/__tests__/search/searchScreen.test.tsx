@@ -401,15 +401,12 @@ describe("SearchScreen", () => {
     render(<SearchScreen />);
 
     // Jest can't measure an inset, but it can pin the thing that regressed:
-    // which provider the top edge is taken from. `Stack.SearchBar` forces this
-    // screen's header translucent, so react-native-screens lays the body out
-    // *under* the navigation bar — and the per-tab SafeAreaProvider that
-    // `react-native-safe-area-context` reads sits above this Stack, reporting a
-    // top inset of just the status bar. On iPad, where the search field is
-    // integrated into a bar that stays visible while typing, that left ~63pt of
-    // header over the results. `react-native-screens`' SafeAreaView resolves
-    // against the stack screen's own view instead, whose safe area includes the
-    // bar. Swapping this back to the context's SafeAreaView reopens the bug.
+    // which provider the top edge comes from. The frame has to resolve against
+    // the stack screen's own view — whose safe area includes the translucent
+    // header `Stack.SearchBar` forces — and not the per-tab SafeAreaProvider,
+    // whose top inset is only the status bar. Swapping this back to the
+    // context's SafeAreaView reopens the bug; the safe-area section of
+    // `docs/frontend.md` carries the mechanism.
     expect(
       screen.getByTestId("screen-safe-area-edges-left,right,top"),
     ).toBeTruthy();
