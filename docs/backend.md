@@ -491,8 +491,10 @@ Backend and app deploys run from GitHub Actions in `.github/workflows/`:
   matter what the previous day's visitors did to it — and so its relative-dated
   tasks never go stale. It needs no new repo secrets: the service-role key is
   fetched from the Management API like `preview-branch.yml` does, and
-  `DEMO_OTP` comes from the encrypted `.env.preview`. It shares `deploy.yml`'s
-  `deploy-production` concurrency group so a migration can't land mid-seed.
+  `DEMO_OTP` comes from the encrypted `.env.preview`. It uses its own
+  `reset-demo-production` concurrency group rather than joining `deploy.yml`'s:
+  GitHub keeps only one *pending* run per group, so sharing would let a second
+  deploy evict the queued reseed and silently skip a day.
   12:00 UTC is 08:00 EDT / 07:00 EST — GitHub cron is UTC-only with no DST, and
   the winter hour of drift is accepted. Don't move it to an overnight slot:
   `seed-demo.ts` derives "today" from UTC, so a 03:00 UTC run would seed

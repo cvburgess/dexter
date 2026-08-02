@@ -32,12 +32,17 @@ jobs:
   reset:
     name: Reset production demo account
     runs-on: ubuntu-latest
-    # deploy.yml's group, deliberately: this is a data write against the same
-    # project that workflow's `migrate` job pushes to, and a migration landing
-    # mid-seed is exactly the race that group exists to prevent. Queue rather
-    # than cancel — a half-wiped demo account is worse than a late one.
+    # Its own group, deliberately *not* deploy.yml's `deploy-production`.
+    # Sharing that one would serialize the seed against production deploys, but
+    # GitHub keeps only a single pending run per group: a second deploy
+    # entering the group evicts the queued reset, silently skipping a day's
+    # reseed. That group is also workflow-level in deploy.yml, so it stays held
+    # through the long EAS export/deploy/update steps, which a data-only seed
+    # doesn't race with at all. Only reseeds serialize against each other —
+    # `cancel-in-progress: false` so a manual dispatch queues behind a running
+    # reseed instead of killing it half-wiped.
     concurrency:
-      group: deploy-production
+      group: reset-demo-production
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v6
