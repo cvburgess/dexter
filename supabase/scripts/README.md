@@ -28,12 +28,19 @@ DEMO_OTP=... \
 deno task seed-demo
 ```
 
-**Preview branches run this automatically.**
-`.github/workflows/preview-branch.yml` seeds each PR's Supabase preview branch
-once its `Supabase Preview` check succeeds, fetching the branch's own
-service-role key and supplying `DEMO_OTP` from the encrypted `../.env.preview`
-(see `docs/backend.md`). Run the script by hand only against a local stack or
-the production project.
+**CI runs this automatically — both against preview branches and against
+production.** `.github/workflows/preview-branch.yml` seeds each PR's Supabase
+preview branch once its `Supabase Preview` check succeeds, and
+`.github/workflows/reset-demo.yml` reseeds production every morning
+(`0 12 * * *`, plus `workflow_dispatch`) so the public demo account never drifts
+or goes stale. Both fetch the project's service-role key from the Supabase
+Management API and supply `DEMO_OTP` from the encrypted `../.env.preview` (see
+`docs/backend.md`).
+
+So run the script by hand only against a local `supabase start` stack, or to
+reset production ahead of the next scheduled run — in which case prefer
+`gh workflow run "Reset Demo Account" --repo cvburgess/dexter` over passing
+production credentials on your own shell.
 
 The demo account's email is the shared `DEMO_EMAIL` constant
 (`../functions/_shared/demoAuth.ts`), and its password is **derived from

@@ -485,6 +485,20 @@ Backend and app deploys run from GitHub Actions in `.github/workflows/`:
   the branch with its own service-role key so the demo account exists. Both are
   idempotent and safe to re-run on every push; `workflow_dispatch` with a
   `git_branch` input targets an existing preview branch on demand.
+- **`reset-demo.yml`** — daily cron (`0 12 * * *`, plus `workflow_dispatch`)
+  that runs the same `supabase/scripts/seed-demo.ts` against **production**, so
+  the public demo account returns to the curated dataset every morning no
+  matter what the previous day's visitors did to it — and so its relative-dated
+  tasks never go stale. It needs no new repo secrets: the service-role key is
+  fetched from the Management API like `preview-branch.yml` does, and
+  `DEMO_OTP` comes from the encrypted `.env.preview`. It uses its own
+  `reset-demo-production` concurrency group rather than joining `deploy.yml`'s:
+  GitHub keeps only one *pending* run per group, so sharing would let a second
+  deploy evict the queued reseed and silently skip a day.
+  12:00 UTC is 08:00 EDT / 07:00 EST — GitHub cron is UTC-only with no DST, and
+  the winter hour of drift is accepted. Don't move it to an overnight slot:
+  `seed-demo.ts` derives "today" from UTC, so a 03:00 UTC run would seed
+  tomorrow's dates for a US viewer (DEX-117).
 - **`preview.yml`** — `workflow_dispatch` EAS preview OTA update (`eas update
   --auto`) that comments on the PR.
 
@@ -578,6 +592,13 @@ rotates.
 > deliberately reuse production's `DEMO_OTP` so App Store review and preview
 > behave identically; the tradeoff is that the production demo credential lives
 > encrypted in git, decryptable by anything holding the preview private key.
+>
+> Since `reset-demo.yml` reseeds production daily from this same file,
+> `.env.preview` is now the effective source of truth for the production demo
+> password. Setting a new `DEMO_OTP` function secret on production **without**
+> re-encrypting `.env.preview` therefore breaks review login and keeps
+> re-breaking it every morning — the workflow stays green while it does. Always
+> rotate both together.
 
 See the
 [Supabase branching docs](https://supabase.com/docs/guides/deployment/branching/configuration#using-dotenvx-for-git-based-workflow)
