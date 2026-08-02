@@ -1,0 +1,101 @@
+name: Reset Demo Account
+
+# Puts the production demo account back to the curated dataset every morning,
+# so App Store review, marketing screenshots, and anyone using the public demo
+# login always land on known-good data — whatever the previous day's visitors
+# did to it. The seeded data is relative-dated ("due in 2 days"), so this also
+# keeps the account from aging even when nobody touches it (DEX-117).
+#
+# Same idempotent script the preview branches run
+# (supabase/scripts/seed-demo.ts), pointed at production. It needs no new repo
+# secrets: the service-role key is fetched from the Management API at runtime,
+# and supabase/.env.preview already carries production's DEMO_OTP — see
+# docs/backend.md.
+#
+# The hour is load-bearing beyond preference: seed-demo.ts derives "today" from
+# `new Date().toISOString()` (UTC). At 12:00 UTC, UTC-today still equals
+# Eastern-today, so the relative-dated tasks land where a US viewer expects.
+# Moving this to an overnight-UTC slot would seed tomorrow's dates.
+
+on:
+  schedule:
+    # 12:00 UTC = 08:00 EDT / 07:00 EST. GitHub cron is UTC-only with no DST
+    # support, so the winter hour of drift is accepted rather than gated
+    # around with a second cron.
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reset:
+    name: Reset production demo account
+    runs-on: ubuntu-latest
+    # deploy.yml's group, deliberately: this is a data write against the same
+    # project that workflow's `migrate` job pushes to, and a migration landing
+    # mid-seed is exactly the race that group exists to prevent. Queue rather
+    # than cancel — a half-wiped demo account is worse than a late one.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Fetch production service-role key
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_ID }}
+        # The seed script writes through the Auth Admin API and bypasses RLS,
+        # so it needs the project's service-role key. Fetching it from the
+        # Management API — the same call preview-branch.yml makes, pointed at
+        # the production ref — keeps that key out of repo secrets entirely.
+        run: |
+          set -euo pipefail
+          # Captured, never echoed — reveal=true returns the key material in full.
+          keys=$(curl -fsSL \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            -H "Accept: application/json" \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF/api-keys?reveal=true")
+          # Prefer the legacy `service_role` JWT; fall back to a new-style
+          # secret key if legacy JWT keys are ever disabled on the project.
+          # `.api_key` is null-guarded before startswith, which errors on null.
+          key=$(echo "$keys" | jq -r '
+            [.[] | select(.api_key != null)] as $present
+            | ([$present[] | select(.name == "service_role")][0].api_key
+               // [$present[] | select(.api_key | startswith("sb_secret_"))][0].api_key
+               // empty)')
+          if [ -z "$key" ]; then
+            echo "::error::No service-role key for production project $PROJECT_REF."
+            # Names only — safe to log, and enough to spot a changed payload shape.
+            echo "Keys returned: $(echo "$keys" | jq -c '[.[].name]')"
+            exit 1
+          fi
+          echo "::add-mask::$key"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$key" >> "$GITHUB_ENV"
+
+      - name: Reset demo account
+        working-directory: supabase/scripts
+        env:
+          # supabase/.env.preview deliberately carries *production's* DEMO_OTP
+          # (docs/backend.md, "DEMO_OTP and the seeded password rotate
+          # together"), so the same encrypted file that seeds previews seeds
+          # production — this workflow needs no new repo secret.
+          DOTENV_PRIVATE_KEY_PREVIEW: ${{ secrets.DOTENV_PRIVATE_KEY_PREVIEW }}
+          # The project's own supabase.co host rather than the
+          # api.dexterplanner.com custom domain: both serve the same API, but
+          # this one is derived from the very ref we just fetched the key for,
+          # so the URL and the credential can never point at different projects.
+          SUPABASE_URL: https://${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co
+        # Version-pinned: this decrypts a production credential and should not
+        # float to whatever `@latest` resolves to on a given day. `--strict` is
+        # load-bearing: without it dotenvx only *logs* a failed decrypt (a
+        # missing or rotated DOTENV_PRIVATE_KEY_PREVIEW) and still runs the
+        # command with the raw `encrypted:…` ciphertext as DEMO_OTP — the job
+        # would go green every morning while resetting the demo password to a
+        # value verify-demo-otp can never derive.
+        run: npx --yes @dotenvx/dotenvx@2.18.1 run --strict -f ../.env.preview -- deno task seed-demo
