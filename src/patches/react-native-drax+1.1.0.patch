@@ -1,0 +1,249 @@
+diff --git a/node_modules/react-native-drax/lib/module/DraxView.js b/node_modules/react-native-drax/lib/module/DraxView.js
+index c4bdb68..23fd354 100644
+--- a/node_modules/react-native-drax/lib/module/DraxView.js
++++ b/node_modules/react-native-drax/lib/module/DraxView.js
+@@ -19,7 +19,7 @@ const DRAX_PROP_KEYS = new Set(['renderContent', 'renderHoverContent', 'noHover'
+ // Callback props
+ 'onDragStart', 'onDrag', 'onDragEnter', 'onDragOver', 'onDragExit', 'onDragEnd', 'onDragDrop', 'onSnapEnd', 'onReceiveSnapEnd', 'onReceiveDragEnter', 'onReceiveDragOver', 'onReceiveDragExit', 'onReceiveDragDrop', 'onMonitorDragStart', 'onMonitorDragEnter', 'onMonitorDragOver', 'onMonitorDragExit', 'onMonitorDragEnd', 'onMonitorDragDrop', 'animateSnap', 'snapDelay', 'snapDuration', 'snapAnimator', 'dragPayload', 'receiverPayload', 'payload', 'draggable', 'receptive', 'monitoring', 'rejectOwnChildren', 'disableHoverViewMeasurementsOnLayout', 'dynamicReceptiveCallback', 'acceptsDrag', 'dragBoundsRef',
+ // Style props (handled by useViewStyles)
+-'style', 'dragInactiveStyle', 'draggingStyle', 'draggingWithReceiverStyle', 'draggingWithoutReceiverStyle', 'dragReleasedStyle', 'hoverStyle', 'hoverDraggingStyle', 'hoverDraggingWithReceiverStyle', 'hoverDraggingWithoutReceiverStyle', 'hoverDragReleasedStyle', 'receiverInactiveStyle', 'receivingStyle', 'otherDraggingStyle', 'otherDraggingWithReceiverStyle', 'otherDraggingWithoutReceiverStyle', 'dragHandle', 'dragActivationFailOffset', 'collisionAlgorithm', 'scrollHorizontal']);
++'style', 'dragInactiveStyle', 'draggingStyle', 'draggingWithReceiverStyle', 'draggingWithoutReceiverStyle', 'dragReleasedStyle', 'hoverStyle', 'hoverDraggingStyle', 'hoverDraggingWithReceiverStyle', 'hoverDraggingWithoutReceiverStyle', 'hoverDragReleasedStyle', 'receiverInactiveStyle', 'receivingStyle', 'otherDraggingStyle', 'otherDraggingWithReceiverStyle', 'otherDraggingWithoutReceiverStyle', 'dragHandle', 'dragActivationFailOffset', 'dragActivationOffsetX', 'dragActivationOffsetY', 'dragActivationFailOffsetX', 'dragActivationFailOffsetY', 'collisionAlgorithm', 'scrollHorizontal']);
+ 
+ /** Extract only ViewProps-compatible props by filtering out Drax-specific keys */
+ function extractViewProps(props) {
+@@ -273,7 +273,12 @@ export const DraxView = /*#__PURE__*/memo(props => {
+       dragBoundsSV.value = null;
+     }
+   }, [dragBoundsRef, rootViewRef, dragBoundsSV]);
+-  const gesture = useDragGesture(id, spatialIndexSV, draggableSV, longPressDelaySV, lockDragXPosition, lockDragYPosition, dragBoundsSV, props.dragActivationFailOffset, scrollHorizontal);
++  const gesture = useDragGesture(id, spatialIndexSV, draggableSV, longPressDelaySV, lockDragXPosition, lockDragYPosition, dragBoundsSV, props.dragActivationFailOffset, scrollHorizontal, {
++    offsetX: props.dragActivationOffsetX,
++    offsetY: props.dragActivationOffsetY,
++    failOffsetX: props.dragActivationFailOffsetX,
++    failOffsetY: props.dragActivationFailOffsetY
++  });
+ 
+   // ── Animated styles ────────────────────────────────────────────────
+   const {
+diff --git a/node_modules/react-native-drax/lib/module/compat/useDraxPanGesture.js b/node_modules/react-native-drax/lib/module/compat/useDraxPanGesture.js
+index ec37fe2..89e9400 100644
+--- a/node_modules/react-native-drax/lib/module/compat/useDraxPanGesture.js
++++ b/node_modules/react-native-drax/lib/module/compat/useDraxPanGesture.js
+@@ -29,6 +29,8 @@ function useDraxPanGestureV3(config) {
+   };
+   if (config.failOffsetX !== undefined) panConfig.failOffsetX = config.failOffsetX;
+   if (config.failOffsetY !== undefined) panConfig.failOffsetY = config.failOffsetY;
++  if (config.activeOffsetX !== undefined) panConfig.activeOffsetX = config.activeOffsetX;
++  if (config.activeOffsetY !== undefined) panConfig.activeOffsetY = config.activeOffsetY;
+   return rngh.usePanGesture(panConfig);
+ }
+ 
+@@ -64,6 +66,8 @@ function useDraxPanGestureV2(config) {
+     let g = Gesture.Pan().enabled(enabled).activateAfterLongPress(longPressDelay).maxPointers(config.maxPointers).shouldCancelWhenOutside(config.shouldCancelWhenOutside);
+     if (config.failOffsetX !== undefined) g = g.failOffsetX(config.failOffsetX);
+     if (config.failOffsetY !== undefined) g = g.failOffsetY(config.failOffsetY);
++    if (config.activeOffsetX !== undefined) g = g.activeOffsetX(config.activeOffsetX);
++    if (config.activeOffsetY !== undefined) g = g.activeOffsetY(config.activeOffsetY);
+     return g.onStart(event => {
+       'worklet';
+ 
+diff --git a/node_modules/react-native-drax/lib/module/hooks/useDragGesture.js b/node_modules/react-native-drax/lib/module/hooks/useDragGesture.js
+index f5a2050..6003408 100644
+--- a/node_modules/react-native-drax/lib/module/hooks/useDragGesture.js
++++ b/node_modules/react-native-drax/lib/module/hooks/useDragGesture.js
+@@ -15,7 +15,7 @@ import { useDraxContext } from "./useDraxContext.js";
+  * reconfigure the native gesture handler on the UI thread — zero JS bridge.
+  * On RNGH v2, they are mirrored to plain values with gesture recreation on change.
+  */
+-export const useDragGesture = (id, viewSpatialIndexSV, enabledSV, longPressDelaySV, lockDragXPosition, lockDragYPosition, dragBoundsSV, dragActivationFailOffset, scrollHorizontal) => {
++export const useDragGesture = (id, viewSpatialIndexSV, enabledSV, longPressDelaySV, lockDragXPosition, lockDragYPosition, dragBoundsSV, dragActivationFailOffset, scrollHorizontal, dragActivationOffsets) => {
+   const {
+     draggedIdSV,
+     receiverIdSV,
+@@ -47,8 +47,10 @@ export const useDragGesture = (id, viewSpatialIndexSV, enabledSV, longPressDelay
+     maxPointers: 1,
+     shouldCancelWhenOutside: false,
+     touchAction,
+-    failOffsetX: failOffset,
+-    failOffsetY: failOffset,
++    activeOffsetX: dragActivationOffsets?.offsetX,
++    activeOffsetY: dragActivationOffsets?.offsetY,
++    failOffsetX: dragActivationOffsets?.failOffsetX ?? failOffset,
++    failOffsetY: dragActivationOffsets?.failOffsetY ?? failOffset,
+     onActivate: event => {
+       'worklet';
+ 
+diff --git a/node_modules/react-native-drax/lib/typescript/src/compat/types.d.ts b/node_modules/react-native-drax/lib/typescript/src/compat/types.d.ts
+index 36e8587..a22fd14 100644
+--- a/node_modules/react-native-drax/lib/typescript/src/compat/types.d.ts
++++ b/node_modules/react-native-drax/lib/typescript/src/compat/types.d.ts
+@@ -24,6 +24,8 @@ export interface DraxPanGestureConfig {
+     /** Fail the gesture if finger moves more than this distance during activation.
+      *  Prevents accidental drags when the user is trying to scroll. */
+     failOffsetX?: number | [number, number];
++    activeOffsetX?: number | [number, number];
++    activeOffsetY?: number | [number, number];
+     failOffsetY?: number | [number, number];
+     onActivate: (event: DraxPanEvent) => void;
+     onUpdate: (event: DraxPanEvent) => void;
+diff --git a/node_modules/react-native-drax/lib/typescript/src/types.d.ts b/node_modules/react-native-drax/lib/typescript/src/types.d.ts
+index 24f77db..c78e89d 100644
+--- a/node_modules/react-native-drax/lib/typescript/src/types.d.ts
++++ b/node_modules/react-native-drax/lib/typescript/src/types.d.ts
+@@ -243,6 +243,14 @@ export interface DraxViewProps extends Omit<ViewProps, 'style'>, DraxViewStylePr
+      *  Prevents accidental drags when the user is trying to scroll.
+      *  Can be a number (symmetric) or [min, max] tuple per axis. */
+     dragActivationFailOffset?: number;
++    /** Minimum horizontal travel (px) before the drag activates (activeOffsetX). */
++    dragActivationOffsetX?: number | [number, number];
++    /** Vertical counterpart of dragActivationOffsetX (activeOffsetY). */
++    dragActivationOffsetY?: number | [number, number];
++    /** Per-axis dragActivationFailOffset; takes precedence on its own axis. */
++    dragActivationFailOffsetX?: number | [number, number];
++    /** See dragActivationFailOffsetX. */
++    dragActivationFailOffsetY?: number | [number, number];
+     /** Hint that this view is inside a horizontal scroll container.
+      *  On mobile web, sets `touch-action: pan-x` so the browser allows
+      *  native horizontal scrolling before the long-press activates drag.
+diff --git a/node_modules/react-native-drax/src/DraxView.tsx b/node_modules/react-native-drax/src/DraxView.tsx
+index 31a0c65..e3a86a3 100644
+--- a/node_modules/react-native-drax/src/DraxView.tsx
++++ b/node_modules/react-native-drax/src/DraxView.tsx
+@@ -88,6 +88,10 @@ const DRAX_PROP_KEYS: ReadonlySet<string> = new Set([
+   'otherDraggingWithoutReceiverStyle',
+   'dragHandle',
+   'dragActivationFailOffset',
++  'dragActivationOffsetX',
++  'dragActivationOffsetY',
++  'dragActivationFailOffsetX',
++  'dragActivationFailOffsetY',
+   'collisionAlgorithm',
+   'scrollHorizontal',
+ ]);
+@@ -355,7 +359,13 @@ export const DraxView = memo((props: DraxViewProps): ReactNode => {
+     lockDragYPosition,
+     dragBoundsSV,
+     props.dragActivationFailOffset,
+-    scrollHorizontal
++    scrollHorizontal,
++    {
++      offsetX: props.dragActivationOffsetX,
++      offsetY: props.dragActivationOffsetY,
++      failOffsetX: props.dragActivationFailOffsetX,
++      failOffsetY: props.dragActivationFailOffsetY,
++    }
+   );
+ 
+   // ── Animated styles ────────────────────────────────────────────────
+diff --git a/node_modules/react-native-drax/src/compat/types.ts b/node_modules/react-native-drax/src/compat/types.ts
+index 521d7ae..e7d864d 100644
+--- a/node_modules/react-native-drax/src/compat/types.ts
++++ b/node_modules/react-native-drax/src/compat/types.ts
+@@ -28,6 +28,11 @@ export interface DraxPanGestureConfig {
+    *  Prevents accidental drags when the user is trying to scroll. */
+   failOffsetX?: number | [number, number];
+   failOffsetY?: number | [number, number];
++  /** Minimum travel on an axis before the gesture activates. Lets a drag be
++   *  told apart from a stationary press or a scroll by direction rather than
++   *  by a long-press delay. */
++  activeOffsetX?: number | [number, number];
++  activeOffsetY?: number | [number, number];
+   onActivate: (event: DraxPanEvent) => void;
+   onUpdate: (event: DraxPanEvent) => void;
+   onDeactivate: (event: DraxPanEvent) => void;
+diff --git a/node_modules/react-native-drax/src/compat/useDraxPanGesture.ts b/node_modules/react-native-drax/src/compat/useDraxPanGesture.ts
+index 565782b..b22791c 100644
+--- a/node_modules/react-native-drax/src/compat/useDraxPanGesture.ts
++++ b/node_modules/react-native-drax/src/compat/useDraxPanGesture.ts
+@@ -30,6 +30,8 @@ function useDraxPanGestureV3(config: DraxPanGestureConfig): DraxPanGesture {
+   };
+   if (config.failOffsetX !== undefined) panConfig.failOffsetX = config.failOffsetX;
+   if (config.failOffsetY !== undefined) panConfig.failOffsetY = config.failOffsetY;
++  if (config.activeOffsetX !== undefined) panConfig.activeOffsetX = config.activeOffsetX;
++  if (config.activeOffsetY !== undefined) panConfig.activeOffsetY = config.activeOffsetY;
+   return rngh.usePanGesture(panConfig);
+ }
+ 
+@@ -78,6 +80,8 @@ function useDraxPanGestureV2(config: DraxPanGestureConfig): DraxPanGesture {
+       .shouldCancelWhenOutside(config.shouldCancelWhenOutside);
+     if (config.failOffsetX !== undefined) g = g.failOffsetX(config.failOffsetX);
+     if (config.failOffsetY !== undefined) g = g.failOffsetY(config.failOffsetY);
++    if (config.activeOffsetX !== undefined) g = g.activeOffsetX(config.activeOffsetX);
++    if (config.activeOffsetY !== undefined) g = g.activeOffsetY(config.activeOffsetY);
+     return g
+       .onStart((event: DraxPanEvent) => {
+         'worklet';
+diff --git a/node_modules/react-native-drax/src/hooks/useDragGesture.ts b/node_modules/react-native-drax/src/hooks/useDragGesture.ts
+index 4e36d6c..d9a6859 100644
+--- a/node_modules/react-native-drax/src/hooks/useDragGesture.ts
++++ b/node_modules/react-native-drax/src/hooks/useDragGesture.ts
+@@ -25,7 +25,15 @@ export const useDragGesture = (
+   lockDragYPosition?: boolean,
+   dragBoundsSV?: SharedValue<{ x: number; y: number; width: number; height: number } | null>,
+   dragActivationFailOffset?: number,
+-  scrollHorizontal?: boolean
++  scrollHorizontal?: boolean,
++  /** Per-axis activation, for disambiguating a drag by direction rather than
++   *  by time. See `dragActivationOffsetX` in types.ts. */
++  dragActivationOffsets?: {
++    offsetX?: number | [number, number];
++    offsetY?: number | [number, number];
++    failOffsetX?: number | [number, number];
++    failOffsetY?: number | [number, number];
++  }
+ ) => {
+   const {
+     draggedIdSV,
+@@ -58,14 +66,21 @@ export const useDragGesture = (
+     ? [-dragActivationFailOffset, dragActivationFailOffset] as [number, number]
+     : undefined;
+ 
++  // Per-axis values win over the symmetric shorthand on their own axis, so a
++  // caller can fail the drag on one axis while activating it on the other.
++  const failOffsetX = dragActivationOffsets?.failOffsetX ?? failOffset;
++  const failOffsetY = dragActivationOffsets?.failOffsetY ?? failOffset;
++
+   const gesture = useDraxPanGesture({
+     enabledSV,
+     longPressDelaySV,
+     maxPointers: 1,
+     shouldCancelWhenOutside: false,
+     touchAction,
+-    failOffsetX: failOffset,
+-    failOffsetY: failOffset,
++    activeOffsetX: dragActivationOffsets?.offsetX,
++    activeOffsetY: dragActivationOffsets?.offsetY,
++    failOffsetX,
++    failOffsetY,
+     onActivate: (event) => {
+       'worklet';
+ 
+diff --git a/node_modules/react-native-drax/src/types.ts b/node_modules/react-native-drax/src/types.ts
+index f393ffc..f812faf 100644
+--- a/node_modules/react-native-drax/src/types.ts
++++ b/node_modules/react-native-drax/src/types.ts
+@@ -318,6 +318,24 @@ export interface DraxViewProps
+    *  Prevents accidental drags when the user is trying to scroll.
+    *  Can be a number (symmetric) or [min, max] tuple per axis. */
+   dragActivationFailOffset?: number;
++  /** Minimum horizontal travel (px) before the drag activates. Maps to
++   *  gesture-handler's `activeOffsetX`.
++   *
++   *  Use this to disambiguate a drag by *direction* rather than by time. With
++   *  `longPressDelay: 0` and `dragActivationOffsetX` set, a stationary press
++   *  never starts a drag — so a long-press context menu underneath the view
++   *  still opens — and pairing it with `dragActivationFailOffsetY` leaves
++   *  vertical scrolling to the list the view sits in.
++   *
++   *  Number (symmetric) or [min, max] tuple. */
++  dragActivationOffsetX?: number | [number, number];
++  /** Vertical counterpart of `dragActivationOffsetX` (`activeOffsetY`). */
++  dragActivationOffsetY?: number | [number, number];
++  /** Per-axis `dragActivationFailOffset`. Takes precedence over it on its own
++   *  axis, so one axis can fail the drag while the other activates it. */
++  dragActivationFailOffsetX?: number | [number, number];
++  /** See `dragActivationFailOffsetX`. */
++  dragActivationFailOffsetY?: number | [number, number];
+ 
+   /** Hint that this view is inside a horizontal scroll container.
+    *  On mobile web, sets `touch-action: pan-x` so the browser allows

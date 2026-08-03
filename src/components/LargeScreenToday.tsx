@@ -6,10 +6,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { CalendarView } from "@/components/CalendarView";
 import { DayNav } from "@/components/DayNav";
 import { DayPaneToggles } from "@/components/DayPaneToggles";
+import { DragScheduleProvider } from "@/components/DragScheduleProvider";
 import { GlassIconButton } from "@/components/GlassIconButton";
 import { LargeScreenHeader } from "@/components/LargeScreenHeader";
 import { NotesJournalTabs } from "@/components/NotesJournalTabs";
 import { TaskDrawer } from "@/components/TaskDrawer";
+import { TaskDropTarget } from "@/components/TaskDropTarget";
 import { TasksView } from "@/components/TasksView";
 import { useTodayPanes } from "@/hooks/useTodayPanes";
 import { TPreferences } from "@/api/preferences";
@@ -161,86 +163,102 @@ export function LargeScreenToday({
           <DayNav date={date} onChangeDate={changeDate} />
         </View>
       </LargeScreenHeader>
-      <View
-        style={[
-          styles.paneRow,
-          {
-            gap: theme.space.md,
-            paddingHorizontal: theme.space.md,
-            paddingTop: theme.space.md,
-          },
-        ]}
-      >
-        <View style={styles.fixedPane}>
-          <TasksView date={date} />
+      {/* Backlog rows can be dragged onto the Tasks pane to schedule them for
+          the viewed day, and a scheduled card dragged back onto the backlog to
+          unschedule it (DEX-77). Large screens only — this is the layout where
+          the two panes are siblings, so a card can actually travel between
+          them. */}
+      <DragScheduleProvider>
+        <View
+          style={[
+            styles.paneRow,
+            {
+              gap: theme.space.md,
+              paddingHorizontal: theme.space.md,
+              paddingTop: theme.space.md,
+            },
+          ]}
+        >
+          <TaskDropTarget
+            scheduledFor={date.toString()}
+            style={styles.fixedPane}
+            testID="tasks-drop-target"
+          >
+            <TasksView date={date} />
+          </TaskDropTarget>
+          {(showNotes || showJournal) && (
+            <View style={styles.notesJournalPane}>
+              {/* No key here (unlike CalendarView below): NotesJournalTabs
+                  keys its own NotesView/JournalView content on date
+                  internally, so the editor re-seeds on a day change without
+                  also resetting which tab is selected. */}
+              <NotesJournalTabs
+                date={date.toString()}
+                showJournal={showJournal}
+                showNotes={showNotes}
+                requestedTab={
+                  mode === "notes" || mode === "journal" ? mode : null
+                }
+                // The tab is a string union, so it carries no identity of its
+                // own — this is what tells the pane that a *second* navigation
+                // asked for the same tab it is already showing.
+                requestedTabLinkId={linkId}
+              />
+            </View>
+          )}
+          {showCalendar && (
+            <View
+              style={[
+                styles.calendarPane,
+                {
+                  borderColor: theme.colors.border,
+                  borderRadius: theme.radii.md,
+                  // Matches TasksView's own list padding, so both panes give
+                  // their content the same breathing room from the pane's edge.
+                  padding: theme.space.md,
+                },
+              ]}
+            >
+              {/* Keyed on date for the same reason as NotesJournalTabs:
+                  CalendarView seeds its "now" line position once per mount
+                  (see CalendarView.tsx), relying on a remount per day. */}
+              <CalendarView date={date} key={date.toString()} />
+            </View>
+          )}
+          {panes.drawer && (
+            // `scheduledFor={null}`: dropping a scheduled card here clears its
+            // date and returns it to the backlog, the inverse of dragging one
+            // out (DEX-77).
+            <TaskDropTarget
+              scheduledFor={null}
+              testID="backlog-drop-target"
+              style={[
+                styles.drawerPane,
+                {
+                  borderColor: theme.colors.border,
+                  borderRadius: theme.radii.md,
+                  // Calendar (rendered above, when shown) already carries the
+                  // unconditional auto margin and always renders before this
+                  // pane, so its leading margin absorbs the row's leftover
+                  // space and pushes the whole {Calendar, Drawer} group right
+                  // together — this pane's own margin must drop out then, or
+                  // the leftover space would split across both auto margins
+                  // and open a gap between them instead of docking flush.
+                  marginLeft: showCalendar ? 0 : "auto",
+                },
+              ]}
+            >
+              <TaskDrawer
+                date={date}
+                filterId={drawerFilterId}
+                onFilterChange={setDrawerFilterId}
+                search={drawerSearch}
+                onSearchChange={setDrawerSearch}
+              />
+            </TaskDropTarget>
+          )}
         </View>
-        {(showNotes || showJournal) && (
-          <View style={styles.notesJournalPane}>
-            {/* No key here (unlike CalendarView below): NotesJournalTabs
-                keys its own NotesView/JournalView content on date
-                internally, so the editor re-seeds on a day change without
-                also resetting which tab is selected. */}
-            <NotesJournalTabs
-              date={date.toString()}
-              showJournal={showJournal}
-              showNotes={showNotes}
-              requestedTab={
-                mode === "notes" || mode === "journal" ? mode : null
-              }
-              // The tab is a string union, so it carries no identity of its own
-              // — this is what tells the pane that a *second* navigation asked
-              // for the same tab it is already showing.
-              requestedTabLinkId={linkId}
-            />
-          </View>
-        )}
-        {showCalendar && (
-          <View
-            style={[
-              styles.calendarPane,
-              {
-                borderColor: theme.colors.border,
-                borderRadius: theme.radii.md,
-                // Matches TasksView's own list padding, so both panes give their
-                // content the same breathing room from the pane's edge.
-                padding: theme.space.md,
-              },
-            ]}
-          >
-            {/* Keyed on date for the same reason as NotesJournalTabs:
-                CalendarView seeds its "now" line position once per mount
-                (see CalendarView.tsx), relying on a remount per day. */}
-            <CalendarView date={date} key={date.toString()} />
-          </View>
-        )}
-        {panes.drawer && (
-          <View
-            style={[
-              styles.drawerPane,
-              {
-                borderColor: theme.colors.border,
-                borderRadius: theme.radii.md,
-                // Calendar (rendered above, when shown) already carries the
-                // unconditional auto margin and always renders before this
-                // pane, so its leading margin absorbs the row's leftover
-                // space and pushes the whole {Calendar, Drawer} group right
-                // together — this pane's own margin must drop out then, or
-                // the leftover space would split across both auto margins
-                // and open a gap between them instead of docking flush.
-                marginLeft: showCalendar ? 0 : "auto",
-              },
-            ]}
-          >
-            <TaskDrawer
-              date={date}
-              filterId={drawerFilterId}
-              onFilterChange={setDrawerFilterId}
-              search={drawerSearch}
-              onSearchChange={setDrawerSearch}
-            />
-          </View>
-        )}
-      </View>
+      </DragScheduleProvider>
     </SafeAreaView>
   );
 }

@@ -114,6 +114,35 @@ jest.mock("expo-share-intent", () => ({
   })),
 }));
 
+// react-native-drax drives drag hit-testing through Reanimated shared values
+// (`spatialIndexSV.modify`, `scrollOffsetsSV.modify`) that the
+// `react-native-reanimated/mock` above doesn't implement — mounting a real
+// DraxProvider throws. All three render as ordinary views that pass their props
+// straight through, so a test finds a drop target by testID and invokes
+// `onReceiveDragDrop`/`acceptsDrag` directly rather than simulating a pointer
+// path (DEX-77). They render their children rather than `null`, or every card
+// inside a drag source would vanish from existing assertions.
+//
+// Note what this stub cannot catch: drax caches a view's props in its registry
+// and calls the *cached* handler, while a pass-through View calls the current
+// one. A drop handler that has gone stale therefore still passes here. See
+// `TaskDropTarget`, whose test captures a handler and calls it after a rerender
+// to reproduce the real behavior.
+jest.mock("react-native-drax", () => {
+  const { ScrollView, View } = require("react-native");
+  return {
+    DraxProvider: ({ children, ...props }) => (
+      <View {...props}>{children}</View>
+    ),
+    DraxView: ({ children, ...props }) => <View {...props}>{children}</View>,
+    // A real ScrollView so WeekView's ref/onLayout/scrollTo anchoring keeps
+    // working — the today-column anchor is asserted in weekScreen.test.tsx.
+    DraxScrollView: ({ children, ...props }) => (
+      <ScrollView {...props}>{children}</ScrollView>
+    ),
+  };
+});
+
 // @expo/ui's SwiftUI primitives (used by DateField.ios) are native views.
 jest.mock("@expo/ui/swift-ui", () => ({
   DatePicker: () => null,

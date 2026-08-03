@@ -39,10 +39,10 @@ choose).
 To add a new task to the day, click the + input above the task list and start
 typing. When done, press enter and the task will be created.
 
-To add an existing task to the day, either drag a task into the task list from
-the quick planner or use the
-<i class="ph-bold ph-dots-three-outline-vertical"></i> button to schedule the
-task for that day.
+To add an existing task to the day, use the <i class="ph-bold ph-plus"></i>
+button on a quick planner row. On a wide screen you can also drag the task
+straight out of the quick planner and drop it on the task list, or drag it back
+onto the quick planner to unschedule it.
 
 [Learn more about tasks](/tips/tasks)
 

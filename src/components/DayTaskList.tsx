@@ -7,7 +7,7 @@ import { duplicateTaskInput, TTask } from "@/api/tasks";
 import { isRepeatTask } from "@/api/templates";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { EmptyScreen } from "@/components/EmptyScreen";
-import { TaskCard } from "@/components/TaskCard";
+import { DraggableTaskCard } from "@/components/DraggableTaskCard";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
@@ -107,7 +107,10 @@ export function DayTaskList({
           }}
         >
           {tasks.map((item) => (
-            <TaskCard
+            // Draggable only where a `DragScheduleProvider` is above it — the
+            // Week columns and Today's Tasks pane. Everywhere else this is a
+            // plain TaskCard (DEX-77).
+            <DraggableTaskCard
               key={item.id}
               task={item}
               onUpdate={(diff) => updateTask({ id: item.id, ...diff })}

@@ -121,6 +121,16 @@ color behind it, and `CalendarView`'s hour lines take `text` at 25% so they read
 as the faintest member of the same family as the hour labels they tie to, rather
 than as the app's structural hairline.
 
+`TaskDropTarget`'s drag highlight is the one border that is **not** a hairline: a
+2px line in `colors.primary`, the same active-state color the drawer's Filter and
+Group controls take. Both halves are deliberate. `primary` because this is a
+transient active state rather than structure; 2px because the width is *reserved*
+— it is always present and transparent, and only its color changes on hover, so
+highlighting a drop target costs no layout. Introducing the width on hover
+instead would shrink the content box and reflow every card in the region for as
+long as a finger hovers over it. A pane that already draws its own hairline (the
+backlog) keeps it and just gets tinted.
+
 ## Radius
 
 `radii.md` is the app's **one** corner radius — cards, inputs, panes, tiles,

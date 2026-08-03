@@ -7,14 +7,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TGoal } from "@/api/goals";
 import { TList } from "@/api/lists";
 import { duplicateTaskInput, ETaskPriority, TTask } from "@/api/tasks";
+import { ConfirmationModal } from "@/components/ConfirmationModal";
+import { DraggableTaskCard } from "@/components/DraggableTaskCard";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { GlassIconButton } from "@/components/GlassIconButton";
 import { IconMenu, TIconMenuOption } from "@/components/IconMenu";
 import { PRIORITY_OPTIONS } from "@/components/PriorityControl";
-import { TaskCard } from "@/components/TaskCard";
 import { TextInput } from "@/components/TextInput";
 import { useGoals } from "@/hooks/useGoals";
 import { useLists } from "@/hooks/useLists";
+import { useScheduleChange } from "@/hooks/useScheduleChange";
 import { useTasks } from "@/hooks/useTasks";
 import { formatWeekdayMonthDay } from "@/utils/formatPlainDate";
 import { searchTerms } from "@/utils/searchHighlight";
@@ -343,6 +345,10 @@ export function TaskDrawer({
   const [goals] = useGoals({ skipQuery: groupBy !== "goalId" });
   const [allTasks, { isLoading, updateTask, createTask, deleteTask }] =
     useTasks();
+  // Drives the "+" button's alarm prompt. Independent of the drag path, which
+  // routes through `DragScheduleProvider`'s own copy — this drawer renders on
+  // small screens too, where there is no provider.
+  const { changeSchedule, confirmationProps } = useScheduleChange(updateTask);
   // The `?? [date]` fallback lives inside the memo: as an inline prop default
   // it would allocate a fresh array every render and defeat it.
   const tasks = useMemo(
@@ -418,13 +424,15 @@ export function TaskDrawer({
       return (
         <View style={[styles.row, { gap: theme.space.sm }]}>
           <View style={styles.cardWrapper}>
-            <TaskCard
+            <DraggableTaskCard
               // FlashList recycles a row by reusing its React key from a pool
               // and re-rendering with new props — it does NOT remount, and
               // `keyExtractor` only sets FlashList's own stableId, not this
               // key. Without keying here, `TaskCard`'s inline-edit state and
               // any focused input survive the swap and get committed against
-              // whichever task landed in the recycled row.
+              // whichever task landed in the recycled row — and drax, which
+              // caches a view's props when it registers, would keep dragging
+              // whichever task first mounted in the cell (DEX-77).
               key={task.id}
               task={task}
               onUpdate={(diff) => updateTask({ id: task.id, ...diff })}
@@ -439,14 +447,17 @@ export function TaskDrawer({
             accessibilityLabel={`Schedule "${task.title}" for ${formatWeekdayMonthDay(date)}`}
             sfSymbol="plus"
             ionicon="add-outline"
-            onPress={() =>
-              updateTask({ id: task.id, scheduledFor: date.toString() })
-            }
+            // Through `changeSchedule`, not a direct `updateTask`: this button
+            // reschedules, so it owes the same alarm prompt the card's own menu
+            // and the drag drop targets give. Writing `scheduledFor` straight
+            // through moved a task off the day its alarm was set for and left
+            // the alarm behind (DEX-77).
+            onPress={() => void changeSchedule(task, date.toString())}
           />
         </View>
       );
     },
-    [theme, date, updateTask, createTask, deleteTask],
+    [theme, date, changeSchedule, updateTask, createTask, deleteTask],
   );
 
   const keyExtractor = useCallback((item: TDrawerListItem) => item.id, []);
@@ -539,6 +550,10 @@ export function TaskDrawer({
           contentContainerStyle={listContentStyle}
         />
       )}
+      {/* Drives the "+" button's alarm prompt. A child of the drawer (unlike
+          the drag path's modal, which is a sibling of its DraxProvider) —
+          nothing here is animated or transformed for it to anchor to. */}
+      <ConfirmationModal {...confirmationProps} />
     </View>
   );
 }

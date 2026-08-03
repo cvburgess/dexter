@@ -1,11 +1,14 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useMemo, useRef, useState } from "react";
 import { LayoutChangeEvent, ScrollView, StyleSheet, View } from "react-native";
+import { DraxScrollView } from "react-native-drax";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { DragScheduleProvider } from "@/components/DragScheduleProvider";
 import { GlassIconButton } from "@/components/GlassIconButton";
 import { LargeScreenHeader } from "@/components/LargeScreenHeader";
 import { TaskDrawer } from "@/components/TaskDrawer";
+import { TaskDropTarget } from "@/components/TaskDropTarget";
 import { WeekDayColumn } from "@/components/WeekDayColumn";
 import { WeekNav } from "@/components/WeekNav";
 import {
@@ -42,8 +45,8 @@ type TWeekViewProps = {
 
 /**
  * The Week tab's large-screen layout (DEX-96): week navigation over seven day
- * columns, with an optional docked backlog — the legacy dexter-app's Week view
- * minus drag-and-drop, which is descoped.
+ * columns, with an optional docked backlog — the legacy dexter-app's Week view,
+ * including its drag-to-reschedule (DEX-77).
  *
  * The header row is `LargeScreenHeader`, shared with `LargeScreenToday`, so
  * switching tabs doesn't shift the nav row.
@@ -133,53 +136,88 @@ export function WeekView({
       >
         <WeekNav monday={monday} onChangeWeek={onChangeWeek} />
       </LargeScreenHeader>
-      <View
-        style={[
-          styles.body,
-          {
-            gap: theme.space.sm,
-            paddingHorizontal: theme.space.md,
-            paddingTop: theme.space.md,
-          },
-        ]}
-      >
-        <ScrollView
-          horizontal
-          onLayout={(event: LayoutChangeEvent) =>
-            anchorToday(event.nativeEvent.layout.width)
-          }
-          ref={scrollRef}
-          showsHorizontalScrollIndicator={false}
-          style={styles.weekScroll}
-          // `flexGrow: 1` is what lets the seven columns divide the full width
-          // when they all fit; without it the row shrinks to its content and
-          // the columns sit at their minimum against a gap of empty space.
-          contentContainerStyle={[styles.weekRow, { gap: columnGap }]}
+      {/* Drag a card from one day onto another to reschedule it, or from the
+          backlog onto a day to schedule it — the whole point of having the week
+          on screen at once (DEX-77). */}
+      <DragScheduleProvider>
+        <View
+          style={[
+            styles.body,
+            {
+              gap: theme.space.sm,
+              paddingHorizontal: theme.space.md,
+              paddingTop: theme.space.md,
+            },
+          ]}
         >
-          {days.map((day, index) => (
-            <View key={day.toString()} style={styles.column}>
-              <WeekDayColumn
-                date={day}
-                enableHabits={enableHabits}
-                isToday={index === todayIndex}
-              />
-            </View>
-          ))}
-        </ScrollView>
-        {showDrawer && (
-          <View
-            style={[
-              styles.drawerPane,
-              {
-                borderColor: theme.colors.border,
-                borderRadius: theme.radii.md,
-              },
-            ]}
+          {/* A `DraxScrollView`, not a plain one, and that is load-bearing:
+              drax hit-tests a drop against measurements taken at layout time,
+              correcting each one by the scroll offset of its nearest *drax*
+              scroll container. A plain ScrollView registers no such offset and
+              scrolling fires no layout, so the moment the user scrolled the
+              week sideways every column's hit box would be stale by exactly the
+              distance scrolled and drops would land on the wrong day. It also
+              brings the edge auto-scroll that makes an off-screen day reachable
+              mid-drag. Every prop below is passed straight through to the
+              ScrollView it wraps. */}
+          <DraxScrollView
+            horizontal
+            onLayout={(event: LayoutChangeEvent) =>
+              anchorToday(event.nativeEvent.layout.width)
+            }
+            ref={scrollRef}
+            // Drax defaults this to 8, and it needs the offset only to correct
+            // hit boxes — one frame's worth of lag is imperceptible in a drop
+            // test, so halve the JS callbacks a horizontal scroll costs. The
+            // plain ScrollView this replaced had no `onScroll` at all.
+            scrollEventThrottle={16}
+            showsHorizontalScrollIndicator={false}
+            style={styles.weekScroll}
+            // `flexGrow: 1` is what lets the seven columns divide the full width
+            // when they all fit; without it the row shrinks to its content and
+            // the columns sit at their minimum against a gap of empty space.
+            contentContainerStyle={[styles.weekRow, { gap: columnGap }]}
           >
-            <TaskDrawer daysOnScreen={days} date={targetDate} />
-          </View>
-        )}
-      </View>
+            {days.map((day, index) => (
+              // The drop target is the whole column, not its task list: the
+              // column is `flex: 1` and full height whatever it contains, which
+              // is what makes an *empty* day droppable — `WeekDayColumn` passes
+              // `emptyMessage={null}`, so an empty one renders nothing at all.
+              // Outlining the column also reads as "this day", which is the
+              // thing being chosen.
+              <TaskDropTarget
+                key={day.toString()}
+                scheduledFor={day.toString()}
+                style={styles.column}
+                testID={`week-drop-${day.toString()}`}
+              >
+                <WeekDayColumn
+                  date={day}
+                  enableHabits={enableHabits}
+                  isToday={index === todayIndex}
+                />
+              </TaskDropTarget>
+            ))}
+          </DraxScrollView>
+          {showDrawer && (
+            // Dropping a scheduled card here clears its date and returns it to
+            // the backlog — the inverse of dragging one out onto a day.
+            <TaskDropTarget
+              scheduledFor={null}
+              testID="backlog-drop-target"
+              style={[
+                styles.drawerPane,
+                {
+                  borderColor: theme.colors.border,
+                  borderRadius: theme.radii.md,
+                },
+              ]}
+            >
+              <TaskDrawer daysOnScreen={days} date={targetDate} />
+            </TaskDropTarget>
+          )}
+        </View>
+      </DragScheduleProvider>
     </SafeAreaView>
   );
 }
