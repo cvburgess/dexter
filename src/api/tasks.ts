@@ -31,6 +31,8 @@ export type TTask = {
   subtasks: TSubtask[];
   templateId: string | null;
   title: string;
+  /** Optional link the task is about. Stored normalized; see `utils/taskUrl`. */
+  url: string | null;
 };
 
 export enum ETaskPriority {
@@ -86,6 +88,7 @@ export type TCreateTask = {
   subtasks?: TSubtask[];
   templateId?: string | null;
   title: string;
+  url?: string | null;
 };
 
 /**
@@ -105,6 +108,7 @@ export const duplicateTaskInput = (task: TTask): TCreateTask => ({
   scheduledFor: task.scheduledFor,
   status: task.status,
   subtasks: withFreshIds(task.subtasks),
+  url: task.url,
 });
 
 /**
@@ -172,6 +176,7 @@ export type TUpdateTask = {
   subtasks?: TSubtask[];
   templateId?: string | null;
   title?: string;
+  url?: string | null;
 };
 
 export const updateTask = async (
