@@ -1,4 +1,5 @@
 import { fireEvent, render } from "@testing-library/react-native";
+import { Href } from "expo-router";
 import { Text } from "react-native";
 
 import { useDismissModal } from "../useDismissModal";
@@ -13,7 +14,11 @@ jest.mock("expo-router", () => ({
   useRouter: () => mockRouter,
 }));
 
-function Harness({ fallback }: { fallback: string }) {
+// `Href`, not `string`: that's what `useDismissModal` takes. `Href` only
+// narrows to the concrete route union once `.expo/types/router.d.ts` has been
+// generated, so a `string` here type-checks in CI (where the file is absent)
+// and fails locally after the dev server has run — see DEX-120.
+function Harness({ fallback }: { fallback: Href }) {
   const dismiss = useDismissModal(fallback);
   return (
     <Text testID="dismiss" onPress={dismiss}>
@@ -22,7 +27,7 @@ function Harness({ fallback }: { fallback: string }) {
   );
 }
 
-const dismiss = (fallback: string) => {
+const dismiss = (fallback: Href) => {
   const screen = render(<Harness fallback={fallback} />);
   fireEvent.press(screen.getByTestId("dismiss"));
 };

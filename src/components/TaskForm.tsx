@@ -43,7 +43,7 @@ type TTaskFormProps = {
 
 /**
  * Every field a task carries, in one form: title, priority, list, schedule,
- * deadline, alarm (iOS only), and checklist. Shared verbatim by the create
+ * deadline, alarm (iOS only), link, and checklist. Shared verbatim by the create
  * modal (`new-task`) and the edit modal (`edit-task/[id]`) — the two differ only
  * in what wraps it and what ✓ writes, never in the fields themselves.
  *
@@ -206,6 +206,25 @@ export function TaskForm({
         </FormRow>
       )}
 
+      <FormRow label="Link" minHeight={32}>
+        {/* The input sizes to this wrapper rather than to itself: `TextInput`
+            carries `width: "100%"`, which in a space-between row would push the
+            label off the edge. */}
+        <View style={[styles.linkField, { marginLeft: theme.space.md }]}>
+          <TextInput
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+            placeholder="https://…"
+            returnKeyType="done"
+            testID={`${testIDPrefix}-url`}
+            value={form.url}
+            onChangeText={form.setUrl}
+            onSubmitEditing={onSubmit}
+          />
+        </View>
+      </FormRow>
+
       <SubtaskFields
         value={form.subtasks}
         onChange={form.setSubtasks}
@@ -281,5 +300,8 @@ const styles = StyleSheet.create({
   alarmControls: {
     alignItems: "center",
     flexDirection: "row",
+  },
+  linkField: {
+    flex: 1,
   },
 });

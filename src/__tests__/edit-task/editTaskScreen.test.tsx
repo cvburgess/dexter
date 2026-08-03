@@ -95,6 +95,7 @@ const savedTask: TTask = {
   subtasks: [],
   templateId: null,
   title: "Write the report",
+  url: null,
 };
 
 const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
@@ -165,6 +166,7 @@ describe("EditTaskScreen", () => {
         scheduledFor: "2026-07-03",
         dueOn: null,
         alarmTime: null,
+        url: null,
         templateId: null,
         subtasks: [],
       },
@@ -192,6 +194,40 @@ describe("EditTaskScreen", () => {
         listId: null,
         dueOn: null,
       }),
+      expect.anything(),
+    );
+  });
+
+  it("seeds the link from the saved task and writes an edit back", () => {
+    setTasks([{ ...savedTask, url: "https://example.com/old" }]);
+    const screen = render(<EditTaskScreen />);
+
+    expect(screen.getByTestId("edit-task-url").props.value).toBe(
+      "https://example.com/old",
+    );
+
+    fireEvent.changeText(
+      screen.getByTestId("edit-task-url"),
+      "https://example.com/new",
+    );
+    pressSave();
+
+    expect(mockUpdateTask).toHaveBeenCalledWith(
+      expect.objectContaining({ url: "https://example.com/new" }),
+      expect.anything(),
+    );
+  });
+
+  // Clearing the field removes the link rather than storing an empty one.
+  it("clears a saved link back to null", () => {
+    setTasks([{ ...savedTask, url: "https://example.com/old" }]);
+    const screen = render(<EditTaskScreen />);
+
+    fireEvent.changeText(screen.getByTestId("edit-task-url"), "");
+    pressSave();
+
+    expect(mockUpdateTask).toHaveBeenCalledWith(
+      expect.objectContaining({ url: null }),
       expect.anything(),
     );
   });

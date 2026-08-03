@@ -60,6 +60,7 @@ const source: TTask = {
     { id: "sub-2", title: "Gather figures", status: ETaskStatus.TODO },
   ],
   templateId: "template-1",
+  url: "https://example.com/report",
 };
 
 describe("duplicateTaskInput", () => {
@@ -83,6 +84,7 @@ describe("duplicateTaskInput", () => {
           status: ETaskStatus.TODO,
         }),
       ],
+      url: "https://example.com/report",
     });
     expect(duplicateTaskInput(source)).not.toHaveProperty("id");
     // A duplicate is an independent one-off: only the original drives the repeat.
@@ -117,7 +119,16 @@ describe("promoteSubtaskInput", () => {
       listId: "list-1",
       priority: ETaskPriority.URGENT,
       scheduledFor: "2026-07-03",
+      url: "https://example.com/report",
     });
+  });
+
+  // A link is context like the list and the deadline, not a commitment like the
+  // alarm below — it has no side effect to clone.
+  it("inherits the parent's link", () => {
+    expect(promoteSubtaskInput(source, subtask).url).toBe(
+      "https://example.com/report",
+    );
   });
 
   it("never inherits the parent's alarm", () => {

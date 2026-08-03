@@ -13,6 +13,7 @@ import { TTemplate } from "@/api/templates";
 import { withTitledRows } from "@/components/SubtaskFields";
 import { parseTaskShorthand } from "@/utils/parseTaskShorthand";
 import { subtasksFromTemplate } from "@/utils/subtasks";
+import { normalizeTaskUrl } from "@/utils/taskUrl";
 
 export type TTaskForm = {
   /** Raw title input. In create mode it still carries any shorthand tokens. */
@@ -33,6 +34,13 @@ export type TTaskForm = {
   /** Time-of-day the alarm fires (`"HH:MM"`), or null when no alarm is set. */
   alarmTime: string | null;
   setAlarmTime: (alarmTime: string | null) => void;
+  /**
+   * Raw link input. Held verbatim while typing — `normalizeTaskUrl` runs on the
+   * way into the payload, so a half-typed host is never rewritten under the
+   * user mid-keystroke.
+   */
+  url: string;
+  setUrl: (url: string) => void;
   /** Checklist items to save alongside the task, in insertion order. */
   subtasks: TSubtask[];
   setSubtasks: (subtasks: TSubtask[]) => void;
@@ -60,6 +68,12 @@ type TUseTaskFormOptions = {
    * Ignored when `task` is set — an existing task brings its own schedule.
    */
   defaultScheduledFor?: string;
+  /**
+   * Create mode: the link to open the form on — a page shared into the app from
+   * another app's share sheet (DEX-66). Ignored when `task` is set, which
+   * brings its own link.
+   */
+  defaultUrl?: string;
   /**
    * Edit mode: the saved task to seed every field from. Its presence is what
    * takes the form out of create mode.
@@ -94,7 +108,7 @@ const resolveScheduledFor = (value?: string): string => {
  */
 export const useTaskForm = (
   lists: TList[],
-  { defaultScheduledFor, task }: TUseTaskFormOptions = {},
+  { defaultScheduledFor, defaultUrl, task }: TUseTaskFormOptions = {},
 ): TTaskForm => {
   const isEditing = task !== undefined;
 
@@ -106,6 +120,9 @@ export const useTaskForm = (
     task?.alarmTime ?? null,
   );
   const [subtasks, setSubtasks] = useState<TSubtask[]>(task?.subtasks ?? []);
+  // A saved task's link wins over a shared one: editing is never the target of
+  // a share, so the two can't both be meaningful.
+  const [url, setUrl] = useState(task?.url ?? defaultUrl ?? "");
   // Provenance, not a mode: it records where the form's contents came from.
   // Deliberately never cleared once set — editing a field or switching back to
   // the New tab leaves the seeded values in place, so dropping the id would
@@ -159,7 +176,9 @@ export const useTaskForm = (
     // mints fresh ids, so two tasks stamped from one template never share them.
     setSubtasks(subtasksFromTemplate(template.subtasks, ETaskStatus.TODO));
     // `scheduledFor` is left alone on purpose — a template carries no dates, and
-    // the task belongs on the day the user was viewing.
+    // the task belongs on the day the user was viewing. `url` likewise: a
+    // template has no link column, so applying one has nothing to say about a
+    // link the user (or a share) already put in the field.
     //
     // `alarmTime` is deliberately NOT copied. An alarm only rings once AlarmKit
     // has been authorized and the task has a day to fire on, and this path can
@@ -180,6 +199,8 @@ export const useTaskForm = (
     setDueOn: setDueOnOverride,
     alarmTime,
     setAlarmTime,
+    url,
+    setUrl,
     subtasks,
     setSubtasks,
     applyTemplate,
@@ -191,6 +212,9 @@ export const useTaskForm = (
       scheduledFor,
       dueOn,
       alarmTime,
+      // An empty field is no link, not an empty one — the same `null`-not-`""`
+      // convention the date and alarm columns already follow.
+      url: normalizeTaskUrl(url),
       // Stamped from a template: `template_id` says only "this task came from
       // that template". Nothing recurs from it — that is a property of the
       // template's schedule, read at completion time — and the picker only

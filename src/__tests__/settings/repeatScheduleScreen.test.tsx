@@ -108,6 +108,7 @@ const seedTask: TTask = {
   status: ETaskStatus.IN_PROGRESS,
   subtasks: [{ id: "sub-1", title: "Passport", status: ETaskStatus.DONE }],
   templateId: null,
+  url: null,
 };
 
 const makeTemplate = (overrides: Partial<TTemplate> = {}): TTemplate => ({

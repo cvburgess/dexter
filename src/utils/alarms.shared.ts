@@ -16,8 +16,15 @@ export const ALARM_APP_GROUP = "group.com.dexterplanner";
  * Whether task alarms can actually ring on this platform. AlarmKit is iOS-only,
  * so every alarm-setting surface gates on this rather than repeating a raw
  * `Platform.OS` check and risking one surface diverging from another.
+ *
+ * **Mac Catalyst is excluded** (DEX-85). `Platform.OS` is `"ios"` there, but
+ * AlarmKit's symbols are all `API_UNAVAILABLE(macCatalyst)` — the module isn't
+ * even linked into that build. Without this clause every alarm surface would
+ * still render on a Mac, and "Add alarm" would send the user to an iOS Settings
+ * toggle that does not exist on macOS.
  */
-export const isAlarmSupported = Platform.OS === "ios";
+export const isAlarmSupported =
+  Platform.OS === "ios" && !Platform.isMacCatalyst;
 
 /** Seeds a sensible morning time for a repeat template's alarm (recurring, so
  * "now" is meaningless — every generated occurrence is a future date). One-off

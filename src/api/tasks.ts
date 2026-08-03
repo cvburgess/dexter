@@ -31,6 +31,8 @@ export type TTask = {
   subtasks: TSubtask[];
   templateId: string | null;
   title: string;
+  /** Optional link the task is about. Stored normalized; see `utils/taskUrl`. */
+  url: string | null;
 };
 
 export enum ETaskPriority {
@@ -86,6 +88,7 @@ export type TCreateTask = {
   subtasks?: TSubtask[];
   templateId?: string | null;
   title: string;
+  url?: string | null;
 };
 
 /**
@@ -105,14 +108,17 @@ export const duplicateTaskInput = (task: TTask): TCreateTask => ({
   scheduledFor: task.scheduledFor,
   status: task.status,
   subtasks: withFreshIds(task.subtasks),
+  url: task.url,
 });
 
 /**
  * Builds the `createTask` input for promoting a subtask into a real task. The
- * new task inherits the parent's *context* — where it lives and when it's due —
- * but not its `alarmTime`: an alarm is a deliberate per-task commitment, and
- * silently cloning it onto a checklist item would ring an alarm the user never
- * set. The subtask keeps its own title and status.
+ * new task inherits the parent's *context* — where it lives, when it's due, and
+ * what it links to — but not its `alarmTime`: an alarm is a deliberate per-task
+ * commitment, and silently cloning it onto a checklist item would ring an alarm
+ * the user never set. That side effect is what sets `alarmTime` apart; a link
+ * just sits there, so it travels with the rest of the context. The subtask keeps
+ * its own title and status.
  *
  * Promotion is two non-atomic writes (create the task, then update the parent
  * minus the element); a crash between them leaves a duplicate, not data loss.
@@ -129,6 +135,7 @@ export const promoteSubtaskInput = (
   listId: parent.listId,
   priority: parent.priority,
   scheduledFor: parent.scheduledFor,
+  url: parent.url,
 });
 
 /**
@@ -172,6 +179,7 @@ export type TUpdateTask = {
   subtasks?: TSubtask[];
   templateId?: string | null;
   title?: string;
+  url?: string | null;
 };
 
 export const updateTask = async (
