@@ -200,8 +200,8 @@ describe("NewTaskScreen", () => {
     );
   });
 
-  // How a shared link reaches the form: `share-intent` replaces itself with
-  // this route, carrying the link as a param (DEX-66).
+  // How a shared link reaches the form: `ShareIntentRedirect` pushes this
+  // route with the link as a param (DEX-66).
   it("pre-fills the link passed as a route param", () => {
     mockSearchParams.current = { url: "https://example.com/article" };
     const screen = render(<NewTaskScreen />);

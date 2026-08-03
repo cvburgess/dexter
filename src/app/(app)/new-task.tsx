@@ -44,8 +44,8 @@ export default function NewTaskScreen() {
   const [, { createTask }] = useTasks({ skipQuery: true });
   const [allTemplates, { isLoading: isLoadingTemplates }] = useTemplates();
   // `scheduledFor` is set by NewTaskButton to the day the user was viewing
-  // (absent → today); `url` by the share-intent redirect, to the link that was
-  // shared into the app (DEX-66).
+  // (absent → today); `url` by `ShareIntentRedirect`, to the link that was
+  // shared into the app from another app's share sheet (DEX-66).
   const { scheduledFor, url } = useLocalSearchParams<{
     scheduledFor?: string;
     url?: string;
