@@ -1,0 +1,44 @@
+diff --git a/node_modules/expo-calendar/ios/Conversions/Conversions.swift b/node_modules/expo-calendar/ios/Conversions/Conversions.swift
+index 259840e..6afad2e 100644
+--- a/node_modules/expo-calendar/ios/Conversions/Conversions.swift
++++ b/node_modules/expo-calendar/ios/Conversions/Conversions.swift
+@@ -108,7 +108,9 @@ func serializeCalendar(item: EKCalendarItem, with formatter: DateFormatter) -> [
+   var serailizedItem = [String: Any?]()
+ 
+   serailizedItem["id"] = item.calendarItemIdentifier
+-  serailizedItem["calendarId"] = item.calendar.calendarIdentifier
++  // DEX-85: `EKCalendarItem.calendar` is `null_unspecified`, so this is an
++  // implicit force-unwrap that traps when the item has no calendar.
++  serailizedItem["calendarId"] = item.calendar?.calendarIdentifier
+   if let title = item.title {
+     serailizedItem["title"] = title
+   }
+diff --git a/node_modules/expo-calendar/ios/Next/CalendarNextModule.swift b/node_modules/expo-calendar/ios/Next/CalendarNextModule.swift
+index d7fde43..ff89b59 100644
+--- a/node_modules/expo-calendar/ios/Next/CalendarNextModule.swift
++++ b/node_modules/expo-calendar/ios/Next/CalendarNextModule.swift
+@@ -381,7 +381,13 @@ public final class CalendarNextModule: Module {
+       }
+ 
+       Property("calendarId") { (expoEvent: ExpoCalendarEvent) in
+-        expoEvent.event?.calendar.calendarIdentifier
++        // DEX-85: `EKCalendarItem.calendar` is `null_unspecified` in the
++        // EventKit headers, so Swift imports it as `EKCalendar!` and a bare
++        // `.calendarIdentifier` force-unwraps it. The header documents that it
++        // "will be nil for new calendar items", and on macOS some events come
++        // back with no calendar — which traps the JS thread with
++        // EXC_BREAKPOINT the moment JS reads this property.
++        expoEvent.event?.calendar?.calendarIdentifier
+       }
+ 
+       Property("title") { (expoEvent: ExpoCalendarEvent) in
+@@ -544,7 +550,8 @@ public final class CalendarNextModule: Module {
+       }
+ 
+       Property("calendarId") { (expoReminder: ExpoCalendarReminder) in
+-        expoReminder.reminder?.calendar.calendarIdentifier
++        // Same implicitly-unwrapped-optional trap as the event case above.
++        expoReminder.reminder?.calendar?.calendarIdentifier
+       }
+ 
+       Property("title") { (expoReminder: ExpoCalendarReminder) in
