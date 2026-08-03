@@ -7,7 +7,7 @@ import { ETaskPriority, TTask } from "@/api/tasks";
 import { isTaskTemplate, NEW_TEMPLATE } from "@/api/templates";
 import { useTemplates } from "@/hooks/useTemplates";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
-import { openTaskUrl } from "@/utils/taskUrl";
+import { openUrl } from "@/utils/openUrl";
 import { Theme, useTheme } from "@/utils/theme";
 import { weekStartEnd } from "@/utils/weekStartEnd";
 
@@ -147,7 +147,7 @@ export function MoreMenu({
               id: "go-to-link",
               title: "Go to link",
               icon: LINK_ICON,
-              onSelect: () => openTaskUrl(url),
+              onSelect: () => openUrl(url),
             },
           ],
         },

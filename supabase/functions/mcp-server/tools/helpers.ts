@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { normalizeTaskUrl } from "@src/utils/taskUrl.ts";
 import { ETaskStatus } from "@src/utils/taskStatus.ts";
 
 import { captureException } from "../../_shared/sentry.ts";
@@ -20,6 +21,15 @@ export const taskPrioritySchema = z.number().int().min(0).max(4);
  */
 export const taskStatusSchema = z.nativeEnum(ETaskStatus);
 export const themeModeSchema = z.number().int().min(0).max(2);
+
+/**
+ * A task's link (DEX-66). Transforms rather than validates, reusing the app's
+ * own `normalizeTaskUrl` so an agent-supplied link is stored exactly like a
+ * typed one: trimmed, `null` when blank, and given an `https://` when it is a
+ * bare host. Rejecting here would be stricter than the form the same column is
+ * written from, and would fail a call over a field the task doesn't need.
+ */
+export const taskUrlSchema = z.string().max(2048).transform(normalizeTaskUrl);
 
 // Subtasks (DEX-70) live as a jsonb array on the parent row. Ids are minted by
 // the client and only have to be unique within their own array. The bounds are

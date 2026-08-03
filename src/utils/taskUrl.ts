@@ -1,4 +1,7 @@
-import { Linking, Platform } from "react-native";
+// Pure string logic for a task's link, with no React Native imports, so the
+// Deno MCP server can load it too (`@src/utils/taskUrl.ts`) and normalize an
+// agent-supplied link by exactly the same rule the app applies to a typed one.
+// Opening a link is a platform effect and lives in `utils/openUrl` instead.
 
 /**
  * A scheme at the head of the value — `https:`, but also `mailto:` and any
@@ -13,7 +16,7 @@ const FIRST_LINK = /https?:\/\/\S+/i;
 
 /**
  * A task's link as it should be stored: trimmed, `null` when empty, and given
- * an `https://` when the user typed a bare host.
+ * an `https://` when the value is a bare host.
  *
  * Normalizes rather than validates. A link is optional, so a typo in it must
  * never block saving the task it belongs to — and the scheme is the one part
@@ -24,22 +27,6 @@ export const normalizeTaskUrl = (value: string): string | null => {
   const trimmed = value.trim();
   if (trimmed === "") return null;
   return HAS_SCHEME.test(trimmed) ? trimmed : `https://${trimmed}`;
-};
-
-/**
- * Opens a task's link outside the app.
- *
- * Web opens a new tab rather than following the link in place: the task list is
- * where the user was, and a menu action shouldn't navigate them out of it. On
- * native this is the same `Linking.openURL` the OAuth consent screen uses —
- * `expo-linking` is only for parsing Dexter's own deep links.
- */
-export const openTaskUrl = (url: string): void => {
-  if (Platform.OS === "web") {
-    window.open(url, "_blank", "noopener,noreferrer");
-  } else {
-    void Linking.openURL(url);
-  }
 };
 
 /**
