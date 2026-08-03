@@ -47,6 +47,33 @@ index ec37fe2..89e9400 100644
      return g.onStart(event => {
        'worklet';
  
+diff --git a/node_modules/react-native-drax/lib/module/hooks/useCallbackDispatch.js b/node_modules/react-native-drax/lib/module/hooks/useCallbackDispatch.js
+index 2b85f7b..f1a808f 100644
+--- a/node_modules/react-native-drax/lib/module/hooks/useCallbackDispatch.js
++++ b/node_modules/react-native-drax/lib/module/hooks/useCallbackDispatch.js
+@@ -659,7 +659,9 @@ function performSnapback(target, draggedEntry, receiverEntry, hoverPositionSV, d
+       delay: snapDelay,
+       duration: snapDuration,
+       finishedCallback: finished => {
+-        if (finished) {
++        // An interrupted snap still means the drag is over; skipping cleanup
++        // pins dragPhaseSV at 'releasing'. Defer only to a newer drag.
++        if (finished || draggedIdSV.value === draggedId) {
+           onSnapComplete();
+         }
+       }
+@@ -672,7 +674,10 @@ function performSnapback(target, draggedEntry, receiverEntry, hoverPositionSV, d
+     }, finished => {
+       'worklet';
+ 
+-      if (finished) {
++      // An interrupted snap still means the drag is over; skipping cleanup
++      // pins dragPhaseSV at 'releasing' and holds the view in draggingStyle.
++      // Defer only to a newer drag, which owns the shared state now.
++      if (finished || draggedIdSV.value === draggedId) {
+         runOnJS(onSnapComplete)();
+       }
+     }));
 diff --git a/node_modules/react-native-drax/lib/module/hooks/useDragGesture.js b/node_modules/react-native-drax/lib/module/hooks/useDragGesture.js
 index f5a2050..6003408 100644
 --- a/node_modules/react-native-drax/lib/module/hooks/useDragGesture.js
@@ -173,6 +200,41 @@ index 565782b..b22791c 100644
      return g
        .onStart((event: DraxPanEvent) => {
          'worklet';
+diff --git a/node_modules/react-native-drax/src/hooks/useCallbackDispatch.tsx b/node_modules/react-native-drax/src/hooks/useCallbackDispatch.tsx
+index c66c789..f0c3a5c 100644
+--- a/node_modules/react-native-drax/src/hooks/useCallbackDispatch.tsx
++++ b/node_modules/react-native-drax/src/hooks/useCallbackDispatch.tsx
+@@ -802,7 +802,9 @@ function performSnapback(
+       delay: snapDelay,
+       duration: snapDuration,
+       finishedCallback: (finished: boolean) => {
+-        if (finished) {
++        // See the withTiming branch below for why an interrupted snap still
++        // has to clean up, and why it defers to a newer drag.
++        if (finished || draggedIdSV.value === draggedId) {
+           onSnapComplete();
+         }
+       },
+@@ -814,7 +816,18 @@ function performSnapback(
+       snapDelay,
+       withTiming(toValue, { duration: snapDuration }, (finished) => {
+         'worklet';
+-        if (finished) {
++        // Cleanup has to run even when the animation was interrupted. An
++        // interrupted snap still means this drag is over, and skipping the
++        // callback leaves dragPhaseSV pinned at 'releasing' forever — which
++        // holds the dragged view in draggingStyle with no way back to idle.
++        // Interruption is easy to hit: any new write to hoverPositionSV
++        // cancels this timing, so touching a card again while the previous
++        // snap is still running is enough.
++        //
++        // The guard is against a *newer* drag having taken over in the
++        // meantime — that drag owns the shared state now and must not be
++        // reset out from under it.
++        if (finished || draggedIdSV.value === draggedId) {
+           runOnJS(onSnapComplete)();
+         }
+       })
 diff --git a/node_modules/react-native-drax/src/hooks/useDragGesture.ts b/node_modules/react-native-drax/src/hooks/useDragGesture.ts
 index 4e36d6c..d9a6859 100644
 --- a/node_modules/react-native-drax/src/hooks/useDragGesture.ts
