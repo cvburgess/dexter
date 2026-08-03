@@ -23,6 +23,7 @@ const makeTask = (overrides: Partial<TTask> = {}): TTask => ({
   subtasks: [],
   templateId: null,
   title: "Buy milk",
+  url: null,
   ...overrides,
 });
 

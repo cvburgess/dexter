@@ -213,6 +213,7 @@ describe("reconcileAlarms", () => {
       subtasks: [],
       templateId: null,
       title: "Water plants",
+      url: null,
     };
 
     const { toSchedule } = reconcileAlarms([task], [], new Map(), NOW);

@@ -7,6 +7,7 @@ import { ETaskPriority, TTask } from "@/api/tasks";
 import { isTaskTemplate, NEW_TEMPLATE } from "@/api/templates";
 import { useTemplates } from "@/hooks/useTemplates";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
+import { openTaskUrl } from "@/utils/taskUrl";
 import { Theme, useTheme } from "@/utils/theme";
 import { weekStartEnd } from "@/utils/weekStartEnd";
 
@@ -31,7 +32,8 @@ type TMoreMenuProps = {
  * deadline, the alarm, an arbitrary date — lives in the edit modal, which this
  * menu's first item opens; a menu row whose only job was to launch a sheet was
  * a detour, not a shortcut (DEX-98). What stays is what a single tap can
- * finish: priority, the schedule presets, and the task-level actions.
+ * finish: the task's link if it has one, priority, the schedule presets, and
+ * the task-level actions.
  */
 export function MoreMenu({
   task,
@@ -133,13 +135,41 @@ export function MoreMenu({
     },
   ];
 
+  // The task's own link, above everything that edits it: following it is the
+  // one action that leaves the app, so it is set apart rather than filed among
+  // the shortcuts (DEX-66). Absent entirely when the task has no link.
+  const url = task.url;
+  const linkSections: TIconMenuSection[] = url
+    ? [
+        {
+          options: [
+            {
+              id: "go-to-link",
+              title: "Go to link",
+              icon: LINK_ICON,
+              onSelect: () => openTaskUrl(url),
+            },
+          ],
+        },
+      ]
+    : [];
+
   const sections = [
+    ...linkSections,
     // Every one of them, the Edit task row included: `IconMenu.native` emits a
     // plain section *without* `hideDivider` as its own `displayInline` group,
     // which the system menu draws with separators — so leaving that row
     // unmarked ruled it off from the shortcuts beside it on iOS/Android while
     // web (which only draws a divider above section > 0) showed no such rule.
-    ...editSections.map((section) => ({ ...section, hideDivider: true })),
+    //
+    // The exception is the first section when a link sits above it. A divider
+    // is drawn *above* a section, so that flag is what rules the link off from
+    // the shortcuts on web; native gets the same rule for free, from the link
+    // section being its own inline group.
+    ...editSections.map((section, index) => ({
+      ...section,
+      hideDivider: !(linkSections.length > 0 && index === 0),
+    })),
     ...getOtherSections({
       onDuplicate,
       template: templateAction,
@@ -162,6 +192,11 @@ export function MoreMenu({
 const EDIT_TASK_ICON = {
   sf: "square.and.pencil",
   ionicon: "create-outline",
+} as const;
+
+const LINK_ICON = {
+  sf: "link",
+  ionicon: "link-outline",
 } as const;
 
 export const getPrioritySections = (

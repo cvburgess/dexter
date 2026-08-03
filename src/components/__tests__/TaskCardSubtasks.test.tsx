@@ -68,6 +68,7 @@ const baseTask: TTask = {
     { id: "sub-2", title: "Gather figures", status: ETaskStatus.DONE },
   ],
   templateId: null,
+  url: null,
 };
 
 const renderCard = (

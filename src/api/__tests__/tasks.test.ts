@@ -60,6 +60,7 @@ const source: TTask = {
     { id: "sub-2", title: "Gather figures", status: ETaskStatus.TODO },
   ],
   templateId: "template-1",
+  url: "https://example.com/report",
 };
 
 describe("duplicateTaskInput", () => {
@@ -83,6 +84,7 @@ describe("duplicateTaskInput", () => {
           status: ETaskStatus.TODO,
         }),
       ],
+      url: "https://example.com/report",
     });
     expect(duplicateTaskInput(source)).not.toHaveProperty("id");
     // A duplicate is an independent one-off: only the original drives the repeat.

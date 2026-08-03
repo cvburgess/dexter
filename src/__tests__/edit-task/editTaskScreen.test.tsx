@@ -95,6 +95,7 @@ const savedTask: TTask = {
   subtasks: [],
   templateId: null,
   title: "Write the report",
+  url: null,
 };
 
 const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
@@ -165,6 +166,7 @@ describe("EditTaskScreen", () => {
         scheduledFor: "2026-07-03",
         dueOn: null,
         alarmTime: null,
+        url: null,
         templateId: null,
         subtasks: [],
       },

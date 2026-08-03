@@ -286,6 +286,7 @@ const overdueTask = (): TTask => ({
   status: ETaskStatus.TODO,
   subtasks: [],
   templateId: null,
+  url: null,
 });
 
 describe("TodayScreen", () => {

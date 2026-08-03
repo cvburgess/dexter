@@ -25,6 +25,7 @@ const makeTask = (overrides: Partial<TTask> = {}): TTask => ({
   subtasks: [],
   templateId: null,
   title: "Saved task",
+  url: null,
   ...overrides,
 });
 
@@ -101,6 +102,7 @@ describe("useTaskForm", () => {
       scheduledFor: today().toString(),
       dueOn: today().add({ days: 3 }).toString(),
       alarmTime: null,
+      url: null,
       subtasks: [],
     });
   });
