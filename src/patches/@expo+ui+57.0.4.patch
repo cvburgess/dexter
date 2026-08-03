@@ -1,8 +1,8 @@
 diff --git a/node_modules/@expo/ui/ios/Menu/MenuView.swift b/node_modules/@expo/ui/ios/Menu/MenuView.swift
-index a4a3570..0cf648d 100644
+index a4a3570..5863785 100644
 --- a/node_modules/@expo/ui/ios/Menu/MenuView.swift
 +++ b/node_modules/@expo/ui/ios/Menu/MenuView.swift
-@@ -16,28 +16,60 @@ internal struct MenuView: ExpoSwiftUI.View {
+@@ -16,28 +16,64 @@ internal struct MenuView: ExpoSwiftUI.View {
    }
  
    var body: some View {
@@ -55,28 +55,32 @@ index a4a3570..0cf648d 100644
 +}
 +
 +private extension View {
-+  /// DEX-85: keep the caller's label as the whole trigger on Mac Catalyst.
++  /// Keeps the caller's `label` as the entire trigger on Mac Catalyst.
 +  ///
-+  /// Under the Mac idiom (`TARGETED_DEVICE_FAMILY` includes 6, i.e. "Optimize
-+  /// Interface for Mac"), SwiftUI resolves `Menu` to an AppKit-style pull-down:
-+  /// bordered chrome, a disclosure chevron, and its own intrinsic sizing. That
-+  /// replaces a custom label — Dexter's circular status glyph vanishes behind a
-+  /// wide bordered pill, which shifts the whole task row.
++  /// Under the Mac idiom (`TARGETED_DEVICE_FAMILY` containing `6`, i.e. Xcode's
++  /// "Optimize Interface for Mac"), SwiftUI resolves `Menu` to an AppKit-style
++  /// pull-down: bordered chrome, a disclosure chevron, and its own intrinsic
++  /// sizing. That visually replaces a custom `label` view and changes the
++  /// trigger's measured size, so layouts built around the label break.
 +  ///
-+  /// `.menuStyle(.button)` + `.buttonStyle(.plain)` is the non-deprecated
-+  /// spelling of the old `.borderlessButton` style, and `.menuIndicator(.hidden)`
-+  /// drops the chevron. Both are style modifiers, so applying them once to the
-+  /// enclosing `Group` propagates through the environment to whichever `Menu`
-+  /// branch above actually renders.
++  /// `.menuStyle(.button)` with `.buttonStyle(.plain)` is the non-deprecated
++  /// spelling of the old `.borderlessButton` menu style, and
++  /// `.menuIndicator(.hidden)` removes the chevron. These are style modifiers,
++  /// so applying them once to the enclosing `Group` propagates through the
++  /// environment to whichever `Menu` branch renders.
 +  ///
-+  /// Non-Catalyst builds return `self` untouched, so iOS and tvOS are unaffected.
++  /// No-op off Mac Catalyst.
 +  @ViewBuilder
 +  func plainMenuOnMacCatalyst() -> some View {
 +#if targetEnvironment(macCatalyst)
-+    self
-+      .menuStyle(.button)
-+      .buttonStyle(.plain)
-+      .menuIndicator(.hidden)
++    if #available(iOS 16.0, *) {
++      self
++        .menuStyle(.button)
++        .buttonStyle(.plain)
++        .menuIndicator(.hidden)
++    } else {
++      self
++    }
 +#else
 +    self
 +#endif
