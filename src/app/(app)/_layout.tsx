@@ -67,6 +67,9 @@ export default function AppLayout() {
         name="edit-task/[id]"
         options={createModalScreenOptions(theme, "Edit Task")}
       />
+      {/* A redirect, not a destination — it reads the shared link and replaces
+          itself with the create-task modal (DEX-66). */}
+      <Stack.Screen name="share-intent" />
     </Stack>
   );
 }

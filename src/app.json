@@ -64,7 +64,19 @@
           "organization": "cvburgess",
           "project": "dexter-app"
         }
-      ]
+      ],
+      [
+        "expo-share-intent",
+        {
+          "iosActivationRules": {
+            "NSExtensionActivationSupportsWebURLWithMaxCount": 1,
+            "NSExtensionActivationSupportsWebPageWithMaxCount": 1
+          },
+          "androidIntentFilters": ["text/*"],
+          "iosAppGroupIdentifier": "group.com.dexterplanner"
+        }
+      ],
+      "./plugins/withShareExtensionVersion"
     ],
     "experiments": {
       "typedRoutes": true,

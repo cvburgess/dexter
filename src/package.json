@@ -48,6 +48,7 @@
     "expo-glass-effect": "~57.0.0",
     "expo-linking": "~57.0.2",
     "expo-router": "~57.0.4",
+    "expo-share-intent": "^6.1.0",
     "expo-symbols": "~57.0.0",
     "expo-updates": "~57.0.6",
     "expo-web-browser": "~57.0.0",
@@ -81,6 +82,13 @@
     "react-test-renderer": "19.2.3",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.59.4"
+  },
+  "overrides": {
+    "expo-share-intent": {
+      "expo": "$expo",
+      "expo-constants": "$expo-constants",
+      "expo-linking": "$expo-linking"
+    }
   },
   "private": true
 }

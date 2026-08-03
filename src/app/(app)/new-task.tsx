@@ -43,9 +43,17 @@ export default function NewTaskScreen() {
   const [lists, { isLoading: isLoadingLists }] = useLists();
   const [, { createTask }] = useTasks({ skipQuery: true });
   const [allTemplates, { isLoading: isLoadingTemplates }] = useTemplates();
-  // Set by NewTaskButton to the day the user was viewing; absent → today.
-  const { scheduledFor } = useLocalSearchParams<{ scheduledFor?: string }>();
-  const form = useTaskForm(lists, { defaultScheduledFor: scheduledFor });
+  // `scheduledFor` is set by NewTaskButton to the day the user was viewing
+  // (absent → today); `url` by the share-intent redirect, to the link that was
+  // shared into the app (DEX-66).
+  const { scheduledFor, url } = useLocalSearchParams<{
+    scheduledFor?: string;
+    url?: string;
+  }>();
+  const form = useTaskForm(lists, {
+    defaultScheduledFor: scheduledFor,
+    defaultUrl: url,
+  });
   const [mode, setMode] = useState<TNewTaskMode>("new");
   const hasSaved = useRef(false);
   const { scrollViewProps, scrollToEndOnNextLayout } = useTaskFormScroll();
