@@ -5,6 +5,7 @@ import { act, fireEvent, render } from "@testing-library/react-native";
 import type { ReactNode } from "react";
 import {
   ActivityIndicator,
+  Alert,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -534,6 +535,84 @@ describe("TaskDrawer", () => {
     expect(mockUpdateTask).toHaveBeenCalledWith({
       id: "task-1",
       scheduledFor: "2026-07-16",
+    });
+  });
+
+  // The "+" writes `scheduledFor`, so it owes the same alarm prompt the card's
+  // own menu gives. It used to call `updateTask` directly, which moved the task
+  // and left its alarm pointing at the day it came from (DEX-77).
+  describe("scheduling a task that has an alarm", () => {
+    // The native ConfirmationModal renders nothing and drives `Alert.alert`
+    // imperatively, so the prompt is asserted through the spy rather than by
+    // querying for text. Restored in the suite's afterEach — a spy left in
+    // place leaks into every later test in the run.
+    let alertSpy: jest.SpyInstance;
+
+    /** Presses the "+" for a task carrying an alarm, and returns the prompt's buttons. */
+    const pressSchedule = () => {
+      alertSpy = jest.spyOn(Alert, "alert").mockImplementation(jest.fn());
+      mockUseTasks.mockReturnValue(
+        tasksResult([task({ alarmTime: "09:00:00" })]),
+      );
+      const screen = render(<TaskDrawer date={date} />);
+      fireEvent.press(
+        screen.getByLabelText('Schedule "Write report" for Thursday, Jul 16'),
+      );
+      const [title, , buttons] = alertSpy.mock.calls[0] as [
+        string,
+        string,
+        { text: string; onPress?: () => void }[],
+      ];
+      return { title, buttons };
+    };
+
+    const press = (
+      buttons: { text: string; onPress?: () => void }[],
+      label: string,
+    ) => {
+      const button = buttons.find((candidate) => candidate.text === label);
+      if (!button) throw new Error(`No prompt button labelled "${label}"`);
+      act(() => button.onPress?.());
+    };
+
+    afterEach(() => alertSpy?.mockRestore());
+
+    it("asks before moving it rather than writing straight through", () => {
+      const { title } = pressSchedule();
+
+      expect(title).toBe("Reschedule task?");
+      expect(mockUpdateTask).not.toHaveBeenCalled();
+    });
+
+    it("carries the alarm over when asked to keep it", () => {
+      const { buttons } = pressSchedule();
+
+      press(buttons, "Keep alarm");
+
+      expect(mockUpdateTask).toHaveBeenCalledWith({
+        id: "task-1",
+        scheduledFor: "2026-07-16",
+      });
+    });
+
+    it("clears the alarm when asked to unset it", () => {
+      const { buttons } = pressSchedule();
+
+      press(buttons, "Unset alarm");
+
+      expect(mockUpdateTask).toHaveBeenCalledWith({
+        id: "task-1",
+        scheduledFor: "2026-07-16",
+        alarmTime: null,
+      });
+    });
+
+    it("leaves the task where it is when cancelled", () => {
+      const { buttons } = pressSchedule();
+
+      press(buttons, "Cancel");
+
+      expect(mockUpdateTask).not.toHaveBeenCalled();
     });
   });
 
