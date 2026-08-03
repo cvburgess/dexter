@@ -23,9 +23,15 @@ type TPluginEntry = NonNullable<ExpoConfig["plugins"]>[number];
  * `usePrecompiledModules: false` — the published Expo xcframeworks
  * (`ExpoModulesCore`, `ExpoFileSystem`, `ExpoFont`, `ExpoModulesWorklets`) ship
  * only `ios-arm64` and `ios-arm64_x86_64-simulator` slices. There is no
- * `maccatalyst` slice at all, so linking fails outright. As a bonus, building
- * from source is what makes `patches/expo-modules-core+57.0.3.patch` take
- * effect — a precompiled binary would have silently bypassed it.
+ * `maccatalyst` slice at all, so linking fails outright. As a side effect,
+ * building from source is also what lets `patches/expo-modules-core+57.0.3.patch`
+ * take effect — a precompiled binary bypasses it.
+ *
+ * Note that iOS builds do *not* currently get that patch: `app.json` sets only
+ * `deploymentTarget`, and `usePrecompiledModules` defaults to true, contrary to
+ * what `docs/frontend.md` claims. That is a pre-existing bug independent of Mac
+ * Catalyst and should be fixed in `app.json`, not here — this branch only
+ * changes the flagged Catalyst build.
  *
  * `buildReactNativeFromSource: true` — React Native's prebuilt
  * `React.xcframework` and `ReactNativeDependencies.xcframework` *do* carry
@@ -56,6 +62,23 @@ const withSourceBuiltNativeCode = (plugin: TPluginEntry): TPluginEntry => {
   ];
 };
 
+/** Apply `withSourceBuiltNativeCode`, failing loudly if it matched nothing.
+ *
+ * Silently skipping would trade a named error here for an opaque "no
+ * maccatalyst slice" link failure thousands of lines into an Xcode log. Matches
+ * how `plugins/withMacCatalyst.ts` asserts on its own Podfile and pbxproj
+ * anchors.
+ */
+const rewriteBuildProperties = (plugins: TPluginEntry[]): TPluginEntry[] => {
+  const rewritten = plugins.map(withSourceBuiltNativeCode);
+  if (rewritten.every((plugin, index) => plugin === plugins[index])) {
+    throw new Error(
+      "[app.config] EXPO_MAC_CATALYST=1 but no array-form `expo-build-properties` plugin entry was found to rewrite. Mac Catalyst needs `usePrecompiledModules: false` and `buildReactNativeFromSource: true`.",
+    );
+  }
+  return rewritten;
+};
+
 export default ({ config }: ConfigContext): ExpoConfig => {
   if (process.env.EXPO_MAC_CATALYST !== "1") return config as ExpoConfig;
 
@@ -71,9 +94,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       // exist yet when we'd want to patch it. Consequence: no Live Activity or
       // Dynamic Island on Mac, which is correct — those surfaces don't exist
       // on macOS.
-      ...(config.plugins ?? [])
-        .filter((plugin) => plugin !== "@bacons/apple-targets")
-        .map(withSourceBuiltNativeCode),
+      ...rewriteBuildProperties(
+        (config.plugins ?? []).filter(
+          (plugin) => plugin !== "@bacons/apple-targets",
+        ),
+      ),
       "./plugins/withMacCatalyst",
     ],
   };

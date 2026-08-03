@@ -13,10 +13,16 @@
 // imports it at module scope. Metro aliases the package to this stub instead
 // (see `metro.config.js`), so no shipping app source needs a Catalyst branch.
 //
-// The no-op semantics deliberately mirror `utils/alarms.ts`, the existing
-// web/Android implementation: configuration fails, authorization is never
-// granted, and scheduling is inert. `utils/alarms.ios.ts` already treats a
-// `false` from `configure()` as a soft failure and warns.
+// The no-op semantics mirror `utils/alarms.ts`, the existing web/Android
+// implementation: scheduling is inert and succeeds silently.
+//
+// `scheduleAlarm`/`cancelAlarm` must report success. `utils/alarms.ios.ts:67`
+// turns a `false` into a thrown error, and `hooks/useAlarmSync.ts` responds to
+// a throw by leaving the id out of `scheduled.current` *and* raising an
+// "Alarm not set" alert. Returning `false` here would therefore pop a modal at
+// launch — and again on every reconcile, forever — for anyone whose tasks
+// already carry alarms set on their iPhone. `configure()` is the exception:
+// `alarms.ios.ts` treats a `false` from it as a soft failure and only warns.
 //
 // If Catalyst graduates from POC to shipping, this stub should be deleted and
 // replaced by real branching in `utils/alarms.ios.ts` — a Mac has no alarm
@@ -38,12 +44,13 @@ export async function requestAuthorization() {
   return "denied";
 }
 
+/** Inert, but must report success — see the header note on the alert loop. */
 export async function scheduleAlarm() {
-  return false;
+  return true;
 }
 
 export async function cancelAlarm() {
-  return false;
+  return true;
 }
 
 export function getAllAlarms() {
