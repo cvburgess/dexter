@@ -41,3 +41,6 @@ example
 # generated native folders
 /ios
 /android
+
+# Coverage artifact emitted by running a locally-built binary
+*.profraw

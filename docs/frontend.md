@@ -324,4 +324,41 @@ A task can carry an `alarmTime` (`"HH:MM"`, backed by the `tasks.alarm_time` col
 **`patches/expo-modules-core+*.patch` is load-bearing for these menus.** SwiftUI mutates the platform view it hosts (autoresizingMask, frame, visibility) — `Menu`/`ContextMenu` even do so asynchronously after their hierarchy is torn down (e.g. paging the Today screen to another day). When `ExpoSwiftUI.UIViewHost` handed SwiftUI the React-managed UIView directly, those leaked mutations corrupted Fabric rendering: cards ballooned, collapsed to zero height, or whole all-completed days rendered blank (DEX-28, related to expo/expo#40604 / #42225). The patch makes `UIViewHost` hand SwiftUI a disposable isolation container instead, so SwiftUI can never touch React-managed views. Two things keep this working:
 
 - `patch-package` applies the patch on `npm install` (postinstall script). If `expo-modules-core` is upgraded, re-check whether upstream fixed the Host lifecycle before regenerating.
-- `expo-build-properties` sets **`ios.usePrecompiledModules: false`** in `app.json` — SDK 57 ships Expo modules as prebuilt XCFrameworks by default, which would silently ignore the patched source. This costs a few minutes of build time; remove it together with the patch once upstream is fixed.
+- The patch only reaches the binary when Expo modules are **built from source**. SDK 57 ships them as prebuilt XCFrameworks by default, which silently ignores the patched source. Building from source costs a few minutes of build time; it can be dropped together with the patch once upstream is fixed.
+  > ⚠️ **This is currently only true for the Mac Catalyst build.** `app.json`'s `expo-build-properties` block sets only `deploymentTarget`, and `expo-build-properties` defaults `ios.usePrecompiledModules` to `true` — so `npx expo prebuild` and every `eas build --platform ios` link the *prebuilt* `ExpoModulesCore` and the DEX-28 fix is not actually present in shipped iOS builds. Only `src/app.config.ts`'s `EXPO_MAC_CATALYST=1` branch forces `usePrecompiledModules: false`. Adding `"usePrecompiledModules": false` to the `expo-build-properties` `ios` block in `app.json` would restore it for iOS.
+
+## Mac Catalyst (experimental — DEX-85)
+
+The app can build as a native **Mac Catalyst** target: a real Mac window with the Mac idiom (`UIDeviceFamily = 6`, Xcode's "Optimize Interface for Mac"), not the free "Designed for iPad" build. It is entirely **opt-in** behind `EXPO_MAC_CATALYST=1`, and no EAS profile sets that variable — with the flag unset, `npx expo config --type prebuild` is byte-identical to before apart from `_internal.dynamicConfigPath`, so iOS, Android and web are unaffected.
+
+```bash
+cd src
+EXPO_MAC_CATALYST=1 npx expo prebuild --platform ios --clean
+xcodebuild -workspace ios/Dexter.xcworkspace -scheme Dexter -configuration Debug \
+  -destination 'platform=macOS,arch=arm64,variant=Mac Catalyst' \
+  -derivedDataPath ios/build-catalyst CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual \
+  DEVELOPMENT_TEAM="" PROVISIONING_PROFILE_SPECIFIER="" build
+open ios/build-catalyst/Build/Products/Debug-maccatalyst/Dexter.app
+```
+
+Metro needs nothing special — `Platform.OS` stays `"ios"` under Catalyst, so the same `.ios.tsx` graph is served. Start it with `EXPO_MAC_CATALYST=1 npm start` so the Metro alias below applies. `expo run:ios` cannot target Catalyst; `@expo/cli` has no `variant=` support.
+
+**Sanity check:** `/usr/libexec/PlistBuddy -c "Print :UIDeviceFamily" …/Dexter.app/Contents/Info.plist` must print `6`. A `2` means the build came out as "Scaled to Match iPad" and the window will not behave like a Mac window.
+
+Three files carry it:
+
+- **`app.config.ts`** — the only place `EXPO_MAC_CATALYST` is read. Drops `@bacons/apple-targets` (no macOS target type, so no widget/Live Activity on Mac) and forces `usePrecompiledModules: false` + `buildReactNativeFromSource: true`, because neither Expo's nor React Native's published binaries are usable on Catalyst (Expo's ship no `maccatalyst` slice; RN's ship a malformed one that `codesign` rejects as "bundle format is ambiguous").
+- **`plugins/withMacCatalyst.ts`** — sets `SUPPORTS_MACCATALYST`, selects the Mac idiom via `TARGETED_DEVICE_FAMILY[sdk=macosx*] = "2,6"` (leaving the iOS value untouched), flips React Native's own `:mac_catalyst_enabled`, excludes `expo-alarm-kit` from autolinking, disables RaTeX math (`ENRICHED_MARKDOWN_ENABLE_MATH=0` — no Catalyst slice), and empties the App Group entitlement so the build signs to run locally. **Every Podfile edit asserts an exact match count and throws otherwise**, so an Expo template change fails loudly instead of quietly producing a non-Catalyst build; expect to re-anchor these on SDK upgrades.
+- **`macCatalystStubs/` + `metro.config.js`** — AlarmKit's symbols are all `API_UNAVAILABLE(macCatalyst)`, so the pod is excluded and Metro aliases `expo-alarm-kit` to a no-op stub. This keeps the Catalyst branch out of shipping app source. The stub's `scheduleAlarm`/`cancelAlarm` must report **success**: `alarms.ios.ts` turns a `false` into a throw, and `useAlarmSync` answers a throw with a repeating "Alarm not set" alert.
+
+`IS_TABLET` (`utils/deviceType.ts`) covers Catalyst, because its idiom is `mac` rather than `pad` — without that a Mac window would get the phone `NativeTabs` shell and `/week` would never be registered. `isAlarmSupported` (`utils/alarms.shared.ts`) excludes it, since macOS has no alarm surface.
+
+Three native patches exist only for this target; the first two are compile-time-guarded and inert on iOS:
+
+| Patch | Why |
+|---|---|
+| `react-native+0.86.0.patch` | `UISwitch` resolves to an AppKit checkbox under the Mac idiom. Sets `UISwitchStyleSliding` — and makes `RCTSwitchSize()` measure the *same* style, or Yoga lays out a checkbox-sized box the real control overflows. |
+| `@expo+ui+57.0.4.patch` | SwiftUI resolves `Menu` to an AppKit pull-down, replacing custom `IconMenu` labels. Upstream: [expo/expo#48448](https://github.com/expo/expo/pull/48448). |
+| `expo-calendar+57.0.0.patch` | **Not Catalyst-specific.** `EKCalendarItem.calendar` is `null_unspecified`, so `event?.calendar.calendarIdentifier` force-unwraps it and traps the JS thread. Upstream: [expo/expo#48445](https://github.com/expo/expo/pull/48445). |
+
+**Not implemented:** menu bar / keyboard shortcuts (`UIMenuBuilder`), multi-window (`UISceneDelegate`), and any distribution path — Mac App Store submission, notarization and App Sandbox entitlements are all unexercised, and EAS Build has no first-class macOS platform.

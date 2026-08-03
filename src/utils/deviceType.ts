@@ -25,6 +25,13 @@ const { width, height } = Dimensions.get("screen");
  * the decision (a stable *shell* choice, a reactive *rail* choice) rather than
  * by making this a hook.
  *
+ * **Mac Catalyst counts as a tablet** (DEX-85). Under "Optimize Interface for
+ * Mac" the Catalyst idiom is `mac`, not `pad`, so `Platform.isPad` is `false`
+ * there — without the extra clause a Mac window would get the phone
+ * `NativeTabs` shell, and `/week` would not even be a registered route. Unlike
+ * the iPad and Android cases this is not a screen-size judgement: a Mac window
+ * is a rail surface by construction, whatever its current width.
+ *
  * Android has no `isPad`, so it uses the platform's own definition of a tablet:
  * a smallest width of 600dp is `sw600dp`, the resource qualifier Android itself
  * uses to pick tablet layouts. `Math.min` rather than `width` so the answer
@@ -41,5 +48,5 @@ const { width, height } = Dimensions.get("screen");
  */
 export const IS_TABLET =
   Platform.OS === "ios"
-    ? Platform.isPad
+    ? Platform.isPad || Platform.isMacCatalyst
     : Platform.OS === "android" && Math.min(width, height) >= 600;

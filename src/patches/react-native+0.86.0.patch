@@ -1,0 +1,43 @@
+diff --git a/node_modules/react-native/React/Base/RCTUtils.mm b/node_modules/react-native/React/Base/RCTUtils.mm
+index ba4e930..b116e65 100644
+--- a/node_modules/react-native/React/Base/RCTUtils.mm
++++ b/node_modules/react-native/React/Base/RCTUtils.mm
+@@ -432,7 +432,16 @@ CGSize RCTSwitchSize(void)
+   static dispatch_once_t onceToken;
+   dispatch_once(&onceToken, ^{
+     RCTUnsafeExecuteOnMainQueueSync(^{
+-      rctSwitchSize = [UISwitch new].intrinsicContentSize;
++      UISwitch *sizingSwitch = [UISwitch new];
++#if TARGET_OS_MACCATALYST
++      // DEX-85: must match the style RCTSwitchComponentView actually renders.
++      // A default-style UISwitch resolves to the AppKit checkbox under the Mac
++      // idiom, which is far narrower than the sliding switch we ask for — Yoga
++      // would lay out a checkbox-sized box and the real control would overflow
++      // it and clip.
++      sizingSwitch.preferredStyle = UISwitchStyleSliding;
++#endif
++      rctSwitchSize = sizingSwitch.intrinsicContentSize;
+     });
+   });
+   return rctSwitchSize;
+diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Switch/RCTSwitchComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Switch/RCTSwitchComponentView.mm
+index a7484b3..64935f5 100644
+--- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Switch/RCTSwitchComponentView.mm
++++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Switch/RCTSwitchComponentView.mm
+@@ -46,6 +46,16 @@ - (instancetype)initWithFrame:(CGRect)frame
+ 
+     _switchView = [[UISwitch alloc] initWithFrame:self.bounds];
+ 
++#if TARGET_OS_MACCATALYST
++    // DEX-85: keep the iOS sliding switch on Mac Catalyst.
++    //
++    // `UISwitchStyleAutomatic` resolves to "the style most appropriate to the
++    // current UIUserInterfaceIdiom", and under the Mac idiom that is
++    // `UISwitchStyleCheckbox` — an AppKit checkbox. Dexter's settings rows are
++    // designed around an on/off switch, so ask for the sliding style instead.
++    _switchView.preferredStyle = UISwitchStyleSliding;
++#endif
++
+     [_switchView addTarget:self action:@selector(onChange:) forControlEvents:UIControlEventValueChanged];
+ 
+     self.contentView = _switchView;
