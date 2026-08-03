@@ -128,6 +128,39 @@ describe("IconMenu (web)", () => {
     expect(screen.queryByText("To Do")).toBeNull();
   });
 
+  // The catcher is a sibling behind the menu, not its parent. Nested, a press
+  // on the menu's own chrome — the title, a section heading, the container's
+  // padding — found no responder of its own and bubbled to the catcher, so
+  // clicking the header of a menu that had just popped open under the cursor
+  // dismissed it.
+  it("keeps the menu open when its own title is pressed", () => {
+    const titled: TIconMenuSection[] = [
+      {
+        title: "Section Heading",
+        options: [{ id: "todo", title: "To Do", onSelect: jest.fn() }],
+      },
+    ];
+    const screen = render(
+      <IconMenu
+        accessibilityLabel="Status"
+        menuTitle="Menu Title"
+        sections={titled}
+      >
+        <Text>Trigger</Text>
+      </IconMenu>,
+    );
+
+    fireEvent.press(screen.getByLabelText("Status"), {
+      nativeEvent: { clientX: 10, clientY: 10 },
+    });
+
+    fireEvent.press(screen.getByText("Menu Title"));
+    expect(screen.getByText("To Do")).toBeTruthy();
+
+    fireEvent.press(screen.getByText("Section Heading"));
+    expect(screen.getByText("To Do")).toBeTruthy();
+  });
+
   it("gives the menu an opaque edge, since no scrim separates it", () => {
     const screen = render(
       <IconMenu

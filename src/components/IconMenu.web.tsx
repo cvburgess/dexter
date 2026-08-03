@@ -144,17 +144,28 @@ export function IconMenu({
       </div>
       {anchor ? (
         <Modal visible transparent animationType="fade" onRequestClose={close}>
-          {/*
-            Invisible, not a scrim: an OS context menu floats over untouched
-            content, so the full-viewport layer is only here to catch the click
-            that dismisses it — the same job `DateField.web.tsx`'s catcher does.
-            Separation is the menu's own hairline and shadow instead.
-          */}
-          <Pressable
-            testID="menu-overlay"
-            style={styles.overlay}
-            onPress={close}
-          >
+          <View style={styles.overlay}>
+            {/*
+              Invisible, not a scrim: an OS context menu floats over untouched
+              content, so the full-viewport layer is only here to catch the
+              click that dismisses it — the same job `DateField.web.tsx`'s
+              catcher does. Separation is the menu's own hairline and shadow
+              instead.
+
+              A sibling *behind* the menu, not its parent, for the same reason
+              `DateField.web.tsx` renders its catcher as one: a press on the
+              menu's own chrome — the title, a section heading, the container's
+              vertical padding — has no responder of its own, so nesting let it
+              bubble to this handler and dismiss the menu instead of doing
+              nothing. `ConfirmationModal.web.tsx` guards the same shape with a
+              `stopPropagation`, which is unavailable here because the overlay
+              is a `Pressable`, not a DOM `onClick`.
+            */}
+            <Pressable
+              testID="menu-overlay"
+              style={StyleSheet.absoluteFill}
+              onPress={close}
+            />
             <ScrollView
               style={[
                 styles.menu,
@@ -204,7 +215,7 @@ export function IconMenu({
                 );
               })}
             </ScrollView>
-          </Pressable>
+          </View>
         </Modal>
       ) : null}
     </>
