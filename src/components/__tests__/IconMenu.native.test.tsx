@@ -183,44 +183,46 @@ describe("IconMenu (native)", () => {
   // Android themes its Compose menu from `colorScheme`; omitting it makes the
   // menu follow the device rather than the theme the user picked in-app.
   describe("colorScheme", () => {
-    const renderWith = (palette: TThemePalette) => {
-      render(
-        <ThemeContext.Provider value={palette}>
-          <IconMenu accessibilityLabel="Status" sections={sections}>
-            <Text>Trigger</Text>
-          </IconMenu>
-        </ThemeContext.Provider>,
+    // `palette` omitted renders with no provider, the case `useTheme` serves
+    // from the device scheme.
+    const renderWith = (palette?: TThemePalette) => {
+      const menu = (
+        <IconMenu accessibilityLabel="Status" sections={sections}>
+          <Text>Trigger</Text>
+        </IconMenu>
       );
 
-      return mockMenuView.mock.calls.at(-1)![0] as unknown as {
+      render(
+        palette ? (
+          <ThemeContext.Provider value={palette}>{menu}</ThemeContext.Provider>
+        ) : (
+          menu
+        ),
+      );
+
+      const { colorScheme } = mockMenuView.mock.calls.at(-1)![0] as unknown as {
         colorScheme: string;
       };
+
+      return colorScheme;
     };
 
     it("follows a dark palette even when the device is light", () => {
       jest.mocked(useColorScheme).mockReturnValue("light");
 
-      expect(renderWith(themes.abyss).colorScheme).toBe("dark");
+      expect(renderWith(themes.abyss)).toBe("dark");
     });
 
     it("follows a light palette even when the device is dark", () => {
       jest.mocked(useColorScheme).mockReturnValue("dark");
 
-      expect(renderWith(themes.dexter).colorScheme).toBe("light");
+      expect(renderWith(themes.dexter)).toBe("light");
     });
 
     it("falls back to the device scheme with no theme provider", () => {
       jest.mocked(useColorScheme).mockReturnValue("dark");
 
-      render(
-        <IconMenu accessibilityLabel="Status" sections={sections}>
-          <Text>Trigger</Text>
-        </IconMenu>,
-      );
-
-      expect(mockMenuView).toHaveBeenCalledWith(
-        expect.objectContaining({ colorScheme: "dark" }),
-      );
+      expect(renderWith()).toBe("dark");
     });
   });
 });

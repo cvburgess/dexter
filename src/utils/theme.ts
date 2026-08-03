@@ -386,16 +386,16 @@ export type TThemeMeta = {
 
 /**
  * Themes offered in the Appearance picker, grouped by the mode they belong to.
- * Each `mode` must match the corresponding palette's own `mode` in `themes` —
- * a test asserts they agree, since a divergence would group a theme under one
- * heading in the picker while native menus rendered it as the other.
+ * Each `mode` is read off the palette rather than restated here, so the picker
+ * can't group a theme under one heading while `useTheme().mode` — and the
+ * native menus themed from it — report the other.
  */
 export const THEMES: TThemeMeta[] = [
-  { name: "dexter", label: "Dexter", mode: "light" },
-  { name: "light", label: "Light", mode: "light" },
-  { name: "dim", label: "Dim", mode: "dark" },
-  { name: "dark", label: "Dark", mode: "dark" },
-  { name: "abyss", label: "Abyss", mode: "dark" },
+  { name: "dexter", label: "Dexter", mode: dexter.mode },
+  { name: "light", label: "Light", mode: light.mode },
+  { name: "dim", label: "Dim", mode: dim.mode },
+  { name: "dark", label: "Dark", mode: dark.mode },
+  { name: "abyss", label: "Abyss", mode: abyss.mode },
 ];
 
 // useLayoutEffect logs a warning when there is no DOM, so fall back to

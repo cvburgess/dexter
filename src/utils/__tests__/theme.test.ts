@@ -230,16 +230,8 @@ describe("palette invariants", () => {
     }
   });
 
-  it.each(names)("%s agrees with the mode THEMES groups it under", (name) => {
-    // Two declarations of the same fact. A divergence would file a theme under
-    // one heading in the Appearance picker while `useTheme().mode` reported the
-    // other — which is what Android's native menu themes itself from.
-    const meta = THEMES.find((theme) => theme.name === name);
-
-    expect(meta).toBeDefined();
-    expect(themes[name].mode).toBe(meta?.mode);
-  });
-
+  // `THEMES` reads each mode off the palette, so the two can't disagree. What
+  // the types don't catch is a palette that never gets offered for selection.
   it("offers every palette in the Appearance picker", () => {
     expect(THEMES.map((theme) => theme.name).sort()).toEqual([...names].sort());
   });
