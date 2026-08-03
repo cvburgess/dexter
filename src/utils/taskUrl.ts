@@ -20,6 +20,26 @@ const HAS_SCHEME = /^[a-z][a-z0-9+.-]*:(?!\d)/i;
 /** The first http(s) link inside a block of shared text. */
 const FIRST_LINK = /https?:\/\/\S+/i;
 
+/** Characters that end the sentence a link was written into, not the link. */
+const TRAILING_PUNCTUATION = /[.,;:!?'"]+$/;
+
+/**
+ * A shared link without the punctuation that closed the sentence around it.
+ * `FIRST_LINK` matches a run of non-space, so "see (https://example.com)."
+ * yields a URL ending in `).` — stored as-is, that opens the wrong target or
+ * nothing at all.
+ *
+ * A closing paren is only dropped when nothing in the link opened one, because
+ * plenty of real URLs end in `)` — Wikipedia's disambiguated titles being the
+ * usual example.
+ */
+const withoutTrailingPunctuation = (url: string): string => {
+  const trimmed = url.replace(TRAILING_PUNCTUATION, "");
+  return trimmed.endsWith(")") && !trimmed.includes("(")
+    ? trimmed.slice(0, -1).replace(TRAILING_PUNCTUATION, "")
+    : trimmed;
+};
+
 /**
  * A task's link as it should be stored: trimmed, `null` when empty, and given
  * an `https://` when the value is a bare host.
@@ -38,10 +58,10 @@ export const normalizeTaskUrl = (value: string): string | null => {
 /**
  * The link inside an OS share payload, or null when there isn't one.
  *
- * `webUrl` is what a browser's share sheet sends. Everything else arrives as
- * text — sometimes a bare link, sometimes a page title with the link appended —
- * so the fallback pulls the first http(s) run out of it rather than treating
- * the whole string as a URL.
+ * `webUrl` is what a browser's share sheet sends, and it is already just the
+ * link. Everything else arrives as text — sometimes a bare link, sometimes a
+ * sentence with one in it — so the fallback pulls the first http(s) run out and
+ * then sheds whatever punctuation the sentence wrapped around it.
  */
 export const extractSharedUrl = (
   webUrl?: string | null,
@@ -49,5 +69,7 @@ export const extractSharedUrl = (
 ): string | null => {
   const trimmedWebUrl = webUrl?.trim();
   if (trimmedWebUrl) return trimmedWebUrl;
-  return text?.match(FIRST_LINK)?.[0] ?? null;
+
+  const match = text?.match(FIRST_LINK)?.[0];
+  return match ? withoutTrailingPunctuation(match) : null;
 };

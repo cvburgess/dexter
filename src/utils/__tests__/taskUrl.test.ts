@@ -71,6 +71,27 @@ describe("extractSharedUrl", () => {
     ).toBe("https://example.com/post");
   });
 
+  // The match is a run of non-space, so whatever closed the sentence comes
+  // along with it and would be stored — and then fail to open.
+  it("sheds the punctuation the sentence wrapped around the link", () => {
+    expect(
+      extractSharedUrl(null, "Worth a read: https://example.com/post."),
+    ).toBe("https://example.com/post");
+    expect(extractSharedUrl(null, "see (https://example.com/a) for more")).toBe(
+      "https://example.com/a",
+    );
+    expect(extractSharedUrl(null, "quote https://example.com/b,")).toBe(
+      "https://example.com/b",
+    );
+  });
+
+  // Plenty of real URLs end in a paren; only an unopened one is punctuation.
+  it("keeps a closing paren that the link itself opened", () => {
+    expect(
+      extractSharedUrl(null, "https://en.wikipedia.org/wiki/Mercury_(planet)."),
+    ).toBe("https://en.wikipedia.org/wiki/Mercury_(planet)");
+  });
+
   it("has no link when the payload carries none", () => {
     expect(extractSharedUrl(null, "just a note")).toBeNull();
     expect(extractSharedUrl(null, null)).toBeNull();
