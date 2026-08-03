@@ -4,7 +4,14 @@ import { Platform, useColorScheme } from "react-native";
 import { EThemeMode } from "@/api/preferences";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 
-import { DENSITY, resolveTheme, themes, useTheme, withOpacity } from "../theme";
+import {
+  DENSITY,
+  THEMES,
+  resolveTheme,
+  themes,
+  useTheme,
+  withOpacity,
+} from "../theme";
 
 // `react-native`'s `useColorScheme` lazily delegates to the default export of
 // this submodule (see react-native/index.js), so mocking the submodule controls
@@ -221,6 +228,20 @@ describe("palette invariants", () => {
       expect(colors).toHaveProperty(key);
       expect(colors[key as keyof typeof colors]).toBeTruthy();
     }
+  });
+
+  it.each(names)("%s agrees with the mode THEMES groups it under", (name) => {
+    // Two declarations of the same fact. A divergence would file a theme under
+    // one heading in the Appearance picker while `useTheme().mode` reported the
+    // other — which is what Android's native menu themes itself from.
+    const meta = THEMES.find((theme) => theme.name === name);
+
+    expect(meta).toBeDefined();
+    expect(themes[name].mode).toBe(meta?.mode);
+  });
+
+  it("offers every palette in the Appearance picker", () => {
+    expect(THEMES.map((theme) => theme.name).sort()).toEqual([...names].sort());
   });
 
   it.each(names)("%s has one entry per priority in each array", (name) => {

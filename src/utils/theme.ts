@@ -76,7 +76,17 @@ export interface TThemeColors {
 }
 
 /** A selectable theme. Density tokens are composed in by `useTheme`, not stored here. */
-export type TThemePalette = { colors: TThemeColors };
+export type TThemePalette = {
+  colors: TThemeColors;
+  /**
+   * Whether this palette reads as light or dark. Carried on the palette (not
+   * just in `THEMES`) so `useTheme` can hand it to native components that theme
+   * themselves rather than taking individual colors — see `IconMenu.native`,
+   * where Android's menu would otherwise follow the *device* scheme and ignore
+   * an explicit in-app `LIGHT`/`DARK` preference.
+   */
+  mode: "light" | "dark";
+};
 
 /** A type role: a size paired with the weight that role is always drawn at. */
 type TFont<W extends string> = { fontSize: number; fontWeight: W };
@@ -130,6 +140,8 @@ export interface TDensityTokens {
 
 export interface Theme extends TDensityTokens {
   colors: TThemeColors;
+  /** The active palette's `mode` — see `TThemePalette`. */
+  mode: "light" | "dark";
 }
 
 /**
@@ -248,6 +260,7 @@ const mutePriorities = (
 // ports of the daisyUI themes of the same name.
 const DEXTER_PRIORITY = ["#fcb700", "#ff627d", "#00bafe", "#fffbf4", "#593d31"];
 const dexter: TThemePalette = {
+  mode: "light",
   colors: {
     primary: "#00674f",
     primaryContent: "#c3ffcf",
@@ -268,6 +281,7 @@ const dexter: TThemePalette = {
 
 const LIGHT_PRIORITY = ["#fcb700", "#ff627d", "#00bafe", "#ffffff", "#18181b"];
 const light: TThemePalette = {
+  mode: "light",
   colors: {
     primary: "#422ad5",
     primaryContent: "#e0e7ff",
@@ -290,6 +304,7 @@ const light: TThemePalette = {
 // original single dark theme).
 const DIM_PRIORITY = ["#efd057", "#ffae9b", "#28ebff", "#2a303c", "#b2ccd6"];
 const dim: TThemePalette = {
+  mode: "dark",
   colors: {
     primary: "#9fe88d",
     primaryContent: "#091307",
@@ -310,6 +325,7 @@ const dim: TThemePalette = {
 
 const DARK_PRIORITY = ["#fcb700", "#ff627d", "#00bafe", "#1d232a", "#ecf9ff"];
 const dark: TThemePalette = {
+  mode: "dark",
   colors: {
     primary: "#605dff",
     primaryContent: "#edf1fe",
@@ -330,6 +346,7 @@ const dark: TThemePalette = {
 
 const ABYSS_PRIORITY = ["#ffbf00", "#f04e4f", "#00bafe", "#001e29", "#ffd6a7"];
 const abyss: TThemePalette = {
+  mode: "dark",
   colors: {
     primary: "#bdff00",
     primaryContent: "#427600",
@@ -367,7 +384,12 @@ export type TThemeMeta = {
   mode: "light" | "dark";
 };
 
-/** Themes offered in the Appearance picker, grouped by the mode they belong to. */
+/**
+ * Themes offered in the Appearance picker, grouped by the mode they belong to.
+ * Each `mode` must match the corresponding palette's own `mode` in `themes` —
+ * a test asserts they agree, since a divergence would group a theme under one
+ * heading in the picker while native menus rendered it as the other.
+ */
 export const THEMES: TThemeMeta[] = [
   { name: "dexter", label: "Dexter", mode: "light" },
   { name: "light", label: "Light", mode: "light" },
@@ -469,7 +491,7 @@ export function useTheme(): Theme {
     isLargeDevice && Platform.OS === "web" ? "compact" : "comfortable";
 
   return useMemo(
-    () => ({ colors: palette.colors, ...DENSITY[density] }),
+    () => ({ colors: palette.colors, mode: palette.mode, ...DENSITY[density] }),
     [palette, density],
   );
 }

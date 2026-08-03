@@ -1,6 +1,8 @@
 import { MenuView } from "@expo/ui/community/menu";
 import type { ComponentProps } from "react";
 
+import { useTheme } from "@/utils/theme";
+
 import type { IconMenuProps, TIconMenuOption } from "./IconMenu.types";
 
 /** One entry in `MenuView`'s action tree — a leaf button or a group of them. */
@@ -21,6 +23,8 @@ export function IconMenu({
   children,
   style,
 }: IconMenuProps) {
+  const { mode } = useTheme();
+
   const optionsById = new Map<string, TIconMenuOption>();
   for (const section of sections) {
     for (const option of section.options) optionsById.set(option.id, option);
@@ -35,7 +39,7 @@ export function IconMenu({
     image: option.icon?.sf,
     imageColor: option.iconColor,
     // Android label color. iOS colors the icon from `imageColor` (via the
-    // `patches/@expo+ui` tint fix) but can't recolor a menu label
+    // `.tint` fix in @expo/ui 57.0.8) but can't recolor a menu label
     // independently, so this is a no-op there.
     titleColor: option.titleColor,
     // Only checkable options declare `isSelected`. Omitting `state` makes
@@ -55,6 +59,11 @@ export function IconMenu({
       title={menuTitle || undefined}
       testID={accessibilityLabel}
       style={style}
+      // Android only (iOS ignores it). Omitting this leaves the Compose menu
+      // following the *device* scheme, which is wrong whenever the user's
+      // in-app theme doesn't agree with it — an explicit LIGHT/DARK preference,
+      // or a dark palette picked on a light phone. Added in @expo/ui 57.0.8.
+      colorScheme={mode}
       shouldOpenOnLongPress={trigger === "longPress"}
       actions={sections.flatMap((section, index): TMenuAction[] =>
         // A plain section that continues the one before it is emitted as bare
