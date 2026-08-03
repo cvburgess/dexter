@@ -40,7 +40,8 @@
         "expo-build-properties",
         {
           "ios": {
-            "deploymentTarget": "26.1"
+            "deploymentTarget": "26.1",
+            "usePrecompiledModules": false
           }
         }
       ],
