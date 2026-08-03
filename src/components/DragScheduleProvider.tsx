@@ -6,7 +6,7 @@ import {
   useMemo,
   useRef,
 } from "react";
-import { StyleProp, StyleSheet, ViewStyle } from "react-native";
+import { StyleSheet } from "react-native";
 import { DraxProvider } from "react-native-drax";
 
 import { TTask } from "@/api/tasks";
@@ -44,7 +44,6 @@ export function useDragSchedule(): TDragSchedule | null {
 }
 
 type TDragScheduleProviderProps = {
-  style?: StyleProp<ViewStyle>;
   children: ReactNode;
 };
 
@@ -62,10 +61,7 @@ type TDragScheduleProviderProps = {
  * Owning `useTasks()` here rather than in each drop target is what keeps a week
  * of seven columns from opening seven subscriptions and mounting seven modals.
  */
-export function DragScheduleProvider({
-  style,
-  children,
-}: TDragScheduleProviderProps) {
+export function DragScheduleProvider({ children }: TDragScheduleProviderProps) {
   const [tasks, { updateTask }] = useTasks();
   const { changeSchedule, confirmationProps } = useScheduleChange(updateTask);
 
@@ -110,7 +106,7 @@ export function DragScheduleProvider({
       {/* `DraxProvider` renders `<View style={style}>{children}<HoverLayer/></View>`.
           It takes the flex box and the caller's own row/column stays inside it,
           so adding drag doesn't reshape a layout that was already correct. */}
-      <DraxProvider style={[styles.dragArea, style]}>
+      <DraxProvider style={styles.dragArea}>
         <DragScheduleContext.Provider value={value}>
           {children}
         </DragScheduleContext.Provider>
