@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 import {
@@ -10,7 +10,7 @@ import {
   TTask,
   TUpdateTask,
 } from "@/api/tasks";
-import { useConfirmation } from "@/hooks/useConfirmation";
+import { useScheduleChange } from "@/hooks/useScheduleChange";
 import { isCompletionStatus } from "@/utils/taskFilters";
 import { useTheme, withOpacity } from "@/utils/theme";
 
@@ -71,6 +71,16 @@ type TTaskCardProps = {
    * be checked off or rescheduled without leaving Search.
    */
   onPress?: () => void;
+  /**
+   * Fires whenever an inline rename opens or closes (title or any subtask row).
+   *
+   * `DraggableTaskCard` uses it to suspend the drag while a field is focused
+   * (DEX-77): on web the drag activates with no hold at all, so dragging across
+   * the text to select it would pick the card up instead of selecting. Same
+   * shape and same reason as `SwipeableDay`'s `enabled={!editing}`, which
+   * `NotesView`/`JournalView` drive through a prop of this name.
+   */
+  onEditingChange?: (editing: boolean) => void;
 };
 
 export function TaskCard({
@@ -80,12 +90,30 @@ export function TaskCard({
   onDelete,
   onPromoteSubtask,
   onPress,
+  onEditingChange,
 }: TTaskCardProps) {
   const theme = useTheme();
   const checklist = subtaskGeometry(theme);
   const [editing, setEditing] = useState<TEditing>(null);
-  const { confirm, confirmationProps } = useConfirmation();
+  // The alarm-confirmation flow lives in the hook so every surface that
+  // reschedules — this card's menu, the backlog's "+", and the drag-to-schedule
+  // drop targets — prompts identically (DEX-77). The id is dropped on the way
+  // out because this card's `onUpdate` is already bound to its own task by the
+  // parent.
+  const { changeSchedule, confirmationProps } = useScheduleChange(
+    ({ id: _id, ...diff }) => onUpdate(diff),
+  );
   const isComplete = isCompletionStatus(task.status);
+
+  // Notified from an effect rather than from each `setEditing` call site: the
+  // state has four of them (title open, title close, subtask open, the unmount
+  // cleanup that closes a row), and a listener that has to be remembered at
+  // every one is a listener that eventually isn't. Keyed on the boolean, not on
+  // `editing`, so moving between two subtask rows doesn't churn it.
+  const isEditing = editing !== null;
+  useEffect(() => {
+    onEditingChange?.(isEditing);
+  }, [isEditing, onEditingChange]);
 
   // Rows this card has created that the cache hasn't confirmed yet: the empty
   // one "Add subtask" is showing, plus any just committed whose write is still
@@ -204,56 +232,6 @@ export function TaskCard({
   const handlePromoteSubtask = (subtask: TSubtask) => {
     onPromoteSubtask(promoteSubtaskInput(task, subtask));
     onUpdate({ subtasks: removeSubtask(task.subtasks, subtask.id) });
-  };
-
-  // An alarm is bound to the task's scheduled date (it fires at scheduled_for +
-  // alarm_time), so changing that date shouldn't silently move or orphan it —
-  // ask first. A re-tap of the current day changes nothing, and a task without
-  // an alarm just reschedules (DEX-48). `== null` (not `===`) so a task whose
-  // `alarmTime` is absent rather than null — e.g. a DB missing the column —
-  // still counts as "no alarm" and reschedules directly instead of prompting.
-  const handleChangeSchedule = async (scheduledFor: string | null) => {
-    const scheduleChanged = scheduledFor !== task.scheduledFor;
-
-    if (task.alarmTime == null || !scheduleChanged) {
-      onUpdate({ scheduledFor });
-      return;
-    }
-
-    if (scheduledFor === null) {
-      // Unscheduling removes the date the alarm needs to fire, so keeping it
-      // isn't an option — only unset-or-cancel.
-      const confirmed = await confirm({
-        title: "Unschedule task?",
-        message:
-          "This task has an alarm set. Unscheduling it will unset the alarm.",
-        confirmLabel: "Unschedule",
-        destructive: true,
-      });
-      if (confirmed) onUpdate({ scheduledFor: null, alarmTime: null });
-      return;
-    }
-
-    // Moving to another day: let the user carry the alarm to the new day (same
-    // time) or drop it. Each choice applies itself; Cancel leaves the task as-is.
-    await confirm({
-      title: "Reschedule task?",
-      message:
-        "This task has an alarm set. Keep the alarm on the new day, or unset it?",
-      actions: [
-        {
-          label: "Keep alarm",
-          role: "default",
-          onPress: () => onUpdate({ scheduledFor }),
-        },
-        {
-          label: "Unset alarm",
-          role: "destructive",
-          onPress: () => onUpdate({ scheduledFor, alarmTime: null }),
-        },
-        { label: "Cancel", role: "cancel" },
-      ],
-    });
   };
 
   const priorityColor = theme.colors.priority[task.priority];
@@ -409,7 +387,7 @@ export function TaskCard({
       <MoreMenu
         task={task}
         onChangePriority={(priority) => onUpdate({ priority })}
-        onChangeSchedule={handleChangeSchedule}
+        onChangeSchedule={(scheduledFor) => changeSchedule(task, scheduledFor)}
         onAddSubtask={addSubtask}
         onDuplicate={onDuplicate}
         onDelete={onDelete}
