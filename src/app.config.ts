@@ -24,14 +24,15 @@ type TPluginEntry = NonNullable<ExpoConfig["plugins"]>[number];
  * (`ExpoModulesCore`, `ExpoFileSystem`, `ExpoFont`, `ExpoModulesWorklets`) ship
  * only `ios-arm64` and `ios-arm64_x86_64-simulator` slices. There is no
  * `maccatalyst` slice at all, so linking fails outright. As a side effect,
- * building from source is also what lets `patches/expo-modules-core+57.0.3.patch`
- * take effect — a precompiled binary bypasses it.
+ * building from source is also what lets a `patches/` edit to an Expo module's
+ * Swift take effect — a precompiled binary bypasses it, which is why the
+ * Catalyst-only `@expo/ui` menu patch reaches the binary here and nowhere else.
  *
- * Note that iOS builds do *not* currently get that patch: `app.json` sets only
- * `deploymentTarget`, and `usePrecompiledModules` defaults to true, contrary to
- * what `docs/frontend.md` claims. That is a pre-existing bug independent of Mac
- * Catalyst and should be fixed in `app.json`, not here — this branch only
- * changes the flagged Catalyst build.
+ * Plain iOS builds deliberately keep the default (precompiled). `app.json` set
+ * `usePrecompiledModules: false` for a while so `patches/expo-modules-core` would
+ * reach shipped iOS builds; that patch landed upstream in 57.0.8 and was removed
+ * in DEX-116, and no remaining patch affects a non-Catalyst iOS binary — so iOS
+ * takes the faster prebuilt path again.
  *
  * `buildReactNativeFromSource: true` — React Native's prebuilt
  * `React.xcframework` and `ReactNativeDependencies.xcframework` *do* carry
