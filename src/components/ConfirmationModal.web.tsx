@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { Theme, useTheme, withOpacity } from "@/utils/theme";
+import { SHADOW_LG, Theme, useTheme, withOpacity } from "@/utils/theme";
 
 import {
   type ConfirmationActionRole,
@@ -63,9 +63,7 @@ export function ConfirmationModal(props: ConfirmationModalProps) {
             {
               backgroundColor: theme.colors.surfaceSunken,
               borderRadius: theme.radii.md,
-              // Derived from `text`, not a fixed black: a shadow tuned for a
-              // light surface is invisible on a dark one (DEX-61).
-              boxShadow: `0px 2px 8px ${withOpacity(theme.colors.text, 0.25)}`,
+              boxShadow: SHADOW_LG,
               padding: theme.space.md,
             },
           ]}

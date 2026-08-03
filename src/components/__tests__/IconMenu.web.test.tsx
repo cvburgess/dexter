@@ -161,6 +161,81 @@ describe("IconMenu (web)", () => {
     expect(screen.getByText("To Do")).toBeTruthy();
   });
 
+  // jest-expo's window, which the clamps below are figured against.
+  const VIEWPORT = { width: 750, height: 1334 };
+
+  /** The menu's own box — the only element carrying both an edge and a lift. */
+  const menuBox = (screen: ReturnType<typeof render>) =>
+    hostsStyled(
+      screen,
+      (style) => (style.borderWidth ?? 0) > 0 && style.boxShadow !== undefined,
+    )[0];
+
+  const openAndMeasure = (
+    screen: ReturnType<typeof render>,
+    at: { x: number; y: number },
+    measured: { width: number; height: number },
+  ) => {
+    fireEvent.press(screen.getByLabelText("Status"), {
+      nativeEvent: { clientX: at.x, clientY: at.y },
+    });
+    fireEvent(menuBox(screen), "layout", {
+      nativeEvent: { layout: { x: 0, y: 0, ...measured } },
+    });
+    return StyleSheet.flatten(
+      menuBox(screen).props.style as StyleProp<ViewStyle>,
+    );
+  };
+
+  const menu = (
+    <IconMenu
+      accessibilityLabel="Status"
+      menuTitle="Status"
+      sections={sections}
+    >
+      <Text>Trigger</Text>
+    </IconMenu>
+  );
+
+  // A menu opened near the bottom of the viewport used to run straight off it:
+  // `openAt` clamped x and left y alone entirely.
+  it("pulls a menu opened near the bottom edge back on screen", () => {
+    const screen = render(menu);
+    const style = openAndMeasure(
+      screen,
+      { x: 10, y: 1300 },
+      { width: 220, height: 300 },
+    );
+
+    expect(style.top).toBe(VIEWPORT.height - 300 - 8);
+  });
+
+  // The x clamp used to assume `MENU_WIDTH`, which is only a `minWidth` — a
+  // long option label grows the menu past it and back off the right edge.
+  it("clamps against the menu's measured width, not its minimum", () => {
+    const screen = render(menu);
+    const style = openAndMeasure(
+      screen,
+      { x: 700, y: 10 },
+      { width: 400, height: 200 },
+    );
+
+    expect(style.left).toBe(VIEWPORT.width - 400 - 8);
+  });
+
+  it("leaves a menu that already fits where it was opened", () => {
+    const screen = render(menu);
+    const style = openAndMeasure(
+      screen,
+      { x: 100, y: 100 },
+      { width: 220, height: 200 },
+    );
+
+    expect(style.left).toBe(100);
+    // The anchor sits one margin below the cursor so the menu clears it.
+    expect(style.top).toBe(100 + 8);
+  });
+
   it("gives the menu an opaque edge, since no scrim separates it", () => {
     const screen = render(
       <IconMenu

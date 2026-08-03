@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 
-import { Theme, useTheme } from "@/utils/theme";
+import { SHADOW_LG, Theme, useTheme } from "@/utils/theme";
 
 import { Icon } from "./Icon";
 import type {
@@ -21,19 +21,12 @@ import type {
 
 // The menu's own dimensions: a popover is sized to hold labels comfortably and
 // to stop short of the viewport edge, which is not a question the spacing scale
-// answers. Its insets and type *are* tokenized.
+// answers. Its insets and type *are* tokenized. `MENU_WIDTH` is a floor, not a
+// width — a long option label grows the menu past it, which is why the
+// viewport clamp measures rather than assumes.
 const MENU_WIDTH = 220;
 const MENU_MARGIN = 8;
 const MENU_MAX_HEIGHT = 320;
-
-// Tailwind v4's `shadow-lg`, the same string `AppNav`'s `TILE_SHADOW_HOVER`
-// carries — a second, independent port of one value rather than a shared export,
-// since the rationale lives with the rail (see `AppNav.tsx` and docs/design.md,
-// "Scrims and shadows"). Black on every theme: deriving a shadow from
-// `colors.text` paints a pale halo on the dark themes instead of a lift, which
-// this menu's scrim used to hide.
-const MENU_SHADOW =
-  "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)";
 
 // Explicit `titleColor` override, else destructive red, else default text —
 // shared by the leaf and submenu option rows so their label color can't drift.
@@ -61,7 +54,19 @@ export function IconMenu({
 }: IconMenuProps) {
   const theme = useTheme();
   const dividerBorderColor = theme.colors.border;
-  const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
+  const [anchor, setAnchor] = useState<{
+    x: number;
+    y: number;
+    viewportWidth: number;
+    viewportHeight: number;
+  } | null>(null);
+  // The menu's rendered box. It is only as wide as its longest label
+  // (`minWidth`, not `width`) and only as tall as its options, so neither
+  // dimension is known until it has laid out — and a submenu expanding changes
+  // the height again while it is open.
+  const [size, setSize] = useState<{ width: number; height: number } | null>(
+    null,
+  );
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const isLongPress = trigger === "longPress";
 
@@ -87,12 +92,38 @@ export function IconMenu({
   }, [anchor]);
 
   const openAt = (x: number, y: number) => {
-    const { width } = Dimensions.get("window");
+    const { width, height } = Dimensions.get("window");
+    setSize(null);
     setAnchor({
-      x: Math.max(MENU_MARGIN, Math.min(x, width - MENU_WIDTH - MENU_MARGIN)),
+      x,
       y: y + MENU_MARGIN,
+      viewportWidth: width,
+      viewportHeight: height,
     });
   };
+
+  /**
+   * The cursor point pulled back far enough to keep the whole menu on screen.
+   *
+   * Measured, not assumed: clamping `x` against `MENU_WIDTH` let a menu with a
+   * long option label — which grows past that `minWidth` — hang off the right
+   * edge, and nothing clamped `y` at all, so a menu opened near the bottom of
+   * the viewport ran off it entirely.
+   *
+   * Until the layout pass lands the raw point is used, so a menu is never
+   * withheld waiting on a measurement. That costs nothing in the common case:
+   * a menu that already fits clamps to the same place it was drawn.
+   */
+  const position = (() => {
+    if (!anchor) return null;
+    if (!size) return { left: anchor.x, top: anchor.y };
+    const furthest = (point: number, extent: number, viewport: number) =>
+      Math.max(MENU_MARGIN, Math.min(point, viewport - extent - MENU_MARGIN));
+    return {
+      left: furthest(anchor.x, size.width, anchor.viewportWidth),
+      top: furthest(anchor.y, size.height, anchor.viewportHeight),
+    };
+  })();
 
   const handlePress = (event: GestureResponderEvent) => {
     // Web (DOM) events carry clientX/clientY; native touches carry pageX/pageY.
@@ -115,6 +146,7 @@ export function IconMenu({
 
   const close = () => {
     setAnchor(null);
+    setSize(null);
     setExpandedSection(null);
   };
 
@@ -167,6 +199,16 @@ export function IconMenu({
               onPress={close}
             />
             <ScrollView
+              // Same box, same object — a reposition re-fires layout without
+              // resizing anything, and a new object every time would loop.
+              onLayout={(event) => {
+                const { width, height } = event.nativeEvent.layout;
+                setSize((current) =>
+                  current?.width === width && current?.height === height
+                    ? current
+                    : { width, height },
+                );
+              }}
               style={[
                 styles.menu,
                 {
@@ -177,10 +219,10 @@ export function IconMenu({
                   borderColor: theme.colors.border,
                   borderRadius: theme.radii.md,
                   borderWidth: StyleSheet.hairlineWidth,
-                  boxShadow: MENU_SHADOW,
+                  boxShadow: SHADOW_LG,
                   position: "absolute",
-                  top: anchor.y,
-                  left: anchor.x,
+                  top: position?.top,
+                  left: position?.left,
                 },
               ]}
               contentContainerStyle={{ paddingVertical: theme.space.sm }}
