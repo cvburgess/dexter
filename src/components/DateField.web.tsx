@@ -5,7 +5,7 @@ import "react-day-picker/style.css";
 
 import { formatWeekdayMonthDay } from "@/utils/formatPlainDate";
 import { dateToPlainDate } from "@/utils/plainDate";
-import { useTheme, withOpacity } from "@/utils/theme";
+import { SHADOW_LG, useTheme, withOpacity } from "@/utils/theme";
 
 import { TDateFieldProps } from "./DateField.types";
 
@@ -110,9 +110,7 @@ export function DateField({
           backgroundColor: theme.colors.surfaceSunken,
           border: `1px solid ${theme.colors.border}`,
           borderRadius: theme.radii.md,
-          // Derived from `text`, not a fixed black: a shadow tuned for a light
-          // surface is invisible on a dark one (DEX-61).
-          boxShadow: `0 4px 16px ${withOpacity(theme.colors.text, 0.2)}`,
+          boxShadow: SHADOW_LG,
           padding: theme.space.sm,
         }}
       >

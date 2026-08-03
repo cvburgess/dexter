@@ -497,6 +497,32 @@ export function useTheme(): Theme {
 }
 
 /**
+ * Tailwind v4's `shadow-md` and `shadow-lg`, ported literally from dexter-app.
+ * Not theme tokens — a shadow is the absence of light, so it is the same on
+ * every theme and has nothing to vary with. They live here rather than in a
+ * component because four surfaces draw them (the nav rail's tiles, the web
+ * menu, the web date popover, the web confirmation card) and three of those
+ * had drifted into separate hand-rolled values.
+ *
+ * **Black, not `colors.text`.** Deriving a shadow from the ink inverts it on
+ * the dark themes, where the ink is light, painting a pale halo around the
+ * surface instead of lifting it. See docs/design.md, "Scrims and shadows".
+ *
+ * Both are two-layer: a wide soft drop with a negative spread over a tighter
+ * layer that keeps the shape's own edge defined. A single-layer shadow reads
+ * as a smudged hairline instead of a lift.
+ *
+ * The CSS string form renders on native too — RN 0.86's `processBoxShadow`
+ * parses it, negative spread included, and `@react-native/normalize-colors`
+ * handles the `rgb(R G B / A)` slash notation — so no `shadow*`/`elevation`
+ * fallback is needed.
+ */
+export const SHADOW_MD =
+  "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)";
+export const SHADOW_LG =
+  "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)";
+
+/**
  * Applies an alpha channel to a color, e.g. for a scrim or to dim content
  * without fading the surface under it. Accepts a `#rrggbb` hex color or an
  * existing `rgba(...)` string — in the latter case, `alpha` multiplies the

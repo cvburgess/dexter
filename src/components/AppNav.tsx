@@ -20,7 +20,13 @@ import {
   NAV_TILE_SIZE,
 } from "@/utils/breakpoints";
 import { newTaskRoute } from "@/utils/newTaskRoute";
-import { Theme, useTheme, withOpacity } from "@/utils/theme";
+import {
+  SHADOW_LG,
+  SHADOW_MD,
+  Theme,
+  useTheme,
+  withOpacity,
+} from "@/utils/theme";
 
 // The string branch of `Href` — every nav destination is a static path, so the
 // object form (`{pathname, params}`) never applies and prefix-matching an active
@@ -380,33 +386,16 @@ export function NavDock() {
 }
 
 /**
- * Tailwind v4's `shadow-md` and `shadow-lg` — the exact pair dexter-app's
- * `Nav.tsx` lifts its tiles with (`shadow-md hover:shadow-lg`), ported
- * literally rather than approximated. Both are two-layer: a wide soft drop with
- * a negative spread, plus a tighter second layer that keeps the tile's own edge
- * defined. What this app drew before was a single `0 1px 3px` — effectively the
- * first half of Tailwind's `shadow-sm`, a rung down and missing the second
- * layer, which read as a smudged hairline rather than a lift.
- *
- * Black, not `colors.text`: a shadow is the absence of light on every theme,
- * the same reason a divider is always darker than what it divides. Deriving it
- * from the ink painted a pale halo around the tiles on the dark themes — see
- * docs/design.md, "Scrims and shadows".
- *
- * The CSS string form renders on native too, so the rail keeps its lift on a
- * tablet: RN 0.86's `processBoxShadow` parses it (negative spread included) and
- * `@react-native/normalize-colors` handles the `rgb(R G B / A)` slash notation
- * used here. No `shadow*`/`elevation` fallback is needed.
+ * `shadow-md hover:shadow-lg` — the exact pair dexter-app's `Nav.tsx` lifts its
+ * tiles with. What this app drew before was a single `0 1px 3px`, effectively
+ * the first half of Tailwind's `shadow-sm`: a rung down and missing the second
+ * layer, which read as a smudged hairline rather than a lift. The values and
+ * the reasoning behind them live in `utils/theme.ts`.
  */
-const TILE_SHADOW =
-  "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)";
-const TILE_SHADOW_HOVER =
-  "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)";
-
 /** The rail tile's box; see `NavRail` and `NAV_TILE_SIZE`. */
 const tileStyle = (theme: Theme, hovered = false) => ({
   borderRadius: theme.radii.md,
-  boxShadow: hovered ? TILE_SHADOW_HOVER : TILE_SHADOW,
+  boxShadow: hovered ? SHADOW_LG : SHADOW_MD,
   height: NAV_TILE_SIZE,
   width: NAV_TILE_SIZE,
 });

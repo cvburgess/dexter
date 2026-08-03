@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 
-import { Theme, useTheme, withOpacity } from "@/utils/theme";
+import { SHADOW_LG, Theme, useTheme } from "@/utils/theme";
 
 import { Icon } from "./Icon";
 import type {
@@ -21,7 +21,9 @@ import type {
 
 // The menu's own dimensions: a popover is sized to hold labels comfortably and
 // to stop short of the viewport edge, which is not a question the spacing scale
-// answers. Its insets and type *are* tokenized.
+// answers. Its insets and type *are* tokenized. `MENU_WIDTH` is a floor, not a
+// width — a long option label grows the menu past it, which is why the
+// viewport clamp measures rather than assumes.
 const MENU_WIDTH = 220;
 const MENU_MARGIN = 8;
 const MENU_MAX_HEIGHT = 320;
@@ -52,7 +54,19 @@ export function IconMenu({
 }: IconMenuProps) {
   const theme = useTheme();
   const dividerBorderColor = theme.colors.border;
-  const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
+  const [anchor, setAnchor] = useState<{
+    x: number;
+    y: number;
+    viewportWidth: number;
+    viewportHeight: number;
+  } | null>(null);
+  // The menu's rendered box. It is only as wide as its longest label
+  // (`minWidth`, not `width`) and only as tall as its options, so neither
+  // dimension is known until it has laid out — and a submenu expanding changes
+  // the height again while it is open.
+  const [size, setSize] = useState<{ width: number; height: number } | null>(
+    null,
+  );
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const isLongPress = trigger === "longPress";
 
@@ -78,12 +92,38 @@ export function IconMenu({
   }, [anchor]);
 
   const openAt = (x: number, y: number) => {
-    const { width } = Dimensions.get("window");
+    const { width, height } = Dimensions.get("window");
+    setSize(null);
     setAnchor({
-      x: Math.max(MENU_MARGIN, Math.min(x, width - MENU_WIDTH - MENU_MARGIN)),
+      x,
       y: y + MENU_MARGIN,
+      viewportWidth: width,
+      viewportHeight: height,
     });
   };
+
+  /**
+   * The cursor point pulled back far enough to keep the whole menu on screen.
+   *
+   * Measured, not assumed: clamping `x` against `MENU_WIDTH` let a menu with a
+   * long option label — which grows past that `minWidth` — hang off the right
+   * edge, and nothing clamped `y` at all, so a menu opened near the bottom of
+   * the viewport ran off it entirely.
+   *
+   * Until the layout pass lands the raw point is used, so a menu is never
+   * withheld waiting on a measurement. That costs nothing in the common case:
+   * a menu that already fits clamps to the same place it was drawn.
+   */
+  const position = (() => {
+    if (!anchor) return null;
+    if (!size) return { left: anchor.x, top: anchor.y };
+    const furthest = (point: number, extent: number, viewport: number) =>
+      Math.max(MENU_MARGIN, Math.min(point, viewport - extent - MENU_MARGIN));
+    return {
+      left: furthest(anchor.x, size.width, anchor.viewportWidth),
+      top: furthest(anchor.y, size.height, anchor.viewportHeight),
+    };
+  })();
 
   const handlePress = (event: GestureResponderEvent) => {
     // Web (DOM) events carry clientX/clientY; native touches carry pageX/pageY.
@@ -106,6 +146,7 @@ export function IconMenu({
 
   const close = () => {
     setAnchor(null);
+    setSize(null);
     setExpandedSection(null);
   };
 
@@ -135,26 +176,53 @@ export function IconMenu({
       </div>
       {anchor ? (
         <Modal visible transparent animationType="fade" onRequestClose={close}>
-          <Pressable
-            style={[
-              styles.overlay,
-              // Scrim and shadow are both derived from `text`, like the divider
-              // above: a fixed black wash is all but invisible over a dark
-              // theme's surface (DEX-61), where the contrast color is light.
-              { backgroundColor: withOpacity(theme.colors.text, 0.15) },
-            ]}
-            onPress={close}
-          >
+          <View style={styles.overlay}>
+            {/*
+              Invisible, not a scrim: an OS context menu floats over untouched
+              content, so the full-viewport layer is only here to catch the
+              click that dismisses it — the same job `DateField.web.tsx`'s
+              catcher does. Separation is the menu's own hairline and shadow
+              instead.
+
+              A sibling *behind* the menu, not its parent, for the same reason
+              `DateField.web.tsx` renders its catcher as one: a press on the
+              menu's own chrome — the title, a section heading, the container's
+              vertical padding — has no responder of its own, so nesting let it
+              bubble to this handler and dismiss the menu instead of doing
+              nothing. `ConfirmationModal.web.tsx` guards the same shape with a
+              `stopPropagation`, which is unavailable here because the overlay
+              is a `Pressable`, not a DOM `onClick`.
+            */}
+            <Pressable
+              testID="menu-overlay"
+              style={StyleSheet.absoluteFill}
+              onPress={close}
+            />
             <ScrollView
+              // Same box, same object — a reposition re-fires layout without
+              // resizing anything, and a new object every time would loop.
+              onLayout={(event) => {
+                const { width, height } = event.nativeEvent.layout;
+                setSize((current) =>
+                  current?.width === width && current?.height === height
+                    ? current
+                    : { width, height },
+                );
+              }}
               style={[
                 styles.menu,
                 {
                   backgroundColor: theme.colors.surfaceSunken,
+                  // Without a wash behind it the fill can't mark where the menu
+                  // ends — it sits on cards and rows that are `surfaceSunken`
+                  // too — so the edge has to be drawn.
+                  borderColor: theme.colors.border,
                   borderRadius: theme.radii.md,
-                  boxShadow: `0px 2px 8px ${withOpacity(theme.colors.text, 0.25)}`,
+                  borderWidth: StyleSheet.hairlineWidth,
+                  boxShadow: SHADOW_LG,
                   position: "absolute",
-                  top: anchor.y,
-                  left: anchor.x,
+                  top: position?.top,
+                  left: position?.left,
                 },
               ]}
               contentContainerStyle={{ paddingVertical: theme.space.sm }}
@@ -189,7 +257,7 @@ export function IconMenu({
                 );
               })}
             </ScrollView>
-          </Pressable>
+          </View>
         </Modal>
       ) : null}
     </>

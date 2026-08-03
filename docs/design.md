@@ -323,21 +323,35 @@ Two documented exceptions:
 
 ## Scrims and shadows
 
-Neither is a token; both are derived with `withOpacity` from a theme color, and
-which color depends on the job:
+Neither is a token. A scrim is derived with `withOpacity` from a theme color and
+a shadow is a literal Tailwind value; which one a surface gets depends on the
+job:
 
-- **Hairline scrims** derive from `colors.text`. One tuned for a light surface
-  is invisible on a dark one, and `text` is the maximum-contrast color against
-  whatever surface it sits on.
-- **Shadows are black**, on every theme. A shadow is the absence of light — the
-  same rule that makes a divider always darker than the surfaces it divides.
-  Deriving one from `text` inverts it on the dark themes, where the ink is
-  light: the nav's tiles wore a pale halo rather than a shadow until this
-  was corrected. The values themselves are Tailwind's `shadow-md`/`shadow-lg`
-  ported literally from dexter-app (see `tileStyle` in `components/AppNav.tsx`)
-  — two layers each, a wide soft drop with a negative spread over a tighter
-  layer that keeps the shape's own edge defined. A single-layer shadow reads as
-  a smudged hairline instead of a lift.
+- **Popovers and context menus get no scrim at all** (DEX-125). An OS context
+  menu floats over untouched content; washing the page behind one makes it read
+  as a modal dialog, which is what the web `IconMenu` did until this was
+  corrected. The full-viewport layer stays — it is what catches the click that
+  dismisses the menu — but it is invisible, which is how `DateField.web.tsx`'s
+  calendar popover has always worked. Separation comes from the popover's own
+  edge instead: a `colors.border` hairline, because a `surfaceSunken` menu sits
+  on cards and rows that are also `surfaceSunken` and the fill alone cannot mark
+  where it ends, plus the shadow below.
+- **Shadows are black**, on every theme, and there are exactly two of them:
+  `SHADOW_MD` and `SHADOW_LG` in `utils/theme.ts`, Tailwind's `shadow-md` and
+  `shadow-lg` ported literally from dexter-app. A shadow is the absence of light
+  — the same rule that makes a divider always darker than the surfaces it
+  divides. Deriving one from `text` inverts it on the dark themes, where the ink
+  is light, painting a pale halo rather than a lift. Both are two layers, a wide
+  soft drop with a negative spread over a tighter layer that keeps the shape's
+  own edge defined; a single-layer shadow reads as a smudged hairline instead.
+
+  They are exported constants rather than theme tokens because a shadow has
+  nothing to vary with — it is the same on every theme. They live in
+  `theme.ts` rather than in a component because four surfaces draw them: the
+  nav rail's tiles (`SHADOW_MD`, `SHADOW_LG` on hover), the web menu, the web
+  date popover, and the web confirmation card. The last three had each grown
+  their own hand-rolled value derived from `text`, two of them carrying
+  comments asserting the opposite of this rule (DEX-125).
 - **Full-screen backdrops** (the web confirmation modal, the emoji picker)
   derive from `colors.background` at high opacity. A black wash all but
   disappears over a dark theme, while the app's own background always pushes the
