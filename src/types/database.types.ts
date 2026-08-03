@@ -299,6 +299,7 @@ export type Database = {
           subtasks: Json;
           template_id: string | null;
           title: string;
+          url: string | null;
           user_id: string;
         };
         Insert: {
@@ -314,6 +315,7 @@ export type Database = {
           subtasks?: Json;
           template_id?: string | null;
           title?: string;
+          url?: string | null;
           user_id?: string;
         };
         Update: {
@@ -329,6 +331,7 @@ export type Database = {
           subtasks?: Json;
           template_id?: string | null;
           title?: string;
+          url?: string | null;
           user_id?: string;
         };
         Relationships: [

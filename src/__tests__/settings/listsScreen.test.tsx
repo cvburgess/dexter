@@ -61,6 +61,7 @@ const makeTask = (overrides: Partial<TTask> = {}): TTask => ({
   status: ETaskStatus.TODO,
   subtasks: [],
   templateId: null,
+  url: null,
   ...overrides,
 });
 

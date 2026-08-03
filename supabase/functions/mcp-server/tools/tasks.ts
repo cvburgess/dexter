@@ -18,6 +18,7 @@ import {
   subtasksSchema,
   taskPrioritySchema,
   taskStatusSchema,
+  taskUrlSchema,
   toolError,
   toolJson,
   uuidSchema,
@@ -273,7 +274,8 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         "from a template: a repeat has exactly one open task, so pointing a " +
         "second open task at a *scheduled* template makes it generate two " +
         "parallel chains. To create a repeat, use `create_template` — it " +
-        "produces the first occurrence for you.",
+        "produces the first occurrence for you. `url` is an optional link the " +
+        "task is about; a bare host is stored with an `https://` prefix.",
       inputSchema: {
         title: z.string().min(1).max(100),
         dueOn: dateSchema.nullable().optional(),
@@ -284,6 +286,7 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         status: taskStatusSchema.optional(),
         subtasks: subtasksSchema.optional(),
         templateId: uuidSchema.nullable().optional(),
+        url: taskUrlSchema.nullable().optional(),
       },
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
@@ -306,6 +309,7 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
             ? sweepSubtasks(task.subtasks ?? [], task.status)
             : (task.subtasks ?? []),
           template_id: task.templateId ?? null,
+          url: task.url ?? null,
         })
         .select()
         .single();
@@ -331,7 +335,8 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         "with nothing to recur from, and it stops generating. Pointing it at a " +
         "*scheduled* template that already has an open task — every repeat " +
         "`create_template` makes does — leaves that repeat showing a duplicate " +
-        "task until both are completed.",
+        "task until both are completed. Send `url: null` to remove a task's " +
+        "link; a bare host is stored with an `https://` prefix.",
       inputSchema: {
         taskId: uuidSchema,
         title: z.string().min(1).max(100).optional(),
@@ -343,6 +348,7 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         status: taskStatusSchema.optional(),
         subtasks: subtasksSchema.optional(),
         templateId: uuidSchema.nullable().optional(),
+        url: taskUrlSchema.nullable().optional(),
       },
       annotations: {
         readOnlyHint: false,
@@ -361,6 +367,7 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         status: fields.status,
         subtasks: fields.subtasks,
         template_id: fields.templateId,
+        url: fields.url,
       });
 
       if (!hasUpdates(update)) {

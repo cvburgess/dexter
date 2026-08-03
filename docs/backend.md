@@ -310,6 +310,21 @@ publication it belongs to.
   needs no RLS change — the existing `user_id` policies cover it — and both
   tables are already in the realtime publication, so alarm edits sync like any
   other field.
+- **Task links (`tasks.url`).** A nullable `text` column (migration
+  `20260803165904_add_task_url.sql`, DEX-66) holding the link a task is about —
+  typed into the form's Link row, or pre-filled from a page shared into the app
+  through the iOS share extension / Android intent filter. Deliberately
+  unvalidated in the database *and* at the MCP boundary: the rule is
+  `normalizeTaskUrl` (`src/utils/taskUrl.ts` — kept import-free so
+  `functions/mcp-server/tools/helpers.ts` can load it over the `@src/` alias and
+  apply the identical `taskUrlSchema` transform), which trims, stores `null` for
+  blank, and prepends `https://` to a bare host so the value actually opens.
+  Rejecting a malformed link would fail a write over an optional field. No RLS
+  change — the existing `user_id` policies cover it — and no read path needed
+  touching: `search_entries` projects tasks with `to_jsonb(t)`, and the MCP task
+  reads already `select("*")`. `repeat_task_templates` has no counterpart, for
+  the same reason it has no `due_on`: a link belongs to the task, not the
+  schedule that mints occurrences of it.
 - **Alarm sound (`preferences.alarm_sound`).** Which sound those alarms ring
   with, as a `text not null default 'echos'` column on `preferences` (migration
   `20260726193509_add_preferences_alarm_sound.sql`, DEX-72). The value names an

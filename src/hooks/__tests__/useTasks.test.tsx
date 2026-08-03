@@ -120,6 +120,7 @@ describe("useTasks", () => {
       status: ETaskStatus.TODO,
       subtasks: [],
       templateId: null,
+      url: null,
     };
     mockGetTasks.mockResolvedValue([task]);
     act(() => result.current[1].refetch());
@@ -153,6 +154,7 @@ describe("useTasks", () => {
       status: ETaskStatus.TODO,
       subtasks: [],
       templateId: null,
+      url: null,
     };
     mockCreateTask.mockResolvedValue([task]);
 
@@ -208,6 +210,7 @@ describe("useTasks", () => {
         status: ETaskStatus.TODO,
         subtasks: [{ id: "sub-1", title: "Tag it", status: ETaskStatus.TODO }],
         templateId: null,
+        url: null,
       },
       {
         id: "task-2",
@@ -221,6 +224,7 @@ describe("useTasks", () => {
         status: ETaskStatus.TODO,
         subtasks: [],
         templateId: null,
+        url: null,
       },
     ];
 
@@ -290,6 +294,7 @@ describe("useTasks", () => {
       status: ETaskStatus.TODO,
       subtasks: [],
       templateId: "template-1",
+      url: null,
     };
     const template: TTemplate = {
       id: "template-1",
@@ -360,6 +365,7 @@ describe("useTasks", () => {
         status: ETaskStatus.TODO,
         subtasks: [],
         templateId: "template-1",
+        url: null,
       };
 
       mockGetTasks.mockResolvedValue([task]);
@@ -418,6 +424,7 @@ describe("useTasks", () => {
         { id: "sub-2", title: "Write notes", status: ETaskStatus.DONE },
       ],
       templateId: null,
+      url: null,
       ...overrides,
     });
 
@@ -522,6 +529,7 @@ describe("useTasks", () => {
         { id: "sub-1", title: "Clear inbox", status: ETaskStatus.TODO },
       ],
       templateId: "template-1",
+      url: null,
     };
     const template: TTemplate = {
       id: "template-1",
@@ -582,6 +590,7 @@ describe("useTasks", () => {
       status: ETaskStatus.TODO,
       subtasks: [{ id: "s1", title: "Open", status: ETaskStatus.TODO }],
       templateId: null,
+      url: null,
     };
 
     it("applies the diff to the cache before the request resolves", async () => {

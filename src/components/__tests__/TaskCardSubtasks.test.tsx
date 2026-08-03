@@ -68,6 +68,7 @@ const baseTask: TTask = {
     { id: "sub-2", title: "Gather figures", status: ETaskStatus.DONE },
   ],
   templateId: null,
+  url: null,
 };
 
 const renderCard = (
@@ -504,6 +505,7 @@ describe("TaskCard subtasks", () => {
       priority: ETaskPriority.URGENT,
       scheduledFor: "2026-07-03",
       alarmTime: null,
+      url: null,
     });
     expect(onUpdate).toHaveBeenCalledWith({
       subtasks: [

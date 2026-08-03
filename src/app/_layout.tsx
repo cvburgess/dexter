@@ -1,10 +1,12 @@
 import * as Sentry from "@sentry/react-native";
 import { Stack, useNavigationContainerRef } from "expo-router";
 import type { ErrorBoundaryProps } from "expo-router";
+import { ShareIntentProvider } from "expo-share-intent";
 import { useEffect } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
+import { ShareIntentRedirect } from "@/components/ShareIntentRedirect";
 import { AuthProvider } from "@/hooks/useAuth";
 import { QueryProvider } from "@/providers/QueryProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
@@ -63,13 +65,18 @@ function ThemedStack() {
 function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
-      <QueryProvider>
-        <AuthProvider>
-          <ThemeProvider>
-            <ThemedStack />
-          </ThemeProvider>
-        </AuthProvider>
-      </QueryProvider>
+      {/* Outside the providers: a share can launch the app cold, and the
+          payload has to be readable before anything below has mounted. */}
+      <ShareIntentProvider>
+        <QueryProvider>
+          <AuthProvider>
+            <ThemeProvider>
+              <ShareIntentRedirect />
+              <ThemedStack />
+            </ThemeProvider>
+          </AuthProvider>
+        </QueryProvider>
+      </ShareIntentProvider>
     </GestureHandlerRootView>
   );
 }

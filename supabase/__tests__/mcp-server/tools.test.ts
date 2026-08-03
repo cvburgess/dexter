@@ -922,6 +922,65 @@ Deno.test("create_task defaults the checklist to an empty array", async () => {
   assertEquals(supabase.inserts[0].payload.subtasks, []);
 });
 
+Deno.test("create_task stores the provided link", async () => {
+  const supabase = new RecordingSupabase({ tasks: [{ ok: true }] });
+
+  await taskTools(supabase).run("create_task", {
+    title: "Read the spec",
+    url: "https://example.com/spec",
+  });
+
+  assertEquals(supabase.inserts[0].payload.url, "https://example.com/spec");
+});
+
+Deno.test("create_task defaults the link to null", async () => {
+  const supabase = new RecordingSupabase({ tasks: [{ ok: true }] });
+
+  await taskTools(supabase).run("create_task", { title: "Read the spec" });
+
+  assertEquals(supabase.inserts[0].payload.url, null);
+});
+
+Deno.test("update_task clears a link when sent null", async () => {
+  const supabase = new RecordingSupabase({ tasks: [{ ok: true }] });
+
+  await taskTools(supabase).run("update_task", {
+    taskId: SUB_TASK,
+    url: null,
+  });
+
+  assertEquals(supabase.updates[0].payload.url, null);
+});
+
+// Normalization lives in the schema, not the handler, so it is asserted where
+// it runs. The rule is the app's own `normalizeTaskUrl` — an agent-supplied
+// link has to be stored exactly like a typed one, or "Go to link" opens one and
+// not the other.
+Deno.test("task url is normalized rather than rejected", () => {
+  const registry = taskTools(new RecordingSupabase({}));
+  const schema = registry.tools.get("create_task")
+    ?.inputSchema as Record<
+      string,
+      {
+        parse(v: unknown): unknown;
+        safeParse(v: unknown): { success: boolean };
+      }
+    >;
+
+  assertEquals(
+    schema.url.parse("  https://example.com/spec "),
+    "https://example.com/spec",
+  );
+  // A bare host would not open at all without a scheme.
+  assertEquals(
+    schema.url.parse("dexterplanner.com"),
+    "https://dexterplanner.com",
+  );
+  assertEquals(schema.url.parse(""), null);
+  // Permissive on purpose: a link the task does not need must not fail the call.
+  assertEquals(schema.url.safeParse("not a url").success, true);
+});
+
 Deno.test("update_task replaces the whole checklist array", async () => {
   const supabase = new RecordingSupabase({ tasks: [{ ok: true }] });
   const replacement = [{ id: "s1", title: "Only this one", status: 1 }];

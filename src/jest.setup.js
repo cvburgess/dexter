@@ -101,6 +101,19 @@ jest.mock("expo-alarm-kit", () => ({
   generateUUID: jest.fn(() => "test-uuid"),
 }));
 
+// expo-share-intent ships a native module (the iOS share extension / Android
+// intent filters). Default to "no share arrived" so mounting the app under test
+// takes the same path a normal launch does; a test that cares supplies its own
+// payload by re-mocking useShareIntentContext.
+jest.mock("expo-share-intent", () => ({
+  ShareIntentProvider: ({ children }) => children,
+  useShareIntentContext: jest.fn(() => ({
+    hasShareIntent: false,
+    shareIntent: { text: null, webUrl: null, files: null },
+    resetShareIntent: jest.fn(),
+  })),
+}));
+
 // @expo/ui's SwiftUI primitives (used by DateField.ios) are native views.
 jest.mock("@expo/ui/swift-ui", () => ({
   DatePicker: () => null,
