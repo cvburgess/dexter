@@ -129,6 +129,22 @@ describe("DraggableTaskCard", () => {
     expect(preview.getByTestId(`task-card-preview-${task.id}`)).toBeTruthy();
   });
 
+  // TaskCard withholds MoreMenu — and with it the Schedule submenu — once a task
+  // is terminal, so a draggable finished card would be the only way left to
+  // reschedule one.
+  it.each([
+    ["done", ETaskStatus.DONE],
+    ["won't do", ETaskStatus.WONT_DO],
+  ])("does not let a %s task be dragged", (_label, status) => {
+    const screen = render(
+      withProvider(
+        <DraggableTaskCard {...cardProps} task={{ ...task, status }} />,
+      ),
+    );
+
+    expect(dragProps(screen).draggable).toBe(false);
+  });
+
   describe("while a field on the card is being edited", () => {
     // Web activates the drag with no hold at all (see `dragActivation`), so
     // without this, dragging across a title to select the text would pick the

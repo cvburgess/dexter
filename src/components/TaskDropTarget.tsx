@@ -1,8 +1,11 @@
-import { ReactNode, useCallback, useEffect, useRef } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import { StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 import { DraxView } from "react-native-drax";
 
-import { useDragSchedule } from "@/components/DragScheduleProvider";
+import {
+  TDragSchedule,
+  useDragSchedule,
+} from "@/components/DragScheduleProvider";
 import { isTaskDragPayload } from "@/utils/dragPayload";
 import { useTheme } from "@/utils/theme";
 
@@ -34,6 +37,10 @@ export function TaskDropTarget({
 }: TTaskDropTargetProps) {
   const theme = useTheme();
   const drag = useDragSchedule();
+  const receivingStyle = useMemo(
+    () => ({ borderColor: theme.colors.primary }),
+    [theme.colors.primary],
+  );
 
   // Drax snapshots a view's props into its registry when the view registers,
   // and refreshes that snapshot only when a *capability* prop changes
@@ -62,34 +69,26 @@ export function TaskDropTarget({
     dragRef.current = drag;
   });
 
-  // Resolves the payload against the live cache, so a card that has been
-  // rescheduled or had an alarm set since it registered is judged on what it is
-  // now. Undefined for a foreign payload or a task deleted mid-drag.
-  const resolve = useCallback((payload: unknown) => {
-    if (!isTaskDragPayload(payload)) return undefined;
-    return dragRef.current?.getTask(payload.taskId);
-  }, []);
-
+  // Empty dependency arrays, and they have to stay that way — that is the whole
+  // point of the refs above.
+  //
   // Drax consults `acceptsDrag` before a view becomes the receiver, so a task
   // dragged back onto the day it already sits on never highlights and never
   // fires a drop — the affordance is right, not merely the write suppressed.
-  const acceptsDrag = useCallback(
-    (payload: unknown) => {
-      const task = resolve(payload);
-      return (
-        task !== undefined && task.scheduledFor !== scheduledForRef.current
-      );
-    },
-    [resolve],
-  );
+  const acceptsDrag = useCallback((payload: unknown) => {
+    const task = resolveTask(payload, dragRef.current);
+    return task !== undefined && task.scheduledFor !== scheduledForRef.current;
+  }, []);
 
   const onReceiveDragDrop = useCallback(
     ({ dragged }: { dragged: { payload?: unknown } }) => {
-      const task = resolve(dragged.payload);
+      const task = resolveTask(dragged.payload, dragRef.current);
+      // Not redundant with `acceptsDrag`: the task can be deleted between the
+      // two, from another device or another pane.
       if (!task) return;
       void dragRef.current?.scheduleTask(task, scheduledForRef.current);
     },
-    [resolve],
+    [],
   );
 
   if (!drag) return <View style={style}>{children}</View>;
@@ -104,14 +103,25 @@ export function TaskDropTarget({
       receptive
       acceptsDrag={acceptsDrag}
       onReceiveDragDrop={onReceiveDragDrop}
-      // Only the border *color* changes on hover. Introducing the width here
-      // instead would shrink the content box by 4px mid-drag and reflow every
-      // card in the region for as long as the finger hovers.
-      receivingStyle={{ borderColor: theme.colors.primary }}
+      // Color only — see `styles.target` for why the width is already reserved.
+      receivingStyle={receivingStyle}
     >
       {children}
     </DraxView>
   );
+}
+
+/**
+ * The live task a drag payload refers to — as it is now, not as it was when the
+ * card registered with drax. Undefined for a foreign payload, outside a
+ * provider, or for a task deleted mid-drag.
+ *
+ * At module scope rather than a `useCallback` so the two handlers above can hold
+ * genuinely empty dependency arrays.
+ */
+function resolveTask(payload: unknown, drag: TDragSchedule | null) {
+  if (!isTaskDragPayload(payload)) return undefined;
+  return drag?.getTask(payload.taskId);
 }
 
 const styles = StyleSheet.create({

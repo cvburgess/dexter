@@ -166,6 +166,11 @@ export function WeekView({
               anchorToday(event.nativeEvent.layout.width)
             }
             ref={scrollRef}
+            // Drax defaults this to 8, and it needs the offset only to correct
+            // hit boxes — one frame's worth of lag is imperceptible in a drop
+            // test, so halve the JS callbacks a horizontal scroll costs. The
+            // plain ScrollView this replaced had no `onScroll` at all.
+            scrollEventThrottle={16}
             showsHorizontalScrollIndicator={false}
             style={styles.weekScroll}
             // `flexGrow: 1` is what lets the seven columns divide the full width

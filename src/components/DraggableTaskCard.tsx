@@ -1,4 +1,10 @@
-import { ComponentProps, useState } from "react";
+import {
+  ComponentProps,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { StyleSheet } from "react-native";
 import { DraxView } from "react-native-drax";
 
@@ -7,6 +13,7 @@ import { TaskCard } from "@/components/TaskCard";
 import { TaskCardPreview } from "@/components/TaskCardPreview";
 import { dragActivation } from "@/utils/dragActivation";
 import { TTaskDragPayload } from "@/utils/dragPayload";
+import { isCompletionStatus } from "@/utils/taskFilters";
 
 // `onEditingChange` is claimed by this wrapper to gate the drag, so it isn't
 // offered to callers — passing one would be silently ignored.
@@ -28,12 +35,33 @@ const DRAG_ACTIVATION = dragActivation();
  * existing path without an `enableDrag` prop threaded through every host, and
  * what stops a `DraxView` mounting where drax's provider doesn't exist (it
  * throws). See `useDragSchedule`.
+ *
+ * Hosts must key this per task. `DayTaskList` and `TaskDrawer` both do, and
+ * `TaskDrawer`'s reason is the sharper one: `FlashList` recycles a row's
+ * component instance for a different task rather than remounting it, and drax
+ * caches a view's props when it registers.
  */
 export function DraggableTaskCard(props: TDraggableTaskCardProps) {
   const drag = useDragSchedule();
   // Local, not lifted: only this wrapper needs it, and `TaskCard` already owns
   // the state this mirrors.
   const [editing, setEditing] = useState(false);
+
+  // The preview is rendered from drax's cached copy of this prop, which it
+  // refreshes only when a capability prop changes — so an inline arrow would
+  // keep painting the task as it was when the card registered. Editing a task's
+  // priority from its own menu doesn't remount the card, and the preview would
+  // have travelled in the old priority's color.
+  const taskRef = useRef(props.task);
+  useEffect(() => {
+    taskRef.current = props.task;
+  });
+  const renderHoverContent = useCallback(
+    ({ dimensions }: { dimensions?: { width: number } }) => (
+      <TaskCardPreview task={taskRef.current} width={dimensions?.width} />
+    ),
+    [],
+  );
 
   if (!drag) return <TaskCard {...props} />;
 
@@ -42,14 +70,17 @@ export function DraggableTaskCard(props: TDraggableTaskCardProps) {
 
   return (
     <DraxView
-      // Keyed on the task so a recycled row re-registers with drax. `TaskDrawer`
-      // renders these inside a `FlashList`, which reuses a cell's component
-      // instance for a different task without remounting — and drax caches a
-      // view's props at registration, so without this the cell would keep
-      // dragging whichever task happened to mount in it first.
-      key={task.id}
       testID={`task-drag-${task.id}`}
-      draggable={!editing}
+      // A finished task isn't draggable, matching the card itself: `TaskCard`
+      // withholds `MoreMenu` — and with it the whole Schedule submenu — once a
+      // task reaches a terminal status, so a drag would otherwise be the only
+      // way left to reschedule one.
+      //
+      // Suspending it while a field is focused is a separate matter: on web
+      // there is no hold before the drag takes over (see `dragActivation`), so
+      // dragging across a title to select it would pick the card up instead.
+      // Same fix, and the same reason, as `SwipeableDay`'s `enabled={!editing}`.
+      draggable={!editing && !isCompletionStatus(task.status)}
       // A card is a drop target's guest, never a target itself; without this
       // drax would let one card receive another.
       receptive={false}
@@ -60,14 +91,8 @@ export function DraggableTaskCard(props: TDraggableTaskCardProps) {
       // Drax's default hover would re-render this card's own children into the
       // overlay, mounting a second set of native menu hosts that paint nothing.
       // See `TaskCardPreview`.
-      renderHoverContent={({ dimensions }) => (
-        <TaskCardPreview task={task} width={dimensions?.width} />
-      )}
+      renderHoverContent={renderHoverContent}
     >
-      {/* Suspending the drag while a field is focused: on web there is no hold
-          before the drag takes over (see `dragActivation`), so dragging across
-          a title to select it would pick the card up instead. Same fix, and the
-          same reason, as `SwipeableDay`'s `enabled={!editing}`. */}
       <TaskCard {...props} onEditingChange={setEditing} />
     </DraxView>
   );

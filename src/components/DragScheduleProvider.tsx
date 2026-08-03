@@ -14,7 +14,7 @@ import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { useScheduleChange } from "@/hooks/useScheduleChange";
 import { useTasks } from "@/hooks/useTasks";
 
-type TDragSchedule = {
+export type TDragSchedule = {
   /**
    * The task a drag payload refers to, as it is *right now* rather than as it
    * was when the card registered with drax. See `isTaskDragPayload` for why the
@@ -22,11 +22,7 @@ type TDragSchedule = {
    * deleted mid-drag.
    */
   getTask: (taskId: string) => TTask | undefined;
-  /**
-   * Moves a task to `scheduledFor` (`null` unschedules), prompting first if it
-   * carries an alarm. Stable for the provider's lifetime — which the drop
-   * targets depend on; see `TaskDropTarget`.
-   */
+  /** Moves a task to `scheduledFor` (`null` unschedules), prompting first if it carries an alarm. */
   scheduleTask: (task: TTask, scheduledFor: string | null) => Promise<void>;
 };
 
@@ -65,8 +61,6 @@ type TDragScheduleProviderProps = {
  *
  * Owning `useTasks()` here rather than in each drop target is what keeps a week
  * of seven columns from opening seven subscriptions and mounting seven modals.
- * Every write to the canonical `["tasks"]` cache re-renders this wrapper, but
- * `children` is an element the parent built, so React bails out of the subtree.
  */
 export function DragScheduleProvider({
   style,
@@ -81,20 +75,34 @@ export function DragScheduleProvider({
   // handler that closed over a `tasks` array would answer from whenever it was
   // built. This provider re-renders on every write to `["tasks"]`, so the ref
   // is never more than a render behind. Written from an effect rather than
-  // during render (`react-hooks/refs`); `getTask` is only ever called from a
-  // drag, long after the commit that refreshed it.
+  // during render (`react-hooks/refs`); both are only ever read from a drag,
+  // long after the commit that refreshed them.
+  //
+  // `changeSchedule` goes through a ref for a second reason: it is *not* stable.
+  // It memoizes on the updater it is given, and `useTasks`' `updateTask` is a
+  // bare arrow rebuilt every render — so a context value derived from it would
+  // change identity on every write to `["tasks"]`, i.e. on every checkbox tap
+  // anywhere on screen, and re-render all eight drop targets on the Week tab.
   const tasksRef = useRef(tasks);
+  const changeScheduleRef = useRef(changeSchedule);
   useEffect(() => {
     tasksRef.current = tasks;
+    changeScheduleRef.current = changeSchedule;
   });
 
+  // Built once, deliberately: every field reads through a ref, so there is
+  // nothing for a dependency to track. This is what lets consumers skip the
+  // re-render — `children` is an element the parent built, so React already
+  // bails out of the subtree, but a changed context value would reach past that
+  // bailout into every consumer inside it.
   const value = useMemo(
     () => ({
       getTask: (taskId: string) =>
         tasksRef.current.find((task) => task.id === taskId),
-      scheduleTask: changeSchedule,
+      scheduleTask: (task: TTask, scheduledFor: string | null) =>
+        changeScheduleRef.current(task, scheduledFor),
     }),
-    [changeSchedule],
+    [],
   );
 
   return (
@@ -107,9 +115,9 @@ export function DragScheduleProvider({
           {children}
         </DragScheduleContext.Provider>
       </DraxProvider>
-      {/* A sibling of the provider, not a child: on web this is a
-          react-native-web `Modal` that lays out inline, and nesting it inside
-          the drag area would anchor it to that pane rather than the screen. */}
+      {/* A sibling of the drag area rather than a child of it, so the prompt
+          can't inherit a transform or an overflow clip from the pane a card was
+          dropped on. */}
       <ConfirmationModal {...confirmationProps} />
     </>
   );

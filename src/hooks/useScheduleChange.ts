@@ -27,9 +27,10 @@ type TScheduleUpdate = (update: TUpdateTask) => void;
  * and reschedules directly instead of prompting (DEX-48).
  *
  * @returns `changeSchedule` — awaitable; resolves once the user has answered.
- *   Memoized on `onUpdate`, so a caller passing a stable updater (e.g.
- *   `useTasks`' `updateTask`) gets a stable identity it can safely list in a
- *   dependency array — `TaskDrawer` puts it in `renderItem`'s.
+ *   Memoized on `onUpdate`, which means it is only as stable as the updater it
+ *   is handed. `useTasks`' `updateTask` is a bare arrow rebuilt every render, so
+ *   in practice this changes identity on every render too — a caller that needs
+ *   a stable identity has to hold it in a ref (`DragScheduleProvider` does).
  * @returns `confirmationProps` — spread onto a single `<ConfirmationModal />`
  *   by the consuming component.
  */

@@ -26,6 +26,13 @@ type TTaskCardPreviewProps = {
  *
  * Nothing in here may be an `@expo/ui` host, a text input, or a pressable. It
  * is a picture of a card, not a card.
+ *
+ * It deliberately renders a *likeness* rather than reproducing `TaskCard` —
+ * no status button, no due-date badge, no subtasks — so the two are not worth
+ * unifying behind a shared shell. The fill, radius, padding and height floor are
+ * read from the same tokens `TaskCard` uses, though, so a change there wants a
+ * glance at this file. There is no completed-task branch because a finished card
+ * can't be dragged (see `DraggableTaskCard`).
  */
 export function TaskCardPreview({ task, width }: TTaskCardPreviewProps) {
   const theme = useTheme();
