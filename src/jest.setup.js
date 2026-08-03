@@ -102,14 +102,13 @@ jest.mock("expo-alarm-kit", () => ({
 }));
 
 // expo-share-intent ships a native module (the iOS share extension / Android
-// intent filters). Default to "no share pending" so mounting the app under test
+// intent filters). Default to "no share arrived" so mounting the app under test
 // takes the same path a normal launch does; a test that cares supplies its own
 // payload by re-mocking useShareIntentContext.
 jest.mock("expo-share-intent", () => ({
   ShareIntentProvider: ({ children }) => children,
-  ShareIntentModule: undefined,
-  getShareExtensionKey: jest.fn(() => "shareKey"),
   useShareIntentContext: jest.fn(() => ({
+    hasShareIntent: false,
     shareIntent: { text: null, webUrl: null, files: null },
     resetShareIntent: jest.fn(),
   })),

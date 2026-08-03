@@ -156,19 +156,21 @@ export function MoreMenu({
 
   const sections = [
     ...linkSections,
-    // Every one of them, the Edit task row included: `IconMenu.native` emits a
-    // plain section *without* `hideDivider` as its own `displayInline` group,
-    // which the system menu draws with separators — so leaving that row
-    // unmarked ruled it off from the shortcuts beside it on iOS/Android while
-    // web (which only draws a divider above section > 0) showed no such rule.
+    // Every one of them but the first, the Edit task row included:
+    // `IconMenu.native` emits a plain section *without* `hideDivider` as its
+    // own `displayInline` group, which the system menu draws with separators —
+    // so leaving that row unmarked ruled it off from the shortcuts beside it on
+    // iOS/Android while web (which only draws a divider above section > 0)
+    // showed no such rule.
     //
-    // The exception is the first section when a link sits above it. A divider
-    // is drawn *above* a section, so that flag is what rules the link off from
-    // the shortcuts on web; native gets the same rule for free, from the link
-    // section being its own inline group.
+    // The first is exempt because `hideDivider` means "continue the section
+    // above", and this group never wants to: with a link above it, the rule is
+    // exactly what sets the link apart, and with nothing above it there is no
+    // rule to suppress. So the flag doesn't depend on whether a link is
+    // present — one less thing to keep in step.
     ...editSections.map((section, index) => ({
       ...section,
-      hideDivider: !(linkSections.length > 0 && index === 0),
+      hideDivider: index !== 0,
     })),
     ...getOtherSections({
       onDuplicate,

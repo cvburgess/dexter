@@ -37,6 +37,8 @@ const BUILD_PHASE_NAME = "Sync ShareExtension Version";
  */
 type TXcodeProject = {
   getFirstTarget: () => { uuid: string } | undefined;
+  /** The matching phase, or null when the target has none. */
+  buildPhaseObject: (isa: string, comment: string, target: string) => unknown;
   addBuildPhase: (
     files: string[],
     isa: string,
@@ -44,11 +46,6 @@ type TXcodeProject = {
     target: string,
     options: { shellPath: string; shellScript: string },
   ) => unknown;
-  hash: {
-    project: {
-      objects: Record<string, Record<string, { name?: string }> | undefined>;
-    };
-  };
 };
 
 const withShareExtensionVersion: ConfigPlugin = (config) =>
@@ -62,12 +59,12 @@ const withShareExtensionVersion: ConfigPlugin = (config) =>
 
     // Prebuild can run against an already-generated project, and a second copy
     // of the phase would run the same script twice on every build.
-    const phases = project.hash.project.objects.PBXShellScriptBuildPhase;
-    const alreadyAdded = Object.values(phases ?? {}).some(
-      // Names round-trip through the pbxproj quoted.
-      (phase) => phase.name?.replace(/"/g, "") === BUILD_PHASE_NAME,
+    const existing = project.buildPhaseObject(
+      "PBXShellScriptBuildPhase",
+      BUILD_PHASE_NAME,
+      mainAppTarget.uuid,
     );
-    if (alreadyAdded) return xcodeConfig;
+    if (existing) return xcodeConfig;
 
     project.addBuildPhase(
       [],

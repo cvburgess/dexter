@@ -174,13 +174,15 @@ describe("MoreMenu", () => {
   // group; only the duplicate/repeat/delete actions are set apart. The Edit
   // task row carries the flag too: `IconMenu.native` draws an unmarked plain
   // section as its own separated inline group, which would rule it off from
-  // the shortcuts beside it.
+  // the shortcuts beside it. The group's *first* section is the exception —
+  // `hideDivider` means "continue the section above", and with nothing above it
+  // there is no rule to suppress either way.
   it("rules off only the final action group", () => {
     renderMenu(makeTask(), { onAddSubtask: jest.fn() });
 
     expect(
       renderedSections().map((section) => Boolean(section.hideDivider)),
-    ).toEqual([true, true, true, true, false]);
+    ).toEqual([false, true, true, true, false]);
   });
 
   describe("go to link", () => {
@@ -202,8 +204,9 @@ describe("MoreMenu", () => {
       ).toEqual(["Go to link"]);
     });
 
-    // The rule is drawn *above* a section, so setting the link apart means
-    // letting the section after it keep the divider the no-link menu suppresses.
+    // The rule is drawn *above* a section, so what sets the link apart is the
+    // shortcut group below it not suppressing its own — the same flag it
+    // carries without a link, where it simply has no effect.
     it("rules the link off from the shortcuts below it", () => {
       renderMenu(linked(), { onAddSubtask: jest.fn() });
 

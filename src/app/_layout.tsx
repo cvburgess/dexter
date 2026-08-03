@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
-import { ShareIntentLinkingConfig } from "@/components/ShareIntentLinkingConfig";
+import { ShareIntentRedirect } from "@/components/ShareIntentRedirect";
 import { AuthProvider } from "@/hooks/useAuth";
 import { QueryProvider } from "@/providers/QueryProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
@@ -71,7 +71,7 @@ function RootLayout() {
         <QueryProvider>
           <AuthProvider>
             <ThemeProvider>
-              <ShareIntentLinkingConfig />
+              <ShareIntentRedirect />
               <ThemedStack />
             </ThemeProvider>
           </AuthProvider>
