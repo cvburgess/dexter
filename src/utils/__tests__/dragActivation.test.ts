@@ -10,12 +10,18 @@ describe("dragActivation", () => {
     expect(dragActivation("android").longPressDelay).toBeGreaterThan(0);
   });
 
-  // The native hold has to resolve before iOS opens the SwiftUI context menu
-  // behind MoreMenu's long-press (~500ms), or the menu wins the race and the
-  // card can never be dragged off a day column. Asserted with headroom rather
-  // than pinned to 100, so tuning the value stays free but can't cross the line.
-  it("resolves the native hold well inside iOS's context-menu threshold", () => {
-    expect(dragActivation("ios").longPressDelay).toBeLessThan(250);
+  // Bounded on both sides, and both bounds are real behavior rather than taste.
+  // Under ~150ms the hold falls inside an ordinary lingering tap, so resting a
+  // finger on a card lifts it instead of pressing what's under it. At or above
+  // ~500ms it collides with the SwiftUI context menu MoreMenu opens on
+  // long-press — and that menu is the only route to schedule presets, priority,
+  // duplicate and delete. Asserted as a range rather than pinned to the current
+  // value, so tuning stays free but can't cross either line.
+  it("holds long enough to outlast a tap and briefly enough to clear the context menu", () => {
+    const { longPressDelay } = dragActivation("ios");
+
+    expect(longPressDelay).toBeGreaterThanOrEqual(150);
+    expect(longPressDelay).toBeLessThan(500);
   });
 
   // The coupling this function exists to hold. React Native Gesture Handler

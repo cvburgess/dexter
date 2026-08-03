@@ -13,12 +13,20 @@ export type TDragActivation = {
  * exported `getSwipeCommitDirection`.
  *
  * `longPressDelay`: on native a press must be held before the drag takes over,
- * so a quick flick still scrolls the list under it. 100ms is short enough to
- * feel immediate and comfortably beats the ~500ms threshold iOS uses for the
- * SwiftUI context menu behind `MoreMenu`'s long-press (`IconMenu.native.tsx`),
- * so the drag wins that race. Web activates immediately — there's no competing
- * menu there (`IconMenu.web.tsx` binds only `onContextMenu`) and a non-zero
- * delay loses the drag to the browser's touch-slop cancellation.
+ * so a quick flick still scrolls the list under it. Web activates immediately —
+ * there's no competing menu there (`IconMenu.web.tsx` binds only
+ * `onContextMenu`) and a non-zero delay loses the drag to the browser's
+ * touch-slop cancellation.
+ *
+ * 200ms on native is bounded on both sides. Below it, the hold falls inside an
+ * ordinary lingering tap: at 100ms, resting a finger on a card for a beat
+ * before releasing lifted it instead of registering the press, which is a
+ * particular problem for the `StatusButton` and subtask rows the card carries.
+ * Above ~500ms it would collide with the SwiftUI context menu that
+ * `MoreMenu` opens on long-press (`IconMenu.native.tsx`) — and that menu is the
+ * *only* way to reach schedule presets, priority, duplicate and delete, so
+ * losing it would cost far more than the drag is worth. Verified by hand on
+ * iPad: both gestures coexist at this value.
  *
  * The hold exists only because native has no equivalent of the
  * `touch-action: pan-y` drax sets on web, which lets the browser keep vertical
@@ -34,9 +42,9 @@ export type TDragActivation = {
  *
  * It is coupled to the delay in two ways. Softly: the shorter the window, the
  * less distance a scroll covers inside it, so the less likely this is to catch
- * one. At 100ms a fast flick still clears 12px easily, but a slow deliberate
- * scroll may not — lower this before raising the delay if slow scrolls start
- * grabbing cards.
+ * one. At 200ms a fast flick clears 12px easily, and a slow deliberate scroll
+ * now has twice as long to do the same — lower this before raising the delay
+ * if slow scrolls ever start grabbing cards.
  *
  * And hard: the offset **must** be left unset when there is no long-press
  * window. gesture-handler's pan handler evaluates `shouldFail()` before
@@ -49,7 +57,7 @@ export type TDragActivation = {
 export function dragActivation(
   platform: typeof Platform.OS = Platform.OS,
 ): TDragActivation {
-  const longPressDelay = platform === "web" ? 0 : 100;
+  const longPressDelay = platform === "web" ? 0 : 200;
   return {
     longPressDelay,
     dragActivationFailOffset: longPressDelay > 0 ? 12 : undefined,
