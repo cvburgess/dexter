@@ -4,8 +4,12 @@ import { useShareIntentContext } from "expo-share-intent";
 import { ShareIntentRedirect } from "../ShareIntentRedirect";
 
 const mockPush = jest.fn();
+// Reassigned per test, so the factory below reads it lazily rather than
+// capturing a value — `undefined` is the pre-mount root navigation state.
+let mockNavigationState: { key: string } | undefined = { key: "root" };
 jest.mock("expo-router", () => ({
   router: { push: (href: unknown) => mockPush(href) },
+  useRootNavigationState: () => mockNavigationState,
 }));
 
 const mockReset = jest.fn();
@@ -26,6 +30,7 @@ const setShareIntent = (shareIntent: {
 describe("ShareIntentRedirect", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockNavigationState = { key: "root" };
   });
 
   it("opens the create-task modal with the shared link", () => {
@@ -72,6 +77,26 @@ describe("ShareIntentRedirect", () => {
 
     expect(mockPush).not.toHaveBeenCalled();
     expect(mockReset).not.toHaveBeenCalled();
+  });
+
+  // The cold-start case: a share that launched the app can be delivered before
+  // the root navigator exists, and pushing then drops it silently.
+  it("waits for the navigator rather than losing a cold-start share", () => {
+    mockNavigationState = undefined;
+    setShareIntent({ webUrl: "https://example.com", text: null });
+
+    const screen = render(<ShareIntentRedirect />);
+
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockReset).not.toHaveBeenCalled();
+
+    mockNavigationState = { key: "root" };
+    screen.rerender(<ShareIntentRedirect />);
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/new-task",
+      params: { url: "https://example.com" },
+    });
   });
 
   // Clearing the payload is what flips `hasShareIntent` false, so a re-render

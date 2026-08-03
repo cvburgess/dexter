@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { router, useRootNavigationState } from "expo-router";
 import { useShareIntentContext } from "expo-share-intent";
 import { useEffect } from "react";
 
@@ -23,9 +23,15 @@ export function ShareIntentRedirect() {
   const { hasShareIntent, shareIntent, resetShareIntent } =
     useShareIntentContext();
   const { text, webUrl } = shareIntent;
+  // This sits beside the root Stack rather than inside it, so on a cold start
+  // the payload can land before there is anything to navigate — and a `push`
+  // then is dropped, losing the share outright. The root navigation state has
+  // no `key` until the navigator has mounted, so waiting on it defers exactly
+  // that case and nothing else.
+  const isNavigatorReady = useRootNavigationState()?.key !== undefined;
 
   useEffect(() => {
-    if (!hasShareIntent) return;
+    if (!hasShareIntent || !isNavigatorReady) return;
 
     const url = extractSharedUrl(webUrl, text);
     // Clearing the payload is what closes the loop: `hasShareIntent` goes
@@ -38,7 +44,7 @@ export function ShareIntentRedirect() {
     // every render, so depending on it would re-run this effect continuously
     // for as long as a share is pending.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasShareIntent, webUrl, text]);
+  }, [hasShareIntent, isNavigatorReady, webUrl, text]);
 
   return null;
 }
