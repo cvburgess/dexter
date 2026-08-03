@@ -22,7 +22,13 @@ if [ -f "$SHARE_EXT_PLIST" ]; then
   # CURRENT_PROJECT_VERSION is the fallback: the app's plist carries the build
   # number for a normal build, but reads it from the setting under EAS.
   MAIN_VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" "\${INFOPLIST_FILE}" 2>/dev/null || echo "\${CURRENT_PROJECT_VERSION}")
-  /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $MAIN_VERSION" "$SHARE_EXT_PLIST" 2>/dev/null || true
+  # \`Set\` alone is not enough: expo-share-intent generates the extension's
+  # plist with no CFBundleVersion at all (it leans on GENERATE_INFOPLIST_FILE
+  # plus CURRENT_PROJECT_VERSION), and PlistBuddy's \`Set\` errors on a key that
+  # does not exist. \`Add\` is the first attempt for exactly that case.
+  /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $MAIN_VERSION" "$SHARE_EXT_PLIST" 2>/dev/null \\
+    || /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $MAIN_VERSION" "$SHARE_EXT_PLIST" 2>/dev/null \\
+    || echo "warning: could not write CFBundleVersion to $SHARE_EXT_PLIST"
   echo "Synced ShareExtension CFBundleVersion to: $MAIN_VERSION"
 fi
 `;

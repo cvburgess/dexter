@@ -39,6 +39,15 @@ describe("normalizeTaskUrl", () => {
     expect(normalizeTaskUrl("dexter://today")).toBe("dexter://today");
   });
 
+  // `host:port` looks like a scheme to a naive match, and left alone it would
+  // never open.
+  it("prepends https:// to a bare host carrying a port", () => {
+    expect(normalizeTaskUrl("localhost:3000")).toBe("https://localhost:3000");
+    expect(normalizeTaskUrl("example.com:8080/admin")).toBe(
+      "https://example.com:8080/admin",
+    );
+  });
+
   it("never rejects, so a typo can't block saving the task", () => {
     expect(normalizeTaskUrl("not a url")).toBe("https://not a url");
   });

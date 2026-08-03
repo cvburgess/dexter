@@ -8,8 +8,14 @@
  * app's own `dexter:`. Deliberately matches the scheme alone rather than a
  * whole URL: this decides whether to *add* `https://`, not whether the value is
  * valid.
+ *
+ * The colon must not be followed by a digit, or a bare `host:port` would read
+ * as a scheme: `localhost:3000` and `example.com:8080/admin` are ordinary links
+ * to paste onto a task, and left un-prefixed neither one opens. The cost is
+ * that a numeric-first scheme body (`sms:15551234`) gets an `https://` it
+ * didn't want, which is the rarer of the two by a wide margin.
  */
-const HAS_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
+const HAS_SCHEME = /^[a-z][a-z0-9+.-]*:(?!\d)/i;
 
 /** The first http(s) link inside a block of shared text. */
 const FIRST_LINK = /https?:\/\/\S+/i;
