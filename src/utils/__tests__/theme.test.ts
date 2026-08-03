@@ -4,7 +4,14 @@ import { Platform, useColorScheme } from "react-native";
 import { EThemeMode } from "@/api/preferences";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 
-import { DENSITY, resolveTheme, themes, useTheme, withOpacity } from "../theme";
+import {
+  DENSITY,
+  THEMES,
+  resolveTheme,
+  themes,
+  useTheme,
+  withOpacity,
+} from "../theme";
 
 // `react-native`'s `useColorScheme` lazily delegates to the default export of
 // this submodule (see react-native/index.js), so mocking the submodule controls
@@ -221,6 +228,12 @@ describe("palette invariants", () => {
       expect(colors).toHaveProperty(key);
       expect(colors[key as keyof typeof colors]).toBeTruthy();
     }
+  });
+
+  // `THEMES` reads each mode off the palette, so the two can't disagree. What
+  // the types don't catch is a palette that never gets offered for selection.
+  it("offers every palette in the Appearance picker", () => {
+    expect(THEMES.map((theme) => theme.name).sort()).toEqual([...names].sort());
   });
 
   it.each(names)("%s has one entry per priority in each array", (name) => {

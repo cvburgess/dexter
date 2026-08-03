@@ -1,6 +1,8 @@
 import { render } from "@testing-library/react-native";
 import type { ReactNode } from "react";
-import { Text } from "react-native";
+import { Text, useColorScheme } from "react-native";
+
+import { ThemeContext, type TThemePalette, themes } from "@/utils/theme";
 
 import { IconMenu } from "../IconMenu.native";
 import { TIconMenuSection } from "../IconMenu.types";
@@ -11,6 +13,18 @@ const mockMenuView = jest.fn(
 jest.mock("@expo/ui/community/menu", () => ({
   MenuView: (props: Parameters<typeof mockMenuView>[0]) => mockMenuView(props),
 }));
+
+// `react-native`'s `useColorScheme` lazily delegates to the default export of
+// this submodule, so mocking the submodule is what controls the scheme
+// `useTheme` resolves — see the same note in `utils/__tests__/theme.test.ts`.
+jest.mock("react-native/Libraries/Utilities/useColorScheme", () => ({
+  __esModule: true,
+  default: jest.fn(),
+}));
+
+beforeEach(() => {
+  jest.mocked(useColorScheme).mockReturnValue("light");
+});
 
 const sections: TIconMenuSection[] = [
   {
@@ -134,7 +148,7 @@ describe("IconMenu (native)", () => {
 
   it("forwards a colored action item's icon tint without making it a toggle", () => {
     // The colored Backlog action stays a plain button (no `state`); its icon is
-    // tinted natively via the patched @expo/ui menu (see patches/@expo+ui).
+    // tinted natively via `.tint` in @expo/ui >= 57.0.8.
     const coloredSections: TIconMenuSection[] = [
       {
         options: [
@@ -164,5 +178,51 @@ describe("IconMenu (native)", () => {
 
     expect(backlog?.imageColor).toBe("#fcb700");
     expect(backlog?.state).toBeUndefined();
+  });
+
+  // Android themes its Compose menu from `colorScheme`; omitting it makes the
+  // menu follow the device rather than the theme the user picked in-app.
+  describe("colorScheme", () => {
+    // `palette` omitted renders with no provider, the case `useTheme` serves
+    // from the device scheme.
+    const renderWith = (palette?: TThemePalette) => {
+      const menu = (
+        <IconMenu accessibilityLabel="Status" sections={sections}>
+          <Text>Trigger</Text>
+        </IconMenu>
+      );
+
+      render(
+        palette ? (
+          <ThemeContext.Provider value={palette}>{menu}</ThemeContext.Provider>
+        ) : (
+          menu
+        ),
+      );
+
+      const { colorScheme } = mockMenuView.mock.calls.at(-1)![0] as unknown as {
+        colorScheme: string;
+      };
+
+      return colorScheme;
+    };
+
+    it("follows a dark palette even when the device is light", () => {
+      jest.mocked(useColorScheme).mockReturnValue("light");
+
+      expect(renderWith(themes.abyss)).toBe("dark");
+    });
+
+    it("follows a light palette even when the device is dark", () => {
+      jest.mocked(useColorScheme).mockReturnValue("dark");
+
+      expect(renderWith(themes.dexter)).toBe("light");
+    });
+
+    it("falls back to the device scheme with no theme provider", () => {
+      jest.mocked(useColorScheme).mockReturnValue("dark");
+
+      expect(renderWith()).toBe("dark");
+    });
   });
 });

@@ -11,10 +11,10 @@ export type TIconMenuOption = {
   icon?: TIconName;
   /**
    * Tint for the icon. Applied on all platforms — on iOS the SF Symbol is
-   * tinted through SwiftUI's `.tint` (see `patches/@expo+ui`, which fixes the
-   * upstream menu using an ineffective `.foregroundColor` for button icons),
-   * which colors the icon but not the label. Set `titleColor` too for the label
-   * on Android/web.
+   * tinted through SwiftUI's `.tint`, which colors the icon but not the label.
+   * Needs `@expo/ui` >= 57.0.8, where leaf action buttons stopped using an
+   * ineffective `.foregroundColor`. Set `titleColor` too for the label on
+   * Android/web.
    */
   iconColor?: string;
   /**
