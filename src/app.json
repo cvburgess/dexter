@@ -75,8 +75,7 @@
           "androidIntentFilters": ["text/*"],
           "iosAppGroupIdentifier": "group.com.dexterplanner"
         }
-      ],
-      "./plugins/withShareExtensionVersion"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
