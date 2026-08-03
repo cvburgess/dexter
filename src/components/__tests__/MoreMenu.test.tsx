@@ -62,6 +62,11 @@ jest.mock("@/hooks/useTemplates", () => ({
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));
 
+const mockOpenUrl = jest.fn();
+jest.mock("@/utils/openUrl", () => ({
+  openUrl: (url: string) => mockOpenUrl(url),
+}));
+
 /** Renders the menu with the props every test would otherwise restate. */
 const renderMenu = (task: TTask = makeTask(), props = {}) =>
   render(
@@ -176,6 +181,45 @@ describe("MoreMenu", () => {
     expect(
       renderedSections().map((section) => Boolean(section.hideDivider)),
     ).toEqual([true, true, true, true, false]);
+  });
+
+  describe("go to link", () => {
+    const linked = () => makeTask({ url: "https://example.com/spec" });
+
+    it("has no link row when the task has no link", () => {
+      renderMenu(makeTask(), { onAddSubtask: jest.fn() });
+
+      expect(optionById("go-to-link")).toBeUndefined();
+      // Unchanged from the no-link menu: the shortcuts still open the group.
+      expect(renderedSections()[0].title).toBe("Priority");
+    });
+
+    it("puts the link first, above everything that edits the task", () => {
+      renderMenu(linked(), { onAddSubtask: jest.fn() });
+
+      expect(
+        renderedSections()[0].options.map((option) => option.title),
+      ).toEqual(["Go to link"]);
+    });
+
+    // The rule is drawn *above* a section, so setting the link apart means
+    // letting the section after it keep the divider the no-link menu suppresses.
+    it("rules the link off from the shortcuts below it", () => {
+      renderMenu(linked(), { onAddSubtask: jest.fn() });
+
+      expect(
+        renderedSections().map((section) => Boolean(section.hideDivider)),
+      ).toEqual([false, false, true, true, true, false]);
+    });
+
+    it("opens the link rather than navigating in-app", () => {
+      renderMenu(linked());
+
+      optionById("go-to-link")?.onSelect();
+
+      expect(mockOpenUrl).toHaveBeenCalledWith("https://example.com/spec");
+      expect(mockPush).not.toHaveBeenCalled();
+    });
   });
 
   it("opens the edit modal from the Edit task row", () => {

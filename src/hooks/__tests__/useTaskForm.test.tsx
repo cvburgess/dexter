@@ -384,6 +384,68 @@ describe("useTaskForm", () => {
     });
   });
 
+  describe("link", () => {
+    it("starts empty and saves as no link at all, not an empty one", () => {
+      const { result } = renderHook(() => useTaskForm([homeList]));
+
+      expect(result.current.url).toBe("");
+      expect(result.current.task.url).toBeNull();
+    });
+
+    it("seeds create mode from a shared link", () => {
+      const { result } = renderHook(() =>
+        useTaskForm([homeList], { defaultUrl: "https://example.com/article" }),
+      );
+
+      expect(result.current.url).toBe("https://example.com/article");
+      expect(result.current.task.url).toBe("https://example.com/article");
+    });
+
+    // Typing is left verbatim; the rule runs on the way into the payload, so a
+    // half-typed host is never rewritten mid-keystroke.
+    it("normalizes on save without touching what is being typed", () => {
+      const { result } = renderHook(() => useTaskForm([homeList]));
+
+      act(() => result.current.setUrl("  dexterplanner.com "));
+
+      expect(result.current.url).toBe("  dexterplanner.com ");
+      expect(result.current.task.url).toBe("https://dexterplanner.com");
+    });
+
+    it("clears a saved link back to null", () => {
+      const { result } = renderHook(() =>
+        useTaskForm([homeList], {
+          task: makeTask({ url: "https://example.com" }),
+        }),
+      );
+
+      act(() => result.current.setUrl(""));
+
+      expect(result.current.task.url).toBeNull();
+    });
+
+    // A link is not a task: it says nothing about whether there is one to save.
+    it("does not make an untitled task saveable", () => {
+      const { result } = renderHook(() =>
+        useTaskForm([homeList], { defaultUrl: "https://example.com" }),
+      );
+
+      expect(result.current.canSave).toBe(false);
+    });
+
+    // Editing is never the target of a share, so the two can't both be live.
+    it("prefers the saved task's link over a shared one", () => {
+      const { result } = renderHook(() =>
+        useTaskForm([homeList], {
+          task: makeTask({ url: "https://saved.example.com" }),
+          defaultUrl: "https://shared.example.com",
+        }),
+      );
+
+      expect(result.current.url).toBe("https://saved.example.com");
+    });
+  });
+
   describe("edit mode", () => {
     it("seeds every field from the task rather than from create defaults", () => {
       const task = makeTask({
@@ -395,6 +457,7 @@ describe("useTaskForm", () => {
         subtasks: [{ id: "s1", title: "Passport", status: ETaskStatus.DONE }],
         templateId: "template-1",
         title: "Pack for Berlin",
+        url: "https://example.com/packing",
       });
 
       const { result } = renderHook(() => useTaskForm([homeList], { task }));
@@ -405,6 +468,7 @@ describe("useTaskForm", () => {
       expect(result.current.scheduledFor).toBe("2026-07-20");
       expect(result.current.dueOn).toBe("2026-08-01");
       expect(result.current.alarmTime).toBe("07:15");
+      expect(result.current.url).toBe("https://example.com/packing");
       expect(result.current.subtasks).toEqual(task.subtasks);
       expect(result.current.canSave).toBe(true);
     });

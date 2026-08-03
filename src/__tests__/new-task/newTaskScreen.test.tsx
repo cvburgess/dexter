@@ -200,6 +200,46 @@ describe("NewTaskScreen", () => {
     );
   });
 
+  // How a shared link reaches the form: `share-intent` replaces itself with
+  // this route, carrying the link as a param (DEX-66).
+  it("pre-fills the link passed as a route param", () => {
+    mockSearchParams.current = { url: "https://example.com/article" };
+    const screen = render(<NewTaskScreen />);
+
+    expect(screen.getByTestId("new-task-url").props.value).toBe(
+      "https://example.com/article",
+    );
+
+    fireEvent.changeText(screen.getByTestId("new-task-title"), "Read this");
+    const save = render(headerOptions().headerRight());
+    fireEvent.press(save.getByTestId("modal-done-button"));
+
+    expect(mockCreateTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Read this",
+        url: "https://example.com/article",
+      }),
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
+  });
+
+  it("completes a typed bare host to an openable link", () => {
+    const screen = render(<NewTaskScreen />);
+
+    fireEvent.changeText(screen.getByTestId("new-task-title"), "Read the docs");
+    fireEvent.changeText(
+      screen.getByTestId("new-task-url"),
+      "dexterplanner.com",
+    );
+    const save = render(headerOptions().headerRight());
+    fireEvent.press(save.getByTestId("modal-done-button"));
+
+    expect(mockCreateTask).toHaveBeenCalledWith(
+      expect.objectContaining({ url: "https://dexterplanner.com" }),
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
+  });
+
   it("saves a manually selected priority over a typed token", () => {
     const screen = render(<NewTaskScreen />);
 
