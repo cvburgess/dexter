@@ -150,7 +150,11 @@ export function IconMenu({
             that dismisses it — the same job `DateField.web.tsx`'s catcher does.
             Separation is the menu's own hairline and shadow instead.
           */}
-          <Pressable style={styles.overlay} onPress={close}>
+          <Pressable
+            testID="menu-overlay"
+            style={styles.overlay}
+            onPress={close}
+          >
             <ScrollView
               style={[
                 styles.menu,
@@ -158,9 +162,8 @@ export function IconMenu({
                   backgroundColor: theme.colors.surfaceSunken,
                   // Without a wash behind it the fill can't mark where the menu
                   // ends — it sits on cards and rows that are `surfaceSunken`
-                  // too — so the edge has to be drawn. Same token as the
-                  // section dividers below.
-                  borderColor: dividerBorderColor,
+                  // too — so the edge has to be drawn.
+                  borderColor: theme.colors.border,
                   borderRadius: theme.radii.md,
                   borderWidth: StyleSheet.hairlineWidth,
                   boxShadow: MENU_SHADOW,

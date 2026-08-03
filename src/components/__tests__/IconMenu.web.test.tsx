@@ -103,6 +103,63 @@ describe("IconMenu (web)", () => {
     expect(screen.queryByText("To Do")).toBeNull();
   });
 
+  // The overlay is invisible — a context menu floats over undimmed content
+  // (DEX-125) — so nothing about it is visible to catch a regression. It is
+  // still the only thing that closes the menu on a click outside, and it would
+  // go on rendering exactly the same if it stopped taking presses at all.
+  it("closes the menu when the invisible overlay is pressed", () => {
+    const screen = render(
+      <IconMenu
+        accessibilityLabel="Status"
+        menuTitle="Status"
+        sections={sections}
+      >
+        <Text>Trigger</Text>
+      </IconMenu>,
+    );
+
+    fireEvent.press(screen.getByLabelText("Status"), {
+      nativeEvent: { clientX: 10, clientY: 10 },
+    });
+    expect(screen.getByText("To Do")).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId("menu-overlay"));
+
+    expect(screen.queryByText("To Do")).toBeNull();
+  });
+
+  it("gives the menu an opaque edge, since no scrim separates it", () => {
+    const screen = render(
+      <IconMenu
+        accessibilityLabel="Status"
+        menuTitle="Status"
+        sections={sections}
+      >
+        <Text>Trigger</Text>
+      </IconMenu>,
+    );
+
+    fireEvent.press(screen.getByLabelText("Status"), {
+      nativeEvent: { clientX: 10, clientY: 10 },
+    });
+
+    // The overlay itself must stay unpainted: a fill here is the modal scrim
+    // this component deliberately dropped.
+    const overlay = screen.getByTestId("menu-overlay");
+    expect(
+      StyleSheet.flatten(overlay.props.style as StyleProp<ViewStyle>)
+        .backgroundColor,
+    ).toBeUndefined();
+
+    expect(
+      hostsStyled(
+        screen,
+        (style) =>
+          (style.borderWidth ?? 0) > 0 && style.boxShadow !== undefined,
+      ),
+    ).not.toHaveLength(0);
+  });
+
   // The menu is a `Modal`, and react-native-web's modal restores focus to
   // whatever was focused before it opened — from its unmount cleanup. An action
   // run inline would still be inside that commit, so anything it focuses (an
