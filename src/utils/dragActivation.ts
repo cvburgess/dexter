@@ -1,65 +1,68 @@
-import { Platform } from "react-native";
+/** How far sideways a finger travels before a card is considered picked up. */
+const ACTIVATE_X = 15;
+/** How far vertically it can travel first before the drag gives up and lets the list scroll. */
+const FAIL_Y = 15;
 
 export type TDragActivation = {
   longPressDelay: number;
-  dragActivationFailOffset?: number;
+  dragActivationOffsetX: [number, number];
+  dragActivationFailOffsetY: [number, number];
 };
 
 /**
- * How a task card's drag activates, per platform (DEX-77). A pure exported
- * function rather than two inline literals because the two values are coupled
- * in a way that isn't locally obvious — see below — so the coupling gets a unit
- * test instead of a comment nobody reads. Same shape as `SwipeableDay`'s
- * exported `getSwipeCommitDirection`.
+ * How a task card's drag activates (DEX-77) — by **direction**, not by time.
  *
- * `longPressDelay`: on native a press must be held before the drag takes over,
- * so a quick flick still scrolls the list under it. Web activates immediately —
- * there's no competing menu there (`IconMenu.web.tsx` binds only
- * `onContextMenu`) and a non-zero delay loses the drag to the browser's
- * touch-slop cancellation.
+ * A card sits under two other gestures: the list it lives in scrolls
+ * vertically, and `MoreMenu` opens a native context menu on a long press of the
+ * whole card (`IconMenu.native.tsx`). Both of those are what the user wants
+ * most of the time, so the drag has to be the reading that only a deliberate
+ * sideways pull produces:
  *
- * 200ms on native is bounded on both sides. Below it, the hold falls inside an
- * ordinary lingering tap: at 100ms, resting a finger on a card for a beat
- * before releasing lifted it instead of registering the press, which is a
- * particular problem for the `StatusButton` and subtask rows the card carries.
- * Above ~500ms it would collide with the SwiftUI context menu that
- * `MoreMenu` opens on long-press (`IconMenu.native.tsx`) — and that menu is the
- * *only* way to reach schedule presets, priority, duplicate and delete, so
- * losing it would cost far more than the drag is worth. Verified by hand on
- * iPad: both gestures coexist at this value.
+ * - **`longPressDelay: 0`** — a stationary press never starts a drag, so the
+ *   context menu opens reliably. This is the whole fix. A timed hold cannot
+ *   work here: gesture-handler's `activateAfterLongPress` activates the pan
+ *   after the delay *regardless of movement*, so any value below the menu's
+ *   ~500ms threshold silently cancelled the menu, and any value above it lost
+ *   the drag instead. We shipped 100ms and then 200ms before working out that
+ *   the whole axis was wrong — the menu only ever appeared when the drag
+ *   happened to fail first, which is exactly the intermittency that gave it
+ *   away.
+ * - **`dragActivationOffsetX`** — the drag activates only once the finger has
+ *   travelled sideways. Every meaningful drop is sideways: day → day, backlog →
+ *   day, day → backlog, backlog ↔ the Tasks pane. A *vertical* drag has nothing
+ *   to mean, because tasks carry no manual order (the canonical list is sorted
+ *   by status, priority and due date), so there is no intra-day reordering to
+ *   express.
+ * - **`dragActivationFailOffsetY`** — vertical travel abandons the drag
+ *   outright, handing the gesture back to the day list or the backlog. Without
+ *   it a slow scroll that drifted a few pixels sideways would pick a card up.
  *
- * The hold exists only because native has no equivalent of the
- * `touch-action: pan-y` drax sets on web, which lets the browser keep vertical
- * scrolling without gesture-handler arbitrating at all. On native the two
- * gestures share one recognizer, so scroll and drag have to be told apart by
- * time (this) or by region (a drag handle, which would put a grip on every card
- * in a 160dp-wide week column).
+ * The 15px pair is the usual touch-slop band, and the same shape
+ * `SwipeableDay` uses to separate its day-swipe from a vertical scroll
+ * (`activeOffsetX` / `failOffsetY`).
  *
- * `dragActivationFailOffset`: cancels activation if the pointer travels this
- * far *while the long press is still pending*, so a scroll that happens to
- * start on a card scrolls the list instead of picking the card up — the same
- * disambiguation `SwipeableDay` gets from `failOffsetY`.
+ * **One consequence to know:** below ~1150dp the week itself scrolls
+ * horizontally, and a sideways gesture starting on a card now goes to the card
+ * rather than to that scroller — scroll the week from a day chip or the gutter
+ * instead. This is not new behavior so much as newly-consistent: drax already
+ * sets `touch-action: pan-y` on drag sources, so touch-web has always worked
+ * this way.
  *
- * It is coupled to the delay in two ways. Softly: the shorter the window, the
- * less distance a scroll covers inside it, so the less likely this is to catch
- * one. At 200ms a fast flick clears 12px easily, and a slow deliberate scroll
- * now has twice as long to do the same — lower this before raising the delay
- * if slow scrolls ever start grabbing cards.
+ * Web and native share one configuration, which is the other thing this buys.
+ * The previous split (0ms on web, a hold on native) carried a trap: with a 0ms
+ * delay a `dragActivationFailOffset` is the only rule gesture-handler has left,
+ * so setting one on web killed the drag entirely — a footgun that no longer
+ * exists now that neither platform uses a hold.
  *
- * And hard: the offset **must** be left unset when there is no long-press
- * window. gesture-handler's pan handler evaluates `shouldFail()` before
- * `shouldActivate()`, and only consults its long-press branch when
- * `activateAfterLongPress > 0` — so with a 0ms delay the fail offset is the
- * only rule left, the gesture fails at 12px of travel, and the drag can never
- * start at all. Web doesn't need it anyway: drax sets `touch-action: pan-y`
- * there, and that is what keeps the list scrollable.
+ * `dragActivationOffsetX` and `dragActivationFailOffsetY` are per-axis props
+ * added to drax by `patches/react-native-drax+1.1.0.patch`; upstream ships only
+ * a single symmetric `dragActivationFailOffset` that applies to both axes at
+ * once, which cannot express "activate sideways, fail vertically".
  */
-export function dragActivation(
-  platform: typeof Platform.OS = Platform.OS,
-): TDragActivation {
-  const longPressDelay = platform === "web" ? 0 : 200;
+export function dragActivation(): TDragActivation {
   return {
-    longPressDelay,
-    dragActivationFailOffset: longPressDelay > 0 ? 12 : undefined,
+    longPressDelay: 0,
+    dragActivationOffsetX: [-ACTIVATE_X, ACTIVATE_X],
+    dragActivationFailOffsetY: [-FAIL_Y, FAIL_Y],
   };
 }

@@ -22,8 +22,8 @@ type TDraggableTaskCardProps = Omit<
   "onEditingChange"
 >;
 
-// Resolved once: `Platform.OS` can't change at runtime, and re-deriving it per
-// card would put a fresh object on every DraxView on a dense week screen.
+// Resolved once: the values are constant, and re-deriving them per card would
+// put a fresh object on every DraxView on a dense week screen.
 const DRAG_ACTIVATION = dragActivation();
 
 /**
@@ -76,17 +76,19 @@ export function DraggableTaskCard(props: TDraggableTaskCardProps) {
       // task reaches a terminal status, so a drag would otherwise be the only
       // way left to reschedule one.
       //
-      // Suspending it while a field is focused is a separate matter: on web
-      // there is no hold before the drag takes over (see `dragActivation`), so
-      // dragging across a title to select it would pick the card up instead.
-      // Same fix, and the same reason, as `SwipeableDay`'s `enabled={!editing}`.
+      // Suspending it while a field is focused is a separate matter, and it
+      // applies on every platform: the drag activates on sideways travel with
+      // no hold at all (see `dragActivation`), which is exactly the gesture for
+      // dragging across a title to select its text. Same fix, and the same
+      // reason, as `SwipeableDay`'s `enabled={!editing}`.
       draggable={!editing && !isCompletionStatus(task.status)}
       // A card is a drop target's guest, never a target itself; without this
       // drax would let one card receive another.
       receptive={false}
       payload={payload}
       longPressDelay={DRAG_ACTIVATION.longPressDelay}
-      dragActivationFailOffset={DRAG_ACTIVATION.dragActivationFailOffset}
+      dragActivationOffsetX={DRAG_ACTIVATION.dragActivationOffsetX}
+      dragActivationFailOffsetY={DRAG_ACTIVATION.dragActivationFailOffsetY}
       draggingStyle={styles.dragging}
       // Drax's default hover would re-render this card's own children into the
       // overlay, mounting a second set of native menu hosts that paint nothing.
