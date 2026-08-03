@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 
-import { Theme, useTheme, withOpacity } from "@/utils/theme";
+import { Theme, useTheme } from "@/utils/theme";
 
 import { Icon } from "./Icon";
 import type {
@@ -25,6 +25,15 @@ import type {
 const MENU_WIDTH = 220;
 const MENU_MARGIN = 8;
 const MENU_MAX_HEIGHT = 320;
+
+// Tailwind v4's `shadow-lg`, the same string `AppNav`'s `TILE_SHADOW_HOVER`
+// carries — a second, independent port of one value rather than a shared export,
+// since the rationale lives with the rail (see `AppNav.tsx` and docs/design.md,
+// "Scrims and shadows"). Black on every theme: deriving a shadow from
+// `colors.text` paints a pale halo on the dark themes instead of a lift, which
+// this menu's scrim used to hide.
+const MENU_SHADOW =
+  "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)";
 
 // Explicit `titleColor` override, else destructive red, else default text —
 // shared by the leaf and submenu option rows so their label color can't drift.
@@ -135,23 +144,26 @@ export function IconMenu({
       </div>
       {anchor ? (
         <Modal visible transparent animationType="fade" onRequestClose={close}>
-          <Pressable
-            style={[
-              styles.overlay,
-              // Scrim and shadow are both derived from `text`, like the divider
-              // above: a fixed black wash is all but invisible over a dark
-              // theme's surface (DEX-61), where the contrast color is light.
-              { backgroundColor: withOpacity(theme.colors.text, 0.15) },
-            ]}
-            onPress={close}
-          >
+          {/*
+            Invisible, not a scrim: an OS context menu floats over untouched
+            content, so the full-viewport layer is only here to catch the click
+            that dismisses it — the same job `DateField.web.tsx`'s catcher does.
+            Separation is the menu's own hairline and shadow instead.
+          */}
+          <Pressable style={styles.overlay} onPress={close}>
             <ScrollView
               style={[
                 styles.menu,
                 {
                   backgroundColor: theme.colors.surfaceSunken,
+                  // Without a wash behind it the fill can't mark where the menu
+                  // ends — it sits on cards and rows that are `surfaceSunken`
+                  // too — so the edge has to be drawn. Same token as the
+                  // section dividers below.
+                  borderColor: dividerBorderColor,
                   borderRadius: theme.radii.md,
-                  boxShadow: `0px 2px 8px ${withOpacity(theme.colors.text, 0.25)}`,
+                  borderWidth: StyleSheet.hairlineWidth,
+                  boxShadow: MENU_SHADOW,
                   position: "absolute",
                   top: anchor.y,
                   left: anchor.x,

@@ -2,7 +2,7 @@
 
 `src/utils/theme.ts` is the single source of truth for every color, size, and
 space in the app. This file describes what each token means and when to reach
-for it. `docs/frontend.md`'s Theming section covers the *plumbing* — how a theme
+for it. `docs/frontend.md`'s Theming section covers the _plumbing_ — how a theme
 is resolved from the user's preferences and supplied through context.
 
 The rule this document exists to enforce: **no style value is written as a
@@ -14,10 +14,10 @@ that list is meant to stay short.
 
 A theme has two halves, composed by `useTheme()`:
 
-| Half | Varies by | Lives in |
-| --- | --- | --- |
-| `colors` (`TThemeColors`) | which theme the user picked | `themes` |
-| everything else (`TDensityTokens`) | screen size and platform | `DENSITY` |
+| Half                               | Varies by                   | Lives in  |
+| ---------------------------------- | --------------------------- | --------- |
+| `colors` (`TThemeColors`)          | which theme the user picked | `themes`  |
+| everything else (`TDensityTokens`) | screen size and platform    | `DENSITY` |
 
 `resolveTheme()` picks the palette; `useTheme()` adds the density tier. A
 component only ever sees the composed `Theme`, so neither half is a special
@@ -28,10 +28,10 @@ case at the call site.
 Two steps, and the direction is the point: **content is the lightest plane in
 the app, and everything that frames content recedes from it.**
 
-| Token | daisyUI | Used for |
-| --- | --- | --- |
-| `background` | `base-100` | Screen bodies, panes, the sheet behind cards, the nav rail's tiles |
-| `surfaceSunken` | `base-200` | Cards, inputs, rows, menus, stack chrome, the nav rail and dock |
+| Token           | daisyUI    | Used for                                                           |
+| --------------- | ---------- | ------------------------------------------------------------------ |
+| `background`    | `base-100` | Screen bodies, panes, the sheet behind cards, the nav rail's tiles |
+| `surfaceSunken` | `base-200` | Cards, inputs, rows, menus, stack chrome, the nav rail and dock    |
 
 This is the inverse of a "cards float above the page" ramp, and it is deliberate
 (DEX-61). The legacy web app anchors its content on `base-100` and paints every
@@ -51,7 +51,7 @@ The nav rail is the one place both tokens meet head-on: the rail is
 `surfaceSunken` and its tiles are `background`, so each tile reads as a piece of
 the content sheet floating on the chrome — the legacy nav exactly.
 
-Sinking a surface marks the app's *outermost* chrome, not every list that
+Sinking a surface marks the app's _outermost_ chrome, not every list that
 happens to sit on the left. The settings sidebar is deliberately `background`:
 it and the detail pane are two halves of one settings surface, and sinking it
 grouped it with the nav rail further left instead. Its hairline right border is
@@ -61,11 +61,11 @@ what separates the two, so that border is load-bearing.
 
 Three parallel arrays, indexed by `ETaskPriority`:
 
-| Token | What it is | Used for |
-| --- | --- | --- |
-| `priority[i]` | the full-strength accent | Dots, bars, badges, menu icons, the overdue due-date pill |
-| `priorityMuted[i]` | `priority[i]` pre-blended over `background` at 80% | The solid fill of a task card |
-| `priorityContent[i]` | text readable on top of `priority[i]` | Labels and outlines drawn on a card |
+| Token                | What it is                                         | Used for                                                  |
+| -------------------- | -------------------------------------------------- | --------------------------------------------------------- |
+| `priority[i]`        | the full-strength accent                           | Dots, bars, badges, menu icons, the overdue due-date pill |
+| `priorityMuted[i]`   | `priority[i]` pre-blended over `background` at 80% | The solid fill of a task card                             |
+| `priorityContent[i]` | text readable on top of `priority[i]`              | Labels and outlines drawn on a card                       |
 
 `priorityMuted` is computed once per theme at module load, not at render time.
 That is the point of it: a card composited at 80% alpha takes on whatever pane
@@ -85,7 +85,7 @@ rather than daisyUI's `neutral`, and `priorityContent[UNPRIORITIZED]` is its
 the same mark: a block of ink with the surface showing through the type on it.
 The tile is `withOpacity(text, 0.8)` and the card fill blends the same ink at
 `CARD_FILL_ALPHA` (0.8), so anchoring the accent on `text` makes them land
-together by construction. `neutral` is a *dark* swatch in every daisyUI theme,
+together by construction. `neutral` is a _dark_ swatch in every daisyUI theme,
 which held on the light themes by luck and inverted the pair on the dark ones —
 a light nav tile beside a near-black card (DEX-114). `theme.test.ts` pins it
 across all five themes.
@@ -96,7 +96,7 @@ unprioritized card it did earn its keep on now separates itself from the pane by
 sitting a rung lower.
 
 The one deliberate alpha left on a card is the completed state — a 3% tint of
-the raw `priority[i]`. It is meant to read as the *absence* of a card rather
+the raw `priority[i]`. It is meant to read as the _absence_ of a card rather
 than as a fourth surface color, so it does not get a token.
 
 ## Border
@@ -114,7 +114,7 @@ since a light theme's `base-300` is nearly its `base-200`. `theme.test.ts` pins
 the ordering.
 
 Use it for every divider and every hairline outline. The places that correctly
-do something else derive their line from what it is drawn *on* rather than from
+do something else derive their line from what it is drawn _on_ rather than from
 a surface: `StatusButton`'s circle and `ListButton`'s take the fill's own
 content color, where a neutral hairline would wash out against the priority
 color behind it, and `CalendarView`'s hour lines take `text` at 25% so they read
@@ -124,7 +124,7 @@ than as the app's structural hairline.
 `TaskDropTarget`'s drag highlight is the one border that is **not** a hairline: a
 2px line in `colors.primary`, the same active-state color the drawer's Filter and
 Group controls take. Both halves are deliberate. `primary` because this is a
-transient active state rather than structure; 2px because the width is *reserved*
+transient active state rather than structure; 2px because the width is _reserved_
 — it is always present and transparent, and only its color changes on hover, so
 highlighting a drop target costs no layout. Introducing the width on hover
 instead would shrink the content box and reflow every card in the region for as
@@ -151,7 +151,7 @@ probably the wrong size rather than the wrong radius.
 - `md` is the standard screen inset and the gutter every pane lines up on.
 - `sm` is the in-group gap — controls in a row, cards in a list.
 - `xs` separates a label from the thing it labels.
-- `lg` separates *groups* — the gap between settings sections, and the bottom
+- `lg` separates _groups_ — the gap between settings sections, and the bottom
   padding that clears a sheet's edge.
 
 The `lg`-between / `sm`-within pairing is deliberate: the two had been the same
@@ -181,19 +181,19 @@ ended up with the Tasks pane sitting `md + sm` from Notes while Notes sat `sm`
 from Calendar: the pane row supplied a gutter and the task list supplied
 another.
 
-What a component *does* own:
+What a component _does_ own:
 
 - **Space between its own parts** — a list's `gap`, a card's internal padding,
   the inner padding of a pane that draws its own border.
 - **Anything tied to its own scrolling.** `insets.bottom` added to a
   `contentContainerStyle` is the clearest case: it exists so content scrolls
-  *under* the translucent tab bar, which only works from inside the scroller.
+  _under_ the translucent tab bar, which only works from inside the scroller.
   Moving it to a parent shrinks the viewport and the last row can never clear
   the bar. `DayTaskList`, `JournalView` and `CalendarView` all keep their
   vertical padding for this reason.
 - **Appearance variants.** `NotesView`'s `card` prop turns the note's border and
   fill on or off — that is chrome, not layout, and a prop is the right shape for
-  it. The give-away is that it changes what the component *is*, not where it
+  it. The give-away is that it changes what the component _is_, not where it
   sits.
 
 Where the gutters actually live now: `SwipeableDay` supplies the phone's day
@@ -210,25 +210,25 @@ just wrap the thing in a padded view — it almost always can.
 Six roles. Each is a `{ fontSize, fontWeight }` pair, so applying a role sets
 both — spread it into a style rather than reading `.fontSize` off it.
 
-| Role | Weight | Answers | Used for |
-| --- | --- | --- | --- |
-| `subtitle` | 400 | what else should I know about this thing | The second line under a `title` — a row's detail, a section's explanation |
-| `body` | 400 | — | Running prose, empty states, row labels, calendar event names, what a text input holds |
-| `control` | 600 | — | Buttons and the web date/time pickers |
-| `title` | 600 | what is this thing | A component's primary line — a row's name, a field's label, a section heading |
-| `heading` | 700 | what screen am I on | Screen and detail-pane headings |
-| `display` | 900 | — | The login splash only |
+| Role       | Weight | Answers                                  | Used for                                                                               |
+| ---------- | ------ | ---------------------------------------- | -------------------------------------------------------------------------------------- |
+| `subtitle` | 400    | what else should I know about this thing | The second line under a `title` — a row's detail, a section's explanation              |
+| `body`     | 400    | —                                        | Running prose, empty states, row labels, calendar event names, what a text input holds |
+| `control`  | 600    | —                                        | Buttons and the web date/time pickers                                                  |
+| `title`    | 600    | what is this thing                       | A component's primary line — a row's name, a field's label, a section heading          |
+| `heading`  | 700    | what screen am I on                      | Screen and detail-pane headings                                                        |
+| `display`  | 900    | —                                        | The login splash only                                                                  |
 
 `title` and `subtitle` are a **pair**: seven components render one directly
 above the other (`ListRow`, `HabitRow`, `SettingsRow`, `TemplateRow`,
 `SearchResultCard`, `WeekDayColumn`, `SettingsSectionTitle`). If you are
 reaching for `subtitle`, there should be a `title` above it — or, in the one
 case that isn't a pair, something else it annotates: `CalendarView`'s hour
-labels and event times take `subtitle` because they label the *grid*, and it is
+labels and event times take `subtitle` because they label the _grid_, and it is
 the smallest role there is.
 
 `heading` is not "a bigger `title`" — it is a different axis. `title` names a
-*component*; `heading` names the *screen or pane*, and there is one per view.
+_component_; `heading` names the _screen or pane_, and there is one per view.
 
 **A field's text is `body`; a button's label is `control`.** What a text input
 holds is the user's own content — a calendar URL, a journal prompt, a note
@@ -246,13 +246,13 @@ behind it. The fix, if the zoom shows up in practice, is a 16px floor on web in
 
 **Pick the role, not the nearest size.** The roles carry weight as well as size,
 so a 15pt semibold label is a `title` even though 15 is closer to `body`'s size.
-Asking "what is this text *for*" gives the right answer; measuring it does not.
+Asking "what is this text _for_" gives the right answer; measuring it does not.
 
 ## Controls
 
 `controls.md` is the diameter of a round icon button or a tile;
 `controls.sm` is an inline control inside a row (the status circle, the list
-button, the due-date badge). Sizes that sit *between* the two are derived from
+button, the due-date badge). Sizes that sit _between_ the two are derived from
 them rather than added to the scale — a subtask's circle is three quarters of
 `controls.sm` (see `subtaskGeometry` in `components/SubtaskConnector.tsx`, which
 derives the whole checklist layout from one place so the connector rail can't
@@ -276,10 +276,10 @@ width, and web below the breakpoint — is `comfortable`. Both are written out i
 full rather than derived from a multiplier: spacing wants to tighten harder than
 type does, and literals keep every value an integer.
 
-| | `space` xs/sm/md/lg | `fonts` subtitle/body/control/title/heading/display | `radii` md/full | `controls` md/sm | `icons` sm/md |
-| --- | --- | --- | --- | --- | --- |
-| comfortable | 4 / 8 / 16 / 24 | 12 / 14 / 16 / 16 / 24 / 40 | 12 / 999 | 40 / 32 | 14 / 20 |
-| compact | 3 / 6 / 12 / 18 | 11 / 12 / 14 / 14 / 20 / 32 | 12 / 999 | 32 / 26 | 12 / 18 |
+|             | `space` xs/sm/md/lg | `fonts` subtitle/body/control/title/heading/display | `radii` md/full | `controls` md/sm | `icons` sm/md |
+| ----------- | ------------------- | --------------------------------------------------- | --------------- | ---------------- | ------------- |
+| comfortable | 4 / 8 / 16 / 24     | 12 / 14 / 16 / 16 / 24 / 40                         | 12 / 999        | 40 / 32          | 14 / 20       |
+| compact     | 3 / 6 / 12 / 18     | 11 / 12 / 14 / 14 / 20 / 32                         | 12 / 999        | 32 / 26          | 12 / 18       |
 
 Because `StyleSheet.create` values are static, anything that varies by tier goes
 in the inline style array — the pattern `docs/frontend.md` already prescribes for
@@ -291,7 +291,7 @@ so a test that already mocks the breakpoint gets the matching tier for free. It
 also checks `Platform.OS`, so a test asserting the compact tier has to say it is
 on web — jest-expo's preset runs as iOS.
 
-**Why `compact` stops at the browser.** It is a *pointer* tier, not a width
+**Why `compact` stops at the browser.** It is a _pointer_ tier, not a width
 tier: it exists because the phone-tuned sizing read too large next to the legacy
 desktop web app, where a cursor hits a 26dp target as easily as a 40dp one. A
 tablet has the width but not the input — `controls.sm` at 26dp is well under the
@@ -326,9 +326,16 @@ Two documented exceptions:
 Neither is a token; both are derived with `withOpacity` from a theme color, and
 which color depends on the job:
 
-- **Hairline scrims** derive from `colors.text`. One tuned for a light surface
-  is invisible on a dark one, and `text` is the maximum-contrast color against
-  whatever surface it sits on.
+- **Popovers and context menus get no scrim at all.** An OS context menu floats
+  over untouched content; washing the page behind one makes it read as a modal
+  dialog, which is what the web `IconMenu` did until this was corrected. The
+  full-viewport layer stays — it is what catches the click that dismisses the
+  menu — but it is invisible. `DateField.web.tsx`'s calendar popover has always
+  worked this way (an `inset: 0` catcher with no fill); `IconMenu.web.tsx` now
+  matches it. Separation comes from the popover's own edge instead: a
+  `colors.border` hairline, because a `surfaceSunken` menu sits on cards and rows
+  that are also `surfaceSunken` and the fill alone can't mark where it ends, plus
+  the `shadow-lg` below.
 - **Shadows are black**, on every theme. A shadow is the absence of light — the
   same rule that makes a divider always darker than the surfaces it divides.
   Deriving one from `text` inverts it on the dark themes, where the ink is
@@ -337,14 +344,17 @@ which color depends on the job:
   ported literally from dexter-app (see `tileStyle` in `components/AppNav.tsx`)
   — two layers each, a wide soft drop with a negative spread over a tighter
   layer that keeps the shape's own edge defined. A single-layer shadow reads as
-  a smudged hairline instead of a lift.
+  a smudged hairline instead of a lift. The web menu (`MENU_SHADOW` in
+  `IconMenu.web.tsx`) is a second, independent port of `shadow-lg`: a popover
+  with no scrim behind it has to carry its own lift, and the rail's comment
+  block is where the rationale for the value lives.
 - **Full-screen backdrops** (the web confirmation modal, the emoji picker)
   derive from `colors.background` at high opacity. A black wash all but
   disappears over a dark theme, while the app's own background always pushes the
   page back a step on either scheme.
 
 `withOpacity` is also still the right tool for dimming content (a disabled row,
-the completed-card tint). It is *not* the right tool for a tinted surface — use
+the completed-card tint). It is _not_ the right tool for a tinted surface — use
 a pre-blended token, or the fill takes on whatever is behind it.
 
 ## Documented exceptions to "no literals"
@@ -392,7 +402,7 @@ the ramp was anchored there.
 deviation (DEX-114) — see the priority section above for why.
 
 `border` is the other exception: daisyUI has no border token, and `base-300`
-would be *darker* than the surface in a dark theme, so each theme supplies one
+would be _darker_ than the surface in a dark theme, so each theme supplies one
 tuned to sit against its own surface.
 
 `dexter` is Dexter's own brand theme (green primary on a warm base); the rest are
