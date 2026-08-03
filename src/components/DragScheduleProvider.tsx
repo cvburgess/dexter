@@ -1,4 +1,11 @@
-import { createContext, ReactNode, useContext, useMemo, useRef } from "react";
+import {
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { StyleProp, StyleSheet, ViewStyle } from "react-native";
 import { DraxProvider } from "react-native-drax";
 
@@ -73,9 +80,13 @@ export function DragScheduleProvider({
   // drax's registry, which never refreshes them (see `TaskDropTarget`), so a
   // handler that closed over a `tasks` array would answer from whenever it was
   // built. This provider re-renders on every write to `["tasks"]`, so the ref
-  // is never more than a render behind.
+  // is never more than a render behind. Written from an effect rather than
+  // during render (`react-hooks/refs`); `getTask` is only ever called from a
+  // drag, long after the commit that refreshed it.
   const tasksRef = useRef(tasks);
-  tasksRef.current = tasks;
+  useEffect(() => {
+    tasksRef.current = tasks;
+  });
 
   const value = useMemo(
     () => ({

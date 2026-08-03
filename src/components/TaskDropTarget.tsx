@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useRef } from "react";
+import { ReactNode, useCallback, useEffect, useRef } from "react";
 import { StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 import { DraxView } from "react-native-drax";
 
@@ -51,10 +51,16 @@ export function TaskDropTarget({
   // pass-through `View` that calls the current prop, which is also why the stub
   // can't guard this. `TaskDropTarget.test.tsx` invokes a *captured* handler
   // after a rerender instead, which reproduces what drax actually does.
+  //
+  // Written from an effect rather than during render (`react-hooks/refs`), which
+  // costs nothing here: drax only calls these handlers during a drag, long after
+  // the commit that refreshed them.
   const scheduledForRef = useRef(scheduledFor);
-  scheduledForRef.current = scheduledFor;
   const dragRef = useRef(drag);
-  dragRef.current = drag;
+  useEffect(() => {
+    scheduledForRef.current = scheduledFor;
+    dragRef.current = drag;
+  });
 
   // Resolves the payload against the live cache, so a card that has been
   // rescheduled or had an alarm set since it registered is judged on what it is
@@ -91,7 +97,7 @@ export function TaskDropTarget({
   return (
     <DraxView
       testID={testID}
-      style={[style, styles.target]}
+      style={[styles.target, style]}
       // Explicit: drax treats any view carrying a payload *or* a drag handler as
       // draggable, and a receiver that is also a source can pick itself up.
       draggable={false}
@@ -109,10 +115,16 @@ export function TaskDropTarget({
 }
 
 const styles = StyleSheet.create({
-  // The border is always present and transparent so hovering costs no layout.
-  // It sits after the caller's `style` so a pane that brings its own border
-  // (the backlog and calendar panes both do) can't override the reserved width
-  // and bring that reflow back.
+  // A reserved, transparent border: the width is always paid, so tinting it on
+  // hover costs no layout. Introducing the width on hover instead would shrink
+  // the content box and reflow every card in the region for as long as a finger
+  // hovers over it.
+  //
+  // It sits *before* the caller's `style` so a pane that already draws a border
+  // (the backlog pane's hairline) keeps its own width and color — overriding
+  // those would have erased that pane's edge. Either way a border exists to
+  // tint, so there is no reflow in either arrangement; `receivingStyle` is
+  // applied over both.
   target: {
     borderColor: "transparent",
     borderWidth: 2,
