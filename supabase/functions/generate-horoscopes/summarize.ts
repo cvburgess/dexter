@@ -7,10 +7,18 @@
 // by the SDK rather than through `Deno.env.get`. There is no gateway client to
 // build and no key to validate here.
 
-import { generateText, type LanguageModel, Output } from "ai";
+import {
+  APICallError,
+  generateText,
+  type LanguageModel,
+  NoObjectGeneratedError,
+  NoOutputGeneratedError,
+  Output,
+} from "ai";
 import { z } from "zod";
 
 import { PREDICTION_FACETS, type TPrediction } from "./astrology.ts";
+import { withRetry } from "./retry.ts";
 
 /** Vercel AI Gateway model id. Cheap and fast; the output is two short fields. */
 export const SUMMARY_MODEL: LanguageModel = "deepseek/deepseek-v4-flash-0731";
@@ -58,33 +66,79 @@ Write:
 2. "sentiment" — "positive" if the day reads as broadly favorable, "negative" if it reads as broadly cautionary, "mixed" if the facets genuinely pull in both directions. Do not default to "mixed" for a day that is merely uneventful.`;
 }
 
+/** A gateway failure that another attempt could plausibly get past. */
+const RATE_LIMIT_PATTERN = /rate limit|too many requests|overloaded/i;
+
+export function isRetryableModelError(error: unknown): boolean {
+  // A model that finished without a usable object is the most retryable failure
+  // there is — the same prompt often produces valid output next time. This is
+  // also the shape Magic Meal Kit absorbs with a fallback model.
+  if (
+    NoObjectGeneratedError.isInstance(error) ||
+    NoOutputGeneratedError.isInstance(error)
+  ) {
+    return true;
+  }
+
+  if (APICallError.isInstance(error)) {
+    // The SDK's own verdict first; it knows more about the provider than we do.
+    if (typeof error.isRetryable === "boolean") return error.isRetryable;
+    const status = error.statusCode ?? 0;
+    return status === 429 || status >= 500;
+  }
+
+  if (error instanceof Error) {
+    if (error.name === "RateLimitError") return true;
+    if (RATE_LIMIT_PATTERN.test(error.message)) return true;
+    // How `fetch` reports a connection that never completed.
+    if (error instanceof TypeError) return true;
+  }
+
+  // Anything else — a bad key, a malformed request, our own bug — is
+  // deterministic, and retrying only spends the budget three times over.
+  return false;
+}
+
 /**
  * Condenses a prediction into a one-line summary and a sentiment label.
  *
  * `model` is a defaulted trailing parameter so tests can inject a mock — the
  * same shape Magic Meal Kit uses for every one of its AI calls.
+ *
+ * Retries transient gateway failures. The retry wraps only this call, so a
+ * summarization that needs a second attempt does not re-pay for the
+ * AstrologyAPI request that produced its input.
  */
-export async function summarizePrediction(
+export function summarizePrediction(
   prediction: TPrediction,
   model: LanguageModel = SUMMARY_MODEL,
+  sleep?: (ms: number) => Promise<void>,
 ): Promise<TSummary> {
-  const result = await generateText({
-    model,
-    system: "You are a horoscope editor who writes tight, plain-spoken copy.",
-    output: Output.object({ schema: summarySchema }),
-    prompt: makeSummaryPrompt(prediction),
+  return withRetry(async () => {
+    const result = await generateText({
+      model,
+      system: "You are a horoscope editor who writes tight, plain-spoken copy.",
+      output: Output.object({ schema: summarySchema }),
+      prompt: makeSummaryPrompt(prediction),
+    });
+
+    // `Output.object` yields `undefined` when the model finishes without a
+    // usable object rather than throwing, so this is a real branch.
+    if (!result.output) {
+      throw new NoOutputGeneratedError({
+        message: "Summarization returned no object",
+      });
+    }
+
+    return {
+      ...result.output,
+      summary: truncateSummary(result.output.summary),
+    };
+  }, {
+    label: "Horoscope summarization",
+    isRetryable: isRetryableModelError,
+    sleep,
   });
-
-  // `Output.object` yields `undefined` when the model finishes without a usable
-  // object rather than throwing, so this is a real branch, not defensive noise.
-  if (!result.output) {
-    throw new Error("Summarization returned no object");
-  }
-
-  return {
-    ...result.output,
-    summary: truncateSummary(result.output.summary),
-  };
 }
 
 /**

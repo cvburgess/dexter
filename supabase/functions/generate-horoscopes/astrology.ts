@@ -10,6 +10,8 @@ import { z } from "zod";
 
 import type { Database } from "@src/types/database.types.ts";
 
+import { type RetryAfter, withRetry } from "./retry.ts";
+
 /** Mirrors the `public.sun_sign` enum, so the column type is the source of truth. */
 export type TSunSign = Database["public"]["Enums"]["sun_sign"];
 
@@ -105,37 +107,83 @@ export function parsePredictionDate(value: string): string {
   return iso;
 }
 
+/** A non-2xx from AstrologyAPI, carrying enough to judge whether to retry. */
+export class AstrologyApiError extends Error implements RetryAfter {
+  readonly retryAfterMs?: number;
+
+  constructor(readonly status: number, sign: string, retryAfterMs?: number) {
+    // The upstream echoes the key in some error bodies, so the body never
+    // reaches the message that goes to Sentry or the caller.
+    super(`AstrologyAPI returned ${status} for ${sign}`);
+    this.name = "AstrologyApiError";
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
 /**
- * Fetches tomorrow's prediction for one sign.
+ * Whether an AstrologyAPI failure could plausibly succeed on another attempt.
+ *
+ * 429 and 5xx are the upstream having a moment. Any other 4xx is us — a bad key,
+ * a bad sign — and no number of retries fixes it. A `TypeError` is how `fetch`
+ * reports a connection that never completed.
+ */
+export function isRetryableAstrologyError(error: unknown): boolean {
+  if (error instanceof AstrologyApiError) {
+    return error.status === 429 || error.status >= 500;
+  }
+  return error instanceof TypeError;
+}
+
+function retryAfterMs(response: Response): number | undefined {
+  const header = response.headers.get("retry-after");
+  if (!header) return undefined;
+  // Delta-seconds is the common form; an HTTP-date is legal but rare here.
+  const seconds = Number(header);
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : undefined;
+}
+
+/**
+ * Fetches tomorrow's prediction for one sign, retrying transient failures.
  *
  * `fetchImpl` is injected rather than stubbed onto `globalThis` so tests never
  * touch the network — the same dependency-injection shape `_shared/sentry.ts`
  * uses for its client.
+ *
+ * A schema mismatch is deliberately *not* retried: the call succeeded and the
+ * upstream simply sent a shape we don't accept, which a second identical
+ * request will send again.
  */
-export async function fetchPrediction(
+export function fetchPrediction(
   sign: TSunSign,
   apiKey: string,
   fetchImpl: typeof fetch = fetch,
+  sleep?: (ms: number) => Promise<void>,
 ): Promise<TPredictionResponse> {
-  const response = await fetchImpl(`${API_BASE}/${sign}`, {
-    method: "POST",
-    headers: {
-      // Token auth. AstrologyAPI also accepts HTTP Basic with a user id and key
-      // pair; the header form needs only the one secret.
-      "x-astrologyapi-key": apiKey,
-      "Content-Type": "application/json",
-      "Accept-Language": "en",
-    },
-    body: JSON.stringify({}),
+  return withRetry(async () => {
+    const response = await fetchImpl(`${API_BASE}/${sign}`, {
+      method: "POST",
+      headers: {
+        // Token auth. AstrologyAPI also accepts HTTP Basic with a user id and
+        // key pair; the header form needs only the one secret.
+        "x-astrologyapi-key": apiKey,
+        "Content-Type": "application/json",
+        "Accept-Language": "en",
+      },
+      body: JSON.stringify({}),
+    });
+
+    if (!response.ok) {
+      throw new AstrologyApiError(
+        response.status,
+        sign,
+        retryAfterMs(response),
+      );
+    }
+
+    return predictionResponseSchema.parse(await response.json());
+  }, {
+    label: `AstrologyAPI ${sign}`,
+    isRetryable: isRetryableAstrologyError,
+    sleep,
   });
-
-  if (!response.ok) {
-    // The upstream echoes the key in some error bodies, so the body is not
-    // included in the message that reaches Sentry or the caller.
-    throw new Error(
-      `AstrologyAPI returned ${response.status} for ${sign}`,
-    );
-  }
-
-  return predictionResponseSchema.parse(await response.json());
 }

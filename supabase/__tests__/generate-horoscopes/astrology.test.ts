@@ -6,6 +6,7 @@ import {
   predictionResponseSchema,
   ZODIAC_SIGNS,
 } from "../../functions/generate-horoscopes/astrology.ts";
+import { MAX_ATTEMPTS } from "../../functions/generate-horoscopes/retry.ts";
 
 // DEX-84. `index.ts` is a thin I/O shell by design, so the upstream contract —
 // request shape, response validation, date format — is pinned here instead.
@@ -45,6 +46,27 @@ function stubFetch(body: unknown, init: { status?: number } = {}) {
     }) as typeof fetch;
   return { fetch: fetchImpl, calls };
 }
+
+/** A fetch that returns each queued response in turn, for retry tests. */
+function stubSequence(
+  responses: { status: number; body?: unknown; headers?: HeadersInit }[],
+) {
+  let call = 0;
+  const fetchImpl = (() => {
+    const next = responses[Math.min(call, responses.length - 1)];
+    call++;
+    return Promise.resolve(
+      new Response(JSON.stringify(next.body ?? {}), {
+        status: next.status,
+        headers: next.headers,
+      }),
+    );
+  }) as typeof fetch;
+  return { fetch: fetchImpl, calls: () => call };
+}
+
+/** Injected in place of the real backoff so retry tests do not wait. */
+const noSleep = () => Promise.resolve();
 
 Deno.test("there are exactly twelve signs, in astrological order", () => {
   assertEquals(ZODIAC_SIGNS.length, 12);
@@ -169,4 +191,67 @@ Deno.test("a well-formed response parses", async () => {
 
   assertEquals(parsed.prediction_date, "21-3-2024");
   assertEquals(parsed.prediction.luck, "f");
+});
+
+Deno.test("a 5xx is retried and can succeed", async () => {
+  // The failure this feature actually hit: a real run lost two of twelve signs
+  // to blips, and the job only runs once a day.
+  const { fetch: fetchImpl, calls } = stubSequence([
+    { status: 503 },
+    { status: 200, body: response },
+  ]);
+
+  const parsed = await fetchPrediction("aries", "key", fetchImpl, noSleep);
+
+  assertEquals(parsed.prediction.luck, "f");
+  assertEquals(calls(), 2);
+});
+
+Deno.test("a 429 is retried", async () => {
+  const { fetch: fetchImpl, calls } = stubSequence([
+    { status: 429, headers: { "retry-after": "1" } },
+    { status: 200, body: response },
+  ]);
+
+  await fetchPrediction("leo", "key", fetchImpl, noSleep);
+
+  assertEquals(calls(), 2);
+});
+
+Deno.test("a 401 is not retried", async () => {
+  // A bad key never fixes itself. Retrying would turn twelve wasted calls into
+  // thirty-six and delay the failure that says the key is wrong.
+  const { fetch: fetchImpl, calls } = stubSequence([{ status: 401 }]);
+
+  await assertRejects(() =>
+    fetchPrediction("virgo", "key", fetchImpl, noSleep)
+  );
+
+  assertEquals(calls(), 1);
+});
+
+Deno.test("a schema mismatch is not retried", async () => {
+  // The call succeeded; the upstream simply sent a shape we don't accept, and
+  // an identical second request gets an identical answer.
+  const { fetch: fetchImpl, calls } = stubSequence([
+    { status: 200, body: { ...response, prediction: { luck: "f" } } },
+  ]);
+
+  await assertRejects(() =>
+    fetchPrediction("libra", "key", fetchImpl, noSleep)
+  );
+
+  assertEquals(calls(), 1);
+});
+
+Deno.test("retries give up rather than hanging the run", async () => {
+  const { fetch: fetchImpl, calls } = stubSequence([{ status: 500 }]);
+
+  await assertRejects(
+    () => fetchPrediction("pisces", "key", fetchImpl, noSleep),
+    Error,
+    "500",
+  );
+
+  assertEquals(calls(), MAX_ATTEMPTS);
 });

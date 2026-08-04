@@ -107,6 +107,29 @@ unusual about it:
   deliberately un-enumerated because those lists are expected to grow. Enum
   values can never be removed, and adding one needs `alter type ... add value`.
 
+### Retries
+
+Both outbound calls per sign — AstrologyAPI and the LLM gateway — retry
+transient failures up to three attempts with jittered backoff
+(`functions/generate-horoscopes/retry.ts`), honoring a `Retry-After` hint when
+the server sends one.
+
+**The LLM call is why this exists.** In a live twelve-sign run, three
+summarizations came back as `NoObjectGeneratedError` — unparseable or off-schema
+output — and all three succeeded on the second attempt. Roughly one structured
+output call in four fails first time against `deepseek-v4-flash`, so without
+retries the job would write about nine rows a day, every day.
+
+Retries are deliberately narrow. A 429 or 5xx is the upstream having a moment; a
+401 or 403 is a bad key or an exhausted balance and will never succeed, so it
+fails immediately rather than spending thirty-six calls to learn the same thing.
+A schema mismatch from AstrologyAPI is not retried either — the call succeeded
+and an identical request returns an identical shape.
+
+Because failures are per-sign and the generator only asks for signs it does not
+already have, a day that still comes up short costs one upstream call and one
+generation per missing sign to repair, not twenty-four.
+
 ## Scheduled jobs (pg_cron)
 
 `dex84-generate-horoscopes` runs `select public.trigger_generate_horoscopes();`
