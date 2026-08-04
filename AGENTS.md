@@ -79,6 +79,7 @@ Common local commands:
 
 - `cd supabase && deno fmt`
 - `cd supabase && deno test --allow-all --config __tests__/deno.json __tests__/` (add `--env-file=.env` when tests need secrets)
+- `cd supabase && deno check --config functions/<name>/deno.json functions/<name>/index.ts` — **`deno test` does not cover this.** It only type-checks modules a test imports, and nothing imports an entrypoint, so a function's `index.ts` is otherwise unchecked. CI runs this for every function in `functions/*/`.
 
 ## Website (marketing)
 
