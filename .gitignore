@@ -4,6 +4,8 @@ test.json
 .env.local
 /app/supabase/.temp
 /supabase/.temp
+# Local CLI state written by `supabase start` (the branch it considers current).
+/supabase/.branches
 # dotenvx private keys — written to the cwd it runs from, so ignore the
 # filename anywhere rather than one expected path. The encrypted
 # .env.preview alongside it IS committed; only the keys never are.

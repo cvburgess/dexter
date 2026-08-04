@@ -8,6 +8,8 @@ All backend config and migrations live under `/supabase`.
 
 ## Directory layout
 
+- `functions/generate-horoscopes/` — daily sun-sign horoscope generation, driven
+  by a pg_cron job (see "Horoscopes" below)
 - `functions/ics-proxy/` — production Edge Function for proxying public `.ics`
   calendar URLs
 - `functions/mcp-server/` — MCP-compatible planning data server for
@@ -60,6 +62,160 @@ carries that DDL — as commented lines, so strip the leading `-- ` rather than
 pasting it verbatim, and run it **before** dropping `notes`/`journals`. Those two
 tables are the only copy of everything written since the split; drop them first
 and the backfill has nothing to read from.
+
+## Horoscopes
+
+`public.horoscopes` (DEX-84) holds one sun-sign prediction per day: the six
+facets AstrologyAPI returns (`personal_life`, `profession`, `health`, `emotions`,
+`travel`, `luck`), plus a `summary` and a `sentiment` produced by an LLM. It is
+the first table in this schema that
+**nobody owns** — global reference data, not user data — which drives everything
+unusual about it:
+
+- **No `user_id`, and no `id`.** The PK is `(sun_sign, date)`. That order is
+  deliberate: both columns are equality predicates for "my sign, today", but only
+  `sun_sign`-first also serves `where sun_sign = $1 order by date desc` under the
+  leftmost-prefix rule. There is no secondary index — twelve rows a day is a
+  trivial scan for anything the PK misses.
+- **RLS is enabled with a single `for select ... using (true)` policy** and *no*
+  write policy. The absence of a policy is the denial.
+- **Grants are stated explicitly, not inherited**, and this is the part that
+  surprises. `alter default privileges` for `postgres` in `public` on this stack
+  grants only `Dxt` (TRUNCATE/REFERENCES/TRIGGER) to `anon`, `authenticated`, and
+  `service_role` — no DML. The baseline's `grant all on all tables in schema
+  public` was a one-time snapshot and does not reach tables created afterwards.
+  So `service_role` does **not** get INSERT for free: BYPASSRLS exempts a role
+  from policies, not from grants, and without an explicit grant the generator
+  fails with "permission denied" while RLS never even fires. `authenticated`
+  likewise does not get SELECT for free. Both are granted by name in the
+  migration. Check `\dp public.<table>` rather than assuming, for any new table.
+- **No `*_rating` columns and no `average_rating`, though DEX-84 asked for
+  them.** The issue's sample response is from 2024 and carries a
+  `<facet>_rating` integer per facet; the live API returns only the six text
+  facets (verified 2026-08-04 across `daily/next/aries`, `daily/next/leo`,
+  `daily/aries`, `daily/previous/aries`). NOT NULL rating columns would have
+  failed every insert and `average_rating` had nothing to average, so they are
+  omitted rather than left permanently null. **The lesson generalizes: build
+  fixtures from a real response, not from the spec.** The tests all passed
+  against the issue's sample right up until a live call was made.
+- **Not in the `supabase_realtime` publication** — the rows change once a day at
+  a fixed hour, so a subscription would idle for 24 hours to deliver what a
+  refetch already gets.
+- `sun_sign` and `horoscope_sentiment` are the schema's **first Postgres enums**,
+  justified only because both sets are genuinely closed. Contrast `tasks.status`
+  (a bare `smallint`) and `preferences.alarm_sound` (unconstrained text), both
+  deliberately un-enumerated because those lists are expected to grow. Enum
+  values can never be removed, and adding one needs `alter type ... add value`.
+
+## Scheduled jobs (pg_cron)
+
+`dex84-generate-horoscopes` runs `select public.trigger_generate_horoscopes();`
+at **06:00, 07:00 and 08:00 UTC**, which POSTs to the `generate-horoscopes`
+function through pg_net. This is the repo's only pg_cron job and its only use of
+Vault.
+
+**Three runs, because each one is nearly free.** The function reads which signs
+already exist for the target date and requests only the rest, so a complete day
+costs one indexed `SELECT` and zero upstream calls — the 07:00 and 08:00 runs
+normally do nothing at all. What they buy is a retry for the signs that failed,
+which is most often the LLM returning output that does not parse or does not
+match the schema. A single daily run would leave such a sign missing for 24
+hours. This replaced an in-function retry: it is roughly fifty times less code
+for the same number of attempts, at the cost of taking two hours rather than two
+seconds to converge.
+
+**The endpoint is never in the migration.** Preview branches replay every
+migration against a *different* project ref, so a hardcoded URL would put every
+open PR's database on a daily timer pointed at production. The URL and the shared
+secret come from Vault instead, which is per-project and not in git. A migration
+test asserts that no URL appears in the executable SQL.
+
+The consequence is that the job is scheduled **everywhere** and inert almost
+everywhere: on preview branches and on every local `supabase db reset` it finds
+an empty Vault and returns `NULL` without making a request. That is the design,
+not a bug. A production dump restored into another project behaves the same way,
+since the Vault root key is project-scoped and the decrypt raises.
+
+**Why all three run in one morning.** There is exactly one constraint, and it is
+an upper bound: **land before 10:00 UTC.** The earliest local midnight on Earth
+is UTC+14, which enters date D at 10:00 UTC on D-1, and D is what these runs
+generate. A 14:00 or 22:00 UTC run would still write correct rows — it would just
+repair a gap those users had already seen — so spreading the schedule across the
+day buys nothing.
+
+**There is no lower bound**, but the reason is worth knowing because it is easy
+to get wrong. The upstream's clock is **IST (UTC+5:30)**, and its `timezone` body
+parameter is an offset applied *relative to that*, not an absolute UTC offset. So
+the request sends `timezone: -5.5` to cancel it, and `/daily/next/` returns
+UTC-tomorrow — the date the function computes as `expected` — at any hour.
+
+`timezone: 0` is the intuitive value and it is wrong. It tests clean between
+00:00 and 18:29 UTC, because IST shares the UTC calendar date then, and silently
+returns the day *after* tomorrow outside that window. Measured 2026-08-04 at
+18:32 UTC, where UTC-tomorrow was 2026-08-05: `timezone: 0` → 2026-08-06,
+`timezone: -5.5` → 2026-08-05.
+
+That failure mode is why `index.ts` reports any disagreement between `expected`
+and the written dates to Sentry. A silent mismatch would leave `expected`
+permanently short of twelve signs, so every later run would re-fetch the same
+signs forever — paid calls, on a loop, with `complete` never turning true.
+
+(An earlier revision of this doc claimed a 05:00 UTC floor on the theory that the
+upstream computed "today" from a US-eastern date. That was speculation, and it
+was wrong.)
+
+The runs are an hour apart rather than minutes apart because the failures worth
+a second attempt are the ones an immediate retry would hit again.
+
+pg_cron reads `cron.timezone` (GMT by default, UTC on Supabase) — worth a `show
+cron.timezone;` after deploying rather than assuming.
+
+**Provisioning production** — one time, and only **after** the function is
+deployed (`deploy.yml` runs `migrate` before `deploy-functions`, so the job
+exists for a minute before its endpoint does; harmless precisely because Vault is
+still empty). Set the three function secrets, confirm the function answers, then
+point the job at it:
+
+```sql
+-- In the production SQL editor, as postgres. First provisioning only:
+-- vault.create_secret raises on a duplicate name, so this is not the rotation
+-- procedure. generate_horoscopes_secret must equal the HOROSCOPE_CRON_SECRET
+-- function secret; rotate the two together or the job 401s silently every
+-- morning.
+select vault.create_secret(
+  'https://<project-ref>.supabase.co/functions/v1/generate-horoscopes',
+  'generate_horoscopes_url'
+);
+select vault.create_secret('<the HOROSCOPE_CRON_SECRET value>', 'generate_horoscopes_secret');
+```
+
+**Rotating the secret** — update the Vault row in place; `create_secret` would
+raise on the existing name. Set the `HOROSCOPE_CRON_SECRET` function secret to
+the same new value in the same sitting:
+
+```sql
+select vault.update_secret(id, '<the new HOROSCOPE_CRON_SECRET value>')
+  from vault.secrets
+  where name = 'generate_horoscopes_secret';
+```
+
+**Observability**, in increasing order of trustworthiness:
+
+- `select * from cron.job_run_details order by start_time desc;` — proves only
+  that the statement *fired*. pg_net is asynchronous, so `status = 'succeeded'`
+  here is compatible with a 500, a 404, or a DNS failure. Don't alert on it.
+- `select * from net._http_response order by created desc;` — the real HTTP
+  outcome, joined by the id `trigger_generate_horoscopes()` returns. **~6 hour
+  TTL**, so a 06:00 UTC run is unauditable here by lunchtime.
+- `select date, count(*) from public.horoscopes group by 1 order by 1 desc;` and
+  Sentry — the only durable signals, and the ones to actually watch.
+
+Two asymmetries to keep in mind: pg_net's `timeout_milliseconds` does **not**
+cancel the Edge Function, so `timed_out = true` can coexist with a fully
+successful generation (which is why the function short-circuits when the day's
+rows already exist, and why a naive retry must not be added); and
+`select public.trigger_generate_horoscopes();` is a complete manual smoke test —
+`NULL` means unprovisioned, a number means enqueued.
 
 ## Search
 
@@ -206,6 +362,22 @@ publication it belongs to.
   Supabase client with the incoming `Authorization: Bearer <token>` header,
   calls `auth.getUser()`, and uses that user-scoped client for all tools so RLS
   policies remain the enforcement layer. The service role key is not used.
+- `generate-horoscopes` also disables gateway JWT verification, for a reason
+  worth stating plainly: **`verify_jwt` is authentication of the project, not
+  authorization of the caller.** It checks only that the bearer is a valid,
+  unexpired token this project signed — which any signed-in user's access token
+  is, and so is the publishable key that ships inside the app bundle and the web
+  export. On an endpoint that spends paid upstream and LLM quota per call that is
+  no gate at all. The function instead requires an `x-cron-secret` header
+  matching `HOROSCOPE_CRON_SECRET`, compared in constant time
+  (`functions/generate-horoscopes/auth.ts`). Don't "harden" this by flipping
+  `verify_jwt` on and deleting the header check.
+- `generate-horoscopes` is the one function that uses the **service role key**.
+  Every other function acts on behalf of a signed-in user, so a user-scoped
+  client keeps RLS as the enforcement layer; horoscopes are global rows that no
+  user owns and that no RLS policy grants INSERT on, so there is no user whose
+  privileges could write them. The exposure is bounded by the function never
+  reading a caller-supplied identifier and never returning row data.
 - `mcp-server` validates browser `Origin` headers for MCP DNS-rebinding
   protection. Requests without an `Origin` are allowed for desktop MCP clients.
   Trusted origins include localhost/dev clients, common AI client origins,
@@ -550,10 +722,13 @@ script (`expo export --platform web`), the `expo-updates` dependency, and the
 Configure secrets via Supabase dashboard or CLI for deployed projects; reference
 them from function code with `Deno.env.get(...)`. Do not commit real keys.
 
-| Secret       | Used by                                   | Required?                                              |
-| ------------ | ----------------------------------------- | ------------------------------------------------------ |
-| `DEMO_OTP`   | `verify-demo-otp`, `scripts/seed-demo.ts` | Required for demo login — the function 500s without it |
-| `SENTRY_DSN` | `mcp-server`, `ics-proxy`                 | Optional — Sentry reporting no-ops gracefully if unset |
+| Secret                  | Used by                                   | Required?                                                                    |
+| ----------------------- | ----------------------------------------- | ---------------------------------------------------------------------------- |
+| `DEMO_OTP`              | `verify-demo-otp`, `scripts/seed-demo.ts` | Required for demo login — the function 500s without it                       |
+| `SENTRY_DSN`            | every function (all wrap `withSentry`)    | Optional — Sentry reporting no-ops gracefully if unset. `generate-horoscopes` has no other durable failure signal, so set it there |
+| `ASTROLOGY_API_KEY`     | `generate-horoscopes`                     | Required — sent as the `x-astrologyapi-key` header; the function 500s without it |
+| `AI_GATEWAY_API_KEY`    | `generate-horoscopes`                     | Required — read implicitly by the AI SDK, never via `Deno.env.get`            |
+| `HOROSCOPE_CRON_SECRET` | `generate-horoscopes`                     | Required — must equal the Vault `generate_horoscopes_secret`; rotate together |
 
 ### Preview-branch secrets (dotenvx)
 
