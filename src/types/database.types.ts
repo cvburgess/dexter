@@ -111,6 +111,69 @@ export type Database = {
         };
         Relationships: [];
       };
+      horoscopes: {
+        Row: {
+          average_rating: number | null;
+          created_at: string;
+          date: string;
+          emotions: string;
+          emotions_rating: number;
+          health: string;
+          health_rating: number;
+          luck: string;
+          luck_rating: number;
+          personal_life: string;
+          personal_life_rating: number;
+          profession: string;
+          profession_rating: number;
+          sentiment: Database["public"]["Enums"]["horoscope_sentiment"];
+          summary: string;
+          sun_sign: Database["public"]["Enums"]["sun_sign"];
+          travel: string;
+          travel_rating: number;
+        };
+        Insert: {
+          average_rating?: number | null;
+          created_at?: string;
+          date: string;
+          emotions: string;
+          emotions_rating: number;
+          health: string;
+          health_rating: number;
+          luck: string;
+          luck_rating: number;
+          personal_life: string;
+          personal_life_rating: number;
+          profession: string;
+          profession_rating: number;
+          sentiment: Database["public"]["Enums"]["horoscope_sentiment"];
+          summary: string;
+          sun_sign: Database["public"]["Enums"]["sun_sign"];
+          travel: string;
+          travel_rating: number;
+        };
+        Update: {
+          average_rating?: number | null;
+          created_at?: string;
+          date?: string;
+          emotions?: string;
+          emotions_rating?: number;
+          health?: string;
+          health_rating?: number;
+          luck?: string;
+          luck_rating?: number;
+          personal_life?: string;
+          personal_life_rating?: number;
+          profession?: string;
+          profession_rating?: number;
+          sentiment?: Database["public"]["Enums"]["horoscope_sentiment"];
+          summary?: string;
+          sun_sign?: Database["public"]["Enums"]["sun_sign"];
+          travel?: string;
+          travel_rating?: number;
+        };
+        Relationships: [];
+      };
       journals: {
         Row: {
           created_at: string;
@@ -374,9 +437,23 @@ export type Database = {
           content: string | null;
         }[];
       };
+      trigger_generate_horoscopes: { Args: never; Returns: number };
     };
     Enums: {
-      [_ in never]: never;
+      horoscope_sentiment: "positive" | "negative" | "mixed";
+      sun_sign:
+        | "aries"
+        | "taurus"
+        | "gemini"
+        | "cancer"
+        | "leo"
+        | "virgo"
+        | "libra"
+        | "scorpio"
+        | "sagittarius"
+        | "capricorn"
+        | "aquarius"
+        | "pisces";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -503,6 +580,22 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      horoscope_sentiment: ["positive", "negative", "mixed"],
+      sun_sign: [
+        "aries",
+        "taurus",
+        "gemini",
+        "cancer",
+        "leo",
+        "virgo",
+        "libra",
+        "scorpio",
+        "sagittarius",
+        "capricorn",
+        "aquarius",
+        "pisces",
+      ],
+    },
   },
 } as const;
