@@ -195,6 +195,29 @@ async function handler(req: Request): Promise<Response> {
   // the upstream is straddling a rollover and is worth a look.
   const dates = [...new Set(rows.map((row) => row.date))].sort();
 
+  // A row whose upstream date is not `expected` was written under a different
+  // key, so it does nothing for the date this run is completing. Pinning
+  // `timezone: 0` on the request should make that impossible, but `alreadyStored`
+  // is scoped to `expected` and counting rows that landed elsewhere alongside it
+  // would report `complete: true` for a date still missing signs — and `complete`
+  // is precisely the field an operator trusts without checking.
+  const storedForDate = alreadyStored +
+    rows.filter((row) => row.date === expected).length;
+
+  if (dates.some((date) => date !== expected)) {
+    // Should be unreachable. If it fires, the upstream stopped honoring the
+    // pinned timezone, and every later run will re-fetch the same signs forever
+    // because `expected` never fills up — worth an alert, not just a field in a
+    // response body nobody is reading.
+    captureException(
+      new Error(
+        `generate-horoscopes expected ${expected} but wrote ${
+          dates.join(", ")
+        }`,
+      ),
+    );
+  }
+
   // The status describes the *day*, not this run's slice of it. Because each run
   // only requests the signs it is missing, `pending` is often a single sign, so
   // keying the status off this run's writes would report a gateway outage when
@@ -204,8 +227,6 @@ async function handler(req: Request): Promise<Response> {
   // 502 is reserved for the state actually worth alarming on: the date has no
   // rows at all and this run produced none, which is what a bad key or a dead
   // upstream looks like. Sentry has the per-sign detail either way.
-  const storedForDate = alreadyStored + rows.length;
-
   return jsonResponse({
     expected,
     dates,
