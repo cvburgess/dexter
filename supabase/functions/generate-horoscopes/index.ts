@@ -121,6 +121,7 @@ async function handler(req: Request): Promise<Response> {
   // still running — nothing is written until all signs settle, so a concurrent
   // retry would read zero and duplicate the work. It guards the far more likely
   // case: a re-run after the day is already done or partly done.
+  let alreadyStored = 0;
   let pending: readonly TSunSign[] = ZODIAC_SIGNS;
   if (!force) {
     const { data, error } = await supabase
@@ -134,13 +135,21 @@ async function handler(req: Request): Promise<Response> {
     }
 
     const stored = new Set(data.map((row) => row.sun_sign));
+    alreadyStored = stored.size;
     pending = ZODIAC_SIGNS.filter((sign) => !stored.has(sign));
 
     if (pending.length === 0) {
-      return jsonResponse(
-        { expected, dates: [], generated: 0, failed: 0, skipped: true },
-        200,
-      );
+      // Reached only when every sign is already stored, so the day is complete
+      // by definition. Same keys as the run below, so a consumer never has to
+      // branch on `skipped` to read the result.
+      return jsonResponse({
+        expected,
+        dates: [],
+        generated: 0,
+        failed: 0,
+        complete: true,
+        skipped: true,
+      }, 200);
     }
   }
 
@@ -186,14 +195,26 @@ async function handler(req: Request): Promise<Response> {
   // the upstream is straddling a rollover and is worth a look.
   const dates = [...new Set(rows.map((row) => row.date))].sort();
 
-  // 200 on partial success: the rows that landed are stored and the counts are
-  // the honest answer, so reporting a total loss would only mislead. 502 when
-  // every sign failed, which is the shape that means "upstream is down" and is
-  // worth seeing as a failure. Sentry has the detail either way.
-  return jsonResponse(
-    { expected, dates, generated: rows.length, failed: failures.length },
-    rows.length > 0 ? 200 : 502,
-  );
+  // The status describes the *day*, not this run's slice of it. Because each run
+  // only requests the signs it is missing, `pending` is often a single sign, so
+  // keying the status off this run's writes would report a gateway outage when
+  // eleven of twelve rows are sitting in the table and one sign failed — which
+  // is the ordinary, self-healing case the 07:00 and 08:00 runs exist to repair.
+  //
+  // 502 is reserved for the state actually worth alarming on: the date has no
+  // rows at all and this run produced none, which is what a bad key or a dead
+  // upstream looks like. Sentry has the per-sign detail either way.
+  const storedForDate = alreadyStored + rows.length;
+
+  return jsonResponse({
+    expected,
+    dates,
+    generated: rows.length,
+    failed: failures.length,
+    // Saves an operator correlating counts across runs to answer "is the day
+    // done?" — the only question `net._http_response` is usually opened for.
+    complete: storedForDate === ZODIAC_SIGNS.length,
+  }, storedForDate > 0 ? 200 : 502);
 }
 
 Deno.serve(withSentry(handler));
