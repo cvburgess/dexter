@@ -107,34 +107,22 @@ unusual about it:
   deliberately un-enumerated because those lists are expected to grow. Enum
   values can never be removed, and adding one needs `alter type ... add value`.
 
-### Retries
-
-Both outbound calls per sign — AstrologyAPI and the LLM gateway — retry
-transient failures up to three attempts with jittered backoff
-(`functions/generate-horoscopes/retry.ts`), honoring a `Retry-After` hint when
-the server sends one.
-
-**The LLM call is why this exists.** In a live twelve-sign run, three
-summarizations came back as `NoObjectGeneratedError` — unparseable or off-schema
-output — and all three succeeded on the second attempt. Roughly one structured
-output call in four fails first time against `deepseek-v4-flash`, so without
-retries the job would write about nine rows a day, every day.
-
-Retries are deliberately narrow. A 429 or 5xx is the upstream having a moment; a
-401 or 403 is a bad key or an exhausted balance and will never succeed, so it
-fails immediately rather than spending thirty-six calls to learn the same thing.
-A schema mismatch from AstrologyAPI is not retried either — the call succeeded
-and an identical request returns an identical shape.
-
-Because failures are per-sign and the generator only asks for signs it does not
-already have, a day that still comes up short costs one upstream call and one
-generation per missing sign to repair, not twenty-four.
-
 ## Scheduled jobs (pg_cron)
 
 `dex84-generate-horoscopes` runs `select public.trigger_generate_horoscopes();`
-daily at **06:00 UTC**, which POSTs to the `generate-horoscopes` function through
-pg_net. This is the repo's only pg_cron job and its only use of Vault.
+at **06:00, 07:00 and 08:00 UTC**, which POSTs to the `generate-horoscopes`
+function through pg_net. This is the repo's only pg_cron job and its only use of
+Vault.
+
+**Three runs, because each one is nearly free.** The function reads which signs
+already exist for the target date and requests only the rest, so a complete day
+costs one indexed `SELECT` and zero upstream calls — the 07:00 and 08:00 runs
+normally do nothing at all. What they buy is a retry for the signs that failed,
+which is most often the LLM returning output that does not parse or does not
+match the schema. A single daily run would leave such a sign missing for 24
+hours. This replaced an in-function retry: it is roughly fifty times less code
+for the same number of attempts, at the cost of taking two hours rather than two
+seconds to converge.
 
 **The endpoint is never in the migration.** Preview branches replay every
 migration against a *different* project ref, so a hardcoded URL would put every
@@ -148,14 +136,20 @@ an empty Vault and returns `NULL` without making a request. That is the design,
 not a bug. A production dump restored into another project behaves the same way,
 since the Vault root key is project-scoped and the decrypt raises.
 
-**Why 06:00 UTC**, and why any change should stay inside 05:00–09:59:
+**Why all three run in one morning**, and why any change must keep every hour
+inside 05:00–09:59:
 
-- Later than 10:00 UTC misses the deadline — the earliest local midnight on Earth
-  is UTC+14, which enters date D at 10:00 UTC on D-1, and D is what the run
-  generates.
+- Later than 10:00 UTC is too late to be worth running — the earliest local
+  midnight on Earth is UTC+14, which enters date D at 10:00 UTC on D-1, and D is
+  what these runs generate. A 14:00 or 22:00 UTC run would only ever repair a gap
+  those users had already seen, which is why the schedule is clustered rather
+  than spread across the day.
 - Earlier than ~05:00 UTC the UTC date and a US-eastern-computed "today"
   disagree, so the upstream's "next" day can be the day already stored. Same
   UTC-date hazard as DEX-117 below, from the other direction.
+
+The runs are an hour apart rather than minutes apart because the failures worth
+a second attempt are the ones an immediate retry would hit again.
 
 pg_cron reads `cron.timezone` (GMT by default, UTC on Supabase) — worth a `show
 cron.timezone;` after deploying rather than assuming.

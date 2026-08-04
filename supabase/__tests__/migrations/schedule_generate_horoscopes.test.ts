@@ -63,7 +63,7 @@ Deno.test("cron.schedule uses the named three-argument form", () => {
   assertStringIncludes(code, "cron.unschedule(jobid)");
 });
 
-Deno.test("the schedule runs between 05:00 and 10:00 UTC", () => {
+Deno.test("every run is between 05:00 and 10:00 UTC", () => {
   const match = code.match(
     /perform cron\.schedule\(\s*'[^']+',\s*'(\S+) (\S+) (\S+) (\S+) (\S+)'/,
   );
@@ -72,11 +72,29 @@ Deno.test("the schedule runs between 05:00 and 10:00 UTC", () => {
     "the cron expression must be a literal so this bound can be checked",
   );
 
-  const [, minute, hour] = match;
-  const hourNumber = Number(hour);
+  const [, minute, hourField] = match;
+
+  // The hour field is a comma list, so every entry has to be checked — reading
+  // only the first would silently pass a `6,14,22` schedule whose later runs are
+  // too late to be worth making.
+  const hours = hourField.split(",");
   assert(
-    Number.isInteger(hourNumber) && hourNumber >= 5 && hourNumber < 10,
-    `the job runs at hour ${hour} UTC, outside 05:00–09:59. Later than 10:00 misses UTC+14's midnight; earlier than 05:00 makes the UTC date disagree with the upstream's, so "next" can return the day already stored (the DEX-117 hazard).`,
+    hours.length >= 2,
+    "gaps are repaired by re-running, so expect several",
+  );
+
+  for (const hour of hours) {
+    const hourNumber = Number(hour);
+    assert(
+      Number.isInteger(hourNumber) && hourNumber >= 5 && hourNumber < 10,
+      `a run at hour ${hour} UTC is outside 05:00–09:59. Later than 10:00 misses UTC+14's midnight, so the run can only fix a gap those users already saw; earlier than 05:00 makes the UTC date disagree with the upstream's, so "next" can return the day already stored (the DEX-117 hazard).`,
+    );
+  }
+
+  assertEquals(
+    [...hours].sort(),
+    hours,
+    "hours must be listed in order, so the schedule reads the way it runs",
   );
   assertEquals(minute, "0");
 });

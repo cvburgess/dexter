@@ -1,9 +1,10 @@
 -- DEX-84: Schedule the daily horoscope generation.
 --
--- A pg_cron job fires `public.trigger_generate_horoscopes()` once a day, which
--- POSTs to the `generate-horoscopes` Edge Function via pg_net. The function
--- fetches tomorrow's prediction for all twelve signs and upserts them into
--- `public.horoscopes` (20260804005118_add_horoscopes.sql).
+-- A pg_cron job fires `public.trigger_generate_horoscopes()` three times a
+-- morning, which POSTs to the `generate-horoscopes` Edge Function via pg_net.
+-- The function fetches tomorrow's prediction for the signs it does not already
+-- have and upserts them into `public.horoscopes`
+-- (20260804005118_add_horoscopes.sql).
 --
 -- This is the repo's first use of pg_cron, pg_net, and Vault, so most of this
 -- file is about the traps rather than the twelve lines of actual work.
@@ -26,16 +27,33 @@
 -- the Vault root key is project-scoped, so the secrets cannot be decrypted
 -- there and the read raises — which the handler below turns into the same skip.
 --
--- ── Why 06:00 UTC ─────────────────────────────────────────────────────────
--- The window is bounded on both sides and anyone moving this should stay inside
--- 05:00–09:59 UTC.
---   * Above 10:00 UTC you miss the deadline. The earliest local midnight on
---     Earth is UTC+14, which enters date D at 10:00 UTC on D-1 — and D is what
---     this run generates.
+-- ── Why three runs, and why 06/07/08 UTC ──────────────────────────────────
+-- Every run is idempotent and self-limiting: the function reads which signs
+-- already exist for the target date and requests only the rest, so a complete
+-- day costs one cheap SELECT and zero upstream calls. That makes extra runs
+-- nearly free, and free retries are what they buy.
+--
+-- They are needed because a sign can fail for reasons that are nobody's bug —
+-- most often the LLM returning output that does not parse or does not match the
+-- schema. A single daily run would leave that sign missing for 24 hours.
+--
+-- **All three must land before 10:00 UTC**, which is what forces them into one
+-- morning rather than spreading them across the day:
+--   * Above 10:00 UTC a run is too late to matter. The earliest local midnight
+--     on Earth is UTC+14, which enters date D at 10:00 UTC on D-1 — and D is
+--     what these runs generate. A 14:00 or 22:00 UTC run would only ever fix a
+--     gap those users had already seen.
 --   * Below ~05:00 UTC the UTC date and a US-eastern-computed "today" disagree,
 --     so the upstream `/daily/next/` could return the day already stored. This
 --     is the DEX-117 hazard (docs/backend.md "Deployment") from the other
 --     direction.
+-- So the usable window is 05:00–09:59 UTC, and 06/07/08 sits inside it with an
+-- hour of slack at each end. Anyone rescheduling must keep every hour in that
+-- window; a migration test enforces it.
+--
+-- An hour apart, not minutes: the failures worth a second attempt are the ones
+-- an immediate retry would hit again.
+--
 -- pg_cron reads `cron.timezone`, which defaults to GMT and is UTC on Supabase.
 -- Worth a `show cron.timezone;` after deploying rather than assuming.
 --
@@ -200,9 +218,12 @@ begin
     where jobname = 'dex84-generate-horoscopes'
       and username = current_user;
 
+  -- One job with three hours, not three jobs: a single jobname stays inside the
+  -- unschedule-then-schedule idempotency above, and a rename or a reschedule
+  -- touches one row instead of leaving orphans behind.
   perform cron.schedule(
     'dex84-generate-horoscopes',
-    '0 6 * * *',
+    '0 6,7,8 * * *',
     $cron$select public.trigger_generate_horoscopes();$cron$
   );
 end $do$;

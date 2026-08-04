@@ -11,7 +11,6 @@ import {
   truncateSummary,
 } from "../../functions/generate-horoscopes/summarize.ts";
 import { PREDICTION_FACETS } from "../../functions/generate-horoscopes/astrology.ts";
-import { MAX_ATTEMPTS } from "../../functions/generate-horoscopes/retry.ts";
 import {
   mockGenerateMeta,
   MockLanguageModel,
@@ -20,19 +19,6 @@ import {
 
 // DEX-84. The model is a defaulted trailing parameter precisely so these run
 // against a mock — no gateway key, no network.
-
-/** Injected in place of the real backoff so retry tests do not wait. */
-const noSleep = () => Promise.resolve();
-
-/** A model that always answers with text `Output.object` cannot parse. */
-const unusableModel = () =>
-  new MockLanguageModel({
-    doGenerate: () =>
-      Promise.resolve({
-        content: [{ type: "text" as const, text: "not json at all" }],
-        ...mockGenerateMeta,
-      }),
-  });
 
 const prediction = {
   personal_life: "Solitude suits you today.",
@@ -84,42 +70,19 @@ Deno.test("an over-long summary is truncated rather than lost", async () => {
   assertEquals(result.sentiment, "negative");
 });
 
-Deno.test("a model that returns no object is retried, then fails the sign", async () => {
+Deno.test("a model that returns no object fails the sign loudly", async () => {
   // `Output.object` yields undefined rather than throwing when the model
-  // finishes without a usable object. That is the most retryable failure there
-  // is — the same prompt often produces valid output next time — but once the
-  // attempts are spent it must still reject, so the sign lands in the failure
-  // count instead of writing an empty row.
-  const model = unusableModel();
-
-  await assertRejects(() => summarizePrediction(prediction, model, noSleep));
-
-  assertEquals(model.doGenerateCalls.length, MAX_ATTEMPTS);
-});
-
-Deno.test("a transient bad generation recovers on a retry", async () => {
-  // The whole point of retrying: one unusable response should not cost the sign.
-  let call = 0;
+  // finishes without a usable object, so this is a real branch. It must reject,
+  // so the sign lands in the failure count instead of writing an empty row.
   const model = new MockLanguageModel({
-    doGenerate: () => {
-      call++;
-      return Promise.resolve({
-        content: [{
-          type: "text" as const,
-          text: call === 1 ? "not json at all" : JSON.stringify({
-            summary: "A quiet day.",
-            sentiment: "positive",
-          }),
-        }],
+    doGenerate: () =>
+      Promise.resolve({
+        content: [{ type: "text" as const, text: "not json at all" }],
         ...mockGenerateMeta,
-      });
-    },
+      }),
   });
 
-  const result = await summarizePrediction(prediction, model, noSleep);
-
-  assertEquals(result.summary, "A quiet day.");
-  assertEquals(model.doGenerateCalls.length, 2);
+  await assertRejects(() => summarizePrediction(prediction, model));
 });
 
 Deno.test("an unknown sentiment is rejected", async () => {
@@ -127,31 +90,7 @@ Deno.test("an unknown sentiment is rejected", async () => {
   // the batch rather than just this one.
   const model = objectModel({ summary: "ok", sentiment: "euphoric" });
 
-  await assertRejects(() => summarizePrediction(prediction, model, noSleep));
-});
-
-Deno.test("a non-transient model error is not retried", async () => {
-  // A bad gateway key is deterministic; three attempts per sign would spend the
-  // budget three times over and delay the error that explains the failure.
-  const model = new MockLanguageModel({
-    doGenerate: () =>
-      Promise.reject(new Error("Unauthorized: invalid API key")),
-  });
-
-  await assertRejects(() => summarizePrediction(prediction, model, noSleep));
-
-  assertEquals(model.doGenerateCalls.length, 1);
-});
-
-Deno.test("a rate-limited model call is retried", async () => {
-  const model = new MockLanguageModel({
-    doGenerate: () =>
-      Promise.reject(new Error("Rate limit exceeded, retry later")),
-  });
-
-  await assertRejects(() => summarizePrediction(prediction, model, noSleep));
-
-  assertEquals(model.doGenerateCalls.length, MAX_ATTEMPTS);
+  await assertRejects(() => summarizePrediction(prediction, model));
 });
 
 Deno.test("truncation prefers a word boundary but never a stub", () => {
