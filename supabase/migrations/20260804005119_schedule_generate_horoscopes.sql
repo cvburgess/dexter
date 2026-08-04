@@ -28,7 +28,7 @@
 --
 -- ── Why 06:00 UTC ─────────────────────────────────────────────────────────
 -- The window is bounded on both sides and anyone moving this should stay inside
--- 05:00–09:00 UTC.
+-- 05:00–09:59 UTC.
 --   * Above 10:00 UTC you miss the deadline. The earliest local midnight on
 --     Earth is UTC+14, which enters date D at 10:00 UTC on D-1 — and D is what
 --     this run generates.
@@ -174,8 +174,8 @@ comment on function public.trigger_generate_horoscopes() is
 -- could POST /rest/v1/rpc/trigger_generate_horoscopes and spend paid API and LLM
 -- quota on demand. Only the owner (`postgres`), which is who pg_cron runs the
 -- job as, may execute it. Do not grant this to `authenticated`.
-revoke all on function public.trigger_generate_horoscopes() from public;
-revoke all on function public.trigger_generate_horoscopes() from anon, authenticated, service_role;
+revoke all on function public.trigger_generate_horoscopes()
+  from public, anon, authenticated, service_role;
 
 -- Tagged `$do$` rather than the bare `$$` used elsewhere in this file, because
 -- the body nests another dollar-quoted string. Dollar-quoting is lexical and

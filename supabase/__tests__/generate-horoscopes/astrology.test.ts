@@ -33,10 +33,7 @@ const response = {
   prediction,
 };
 
-function stubFetch(
-  body: unknown,
-  init: { status?: number } = {},
-): { fetch: typeof fetch; calls: { url: string; init?: RequestInit }[] } {
+function stubFetch(body: unknown, init: { status?: number } = {}) {
   const calls: { url: string; init?: RequestInit }[] = [];
   const fetchImpl =
     ((url: string | URL | Request, requestInit?: RequestInit) => {
@@ -90,19 +87,19 @@ Deno.test("an unusable prediction date throws rather than producing a wrong one"
   }
 });
 
-Deno.test("the request is a POST carrying the token header", () => {
+Deno.test("the request is a POST carrying the token header", async () => {
   const { fetch: fetchImpl, calls } = stubFetch(response);
 
-  return fetchPrediction("aries", "secret-key", fetchImpl).then(() => {
-    assertEquals(calls.length, 1);
-    assert(
-      calls[0].url.endsWith("/sun_sign_prediction/daily/next/aries"),
-      `unexpected URL: ${calls[0].url}`,
-    );
-    assertEquals(calls[0].init?.method, "POST");
-    const headers = calls[0].init?.headers as Record<string, string>;
-    assertEquals(headers["x-astrologyapi-key"], "secret-key");
-  });
+  await fetchPrediction("aries", "secret-key", fetchImpl);
+
+  assertEquals(calls.length, 1);
+  assert(
+    calls[0].url.endsWith("/sun_sign_prediction/daily/next/aries"),
+    `unexpected URL: ${calls[0].url}`,
+  );
+  assertEquals(calls[0].init?.method, "POST");
+  const headers = calls[0].init?.headers as Record<string, string>;
+  assertEquals(headers["x-astrologyapi-key"], "secret-key");
 });
 
 Deno.test("a non-2xx upstream response fails without echoing the body", async () => {

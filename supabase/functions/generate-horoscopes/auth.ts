@@ -28,9 +28,10 @@ export function isAuthorizedCronRequest(
   const provided = req.headers.get(CRON_SECRET_HEADER);
   if (!provided) return false;
 
-  const providedBytes = encoder.encode(provided);
-  const expectedBytes = encoder.encode(expectedSecret);
-  if (providedBytes.byteLength !== expectedBytes.byteLength) return false;
-
-  return timingSafeEqual(providedBytes, expectedBytes);
+  // `timingSafeEqual` returns false on a length mismatch rather than throwing,
+  // so no explicit length guard is needed.
+  return timingSafeEqual(
+    encoder.encode(provided),
+    encoder.encode(expectedSecret),
+  );
 }

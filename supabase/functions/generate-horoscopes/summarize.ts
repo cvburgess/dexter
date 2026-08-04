@@ -27,9 +27,19 @@ export const SUMMARY_MODEL: LanguageModel = "deepseek/deepseek-v4-flash-0731";
  */
 export const SUMMARY_MAX_LENGTH = 100;
 
+/**
+ * The `public.horoscope_sentiment` labels.
+ *
+ * Exported so the migration test can assert against this list rather than a
+ * second copy of the literals — otherwise adding a fourth label to the enum
+ * would leave both the schema and the test green while the model remained
+ * unable to emit it.
+ */
+export const SENTIMENTS = ["positive", "negative", "mixed"] as const;
+
 export const summarySchema = z.object({
   summary: z.string(),
-  sentiment: z.enum(["positive", "negative", "mixed"]),
+  sentiment: z.enum(SENTIMENTS),
 });
 
 export type TSummary = z.infer<typeof summarySchema>;

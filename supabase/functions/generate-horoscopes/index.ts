@@ -29,18 +29,12 @@ import { isAuthorizedCronRequest } from "./auth.ts";
 import { toHoroscopeRow } from "./row.ts";
 import { summarizePrediction } from "./summarize.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-cron-secret",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
+// No CORS headers and no OPTIONS branch, unlike the other functions in this
+// directory. Nothing browser-based ever calls this — pg_net is the only client —
+// so the preflight machinery would be dead code, and naming `x-cron-secret` in
+// an Allow-Headers list would advertise the gate for no benefit.
 function jsonResponse(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-    status,
-  });
+  return Response.json(body, { status });
 }
 
 /** The date this run expects to produce: tomorrow, in UTC. */
@@ -56,9 +50,6 @@ async function generateForSign(sign: TSunSign, apiKey: string) {
 }
 
 async function handler(req: Request): Promise<Response> {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
@@ -78,11 +69,11 @@ async function handler(req: Request): Promise<Response> {
   }
 
   if (!isAuthorizedCronRequest(req, cronSecret)) {
-    // Reported so that probing shows up in triage rather than only in the
+    // Not reported to Sentry, deliberately, and for the same reason
+    // `verify-demo-otp` stays quiet on a bad code: this endpoint is publicly
+    // reachable, so anyone spraying it could turn the error budget into a
+    // denial-of-service against our own alerting. Rejections belong in the
     // request log.
-    captureException(
-      new Error("generate-horoscopes rejected an unauthorized request"),
-    );
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
@@ -100,35 +91,54 @@ async function handler(req: Request): Promise<Response> {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const date = expectedDate();
+  // The date this run *expects* to write. It is only a prediction: the row's
+  // date comes from the upstream's own `prediction_date`, and the two can
+  // disagree — keeping the cron inside 05:00–09:59 UTC is what makes that rare
+  // rather than impossible. A disagreement costs a redundant regeneration (the
+  // upsert absorbs it), never a wrong row, which is why the cheap guess is
+  // preferred to fetching one sign first to find out.
+  const expected = expectedDate();
 
-  // The real quota guard. pg_net's timeout does not cancel this function, so a
-  // timed-out request can be retried while the first run is still working or
-  // has already succeeded; without this, a retry — or a leaked secret — spends
-  // upstream and LLM budget again.
+  // The quota guard, and the work list: the signs already stored for the
+  // expected date are the ones this run does not need to pay for again. A
+  // partial run is an anticipated state (see the per-sign isolation below), and
+  // asking *which* signs are missing rather than *how many* makes recovering
+  // from one cost one upstream call and one generation instead of twelve of
+  // each. `force` regenerates everything, which is what it is for.
+  //
+  // This does not guard against a second invocation arriving while the first is
+  // still running — nothing is written until all signs settle, so a concurrent
+  // retry would read zero and duplicate the work. It guards the far more likely
+  // case: a re-run after the day is already done or partly done.
+  let pending: readonly TSunSign[] = ZODIAC_SIGNS;
   if (!force) {
-    const { count, error } = await supabase
+    const { data, error } = await supabase
       .from("horoscopes")
-      .select("sun_sign", { count: "exact", head: true })
-      .eq("date", date);
+      .select("sun_sign")
+      .eq("date", expected);
 
     if (error) {
       captureException(error);
       return jsonResponse({ error: "Failed to read existing horoscopes" }, 500);
     }
-    if ((count ?? 0) >= ZODIAC_SIGNS.length) {
+
+    const stored = new Set(data.map((row) => row.sun_sign));
+    pending = ZODIAC_SIGNS.filter((sign) => !stored.has(sign));
+
+    if (pending.length === 0) {
       return jsonResponse(
-        { date, generated: 0, failed: 0, skipped: true },
+        { expected, dates: [], generated: 0, failed: 0, skipped: true },
         200,
       );
     }
   }
 
   // Per-sign isolation: one sign failing upstream or in summarization must not
-  // cost the other eleven. Run concurrently — twelve short calls against two
-  // services, well inside the wall-clock budget.
+  // cost the others. Run concurrently — at most twelve short calls against two
+  // services, well inside the wall-clock budget, and far enough under the AI
+  // Gateway's rate cap that a concurrency bound would be premature.
   const results = await Promise.allSettled(
-    ZODIAC_SIGNS.map((sign) => generateForSign(sign, astrologyApiKey)),
+    pending.map((sign) => generateForSign(sign, astrologyApiKey)),
   );
 
   const rows = results
@@ -153,13 +163,18 @@ async function handler(req: Request): Promise<Response> {
     }
   }
 
+  // Report the dates actually written rather than the guess above, so a
+  // disagreement with `expected` is visible in `net._http_response` instead of
+  // silently looking like a normal run. Normally one date; more than one means
+  // the upstream is straddling a rollover and is worth a look.
+  const dates = [...new Set(rows.map((row) => row.date))].sort();
+
   // 200 on partial success: the rows that landed are stored and the counts are
-  // the honest answer, so reporting a total loss in `net._http_response` would
-  // only mislead. 502 when every sign failed, which is the shape that means
-  // "upstream is down" and is worth seeing as a failure. Sentry has the detail
-  // either way.
+  // the honest answer, so reporting a total loss would only mislead. 502 when
+  // every sign failed, which is the shape that means "upstream is down" and is
+  // worth seeing as a failure. Sentry has the detail either way.
   return jsonResponse(
-    { date, generated: rows.length, failed: failures.length },
+    { expected, dates, generated: rows.length, failed: failures.length },
     rows.length > 0 ? 200 : 502,
   );
 }

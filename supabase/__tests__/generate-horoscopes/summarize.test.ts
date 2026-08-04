@@ -10,6 +10,7 @@ import {
   SUMMARY_MAX_LENGTH,
   truncateSummary,
 } from "../../functions/generate-horoscopes/summarize.ts";
+import { PREDICTION_FACETS } from "../../functions/generate-horoscopes/astrology.ts";
 import {
   mockGenerateMeta,
   MockLanguageModel,
@@ -51,15 +52,11 @@ Deno.test("the prompt carries all six facets", async () => {
   await summarizePrediction(prediction, model);
 
   const prompt = JSON.stringify(model.doGenerateCalls[0].prompt);
-  for (
-    const facet of Object.values(prediction).filter((value) =>
-      typeof value === "string"
-    )
-  ) {
+  for (const facet of PREDICTION_FACETS) {
     assertStringIncludes(
       prompt,
-      facet,
-      "a facet missing from the prompt is a facet the summary cannot reflect",
+      prediction[facet],
+      `${facet} is missing from the prompt, so the summary cannot reflect it`,
     );
   }
 });

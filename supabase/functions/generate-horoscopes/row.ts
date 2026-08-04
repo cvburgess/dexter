@@ -31,24 +31,15 @@ export function toHoroscopeRow(
   response: TPredictionResponse,
   summary: TSummary,
 ): THoroscopeRow {
-  const { prediction } = response;
-
+  // Spread rather than eighteen lines of `x: prediction.x`. Every key in
+  // `TPrediction` and `TSummary` is already its column name, and a hand-written
+  // mapping is where `health: prediction.emotions` compiles cleanly. A renamed
+  // column still fails typecheck here, since the result must satisfy
+  // `TablesInsert<"horoscopes">`.
   return {
+    ...response.prediction,
+    ...summary,
     sun_sign: sign,
     date: parsePredictionDate(response.prediction_date),
-    summary: summary.summary,
-    sentiment: summary.sentiment,
-    personal_life: prediction.personal_life,
-    profession: prediction.profession,
-    health: prediction.health,
-    emotions: prediction.emotions,
-    travel: prediction.travel,
-    luck: prediction.luck,
-    personal_life_rating: prediction.personal_life_rating,
-    profession_rating: prediction.profession_rating,
-    health_rating: prediction.health_rating,
-    emotions_rating: prediction.emotions_rating,
-    travel_rating: prediction.travel_rating,
-    luck_rating: prediction.luck_rating,
   };
 }
