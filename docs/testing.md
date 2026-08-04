@@ -34,6 +34,19 @@
 - **Deno test** for Edge Function and shared Deno modules
 - When `__tests__/` exists: `cd supabase && deno test --allow-all --config __tests__/deno.json __tests__/`
 - Add `--env-file=.env` if tests need environment variables
+- CI has **no Postgres and no network**, which shapes two conventions:
+  - Migrations are tested by asserting over their SQL *text* — see
+    `__tests__/migrations/sqlStatements.ts` for the `statements()` /
+    `withoutComments()` helpers. Use `withoutComments()` for anything spanning a
+    `do $$ … $$` block, and for any assertion a header comment could satisfy on
+    its own.
+  - Anything that reaches the network takes its dependency as an argument rather
+    than stubbing a global: `fetchPrediction(sign, key, fetchImpl)`, and a
+    trailing `model` parameter on AI SDK calls.
+    `__tests__/helpers/mockLanguageModel.ts` is the `LanguageModelV3` stand-in
+    (the SDK's own `ai/test` imports vitest and msw at module load and cannot run
+    under `deno test`); `objectModel(x)` is the shortcut for a model that returns
+    `x` as its structured output.
 
 ## Formatting
 
