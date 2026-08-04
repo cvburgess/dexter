@@ -126,7 +126,14 @@ export async function fetchPrediction(
       "Content-Type": "application/json",
       "Accept-Language": "en",
     },
-    body: JSON.stringify({}),
+    // Pin the upstream's notion of "today" to UTC so `/daily/next/` returns the
+    // UTC date this run computed as `expected`, rather than one derived from
+    // whatever the API defaults to. Verified 2026-08-04: an empty body and
+    // `timezone: 0` return the same date, while `timezone: 14` returns the next
+    // one — so the default is already UTC, and sending it makes that a
+    // guarantee instead of an observation. Without it the run time of day would
+    // constrain the cron schedule; with it, any hour produces the same answer.
+    body: JSON.stringify({ timezone: 0 }),
   });
 
   if (!response.ok) {

@@ -37,19 +37,22 @@
 -- most often the LLM returning output that does not parse or does not match the
 -- schema. A single daily run would leave that sign missing for 24 hours.
 --
--- **All three must land before 10:00 UTC**, which is what forces them into one
--- morning rather than spreading them across the day:
---   * Above 10:00 UTC a run is too late to matter. The earliest local midnight
---     on Earth is UTC+14, which enters date D at 10:00 UTC on D-1 — and D is
---     what these runs generate. A 14:00 or 22:00 UTC run would only ever fix a
---     gap those users had already seen.
---   * Below ~05:00 UTC the UTC date and a US-eastern-computed "today" disagree,
---     so the upstream `/daily/next/` could return the day already stored. This
---     is the DEX-117 hazard (docs/backend.md "Deployment") from the other
---     direction.
--- So the usable window is 05:00–09:59 UTC, and 06/07/08 sits inside it with an
--- hour of slack at each end. Anyone rescheduling must keep every hour in that
--- window; a migration test enforces it.
+-- **There is only one bound, and it is an upper one: land before 10:00 UTC.**
+-- The earliest local midnight on Earth is UTC+14, which enters date D at 10:00
+-- UTC on D-1 — and D is what these runs generate. A 14:00 or 22:00 UTC run
+-- would still write correct rows, but only ever repair a gap those users had
+-- already seen, so it buys nothing. 06/07/08 leaves two hours of slack.
+--
+-- There is deliberately **no lower bound**. An earlier revision of this file
+-- claimed one ("below 05:00 UTC the upstream's US-eastern `today` disagrees
+-- with ours"), which was speculation and wrong: the request pins
+-- `timezone: 0`, so `/daily/next/` returns UTC-tomorrow — exactly the date the
+-- function computes as `expected` — at any hour of the day. Verified
+-- 2026-08-04: an empty body and `timezone: 0` return the same date, and
+-- `timezone: 14` returns the next one. A run at 02:00 UTC would be just as
+-- correct as one at 08:00; it simply has no reason to exist.
+--
+-- A migration test enforces the upper bound.
 --
 -- An hour apart, not minutes: the failures worth a second attempt are the ones
 -- an immediate retry would hit again.

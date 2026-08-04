@@ -136,17 +136,19 @@ an empty Vault and returns `NULL` without making a request. That is the design,
 not a bug. A production dump restored into another project behaves the same way,
 since the Vault root key is project-scoped and the decrypt raises.
 
-**Why all three run in one morning**, and why any change must keep every hour
-inside 05:00–09:59:
+**Why all three run in one morning.** There is exactly one constraint, and it is
+an upper bound: **land before 10:00 UTC.** The earliest local midnight on Earth
+is UTC+14, which enters date D at 10:00 UTC on D-1, and D is what these runs
+generate. A 14:00 or 22:00 UTC run would still write correct rows — it would just
+repair a gap those users had already seen — so spreading the schedule across the
+day buys nothing.
 
-- Later than 10:00 UTC is too late to be worth running — the earliest local
-  midnight on Earth is UTC+14, which enters date D at 10:00 UTC on D-1, and D is
-  what these runs generate. A 14:00 or 22:00 UTC run would only ever repair a gap
-  those users had already seen, which is why the schedule is clustered rather
-  than spread across the day.
-- Earlier than ~05:00 UTC the UTC date and a US-eastern-computed "today"
-  disagree, so the upstream's "next" day can be the day already stored. Same
-  UTC-date hazard as DEX-117 below, from the other direction.
+**There is no lower bound.** The request pins `timezone: 0`, so the upstream's
+`/daily/next/` returns UTC-tomorrow — exactly the date the function computes as
+`expected` — at any hour. Verified 2026-08-04: an empty body and `timezone: 0`
+return the same date, `timezone: 14` returns the next one. An earlier revision of
+this doc claimed a 05:00 UTC floor on the theory that the upstream computed
+"today" from a US-eastern date; that was speculation and it was wrong.
 
 The runs are an hour apart rather than minutes apart because the failures worth
 a second attempt are the ones an immediate retry would hit again.

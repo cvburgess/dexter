@@ -63,7 +63,7 @@ Deno.test("cron.schedule uses the named three-argument form", () => {
   assertStringIncludes(code, "cron.unschedule(jobid)");
 });
 
-Deno.test("every run is between 05:00 and 10:00 UTC", () => {
+Deno.test("every run lands before 10:00 UTC", () => {
   const match = code.match(
     /perform cron\.schedule\(\s*'[^']+',\s*'(\S+) (\S+) (\S+) (\S+) (\S+)'/,
   );
@@ -83,11 +83,13 @@ Deno.test("every run is between 05:00 and 10:00 UTC", () => {
     "gaps are repaired by re-running, so expect several",
   );
 
+  // Only an upper bound. There is no floor: the request pins `timezone: 0`, so
+  // the upstream returns UTC-tomorrow at any hour of the day.
   for (const hour of hours) {
     const hourNumber = Number(hour);
     assert(
-      Number.isInteger(hourNumber) && hourNumber >= 5 && hourNumber < 10,
-      `a run at hour ${hour} UTC is outside 05:00–09:59. Later than 10:00 misses UTC+14's midnight, so the run can only fix a gap those users already saw; earlier than 05:00 makes the UTC date disagree with the upstream's, so "next" can return the day already stored (the DEX-117 hazard).`,
+      Number.isInteger(hourNumber) && hourNumber >= 0 && hourNumber < 10,
+      `a run at hour ${hour} UTC lands after 10:00, when UTC+14 has already entered the date being generated — so it could only repair a gap those users had already seen.`,
     );
   }
 

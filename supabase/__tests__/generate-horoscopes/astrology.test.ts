@@ -113,6 +113,20 @@ Deno.test("the request is a POST carrying the token header", async () => {
   assertEquals(headers["x-astrologyapi-key"], "secret-key");
 });
 
+Deno.test("the request pins the upstream's timezone to UTC", () => {
+  // Load-bearing for the cron schedule. `/daily/next/` resolves "tomorrow"
+  // against whatever timezone it is given — `timezone: 14` returns a different
+  // date than `timezone: 0` — so pinning it to 0 is what makes the response
+  // date equal the UTC date the function computes as `expected`, at any hour.
+  // Drop this and the run time of day silently starts affecting which date gets
+  // written.
+  const { fetch: fetchImpl, calls } = stubFetch(response);
+
+  fetchPrediction("aries", "key", fetchImpl);
+
+  assertEquals(JSON.parse(calls[0].init?.body as string), { timezone: 0 });
+});
+
 Deno.test("a non-2xx upstream response fails without echoing the body", async () => {
   const { fetch: fetchImpl } = stubFetch({ error: "invalid key sk-abc123" }, {
     status: 401,
