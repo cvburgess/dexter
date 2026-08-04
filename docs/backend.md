@@ -143,12 +143,26 @@ generate. A 14:00 or 22:00 UTC run would still write correct rows — it would j
 repair a gap those users had already seen — so spreading the schedule across the
 day buys nothing.
 
-**There is no lower bound.** The request pins `timezone: 0`, so the upstream's
-`/daily/next/` returns UTC-tomorrow — exactly the date the function computes as
-`expected` — at any hour. Verified 2026-08-04: an empty body and `timezone: 0`
-return the same date, `timezone: 14` returns the next one. An earlier revision of
-this doc claimed a 05:00 UTC floor on the theory that the upstream computed
-"today" from a US-eastern date; that was speculation and it was wrong.
+**There is no lower bound**, but the reason is worth knowing because it is easy
+to get wrong. The upstream's clock is **IST (UTC+5:30)**, and its `timezone` body
+parameter is an offset applied *relative to that*, not an absolute UTC offset. So
+the request sends `timezone: -5.5` to cancel it, and `/daily/next/` returns
+UTC-tomorrow — the date the function computes as `expected` — at any hour.
+
+`timezone: 0` is the intuitive value and it is wrong. It tests clean between
+00:00 and 18:29 UTC, because IST shares the UTC calendar date then, and silently
+returns the day *after* tomorrow outside that window. Measured 2026-08-04 at
+18:32 UTC, where UTC-tomorrow was 2026-08-05: `timezone: 0` → 2026-08-06,
+`timezone: -5.5` → 2026-08-05.
+
+That failure mode is why `index.ts` reports any disagreement between `expected`
+and the written dates to Sentry. A silent mismatch would leave `expected`
+permanently short of twelve signs, so every later run would re-fetch the same
+signs forever — paid calls, on a loop, with `complete` never turning true.
+
+(An earlier revision of this doc claimed a 05:00 UTC floor on the theory that the
+upstream computed "today" from a US-eastern date. That was speculation, and it
+was wrong.)
 
 The runs are an hour apart rather than minutes apart because the failures worth
 a second attempt are the ones an immediate retry would hit again.

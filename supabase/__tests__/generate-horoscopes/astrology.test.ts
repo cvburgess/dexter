@@ -114,17 +114,17 @@ Deno.test("the request is a POST carrying the token header", async () => {
 });
 
 Deno.test("the request pins the upstream's timezone to UTC", () => {
-  // Load-bearing for the cron schedule. `/daily/next/` resolves "tomorrow"
-  // against whatever timezone it is given — `timezone: 14` returns a different
-  // date than `timezone: 0` — so pinning it to 0 is what makes the response
-  // date equal the UTC date the function computes as `expected`, at any hour.
-  // Drop this and the run time of day silently starts affecting which date gets
-  // written.
+  // Load-bearing for the schedule, and -5.5 rather than 0 for a reason worth
+  // pinning: the upstream applies `timezone` relative to IST, not UTC, so its
+  // clock is 5.5 hours ahead. `timezone: 0` tests clean between 00:00 and 18:29
+  // UTC — IST is the same calendar date then — and silently writes tomorrow's
+  // rows under the day after outside that window, which makes `expected` never
+  // fill and every later run re-fetch the same signs forever.
   const { fetch: fetchImpl, calls } = stubFetch(response);
 
   fetchPrediction("aries", "key", fetchImpl);
 
-  assertEquals(JSON.parse(calls[0].init?.body as string), { timezone: 0 });
+  assertEquals(JSON.parse(calls[0].init?.body as string), { timezone: -5.5 });
 });
 
 Deno.test("a non-2xx upstream response fails without echoing the body", async () => {

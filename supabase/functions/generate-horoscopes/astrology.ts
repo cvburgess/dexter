@@ -40,6 +40,27 @@ export const ZODIAC_SIGNS = [
 const API_BASE =
   "https://json.astrologyapi.com/v1/sun_sign_prediction/daily/next";
 
+/**
+ * Makes `/daily/next/` resolve "tomorrow" against UTC, matching the date the
+ * function computes as `expected`.
+ *
+ * It is -5.5 rather than 0 because the upstream's `timezone` is an offset
+ * applied *relative to IST*, not an absolute UTC offset — the server's own clock
+ * is UTC+5:30. Derived empirically on 2026-08-04 at 18:32 UTC, where UTC-tomorrow
+ * was 2026-08-05 and the API answered:
+ *
+ *     timezone   0  -> 2026-08-06   (IST had already rolled over)
+ *     timezone  -5   -> 2026-08-05
+ *     timezone  -5.5 -> 2026-08-05
+ *
+ * `timezone: 0` looks correct if you only test between 00:00 and 18:29 UTC,
+ * because IST is the same calendar date then. It is not. Re-test across the
+ * 18:30 UTC boundary before changing this, and note that `index.ts` reports any
+ * date disagreement to Sentry precisely because this value is an observation
+ * about someone else's server rather than a documented contract.
+ */
+const UTC_TIMEZONE_OFFSET = -5.5;
+
 /** The six facets the upstream returns, which are also the column names. */
 export const PREDICTION_FACETS = [
   "personal_life",
@@ -126,14 +147,7 @@ export async function fetchPrediction(
       "Content-Type": "application/json",
       "Accept-Language": "en",
     },
-    // Pin the upstream's notion of "today" to UTC so `/daily/next/` returns the
-    // UTC date this run computed as `expected`, rather than one derived from
-    // whatever the API defaults to. Verified 2026-08-04: an empty body and
-    // `timezone: 0` return the same date, while `timezone: 14` returns the next
-    // one — so the default is already UTC, and sending it makes that a
-    // guarantee instead of an observation. Without it the run time of day would
-    // constrain the cron schedule; with it, any hour produces the same answer.
-    body: JSON.stringify({ timezone: 0 }),
+    body: JSON.stringify({ timezone: UTC_TIMEZONE_OFFSET }),
   });
 
   if (!response.ok) {

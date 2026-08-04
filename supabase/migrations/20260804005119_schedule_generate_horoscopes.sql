@@ -43,14 +43,19 @@
 -- would still write correct rows, but only ever repair a gap those users had
 -- already seen, so it buys nothing. 06/07/08 leaves two hours of slack.
 --
--- There is deliberately **no lower bound**. An earlier revision of this file
--- claimed one ("below 05:00 UTC the upstream's US-eastern `today` disagrees
--- with ours"), which was speculation and wrong: the request pins
--- `timezone: 0`, so `/daily/next/` returns UTC-tomorrow — exactly the date the
--- function computes as `expected` — at any hour of the day. Verified
--- 2026-08-04: an empty body and `timezone: 0` return the same date, and
--- `timezone: 14` returns the next one. A run at 02:00 UTC would be just as
--- correct as one at 08:00; it simply has no reason to exist.
+-- There is deliberately **no lower bound**. An earlier revision claimed one
+-- ("below 05:00 UTC the upstream's US-eastern `today` disagrees with ours"),
+-- which was speculation and wrong. The upstream's clock is **IST (UTC+5:30)**,
+-- not US-eastern, and its `timezone` body parameter is an offset applied
+-- relative to that — so the request sends `timezone: -5.5` to cancel it and get
+-- UTC-tomorrow at any hour. See `functions/generate-horoscopes/astrology.ts`.
+--
+-- Even with no parameter at all these hours would be safe, because IST shares
+-- the UTC calendar date until 18:30 UTC and every run here is long before that.
+-- The parameter is belt and braces, and `index.ts` reports any date
+-- disagreement to Sentry rather than trusting it — an undetected mismatch would
+-- leave `expected` permanently short and make every later run re-fetch the same
+-- signs forever.
 --
 -- A migration test enforces the upper bound.
 --
