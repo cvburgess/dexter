@@ -67,8 +67,8 @@ and the backfill has nothing to read from.
 
 `public.horoscopes` (DEX-84) holds one sun-sign prediction per day: the six
 facets AstrologyAPI returns (`personal_life`, `profession`, `health`, `emotions`,
-`travel`, `luck`) with their `*_rating` scores, plus a `summary` and a
-`sentiment` produced by an LLM. It is the first table in this schema that
+`travel`, `luck`), plus a `summary` and a `sentiment` produced by an LLM. It is
+the first table in this schema that
 **nobody owns** — global reference data, not user data — which drives everything
 unusual about it:
 
@@ -89,8 +89,15 @@ unusual about it:
   fails with "permission denied" while RLS never even fires. `authenticated`
   likewise does not get SELECT for free. Both are granted by name in the
   migration. Check `\dp public.<table>` rather than assuming, for any new table.
-- **`average_rating` is a stored generated column**, so "the mean of the six
-  ratings" is true by construction. Never send it in an insert.
+- **No `*_rating` columns and no `average_rating`, though DEX-84 asked for
+  them.** The issue's sample response is from 2024 and carries a
+  `<facet>_rating` integer per facet; the live API returns only the six text
+  facets (verified 2026-08-04 across `daily/next/aries`, `daily/next/leo`,
+  `daily/aries`, `daily/previous/aries`). NOT NULL rating columns would have
+  failed every insert and `average_rating` had nothing to average, so they are
+  omitted rather than left permanently null. **The lesson generalizes: build
+  fixtures from a real response, not from the spec.** The tests all passed
+  against the issue's sample right up until a live call was made.
 - **Not in the `supabase_realtime` publication** — the rows change once a day at
   a fixed hour, so a subscription would idle for 24 hours to deliver what a
   refetch already gets.
@@ -137,8 +144,8 @@ still empty). Set the three function secrets, confirm the function answers, then
 point the job at it:
 
 ```sql
--- In the production SQL editor, as postgres. Written as an upsert because
--- vault.create_secret raises on a duplicate name — this is also the rotation
+-- In the production SQL editor, as postgres. First provisioning only:
+-- vault.create_secret raises on a duplicate name, so this is not the rotation
 -- procedure. generate_horoscopes_secret must equal the HOROSCOPE_CRON_SECRET
 -- function secret; rotate the two together or the job 401s silently every
 -- morning.
@@ -147,6 +154,16 @@ select vault.create_secret(
   'generate_horoscopes_url'
 );
 select vault.create_secret('<the HOROSCOPE_CRON_SECRET value>', 'generate_horoscopes_secret');
+```
+
+**Rotating the secret** — update the Vault row in place; `create_secret` would
+raise on the existing name. Set the `HOROSCOPE_CRON_SECRET` function secret to
+the same new value in the same sitting:
+
+```sql
+select vault.update_secret(id, '<the new HOROSCOPE_CRON_SECRET value>')
+  from vault.secrets
+  where name = 'generate_horoscopes_secret';
 ```
 
 **Observability**, in increasing order of trustworthiness:
@@ -675,7 +692,7 @@ them from function code with `Deno.env.get(...)`. Do not commit real keys.
 | Secret                  | Used by                                   | Required?                                                                    |
 | ----------------------- | ----------------------------------------- | ---------------------------------------------------------------------------- |
 | `DEMO_OTP`              | `verify-demo-otp`, `scripts/seed-demo.ts` | Required for demo login — the function 500s without it                       |
-| `SENTRY_DSN`            | `mcp-server`, `ics-proxy`                 | Optional — Sentry reporting no-ops gracefully if unset                       |
+| `SENTRY_DSN`            | every function (all wrap `withSentry`)    | Optional — Sentry reporting no-ops gracefully if unset. `generate-horoscopes` has no other durable failure signal, so set it there |
 | `ASTROLOGY_API_KEY`     | `generate-horoscopes`                     | Required — sent as the `x-astrologyapi-key` header; the function 500s without it |
 | `AI_GATEWAY_API_KEY`    | `generate-horoscopes`                     | Required — read implicitly by the AI SDK, never via `Deno.env.get`            |
 | `HOROSCOPE_CRON_SECRET` | `generate-horoscopes`                     | Required — must equal the Vault `generate_horoscopes_secret`; rotate together |

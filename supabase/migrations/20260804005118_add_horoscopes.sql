@@ -27,12 +27,15 @@
 --   prompt instruction, not a storage constraint — a schema-level cap would
 --   turn a slightly-long generation into a failed insert instead of a slightly
 --   long summary, and the limit is expected to move with prompt tuning.
--- * The `*_rating` columns are unvalidated third-party input, so each carries a
---   0..10 check. That bound is also what makes `numeric(4,2)` provably wide
---   enough for `average_rating`.
--- * `average_rating` is a stored generated column rather than a value the
---   function computes. "The average of all _rating fields" is then true by
---   construction, with no code path that can drift from it.
+-- * **No `*_rating` columns and no `average_rating`, despite DEX-84 asking for
+--   them.** The issue's sample response is from 2024 and includes six
+--   `<facet>_rating` integers; the live API no longer returns them. Verified
+--   2026-08-04 against `daily/next/aries`, `daily/next/leo`, `daily/aries`, and
+--   `daily/previous/aries` — every one returns exactly the six text facets and
+--   nothing else. So `average_rating` had nothing to average, and NOT NULL
+--   rating columns would have failed every insert. They are omitted rather than
+--   left nullable so the table says what the upstream actually provides. If
+--   AstrologyAPI restores the fields, adding them back is one migration.
 --
 -- These are the schema's first Postgres enums, which cuts against two existing
 -- decisions worth naming: `tasks.status` is a bare `smallint` with no enum or
@@ -83,10 +86,6 @@ begin
   end if;
 end $$;
 
--- Constraints are declared inline rather than added afterwards: `create table
--- if not exists` makes the whole statement idempotent, whereas `alter table ...
--- add constraint` has no IF NOT EXISTS form and would need a pg_constraint
--- guard of its own.
 create table if not exists public.horoscopes (
   sun_sign public.sun_sign not null,
   date date not null,
@@ -98,18 +97,6 @@ create table if not exists public.horoscopes (
   emotions text not null,
   travel text not null,
   luck text not null,
-  personal_life_rating smallint not null check (personal_life_rating between 0 and 10),
-  profession_rating smallint not null check (profession_rating between 0 and 10),
-  health_rating smallint not null check (health_rating between 0 and 10),
-  emotions_rating smallint not null check (emotions_rating between 0 and 10),
-  travel_rating smallint not null check (travel_rating between 0 and 10),
-  luck_rating smallint not null check (luck_rating between 0 and 10),
-  average_rating numeric(4, 2) generated always as (
-    (
-      personal_life_rating + profession_rating + health_rating
-      + emotions_rating + travel_rating + luck_rating
-    ) / 6.0
-  ) stored,
   created_at timestamptz not null default now(),
   primary key (sun_sign, date)
 );

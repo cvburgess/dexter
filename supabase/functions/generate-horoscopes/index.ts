@@ -44,9 +44,20 @@ function expectedDate(): string {
 }
 
 async function generateForSign(sign: TSunSign, apiKey: string) {
-  const response = await fetchPrediction(sign, apiKey);
-  const summary = await summarizePrediction(response.prediction);
-  return toHoroscopeRow(sign, response, summary);
+  try {
+    const response = await fetchPrediction(sign, apiKey);
+    const summary = await summarizePrediction(response.prediction);
+    return toHoroscopeRow(sign, response, summary);
+  } catch (error) {
+    // Twelve signs run concurrently and `Promise.allSettled` keeps only the
+    // reason, so without this the sign is lost for every failure that does not
+    // name it itself — "Summarization returned no object" and the Zod errors
+    // are the common ones. Sentry is the durable signal for this job
+    // (docs/backend.md "Scheduled jobs"), so it has to say which sign.
+    throw new Error(`Failed to generate the horoscope for ${sign}`, {
+      cause: error,
+    });
+  }
 }
 
 async function handler(req: Request): Promise<Response> {
@@ -148,6 +159,12 @@ async function handler(req: Request): Promise<Response> {
 
   for (const failure of failures) {
     captureException(failure.reason);
+    // Logged as well as reported. `captureException` silently no-ops when
+    // SENTRY_DSN is unset, which is every local run and any environment where
+    // Sentry was never configured — a real local run lost two signs with no
+    // trace at all before this was added. `supabase functions logs` is then the
+    // second signal in production and the only one anywhere else.
+    console.error(failure.reason);
   }
 
   if (rows.length > 0) {

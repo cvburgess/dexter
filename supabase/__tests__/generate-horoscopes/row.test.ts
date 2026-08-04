@@ -1,7 +1,10 @@
 import { assert, assertEquals, assertObjectMatch } from "@std/assert";
 
 import { toHoroscopeRow } from "../../functions/generate-horoscopes/row.ts";
-import type { TPredictionResponse } from "../../functions/generate-horoscopes/astrology.ts";
+import {
+  predictionResponseSchema,
+  type TPredictionResponse,
+} from "../../functions/generate-horoscopes/astrology.ts";
 
 // DEX-84.
 
@@ -15,12 +18,6 @@ const response: TPredictionResponse = {
     emotions: "d",
     travel: "e",
     luck: "f",
-    personal_life_rating: 6,
-    profession_rating: 7,
-    health_rating: 5,
-    emotions_rating: 6,
-    travel_rating: 8,
-    luck_rating: 7,
   },
 };
 
@@ -58,13 +55,23 @@ Deno.test("the summary and sentiment are carried across", () => {
   assertObjectMatch(toHoroscopeRow("gemini", response, summary), summary);
 });
 
-Deno.test("average_rating is left to the database", () => {
-  // It is a stored generated column. Sending a value would be rejected by
-  // Postgres, so the row must omit it entirely.
-  const row = toHoroscopeRow("cancer", response, summary);
+Deno.test("an added upstream field never reaches the insert", () => {
+  // `toHoroscopeRow` spreads the prediction, so on its own it would carry any
+  // extra key straight into the insert — where PostgREST rejects it as an
+  // unknown column, taking all twelve rows with it since they go up in one
+  // upsert. What actually prevents that is zod stripping unknown keys in
+  // `parse`, so the guarantee only holds end to end. This asserts the pair
+  // rather than the spread alone: the upstream has already changed shape once
+  // here (the 2024 sample's `<facet>_rating` fields are gone), so it can again.
+  const parsed = predictionResponseSchema.parse({
+    ...response,
+    prediction: { ...response.prediction, luck_rating: 7, brand_new: "x" },
+  });
+  const row = toHoroscopeRow("cancer", parsed, summary);
 
+  assert(!("luck_rating" in row), "a dropped column must not come back");
   assert(
-    !("average_rating" in row),
-    "average_rating is generated; including it in the insert fails at runtime",
+    !("brand_new" in row),
+    "an unknown upstream field must not reach the insert",
   );
 });

@@ -27,12 +27,6 @@ const prediction = {
   emotions: "Vivid dreams and intense feelings.",
   travel: "A short reflective retreat rewards you.",
   luck: "Trust your instincts.",
-  personal_life_rating: 6,
-  profession_rating: 7,
-  health_rating: 5,
-  emotions_rating: 6,
-  travel_rating: 8,
-  luck_rating: 7,
 };
 
 Deno.test("a summary and sentiment are read off the model output", async () => {

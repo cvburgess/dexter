@@ -7,9 +7,6 @@ import {
 } from "../../functions/generate-horoscopes/astrology.ts";
 import { SENTIMENTS } from "../../functions/generate-horoscopes/summarize.ts";
 
-/** The rating columns, derived so they cannot drift from the facets. */
-const RATING_COLUMNS = PREDICTION_FACETS.map((facet) => `${facet}_rating`);
-
 /** The enum labels declared in a `create type ... as enum (...)` block. */
 function enumLabels(typeName: string): string[] | undefined {
   const block = code.slice(code.indexOf(`create type ${typeName}`));
@@ -77,32 +74,31 @@ Deno.test("the primary key is (sun_sign, date), in that order", () => {
   );
 });
 
-Deno.test("average_rating is a stored generated column over every rating", () => {
-  const generated = create!.slice(create!.indexOf("average_rating"));
-
-  assertStringIncludes(generated, "generated always as");
-  assertStringIncludes(
-    generated,
-    "stored",
-    "a virtual generated column would not be readable by PostgREST",
-  );
-  for (const column of RATING_COLUMNS) {
+Deno.test("every facet the upstream returns has a NOT NULL column", () => {
+  for (const facet of PREDICTION_FACETS) {
     assertStringIncludes(
-      generated.slice(0, generated.indexOf("stored")),
-      column,
-      `${column} must be part of the average — the issue defines it as the mean of all of them`,
+      create!,
+      `${facet} text not null`,
+      `${facet} is parsed out of every response, so it needs a column`,
     );
   }
 });
 
-Deno.test("every rating column is bounded 0..10", () => {
-  for (const column of RATING_COLUMNS) {
-    assertStringIncludes(
-      create!,
-      `check (${column} between 0 and 10)`,
-      `${column} is unvalidated third-party input and must be bounded in the database`,
-    );
-  }
+Deno.test("no rating columns, matching what the API actually returns", () => {
+  // DEX-84's sample response (2024) carried a `<facet>_rating` integer per
+  // facet and an `average_rating` derived from them, but the live API returns
+  // only the six text facets — verified 2026-08-04 across four endpoints. NOT
+  // NULL rating columns would have failed every insert, and `average_rating`
+  // had nothing to average. Pinned so nobody restores them from the issue text
+  // without first re-checking a live response.
+  assert(
+    !create!.includes("_rating"),
+    "the upstream no longer sends ratings; re-check a live response before adding these back",
+  );
+  assert(
+    !create!.includes("generated always as"),
+    "there is nothing left to generate from",
+  );
 });
 
 Deno.test("RLS is enabled with a read-only policy and no write policy", () => {

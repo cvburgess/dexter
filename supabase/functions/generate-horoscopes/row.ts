@@ -23,8 +23,6 @@ export type THoroscopeRow = TablesInsert<"horoscopes">;
  * the upstream echo is free-form text, and it is the request that determines
  * which row this belongs to. `date` does come from the response, since the API
  * is the authority on which day it just described.
- *
- * `average_rating` is absent on purpose — it is a stored generated column.
  */
 export function toHoroscopeRow(
   sign: TSunSign,

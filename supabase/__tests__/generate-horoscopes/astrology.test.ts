@@ -10,6 +10,13 @@ import {
 // DEX-84. `index.ts` is a thin I/O shell by design, so the upstream contract —
 // request shape, response validation, date format — is pinned here instead.
 // Nothing in this file touches the network: `fetchPrediction` takes its fetch.
+//
+// The fixture below is the shape a live call actually returns (checked
+// 2026-08-04), NOT the sample in the issue. Those differ: the issue's 2024
+// sample carries a `<facet>_rating` integer per facet and the API no longer
+// sends them. Writing fixtures from the spec rather than from a real response is
+// what let that go unnoticed until the schema was already built around it — so
+// re-check against a live call before changing this.
 
 const prediction = {
   personal_life: "a",
@@ -18,12 +25,6 @@ const prediction = {
   emotions: "d",
   travel: "e",
   luck: "f",
-  personal_life_rating: 6,
-  profession_rating: 7,
-  health_rating: 5,
-  emotions_rating: 6,
-  travel_rating: 8,
-  luck_rating: 7,
 };
 
 const response = {
@@ -63,6 +64,11 @@ Deno.test("prediction dates are converted from D-M-YYYY to ISO", () => {
   assertEquals(parsePredictionDate("1-3-2024"), "2024-03-01");
   assertEquals(parsePredictionDate("01-12-2024"), "2024-12-01");
   assertEquals(parsePredictionDate(" 5-7-2026 "), "2026-07-05");
+  assertEquals(
+    parsePredictionDate("29-2-2024"),
+    "2024-02-29",
+    "a real leap day",
+  );
 });
 
 Deno.test("an unusable prediction date throws rather than producing a wrong one", () => {
@@ -76,6 +82,11 @@ Deno.test("an unusable prediction date throws rather than producing a wrong one"
       "tomorrow",
       "21-13-2024",
       "32-3-2024",
+      // A day that does not exist in that month. Passing it through would
+      // produce `2024-02-31`, which Postgres rejects — failing the whole
+      // twelve-row upsert rather than the one sign.
+      "31-2-2024",
+      "29-2-2023",
     ]
   ) {
     assertThrows(
@@ -127,20 +138,29 @@ Deno.test("a malformed prediction is rejected rather than partially stored", asy
   await assertRejects(() => fetchPrediction("virgo", "key", fetchImpl));
 });
 
-Deno.test("out-of-range ratings are rejected before they reach the check constraint", () => {
-  // The column bound is 0..10. Catching it here turns a constraint violation
-  // that would abort the whole upsert into one failed sign.
+Deno.test("a non-string facet is rejected", () => {
+  // Every facet lands in a NOT NULL text column, so a non-string has to fail
+  // here — one failed sign — rather than at the upsert, which would take the
+  // whole batch with it.
   const result = predictionResponseSchema.safeParse({
     ...response,
-    prediction: { ...prediction, luck_rating: 47 },
+    prediction: { ...prediction, luck: 7 },
   });
-  assert(!result.success);
 
-  const fractional = predictionResponseSchema.safeParse({
+  assert(!result.success);
+});
+
+Deno.test("extra upstream fields are tolerated, not rejected", () => {
+  // The upstream has already changed shape once under this feature (the 2024
+  // sample's `<facet>_rating` fields are gone). A schema that rejected unknown
+  // keys would turn a purely additive upstream change into twelve failed signs,
+  // so the fields we need are required and anything else is ignored.
+  const result = predictionResponseSchema.safeParse({
     ...response,
-    prediction: { ...prediction, luck_rating: 7.5 },
+    prediction: { ...prediction, luck_rating: 7, some_new_facet: "x" },
   });
-  assert(!fractional.success, "smallint cannot hold a fraction");
+
+  assert(result.success);
 });
 
 Deno.test("a well-formed response parses", async () => {
@@ -148,5 +168,5 @@ Deno.test("a well-formed response parses", async () => {
   const parsed = await fetchPrediction("aries", "key", fetchImpl);
 
   assertEquals(parsed.prediction_date, "21-3-2024");
-  assertEquals(parsed.prediction.luck_rating, 7);
+  assertEquals(parsed.prediction.luck, "f");
 });

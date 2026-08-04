@@ -40,7 +40,7 @@ export const ZODIAC_SIGNS = [
 const API_BASE =
   "https://json.astrologyapi.com/v1/sun_sign_prediction/daily/next";
 
-/** The six prediction facets, each of which also has a `<facet>_rating`. */
+/** The six facets the upstream returns, which are also the column names. */
 export const PREDICTION_FACETS = [
   "personal_life",
   "profession",
@@ -50,11 +50,11 @@ export const PREDICTION_FACETS = [
   "luck",
 ] as const;
 
-// Ratings are third-party input that lands in a smallint column with a 0..10
-// check constraint, so the bound is enforced here too — a 47 should fail as a
-// legible validation error rather than as a constraint violation mid-upsert.
-const ratingSchema = z.number().int().min(0).max(10);
-
+// Exactly the six text facets, and nothing else. DEX-84's sample response (from
+// 2024) also carried a `<facet>_rating` integer for each, but the live API no
+// longer returns them — verified 2026-08-04 across four endpoints and two signs.
+// Requiring them here would fail every sign; accepting them optionally would
+// ship six columns that are always null. See the migration header.
 export const predictionSchema = z.object({
   personal_life: z.string(),
   profession: z.string(),
@@ -62,12 +62,6 @@ export const predictionSchema = z.object({
   emotions: z.string(),
   travel: z.string(),
   luck: z.string(),
-  personal_life_rating: ratingSchema,
-  profession_rating: ratingSchema,
-  health_rating: ratingSchema,
-  emotions_rating: ratingSchema,
-  travel_rating: ratingSchema,
-  luck_rating: ratingSchema,
 });
 
 export const predictionResponseSchema = z.object({
@@ -93,12 +87,22 @@ export function parsePredictionDate(value: string): string {
     throw new Error(`Unrecognized prediction_date: ${value}`);
   }
   const [, day, month, year] = match;
-  const monthNumber = Number(month);
-  const dayNumber = Number(day);
-  if (monthNumber < 1 || monthNumber > 12 || dayNumber < 1 || dayNumber > 31) {
+  const iso = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+
+  // A range check on the fields alone would let `31-2-2026` through as
+  // `2026-02-31`, which Postgres rejects — and because all twelve rows go up in
+  // one upsert, that would fail the whole batch rather than the one sign the
+  // per-sign isolation is built to contain. The round-trip catches it: JS rolls
+  // an impossible day over (`2026-02-31` → `2026-03-03`) instead of erroring,
+  // so a value that comes back unchanged is a real calendar date.
+  const parsed = new Date(`${iso}T00:00:00Z`);
+  if (
+    Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== iso
+  ) {
     throw new Error(`Out-of-range prediction_date: ${value}`);
   }
-  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+
+  return iso;
 }
 
 /**
