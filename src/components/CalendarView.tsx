@@ -309,6 +309,12 @@ function HourRow({
   return (
     <View>
       <Text
+        // One line, always: the label is absolutely positioned and centered by
+        // half its own font size, so a wrap would both overlap the hour below
+        // and put the first line off the line it names. At `subtitle`'s 14 the
+        // widest label ("12 AM") nearly fills the 42pt gutter, so a modest
+        // system font scale is enough to wrap it.
+        numberOfLines={1}
         style={[
           styles.hourLabel,
           theme.fonts.subtitle,

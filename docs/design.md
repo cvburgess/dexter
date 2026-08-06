@@ -225,10 +225,11 @@ above the other (`ListRow`, `HabitRow`, `SettingsRow`, `TemplateRow`,
 reaching for `subtitle`, there should be a `title` above it — or, in the one
 case that isn't a pair, something else it annotates: `CalendarView`'s hour
 labels and event times take `subtitle` because they label the *grid*, and it is
-the smallest role there is.
+the lightest role there is.
 
 **`subtitle` and `body` are the same size** — 14/400 on `comfortable`, 12/400 on
-`compact` — so there are six roles but five distinct renderings. This is
+`compact` — so, with `control` and `title` already sharing 16/600, six roles
+resolve to four distinct renderings. This is
 deliberate, not a leftover: a row's second line is content the user is meant to
 read, and at 12 it read as fine print next to its 16pt title. The two roles stay
 separate because they answer different questions (`subtitle` annotates the
