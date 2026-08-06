@@ -93,6 +93,19 @@ describe("AppearanceScreen", () => {
     expect(style.gap).toBe(style.padding);
   });
 
+  // The swatches used to take `flex: 1` against a fixed height, which drew them
+  // as tall ovals. They are circles: a square box at `radii.full`.
+  it("draws a theme card's color swatches as circles", () => {
+    const screen = renderWith();
+
+    const swatches = screen.getByTestId("appearance-swatches-dexter");
+    for (const swatch of swatches.props.children) {
+      const style = StyleSheet.flatten(swatch.props.style as ViewStyle);
+      expect(style.width).toBe(style.height);
+      expect(style.borderRadius).toBe(999);
+    }
+  });
+
   it("renders the mode control and both theme sections in SYSTEM mode", () => {
     const screen = renderWith();
 

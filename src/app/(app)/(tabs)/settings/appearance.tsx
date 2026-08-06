@@ -174,18 +174,22 @@ function ThemeCard({
       ]}
       testID={`appearance-theme-${name}`}
     >
-      <View style={[styles.swatches, { gap: uiTheme.space.xs }]}>
+      <View
+        style={[styles.swatches, { gap: uiTheme.space.xs }]}
+        testID={`appearance-swatches-${name}`}
+      >
         {swatches.map((color, i) => (
           <View
             key={i}
-            style={[
-              styles.swatch,
-              {
-                backgroundColor: color,
-                borderRadius: uiTheme.radii.md,
-                height: uiTheme.controls.sm,
-              },
-            ]}
+            style={{
+              backgroundColor: color,
+              // A circle, so the radius is `full` rather than a point on the
+              // scale, and the box is square rather than stretched to fill the
+              // card's width.
+              borderRadius: uiTheme.radii.full,
+              height: uiTheme.space.lg,
+              width: uiTheme.space.lg,
+            }}
           />
         ))}
       </View>
@@ -207,8 +211,10 @@ function ThemeCard({
 
 const styles = StyleSheet.create({
   card: {
-    // Wide enough for the longest theme name beside its checkmark; the swatch
-    // row below it has no intrinsic width of its own.
+    // Wide enough for the longest theme name beside its checkmark, and — not by
+    // accident — for the swatch row too: at comfortable four `space.lg` circles
+    // and three `space.xs` gaps come to 108, exactly this width less the card's
+    // `md` padding either side.
     minWidth: 140,
     overflow: "hidden",
   },
@@ -228,9 +234,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   screen: {
-    flex: 1,
-  },
-  swatch: {
     flex: 1,
   },
   swatches: {
