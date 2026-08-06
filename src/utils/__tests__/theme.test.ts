@@ -155,6 +155,9 @@ describe("density tiers", () => {
 
     expect(result.current.space).toBe(DENSITY.comfortable.space);
     expect(result.current.fonts.body.fontSize).toBe(14);
+    // `subtitle` deliberately matches `body` rather than sitting under it — see
+    // the type-scale section of docs/design.md.
+    expect(result.current.fonts.subtitle.fontSize).toBe(14);
     expect(result.current.controls.md).toBe(40);
   });
 
@@ -166,6 +169,7 @@ describe("density tiers", () => {
 
     expect(result.current.space).toBe(DENSITY.compact.space);
     expect(result.current.fonts.body.fontSize).toBe(12);
+    expect(result.current.fonts.subtitle.fontSize).toBe(12);
     expect(result.current.controls.md).toBe(32);
   });
 

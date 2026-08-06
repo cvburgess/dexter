@@ -27,14 +27,18 @@ export function SettingsRow({
       style={[
         styles.container,
         {
-          // `md`, not the in-group `sm`: the leading icon and the title/subtitle
-          // pair are two different things sharing a row, not two controls in a
-          // cluster, and at `sm` the glyph crowded the title. This row is
+          // `md` throughout, never the in-group `sm`. For `gap`: the leading
+          // icon and the title/subtitle pair are two different things sharing a
+          // row, not two controls in a cluster, and at `sm` the glyph crowded
+          // the title. For the padding: a menu item is a destination you press,
+          // not a dense list of data, so it gets the same inset on all four
+          // sides — which is also what `SettingsSidebar` already gives its rows,
+          // so the phone and two-pane paths stay the same shape. This row is
           // small-screen only — wide screens redirect the list to a detail and
           // `SettingsSidebar` takes over (see settings/index.tsx).
           gap: theme.space.md,
           paddingHorizontal: theme.space.md,
-          paddingVertical: theme.space.sm,
+          paddingVertical: theme.space.md,
         },
       ]}
       testID={testID}
@@ -54,9 +58,15 @@ export function SettingsRow({
           {subtitle}
         </Text>
       </View>
+      {/*
+        `icons.md`, matching the leading glyph rather than taking `icons.sm`
+        like an inline affordance would. This chevron terminates the row it
+        belongs to, so it reads as that glyph's counterweight across the row;
+        at `sm` it was small enough to disappear against the subtitle.
+      */}
       <SettingsIcon
         name="chevron-forward-outline"
-        size={theme.icons.sm}
+        size={theme.icons.md}
         color={theme.colors.textSecondary}
       />
     </TouchableOpacity>

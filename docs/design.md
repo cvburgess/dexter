@@ -225,7 +225,18 @@ above the other (`ListRow`, `HabitRow`, `SettingsRow`, `TemplateRow`,
 reaching for `subtitle`, there should be a `title` above it — or, in the one
 case that isn't a pair, something else it annotates: `CalendarView`'s hour
 labels and event times take `subtitle` because they label the *grid*, and it is
-the smallest role there is.
+the lightest role there is.
+
+**`subtitle` and `body` are the same size** — 14/400 on `comfortable`, 12/400 on
+`compact` — so, with `control` and `title` already sharing 16/600, six roles
+resolve to four distinct renderings. This is
+deliberate, not a leftover: a row's second line is content the user is meant to
+read, and at 12 it read as fine print next to its 16pt title. The two roles stay
+separate because they answer different questions (`subtitle` annotates the
+`title` above it; `body` stands alone), and because only one of them is pinned
+to the other — if `title` ever moves, `subtitle` follows it and `body` does not.
+Pick by role, and don't collapse the two just because they currently resolve to
+the same numbers.
 
 `heading` is not "a bigger `title`" — it is a different axis. `title` names a
 *component*; `heading` names the *screen or pane*, and there is one per view.
@@ -265,6 +276,13 @@ row's or nav item's leading icon. Kept separate from `fonts` because an icon's
 optical size doesn't track the type beside it — a 20pt icon reads as the peer of
 a 16pt label.
 
+**One exception: a disclosure chevron that terminates a row with an `icons.md`
+leading glyph takes `icons.md` too**, not `icons.sm`. It isn't an inline
+affordance sitting *within* a line of text — it is the counterweight to the
+leading glyph at the far end of the same row, and the pair reads as lopsided
+when the two differ. `SettingsRow` is the case; `icons.sm` stays correct for a
+chevron with no leading glyph opposite it.
+
 **Emoji are icons**, not type: an emoji standing in for an icon (list tiles,
 habit tiles, habit rings) is sized from `icons`, not from a font role.
 
@@ -278,8 +296,8 @@ type does, and literals keep every value an integer.
 
 | | `space` xs/sm/md/lg | `fonts` subtitle/body/control/title/heading/display | `radii` md/full | `controls` md/sm | `icons` sm/md |
 | --- | --- | --- | --- | --- | --- |
-| comfortable | 4 / 8 / 16 / 24 | 12 / 14 / 16 / 16 / 24 / 40 | 12 / 999 | 40 / 32 | 14 / 20 |
-| compact | 3 / 6 / 12 / 18 | 11 / 12 / 14 / 14 / 20 / 32 | 12 / 999 | 32 / 26 | 12 / 18 |
+| comfortable | 4 / 8 / 16 / 24 | 14 / 14 / 16 / 16 / 24 / 40 | 12 / 999 | 40 / 32 | 14 / 20 |
+| compact | 3 / 6 / 12 / 18 | 12 / 12 / 14 / 14 / 20 / 32 | 12 / 999 | 32 / 26 | 12 / 18 |
 
 Because `StyleSheet.create` values are static, anything that varies by tier goes
 in the inline style array — the pattern `docs/frontend.md` already prescribes for

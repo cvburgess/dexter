@@ -90,18 +90,32 @@ export default function TasksScreen() {
         {isAlarmSupported && (
           <View style={{ gap: theme.space.sm }}>
             <SettingsSectionTitle>Alarms</SettingsSectionTitle>
-            <PickerField
-              label="Sound"
-              options={ALARM_SOUNDS}
-              // Resolved, not raw: the column is unconstrained text, and the
-              // Picker needs a value matching one of its items or it renders
-              // with nothing selected.
-              selectedValue={resolveAlarmSound(alarmSound)}
-              testID="alarm-sound-picker"
-              onValueChange={(value) =>
-                updatePreferences({ alarmSound: value })
-              }
-            />
+            {/* The card is here rather than inside `PickerField` because this is
+                the only picker that is a settings input. Its other six call
+                sites (`tasks/[id].tsx`, `TaskForm`) are bare rows stacked into
+                a form, where a card per row would fight the grouping. Same
+                surface/radius/padding as `SettingsToggleCard`, which is what
+                every other standalone settings input already sits on. */}
+            <View
+              style={{
+                backgroundColor: theme.colors.surfaceSunken,
+                borderRadius: theme.radii.md,
+                padding: theme.space.md,
+              }}
+            >
+              <PickerField
+                label="Sound"
+                options={ALARM_SOUNDS}
+                // Resolved, not raw: the column is unconstrained text, and the
+                // Picker needs a value matching one of its items or it renders
+                // with nothing selected.
+                selectedValue={resolveAlarmSound(alarmSound)}
+                testID="alarm-sound-picker"
+                onValueChange={(value) =>
+                  updatePreferences({ alarmSound: value })
+                }
+              />
+            </View>
           </View>
         )}
 

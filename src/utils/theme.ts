@@ -162,7 +162,9 @@ export const DENSITY: Record<TDensity, TDensityTokens> = {
   comfortable: {
     space: { xs: 4, sm: 8, md: 16, lg: 24 },
     fonts: {
-      subtitle: { fontSize: 12, fontWeight: "400" },
+      // `subtitle` matches `body`'s size on purpose — see docs/design.md. A
+      // second line at 12 read as fine print rather than as content.
+      subtitle: { fontSize: 14, fontWeight: "400" },
       body: { fontSize: 14, fontWeight: "400" },
       control: { fontSize: 16, fontWeight: "600" },
       title: { fontSize: 16, fontWeight: "600" },
@@ -176,7 +178,7 @@ export const DENSITY: Record<TDensity, TDensityTokens> = {
   compact: {
     space: { xs: 3, sm: 6, md: 12, lg: 18 },
     fonts: {
-      subtitle: { fontSize: 11, fontWeight: "400" },
+      subtitle: { fontSize: 12, fontWeight: "400" },
       body: { fontSize: 12, fontWeight: "400" },
       control: { fontSize: 14, fontWeight: "600" },
       title: { fontSize: 14, fontWeight: "600" },
