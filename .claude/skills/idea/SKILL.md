@@ -54,16 +54,23 @@ git checkout -b idea-<short-slug> main
 
 The branch is **never renamed**, even after the Linear issue exists. `/open-pr` writes a `Closes [DEX-XXX]` line into the PR body, and that is what links the issue.
 
-Then bootstrap the environment **now**, so a slow install overlaps with the build instead of stalling the hand-off in Step 6:
+Then bootstrap the environment **now**, so a slow install overlaps with the build instead of stalling the hand-off in Step 6. The two commands below run differently — don't combine them into one call.
+
+**1. Point the app at production Supabase** — fast, run it in the foreground:
 
 ```bash
 .claude/skills/use-preview-branch/scripts/swap-env.sh --prod
+```
+
+It's idempotent and self-detecting: it resolves the repo root itself, copies `src/.env.local` from the main checkout when it's missing (a fresh worktree has none), points it at production, and fails loudly if no active Supabase key pair survives. A brand-new `idea-` branch has no Supabase preview branch yet, so production is correct — if the idea later needs one, `/use-preview-branch` handles the switch. If the main checkout was pointed at a preview, this flips it back to prod; mention that rather than letting it be silent.
+
+**2. Install dependencies** — run this as a **background task with a long timeout**, never in the foreground. In a fresh worktree it's several minutes plus a `postinstall: patch-package` pass, far past the default Bash timeout:
+
+```bash
 [ -f src/node_modules/.package-lock.json ] || (cd src && npm install)
 ```
 
-The first line is idempotent and self-detecting: it resolves the repo root itself, copies `src/.env.local` from the main checkout when it's missing (a fresh worktree has none), points it at production, and fails loudly if no active Supabase key pair survives. A brand-new `idea-` branch has no Supabase preview branch yet, so production is correct — if the idea later needs one, `/use-preview-branch` handles the switch. If the main checkout was pointed at a preview, this flips it back to prod; mention that rather than letting it be silent.
-
-Run `npm install` as a **background** task with a long timeout — in a fresh worktree it's several minutes and a `postinstall: patch-package` pass, far past the default Bash timeout.
+Then go straight to Step 5 — the build doesn't wait on the install, only the dev server in Step 6 does.
 
 ### Step 5: Build the MVP
 
