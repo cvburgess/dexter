@@ -173,7 +173,7 @@ export const DENSITY: Record<TDensity, TDensityTokens> = {
     },
     radii: { md: 12, full: 999 },
     controls: { md: 40, sm: 32 },
-    icons: { sm: 14, md: 20 },
+    icons: { sm: 14, md: 24 },
   },
   compact: {
     space: { xs: 3, sm: 6, md: 12, lg: 18 },
@@ -189,7 +189,7 @@ export const DENSITY: Record<TDensity, TDensityTokens> = {
     // the same card on both tiers, just a smaller one.
     radii: { md: 12, full: 999 },
     controls: { md: 32, sm: 26 },
-    icons: { sm: 12, md: 18 },
+    icons: { sm: 12, md: 22 },
   },
 };
 
