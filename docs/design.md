@@ -273,8 +273,10 @@ drift away from the rows it joins).
 
 `icons.sm` is an inline affordance (a chevron, a menu glyph); `icons.md` is a
 row's or nav item's leading icon. Kept separate from `fonts` because an icon's
-optical size doesn't track the type beside it — a 20pt icon reads as the peer of
-a 16pt label.
+optical size doesn't track the type beside it — a 24pt icon reads as the peer of
+a 16pt label. `md` is deliberately half again the type it sits next to: at 20 the
+glyph read as subordinate to its own row's title rather than as its equal, which
+is what set Dexter's rows apart from the sibling app they are tuned against.
 
 **One exception: a disclosure chevron that terminates a row with an `icons.md`
 leading glyph takes `icons.md` too**, not `icons.sm`. It isn't an inline
@@ -296,8 +298,8 @@ type does, and literals keep every value an integer.
 
 | | `space` xs/sm/md/lg | `fonts` subtitle/body/control/title/heading/display | `radii` md/full | `controls` md/sm | `icons` sm/md |
 | --- | --- | --- | --- | --- | --- |
-| comfortable | 4 / 8 / 16 / 24 | 14 / 14 / 16 / 16 / 24 / 40 | 12 / 999 | 40 / 32 | 14 / 20 |
-| compact | 3 / 6 / 12 / 18 | 12 / 12 / 14 / 14 / 20 / 32 | 12 / 999 | 32 / 26 | 12 / 18 |
+| comfortable | 4 / 8 / 16 / 24 | 14 / 14 / 16 / 16 / 24 / 40 | 12 / 999 | 40 / 32 | 14 / 24 |
+| compact | 3 / 6 / 12 / 18 | 12 / 12 / 14 / 14 / 20 / 32 | 12 / 999 | 32 / 26 | 12 / 22 |
 
 Because `StyleSheet.create` values are static, anything that varies by tier goes
 in the inline style array — the pattern `docs/frontend.md` already prescribes for
