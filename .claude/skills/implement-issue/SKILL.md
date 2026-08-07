@@ -172,7 +172,7 @@ Before opening a PR, use the `/quick-code-review` skill to review your own chang
 
 It sizes the review to the change: a fast hunk-level pass for small contained diffs, a deeper full-context pass for larger ones or anything touching migrations, RLS, shared data flow, or build config. It applies the fixes itself, so review the result with `git diff` before committing.
 
-If the review surfaces substantive issues, fix them and commit before proceeding. If the review is clean, move on.
+Read the applied fixes before committing them. If the review flagged something it deliberately skipped, decide whether it needs handling now or is a follow-up. If the review came back clean with nothing to apply, move on.
 
 ### Step 10: Open a Pull Request
 

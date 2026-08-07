@@ -47,10 +47,10 @@ If `$ARGUMENTS` contains `light` or `heavy`, use that mode, say so in one line, 
 Then check **fan-in**. For each changed non-test file under `src/` (skip this if more than 10 files changed — you are already in heavy mode), count its importers:
 
 ```bash
-grep -rl "from ['\"].*<basename-without-extension>['\"]" src --include=*.ts --include=*.tsx | wc -l
+grep -rl "from ['\"].*<basename-without-extension>['\"]" src --include=*.ts --include=*.tsx
 ```
 
-**8 or more importers** on any changed module means heavy. A widely-imported module has a large blast radius by definition, however few lines changed.
+Count the files it lists. **8 or more importers** on any changed module means heavy. A widely-imported module has a large blast radius by definition, however few lines changed.
 
 ### Step 4: Apply the size thresholds
 
