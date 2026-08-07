@@ -23,7 +23,10 @@ Run these **in one parallel batch**:
 git diff main...HEAD --stat
 git diff main...HEAD --name-only
 git diff HEAD --stat
+git diff HEAD --name-only
 ```
+
+**Triage on the union of both.** Every check below — the blast-radius paths in Step 3, the fan-in count, and the size thresholds in Step 4 — runs against the combined file list and the combined line counts, not the committed diff alone. An uncommitted edit to a migration or a lockfile has exactly the same blast radius as a committed one, and reviews often run before the commit.
 
 If there is no diff against `main` and no uncommitted changes, tell the user there is nothing to review and stop.
 

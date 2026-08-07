@@ -174,21 +174,21 @@ The work is already done, so this issue is lighter than `/create-issue`'s — no
 < decisions made while iterating, remaining stubs, follow-ups >
 ```
 
-**Then rename the branch.** `save_issue` returns a `gitBranchName` field — Linear's own name for the issue, like `dex-133-add-quick-code-review-skill`. Use it verbatim:
+**Then rename the branch — but check that it is still local first.** Run this before anything else:
+
+```bash
+git rev-parse --abbrev-ref --symbolic-full-name @{upstream}
+```
+
+If that **resolves**, the branch is already pushed. **Stop — do not rename.** `git branch -m` only renames locally, so the next push would create a second remote branch and strand any existing PR on the old one. Say you're leaving the name as-is and why, then move on. In the normal flow this never fires, because the push doesn't happen until Step 11.
+
+If it **errors** with `no upstream configured`, the branch is local and safe to rename. `save_issue` returns a `gitBranchName` field — Linear's own name for the issue, like `dex-133-add-quick-code-review-skill`. Use it verbatim:
 
 ```bash
 git branch -m <gitBranchName>
 ```
 
 This is worth doing: the name carries the issue number, and `/open-pr` can recover the Linear identifier from a branch matching `^([a-z]+)-(\d+)-` without being told. An `idea-<slug>` branch never matches, so the ID has to be passed by hand.
-
-**Only rename while the branch is still local.** Check first:
-
-```bash
-git rev-parse --abbrev-ref --symbolic-full-name @{upstream}
-```
-
-If that resolves, the branch is already pushed — **do not rename it.** `git branch -m` only renames locally, so the next push would create a second remote branch and strand any existing PR on the old one. Say you're leaving the name as-is and why. In the normal flow this never fires, because the push doesn't happen until Step 11.
 
 Report what the review found and fixed, give the issue URL and the new branch name, then **stop and wait.** The review edited the working tree, so the user needs to look at those changes before a PR exists. Only go to Step 11 once they've seen them and said to proceed.
 
