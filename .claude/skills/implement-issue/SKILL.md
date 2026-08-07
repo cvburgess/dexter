@@ -162,15 +162,17 @@ Review which docs need updating based on what changed:
 
 Only make factual updates — no speculative or cosmetic edits. Skip docs that aren't affected. Most issues need 0–2 doc updates.
 
-### Step 9: Self-review as a staff engineer
+### Step 9: Self-review
 
-Before opening a PR, use the `/review-as-staff` skill to review your own changes. This catches issues before they reach a human reviewer.
+Before opening a PR, use the `/quick-code-review` skill to review your own changes. This catches issues before they reach a human reviewer.
 
 ```
-/review-as-staff
+/quick-code-review
 ```
 
-If the review surfaces substantive issues, fix them and commit before proceeding. If the review is clean, move on.
+It sizes the review to the change: a fast hunk-level pass for small contained diffs, a deeper full-context pass for larger ones or anything touching migrations, RLS, shared data flow, or build config. It applies the fixes itself, so review the result with `git diff` before committing.
+
+Read the applied fixes before committing them. If the review flagged something it deliberately skipped, decide whether it needs handling now or is a follow-up. If the review came back clean with nothing to apply, move on.
 
 ### Step 10: Open a Pull Request
 

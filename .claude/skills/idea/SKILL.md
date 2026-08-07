@@ -52,7 +52,7 @@ Stubbing the snooze-duration picker as a fixed +1 day for now.
 git checkout -b idea-<short-slug> main
 ```
 
-The branch is **never renamed**, even after the Linear issue exists. `/open-pr` writes a `Closes [DEX-XXX]` line into the PR body, and that is what links the issue.
+The slug is a throwaway — the idea has no issue number yet. Step 10 renames the branch to Linear's own name once the issue exists, so don't agonize over it here.
 
 Then bootstrap the environment **now**, so a slow install overlaps with the build instead of stalling the hand-off in Step 6. The two commands below run differently — don't combine them into one call.
 
@@ -79,7 +79,7 @@ The smallest thing that can be looked at and reacted to. Rules:
 1. **Stub aggressively.** Hardcode anything that isn't the core of the idea — copy, durations, sort orders, seed data. Keep a running list of what was stubbed.
 2. **Use the real design tokens** from `src/utils/theme.ts` (see `docs/design.md`). The iteration ahead is mostly visual, so the MVP has to render in the app's actual type scale, spacing, and colors — a prototype in arbitrary values can't be judged.
 3. **TypeScript, no `any`.**
-4. **No tests. No doc updates. No `/review-as-staff`.** This is a prohibition, not an oversight. The natural pull is to add them; resist it until Act 2.
+4. **No tests. No doc updates. No `/quick-code-review`.** This is a prohibition, not an oversight. The natural pull is to add them; resist it until Act 2.
 
 Lint and format run automatically via the `PostToolUse` hook, so don't invoke them by hand.
 
@@ -147,19 +147,19 @@ This is where the rigor from `/implement-issue` gets borrowed:
 
 Skip documentation updates here — `/open-pr` walks the doc mapping table in Step 11.
 
-### Step 10: Hand off review and create the Linear issue
+### Step 10: Review the work, create the Linear issue, and rename the branch
 
-Do both in the same turn.
+Do all three in the same turn, in this order.
 
-**Prompt the user to review.** Tell them to run:
+**Review the work.** Invoke the `/quick-code-review` skill:
 
 ```
-/code-review high --fix
+/quick-code-review
 ```
 
-This surfaces correctness bugs plus reuse/simplification cleanups and applies the fixes to the working tree. Let the user run it — the point is that it happens in parallel with the issue creation below, not that you can't invoke it. (`/review-as-staff` is the heavier option: the same review followed by `/simplify`.)
+It sizes the review to the change and applies the fixes to the working tree. A formalized idea has usually grown past a hunk-level pass, so expect it to pick heavy mode — let it, and don't force a mode unless the diff really is a few contained lines.
 
-**While they review, create the Linear issue.** Call `save_issue` with `team: "DEX"`, `state: "In Progress"`, and a label mapped from the work type (`Enhancement`, `Bug`, or `Chore`). Use `list_issue_labels` / `list_issue_statuses` if either name doesn't resolve.
+**Then create the Linear issue.** Call `save_issue` with `team: "DEX"`, `state: "In Progress"`, and a label mapped from the work type (`Enhancement`, `Bug`, or `Chore`). Use `list_issue_labels` / `list_issue_statuses` if either name doesn't resolve.
 
 The work is already done, so this issue is lighter than `/create-issue`'s — no `## Plan`, no `## Test Cases`:
 
@@ -174,7 +174,23 @@ The work is already done, so this issue is lighter than `/create-issue`'s — no
 < decisions made while iterating, remaining stubs, follow-ups >
 ```
 
-Return the issue URL, then **stop and wait.** Only go to Step 11 after the user comes back with review feedback and you've fixed what it found.
+**Then rename the branch — but check that it is still local first.** Run this before anything else:
+
+```bash
+git rev-parse --abbrev-ref --symbolic-full-name @{upstream}
+```
+
+If that **resolves**, the branch is already pushed. **Stop — do not rename.** `git branch -m` only renames locally, so the next push would create a second remote branch and strand any existing PR on the old one. Say you're leaving the name as-is and why, then move on. In the normal flow this never fires, because the push doesn't happen until Step 11.
+
+If it **errors** with `no upstream configured`, the branch is local and safe to rename. `save_issue` returns a `gitBranchName` field — Linear's own name for the issue, like `dex-133-add-quick-code-review-skill`. Use it verbatim:
+
+```bash
+git branch -m <gitBranchName>
+```
+
+This is worth doing: the name carries the issue number, and `/open-pr` can recover the Linear identifier from a branch matching `^([a-z]+)-(\d+)-` without being told. An `idea-<slug>` branch never matches, so the ID has to be passed by hand.
+
+Report what the review found and fixed, give the issue URL and the new branch name, then **stop and wait.** The review edited the working tree, so the user needs to look at those changes before a PR exists. Only go to Step 11 once they've seen them and said to proceed.
 
 ### Step 11: Open the PR
 
@@ -182,7 +198,7 @@ Return the issue URL, then **stop and wait.** Only go to Step 11 after the user 
 /open-pr DEX-XXX
 ```
 
-It handles the push, the documentation mapping table, the PR body, and the `Closes` link that ties the branch back to Linear.
+It handles the push, the documentation mapping table, the PR body, and the `Closes` link that ties the branch back to Linear. Pass the identifier anyway even though the renamed branch now carries it — an explicit argument beats a regex fallback.
 
 ## Important
 
