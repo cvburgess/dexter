@@ -4,7 +4,7 @@ import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CalendarView } from "@/components/CalendarView";
-import { DayNav } from "@/components/DayNav";
+import { DayNavHeader } from "@/components/DayNavHeader";
 import { DayViewSwitcher, TDayView } from "@/components/DayViewSwitcher";
 import { JournalView } from "@/components/JournalView";
 import { NotesView } from "@/components/NotesView";
@@ -125,12 +125,13 @@ export function SmallScreenToday({
       edges={["top", "left", "right"]}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      <View style={styles.header}>
-        <DayNav date={date} onChangeDate={changeDate} />
-        <View style={styles.switcher}>
-          {/* The task-drawer trigger lives inside this menu (via onOpenDrawer)
-              rather than as a second header button — a standalone button here
-              crowded DayNav's next-day arrow. */}
+      <DayNavHeader
+        date={date}
+        onChangeDate={changeDate}
+        trailing={
+          /* The task-drawer trigger lives inside this menu (via onOpenDrawer)
+             rather than as a second header button — a standalone button here
+             crowded DayNav's next-day arrow. */
           <DayViewSwitcher
             view={activeView}
             onChangeView={setView}
@@ -152,8 +153,8 @@ export function SmallScreenToday({
             enableJournal={preferences.enableJournal}
             enableCalendar={preferences.enableCalendar}
           />
-        </View>
-      </View>
+        }
+      />
       <DayViewContent
         view={activeView}
         date={date}
@@ -219,20 +220,5 @@ function DayViewContent({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  // DayNav spans the full width so its arrows/date stay screen-centered; the
-  // compact switcher button is overlaid at the right edge (absolute) rather
-  // than taking row space, which would shift DayNav off-center.
-  header: {
-    justifyContent: "center",
-  },
-  switcher: {
-    alignItems: "center",
-    bottom: 0,
-    flexDirection: "row",
-    justifyContent: "center",
-    position: "absolute",
-    right: 20,
-    top: 0,
   },
 });

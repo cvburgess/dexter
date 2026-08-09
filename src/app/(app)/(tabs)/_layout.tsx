@@ -40,6 +40,13 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Icon sf="sun.max" md="light_mode" />
         <NativeTabs.Trigger.Label>Today</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
+      {/* Unlike Week, Ritual *is* a phone destination — it's a phone-first flow,
+          and a large screen reaches the same experience through the play button
+          in its toolbar rather than through a wider layout (DEX-127). */}
+      <NativeTabs.Trigger name="ritual">
+        <NativeTabs.Trigger.Icon sf="sparkles" md="auto_awesome" />
+        <NativeTabs.Trigger.Label>Ritual</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
       {/* No `week` trigger: seven columns don't fit a phone (DEX-96), and a
           phone is the only thing that reaches this branch. Its route is
           therefore never registered here, so `/week` doesn't resolve on a

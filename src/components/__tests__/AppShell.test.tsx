@@ -70,6 +70,7 @@ describe("AppShell", () => {
     const screen = render(<AppShell rail={rail} />);
 
     expect(screen.getByText("tab-screen:today")).toBeTruthy();
+    expect(screen.getByText("tab-screen:ritual")).toBeTruthy();
     expect(screen.getByText("tab-screen:week")).toBeTruthy();
     expect(screen.getByText("tab-screen:settings")).toBeTruthy();
     expect(screen.getByText("tab-screen:search")).toBeTruthy();

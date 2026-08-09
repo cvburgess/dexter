@@ -67,6 +67,21 @@ export default function AppLayout() {
         name="edit-task/[id]"
         options={createModalScreenOptions(theme, "Edit Task")}
       />
+      {/* The only modal that hides its header on *both* platforms and draws its
+          own in-tree (DEX-127). Its header's centered element is a `DayNav`, not
+          a title string — and on iOS `DayNav`'s picker branch is a hosted
+          SwiftUI view, which this app requires be pinned to an exact size or it
+          renders untappable. A nav bar's async-sized title view is the worst
+          place for one. Web settles it anyway: `stackOptions.web.ts` already
+          hides the header, so a native header would have meant two
+          implementations of one row. */}
+      <Stack.Screen
+        name="ritual-session"
+        options={{
+          ...createModalScreenOptions(theme, "Ritual"),
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }
