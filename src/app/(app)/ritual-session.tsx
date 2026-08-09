@@ -1,6 +1,10 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { Href, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import {
+  SafeAreaInsetsContext,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 import { ModalScreen } from "@/components/ModalScreen";
 import { SmallScreenRitual } from "@/components/SmallScreenRitual";
@@ -39,6 +43,17 @@ const HOME: Href = "/ritual";
  */
 export default function RitualSessionScreen() {
   const dismiss = useDismissModal(HOME);
+  const insets = useSafeAreaInsets();
+  // The inset the app publishes has the native tab bar's height baked into
+  // `bottom`, because the tab screens deliberately render under it. A form
+  // sheet floats above that bar and ends well short of the screen's edge, so
+  // for anything inside it that figure is simply wrong — `EmptyScreen`, which
+  // every ritual step renders, would reserve a bar's worth of space that isn't
+  // there and sit visibly high. Zero it for the subtree rather than teaching
+  // each child about a host it can't see (the same correction
+  // `TaskDrawerSheet` makes for the opposite reason). Memoized so a step
+  // change doesn't hand the subtree a fresh context value.
+  const contentInsets = useMemo(() => ({ ...insets, bottom: 0 }), [insets]);
   // A hand-edited or stale URL is real here (the route is linkable on web), so
   // both params fall back rather than throwing: `parseDayDate` already rejects
   // an impossible date like `2026-02-30`, and an unrecognized mode reads as
@@ -62,13 +77,15 @@ export default function RitualSessionScreen() {
 
   return (
     <ModalScreen>
-      <SmallScreenRitual
-        onChangeDate={changeDate}
-        onClose={dismiss}
-        onNext={next}
-        onSwipe={swipe}
-        state={state}
-      />
+      <SafeAreaInsetsContext.Provider value={contentInsets}>
+        <SmallScreenRitual
+          onChangeDate={changeDate}
+          onClose={dismiss}
+          onNext={next}
+          onSwipe={swipe}
+          state={state}
+        />
+      </SafeAreaInsetsContext.Provider>
     </ModalScreen>
   );
 }

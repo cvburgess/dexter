@@ -116,6 +116,12 @@ function NextButton({ onPress }: { onPress: () => void }) {
       accessibilityLabel="Next step"
       accessibilityRole="button"
       onPress={onPress}
+      // Vertical padding only. The word is short, so the bare text is a thin
+      // tap target — but widening it would run the button into `PeriodNav`'s
+      // next-day chevron, which ends only a little way inside this slot's
+      // edge. Growing the hit area upward and downward costs nothing: the slot
+      // already spans the row's full height.
+      style={{ paddingVertical: theme.space.sm }}
       testID="ritual-next-button"
     >
       <Text style={[theme.fonts.control, { color: theme.colors.primary }]}>

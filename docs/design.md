@@ -196,11 +196,18 @@ What a component *does* own:
   it. The give-away is that it changes what the component *is*, not where it
   sits.
 
-Where the gutters actually live now: `SwipeableDay` supplies the phone's day
-gutter once for whichever of Tasks/Notes/Journal/Calendar is on screen;
+Where the gutters actually live now: `SwipeablePage` supplies the phone's side
+gutter once for whichever page is on screen — a day's Tasks/Notes/Journal/
+Calendar on the Today tab, a step's `RitualStepView` on the Ritual tab;
 `LargeScreenToday` and `WeekView` supply theirs on the pane row; the Week
 columns and the Today panes deliberately supply none, so the row's own `gap` is
 the whole space between them.
+
+The same rule decides which component owns a `SafeAreaView`. `SmallScreenRitual`
+carries none, because its two placers disagree — the Ritual tab owns the top of
+the screen and must clear the status bar, while the play modal floats inside a
+form sheet that never reaches it. The frame is the placer's; an `edges` opt-out
+prop would be exactly the shape this section argues against.
 
 Reach for a `padding`/`inset` prop only after checking whether the caller can
 just wrap the thing in a padded view — it almost always can.
