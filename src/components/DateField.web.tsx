@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 
@@ -8,6 +7,7 @@ import { dateToPlainDate } from "@/utils/plainDate";
 import { SHADOW_LG, useTheme, withOpacity } from "@/utils/theme";
 
 import { TDateFieldProps } from "./DateField.types";
+import { WebOverlay } from "./WebOverlay.web";
 
 const POPOVER_WIDTH = 280;
 const VIEWPORT_MARGIN = 8;
@@ -43,10 +43,13 @@ const anchorFrom = (rect: DOMRect): TAnchor => {
  * the app, and the calendar is themed from `useTheme` (daisyUI tokens in the
  * legacy app map to our theme colors here).
  *
- * The calendar is portalled to `document.body` and positioned `fixed`: the
- * Today screen's task list (a `react-native-reanimated` transformed subtree) and
- * the new-task `ScrollView` both create stacking/clipping contexts that would
- * otherwise paint over or clip an in-tree popover.
+ * The calendar goes through `components/WebOverlay.web.tsx`, which portals it to
+ * `document.body` and positions it `fixed`: the Today screen's task list (a
+ * `react-native-reanimated` transformed subtree) and the new-task `ScrollView`
+ * both create stacking/clipping contexts that would otherwise paint over or clip
+ * an in-tree popover. The overlay is also what keeps the popover clickable when
+ * the field is inside a modal screen — see its docstring for the inherited
+ * `pointer-events` problem that reaching for a raw portal here reintroduces.
  */
 export function DateField({
   accentColor,
@@ -94,19 +97,15 @@ export function DateField({
   } as React.CSSProperties;
 
   const popover = anchor && (
-    <>
+    <WebOverlay>
       {/* Full-screen catcher so a click anywhere else dismisses the popover. */}
-      <div
-        onClick={close}
-        style={{ position: "fixed", inset: 0, zIndex: 9998 }}
-      />
+      <div onClick={close} style={{ position: "fixed", inset: 0 }} />
       <div
         style={{
           position: "fixed",
           top: anchor.top,
           left: anchor.left,
           width: POPOVER_WIDTH,
-          zIndex: 9999,
           backgroundColor: theme.colors.surfaceSunken,
           border: `1px solid ${theme.colors.border}`,
           borderRadius: theme.radii.md,
@@ -129,7 +128,7 @@ export function DateField({
           style={calendarVars}
         />
       </div>
-    </>
+    </WebOverlay>
   );
 
   return (
@@ -151,10 +150,7 @@ export function DateField({
       >
         {formatWeekdayMonthDay(dateToPlainDate(value))}
       </button>
-      {popover &&
-        (typeof document === "undefined"
-          ? popover
-          : createPortal(popover, document.body))}
+      {popover}
     </div>
   );
 }

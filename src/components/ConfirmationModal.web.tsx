@@ -8,19 +8,25 @@ import {
   type ConfirmationModalProps,
   resolveActions,
 } from "./ConfirmationModal.types";
+import { WebOverlay } from "./WebOverlay.web";
 
 /**
  * Web confirmation prompt rendered as a themed overlay, mirroring the look of
  * the app's other modals. Fully controlled via `visible`.
  *
- * Deliberately **not** React Native's `Modal`, which portals into
- * `document.body`. Expo Router's web modal stack renders a screen inside `vaul`
- * (a Radix dialog), and a modal Radix dialog sets `pointer-events: none` outside
- * its own content — so a body-portaled prompt opened from a modal screen
- * (the repeat-schedule, list, and habit editors) painted on top but could never
- * be clicked. Rendering in-tree keeps the prompt inside whatever subtree owns
- * the pointer events. `position: fixed` still covers the viewport, except under
- * a transformed ancestor like the drawer, where covering the drawer is right.
+ * Rendered through `components/WebOverlay.web.tsx` rather than React Native's
+ * `Modal`, whose body portal inherits the `pointer-events: none` a Radix
+ * dismissable layer puts on the body — that is what left these buttons visible
+ * but dead in the three settings editors. `WebOverlay` portals to the body too,
+ * but declares `pointer-events: auto` on its root, so the prompt works whether
+ * it is owned by a modal screen or by the page underneath an open drawer (a
+ * `TaskCard` prompt with the small-screen Backlog drawer up).
+ *
+ * The prompt used to render in-tree for the same reason, which scoped its
+ * `position: fixed` backdrop to `.modal`'s transformed box — a prompt opened
+ * from a modal screen dimmed the modal alone. Now that it is portalled, the
+ * backdrop always covers the viewport, which is the right scope for a prompt
+ * that can be owned by either.
  */
 export function ConfirmationModal(props: ConfirmationModalProps) {
   const { visible, title, message, onClose } = props;
@@ -48,80 +54,84 @@ export function ConfirmationModal(props: ConfirmationModalProps) {
   };
 
   return (
-    // A plain div for the backdrop: `position: fixed` is web-only and outside
-    // React Native's style types (same approach as DateField.web's popover).
-    <div style={backdropStyle(theme)} onClick={onClose}>
-      <div
-        style={CARD_WRAPPER_STYLE}
-        // The card is inside the backdrop, so a click on it would otherwise
-        // bubble up and dismiss the prompt.
-        onClick={(event) => event.stopPropagation()}
-      >
-        <View
-          style={[
-            styles.container,
-            {
-              backgroundColor: theme.colors.surfaceSunken,
-              borderRadius: theme.radii.md,
-              boxShadow: SHADOW_LG,
-              padding: theme.space.md,
-            },
-          ]}
+    <WebOverlay>
+      {/*
+        A plain div for the backdrop: `position: fixed` is web-only and outside
+        React Native's style types (same approach as DateField.web's popover).
+      */}
+      <div style={backdropStyle(theme)} onClick={onClose}>
+        <div
+          style={CARD_WRAPPER_STYLE}
+          // The card is inside the backdrop, so a click on it would otherwise
+          // bubble up and dismiss the prompt.
+          onClick={(event) => event.stopPropagation()}
         >
-          <Text
+          <View
             style={[
-              theme.fonts.title,
-              { color: theme.colors.text, marginBottom: theme.space.sm },
-            ]}
-          >
-            {title}
-          </Text>
-          <Text
-            style={[
-              theme.fonts.body,
+              styles.container,
               {
-                color: theme.colors.textSecondary,
-                marginBottom: theme.space.md,
+                backgroundColor: theme.colors.surfaceSunken,
+                borderRadius: theme.radii.md,
+                boxShadow: SHADOW_LG,
+                padding: theme.space.md,
               },
             ]}
           >
-            {message}
-          </Text>
-          <View style={[styles.buttons, { marginTop: theme.space.sm }]}>
-            {actions.map((action, index) => (
-              <TouchableOpacity
-                key={`${action.label}-${index}`}
-                style={[
-                  {
-                    paddingVertical: theme.space.sm,
-                    paddingHorizontal: theme.space.xs,
-                  },
-                  index < actions.length - 1
-                    ? { marginRight: theme.space.md }
-                    : null,
-                ]}
-                onPress={() => {
-                  void action.onPress?.();
-                  onClose();
-                }}
-              >
-                <Text
+            <Text
+              style={[
+                theme.fonts.title,
+                { color: theme.colors.text, marginBottom: theme.space.sm },
+              ]}
+            >
+              {title}
+            </Text>
+            <Text
+              style={[
+                theme.fonts.body,
+                {
+                  color: theme.colors.textSecondary,
+                  marginBottom: theme.space.md,
+                },
+              ]}
+            >
+              {message}
+            </Text>
+            <View style={[styles.buttons, { marginTop: theme.space.sm }]}>
+              {actions.map((action, index) => (
+                <TouchableOpacity
+                  key={`${action.label}-${index}`}
                   style={[
-                    theme.fonts.control,
                     {
-                      color: colorForRole(action.role),
-                      fontWeight: action.role === "cancel" ? "400" : "600",
+                      paddingVertical: theme.space.sm,
+                      paddingHorizontal: theme.space.xs,
                     },
+                    index < actions.length - 1
+                      ? { marginRight: theme.space.md }
+                      : null,
                   ]}
+                  onPress={() => {
+                    void action.onPress?.();
+                    onClose();
+                  }}
                 >
-                  {action.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={[
+                      theme.fonts.control,
+                      {
+                        color: colorForRole(action.role),
+                        fontWeight: action.role === "cancel" ? "400" : "600",
+                      },
+                    ]}
+                  >
+                    {action.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
+        </div>
       </div>
-    </div>
+    </WebOverlay>
   );
 }
 
@@ -135,7 +145,7 @@ const backdropStyle = (theme: Theme) =>
   ({
     position: "fixed",
     inset: 0,
-    zIndex: 9999,
+    // No `zIndex`: `WebOverlay` owns the stacking order for every overlay.
     backgroundColor: withOpacity(theme.colors.background, 0.85),
     display: "flex",
     alignItems: "center",

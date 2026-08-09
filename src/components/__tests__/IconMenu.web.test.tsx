@@ -11,6 +11,14 @@ import { DENSITY } from "@/utils/theme";
 
 import { IconMenu } from "../IconMenu.web";
 import { TIconMenuSection } from "../IconMenu.types";
+import { WebOverlay } from "../WebOverlay.web";
+
+// The menu reaches the screen through `WebOverlay`, which portals it to
+// `document.body` at runtime; render it inline here so react-test-renderer
+// keeps it in the tree for RNTL queries.
+jest.mock("react-dom", () =>
+  require("@/testUtils/mockReactDomPortal").mockReactDomPortal(),
+);
 
 // The checkmark column is as wide as the icons it aligns with — `icons.md` on
 // the comfortable tier, which is what jest-expo's phone-width window resolves to.
@@ -75,6 +83,31 @@ describe("IconMenu (web)", () => {
 
     expect(screen.getByText("To Do")).toBeTruthy();
     expect(screen.getByText("Done")).toBeTruthy();
+  });
+
+  // It used to be an RN `Modal`, whose body portal inherits the
+  // `pointer-events: none` Radix puts on the body — so the menu was dead
+  // wherever it opened from inside a modal screen, which `SubtaskRow` inside
+  // `TaskForm` does (DEX-134). `WebOverlay` is the portal that re-declares
+  // `auto`.
+  it("renders the menu through WebOverlay", () => {
+    const screen = render(
+      <IconMenu
+        accessibilityLabel="Status"
+        menuTitle="Status"
+        sections={sections}
+      >
+        <Text>Trigger</Text>
+      </IconMenu>,
+    );
+
+    expect(screen.UNSAFE_root.findAllByType(WebOverlay)).toHaveLength(0);
+
+    fireEvent.press(screen.getByLabelText("Status"), {
+      nativeEvent: { clientX: 10, clientY: 10 },
+    });
+
+    expect(screen.UNSAFE_root.findAllByType(WebOverlay)).toHaveLength(1);
   });
 
   it("calls onSelect and closes the menu when an option is pressed", () => {
@@ -268,10 +301,10 @@ describe("IconMenu (web)", () => {
     ).not.toHaveLength(0);
   });
 
-  // The menu is a `Modal`, and react-native-web's modal restores focus to
-  // whatever was focused before it opened — from its unmount cleanup. An action
-  // run inline would still be inside that commit, so anything it focuses (an
-  // inline edit's autoFocus input, say) has the focus taken straight back.
+  // The option row holds focus while it is pressed, so an action that focuses
+  // something of its own — an inline edit's autoFocus input, say — has to run
+  // after the row is unmounted or it loses the focus again (DEX-70, first seen
+  // against RN `Modal`'s focus restore).
   it("runs the option's action only once the menu has closed", () => {
     let menuStillOpen: boolean | null = null;
     const sectionsWithSpy: TIconMenuSection[] = [

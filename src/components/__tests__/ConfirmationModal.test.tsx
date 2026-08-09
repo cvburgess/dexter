@@ -3,6 +3,14 @@ import { Alert } from "react-native";
 
 import { ConfirmationModal as ConfirmationModalNative } from "../ConfirmationModal.native";
 import { ConfirmationModal as ConfirmationModalWeb } from "../ConfirmationModal.web";
+import { WebOverlay } from "../WebOverlay.web";
+
+// The web prompt reaches the screen through `WebOverlay`, which portals it to
+// `document.body` at runtime; render it inline here so react-test-renderer
+// keeps it in the tree for RNTL queries.
+jest.mock("react-dom", () =>
+  require("@/testUtils/mockReactDomPortal").mockReactDomPortal(),
+);
 
 type AlertButton = {
   text: string;
@@ -32,6 +40,28 @@ describe("ConfirmationModal", () => {
       expect(getByText("Are you sure?")).toBeTruthy();
       expect(getByText("Delete")).toBeTruthy();
       expect(getByText("Cancel")).toBeTruthy();
+    });
+
+    // The prompt used to render in-tree, which kept it clickable inside a modal
+    // screen but not when the page tree owns it under an open drawer — a
+    // `TaskCard` prompt with the small-screen Backlog up inherited the body's
+    // `pointer-events: none` all the same (DEX-134).
+    test("renders through WebOverlay only while visible", () => {
+      const props = {
+        title: "Delete task",
+        message: "Are you sure?",
+        onClose: jest.fn(),
+        onConfirm: jest.fn(),
+      };
+      const { UNSAFE_root, rerender } = render(
+        <ConfirmationModalWeb visible={false} {...props} />,
+      );
+
+      expect(UNSAFE_root.findAllByType(WebOverlay)).toHaveLength(0);
+
+      rerender(<ConfirmationModalWeb visible {...props} />);
+
+      expect(UNSAFE_root.findAllByType(WebOverlay)).toHaveLength(1);
     });
 
     test("confirm button fires onConfirm then onClose", () => {
