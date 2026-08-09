@@ -57,19 +57,35 @@ describe("WebOverlay", () => {
   // dismisses. The portal root is a body child, so it is outside by
   // construction — without this, re-enabling pointer events would mean a click
   // inside the overlay closed the modal screen behind it.
-  it.each(["onPointerDown", "onMouseDown"] as const)(
-    "stops %s from reaching the dismissable layer on the document",
+  it("stops pointerdown from reaching the dismissable layer on the document", () => {
+    const screen = render(
+      <WebOverlay>
+        <Text>Inside</Text>
+      </WebOverlay>,
+    );
+    const stopPropagation = jest.fn();
+
+    overlayRoot(screen).props.onPointerDown({ stopPropagation });
+
+    expect(stopPropagation).toHaveBeenCalled();
+  });
+
+  // react-native-web's responder system — every `Pressable` and
+  // `TouchableOpacity` — binds `mousedown`/`touchstart` on the document in the
+  // bubble phase, so stopping either here would make every RN pressable inside
+  // an overlay dead to the touch. Radix only reads them to annotate an outside
+  // interaction it already detected from a `pointerdown`, so there is nothing
+  // to gain by paying that.
+  it.each(["onMouseDown", "onTouchStart"] as const)(
+    "leaves %s alone, so react-native-web pressables still respond",
     (handler) => {
       const screen = render(
         <WebOverlay>
           <Text>Inside</Text>
         </WebOverlay>,
       );
-      const stopPropagation = jest.fn();
 
-      overlayRoot(screen).props[handler]({ stopPropagation });
-
-      expect(stopPropagation).toHaveBeenCalled();
+      expect(overlayRoot(screen).props[handler]).toBeUndefined();
     },
   );
 });

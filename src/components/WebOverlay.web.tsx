@@ -1,4 +1,4 @@
-import type { MouseEvent, PointerEvent, ReactNode } from "react";
+import type { PointerEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 // Above expo-router's modal chrome, whose `.modal` class takes `z-index: 50`
@@ -64,21 +64,25 @@ export function WebOverlay({ children }: { children: ReactNode }) {
   // click inside the overlay would close the modal behind it. Stopping the
   // event here, at the outermost node of the portal, is what prevents that.
   //
-  // React's own listeners for a body portal are delegated to `document.body`,
-  // one node below `document`, so every handler inside the overlay has already
-  // run by the time this fires — including react-native-web's `Pressable`,
-  // which drives itself off pointer events. `mousedown` is stopped alongside it
-  // for the same reason, since Radix tracks that one too.
-  const stopOutsideDismissal = (
-    event: PointerEvent<HTMLDivElement> | MouseEvent<HTMLDivElement>,
-  ) => event.stopPropagation();
+  // React delegates a body portal's own listeners to `document.body`, one node
+  // below `document`, so every handler inside the overlay has already run by the
+  // time this fires.
+  //
+  // **`pointerdown` only — never `mousedown` or `touchstart`.** Radix tracks
+  // those two as well, but only to annotate an outside interaction it has
+  // already detected from a `pointerdown`, so stopping them buys nothing. It
+  // costs plenty: react-native-web's responder system, which every `Pressable`
+  // and `TouchableOpacity` is built on, binds `mousedown`/`touchstart` on the
+  // *document* in the bubble phase too (`ResponderSystem.js`, `attachListeners`),
+  // so stopping either here makes every RN pressable inside an overlay dead to
+  // the touch — the exact symptom this component exists to fix, arriving by a
+  // different route. `pointerdown` is safe because nothing in react-native-web
+  // listens for it outside the capture phase.
+  const stopOutsideDismissal = (event: PointerEvent<HTMLDivElement>) =>
+    event.stopPropagation();
 
   const root = (
-    <div
-      style={ROOT_STYLE}
-      onPointerDown={stopOutsideDismissal}
-      onMouseDown={stopOutsideDismissal}
-    >
+    <div style={ROOT_STYLE} onPointerDown={stopOutsideDismissal}>
       {children}
     </div>
   );
