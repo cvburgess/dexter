@@ -1,5 +1,7 @@
-import type { TRitualStepSegmentsProps } from "@/components/RitualStepSegments.types";
-import { ritualStepOptions } from "@/components/RitualStepSwitcher.shared";
+import {
+  ritualStepOptions,
+  type TRitualStepControlProps,
+} from "@/components/RitualStepSwitcher.shared";
 import {
   SegmentedControl,
   type TSegmentedControlOption,
@@ -28,7 +30,7 @@ import {
 export function RitualStepSegments({
   state,
   onSelectStep,
-}: TRitualStepSegmentsProps) {
+}: TRitualStepControlProps) {
   const options: TSegmentedControlOption<number>[] = ritualStepOptions(
     state,
     onSelectStep,

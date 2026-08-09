@@ -4,15 +4,10 @@ import type { TIconMenuOption } from "@/components/IconMenu.types";
 import {
   ritualStepOptions,
   STEP_ICONS,
+  type TRitualStepControlProps,
 } from "@/components/RitualStepSwitcher.shared";
-import { currentStep, type TRitualState } from "@/utils/ritualSteps";
+import { currentStep } from "@/utils/ritualSteps";
 import { useTheme } from "@/utils/theme";
-
-type TRitualStepSwitcherProps = {
-  state: TRitualState;
-  /** Jump to a step by index; the route hands this to `goToStep`. */
-  onSelectStep: (index: number) => void;
-};
 
 /**
  * The ritual's step control on a small screen: a round button showing the step
@@ -32,7 +27,7 @@ type TRitualStepSwitcherProps = {
 export function RitualStepSwitcher({
   state,
   onSelectStep,
-}: TRitualStepSwitcherProps) {
+}: TRitualStepControlProps) {
   const theme = useTheme();
   const icon = STEP_ICONS[currentStep(state).id];
   const options: TIconMenuOption[] = ritualStepOptions(state, onSelectStep).map(

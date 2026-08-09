@@ -30,6 +30,18 @@ export const STEP_ICONS: Record<TRitualStepId, TIconName> = {
   "preview-tomorrow": { sf: "sunrise", ionicon: "partly-sunny-outline" },
 };
 
+/**
+ * What both step controls take — the menu (`RitualStepSwitcher`) and the
+ * segmented control (`RitualStepSegments`, itself platform-split). Declared
+ * once here so the two can't drift into taking different shapes for the same
+ * job.
+ */
+export type TRitualStepControlProps = {
+  state: TRitualState;
+  /** Jump to a step by index; the route hands this to `goToStep`. */
+  onSelectStep: (index: number) => void;
+};
+
 export type TRitualStepOption = {
   /** The step's index, which is what `goToStep` takes. */
   index: number;

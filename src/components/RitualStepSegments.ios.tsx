@@ -6,20 +6,29 @@ import {
   tag,
 } from "@expo/ui/swift-ui/modifiers";
 
-import { ritualStepOptions } from "@/components/RitualStepSwitcher.shared";
-import type { TRitualStepSegmentsProps } from "@/components/RitualStepSegments.types";
+import {
+  ritualStepOptions,
+  type TRitualStepControlProps,
+} from "@/components/RitualStepSwitcher.shared";
 
 /**
  * iOS implementation of the ritual's step control: a **real** `UISegmentedControl`,
  * hosted from SwiftUI as a `Picker` with `pickerStyle("segmented")`.
  *
  * Native rather than the drawn `SegmentedControl` the other platforms get,
- * because on iOS 26 the system draws this in liquid glass — matching the
- * `GlassIconButton` beside it in the toolbar, which is the real thing too — and
- * throws in the sliding selection animation, the haptics and the VoiceOver
- * behavior for free, all of which would otherwise be imitations that stop
- * matching the OS the moment Apple changes it. `app.json` pins
- * `deploymentTarget: "26.1"`, so there is no pre-glass iOS to fall back for.
+ * because on iOS 26 the system draws this in liquid glass and throws in the
+ * sliding selection animation, the haptics and the VoiceOver behavior for free
+ * — all of which would otherwise be imitations that stop matching the OS the
+ * moment Apple changes it. `app.json` pins `deploymentTarget: "26.1"`, so there
+ * is no pre-glass iOS to fall back for.
+ *
+ * **It does not match the `GlassIconButton` beside it, and can't be made to.**
+ * That button is `expo-glass-effect`'s `GlassView`; this control's track is
+ * UIKit's own segmented-control material, painted by the system over anything
+ * we put behind it — the `glassEffect` modifier below darkens what shows
+ * through but cannot replace it. Making the two identical means giving up the
+ * real `UISegmentedControl` and drawing both on one shared glass surface, which
+ * is a live option rather than an oversight.
  *
  * The segments are SF Symbols: six words don't fit a toolbar, six glyphs do.
  * Each carries an `accessibilityLabel` modifier because an `Image` segment has
@@ -44,7 +53,7 @@ import type { TRitualStepSegmentsProps } from "@/components/RitualStepSegments.t
 export function RitualStepSegments({
   state,
   onSelectStep,
-}: TRitualStepSegmentsProps) {
+}: TRitualStepControlProps) {
   const options = ritualStepOptions(state, onSelectStep);
 
   return (

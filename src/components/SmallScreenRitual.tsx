@@ -11,6 +11,7 @@ import {
   currentStep,
   isFirstStep,
   isLastStep,
+  ritualPageKey,
   type TRitualState,
 } from "@/utils/ritualSteps";
 import { useTheme } from "@/utils/theme";
@@ -63,15 +64,12 @@ export function SmallScreenRitual({
           <RitualStepSwitcher onSelectStep={onSelectStep} state={state} />
         }
       />
-      {/* All three parts of the key matter: a step change plays the intro
-          animation, and a date or mode change restarts the ritual, which has to
-          re-seed each step's content the way a day change re-seeds Today's. */}
       <SwipeablePage
         canNext={!lastStep}
         canPrev={!isFirstStep(state)}
         direction={state.direction}
         onSwipe={onSwipe}
-        pageKey={`${state.date.toString()}-${state.mode}-${step.id}`}
+        pageKey={ritualPageKey(state)}
       >
         <RitualStepView step={step} />
       </SwipeablePage>

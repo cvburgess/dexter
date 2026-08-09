@@ -107,6 +107,18 @@ export const isLastStep = (state: TRitualState): boolean =>
   state.step === RITUAL_STEPS[state.mode].length - 1;
 
 /**
+ * `SwipeablePage`'s remount key for the step on screen.
+ *
+ * All three parts matter: a step change plays the intro animation, and a date
+ * or mode change restarts the ritual, which has to re-seed each step's content
+ * the way a day change re-seeds Today's. Derived here rather than spelled out
+ * at each layout, so the phone and the large screen cannot come to disagree
+ * about what counts as a new page.
+ */
+export const ritualPageKey = (state: TRitualState): string =>
+  `${state.date.toString()}-${state.mode}-${currentStep(state).id}`;
+
+/**
  * Move one step forward or back.
  *
  * Returns the **same object** at either end rather than a clamped copy: an
@@ -127,6 +139,13 @@ export const advanceStep = (state: TRitualState, by: 1 | -1): TRitualState =>
  * `Temporal.PlainDate.compare`.
  */
 export const goToStep = (state: TRitualState, step: number): TRitualState => {
+  // `Number.isInteger` first, because the range check alone does not reject
+  // `NaN` — both of its comparisons are false for it, so a `NaN` would sail
+  // through and land in `state.step`, where `currentStep` would return
+  // `undefined` and every caller reading `step.id` would throw. The switcher
+  // coerces a raw selection with `Number()` precisely because it might not be
+  // one, so this is the other half of that guard.
+  if (!Number.isInteger(step)) return state;
   if (step < 0 || step >= RITUAL_STEPS[state.mode].length) return state;
   const direction = Math.sign(step - state.step) as -1 | 0 | 1;
   if (direction === 0) return state;

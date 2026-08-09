@@ -12,6 +12,7 @@ import {
   currentStep,
   isFirstStep,
   isLastStep,
+  ritualPageKey,
   type TRitualState,
 } from "@/utils/ritualSteps";
 import { useTheme } from "@/utils/theme";
@@ -86,7 +87,7 @@ export function LargeScreenRitual({
           canPrev={!isFirstStep(state)}
           direction={state.direction}
           onSwipe={onSwipe}
-          pageKey={`${state.date.toString()}-${state.mode}-${step.id}`}
+          pageKey={ritualPageKey(state)}
         >
           <RitualStepView step={step} />
         </SwipeablePage>

@@ -10,6 +10,7 @@ import {
   modeForHour,
   otherMode,
   RITUAL_STEPS,
+  ritualPageKey,
   withDate,
   withMode,
   type TRitualState,
@@ -136,6 +137,20 @@ describe("goToStep", () => {
     },
   );
 
+  // The range check alone doesn't reject these — every comparison against NaN
+  // is false — so one would land in `state.step`, where `currentStep` returns
+  // undefined and every caller reading `step.id` throws. The iOS switcher
+  // coerces a raw selection with `Number()`, which is where a NaN would come
+  // from.
+  it.each([NaN, 1.5, Infinity])(
+    "returns the same state for a non-index %p",
+    (index) => {
+      const before = state({ step: 2 });
+
+      expect(goToStep(before, index)).toBe(before);
+    },
+  );
+
   // The evening ritual is a step shorter, so the same index can be valid in one
   // mode and out of range in the other.
   it("bounds against the active ritual's own length", () => {
@@ -182,6 +197,21 @@ describe("withMode", () => {
     const before = state({ step: 3 });
 
     expect(withMode(before, "am")).toBe(before);
+  });
+});
+
+describe("ritualPageKey", () => {
+  // Derived in one place so the phone and the large screen can't disagree about
+  // what counts as a new page; all three parts have to be in it.
+  it("changes with the step, the date and the mode", () => {
+    const base = state();
+
+    expect(ritualPageKey(base)).toBe("2026-08-09-am-horoscope");
+    expect(ritualPageKey(state({ step: 1 }))).not.toBe(ritualPageKey(base));
+    expect(ritualPageKey(withDate(base, DATE.add({ days: 1 })))).not.toBe(
+      ritualPageKey(base),
+    );
+    expect(ritualPageKey(withMode(base, "pm"))).not.toBe(ritualPageKey(base));
   });
 });
 
