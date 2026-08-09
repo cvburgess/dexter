@@ -141,7 +141,7 @@ export function CalendarView({ date }: TCalendarViewProps) {
 
   // Minutes-from-midnight of "now" relative to the viewed day, refreshed on an
   // interval so the now-line advances and events dim as they end. Seeded from
-  // the initializer — SwipeableDay remounts this view per date, so `date` is
+  // the initializer — SwipeablePage remounts this view per date, so `date` is
   // stable for the component's lifetime and needs no in-effect re-seed.
   const [nowMinutes, setNowMinutes] = useState(() =>
     nowMinutesFromDayStart(date),
@@ -199,7 +199,7 @@ export function CalendarView({ date }: TCalendarViewProps) {
 
   // Once the scroll viewport is measured, anchor the now line in its upper third
   // so recent and upcoming meetings are in frame without manual scrolling. This
-  // view remounts per day (SwipeableDay on small screens, a date `key` on large
+  // view remounts per day (SwipeablePage on small screens, a date `key` on large
   // ones), so a once-per-mount scroll on first layout covers both "view loads"
   // and "day changed". Skip when there's no now line (any day but today). The
   // ref guards repeat layouts (rotation, split-view resize) from re-scrolling.

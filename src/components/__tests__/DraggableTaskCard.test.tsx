@@ -148,7 +148,7 @@ describe("DraggableTaskCard", () => {
   describe("while a field on the card is being edited", () => {
     // Web activates the drag with no hold at all (see `dragActivation`), so
     // without this, dragging across a title to select the text would pick the
-    // card up instead. Same fix as SwipeableDay's `enabled={!editing}`.
+    // card up instead. Same fix as SwipeablePage's `enabled={!editing}`.
     it("suspends the drag", () => {
       const screen = render(withProvider(<DraggableTaskCard {...cardProps} />));
       expect(dragProps(screen).draggable).toBe(true);

@@ -38,7 +38,7 @@ export type TDragActivation = {
  *   it a slow scroll that drifted a few pixels sideways would pick a card up.
  *
  * The 15px pair is the usual touch-slop band, and the same shape
- * `SwipeableDay` uses to separate its day-swipe from a vertical scroll
+ * `SwipeablePage` uses to separate its day-swipe from a vertical scroll
  * (`activeOffsetX` / `failOffsetY`).
  *
  * **One consequence to know:** below ~1150dp the week itself scrolls

@@ -80,7 +80,7 @@ export function DraggableTaskCard(props: TDraggableTaskCardProps) {
       // applies on every platform: the drag activates on sideways travel with
       // no hold at all (see `dragActivation`), which is exactly the gesture for
       // dragging across a title to select its text. Same fix, and the same
-      // reason, as `SwipeableDay`'s `enabled={!editing}`.
+      // reason, as `SwipeablePage`'s `enabled={!editing}`.
       draggable={!editing && !isCompletionStatus(task.status)}
       // A card is a drop target's guest, never a target itself; without this
       // drax would let one card receive another.

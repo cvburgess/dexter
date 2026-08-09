@@ -77,7 +77,7 @@ type TTaskCardProps = {
    * `DraggableTaskCard` uses it to suspend the drag while a field is focused
    * (DEX-77): on web the drag activates with no hold at all, so dragging across
    * the text to select it would pick the card up instead of selecting. Same
-   * shape and same reason as `SwipeableDay`'s `enabled={!editing}`, which
+   * shape and same reason as `SwipeablePage`'s `enabled={!editing}`, which
    * `NotesView`/`JournalView` drive through a prop of this name.
    */
   onEditingChange?: (editing: boolean) => void;

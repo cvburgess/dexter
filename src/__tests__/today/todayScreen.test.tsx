@@ -406,7 +406,7 @@ describe("TodayScreen", () => {
       const screen = render(<TodayScreen />);
 
       act(() => {
-        fireGestureHandler(getByGestureTestId("day-swipe"), [
+        fireGestureHandler(getByGestureTestId("page-swipe"), [
           { translationX: -200, velocityX: -900 },
         ]);
       });
@@ -424,7 +424,7 @@ describe("TodayScreen", () => {
       const screen = render(<TodayScreen />);
 
       act(() => {
-        fireGestureHandler(getByGestureTestId("day-swipe"), [
+        fireGestureHandler(getByGestureTestId("page-swipe"), [
           { translationX: 200, velocityX: 900 },
         ]);
       });
@@ -442,10 +442,10 @@ describe("TodayScreen", () => {
       const screen = render(<TodayScreen />);
 
       act(() => {
-        fireGestureHandler(getByGestureTestId("day-swipe"), [
+        fireGestureHandler(getByGestureTestId("page-swipe"), [
           { translationX: -200, velocityX: -900 },
         ]);
-        fireGestureHandler(getByGestureTestId("day-swipe"), [
+        fireGestureHandler(getByGestureTestId("page-swipe"), [
           { translationX: -200, velocityX: -900 },
         ]);
       });
@@ -616,7 +616,7 @@ describe("TodayScreen", () => {
     it("does not wrap panes in a swipeable day gesture", () => {
       render(<TodayScreen />);
 
-      expect(() => getByGestureTestId("day-swipe")).toThrow();
+      expect(() => getByGestureTestId("page-swipe")).toThrow();
     });
 
     it("offers no create button of its own in the header", () => {

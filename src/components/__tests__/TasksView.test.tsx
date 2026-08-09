@@ -205,7 +205,7 @@ describe("TasksView", () => {
   });
 
   // The side gutter belongs to whoever placed the list (DEX-115): the phone
-  // gets one from `SwipeableDay`, while the Today pane and the Week columns
+  // gets one from `SwipeablePage`, while the Today pane and the Week columns
   // want none — a gutter here stacked on top of theirs, which is what made the
   // Tasks pane sit further from Notes than Notes sat from Calendar.
   it("leaves the list's side gutter to its container", () => {

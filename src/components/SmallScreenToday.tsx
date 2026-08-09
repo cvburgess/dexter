@@ -8,7 +8,7 @@ import { DayNav } from "@/components/DayNav";
 import { DayViewSwitcher, TDayView } from "@/components/DayViewSwitcher";
 import { JournalView } from "@/components/JournalView";
 import { NotesView } from "@/components/NotesView";
-import { SwipeableDay } from "@/components/SwipeableDay";
+import { SwipeablePage } from "@/components/SwipeablePage";
 import {
   TaskDrawerSheet,
   TTaskDrawerSheetHandle,
@@ -178,8 +178,9 @@ type TDayViewContentProps = {
   onSwipe: (days: 1 | -1) => void;
 };
 
-// SwipeableDay remounts its content per date, re-seeding editors/inputs and
-// re-fetching calendar events.
+// SwipeablePage remounts its content per date, re-seeding editors/inputs and
+// re-fetching calendar events. Days are unbounded, so it takes neither
+// `canPrev` nor `canNext` — every swipe commits.
 function DayViewContent({
   view,
   date,
@@ -190,8 +191,8 @@ function DayViewContent({
   onSwipe,
 }: TDayViewContentProps) {
   return (
-    <SwipeableDay
-      dateKey={date.toString()}
+    <SwipeablePage
+      pageKey={date.toString()}
       direction={direction}
       enabled={swipeEnabled}
       onSwipe={onSwipe}
@@ -211,7 +212,7 @@ function DayViewContent({
       ) : (
         <TasksView date={date} />
       )}
-    </SwipeableDay>
+    </SwipeablePage>
   );
 }
 
