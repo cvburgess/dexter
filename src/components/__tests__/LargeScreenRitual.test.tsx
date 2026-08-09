@@ -2,15 +2,10 @@ import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render } from "@testing-library/react-native";
 import { Text, TouchableOpacity } from "react-native";
 
-import { createRitualState } from "@/utils/ritualSteps";
+import { createRitualState, type TRitualState } from "@/utils/ritualSteps";
 
 import type { TDateFieldProps } from "../DateField.types";
 import { LargeScreenRitual } from "../LargeScreenRitual";
-
-const mockRouter = { push: jest.fn() };
-jest.mock("expo-router", () => ({
-  useRouter: () => mockRouter,
-}));
 
 // `DayNav` renders `DateField` — a native picker with no test double — whenever
 // the viewed day is today. The `mock` prefix satisfies Jest's hoisting rule.
@@ -23,20 +18,49 @@ jest.mock("../DateField", () => ({
   DateField: (props: TDateFieldProps) => mockDateField(props),
 }));
 
+// The segmented control has its own test; stand it in with a marker and a
+// pressable so this file can assert what the toolbar wires up.
+const mockStepSegments = ({
+  state,
+  onSelectStep,
+}: {
+  state: TRitualState;
+  onSelectStep: (index: number) => void;
+}) => (
+  <>
+    <Text>{`segments:${state.mode}:${state.step}`}</Text>
+    <TouchableOpacity
+      accessibilityLabel="pick-step-2"
+      onPress={() => onSelectStep(2)}
+    >
+      <Text>pick</Text>
+    </TouchableOpacity>
+  </>
+);
+jest.mock("../RitualStepSegments", () => ({
+  RitualStepSegments: (props: Parameters<typeof mockStepSegments>[0]) =>
+    mockStepSegments(props),
+}));
+
 const DATE = Temporal.PlainDate.from("2026-08-09");
 
-const renderRitual = (mode: "am" | "pm" = "am", onToggleMode = jest.fn()) =>
+const state = (overrides: Partial<TRitualState> = {}): TRitualState => ({
+  ...createRitualState(DATE, "am"),
+  ...overrides,
+});
+
+const renderRitual = (
+  props: Partial<Parameters<typeof LargeScreenRitual>[0]> = {},
+) =>
   render(
     <LargeScreenRitual
       onChangeDate={jest.fn()}
-      onToggleMode={onToggleMode}
-      state={createRitualState(DATE, mode)}
+      onSelectStep={jest.fn()}
+      onToggleMode={jest.fn()}
+      state={state()}
+      {...props}
     />,
   );
-
-beforeEach(() => {
-  jest.clearAllMocks();
-});
 
 describe("LargeScreenRitual", () => {
   it("renders the date nav in the toolbar", () => {
@@ -45,31 +69,48 @@ describe("LargeScreenRitual", () => {
     expect(screen.getByLabelText("Next day")).toBeTruthy();
   });
 
-  // "Nothing on the main view for now" (DEX-127) — the flow runs in the modal.
-  it("leaves the body empty", () => {
-    const screen = renderRitual();
+  // The ritual runs in the tab now, not behind a play button in a modal.
+  it("renders the step's own content in the body", () => {
+    const screen = renderRitual({ state: state({ step: 2 }) });
 
-    expect(screen.getByTestId("ritual-empty-body")).toBeTruthy();
-    expect(screen.queryByText("Horoscope")).toBeNull();
+    expect(screen.getByText("Calendar")).toBeTruthy();
+  });
+
+  it("renders the evening ritual's own steps", () => {
+    const screen = renderRitual({ state: state({ mode: "pm", step: 0 }) });
+
+    expect(screen.getByText("Open tasks")).toBeTruthy();
+  });
+
+  it("hands the segments the step on screen", () => {
+    const screen = renderRitual({ state: state({ mode: "pm", step: 3 }) });
+
+    expect(screen.getByText("segments:pm:3")).toBeTruthy();
+  });
+
+  it("jumps to the step the segments picked", () => {
+    const onSelectStep = jest.fn();
+    const screen = renderRitual({ onSelectStep });
+
+    fireEvent.press(screen.getByLabelText("pick-step-2"));
+
+    expect(onSelectStep).toHaveBeenCalledWith(2);
   });
 
   it("offers the mode switch", () => {
     const onToggleMode = jest.fn();
-    const screen = renderRitual("am", onToggleMode);
+    const screen = renderRitual({ onToggleMode });
 
     fireEvent.press(screen.getByLabelText("Switch to the evening ritual"));
 
     expect(onToggleMode).toHaveBeenCalledTimes(1);
   });
 
-  it("opens the session modal on the day and ritual the toolbar is showing", () => {
-    const screen = renderRitual("pm");
+  // The segments are the way through here, exactly as DayNav's arrows are the
+  // only way to change days on the large-screen Today tab.
+  it("has no swipe", () => {
+    const screen = renderRitual();
 
-    fireEvent.press(screen.getByLabelText("Start ritual"));
-
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      pathname: "/ritual-session",
-      params: { date: "2026-08-09", mode: "pm" },
-    });
+    expect(() => screen.getByTestId("page-swipe")).toThrow();
   });
 });

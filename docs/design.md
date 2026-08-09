@@ -203,11 +203,10 @@ Calendar on the Today tab, a step's `RitualStepView` on the Ritual tab;
 columns and the Today panes deliberately supply none, so the row's own `gap` is
 the whole space between them.
 
-The same rule decides which component owns a `SafeAreaView`. `SmallScreenRitual`
-carries none, because its two placers disagree — the Ritual tab owns the top of
-the screen and must clear the status bar, while the play modal floats inside a
-form sheet that never reaches it. The frame is the placer's; an `edges` opt-out
-prop would be exactly the shape this section argues against.
+On the Ritual tab the same job falls to `LargeScreenRitual`, whose body pads its
+step the way Today and Week pad their pane rows — `RitualStepView` carries
+nothing of its own, so the two layouts can space it differently without it
+knowing.
 
 Reach for a `padding`/`inset` prop only after checking whether the caller can
 just wrap the thing in a padded view — it almost always can.

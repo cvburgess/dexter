@@ -65,8 +65,17 @@ jest.mock("@/components/SmallScreenRitual", () => ({
 
 const mockLargeScreenRitual = ({
   state,
+  onSelectStep,
 }: ComponentProps<typeof LargeScreenRitual>) => (
-  <Text>{`large:${state.date.toString()}:${state.mode}:${state.step}`}</Text>
+  <>
+    <Text>{`large:${state.date.toString()}:${state.mode}:${state.step}`}</Text>
+    <TouchableOpacity
+      accessibilityLabel="pick-last-step"
+      onPress={() => onSelectStep(4)}
+    >
+      <Text>pick</Text>
+    </TouchableOpacity>
+  </>
 );
 jest.mock("@/components/LargeScreenRitual", () => ({
   LargeScreenRitual: (props: ComponentProps<typeof LargeScreenRitual>) =>
@@ -178,11 +187,21 @@ describe("RitualScreen", () => {
       mockUseIsLargeDevice.mockReturnValue(true);
     });
 
-    it("renders the toolbar layout instead of the step flow", () => {
+    it("renders the wide layout instead of the phone one", () => {
       const screen = render(<RitualScreen />);
 
       expect(screen.getByText(`large:${TODAY}:am:0`)).toBeTruthy();
       expect(screen.queryByText(/^small:/)).toBeNull();
+    });
+
+    // One state serves both layouts — the ritual is the same ritual whatever
+    // the window size, which is the point of dropping the separate modal.
+    it("drives the same step state as the phone layout", () => {
+      const screen = render(<RitualScreen />);
+
+      fireEvent.press(screen.getByLabelText("pick-last-step"));
+
+      expect(screen.getByText(`large:${TODAY}:am:4`)).toBeTruthy();
     });
 
     it("still publishes the viewed day", () => {

@@ -9,7 +9,6 @@ import {
 import { createRitualState, type TRitualState } from "@/utils/ritualSteps";
 
 import type { TDateFieldProps } from "../DateField.types";
-import type { TRitualStepSwitcherProps } from "../RitualStepSwitcher.types";
 import { SmallScreenRitual } from "../SmallScreenRitual";
 
 // `DateField` wraps a native picker with no test double; `DayNav` renders it
@@ -24,13 +23,15 @@ jest.mock("../DateField", () => ({
   DateField: (props: TDateFieldProps) => mockDateField(props),
 }));
 
-// The step switcher is platform-split and covered by its own test; stand it in
-// with a pressable per step so this file can assert what the header wires up
-// without a native menu host.
+// The step switcher has its own test and a native menu host; stand it in with a
+// marker and a pressable so this file can assert what the header wires up.
 const mockStepSwitcher = ({
   state: ritual,
   onSelectStep,
-}: TRitualStepSwitcherProps) => (
+}: {
+  state: TRitualState;
+  onSelectStep: (index: number) => void;
+}) => (
   <>
     <Text>{`switcher:${ritual.mode}:${ritual.step}`}</Text>
     <TouchableOpacity
@@ -42,7 +43,7 @@ const mockStepSwitcher = ({
   </>
 );
 jest.mock("../RitualStepSwitcher", () => ({
-  RitualStepSwitcher: (props: TRitualStepSwitcherProps) =>
+  RitualStepSwitcher: (props: Parameters<typeof mockStepSwitcher>[0]) =>
     mockStepSwitcher(props),
 }));
 
@@ -61,6 +62,7 @@ const renderRitual = (
       onChangeDate={jest.fn()}
       onSelectStep={jest.fn()}
       onSwipe={jest.fn()}
+      onToggleMode={jest.fn()}
       state={state()}
       {...props}
     />,
@@ -152,42 +154,22 @@ describe("SmallScreenRitual", () => {
     });
   });
 
-  describe("on the tab", () => {
-    it("offers the mode switch, labelled with where it goes", () => {
+  describe("the mode switch", () => {
+    it("is labelled with where it goes, not where it is", () => {
       const onToggleMode = jest.fn();
       const screen = renderRitual({ onToggleMode });
 
       fireEvent.press(screen.getByLabelText("Switch to the evening ritual"));
 
       expect(onToggleMode).toHaveBeenCalledTimes(1);
-      expect(screen.queryByLabelText("Close ritual")).toBeNull();
     });
 
-    it("labels the switch the other way round in the evening", () => {
-      const screen = renderRitual({
-        onToggleMode: jest.fn(),
-        state: state({ mode: "pm" }),
-      });
+    it("labels itself the other way round in the evening", () => {
+      const screen = renderRitual({ state: state({ mode: "pm" }) });
 
       expect(
         screen.getByLabelText("Switch to the morning ritual"),
       ).toBeTruthy();
-    });
-  });
-
-  describe("in the modal", () => {
-    // The mode is chosen in the toolbar that opened the modal, so the leading
-    // slot carries the close instead of the switch.
-    it("offers the close in place of the mode switch", () => {
-      const onClose = jest.fn();
-      const screen = renderRitual({ onClose });
-
-      fireEvent.press(screen.getByLabelText("Close ritual"));
-
-      expect(onClose).toHaveBeenCalledTimes(1);
-      expect(
-        screen.queryByLabelText("Switch to the evening ritual"),
-      ).toBeNull();
     });
   });
 });

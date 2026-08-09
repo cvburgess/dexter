@@ -9,7 +9,6 @@ import {
   isLastStep,
   modeForHour,
   otherMode,
-  parseRitualMode,
   RITUAL_STEPS,
   withDate,
   withMode,
@@ -70,24 +69,6 @@ describe("otherMode", () => {
     expect(otherMode("am")).toBe("pm");
     expect(otherMode("pm")).toBe("am");
   });
-});
-
-describe("parseRitualMode", () => {
-  it("accepts the two modes", () => {
-    expect(parseRitualMode("am")).toBe("am");
-    expect(parseRitualMode("pm")).toBe("pm");
-  });
-
-  it("takes the first of a repeated param", () => {
-    expect(parseRitualMode(["pm", "am"])).toBe("pm");
-  });
-
-  it.each(["AM", "evening", "", undefined])(
-    "rejects %p so the caller can fall back to the clock",
-    (value) => {
-      expect(parseRitualMode(value)).toBeNull();
-    },
-  );
 });
 
 describe("createRitualState", () => {

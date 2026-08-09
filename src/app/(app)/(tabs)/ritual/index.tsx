@@ -1,7 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useState } from "react";
-import { StyleSheet } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { LargeScreenRitual } from "@/components/LargeScreenRitual";
 import { SmallScreenRitual } from "@/components/SmallScreenRitual";
@@ -15,7 +13,6 @@ import {
   withDate,
   withMode,
 } from "@/utils/ritualSteps";
-import { useTheme } from "@/utils/theme";
 
 /**
  * The Ritual tab (DEX-127, part of DEX-34) — a guided walk through the start or
@@ -24,16 +21,15 @@ import { useTheme } from "@/utils/theme";
  * A thin selector, the same role `today/index.tsx` plays: it owns the single
  * `TRitualState` and hands it to whichever layout fits the screen. Every
  * transition lives in `utils/ritualSteps`, so this file holds no rules of its
- * own — which is what lets the play modal (`app/(app)/ritual-session.tsx`)
- * reuse the small-screen layout with its own copy of the same state.
+ * own — and one state means one ritual, whatever the window size, rather than a
+ * second copy living in a modal somewhere.
  *
  * Both layouts render at every width, and the branch is inside the screen
  * rather than in the navigator, so a tablet crossing the breakpoint live (a
- * rotation, or a Split View resize) swaps layouts without remounting.
+ * rotation, or a Split View resize) swaps layouts without losing its place.
  */
 export default function RitualScreen() {
   const multiPane = useIsLargeDevice();
-  const theme = useTheme();
 
   // Seeded inside the initializer so the clock is read on mount rather than at
   // module load — an app launched in the morning and left open must not still
@@ -56,30 +52,17 @@ export default function RitualScreen() {
   return multiPane ? (
     <LargeScreenRitual
       onChangeDate={changeDate}
+      onSelectStep={selectStep}
       onToggleMode={toggleMode}
       state={state}
     />
   ) : (
-    <SafeAreaView
-      edges={["top", "left", "right"]}
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-    >
-      {/* The frame is the tab's, not the component's: the play modal renders
-          the same layout inside a form sheet that must not claim a top inset.
-          See `SmallScreenRitual`. */}
-      <SmallScreenRitual
-        onChangeDate={changeDate}
-        onSelectStep={selectStep}
-        onSwipe={swipe}
-        onToggleMode={toggleMode}
-        state={state}
-      />
-    </SafeAreaView>
+    <SmallScreenRitual
+      onChangeDate={changeDate}
+      onSelectStep={selectStep}
+      onSwipe={swipe}
+      onToggleMode={toggleMode}
+      state={state}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});

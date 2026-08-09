@@ -1,15 +1,13 @@
 import { Temporal } from "@js-temporal/polyfill";
 
-import { firstParam, type TRouteParam } from "@/utils/todayRoute";
-
 /**
  * The Ritual flow's model (DEX-127): which steps exist, which half of the day
  * they belong to, and every transition between them.
  *
  * Deliberately React-free so the whole rule set is unit-testable without a
- * native host — the same split `dayViewOptions` uses in `DayViewSwitcher`. The
- * screens (`ritual/index.tsx`, `ritual-session.tsx`) hold one `TRitualState`
- * each and do nothing but hand it to the transitions below.
+ * native host — the same split `dayViewOptions` uses in `DayViewSwitcher`.
+ * `ritual/index.tsx` holds the one `TRitualState` and does nothing but hand it
+ * to the transitions below.
  */
 
 /** Morning or evening ritual. */
@@ -82,12 +80,6 @@ export const currentRitualMode = (): TRitualMode =>
 /** The mode the AM/PM button switches to. */
 export const otherMode = (mode: TRitualMode): TRitualMode =>
   mode === "am" ? "pm" : "am";
-
-/** The requested mode, or null when absent or unrecognized. */
-export const parseRitualMode = (value: TRouteParam): TRitualMode | null => {
-  const mode = firstParam(value);
-  return mode === "am" || mode === "pm" ? mode : null;
-};
 
 /** Everything a ritual surface needs to render, and nothing it doesn't. */
 export type TRitualState = {

@@ -5,9 +5,9 @@ import { Text } from "react-native";
 import { createRitualState, RITUAL_STEPS } from "@/utils/ritualSteps";
 
 import type { TIconMenuSection } from "../IconMenu.types";
-import { RitualStepSwitcher as NativeSwitcher } from "../RitualStepSwitcher.native";
+import { RitualStepSegments } from "../RitualStepSegments";
+import { RitualStepSwitcher } from "../RitualStepSwitcher";
 import { ritualStepOptions, STEP_ICONS } from "../RitualStepSwitcher.shared";
-import { RitualStepSwitcher as WebSwitcher } from "../RitualStepSwitcher.web";
 
 // The circular button wraps native glass/SF-symbol views; stub it so each one
 // renders its SF Symbol name and stays pressable.
@@ -111,10 +111,10 @@ describe("ritualStepOptions", () => {
   });
 });
 
-describe("RitualStepSwitcher on native", () => {
+describe("RitualStepSwitcher (small screens)", () => {
   it("offers a menu row per step, checking the current one", () => {
     render(
-      <NativeSwitcher
+      <RitualStepSwitcher
         onSelectStep={jest.fn()}
         state={{ ...createRitualState(undefined, "am"), step: 1 }}
       />,
@@ -135,7 +135,7 @@ describe("RitualStepSwitcher on native", () => {
   it("jumps to the picked step", () => {
     const onSelectStep = jest.fn();
     render(
-      <NativeSwitcher
+      <RitualStepSwitcher
         onSelectStep={onSelectStep}
         state={createRitualState(undefined, "am")}
       />,
@@ -150,7 +150,7 @@ describe("RitualStepSwitcher on native", () => {
   // is the only thing on screen naming the step.
   it("wears the current step's icon on its trigger", () => {
     const screen = render(
-      <NativeSwitcher
+      <RitualStepSwitcher
         onSelectStep={jest.fn()}
         state={{ ...createRitualState(undefined, "am"), step: 2 }}
       />,
@@ -162,7 +162,7 @@ describe("RitualStepSwitcher on native", () => {
   // A menu is navigation, not progression: swiping is what moves the ritual on.
   it("offers no next action", () => {
     render(
-      <NativeSwitcher
+      <RitualStepSwitcher
         onSelectStep={jest.fn()}
         state={createRitualState(undefined, "am")}
       />,
@@ -174,42 +174,48 @@ describe("RitualStepSwitcher on native", () => {
   });
 });
 
-describe("RitualStepSwitcher on web", () => {
-  it("renders one button per step rather than a menu", () => {
+describe("RitualStepSegments (large screens)", () => {
+  it("renders a segment per step rather than a menu", () => {
     const screen = render(
-      <WebSwitcher
+      <RitualStepSegments
         onSelectStep={jest.fn()}
         state={createRitualState(undefined, "pm")}
       />,
     );
 
     expect(mockIconMenu).not.toHaveBeenCalled();
-    expect(mockGlassIconButton).toHaveBeenCalledTimes(RITUAL_STEPS.pm.length);
-    expect(screen.getByLabelText("Go to preview tomorrow")).toBeTruthy();
+    expect(screen.getByTestId("ritual-step-open tasks")).toBeTruthy();
+    expect(screen.getByTestId("ritual-step-preview tomorrow")).toBeTruthy();
   });
 
-  it("tints the step on screen", () => {
+  // The whole ritual being visible is the point of the large-screen form: the
+  // filled segment says how far through the user is without being asked.
+  it("marks the step on screen as selected", () => {
     const screen = render(
-      <WebSwitcher
+      <RitualStepSegments
         onSelectStep={jest.fn()}
         state={{ ...createRitualState(undefined, "am"), step: 3 }}
       />,
     );
 
-    expect(screen.getByText(`${STEP_ICONS.backlog.sf}:active`)).toBeTruthy();
-    expect(screen.getAllByText(/:active$/)).toHaveLength(1);
+    expect(screen.getByLabelText("Backlog").props.accessibilityState).toEqual({
+      selected: true,
+    });
+    expect(screen.getByLabelText("Tasks").props.accessibilityState).toEqual({
+      selected: false,
+    });
   });
 
   it("jumps to the pressed step", () => {
     const onSelectStep = jest.fn();
     const screen = render(
-      <WebSwitcher
+      <RitualStepSegments
         onSelectStep={onSelectStep}
         state={createRitualState(undefined, "am")}
       />,
     );
 
-    fireEvent.press(screen.getByLabelText("Go to tasks"));
+    fireEvent.press(screen.getByLabelText("Tasks"));
 
     expect(onSelectStep).toHaveBeenCalledWith(4);
   });

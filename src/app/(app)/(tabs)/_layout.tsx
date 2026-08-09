@@ -40,12 +40,11 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Icon sf="sun.max" md="light_mode" />
         <NativeTabs.Trigger.Label>Today</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      {/* Unlike Week, Ritual *is* a phone destination — it's a phone-first flow,
-          and a large screen reaches the same experience through the play button
-          in its toolbar rather than through a wider layout (DEX-127). One fixed
-          glyph for both halves of the day: the moon stands for the ritual as a
-          whole, and a tab whose icon changed at noon would read as a different
-          destination. */}
+      {/* Unlike Week, Ritual *is* a phone destination: one route serves every
+          width, with the layout rather than the destination changing (DEX-127).
+          One fixed glyph for both halves of the day too — the moon stands for
+          the ritual as a whole, and a tab whose icon changed at noon would read
+          as a different destination. */}
       <NativeTabs.Trigger name="ritual">
         <NativeTabs.Trigger.Icon sf="moon.stars" md="bedtime" />
         <NativeTabs.Trigger.Label>Ritual</NativeTabs.Trigger.Label>

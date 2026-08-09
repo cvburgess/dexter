@@ -26,16 +26,10 @@ export type TDayMode = "tasks" | "notes" | "journal" | "backlog";
 const DAY_MODES: readonly TDayMode[] = ["tasks", "notes", "journal", "backlog"];
 
 /** A route param, which arrives as a string, an array, or not at all. */
-export type TRouteParam = string | string[] | undefined;
+type TRouteParam = string | string[] | undefined;
 
-/**
- * Route params are `string[]` when a key is repeated in the URL; take the first.
- *
- * Exported alongside `TRouteParam` so other route contracts (`utils/ritualSteps`
- * parsing `?mode=`) narrow a param the same way rather than each re-deriving the
- * array case — the parsers below are the reference implementation.
- */
-export const firstParam = (value: TRouteParam): string | undefined =>
+/** Route params are `string[]` when a key is repeated in the URL; take the first. */
+const firstParam = (value: TRouteParam): string | undefined =>
   Array.isArray(value) ? value[0] : value;
 
 /** The requested mode, or null when absent or unrecognized. */
