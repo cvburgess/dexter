@@ -1,7 +1,7 @@
 ---
 name: quick-code-review
 description: Review the current branch diff at a depth matched to its size and blast radius — a fast hunk-only pass for small contained changes, a deeper full-context pass for larger or riskier ones — and apply the fixes. Use when the user wants their branch reviewed before opening or merging a PR.
-argument-hint: [optional: light or heavy to force a mode]
+argument-hint: [optional light or heavy to force a mode]
 allowed-tools: Bash(git *), Bash(grep *), Bash(rg *), Read, Edit, Write, Glob, Grep
 ---
 
