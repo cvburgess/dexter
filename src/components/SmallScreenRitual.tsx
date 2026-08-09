@@ -1,5 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import { DayNavHeader } from "@/components/DayNavHeader";
 import { GlassIconButton } from "@/components/GlassIconButton";
@@ -12,7 +12,6 @@ import {
   isLastStep,
   type TRitualState,
 } from "@/utils/ritualSteps";
-import { useTheme } from "@/utils/theme";
 
 type TSmallScreenRitualProps = {
   state: TRitualState;
@@ -36,8 +35,13 @@ type TSmallScreenRitualProps = {
 
 /**
  * The ritual as it works on a phone: one step at a time, `DayNav` centered
- * between a leading control and a Next button, and a swipe that pages between
- * steps rather than days (DEX-127).
+ * between two round `GlassIconButton`s — the AM/PM switch (or the modal's ✕) on
+ * one side, advance-a-step on the other — and a swipe that pages between steps
+ * rather than days (DEX-127).
+ *
+ * Both header controls are the same button at the same `controls.md` diameter
+ * rather than one circle and one text pill, so they read as a matched pair and
+ * neither can crowd `PeriodNav`'s day arrows the way a wider control would.
  *
  * Two surfaces render this — the Ritual tab below the breakpoint, and the play
  * modal on large screens, which is the *same* experience deliberately rather
@@ -83,7 +87,16 @@ export function SmallScreenRitual({
           ) : null
         }
         /* Congrats ends the flow, so it offers nothing to advance to. */
-        trailing={lastStep ? null : <NextButton onPress={onNext} />}
+        trailing={
+          lastStep ? null : (
+            <GlassIconButton
+              accessibilityLabel="Next step"
+              ionicon="chevron-forward"
+              onPress={onNext}
+              sfSymbol="chevron.right"
+            />
+          )
+        }
       />
       {/* All three parts of the key matter: a step change plays the intro
           animation, and a date or mode change restarts the ritual, which has to
@@ -98,36 +111,6 @@ export function SmallScreenRitual({
         <RitualStepView step={step} />
       </SwipeablePage>
     </View>
-  );
-}
-
-/**
- * A text button rather than another round icon: "Next" is the flow's primary
- * action and needs a word, and two circles flanking `DayNav` would read as a
- * pair of equal-weight toggles. Drawn at the modal header's metrics
- * (`ModalHeaderButtons`) rather than `components/Button.tsx`, which carries a
- * full `space.md` of padding and is built for a full-width footer.
- */
-function NextButton({ onPress }: { onPress: () => void }) {
-  const theme = useTheme();
-
-  return (
-    <TouchableOpacity
-      accessibilityLabel="Next step"
-      accessibilityRole="button"
-      onPress={onPress}
-      // Vertical padding only. The word is short, so the bare text is a thin
-      // tap target — but widening it would run the button into `PeriodNav`'s
-      // next-day chevron, which ends only a little way inside this slot's
-      // edge. Growing the hit area upward and downward costs nothing: the slot
-      // already spans the row's full height.
-      style={{ paddingVertical: theme.space.sm }}
-      testID="ritual-next-button"
-    >
-      <Text style={[theme.fonts.control, { color: theme.colors.primary }]}>
-        Next
-      </Text>
-    </TouchableOpacity>
   );
 }
 

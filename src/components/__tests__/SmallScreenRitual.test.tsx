@@ -56,7 +56,7 @@ describe("SmallScreenRitual", () => {
     expect(screen.getByText("Open tasks")).toBeTruthy();
   });
 
-  it("advances when Next is pressed", () => {
+  it("advances when the next-step chevron is pressed", () => {
     const onNext = jest.fn();
     const screen = renderRitual({ onNext });
 
@@ -66,7 +66,7 @@ describe("SmallScreenRitual", () => {
   });
 
   // Congrats ends the flow — there is nothing left to advance to.
-  it("drops the Next button on the last step", () => {
+  it("drops the next-step chevron on the last step", () => {
     const screen = renderRitual({ state: state({ step: 5 }) });
 
     expect(screen.getByText("Congrats")).toBeTruthy();

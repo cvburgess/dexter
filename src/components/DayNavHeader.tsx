@@ -20,11 +20,11 @@ type TDayNavHeaderProps = {
  * The controls are **absolutely positioned rather than flex siblings**, which is
  * the whole reason this is a component. `DayNav` spans the full width so its
  * arrows and date stay screen-centered; a control taking row space would push it
- * off-center, and two controls of different widths (Ritual has a round button on
- * one side and a text button on the other) would push it off-center by different
- * amounts on each side. Overlaying keeps the nav in the same place on both
- * screens whatever sits beside it — the horizontal counterpart of what
- * `LargeScreenHeader` does for the large-screen tabs (DEX-127).
+ * off-center by its own width, so Today (one control) and Ritual (two) would
+ * center their navs in different places and the row would shift as you moved
+ * between the tabs. Overlaying keeps the nav put whatever sits beside it — the
+ * horizontal counterpart of what `LargeScreenHeader` does for the large-screen
+ * tabs (DEX-127).
  */
 export function DayNavHeader({
   date,
