@@ -7,7 +7,13 @@ import { LargeScreenHeader } from "@/components/LargeScreenHeader";
 import { RitualModeButton } from "@/components/RitualModeButton";
 import { RitualStepSegments } from "@/components/RitualStepSegments";
 import { RitualStepView } from "@/components/RitualStepView";
-import { currentStep, type TRitualState } from "@/utils/ritualSteps";
+import { SwipeablePage } from "@/components/SwipeablePage";
+import {
+  currentStep,
+  isFirstStep,
+  isLastStep,
+  type TRitualState,
+} from "@/utils/ritualSteps";
 import { useTheme } from "@/utils/theme";
 
 type TLargeScreenRitualProps = {
@@ -15,6 +21,8 @@ type TLargeScreenRitualProps = {
   onChangeDate: (date: Temporal.PlainDate) => void;
   onToggleMode: () => void;
   onSelectStep: (index: number) => void;
+  /** A committed swipe: 1 for the next step, -1 for the previous one. */
+  onSwipe: (direction: 1 | -1) => void;
 };
 
 /**
@@ -26,11 +34,17 @@ type TLargeScreenRitualProps = {
  * ritual state and a route that showed nothing on its own; one route rendering
  * one flow is both simpler and linkable.
  *
- * Two differences from `SmallScreenRitual`, both about having room. The steps
- * are a segmented control in the toolbar rather than a menu, so the whole
- * ritual is visible and its progress readable at a glance. And there is no
- * swipe: the segments are the way through, exactly as `DayNav`'s arrows are the
- * only way to change days on the large-screen Today tab.
+ * One difference from `SmallScreenRitual`, and it is about having room: the
+ * steps are a segmented control in the toolbar rather than a menu, so the whole
+ * ritual is visible and its progress readable at a glance.
+ *
+ * The swipe is **not** a difference — `SwipeablePage` wraps the step here too.
+ * That departs from the large-screen Today tab, which deliberately has no
+ * swipe, and the reason it should: paging days is navigation between equals,
+ * where the nav arrows say plainly what a gesture only implies, but a ritual is
+ * a sequence you move *through*, and a trackpad or touchscreen swipe is the
+ * most direct way to say "next". It costs nothing to offer alongside the
+ * segments.
  *
  * `DayNav` sits flush at the gutter, matching the Week tab rather than Today —
  * Today centers its nav inside a slot capped to the Tasks pane so it labels
@@ -41,8 +55,11 @@ export function LargeScreenRitual({
   onChangeDate,
   onToggleMode,
   onSelectStep,
+  onSwipe,
 }: TLargeScreenRitualProps) {
   const theme = useTheme();
+  const step = currentStep(state);
+  const lastStep = isLastStep(state);
 
   return (
     <SafeAreaView
@@ -52,24 +69,27 @@ export function LargeScreenRitual({
       <LargeScreenHeader
         actions={
           <>
-            <RitualModeButton mode={state.mode} onPress={onToggleMode} />
             <RitualStepSegments onSelectStep={onSelectStep} state={state} />
+            <RitualModeButton mode={state.mode} onPress={onToggleMode} />
           </>
         }
       >
         <DayNav date={state.date} onChangeDate={onChangeDate} />
       </LargeScreenHeader>
-      {/* The body's gutter is supplied here rather than by the step, matching
-          the pane rows on Today and Week — a component doesn't pad itself from
-          its container's edge (see docs/design.md, "Who owns spacing"). On the
-          phone `SwipeablePage` does the same job. */}
-      <View
-        style={[
-          styles.body,
-          { paddingHorizontal: theme.space.md, paddingTop: theme.space.md },
-        ]}
-      >
-        <RitualStepView step={currentStep(state)} />
+      {/* Only the top inset here: `SwipeablePage` supplies the side gutter, on
+          this layout exactly as it does on the phone, so the step never pads
+          itself from its container's edge (see docs/design.md, "Who owns
+          spacing"). */}
+      <View style={[styles.body, { paddingTop: theme.space.md }]}>
+        <SwipeablePage
+          canNext={!lastStep}
+          canPrev={!isFirstStep(state)}
+          direction={state.direction}
+          onSwipe={onSwipe}
+          pageKey={`${state.date.toString()}-${state.mode}-${step.id}`}
+        >
+          <RitualStepView step={step} />
+        </SwipeablePage>
       </View>
     </SafeAreaView>
   );

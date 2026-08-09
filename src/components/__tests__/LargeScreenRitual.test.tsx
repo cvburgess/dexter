@@ -1,6 +1,10 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render } from "@testing-library/react-native";
 import { Text, TouchableOpacity } from "react-native";
+import {
+  fireGestureHandler,
+  getByGestureTestId,
+} from "react-native-gesture-handler/jest-utils";
 
 import { createRitualState, type TRitualState } from "@/utils/ritualSteps";
 
@@ -56,6 +60,7 @@ const renderRitual = (
     <LargeScreenRitual
       onChangeDate={jest.fn()}
       onSelectStep={jest.fn()}
+      onSwipe={jest.fn()}
       onToggleMode={jest.fn()}
       state={state()}
       {...props}
@@ -106,11 +111,54 @@ describe("LargeScreenRitual", () => {
     expect(onToggleMode).toHaveBeenCalledTimes(1);
   });
 
-  // The segments are the way through here, exactly as DayNav's arrows are the
-  // only way to change days on the large-screen Today tab.
-  it("has no swipe", () => {
-    const screen = renderRitual();
+  // Unlike the large-screen Today tab, which deliberately has none: a ritual is
+  // a sequence you move through, so the gesture is offered alongside the
+  // segments rather than instead of them.
+  describe("the swipe", () => {
+    it("pages forward", () => {
+      const onSwipe = jest.fn();
+      renderRitual({ onSwipe, state: state({ step: 1 }) });
 
-    expect(() => screen.getByTestId("page-swipe")).toThrow();
+      fireGestureHandler(getByGestureTestId("page-swipe"), [
+        { translationX: -200, velocityX: -900 },
+      ]);
+
+      expect(onSwipe).toHaveBeenCalledWith(1);
+    });
+
+    it("pages back", () => {
+      const onSwipe = jest.fn();
+      renderRitual({ onSwipe, state: state({ step: 1 }) });
+
+      fireGestureHandler(getByGestureTestId("page-swipe"), [
+        { translationX: 200, velocityX: 900 },
+      ]);
+
+      expect(onSwipe).toHaveBeenCalledWith(-1);
+    });
+
+    // `canPrev`/`canNext` are threaded here too, so the pager declines the
+    // gesture itself rather than stranding the drag off-screen.
+    it("is declined before the first step", () => {
+      const onSwipe = jest.fn();
+      renderRitual({ onSwipe });
+
+      fireGestureHandler(getByGestureTestId("page-swipe"), [
+        { translationX: 200, velocityX: 900 },
+      ]);
+
+      expect(onSwipe).not.toHaveBeenCalled();
+    });
+
+    it("is declined past the last step", () => {
+      const onSwipe = jest.fn();
+      renderRitual({ onSwipe, state: state({ step: 5 }) });
+
+      fireGestureHandler(getByGestureTestId("page-swipe"), [
+        { translationX: -200, velocityX: -900 },
+      ]);
+
+      expect(onSwipe).not.toHaveBeenCalled();
+    });
   });
 });

@@ -203,10 +203,9 @@ Calendar on the Today tab, a step's `RitualStepView` on the Ritual tab;
 columns and the Today panes deliberately supply none, so the row's own `gap` is
 the whole space between them.
 
-On the Ritual tab the same job falls to `LargeScreenRitual`, whose body pads its
-step the way Today and Week pad their pane rows — `RitualStepView` carries
-nothing of its own, so the two layouts can space it differently without it
-knowing.
+The Ritual tab is the one place `SwipeablePage` supplies that gutter on a *large*
+screen too, since it wraps the step at every width there — `LargeScreenRitual`
+adds only the top inset, and `RitualStepView` carries nothing of its own.
 
 Reach for a `padding`/`inset` prop only after checking whether the caller can
 just wrap the thing in a padded view — it almost always can.

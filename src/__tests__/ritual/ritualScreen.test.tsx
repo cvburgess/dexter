@@ -66,6 +66,7 @@ jest.mock("@/components/SmallScreenRitual", () => ({
 const mockLargeScreenRitual = ({
   state,
   onSelectStep,
+  onSwipe,
 }: ComponentProps<typeof LargeScreenRitual>) => (
   <>
     <Text>{`large:${state.date.toString()}:${state.mode}:${state.step}`}</Text>
@@ -74,6 +75,12 @@ const mockLargeScreenRitual = ({
       onPress={() => onSelectStep(4)}
     >
       <Text>pick</Text>
+    </TouchableOpacity>
+    <TouchableOpacity
+      accessibilityLabel="large-swipe-forward"
+      onPress={() => onSwipe(1)}
+    >
+      <Text>swipe</Text>
     </TouchableOpacity>
   </>
 );
@@ -202,6 +209,16 @@ describe("RitualScreen", () => {
       fireEvent.press(screen.getByLabelText("pick-last-step"));
 
       expect(screen.getByText(`large:${TODAY}:am:4`)).toBeTruthy();
+    });
+
+    // The swipe is wired on both layouts, unlike Today, where only the phone
+    // pages by gesture.
+    it("advances a step when swiped", () => {
+      const screen = render(<RitualScreen />);
+
+      fireEvent.press(screen.getByLabelText("large-swipe-forward"));
+
+      expect(screen.getByText(`large:${TODAY}:am:1`)).toBeTruthy();
     });
 
     it("still publishes the viewed day", () => {

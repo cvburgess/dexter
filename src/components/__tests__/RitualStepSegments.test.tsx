@@ -25,6 +25,7 @@ jest.mock("@expo/ui/swift-ui", () => ({
 // counted — `pickerStyle("segmented")` is the whole point of this component.
 jest.mock("@expo/ui/swift-ui/modifiers", () => ({
   accessibilityLabel: (label: string) => ({ accessibilityLabel: label }),
+  glassEffect: (params: unknown) => ({ glassEffect: params }),
   pickerStyle: (style: string) => ({ pickerStyle: style }),
   tag: (value: number) => ({ tag: value }),
 }));

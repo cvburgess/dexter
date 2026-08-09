@@ -156,6 +156,7 @@ jest.mock("@expo/ui/swift-ui", () => ({
 jest.mock("@expo/ui/swift-ui/modifiers", () => ({
   accessibilityLabel: () => ({}),
   datePickerStyle: () => ({}),
+  glassEffect: () => ({}),
   pickerStyle: () => ({}),
   tag: () => ({}),
   tint: () => ({}),

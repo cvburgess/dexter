@@ -53,6 +53,7 @@ export default function RitualScreen() {
     <LargeScreenRitual
       onChangeDate={changeDate}
       onSelectStep={selectStep}
+      onSwipe={swipe}
       onToggleMode={toggleMode}
       state={state}
     />

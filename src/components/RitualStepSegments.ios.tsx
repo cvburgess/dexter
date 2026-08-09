@@ -1,6 +1,7 @@
 import { Host, Image, Picker } from "@expo/ui/swift-ui";
 import {
   accessibilityLabel,
+  glassEffect,
   pickerStyle,
   tag,
 } from "@expo/ui/swift-ui/modifiers";
@@ -25,6 +26,14 @@ import type { TRitualStepSegmentsProps } from "@/components/RitualStepSegments.t
  * no text for VoiceOver to fall back on — the drawn variant solves the same
  * problem with `accessibilityLabel` on its pressable.
  *
+ * **The selection can't be tinted, and that is the deal.** SwiftUI owns a
+ * segmented picker's indicator and renders its labels as system-colored
+ * templates: neither `tint()` on the picker nor `color` on a child `Image`
+ * moves it (both tried on an iPad running iOS 26.5, both no-ops). That is
+ * exactly what keeps the control looking like the OS, so the app's primary
+ * color stops at this component's edge rather than the control being redrawn to
+ * accept it.
+ *
  * `Host matchContents` sizes the host to the control on both axes, the same way
  * `DateField.ios` hosts the compact date picker. That is the part of this file
  * most worth re-checking on device after an `@expo/ui` bump: these hosts size
@@ -41,7 +50,10 @@ export function RitualStepSegments({
   return (
     <Host matchContents>
       <Picker
-        modifiers={[pickerStyle("segmented")]}
+        modifiers={[
+          pickerStyle("segmented"),
+          glassEffect({ glass: { variant: "clear" }, shape: "capsule" }),
+        ]}
         selection={state.step}
         testID="ritual-step-segments"
         // Coerced rather than trusted: the selection comes back as the raw
