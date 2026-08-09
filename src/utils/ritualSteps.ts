@@ -15,9 +15,28 @@ import { firstParam, type TRouteParam } from "@/utils/todayRoute";
 /** Morning or evening ritual. */
 export type TRitualMode = "am" | "pm";
 
+/**
+ * Every step's id, as a literal union.
+ *
+ * Spelled out rather than inferred so `components/RitualStepSwitcher.shared`'s
+ * icon table is a `Record` over it and the compiler catches a step added here
+ * without one. Some ids appear in both rituals (`journal`, `congrats`) — they
+ * are the same step at a different time of day, so they share an icon.
+ */
+export type TRitualStepId =
+  | "horoscope"
+  | "journal"
+  | "calendar"
+  | "backlog"
+  | "tasks"
+  | "congrats"
+  | "open-tasks"
+  | "review"
+  | "preview-tomorrow";
+
 export type TRitualStep = {
   /** Unique within its mode; part of the swipe pager's remount key. */
-  id: string;
+  id: TRitualStepId;
   /** Rendered as the step's placeholder string until DEX-34 fills it in. */
   title: string;
 };
@@ -102,10 +121,24 @@ export const isLastStep = (state: TRitualState): boolean =>
  * identical state skips the re-render, and re-rendering would restart the
  * intro animation for a step change that never happened.
  */
-export const advanceStep = (state: TRitualState, by: 1 | -1): TRitualState => {
-  const step = state.step + by;
+export const advanceStep = (state: TRitualState, by: 1 | -1): TRitualState =>
+  goToStep(state, state.step + by);
+
+/**
+ * Jump straight to a step — what the step switcher's menu rows and icons do.
+ *
+ * Out-of-range and already-there both return the **same object**, for the same
+ * reason `advanceStep` clamps to one: a state that didn't change shouldn't
+ * re-render and restart the intro animation. `direction` is derived from how
+ * far the jump travelled, so picking a later step animates forward however many
+ * it skips — the step-wise counterpart of what `withDate` does with
+ * `Temporal.PlainDate.compare`.
+ */
+export const goToStep = (state: TRitualState, step: number): TRitualState => {
   if (step < 0 || step >= RITUAL_STEPS[state.mode].length) return state;
-  return { ...state, step, direction: by };
+  const direction = Math.sign(step - state.step) as -1 | 0 | 1;
+  if (direction === 0) return state;
+  return { ...state, step, direction };
 };
 
 /**

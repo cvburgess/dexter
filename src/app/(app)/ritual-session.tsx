@@ -12,6 +12,7 @@ import { useDismissModal } from "@/hooks/useDismissModal";
 import {
   advanceStep,
   createRitualState,
+  goToStep,
   parseRitualMode,
   withDate,
 } from "@/utils/ritualSteps";
@@ -71,7 +72,8 @@ export default function RitualSessionScreen() {
 
   const changeDate = (date: Temporal.PlainDate) =>
     setState((current) => withDate(current, date));
-  const next = () => setState((current) => advanceStep(current, 1));
+  const selectStep = (index: number) =>
+    setState((current) => goToStep(current, index));
   const swipe = (direction: 1 | -1) =>
     setState((current) => advanceStep(current, direction));
 
@@ -81,7 +83,7 @@ export default function RitualSessionScreen() {
         <SmallScreenRitual
           onChangeDate={changeDate}
           onClose={dismiss}
-          onNext={next}
+          onSelectStep={selectStep}
           onSwipe={swipe}
           state={state}
         />

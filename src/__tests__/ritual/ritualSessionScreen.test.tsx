@@ -2,6 +2,8 @@ import { fireEvent, render } from "@testing-library/react-native";
 import { Text, TouchableOpacity } from "react-native";
 
 import RitualSessionScreen from "@/app/(app)/ritual-session";
+import { ritualStepOptions } from "@/components/RitualStepSwitcher.shared";
+import type { TRitualStepSwitcherProps } from "@/components/RitualStepSwitcher.types";
 import { useDismissModal } from "@/hooks/useDismissModal";
 
 import type { TDateFieldProps } from "../../components/DateField.types";
@@ -25,6 +27,31 @@ const mockDateField = (props: TDateFieldProps) => (
 );
 jest.mock("@/components/DateField", () => ({
   DateField: (props: TDateFieldProps) => mockDateField(props),
+}));
+
+// The step switcher has its own test and a native menu host; stand it in with a
+// pressable per step so this file can drive the flow it wires up.
+const mockStepSwitcher = ({
+  state,
+  onSelectStep,
+}: TRitualStepSwitcherProps) => (
+  <>
+    {ritualStepOptions(state, onSelectStep).map((option) => (
+      <TouchableOpacity
+        accessibilityLabel={`go-to-${option.id}`}
+        key={option.index}
+        onPress={option.onSelect}
+      >
+        {/* The row's id, not its title — the step's title is what the body
+            renders, and the assertions below read that. */}
+        <Text>{`row:${option.id}`}</Text>
+      </TouchableOpacity>
+    ))}
+  </>
+);
+jest.mock("@/components/RitualStepSwitcher", () => ({
+  RitualStepSwitcher: (props: TRitualStepSwitcherProps) =>
+    mockStepSwitcher(props),
 }));
 
 const mockUseDismissModal = useDismissModal as jest.MockedFunction<
@@ -73,12 +100,12 @@ describe("RitualSessionScreen", () => {
     expect(screen.getByText("Horoscope")).toBeTruthy();
   });
 
-  it("advances a step", () => {
+  it("jumps to a step picked from the switcher", () => {
     const screen = render(<RitualSessionScreen />);
 
-    fireEvent.press(screen.getByLabelText("Next step"));
+    fireEvent.press(screen.getByLabelText("go-to-calendar"));
 
-    expect(screen.getByText("Journal")).toBeTruthy();
+    expect(screen.getByText("Calendar")).toBeTruthy();
   });
 
   it("closes through the modal dismiss, not a bare back()", () => {

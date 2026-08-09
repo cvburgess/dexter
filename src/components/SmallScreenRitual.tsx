@@ -1,9 +1,10 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 
 import { DayNavHeader } from "@/components/DayNavHeader";
 import { GlassIconButton } from "@/components/GlassIconButton";
 import { RitualModeButton } from "@/components/RitualModeButton";
+import { RitualStepSwitcher } from "@/components/RitualStepSwitcher";
 import { RitualStepView } from "@/components/RitualStepView";
 import { SwipeablePage } from "@/components/SwipeablePage";
 import {
@@ -18,7 +19,8 @@ type TSmallScreenRitualProps = {
   onChangeDate: (date: Temporal.PlainDate) => void;
   /** A committed swipe: 1 for the next step, -1 for the previous one. */
   onSwipe: (direction: 1 | -1) => void;
-  onNext: () => void;
+  /** Jump straight to a step, from the switcher's menu rows or icons. */
+  onSelectStep: (index: number) => void;
   /**
    * Renders the AM/PM switch in the leading slot. The tab passes this; the
    * modal doesn't, because on a large screen the ritual is chosen in the
@@ -34,14 +36,15 @@ type TSmallScreenRitualProps = {
 };
 
 /**
- * The ritual as it works on a phone: one step at a time, `DayNav` centered
- * between two round `GlassIconButton`s — the AM/PM switch (or the modal's ✕) on
- * one side, advance-a-step on the other — and a swipe that pages between steps
- * rather than days (DEX-127).
+ * The ritual as it works on a phone: one step at a time, `DayNav` between the
+ * AM/PM switch (or the modal's ✕) and the step switcher, and a swipe that pages
+ * between steps rather than days (DEX-127).
  *
- * Both header controls are the same button at the same `controls.md` diameter
- * rather than one circle and one text pill, so they read as a matched pair and
- * neither can crowd `PeriodNav`'s day arrows the way a wider control would.
+ * **Nothing here is a "next" button.** Advancing is the swipe, exactly as it is
+ * for days on the Today tab, and the switcher is navigation — it jumps to any
+ * step and, on native, wears the current step's icon so it doubles as a "you
+ * are here". `RitualStepSwitcher` is platform-split: a menu on native, a button
+ * per step on web (which is also the only option there — see that file).
  *
  * Two surfaces render this — the Ritual tab below the breakpoint, and the play
  * modal on large screens, which is the *same* experience deliberately rather
@@ -62,7 +65,7 @@ export function SmallScreenRitual({
   state,
   onChangeDate,
   onSwipe,
-  onNext,
+  onSelectStep,
   onToggleMode,
   onClose,
 }: TSmallScreenRitualProps) {
@@ -74,6 +77,10 @@ export function SmallScreenRitual({
       <DayNavHeader
         date={state.date}
         onChangeDate={onChangeDate}
+        // The web switcher is a button per step — far too wide to float over
+        // the nav — so that platform lays the header out in flow instead. See
+        // `DayNavHeader`'s `layout` prop and `RitualStepSwitcher.web`.
+        layout={Platform.OS === "web" ? "row" : "overlay"}
         leading={
           onClose ? (
             <GlassIconButton
@@ -86,16 +93,8 @@ export function SmallScreenRitual({
             <RitualModeButton mode={state.mode} onPress={onToggleMode} />
           ) : null
         }
-        /* Congrats ends the flow, so it offers nothing to advance to. */
         trailing={
-          lastStep ? null : (
-            <GlassIconButton
-              accessibilityLabel="Next step"
-              ionicon="chevron-forward"
-              onPress={onNext}
-              sfSymbol="chevron.right"
-            />
-          )
+          <RitualStepSwitcher onSelectStep={onSelectStep} state={state} />
         }
       />
       {/* All three parts of the key matter: a step change plays the intro

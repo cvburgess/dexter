@@ -10,6 +10,7 @@ import { usePublishViewedDay } from "@/hooks/useViewedDay";
 import {
   advanceStep,
   createRitualState,
+  goToStep,
   otherMode,
   withDate,
   withMode,
@@ -47,7 +48,8 @@ export default function RitualScreen() {
     setState((current) => withDate(current, date));
   const toggleMode = () =>
     setState((current) => withMode(current, otherMode(current.mode)));
-  const next = () => setState((current) => advanceStep(current, 1));
+  const selectStep = (index: number) =>
+    setState((current) => goToStep(current, index));
   const swipe = (direction: 1 | -1) =>
     setState((current) => advanceStep(current, direction));
 
@@ -67,7 +69,7 @@ export default function RitualScreen() {
           See `SmallScreenRitual`. */}
       <SmallScreenRitual
         onChangeDate={changeDate}
-        onNext={next}
+        onSelectStep={selectStep}
         onSwipe={swipe}
         onToggleMode={toggleMode}
         state={state}

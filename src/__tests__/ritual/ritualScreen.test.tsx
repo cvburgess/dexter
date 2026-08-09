@@ -23,20 +23,29 @@ jest.mock("@/hooks/useViewedDay", () => ({
 const mockSmallScreenRitual = ({
   state,
   onChangeDate,
-  onNext,
+  onSelectStep,
   onSwipe,
   onToggleMode,
 }: ComponentProps<typeof SmallScreenRitual>) => (
   <>
     <Text>{`small:${state.date.toString()}:${state.mode}:${state.step}:${state.direction}`}</Text>
-    <TouchableOpacity accessibilityLabel="next" onPress={onNext}>
-      <Text>next</Text>
+    <TouchableOpacity
+      accessibilityLabel="swipe-forward"
+      onPress={() => onSwipe(1)}
+    >
+      <Text>swipe forward</Text>
     </TouchableOpacity>
     <TouchableOpacity
       accessibilityLabel="swipe-back"
       onPress={() => onSwipe(-1)}
     >
       <Text>swipe back</Text>
+    </TouchableOpacity>
+    <TouchableOpacity
+      accessibilityLabel="pick-last-step"
+      onPress={() => onSelectStep(4)}
+    >
+      <Text>pick</Text>
     </TouchableOpacity>
     <TouchableOpacity accessibilityLabel="toggle-mode" onPress={onToggleMode}>
       <Text>toggle</Text>
@@ -112,7 +121,7 @@ describe("RitualScreen", () => {
   it("advances a step, travelling forward", () => {
     const screen = render(<RitualScreen />);
 
-    fireEvent.press(screen.getByLabelText("next"));
+    fireEvent.press(screen.getByLabelText("swipe-forward"));
 
     expect(screen.getByText(`small:${TODAY}:am:1:1`)).toBeTruthy();
   });
@@ -128,18 +137,28 @@ describe("RitualScreen", () => {
   it("stops at the last step", () => {
     const screen = render(<RitualScreen />);
 
-    // Six morning steps, so the seventh press has nowhere to go.
+    // Six morning steps, so the seventh swipe has nowhere to go.
     for (let press = 0; press < 7; press++) {
-      fireEvent.press(screen.getByLabelText("next"));
+      fireEvent.press(screen.getByLabelText("swipe-forward"));
     }
 
     expect(screen.getByText(`small:${TODAY}:am:5:1`)).toBeTruthy();
   });
 
+  // The switcher hands back an index, so a jump can skip several steps at once
+  // and still animate the way it travelled.
+  it("jumps straight to a picked step", () => {
+    const screen = render(<RitualScreen />);
+
+    fireEvent.press(screen.getByLabelText("pick-last-step"));
+
+    expect(screen.getByText(`small:${TODAY}:am:4:1`)).toBeTruthy();
+  });
+
   it("restarts the ritual on another day, animating the way it travelled", () => {
     const screen = render(<RitualScreen />);
 
-    fireEvent.press(screen.getByLabelText("next"));
+    fireEvent.press(screen.getByLabelText("swipe-forward"));
     fireEvent.press(screen.getByLabelText("jump-forward"));
 
     expect(screen.getByText("small:2026-08-12:am:0:1")).toBeTruthy();
@@ -148,7 +167,7 @@ describe("RitualScreen", () => {
   it("restarts the ritual when the mode is switched", () => {
     const screen = render(<RitualScreen />);
 
-    fireEvent.press(screen.getByLabelText("next"));
+    fireEvent.press(screen.getByLabelText("swipe-forward"));
     fireEvent.press(screen.getByLabelText("toggle-mode"));
 
     expect(screen.getByText(`small:${TODAY}:pm:0:1`)).toBeTruthy();

@@ -4,6 +4,7 @@ import {
   advanceStep,
   createRitualState,
   currentStep,
+  goToStep,
   isFirstStep,
   isLastStep,
   modeForHour,
@@ -124,6 +125,41 @@ describe("advanceStep", () => {
     const before = state({ step: RITUAL_STEPS.am.length - 1 });
 
     expect(advanceStep(before, 1)).toBe(before);
+  });
+});
+
+describe("goToStep", () => {
+  it("jumps forward and records the direction", () => {
+    expect(goToStep(state(), 4)).toMatchObject({ step: 4, direction: 1 });
+  });
+
+  it("jumps back and records the direction", () => {
+    expect(goToStep(state({ step: 4 }), 1)).toMatchObject({
+      step: 1,
+      direction: -1,
+    });
+  });
+
+  it("returns the same state for the step already on screen", () => {
+    const before = state({ step: 2 });
+
+    expect(goToStep(before, 2)).toBe(before);
+  });
+
+  it.each([-1, 6])(
+    "returns the same state for out-of-range index %i",
+    (index) => {
+      const before = state({ step: 2 });
+
+      expect(goToStep(before, index)).toBe(before);
+    },
+  );
+
+  // The evening ritual is a step shorter, so the same index can be valid in one
+  // mode and out of range in the other.
+  it("bounds against the active ritual's own length", () => {
+    expect(goToStep(state({ mode: "pm" }), 4)).toMatchObject({ step: 4 });
+    expect(goToStep(state({ mode: "pm" }), 5)).toMatchObject({ step: 0 });
   });
 });
 

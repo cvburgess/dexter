@@ -9,6 +9,7 @@ import {
 import { createRitualState, type TRitualState } from "@/utils/ritualSteps";
 
 import type { TDateFieldProps } from "../DateField.types";
+import type { TRitualStepSwitcherProps } from "../RitualStepSwitcher.types";
 import { SmallScreenRitual } from "../SmallScreenRitual";
 
 // `DateField` wraps a native picker with no test double; `DayNav` renders it
@@ -21,6 +22,28 @@ const mockDateField = (props: TDateFieldProps) => (
 );
 jest.mock("../DateField", () => ({
   DateField: (props: TDateFieldProps) => mockDateField(props),
+}));
+
+// The step switcher is platform-split and covered by its own test; stand it in
+// with a pressable per step so this file can assert what the header wires up
+// without a native menu host.
+const mockStepSwitcher = ({
+  state: ritual,
+  onSelectStep,
+}: TRitualStepSwitcherProps) => (
+  <>
+    <Text>{`switcher:${ritual.mode}:${ritual.step}`}</Text>
+    <TouchableOpacity
+      accessibilityLabel="pick-step-3"
+      onPress={() => onSelectStep(3)}
+    >
+      <Text>pick</Text>
+    </TouchableOpacity>
+  </>
+);
+jest.mock("../RitualStepSwitcher", () => ({
+  RitualStepSwitcher: (props: TRitualStepSwitcherProps) =>
+    mockStepSwitcher(props),
 }));
 
 const DATE = Temporal.PlainDate.from("2026-08-09");
@@ -36,7 +59,7 @@ const renderRitual = (
   render(
     <SmallScreenRitual
       onChangeDate={jest.fn()}
-      onNext={jest.fn()}
+      onSelectStep={jest.fn()}
       onSwipe={jest.fn()}
       state={state()}
       {...props}
@@ -56,21 +79,28 @@ describe("SmallScreenRitual", () => {
     expect(screen.getByText("Open tasks")).toBeTruthy();
   });
 
-  it("advances when the next-step chevron is pressed", () => {
-    const onNext = jest.fn();
-    const screen = renderRitual({ onNext });
+  it("hands the switcher the step on screen", () => {
+    const screen = renderRitual({ state: state({ mode: "pm", step: 2 }) });
 
-    fireEvent.press(screen.getByLabelText("Next step"));
-
-    expect(onNext).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("switcher:pm:2")).toBeTruthy();
   });
 
-  // Congrats ends the flow — there is nothing left to advance to.
-  it("drops the next-step chevron on the last step", () => {
+  it("jumps to the step the switcher picked", () => {
+    const onSelectStep = jest.fn();
+    const screen = renderRitual({ onSelectStep });
+
+    fireEvent.press(screen.getByLabelText("pick-step-3"));
+
+    expect(onSelectStep).toHaveBeenCalledWith(3);
+  });
+
+  // The switcher is navigation, not progression — it stays on the last step so
+  // the user can still jump back out of Congrats.
+  it("keeps the switcher on the last step", () => {
     const screen = renderRitual({ state: state({ step: 5 }) });
 
     expect(screen.getByText("Congrats")).toBeTruthy();
-    expect(screen.queryByLabelText("Next step")).toBeNull();
+    expect(screen.getByText("switcher:am:5")).toBeTruthy();
   });
 
   describe("the swipe", () => {
