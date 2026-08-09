@@ -36,10 +36,14 @@ export function DayNavHeader({
     <View style={styles.header}>
       <DayNav date={date} onChangeDate={onChangeDate} />
       {leading ? (
-        <View style={[styles.slot, styles.leading]}>{leading}</View>
+        <View style={[styles.slot, styles.leading]} testID="day-nav-leading">
+          {leading}
+        </View>
       ) : null}
       {trailing ? (
-        <View style={[styles.slot, styles.trailing]}>{trailing}</View>
+        <View style={[styles.slot, styles.trailing]} testID="day-nav-trailing">
+          {trailing}
+        </View>
       ) : null}
     </View>
   );
