@@ -36,6 +36,7 @@ export function AppShell({ rail }: { rail: boolean }) {
           }}
         >
           <Tabs.Screen name="today" />
+          <Tabs.Screen name="ritual" />
           {/* Registered at every width, unlike its nav item (DEX-96): the
               route has to resolve for a `/week` URL typed or bookmarked on a
               narrow window, or deep-linked on a tablet, where the screen

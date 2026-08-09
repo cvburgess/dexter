@@ -76,6 +76,7 @@ describe("TabsLayout", () => {
         .map((node) => String(node.props.children));
       expect(order).toEqual([
         "trigger:today",
+        "trigger:ritual",
         "trigger:settings",
         "trigger:search",
       ]);

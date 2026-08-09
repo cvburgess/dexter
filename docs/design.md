@@ -196,11 +196,16 @@ What a component *does* own:
   it. The give-away is that it changes what the component *is*, not where it
   sits.
 
-Where the gutters actually live now: `SwipeableDay` supplies the phone's day
-gutter once for whichever of Tasks/Notes/Journal/Calendar is on screen;
+Where the gutters actually live now: `SwipeablePage` supplies the phone's side
+gutter once for whichever page is on screen — a day's Tasks/Notes/Journal/
+Calendar on the Today tab, a step's `RitualStepView` on the Ritual tab;
 `LargeScreenToday` and `WeekView` supply theirs on the pane row; the Week
 columns and the Today panes deliberately supply none, so the row's own `gap` is
 the whole space between them.
+
+The Ritual tab is the one place `SwipeablePage` supplies that gutter on a *large*
+screen too, since it wraps the step at every width there — `LargeScreenRitual`
+adds only the top inset, and `RitualStepView` carries nothing of its own.
 
 Reach for a `padding`/`inset` prop only after checking whether the caller can
 just wrap the thing in a padded view — it almost always can.

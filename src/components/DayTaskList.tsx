@@ -87,7 +87,7 @@ export function DayTaskList({
           style={styles.scroll}
           // Vertical only — the side gutter belongs to whoever placed this list
           // (see docs/design.md, "Who owns spacing"). The phone gets one from
-          // `SwipeableDay`; the Today pane and the Week columns want none, and
+          // `SwipeablePage`; the Today pane and the Week columns want none, and
           // a gutter per column would stack with its neighbour's and double
           // every gap in the grid (DEX-96).
           //

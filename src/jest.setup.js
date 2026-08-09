@@ -143,12 +143,21 @@ jest.mock("react-native-drax", () => {
   };
 });
 
-// @expo/ui's SwiftUI primitives (used by DateField.ios) are native views.
+// @expo/ui's SwiftUI primitives (used by DateField.ios and
+// RitualStepSegments.ios) are native views. Rendered as null so a screen that
+// merely contains one still mounts; a test that needs to drive one overrides
+// this with a capturing mock of its own (see RitualStepSegments.test).
 jest.mock("@expo/ui/swift-ui", () => ({
   DatePicker: () => null,
   Host: ({ children }) => children,
+  Image: () => null,
+  Picker: () => null,
 }));
 jest.mock("@expo/ui/swift-ui/modifiers", () => ({
+  accessibilityLabel: () => ({}),
   datePickerStyle: () => ({}),
+  glassEffect: () => ({}),
+  pickerStyle: () => ({}),
+  tag: () => ({}),
   tint: () => ({}),
 }));

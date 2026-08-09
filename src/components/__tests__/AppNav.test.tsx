@@ -169,6 +169,19 @@ describe.each(variants)("$name", ({ Component }) => {
   });
 });
 
+// Every destination's glyph is fixed, and two of them are about the time of
+// day, so they have to stay visually distinct (DEX-127).
+describe("destination glyphs", () => {
+  it("gives Today and Ritual different icons", () => {
+    const icons = NAV_ITEMS.filter((item) =>
+      ["today", "ritual"].includes(item.key),
+    ).map((item) => item.icon);
+
+    expect(icons).toHaveLength(2);
+    expect(new Set(icons).size).toBe(2);
+  });
+});
+
 // The rail's own concern, not the dock's: on a tablet it owns the physical left
 // edge of the display with no stack header above it, so it has to clear the
 // status bar, the home indicator, and a landscape cutout itself (DEX-104).

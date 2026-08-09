@@ -62,6 +62,12 @@ type TNavItem = {
  */
 export const NAV_ITEMS: TNavItem[] = [
   { key: "today", href: "/today", label: "Today", icon: "sunny-outline" },
+  // No `largeScreenOnly`, unlike Week below: one route serves every width, with
+  // the layout rather than the destination changing (DEX-127). One fixed glyph
+  // for both halves of the day too — the moon stands for the ritual as a whole,
+  // and a destination whose icon changed at noon would read as a different
+  // destination.
+  { key: "ritual", href: "/ritual", label: "Ritual", icon: "moon-outline" },
   {
     key: "week",
     href: "/week",

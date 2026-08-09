@@ -44,7 +44,7 @@ const responseHeight = (lines: number, spacing: number) =>
  * text (unlike Notes' markdown editor), so this renders identically on web and
  * native. Prompts auto-seed from `preferences.templatePrompts` (via
  * `useJournals`' `defaultJournal`), so there is no template chooser — nothing
- * persists until the user answers. Remounted per date by `SwipeableDay` (keyed
+ * persists until the user answers. Remounted per date by `SwipeablePage` (keyed
  * on the day), which re-seeds the uncontrolled inputs when the day changes.
  */
 export function JournalView({ date, onEditingChange }: TJournalViewProps) {
@@ -173,7 +173,7 @@ function JournalEditor({
       // content, so the field stayed under the keyboard. Don't reintroduce it
       // alongside this prop — the two would both subtract the keyboard.
       automaticallyAdjustKeyboardInsets
-      // Vertical only — the side gutter is the caller's (`SwipeableDay` on the
+      // Vertical only — the side gutter is the caller's (`SwipeablePage` on the
       // phone, the Journal branch of `NotesJournalTabs` in the tabbed pane);
       // see docs/design.md, "Who owns spacing".
       //
