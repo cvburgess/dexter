@@ -1,15 +1,9 @@
+import type { TRitualStepSegmentsProps } from "@/components/RitualStepSegments.types";
 import { ritualStepOptions } from "@/components/RitualStepSwitcher.shared";
 import {
   SegmentedControl,
   type TSegmentedControlOption,
 } from "@/components/SegmentedControl";
-import type { TRitualState } from "@/utils/ritualSteps";
-
-type TRitualStepSegmentsProps = {
-  state: TRitualState;
-  /** Jump to a step by index; the route hands this to `goToStep`. */
-  onSelectStep: (index: number) => void;
-};
 
 /**
  * The ritual's step control on a large screen: every step as one segment of an
@@ -21,6 +15,11 @@ type TRitualStepSegmentsProps = {
  * is the same small-screen-menu / large-screen-controls split Today makes
  * between `DayViewSwitcher` and `DayPaneToggles`, and both ritual variants read
  * one `STEP_ICONS` table so the glyphs can't drift.
+ *
+ * **Android and web only.** iOS hosts the real `UISegmentedControl` instead
+ * (`RitualStepSegments.ios.tsx`) so it draws in the system's liquid glass; this
+ * is the drawn approximation for the platforms with nothing to host — the same
+ * split `GlassIconButton` and `DateField` make.
  *
  * `stretch={false}` is load-bearing: this sits in `LargeScreenHeader`'s actions
  * row, which has no width of its own, so `flex: 1` segments would divide

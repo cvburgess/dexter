@@ -1,4 +1,5 @@
 import { fireEvent, render } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 
 import { SegmentedControl } from "../SegmentedControl";
 
@@ -61,5 +62,81 @@ describe("SegmentedControl", () => {
     );
 
     expect(screen.queryByTestId("mode-new")).toBe(null);
+  });
+
+  // The icon form exists for the Ritual toolbar, where six words wouldn't fit
+  // but six glyphs do. iOS hosts a real UISegmentedControl instead
+  // (`RitualStepSegments.ios`), so this drawn form is Android and web's.
+  describe("icon segments", () => {
+    const ICON_OPTIONS = [
+      {
+        value: "am",
+        label: "Morning",
+        icon: { sf: "sun.max" as const, ionicon: "sunny-outline" as const },
+      },
+      {
+        value: "pm",
+        label: "Evening",
+        icon: { sf: "moon" as const, ionicon: "moon-outline" as const },
+      },
+    ];
+
+    // An icon segment has no text, so the label has to reach the screen reader
+    // some other way or the segment announces nothing.
+    it("names an icon segment with its label", () => {
+      const screen = render(
+        <SegmentedControl
+          options={ICON_OPTIONS}
+          value="am"
+          onChange={jest.fn()}
+        />,
+      );
+
+      expect(screen.queryByText("Morning")).toBeNull();
+      expect(screen.getByLabelText("Morning")).toBeTruthy();
+    });
+
+    it("still reports the pressed segment's value", () => {
+      const onChange = jest.fn();
+      const screen = render(
+        <SegmentedControl
+          options={ICON_OPTIONS}
+          value="am"
+          onChange={onChange}
+        />,
+      );
+
+      fireEvent.press(screen.getByLabelText("Evening"));
+
+      expect(onChange).toHaveBeenCalledWith("pm");
+    });
+  });
+
+  // `stretch` decides whether segments divide their container or size to their
+  // own content. The second is required in a toolbar row, which has no width of
+  // its own for `flex: 1` segments to divide — they would collapse to nothing.
+  describe("stretch", () => {
+    const segmentFlex = (value: boolean | undefined) => {
+      const screen = render(
+        <SegmentedControl
+          options={OPTIONS}
+          stretch={value}
+          testIDPrefix="mode"
+          value="new"
+          onChange={jest.fn()}
+        />,
+      );
+
+      return StyleSheet.flatten(screen.getByTestId("mode-new").props.style)
+        .flex;
+    };
+
+    it("divides the container by default", () => {
+      expect(segmentFlex(undefined)).toBe(1);
+    });
+
+    it("sizes to content when off", () => {
+      expect(segmentFlex(false)).toBeUndefined();
+    });
   });
 });

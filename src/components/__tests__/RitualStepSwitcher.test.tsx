@@ -1,11 +1,10 @@
-import { fireEvent, render } from "@testing-library/react-native";
+import { render } from "@testing-library/react-native";
 import type { ReactNode } from "react";
 import { Text } from "react-native";
 
 import { createRitualState, RITUAL_STEPS } from "@/utils/ritualSteps";
 
 import type { TIconMenuSection } from "../IconMenu.types";
-import { RitualStepSegments } from "../RitualStepSegments";
 import { RitualStepSwitcher } from "../RitualStepSwitcher";
 import { ritualStepOptions, STEP_ICONS } from "../RitualStepSwitcher.shared";
 
@@ -171,52 +170,5 @@ describe("RitualStepSwitcher (small screens)", () => {
     expect(
       lastOptions().filter((option) => /next/i.test(option.title)),
     ).toHaveLength(0);
-  });
-});
-
-describe("RitualStepSegments (large screens)", () => {
-  it("renders a segment per step rather than a menu", () => {
-    const screen = render(
-      <RitualStepSegments
-        onSelectStep={jest.fn()}
-        state={createRitualState(undefined, "pm")}
-      />,
-    );
-
-    expect(mockIconMenu).not.toHaveBeenCalled();
-    expect(screen.getByTestId("ritual-step-open tasks")).toBeTruthy();
-    expect(screen.getByTestId("ritual-step-preview tomorrow")).toBeTruthy();
-  });
-
-  // The whole ritual being visible is the point of the large-screen form: the
-  // filled segment says how far through the user is without being asked.
-  it("marks the step on screen as selected", () => {
-    const screen = render(
-      <RitualStepSegments
-        onSelectStep={jest.fn()}
-        state={{ ...createRitualState(undefined, "am"), step: 3 }}
-      />,
-    );
-
-    expect(screen.getByLabelText("Backlog").props.accessibilityState).toEqual({
-      selected: true,
-    });
-    expect(screen.getByLabelText("Tasks").props.accessibilityState).toEqual({
-      selected: false,
-    });
-  });
-
-  it("jumps to the pressed step", () => {
-    const onSelectStep = jest.fn();
-    const screen = render(
-      <RitualStepSegments
-        onSelectStep={onSelectStep}
-        state={createRitualState(undefined, "am")}
-      />,
-    );
-
-    fireEvent.press(screen.getByLabelText("Tasks"));
-
-    expect(onSelectStep).toHaveBeenCalledWith(4);
   });
 });
