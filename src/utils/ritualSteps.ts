@@ -22,26 +22,16 @@ import { Temporal } from "@js-temporal/polyfill";
 export type TRitualMode = "am" | "pm";
 
 /**
- * Every step's id, as a literal union.
+ * Every step's id, spelled out once — as values, so `utils/ritualRoute.ts` can
+ * validate one that arrived from a route param, and as the union derived from
+ * them.
  *
- * Spelled out rather than inferred so `components/RitualStepSwitcher.shared`'s
- * icon table is a `Record` over it and the compiler catches a step added here
- * without one. Some ids appear in both rituals (`journal`, `congrats`) — they
- * are the same step at a different time of day, so they share an icon.
+ * One list rather than a hand-written union beside a hand-written array: the
+ * two would have no compile-time link, so a tenth id added to only one of them
+ * would leave `parseRitualStep` silently rejecting a step that exists and the
+ * deep link to it dying with no error anywhere.
  */
-export type TRitualStepId =
-  | "horoscope"
-  | "journal"
-  | "calendar"
-  | "backlog"
-  | "tasks"
-  | "congrats"
-  | "open-tasks"
-  | "review"
-  | "preview-tomorrow";
-
-/** Every step id, for validating one that arrived from a route param. */
-export const RITUAL_STEP_IDS: readonly TRitualStepId[] = [
+export const RITUAL_STEP_IDS = [
   "horoscope",
   "journal",
   "calendar",
@@ -51,7 +41,18 @@ export const RITUAL_STEP_IDS: readonly TRitualStepId[] = [
   "open-tasks",
   "review",
   "preview-tomorrow",
-];
+] as const;
+
+/**
+ * Every step's id, as a literal union.
+ *
+ * Enumerated (rather than inferred from `RITUAL_STEPS`) so
+ * `components/RitualStepSwitcher.shared`'s icon table is a `Record` over it and
+ * the compiler catches a step added without one. Some ids appear in both
+ * rituals (`journal`, `congrats`) — they are the same step at a different time
+ * of day, so they share an icon.
+ */
+export type TRitualStepId = (typeof RITUAL_STEP_IDS)[number];
 
 export type TRitualStep = {
   /** Unique within its mode; part of the swipe pager's remount key. */

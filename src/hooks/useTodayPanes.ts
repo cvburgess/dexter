@@ -28,8 +28,9 @@ const TODAY_PANE_KEYS = Object.keys(DEFAULT_PANES) as TTodayPane[];
 // Only checks the keys actually present, so a device's stored value from
 // before a pane was added (e.g. `drawer`) still passes — `readPanes` below
 // fills in any missing keys from `DEFAULT_PANES` rather than discarding the
-// user's existing notes/calendar choices. A key that has since been *removed*
-// (`journal`, DEX-105) is ignored for the same reason: nothing reads it.
+// user's existing notes/calendar choices. It says nothing about a key for a
+// pane that has since been *removed* (`journal`, DEX-105): unknown keys are
+// simply not examined here, and `readPanes` drops them.
 const isPartialTodayPanes = (value: unknown): value is Partial<TTodayPanes> =>
   typeof value === "object" &&
   value !== null &&
