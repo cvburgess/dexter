@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
+import { TSunSign } from "@/api/horoscopes";
 import { camelCase, snakeCase } from "@/utils/changeCase";
 import { Database, TablesUpdate } from "@/types/database.types";
 
@@ -23,6 +24,12 @@ export type TPreferences = {
   enableJournal: boolean;
   enableNotes: boolean;
   lightTheme: string;
+  /** The sign the Horoscope ritual step reads for, or `null` when unset —
+   * the only preference with no sensible default, since guessing one would
+   * show a stranger's horoscope as though it were the user's (DEX-128). This
+   * is the one nullable field in this type; treat it as a real state rather
+   * than coalescing it to a sign. */
+  sunSign: TSunSign | null;
   templateNote: string;
   templatePrompts: string[];
   themeMode: EThemeMode;
@@ -50,6 +57,9 @@ export type TUpdatePreferences = {
   enableJournal?: boolean;
   enableNotes?: boolean;
   lightTheme?: string;
+  /** `null` clears the sign back to unset, which is why this is nullable
+   * rather than merely optional — omitting it leaves the stored sign alone. */
+  sunSign?: TSunSign | null;
   templateNote?: string;
   templatePrompts?: string[];
   themeMode?: EThemeMode;

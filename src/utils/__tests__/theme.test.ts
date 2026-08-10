@@ -8,6 +8,8 @@ import {
   DENSITY,
   THEMES,
   resolveTheme,
+  sentimentInk,
+  sentimentTints,
   themes,
   useTheme,
   withOpacity,
@@ -314,6 +316,160 @@ describe("palette invariants", () => {
 
     expect(priorityMuted[3]).toBe(surfaceSunken);
     expect(priorityMuted[3]).not.toBe(background);
+  });
+});
+
+// DEX-128. The Horoscope ritual step's panel colors. Asserted here rather than
+// in the component because the panel's two ends are an animation's endpoints:
+// what the rendered tree carries is a static `base` and a static `peak` with a
+// mocked opacity between them, so nothing there can tell a good pair from a bad
+// one. Every property below is one that broke at least once while this was
+// being tuned by eye.
+describe("sentimentTints", () => {
+  const sentiments = ["positive", "negative", "mixed"] as const;
+  const channels = (hex: string) =>
+    [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const lightness = (hex: string) =>
+    channels(hex).reduce((sum, value) => sum + value, 0);
+
+  it("gives two opaque ends", () => {
+    for (const sentiment of sentiments) {
+      const { base, peak } = sentimentTints(sentiment);
+
+      // Opaque, for the reason `priorityMuted` is: an alpha fill takes on
+      // whatever is behind it, so a translucent end would change color with
+      // whatever the panel happened to sit on.
+      expect(base).toMatch(/^#[0-9a-f]{6}$/);
+      expect(peak).toMatch(/^#[0-9a-f]{6}$/);
+      expect(peak).not.toBe(base);
+    }
+  });
+
+  it.each(sentiments)("%s breathes toward light, not dark", (sentiment) => {
+    const { base, peak } = sentimentTints(sentiment);
+
+    expect(lightness(peak)).toBeGreaterThan(lightness(base));
+  });
+
+  // The regression this replaced: `peak` was derived by blending toward a much
+  // paler shade of the hue, which crosses through grey and so shed saturation
+  // as fast as it gained brightness. Every hue drifted toward the same pale
+  // nothing. Ranking the channels catches it where comparing overall lightness
+  // cannot — a wash toward white moves all three about equally and eventually
+  // flattens the order, where deepening a color moves its own channels hardest
+  // and leaves the ranking alone.
+  it.each(sentiments)("%s keeps its channel order", (sentiment) => {
+    const { base, peak } = sentimentTints(sentiment);
+    const rank = (hex: string) =>
+      channels(hex)
+        .map((value, i) => [value, i] as const)
+        .sort(([a], [b]) => a - b)
+        .map(([, i]) => i);
+
+    expect(rank(peak)).toEqual(rank(base));
+  });
+
+  // A channel holds whole numbers, so the largest per-channel difference is
+  // the count of distinct colors the whole animation can show — there is
+  // nothing between two adjacent integers to interpolate. Too few and the
+  // panel steps through them visibly however it is eased, which is exactly
+  // what a too-narrow amplitude produced. Eight is the floor that held up
+  // against `BREATHE_LEG_MS` on a real screen.
+  it.each(sentiments)("%s has enough steps to be smooth", (sentiment) => {
+    const { base, peak } = sentimentTints(sentiment);
+    const steps = Math.max(
+      ...channels(base).map((value, i) => Math.abs(value - channels(peak)[i])),
+    );
+
+    expect(steps).toBeGreaterThanOrEqual(8);
+  });
+
+  // The exact shades, since the whole point of the section above is that they
+  // are chosen rather than derived — nothing else would catch a hand edit.
+  it("holds the tuned shades", () => {
+    expect(sentimentTints("positive").base).toBe("#021c1a");
+    expect(sentimentTints("negative").base).toBe("#1d0218");
+    expect(sentimentTints("mixed").base).toBe("#070e1d");
+  });
+
+  // The panel is drawn *on* a theme's `background`, so it has to be a surface
+  // the page isn't — on every theme, not just the one it was eyeballed against.
+  // The first cut put `mixed` at the same lightness as `dim`'s own background
+  // and the panel dissolved into the page there, so the bar is the *palest*
+  // dark background rather than an average. Light palettes sit far above all
+  // three and were never in question.
+  it("stays below every dark palette's background", () => {
+    const palest = Math.max(
+      ...THEMES.filter((theme) => theme.mode === "dark").map((theme) =>
+        lightness(themes[theme.name].colors.background),
+      ),
+    );
+
+    for (const sentiment of sentiments) {
+      expect(lightness(sentimentTints(sentiment).base)).toBeLessThan(palest);
+    }
+  });
+
+  it("keeps the three sentiments distinct", () => {
+    const bases = sentiments.map((sentiment) => sentimentTints(sentiment).base);
+
+    expect(new Set(bases).size).toBe(3);
+  });
+
+  // Nothing here asserts how the breath *moves* — its amplitude and pace are
+  // taste, tuned by eye against a real screen, and a test pinning either would
+  // only have to be rewritten every time they are adjusted. What is worth
+  // pinning is the palette itself, and the legibility it has to preserve —
+  // see `sentimentInk` below for the other half of that.
+});
+
+// The panel is the one surface in the app that does not follow the user's
+// scheme, so it is also the one place `colors.text` cannot be trusted: on a
+// light theme it is near-black ink over a near-black panel. This is the guard.
+describe("sentimentInk", () => {
+  // `textSecondary` is an alpha of `text` rather than a hex on every palette,
+  // so this reads both forms. The alpha itself is not a problem here — the
+  // panel beneath is opaque, so it composites down to a dimmer version of the
+  // same light ink rather than picking up whatever is behind.
+  const lightness = (color: string) => {
+    const rgb = color.startsWith("#")
+      ? [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16))
+      : (color.match(/\d+/g) ?? []).slice(0, 3).map(Number);
+
+    return rgb.reduce((sum, value) => sum + value, 0);
+  };
+
+  // The panel bases total under 40 of a possible 765. Anything readable on
+  // them is nowhere near that, so a generous floor still fails loudly the
+  // moment a light theme's own ink leaks through — `dexter`'s `text` is 183.
+  const READABLE = 400;
+
+  it.each(THEMES.map((theme) => theme.name))(
+    "%s reads on the panel",
+    (name) => {
+      const palette = themes[name];
+      const ink = sentimentInk({
+        ...DENSITY.comfortable,
+        colors: palette.colors,
+        mode: palette.mode,
+      });
+
+      expect(lightness(ink.text)).toBeGreaterThan(READABLE);
+      expect(lightness(ink.textSecondary)).toBeGreaterThan(READABLE);
+    },
+  );
+
+  // A dark theme keeps its own ink, so the user's palette still shows through
+  // wherever it can — only light themes borrow.
+  it("keeps a dark theme's own ink", () => {
+    const palette = themes.abyss;
+    const ink = sentimentInk({
+      ...DENSITY.comfortable,
+      colors: palette.colors,
+      mode: palette.mode,
+    });
+
+    expect(ink.text).toBe(palette.colors.text);
   });
 });
 

@@ -99,6 +99,140 @@ The one deliberate alpha left on a card is the completed state — a 3% tint of
 the raw `priority[i]`. It is meant to read as the *absence* of a card rather
 than as a fourth surface color, so it does not get a token.
 
+## Sentiment
+
+A horoscope's sentiment colors the Ritual tab's Horoscope panel (DEX-128).
+`sentimentTints(sentiment)` in `utils/theme.ts` returns the two ends it breathes
+between, and the values are **fixed brand colors rather than theme tokens** —
+the one place in the app where a color does not come from the palette:
+
+| Sentiment | Reads as | Base → peak |
+| --- | --- | --- |
+| `positive` | green | `#021c1a` → `#032622` |
+| `negative` | purple | `#1d0218` → `#270220` |
+| `mixed` | blue — the neutral | `#070e1d` → `#0a1429` |
+
+**This is a deliberate exception, and it is listed at the bottom of this file.**
+The panel is a mood, not a surface: it has to say *green day / purple day /
+blue day* at a glance, and a token that changed hue with the user's chosen
+palette could not do that.
+
+**It is a night sky on every theme, light ones included.** There was a pale set
+for light schemes and it is gone: reading the day is a lights-down moment, and a
+horoscope on a bright panel is a different thing from a horoscope on a dark one.
+That makes the panel the app's one surface that does not follow the user's
+scheme — which has a consequence that is not optional.
+
+**Anything drawn on it takes `sentimentInk(theme)`, never `colors.text`.** On a
+light theme `colors.text` is near-black ink, and the panel is near-black; the
+two together are invisible. `sentimentInk` hands back the theme's own ink on a
+dark scheme, so the user's palette still shows through wherever it can, and the
+default dark palette's ink on a light one — what the app would have used had the
+scheme been dark. `theme.test.ts` pins that every one of the five themes yields
+ink that reads on the panel, which is the assertion that would fail the moment
+someone "simplified" this back to `colors.text`.
+
+Each hue sits at one lightness, ~6%, so the three read as equally dark and only
+the hue changes. The brand values as first given sat at 11–19%, which put
+`mixed` level with `dim`'s own `background` and made the panel dissolve into the
+page on that theme alone; these clear *every* dark palette's background, `abyss`
+(`#001e29`) included.
+
+**They carry more saturation than their lightness suggests** — 60–90%, against
+the 45% they started at. Chroma collapses as a color approaches black exactly as
+it does approaching white, so a moderate saturation at 6% lightness yields a
+barely-tinted grey. The color half of "almost-black with a color in it" is the
+half you have to fight for.
+
+### The breath
+
+The two ends are **both authored**, and differ only in lightness — about two
+points. An earlier version derived `peak` by blending toward a much paler shade
+of the hue and washed out: crossing 4% to 93% passes through grey, so the peak
+shed saturation as fast as it gained brightness. The channel deltas are the
+tell — a hand-written pair moves `+1/+9/+8` for `positive`, nearly all of it
+green, where the blended one moved `+20/+19/+19`, which is the signature of a
+slide toward white.
+
+Three things about how it animates, each of which was arrived at by getting it
+wrong first:
+
+- **It animates `opacity`, not `backgroundColor`** — `peak` fading in over
+  `base` on a childless layer. The two are the same picture (an alpha blend of
+  two colors *is* their linear interpolation) but not the same work.
+  `backgroundColor` is a paint property: every frame re-fills a screen-sized
+  layer, and reanimated hands the value across as a fresh `rgba(…)` string to
+  parse. `opacity` is a compositor property. That was the difference between a
+  slideshow and a fade, and neither the amplitude nor the easing could reach it.
+- **It eases linearly.** An ease-in-out parks near both ends and crosses the
+  middle at twice the average rate. For something that moves, that is the point;
+  a color has no momentum to sell, so the curve buys nothing and the uneven
+  rhythm reads as stepping.
+- **Amplitude and pace are one setting, and the floor is the framebuffer.** A
+  channel holds whole numbers, so the count of distinct colors the breath can
+  show is the largest per-channel difference between the ends. `BREATHE_LEG_MS`
+  divided by that count is how long each shade is held — the quantity the eye
+  actually judges. Narrowing one without shortening the other buys only a longer
+  hold on each shade.
+
+### The card's frame
+
+The panel is drawn as a **tarot card**: a `space.md` border in
+`SENTIMENT_FRAME` — white — with corners at four times `radii.md`. Three things
+about it:
+
+- **Three sides, not four.** The card runs off the bottom of the screen — on
+  native its color carries under the translucent tab bar and tints it, on web it
+  meets the bottom of the window — so a line across the bottom would be the one
+  thing saying it stopped there.
+- **The width and the radius are tied.** A heavy border on a tight corner
+  bunches up on the curve instead of turning it, so raising one means raising
+  the other. `colors.border` was tried first and abandoned: that token is
+  defined as a step *darker* than the surfaces it divides, so it drew the frame
+  from opposite sides on the two schemes — a pale band on light themes, a dark
+  one on dark — which read as two different objects. Note what white costs in
+  exchange: on `light` (pure white `background`) and `dexter` (all but) the
+  frame is the page's own color, so the card reads there as a dark shape with
+  white space around it rather than as a drawn border.
+- **The breathing tint layer carries the frame's inner radius** — the outer
+  radius less the border width. Its parent deliberately does not clip
+  (`overflow: hidden` on a rounded view makes it offscreen-rendered and
+  re-composited every frame the tint's opacity changes), so a square child would
+  push its own corners out through the rounded ones as soon as the breath came
+  up.
+
+This replaced an `EdgeFade` component that dissolved the edges into the page
+instead. Its reasoning is worth keeping in case a soft edge is ever wanted
+again: a **radial** gradient cannot do it on a rectangle, because it reaches the
+four edge midpoints at once while the corners sit 1.41× further out and are
+always past the end of the ramp — the tint read as an oval floating in the page,
+and widening the ellipse could not fix it, since the untouched core is bounded
+by the *nearest* edge. Four edge ramps plus four corner ramps at one band
+distance did work. So did easing them on `(1 - u)³` rather than a knee: a ramp
+arriving at zero with slope still on it leaves a kink in the brightness, and the
+eye resolves a kink into a line — it drew a visible rectangle one band in from
+every edge.
+
+### The sky, and the arrival
+
+The panel carries a drawn starfield over the color
+(`components/StarField.tsx`) on every theme, since every theme's panel is a
+night sky. The stars take `sentimentInk` at partial opacity, so they are the
+same ink as the type in front of them rather than a literal white.
+
+The content **fades in on arrival**, in reading order: sign, then summary, then
+the chevron and the six facets together. It is one shared value with overlapping
+windows onto it rather than three animations, so the order cannot drift as the
+timings are retuned, and it is keyed on the horoscope's *date* — walking `DayNav`
+replays it, a background refetch of the same day does not. Reduce Motion jumps
+straight to visible.
+
+With no mood to show — still loading, or a day the generator never covered —
+the panel falls back to `surfaceSunken`, which is the ordinary token for a
+surface that holds content, and neither the stars nor the edge fade draw at all:
+dissolving the edges of an ordinary card leaves a shape with no border rather
+than a panel.
+
 ## Border
 
 `colors.border` is the app's one hairline. It is opaque and tuned per theme
@@ -294,6 +428,23 @@ chevron with no leading glyph opposite it.
 **Emoji are icons**, not type: an emoji standing in for an icon (list tiles,
 habit tiles, habit rings) is sized from `icons`, not from a font role.
 
+The Ritual tab's zodiac glyphs are the same case — U+2648–U+2653 rendered as
+`<Text>`, because neither SF Symbols nor Ionicons has a zodiac set and there is
+no SVG asset pipeline to add twelve to. **They carry a trailing U+FE0E**, and
+that is a theming decision rather than a typographic nicety: those code points
+have `Emoji_Presentation=Yes`, so a bare one is drawn as a full-color emoji in
+a palette no theme controls. The variation selector forces text presentation,
+which is what lets the mark take `colors.text` like the type around it. Any
+future glyph pulled from the emoji-presentation ranges needs the same
+treatment.
+
+**A hero mark is derived, not tokenized.** The Horoscope step's sign glyph is
+`controls.md * 2` (DEX-128). `icons.md` is a row's leading glyph and cannot
+carry a screen, and `fonts.display` belongs to the login splash alone — so the
+size comes from an existing token rather than a new one or a literal, the same
+move `subtaskGeometry` makes for the checklist's in-between sizes. It still
+scales with the density tier, which is the property that matters.
+
 ## Density tiers
 
 Two explicit tiers. **`compact` is web-only**, applying at and above
@@ -362,14 +513,27 @@ job:
   edge instead: a `colors.border` hairline, because a `surfaceSunken` menu sits
   on cards and rows that are also `surfaceSunken` and the fill alone cannot mark
   where it ends, plus the shadow below.
-- **Shadows are black**, on every theme, and there are exactly two of them:
-  `SHADOW_MD` and `SHADOW_LG` in `utils/theme.ts`, Tailwind's `shadow-md` and
-  `shadow-lg` ported literally from dexter-app. A shadow is the absence of light
-  — the same rule that makes a divider always darker than the surfaces it
-  divides. Deriving one from `text` inverts it on the dark themes, where the ink
-  is light, painting a pale halo rather than a lift. Both are two layers, a wide
-  soft drop with a negative spread over a tighter layer that keeps the shape's
-  own edge defined; a single-layer shadow reads as a smudged hairline instead.
+- **Shadows are black**, on every theme, and there are exactly three of them:
+  `SHADOW_MD`, `SHADOW_LG` and `SHADOW_2XL` in `utils/theme.ts`, Tailwind's
+  `shadow-md`, `shadow-lg` and `shadow-2xl` ported literally from dexter-app. A
+  shadow is the absence of light — the same rule that makes a divider always
+  darker than the surfaces it divides. Deriving one from `text` inverts it on
+  the dark themes, where the ink is light, painting a pale halo rather than a
+  lift.
+
+  **Pick the rung by the size of the shape, not by how much lift you want.** The
+  first two are tuned for something a few hundred points across — a menu, a
+  tile, a popover — and both are two layers: a wide soft drop with a negative
+  spread over a tighter layer that keeps the shape's own edge defined, because a
+  single-layer shadow at that size reads as a smudged hairline. Across a
+  screen-sized surface the same values disappear entirely, which is what
+  `SHADOW_LG` did on the Horoscope card; `SHADOW_2XL` scales blur *and* alpha
+  with the shape. It is single-layer, which is Tailwind's own choice and fine
+  here: at 50px of blur there is no hairline left to smudge.
+
+  **A shadow only reads on the light themes**, and that is inherent rather than
+  a bug to fix — black on a near-black page is nothing. A surface that has to
+  separate itself on every theme needs an edge, not a lift.
 
   They are exported constants rather than theme tokens because a shadow has
   nothing to vary with — it is the same on every theme. They live in
@@ -392,6 +556,13 @@ a pre-blended token, or the fill takes on whatever is behind it.
 Everything below is a deliberate literal. Adding to this list should be
 uncomfortable.
 
+- **`SENTIMENT_COLORS` and `SENTIMENT_FRAME`** (`utils/theme.ts`, DEX-128) —
+  six hexes for the panel (a base/peak pair per hue) plus the white its frame is
+  drawn in, and the only colors in the app that are not theme tokens. The Horoscope panel has to read as *green day /
+  purple day / blue day*, which a token that changes hue with the user's palette
+  cannot do. Scoped to that one panel's background; everything drawn on it still
+  takes `sentimentInk`, which exists precisely because this panel does not
+  follow the user's scheme. See **Sentiment** above.
 - **`CalendarView`'s coordinate system.** `GUTTER_WIDTH`, `HOUR_HEIGHT`,
   `GUTTER_INSET`, `EVENT_GAP`, `NOW_DOT_SIZE` and friends position the hour
   labels, hour lines, now line, and events area against each other. They

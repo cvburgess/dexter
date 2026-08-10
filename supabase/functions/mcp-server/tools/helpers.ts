@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { Constants } from "@src/types/database.types.ts";
 import { normalizeTaskUrl } from "@src/utils/taskUrl.ts";
 import { ETaskStatus } from "@src/utils/taskStatus.ts";
 
@@ -21,6 +22,14 @@ export const taskPrioritySchema = z.number().int().min(0).max(4);
  */
 export const taskStatusSchema = z.nativeEnum(ETaskStatus);
 export const themeModeSchema = z.number().int().min(0).max(2);
+/**
+ * A sun sign (DEX-128), built from the generated runtime enum array rather than
+ * a hand-written list, for the same reason `taskStatusSchema` derives from the
+ * app's enum: a thirteenth label would otherwise be accepted here and rejected
+ * by Postgres. `preferences.sun_sign` is a real enum column, so a bad value is
+ * a failed update rather than a silently stored string.
+ */
+export const sunSignSchema = z.enum(Constants.public.Enums.sun_sign);
 
 /**
  * A task's link (DEX-66). Transforms rather than validates, reusing the app's

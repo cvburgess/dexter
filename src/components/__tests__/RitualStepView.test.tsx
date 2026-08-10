@@ -15,6 +15,22 @@ jest.mock("@/components/JournalView", () => ({
   },
 }));
 
+// Likewise: the horoscope step owns a query, a preference and a breathing
+// animation, none of which this file is about.
+jest.mock("@/components/HoroscopeStep", () => {
+  const { Text: RNText } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+  return {
+    HoroscopeStep: function MockHoroscopeStep({
+      date,
+    }: {
+      date: Temporal.PlainDate;
+    }) {
+      return <RNText>{`horoscope:${date.toString()}`}</RNText>;
+    },
+  };
+});
+
 const DATE = Temporal.PlainDate.from("2026-08-09");
 
 const renderStep = (step: TRitualStep) =>
@@ -27,6 +43,12 @@ beforeEach(() => {
 });
 
 describe("RitualStepView", () => {
+  it("renders the horoscope for the horoscope id", () => {
+    renderStep({ id: "horoscope", title: "Horoscope" });
+
+    expect(screen.getByText("horoscope:2026-08-09")).toBeTruthy();
+  });
+
   it("renders the journal for the ritual's day", () => {
     renderStep({ id: "journal", title: "Journal" });
 
@@ -51,11 +73,27 @@ describe("RitualStepView", () => {
     );
   });
 
+  it("hands a step the ritual's date rather than today's", () => {
+    const other = Temporal.PlainDate.from("2026-01-02");
+
+    render(
+      <RitualStepView
+        date={other}
+        onEditingChange={jest.fn()}
+        step={{ id: "horoscope", title: "Horoscope" }}
+      />,
+    );
+
+    expect(screen.getByText("horoscope:2026-01-02")).toBeTruthy();
+  });
+
   // The default branch is what lets the remaining DEX-34 sub-issues fill steps
-  // in one at a time, so every id that isn't built yet has to keep working.
+  // in one at a time, so every id that isn't built yet has to keep working. A
+  // step that quietly stopped rendering anything would look like an empty
+  // screen rather than a failure.
   it.each(
     [...RITUAL_STEPS.am, ...RITUAL_STEPS.pm].filter(
-      (step) => step.id !== "journal",
+      (step) => step.id !== "journal" && step.id !== "horoscope",
     ),
   )("renders $title as a placeholder", (step) => {
     renderStep(step);

@@ -1,6 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 
 import { EmptyScreen } from "@/components/EmptyScreen";
+import { HoroscopeStep } from "@/components/HoroscopeStep";
 import { JournalView } from "@/components/JournalView";
 import type { TRitualStep } from "@/utils/ritualSteps";
 
@@ -25,8 +26,9 @@ type TRitualStepViewProps = {
  * The content of one ritual step.
  *
  * This is the seam each DEX-34 sub-issue fills in: a step branches on `step.id`
- * here and nothing else about the flow has to change. The ones still to be
- * built fall through to the default and render their name centered.
+ * here and nothing else about the flow has to change. Two are built — Horoscope
+ * (DEX-128) and Journal (DEX-105) — and the rest fall through to the default
+ * and render their name centered.
  *
  * Carries no side gutter of its own — `SwipeablePage` supplies it at both
  * widths on this tab (see docs/design.md, "Who owns spacing").
@@ -37,6 +39,8 @@ export function RitualStepView({
   onEditingChange,
 }: TRitualStepViewProps) {
   switch (step.id) {
+    case "horoscope":
+      return <HoroscopeStep date={date} />;
     // DEX-105: the journal left the Today tab for the ritual, so this is the
     // only place it renders. Not keyed on the date — `SwipeablePage` remounts
     // the whole step on a day change (`ritualPageKey`), which is what re-seeds

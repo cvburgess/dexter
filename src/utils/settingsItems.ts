@@ -9,7 +9,7 @@ export type TSettingsSlug =
   | "lists"
   | "calendars"
   | "habits"
-  | "journal"
+  | "ritual"
   | "notes"
   | "licenses";
 
@@ -60,11 +60,15 @@ export const SETTINGS_ITEMS: TSettingsItem[] = [
     subtitle: "Habit tracking preferences",
     icon: "repeat-outline",
   },
+  // Named for the flow rather than the Journal alone (DEX-128): the sun sign
+  // the Horoscope step reads and the prompts the Journal step seeds from are
+  // both settings for the same guided walk, and the remaining DEX-34 steps
+  // land here too rather than each claiming a section of their own.
   {
-    slug: "journal",
-    title: "Journal",
-    subtitle: "Journaling preferences",
-    icon: "book-outline",
+    slug: "ritual",
+    title: "Ritual",
+    subtitle: "Horoscope and journaling preferences",
+    icon: "moon-outline",
   },
   {
     slug: "notes",

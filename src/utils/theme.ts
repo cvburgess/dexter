@@ -8,6 +8,7 @@ import {
 } from "react";
 import { Platform, useColorScheme } from "react-native";
 
+import { THoroscopeSentiment } from "@/api/horoscopes";
 import { EThemeMode } from "@/api/preferences";
 import { ETaskPriority } from "@/api/tasks";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
@@ -235,6 +236,123 @@ const mutePriorities = (
   muted[ETaskPriority.NEITHER] = surfaceSunken;
   return muted;
 };
+
+/**
+ * The Horoscope panel's color, per sentiment (DEX-128).
+ *
+ * **These are the one place in the app where a color is not a theme token**,
+ * and the exception is deliberate rather than an oversight — `docs/design.md`
+ * carries it in its exceptions list. The panel is a mood, not a surface: it has
+ * to say *green day / purple day / blue day* at a glance, and a token that
+ * changed hue with the user's palette could not.
+ *
+ * **It is a night sky on every theme, light ones included.** There was a pale
+ * set for light schemes at one point and it is gone: reading the day is a
+ * lights-down moment, and a horoscope on a bright panel is a different thing
+ * from a horoscope on a dark one. That makes this the app's one surface that
+ * does not follow the user's scheme, so anything drawn on it takes
+ * `sentimentInk` rather than `colors.text` — see below.
+ *
+ * Green reads positive and purple negative; blue is the neutral, which the DB
+ * enum spells `mixed` (the facets genuinely pull both ways). Each hue sits at
+ * one lightness, ~6%, so the three read as equally dark and only the hue
+ * changes. The brand values as first given sat at 11–19%, which put `mixed`
+ * level with `dim`'s own `background` and made the panel dissolve into the page
+ * on that theme; these clear *every* dark palette's background, `abyss`
+ * (#001e29) included.
+ *
+ * **They carry more saturation than their lightness would suggest** — 60–90%.
+ * Chroma collapses as a color approaches black exactly as it does approaching
+ * white, so a moderate saturation at 6% lightness yields a barely-tinted grey.
+ * The target is almost-black *with a color in it*, and the color half is the
+ * part that has to be fought for. **This is about as deep as it can usefully
+ * go**: each base totals the high thirties of a possible 765 across its three
+ * channels, and the hue lives in a spread of a dozen units inside that, so a
+ * further step down spends the distinctness between the three sentiments —
+ * which is the panel's whole job.
+ *
+ * **Both ends of the breath are authored, not derived.** The first cut computed
+ * `peak` by blending toward a much paler shade of the hue, and it washed out:
+ * crossing from 6% lightness to 93% moves through grey, so the peak lost
+ * saturation as fast as it gained brightness and every hue drifted toward the
+ * same pale nothing. A hand-written pair holds one hue and one saturation and
+ * differs only in lightness, so the breath *deepens* the color instead of
+ * diluting it. The channels are the tell: `positive` moves +1/+9/+8, nearly all
+ * of it green, where the blended peak moved +20/+19/+19 — the signature of a
+ * slide toward white.
+ *
+ * **The amplitude has a hard floor set by the framebuffer, not by taste.** A
+ * channel holds whole numbers, so the count of distinct colors this animation
+ * can ever show is the largest per-channel difference between `base` and `peak`
+ * — nothing exists between two adjacent integers. Two points of lightness puts
+ * that count around 10, and `BREATHE_LEG_MS` in `HoroscopeStep` divided by it
+ * is how long each shade is held: the quantity the eye actually judges.
+ *
+ * The two constants are therefore one setting — **steps × step-duration = leg
+ * length**. Narrowing the amplitude without shortening the leg buys nothing but
+ * a longer hold on each shade. Note also what this does *not* explain: raising
+ * the count to 20 did not smooth anything, which is what pointed at the easing
+ * curve in `HoroscopeStep` rather than at these values.
+ */
+const SENTIMENT_COLORS: Record<
+  THoroscopeSentiment,
+  { base: string; peak: string }
+> = {
+  // hsl(174 85% 6%) → 8%
+  positive: { base: "#021c1a", peak: "#032622" },
+  // hsl(311 90% 6%) → 8%
+  negative: { base: "#1d0218", peak: "#270220" },
+  // hsl(220 60% 7%) → 10%. A point deeper and a point wider than its neighbours:
+  // blue is the darkest hue at a given lightness, so it needs the extra to hold
+  // both its own weight and a visible breath.
+  mixed: { base: "#070e1d", peak: "#0a1429" },
+};
+
+/** The two ends of the Horoscope panel's breathing color. */
+export function sentimentTints(sentiment: THoroscopeSentiment): {
+  base: string;
+  peak: string;
+} {
+  return SENTIMENT_COLORS[sentiment];
+}
+
+/**
+ * The Horoscope card's frame — white, on every theme (DEX-128).
+ *
+ * The second color in the app that is not a theme token, and it sits here
+ * beside `SENTIMENT_COLORS` for the same reason: the panel is a tarot card, not
+ * a surface, and a card's border is part of the object rather than part of the
+ * app around it. `colors.border` drew it from opposite sides on the two schemes
+ * — a pale band on light themes, a dark one on dark themes — which read as two
+ * different objects.
+ *
+ * **Note what it does on the palest light themes.** `light`'s `background` is
+ * pure white and `dexter`'s is all but, so there the frame is the page's own
+ * color: the card reads as a dark shape with white space around it rather than
+ * as a drawn border. That is the accepted cost of one frame everywhere.
+ */
+export const SENTIMENT_FRAME = "#ffffff";
+
+/**
+ * The ink for anything drawn on the sentiment panel.
+ *
+ * The panel is a night sky whatever the user's theme, so a light theme's dark
+ * `colors.text` would be all but invisible on it — this is the price of the
+ * panel not following the scheme, and paying it here keeps every caller from
+ * having to know. A dark theme already has ink for a dark surface and keeps its
+ * own, so the user's palette still shows through wherever it can; a light one
+ * borrows the default dark palette's, which is what the app would have used had
+ * the scheme been dark.
+ */
+export function sentimentInk(theme: Theme): {
+  text: string;
+  textSecondary: string;
+} {
+  const { text, textSecondary } =
+    theme.mode === "dark" ? theme.colors : themes[DEFAULT_DARK_THEME].colors;
+
+  return { text, textSecondary };
+}
 
 // Each theme is a daisyUI theme ported oklch → hex. The TThemeColors fields map
 // onto daisyUI tokens as: background = base-100, surfaceSunken = base-200,
@@ -523,6 +641,23 @@ export const SHADOW_MD =
   "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)";
 export const SHADOW_LG =
   "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)";
+
+/**
+ * Tailwind v4's `shadow-2xl`, for a surface the size of a screen.
+ *
+ * The two above are tuned for things a few hundred points across — a menu, a
+ * tile, a popover — where 15px of blur at 10% black is a clear lift. Across the
+ * Horoscope card it is a rumour: blur and alpha both have to scale with the
+ * shape or the shadow reads as nothing at all, which is what `SHADOW_LG` on
+ * that card looked like.
+ *
+ * **Single-layer, unlike the other two, and that is Tailwind's own choice
+ * rather than an oversight.** The second tight layer up there exists to keep a
+ * small shape's edge defined under a soft drop; at 50px of blur there is no
+ * hairline left to smudge, and the card draws its own edge with a `space.md`
+ * frame regardless.
+ */
+export const SHADOW_2XL = "0 25px 50px -12px rgb(0 0 0 / 0.25)";
 
 /**
  * Applies an alpha channel to a color, e.g. for a scrim or to dim content

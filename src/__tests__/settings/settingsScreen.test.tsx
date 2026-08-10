@@ -53,7 +53,7 @@ describe("SettingsScreen", () => {
       "Tasks",
       "Calendars",
       "Habits",
-      "Journal",
+      "Ritual",
       "Notes",
       "Licenses",
     ]) {

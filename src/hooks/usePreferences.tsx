@@ -5,6 +5,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 
+import { TSunSign } from "@/api/horoscopes";
 import {
   EThemeMode,
   getPreferences,
@@ -27,6 +28,8 @@ const defaultPreferences: TPreferences = {
   enableJournal: true,
   enableNotes: true,
   lightTheme: "dexter",
+  // No sign until the user picks one (DEX-128) — see `TPreferences.sunSign`.
+  sunSign: null,
   templateNote: "",
   templatePrompts: [],
   themeMode: EThemeMode.SYSTEM,
@@ -104,6 +107,39 @@ export const usePreferences = (options?: THookOptions): TUsePreferences => {
   });
 
   return [preferences, { updatePreferences: update }];
+};
+
+/**
+ * Just the sun sign, for the Horoscope ritual step (DEX-128). Separate from
+ * `usePreferences` for the same two reasons `useAlarmSoundPreference` is.
+ *
+ * `isLoading` is the load-bearing half. `defaultPreferences` carries
+ * `sunSign: null` as placeholder data, and `null` is a *meaningful* value here —
+ * it renders the "pick your sign" prompt and its button. Reading the
+ * placeholder would flash that prompt at every user who already has a sign, on
+ * every cold open, before flipping to their horoscope. And `select` narrows the
+ * subscription, so a step that is on screen for the length of a ritual doesn't
+ * re-render on an unrelated preference edit.
+ */
+export const useSunSignPreference = (): {
+  sunSign: TSunSign | null;
+  isLoading: boolean;
+} => {
+  const { userId } = useAuth();
+
+  const { data, isPlaceholderData } = useQuery({
+    ...preferencesQueryOptions,
+    enabled: !!userId,
+    select: (preferences) => preferences.sunSign,
+  });
+
+  return {
+    sunSign: data ?? null,
+    // Paired with `userId` because a *disabled* query never leaves `pending`
+    // and so reports `isPlaceholderData` forever — see
+    // `useAlarmSoundPreference`, which pairs them for the same reason.
+    isLoading: !!userId && isPlaceholderData,
+  };
 };
 
 /**
