@@ -12,7 +12,7 @@ import { useTheme } from "@/utils/theme";
 /**
  * Web calendar sources: a list of public `.ics` feed URLs, persisted to
  * `preferences.calendarUrls`. Mirrors the Journal-prompts editor
- * (`settings/journal.tsx`): edits commit on blur, structural add/delete write
+ * (`settings/ritual.tsx`): edits commit on blur, structural add/delete write
  * the whole array, and `drafts` is the authoritative array so a structural edit
  * never builds on the optimistically-lagging preference.
  */

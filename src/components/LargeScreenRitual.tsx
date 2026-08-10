@@ -89,7 +89,7 @@ export function LargeScreenRitual({
           onSwipe={onSwipe}
           pageKey={ritualPageKey(state)}
         >
-          <RitualStepView step={step} />
+          <RitualStepView date={state.date} step={step} />
         </SwipeablePage>
       </View>
     </SafeAreaView>

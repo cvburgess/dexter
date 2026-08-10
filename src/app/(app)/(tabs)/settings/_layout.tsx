@@ -67,7 +67,7 @@ export default function SettingsLayout() {
         name="habits/[id]"
         options={createModalScreenOptions(theme, "Habit")}
       />
-      <Stack.Screen name="journal" options={listOptions("Journal")} />
+      <Stack.Screen name="ritual" options={listOptions("Ritual")} />
       <Stack.Screen name="notes" options={listOptions("Notes")} />
       <Stack.Screen name="licenses" options={listOptions("Licenses")} />
     </Stack>

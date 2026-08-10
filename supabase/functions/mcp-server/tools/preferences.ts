@@ -5,6 +5,7 @@ import type { ToolContext } from "../server.ts";
 import {
   compactUpdate,
   hasUpdates,
+  sunSignSchema,
   themeModeSchema,
   toolError,
   toolJson,
@@ -20,6 +21,13 @@ export const updatePreferencesInputSchema = {
   enableJournal: z.boolean().optional(),
   enableNotes: z.boolean().optional(),
   lightTheme: z.string().min(1).optional(),
+  /**
+   * The sign the Ritual's Horoscope step reads (DEX-128). `.nullable()` as well
+   * as `.optional()`, and the two mean different things here: omitting the
+   * field leaves the stored sign alone, while an explicit `null` clears it back
+   * to unset. `compactUpdate` only strips `undefined`, so the null survives.
+   */
+  sunSign: sunSignSchema.nullable().optional(),
   templateNote: z.string().optional(),
   templatePrompts: z.array(z.string()).optional(),
   themeMode: themeModeSchema.optional(),
@@ -72,6 +80,7 @@ export function registerPreferenceTools(
         enable_journal: fields.enableJournal,
         enable_notes: fields.enableNotes,
         light_theme: fields.lightTheme,
+        sun_sign: fields.sunSign,
         template_note: fields.templateNote,
         template_prompts: fields.templatePrompts,
         theme_mode: fields.themeMode,

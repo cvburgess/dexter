@@ -27,6 +27,8 @@ const defaultPreferences: TPreferences = {
   enableJournal: true,
   enableNotes: true,
   lightTheme: "dexter",
+  // No sign until the user picks one (DEX-128) — see `TPreferences.sunSign`.
+  sunSign: null,
   templateNote: "",
   templatePrompts: [],
   themeMode: EThemeMode.SYSTEM,

@@ -1,0 +1,33 @@
+-- DEX-128: The user's sun sign.
+--
+-- Which of the twelve signs to read `public.horoscopes` for. The horoscope
+-- rows themselves are global reference data keyed (sun_sign, date) — see
+-- 20260804005118_add_horoscopes.sql — so this column is the only user-scoped
+-- half of the feature: it says which row is *yours*.
+--
+-- Reuses `public.sun_sign` rather than declaring a second list. That enum
+-- already exists (same migration as the table) and is what the horoscopes it
+-- looks up are keyed by; two independent spellings of the same twelve values
+-- could drift, and a lookup would then silently return nothing.
+--
+-- **Nullable, with no default** — the one preference in this table that has
+-- neither. Every other column here has an answer that is right for a brand-new
+-- user (a theme, a calendar window, a sound), but there is no sign to guess:
+-- picking one would show a stranger's horoscope as though it were theirs.
+-- "Not set" is therefore a real state the UI renders — the Horoscope ritual
+-- step prompts for a sign instead of showing one — and NULL is how it is
+-- spelled. `TPreferences` in src/api/preferences.ts gains its first nullable
+-- field to match.
+--
+-- Deliberately not backfilled: there is nothing to backfill from. The birth
+-- date that would derive a sign is not stored anywhere in this schema, and
+-- adding one to guess with is a larger decision than this column.
+--
+-- No RLS changes are needed — the existing `user_id` policies on `preferences`
+-- already cover the new column.
+--
+-- Rollback:
+--   alter table public.preferences drop column if exists sun_sign;
+
+alter table public.preferences
+  add column if not exists sun_sign public.sun_sign;

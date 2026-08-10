@@ -46,6 +46,18 @@ jest.mock("../RitualStepSegments", () => ({
     mockStepSegments(props),
 }));
 
+// The horoscope step — the ritual's first, so it mounts by default here — owns
+// a query, a preference and a router. `RitualStepView` stays real so this file
+// still exercises the step branch; only the step's own content is stood in
+// with a marker, and it has its own test (DEX-128).
+const mockHoroscopeStep = ({ date }: { date: Temporal.PlainDate }) => (
+  <Text>{`horoscope:${date.toString()}`}</Text>
+);
+jest.mock("../HoroscopeStep", () => ({
+  HoroscopeStep: (props: Parameters<typeof mockHoroscopeStep>[0]) =>
+    mockHoroscopeStep(props),
+}));
+
 const DATE = Temporal.PlainDate.from("2026-08-09");
 
 const state = (overrides: Partial<TRitualState> = {}): TRitualState => ({

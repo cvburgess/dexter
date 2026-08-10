@@ -1,15 +1,30 @@
 import { fireEvent, render } from "@testing-library/react-native";
 import { ScrollView } from "react-native";
 
-import JournalScreen from "@/app/(app)/(tabs)/settings/journal";
+import RitualScreen from "@/app/(app)/(tabs)/settings/ritual";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
+import {
+  pickerOptions,
+  pickerProps,
+  resetPicker,
+} from "@/testUtils/mockExpoUiPicker";
 
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 jest.mock("@/hooks/useIsLargeDevice", () => ({ useIsLargeDevice: jest.fn() }));
 
 jest.mock("react-native-safe-area-context", () =>
   require("@/testUtils/mockSafeAreaEdges").mockSafeAreaContext(),
+);
+
+// The global @expo/ui mock renders Picker as null; this one captures its props
+// so the sun sign field can be inspected and driven.
+jest.mock("@expo/ui", () =>
+  jest
+    .requireActual<typeof import("@/testUtils/mockExpoUiPicker")>(
+      "@/testUtils/mockExpoUiPicker",
+    )
+    .mockExpoUiPicker(),
 );
 
 const mockSetOptions = jest.fn();
@@ -26,13 +41,22 @@ const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
 const mockUpdate = jest.fn();
 
 const renderWith = (
-  overrides: { enableJournal?: boolean; templatePrompts?: string[] } = {},
+  overrides: {
+    enableJournal?: boolean;
+    templatePrompts?: string[];
+    sunSign?: string | null;
+  } = {},
 ) => {
   mockUsePreferences.mockReturnValue([
-    { enableJournal: true, templatePrompts: [], ...overrides } as never,
+    {
+      enableJournal: true,
+      templatePrompts: [],
+      sunSign: null,
+      ...overrides,
+    } as never,
     { updatePreferences: mockUpdate },
   ]);
-  return render(<JournalScreen />);
+  return render(<RitualScreen />);
 };
 
 // The "Add prompt" affordance lives in the navigation header (set via
@@ -43,10 +67,71 @@ const renderHeader = () => {
   return render(options.headerRight());
 };
 
-describe("JournalScreen", () => {
+describe("RitualScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    resetPicker();
     mockUseIsLargeDevice.mockReturnValue(false);
+  });
+
+  describe("the sun sign picker", () => {
+    it("offers every sign in astrological order behind an unset option", () => {
+      renderWith();
+
+      const options = pickerOptions();
+
+      expect(options[0]).toEqual({ label: "Not set", value: "" });
+      expect(options).toHaveLength(13);
+      // Astrological, not alphabetical — which is why the DB enum declares the
+      // labels in this order and the options are built from it.
+      expect(options.slice(1, 4).map((o) => o.value)).toEqual([
+        "aries",
+        "taurus",
+        "gemini",
+      ]);
+      expect(options.at(-1)).toEqual({ label: "Pisces", value: "pisces" });
+    });
+
+    it("selects the stored sign", () => {
+      renderWith({ sunSign: "leo" });
+
+      expect(pickerProps()?.selectedValue).toBe("leo");
+    });
+
+    // A null sign has no matching item of its own, and a Picker given a value
+    // none of its items carry renders with nothing selected — so it has to
+    // land on the sentinel instead.
+    it("falls back to the unset sentinel when no sign is stored", () => {
+      renderWith({ sunSign: null });
+
+      expect(pickerProps()?.selectedValue).toBe("");
+    });
+
+    it("saves a chosen sign", () => {
+      renderWith({ sunSign: null });
+
+      (pickerProps()?.onValueChange as (value: string) => void)("scorpio");
+
+      expect(mockUpdate).toHaveBeenCalledWith({ sunSign: "scorpio" });
+    });
+
+    // The sentinel is a UI-only value: `preferences.sun_sign` is a real enum
+    // column, so "" would be rejected by Postgres. Clearing writes null.
+    it("clears the sign back to null when the unset option is chosen", () => {
+      renderWith({ sunSign: "leo" });
+
+      (pickerProps()?.onValueChange as (value: string) => void)("");
+
+      expect(mockUpdate).toHaveBeenCalledWith({ sunSign: null });
+    });
+
+    // The sign is not part of the Journal, so turning the Journal off must not
+    // take it with them — both live on this one screen now.
+    it("stays visible when the Journal is disabled", () => {
+      renderWith({ enableJournal: false, sunSign: "leo" });
+
+      expect(pickerProps()?.selectedValue).toBe("leo");
+    });
   });
 
   it("skips the left safe-area edge in two-pane mode (sidebar owns it)", () => {

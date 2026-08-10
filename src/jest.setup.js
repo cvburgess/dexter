@@ -14,9 +14,20 @@ require("react-native-gesture-handler/jestSetup");
 // balloon the full suite from ~5s to 90-100s for no behavior difference in
 // any current test — add it scoped to a single test file instead, if a test
 // ever needs to assert what does/doesn't render off-screen.
-jest.mock("react-native-reanimated", () =>
-  require("react-native-reanimated/mock"),
-);
+// The shipped mock leaves `useReducedMotion` out — its source has the hook
+// stubbed as `// useReducedMotion: ADD ME IF NEEDED` — so any component that
+// guards an animation on it throws in every test that mounts it (DEX-128,
+// `HoroscopeStep`). Report motion as allowed, which is the branch under test;
+// a test that wants the reduced path re-mocks this hook for itself.
+//
+// Note also that the mock's `interpolateColor` is a no-op returning
+// `undefined`, so an animated `backgroundColor` is never assertable from a
+// rendered tree. That is why the color math lives in `sentimentTints`
+// (`utils/theme.ts`) and is pinned by `utils/__tests__/theme.test.ts` instead.
+jest.mock("react-native-reanimated", () => {
+  const mock = require("react-native-reanimated/mock");
+  return { ...mock, useReducedMotion: () => false };
+});
 
 jest.mock("@react-native-async-storage/async-storage", () =>
   require("@react-native-async-storage/async-storage/jest/async-storage-mock"),

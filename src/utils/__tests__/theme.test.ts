@@ -8,6 +8,7 @@ import {
   DENSITY,
   THEMES,
   resolveTheme,
+  sentimentTints,
   themes,
   useTheme,
   withOpacity,
@@ -314,6 +315,80 @@ describe("palette invariants", () => {
 
     expect(priorityMuted[3]).toBe(surfaceSunken);
     expect(priorityMuted[3]).not.toBe(background);
+  });
+});
+
+// DEX-128. The Horoscope ritual step breathes its panel between these two
+// values. They are asserted here rather than in the component because the
+// reanimated jest mock's `interpolateColor` is a no-op — an animated
+// `backgroundColor` never reaches a rendered tree, so this is the only place
+// the color math is observable.
+describe("sentimentTints", () => {
+  const names = Object.keys(themes);
+  const sentiments = ["positive", "negative", "mixed"] as const;
+
+  it.each(names)("%s pre-blends both ends opaque", (name) => {
+    for (const sentiment of sentiments) {
+      const { base, peak } = sentimentTints(themes[name].colors, sentiment);
+
+      // Opaque, for the reason `priorityMuted` is: an alpha fill takes on
+      // whatever is behind it, so interpolating between two alphas would drift
+      // in hue as well as strength.
+      expect(base).toMatch(/^#[0-9a-f]{6}$/);
+      expect(peak).toMatch(/^#[0-9a-f]{6}$/);
+      expect(peak).not.toBe(base);
+    }
+  });
+
+  // The panel's untinted form is `surfaceSunken` — it holds content — so the
+  // wash starts from that surface rather than from the pane behind it. Blending
+  // from `background` would make the panel visibly change surface the moment
+  // the row landed.
+  it.each(names)("%s tints away from the sunken surface", (name) => {
+    const { colors } = themes[name];
+
+    for (const sentiment of sentiments) {
+      const { base, peak } = sentimentTints(colors, sentiment);
+
+      expect(base).not.toBe(colors.surfaceSunken);
+      // Faint: the base is nearer the plain surface than the peak is.
+      const distance = (hex: string) =>
+        [1, 3, 5].reduce(
+          (sum, i) =>
+            sum +
+            Math.abs(
+              parseInt(hex.slice(i, i + 2), 16) -
+                parseInt(colors.surfaceSunken.slice(i, i + 2), 16),
+            ),
+          0,
+        );
+
+      expect(distance(base)).toBeLessThan(distance(peak));
+    }
+  });
+
+  // Reusing `success` / `error` / the warning accent rather than adding
+  // sentiment tokens is what makes a mood read correctly on all five palettes
+  // for free — but only if the three stay visibly apart on each of them.
+  it.each(names)("%s keeps the three sentiments distinct", (name) => {
+    const [positive, negative, mixed] = sentiments.map(
+      (sentiment) => sentimentTints(themes[name].colors, sentiment).peak,
+    );
+
+    expect(new Set([positive, negative, mixed]).size).toBe(3);
+  });
+
+  it("draws each sentiment from the accent it means", () => {
+    const { colors } = themes.dexter;
+
+    // success / error / the warning accent — good, bad, and pulling both ways.
+    expect(sentimentTints(colors, "positive").peak).not.toBe(
+      sentimentTints(colors, "negative").peak,
+    );
+    expect(sentimentTints(colors, "positive")).toEqual({
+      base: "#deeede", // #00d390 at 10% over dexter's #f7f1e7
+      peak: "#bcead2", // and the same accent at 24%
+    });
   });
 });
 

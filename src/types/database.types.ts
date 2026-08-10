@@ -234,6 +234,7 @@ export type Database = {
           enable_journal: boolean;
           enable_notes: boolean;
           light_theme: string;
+          sun_sign: Database["public"]["Enums"]["sun_sign"] | null;
           template_note: string;
           template_prompts: string[];
           theme_mode: number;
@@ -250,6 +251,7 @@ export type Database = {
           enable_journal?: boolean;
           enable_notes?: boolean;
           light_theme?: string;
+          sun_sign?: Database["public"]["Enums"]["sun_sign"] | null;
           template_note?: string;
           template_prompts?: string[];
           theme_mode?: number;
@@ -266,6 +268,7 @@ export type Database = {
           enable_journal?: boolean;
           enable_notes?: boolean;
           light_theme?: string;
+          sun_sign?: Database["public"]["Enums"]["sun_sign"] | null;
           template_note?: string;
           template_prompts?: string[];
           theme_mode?: number;

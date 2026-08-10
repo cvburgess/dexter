@@ -8,6 +8,7 @@ import {
 } from "react";
 import { Platform, useColorScheme } from "react-native";
 
+import { THoroscopeSentiment } from "@/api/horoscopes";
 import { EThemeMode } from "@/api/preferences";
 import { ETaskPriority } from "@/api/tasks";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
@@ -197,7 +198,7 @@ export const DENSITY: Record<TDensity, TDensityTokens> = {
 const CARD_FILL_ALPHA = 0.8;
 
 /** Composites `color` over `over` at `alpha`, yielding an opaque `#rrggbb`. */
-function blend(color: string, over: string, alpha: number): string {
+export function blend(color: string, over: string, alpha: number): string {
   const channels = (hex: string) => [
     parseInt(hex.slice(1, 3), 16),
     parseInt(hex.slice(3, 5), 16),
@@ -235,6 +236,49 @@ const mutePriorities = (
   muted[ETaskPriority.NEITHER] = surfaceSunken;
   return muted;
 };
+
+/**
+ * The two ends of the Horoscope step's breathing tint (DEX-128).
+ *
+ * A sentiment does **not** get its own tokens. `success`, `error` and the
+ * warning accent are already this app's vocabulary for good / bad / needs
+ * attention, and they are tuned per theme — so a mood reads correctly on all
+ * five palettes for free, where fifteen hand-picked hexes would be fifteen
+ * things to keep in tune. `mixed` takes `priority[IMPORTANT_AND_URGENT]`
+ * because it is the theme's warning yellow, which is what "the facets pull
+ * both ways" wants; nothing about it is a task priority here.
+ *
+ * Both ends are **pre-blended opaque**, for the reason `priorityMuted` is: an
+ * alpha fill takes on whatever is behind it, so an animation between two
+ * alphas would drift in hue as well as strength. Blending each end first means
+ * the interpolation runs between two fixed colors. Deliberately faint — this
+ * is a background a summary is read on, not an accent.
+ *
+ * The blend is over `surfaceSunken`, not `background`. The panel holds
+ * content, so `surfaceSunken` is what it is when there is no mood to show
+ * (still loading, or a day the generator never covered) — tinting from that
+ * same surface keeps the untinted and tinted panels one object rather than two
+ * that swap when the data lands.
+ */
+const SENTIMENT_TINT_BASE_ALPHA = 0.1;
+const SENTIMENT_TINT_PEAK_ALPHA = 0.24;
+
+export function sentimentTints(
+  colors: TThemeColors,
+  sentiment: THoroscopeSentiment,
+): { base: string; peak: string } {
+  const accent =
+    sentiment === "positive"
+      ? colors.success
+      : sentiment === "negative"
+        ? colors.error
+        : colors.priority[ETaskPriority.IMPORTANT_AND_URGENT];
+
+  return {
+    base: blend(accent, colors.surfaceSunken, SENTIMENT_TINT_BASE_ALPHA),
+    peak: blend(accent, colors.surfaceSunken, SENTIMENT_TINT_PEAK_ALPHA),
+  };
+}
 
 // Each theme is a daisyUI theme ported oklch → hex. The TThemeColors fields map
 // onto daisyUI tokens as: background = base-100, surfaceSunken = base-200,

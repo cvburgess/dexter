@@ -71,7 +71,7 @@ export function SmallScreenRitual({
         onSwipe={onSwipe}
         pageKey={ritualPageKey(state)}
       >
-        <RitualStepView step={step} />
+        <RitualStepView date={state.date} step={step} />
       </SwipeablePage>
     </SafeAreaView>
   );

@@ -7,6 +7,7 @@ import {
 } from "react-native-safe-area-context";
 
 import { HeaderAddButton } from "@/components/HeaderAddButton";
+import { PickerField } from "@/components/PickerField";
 import { RowDeleteButton, rowDeleteInset } from "@/components/RowDeleteButton";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { SettingsToggleCard } from "@/components/SettingsToggleCard";
@@ -14,12 +15,21 @@ import { TextInput } from "@/components/TextInput";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
 import {
+  NO_SUN_SIGN,
+  SUN_SIGN_OPTIONS,
+  TSunSignOption,
+} from "@/utils/horoscope";
+import {
   EDGES_SINGLE_PANE,
   EDGES_TWO_PANE,
 } from "@/utils/settingsSafeAreaEdges";
 import { useTheme } from "@/utils/theme";
 
-export default function JournalScreen() {
+/**
+ * Settings for the guided Ritual flow (DEX-34): which sign its Horoscope step
+ * reads, and the prompts its Journal step seeds each day from.
+ */
+export default function RitualScreen() {
   const theme = useTheme();
   const navigation = useNavigation();
   const [preferences, { updatePreferences }] = usePreferences();
@@ -110,6 +120,38 @@ export default function JournalScreen() {
         ]}
         keyboardShouldPersistTaps="handled"
       >
+        <View style={{ gap: theme.space.sm }}>
+          <SettingsSectionTitle subtitle="The Horoscope step reads this sign's prediction for the day.">
+            Horoscope
+          </SettingsSectionTitle>
+          {/* The card is here rather than inside `PickerField` for the reason
+              settings/tasks/index.tsx spells out: this is a settings input,
+              while the field's other call sites are bare rows stacked into a
+              form. Same surface/radius/padding as `SettingsToggleCard`. */}
+          <View
+            style={{
+              backgroundColor: theme.colors.surfaceSunken,
+              borderRadius: theme.radii.md,
+              padding: theme.space.md,
+            }}
+          >
+            <PickerField<TSunSignOption>
+              label="Sun sign"
+              options={SUN_SIGN_OPTIONS}
+              // An unset sign is `null` in the DB but the Picker needs a value
+              // matching one of its items, so it lands on the "Not set"
+              // sentinel and is mapped back on the way out.
+              selectedValue={preferences.sunSign ?? NO_SUN_SIGN}
+              testID="sun-sign-picker"
+              onValueChange={(value) =>
+                updatePreferences({
+                  sunSign: value === NO_SUN_SIGN ? null : value,
+                })
+              }
+            />
+          </View>
+        </View>
+
         <SettingsToggleCard
           label="Journal"
           value={preferences.enableJournal}
