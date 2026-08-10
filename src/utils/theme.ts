@@ -282,8 +282,13 @@ const SENTIMENT_COLORS: Record<
  * Traveling toward the *other shade of the same hue* — rather than toward white
  * or black — is what keeps the peak in the same color family instead of washing
  * it out.
+ *
+ * Exported because the sky behind the wash breathes with it, at a fraction of
+ * this (see `SKY_BREATHE_RATIO` in `HoroscopeStep`). The two are one breath, so
+ * the sky's amplitude is derived from this rather than written as its own
+ * number that would silently stop matching the moment this is retuned.
  */
-const SENTIMENT_BREATHE_ALPHA = 0.09;
+export const SENTIMENT_BREATHE_ALPHA = 0.09;
 
 /** The two ends of the Horoscope panel's breathing color. */
 export function sentimentTints(

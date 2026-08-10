@@ -2,7 +2,6 @@ import { Temporal } from "@js-temporal/polyfill";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
-  Image,
   ImageSourcePropType,
   LayoutChangeEvent,
   ScrollView,
@@ -13,6 +12,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   Easing,
+  interpolate,
   interpolateColor,
   useAnimatedStyle,
   useReducedMotion,
@@ -29,7 +29,12 @@ import { useHoroscope } from "@/hooks/useHoroscope";
 import { useSunSignPreference } from "@/hooks/usePreferences";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
 import { HOROSCOPE_FACETS, SUN_SIGNS } from "@/utils/horoscope";
-import { sentimentTints, Theme, useTheme } from "@/utils/theme";
+import {
+  SENTIMENT_BREATHE_ALPHA,
+  sentimentTints,
+  Theme,
+  useTheme,
+} from "@/utils/theme";
 
 /**
  * One *leg* of the breath — in, or out — not a full cycle.
@@ -71,6 +76,20 @@ const SKY = require<ImageSourcePropType>("@/assets/images/sky.jpg");
  * token could not do. Don't "fix" this into a solid fill.
  */
 const SKY_WASH_OPACITY = 0.5;
+
+/**
+ * How much of the wash's amplitude the sky itself breathes at.
+ *
+ * A third, so the photograph moves *with* the color rather than alongside it —
+ * matched amplitudes would read as two things pulsing, which is one more than
+ * is happening. In phase, so the sky recedes a touch as the color swells; in
+ * counter-phase the two would partly cancel and the breath would flatten.
+ *
+ * Derived from `SENTIMENT_BREATHE_ALPHA` rather than written as its own number,
+ * so retuning the wash carries the sky with it.
+ */
+const SKY_BREATHE_RATIO = 1 / 3;
+const SKY_BREATHE_AMPLITUDE = SENTIMENT_BREATHE_ALPHA * SKY_BREATHE_RATIO;
 
 /**
  * The hero glyph's size, derived rather than tokenized.
@@ -173,6 +192,13 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
     backgroundColor: interpolateColor(breathe.value, [0, 1], [base, peak]),
   }));
 
+  // The sky rides the same shared value, so the two can never drift out of
+  // step — one breath drawn on two layers, not two animations that happen to
+  // share a duration.
+  const skyStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(breathe.value, [0, 1], [1, 1 - SKY_BREATHE_AMPLITUDE]),
+  }));
+
   return (
     <View
       style={[
@@ -191,9 +217,9 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
           over it, and `panel`'s `overflow: hidden` clips both to the radius. */}
       {horoscope ? (
         <>
-          <Image
+          <Animated.Image
             source={SKY}
-            style={StyleSheet.absoluteFill}
+            style={[StyleSheet.absoluteFill, skyStyle]}
             resizeMode="cover"
             testID="horoscope-sky"
           />
