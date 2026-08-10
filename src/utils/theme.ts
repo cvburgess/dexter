@@ -198,7 +198,7 @@ export const DENSITY: Record<TDensity, TDensityTokens> = {
 const CARD_FILL_ALPHA = 0.8;
 
 /** Composites `color` over `over` at `alpha`, yielding an opaque `#rrggbb`. */
-export function blend(color: string, over: string, alpha: number): string {
+function blend(color: string, over: string, alpha: number): string {
   const channels = (hex: string) => [
     parseInt(hex.slice(1, 3), 16),
     parseInt(hex.slice(3, 5), 16),
@@ -249,60 +249,80 @@ const mutePriorities = (
  * which is what the two-shade split below exists to keep legible.
  *
  * Green reads positive and purple negative; blue is the neutral, which the DB
- * enum spells `mixed` (the facets genuinely pull both ways). The dark shades
- * are the brand values as given; the light ones hold their hue and saturation
- * and raise lightness to ~88%, so a light theme's dark ink stays readable on
- * them exactly as a dark theme's light ink does on the deep ones. Swapping by
- * scheme rather than dimming one set is what keeps that contrast in both
- * directions.
+ * enum spells `mixed` (the facets genuinely pull both ways). Each hue is held
+ * at one lightness per scheme — ~3% deep and ~93% pale — so the three sentiments
+ * read as equally dark or equally pale as each other and only the hue changes.
+ * The brand values as first given sat at 11–19%, which put `mixed` level with
+ * `dim`'s own `background` and made the panel dissolve into the page on that
+ * theme; the deep set is now below *every* dark palette's background, `abyss`
+ * (#001e29) included, so the panel is a recessed surface on all of them rather
+ * than one whose separation depends on which theme the user picked.
+ *
+ * **Both sets carry more saturation than their lightness would suggest**, and
+ * for the same reason at each end: chroma collapses as a color approaches white
+ * *or* black, so holding a moderate saturation there yields a barely-tinted grey
+ * instead of a color. At 3% lightness the deep set needs 60–90% saturation to
+ * read as green, purple and blue at all — the target is almost-black *with a
+ * color in it*, and the color half of that is the part that has to be fought
+ * for. **This is about as deep as the deep set can usefully go.** Each base is
+ * down to 28 of a possible 765 across its three channels, and the hue lives in
+ * a spread of a dozen units inside that; a further step down spends the
+ * distinctness between the three sentiments, which is the panel's whole job.
+ *
+ * Swapping by scheme rather than dimming one set is what keeps `colors.text`
+ * legible in both directions.
+ *
+ * **Both ends of the breath are authored, not derived.** The first cut computed
+ * `peak` by blending a little of the *opposite scheme's* shade into `base`, and
+ * it washed out: crossing from 9% lightness to 93% moves through grey, so the
+ * peak lost saturation as fast as it gained brightness and every hue drifted
+ * toward the same pale nothing. Writing both ends by hand lets the pair hold
+ * one hue and one saturation and differ only in lightness — the breath now
+ * *deepens* the color instead of diluting it. That shows up in the channels:
+ * `positive` moves +2/+9/+8, all of it green, where the blended peak moved
+ * +20/+19/+19, which is the signature of a slide toward white.
+ *
+ * Two points of lightness is the amplitude, and it is only half of whether the
+ * breath reads at all — the other half is `BREATHE_LEG_MS` in `HoroscopeStep`.
+ * The two are tuned against each other. An earlier pairing of a comparable
+ * amplitude with a ten-second round trip came to a couple of RGB units per
+ * second across a large flat field, below what the eye registers as change, and
+ * the panel looked solid. Lower one and raise the other: a breath nobody can
+ * see is only a battery cost. This is already close to that floor, so if it
+ * needs to be subtler still, shorten the leg rather than narrowing this again.
  */
 const SENTIMENT_COLORS: Record<
   THoroscopeSentiment,
-  { light: string; dark: string }
+  Record<"light" | "dark", { base: string; peak: string }>
 > = {
-  // hsl(174 73% 16%) deep, hsl(174 45% 87%) light
-  positive: { light: "#cfedea", dark: "#0b453f" },
-  // hsl(311 79% 11%) deep, hsl(311 45% 89%) light
-  negative: { light: "#f0d6eb", dark: "#33062b" },
-  // hsl(220 43% 19%) deep, hsl(220 45% 88%) light
-  mixed: { light: "#d3dcee", dark: "#1c2a47" },
+  positive: {
+    // hsl(174 55% 93%) → 91%
+    light: { base: "#e3f7f5", peak: "#dbf5f2" },
+    // hsl(174 85% 3%) → 4%
+    dark: { base: "#010e0d", peak: "#021311" },
+  },
+  negative: {
+    // hsl(311 55% 93%) → 91%
+    light: { base: "#f7e3f3", peak: "#f5dbf0" },
+    // hsl(311 90% 3%) → 4%
+    dark: { base: "#0f010c", peak: "#130110" },
+  },
+  mixed: {
+    // hsl(220 55% 93%) → 91%
+    light: { base: "#e3eaf7", peak: "#dbe4f5" },
+    // hsl(220 60% 4%) → 6%. A point deeper and a point wider than its
+    // neighbours: blue is the darkest hue at a given lightness, so it needs the
+    // extra to hold both its own weight and a visible breath.
+    dark: { base: "#040810", peak: "#060c18" },
+  },
 };
-
-/**
- * How far along its own light↔dark axis a sentiment travels as it breathes.
- *
- * **Amplitude is only half of whether this is visible; the other half is
- * `BREATHE_LEG_MS` in `HoroscopeStep`.** The two are tuned against each other
- * and neither reads on its own: this same order of magnitude paired with a
- * ten-second round trip came to a couple of RGB units per second on a large
- * flat field, which is below what the eye registers as change, and the panel
- * looked solid. If you lower this, bring the pace up to compensate — a breath
- * nobody can see is only a battery cost.
- *
- * Traveling toward the *other shade of the same hue* — rather than toward white
- * or black — is what keeps the peak in the same color family instead of washing
- * it out.
- *
- * Exported because the sky behind the wash breathes with it, at a fraction of
- * this (see `SKY_BREATHE_RATIO` in `HoroscopeStep`). The two are one breath, so
- * the sky's amplitude is derived from this rather than written as its own
- * number that would silently stop matching the moment this is retuned.
- */
-export const SENTIMENT_BREATHE_ALPHA = 0.09;
 
 /** The two ends of the Horoscope panel's breathing color. */
 export function sentimentTints(
   mode: "light" | "dark",
   sentiment: THoroscopeSentiment,
 ): { base: string; peak: string } {
-  const shades = SENTIMENT_COLORS[sentiment];
-  const base = mode === "dark" ? shades.dark : shades.light;
-  const toward = mode === "dark" ? shades.light : shades.dark;
-
-  // Pre-blended opaque, for the reason `priorityMuted` is: an alpha fill takes
-  // on whatever is behind it, so interpolating between two alphas would drift
-  // in hue as well as strength.
-  return { base, peak: blend(toward, base, SENTIMENT_BREATHE_ALPHA) };
+  return SENTIMENT_COLORS[sentiment][mode];
 }
 
 // Each theme is a daisyUI theme ported oklch → hex. The TThemeColors fields map

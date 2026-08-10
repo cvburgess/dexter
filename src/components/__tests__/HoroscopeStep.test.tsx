@@ -172,6 +172,18 @@ describe("HoroscopeStep", () => {
       ).toBeNull();
     });
 
+    // The panel's edges dissolve into the page, on both schemes — unlike the
+    // stars, which are dark-scheme only. Gated on the horoscope all the same:
+    // the empty and prompt states are an ordinary card, and fading a card's
+    // edges leaves a shape with no border rather than a panel.
+    it("dissolves its edges into the page, and only once there is one", () => {
+      expect(renderStep().getByTestId("horoscope-edge-fade")).toBeTruthy();
+
+      expect(
+        renderStep({ horoscope: null }).queryByTestId("horoscope-edge-fade"),
+      ).toBeNull();
+    });
+
     // There are no stars in a daytime sky, and a light panel is one. Drawing
     // them anyway would put the theme's dark ink into faint specks that read as
     // dirt on the screen rather than as a sky.

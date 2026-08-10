@@ -25,6 +25,7 @@ import { EmptyScreen } from "@/components/EmptyScreen";
 import { Icon } from "@/components/Icon";
 import { StarField } from "@/components/StarField";
 import { useHoroscope } from "@/hooks/useHoroscope";
+import { EdgeFade } from "@/components/EdgeFade";
 import { useSunSignPreference } from "@/hooks/usePreferences";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
 import { HOROSCOPE_FACETS, SUN_SIGNS } from "@/utils/horoscope";
@@ -40,7 +41,7 @@ import { sentimentTints, Theme, useTheme, withOpacity } from "@/utils/theme";
  * to a couple of RGB units per second — the panel was animating the whole
  * time and simply could not be seen to.
  */
-const BREATHE_LEG_MS = 2600;
+const BREATHE_LEG_MS = 4000;
 
 const SCROLL_HINT_ICON = {
   sf: "chevron.down",
@@ -68,16 +69,17 @@ const STAR_OPACITY = 0.55;
 const heroGlyphSize = (theme: Theme) => theme.controls.md * 2;
 
 /**
- * How far above true center the hero's content sits.
+ * The gutter the step's own text keeps, inside the one `SwipeablePage` gives it.
  *
- * A screenful holding one glyph and one line reads better high than dead
- * center — centered, it drifts toward the fold and looks like it is falling
- * out of the screen. Derived from `controls.md` rather than written as a
- * literal, so it tracks the density tier: 120 comfortable, 96 compact. Applied
- * as bottom padding on the centering box, so the content rises by half of it
- * and the chevron below is unaffected.
+ * Double the usual `space.lg`, so the summary and the facets sit clear of the
+ * `EdgeFade` bands rather than running text out into the part of the panel that
+ * is fading back to the page color. It is a *reading* margin as much as a
+ * layout one: a line of `heading` set edge to edge on a phone is too long to
+ * scan comfortably anyway.
+ *
+ * Not a token — see `heroGlyphSize` above for why deriving beats adding one.
  */
-const heroLift = (theme: Theme) => theme.controls.md * 3;
+const contentGutter = (theme: Theme) => theme.space.lg * 2;
 
 type THoroscopeStepProps = {
   /** The day being walked through — the ritual's date, not necessarily today. */
@@ -175,6 +177,11 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
           <StarField color={withOpacity(theme.colors.text, STAR_OPACITY)} />
         </View>
       ) : null}
+      {/* Over the sky, not under it, so the stars recede with the color. Gated
+          on the horoscope for the same reason the stars are: the empty and
+          prompt states are an ordinary `surfaceSunken` card, and dissolving
+          *its* edges would leave a shape with no border rather than a panel. */}
+      {horoscope ? <EdgeFade color={theme.colors.background} /> : null}
       {/* Loading is checked *first*, and the order is load-bearing: an unread
           sign is `null`, which is indistinguishable from a user who has never
           picked one — so testing `sunSign` ahead of this would render the
@@ -198,7 +205,7 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
         />
       ) : (
         <ScrollView
-          contentContainerStyle={{ paddingHorizontal: theme.space.lg }}
+          contentContainerStyle={{ paddingHorizontal: contentGutter(theme) }}
           onLayout={onLayout}
           testID="horoscope-scroll"
         >
@@ -287,14 +294,19 @@ function Hero({
         { minHeight: Math.max(0, viewportHeight - bottomInset) },
       ]}
     >
-      {/* The lift rides on the inner box, not on `hero`: padding on the
-          centering container would also move what `scrollHint` measures its
-          `bottom` against. Padding a centered child raises its content by half
-          the padding and leaves the chevron where it is. */}
+      {/* Dead center of the hero, which `minHeight` has already shortened by
+          the bottom inset — so this centers in the screenful the reader can
+          actually see, not in a box running behind the tab bar. */}
       <View
         style={[
           styles.heroContent,
-          { gap: theme.space.lg, paddingBottom: heroLift(theme) },
+          {
+            // Double `space.lg`. The glyph is a mark, not a heading, and the
+            // summary is not its caption — at the usual section gap the two
+            // read as one block, where the point is a symbol resting above a
+            // sentence with air between them.
+            gap: theme.space.lg * 2,
+          },
         ]}
       >
         <Text

@@ -342,9 +342,48 @@ describe("sentimentTints", () => {
   });
 
   it("takes the brand values on a dark scheme", () => {
-    expect(sentimentTints("dark", "positive").base).toBe("#0b453f");
-    expect(sentimentTints("dark", "negative").base).toBe("#33062b");
-    expect(sentimentTints("dark", "mixed").base).toBe("#1c2a47");
+    expect(sentimentTints("dark", "positive").base).toBe("#010e0d");
+    expect(sentimentTints("dark", "negative").base).toBe("#0f010c");
+    expect(sentimentTints("dark", "mixed").base).toBe("#040810");
+  });
+
+  // The panel is drawn *on* a theme's `background`, so it has to be a surface
+  // the page isn't — on every theme, not just the one it was eyeballed against.
+  // The first cut put `mixed` at the same lightness as `dim`'s own background
+  // and the panel dissolved into the page there, so the bar is the *palest*
+  // dark background rather than an average. It deliberately is not the darkest:
+  // `abyss` (#001e29) is deeper than two of the three hues, and a panel that
+  // sits slightly above that page still reads perfectly well.
+  it("keeps the deep shades below every dark palette's background", () => {
+    const palest = Math.max(
+      ...THEMES.filter((theme) => theme.mode === "dark").map((theme) =>
+        lightness(themes[theme.name].colors.background),
+      ),
+    );
+
+    for (const sentiment of sentiments) {
+      expect(lightness(sentimentTints("dark", sentiment).base)).toBeLessThan(
+        palest,
+      );
+    }
+  });
+
+  // The mirror on the other side. `light`'s background is pure white and
+  // `dexter`'s is all but, so a pale panel has nowhere to go above them — it
+  // stays a *recessed* surface, exactly as the deep one does, and reads because
+  // it is darker than the page rather than brighter.
+  it("keeps the pale shades below every light palette's background", () => {
+    const dimmest = Math.min(
+      ...THEMES.filter((theme) => theme.mode === "light").map((theme) =>
+        lightness(themes[theme.name].colors.background),
+      ),
+    );
+
+    for (const sentiment of sentiments) {
+      expect(lightness(sentimentTints("light", sentiment).base)).toBeLessThan(
+        dimmest,
+      );
+    }
   });
 
   // The whole point of the two-shade split: the panel carries `colors.text`,
