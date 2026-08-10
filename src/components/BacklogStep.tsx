@@ -16,6 +16,7 @@ import { ETaskPriority } from "@/api/tasks";
 import { TaskDrawer } from "@/components/TaskDrawer";
 import { useTasks } from "@/hooks/useTasks";
 import {
+  BACKLOG_COUNT_ORDER,
   backlogCounts,
   defaultBacklogFilter,
   selectBacklogTasks,
@@ -37,14 +38,15 @@ const REVEAL_FADE = 0.7;
 const REVEAL_STARTS = [0, 0.3] as const;
 
 /**
- * The hero's three lines, in the order they read — which is also the order
- * `defaultBacklogFilter` picks the opening filter in.
+ * The words beside each figure. The *order* the lines read in is
+ * `BACKLOG_COUNT_ORDER`, not this — it is the same decision as the order
+ * `defaultBacklogFilter` picks the opening filter in, so it is stated once.
  */
-const HERO_LINES = [
-  { key: "leftBehind", label: "left behind" },
-  { key: "overdue", label: "overdue" },
-  { key: "dueSoon", label: "due soon" },
-] as const satisfies readonly { key: keyof TBacklogCounts; label: string }[];
+const HERO_LABELS: Record<keyof TBacklogCounts, string> = {
+  leftBehind: "left behind",
+  overdue: "overdue",
+  dueSoon: "due soon",
+};
 
 type TBacklogListProps = {
   /** The day a row's "+" schedules its task onto. */
@@ -181,7 +183,7 @@ export function BacklogStep({ date }: TBacklogStepProps) {
   // Shared by both branches below: the all-clear state is these same three
   // lines, centered, rather than separate copy — a zero on every line is
   // already the good news.
-  const heroLines = HERO_LINES.map(({ key, label }) => (
+  const heroLines = BACKLOG_COUNT_ORDER.map((key) => (
     <Text
       key={key}
       style={[
@@ -198,7 +200,7 @@ export function BacklogStep({ date }: TBacklogStepProps) {
       >
         {counts[key]}
       </Text>
-      {` ${counts[key] === 1 ? "task" : "tasks"} ${label}`}
+      {` ${counts[key] === 1 ? "task" : "tasks"} ${HERO_LABELS[key]}`}
     </Text>
   ));
 

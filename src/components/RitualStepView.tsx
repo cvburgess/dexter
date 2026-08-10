@@ -57,8 +57,8 @@ export function RitualStepView({
     // stand in for a user who has no calendar.
     case "calendar":
       return <CalendarStep date={date} />;
-    // DEX-141: unconditional, unlike the two steps above it — there is no
-    // preference that drops the backlog, since every user has one.
+    // DEX-141: unconditional, unlike all three steps above it — no preference
+    // drops the backlog, since every user has one.
     case "backlog":
       return <BacklogStep date={date} />;
     default:

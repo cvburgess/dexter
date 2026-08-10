@@ -125,9 +125,15 @@ export type TBacklogCounts = {
   dueSoon: number;
 };
 
-/** The order the hero states its three counts in, and the order
- *  `defaultBacklogFilter` walks them. */
-const BACKLOG_COUNT_FILTERS = [
+/**
+ * The order the Backlog step's hero states its three counts in, which is also
+ * the order `defaultBacklogFilter` walks them.
+ *
+ * Exported so the hero maps over this rather than restating the order beside
+ * its labels: the reading order and the filter priority are one product
+ * decision, and a second copy is a copy that can be reordered on its own.
+ */
+export const BACKLOG_COUNT_ORDER = [
   "leftBehind",
   "overdue",
   "dueSoon",
@@ -174,5 +180,5 @@ export function backlogCounts(
  * has already shown them in full.
  */
 export function defaultBacklogFilter(counts: TBacklogCounts): TFilterId {
-  return BACKLOG_COUNT_FILTERS.find((id) => counts[id] > 0) ?? "none";
+  return BACKLOG_COUNT_ORDER.find((id) => counts[id] > 0) ?? "none";
 }
