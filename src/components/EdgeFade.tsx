@@ -48,8 +48,16 @@ const rampOpacity = (u: number) => (1 - u) ** 3;
  */
 const RAMP_STOPS = [0, 0.15, 0.3, 0.45, 0.6, 0.8, 1];
 
-const EDGES = ["top", "bottom", "left", "right"] as const;
-const CORNERS = ["topLeft", "topRight", "bottomLeft", "bottomRight"] as const;
+/**
+ * **No bottom edge, and no bottom corners.** The panel is meant to run off the
+ * end of the screen rather than to finish: on native its color carries on under
+ * the translucent tab bar and tints it, and on web it meets the bottom of the
+ * window. Fading the bottom would put the page color back exactly where the
+ * toolbar sits, which is the one place the color is wanted most, and rounding
+ * those corners would close a shape that is supposed to read as cut off.
+ */
+const EDGES = ["top", "left", "right"] as const;
+const CORNERS = ["topLeft", "topRight"] as const;
 
 /** `Defs` ids share one namespace per document on web, so these must be unique. */
 const gradientId = (part: string) => `horoscope-fade-${part}`;
@@ -60,7 +68,6 @@ const EDGE_DIRECTION: Record<
   { x1: string; y1: string; x2: string; y2: string }
 > = {
   top: { x1: "0", y1: "0", x2: "0", y2: "1" },
-  bottom: { x1: "0", y1: "1", x2: "0", y2: "0" },
   left: { x1: "0", y1: "0", x2: "1", y2: "0" },
   right: { x1: "1", y1: "0", x2: "0", y2: "0" },
 };
@@ -75,8 +82,6 @@ const CORNER_ORIGIN: Record<
 > = {
   topLeft: { cx: "100%", cy: "100%" },
   topRight: { cx: "0%", cy: "100%" },
-  bottomLeft: { cx: "100%", cy: "0%" },
-  bottomRight: { cx: "0%", cy: "0%" },
 };
 
 type TEdgeFadeProps = {
@@ -187,23 +192,18 @@ export function EdgeFade({ color }: TEdgeFadeProps) {
             x={band}
             y={0}
           />
-          <Rect
-            fill={`url(#${gradientId("bottom")})`}
-            height={band}
-            width={width - band * 2}
-            x={band}
-            y={height - band}
-          />
+          {/* The sides run from below the top corners all the way down, since
+              there is no bottom corner tile to make room for. */}
           <Rect
             fill={`url(#${gradientId("left")})`}
-            height={height - band * 2}
+            height={height - band}
             width={band}
             x={0}
             y={band}
           />
           <Rect
             fill={`url(#${gradientId("right")})`}
-            height={height - band * 2}
+            height={height - band}
             width={band}
             x={width - band}
             y={band}
@@ -225,20 +225,6 @@ export function EdgeFade({ color }: TEdgeFadeProps) {
             width={band}
             x={width - band}
             y={0}
-          />
-          <Rect
-            fill={`url(#${gradientId("bottomLeft")})`}
-            height={band}
-            width={band}
-            x={0}
-            y={height - band}
-          />
-          <Rect
-            fill={`url(#${gradientId("bottomRight")})`}
-            height={band}
-            width={band}
-            x={width - band}
-            y={height - band}
           />
         </Svg>
       ) : null}

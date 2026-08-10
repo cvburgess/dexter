@@ -1,7 +1,13 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
+import {
+  LayoutChangeEvent,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   Easing,
@@ -94,6 +100,22 @@ const contentGutter = (theme: Theme) => theme.space.lg * 2;
  * inside one gesture is indistinguishable from a toggle.
  */
 const scrollHintFade = (theme: Theme) => theme.controls.md * 4;
+
+/**
+ * How far the painted panel hangs below its own box.
+ *
+ * **Native only.** The phone's `NativeTabs` bar is translucent and floats over
+ * the screen, so the color has to carry on underneath it to tint it rather than
+ * stopping at the scroller's last pixel. Two tap targets clears the bar and its
+ * `BottomAccessory` together; overshooting costs nothing, since anything past
+ * the screen edge is simply not drawn.
+ *
+ * Web gets none: its dock is a laid-out element rather than something floating
+ * over the page, so the panel already meets the bottom edge and a bleed would
+ * only paint behind a solid surface.
+ */
+const panelBleed = (theme: Theme) =>
+  Platform.OS === "web" ? 0 : theme.controls.md * 2;
 
 /**
  * The arrival: sign, then summary, then the chevron and the six facets
@@ -246,47 +268,64 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
   const scrollOffset = useScrollViewOffset(scrollRef);
 
   return (
-    <View
-      style={[
-        styles.panel,
-        { backgroundColor: base, borderRadius: theme.radii.md },
-      ]}
-      testID="horoscope-panel"
-    >
-      {/* **The breath is `peak` fading in over `base`, not one color
-          interpolating into the other.** The two are the same picture — an
-          alpha blend of two colors *is* their linear interpolation — but not
-          the same work. `backgroundColor` is a paint property: every frame
-          re-fills a screen-sized layer, and reanimated hands it across as a
-          fresh `rgba(...)` string to parse. `opacity` is a compositor property:
-          the layer is painted once and the GPU varies how much of it lands.
-          That is the difference between a slideshow and a smooth fade here.
+    <View style={styles.panel} testID="horoscope-panel">
+      {/* **Every painted layer lives in here; the content is its sibling.** The
+          group hangs `panelBleed` below the panel's own box, so the color
+          carries on past the end of the scroller and under the translucent tab
+          bar — which is what tints it — while the content box stays where it
+          was. Extending the panel itself would drag the scroller's measured
+          height with it, and the hero's centering with that.
 
-          It is also a leaf view. Repainting a leaf is contained; repainting the
-          panel that parents five SVG canvases and a ScrollView can pull that
-          subtree into the frame's work. */}
-      <Animated.View
+          Rounded at the top only: the bottom is meant to read as cut off
+          rather than finished, so it runs off the end instead of closing. */}
+      <View
         pointerEvents="none"
-        style={[StyleSheet.absoluteFill, { backgroundColor: peak }, tintStyle]}
-      />
-      {/* Stars only once there is a horoscope, and only on a dark scheme: a
-          light panel is a daytime sky, and there are no stars in one. Drawn
-          into the panel itself rather than wrapping the content, so the field
-          holds still while the facets scroll over it. */}
-      {horoscope && theme.mode === "dark" ? (
-        <View
-          pointerEvents="none"
-          style={StyleSheet.absoluteFill}
-          testID="horoscope-sky"
-        >
-          <StarField color={withOpacity(theme.colors.text, STAR_OPACITY)} />
-        </View>
-      ) : null}
-      {/* Over the sky, not under it, so the stars recede with the color. Gated
-          on the horoscope for the same reason the stars are: the empty and
-          prompt states are an ordinary `surfaceSunken` card, and dissolving
-          *its* edges would leave a shape with no border rather than a panel. */}
-      {horoscope ? <EdgeFade color={theme.colors.background} /> : null}
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            backgroundColor: base,
+            borderTopLeftRadius: theme.radii.md,
+            borderTopRightRadius: theme.radii.md,
+            bottom: -panelBleed(theme),
+          },
+        ]}
+      >
+        {/* **The breath is `peak` fading in over `base`, not one color
+            interpolating into the other.** The two are the same picture — an
+            alpha blend of two colors *is* their linear interpolation — but not
+            the same work. `backgroundColor` is a paint property: every frame
+            re-fills a screen-sized layer, and reanimated hands it across as a
+            fresh `rgba(...)` string to parse. `opacity` is a compositor
+            property: the layer is painted once and the GPU varies how much of
+            it lands. That is the difference between a slideshow and a smooth
+            fade here.
+
+            It is also a leaf view. Repainting a leaf is contained; repainting a
+            view that parents five SVG canvases can pull that subtree into the
+            frame's work. */}
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: peak },
+            tintStyle,
+          ]}
+        />
+        {/* Stars only once there is a horoscope, and only on a dark scheme: a
+            light panel is a daytime sky, and there are no stars in one. Drawn
+            into the panel itself rather than wrapping the content, so the field
+            holds still while the facets scroll over it. */}
+        {horoscope && theme.mode === "dark" ? (
+          <View style={StyleSheet.absoluteFill} testID="horoscope-sky">
+            <StarField color={withOpacity(theme.colors.text, STAR_OPACITY)} />
+          </View>
+        ) : null}
+        {/* Over the sky, not under it, so the stars recede with the color.
+            Gated on the horoscope for the same reason the stars are: the empty
+            and prompt states are an ordinary `surfaceSunken` card, and
+            dissolving *its* edges would leave a shape with no border rather
+            than a panel. */}
+        {horoscope ? <EdgeFade color={theme.colors.background} /> : null}
+      </View>
       {/* Loading is checked *first*, and the order is load-bearing: an unread
           sign is `null`, which is indistinguishable from a user who has never
           picked one — so testing `sunSign` ahead of this would render the
