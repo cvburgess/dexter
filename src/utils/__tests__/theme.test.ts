@@ -319,29 +319,84 @@ describe("palette invariants", () => {
 });
 
 // DEX-128. The Horoscope ritual step's panel colors. Asserted here rather than
-// in the component because the reanimated jest mock's `interpolateColor` is a
-// no-op — an animated `backgroundColor` never reaches a rendered tree, so this
-// is the only place these values are observable at all.
+// in the component because the panel's two ends are an animation's endpoints:
+// what the rendered tree carries is a static `base` and a static `peak` with a
+// mocked opacity between them, so nothing there can tell a good pair from a bad
+// one. Every property below is one that broke at least once while this was
+// being tuned by eye.
 describe("sentimentTints", () => {
   const schemes = ["light", "dark"] as const;
   const sentiments = ["positive", "negative", "mixed"] as const;
+  const channels = (hex: string) =>
+    [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
   const lightness = (hex: string) =>
-    [1, 3, 5].reduce((sum, i) => sum + parseInt(hex.slice(i, i + 2), 16), 0);
+    channels(hex).reduce((sum, value) => sum + value, 0);
 
-  it.each(schemes)("%s pre-blends both ends opaque", (mode) => {
+  it.each(schemes)("%s gives two opaque ends", (mode) => {
     for (const sentiment of sentiments) {
       const { base, peak } = sentimentTints(mode, sentiment);
 
       // Opaque, for the reason `priorityMuted` is: an alpha fill takes on
-      // whatever is behind it, so interpolating between two alphas would drift
-      // in hue as well as strength.
+      // whatever is behind it, so a translucent end would change color with
+      // whatever the panel happened to sit on.
       expect(base).toMatch(/^#[0-9a-f]{6}$/);
       expect(peak).toMatch(/^#[0-9a-f]{6}$/);
       expect(peak).not.toBe(base);
     }
   });
 
-  it("takes the brand values on a dark scheme", () => {
+  // The breath brightens on a dark scheme and darkens on a light one — it
+  // always travels *away* from the page, never toward it.
+  it.each(sentiments)("%s breathes away from the page", (sentiment) => {
+    const dark = sentimentTints("dark", sentiment);
+    const light = sentimentTints("light", sentiment);
+
+    expect(lightness(dark.peak)).toBeGreaterThan(lightness(dark.base));
+    expect(lightness(light.peak)).toBeLessThan(lightness(light.base));
+  });
+
+  // The regression this replaced: `peak` was derived by blending toward the
+  // *opposite scheme's* shade, which crosses through grey and so shed
+  // saturation as fast as it gained brightness. Every hue drifted toward the
+  // same pale nothing. Ranking the channels catches it where comparing overall
+  // lightness cannot — a wash toward white moves all three about equally and
+  // eventually flattens the order, where deepening a color moves its own
+  // channels hardest and leaves the ranking alone.
+  it.each(schemes)("%s keeps each hue's channel order", (mode) => {
+    for (const sentiment of sentiments) {
+      const { base, peak } = sentimentTints(mode, sentiment);
+      const rank = (hex: string) =>
+        channels(hex)
+          .map((value, i) => [value, i] as const)
+          .sort(([a], [b]) => a - b)
+          .map(([, i]) => i);
+
+      expect(rank(peak)).toEqual(rank(base));
+    }
+  });
+
+  // A channel holds whole numbers, so the largest per-channel difference is
+  // the count of distinct colors the whole animation can show — there is
+  // nothing between two adjacent integers to interpolate. Too few and the
+  // panel steps through them visibly however it is eased, which is exactly
+  // what a too-narrow amplitude produced. Eight is the floor that held up
+  // against `BREATHE_LEG_MS` on a real screen.
+  it.each(schemes)("%s leaves the breath enough steps to be smooth", (mode) => {
+    for (const sentiment of sentiments) {
+      const { base, peak } = sentimentTints(mode, sentiment);
+      const steps = Math.max(
+        ...channels(base).map((value, i) =>
+          Math.abs(value - channels(peak)[i]),
+        ),
+      );
+
+      expect(steps).toBeGreaterThanOrEqual(8);
+    }
+  });
+
+  // The exact deep shades, since the whole point of the section above is that
+  // they are chosen rather than derived — nothing else would catch a hand edit.
+  it("holds the tuned deep shades", () => {
     expect(sentimentTints("dark", "positive").base).toBe("#021311");
     expect(sentimentTints("dark", "negative").base).toBe("#130110");
     expect(sentimentTints("dark", "mixed").base).toBe("#050a14");

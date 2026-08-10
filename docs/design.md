@@ -109,9 +109,9 @@ palette:
 
 | Sentiment | Reads as | Dark scheme | Light scheme |
 | --- | --- | --- | --- |
-| `positive` | green | `#0b453f` | `#cfedea` |
-| `negative` | purple | `#33062b` | `#f0d6eb` |
-| `mixed` | blue — the neutral | `#1c2a47` | `#d3dcee` |
+| `positive` | green | `#021311` → `#021c1a` | `#e3f7f5` → `#dbf5f2` |
+| `negative` | purple | `#130110` → `#1d0218` | `#f7e3f3` → `#f5dbf0` |
+| `mixed` | blue — the neutral | `#050a14` → `#081021` | `#e3eaf7` → `#dbe4f5` |
 
 **This is a deliberate exception, and it is listed at the bottom of this file.**
 The panel is a mood, not a surface: it has to say *green day / purple day /
@@ -121,23 +121,77 @@ normal rules — the glyph and the summary take `colors.text`.
 
 **The two shades per hue are what make that safe.** The panel carries the
 theme's ink, so a light scheme's dark text needs a pale panel and a dark
-scheme's light text needs a deep one. The dark values are the brand colors as
-given; the light ones hold the same hue and saturation and raise lightness to
-~88%. Swapping by scheme rather than dimming one set is what keeps the contrast
-working in both directions, and `theme.test.ts` pins it.
+scheme's light text needs a deep one. Each hue holds one lightness per scheme —
+~4% deep, ~93% pale — so the three sentiments read as equally dark or equally
+pale and only the hue changes. Swapping by scheme rather than dimming one set is
+what keeps the contrast working in both directions, and `theme.test.ts` pins it,
+including that the deep set clears the *palest* dark palette's `background`:
+the first cut sat `mixed` level with `dim`'s and the panel dissolved into the
+page on that theme alone.
 
-The breathe travels a short way along each hue's own light↔dark axis — toward
-the *other shade of the same color*, never toward white or black, so the peak
-stays in the family instead of washing out. Both ends are **pre-blended
-opaque**, for the same reason `priorityMuted` is: an alpha fill takes on
-whatever is behind it, so animating between two alphas would drift in hue as
-well as strength.
+**Both sets carry more saturation than their lightness suggests** — 55–90%
+against the 45% they started at. Chroma collapses as a color approaches white
+*or* black, so a moderate saturation at either extreme yields a barely-tinted
+grey. At 4% lightness the color half of "almost-black with a color in it" is the
+half that has to be fought for.
 
-Its amplitude and pace are tuned against each other and neither reads alone —
-`SENTIMENT_BREATHE_ALPHA` here, `BREATHE_LEG_MS` in `HoroscopeStep`. A
-too-small amplitude over a too-slow ease is a breath nobody can see, which is
-only a battery cost. Neither is unit-tested: they are taste, judged against a
-real screen, and a test pinning either would just be rewritten on every pass.
+### The breath
+
+The two ends per scheme are **both authored**, and differ only in lightness —
+about two points. An earlier version derived `peak` by blending toward the
+opposite scheme's shade and washed out: crossing 4% to 93% passes through grey,
+so the peak shed saturation as fast as it gained brightness. The channel deltas
+are the tell — a hand-written pair moves `+1/+9/+8` for `positive`, nearly all
+of it green, where the blended one moved `+20/+19/+19`, which is the signature of
+a slide toward white.
+
+Three things about how it animates, each of which was arrived at by getting it
+wrong first:
+
+- **It animates `opacity`, not `backgroundColor`** — `peak` fading in over
+  `base` on a childless layer. The two are the same picture (an alpha blend of
+  two colors *is* their linear interpolation) but not the same work.
+  `backgroundColor` is a paint property: every frame re-fills a screen-sized
+  layer, and reanimated hands the value across as a fresh `rgba(…)` string to
+  parse. `opacity` is a compositor property. That was the difference between a
+  slideshow and a fade, and neither the amplitude nor the easing could reach it.
+- **It eases linearly.** An ease-in-out parks near both ends and crosses the
+  middle at twice the average rate. For something that moves, that is the point;
+  a color has no momentum to sell, so the curve buys nothing and the uneven
+  rhythm reads as stepping.
+- **Amplitude and pace are one setting, and the floor is the framebuffer.** A
+  channel holds whole numbers, so the count of distinct colors the breath can
+  show is the largest per-channel difference between the ends. `BREATHE_LEG_MS`
+  divided by that count is how long each shade is held — the quantity the eye
+  actually judges. Narrowing one without shortening the other buys only a longer
+  hold on each shade.
+
+### The panel's edges
+
+`components/EdgeFade.tsx` dissolves the panel into the page: four edge ramps and
+four corner ramps of `colors.background`, opaque at the rim and clear one band
+in, over the tint and the starfield both. Three notes worth keeping:
+
+- **Not a radial gradient**, which is where it started. A radial fade on a
+  rectangle can only reach the four edge midpoints at once; the corners sit
+  1.41× further out and are always past the end of the ramp, so the tint read as
+  an oval floating in the page. Widening the ellipse cannot fix it — the
+  untouched core is bounded by the *nearest* edge, so the radius and the ramp's
+  start move together and the colored area comes out the same size.
+- **One band distance in points, not per-axis percentages.** Percentages made
+  the hem twice as deep on the long axis, so the corner where two met could only
+  be an ellipse quadrant matching neither. One distance makes every corner a
+  quarter circle of that radius and the uncovered middle a rounded rectangle.
+- **The ramp is `(1 - u)³`, not a knee.** A ramp arriving at zero with slope
+  still on it leaves a kink in the brightness, and the eye resolves a kink into a
+  line — it drew a visible rectangle one band in from every edge, which is
+  exactly the box the fade exists to hide.
+
+It measures itself with `onLayout` rather than laying out in percentages, because
+percentage geometry means object-bounding-box units and react-native-svg does not
+stretch a radial gradient to a non-square box.
+
+### The sky, and the arrival
 
 On a dark scheme the panel carries a drawn starfield over the color
 (`components/StarField.tsx`); the stars take `colors.text` at partial opacity,
@@ -145,9 +199,18 @@ so they are the same ink as the type in front of them rather than a literal
 white. Light schemes get none — a pale panel is a daytime sky, and dark ink in
 faint specks reads as dirt on the screen.
 
+The content **fades in on arrival**, in reading order: sign, then summary, then
+the chevron and the six facets together. It is one shared value with overlapping
+windows onto it rather than three animations, so the order cannot drift as the
+timings are retuned, and it is keyed on the horoscope's *date* — walking `DayNav`
+replays it, a background refetch of the same day does not. Reduce Motion jumps
+straight to visible.
+
 With no mood to show — still loading, or a day the generator never covered —
 the panel falls back to `surfaceSunken`, which is the ordinary token for a
-surface that holds content.
+surface that holds content, and neither the stars nor the edge fade draw at all:
+dissolving the edges of an ordinary card leaves a shape with no border rather
+than a panel.
 
 ## Border
 
@@ -458,12 +521,13 @@ a pre-blended token, or the fill takes on whatever is behind it.
 Everything below is a deliberate literal. Adding to this list should be
 uncomfortable.
 
-- **`SENTIMENT_COLORS`** (`utils/theme.ts`, DEX-128) — six hexes, two shades of
-  each of three hues, and the only colors in the app that are not theme tokens.
-  The Horoscope panel has to read as *green day / purple day / blue day*, which
-  a token that changes hue with the user's palette cannot do. Scoped to that one
-  panel's background; everything drawn on it still takes `colors.text`. See
-  **Sentiment** above for why there are two shades rather than one.
+- **`SENTIMENT_COLORS`** (`utils/theme.ts`, DEX-128) — twelve hexes: a
+  base/peak pair per scheme for each of three hues, and the only colors in the
+  app that are not theme tokens. The Horoscope panel has to read as *green day /
+  purple day / blue day*, which a token that changes hue with the user's palette
+  cannot do. Scoped to that one panel's background; everything drawn on it still
+  takes `colors.text`. See **Sentiment** above for why there is a pair per scheme
+  rather than a single value.
 - **`CalendarView`'s coordinate system.** `GUTTER_WIDTH`, `HOUR_HEIGHT`,
   `GUTTER_INSET`, `EVENT_GAP`, `NOW_DOT_SIZE` and friends position the hour
   labels, hour lines, now line, and events area against each other. They

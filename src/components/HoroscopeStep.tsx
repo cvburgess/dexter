@@ -95,6 +95,32 @@ const contentGutter = (theme: Theme) => theme.space.lg * 2;
  */
 const scrollHintFade = (theme: Theme) => theme.controls.md * 4;
 
+/**
+ * The arrival: sign, then summary, then the chevron and the six facets
+ * together.
+ *
+ * A reading should not simply be *there* when the screen is. Fading it in in
+ * the order it is meant to be read makes the panel feel like it is producing
+ * the day rather than displaying a record of it, which is the whole conceit of
+ * the step.
+ *
+ * Expressed as windows onto one shared value rather than three animations:
+ * `REVEAL_STARTS[n]` is where stage `n` begins and `REVEAL_FADE` is how long
+ * each takes, both as fractions of `REVEAL_MS`. They deliberately overlap — a
+ * stage begins before its predecessor has finished, so the sequence reads as
+ * one gathering movement instead of three separate events. Keep
+ * `last start + REVEAL_FADE` at 1, or the tail of the sequence is dead time.
+ *
+ * At the values below that is a **1440ms fade per stage, starting 1080ms
+ * apart**. Both are worth reading off rather than eyeballing from `REVEAL_MS`:
+ * because the windows overlap, no stage lasts anything like the whole sequence,
+ * and the fraction that decides how slow each element *feels* is `REVEAL_FADE`,
+ * not the total.
+ */
+const REVEAL_MS = 3600;
+const REVEAL_FADE = 0.4;
+const REVEAL_STARTS = [0, 0.3, 0.6] as const;
+
 type THoroscopeStepProps = {
   /** The day being walked through — the ritual's date, not necessarily today. */
   date: Temporal.PlainDate;
@@ -160,6 +186,43 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
       true,
     );
   }, [breathe, reduceMotion]);
+
+  // One driver for the whole arrival, not one animation per element: the
+  // stagger is then a set of overlapping windows onto a single 0→1, which
+  // cannot drift out of order however the timings are retuned.
+  const reveal = useSharedValue(0);
+  // Keyed on the day rather than on the object, so walking `DayNav` to another
+  // date reveals that day's reading, while a refetch of the same one does not
+  // replay it under the reader.
+  const revealDate = horoscope?.date ?? null;
+
+  useEffect(() => {
+    if (!revealDate) {
+      reveal.value = 0;
+      return;
+    }
+    if (reduceMotion) {
+      reveal.value = 1;
+      return;
+    }
+    // The plain write cancels any run still in flight — a fast walk through
+    // several days would otherwise leave the previous day's reveal finishing
+    // on top of this one.
+    reveal.value = 0;
+    reveal.value = withTiming(1, {
+      duration: REVEAL_MS,
+      easing: Easing.linear,
+    });
+  }, [reduceMotion, reveal, revealDate]);
+
+  const facetsStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      reveal.value,
+      [REVEAL_STARTS[2], REVEAL_STARTS[2] + REVEAL_FADE],
+      [0, 1],
+      Extrapolation.CLAMP,
+    ),
+  }));
 
   // With no sentiment to show (no sign, still loading, or a day with no row)
   // both ends collapse onto the plain surface, so the panel sits still.
@@ -259,23 +322,35 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
           <Hero
             bottomInset={insets.bottom}
             horoscope={horoscope}
+            reveal={reveal}
             scrollOffset={scrollOffset}
             viewportHeight={viewportHeight}
           />
-          <View
-            style={{
-              gap: theme.space.lg,
-              // The host `SafeAreaView` omits the bottom edge so content
-              // scrolls under the tab bar; the inset belongs to the scroll
-              // content, which is what lets the last facet clear it (DEX-91).
-              // Well past that here: Luck is the end of the reading, and
-              // landing its last line hard against the tab bar reads as the
-              // text being cut off rather than as having finished.
-              paddingBottom: theme.space.lg * 3 + insets.bottom,
-            }}
+          {/* The six arrive as one block rather than in sequence with each
+              other: they are below the fold, so a reader who scrolls straight
+              down would otherwise watch them appear under their thumb. */}
+          <Animated.View
+            style={[
+              {
+                gap: theme.space.lg,
+                // The host `SafeAreaView` omits the bottom edge so content
+                // scrolls under the tab bar; the inset belongs to the scroll
+                // content, which is what lets the last facet clear it (DEX-91).
+                // Well past that here: Luck is the end of the reading, and
+                // landing its last line hard against the tab bar reads as the
+                // text being cut off rather than as having finished.
+                paddingBottom: theme.space.lg * 3 + insets.bottom,
+              },
+              facetsStyle,
+            ]}
           >
             {HOROSCOPE_FACETS.map((facet) => (
-              <View key={facet.key} style={{ gap: theme.space.xs }}>
+              // `sm` rather than `xs` between the heading and its prose. The
+              // outer `lg` still separates one facet from the next, so the
+              // grouping holds — this is the smallest step that lets the
+              // heading read as a label *on* the text rather than the first
+              // line of it.
+              <View key={facet.key} style={{ gap: theme.space.sm }}>
                 <View style={[styles.facetHeader, { gap: theme.space.sm }]}>
                   <Icon {...facet.icon} />
                   <Text
@@ -294,7 +369,7 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
                 </Text>
               </View>
             ))}
-          </View>
+          </Animated.View>
         </Animated.ScrollView>
       )}
     </View>
@@ -330,11 +405,13 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
 function Hero({
   bottomInset,
   horoscope,
+  reveal,
   scrollOffset,
   viewportHeight,
 }: {
   bottomInset: number;
   horoscope: THoroscope;
+  reveal: SharedValue<number>;
   scrollOffset: SharedValue<number>;
   viewportHeight: number;
 }) {
@@ -347,16 +424,42 @@ function Hero({
   // captured.
   const fadeDistance = scrollHintFade(theme);
 
-  // Gone by the time the reader has moved a chevron's worth of screen: it says
-  // "there is more below", and the moment they are on their way it is stating
-  // the obvious over the top of what they came for.
-  const hintStyle = useAnimatedStyle(() => ({
+  const glyphStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
-      scrollOffset.value,
-      [0, fadeDistance],
-      [1, 0],
+      reveal.value,
+      [REVEAL_STARTS[0], REVEAL_STARTS[0] + REVEAL_FADE],
+      [0, 1],
       Extrapolation.CLAMP,
     ),
+  }));
+
+  const summaryStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      reveal.value,
+      [REVEAL_STARTS[1], REVEAL_STARTS[1] + REVEAL_FADE],
+      [0, 1],
+      Extrapolation.CLAMP,
+    ),
+  }));
+
+  // Two fades multiplied rather than one winning: the chevron arrives with the
+  // facets and then leaves as the reader scrolls, and a reader who scrolls
+  // during the arrival should see it do both at once rather than pop to full
+  // strength. Both factors are 0–1, so the product is whichever is dimmer.
+  const hintStyle = useAnimatedStyle(() => ({
+    opacity:
+      interpolate(
+        reveal.value,
+        [REVEAL_STARTS[2], REVEAL_STARTS[2] + REVEAL_FADE],
+        [0, 1],
+        Extrapolation.CLAMP,
+      ) *
+      interpolate(
+        scrollOffset.value,
+        [0, fadeDistance],
+        [1, 0],
+        Extrapolation.CLAMP,
+      ),
   }));
 
   return (
@@ -381,26 +484,33 @@ function Hero({
           },
         ]}
       >
-        <Text
-          style={{
-            color: theme.colors.text,
-            fontSize: heroGlyphSize(theme),
-            // The glyph's own line box, which at this size otherwise reserves
-            // the font's full ascent and descent and reads as a gap above it.
-            lineHeight: heroGlyphSize(theme),
-          }}
+        {/* The opacity rides on the `Text` itself rather than a wrapper: both
+            are already laid out by the centering box above, and a wrapper would
+            add a node to the tree for a property the text can carry. */}
+        <Animated.Text
+          style={[
+            {
+              color: theme.colors.text,
+              fontSize: heroGlyphSize(theme),
+              // The glyph's own line box, which at this size otherwise reserves
+              // the font's full ascent and descent and reads as a gap above it.
+              lineHeight: heroGlyphSize(theme),
+            },
+            glyphStyle,
+          ]}
         >
           {SUN_SIGNS[horoscope.sunSign].glyph}
-        </Text>
-        <Text
+        </Animated.Text>
+        <Animated.Text
           style={[
             styles.summary,
             theme.fonts.heading,
             { color: theme.colors.text },
+            summaryStyle,
           ]}
         >
           {horoscope.summary}
-        </Text>
+        </Animated.Text>
       </View>
       {/* Pinned to the fold rather than trailing the summary: it points at
           what is below the screen, so it belongs at the edge the reader is
