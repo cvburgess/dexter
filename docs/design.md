@@ -139,10 +139,11 @@ too-small amplitude over a too-slow ease is a breath nobody can see, which is
 only a battery cost. Neither is unit-tested: they are taste, judged against a
 real screen, and a test pinning either would just be rewritten on every pass.
 
-**The panel is the one place a translucent fill is correct.** The color is
-washed at 50% over a photograph (`assets/images/sky.jpg`), so it has to let
-what is behind it through — the exact behavior the rule below warns about,
-wanted on purpose here. Everywhere else, reach for a pre-blended token.
+On a dark scheme the panel carries a drawn starfield over the color
+(`components/StarField.tsx`); the stars take `colors.text` at partial opacity,
+so they are the same ink as the type in front of them rather than a literal
+white. Light schemes get none — a pale panel is a daytime sky, and dark ink in
+faint specks reads as dirt on the screen.
 
 With no mood to show — still loading, or a day the generator never covered —
 the panel falls back to `surfaceSunken`, which is the ordinary token for a

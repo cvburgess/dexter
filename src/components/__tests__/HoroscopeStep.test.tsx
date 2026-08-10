@@ -1,5 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render } from "@testing-library/react-native";
+import { useColorScheme } from "react-native";
 
 import { THoroscope, TSunSign } from "@/api/horoscopes";
 import { HoroscopeStep } from "@/components/HoroscopeStep";
@@ -16,6 +17,14 @@ jest.mock("react-native-safe-area-context", () =>
   require("@/testUtils/mockSafeAreaEdges").mockSafeAreaContext(),
 );
 
+// The star field is dark-scheme only, and with no ThemeProvider `useTheme`
+// resolves the scheme from here — see `utils/__tests__/theme.test.ts`, which
+// mocks the same submodule for the same reason.
+jest.mock("react-native/Libraries/Utilities/useColorScheme", () => ({
+  __esModule: true,
+  default: jest.fn(() => "light"),
+}));
+
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));
 
@@ -25,6 +34,7 @@ const mockUseSunSign = useSunSignPreference as jest.MockedFunction<
 const mockUseHoroscope = useHoroscope as jest.MockedFunction<
   typeof useHoroscope
 >;
+const mockUseColorScheme = jest.mocked(useColorScheme);
 
 const DATE = Temporal.PlainDate.from("2026-08-09");
 
@@ -58,7 +68,13 @@ const renderStep = ({
 };
 
 describe("HoroscopeStep", () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // `clearAllMocks` drops the factory's default too, and a scheme of
+    // `undefined` resolves to light — stated here so a test that cares about
+    // the starfield sets it explicitly rather than inheriting a blank.
+    mockUseColorScheme.mockReturnValue("light");
+  });
 
   describe("with no sign chosen", () => {
     it("prompts for one instead of querying", () => {
@@ -138,10 +154,12 @@ describe("HoroscopeStep", () => {
       expect(SUN_SIGNS.leo.glyph).toContain("︎");
     });
 
-    // The photograph belongs to the horoscope, not to the panel: an empty or
-    // still-loading step is a plain surface rather than a sky with nothing on
-    // it.
-    it("lays the sky behind it, and only once there is one", () => {
+    // The sky belongs to the horoscope, not to the panel: an empty or
+    // still-loading step is a plain surface rather than a starfield with
+    // nothing on it.
+    it("lays a starfield behind it, and only once there is one", () => {
+      mockUseColorScheme.mockReturnValue("dark");
+
       expect(renderStep().getByTestId("horoscope-sky")).toBeTruthy();
 
       expect(
@@ -152,6 +170,15 @@ describe("HoroscopeStep", () => {
           "horoscope-sky",
         ),
       ).toBeNull();
+    });
+
+    // There are no stars in a daytime sky, and a light panel is one. Drawing
+    // them anyway would put the theme's dark ink into faint specks that read as
+    // dirt on the screen rather than as a sky.
+    it("draws no stars on a light scheme", () => {
+      mockUseColorScheme.mockReturnValue("light");
+
+      expect(renderStep().queryByTestId("horoscope-sky")).toBeNull();
     });
 
     it("renders every facet below it", () => {

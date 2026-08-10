@@ -2,7 +2,6 @@ import { Temporal } from "@js-temporal/polyfill";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ImageSourcePropType,
   LayoutChangeEvent,
   ScrollView,
   StyleSheet,
@@ -12,7 +11,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   Easing,
-  interpolate,
   interpolateColor,
   useAnimatedStyle,
   useReducedMotion,
@@ -25,16 +23,12 @@ import { THoroscope } from "@/api/horoscopes";
 import { Button } from "@/components/Button";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { Icon } from "@/components/Icon";
+import { StarField } from "@/components/StarField";
 import { useHoroscope } from "@/hooks/useHoroscope";
 import { useSunSignPreference } from "@/hooks/usePreferences";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
 import { HOROSCOPE_FACETS, SUN_SIGNS } from "@/utils/horoscope";
-import {
-  SENTIMENT_BREATHE_ALPHA,
-  sentimentTints,
-  Theme,
-  useTheme,
-} from "@/utils/theme";
+import { sentimentTints, Theme, useTheme, withOpacity } from "@/utils/theme";
 
 /**
  * One *leg* of the breath — in, or out — not a full cycle.
@@ -54,42 +48,13 @@ const SCROLL_HINT_ICON = {
 } as const;
 
 /**
- * The photograph behind the panel.
+ * How bright the drawn stars are against the panel.
  *
- * `require` with an explicit type parameter rather than an ES import, and the
- * reason is `tsconfig`'s `paths`: it maps `@/*` onto real files, so
- * `import sky from "@/assets/images/sky.jpg"` resolves to the `.jpg` itself and
- * fails to parse, and a `declare module "*.jpg"` wildcard cannot rescue it —
- * TypeScript only consults those for specifiers it could not resolve at all.
- * Expo's `metro-require.d.ts` types `require` generically, so this form carries
- * a real type instead of the bare `any` an untyped `require` would.
+ * The theme's ink at a fraction of full: `colors.text` at full strength reads
+ * as hard white specks rather than as a sky, and taking the ink rather than a
+ * literal white means the stars are the same color as the type they sit behind.
  */
-const SKY = require<ImageSourcePropType>("@/assets/images/sky.jpg");
-
-/**
- * How much of the sky survives under the sentiment wash.
- *
- * This is the one place an alpha fill is the *right* tool rather than the
- * wrong one. `docs/design.md` warns that a translucent fill takes on whatever
- * is behind it — here that is the entire point: the wash has to read as the
- * day's color *and* let the photograph through, which a pre-blended opaque
- * token could not do. Don't "fix" this into a solid fill.
- */
-const SKY_WASH_OPACITY = 0.5;
-
-/**
- * How much of the wash's amplitude the sky itself breathes at.
- *
- * A third, so the photograph moves *with* the color rather than alongside it —
- * matched amplitudes would read as two things pulsing, which is one more than
- * is happening. In phase, so the sky recedes a touch as the color swells; in
- * counter-phase the two would partly cancel and the breath would flatten.
- *
- * Derived from `SENTIMENT_BREATHE_ALPHA` rather than written as its own number,
- * so retuning the wash carries the sky with it.
- */
-const SKY_BREATHE_RATIO = 1 / 3;
-const SKY_BREATHE_AMPLITUDE = SENTIMENT_BREATHE_ALPHA * SKY_BREATHE_RATIO;
+const STAR_OPACITY = 0.55;
 
 /**
  * The hero glyph's size, derived rather than tokenized.
@@ -175,9 +140,8 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
   }, [breathe, reduceMotion]);
 
   // With no sentiment to show (no sign, still loading, or a day with no row)
-  // both ends collapse onto the plain surface. The wash isn't rendered in those
-  // states anyway, but the hook has to be called unconditionally, so it needs
-  // *some* pair — branching the hook itself would break the rules of hooks.
+  // both ends collapse onto the plain surface, so the panel sits still.
+  // Branching the hook itself would break the rules of hooks.
   const { base, peak } = useMemo(() => {
     if (!horoscope) {
       return {
@@ -192,41 +156,24 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
     backgroundColor: interpolateColor(breathe.value, [0, 1], [base, peak]),
   }));
 
-  // The sky rides the same shared value, so the two can never drift out of
-  // step — one breath drawn on two layers, not two animations that happen to
-  // share a duration.
-  const skyStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(breathe.value, [0, 1], [1, 1 - SKY_BREATHE_AMPLITUDE]),
-  }));
-
   return (
-    <View
-      style={[
-        styles.panel,
-        {
-          backgroundColor: theme.colors.surfaceSunken,
-          borderRadius: theme.radii.md,
-        },
-      ]}
+    <Animated.View
+      style={[styles.panel, { borderRadius: theme.radii.md }, tintStyle]}
       testID="horoscope-panel"
     >
-      {/* The sky and the day's color over it, both only once there is a
-          horoscope: an empty or still-loading panel is a plain surface, not a
-          photograph with nothing on it. Absolutely positioned rather than
-          wrapping the content, so the sky stays put while the facets scroll
-          over it, and `panel`'s `overflow: hidden` clips both to the radius. */}
-      {horoscope ? (
-        <>
-          <Animated.Image
-            source={SKY}
-            style={[StyleSheet.absoluteFill, skyStyle]}
-            resizeMode="cover"
-            testID="horoscope-sky"
-          />
-          <Animated.View
-            style={[StyleSheet.absoluteFill, styles.wash, tintStyle]}
-          />
-        </>
+      {/* Stars only once there is a horoscope, and only on a dark scheme: a
+          light panel is a daytime sky, and there are no stars in one. Drawn
+          into the panel itself rather than wrapping the content, so the field
+          holds still while the facets scroll over it, and `panel`'s
+          `overflow: hidden` clips it to the radius. */}
+      {horoscope && theme.mode === "dark" ? (
+        <View
+          pointerEvents="none"
+          style={StyleSheet.absoluteFill}
+          testID="horoscope-sky"
+        >
+          <StarField color={withOpacity(theme.colors.text, STAR_OPACITY)} />
+        </View>
       ) : null}
       {/* Loading is checked *first*, and the order is load-bearing: an unread
           sign is `null`, which is indistinguishable from a user who has never
@@ -292,7 +239,7 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
           </View>
         </ScrollView>
       )}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -408,8 +355,5 @@ const styles = StyleSheet.create({
   },
   summary: {
     textAlign: "center",
-  },
-  wash: {
-    opacity: SKY_WASH_OPACITY,
   },
 });

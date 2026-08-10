@@ -8,10 +8,13 @@
 
 // Reserved for project-wide ambient type declarations.
 //
-// Note for image assets: a `declare module "*.jpg"` wildcard does **not** work
-// here. `tsconfig`'s `paths` maps `@/*` onto real files, and TypeScript only
-// consults an ambient wildcard for a specifier it could not otherwise resolve —
-// a mapped one resolves to the `.jpg` itself and then fails to parse it. Import
-// an asset with `require<ImageSourcePropType>(...)` instead, which Expo's
-// `metro-require.d.ts` types generically. See `components/HoroscopeStep.tsx`.
+// Note for whenever the app first imports an image asset into a component
+// (nothing does today — `assets/images/` holds app icons, which are named in
+// `app.json` and never reach TypeScript). A `declare module "*.jpg"` wildcard
+// does **not** work here: `tsconfig`'s `paths` maps `@/*` onto real files, and
+// TypeScript only consults an ambient wildcard for a specifier it could not
+// otherwise resolve — a mapped one resolves to the `.jpg` itself and then fails
+// to parse it. Reach for `require<ImageSourcePropType>(...)` instead, which
+// Expo's `metro-require.d.ts` types generically, rather than an untyped
+// `require` returning `any`.
 export {};
