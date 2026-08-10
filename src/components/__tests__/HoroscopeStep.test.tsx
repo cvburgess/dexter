@@ -1,10 +1,11 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render } from "@testing-library/react-native";
-import { useColorScheme } from "react-native";
+import { StyleSheet, useColorScheme } from "react-native";
 
 import { THoroscope, TSunSign } from "@/api/horoscopes";
 import { HoroscopeStep } from "@/components/HoroscopeStep";
 import { useHoroscope } from "@/hooks/useHoroscope";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { useSunSignPreference } from "@/hooks/usePreferences";
 import { HOROSCOPE_FACETS, SUN_SIGNS } from "@/utils/horoscope";
 
@@ -12,6 +13,10 @@ jest.mock("@/hooks/usePreferences", () => ({
   useSunSignPreference: jest.fn(),
 }));
 jest.mock("@/hooks/useHoroscope", () => ({ useHoroscope: jest.fn() }));
+// Mocked rather than driven through `useWindowDimensions` — jest-expo doesn't
+// mock RN's hook cleanly, which is the reason `useIsLargeDevice` is a thin
+// wrapper in the first place (see its docstring and docs/design.md).
+jest.mock("@/hooks/useIsLargeDevice", () => ({ useIsLargeDevice: jest.fn() }));
 
 jest.mock("react-native-safe-area-context", () =>
   require("@/testUtils/mockSafeAreaEdges").mockSafeAreaContext(),
@@ -48,6 +53,7 @@ const mockUseHoroscope = useHoroscope as jest.MockedFunction<
   typeof useHoroscope
 >;
 const mockUseColorScheme = jest.mocked(useColorScheme);
+const mockUseIsLargeDevice = jest.mocked(useIsLargeDevice);
 
 const DATE = Temporal.PlainDate.from("2026-08-09");
 
@@ -69,16 +75,25 @@ const renderStep = ({
   isLoadingSign = false,
   horoscope = HOROSCOPE,
   isLoading = false,
+  largeScreen = false,
 }: {
   sunSign?: TSunSign | null;
   isLoadingSign?: boolean;
   horoscope?: THoroscope | null;
   isLoading?: boolean;
+  largeScreen?: boolean;
 } = {}) => {
   mockUseSunSign.mockReturnValue({ sunSign, isLoading: isLoadingSign });
   mockUseHoroscope.mockReturnValue([horoscope, { isLoading }]);
+  mockUseIsLargeDevice.mockReturnValue(largeScreen);
   return render(<HoroscopeStep date={DATE} />);
 };
+
+/** The scroller's horizontal padding — the gutter under test below. */
+const gutterOf = (screen: ReturnType<typeof renderStep>) =>
+  StyleSheet.flatten(
+    screen.getByTestId("horoscope-scroll").props.contentContainerStyle,
+  ).paddingHorizontal;
 
 describe("HoroscopeStep", () => {
   beforeEach(() => {
@@ -147,6 +162,19 @@ describe("HoroscopeStep", () => {
 
       expect(screen.getByText(SUN_SIGNS.leo.glyph)).toBeTruthy();
       expect(screen.getByText(HOROSCOPE.summary)).toBeTruthy();
+    });
+
+    // DEX-138: the panel is capped at a fixed width on a large screen, so the
+    // gutter is the only thing left deciding how the card breathes. Asserted as
+    // a comparison rather than against literals because `space.lg` is a density
+    // token — the point is that the roomier screen gets the wider gutter, which
+    // is what the doubled gutter got backwards on web, where `compact` shrinks
+    // the token underneath it.
+    it("keeps a wider gutter on a large screen than on a phone", () => {
+      const phone = gutterOf(renderStep());
+      const large = gutterOf(renderStep({ largeScreen: true }));
+
+      expect(large).toBeGreaterThan(phone);
     });
 
     // The glyph says which sign this is; the name would only restate what the

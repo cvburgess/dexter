@@ -30,6 +30,7 @@ import { Icon } from "@/components/Icon";
 import { StarField } from "@/components/StarField";
 import { useHoroscope } from "@/hooks/useHoroscope";
 import { useHoroscopeAudio } from "@/hooks/useHoroscopeAudio";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { useSunSignPreference } from "@/hooks/usePreferences";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
 import { bySentence, HOROSCOPE_FACETS, SUN_SIGNS } from "@/utils/horoscope";
@@ -95,9 +96,19 @@ const heroGlyphSize = (theme: Theme) => theme.controls.md * 2;
  * drawn frame: text has to sit off a border rather than against it, and a line
  * of `heading` set edge to edge on a phone is too long to scan anyway.
  *
+ * **Triple on a large screen** (DEX-138), which corrects an inversion rather
+ * than just adding room. `space.lg` is a density token, and `compact` — which
+ * applies on web at exactly the widths where the panel is now a centered card —
+ * shrinks it from 24 to 18. Doubled, that put *36* between the text and the
+ * card edge on a desktop window against the phone's 48: the least air on the
+ * screen with the most room to give, and the more obvious for the panel having
+ * stopped running to the window's edges. Tripling lands 54 there and 72 on a
+ * tablet, where the tier stays `comfortable`.
+ *
  * Not a token — see `heroGlyphSize` above for why deriving beats adding one.
  */
-const contentGutter = (theme: Theme) => theme.space.lg * 2;
+const contentGutter = (theme: Theme, largeScreen: boolean) =>
+  theme.space.lg * (largeScreen ? 3 : 2);
 
 /**
  * The hero summary's leading.
@@ -206,6 +217,10 @@ type THoroscopeStepProps = {
  */
 export function HoroscopeStep({ date }: THoroscopeStepProps) {
   const theme = useTheme();
+  // Only for `contentGutter` — the panel is capped at a fixed width above this
+  // breakpoint (`SwipeablePage`), so the gutter is the one thing left that
+  // decides how the card breathes. Nothing else here reads the window.
+  const largeScreen = useIsLargeDevice();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   // The narrowed hook, not `usePreferences`, because `null` means something
@@ -420,7 +435,9 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
         />
       ) : (
         <Animated.ScrollView
-          contentContainerStyle={{ paddingHorizontal: contentGutter(theme) }}
+          contentContainerStyle={{
+            paddingHorizontal: contentGutter(theme, largeScreen),
+          }}
           onLayout={onLayout}
           ref={scrollRef}
           // The chevron already says there is more below, and it fades out as
