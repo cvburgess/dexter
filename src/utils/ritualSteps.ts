@@ -65,8 +65,8 @@ export type TRitualStep = {
  * The steps of each ritual, in order, for a user with every step turned on.
  * Read through `stepsFor` rather than directly — `journal`, `calendar` and
  * `horoscope` each drop out when the user has that feature disabled. Most steps
- * still render a centered placeholder; later DEX-34 sub-issues replace them one at a time in
- * `components/RitualStepView.tsx`.
+ * still render a centered placeholder; later DEX-34 sub-issues replace them one
+ * at a time in `components/RitualStepView.tsx`.
  */
 export const RITUAL_STEPS: Record<TRitualMode, readonly TRitualStep[]> = {
   am: [
