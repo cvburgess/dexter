@@ -107,6 +107,19 @@ unusual about it:
   deliberately un-enumerated because those lists are expected to grow. Enum
   values can never be removed, and adding one needs `alter type ... add value`.
 
+**Which row is yours** is `preferences.sun_sign` (DEX-128), reusing the same
+`public.sun_sign` enum rather than a second spelling of the twelve values — the
+column exists to look up a table keyed by that very type, and two independent
+lists could drift into a lookup that silently returns nothing. It is the one
+column on `preferences` that is **nullable with no default**: every other
+preference has an answer that is right for a brand-new user, but guessing a
+sign would show a stranger's horoscope as though it were theirs, so "not set"
+is a real state the app renders. Nothing backfills it — the birth date that
+would derive a sign is not in this schema. No RLS change was needed; the
+existing `user_id` policies on `preferences` already cover the new column, and
+the client reads the horoscope itself through the blanket `authenticated`
+select policy above.
+
 ## Scheduled jobs (pg_cron)
 
 `dex84-generate-horoscopes` runs `select public.trigger_generate_horoscopes();`

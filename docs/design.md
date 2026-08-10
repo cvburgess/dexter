@@ -99,6 +99,37 @@ The one deliberate alpha left on a card is the completed state — a 3% tint of
 the raw `priority[i]`. It is meant to read as the *absence* of a card rather
 than as a fourth surface color, so it does not get a token.
 
+## Sentiment
+
+A horoscope's sentiment tints the Ritual tab's Horoscope panel (DEX-128), and
+it does so **without tokens of its own**. `sentimentTints(colors, sentiment)`
+in `utils/theme.ts` derives both ends from accents that already exist:
+
+| Sentiment | Accent | Why |
+| --- | --- | --- |
+| `positive` | `colors.success` | The app's "this went well" |
+| `negative` | `colors.error` | The app's "this needs care" |
+| `mixed` | `priority[IMPORTANT_AND_URGENT]` | The theme's warning yellow — pulling both ways. Nothing about it is a task priority here |
+
+Reusing them is the point rather than a shortcut. These three are tuned per
+theme, so a mood reads correctly on all five palettes for free; fifteen
+hand-picked hexes would be fifteen more things to keep in tune, and this
+document says adding a token should be uncomfortable. `theme.test.ts` pins that
+the three stay visibly apart on every palette, which is the property the reuse
+has to earn.
+
+Both ends are **pre-blended opaque**, for the same reason `priorityMuted` is:
+an alpha fill takes on whatever is behind it, so animating between two alphas
+would drift in hue as well as strength. Blending each end first leaves the
+animation interpolating between two fixed colors.
+
+The blend is over **`surfaceSunken`, not `background`**. The panel holds
+content, so `surfaceSunken` is what it looks like with no mood to show — still
+loading, or a day the generator never covered — and washing from that same
+surface keeps the untinted and tinted panels one object rather than two that
+swap when the row lands. It is not a third surface: it is `surfaceSunken` with
+a wash on it.
+
 ## Border
 
 `colors.border` is the app's one hairline. It is opaque and tuned per theme
@@ -291,7 +322,17 @@ when the two differ. `SettingsRow` is the case; `icons.sm` stays correct for a
 chevron with no leading glyph opposite it.
 
 **Emoji are icons**, not type: an emoji standing in for an icon (list tiles,
-habit tiles, habit rings) is sized from `icons`, not from a font role.
+habit tiles, habit rings) is sized from `icons`, not from a font role. The
+Ritual tab's zodiac glyphs are the same case — U+2648–U+2653 rendered as
+`<Text>`, because neither SF Symbols nor Ionicons has a zodiac set and there is
+no SVG asset pipeline to add twelve to.
+
+**A hero mark is derived, not tokenized.** The Horoscope step's sign glyph is
+`controls.md * 2` (DEX-128). `icons.md` is a row's leading glyph and cannot
+carry a screen, and `fonts.display` belongs to the login splash alone — so the
+size comes from an existing token rather than a new one or a literal, the same
+move `subtaskGeometry` makes for the checklist's in-between sizes. It still
+scales with the density tier, which is the property that matters.
 
 ## Density tiers
 
