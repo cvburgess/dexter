@@ -471,7 +471,17 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
                 // Well past that here: Luck is the end of the reading, and
                 // landing its last line hard against the tab bar reads as the
                 // text being cut off rather than as having finished.
-                paddingBottom: theme.space.lg * 2 + insets.bottom,
+                //
+                // **Overscroll, not clearance, on a large screen** (DEX-138).
+                // The hero above is a full viewport whose content is centered
+                // in it, so its lower half is empty sky — and with only enough
+                // padding to clear the bar, the scroll runs out while that band
+                // is still on screen and the reading ends pinned to the bottom
+                // edge under it. The extra travel lets the last facets climb
+                // into that space instead. Matches the side gutter's multiple,
+                // so the card's air reads as one measure on three sides.
+                paddingBottom:
+                  theme.space.lg * (largeScreen ? 6 : 2) + insets.bottom,
               },
               facetsStyle,
             ]}
