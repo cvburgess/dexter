@@ -250,7 +250,7 @@ const mutePriorities = (
  *
  * Green reads positive and purple negative; blue is the neutral, which the DB
  * enum spells `mixed` (the facets genuinely pull both ways). Each hue is held
- * at one lightness per scheme — ~3% deep and ~93% pale — so the three sentiments
+ * at one lightness per scheme — ~4% deep and ~93% pale — so the three sentiments
  * read as equally dark or equally pale as each other and only the hue changes.
  * The brand values as first given sat at 11–19%, which put `mixed` level with
  * `dim`'s own `background` and made the panel dissolve into the page on that
@@ -261,11 +261,12 @@ const mutePriorities = (
  * **Both sets carry more saturation than their lightness would suggest**, and
  * for the same reason at each end: chroma collapses as a color approaches white
  * *or* black, so holding a moderate saturation there yields a barely-tinted grey
- * instead of a color. At 3% lightness the deep set needs 60–90% saturation to
+ * instead of a color. At 4% lightness the deep set needs 60–90% saturation to
  * read as green, purple and blue at all — the target is almost-black *with a
  * color in it*, and the color half of that is the part that has to be fought
  * for. **This is about as deep as the deep set can usefully go.** Each base is
- * down to 28 of a possible 765 across its three channels, and the hue lives in
+ * down to the high thirties of a possible 765 across its three channels, and
+ * the hue lives in
  * a spread of a dozen units inside that; a further step down spends the
  * distinctness between the three sentiments, which is the panel's whole job.
  *
@@ -302,22 +303,22 @@ const SENTIMENT_COLORS: Record<
   positive: {
     // hsl(174 55% 93%) → 91%
     light: { base: "#e3f7f5", peak: "#dbf5f2" },
-    // hsl(174 85% 3%) → 5%
-    dark: { base: "#010e0d", peak: "#021815" },
+    // hsl(174 85% 4%) → 6%
+    dark: { base: "#021311", peak: "#021c1a" },
   },
   negative: {
     // hsl(311 55% 93%) → 91%
     light: { base: "#f7e3f3", peak: "#f5dbf0" },
-    // hsl(311 90% 3%) → 5%
-    dark: { base: "#0f010c", peak: "#180114" },
+    // hsl(311 90% 4%) → 6%
+    dark: { base: "#130110", peak: "#1d0218" },
   },
   mixed: {
     // hsl(220 55% 93%) → 91%
     light: { base: "#e3eaf7", peak: "#dbe4f5" },
-    // hsl(220 60% 4%) → 7%. A point deeper and a point wider than its
+    // hsl(220 60% 5%) → 8%. A point deeper and a point wider than its
     // neighbours: blue is the darkest hue at a given lightness, so it needs the
     // extra to hold both its own weight and a visible breath.
-    dark: { base: "#040810", peak: "#070e1d" },
+    dark: { base: "#050a14", peak: "#081021" },
   },
 };
 

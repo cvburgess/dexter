@@ -93,12 +93,19 @@ export type THoroscopeFacet = {
  * (emotions, personal life) lead, work and health follow, and the two
  * incidentals close. `key` is typed against `THoroscope` so a renamed field
  * breaks here rather than rendering `undefined`.
+ *
+ * **Pick each SF Symbol by how it renders, not by its name.** The suffix is not
+ * a reliable guide to weight in this set: `face.smiling.fill` draws as an
+ * outline here and the unsuffixed `face.smiling` draws solid, which is backwards
+ * from the convention, and several unsuffixed symbols (`airplane`) are solid
+ * with no outline variant at all. The six sit in one list and have to read as
+ * one weight, so each was chosen against the others on a device.
  */
 export const HOROSCOPE_FACETS: readonly THoroscopeFacet[] = [
   {
     key: "emotions",
     label: "Emotions",
-    icon: { sf: "face.smiling", ionicon: "happy-outline" },
+    icon: { sf: "face.smiling.fill", ionicon: "happy-outline" },
   },
   {
     key: "personalLife",
@@ -113,12 +120,18 @@ export const HOROSCOPE_FACETS: readonly THoroscopeFacet[] = [
   {
     key: "health",
     label: "Health",
-    icon: { sf: "figure.walk", ionicon: "fitness-outline" },
+    // Ionicons has no stethoscope, so the two halves are not the same drawing
+    // here — `medical-outline` is that set's nearest instrument. Only Android
+    // and web ever see it; iOS takes the SF Symbol.
+    icon: { sf: "stethoscope", ionicon: "medical-outline" },
   },
   {
     key: "travel",
     label: "Travel",
-    icon: { sf: "airplane", ionicon: "airplane-outline" },
+    // A boat rather than a plane because SF draws `airplane` solid and
+    // `sailboat` as an outline, and the row of six has to read as one weight.
+    // The Ionicon follows the symbol so the two platforms show the same object.
+    icon: { sf: "sailboat", ionicon: "boat-outline" },
   },
   {
     key: "luck",

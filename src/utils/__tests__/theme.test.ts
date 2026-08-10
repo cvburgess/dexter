@@ -342,9 +342,9 @@ describe("sentimentTints", () => {
   });
 
   it("takes the brand values on a dark scheme", () => {
-    expect(sentimentTints("dark", "positive").base).toBe("#010e0d");
-    expect(sentimentTints("dark", "negative").base).toBe("#0f010c");
-    expect(sentimentTints("dark", "mixed").base).toBe("#040810");
+    expect(sentimentTints("dark", "positive").base).toBe("#021311");
+    expect(sentimentTints("dark", "negative").base).toBe("#130110");
+    expect(sentimentTints("dark", "mixed").base).toBe("#050a14");
   });
 
   // The panel is drawn *on* a theme's `background`, so it has to be a surface

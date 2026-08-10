@@ -12,7 +12,14 @@ import Animated, {
 
 import { buildStarField, TStar } from "@/utils/starField";
 
-const STAR_COUNT = 72;
+/**
+ * Cheap to raise: the circles are drawn once per layer and never again, since
+ * only the *layer's* opacity animates and that is a compositor property. The
+ * cost is a one-off rasterization, not per-frame work, so this scales with
+ * taste rather than with the frame budget. `STAR_LAYERS` is the number that
+ * costs something, and it stays put.
+ */
+const STAR_COUNT = 320;
 const STAR_LAYERS = 4;
 /** Any fixed value; it exists only to make the sky the same one every launch. */
 const STAR_SEED = 128;

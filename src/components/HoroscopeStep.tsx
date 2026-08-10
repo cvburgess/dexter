@@ -250,6 +250,10 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
           contentContainerStyle={{ paddingHorizontal: contentGutter(theme) }}
           onLayout={onLayout}
           ref={scrollRef}
+          // The chevron already says there is more below, and it fades out as
+          // the reader takes it up. A bar drawing itself over the panel every
+          // time they move says the same thing louder and in the app's ink.
+          showsVerticalScrollIndicator={false}
           testID="horoscope-scroll"
         >
           <Hero
