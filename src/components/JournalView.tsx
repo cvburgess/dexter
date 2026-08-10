@@ -226,14 +226,21 @@ type TJournalResponseFieldProps = {
 // survives as the floor (see `responseHeight`) so nothing collapses before the
 // first measurement lands.
 //
+// **`minHeight`, never `height`.** On the new architecture a multiline
+// `TextInput` measures its own text and grows with it — but only while nothing
+// pins it. An explicit `height` wins over that intrinsic size, which left the
+// field frozen at whatever the single mount-time measurement reported: right
+// for text that was already saved, and stuck scrolling for everything typed
+// afterwards. As a floor it composes instead of competing, and it is what web
+// needs, where `react-native-web` renders a plain `<textarea>` that has no
+// intrinsic growth of its own.
+//
 // **Do not add `scrollEnabled={false}` to "enforce" the no-scrolling part.** It
 // does the opposite: with scrolling off, iOS reports a content size clamped to
 // the view's own bounds, so `onContentSizeChange` only ever echoes back the
-// height already set here and the field can never grow past its first line.
-// Paired with `overflow: hidden` that silently clips what the user is typing.
-// Growth is what removes the scrollbar — there is nothing to scroll once the
-// box fits its content, and leaving scrolling enabled means a lagging
-// measurement degrades to a scrollable box rather than to hidden text.
+// height already set here. Paired with `overflow: hidden` that silently clips
+// what the user is typing. Growth is what removes the scrollbar — there is
+// nothing to scroll once the box fits its content.
 function JournalResponseField({
   prompt,
   response,
@@ -264,7 +271,7 @@ function JournalResponseField({
         }
         onFocus={onFocus}
         placeholder="Write your response…"
-        style={{ height: Math.max(minHeight, contentHeight) }}
+        style={{ minHeight: Math.max(minHeight, contentHeight) }}
         testID={testID}
         textAlignVertical="top"
       />

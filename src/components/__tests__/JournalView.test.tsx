@@ -177,7 +177,7 @@ describe("JournalView", () => {
   describe("growing to fit the response", () => {
     const styleOf = (element: ReactTestInstance): ViewStyle =>
       StyleSheet.flatten(element.props.style as ViewStyle);
-    const heightOf = (element: ReactTestInstance) => styleOf(element).height;
+    const heightOf = (element: ReactTestInstance) => styleOf(element).minHeight;
 
     // Regression guard, not a style preference. Disabling the input's own
     // scrolling to "enforce" that it never scrolls makes iOS report a content
@@ -195,9 +195,25 @@ describe("JournalView", () => {
       expect(styleOf(input).overflow).toBeUndefined();
     });
 
-    // The bug this replaced: height came from counting "\n", so a paragraph
-    // typed without a single Enter stayed one line tall and scrolled.
-    it("takes its height from the measured content, not the newline count", () => {
+    // The other half of the same rule: an explicit `height` beats the intrinsic
+    // size a multiline TextInput derives from its own text, which pinned the
+    // field to its mount-time measurement and left everything typed afterwards
+    // scrolling inside it.
+    it("floors its size without pinning it, so typing can still grow it", () => {
+      const screen = setup({
+        prompts: [{ prompt: "How was today?", response: "" }],
+      });
+
+      expect(
+        styleOf(screen.getByTestId("journal-response-0")).height,
+      ).toBeUndefined();
+    });
+
+    // Two bugs this pins at once: height came from counting "\n", so a
+    // paragraph typed without a single Enter stayed one line tall; and it was
+    // applied as `height`, which overrode the intrinsic sizing that grows the
+    // field as you type and froze it at the mount-time measurement.
+    it("floors its height at the measured content, not the newline count", () => {
       const screen = setup({
         prompts: [{ prompt: "How was today?", response: "" }],
       });
