@@ -7,4 +7,11 @@
 /// <reference types="expo/types" />
 
 // Reserved for project-wide ambient type declarations.
+//
+// Note for image assets: a `declare module "*.jpg"` wildcard does **not** work
+// here. `tsconfig`'s `paths` maps `@/*` onto real files, and TypeScript only
+// consults an ambient wildcard for a specifier it could not otherwise resolve —
+// a mapped one resolves to the `.jpg` itself and then fails to parse it. Import
+// an asset with `require<ImageSourcePropType>(...)` instead, which Expo's
+// `metro-require.d.ts` types generically. See `components/HoroscopeStep.tsx`.
 export {};

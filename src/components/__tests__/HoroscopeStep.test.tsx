@@ -138,6 +138,22 @@ describe("HoroscopeStep", () => {
       expect(SUN_SIGNS.leo.glyph).toContain("︎");
     });
 
+    // The photograph belongs to the horoscope, not to the panel: an empty or
+    // still-loading step is a plain surface rather than a sky with nothing on
+    // it.
+    it("lays the sky behind it, and only once there is one", () => {
+      expect(renderStep().getByTestId("horoscope-sky")).toBeTruthy();
+
+      expect(
+        renderStep({ horoscope: null }).queryByTestId("horoscope-sky"),
+      ).toBeNull();
+      expect(
+        renderStep({ sunSign: null, horoscope: null }).queryByTestId(
+          "horoscope-sky",
+        ),
+      ).toBeNull();
+    });
+
     it("renders every facet below it", () => {
       const screen = renderStep();
 

@@ -2,6 +2,8 @@ import { Temporal } from "@js-temporal/polyfill";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
+  Image,
+  ImageSourcePropType,
   LayoutChangeEvent,
   ScrollView,
   StyleSheet,
@@ -45,6 +47,30 @@ const SCROLL_HINT_ICON = {
   sf: "chevron.down",
   ionicon: "chevron-down",
 } as const;
+
+/**
+ * The photograph behind the panel.
+ *
+ * `require` with an explicit type parameter rather than an ES import, and the
+ * reason is `tsconfig`'s `paths`: it maps `@/*` onto real files, so
+ * `import sky from "@/assets/images/sky.jpg"` resolves to the `.jpg` itself and
+ * fails to parse, and a `declare module "*.jpg"` wildcard cannot rescue it —
+ * TypeScript only consults those for specifiers it could not resolve at all.
+ * Expo's `metro-require.d.ts` types `require` generically, so this form carries
+ * a real type instead of the bare `any` an untyped `require` would.
+ */
+const SKY = require<ImageSourcePropType>("@/assets/images/sky.jpg");
+
+/**
+ * How much of the sky survives under the sentiment wash.
+ *
+ * This is the one place an alpha fill is the *right* tool rather than the
+ * wrong one. `docs/design.md` warns that a translucent fill takes on whatever
+ * is behind it — here that is the entire point: the wash has to read as the
+ * day's color *and* let the photograph through, which a pre-blended opaque
+ * token could not do. Don't "fix" this into a solid fill.
+ */
+const SKY_WASH_OPACITY = 0.5;
 
 /**
  * The hero glyph's size, derived rather than tokenized.
@@ -129,10 +155,10 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
     );
   }, [breathe, reduceMotion]);
 
-  // No sentiment to show yet (no sign, still loading, or a day with no row)
-  // collapses both ends onto the plain surface, so the interpolation is a
-  // no-op and the panel sits still. Branching the hook instead would break the
-  // rules of hooks.
+  // With no sentiment to show (no sign, still loading, or a day with no row)
+  // both ends collapse onto the plain surface. The wash isn't rendered in those
+  // states anyway, but the hook has to be called unconditionally, so it needs
+  // *some* pair — branching the hook itself would break the rules of hooks.
   const { base, peak } = useMemo(() => {
     if (!horoscope) {
       return {
@@ -148,10 +174,34 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
   }));
 
   return (
-    <Animated.View
-      style={[styles.panel, { borderRadius: theme.radii.md }, tintStyle]}
+    <View
+      style={[
+        styles.panel,
+        {
+          backgroundColor: theme.colors.surfaceSunken,
+          borderRadius: theme.radii.md,
+        },
+      ]}
       testID="horoscope-panel"
     >
+      {/* The sky and the day's color over it, both only once there is a
+          horoscope: an empty or still-loading panel is a plain surface, not a
+          photograph with nothing on it. Absolutely positioned rather than
+          wrapping the content, so the sky stays put while the facets scroll
+          over it, and `panel`'s `overflow: hidden` clips both to the radius. */}
+      {horoscope ? (
+        <>
+          <Image
+            source={SKY}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+            testID="horoscope-sky"
+          />
+          <Animated.View
+            style={[StyleSheet.absoluteFill, styles.wash, tintStyle]}
+          />
+        </>
+      ) : null}
       {/* Loading is checked *first*, and the order is load-bearing: an unread
           sign is `null`, which is indistinguishable from a user who has never
           picked one — so testing `sunSign` ahead of this would render the
@@ -216,7 +266,7 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
           </View>
         </ScrollView>
       )}
-    </Animated.View>
+    </View>
   );
 }
 
@@ -332,5 +382,8 @@ const styles = StyleSheet.create({
   },
   summary: {
     textAlign: "center",
+  },
+  wash: {
+    opacity: SKY_WASH_OPACITY,
   },
 });

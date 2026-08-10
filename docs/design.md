@@ -133,6 +133,17 @@ opaque**, for the same reason `priorityMuted` is: an alpha fill takes on
 whatever is behind it, so animating between two alphas would drift in hue as
 well as strength.
 
+Its amplitude and pace are tuned against each other and neither reads alone —
+`SENTIMENT_BREATHE_ALPHA` here, `BREATHE_LEG_MS` in `HoroscopeStep`. A
+too-small amplitude over a too-slow ease is a breath nobody can see, which is
+only a battery cost. Neither is unit-tested: they are taste, judged against a
+real screen, and a test pinning either would just be rewritten on every pass.
+
+**The panel is the one place a translucent fill is correct.** The color is
+washed at 50% over a photograph (`assets/images/sky.jpg`), so it has to let
+what is behind it through — the exact behavior the rule below warns about,
+wanted on purpose here. Everywhere else, reach for a pre-blended token.
+
 With no mood to show — still loading, or a day the generator never covered —
 the panel falls back to `surfaceSunken`, which is the ordinary token for a
 surface that holds content.
