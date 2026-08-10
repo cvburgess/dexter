@@ -11,7 +11,10 @@ import {
   otherMode,
   RITUAL_STEPS,
   ritualPageKey,
+  stepsFor,
   withDate,
+  withJournalEnabled,
+  withLink,
   withMode,
   type TRitualState,
 } from "../ritualSteps";
@@ -79,7 +82,35 @@ describe("createRitualState", () => {
       mode: "pm",
       step: 0,
       direction: 0,
+      journalEnabled: true,
     });
+  });
+
+  it("carries the journal preference into the state", () => {
+    expect(createRitualState(DATE, "am", false).journalEnabled).toBe(false);
+  });
+});
+
+describe("stepsFor", () => {
+  it.each(["am", "pm"] as const)(
+    "drops the %s journal step when the journal is disabled",
+    (mode) => {
+      const ids = stepsFor(state({ mode, journalEnabled: false })).map(
+        (step) => step.id,
+      );
+
+      expect(ids).not.toContain("journal");
+      expect(ids).toHaveLength(RITUAL_STEPS[mode].length - 1);
+    },
+  );
+
+  // Stable references, not fresh arrays: both switchers map this on every
+  // render, and the route compares against it to detect a preference change.
+  it("returns the same array for the same inputs", () => {
+    expect(stepsFor(state())).toBe(stepsFor(state()));
+    expect(stepsFor(state({ journalEnabled: false }))).toBe(
+      stepsFor(state({ journalEnabled: false })),
+    );
   });
 });
 
@@ -231,5 +262,105 @@ describe("step position helpers", () => {
     expect(isLastStep(state({ step: 5 }))).toBe(true);
     expect(isLastStep(state({ mode: "pm", step: 4 }))).toBe(true);
     expect(isLastStep(state({ mode: "pm", step: 3 }))).toBe(false);
+  });
+});
+
+describe("withJournalEnabled", () => {
+  it("returns the same state when the preference hasn't changed", () => {
+    const before = state({ step: 2 });
+
+    expect(withJournalEnabled(before, true)).toBe(before);
+  });
+
+  // The whole reason this exists rather than a clamp: journal is index 1 of the
+  // morning ritual, so removing it shifts Calendar/Backlog/Tasks down one. A
+  // clamp never fires for those — they stay in range — and would silently move
+  // someone from Calendar to Backlog.
+  it("keeps the user on the same step by id when the journal is removed", () => {
+    const next = withJournalEnabled(state({ step: 2 }), false);
+
+    expect(currentStep(next).title).toBe("Calendar");
+    expect(next.step).toBe(1);
+    expect(next.direction).toBe(0);
+  });
+
+  it("keeps the user on the same step by id when the journal is added back", () => {
+    const before = state({ journalEnabled: false, step: 1 });
+
+    expect(currentStep(before).title).toBe("Calendar");
+    expect(currentStep(withJournalEnabled(before, true)).title).toBe(
+      "Calendar",
+    );
+  });
+
+  // Leaving the page key alone is what keeps `SwipeablePage` from remounting
+  // and replaying its intro for a toggle flipped in another tab.
+  it("leaves the page key alone when the step survives", () => {
+    const before = state({ step: 2 });
+
+    expect(ritualPageKey(withJournalEnabled(before, false))).toBe(
+      ritualPageKey(before),
+    );
+  });
+
+  it("falls back to the nearest step when the journal itself was on screen", () => {
+    const next = withJournalEnabled(state({ step: 1 }), false);
+
+    expect(next.step).toBe(1);
+    expect(currentStep(next).title).toBe("Calendar");
+  });
+
+  it("clamps to the last step when the removed one was at the end", () => {
+    // The evening ritual read backwards: nothing follows a step that is last
+    // once the journal is gone, so the clamp is the only repair available.
+    const before = state({ mode: "pm", journalEnabled: false, step: 3 });
+    const next = withJournalEnabled(before, true);
+
+    expect(currentStep(next).title).toBe("Congrats");
+  });
+});
+
+describe("withLink", () => {
+  it("applies the day and the step as one transition", () => {
+    // `withDate` restarts the ritual at step 0, so a date and step applied
+    // separately would land on the day's first step, not the one asked for.
+    const next = withLink(state(), {
+      date: DATE.add({ days: 1 }),
+      step: "tasks",
+    });
+
+    expect(next.date.toString()).toBe("2026-08-10");
+    expect(currentStep(next).title).toBe("Tasks");
+  });
+
+  it("applies a step on its own", () => {
+    expect(
+      currentStep(withLink(state(), { date: null, step: "journal" })).title,
+    ).toBe("Journal");
+  });
+
+  it("applies a day on its own", () => {
+    const next = withLink(state({ step: 3 }), {
+      date: DATE.add({ days: 1 }),
+      step: null,
+    });
+
+    expect(next.step).toBe(0);
+  });
+
+  it("returns the same state for an empty link", () => {
+    const before = state({ step: 2 });
+
+    expect(withLink(before, { date: null, step: null })).toBe(before);
+  });
+
+  // A journal link followed by a user who has the journal disabled: there is no
+  // step to land on, so the ritual opens where it would have anyway rather than
+  // guessing at a neighbour.
+  it("leaves the step alone when the linked one isn't in this ritual", () => {
+    const before = state({ journalEnabled: false, step: 2 });
+
+    expect(withLink(before, { date: null, step: "journal" })).toBe(before);
+    expect(withLink(before, { date: null, step: "review" })).toBe(before);
   });
 });

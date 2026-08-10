@@ -22,6 +22,12 @@ jest.mock("@/hooks/useSearch", () => {
 });
 jest.mock("@/hooks/useTasks", () => ({ useTasks: jest.fn() }));
 jest.mock("@/hooks/useTemplates", () => ({ useTemplates: jest.fn() }));
+// The screen reads one field, to decide whether a journal result is tappable
+// (DEX-105). Unmocked it needs a query client this file doesn't build.
+const mockEnableJournal = { value: true };
+jest.mock("@/hooks/usePreferences", () => ({
+  usePreferences: () => [{ enableJournal: mockEnableJournal.value }, {}],
+}));
 // Both halves of this screen's safe-area handling are stubbed: the context (for
 // `useSafeAreaInsets`, which reserves the tab bar in the list's own content) and
 // `react-native-screens`' SafeAreaView, which frames the screen. See the
@@ -149,12 +155,20 @@ const task = (overrides: Partial<TTask> = {}): TTask => ({
   ...overrides,
 });
 
+const journalResult = {
+  kind: "journal",
+  date: "2026-07-12",
+  prompt: "What went well?",
+  content: "remembered the milk",
+} as const;
+
 describe("SearchScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // The screen debounces the query before searching, so every test that types
     // has to drive the clock.
     jest.useFakeTimers();
+    mockEnableJournal.value = true;
     mockUseTasks.mockReturnValue([[], { deleteTask: mockDeleteTask }] as never);
     mockUseTemplates.mockReturnValue([
       [],
@@ -376,26 +390,32 @@ describe("SearchScreen", () => {
     });
   });
 
-  it("opens a journal result on its day's journal view", () => {
-    mockUseSearch.mockReturnValue(
-      searchResult([
-        {
-          kind: "journal",
-          date: "2026-07-12",
-          prompt: "What went well?",
-          content: "remembered the milk",
-        },
-      ]),
-    );
+  // The journal moved to the Ritual tab (DEX-105), so this is the one result
+  // that opens a tab other than Today.
+  it("opens a journal result on its day's ritual journal step", () => {
+    mockUseSearch.mockReturnValue(searchResult([journalResult]));
     render(<SearchScreen />);
     typeSearch("milk");
 
     fireEvent.press(screen.getByLabelText("What went well?, Jul 12, 2026"));
 
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: "/today",
-      params: { date: "2026-07-12", mode: "journal", n: "1" },
+      pathname: "/ritual",
+      params: { date: "2026-07-12", step: "journal", n: "1" },
     });
+  });
+
+  it("does not link a journal result when the journal is disabled", () => {
+    // There is no ritual journal step to land on, so the card stays readable
+    // but isn't a link — the same treatment a completed unscheduled task gets.
+    mockEnableJournal.value = false;
+    mockUseSearch.mockReturnValue(searchResult([journalResult]));
+    render(<SearchScreen />);
+    typeSearch("milk");
+
+    fireEvent.press(screen.getByLabelText("What went well?, Jul 12, 2026"));
+
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it("frames itself from the screen's safe area, not the tab's (DEX-107)", () => {

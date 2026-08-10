@@ -7,6 +7,7 @@ import RitualScreen from "@/app/(app)/(tabs)/ritual";
 import type { LargeScreenRitual } from "@/components/LargeScreenRitual";
 import type { SmallScreenRitual } from "@/components/SmallScreenRitual";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
+import { usePreferences } from "@/hooks/usePreferences";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
 
 jest.mock("@/hooks/useIsLargeDevice", () => ({
@@ -14,6 +15,18 @@ jest.mock("@/hooks/useIsLargeDevice", () => ({
 }));
 jest.mock("@/hooks/useViewedDay", () => ({
   usePublishViewedDay: jest.fn(),
+}));
+// The screen reads one field. Unmocked, `usePreferences` pulls in `useAuth` and
+// a query client, neither of which this route's own behavior depends on.
+jest.mock("@/hooks/usePreferences", () => ({
+  usePreferences: jest.fn(),
+}));
+// The route parses `?date=&step=&n=` (DEX-105); each test names its own params.
+const mockUseLocalSearchParams = jest.fn<Record<string, unknown>, []>(
+  () => ({}),
+);
+jest.mock("expo-router", () => ({
+  useLocalSearchParams: () => mockUseLocalSearchParams(),
 }));
 
 // Both layouts are covered by their own tests; stub them to markers echoing the
@@ -95,6 +108,12 @@ const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
 const mockUsePublishViewedDay = usePublishViewedDay as jest.MockedFunction<
   typeof usePublishViewedDay
 >;
+const mockUsePreferences = usePreferences as jest.MockedFunction<
+  typeof usePreferences
+>;
+
+const preferences = (enableJournal: boolean) =>
+  [{ enableJournal }, {}] as unknown as ReturnType<typeof usePreferences>;
 
 const TODAY = "2026-08-09";
 const today = Temporal.PlainDate.from(TODAY);
@@ -106,6 +125,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.useFakeTimers({ now: localTime(9) });
   mockUseIsLargeDevice.mockReturnValue(false);
+  mockUsePreferences.mockReturnValue(preferences(true));
+  mockUseLocalSearchParams.mockReturnValue({});
 });
 
 afterEach(() => {
@@ -187,6 +208,133 @@ describe("RitualScreen", () => {
     fireEvent.press(screen.getByLabelText("toggle-mode"));
 
     expect(screen.getByText(`small:${TODAY}:pm:0:1`)).toBeTruthy();
+  });
+
+  // DEX-105: a journal search result is the only thing that links here.
+  describe("a deep link", () => {
+    it("opens on the linked day and step from a cold mount", () => {
+      // The tab mounts lazily, so the *first* result followed in a session
+      // arrives with its params already present and no change for a
+      // render-time adjustment to notice. Seeding in the initializer is what
+      // covers it — without that this passes on every later tap and fails only
+      // on the first, which is the worst possible shape for the bug.
+      mockUseLocalSearchParams.mockReturnValue({
+        date: "2026-07-12",
+        step: "journal",
+        n: "1",
+      });
+
+      const screen = render(<RitualScreen />);
+
+      // Direction 1: the day jump travels back, then the step jump forward, and
+      // the last transition is what the intro animation plays.
+      expect(screen.getByText("small:2026-07-12:am:1:1")).toBeTruthy();
+    });
+
+    it("follows a link that arrives after mount", () => {
+      const screen = render(<RitualScreen />);
+      expect(screen.getByText(`small:${TODAY}:am:0:0`)).toBeTruthy();
+
+      mockUseLocalSearchParams.mockReturnValue({
+        date: "2026-07-12",
+        step: "journal",
+        n: "1",
+      });
+      screen.rerender(<RitualScreen />);
+
+      expect(screen.getByText("small:2026-07-12:am:1:1")).toBeTruthy();
+    });
+
+    it("re-applies the same link when it is followed again", () => {
+      // The nonce is the only thing separating two taps on one result; without
+      // it the second would switch tabs and then do nothing.
+      mockUseLocalSearchParams.mockReturnValue({
+        date: "2026-07-12",
+        step: "journal",
+        n: "1",
+      });
+      const screen = render(<RitualScreen />);
+
+      fireEvent.press(screen.getByLabelText("swipe-forward"));
+      expect(screen.getByText("small:2026-07-12:am:2:1")).toBeTruthy();
+
+      mockUseLocalSearchParams.mockReturnValue({
+        date: "2026-07-12",
+        step: "journal",
+        n: "2",
+      });
+      screen.rerender(<RitualScreen />);
+
+      expect(screen.getByText("small:2026-07-12:am:1:-1")).toBeTruthy();
+    });
+
+    it("ignores an unrecognized step rather than blanking the ritual", () => {
+      mockUseLocalSearchParams.mockReturnValue({
+        date: "2026-07-12",
+        step: "not-a-step",
+        n: "1",
+      });
+
+      const screen = render(<RitualScreen />);
+
+      // The day it named still applies — only the step is dropped.
+      expect(screen.getByText("small:2026-07-12:am:0:-1")).toBeTruthy();
+    });
+  });
+
+  describe("with the journal disabled", () => {
+    beforeEach(() => {
+      mockUsePreferences.mockReturnValue(preferences(false));
+    });
+
+    it("drops the journal step, so the second step is Calendar", () => {
+      // The step list is a step shorter, so the same index means a different
+      // step — the titles themselves are pinned in the ritualSteps tests.
+      const screen = render(<RitualScreen />);
+
+      fireEvent.press(screen.getByLabelText("swipe-forward"));
+
+      expect(screen.getByText(`small:${TODAY}:am:1:1`)).toBeTruthy();
+    });
+
+    it("stops one step earlier", () => {
+      const screen = render(<RitualScreen />);
+
+      for (let press = 0; press < 7; press++) {
+        fireEvent.press(screen.getByLabelText("swipe-forward"));
+      }
+
+      expect(screen.getByText(`small:${TODAY}:am:4:1`)).toBeTruthy();
+    });
+
+    // `usePreferences` serves defaults (journal on) until the row loads, so
+    // this is what a cold launch with it disabled actually does.
+    it("keeps the user on the same step when the preference arrives late", () => {
+      mockUsePreferences.mockReturnValue(preferences(true));
+      const screen = render(<RitualScreen />);
+
+      // Calendar: index 2 with the journal, index 1 without it.
+      fireEvent.press(screen.getByLabelText("swipe-forward"));
+      fireEvent.press(screen.getByLabelText("swipe-forward"));
+      expect(screen.getByText(`small:${TODAY}:am:2:1`)).toBeTruthy();
+
+      mockUsePreferences.mockReturnValue(preferences(false));
+      screen.rerender(<RitualScreen />);
+
+      expect(screen.getByText(`small:${TODAY}:am:1:0`)).toBeTruthy();
+    });
+
+    it("refuses a journal deep link rather than landing somewhere arbitrary", () => {
+      mockUseLocalSearchParams.mockReturnValue({
+        date: "2026-07-12",
+        step: "journal",
+        n: "1",
+      });
+
+      const screen = render(<RitualScreen />);
+
+      expect(screen.getByText("small:2026-07-12:am:0:-1")).toBeTruthy();
+    });
   });
 
   describe("on a large screen", () => {

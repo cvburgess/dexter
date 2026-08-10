@@ -29,7 +29,6 @@ describe("useTodayPanes", () => {
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
     expect(result.current[0]).toEqual({
       notes: true,
-      journal: true,
       calendar: true,
       drawer: false,
     });
@@ -45,7 +44,6 @@ describe("useTodayPanes", () => {
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
     expect(result.current[0]).toEqual({
       notes: true,
-      journal: true,
       calendar: true,
       drawer: false,
     });
@@ -64,7 +62,6 @@ describe("useTodayPanes", () => {
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
     expect(result.current[0]).toEqual({
       notes: true,
-      journal: true,
       calendar: true,
       drawer: false,
     });
@@ -72,7 +69,9 @@ describe("useTodayPanes", () => {
 
   it("fills in a pane added after the value was stored, keeping the rest", async () => {
     // Simulates a device that stored its preferences before `drawer` existed
-    // — it must not be treated as corrupt and reset to every default.
+    // and while `journal` still did (DEX-105) — the missing key falls back to
+    // its default and the removed one is dropped, rather than the whole value
+    // being treated as corrupt and reset.
     await AsyncStorage.setItem(
       TODAY_PANES_KEY,
       JSON.stringify({ notes: false, journal: true, calendar: false }),
@@ -85,7 +84,6 @@ describe("useTodayPanes", () => {
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
     expect(result.current[0]).toEqual({
       notes: false,
-      journal: true,
       calendar: false,
       drawer: false,
     });
@@ -102,7 +100,6 @@ describe("useTodayPanes", () => {
     await waitFor(() =>
       expect(result.current[0]).toEqual({
         notes: false,
-        journal: true,
         calendar: true,
         drawer: false,
       }),
@@ -110,7 +107,6 @@ describe("useTodayPanes", () => {
     const stored = await AsyncStorage.getItem(TODAY_PANES_KEY);
     expect(JSON.parse(stored as string)).toEqual({
       notes: false,
-      journal: true,
       calendar: true,
       drawer: false,
     });
@@ -127,7 +123,6 @@ describe("useTodayPanes", () => {
     await waitFor(() => expect(result.current[0].drawer).toBe(true));
     expect(result.current[0]).toMatchObject({
       notes: true,
-      journal: true,
       calendar: true,
     });
   });
@@ -151,19 +146,18 @@ describe("useTodayPanes", () => {
     });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
-    // Simulates two rapid button taps (e.g. Notes then Journal) landing
+    // Simulates two rapid button taps (Notes then Calendar) landing
     // before the first toggle's AsyncStorage write resolves and re-renders
     // this hook — both must still be applied, not just the last one.
     await act(async () => {
       const first = result.current[1].togglePane("notes");
-      const second = result.current[1].togglePane("journal");
+      const second = result.current[1].togglePane("calendar");
       await Promise.all([first, second]);
     });
 
     const expected = {
       notes: false,
-      journal: false,
-      calendar: true,
+      calendar: false,
       drawer: false,
     };
     await waitFor(() => expect(result.current[0]).toEqual(expected));

@@ -1,4 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
+import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -61,6 +62,10 @@ export function LargeScreenRitual({
   const theme = useTheme();
   const step = currentStep(state);
   const lastStep = isLastStep(state);
+  // The swipe is not a small-screen affordance on this tab (see above), so the
+  // caret conflict it creates isn't either: a focused text field suspends it
+  // here exactly as it does on the phone.
+  const [editing, setEditing] = useState(false);
 
   return (
     <SafeAreaView
@@ -86,10 +91,17 @@ export function LargeScreenRitual({
           canNext={!lastStep}
           canPrev={!isFirstStep(state)}
           direction={state.direction}
+          enabled={!editing}
           onSwipe={onSwipe}
           pageKey={ritualPageKey(state)}
         >
-          <RitualStepView step={step} />
+          {/* `setEditing` passed raw, not wrapped — see `RitualStepView`'s
+              `onEditingChange`. */}
+          <RitualStepView
+            date={state.date}
+            onEditingChange={setEditing}
+            step={step}
+          />
         </SwipeablePage>
       </View>
     </SafeAreaView>

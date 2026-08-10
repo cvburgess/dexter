@@ -6,7 +6,7 @@ import { IconMenu } from "./IconMenu";
 import { TIconMenuOption, TIconMenuSection } from "./IconMenu.types";
 
 /** The day views selectable from the Today tab. */
-export type TDayView = "tasks" | "notes" | "journal" | "calendar";
+export type TDayView = "tasks" | "notes" | "calendar";
 
 /**
  * Icon metadata for each day view, shared with `DayPaneToggles` (the
@@ -21,10 +21,6 @@ export const VIEW_META: Record<TDayView, { label: string; icon: TIconName }> = {
     label: "Notes",
     icon: { sf: "note.text", ionicon: "document-text-outline" },
   },
-  journal: {
-    label: "Journal",
-    icon: { sf: "book", ionicon: "book-outline" },
-  },
   calendar: {
     label: "Calendar",
     icon: { sf: "calendar", ionicon: "calendar-outline" },
@@ -36,8 +32,6 @@ type TDayViewSwitcherProps = {
   onChangeView: (view: TDayView) => void;
   /** Notes is hidden when disabled in settings. */
   enableNotes: boolean;
-  /** Journal is hidden when disabled in settings. */
-  enableJournal: boolean;
   /** Calendar is hidden when disabled in settings. */
   enableCalendar: boolean;
   /**
@@ -57,20 +51,18 @@ type TDayViewSwitcherProps = {
 };
 
 /**
- * Builds the menu options for the switcher: Tasks always, Notes/Journal/Calendar
- * only when enabled, with the active view checked. Exported so the selection
+ * Builds the menu options for the switcher: Tasks always, Notes/Calendar only
+ * when enabled, with the active view checked. Exported so the selection
  * wiring is unit-testable without the platform menu host.
  */
 export function dayViewOptions(
   view: TDayView,
   onChangeView: (view: TDayView) => void,
   enableNotes: boolean,
-  enableJournal: boolean,
   enableCalendar: boolean,
 ): TIconMenuOption[] {
   const views: TDayView[] = ["tasks"];
   if (enableNotes) views.push("notes");
-  if (enableJournal) views.push("journal");
   if (enableCalendar) views.push("calendar");
 
   return views.map((id) => ({
@@ -85,17 +77,17 @@ export function dayViewOptions(
 /**
  * The Today-tab view switcher: a circular icon-only button (liquid glass on
  * iOS, a plain circle elsewhere — see `GlassIconButton`) that opens an
- * `IconMenu` for moving between Tasks, Notes, and Journal. Its icon reflects the
- * active view. All views share the Today screen's single date, so switching
- * never changes the selected day. Notes/Journal/Calendar entries appear only
- * when enabled in settings (DEX-37, DEX-39). When `onOpenDrawer` is given, a
+ * `IconMenu` for moving between Tasks, Notes, and Calendar. Its icon reflects
+ * the active view. All views share the Today screen's single date, so switching
+ * never changes the selected day. Notes/Calendar entries appear only when
+ * enabled in settings (DEX-37, DEX-39). The journal is not among them — it
+ * moved to the Ritual tab (DEX-105). When `onOpenDrawer` is given, a
  * "Backlog" action is added below the view options (DEX-33).
  */
 export function DayViewSwitcher({
   view,
   onChangeView,
   enableNotes,
-  enableJournal,
   enableCalendar,
   onOpenDrawer,
   attention,
@@ -105,7 +97,6 @@ export function DayViewSwitcher({
     view,
     onChangeView,
     enableNotes,
-    enableJournal,
     enableCalendar,
   );
 

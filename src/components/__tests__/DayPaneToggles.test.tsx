@@ -32,55 +32,43 @@ jest.mock("../GlassIconButton", () => ({
 
 const allOpen: TTodayPanes = {
   notes: true,
-  journal: true,
   calendar: true,
   drawer: false,
 };
 
 describe("paneToggleOptions", () => {
-  const panesFor = (
-    notes: boolean,
-    journal: boolean,
-    calendar: boolean,
-  ): TTodayPanes => ({
+  const panesFor = (notes: boolean, calendar: boolean): TTodayPanes => ({
     notes,
-    journal,
     calendar,
     drawer: false,
   });
 
   it("offers nothing when every pane is disabled in settings", () => {
-    const options = paneToggleOptions(allOpen, jest.fn(), false, false, false);
+    const options = paneToggleOptions(allOpen, jest.fn(), false, false);
     expect(options).toEqual([]);
   });
 
   it("includes Notes only when enabled", () => {
-    const options = paneToggleOptions(allOpen, jest.fn(), true, false, false);
+    const options = paneToggleOptions(allOpen, jest.fn(), true, false);
     expect(options.map((o) => o.pane)).toEqual(["notes"]);
   });
 
-  it("includes Journal only when enabled", () => {
-    const options = paneToggleOptions(allOpen, jest.fn(), false, true, false);
-    expect(options.map((o) => o.pane)).toEqual(["journal"]);
-  });
-
   it("includes Calendar only when enabled", () => {
-    const options = paneToggleOptions(allOpen, jest.fn(), false, false, true);
+    const options = paneToggleOptions(allOpen, jest.fn(), false, true);
     expect(options.map((o) => o.pane)).toEqual(["calendar"]);
   });
 
   it("reflects each pane's current on/off state", () => {
-    const panes = panesFor(false, true, false);
-    const options = paneToggleOptions(panes, jest.fn(), true, true, true);
+    const panes = panesFor(false, true);
+    const options = paneToggleOptions(panes, jest.fn(), true, true);
 
     expect(options.find((o) => o.pane === "notes")?.active).toBe(false);
-    expect(options.find((o) => o.pane === "journal")?.active).toBe(true);
-    expect(options.find((o) => o.pane === "calendar")?.active).toBe(false);
+    expect(options.find((o) => o.pane === "calendar")?.active).toBe(true);
   });
 
   it("calls onTogglePane with the option's pane when toggled", () => {
     const onTogglePane = jest.fn();
-    const options = paneToggleOptions(allOpen, onTogglePane, true, true, true);
+    const options = paneToggleOptions(allOpen, onTogglePane, true, true);
 
     options.find((o) => o.pane === "calendar")?.onToggle();
 
@@ -95,13 +83,11 @@ describe("DayPaneToggles", () => {
         panes={allOpen}
         onTogglePane={jest.fn()}
         enableNotes
-        enableJournal
         enableCalendar={false}
       />,
     );
 
     expect(screen.getByLabelText("Toggle notes pane")).toBeTruthy();
-    expect(screen.getByLabelText("Toggle journal pane")).toBeTruthy();
     expect(screen.queryByLabelText("Toggle calendar pane")).toBeNull();
   });
 
@@ -112,7 +98,6 @@ describe("DayPaneToggles", () => {
         panes={allOpen}
         onTogglePane={onTogglePane}
         enableNotes
-        enableJournal
         enableCalendar
       />,
     );
@@ -124,17 +109,31 @@ describe("DayPaneToggles", () => {
 
   it("never renders a toggle for the task drawer pane", () => {
     // The task drawer (DEX-33) is a standalone header button, not one of
-    // this component's Notes/Journal/Calendar toggles.
+    // this component's Notes/Calendar toggles.
     const screen = render(
       <DayPaneToggles
         panes={allOpen}
         onTogglePane={jest.fn()}
         enableNotes
-        enableJournal
         enableCalendar
       />,
     );
 
     expect(screen.queryByLabelText("Toggle drawer pane")).toBeNull();
+  });
+
+  // The journal left the Today tab for the Ritual tab (DEX-105), so there is no
+  // pane of its own to toggle any more.
+  it("never renders a toggle for the journal", () => {
+    const screen = render(
+      <DayPaneToggles
+        panes={allOpen}
+        onTogglePane={jest.fn()}
+        enableNotes
+        enableCalendar
+      />,
+    );
+
+    expect(screen.queryByLabelText("Toggle journal pane")).toBeNull();
   });
 });

@@ -9,7 +9,7 @@ import { DayPaneToggles } from "@/components/DayPaneToggles";
 import { DragScheduleProvider } from "@/components/DragScheduleProvider";
 import { GlassIconButton } from "@/components/GlassIconButton";
 import { LargeScreenHeader } from "@/components/LargeScreenHeader";
-import { NotesJournalTabs } from "@/components/NotesJournalTabs";
+import { NotesView } from "@/components/NotesView";
 import { TaskDrawer } from "@/components/TaskDrawer";
 import { TaskDropTarget } from "@/components/TaskDropTarget";
 import { TasksView } from "@/components/TasksView";
@@ -36,14 +36,13 @@ type TLargeScreenTodayProps = {
   /**
    * The deep link this screen was opened with (DEX-47), or null for an ordinary
    * tab press. Tasks is always visible here, so `mode: "tasks"` is a no-op;
-   * `notes`/`journal` open that pane and select its tab, and `backlog` opens the
-   * docked drawer seeded with `query`. Keyed on `id` so re-following the same
-   * link works.
+   * `notes` opens that pane, and `backlog` opens the docked drawer seeded with
+   * `query`. Keyed on `id` so re-following the same link works.
    */
   link: TDayLink | null;
 };
 
-// The multi-pane (large-screen) Today layout: Tasks plus optional Notes/Journal,
+// The multi-pane (large-screen) Today layout: Tasks plus optional Notes,
 // Calendar, and a docked task drawer side by side. Owns the state that only this
 // layout needs (`panes`/the docked drawer filter); the single-view small-screen
 // layout lives in `SmallScreenToday`.
@@ -99,8 +98,8 @@ export function LargeScreenToday({
   // the user had just closed.
   //
   // No `preferences.enable*` guard: with the feature off the pane simply doesn't
-  // render, and `panes.notes`/`panes.journal` default to open anyway, so setting
-  // them is very nearly a no-op. `panes.drawer` is the one that defaults closed.
+  // render, and `panes.notes` defaults to open anyway, so setting it is very
+  // nearly a no-op. `panes.drawer` is the one that defaults closed.
   // `linkId` is in the dependencies alongside `mode` because re-following the
   // same link has to re-open a pane the user closed in between; `mode` is
   // encoded in `linkId`, so listing both costs no extra firings.
@@ -110,7 +109,6 @@ export function LargeScreenToday({
   }, [linkId, mode, openPane]);
 
   const showNotes = preferences.enableNotes && panes.notes;
-  const showJournal = preferences.enableJournal && panes.journal;
   const showCalendar = preferences.enableCalendar && panes.calendar;
 
   // Toggling the drawer pane; when it's opening (not closing) and there are
@@ -143,7 +141,6 @@ export function LargeScreenToday({
           <>
             <DayPaneToggles
               enableCalendar={preferences.enableCalendar}
-              enableJournal={preferences.enableJournal}
               enableNotes={preferences.enableNotes}
               onTogglePane={togglePane}
               panes={panes}
@@ -186,23 +183,24 @@ export function LargeScreenToday({
           >
             <TasksView date={date} />
           </TaskDropTarget>
-          {(showNotes || showJournal) && (
-            <View style={styles.notesJournalPane}>
-              {/* No key here (unlike CalendarView below): NotesJournalTabs
-                  keys its own NotesView/JournalView content on date
-                  internally, so the editor re-seeds on a day change without
-                  also resetting which tab is selected. */}
-              <NotesJournalTabs
+          {showNotes && (
+            <View
+              style={[
+                styles.notesPane,
+                {
+                  borderColor: theme.colors.border,
+                  borderRadius: theme.radii.md,
+                },
+              ]}
+            >
+              {/* Keyed on date: NotesView seeds its editor uncontrolled and
+                  relies on a remount to re-seed for a new day (see its own
+                  comments). `card={false}` because this pane draws the border;
+                  a second one inside it would double up. */}
+              <NotesView
+                card={false}
                 date={date.toString()}
-                showJournal={showJournal}
-                showNotes={showNotes}
-                requestedTab={
-                  mode === "notes" || mode === "journal" ? mode : null
-                }
-                // The tab is a string union, so it carries no identity of its
-                // own — this is what tells the pane that a *second* navigation
-                // asked for the same tab it is already showing.
-                requestedTabLinkId={linkId}
+                key={date.toString()}
               />
             </View>
           )}
@@ -219,7 +217,7 @@ export function LargeScreenToday({
                 },
               ]}
             >
-              {/* Keyed on date for the same reason as NotesJournalTabs:
+              {/* Keyed on date for the same reason as the Notes pane above:
                   CalendarView seeds its "now" line position once per mount
                   (see CalendarView.tsx), relying on a remount per day. */}
               <CalendarView date={date} key={date.toString()} />
@@ -297,17 +295,21 @@ const styles = StyleSheet.create({
   fixedPane: {
     width: TASKS_PANE_WIDTH,
   },
-  // Notes and Journal share one tabbed pane that flexes to fill whatever
-  // space remains. NotesJournalTabs draws its own border (only the active
-  // tab plus the card body below it, manila-folder style), not this wrapper.
-  notesJournalPane: {
+  // Notes flexes to fill whatever space remains, in a bordered card matching
+  // Calendar's. It carried no border of its own until DEX-105, when the tabbed
+  // Notes/Journal pane it used to share (which drew one, manila-folder style)
+  // was retired along with the journal's place on this tab. No padding: the
+  // note editor supplies its own, unlike Calendar's timeline.
+  notesPane: {
+    borderWidth: StyleSheet.hairlineWidth,
     flex: 1,
+    overflow: "hidden",
   },
   // Calendar gets its own (narrower) cap — a day timeline reads fine
   // narrower than a task list — plus a bordered card to set it apart from the
   // other panes, matching the legacy desktop app. `marginLeft: "auto"` pins
-  // it to the row's right edge even when Notes/Journal isn't rendered to
-  // push it there itself. Calendar always renders before Drawer, so this
+  // it to the row's right edge even when Notes isn't rendered to push it
+  // there itself. Calendar always renders before Drawer, so this
   // margin is unconditional — it's the one that needs to absorb the row's
   // leftover space; `drawerPane` below drops its own when Calendar is
   // present so the two dock flush together instead of splitting the space
