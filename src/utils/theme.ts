@@ -317,6 +317,23 @@ export function sentimentTints(sentiment: THoroscopeSentiment): {
 }
 
 /**
+ * The Horoscope card's frame — white, on every theme (DEX-128).
+ *
+ * The second color in the app that is not a theme token, and it sits here
+ * beside `SENTIMENT_COLORS` for the same reason: the panel is a tarot card, not
+ * a surface, and a card's border is part of the object rather than part of the
+ * app around it. `colors.border` drew it from opposite sides on the two schemes
+ * — a pale band on light themes, a dark one on dark themes — which read as two
+ * different objects.
+ *
+ * **Note what it does on the palest light themes.** `light`'s `background` is
+ * pure white and `dexter`'s is all but, so there the frame is the page's own
+ * color: the card reads as a dark shape with white space around it rather than
+ * as a drawn border. That is the accepted cost of one frame everywhere.
+ */
+export const SENTIMENT_FRAME = "#ffffff";
+
+/**
  * The ink for anything drawn on the sentiment panel.
  *
  * The panel is a night sky whatever the user's theme, so a light theme's dark
@@ -624,6 +641,23 @@ export const SHADOW_MD =
   "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)";
 export const SHADOW_LG =
   "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)";
+
+/**
+ * Tailwind v4's `shadow-2xl`, for a surface the size of a screen.
+ *
+ * The two above are tuned for things a few hundred points across — a menu, a
+ * tile, a popover — where 15px of blur at 10% black is a clear lift. Across the
+ * Horoscope card it is a rumour: blur and alpha both have to scale with the
+ * shape or the shadow reads as nothing at all, which is what `SHADOW_LG` on
+ * that card looked like.
+ *
+ * **Single-layer, unlike the other two, and that is Tailwind's own choice
+ * rather than an oversight.** The second tight layer up there exists to keep a
+ * small shape's edge defined under a soft drop; at 50px of blur there is no
+ * hairline left to smudge, and the card draws its own edge with a `space.md`
+ * frame regardless.
+ */
+export const SHADOW_2XL = "0 25px 50px -12px rgb(0 0 0 / 0.25)";
 
 /**
  * Applies an alpha channel to a color, e.g. for a scrim or to dim content

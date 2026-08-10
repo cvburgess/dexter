@@ -175,30 +175,43 @@ wrong first:
   actually judges. Narrowing one without shortening the other buys only a longer
   hold on each shade.
 
-### The panel's edges
+### The card's frame
 
-`components/EdgeFade.tsx` dissolves the panel into the page: four edge ramps and
-four corner ramps of `colors.background`, opaque at the rim and clear one band
-in, over the tint and the starfield both. Three notes worth keeping:
+The panel is drawn as a **tarot card**: a `space.md` border in
+`SENTIMENT_FRAME` — white — with corners at four times `radii.md`. Three things
+about it:
 
-- **Not a radial gradient**, which is where it started. A radial fade on a
-  rectangle can only reach the four edge midpoints at once; the corners sit
-  1.41× further out and are always past the end of the ramp, so the tint read as
-  an oval floating in the page. Widening the ellipse cannot fix it — the
-  untouched core is bounded by the *nearest* edge, so the radius and the ramp's
-  start move together and the colored area comes out the same size.
-- **One band distance in points, not per-axis percentages.** Percentages made
-  the hem twice as deep on the long axis, so the corner where two met could only
-  be an ellipse quadrant matching neither. One distance makes every corner a
-  quarter circle of that radius and the uncovered middle a rounded rectangle.
-- **The ramp is `(1 - u)³`, not a knee.** A ramp arriving at zero with slope
-  still on it leaves a kink in the brightness, and the eye resolves a kink into a
-  line — it drew a visible rectangle one band in from every edge, which is
-  exactly the box the fade exists to hide.
+- **Three sides, not four.** The card runs off the bottom of the screen — on
+  native its color carries under the translucent tab bar and tints it, on web it
+  meets the bottom of the window — so a line across the bottom would be the one
+  thing saying it stopped there.
+- **The width and the radius are tied.** A heavy border on a tight corner
+  bunches up on the curve instead of turning it, so raising one means raising
+  the other. `colors.border` was tried first and abandoned: that token is
+  defined as a step *darker* than the surfaces it divides, so it drew the frame
+  from opposite sides on the two schemes — a pale band on light themes, a dark
+  one on dark — which read as two different objects. Note what white costs in
+  exchange: on `light` (pure white `background`) and `dexter` (all but) the
+  frame is the page's own color, so the card reads there as a dark shape with
+  white space around it rather than as a drawn border.
+- **The breathing tint layer carries the frame's inner radius** — the outer
+  radius less the border width. Its parent deliberately does not clip
+  (`overflow: hidden` on a rounded view makes it offscreen-rendered and
+  re-composited every frame the tint's opacity changes), so a square child would
+  push its own corners out through the rounded ones as soon as the breath came
+  up.
 
-It measures itself with `onLayout` rather than laying out in percentages, because
-percentage geometry means object-bounding-box units and react-native-svg does not
-stretch a radial gradient to a non-square box.
+This replaced an `EdgeFade` component that dissolved the edges into the page
+instead. Its reasoning is worth keeping in case a soft edge is ever wanted
+again: a **radial** gradient cannot do it on a rectangle, because it reaches the
+four edge midpoints at once while the corners sit 1.41× further out and are
+always past the end of the ramp — the tint read as an oval floating in the page,
+and widening the ellipse could not fix it, since the untouched core is bounded
+by the *nearest* edge. Four edge ramps plus four corner ramps at one band
+distance did work. So did easing them on `(1 - u)³` rather than a knee: a ramp
+arriving at zero with slope still on it leaves a kink in the brightness, and the
+eye resolves a kink into a line — it drew a visible rectangle one band in from
+every edge.
 
 ### The sky, and the arrival
 
@@ -499,14 +512,27 @@ job:
   edge instead: a `colors.border` hairline, because a `surfaceSunken` menu sits
   on cards and rows that are also `surfaceSunken` and the fill alone cannot mark
   where it ends, plus the shadow below.
-- **Shadows are black**, on every theme, and there are exactly two of them:
-  `SHADOW_MD` and `SHADOW_LG` in `utils/theme.ts`, Tailwind's `shadow-md` and
-  `shadow-lg` ported literally from dexter-app. A shadow is the absence of light
-  — the same rule that makes a divider always darker than the surfaces it
-  divides. Deriving one from `text` inverts it on the dark themes, where the ink
-  is light, painting a pale halo rather than a lift. Both are two layers, a wide
-  soft drop with a negative spread over a tighter layer that keeps the shape's
-  own edge defined; a single-layer shadow reads as a smudged hairline instead.
+- **Shadows are black**, on every theme, and there are exactly three of them:
+  `SHADOW_MD`, `SHADOW_LG` and `SHADOW_2XL` in `utils/theme.ts`, Tailwind's
+  `shadow-md`, `shadow-lg` and `shadow-2xl` ported literally from dexter-app. A
+  shadow is the absence of light — the same rule that makes a divider always
+  darker than the surfaces it divides. Deriving one from `text` inverts it on
+  the dark themes, where the ink is light, painting a pale halo rather than a
+  lift.
+
+  **Pick the rung by the size of the shape, not by how much lift you want.** The
+  first two are tuned for something a few hundred points across — a menu, a
+  tile, a popover — and both are two layers: a wide soft drop with a negative
+  spread over a tighter layer that keeps the shape's own edge defined, because a
+  single-layer shadow at that size reads as a smudged hairline. Across a
+  screen-sized surface the same values disappear entirely, which is what
+  `SHADOW_LG` did on the Horoscope card; `SHADOW_2XL` scales blur *and* alpha
+  with the shape. It is single-layer, which is Tailwind's own choice and fine
+  here: at 50px of blur there is no hairline left to smudge.
+
+  **A shadow only reads on the light themes**, and that is inherent rather than
+  a bug to fix — black on a near-black page is nothing. A surface that has to
+  separate itself on every theme needs an edge, not a lift.
 
   They are exported constants rather than theme tokens because a shadow has
   nothing to vary with — it is the same on every theme. They live in
@@ -529,9 +555,9 @@ a pre-blended token, or the fill takes on whatever is behind it.
 Everything below is a deliberate literal. Adding to this list should be
 uncomfortable.
 
-- **`SENTIMENT_COLORS`** (`utils/theme.ts`, DEX-128) — six hexes: a base/peak
-  pair for each of three hues, and the only colors in the app that are not
-  theme tokens. The Horoscope panel has to read as *green day /
+- **`SENTIMENT_COLORS` and `SENTIMENT_FRAME`** (`utils/theme.ts`, DEX-128) —
+  six hexes for the panel (a base/peak pair per hue) plus the white its frame is
+  drawn in, and the only colors in the app that are not theme tokens. The Horoscope panel has to read as *green day /
   purple day / blue day*, which a token that changes hue with the user's palette
   cannot do. Scoped to that one panel's background; everything drawn on it still
   takes `sentimentInk`, which exists precisely because this panel does not

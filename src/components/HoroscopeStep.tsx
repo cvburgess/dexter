@@ -29,12 +29,13 @@ import { EmptyScreen } from "@/components/EmptyScreen";
 import { Icon } from "@/components/Icon";
 import { StarField } from "@/components/StarField";
 import { useHoroscope } from "@/hooks/useHoroscope";
-import { EdgeFade } from "@/components/EdgeFade";
 import { useSunSignPreference } from "@/hooks/usePreferences";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
 import { bySentence, HOROSCOPE_FACETS, SUN_SIGNS } from "@/utils/horoscope";
 import {
+  SENTIMENT_FRAME,
   sentimentInk,
+  SHADOW_2XL,
   sentimentTints,
   Theme,
   useTheme,
@@ -88,11 +89,10 @@ const heroGlyphSize = (theme: Theme) => theme.controls.md * 2;
 /**
  * The gutter the step's own text keeps, inside the one `SwipeablePage` gives it.
  *
- * Double the usual `space.lg`, so the summary and the facets sit clear of the
- * `EdgeFade` bands rather than running text out into the part of the panel that
- * is fading back to the page color. It is a *reading* margin as much as a
- * layout one: a line of `heading` set edge to edge on a phone is too long to
- * scan comfortably anyway.
+ * Double the usual `space.lg`. It began as clearance for the edge fade that
+ * used to soften these borders, and it earns its keep now that the edge is a
+ * drawn frame: text has to sit off a border rather than against it, and a line
+ * of `heading` set edge to edge on a phone is too long to scan anyway.
  *
  * Not a token — see `heroGlyphSize` above for why deriving beats adding one.
  */
@@ -123,6 +123,24 @@ const scrollHintFade = (theme: Theme) => theme.controls.md * 4;
  */
 const panelBleed = (theme: Theme) =>
   Platform.OS === "web" ? 0 : theme.controls.md * 2;
+
+/**
+ * The card's frame — a tarot card's border, not the app's hairline.
+ *
+ * `radii.md` is deliberately a brand constant rather than a density one, so
+ * doubling it keeps the corner on the app's own scale while reading as the
+ * pronounced curve a card has. The width comes off `space.md` — the app's
+ * standard screen inset — for the same reason `heroGlyphSize` comes off
+ * `controls.md`: it tracks the density tier without earning a token only this
+ * component would ever read. The radius is four times `radii.md` rather than
+ * one, and the two are tied: a heavy border on a tight corner bunches up on the
+ * curve instead of turning it, so raising `panelBorder` means raising this too.
+ *
+ * The color is `SENTIMENT_FRAME` — see there for why a card's border is white
+ * on every theme rather than `colors.border`.
+ */
+const panelRadius = (theme: Theme) => theme.radii.md * 4;
+const panelBorder = (theme: Theme) => theme.space.md;
 
 /**
  * The arrival: sign, then summary, then the chevron and the six facets
@@ -290,16 +308,30 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
           was. Extending the panel itself would drag the scroller's measured
           height with it, and the hero's centering with that.
 
-          Rounded at the top only: the bottom is meant to read as cut off
-          rather than finished, so it runs off the end instead of closing. */}
+          Framed and rounded at the top only: the bottom is meant to read as
+          cut off rather than finished, so the card runs off the end of the
+          screen instead of closing.
+
+          The lift is `SHADOW_2XL` — a shared rung of the same Tailwind scale,
+          added rather than hand-rolled here. Four surfaces already draw these
+          and three had drifted into separate one-off shadows, which is what
+          moving them into `theme.ts` fixed; a fifth is not the place to start
+          that over. `SHADOW_LG` was the first try and vanished: it is tuned for
+          a menu or a tile, and across a screen-sized card 15px of blur at 10%
+          black is a rumour. */}
       <View
         pointerEvents="none"
         style={[
           StyleSheet.absoluteFill,
           {
             backgroundColor: base,
-            borderTopLeftRadius: theme.radii.md,
-            borderTopRightRadius: theme.radii.md,
+            borderColor: SENTIMENT_FRAME,
+            boxShadow: SHADOW_2XL,
+            borderLeftWidth: panelBorder(theme),
+            borderRightWidth: panelBorder(theme),
+            borderTopLeftRadius: panelRadius(theme),
+            borderTopRightRadius: panelRadius(theme),
+            borderTopWidth: panelBorder(theme),
             bottom: -panelBleed(theme),
           },
         ]}
@@ -320,25 +352,27 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
         <Animated.View
           style={[
             StyleSheet.absoluteFill,
-            { backgroundColor: peak },
+            {
+              backgroundColor: peak,
+              // The frame's *inner* curve, which is its radius less its own
+              // width. The parent does not clip — `overflow: hidden` on a
+              // rounded view makes it offscreen-rendered, re-composited every
+              // frame this opacity changes — so a square child would push its
+              // corners out through the rounded ones the moment the breath
+              // came up.
+              borderTopLeftRadius: panelRadius(theme) - panelBorder(theme),
+              borderTopRightRadius: panelRadius(theme) - panelBorder(theme),
+            },
             tintStyle,
           ]}
         />
-        {/* Stars only once there is a horoscope, and only on a dark scheme: a
-            light panel is a daytime sky, and there are no stars in one. Drawn
-            into the panel itself rather than wrapping the content, so the field
-            holds still while the facets scroll over it. */}
+        {/* Drawn into the panel itself rather than wrapping the content, so the
+            field holds still while the facets scroll over it. */}
         {horoscope ? (
           <View style={StyleSheet.absoluteFill} testID="horoscope-sky">
             <StarField color={withOpacity(ink.text, STAR_OPACITY)} />
           </View>
         ) : null}
-        {/* Over the sky, not under it, so the stars recede with the color.
-            Gated on the horoscope for the same reason the stars are: the empty
-            and prompt states are an ordinary `surfaceSunken` card, and
-            dissolving *its* edges would leave a shape with no border rather
-            than a panel. */}
-        {horoscope ? <EdgeFade color={theme.colors.background} /> : null}
       </View>
       {/* Loading is checked *first*, and the order is load-bearing: an unread
           sign is `null`, which is indistinguishable from a user who has never
@@ -392,7 +426,7 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
                 // Well past that here: Luck is the end of the reading, and
                 // landing its last line hard against the tab bar reads as the
                 // text being cut off rather than as having finished.
-                paddingBottom: theme.space.lg * 3 + insets.bottom,
+                paddingBottom: theme.space.lg * 2 + insets.bottom,
               },
               facetsStyle,
             ]}
