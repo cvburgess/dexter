@@ -20,6 +20,7 @@ import {
 } from "../ritualSteps";
 
 const DATE = Temporal.PlainDate.from("2026-08-09");
+const TOMORROW = DATE.add({ days: 1 });
 
 const state = (overrides: Partial<TRitualState> = {}): TRitualState => ({
   ...createRitualState(DATE, "am"),
@@ -191,17 +192,50 @@ describe("goToStep", () => {
 });
 
 describe("withDate", () => {
-  it("restarts the ritual on a later day, travelling forward", () => {
+  // DEX-138: the step is the question, the date is only which day's answer is
+  // on screen. Someone comparing yesterday's journal to today's would otherwise
+  // walk the whole ritual again for every day they visited.
+  it("stays on the current step, travelling forward to a later day", () => {
     const next = withDate(state({ step: 3 }), DATE.add({ days: 1 }));
 
-    expect(next).toMatchObject({ step: 0, direction: 1 });
+    expect(next).toMatchObject({ step: 3, direction: 1 });
     expect(next.date.toString()).toBe("2026-08-10");
   });
 
-  it("restarts the ritual on an earlier day, travelling back", () => {
+  it("stays on the current step, travelling back to an earlier day", () => {
     expect(
       withDate(state({ step: 3 }), DATE.subtract({ days: 5 })),
-    ).toMatchObject({ step: 0, direction: -1 });
+    ).toMatchObject({ step: 3, direction: -1 });
+  });
+
+  // Carrying the index across is only safe because the list it indexes cannot
+  // change under a date move — unlike `withMode`, which restarts at 0 for
+  // exactly that reason.
+  it("keeps pointing at the same step in either mode, journal on or off", () => {
+    expect(currentStep(withDate(state({ step: 2 }), TOMORROW)).title).toBe(
+      currentStep(state({ step: 2 })).title,
+    );
+    expect(
+      currentStep(
+        withDate(
+          state({ mode: "pm", journalEnabled: false, step: 2 }),
+          TOMORROW,
+        ),
+      ).title,
+    ).toBe(
+      currentStep(state({ mode: "pm", journalEnabled: false, step: 2 })).title,
+    );
+  });
+
+  // The date is part of `ritualPageKey`, so the page still remounts and
+  // re-seeds for the new day even though the step index never moved — without
+  // that, staying put would mean showing the old day's content.
+  it("still counts as a new page even though the step did not move", () => {
+    const before = state({ step: 3 });
+
+    expect(ritualPageKey(withDate(before, TOMORROW))).not.toBe(
+      ritualPageKey(before),
+    );
   });
 
   it("returns the same state for the day already on screen", () => {
@@ -322,8 +356,8 @@ describe("withJournalEnabled", () => {
 
 describe("withLink", () => {
   it("applies the day and the step as one transition", () => {
-    // `withDate` restarts the ritual at step 0, so a date and step applied
-    // separately would land on the day's first step, not the one asked for.
+    // One state, so the screen never renders the link's date against the
+    // pre-link step for a frame.
     const next = withLink(state(), {
       date: DATE.add({ days: 1 }),
       step: "tasks",
@@ -339,13 +373,16 @@ describe("withLink", () => {
     ).toBe("Journal");
   });
 
-  it("applies a day on its own", () => {
+  // A link carrying only a date moves the day and stays put, since `withDate`
+  // no longer restarts the ritual (DEX-138).
+  it("applies a day on its own, keeping the step", () => {
     const next = withLink(state({ step: 3 }), {
       date: DATE.add({ days: 1 }),
       step: null,
     });
 
-    expect(next.step).toBe(0);
+    expect(next).toMatchObject({ step: 3, direction: 1 });
+    expect(next.date.toString()).toBe("2026-08-10");
   });
 
   it("returns the same state for an empty link", () => {

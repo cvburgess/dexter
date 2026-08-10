@@ -100,6 +100,23 @@ const heroGlyphSize = (theme: Theme) => theme.controls.md * 2;
 const contentGutter = (theme: Theme) => theme.space.lg * 2;
 
 /**
+ * The hero summary's leading.
+ *
+ * `heading` is sized to name a screen in one short line, and its default line
+ * box is tuned for exactly that — set as a centered block of two or three
+ * sentences it packs them together, and `bySentence` puts each on its own line,
+ * so the tight leading closes the gap *between sentences* as well as between
+ * wrapped lines. 1.4 opens both: enough air for the eye to find the next line
+ * in centered text, which has no left edge to return to.
+ *
+ * Rounded because a fractional line height lands text on half-pixels, and
+ * derived from the token rather than fixed so it follows the density tier —
+ * see `heroGlyphSize` above for why deriving beats adding a token here.
+ */
+const summaryLineHeight = (theme: Theme) =>
+  Math.round(theme.fonts.heading.fontSize * 1.4);
+
+/**
  * How far the reader has to scroll before the chevron is fully gone.
  *
  * Four tap targets' worth of travel — roughly a quarter of a phone's hero. Long
@@ -593,7 +610,7 @@ function Hero({
           style={[
             styles.summary,
             theme.fonts.heading,
-            { color: ink.text },
+            { color: ink.text, lineHeight: summaryLineHeight(theme) },
             summaryStyle,
           ]}
         >

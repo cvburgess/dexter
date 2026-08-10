@@ -5,6 +5,20 @@
 // one of those breakpoints stays in sync — see `hooks/useIsLargeDevice.ts`.
 export const LARGE_DEVICE_MIN_WIDTH = 768;
 
+// Max width (in dp) of a `SwipeablePage` — how wide a single-column page is
+// allowed to get, whatever the window gives it (DEX-138).
+//
+// Not an alias of `LARGE_DEVICE_MIN_WIDTH` despite sharing its value today.
+// That one is the threshold where a layout changes *shape*; this one is a
+// reading measure, and they are free to diverge — the same distinction this
+// file already draws between `TASKS_PANE_WIDTH` and `TASK_LIST_PANE_MIN_WIDTH`.
+// Roughly an iPad in portrait, which is the width the ritual was designed at.
+//
+// Only binds on the Ritual tab at present: `SwipeablePage`'s other caller,
+// `SmallScreenToday`, renders solely below `LARGE_DEVICE_MIN_WIDTH`, so the cap
+// can never reach it.
+export const SWIPEABLE_PAGE_MAX_WIDTH = 768;
+
 // Width (in dp) of the nav rail (`components/AppNav.tsx`).
 export const NAV_RAIL_WIDTH = 76;
 
