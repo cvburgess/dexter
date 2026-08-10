@@ -339,8 +339,13 @@ columns and the Today panes deliberately supply none, so the row's own `gap` is
 the whole space between them.
 
 The Ritual tab is the one place `SwipeablePage` supplies that gutter on a *large*
-screen too, since it wraps the step at every width there — `LargeScreenRitual`
-adds only the top inset, and `RitualStepView` carries nothing of its own.
+screen too, since it wraps the step at every width there — both ritual layouts
+add only the top inset, and `RitualStepView` carries nothing of its own. That
+inset is `md` on the phone, matching the sides, and `md * 2` on a large screen:
+a step that paints to its own edges (the horoscope's card) reads as hanging off
+the toolbar at a matching inset once the page is capped and centered, because
+the window leaves far more air at the card's sides than the gutter ever will.
+Both are derived from the token the sides use, so they cannot drift apart.
 
 Because it is the only swipeable page that renders above the breakpoint, it is
 also the only one where `SwipeablePage`'s width cap shows: the page holds a
