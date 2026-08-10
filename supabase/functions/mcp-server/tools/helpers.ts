@@ -13,6 +13,19 @@ export const dateSchema = z.string().regex(
   "Expected date in YYYY-MM-DD format",
 );
 /**
+ * The value tables the descriptions below are built from, declared once because
+ * `list_tasks`'s filters restate them too — a `z.union` emits its own description
+ * rather than its members'. A sixth priority or status then changes one string,
+ * not four.
+ */
+export const PRIORITY_VALUES =
+  "0 = Important & Urgent, 1 = Urgent, 2 = Important, " +
+  "3 = Neither (explicitly deprioritized), 4 = Unprioritized (never set)";
+
+export const STATUS_VALUES =
+  "0 = In Progress, 1 = To Do, 2 = Done, 3 = Won't Do, 4 = Delegated";
+
+/**
  * Both derived from the app's enums rather than hand-written numeric bounds, so
  * neither can fall behind a newly added member. That drift matters: `priority`
  * and `status` are unconstrained smallints with no check constraint, making these
@@ -26,18 +39,16 @@ export const dateSchema = z.string().regex(
  * numbering. Prefer this over folding field semantics into tool-level prose.
  */
 export const taskPrioritySchema = z.nativeEnum(ETaskPriority).describe(
-  "Eisenhower-matrix priority. 0 = Important & Urgent, 1 = Urgent, " +
-    "2 = Important, 3 = Neither (explicitly deprioritized), " +
-    "4 = Unprioritized (never set; the default for a new task). Lower is more " +
-    "urgent. Note 4 means 'no priority chosen', not 'lowest priority'. This is " +
-    "NOT the same numbering as `status` — 1 here is Urgent, not To Do.",
+  `Eisenhower-matrix priority. ${PRIORITY_VALUES}. 4 is the default for a new ` +
+    "task. Lower is more urgent. Note 4 means 'no priority chosen', not " +
+    "'lowest priority'. This is NOT the same numbering as `status` — 1 here " +
+    "is Urgent, not To Do.",
 );
 
 export const taskStatusSchema = z.nativeEnum(ETaskStatus).describe(
-  "Task status. 0 = In Progress, 1 = To Do (the default for a new task), " +
-    "2 = Done, 3 = Won't Do, 4 = Delegated. 0 and 1 are open; 2, 3 and 4 are " +
-    "terminal. This is NOT the same numbering as `priority` — 1 here is To Do, " +
-    "not Urgent.",
+  `Task status. ${STATUS_VALUES}. 1 is the default for a new task. 0 and 1 ` +
+    "are open; 2, 3 and 4 are terminal. This is NOT the same numbering as " +
+    "`priority` — 1 here is To Do, not Urgent.",
 );
 export const themeModeSchema = z.number().int().min(0).max(2);
 /**

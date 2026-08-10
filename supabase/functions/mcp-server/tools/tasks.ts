@@ -13,6 +13,8 @@ import {
   dateSchema,
   getTodayIsoDate,
   hasUpdates,
+  PRIORITY_VALUES,
+  STATUS_VALUES,
   storedSubtasksSchema,
   subtaskSchema,
   subtasksSchema,
@@ -122,18 +124,16 @@ const statusFilterSchema = z.union([
   taskStatusSchema,
   z.array(taskStatusSchema).min(1),
 ]).describe(
-  "Filter by task status, as one value or an array of them. 0 = In Progress, " +
-    "1 = To Do, 2 = Done, 3 = Won't Do, 4 = Delegated. This is NOT the same " +
-    "numbering as `priority` — 1 here is To Do, not Urgent.",
+  `Filter by task status, as one value or an array of them. ${STATUS_VALUES}. ` +
+    "This is NOT the same numbering as `priority` — 1 here is To Do, not Urgent.",
 );
 const priorityFilterSchema = z.union([
   taskPrioritySchema,
   z.array(taskPrioritySchema).min(1),
 ]).describe(
   "Filter by Eisenhower-matrix priority, as one value or an array of them. " +
-    "0 = Important & Urgent, 1 = Urgent, 2 = Important, 3 = Neither, " +
-    "4 = Unprioritized (never set). Lower is more urgent. This is NOT the same " +
-    "numbering as `status` — 1 here is Urgent, not To Do.",
+    `${PRIORITY_VALUES}. Lower is more urgent. This is NOT the same numbering ` +
+    "as `status` — 1 here is Urgent, not To Do.",
 );
 
 export const listTasksInputSchema = {
