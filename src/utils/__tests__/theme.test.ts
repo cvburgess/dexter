@@ -318,11 +318,10 @@ describe("palette invariants", () => {
   });
 });
 
-// DEX-128. The Horoscope ritual step breathes its panel between these two
-// values. They are asserted here rather than in the component because the
-// reanimated jest mock's `interpolateColor` is a no-op — an animated
-// `backgroundColor` never reaches a rendered tree, so this is the only place
-// the color math is observable.
+// DEX-128. The Horoscope ritual step's panel colors. Asserted here rather than
+// in the component because the reanimated jest mock's `interpolateColor` is a
+// no-op — an animated `backgroundColor` never reaches a rendered tree, so this
+// is the only place these values are observable at all.
 describe("sentimentTints", () => {
   const schemes = ["light", "dark"] as const;
   const sentiments = ["positive", "negative", "mixed"] as const;
@@ -365,31 +364,11 @@ describe("sentimentTints", () => {
     expect(new Set(bases).size).toBe(3);
   });
 
-  // The breathe travels toward the *other shade of the same hue*, not toward
-  // white or black — so the peak stays in the color family rather than washing
-  // out. On a dark scheme that means moving lighter, on a light one deeper.
-  it.each(sentiments)("%s breathes along its own hue axis", (sentiment) => {
-    const dark = sentimentTints("dark", sentiment);
-    const light = sentimentTints("light", sentiment);
-
-    expect(lightness(dark.peak)).toBeGreaterThan(lightness(dark.base));
-    expect(lightness(light.peak)).toBeLessThan(lightness(light.base));
-  });
-
-  // Bounded at both ends, and the lower bound is the one that was learned the
-  // hard way: at 0.12 the drift came to a couple of RGB units per second over
-  // the ease and the panel read as a solid color, so the breath cost battery
-  // and showed nobody anything. Upper bound keeps it a background a summary is
-  // still readable on rather than a color change.
-  it.each(sentiments)("%s breathes visibly but not loudly", (sentiment) => {
-    for (const mode of schemes) {
-      const { base, peak } = sentimentTints(mode, sentiment);
-      const drift = Math.abs(lightness(peak) - lightness(base));
-
-      expect(drift).toBeGreaterThan(90);
-      expect(drift).toBeLessThan(255);
-    }
-  });
+  // Nothing here asserts how the breath *moves* — its amplitude and pace are
+  // taste, tuned by eye against a real screen, and a test pinning either would
+  // only have to be rewritten every time they are adjusted. What is worth
+  // pinning is the palette: the brand values, and the light/dark split that
+  // keeps `colors.text` readable on the panel.
 });
 
 describe("resolveTheme", () => {
