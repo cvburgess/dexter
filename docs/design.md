@@ -108,9 +108,9 @@ the one place in the app where a color does not come from the palette:
 
 | Sentiment | Reads as | Base → peak |
 | --- | --- | --- |
-| `positive` | green | `#021311` → `#021c1a` |
-| `negative` | purple | `#130110` → `#1d0218` |
-| `mixed` | blue — the neutral | `#050a14` → `#081021` |
+| `positive` | green | `#021c1a` → `#032622` |
+| `negative` | purple | `#1d0218` → `#270220` |
+| `mixed` | blue — the neutral | `#070e1d` → `#0a1429` |
 
 **This is a deliberate exception, and it is listed at the bottom of this file.**
 The panel is a mood, not a surface: it has to say *green day / purple day /
@@ -132,7 +132,7 @@ scheme been dark. `theme.test.ts` pins that every one of the five themes yields
 ink that reads on the panel, which is the assertion that would fail the moment
 someone "simplified" this back to `colors.text`.
 
-Each hue sits at one lightness, ~4%, so the three read as equally dark and only
+Each hue sits at one lightness, ~6%, so the three read as equally dark and only
 the hue changes. The brand values as first given sat at 11–19%, which put
 `mixed` level with `dim`'s own `background` and made the panel dissolve into the
 page on that theme alone; these clear *every* dark palette's background, `abyss`
@@ -140,7 +140,7 @@ page on that theme alone; these clear *every* dark palette's background, `abyss`
 
 **They carry more saturation than their lightness suggests** — 60–90%, against
 the 45% they started at. Chroma collapses as a color approaches black exactly as
-it does approaching white, so a moderate saturation at 4% lightness yields a
+it does approaching white, so a moderate saturation at 6% lightness yields a
 barely-tinted grey. The color half of "almost-black with a color in it" is the
 half you have to fight for.
 

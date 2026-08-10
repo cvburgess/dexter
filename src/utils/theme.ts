@@ -255,7 +255,7 @@ const mutePriorities = (
  *
  * Green reads positive and purple negative; blue is the neutral, which the DB
  * enum spells `mixed` (the facets genuinely pull both ways). Each hue sits at
- * one lightness, ~4%, so the three read as equally dark and only the hue
+ * one lightness, ~6%, so the three read as equally dark and only the hue
  * changes. The brand values as first given sat at 11–19%, which put `mixed`
  * level with `dim`'s own `background` and made the panel dissolve into the page
  * on that theme; these clear *every* dark palette's background, `abyss`
@@ -263,7 +263,7 @@ const mutePriorities = (
  *
  * **They carry more saturation than their lightness would suggest** — 60–90%.
  * Chroma collapses as a color approaches black exactly as it does approaching
- * white, so a moderate saturation at 4% lightness yields a barely-tinted grey.
+ * white, so a moderate saturation at 6% lightness yields a barely-tinted grey.
  * The target is almost-black *with a color in it*, and the color half is the
  * part that has to be fought for. **This is about as deep as it can usefully
  * go**: each base totals the high thirties of a possible 765 across its three
@@ -273,7 +273,7 @@ const mutePriorities = (
  *
  * **Both ends of the breath are authored, not derived.** The first cut computed
  * `peak` by blending toward a much paler shade of the hue, and it washed out:
- * crossing from 4% lightness to 93% moves through grey, so the peak lost
+ * crossing from 6% lightness to 93% moves through grey, so the peak lost
  * saturation as fast as it gained brightness and every hue drifted toward the
  * same pale nothing. A hand-written pair holds one hue and one saturation and
  * differs only in lightness, so the breath *deepens* the color instead of
@@ -298,14 +298,14 @@ const SENTIMENT_COLORS: Record<
   THoroscopeSentiment,
   { base: string; peak: string }
 > = {
-  // hsl(174 85% 4%) → 6%
-  positive: { base: "#021311", peak: "#021c1a" },
-  // hsl(311 90% 4%) → 6%
-  negative: { base: "#130110", peak: "#1d0218" },
-  // hsl(220 60% 5%) → 8%. A point deeper and a point wider than its neighbours:
+  // hsl(174 85% 6%) → 8%
+  positive: { base: "#021c1a", peak: "#032622" },
+  // hsl(311 90% 6%) → 8%
+  negative: { base: "#1d0218", peak: "#270220" },
+  // hsl(220 60% 7%) → 10%. A point deeper and a point wider than its neighbours:
   // blue is the darkest hue at a given lightness, so it needs the extra to hold
   // both its own weight and a visible breath.
-  mixed: { base: "#050a14", peak: "#081021" },
+  mixed: { base: "#070e1d", peak: "#0a1429" },
 };
 
 /** The two ends of the Horoscope panel's breathing color. */

@@ -387,9 +387,9 @@ describe("sentimentTints", () => {
   // The exact shades, since the whole point of the section above is that they
   // are chosen rather than derived — nothing else would catch a hand edit.
   it("holds the tuned shades", () => {
-    expect(sentimentTints("positive").base).toBe("#021311");
-    expect(sentimentTints("negative").base).toBe("#130110");
-    expect(sentimentTints("mixed").base).toBe("#050a14");
+    expect(sentimentTints("positive").base).toBe("#021c1a");
+    expect(sentimentTints("negative").base).toBe("#1d0218");
+    expect(sentimentTints("mixed").base).toBe("#070e1d");
   });
 
   // The panel is drawn *on* a theme's `background`, so it has to be a surface
