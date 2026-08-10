@@ -193,12 +193,13 @@ What a component *does* own:
   vertical padding for this reason.
 - **Appearance variants.** `NotesView`'s `card` prop turns the note's border and
   fill on or off — that is chrome, not layout, and a prop is the right shape for
-  it. The give-away is that it changes what the component *is*, not where it
+  it. The large-screen Notes pane passes `false` because the pane itself draws
+  the border, and a second one inside it would double up. The give-away is that it changes what the component *is*, not where it
   sits.
 
 Where the gutters actually live now: `SwipeablePage` supplies the phone's side
-gutter once for whichever page is on screen — a day's Tasks/Notes/Journal/
-Calendar on the Today tab, a step's `RitualStepView` on the Ritual tab;
+gutter once for whichever page is on screen — a day's Tasks/Notes/Calendar on
+the Today tab, a step's `RitualStepView` on the Ritual tab;
 `LargeScreenToday` and `WeekView` supply theirs on the pane row; the Week
 columns and the Today panes deliberately supply none, so the row's own `gap` is
 the whole space between them.
