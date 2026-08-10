@@ -117,3 +117,62 @@ export function backlogAttentionFilter(
   }
   return hasLeftBehind ? "leftBehind" : null;
 }
+
+/** What the ritual Backlog step's hero counts (DEX-141). */
+export type TBacklogCounts = {
+  leftBehind: number;
+  overdue: number;
+  dueSoon: number;
+};
+
+/** The order the hero states its three counts in, and the order
+ *  `defaultBacklogFilter` walks them. */
+const BACKLOG_COUNT_FILTERS = [
+  "leftBehind",
+  "overdue",
+  "dueSoon",
+] as const satisfies readonly (keyof TBacklogCounts & TFilterId)[];
+
+/**
+ * The three figures the ritual Backlog step's hero states (DEX-141), over an
+ * array already scoped by `selectBacklogTasks` — which is what excludes
+ * completed tasks and the day the ritual is on, since the presets below don't
+ * check either themselves.
+ *
+ * Built from `filterTasks` rather than from its own predicates so a count can
+ * never drift from the Filter preset it labels: the hero says "3 tasks left
+ * behind" directly above a menu whose "Left Behind" entry has to show those
+ * same three.
+ *
+ * The buckets deliberately overlap — a task scheduled last week *and* due last
+ * week is counted in both `leftBehind` and `overdue`, because each figure
+ * answers for its own preset rather than for a share of one total.
+ *
+ * Anchored to `today`, not the ritual's date, for the same reason: the drawer
+ * beneath the hero filters against today whichever day the header is on.
+ */
+export function backlogCounts(
+  tasks: TTask[],
+  today: Temporal.PlainDate,
+): TBacklogCounts {
+  return {
+    leftBehind: filterTasks(tasks, "leftBehind", today).length,
+    overdue: filterTasks(tasks, "overdue", today).length,
+    dueSoon: filterTasks(tasks, "dueSoon", today).length,
+  };
+}
+
+/**
+ * The Filter preset the ritual Backlog step opens on: the first non-zero count
+ * in the order the hero reads, Left Behind → Overdue → Due Soon, or `"none"`
+ * when nothing needs attention.
+ *
+ * Deliberately not `backlogAttentionFilter`, which answers a different question
+ * for the Today tab's attention dot (DEX-58) — that one puts Overdue first and
+ * ignores Due Soon entirely, because a dot has to pick the single most
+ * time-sensitive thing, where this step is walking the reader down a list it
+ * has already shown them in full.
+ */
+export function defaultBacklogFilter(counts: TBacklogCounts): TFilterId {
+  return BACKLOG_COUNT_FILTERS.find((id) => counts[id] > 0) ?? "none";
+}
