@@ -47,6 +47,7 @@
     "decamelize-keys": "^2.0.1",
     "expo": "~57.0.9",
     "expo-alarm-kit": "^0.1.11",
+    "expo-audio": "~57.0.3",
     "expo-build-properties": "~57.0.8",
     "expo-calendar": "~57.0.1",
     "expo-constants": "~57.0.3",

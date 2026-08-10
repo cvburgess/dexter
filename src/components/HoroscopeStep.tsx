@@ -29,6 +29,7 @@ import { EmptyScreen } from "@/components/EmptyScreen";
 import { Icon } from "@/components/Icon";
 import { StarField } from "@/components/StarField";
 import { useHoroscope } from "@/hooks/useHoroscope";
+import { useHoroscopeAudio } from "@/hooks/useHoroscopeAudio";
 import { useSunSignPreference } from "@/hooks/usePreferences";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
 import { bySentence, HOROSCOPE_FACETS, SUN_SIGNS } from "@/utils/horoscope";
@@ -298,6 +299,11 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
   // Not `theme.colors.text`: the panel is a night sky whatever scheme the user
   // is on, so a light theme's dark ink would be invisible on it.
   const ink = sentimentInk(theme);
+
+  // Starts with the reveal and stops with the step. Gated on the horoscope
+  // rather than on mounting, so an empty day or a still-loading read is silent
+  // — the track belongs to the reading, not to the screen.
+  useHoroscopeAudio(!!horoscope);
 
   return (
     <View style={styles.panel} testID="horoscope-panel">

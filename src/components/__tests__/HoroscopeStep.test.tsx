@@ -26,7 +26,20 @@ jest.mock("react-native/Libraries/Utilities/useColorScheme", () => ({
 }));
 
 const mockPush = jest.fn();
-jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));
+// `useFocusEffect` is here for `useHoroscopeAudio`, which owns the step's
+// track: it runs on focus and cleans up on blur, and this stands that in as
+// mount/unmount. Its own behaviour is asserted in
+// `hooks/__tests__/useHoroscopeAudio.test.ts`; the player is inert here (see
+// `jest.setup.js`), so nothing in this file hears anything.
+jest.mock("expo-router", () => {
+  const { useEffect } = require("react");
+  return {
+    useFocusEffect: (effect: () => void | (() => void)) => {
+      useEffect(() => effect(), [effect]);
+    },
+    useRouter: () => ({ push: mockPush }),
+  };
+});
 
 const mockUseSunSign = useSunSignPreference as jest.MockedFunction<
   typeof useSunSignPreference

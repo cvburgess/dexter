@@ -29,6 +29,24 @@ jest.mock("react-native-reanimated", () => {
   return { ...mock, useReducedMotion: () => false };
 });
 
+// `expo-audio` ships no jest mock and reaches for its native module at import
+// time — `ExpoAudio.ts` reads a prototype off it, so merely importing anything
+// that imports it throws here, several files from the test that triggered it.
+// An inert player is enough for every component test: they assert on what is
+// rendered, and nothing is. `hooks/__tests__/useHoroscopeAudio.test.ts` mocks
+// this module for itself with a player it can inspect.
+jest.mock("expo-audio", () => ({
+  createAudioPlayer: () => ({
+    currentTime: 0,
+    duration: 0,
+    loop: false,
+    pause: jest.fn(),
+    play: jest.fn(),
+    remove: jest.fn(),
+    volume: 1,
+  }),
+}));
+
 jest.mock("@react-native-async-storage/async-storage", () =>
   require("@react-native-async-storage/async-storage/jest/async-storage-mock"),
 );
