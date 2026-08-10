@@ -133,6 +133,38 @@ const summaryLineHeight = (theme: Theme) =>
   Math.round(theme.fonts.heading.fontSize * 1.4);
 
 /**
+ * The empty run below the last facet — clearance on a phone, overscroll on a
+ * large screen (DEX-138).
+ *
+ * The phone's job is only to clear the translucent tab bar, and `lg * 2` past
+ * `insets.bottom` does it: Luck is the end of the reading, and landing its last
+ * line hard against the bar reads as the text being cut off rather than as
+ * having finished (DEX-91).
+ *
+ * A large screen has the opposite problem. The hero above is a full viewport
+ * with its content centered in it, so its lower half is empty sky — and a tail
+ * sized to clear a bar runs the scroll out while that band is still on screen,
+ * ending the reading pinned to the card's bottom edge underneath it. **Half the
+ * viewport** is what fixes it, and the arithmetic is why a spacing multiple
+ * cannot: at the end of the scroll the visible screenful is the last
+ * `viewportHeight` of content, of which this tail is the bottom slice, so the
+ * reading comes to rest in the half above it — mid-card, deliberately, rather
+ * than wherever a fixed number happens to land against a window that resizes.
+ *
+ * `Math.max` keeps the phone's clearance as the floor, which also covers the
+ * first render: `viewportHeight` is 0 until `onLayout` measures it, and a tail
+ * of 0 would let the facets sit under the tab bar for that frame.
+ */
+const facetsTail = (
+  theme: Theme,
+  viewportHeight: number,
+  largeScreen: boolean,
+) =>
+  largeScreen
+    ? Math.max(theme.space.lg * 2, Math.round(viewportHeight / 2))
+    : theme.space.lg * 2;
+
+/**
  * How far the reader has to scroll before the chevron is fully gone.
  *
  * Four tap targets' worth of travel — roughly a quarter of a phone's hero. Long
@@ -468,20 +500,11 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
                 // The host `SafeAreaView` omits the bottom edge so content
                 // scrolls under the tab bar; the inset belongs to the scroll
                 // content, which is what lets the last facet clear it (DEX-91).
-                // Well past that here: Luck is the end of the reading, and
-                // landing its last line hard against the tab bar reads as the
-                // text being cut off rather than as having finished.
-                //
-                // **Overscroll, not clearance, on a large screen** (DEX-138).
-                // The hero above is a full viewport whose content is centered
-                // in it, so its lower half is empty sky — and with only enough
-                // padding to clear the bar, the scroll runs out while that band
-                // is still on screen and the reading ends pinned to the bottom
-                // edge under it. The extra travel lets the last facets climb
-                // into that space instead. Matches the side gutter's multiple,
-                // so the card's air reads as one measure on three sides.
+                // `facetsTail` is the run above that — see there for why a large
+                // screen wants half its viewport and a phone does not.
                 paddingBottom:
-                  theme.space.lg * (largeScreen ? 6 : 2) + insets.bottom,
+                  facetsTail(theme, viewportHeight, largeScreen) +
+                  insets.bottom,
               },
               facetsStyle,
             ]}
