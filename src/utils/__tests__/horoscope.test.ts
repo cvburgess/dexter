@@ -1,6 +1,7 @@
 import { THoroscope } from "@/api/horoscopes";
 import { Constants } from "@/types/database.types";
 import {
+  bySentence,
   HOROSCOPE_FACETS,
   NO_SUN_SIGN,
   SUN_SIGN_OPTIONS,
@@ -82,5 +83,38 @@ describe("HOROSCOPE_FACETS", () => {
       expect(facet.icon.ionicon).toBeTruthy();
       expect(facet.label).toBeTruthy();
     }
+  });
+});
+
+describe("bySentence", () => {
+  it("puts each sentence on its own line", () => {
+    expect(bySentence("One thing. Then another. And a third.")).toBe(
+      "One thing.\nThen another.\nAnd a third.",
+    );
+  });
+
+  it("leaves a single sentence alone", () => {
+    expect(bySentence("Sleep is the whole strategy today.")).toBe(
+      "Sleep is the whole strategy today.",
+    );
+  });
+
+  it("breaks on questions and exclamations too", () => {
+    expect(bySentence("Why not? Go on!")).toBe("Why not?\nGo on!");
+  });
+
+  // The whitespace is *replaced*, not added to. Prose that already carried a
+  // newline would otherwise come back double-spaced, and a run of spaces would
+  // leave the second sentence indented.
+  it("does not double up on whitespace that already breaks", () => {
+    expect(bySentence("One.\nTwo.")).toBe("One.\nTwo.");
+    expect(bySentence("One.  Two.")).toBe("One.\nTwo.");
+  });
+
+  // A trailing period with nothing after it must not leave a blank line
+  // hanging under the last sentence.
+  it("leaves no trailing break", () => {
+    expect(bySentence("The end. ")).toBe("The end. ");
+    expect(bySentence("The end.")).toBe("The end.");
   });
 });

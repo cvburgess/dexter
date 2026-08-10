@@ -139,3 +139,29 @@ export const HOROSCOPE_FACETS: readonly THoroscopeFacet[] = [
     icon: { sf: "die.face.5", ionicon: "dice-outline" },
   },
 ];
+
+/**
+ * Sets prose one sentence to a line.
+ *
+ * Used on the hero summary, which is the one piece of text on the step that is
+ * read rather than scanned: it sits alone in a screenful, centered, at
+ * `heading`. Wrapped as a paragraph its line breaks fall wherever the measured
+ * width puts them, which is nowhere in particular; a line per sentence makes
+ * every break a real one and gives each clause its own beat. The facets below
+ * deliberately do *not* use this — they are a list to run an eye down, and
+ * ragged sentence-length lines would give six blocks six different shapes.
+ *
+ * Breaks on `?` and `!` as well as `.`, so a sentence that happens to end in a
+ * question does not silently run into the next one. It has the abbreviation
+ * problem every regex sentence splitter has — "e.g. this" would break — but
+ * these strings are a generator's plain prose, and the alternative is a real
+ * sentence tokenizer for one short line.
+ *
+ * Two details the tests pin. Whitespace is *replaced* rather than added to, so
+ * prose that already wrapped its own lines cannot come back double-spaced. And
+ * the lookahead requires something to actually follow — without it a string
+ * ending in ". " turns its trailing space into a newline and hangs a blank line
+ * under the last sentence.
+ */
+export const bySentence = (prose: string): string =>
+  prose.replace(/([.!?])[ \t]+(?=\S)/g, "$1\n");

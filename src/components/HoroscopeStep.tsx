@@ -32,7 +32,7 @@ import { useHoroscope } from "@/hooks/useHoroscope";
 import { EdgeFade } from "@/components/EdgeFade";
 import { useSunSignPreference } from "@/hooks/usePreferences";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
-import { HOROSCOPE_FACETS, SUN_SIGNS } from "@/utils/horoscope";
+import { bySentence, HOROSCOPE_FACETS, SUN_SIGNS } from "@/utils/horoscope";
 import {
   sentimentInk,
   sentimentTints,
@@ -57,7 +57,7 @@ import {
  * quantity the eye actually judges. Around 150ms it reads as continuous; near a
  * second it reads as a slideshow. Changing either constant alone moves it.
  */
-const BREATHE_LEG_MS = 3000;
+const BREATHE_LEG_MS = 6000;
 
 const SCROLL_HINT_ICON = {
   sf: "chevron.down",
@@ -557,7 +557,7 @@ function Hero({
             summaryStyle,
           ]}
         >
-          {horoscope.summary}
+          {bySentence(horoscope.summary)}
         </Animated.Text>
       </View>
       {/* Pinned to the fold rather than trailing the summary: it points at
