@@ -1,4 +1,5 @@
 import {
+  formatDuration,
   formatHourLabel,
   formatTime,
   parseTimeToMinutes,
@@ -25,6 +26,31 @@ describe("formatHourLabel", () => {
     expect(formatHourLabel(6)).toBe("6 AM");
     expect(formatHourLabel(12)).toBe("12 PM");
     expect(formatHourLabel(23)).toBe("11 PM");
+  });
+});
+
+describe("formatDuration", () => {
+  it("writes both parts when both are there", () => {
+    expect(formatDuration(90)).toBe("1h 30m");
+  });
+
+  // A zero part is dropped rather than written out — "1h 0m" reads as a
+  // rounding artefact.
+  it("drops the zero part", () => {
+    expect(formatDuration(45)).toBe("45m");
+    expect(formatDuration(60)).toBe("1h");
+    expect(formatDuration(120)).toBe("2h");
+  });
+
+  // Nothing left to drop, so it falls back to the hours shape and keeps the
+  // same silhouette as the figure beside it ("0h free" under "14h planned").
+  it("falls back to 0h for an empty span", () => {
+    expect(formatDuration(0)).toBe("0h");
+  });
+
+  it("floors a negative and rounds a fraction rather than rejecting either", () => {
+    expect(formatDuration(-30)).toBe("0h");
+    expect(formatDuration(89.6)).toBe("1h 30m");
   });
 });
 

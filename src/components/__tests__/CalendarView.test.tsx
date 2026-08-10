@@ -35,7 +35,12 @@ const eventOn = (date: Temporal.PlainDate): TCalendarEvent => ({
   allDay: false,
 });
 
-const READY = { isLoading: false, isError: false, permissionDenied: false };
+const READY = {
+  isLoading: false,
+  isError: false,
+  permissionDenied: false,
+  notConfigured: false,
+};
 const setEvents = (date: Temporal.PlainDate) =>
   mockUseCalendarEvents.mockReturnValue([[eventOn(date)], READY]);
 
@@ -94,5 +99,31 @@ describe("CalendarView auto-scroll to now", () => {
     fireLayout(scroll, 700);
 
     expect(scrollToSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("CalendarView empty states", () => {
+  // Ordered most specific first — a user with no calendar source at all was
+  // being told their day was clear, which is a claim about a calendar this view
+  // never read.
+  it.each([
+    [
+      "no source configured",
+      { ...READY, notConfigured: true },
+      /No calendars yet/,
+    ],
+    [
+      "permission denied",
+      { ...READY, permissionDenied: true, notConfigured: true },
+      /Calendar access is off/,
+    ],
+    ["a failed read", { ...READY, isError: true }, /Couldn't load/],
+    ["a genuinely clear day", READY, /No events scheduled/],
+  ])("says %s", (_label, meta, message) => {
+    mockUseCalendarEvents.mockReturnValue([[], meta]);
+
+    const { getByText } = render(<CalendarView date={TODAY} />);
+
+    expect(getByText(message)).toBeTruthy();
   });
 });

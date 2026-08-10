@@ -12,6 +12,7 @@ import {
   RITUAL_STEPS,
   ritualPageKey,
   stepsFor,
+  withCalendarEnabled,
   withDate,
   withJournalEnabled,
   withLink,
@@ -84,11 +85,17 @@ describe("createRitualState", () => {
       step: 0,
       direction: 0,
       journalEnabled: true,
+      calendarEnabled: true,
     });
   });
 
-  it("carries the journal preference into the state", () => {
-    expect(createRitualState(DATE, "am", false).journalEnabled).toBe(false);
+  it("carries the step preferences into the state", () => {
+    expect(
+      createRitualState(DATE, "am", { journalEnabled: false }),
+    ).toMatchObject({ journalEnabled: false, calendarEnabled: true });
+    expect(
+      createRitualState(DATE, "am", { calendarEnabled: false }),
+    ).toMatchObject({ journalEnabled: true, calendarEnabled: false });
   });
 });
 
@@ -105,13 +112,43 @@ describe("stepsFor", () => {
     },
   );
 
+  // DEX-140: the calendar step only exists for a user who has a calendar, the
+  // same way the journal step follows its own preference. The evening ritual
+  // has no calendar step, so turning it off changes nothing there.
+  it("drops the morning calendar step when the calendar is disabled", () => {
+    const ids = stepsFor(state({ calendarEnabled: false })).map(
+      (step) => step.id,
+    );
+
+    expect(ids).not.toContain("calendar");
+    expect(ids).toHaveLength(RITUAL_STEPS.am.length - 1);
+  });
+
+  it("leaves the evening ritual alone when the calendar is disabled", () => {
+    expect(
+      stepsFor(state({ mode: "pm", calendarEnabled: false })).map(
+        (step) => step.id,
+      ),
+    ).toEqual(RITUAL_STEPS.pm.map((step) => step.id));
+  });
+
+  it("drops both steps when both are disabled", () => {
+    const ids = stepsFor(
+      state({ journalEnabled: false, calendarEnabled: false }),
+    ).map((step) => step.id);
+
+    expect(ids).toEqual(["horoscope", "backlog", "tasks", "congrats"]);
+  });
+
   // Stable references, not fresh arrays: both switchers map this on every
   // render, and the route compares against it to detect a preference change.
-  it("returns the same array for the same inputs", () => {
-    expect(stepsFor(state())).toBe(stepsFor(state()));
-    expect(stepsFor(state({ journalEnabled: false }))).toBe(
-      stepsFor(state({ journalEnabled: false })),
-    );
+  it.each([
+    { journalEnabled: true, calendarEnabled: true },
+    { journalEnabled: false, calendarEnabled: true },
+    { journalEnabled: true, calendarEnabled: false },
+    { journalEnabled: false, calendarEnabled: false },
+  ])("returns the same array for the same inputs (%p)", (toggles) => {
+    expect(stepsFor(state(toggles))).toBe(stepsFor(state(toggles)));
   });
 });
 
@@ -351,6 +388,70 @@ describe("withJournalEnabled", () => {
     const next = withJournalEnabled(before, true);
 
     expect(currentStep(next).title).toBe("Congrats");
+  });
+});
+
+describe("withCalendarEnabled", () => {
+  // Identity matters as much here as anywhere: `ritual/index.tsx` compares this
+  // flag against preferences *during render* and sets state when they disagree,
+  // so a transition that returned an unchanged flag would spin forever.
+  it("returns the same state when the preference hasn't changed", () => {
+    const before = state({ step: 2 });
+
+    expect(withCalendarEnabled(before, true)).toBe(before);
+  });
+
+  it("updates the flag even when the step list doesn't change", () => {
+    const next = withCalendarEnabled(state({ mode: "pm", step: 2 }), false);
+
+    expect(next.calendarEnabled).toBe(false);
+    expect(currentStep(next).title).toBe("Journal");
+  });
+
+  it("keeps the user on the same step by id when the calendar is removed", () => {
+    const next = withCalendarEnabled(state({ step: 3 }), false);
+
+    expect(currentStep(next).title).toBe("Backlog");
+    expect(next.step).toBe(2);
+    expect(next.direction).toBe(0);
+  });
+
+  // The cold-launch shape, and the direction the journal never runs in: the
+  // calendar preference defaults to *off*, so an enabled user's ritual gains
+  // the step a moment after mount.
+  it("keeps the user on the same step by id when the calendar is added", () => {
+    const before = state({ calendarEnabled: false, step: 2 });
+
+    expect(currentStep(before).title).toBe("Backlog");
+    expect(currentStep(withCalendarEnabled(before, true)).title).toBe(
+      "Backlog",
+    );
+  });
+
+  it("leaves the page key alone when the step survives", () => {
+    const before = state({ step: 3 });
+
+    expect(ritualPageKey(withCalendarEnabled(before, false))).toBe(
+      ritualPageKey(before),
+    );
+  });
+
+  it("falls back to the nearest step when the calendar itself was on screen", () => {
+    const next = withCalendarEnabled(state({ step: 2 }), false);
+
+    expect(next.step).toBe(2);
+    expect(currentStep(next).title).toBe("Backlog");
+  });
+
+  it("repairs the step with the journal already gone", () => {
+    // Journal off puts Calendar at index 1; removing it too has to land on
+    // Backlog, not on whatever index 1 used to mean.
+    const before = state({ journalEnabled: false, step: 1 });
+
+    expect(currentStep(before).title).toBe("Calendar");
+    expect(currentStep(withCalendarEnabled(before, false)).title).toBe(
+      "Backlog",
+    );
   });
 });
 

@@ -20,6 +20,26 @@ export const formatHourLabel = (hour: number): string => {
 };
 
 /**
+ * A span of minutes as "2h", "45m" or "1h 30m" — a zero part is dropped rather
+ * than written out, so an exact hour reads as "1h". A total of zero has no part
+ * left to drop and falls back to "0h", which keeps it the same shape as the
+ * figure it sits beside ("0h free" under "14h planned").
+ *
+ * Negative and fractional inputs are floored and rounded rather than rejected:
+ * the callers derive these from clock arithmetic, and "-1h 59m" would be a
+ * worse failure than "0h".
+ */
+export const formatDuration = (minutes: number): string => {
+  const total = Math.max(0, Math.round(minutes));
+  const hours = Math.floor(total / 60);
+  const remainder = total % 60;
+  if (hours === 0 && remainder === 0) return "0h";
+  if (remainder === 0) return `${hours}h`;
+  if (hours === 0) return `${remainder}m`;
+  return `${hours}h ${remainder}m`;
+};
+
+/**
  * Parse a stored `"HH:MM:SS"` (or `"HH:MM"`) time-of-day into minutes past
  * midnight. Preferences persist the daily start/end as Postgres `time` strings.
  */

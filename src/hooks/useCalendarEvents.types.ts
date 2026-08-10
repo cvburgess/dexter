@@ -41,5 +41,17 @@ export type TUseCalendarEvents = [
     isError: boolean;
     /** Native only: calendar permission was denied. Always false on web. */
     permissionDenied: boolean;
+    /**
+     * There is no source to read from, so an empty day means "nothing is set
+     * up" rather than "nothing is scheduled". Native: permission was denied,
+     * the device exposes no event calendars, or the user has turned every one
+     * of them off. Web: no `.ics` feed URLs are configured.
+     *
+     * False while `isLoading` on native — the answer isn't known until the
+     * query resolves — so a caller that branches on it must check the loading
+     * flag first or it will offer a setup prompt to a configured user for a
+     * beat on every cold open.
+     */
+    notConfigured: boolean;
   },
 ];

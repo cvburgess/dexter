@@ -112,8 +112,16 @@ const mockUsePreferences = usePreferences as jest.MockedFunction<
   typeof usePreferences
 >;
 
-const preferences = (enableJournal: boolean) =>
-  [{ enableJournal }, {}] as unknown as ReturnType<typeof usePreferences>;
+// Both step preferences are named explicitly rather than defaulted here: each
+// decides whether a step exists, so an omitted one reads as `false` and
+// silently shortens the list every assertion below counts against.
+const preferences = ({
+  enableJournal = true,
+  enableCalendar = true,
+}: { enableJournal?: boolean; enableCalendar?: boolean } = {}) =>
+  [{ enableJournal, enableCalendar }, {}] as unknown as ReturnType<
+    typeof usePreferences
+  >;
 
 const TODAY = "2026-08-09";
 const today = Temporal.PlainDate.from(TODAY);
@@ -125,7 +133,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.useFakeTimers({ now: localTime(9) });
   mockUseIsLargeDevice.mockReturnValue(false);
-  mockUsePreferences.mockReturnValue(preferences(true));
+  mockUsePreferences.mockReturnValue(preferences());
   mockUseLocalSearchParams.mockReturnValue({});
 });
 
@@ -286,7 +294,7 @@ describe("RitualScreen", () => {
 
   describe("with the journal disabled", () => {
     beforeEach(() => {
-      mockUsePreferences.mockReturnValue(preferences(false));
+      mockUsePreferences.mockReturnValue(preferences({ enableJournal: false }));
     });
 
     it("drops the journal step, so the second step is Calendar", () => {
@@ -312,7 +320,7 @@ describe("RitualScreen", () => {
     // `usePreferences` serves defaults (journal on) until the row loads, so
     // this is what a cold launch with it disabled actually does.
     it("keeps the user on the same step when the preference arrives late", () => {
-      mockUsePreferences.mockReturnValue(preferences(true));
+      mockUsePreferences.mockReturnValue(preferences());
       const screen = render(<RitualScreen />);
 
       // Calendar: index 2 with the journal, index 1 without it.
@@ -320,7 +328,7 @@ describe("RitualScreen", () => {
       fireEvent.press(screen.getByLabelText("swipe-forward"));
       expect(screen.getByText(`small:${TODAY}:am:2:1`)).toBeTruthy();
 
-      mockUsePreferences.mockReturnValue(preferences(false));
+      mockUsePreferences.mockReturnValue(preferences({ enableJournal: false }));
       screen.rerender(<RitualScreen />);
 
       expect(screen.getByText(`small:${TODAY}:am:1:0`)).toBeTruthy();
@@ -337,6 +345,64 @@ describe("RitualScreen", () => {
 
       expect(screen.getByText("small:2026-07-12:am:0:-1")).toBeTruthy();
     });
+  });
+
+  describe("with the calendar disabled", () => {
+    beforeEach(() => {
+      mockUsePreferences.mockReturnValue(
+        preferences({ enableCalendar: false }),
+      );
+    });
+
+    it("drops the calendar step, so the third step is Backlog", () => {
+      const screen = render(<RitualScreen />);
+
+      fireEvent.press(screen.getByLabelText("swipe-forward"));
+      fireEvent.press(screen.getByLabelText("swipe-forward"));
+
+      expect(screen.getByText(`small:${TODAY}:am:2:1`)).toBeTruthy();
+    });
+
+    it("stops one step earlier", () => {
+      const screen = render(<RitualScreen />);
+
+      for (let press = 0; press < 7; press++) {
+        fireEvent.press(screen.getByLabelText("swipe-forward"));
+      }
+
+      expect(screen.getByText(`small:${TODAY}:am:4:1`)).toBeTruthy();
+    });
+
+    it("leaves the evening ritual, which has no calendar step, alone", () => {
+      jest.setSystemTime(localTime(15));
+      const screen = render(<RitualScreen />);
+
+      for (let press = 0; press < 6; press++) {
+        fireEvent.press(screen.getByLabelText("swipe-forward"));
+      }
+
+      expect(screen.getByText(`small:${TODAY}:pm:4:1`)).toBeTruthy();
+    });
+  });
+
+  // The calendar preference defaults to *off*, so this runs in the opposite
+  // direction from the journal's late arrival: an enabled user's ritual gains a
+  // step a moment after mount rather than losing one. The screen sets state
+  // during render whenever the flag disagrees, so this is also what would catch
+  // a transition that failed to update it.
+  it("adds the calendar step when the preference arrives late", () => {
+    mockUsePreferences.mockReturnValue(preferences({ enableCalendar: false }));
+    const screen = render(<RitualScreen />);
+
+    // Backlog: index 2 without the calendar, index 3 with it.
+    fireEvent.press(screen.getByLabelText("swipe-forward"));
+    fireEvent.press(screen.getByLabelText("swipe-forward"));
+    expect(screen.getByText(`small:${TODAY}:am:2:1`)).toBeTruthy();
+
+    mockUsePreferences.mockReturnValue(preferences());
+    screen.rerender(<RitualScreen />);
+
+    expect(screen.getByText(`small:${TODAY}:am:3:0`)).toBeTruthy();
   });
 
   describe("on a large screen", () => {

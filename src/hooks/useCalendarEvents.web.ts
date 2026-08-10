@@ -88,6 +88,15 @@ export const useCalendarEvents = (
 
   return [
     data,
-    { isLoading: active && isLoading, isError, permissionDenied: false },
+    {
+      isLoading: active && isLoading,
+      isError,
+      permissionDenied: false,
+      // Safe to answer synchronously, unlike native: the feed list and the
+      // master switch are two fields of the same preferences row, so a caller
+      // only reaches this while `enableCalendar` is true — which means the row
+      // has loaded and `calendarUrls` is the user's, not the default `[]`.
+      notConfigured: urls.length === 0,
+    },
   ];
 };
