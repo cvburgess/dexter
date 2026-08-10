@@ -257,6 +257,7 @@ async function seed(
       enable_journal: data.preferences.enableJournal,
       enable_habits: data.preferences.enableHabits,
       enable_horoscope: data.preferences.enableHoroscope,
+      sun_sign: data.preferences.sunSign,
       template_prompts: data.preferences.templatePrompts,
     }, { onConflict: "user_id" }),
   );
