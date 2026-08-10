@@ -282,6 +282,23 @@ describe("BacklogStep", () => {
       expect(drawerProps().filterId).toBe("leftBehind");
     });
 
+    // The advance has to be *recorded*, not only derived: left in state, the
+    // emptied bucket is still the one `nextBacklogFilter` reads, so refilling it
+    // — un-completing a task from the drawer, or a change from another device —
+    // would yank the list back off whatever the reader had moved on to.
+    it("does not snap back when a cleared bucket refills", () => {
+      const screen = renderStep([leftBehind("1"), overdue("2")]);
+      expect(drawerProps().filterId).toBe("leftBehind");
+
+      withTasks(screen, [overdue("2")]);
+      expect(drawerProps().filterId).toBe("overdue");
+
+      withTasks(screen, [leftBehind("3"), overdue("2")]);
+
+      expect(screen.getByLabelText("1 task left behind")).toBeTruthy();
+      expect(drawerProps().filterId).toBe("overdue");
+    });
+
     // A preset outside the hero's three is a detour the reader chose; the step
     // has no opinion about it, empty or not.
     it("leaves a preset the hero does not count alone", () => {

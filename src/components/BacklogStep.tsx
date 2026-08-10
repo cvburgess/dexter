@@ -47,21 +47,34 @@ type TBacklogListProps = {
  * only once the tasks have resolved *and* something needs attention, so the
  * lazy initializer below never sees `useTasks`'s empty placeholder array.
  *
- * State holds where the reader last landed; what is *shown* is that adjusted by
- * `nextBacklogFilter`, which moves them on once the bucket they are looking at
- * is empty and leaves them alone while it isn't. Derived during render rather
- * than chased with an effect — see that function for why emptiness is the only
- * thing allowed to move the filter.
+ * State holds where the reader is; `nextBacklogFilter` moves them on once the
+ * bucket they are looking at empties and leaves them alone while it hasn't —
+ * see that function for why emptiness is the only thing allowed to move it.
  */
 function BacklogList({ date, counts }: TBacklogListProps) {
   const [chosenFilter, setChosenFilter] = useState(() =>
     defaultBacklogFilter(counts),
   );
 
+  // An advance *is* the reader's new position, so it has to be recorded rather
+  // than only derived. Left in state, the emptied bucket would still be the one
+  // `nextBacklogFilter` reads: refill it — un-complete a task from the drawer,
+  // or take a change from another device — and it would count as non-empty
+  // again and yank the list back off whatever the reader had moved on to,
+  // which is the one thing this filter must never do.
+  //
+  // Adjusted during render (React's supported pattern for deriving state from a
+  // changed input, as `ritual/index.tsx` and `today/index.tsx` do) rather than
+  // in an effect, so the drawer never renders the stale preset for a frame
+  // first. It cannot loop: the advance always lands on a bucket with tasks in
+  // it, which `nextBacklogFilter` then returns unchanged.
+  const shownFilter = nextBacklogFilter(chosenFilter, counts);
+  if (shownFilter !== chosenFilter) setChosenFilter(shownFilter);
+
   return (
     <TaskDrawer
       date={date}
-      filterId={nextBacklogFilter(chosenFilter, counts)}
+      filterId={shownFilter}
       onFilterChange={setChosenFilter}
       // The step walks the reader down a short list of what is slipping; it is
       // not where you go to hunt for a task you already have in mind, and the
