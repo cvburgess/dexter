@@ -24,7 +24,7 @@ import { Button } from "@/components/Button";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { Icon } from "@/components/Icon";
 import { useHoroscope } from "@/hooks/useHoroscope";
-import { usePreferences } from "@/hooks/usePreferences";
+import { useSunSignPreference } from "@/hooks/usePreferences";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
 import { HOROSCOPE_FACETS, SUN_SIGNS } from "@/utils/horoscope";
 import { sentimentTints, Theme, useTheme } from "@/utils/theme";
@@ -70,8 +70,16 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [{ sunSign }] = usePreferences();
-  const [horoscope, { isLoading }] = useHoroscope(sunSign, date.toString());
+  // The narrowed hook, not `usePreferences`, because `null` means something
+  // here: it renders the prompt below. `usePreferences` would hand back the
+  // placeholder row's `null` first, flashing that prompt at a user who already
+  // has a sign on every cold open.
+  const { sunSign, isLoading: isLoadingSign } = useSunSignPreference();
+  const [horoscope, { isLoading: isLoadingHoroscope }] = useHoroscope(
+    sunSign,
+    date.toString(),
+  );
+  const isLoading = isLoadingSign || isLoadingHoroscope;
 
   // The scroller's own height, so the hero fills exactly one screenful and the
   // facets start just below the fold — which is what makes the scroll a
@@ -84,9 +92,15 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
   const breathe = useSharedValue(0);
 
   useEffect(() => {
-    // Left at 0 under reduced motion, which resolves to `base` below — the
-    // panel simply holds the calmer of the two tints.
-    if (reduceMotion) return;
+    if (reduceMotion) {
+      // Assigned rather than merely skipped: a plain write cancels whatever
+      // animation is on the value, which is what stops the loop when the
+      // setting is turned on *while* the step is on screen. Returning early
+      // would leave the panel breathing until it unmounted. 0 resolves to
+      // `base` below, so the panel holds the calmer of the two tints.
+      breathe.value = 0;
+      return;
+    }
     breathe.value = withRepeat(
       withTiming(1, {
         duration: BREATHE_DURATION_MS,
@@ -120,7 +134,15 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
       style={[styles.panel, { borderRadius: theme.radii.md }, tintStyle]}
       testID="horoscope-panel"
     >
-      {!sunSign ? (
+      {/* Loading is checked *first*, and the order is load-bearing: an unread
+          sign is `null`, which is indistinguishable from a user who has never
+          picked one — so testing `sunSign` ahead of this would render the
+          prompt, and its button, for a beat on every cold open.
+
+          It renders nothing rather than a spinner: the panel is already on
+          screen and this is one small read, so a spinner would flash for a
+          frame and read as the step failing to load. */}
+      {isLoading ? null : !sunSign ? (
         <EmptyScreen message="Pick your sun sign to read the day's horoscope.">
           <Button
             onPress={() => router.push("/settings/ritual")}
@@ -129,11 +151,6 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
             Choose your sign
           </Button>
         </EmptyScreen>
-      ) : isLoading ? (
-        // Nothing, deliberately: the panel is already on screen and the row is
-        // a single small read. A spinner here would flash for a frame and read
-        // as the step failing to load.
-        <View style={styles.panel} />
       ) : !horoscope ? (
         <EmptyScreen
           message={`No horoscope for ${formatMonthDayYear(date)} yet.`}

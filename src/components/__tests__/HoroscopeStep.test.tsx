@@ -1,13 +1,15 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render } from "@testing-library/react-native";
 
-import { THoroscope } from "@/api/horoscopes";
+import { THoroscope, TSunSign } from "@/api/horoscopes";
 import { HoroscopeStep } from "@/components/HoroscopeStep";
 import { useHoroscope } from "@/hooks/useHoroscope";
-import { usePreferences } from "@/hooks/usePreferences";
+import { useSunSignPreference } from "@/hooks/usePreferences";
 import { HOROSCOPE_FACETS, SUN_SIGNS } from "@/utils/horoscope";
 
-jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
+jest.mock("@/hooks/usePreferences", () => ({
+  useSunSignPreference: jest.fn(),
+}));
 jest.mock("@/hooks/useHoroscope", () => ({ useHoroscope: jest.fn() }));
 
 jest.mock("react-native-safe-area-context", () =>
@@ -17,8 +19,8 @@ jest.mock("react-native-safe-area-context", () =>
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));
 
-const mockUsePreferences = usePreferences as jest.MockedFunction<
-  typeof usePreferences
+const mockUseSunSign = useSunSignPreference as jest.MockedFunction<
+  typeof useSunSignPreference
 >;
 const mockUseHoroscope = useHoroscope as jest.MockedFunction<
   typeof useHoroscope
@@ -41,17 +43,16 @@ const HOROSCOPE: THoroscope = {
 
 const renderStep = ({
   sunSign = "leo",
+  isLoadingSign = false,
   horoscope = HOROSCOPE,
   isLoading = false,
 }: {
-  sunSign?: string | null;
+  sunSign?: TSunSign | null;
+  isLoadingSign?: boolean;
   horoscope?: THoroscope | null;
   isLoading?: boolean;
 } = {}) => {
-  mockUsePreferences.mockReturnValue([
-    { sunSign } as never,
-    { updatePreferences: jest.fn() },
-  ]);
+  mockUseSunSign.mockReturnValue({ sunSign, isLoading: isLoadingSign });
   mockUseHoroscope.mockReturnValue([horoscope, { isLoading }]);
   return render(<HoroscopeStep date={DATE} />);
 };
@@ -93,6 +94,22 @@ describe("HoroscopeStep", () => {
     expect(screen.queryByText(/No horoscope/)).toBeNull();
     expect(screen.queryByText(/Pick your sun sign/)).toBeNull();
     expect(screen.getByTestId("horoscope-panel")).toBeTruthy();
+  });
+
+  // An unread sign is `null`, exactly like a sign the user never picked — so
+  // ordering the branches the other way flashes the prompt, and its button, at
+  // every user who already has one, on every cold open. This is why the step
+  // reads `useSunSignPreference` rather than `usePreferences`, whose
+  // placeholder row cannot report that it is a placeholder.
+  it("does not prompt for a sign while the preference is still loading", () => {
+    const screen = renderStep({
+      sunSign: null,
+      isLoadingSign: true,
+      horoscope: null,
+    });
+
+    expect(screen.queryByText(/Pick your sun sign/)).toBeNull();
+    expect(screen.queryByText("Choose your sign")).toBeNull();
   });
 
   describe("with the day's horoscope", () => {
