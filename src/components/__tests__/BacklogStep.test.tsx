@@ -1,5 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { act, render } from "@testing-library/react-native";
+import { act, fireEvent, render } from "@testing-library/react-native";
 import { StyleSheet, TextStyle } from "react-native";
 import type { ReactTestInstance } from "react-test-renderer";
 
@@ -23,6 +23,7 @@ jest.mock("@/components/TaskDrawer", () => {
       date: Temporal.PlainDate;
       filterId?: TFilterId;
       onFilterChange?: (id: TFilterId) => void;
+      showSearch?: boolean;
     }) {
       mockTaskDrawer(props);
       return <RNText>{`drawer:${props.date.toString()}`}</RNText>;
@@ -93,6 +94,7 @@ const drawerProps = () =>
     date: Temporal.PlainDate;
     filterId?: TFilterId;
     onFilterChange?: (id: TFilterId) => void;
+    showSearch?: boolean;
   };
 
 // The palette `useTheme` falls back to outside a provider on a light scheme.
@@ -125,9 +127,9 @@ describe("BacklogStep", () => {
     it("states all three zeroes in the success color", () => {
       const screen = renderStep([]);
 
-      expect(screen.getByText("0 tasks left behind")).toBeTruthy();
-      expect(screen.getByText("0 tasks overdue")).toBeTruthy();
-      expect(screen.getByText("0 tasks due soon")).toBeTruthy();
+      expect(screen.getByLabelText("0 tasks left behind")).toBeTruthy();
+      expect(screen.getByLabelText("0 tasks overdue")).toBeTruthy();
+      expect(screen.getByLabelText("0 tasks due soon")).toBeTruthy();
       for (const key of ["leftBehind", "overdue", "dueSoon"]) {
         expect(colorOf(screen.getByTestId(`backlog-count-${key}`))).toBe(
           colors.success,
@@ -154,9 +156,9 @@ describe("BacklogStep", () => {
         overdue("3"),
       ]);
 
-      expect(screen.getByText("2 tasks left behind")).toBeTruthy();
-      expect(screen.getByText("1 task overdue")).toBeTruthy();
-      expect(screen.getByText("0 tasks due soon")).toBeTruthy();
+      expect(screen.getByLabelText("2 tasks left behind")).toBeTruthy();
+      expect(screen.getByLabelText("1 task overdue")).toBeTruthy();
+      expect(screen.getByLabelText("0 tasks due soon")).toBeTruthy();
       expect(screen.queryByTestId("backlog-step-clear")).toBeNull();
       expect(screen.getByText(`drawer:${TODAY.toString()}`)).toBeTruthy();
     });
@@ -188,6 +190,40 @@ describe("BacklogStep", () => {
       expect(colorOf(screen.getByTestId("backlog-count-overdue"))).toBe(
         colors.success,
       );
+    });
+
+    // The step walks a short list of what is slipping; it is not where you go
+    // to hunt for a task you already have in mind.
+    it("hides the drawer's search field", () => {
+      renderStep([leftBehind("1")]);
+
+      expect(drawerProps().showSearch).toBe(false);
+    });
+
+    // Without a shared width the words would start at a different x on any line
+    // whose count runs to more digits, which is the whole point of the column.
+    it("gives every figure the widest figure's width", () => {
+      const screen = renderStep([leftBehind("1"), overdue("2")]);
+
+      act(() => {
+        for (const [key, width] of [
+          ["leftBehind", 24],
+          ["overdue", 11],
+          ["dueSoon", 11],
+        ] as const) {
+          fireEvent(screen.getByTestId(`backlog-count-${key}`), "layout", {
+            nativeEvent: { layout: { width, height: 30, x: 0, y: 0 } },
+          });
+        }
+      });
+
+      for (const key of ["leftBehind", "overdue", "dueSoon"]) {
+        expect(
+          StyleSheet.flatten(
+            screen.getByTestId(`backlog-count-${key}`).props.style as TextStyle,
+          ).minWidth,
+        ).toBe(24);
+      }
     });
 
     it("hands the drawer the ritual's day rather than today's", () => {
@@ -237,7 +273,7 @@ describe("BacklogStep", () => {
       mockUseTasks.mockReturnValue(tasksResult([overdue("2")]));
       screen.rerender(<BacklogStep date={TODAY} />);
 
-      expect(screen.getByText("0 tasks left behind")).toBeTruthy();
+      expect(screen.getByLabelText("0 tasks left behind")).toBeTruthy();
       expect(drawerProps().filterId).toBe("leftBehind");
     });
   });

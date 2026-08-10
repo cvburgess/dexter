@@ -23,9 +23,16 @@ import { formatDuration } from "@/utils/formatPlainTime";
 import { useTheme } from "@/utils/theme";
 
 /**
- * The whole arrival, as one 0→1 with two overlapping windows onto it — the same
- * structure `HoroscopeStep` uses, and for the same reason: a stagger built from
- * one driver cannot drift out of order however the timings are retuned.
+ * The whole arrival, as one 0→1 with three overlapping windows onto it — the
+ * same structure `HoroscopeStep` uses, and for the same reason: a stagger built
+ * from one driver cannot drift out of order however the timings are retuned. As
+ * there, keep `last start + REVEAL_FADE` at 1 or the tail of the sequence is
+ * dead time.
+ *
+ * The hero's two lines land one at a time, then the calendar: the count, then
+ * what the count costs, in the order they read. At the values below that is a
+ * **600ms fade per stage, starting 300ms apart** — the windows overlap, so
+ * staging the lines separately does not lengthen the sequence.
  *
  * Far shorter than the horoscope's 3.6 seconds. That step is producing a
  * reading and its slowness is the conceit; this one reports a count and a
@@ -33,9 +40,9 @@ import { useTheme } from "@/utils/theme";
  * add up.
  */
 const REVEAL_MS = 1200;
-const REVEAL_FADE = 0.7;
-/** Start of each stage's window: the hero, then the calendar beneath it. */
-const REVEAL_STARTS = [0, 0.3] as const;
+const REVEAL_FADE = 0.5;
+/** Start of each stage's window: the two hero lines, then the calendar. */
+const REVEAL_STARTS = [0, 0.25, 0.5] as const;
 
 type TCalendarStepProps = {
   /** The day being walked through — the ritual's date, not necessarily today. */
@@ -105,7 +112,9 @@ export function CalendarStep({ date }: TCalendarStepProps) {
     });
   }, [reduceMotion, reveal, revealKey]);
 
-  const heroStyle = useAnimatedStyle(() => ({
+  // One per line, so the count arrives before the split it explains rather than
+  // both at once.
+  const firstLineStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
       reveal.value,
       [REVEAL_STARTS[0], REVEAL_STARTS[0] + REVEAL_FADE],
@@ -114,10 +123,19 @@ export function CalendarStep({ date }: TCalendarStepProps) {
     ),
   }));
 
-  const calendarStyle = useAnimatedStyle(() => ({
+  const secondLineStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
       reveal.value,
       [REVEAL_STARTS[1], REVEAL_STARTS[1] + REVEAL_FADE],
+      [0, 1],
+      Extrapolation.CLAMP,
+    ),
+  }));
+
+  const calendarStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      reveal.value,
+      [REVEAL_STARTS[2], REVEAL_STARTS[2] + REVEAL_FADE],
       [0, 1],
       Extrapolation.CLAMP,
     ),
@@ -160,7 +178,7 @@ export function CalendarStep({ date }: TCalendarStepProps) {
 
   if (summary.eventCount === 0) {
     return (
-      <Animated.View
+      <View
         style={[
           styles.clearDay,
           {
@@ -172,29 +190,32 @@ export function CalendarStep({ date }: TCalendarStepProps) {
             // block rather than that component: two lines, two colors.
             paddingBottom: theme.space.lg + insets.bottom,
           },
-          heroStyle,
         ]}
         testID="calendar-step-clear"
       >
-        <Text
+        {/* Staged like the populated hero's two lines: the fact, then the
+            invitation that follows from it. */}
+        <Animated.Text
           style={[
             styles.heroLine,
             theme.fonts.heading,
             { color: theme.colors.text },
+            firstLineStyle,
           ]}
         >
           No events today
-        </Text>
-        <Text
+        </Animated.Text>
+        <Animated.Text
           style={[
             styles.heroLine,
             theme.fonts.heading,
             { color: theme.colors.success },
+            secondLineStyle,
           ]}
         >
           Enjoy the space
-        </Text>
-      </Animated.View>
+        </Animated.Text>
+      </View>
     );
   }
 
@@ -204,18 +225,19 @@ export function CalendarStep({ date }: TCalendarStepProps) {
           two read as one statement about the day rather than as a list, and
           `textAlign` on the outer `Text` carries to the colored figures nested
           inside it. */}
-      <Animated.View style={[{ gap: theme.space.xs }, heroStyle]}>
-        <Text
+      <View style={{ gap: theme.space.xs }}>
+        <Animated.Text
           style={[
             styles.heroLine,
             theme.fonts.heading,
             { color: theme.colors.text },
+            firstLineStyle,
           ]}
         >
           {summary.eventCount === 1
             ? "1 event today"
             : `${summary.eventCount} events today`}
-        </Text>
+        </Animated.Text>
         {/* Booked and free share one line, because they are one fact read two
             ways — the same window split in two — and the bullet is what says
             so. Each figure carries its own color while the words stay in ink:
@@ -225,11 +247,12 @@ export function CalendarStep({ date }: TCalendarStepProps) {
             `textSecondary`, a mark between the halves rather than a third
             thing to read, and it takes two spaces a side — at `heading` the
             single space let "planned" and the bullet crowd into one another. */}
-        <Text
+        <Animated.Text
           style={[
             styles.heroLine,
             theme.fonts.heading,
             { color: theme.colors.text },
+            secondLineStyle,
           ]}
         >
           <Text style={{ color: theme.colors.error }}>
@@ -241,8 +264,8 @@ export function CalendarStep({ date }: TCalendarStepProps) {
             {formatDuration(summary.freeMinutes)}
           </Text>
           {" free"}
-        </Text>
-      </Animated.View>
+        </Animated.Text>
+      </View>
       {/* `flex: 1` belongs to this wrapper: `CalendarView` fills its parent, and
           an `Animated.View` sized to its content would give it nothing to fill.
           Opacity only, no translate — `SwipeablePage`'s intro already slides the
