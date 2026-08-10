@@ -376,13 +376,18 @@ describe("sentimentTints", () => {
     expect(lightness(light.peak)).toBeLessThan(lightness(light.base));
   });
 
-  // Small on purpose — this is a background a summary is read on, so the
-  // movement should register as the panel being alive, not as a color change.
-  it.each(sentiments)("%s stays near its base as it breathes", (sentiment) => {
+  // Bounded at both ends, and the lower bound is the one that was learned the
+  // hard way: at 0.12 the drift came to a couple of RGB units per second over
+  // the ease and the panel read as a solid color, so the breath cost battery
+  // and showed nobody anything. Upper bound keeps it a background a summary is
+  // still readable on rather than a color change.
+  it.each(sentiments)("%s breathes visibly but not loudly", (sentiment) => {
     for (const mode of schemes) {
       const { base, peak } = sentimentTints(mode, sentiment);
+      const drift = Math.abs(lightness(peak) - lightness(base));
 
-      expect(Math.abs(lightness(peak) - lightness(base))).toBeLessThan(120);
+      expect(drift).toBeGreaterThan(90);
+      expect(drift).toBeLessThan(255);
     }
   });
 });

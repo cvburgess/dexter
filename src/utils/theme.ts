@@ -271,13 +271,17 @@ const SENTIMENT_COLORS: Record<
 /**
  * How far along its own light↔dark axis a sentiment travels as it breathes.
  *
- * Small, and it has to be: this is a background a summary is read on, so the
- * movement should register as the panel being alive rather than as a color
- * change. Traveling toward the *other shade of the same hue* — rather than
- * toward white or black — is what keeps the peak in the same color family
- * instead of washing it out.
+ * Restrained, but **not so restrained that nothing is visible** — the first cut
+ * used 0.12, which over a slow ease came to a couple of RGB units per second on
+ * a large flat field and read as a solid color. A breath nobody can see is just
+ * a battery cost. This lands around a fifth of the full axis, which registers
+ * as movement without pulling the eye off the summary.
+ *
+ * Traveling toward the *other shade of the same hue* — rather than toward white
+ * or black — is what keeps the peak in the same color family instead of washing
+ * it out.
  */
-const SENTIMENT_BREATHE_ALPHA = 0.12;
+const SENTIMENT_BREATHE_ALPHA = 0.25;
 
 /** The two ends of the Horoscope panel's breathing color. */
 export function sentimentTints(

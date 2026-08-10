@@ -30,10 +30,16 @@ import { HOROSCOPE_FACETS, SUN_SIGNS } from "@/utils/horoscope";
 import { sentimentTints, Theme, useTheme } from "@/utils/theme";
 
 /**
- * One full in-and-out of the breathing tint. Long on purpose: the panel is
- * meant to feel like it is alive behind the text, not to draw the eye off it.
+ * One *leg* of the breath — in, or out — not a full cycle.
+ *
+ * `withRepeat(anim, -1, true)` reverses rather than restarting, so `duration`
+ * buys one direction and the round trip is twice this. Naming it per-leg is
+ * the point: the first cut called it the full cycle and set 5000, which made
+ * the real period ten seconds. Across an amplitude this small that worked out
+ * to a couple of RGB units per second — the panel was animating the whole
+ * time and simply could not be seen to.
  */
-const BREATHE_DURATION_MS = 5000;
+const BREATHE_LEG_MS = 2600;
 
 const SCROLL_HINT_ICON = {
   sf: "chevron.down",
@@ -115,7 +121,7 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
     }
     breathe.value = withRepeat(
       withTiming(1, {
-        duration: BREATHE_DURATION_MS,
+        duration: BREATHE_LEG_MS,
         easing: Easing.inOut(Easing.quad),
       }),
       -1,
