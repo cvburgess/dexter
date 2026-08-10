@@ -54,6 +54,12 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // Drain any exit fade still running before handing the clock back. The hook
+  // tracks the fading player at *module* scope — it has to, since the whole
+  // point is surviving a remount — and `clearAllMocks` does not touch that. A
+  // test that unmounts and stops here would leave the slot full, and the next
+  // test's first act would be to release a player it never created.
+  jest.advanceTimersByTime(EXIT_FADE_MS * 2);
   jest.useRealTimers();
 });
 
@@ -123,6 +129,37 @@ describe("useHoroscopeAudio", () => {
 
     jest.advanceTimersByTime(EXIT_FADE_MS);
     expect(mockPlayer.remove).toHaveBeenCalledTimes(1);
+  });
+
+  // Coming back inside the two-second exit fade — swipe to the next step and
+  // straight back, or tab away and return — used to leave the outgoing player
+  // running while a new one started, laying the same track over itself at two
+  // positions. An echo, not ambience.
+  it("never leaves two players audible at once", () => {
+    const first = { ...mockPlayer, remove: jest.fn() };
+    const second = { ...mockPlayer, remove: jest.fn() };
+    mockCreateAudioPlayer
+      .mockReturnValueOnce(first)
+      .mockReturnValueOnce(second);
+
+    const { unmount } = renderHook(() => useHoroscopeAudio(true));
+    unmount();
+
+    // Half a second into the fade, so the first player is still going.
+    jest.advanceTimersByTime(500);
+    expect(first.remove).not.toHaveBeenCalled();
+
+    renderHook(() => useHoroscopeAudio(true));
+
+    expect(first.remove).toHaveBeenCalledTimes(1);
+    expect(second.play).toHaveBeenCalled();
+
+    // And the abandoned fade must not keep ticking against the released
+    // player once the new one has taken over.
+    const releasedAt = first.volume;
+    jest.advanceTimersByTime(EXIT_FADE_MS * 2);
+    expect(first.volume).toBe(releasedAt);
+    expect(first.remove).toHaveBeenCalledTimes(1);
   });
 
   describe("on unmount", () => {

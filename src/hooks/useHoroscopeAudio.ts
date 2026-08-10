@@ -1,4 +1,4 @@
-import { AudioSource, createAudioPlayer } from "expo-audio";
+import { AudioPlayer, AudioSource, createAudioPlayer } from "expo-audio";
 import { useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 
@@ -53,6 +53,38 @@ const MAX_VOLUME = 0.1;
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
 /**
+ * The player currently fading out, if one is.
+ *
+ * **Module scope rather than a ref, and it has to be.** The exit fade outlives
+ * the thing that started it: come back inside those two seconds and the old
+ * player is still going, so starting a new one lays the same track over itself
+ * at two different positions — an echo, not ambience. A ref would catch the
+ * blur-then-focus case, where the component instance is the same, but not the
+ * swipe-away-and-back one, where `SwipeablePage` has remounted the step and the
+ * new instance's ref is empty. Only one thing on screen ever plays this, so one
+ * module-level slot is the whole state.
+ */
+let fadingOut: {
+  player: AudioPlayer;
+  timer: ReturnType<typeof setInterval>;
+} | null = null;
+
+/**
+ * Ends any fade still in flight, at once.
+ *
+ * Cutting a player mid-fade is safe here precisely because it is mid-*fade*: it
+ * is at `MAX_VOLUME` at the very loudest, and the track replacing it opens at
+ * exactly that level, so the seam is covered rather than heard.
+ */
+const stopFadingOut = () => {
+  if (!fadingOut) return;
+
+  clearInterval(fadingOut.timer);
+  fadingOut.player.remove();
+  fadingOut = null;
+};
+
+/**
  * Plays the Horoscope step's track for as long as the step is on screen.
  *
  * **Built on `createAudioPlayer` rather than the `useAudioPlayer` hook, and the
@@ -97,6 +129,9 @@ export function useHoroscopeAudio(enabled: boolean) {
     useCallback(() => {
       if (!enabled) return;
 
+      // Before anything is created, so at most one player is ever audible.
+      stopFadingOut();
+
       const player = createAudioPlayer(TRACK);
       player.loop = false;
       player.volume = MAX_VOLUME;
@@ -127,11 +162,16 @@ export function useHoroscopeAudio(enabled: boolean) {
             // player is a use-after-free, and one more tick is already queued.
             clearInterval(exit);
             player.remove();
+            // Guarded: a re-entry may already have cleared this slot and put
+            // its own player in it, and blanking that would strand it.
+            if (fadingOut?.player === player) fadingOut = null;
             return;
           }
 
           player.volume = from * (1 - progress);
         }, TICK_MS);
+
+        fadingOut = { player, timer: exit };
       };
     }, [enabled]),
   );
