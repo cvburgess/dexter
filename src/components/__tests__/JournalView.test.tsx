@@ -179,16 +179,20 @@ describe("JournalView", () => {
       StyleSheet.flatten(element.props.style as ViewStyle);
     const heightOf = (element: ReactTestInstance) => styleOf(element).height;
 
-    it("never scrolls inside itself", () => {
+    // Regression guard, not a style preference. Disabling the input's own
+    // scrolling to "enforce" that it never scrolls makes iOS report a content
+    // size clamped to the view's bounds, so the measurement below only echoes
+    // back the height already set and the field can never grow past its first
+    // line — with `overflow: hidden` on top, that silently clips what is being
+    // typed. Growth is what removes the scrollbar; see `JournalResponseField`.
+    it("leaves its own scrolling alone so the content can be measured", () => {
       const screen = setup({
         prompts: [{ prompt: "How was today?", response: "" }],
       });
       const input = screen.getByTestId("journal-response-0");
 
-      // `scrollEnabled` covers native; `overflow` covers web, where
-      // react-native-web ignores it and renders a plain textarea.
-      expect(input.props.scrollEnabled).toBe(false);
-      expect(styleOf(input).overflow).toBe("hidden");
+      expect(input.props.scrollEnabled).toBeUndefined();
+      expect(styleOf(input).overflow).toBeUndefined();
     });
 
     // The bug this replaced: height came from counting "\n", so a paragraph

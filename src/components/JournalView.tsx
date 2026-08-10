@@ -217,19 +217,23 @@ type TJournalResponseFieldProps = {
 
 // A single prompt + response row.
 //
-// **The field never scrolls — it grows.** A response is prose the user is
+// **The field grows rather than scrolling.** A response is prose the user is
 // writing, so a box that hides the top of it behind its own scrollbar is the
-// wrong shape entirely; the step's own `ScrollView` is what scrolls. Two
-// halves make that work: `scrollEnabled={false}` on native, `overflow: hidden`
-// for web (where `react-native-web` ignores `scrollEnabled` and renders a
-// plain `<textarea>`), plus a height that tracks the content.
+// wrong shape entirely; the step's own `ScrollView` is what scrolls. The height
+// tracks the input's **measured** content, which is the only thing that knows
+// how tall wrapped text renders — an earlier cut counted `\n`s, so a long
+// paragraph typed without a single Enter stayed one line tall. That estimate
+// survives as the floor (see `responseHeight`) so nothing collapses before the
+// first measurement lands.
 //
-// That height has to be **measured**, not derived from the text. An earlier cut
-// counted `\n`s, which meant a long paragraph typed without a single Enter
-// stayed one line tall and scrolled inside itself — the estimate cannot see
-// wrapping, which is most of what a journal response does. It survives as the
-// floor (see `responseHeight`) so nothing collapses before the first
-// measurement lands.
+// **Do not add `scrollEnabled={false}` to "enforce" the no-scrolling part.** It
+// does the opposite: with scrolling off, iOS reports a content size clamped to
+// the view's own bounds, so `onContentSizeChange` only ever echoes back the
+// height already set here and the field can never grow past its first line.
+// Paired with `overflow: hidden` that silently clips what the user is typing.
+// Growth is what removes the scrollbar — there is nothing to scroll once the
+// box fits its content, and leaving scrolling enabled means a lagging
+// measurement degrades to a scrollable box rather than to hidden text.
 function JournalResponseField({
   prompt,
   response,
@@ -260,11 +264,7 @@ function JournalResponseField({
         }
         onFocus={onFocus}
         placeholder="Write your response…"
-        scrollEnabled={false}
-        style={{
-          height: Math.max(minHeight, contentHeight),
-          overflow: "hidden",
-        }}
+        style={{ height: Math.max(minHeight, contentHeight) }}
         testID={testID}
         textAlignVertical="top"
       />
