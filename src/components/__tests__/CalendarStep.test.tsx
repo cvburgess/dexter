@@ -109,7 +109,7 @@ describe("CalendarStep", () => {
     });
 
     expect(screen.queryByText("Set up calendars")).toBeNull();
-    expect(screen.queryByText(/events today/)).toBeNull();
+    expect(screen.queryByLabelText(/events$/)).toBeNull();
     expect(screen.queryByText(/^calendar:/)).toBeNull();
   });
 
@@ -168,32 +168,44 @@ describe("CalendarStep", () => {
     });
   });
 
+  // Three lines in a column, the figures right-aligned against a shared width —
+  // the same hero the Backlog step uses (`HeroLines`), which is where the
+  // layout and the stagger are covered. These are about the copy and the ink.
   describe("with a day that has events", () => {
     it("counts the events and splits the window", () => {
       const screen = renderStep({
         events: [timed("a", 9, 11), timed("b", 14, 15), timed("c", 16, 18, 30)],
       });
 
-      expect(screen.getByText("3 events today")).toBeTruthy();
-      // Booked and free read as one line: the same window split two ways.
-      expect(screen.getByText("5h 30m planned  •  8h 30m free")).toBeTruthy();
+      expect(screen.getByLabelText("3 events")).toBeTruthy();
+      expect(screen.getByLabelText("5h 30m planned")).toBeTruthy();
+      expect(screen.getByLabelText("8h 30m free")).toBeTruthy();
       expect(screen.getByText(`calendar:${DATE.toString()}`)).toBeTruthy();
     });
 
     it("writes the singular for one event", () => {
       const screen = renderStep({ events: [timed("a", 9, 10)] });
 
-      expect(screen.getByText("1 event today")).toBeTruthy();
-      expect(screen.getByText("1h planned  •  13h free")).toBeTruthy();
+      expect(screen.getByLabelText("1 event")).toBeTruthy();
+      expect(screen.getByLabelText("1h planned")).toBeTruthy();
+      expect(screen.getByLabelText("13h free")).toBeTruthy();
     });
 
     // Time booked reads as spent, time left as available — the figures carry
-    // that, and the words beside them stay in ink.
+    // that, and the words beside them stay in ink. The count is neither, so it
+    // stays ink too: it is the neutral fact the other two lines qualify.
     it("colors the figures rather than the words", () => {
       const screen = renderStep({ events: [timed("a", 9, 10, 30)] });
 
-      expect(colorOf(screen.getByText("1h 30m"))).toBe(colors.error);
-      expect(colorOf(screen.getByText("12h 30m"))).toBe(colors.success);
+      expect(colorOf(screen.getByTestId("hero-figure-events"))).toBe(
+        colors.text,
+      );
+      expect(colorOf(screen.getByTestId("hero-figure-planned"))).toBe(
+        colors.error,
+      );
+      expect(colorOf(screen.getByTestId("hero-figure-free"))).toBe(
+        colors.success,
+      );
     });
 
     // Only all-day events: counted, but nothing on the timeline is spoken for.
@@ -210,8 +222,9 @@ describe("CalendarStep", () => {
         ],
       });
 
-      expect(screen.getByText("1 event today")).toBeTruthy();
-      expect(screen.getByText("0h planned  •  14h free")).toBeTruthy();
+      expect(screen.getByLabelText("1 event")).toBeTruthy();
+      expect(screen.getByLabelText("0h planned")).toBeTruthy();
+      expect(screen.getByLabelText("14h free")).toBeTruthy();
     });
   });
 });

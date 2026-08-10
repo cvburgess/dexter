@@ -1,48 +1,25 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useRouter } from "expo-router";
-import { useEffect, useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { useMemo } from "react";
+import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, {
-  Easing,
-  Extrapolation,
-  interpolate,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 
 import { Button } from "@/components/Button";
 import { CalendarView } from "@/components/CalendarView";
 import { EmptyScreen } from "@/components/EmptyScreen";
+import {
+  BODY_STAGE,
+  HeroLines,
+  type THeroLine,
+  useHeroReveal,
+  useStageOpacity,
+} from "@/components/HeroLines";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { usePreferences } from "@/hooks/usePreferences";
 import { calendarWindow, summarizeDay } from "@/utils/calendarStats";
 import { formatDuration } from "@/utils/formatPlainTime";
 import { useTheme } from "@/utils/theme";
-
-/**
- * The whole arrival, as one 0→1 with three overlapping windows onto it — the
- * same structure `HoroscopeStep` uses, and for the same reason: a stagger built
- * from one driver cannot drift out of order however the timings are retuned. As
- * there, keep `last start + REVEAL_FADE` at 1 or the tail of the sequence is
- * dead time.
- *
- * The hero's two lines land one at a time, then the calendar: the count, then
- * what the count costs, in the order they read. At the values below that is a
- * **600ms fade per stage, starting 300ms apart** — the windows overlap, so
- * staging the lines separately does not lengthen the sequence.
- *
- * Far shorter than the horoscope's 3.6 seconds. That step is producing a
- * reading and its slowness is the conceit; this one reports a count and a
- * split, and numbers that take seconds to arrive read as an app struggling to
- * add up.
- */
-const REVEAL_MS = 1200;
-const REVEAL_FADE = 0.5;
-/** Start of each stage's window: the two hero lines, then the calendar. */
-const REVEAL_STARTS = [0, 0.25, 0.5] as const;
 
 type TCalendarStepProps = {
   /** The day being walked through — the ritual's date, not necessarily today. */
@@ -82,64 +59,42 @@ export function CalendarStep({ date }: TCalendarStepProps) {
     preferences.calendarEndTime,
   ]);
 
-  const reduceMotion = useReducedMotion();
-  const reveal = useSharedValue(0);
-  // Held back until the day's numbers exist, and keyed on the day rather than
-  // on `events` — a background refetch hands back a fresh array every time, and
-  // the hero must not fade out from under someone re-reading it. Walking
-  // `DayNav` replays the reveal by remounting the whole step (`ritualPageKey`),
-  // so this key's only job is the wait.
-  const revealKey = isLoading ? null : date.toString();
+  // Held back until the day's numbers exist, so the sequence waits rather than
+  // running against an unresolved read.
+  const reveal = useHeroReveal(isLoading ? null : date.toString());
+  const calendarStyle = useStageOpacity(reveal, BODY_STAGE);
+  // The clear-day block has no figures and so no column; it takes the first two
+  // stages directly.
+  const firstLineStyle = useStageOpacity(reveal, 0);
+  const secondLineStyle = useStageOpacity(reveal, 1);
 
-  useEffect(() => {
-    if (!revealKey) {
-      reveal.value = 0;
-      return;
-    }
-    if (reduceMotion) {
-      // Assigned rather than skipped: a plain write cancels whatever is running
-      // on the value, which is what stops a reveal mid-flight when the setting
-      // is turned on while the step is on screen.
-      reveal.value = 1;
-      return;
-    }
-    reveal.value = 0;
-    reveal.value = withTiming(1, {
-      duration: REVEAL_MS,
-      // Linear, because the curve the eye reads here is the overlap of the two
-      // windows rather than the easing of the driver behind them.
-      easing: Easing.linear,
-    });
-  }, [reduceMotion, reveal, revealKey]);
-
-  // One per line, so the count arrives before the split it explains rather than
-  // both at once.
-  const firstLineStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      reveal.value,
-      [REVEAL_STARTS[0], REVEAL_STARTS[0] + REVEAL_FADE],
-      [0, 1],
-      Extrapolation.CLAMP,
-    ),
-  }));
-
-  const secondLineStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      reveal.value,
-      [REVEAL_STARTS[1], REVEAL_STARTS[1] + REVEAL_FADE],
-      [0, 1],
-      Extrapolation.CLAMP,
-    ),
-  }));
-
-  const calendarStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      reveal.value,
-      [REVEAL_STARTS[2], REVEAL_STARTS[2] + REVEAL_FADE],
-      [0, 1],
-      Extrapolation.CLAMP,
-    ),
-  }));
+  // A line each, in the order they read: how many, then what they cost, then
+  // what is left. Booked and free shared one line while the hero was centered —
+  // one fact read two ways, split by a bullet — but in the column they are two
+  // figures of the same kind, and stacking them puts all three on the same
+  // vertical line rather than hiding two of them inside a sentence.
+  const heroLines: THeroLine[] = [
+    {
+      key: "events",
+      figure: String(summary.eventCount),
+      words: summary.eventCount === 1 ? "event" : "events",
+      // Ink, not an accent: the count is the neutral fact the other two lines
+      // qualify.
+      color: theme.colors.text,
+    },
+    {
+      key: "planned",
+      figure: formatDuration(summary.plannedMinutes),
+      words: "planned",
+      color: theme.colors.error,
+    },
+    {
+      key: "free",
+      figure: formatDuration(summary.freeMinutes),
+      words: "free",
+      color: theme.colors.success,
+    },
+  ];
 
   // Loading is checked *first*, and the order is load-bearing: an unresolved
   // read looks exactly like a user with no calendars, so testing the source
@@ -193,8 +148,9 @@ export function CalendarStep({ date }: TCalendarStepProps) {
         ]}
         testID="calendar-step-clear"
       >
-        {/* Staged like the populated hero's two lines: the fact, then the
-            invitation that follows from it. */}
+        {/* Staged like the first two lines of the populated hero: the fact,
+            then the invitation that follows from it. Centered rather than
+            columned — there is no figure here to align against. */}
         <Animated.Text
           style={[
             styles.heroLine,
@@ -220,52 +176,8 @@ export function CalendarStep({ date }: TCalendarStepProps) {
   }
 
   return (
-    <View style={[styles.container, { gap: theme.space.lg }]}>
-      {/* Centered, like the clear-day lines and the horoscope's summary: the
-          two read as one statement about the day rather than as a list, and
-          `textAlign` on the outer `Text` carries to the colored figures nested
-          inside it. */}
-      <View style={{ gap: theme.space.xs }}>
-        <Animated.Text
-          style={[
-            styles.heroLine,
-            theme.fonts.heading,
-            { color: theme.colors.text },
-            firstLineStyle,
-          ]}
-        >
-          {summary.eventCount === 1
-            ? "1 event today"
-            : `${summary.eventCount} events today`}
-        </Animated.Text>
-        {/* Booked and free share one line, because they are one fact read two
-            ways — the same window split in two — and the bullet is what says
-            so. Each figure carries its own color while the words stay in ink:
-            what the reader is weighing is how much of the day is spoken for,
-            not the word "planned". Coloring the words too was tried and reads
-            as two warnings rather than one split. The separator is
-            `textSecondary`, a mark between the halves rather than a third
-            thing to read, and it takes two spaces a side — at `heading` the
-            single space let "planned" and the bullet crowd into one another. */}
-        <Animated.Text
-          style={[
-            styles.heroLine,
-            theme.fonts.heading,
-            { color: theme.colors.text },
-            secondLineStyle,
-          ]}
-        >
-          <Text style={{ color: theme.colors.error }}>
-            {formatDuration(summary.plannedMinutes)}
-          </Text>
-          {" planned"}
-          <Text style={{ color: theme.colors.textSecondary }}>{"  •  "}</Text>
-          <Text style={{ color: theme.colors.success }}>
-            {formatDuration(summary.freeMinutes)}
-          </Text>
-          {" free"}
-        </Animated.Text>
-      </View>
+    <View style={styles.container}>
+      <HeroLines lines={heroLines} reveal={reveal} />
       {/* `flex: 1` belongs to this wrapper: `CalendarView` fills its parent, and
           an `Animated.View` sized to its content would give it nothing to fill.
           Opacity only, no translate — `SwipeablePage`'s intro already slides the

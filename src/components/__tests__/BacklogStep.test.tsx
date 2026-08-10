@@ -1,5 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { act, fireEvent, render } from "@testing-library/react-native";
+import { act, render } from "@testing-library/react-native";
 import { StyleSheet, TextStyle } from "react-native";
 import type { ReactTestInstance } from "react-test-renderer";
 
@@ -131,7 +131,7 @@ describe("BacklogStep", () => {
       expect(screen.getByLabelText("0 tasks overdue")).toBeTruthy();
       expect(screen.getByLabelText("0 tasks due soon")).toBeTruthy();
       for (const key of ["leftBehind", "overdue", "dueSoon"]) {
-        expect(colorOf(screen.getByTestId(`backlog-count-${key}`))).toBe(
+        expect(colorOf(screen.getByTestId(`hero-figure-${key}`))).toBe(
           colors.success,
         );
       }
@@ -170,13 +170,13 @@ describe("BacklogStep", () => {
     it("colors the figures by what they mean", () => {
       const screen = renderStep([leftBehind("1"), overdue("2"), dueSoon("3")]);
 
-      expect(colorOf(screen.getByTestId("backlog-count-leftBehind"))).toBe(
+      expect(colorOf(screen.getByTestId("hero-figure-leftBehind"))).toBe(
         colors.error,
       );
-      expect(colorOf(screen.getByTestId("backlog-count-overdue"))).toBe(
+      expect(colorOf(screen.getByTestId("hero-figure-overdue"))).toBe(
         colors.error,
       );
-      expect(colorOf(screen.getByTestId("backlog-count-dueSoon"))).toBe(
+      expect(colorOf(screen.getByTestId("hero-figure-dueSoon"))).toBe(
         colors.priority[ETaskPriority.IMPORTANT_AND_URGENT],
       );
     });
@@ -184,10 +184,10 @@ describe("BacklogStep", () => {
     it("still colors an empty bucket as success", () => {
       const screen = renderStep([leftBehind("1")]);
 
-      expect(colorOf(screen.getByTestId("backlog-count-leftBehind"))).toBe(
+      expect(colorOf(screen.getByTestId("hero-figure-leftBehind"))).toBe(
         colors.error,
       );
-      expect(colorOf(screen.getByTestId("backlog-count-overdue"))).toBe(
+      expect(colorOf(screen.getByTestId("hero-figure-overdue"))).toBe(
         colors.success,
       );
     });
@@ -198,32 +198,6 @@ describe("BacklogStep", () => {
       renderStep([leftBehind("1")]);
 
       expect(drawerProps().showSearch).toBe(false);
-    });
-
-    // Without a shared width the words would start at a different x on any line
-    // whose count runs to more digits, which is the whole point of the column.
-    it("gives every figure the widest figure's width", () => {
-      const screen = renderStep([leftBehind("1"), overdue("2")]);
-
-      act(() => {
-        for (const [key, width] of [
-          ["leftBehind", 24],
-          ["overdue", 11],
-          ["dueSoon", 11],
-        ] as const) {
-          fireEvent(screen.getByTestId(`backlog-count-${key}`), "layout", {
-            nativeEvent: { layout: { width, height: 30, x: 0, y: 0 } },
-          });
-        }
-      });
-
-      for (const key of ["leftBehind", "overdue", "dueSoon"]) {
-        expect(
-          StyleSheet.flatten(
-            screen.getByTestId(`backlog-count-${key}`).props.style as TextStyle,
-          ).minWidth,
-        ).toBe(24);
-      }
     });
 
     it("hands the drawer the ritual's day rather than today's", () => {
