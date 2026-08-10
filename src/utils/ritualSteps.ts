@@ -211,22 +211,36 @@ export const goToStep = (state: TRitualState, step: number): TRitualState => {
 };
 
 /**
- * Change the viewed day, restarting the ritual.
+ * Change the viewed day, **staying on the current step** (DEX-138).
  *
- * A ritual belongs to its day, so carrying step 4 into another one is
- * meaningless. `direction` comes from `Temporal.PlainDate.compare` so a jump
- * from the date picker animates the way the calendar reads, however far it
- * travels — the same derivation `today/index.tsx` uses.
+ * The step is the question being asked; the date only says which day's answer
+ * is on screen. Someone who walked to Journal and then paged back a day is
+ * comparing yesterday's journal to today's, and dropping them at Horoscope
+ * makes them walk the whole ritual again to ask the same question — every day
+ * they visit costs another lap. This is the same contract the Today tab keeps:
+ * changing the day there leaves you on Tasks or Notes rather than resetting the
+ * view.
+ *
+ * Carrying the index across is safe because a date change touches neither
+ * `mode` nor `journalEnabled`, so `stepsFor` returns the very same list and the
+ * index still means the step it meant. `withMode` resets to 0 precisely because
+ * it *does* change that list.
+ *
+ * `direction` comes from `Temporal.PlainDate.compare` so a jump from the date
+ * picker animates the way the calendar reads, however far it travels — the same
+ * derivation `today/index.tsx` uses. The date is part of `ritualPageKey`, so
+ * the page still remounts and re-seeds its content for the new day even though
+ * the step index did not move.
  */
 export const withDate = (
   state: TRitualState,
   date: Temporal.PlainDate,
 ): TRitualState => {
   const direction = Temporal.PlainDate.compare(date, state.date);
-  // Picking the day already on screen is not a change: restarting the step and
-  // the animation for it would read as a flicker.
+  // Picking the day already on screen is not a change: replaying the intro
+  // animation for it would read as a flicker.
   if (direction === 0) return state;
-  return { ...state, date, step: 0, direction };
+  return { ...state, date, direction };
 };
 
 /**
@@ -278,11 +292,14 @@ export const withJournalEnabled = (
 /**
  * Apply a deep link (`utils/ritualRoute.ts`) as **one** transition.
  *
- * Ordering is the whole point of this living here rather than at the route:
- * `withDate` restarts the ritual at step 0, so a date and a step applied as two
- * separate updates would land on the date's first step, not the one asked for.
+ * Both parts land in a single state, so the screen never renders the link's
+ * date against the pre-link step for a frame, and `direction` resolves once:
+ * the step's travel wins when the link moves the step, and the date's remains
+ * when it doesn't (`goToStep` returns its input for a step already on screen).
  * An unknown step id (a hand-edited URL, or `step: "journal"` for a user who
- * has the journal off) leaves the step alone rather than guessing.
+ * has the journal off) leaves the step alone rather than guessing — which,
+ * since `withDate` now keeps the step (DEX-138), means a link carrying only a
+ * date moves the day and stays put.
  */
 export const withLink = (
   state: TRitualState,

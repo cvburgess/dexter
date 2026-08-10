@@ -85,8 +85,16 @@ export function LargeScreenRitual({
       {/* Only the top inset here: `SwipeablePage` supplies the side gutter, on
           this layout exactly as it does on the phone, so the step never pads
           itself from its container's edge (see docs/design.md, "Who owns
-          spacing"). */}
-      <View style={[styles.body, { paddingTop: theme.space.md }]}>
+          spacing").
+
+          **Twice that gutter**, not equal to it (DEX-138). Once the page is
+          capped and centered, a step that paints to its own edges — the
+          horoscope's card does — reads as hanging off the toolbar at a matching
+          inset, because the window leaves far more air at its sides than the
+          gutter ever will. Derived from the same token the sides use so the two
+          cannot drift; the phone keeps them equal, having no centering bands to
+          answer to. */}
+      <View style={[styles.body, { paddingTop: theme.space.md * 2 }]}>
         <SwipeablePage
           canNext={!lastStep}
           canPrev={!isFirstStep(state)}

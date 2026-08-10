@@ -192,13 +192,15 @@ describe("RitualScreen", () => {
     expect(screen.getByText(`small:${TODAY}:am:4:1`)).toBeTruthy();
   });
 
-  it("restarts the ritual on another day, animating the way it travelled", () => {
+  // DEX-138: the day moves under the step rather than restarting the ritual, so
+  // the same question can be asked of another day without walking back to it.
+  it("holds the step on another day, animating the way it travelled", () => {
     const screen = render(<RitualScreen />);
 
     fireEvent.press(screen.getByLabelText("swipe-forward"));
     fireEvent.press(screen.getByLabelText("jump-forward"));
 
-    expect(screen.getByText("small:2026-08-12:am:0:1")).toBeTruthy();
+    expect(screen.getByText("small:2026-08-12:am:1:1")).toBeTruthy();
   });
 
   it("restarts the ritual when the mode is switched", () => {

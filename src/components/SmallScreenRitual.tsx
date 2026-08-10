@@ -1,6 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useState } from "react";
-import { StyleSheet } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { DayNavHeader } from "@/components/DayNavHeader";
@@ -71,28 +71,38 @@ export function SmallScreenRitual({
           <RitualStepSwitcher onSelectStep={onSelectStep} state={state} />
         }
       />
-      <SwipeablePage
-        canNext={!lastStep}
-        canPrev={!isFirstStep(state)}
-        direction={state.direction}
-        enabled={!editing}
-        onSwipe={onSwipe}
-        pageKey={ritualPageKey(state)}
-      >
-        {/* `setEditing` passed raw, not wrapped — see `RitualStepView`'s
-            `onEditingChange`. */}
-        <RitualStepView
-          date={state.date}
-          onEditingChange={setEditing}
-          step={step}
-        />
-      </SwipeablePage>
+      {/* Only the top inset here: `SwipeablePage` supplies the side gutter, and
+          this is the same `space.md` so a step that paints to its own edges —
+          the horoscope's card does — sits the same distance off the header as
+          it does off the sides. Matches what `LargeScreenRitual` has always
+          added (see docs/design.md, "Who owns spacing"). */}
+      <View style={[styles.body, { paddingTop: theme.space.md }]}>
+        <SwipeablePage
+          canNext={!lastStep}
+          canPrev={!isFirstStep(state)}
+          direction={state.direction}
+          enabled={!editing}
+          onSwipe={onSwipe}
+          pageKey={ritualPageKey(state)}
+        >
+          {/* `setEditing` passed raw, not wrapped — see `RitualStepView`'s
+              `onEditingChange`. */}
+          <RitualStepView
+            date={state.date}
+            onEditingChange={setEditing}
+            step={step}
+          />
+        </SwipeablePage>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  body: {
     flex: 1,
   },
 });

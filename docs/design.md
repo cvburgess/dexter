@@ -339,8 +339,26 @@ columns and the Today panes deliberately supply none, so the row's own `gap` is
 the whole space between them.
 
 The Ritual tab is the one place `SwipeablePage` supplies that gutter on a *large*
-screen too, since it wraps the step at every width there — `LargeScreenRitual`
-adds only the top inset, and `RitualStepView` carries nothing of its own.
+screen too, since it wraps the step at every width there — both ritual layouts
+add only the top inset, and `RitualStepView` carries nothing of its own. That
+inset is `md` on the phone, matching the sides, and `md * 2` on a large screen:
+a step that paints to its own edges (the horoscope's card) reads as hanging off
+the toolbar at a matching inset once the page is capped and centered, because
+the window leaves far more air at the card's sides than the gutter ever will.
+Both are derived from the token the sides use, so they cannot drift apart.
+
+Because it is the only swipeable page that renders above the breakpoint, it is
+also the only one where `SwipeablePage`'s width cap shows: the page holds a
+column of at most `SWIPEABLE_PAGE_MAX_WIDTH` (`utils/breakpoints.ts`) and
+centers it (DEX-138). A ritual step is a reading-and-writing surface, not a pane
+that flexes to fill a multi-column layout — left uncapped, the horoscope's
+summary became one 1400dp sentence and the journal's fields text inputs several
+times wider than anything the ritual was designed against. The **gesture** is
+not capped with it: the stage hosting it stays full-bleed, so a drag starting in
+the empty margin of a wide window still pages rather than finding a dead zone.
+The commit threshold measures the capped column, so advancing costs the same
+share of the page it does on a phone. The toolbar above is unaffected and still
+spans the window.
 
 Reach for a `padding`/`inset` prop only after checking whether the caller can
 just wrap the thing in a padded view — it almost always can.

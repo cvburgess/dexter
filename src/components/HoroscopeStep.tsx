@@ -30,6 +30,7 @@ import { Icon } from "@/components/Icon";
 import { StarField } from "@/components/StarField";
 import { useHoroscope } from "@/hooks/useHoroscope";
 import { useHoroscopeAudio } from "@/hooks/useHoroscopeAudio";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { useSunSignPreference } from "@/hooks/usePreferences";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
 import { bySentence, HOROSCOPE_FACETS, SUN_SIGNS } from "@/utils/horoscope";
@@ -95,9 +96,41 @@ const heroGlyphSize = (theme: Theme) => theme.controls.md * 2;
  * drawn frame: text has to sit off a border rather than against it, and a line
  * of `heading` set edge to edge on a phone is too long to scan anyway.
  *
+ * **Six times on a large screen** (DEX-138). Doubling it there corrected an
+ * inversion: `space.lg` is a density token, and `compact` — which applies on
+ * web at exactly the widths where the panel is now a centered card — shrinks it
+ * from 24 to 18, so the doubled gutter put *36* between the text and the card
+ * edge on a desktop window against the phone's 48. The least air on the screen
+ * with the most room to give, and the more obvious for the panel having stopped
+ * running to the window's edges.
+ *
+ * Six lands 108 on desktop web and 144 on a tablet, where the tier stays
+ * `comfortable`. Deliberately far past the point where it merely clears the
+ * border: against a 768dp cap it narrows the hero's measure to roughly 530 and
+ * 450dp, which is the width the centered `heading` actually wants — this is the
+ * card's margin, not its padding.
+ *
  * Not a token — see `heroGlyphSize` above for why deriving beats adding one.
  */
-const contentGutter = (theme: Theme) => theme.space.lg * 2;
+const contentGutter = (theme: Theme, largeScreen: boolean) =>
+  theme.space.lg * (largeScreen ? 6 : 2);
+
+/**
+ * The hero summary's leading.
+ *
+ * `heading` is sized to name a screen in one short line, and its default line
+ * box is tuned for exactly that — set as a centered block of two or three
+ * sentences it packs them together, and `bySentence` puts each on its own line,
+ * so the tight leading closes the gap *between sentences* as well as between
+ * wrapped lines. 1.4 opens both: enough air for the eye to find the next line
+ * in centered text, which has no left edge to return to.
+ *
+ * Rounded because a fractional line height lands text on half-pixels, and
+ * derived from the token rather than fixed so it follows the density tier —
+ * see `heroGlyphSize` above for why deriving beats adding a token here.
+ */
+const summaryLineHeight = (theme: Theme) =>
+  Math.round(theme.fonts.heading.fontSize * 1.4);
 
 /**
  * How far the reader has to scroll before the chevron is fully gone.
@@ -189,6 +222,10 @@ type THoroscopeStepProps = {
  */
 export function HoroscopeStep({ date }: THoroscopeStepProps) {
   const theme = useTheme();
+  // Only for `contentGutter` — the panel is capped at a fixed width above this
+  // breakpoint (`SwipeablePage`), so the gutter is the one thing left that
+  // decides how the card breathes. Nothing else here reads the window.
+  const largeScreen = useIsLargeDevice();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   // The narrowed hook, not `usePreferences`, because `null` means something
@@ -403,7 +440,9 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
         />
       ) : (
         <Animated.ScrollView
-          contentContainerStyle={{ paddingHorizontal: contentGutter(theme) }}
+          contentContainerStyle={{
+            paddingHorizontal: contentGutter(theme, largeScreen),
+          }}
           onLayout={onLayout}
           ref={scrollRef}
           // The chevron already says there is more below, and it fades out as
@@ -432,7 +471,17 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
                 // Well past that here: Luck is the end of the reading, and
                 // landing its last line hard against the tab bar reads as the
                 // text being cut off rather than as having finished.
-                paddingBottom: theme.space.lg * 2 + insets.bottom,
+                //
+                // **Overscroll, not clearance, on a large screen** (DEX-138).
+                // The hero above is a full viewport whose content is centered
+                // in it, so its lower half is empty sky — and with only enough
+                // padding to clear the bar, the scroll runs out while that band
+                // is still on screen and the reading ends pinned to the bottom
+                // edge under it. The extra travel lets the last facets climb
+                // into that space instead. Matches the side gutter's multiple,
+                // so the card's air reads as one measure on three sides.
+                paddingBottom:
+                  theme.space.lg * (largeScreen ? 6 : 2) + insets.bottom,
               },
               facetsStyle,
             ]}
@@ -593,7 +642,7 @@ function Hero({
           style={[
             styles.summary,
             theme.fonts.heading,
-            { color: ink.text },
+            { color: ink.text, lineHeight: summaryLineHeight(theme) },
             summaryStyle,
           ]}
         >

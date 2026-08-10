@@ -1,9 +1,11 @@
 import { render } from "@testing-library/react-native";
-import { Text } from "react-native";
+import { StyleSheet, Text } from "react-native";
 import {
   fireGestureHandler,
   getByGestureTestId,
 } from "react-native-gesture-handler/jest-utils";
+
+import { SWIPEABLE_PAGE_MAX_WIDTH } from "@/utils/breakpoints";
 
 import { getSwipeCommitDirection, SwipeablePage } from "../SwipeablePage";
 
@@ -46,6 +48,21 @@ describe("SwipeablePage", () => {
     );
 
     expect(screen.getByText("Task A")).toBeTruthy();
+  });
+
+  // DEX-138: a page holds a column no wider than a tablet in portrait however
+  // much window it is handed. `width: "100%"` is half the pair — without it the
+  // centering stage would shrink the page to its content instead.
+  it("caps and centers the page at a tablet-portrait width", () => {
+    const screen = render(
+      <SwipeablePage pageKey="horoscope" direction={0} onSwipe={jest.fn()}>
+        <Text>Horoscope</Text>
+      </SwipeablePage>,
+    );
+
+    expect(
+      StyleSheet.flatten(screen.getByTestId("swipeable-page").props.style),
+    ).toMatchObject({ maxWidth: SWIPEABLE_PAGE_MAX_WIDTH, width: "100%" });
   });
 
   it("commits forward when swiped left past the threshold", () => {

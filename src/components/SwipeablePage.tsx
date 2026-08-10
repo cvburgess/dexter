@@ -1,6 +1,7 @@
 import { ReactNode, useEffect } from "react";
-import { Dimensions, LayoutChangeEvent, StyleSheet } from "react-native";
+import { Dimensions, LayoutChangeEvent, StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { SWIPEABLE_PAGE_MAX_WIDTH } from "@/utils/breakpoints";
 import { useTheme } from "@/utils/theme";
 import Animated, {
   interpolate,
@@ -60,6 +61,10 @@ type TSwipeablePageProps = {
  * flow (`SmallScreenRitual`). The gesture, the intro animation and the phone's
  * side gutter are identical in both cases, so they live here once (DEX-127) —
  * only the arithmetic behind `pageKey` differs, and that belongs to the host.
+ *
+ * The page is also capped at `SWIPEABLE_PAGE_MAX_WIDTH` and centered (DEX-138),
+ * which only shows up on the Ritual tab — it is the one host that renders a
+ * swipeable page above the large-screen breakpoint.
  */
 // Remount the swipeable surface whenever the page changes. A fresh mount starts
 // with translateX back at 0, so the just-swiped-away page is never snapped back
@@ -81,7 +86,12 @@ function SwipeablePageContent({
 }: Omit<TSwipeablePageProps, "pageKey">) {
   const theme = useTheme();
   const translateX = useSharedValue(0);
-  const width = useSharedValue(Dimensions.get("window").width);
+  // Only a seed until the first `onLayout`, but clamped so it agrees with the
+  // capped page rather than the window it sits in — otherwise a gesture landing
+  // before layout would measure against a threshold the page never has.
+  const width = useSharedValue(
+    Math.min(Dimensions.get("window").width, SWIPEABLE_PAGE_MAX_WIDTH),
+  );
   // Page-intro progress, 0 → 1: fades/slides the freshly mounted page in from
   // the direction of travel. Driven by a plain shared value rather than an
   // `entering` layout animation — on the new architecture, entering animations
@@ -151,24 +161,38 @@ function SwipeablePageContent({
 
   return (
     <GestureDetector gesture={pan}>
-      <Animated.View
-        onLayout={onLayout}
-        // The phone's side gutter, supplied once here for whichever page is on
-        // screen — none of Tasks/Notes/Journal/Calendar (or a ritual step)
-        // carries a gutter of its own (see docs/design.md, "Who owns spacing").
-        // `onLayout` reports the padded box, so the swipe threshold still
-        // measures the full screen.
-        style={[
-          styles.container,
-          { paddingHorizontal: theme.space.md },
-          animatedStyle,
-        ]}
-        collapsable={false}
-      >
-        <Animated.View style={[styles.container, introStyle]}>
-          {children}
+      {/* The stage is deliberately full-bleed while the page inside it is
+          capped: the gesture stays live all the way to the window's edges, so a
+          drag that starts in the empty margin of a wide window still pages
+          rather than landing in a dead zone. It is also the gesture host, hence
+          `collapsable={false}` — the page below is free to be laid out away
+          from it. */}
+      <View style={styles.stage} collapsable={false}>
+        <Animated.View
+          onLayout={onLayout}
+          testID="swipeable-page"
+          // The phone's side gutter, supplied once here for whichever page is
+          // on screen — none of Tasks/Notes/Journal/Calendar (or a ritual step)
+          // carries a gutter of its own (see docs/design.md, "Who owns
+          // spacing").
+          //
+          // `onLayout` measures *this* box rather than the stage on purpose:
+          // `getSwipeCommitDirection` takes a fraction of the width it is
+          // given, so measuring the capped column keeps a commit the same share
+          // of the visible page that it is on a phone. Measuring the window
+          // instead would make a desktop user drag half a screen to advance a
+          // 768dp page.
+          style={[
+            styles.page,
+            { paddingHorizontal: theme.space.md },
+            animatedStyle,
+          ]}
+        >
+          <Animated.View style={[styles.container, introStyle]}>
+            {children}
+          </Animated.View>
         </Animated.View>
-      </Animated.View>
+      </View>
     </GestureDetector>
   );
 }
@@ -176,5 +200,17 @@ function SwipeablePageContent({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  stage: {
+    flex: 1,
+    alignItems: "center",
+  },
+  // A page is a reading-and-writing surface, not a pane that flexes to fill a
+  // multi-column layout, so it holds a column no wider than a tablet in
+  // portrait however much window it is handed (DEX-138).
+  page: {
+    flex: 1,
+    width: "100%",
+    maxWidth: SWIPEABLE_PAGE_MAX_WIDTH,
   },
 });
