@@ -175,8 +175,8 @@ describe("CalendarStep", () => {
       });
 
       expect(screen.getByText("3 events today")).toBeTruthy();
-      expect(screen.getByText("5h 30m")).toBeTruthy();
-      expect(screen.getByText("8h 30m")).toBeTruthy();
+      // Booked and free read as one line: the same window split two ways.
+      expect(screen.getByText("5h 30m planned  •  8h 30m free")).toBeTruthy();
       expect(screen.getByText(`calendar:${DATE.toString()}`)).toBeTruthy();
     });
 
@@ -184,8 +184,7 @@ describe("CalendarStep", () => {
       const screen = renderStep({ events: [timed("a", 9, 10)] });
 
       expect(screen.getByText("1 event today")).toBeTruthy();
-      expect(screen.getByText("1h")).toBeTruthy();
-      expect(screen.getByText("13h")).toBeTruthy();
+      expect(screen.getByText("1h planned  •  13h free")).toBeTruthy();
     });
 
     // Time booked reads as spent, time left as available — the figures carry
@@ -212,8 +211,7 @@ describe("CalendarStep", () => {
       });
 
       expect(screen.getByText("1 event today")).toBeTruthy();
-      expect(screen.getByText("0h")).toBeTruthy();
-      expect(screen.getByText("14h")).toBeTruthy();
+      expect(screen.getByText("0h planned  •  14h free")).toBeTruthy();
     });
   });
 });

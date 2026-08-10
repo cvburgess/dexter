@@ -28,8 +28,9 @@ import { useTheme } from "@/utils/theme";
  * one driver cannot drift out of order however the timings are retuned.
  *
  * Far shorter than the horoscope's 3.6 seconds. That step is producing a
- * reading and its slowness is the conceit; this one reports three numbers, and
- * numbers that take seconds to arrive read as an app struggling to add up.
+ * reading and its slowness is the conceit; this one reports a count and a
+ * split, and numbers that take seconds to arrive read as an app struggling to
+ * add up.
  */
 const REVEAL_MS = 1200;
 const REVEAL_FADE = 0.7;
@@ -43,7 +44,7 @@ type TCalendarStepProps = {
 
 /**
  * The morning ritual's Calendar step (DEX-140): what the day already holds,
- * stated in a line or three, over the same timeline the Today tab draws.
+ * stated in a line or two, over the same timeline the Today tab draws.
  *
  * The step only exists at all while `preferences.enableCalendar` is on —
  * `utils/ritualSteps` drops it from the flow otherwise — so everything here is
@@ -199,22 +200,43 @@ export function CalendarStep({ date }: TCalendarStepProps) {
 
   return (
     <View style={[styles.container, { gap: theme.space.lg }]}>
+      {/* Centered, like the clear-day lines and the horoscope's summary: the
+          two read as one statement about the day rather than as a list, and
+          `textAlign` on the outer `Text` carries to the colored figures nested
+          inside it. */}
       <Animated.View style={[{ gap: theme.space.xs }, heroStyle]}>
-        <Text style={[theme.fonts.heading, { color: theme.colors.text }]}>
+        <Text
+          style={[
+            styles.heroLine,
+            theme.fonts.heading,
+            { color: theme.colors.text },
+          ]}
+        >
           {summary.eventCount === 1
             ? "1 event today"
             : `${summary.eventCount} events today`}
         </Text>
-        {/* The figure carries the color and the word stays in ink: what the
-            reader is weighing is how much of the day is spoken for, not the
-            word "planned". */}
-        <Text style={[theme.fonts.heading, { color: theme.colors.text }]}>
+        {/* Booked and free share one line, because they are one fact read two
+            ways — the same window split in two — and the bullet is what says
+            so. Each figure carries its own color while the words stay in ink:
+            what the reader is weighing is how much of the day is spoken for,
+            not the word "planned". Coloring the words too was tried and reads
+            as two warnings rather than one split. The separator is
+            `textSecondary`, a mark between the halves rather than a third
+            thing to read, and it takes two spaces a side — at `heading` the
+            single space let "planned" and the bullet crowd into one another. */}
+        <Text
+          style={[
+            styles.heroLine,
+            theme.fonts.heading,
+            { color: theme.colors.text },
+          ]}
+        >
           <Text style={{ color: theme.colors.error }}>
             {formatDuration(summary.plannedMinutes)}
           </Text>
           {" planned"}
-        </Text>
-        <Text style={[theme.fonts.heading, { color: theme.colors.text }]}>
+          <Text style={{ color: theme.colors.textSecondary }}>{"  •  "}</Text>
           <Text style={{ color: theme.colors.success }}>
             {formatDuration(summary.freeMinutes)}
           </Text>
