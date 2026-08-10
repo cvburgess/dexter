@@ -1043,6 +1043,60 @@ Deno.test("update_task rejects malformed subtask entries", () => {
   assertEquals(schema.subtasks.safeParse("not an array").success, false);
 });
 
+// `tasks.priority` is an unconstrained smallint, so this schema is the only
+// thing standing between an agent's guess and the column (DEX-137).
+Deno.test("task priority is bounded by the app's enum", () => {
+  const registry = taskTools(new RecordingSupabase({}));
+  const schema = registry.tools.get("create_task")
+    ?.inputSchema as Record<
+      string,
+      { safeParse(v: unknown): { success: boolean } }
+    >;
+
+  for (const value of [0, 1, 2, 3, 4]) {
+    assertEquals(schema.priority.safeParse(value).success, true);
+  }
+  assertEquals(schema.priority.safeParse(5).success, false);
+  assertEquals(schema.priority.safeParse(-1).success, false);
+  assertEquals(schema.priority.safeParse(1.5).success, false);
+  // A numeric TS enum carries a reverse mapping — the key names must not be
+  // accepted as values, which would put a string into a smallint column.
+  assertEquals(schema.priority.safeParse("URGENT").success, false);
+  assertEquals(schema.priority.safeParse(null).success, false);
+});
+
+// The two fields sit adjacent in the same input as bare `0–4` integers meaning
+// entirely different things, and agents were writing a priority into `status`.
+// The descriptions are the fix, so assert they cannot be silently dropped.
+Deno.test("task priority and status carry field descriptions", () => {
+  const registry = taskTools(new RecordingSupabase({}));
+  const described = (tool: string, field: string) => {
+    const schema = registry.tools.get(tool)?.inputSchema as Record<
+      string,
+      { description?: string } | undefined
+    >;
+    return schema[field]?.description ?? "";
+  };
+
+  for (const tool of ["create_task", "update_task"]) {
+    assert(described(tool, "priority").length > 0);
+    assert(described(tool, "status").length > 0);
+  }
+  // The `list_tasks` filters wrap both schemas in a `z.union`, which emits its
+  // own description rather than its members' — they need their own.
+  assert(described("list_tasks", "priority").length > 0);
+  assert(described("list_tasks", "status").length > 0);
+  // A template has no status; its priority still needs describing.
+  const templates = templateTools(new RecordingSupabase({}));
+  for (const tool of ["create_template", "update_template"]) {
+    const schema = templates.tools.get(tool)?.inputSchema as Record<
+      string,
+      { description?: string } | undefined
+    >;
+    assert((schema.priority?.description ?? "").length > 0);
+  }
+});
+
 Deno.test("update_task sweeps open subtasks closed in the same write", async () => {
   const supabase = new RecordingSupabase({
     tasks: [

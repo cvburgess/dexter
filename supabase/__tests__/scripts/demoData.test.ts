@@ -1,5 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 
+import { ETaskPriority } from "@src/utils/taskPriority.ts";
 import { ETaskStatus, isCompletionStatus } from "@src/utils/taskStatus.ts";
 
 import {
@@ -41,15 +42,19 @@ Deno.test("templates use valid midnight cron schedules", () => {
       CRON_REGEX.test(template.schedule),
       `template ${template.key} bad schedule: ${template.schedule}`,
     );
-    assert(template.priority >= 0 && template.priority <= 4);
+    assert(ETaskPriority[template.priority] !== undefined);
   }
 });
 
 Deno.test("tasks have valid enums and title length", () => {
   for (const task of data.tasks) {
-    assert(task.priority >= 0 && task.priority <= 4, `${task.title} priority`);
-    // Checked against the enum's reverse mapping rather than a hand-written
-    // bound, so a status added to `ETaskStatus` widens this automatically.
+    // Both checked against the enum's reverse mapping rather than a
+    // hand-written bound, so a member added to either enum widens this
+    // automatically.
+    assert(
+      ETaskPriority[task.priority] !== undefined,
+      `${task.title} priority`,
+    );
     assert(ETaskStatus[task.status] !== undefined, `${task.title} status`);
     assert(
       task.title.length > 0 && task.title.length <= 100,

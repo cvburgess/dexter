@@ -48,7 +48,8 @@ export interface TThemeColors {
   success: string;
   successContent: string;
   /**
-   * Task priority accent colors, indexed by `ETaskPriority` (`api/tasks.ts`):
+   * Task priority accent colors, indexed by `ETaskPriority`
+   * (`utils/taskPriority.ts`):
    * [IMPORTANT_AND_URGENT, URGENT, IMPORTANT, NEITHER, UNPRIORITIZED]. Ported
    * from dexter-app's `cardColors` (`src/components/Card.tsx`), which maps
    * those same priorities to the daisyUI `warning` / `error` / `info` /

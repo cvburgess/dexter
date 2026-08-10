@@ -3,25 +3,16 @@
 // env access — so it can be unit-tested without a database. `seed-demo.ts`
 // resolves the symbolic keys and day offsets below into real UUIDs and dates.
 //
-// Priority values mirror the app:
-//   priority: 0 IMPORTANT_AND_URGENT, 1 URGENT, 2 IMPORTANT, 3 NEITHER, 4 UNPRIORITIZED
-// (see src/api/tasks.ts)
-
-// Status is the app's own enum, not a copy of it — `scripts/deno.json` maps
-// `@src/` the same way the MCP server's config does, and `taskStatus.ts` is
-// import-free, so this module stays pure. Aliased to `DEMO_STATUS` to keep the
-// `DEMO_*` naming the rest of the file reads by.
+// Status and priority are the app's own enums, not copies of them —
+// `scripts/deno.json` maps `@src/` the same way the MCP server's config does,
+// and both modules are import-free, so this one stays pure. Aliased to
+// `DEMO_STATUS` / `DEMO_PRIORITY` to keep the `DEMO_*` naming the rest of the
+// file reads by. Priority was a hand-copied object literal until DEX-137
+// extracted `ETaskPriority` somewhere Deno could reach it.
+import { ETaskPriority as DEMO_PRIORITY } from "@src/utils/taskPriority.ts";
 import { ETaskStatus as DEMO_STATUS } from "@src/utils/taskStatus.ts";
 
-export { DEMO_STATUS };
-
-export const DEMO_PRIORITY = {
-  IMPORTANT_AND_URGENT: 0,
-  URGENT: 1,
-  IMPORTANT: 2,
-  NEITHER: 3,
-  UNPRIORITIZED: 4,
-} as const;
+export { DEMO_PRIORITY, DEMO_STATUS };
 
 export interface DemoList {
   key: string;

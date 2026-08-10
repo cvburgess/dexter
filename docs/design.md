@@ -59,7 +59,7 @@ what separates the two, so that border is load-bearing.
 
 ## Priority colors
 
-Three parallel arrays, indexed by `ETaskPriority`:
+Three parallel arrays, indexed by `ETaskPriority` (`src/utils/taskPriority.ts`):
 
 | Token | What it is | Used for |
 | --- | --- | --- |
