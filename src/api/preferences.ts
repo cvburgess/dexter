@@ -21,6 +21,10 @@ export type TPreferences = {
   darkTheme: string;
   enableCalendar: boolean;
   enableHabits: boolean;
+  /** Whether the Ritual's morning walk includes its Horoscope step (DEX-142).
+   * Independent of `sunSign`: turning the step off leaves a chosen sign stored,
+   * so turning it back on restores the horoscope rather than re-asking. */
+  enableHoroscope: boolean;
   enableJournal: boolean;
   enableNotes: boolean;
   lightTheme: string;
@@ -54,6 +58,7 @@ export type TUpdatePreferences = {
   darkTheme?: string;
   enableCalendar?: boolean;
   enableHabits?: boolean;
+  enableHoroscope?: boolean;
   enableJournal?: boolean;
   enableNotes?: boolean;
   lightTheme?: string;

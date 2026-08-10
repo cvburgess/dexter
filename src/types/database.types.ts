@@ -231,6 +231,7 @@ export type Database = {
           dark_theme: string;
           enable_calendar: boolean;
           enable_habits: boolean;
+          enable_horoscope: boolean;
           enable_journal: boolean;
           enable_notes: boolean;
           light_theme: string;
@@ -248,6 +249,7 @@ export type Database = {
           dark_theme?: string;
           enable_calendar?: boolean;
           enable_habits?: boolean;
+          enable_horoscope?: boolean;
           enable_journal?: boolean;
           enable_notes?: boolean;
           light_theme?: string;
@@ -265,6 +267,7 @@ export type Database = {
           dark_theme?: string;
           enable_calendar?: boolean;
           enable_habits?: boolean;
+          enable_horoscope?: boolean;
           enable_journal?: boolean;
           enable_notes?: boolean;
           light_theme?: string;

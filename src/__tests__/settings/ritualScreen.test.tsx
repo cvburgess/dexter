@@ -43,6 +43,7 @@ const mockUpdate = jest.fn();
 const renderWith = (
   overrides: {
     enableJournal?: boolean;
+    enableHoroscope?: boolean;
     templatePrompts?: string[];
     sunSign?: string | null;
   } = {},
@@ -50,6 +51,7 @@ const renderWith = (
   mockUsePreferences.mockReturnValue([
     {
       enableJournal: true,
+      enableHoroscope: true,
       templatePrompts: [],
       sunSign: null,
       ...overrides,
@@ -132,6 +134,47 @@ describe("RitualScreen", () => {
 
       expect(pickerProps()?.selectedValue).toBe("leo");
     });
+
+    // The Horoscope is the other story: the sign feeds that step and nothing
+    // else, so with the step off the picker would offer a choice that changes
+    // nothing (DEX-142). `pickerProps` is null rather than stale because
+    // `resetPicker` runs in `beforeEach`.
+    it("hides when the Horoscope is disabled", () => {
+      renderWith({ enableHoroscope: false, sunSign: "leo" });
+
+      expect(pickerProps()).toBeNull();
+    });
+
+    // Hiding the picker must not clear the stored sign: turning the Horoscope
+    // back on has to restore the horoscope rather than re-ask for a sign.
+    it("comes back with the stored sign when the Horoscope is re-enabled", () => {
+      renderWith({ enableHoroscope: true, sunSign: "leo" });
+
+      expect(pickerProps()?.selectedValue).toBe("leo");
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+  });
+
+  it("reflects the Horoscope enabled state and toggles it", () => {
+    const screen = renderWith({ enableHoroscope: true });
+
+    expect(screen.getByLabelText("Horoscope").props.value).toBe(true);
+
+    fireEvent(screen.getByLabelText("Horoscope"), "valueChange", false);
+
+    expect(mockUpdate).toHaveBeenCalledWith({ enableHoroscope: false });
+  });
+
+  // Each toggle owns its own section: turning one off must leave the other's
+  // settings on screen, since they are independent steps of the same ritual.
+  it("keeps the Journal prompts when the Horoscope is disabled", () => {
+    const screen = renderWith({
+      enableHoroscope: false,
+      templatePrompts: ["Highlight"],
+    });
+
+    expect(screen.getByLabelText("Journal prompt 1")).toBeTruthy();
+    expect(renderHeader().getByLabelText("Add prompt")).toBeTruthy();
   });
 
   it("skips the left safe-area edge in two-pane mode (sidebar owns it)", () => {

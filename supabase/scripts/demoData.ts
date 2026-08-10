@@ -100,6 +100,9 @@ export interface DemoPreferences {
   enableNotes: boolean;
   enableJournal: boolean;
   enableHabits: boolean;
+  enableHoroscope: boolean;
+  /** A `public.sun_sign` enum value — see 20260804005118_add_horoscopes.sql. */
+  sunSign: string;
   templatePrompts: string[];
 }
 
@@ -412,6 +415,11 @@ export function buildDemoData(): DemoDataset {
     enableNotes: true,
     enableJournal: true,
     enableHabits: true,
+    enableHoroscope: true,
+    // Set so the Horoscope step shows an actual horoscope: with no sign it
+    // renders the "Choose your sign" prompt instead, which is not what the demo
+    // account or an App Store screenshot should show.
+    sunSign: "libra",
     templatePrompts: [...PROMPTS],
   };
 

@@ -63,10 +63,10 @@ export type TRitualStep = {
 
 /**
  * The steps of each ritual, in order, for a user with every step turned on.
- * Read through `stepsFor` rather than directly — `journal` and `calendar` each
- * drop out when the user has that feature disabled. Most steps still render a
- * centered placeholder; later DEX-34 sub-issues replace them one at a time in
- * `components/RitualStepView.tsx`.
+ * Read through `stepsFor` rather than directly — `journal`, `calendar` and
+ * `horoscope` each drop out when the user has that feature disabled. Most steps
+ * still render a centered placeholder; later DEX-34 sub-issues replace them one
+ * at a time in `components/RitualStepView.tsx`.
  */
 export const RITUAL_STEPS: Record<TRitualMode, readonly TRitualStep[]> = {
   am: [
@@ -88,13 +88,15 @@ export const RITUAL_STEPS: Record<TRitualMode, readonly TRitualStep[]> = {
 
 /**
  * The preferences that decide which steps a ritual has at all: the journal
- * (DEX-105) left the Today tab for the ritual, and the calendar (DEX-140) only
- * appears for a user who has one — so a preference that used to hide a day view
- * now hides a step.
+ * (DEX-105) left the Today tab for the ritual, the calendar (DEX-140) only
+ * appears for a user who has one, and the horoscope (DEX-142) is opt-out for
+ * anyone who would rather not be walked through one — so a preference that used
+ * to hide a day view now hides a step.
  */
 export type TRitualStepToggles = {
   journalEnabled: boolean;
   calendarEnabled: boolean;
+  horoscopeEnabled: boolean;
 };
 
 /**
@@ -108,6 +110,7 @@ export type TRitualStepToggles = {
 const STEP_TOGGLE: Partial<Record<TRitualStepId, keyof TRitualStepToggles>> = {
   journal: "journalEnabled",
   calendar: "calendarEnabled",
+  horoscope: "horoscopeEnabled",
 };
 
 /**
@@ -115,19 +118,36 @@ const STEP_TOGGLE: Partial<Record<TRitualStepId, keyof TRitualStepToggles>> = {
  * `STEP_LISTS` is an exhaustive `Record` — an `Object.fromEntries` build would
  * widen the key to `string` and let a missing combination through as
  * `undefined` at runtime.
+ *
+ * One character per toggle, in the order `journal`, `calendar`, `horoscope`;
+ * a `-` is that toggle turned off. Every added toggle doubles this list, which
+ * is the cost of the exhaustiveness above — worth paying while it stays legible
+ * by eye, and the signal to reach for a lazy cache if it stops.
  */
-const TOGGLE_KEYS = ["jc", "j-", "-c", "--"] as const;
+const TOGGLE_KEYS = [
+  "jch",
+  "jc-",
+  "j-h",
+  "j--",
+  "-ch",
+  "-c-",
+  "--h",
+  "---",
+] as const;
 type TToggleKey = (typeof TOGGLE_KEYS)[number];
 
 // The return annotation is the check that matters: TypeScript infers the
-// template's own union of four literals, so a key shape that drifted out of
+// template's own union of eight literals, so a key shape that drifted out of
 // `TOGGLE_KEYS` would fail here rather than at a lookup returning `undefined`.
 const toggleKey = (toggles: TRitualStepToggles): TToggleKey =>
-  `${toggles.journalEnabled ? "j" : "-"}${toggles.calendarEnabled ? "c" : "-"}`;
+  `${toggles.journalEnabled ? "j" : "-"}${
+    toggles.calendarEnabled ? "c" : "-"
+  }${toggles.horoscopeEnabled ? "h" : "-"}`;
 
 const togglesForKey = (key: TToggleKey): TRitualStepToggles => ({
   journalEnabled: key[0] === "j",
   calendarEnabled: key[1] === "c",
+  horoscopeEnabled: key[2] === "h",
 });
 
 const listsForMode = (
@@ -147,16 +167,16 @@ const listsForMode = (
 /**
  * Every ritual's step list, for every combination of the toggles.
  *
- * Precomputed rather than filtered per call so `stepsFor` returns one of eight
- * **stable** references: a fresh array on every render would defeat the
+ * Precomputed rather than filtered per call so `stepsFor` returns one of
+ * sixteen **stable** references: a fresh array on every render would defeat the
  * identity comparisons downstream (`ritualPageKey` aside, `ritualStepOptions`
  * maps it on every render of both switchers).
  *
- * The evening ritual has no calendar step, so its `"jc"`/`"j-"` entries (and
- * its `"-c"`/`"--"` pair) are distinct arrays holding identical steps. That is
- * harmless — nothing compares lists across a preference change, only across
- * renders at the same settings — but worth knowing before assuming identity
- * implies content-equality here.
+ * The evening ritual has neither a calendar nor a horoscope step, so its eight
+ * entries are distinct arrays holding only two distinct step lists — one per
+ * journal setting. That is harmless — nothing compares lists across a
+ * preference change, only across renders at the same settings — but worth
+ * knowing before assuming identity implies content-equality here.
  */
 const STEP_LISTS: Record<
   TRitualMode,
@@ -217,9 +237,9 @@ export const stepsFor = (state: TRitualState): readonly TRitualStep[] =>
 /**
  * A fresh ritual: today's morning or evening flow, at its first step.
  *
- * The toggles arrive as an object rather than as two more positional
- * parameters: they are the same type, so a transposed pair would be a silent
- * bug rather than a compile error. Both default to on, matching `RITUAL_STEPS`.
+ * The toggles arrive as an object rather than as more positional parameters:
+ * they are the same type, so a transposed pair would be a silent bug rather
+ * than a compile error. All default to on, matching `RITUAL_STEPS`.
  */
 export const createRitualState = (
   date: Temporal.PlainDate = Temporal.Now.plainDateISO(),
@@ -232,6 +252,7 @@ export const createRitualState = (
   direction: 0,
   journalEnabled: toggles.journalEnabled ?? true,
   calendarEnabled: toggles.calendarEnabled ?? true,
+  horoscopeEnabled: toggles.horoscopeEnabled ?? true,
 });
 
 /** The step on screen. */
@@ -301,7 +322,7 @@ export const goToStep = (state: TRitualState, step: number): TRitualState => {
  * view.
  *
  * Carrying the index across is safe because a date change touches neither
- * `mode` nor either toggle, so `stepsFor` returns the very same list and the
+ * `mode` nor any toggle, so `stepsFor` returns the very same list and the
  * index still means the step it meant. `withMode` resets to 0 precisely because
  * it *does* change that list.
  *
@@ -394,6 +415,25 @@ export const withCalendarEnabled = (
   calendarEnabled === state.calendarEnabled
     ? state
     : keepingStep(state, { ...state, calendarEnabled, direction: 0 });
+
+/**
+ * Follow a change to `preferences.enableHoroscope` (DEX-142), the same way
+ * `withJournalEnabled` follows the journal's.
+ *
+ * The horoscope is the morning ritual's **first** step, so it is the one toggle
+ * whose step cannot be preserved by id when it goes: someone standing on it
+ * falls to `keepingStep`'s clamp, which lands them on index 0 of the new list —
+ * the step that now begins the ritual. Every other step keeps its identity, so
+ * turning the horoscope off from another tab moves nobody who had already
+ * walked past it.
+ */
+export const withHoroscopeEnabled = (
+  state: TRitualState,
+  horoscopeEnabled: boolean,
+): TRitualState =>
+  horoscopeEnabled === state.horoscopeEnabled
+    ? state
+    : keepingStep(state, { ...state, horoscopeEnabled, direction: 0 });
 
 /**
  * Apply a deep link (`utils/ritualRoute.ts`) as **one** transition.

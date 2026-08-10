@@ -112,16 +112,22 @@ const mockUsePreferences = usePreferences as jest.MockedFunction<
   typeof usePreferences
 >;
 
-// Both step preferences are named explicitly rather than defaulted here: each
+// Every step preference is named explicitly rather than defaulted here: each
 // decides whether a step exists, so an omitted one reads as `false` and
 // silently shortens the list every assertion below counts against.
 const preferences = ({
   enableJournal = true,
   enableCalendar = true,
-}: { enableJournal?: boolean; enableCalendar?: boolean } = {}) =>
-  [{ enableJournal, enableCalendar }, {}] as unknown as ReturnType<
-    typeof usePreferences
-  >;
+  enableHoroscope = true,
+}: {
+  enableJournal?: boolean;
+  enableCalendar?: boolean;
+  enableHoroscope?: boolean;
+} = {}) =>
+  [
+    { enableJournal, enableCalendar, enableHoroscope },
+    {},
+  ] as unknown as ReturnType<typeof usePreferences>;
 
 const TODAY = "2026-08-09";
 const today = Temporal.PlainDate.from(TODAY);
@@ -383,6 +389,74 @@ describe("RitualScreen", () => {
 
       expect(screen.getByText(`small:${TODAY}:pm:4:1`)).toBeTruthy();
     });
+  });
+
+  describe("with the horoscope disabled", () => {
+    beforeEach(() => {
+      mockUsePreferences.mockReturnValue(
+        preferences({ enableHoroscope: false }),
+      );
+    });
+
+    // The horoscope is the morning ritual's first step, so this is the one
+    // preference that changes where the ritual *opens* — everything shifts down
+    // one rather than a gap appearing in the middle.
+    it("drops the horoscope step, so the second step is Calendar", () => {
+      const screen = render(<RitualScreen />);
+
+      fireEvent.press(screen.getByLabelText("swipe-forward"));
+
+      expect(screen.getByText(`small:${TODAY}:am:1:1`)).toBeTruthy();
+    });
+
+    it("stops one step earlier", () => {
+      const screen = render(<RitualScreen />);
+
+      for (let press = 0; press < 7; press++) {
+        fireEvent.press(screen.getByLabelText("swipe-forward"));
+      }
+
+      expect(screen.getByText(`small:${TODAY}:am:4:1`)).toBeTruthy();
+    });
+
+    it("leaves the evening ritual, which has no horoscope step, alone", () => {
+      jest.setSystemTime(localTime(15));
+      const screen = render(<RitualScreen />);
+
+      for (let press = 0; press < 6; press++) {
+        fireEvent.press(screen.getByLabelText("swipe-forward"));
+      }
+
+      expect(screen.getByText(`small:${TODAY}:pm:4:1`)).toBeTruthy();
+    });
+
+    it("refuses a horoscope deep link rather than landing somewhere arbitrary", () => {
+      mockUseLocalSearchParams.mockReturnValue({
+        date: "2026-07-12",
+        step: "horoscope",
+        n: "1",
+      });
+
+      const screen = render(<RitualScreen />);
+
+      expect(screen.getByText("small:2026-07-12:am:0:-1")).toBeTruthy();
+    });
+  });
+
+  // The horoscope defaults *on*, so its late arrival takes a step away like the
+  // journal's rather than adding one like the calendar's.
+  it("keeps the user on the same step when the horoscope preference arrives late", () => {
+    const screen = render(<RitualScreen />);
+
+    // Calendar: index 2 with the horoscope, index 1 without it.
+    fireEvent.press(screen.getByLabelText("swipe-forward"));
+    fireEvent.press(screen.getByLabelText("swipe-forward"));
+    expect(screen.getByText(`small:${TODAY}:am:2:1`)).toBeTruthy();
+
+    mockUsePreferences.mockReturnValue(preferences({ enableHoroscope: false }));
+    screen.rerender(<RitualScreen />);
+
+    expect(screen.getByText(`small:${TODAY}:am:1:0`)).toBeTruthy();
   });
 
   // The calendar preference defaults to *off*, so this runs in the opposite

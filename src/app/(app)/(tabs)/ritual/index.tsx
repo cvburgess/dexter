@@ -15,6 +15,7 @@ import {
   otherMode,
   withCalendarEnabled,
   withDate,
+  withHoroscopeEnabled,
   withJournalEnabled,
   withLink,
   withMode,
@@ -62,6 +63,7 @@ export default function RitualScreen() {
       createRitualState(undefined, undefined, {
         journalEnabled: preferences.enableJournal,
         calendarEnabled: preferences.enableCalendar,
+        horoscopeEnabled: preferences.enableHoroscope,
       }),
       link ?? { date: null, step: null },
     ),
@@ -87,12 +89,15 @@ export default function RitualScreen() {
     if (link) setState((current) => withLink(current, link));
   }
 
-  // Follow the journal and calendar preferences, both toggled in another tab
-  // while this screen stays mounted. `usePreferences` serves defaults until the
-  // row loads, so each corrects a moment after mount on a cold launch — and in
-  // opposite directions, since the journal defaults on and the calendar off.
-  // `withJournalEnabled` / `withCalendarEnabled` keep the user on the same step
-  // by id, which is what makes both corrections unremarkable.
+  // Follow the journal, calendar and horoscope preferences, each toggled in
+  // another tab while this screen stays mounted. `usePreferences` serves
+  // defaults until the row loads, so each corrects a moment after mount on a
+  // cold launch — and not all in the same direction, since the journal and
+  // horoscope default on while the calendar defaults off. Each `withXEnabled`
+  // keeps the user on the same step by id, which is what makes the corrections
+  // unremarkable. One `if` per preference, and deliberately not merged: they
+  // change independently, and each transition already returns its input when
+  // its own flag hasn't moved.
   if (state.journalEnabled !== preferences.enableJournal) {
     setState((current) =>
       withJournalEnabled(current, preferences.enableJournal),
@@ -101,6 +106,11 @@ export default function RitualScreen() {
   if (state.calendarEnabled !== preferences.enableCalendar) {
     setState((current) =>
       withCalendarEnabled(current, preferences.enableCalendar),
+    );
+  }
+  if (state.horoscopeEnabled !== preferences.enableHoroscope) {
+    setState((current) =>
+      withHoroscopeEnabled(current, preferences.enableHoroscope),
     );
   }
 
