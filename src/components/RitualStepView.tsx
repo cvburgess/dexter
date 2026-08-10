@@ -2,28 +2,54 @@ import { Temporal } from "@js-temporal/polyfill";
 
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { HoroscopeStep } from "@/components/HoroscopeStep";
+import { JournalView } from "@/components/JournalView";
 import type { TRitualStep } from "@/utils/ritualSteps";
 
 type TRitualStepViewProps = {
   step: TRitualStep;
-  /** The day the ritual is walking through — every step is scoped to it. */
+  /** The day the ritual is running for; steps that show a day's data need it. */
   date: Temporal.PlainDate;
+  /**
+   * Fired as a step's text field gains/loses focus, so the layout can suspend
+   * the step swipe while the caret is being positioned.
+   *
+   * **Must be referentially stable** — pass a `useState` setter, not an inline
+   * arrow. `JournalView`'s reset-on-unmount effect depends on this callback's
+   * identity, so a new function each render would re-run its cleanup and clear
+   * the flag the moment a field was focused, leaving the swipe fighting the
+   * editor.
+   */
+  onEditingChange: (editing: boolean) => void;
 };
 
 /**
  * The content of one ritual step.
  *
- * This exists as its own component rather than inline in `SmallScreenRitual`
- * because it is the seam each DEX-34 sub-issue fills in: a step branches on
- * `step.id` here and nothing else about the flow has to change. DEX-128 was the
- * first to use it; the steps with no branch yet still render their name
- * centered on the screen.
+ * This is the seam each DEX-34 sub-issue fills in: a step branches on `step.id`
+ * here and nothing else about the flow has to change. Two are built — Horoscope
+ * (DEX-128) and Journal (DEX-105) — and the rest fall through to the default
+ * and render their name centered.
  *
- * Carries no side gutter of its own — `SwipeablePage` supplies the phone's (see
- * docs/design.md, "Who owns spacing").
+ * Carries no side gutter of its own — `SwipeablePage` supplies it at both
+ * widths on this tab (see docs/design.md, "Who owns spacing").
  */
-export function RitualStepView({ step, date }: TRitualStepViewProps) {
-  if (step.id === "horoscope") return <HoroscopeStep date={date} />;
-
-  return <EmptyScreen message={step.title} />;
+export function RitualStepView({
+  step,
+  date,
+  onEditingChange,
+}: TRitualStepViewProps) {
+  switch (step.id) {
+    case "horoscope":
+      return <HoroscopeStep date={date} />;
+    // DEX-105: the journal left the Today tab for the ritual, so this is the
+    // only place it renders. Not keyed on the date — `SwipeablePage` remounts
+    // the whole step on a day change (`ritualPageKey`), which is what re-seeds
+    // the uncontrolled inputs.
+    case "journal":
+      return (
+        <JournalView date={date.toString()} onEditingChange={onEditingChange} />
+      );
+    default:
+      return <EmptyScreen message={step.title} />;
+  }
 }

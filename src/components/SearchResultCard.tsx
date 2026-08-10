@@ -14,7 +14,13 @@ type TSearchResultCardProps = {
   content: string;
   /** The search query, whose terms get marked in the excerpt. */
   query: string;
-  onPress: () => void;
+  /**
+   * Omitted for a result with nowhere to open — a journal entry while the
+   * journal is disabled (see `canOpenSearchResult`). The card still renders its
+   * excerpt; it just isn't a link, matching how `TaskCard` drops its `onPress`
+   * for a completed unscheduled task.
+   */
+  onPress?: () => void;
 };
 
 /**
@@ -38,10 +44,13 @@ export function SearchResultCard({
 
   return (
     <Pressable
-      accessibilityRole="button"
+      // Not a button when there is nowhere to go — announcing one that does
+      // nothing is worse than announcing the text itself.
+      accessibilityRole={onPress ? "button" : undefined}
       // Names the destination rather than reading out the excerpt, which the
       // Text below already exposes.
       accessibilityLabel={prompt ? `${prompt}, ${label}` : label}
+      disabled={!onPress}
       onPress={onPress}
       style={[
         styles.card,

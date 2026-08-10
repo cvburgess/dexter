@@ -13,7 +13,9 @@ whatever matters most to you.
 
 ## Using the journal
 
-The journal lives in the [Day](/tips/day) view under the **Journal** tab.
+The journal is a step of your daily ritual. Open the **Ritual** tab and move to
+the **Journal** step — it's there in both the morning and the evening ritual,
+and both write to the same entry for that day.
 
 ## Settings
 
@@ -21,8 +23,8 @@ The journal lives in the [Day](/tips/day) view under the **Journal** tab.
 
 ### Turning the journal on and off
 
-- **Enabled**: The journal tab will appear in the Day view
-- **Disabled**: The journal tab will be hidden
+- **Enabled**: The journal step appears in your rituals
+- **Disabled**: The journal step is skipped entirely
 
 ### Adding journal prompts
 

@@ -1,5 +1,6 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
-import { ScrollView } from "react-native";
+import type { ReactTestInstance } from "react-test-renderer";
+import { ScrollView, StyleSheet, type ViewStyle } from "react-native";
 
 import { TJournalPrompt } from "@/api/journals";
 import { useJournals } from "@/hooks/useJournals";
@@ -168,5 +169,108 @@ describe("JournalView", () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  // The field is prose the user is writing, so it grows instead of hiding the
+  // top of its own content behind a scrollbar; the surrounding ScrollView is
+  // what scrolls.
+  describe("growing to fit the response", () => {
+    const styleOf = (element: ReactTestInstance): ViewStyle =>
+      StyleSheet.flatten(element.props.style as ViewStyle);
+    const heightOf = (element: ReactTestInstance) => styleOf(element).minHeight;
+
+    // Regression guard, not a style preference. Disabling the input's own
+    // scrolling to "enforce" that it never scrolls makes iOS report a content
+    // size clamped to the view's bounds, so the measurement below only echoes
+    // back the height already set and the field can never grow past its first
+    // line — with `overflow: hidden` on top, that silently clips what is being
+    // typed. Growth is what removes the scrollbar; see `JournalResponseField`.
+    it("leaves its own scrolling alone so the content can be measured", () => {
+      const screen = setup({
+        prompts: [{ prompt: "How was today?", response: "" }],
+      });
+      const input = screen.getByTestId("journal-response-0");
+
+      expect(input.props.scrollEnabled).toBeUndefined();
+      expect(styleOf(input).overflow).toBeUndefined();
+    });
+
+    // The other half of the same rule: an explicit `height` beats the intrinsic
+    // size a multiline TextInput derives from its own text, which pinned the
+    // field to its mount-time measurement and left everything typed afterwards
+    // scrolling inside it.
+    it("floors its size without pinning it, so typing can still grow it", () => {
+      const screen = setup({
+        prompts: [{ prompt: "How was today?", response: "" }],
+      });
+
+      expect(
+        styleOf(screen.getByTestId("journal-response-0")).height,
+      ).toBeUndefined();
+    });
+
+    // Two bugs this pins at once: height came from counting "\n", so a
+    // paragraph typed without a single Enter stayed one line tall; and it was
+    // applied as `height`, which overrode the intrinsic sizing that grows the
+    // field as you type and froze it at the mount-time measurement.
+    it("floors its height at the measured content, not the newline count", () => {
+      const screen = setup({
+        prompts: [{ prompt: "How was today?", response: "" }],
+      });
+      const input = screen.getByTestId("journal-response-0");
+
+      act(() => {
+        fireEvent(input, "contentSizeChange", {
+          nativeEvent: { contentSize: { height: 300, width: 200 } },
+        });
+      });
+
+      expect(heightOf(screen.getByTestId("journal-response-0"))).toBe(300);
+    });
+
+    it("keeps a one-line floor when the content measures smaller", () => {
+      // A zero or missing measurement must not collapse the field to nothing.
+      const screen = setup({
+        prompts: [{ prompt: "How was today?", response: "" }],
+      });
+      const floor = heightOf(screen.getByTestId("journal-response-0"));
+
+      act(() => {
+        fireEvent(
+          screen.getByTestId("journal-response-0"),
+          "contentSizeChange",
+          {
+            nativeEvent: { contentSize: { height: 0, width: 200 } },
+          },
+        );
+      });
+
+      expect(heightOf(screen.getByTestId("journal-response-0"))).toBe(floor);
+      expect(floor).toBeGreaterThan(0);
+    });
+
+    // The seed is only good until the field measures itself. `response` is the
+    // saved answer at mount and never changes after it (the input is
+    // uncontrolled, and typing writes refs rather than state), so holding its
+    // newline count as the floor would leave a cleared five-line answer's box
+    // five lines tall.
+    it("drops the seeded floor once a shorter measurement arrives", () => {
+      const screen = setup({
+        prompts: [{ prompt: "How was today?", response: "one\ntwo\nthree" }],
+      });
+      const seeded = heightOf(screen.getByTestId("journal-response-0"));
+
+      // The user clears the answer; the field remeasures at one line.
+      act(() => {
+        fireEvent(
+          screen.getByTestId("journal-response-0"),
+          "contentSizeChange",
+          { nativeEvent: { contentSize: { height: 20, width: 200 } } },
+        );
+      });
+
+      const measured = heightOf(screen.getByTestId("journal-response-0"));
+      expect(measured).toBeLessThan(seeded as number);
+    });
   });
 });

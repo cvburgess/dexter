@@ -8,7 +8,7 @@ layout: layouts/tips.vto
 ![Day View](/assets/tips/day.png)
 
 The day view in Dexter is your home base. See everything you need in one,
-focused workspace including your tasks, habits, notes, journal, calendar, and
+focused workspace including your tasks, habits, notes, calendar, and
 more.
 
 **👋 New to Dexter?** Read the [Dexter Method](/method) first to learn how the
@@ -64,16 +64,6 @@ and more.
 If you don't want to use the notes feature, it can be disabled in settings.
 
 [Learn more about notes](/tips/notes)
-
-## Journal
-
-The journal is a customizable set of prompts or questions for you to answer
-every day. These could be rooted in gratitude, productivity, mindfulness, or
-whatever matters most to you.
-
-If you don't want to use the journal feature, it can be disabled in settings.
-
-[Learn more about the journal](/tips/journal)
 
 ## Calendar
 

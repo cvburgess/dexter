@@ -1,4 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
+import { useState } from "react";
 import { StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -50,6 +51,12 @@ export function SmallScreenRitual({
   const theme = useTheme();
   const step = currentStep(state);
   const lastStep = isLastStep(state);
+  // Suspends the step swipe while a step's text field is focused, so a
+  // horizontal drag positions the caret instead of paging — the same trade the
+  // Today tab makes for Notes and Journal. Held per layout rather than in the
+  // route's `TRitualState`: crossing the breakpoint remounts this and resets the
+  // flag to `false`, which is the safe direction.
+  const [editing, setEditing] = useState(false);
 
   return (
     <SafeAreaView
@@ -68,10 +75,17 @@ export function SmallScreenRitual({
         canNext={!lastStep}
         canPrev={!isFirstStep(state)}
         direction={state.direction}
+        enabled={!editing}
         onSwipe={onSwipe}
         pageKey={ritualPageKey(state)}
       >
-        <RitualStepView date={state.date} step={step} />
+        {/* `setEditing` passed raw, not wrapped — see `RitualStepView`'s
+            `onEditingChange`. */}
+        <RitualStepView
+          date={state.date}
+          onEditingChange={setEditing}
+          step={step}
+        />
       </SwipeablePage>
     </SafeAreaView>
   );
