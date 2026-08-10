@@ -238,50 +238,48 @@ const mutePriorities = (
 };
 
 /**
- * The Horoscope panel's color, per sentiment and per scheme (DEX-128).
+ * The Horoscope panel's color, per sentiment (DEX-128).
  *
  * **These are the one place in the app where a color is not a theme token**,
  * and the exception is deliberate rather than an oversight — `docs/design.md`
  * carries it in its exceptions list. The panel is a mood, not a surface: it has
  * to say *green day / purple day / blue day* at a glance, and a token that
- * changed hue with the user's palette could not. Every other rule still
- * applies to what sits on it — the glyph and the summary take `colors.text`,
- * which is what the two-shade split below exists to keep legible.
+ * changed hue with the user's palette could not.
+ *
+ * **It is a night sky on every theme, light ones included.** There was a pale
+ * set for light schemes at one point and it is gone: reading the day is a
+ * lights-down moment, and a horoscope on a bright panel is a different thing
+ * from a horoscope on a dark one. That makes this the app's one surface that
+ * does not follow the user's scheme, so anything drawn on it takes
+ * `sentimentInk` rather than `colors.text` — see below.
  *
  * Green reads positive and purple negative; blue is the neutral, which the DB
- * enum spells `mixed` (the facets genuinely pull both ways). Each hue is held
- * at one lightness per scheme — ~4% deep and ~93% pale — so the three sentiments
- * read as equally dark or equally pale as each other and only the hue changes.
- * The brand values as first given sat at 11–19%, which put `mixed` level with
- * `dim`'s own `background` and made the panel dissolve into the page on that
- * theme; the deep set is now below *every* dark palette's background, `abyss`
- * (#001e29) included, so the panel is a recessed surface on all of them rather
- * than one whose separation depends on which theme the user picked.
+ * enum spells `mixed` (the facets genuinely pull both ways). Each hue sits at
+ * one lightness, ~4%, so the three read as equally dark and only the hue
+ * changes. The brand values as first given sat at 11–19%, which put `mixed`
+ * level with `dim`'s own `background` and made the panel dissolve into the page
+ * on that theme; these clear *every* dark palette's background, `abyss`
+ * (#001e29) included.
  *
- * **Both sets carry more saturation than their lightness would suggest**, and
- * for the same reason at each end: chroma collapses as a color approaches white
- * *or* black, so holding a moderate saturation there yields a barely-tinted grey
- * instead of a color. At 4% lightness the deep set needs 60–90% saturation to
- * read as green, purple and blue at all — the target is almost-black *with a
- * color in it*, and the color half of that is the part that has to be fought
- * for. **This is about as deep as the deep set can usefully go.** Each base is
- * down to the high thirties of a possible 765 across its three channels, and
- * the hue lives in
- * a spread of a dozen units inside that; a further step down spends the
- * distinctness between the three sentiments, which is the panel's whole job.
- *
- * Swapping by scheme rather than dimming one set is what keeps `colors.text`
- * legible in both directions.
+ * **They carry more saturation than their lightness would suggest** — 60–90%.
+ * Chroma collapses as a color approaches black exactly as it does approaching
+ * white, so a moderate saturation at 4% lightness yields a barely-tinted grey.
+ * The target is almost-black *with a color in it*, and the color half is the
+ * part that has to be fought for. **This is about as deep as it can usefully
+ * go**: each base totals the high thirties of a possible 765 across its three
+ * channels, and the hue lives in a spread of a dozen units inside that, so a
+ * further step down spends the distinctness between the three sentiments —
+ * which is the panel's whole job.
  *
  * **Both ends of the breath are authored, not derived.** The first cut computed
- * `peak` by blending a little of the *opposite scheme's* shade into `base`, and
- * it washed out: crossing from 9% lightness to 93% moves through grey, so the
- * peak lost saturation as fast as it gained brightness and every hue drifted
- * toward the same pale nothing. Writing both ends by hand lets the pair hold
- * one hue and one saturation and differ only in lightness — the breath now
- * *deepens* the color instead of diluting it. That shows up in the channels:
- * `positive` moves +2/+9/+8, all of it green, where the blended peak moved
- * +20/+19/+19, which is the signature of a slide toward white.
+ * `peak` by blending toward a much paler shade of the hue, and it washed out:
+ * crossing from 4% lightness to 93% moves through grey, so the peak lost
+ * saturation as fast as it gained brightness and every hue drifted toward the
+ * same pale nothing. A hand-written pair holds one hue and one saturation and
+ * differs only in lightness, so the breath *deepens* the color instead of
+ * diluting it. The channels are the tell: `positive` moves +1/+9/+8, nearly all
+ * of it green, where the blended peak moved +20/+19/+19 — the signature of a
+ * slide toward white.
  *
  * **The amplitude has a hard floor set by the framebuffer, not by taste.** A
  * channel holds whole numbers, so the count of distinct colors this animation
@@ -298,36 +296,45 @@ const mutePriorities = (
  */
 const SENTIMENT_COLORS: Record<
   THoroscopeSentiment,
-  Record<"light" | "dark", { base: string; peak: string }>
+  { base: string; peak: string }
 > = {
-  positive: {
-    // hsl(174 55% 93%) → 91%
-    light: { base: "#e3f7f5", peak: "#dbf5f2" },
-    // hsl(174 85% 4%) → 6%
-    dark: { base: "#021311", peak: "#021c1a" },
-  },
-  negative: {
-    // hsl(311 55% 93%) → 91%
-    light: { base: "#f7e3f3", peak: "#f5dbf0" },
-    // hsl(311 90% 4%) → 6%
-    dark: { base: "#130110", peak: "#1d0218" },
-  },
-  mixed: {
-    // hsl(220 55% 93%) → 91%
-    light: { base: "#e3eaf7", peak: "#dbe4f5" },
-    // hsl(220 60% 5%) → 8%. A point deeper and a point wider than its
-    // neighbours: blue is the darkest hue at a given lightness, so it needs the
-    // extra to hold both its own weight and a visible breath.
-    dark: { base: "#050a14", peak: "#081021" },
-  },
+  // hsl(174 85% 4%) → 6%
+  positive: { base: "#021311", peak: "#021c1a" },
+  // hsl(311 90% 4%) → 6%
+  negative: { base: "#130110", peak: "#1d0218" },
+  // hsl(220 60% 5%) → 8%. A point deeper and a point wider than its neighbours:
+  // blue is the darkest hue at a given lightness, so it needs the extra to hold
+  // both its own weight and a visible breath.
+  mixed: { base: "#050a14", peak: "#081021" },
 };
 
 /** The two ends of the Horoscope panel's breathing color. */
-export function sentimentTints(
-  mode: "light" | "dark",
-  sentiment: THoroscopeSentiment,
-): { base: string; peak: string } {
-  return SENTIMENT_COLORS[sentiment][mode];
+export function sentimentTints(sentiment: THoroscopeSentiment): {
+  base: string;
+  peak: string;
+} {
+  return SENTIMENT_COLORS[sentiment];
+}
+
+/**
+ * The ink for anything drawn on the sentiment panel.
+ *
+ * The panel is a night sky whatever the user's theme, so a light theme's dark
+ * `colors.text` would be all but invisible on it — this is the price of the
+ * panel not following the scheme, and paying it here keeps every caller from
+ * having to know. A dark theme already has ink for a dark surface and keeps its
+ * own, so the user's palette still shows through wherever it can; a light one
+ * borrows the default dark palette's, which is what the app would have used had
+ * the scheme been dark.
+ */
+export function sentimentInk(theme: Theme): {
+  text: string;
+  textSecondary: string;
+} {
+  const { text, textSecondary } =
+    theme.mode === "dark" ? theme.colors : themes[DEFAULT_DARK_THEME].colors;
+
+  return { text, textSecondary };
 }
 
 // Each theme is a daisyUI theme ported oklch → hex. The TThemeColors fields map

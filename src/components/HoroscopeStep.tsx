@@ -33,7 +33,13 @@ import { EdgeFade } from "@/components/EdgeFade";
 import { useSunSignPreference } from "@/hooks/usePreferences";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
 import { HOROSCOPE_FACETS, SUN_SIGNS } from "@/utils/horoscope";
-import { sentimentTints, Theme, useTheme, withOpacity } from "@/utils/theme";
+import {
+  sentimentInk,
+  sentimentTints,
+  Theme,
+  useTheme,
+  withOpacity,
+} from "@/utils/theme";
 
 /**
  * One *leg* of the breath — in, or out — not a full cycle.
@@ -61,9 +67,10 @@ const SCROLL_HINT_ICON = {
 /**
  * How bright the drawn stars are against the panel.
  *
- * The theme's ink at a fraction of full: `colors.text` at full strength reads
- * as hard white specks rather than as a sky, and taking the ink rather than a
- * literal white means the stars are the same color as the type they sit behind.
+ * The panel's own ink at a fraction of full: `sentimentInk` at full strength
+ * reads as hard white specks rather than as a sky, and taking the ink rather
+ * than a literal white means the stars are the same color as the type they sit
+ * behind.
  */
 const STAR_OPACITY = 0.55;
 
@@ -152,11 +159,14 @@ type THoroscopeStepProps = {
  * The morning ritual's first step (DEX-128): the user's sign, the day's
  * one-line summary, and — a scroll further down — the six facets behind it.
  *
- * The panel breathes between two pre-blended tints of the day's sentiment (see
- * `sentimentTints`). It is a `radii.md` panel inside the step's gutter rather
- * than a full-bleed background because `SwipeablePage` owns that gutter at
- * every width on this tab, and escaping it would take negative margins (see
- * docs/design.md, "Who owns spacing").
+ * The panel breathes between two shades of the day's sentiment (see
+ * `sentimentTints`), and is **a night sky on every theme** — so everything
+ * drawn on it takes `sentimentInk` rather than `colors.text`, which on a light
+ * theme would be invisible. It sits inside the step's gutter rather than being
+ * a full-bleed background because `SwipeablePage` owns that gutter at every
+ * width on this tab, and escaping it would take negative margins (see
+ * docs/design.md, "Who owns spacing"). Its bottom is the exception: the painted
+ * layers hang below the box so the color runs off the end of the screen.
  */
 export function HoroscopeStep({ date }: THoroscopeStepProps) {
   const theme = useTheme();
@@ -256,8 +266,8 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
         peak: theme.colors.surfaceSunken,
       };
     }
-    return sentimentTints(theme.mode, horoscope.sentiment);
-  }, [horoscope, theme.mode, theme.colors.surfaceSunken]);
+    return sentimentTints(horoscope.sentiment);
+  }, [horoscope, theme.colors.surfaceSunken]);
 
   const tintStyle = useAnimatedStyle(() => ({ opacity: breathe.value }));
 
@@ -266,6 +276,10 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
   // breath animates a compositor property.
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const scrollOffset = useScrollViewOffset(scrollRef);
+
+  // Not `theme.colors.text`: the panel is a night sky whatever scheme the user
+  // is on, so a light theme's dark ink would be invisible on it.
+  const ink = sentimentInk(theme);
 
   return (
     <View style={styles.panel} testID="horoscope-panel">
@@ -314,9 +328,9 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
             light panel is a daytime sky, and there are no stars in one. Drawn
             into the panel itself rather than wrapping the content, so the field
             holds still while the facets scroll over it. */}
-        {horoscope && theme.mode === "dark" ? (
+        {horoscope ? (
           <View style={StyleSheet.absoluteFill} testID="horoscope-sky">
-            <StarField color={withOpacity(theme.colors.text, STAR_OPACITY)} />
+            <StarField color={withOpacity(ink.text, STAR_OPACITY)} />
           </View>
         ) : null}
         {/* Over the sky, not under it, so the stars recede with the color.
@@ -391,19 +405,12 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
               // line of it.
               <View key={facet.key} style={{ gap: theme.space.sm }}>
                 <View style={[styles.facetHeader, { gap: theme.space.sm }]}>
-                  <Icon {...facet.icon} />
-                  <Text
-                    style={[theme.fonts.title, { color: theme.colors.text }]}
-                  >
+                  <Icon {...facet.icon} color={ink.text} />
+                  <Text style={[theme.fonts.title, { color: ink.text }]}>
                     {facet.label}
                   </Text>
                 </View>
-                <Text
-                  style={[
-                    theme.fonts.body,
-                    { color: theme.colors.textSecondary },
-                  ]}
-                >
+                <Text style={[theme.fonts.body, { color: ink.textSecondary }]}>
                   {horoscope[facet.key]}
                 </Text>
               </View>
@@ -455,6 +462,8 @@ function Hero({
   viewportHeight: number;
 }) {
   const theme = useTheme();
+
+  const ink = sentimentInk(theme);
 
   // Resolved out here, not inside the worklet. A `useAnimatedStyle` body runs
   // on the UI runtime, where a function from this module is not a function but
@@ -529,7 +538,7 @@ function Hero({
         <Animated.Text
           style={[
             {
-              color: theme.colors.text,
+              color: ink.text,
               fontSize: heroGlyphSize(theme),
               // The glyph's own line box, which at this size otherwise reserves
               // the font's full ascent and descent and reads as a gap above it.
@@ -544,7 +553,7 @@ function Hero({
           style={[
             styles.summary,
             theme.fonts.heading,
-            { color: theme.colors.text },
+            { color: ink.text },
             summaryStyle,
           ]}
         >
@@ -559,7 +568,7 @@ function Hero({
         pointerEvents="none"
         style={[styles.scrollHint, { bottom: theme.space.lg }, hintStyle]}
       >
-        <Icon {...SCROLL_HINT_ICON} color={theme.colors.textSecondary} />
+        <Icon {...SCROLL_HINT_ICON} color={ink.textSecondary} />
       </Animated.View>
     </View>
   );

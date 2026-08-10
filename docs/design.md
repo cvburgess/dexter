@@ -102,48 +102,57 @@ than as a fourth surface color, so it does not get a token.
 ## Sentiment
 
 A horoscope's sentiment colors the Ritual tab's Horoscope panel (DEX-128).
-`sentimentTints(mode, sentiment)` in `utils/theme.ts` returns the two ends it
-breathes between, and the values are **fixed brand colors rather than theme
-tokens** — the one place in the app where a color does not come from the
-palette:
+`sentimentTints(sentiment)` in `utils/theme.ts` returns the two ends it breathes
+between, and the values are **fixed brand colors rather than theme tokens** —
+the one place in the app where a color does not come from the palette:
 
-| Sentiment | Reads as | Dark scheme | Light scheme |
-| --- | --- | --- | --- |
-| `positive` | green | `#021311` → `#021c1a` | `#e3f7f5` → `#dbf5f2` |
-| `negative` | purple | `#130110` → `#1d0218` | `#f7e3f3` → `#f5dbf0` |
-| `mixed` | blue — the neutral | `#050a14` → `#081021` | `#e3eaf7` → `#dbe4f5` |
+| Sentiment | Reads as | Base → peak |
+| --- | --- | --- |
+| `positive` | green | `#021311` → `#021c1a` |
+| `negative` | purple | `#130110` → `#1d0218` |
+| `mixed` | blue — the neutral | `#050a14` → `#081021` |
 
 **This is a deliberate exception, and it is listed at the bottom of this file.**
 The panel is a mood, not a surface: it has to say *green day / purple day /
 blue day* at a glance, and a token that changed hue with the user's chosen
-palette could not do that. Everything sitting *on* the panel still obeys the
-normal rules — the glyph and the summary take `colors.text`.
+palette could not do that.
 
-**The two shades per hue are what make that safe.** The panel carries the
-theme's ink, so a light scheme's dark text needs a pale panel and a dark
-scheme's light text needs a deep one. Each hue holds one lightness per scheme —
-~4% deep, ~93% pale — so the three sentiments read as equally dark or equally
-pale and only the hue changes. Swapping by scheme rather than dimming one set is
-what keeps the contrast working in both directions, and `theme.test.ts` pins it,
-including that the deep set clears the *palest* dark palette's `background`:
-the first cut sat `mixed` level with `dim`'s and the panel dissolved into the
-page on that theme alone.
+**It is a night sky on every theme, light ones included.** There was a pale set
+for light schemes and it is gone: reading the day is a lights-down moment, and a
+horoscope on a bright panel is a different thing from a horoscope on a dark one.
+That makes the panel the app's one surface that does not follow the user's
+scheme — which has a consequence that is not optional.
 
-**Both sets carry more saturation than their lightness suggests** — 55–90%
-against the 45% they started at. Chroma collapses as a color approaches white
-*or* black, so a moderate saturation at either extreme yields a barely-tinted
-grey. At 4% lightness the color half of "almost-black with a color in it" is the
-half that has to be fought for.
+**Anything drawn on it takes `sentimentInk(theme)`, never `colors.text`.** On a
+light theme `colors.text` is near-black ink, and the panel is near-black; the
+two together are invisible. `sentimentInk` hands back the theme's own ink on a
+dark scheme, so the user's palette still shows through wherever it can, and the
+default dark palette's ink on a light one — what the app would have used had the
+scheme been dark. `theme.test.ts` pins that every one of the five themes yields
+ink that reads on the panel, which is the assertion that would fail the moment
+someone "simplified" this back to `colors.text`.
+
+Each hue sits at one lightness, ~4%, so the three read as equally dark and only
+the hue changes. The brand values as first given sat at 11–19%, which put
+`mixed` level with `dim`'s own `background` and made the panel dissolve into the
+page on that theme alone; these clear *every* dark palette's background, `abyss`
+(`#001e29`) included.
+
+**They carry more saturation than their lightness suggests** — 60–90%, against
+the 45% they started at. Chroma collapses as a color approaches black exactly as
+it does approaching white, so a moderate saturation at 4% lightness yields a
+barely-tinted grey. The color half of "almost-black with a color in it" is the
+half you have to fight for.
 
 ### The breath
 
-The two ends per scheme are **both authored**, and differ only in lightness —
-about two points. An earlier version derived `peak` by blending toward the
-opposite scheme's shade and washed out: crossing 4% to 93% passes through grey,
-so the peak shed saturation as fast as it gained brightness. The channel deltas
-are the tell — a hand-written pair moves `+1/+9/+8` for `positive`, nearly all
-of it green, where the blended one moved `+20/+19/+19`, which is the signature of
-a slide toward white.
+The two ends are **both authored**, and differ only in lightness — about two
+points. An earlier version derived `peak` by blending toward a much paler shade
+of the hue and washed out: crossing 4% to 93% passes through grey, so the peak
+shed saturation as fast as it gained brightness. The channel deltas are the
+tell — a hand-written pair moves `+1/+9/+8` for `positive`, nearly all of it
+green, where the blended one moved `+20/+19/+19`, which is the signature of a
+slide toward white.
 
 Three things about how it animates, each of which was arrived at by getting it
 wrong first:
@@ -193,11 +202,10 @@ stretch a radial gradient to a non-square box.
 
 ### The sky, and the arrival
 
-On a dark scheme the panel carries a drawn starfield over the color
-(`components/StarField.tsx`); the stars take `colors.text` at partial opacity,
-so they are the same ink as the type in front of them rather than a literal
-white. Light schemes get none — a pale panel is a daytime sky, and dark ink in
-faint specks reads as dirt on the screen.
+The panel carries a drawn starfield over the color
+(`components/StarField.tsx`) on every theme, since every theme's panel is a
+night sky. The stars take `sentimentInk` at partial opacity, so they are the
+same ink as the type in front of them rather than a literal white.
 
 The content **fades in on arrival**, in reading order: sign, then summary, then
 the chevron and the six facets together. It is one shared value with overlapping
@@ -521,13 +529,13 @@ a pre-blended token, or the fill takes on whatever is behind it.
 Everything below is a deliberate literal. Adding to this list should be
 uncomfortable.
 
-- **`SENTIMENT_COLORS`** (`utils/theme.ts`, DEX-128) — twelve hexes: a
-  base/peak pair per scheme for each of three hues, and the only colors in the
-  app that are not theme tokens. The Horoscope panel has to read as *green day /
+- **`SENTIMENT_COLORS`** (`utils/theme.ts`, DEX-128) — six hexes: a base/peak
+  pair for each of three hues, and the only colors in the app that are not
+  theme tokens. The Horoscope panel has to read as *green day /
   purple day / blue day*, which a token that changes hue with the user's palette
   cannot do. Scoped to that one panel's background; everything drawn on it still
-  takes `colors.text`. See **Sentiment** above for why there is a pair per scheme
-  rather than a single value.
+  takes `sentimentInk`, which exists precisely because this panel does not
+  follow the user's scheme. See **Sentiment** above.
 - **`CalendarView`'s coordinate system.** `GUTTER_WIDTH`, `HOUR_HEIGHT`,
   `GUTTER_INSET`, `EVENT_GAP`, `NOW_DOT_SIZE` and friends position the hour
   labels, hour lines, now line, and events area against each other. They

@@ -158,8 +158,6 @@ describe("HoroscopeStep", () => {
     // still-loading step is a plain surface rather than a starfield with
     // nothing on it.
     it("lays a starfield behind it, and only once there is one", () => {
-      mockUseColorScheme.mockReturnValue("dark");
-
       expect(renderStep().getByTestId("horoscope-sky")).toBeTruthy();
 
       expect(
@@ -184,13 +182,13 @@ describe("HoroscopeStep", () => {
       ).toBeNull();
     });
 
-    // There are no stars in a daytime sky, and a light panel is one. Drawing
-    // them anyway would put the theme's dark ink into faint specks that read as
-    // dirt on the screen rather than as a sky.
-    it("draws no stars on a light scheme", () => {
+    // The panel is a night sky whatever scheme the device is on, so the stars
+    // are too — they used to be dark-scheme only, back when a light theme got a
+    // pale panel to match its own ink.
+    it("draws stars on a light scheme as well", () => {
       mockUseColorScheme.mockReturnValue("light");
 
-      expect(renderStep().queryByTestId("horoscope-sky")).toBeNull();
+      expect(renderStep().getByTestId("horoscope-sky")).toBeTruthy();
     });
 
     it("renders every facet below it", () => {
