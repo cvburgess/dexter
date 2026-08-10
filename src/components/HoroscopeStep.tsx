@@ -1,18 +1,16 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import {
-  LayoutChangeEvent,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   Easing,
-  interpolateColor,
+  Extrapolation,
+  interpolate,
+  SharedValue,
+  useAnimatedRef,
   useAnimatedStyle,
+  useScrollViewOffset,
   useReducedMotion,
   useSharedValue,
   withRepeat,
@@ -40,8 +38,14 @@ import { sentimentTints, Theme, useTheme, withOpacity } from "@/utils/theme";
  * the real period ten seconds. Across an amplitude this small that worked out
  * to a couple of RGB units per second — the panel was animating the whole
  * time and simply could not be seen to.
+ *
+ * **Read this together with the amplitude in `SENTIMENT_COLORS`.** The panel
+ * can only show as many colors as there are integers between the two ends, so
+ * this duration divided by that count is how long each one is held — the
+ * quantity the eye actually judges. Around 150ms it reads as continuous; near a
+ * second it reads as a slideshow. Changing either constant alone moves it.
  */
-const BREATHE_LEG_MS = 4000;
+const BREATHE_LEG_MS = 3000;
 
 const SCROLL_HINT_ICON = {
   sf: "chevron.down",
@@ -80,6 +84,16 @@ const heroGlyphSize = (theme: Theme) => theme.controls.md * 2;
  * Not a token — see `heroGlyphSize` above for why deriving beats adding one.
  */
 const contentGutter = (theme: Theme) => theme.space.lg * 2;
+
+/**
+ * How far the reader has to scroll before the chevron is fully gone.
+ *
+ * Four tap targets' worth of travel — roughly a quarter of a phone's hero. Long
+ * enough that the chevron dims *with* the scroll rather than blinking out on
+ * the first flick, which is what a shorter distance gave: a fade that resolves
+ * inside one gesture is indistinguishable from a toggle.
+ */
+const scrollHintFade = (theme: Theme) => theme.controls.md * 4;
 
 type THoroscopeStepProps = {
   /** The day being walked through — the ritual's date, not necessarily today. */
@@ -132,10 +146,16 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
       return;
     }
     breathe.value = withRepeat(
-      withTiming(1, {
-        duration: BREATHE_LEG_MS,
-        easing: Easing.inOut(Easing.quad),
-      }),
+      // **Linear, deliberately** — the one easing choice that looks wrong on
+      // paper and right on screen. An ease-in-out spends most of a leg parked
+      // near the two ends and crosses the middle at roughly twice the average
+      // rate. For something that *moves*, that is the whole point; for a color,
+      // it means the panel holds one shade for the better part of a second,
+      // rips through several, and parks again — which is read as choppiness,
+      // and which raising the amplitude only makes more obvious rather than
+      // less. A color has no momentum to sell, so there is nothing for the
+      // curve to buy, and even spacing is what reads as smooth.
+      withTiming(1, { duration: BREATHE_LEG_MS, easing: Easing.linear }),
       -1,
       true,
     );
@@ -154,20 +174,42 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
     return sentimentTints(theme.mode, horoscope.sentiment);
   }, [horoscope, theme.mode, theme.colors.surfaceSunken]);
 
-  const tintStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(breathe.value, [0, 1], [base, peak]),
-  }));
+  const tintStyle = useAnimatedStyle(() => ({ opacity: breathe.value }));
+
+  // Read straight off the scroller rather than through an `onScroll` handler,
+  // so the chevron's fade never touches the JS thread — the same reason the
+  // breath animates a compositor property.
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const scrollOffset = useScrollViewOffset(scrollRef);
 
   return (
-    <Animated.View
-      style={[styles.panel, { borderRadius: theme.radii.md }, tintStyle]}
+    <View
+      style={[
+        styles.panel,
+        { backgroundColor: base, borderRadius: theme.radii.md },
+      ]}
       testID="horoscope-panel"
     >
+      {/* **The breath is `peak` fading in over `base`, not one color
+          interpolating into the other.** The two are the same picture — an
+          alpha blend of two colors *is* their linear interpolation — but not
+          the same work. `backgroundColor` is a paint property: every frame
+          re-fills a screen-sized layer, and reanimated hands it across as a
+          fresh `rgba(...)` string to parse. `opacity` is a compositor property:
+          the layer is painted once and the GPU varies how much of it lands.
+          That is the difference between a slideshow and a smooth fade here.
+
+          It is also a leaf view. Repainting a leaf is contained; repainting the
+          panel that parents five SVG canvases and a ScrollView can pull that
+          subtree into the frame's work. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, { backgroundColor: peak }, tintStyle]}
+      />
       {/* Stars only once there is a horoscope, and only on a dark scheme: a
           light panel is a daytime sky, and there are no stars in one. Drawn
           into the panel itself rather than wrapping the content, so the field
-          holds still while the facets scroll over it, and `panel`'s
-          `overflow: hidden` clips it to the radius. */}
+          holds still while the facets scroll over it. */}
       {horoscope && theme.mode === "dark" ? (
         <View
           pointerEvents="none"
@@ -204,14 +246,16 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
           message={`No horoscope for ${formatMonthDayYear(date)} yet.`}
         />
       ) : (
-        <ScrollView
+        <Animated.ScrollView
           contentContainerStyle={{ paddingHorizontal: contentGutter(theme) }}
           onLayout={onLayout}
+          ref={scrollRef}
           testID="horoscope-scroll"
         >
           <Hero
             bottomInset={insets.bottom}
             horoscope={horoscope}
+            scrollOffset={scrollOffset}
             viewportHeight={viewportHeight}
           />
           <View
@@ -220,7 +264,10 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
               // The host `SafeAreaView` omits the bottom edge so content
               // scrolls under the tab bar; the inset belongs to the scroll
               // content, which is what lets the last facet clear it (DEX-91).
-              paddingBottom: theme.space.lg + insets.bottom,
+              // Well past that here: Luck is the end of the reading, and
+              // landing its last line hard against the tab bar reads as the
+              // text being cut off rather than as having finished.
+              paddingBottom: theme.space.lg * 3 + insets.bottom,
             }}
           >
             {HOROSCOPE_FACETS.map((facet) => (
@@ -244,9 +291,9 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
               </View>
             ))}
           </View>
-        </ScrollView>
+        </Animated.ScrollView>
       )}
-    </Animated.View>
+    </View>
   );
 }
 
@@ -279,13 +326,34 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
 function Hero({
   bottomInset,
   horoscope,
+  scrollOffset,
   viewportHeight,
 }: {
   bottomInset: number;
   horoscope: THoroscope;
+  scrollOffset: SharedValue<number>;
   viewportHeight: number;
 }) {
   const theme = useTheme();
+
+  // Resolved out here, not inside the worklet. A `useAnimatedStyle` body runs
+  // on the UI runtime, where a function from this module is not a function but
+  // a reference back across the bridge — calling one throws "Tried to
+  // synchronously call a Remote Function". Only the resulting number is
+  // captured.
+  const fadeDistance = scrollHintFade(theme);
+
+  // Gone by the time the reader has moved a chevron's worth of screen: it says
+  // "there is more below", and the moment they are on their way it is stating
+  // the obvious over the top of what they came for.
+  const hintStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      scrollOffset.value,
+      [0, fadeDistance],
+      [1, 0],
+      Extrapolation.CLAMP,
+    ),
+  }));
 
   return (
     <View
@@ -334,9 +402,12 @@ function Hero({
           what is below the screen, so it belongs at the edge the reader is
           about to cross, not tucked under the text. Absolute, so it cannot
           shift the centered content as the summary's length changes. */}
-      <View style={[styles.scrollHint, { bottom: theme.space.lg }]}>
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.scrollHint, { bottom: theme.space.lg }, hintStyle]}
+      >
         <Icon {...SCROLL_HINT_ICON} color={theme.colors.textSecondary} />
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -353,9 +424,14 @@ const styles = StyleSheet.create({
   heroContent: {
     alignItems: "center",
   },
+  // No `overflow: hidden`, deliberately. Clipping to the radius makes this an
+  // offscreen-rendered layer on iOS, and every frame a child of it changes, the
+  // mask is composited again — a per-frame cost paid by a full-screen surface
+  // for a 12pt corner that the edge fade dissolves away anyway. Nothing here
+  // needs the clip: the starfield is laid out in percentages of these bounds
+  // and the ScrollView clips its own content.
   panel: {
     flex: 1,
-    overflow: "hidden",
   },
   // Spans the hero's width so the chevron centers in it, rather than being
   // pinned to one side by a `left`/`right` of its own.

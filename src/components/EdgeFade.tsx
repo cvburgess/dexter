@@ -20,11 +20,11 @@ import { Theme, useTheme } from "@/utils/theme";
  * matched neither neighbor. One distance makes every corner a quarter circle of
  * exactly that radius, and the uncovered middle a rounded rectangle.
  *
- * Derived from `controls.md` so it tracks the density tier — 80 comfortable, 64
+ * Derived from `controls.md` so it tracks the density tier — 40 comfortable, 32
  * compact — rather than being a literal that stays put when everything around
  * it shrinks.
  */
-const fadeBand = (theme: Theme) => theme.controls.md * 2;
+const fadeBand = (theme: Theme) => theme.controls.md;
 
 /**
  * The ramp, as opacity against distance in from the edge (0 at the rim, 1 at

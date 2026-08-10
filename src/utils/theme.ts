@@ -282,14 +282,18 @@ const mutePriorities = (
  * `positive` moves +2/+9/+8, all of it green, where the blended peak moved
  * +20/+19/+19, which is the signature of a slide toward white.
  *
- * Two points of lightness is the amplitude, and it is only half of whether the
- * breath reads at all — the other half is `BREATHE_LEG_MS` in `HoroscopeStep`.
- * The two are tuned against each other. An earlier pairing of a comparable
- * amplitude with a ten-second round trip came to a couple of RGB units per
- * second across a large flat field, below what the eye registers as change, and
- * the panel looked solid. Lower one and raise the other: a breath nobody can
- * see is only a battery cost. This is already close to that floor, so if it
- * needs to be subtler still, shorten the leg rather than narrowing this again.
+ * **The amplitude has a hard floor set by the framebuffer, not by taste.** A
+ * channel holds whole numbers, so the count of distinct colors this animation
+ * can ever show is the largest per-channel difference between `base` and `peak`
+ * — nothing exists between two adjacent integers. Two points of lightness puts
+ * that count around 10, and `BREATHE_LEG_MS` in `HoroscopeStep` divided by it
+ * is how long each shade is held: the quantity the eye actually judges.
+ *
+ * The two constants are therefore one setting — **steps × step-duration = leg
+ * length**. Narrowing the amplitude without shortening the leg buys nothing but
+ * a longer hold on each shade. Note also what this does *not* explain: raising
+ * the count to 20 did not smooth anything, which is what pointed at the easing
+ * curve in `HoroscopeStep` rather than at these values.
  */
 const SENTIMENT_COLORS: Record<
   THoroscopeSentiment,
@@ -298,22 +302,22 @@ const SENTIMENT_COLORS: Record<
   positive: {
     // hsl(174 55% 93%) → 91%
     light: { base: "#e3f7f5", peak: "#dbf5f2" },
-    // hsl(174 85% 3%) → 4%
-    dark: { base: "#010e0d", peak: "#021311" },
+    // hsl(174 85% 3%) → 5%
+    dark: { base: "#010e0d", peak: "#021815" },
   },
   negative: {
     // hsl(311 55% 93%) → 91%
     light: { base: "#f7e3f3", peak: "#f5dbf0" },
-    // hsl(311 90% 3%) → 4%
-    dark: { base: "#0f010c", peak: "#130110" },
+    // hsl(311 90% 3%) → 5%
+    dark: { base: "#0f010c", peak: "#180114" },
   },
   mixed: {
     // hsl(220 55% 93%) → 91%
     light: { base: "#e3eaf7", peak: "#dbe4f5" },
-    // hsl(220 60% 4%) → 6%. A point deeper and a point wider than its
+    // hsl(220 60% 4%) → 7%. A point deeper and a point wider than its
     // neighbours: blue is the darkest hue at a given lightness, so it needs the
     // extra to hold both its own weight and a visible breath.
-    dark: { base: "#040810", peak: "#060c18" },
+    dark: { base: "#040810", peak: "#070e1d" },
   },
 };
 
