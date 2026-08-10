@@ -324,12 +324,14 @@ describe("palette invariants", () => {
 // `backgroundColor` never reaches a rendered tree, so this is the only place
 // the color math is observable.
 describe("sentimentTints", () => {
-  const names = Object.keys(themes);
+  const schemes = ["light", "dark"] as const;
   const sentiments = ["positive", "negative", "mixed"] as const;
+  const lightness = (hex: string) =>
+    [1, 3, 5].reduce((sum, i) => sum + parseInt(hex.slice(i, i + 2), 16), 0);
 
-  it.each(names)("%s pre-blends both ends opaque", (name) => {
+  it.each(schemes)("%s pre-blends both ends opaque", (mode) => {
     for (const sentiment of sentiments) {
-      const { base, peak } = sentimentTints(themes[name].colors, sentiment);
+      const { base, peak } = sentimentTints(mode, sentiment);
 
       // Opaque, for the reason `priorityMuted` is: an alpha fill takes on
       // whatever is behind it, so interpolating between two alphas would drift
@@ -340,55 +342,48 @@ describe("sentimentTints", () => {
     }
   });
 
-  // The panel's untinted form is `surfaceSunken` — it holds content — so the
-  // wash starts from that surface rather than from the pane behind it. Blending
-  // from `background` would make the panel visibly change surface the moment
-  // the row landed.
-  it.each(names)("%s tints away from the sunken surface", (name) => {
-    const { colors } = themes[name];
+  it("takes the brand values on a dark scheme", () => {
+    expect(sentimentTints("dark", "positive").base).toBe("#0b453f");
+    expect(sentimentTints("dark", "negative").base).toBe("#33062b");
+    expect(sentimentTints("dark", "mixed").base).toBe("#1c2a47");
+  });
 
-    for (const sentiment of sentiments) {
-      const { base, peak } = sentimentTints(colors, sentiment);
+  // The whole point of the two-shade split: the panel carries `colors.text`,
+  // so a light scheme's dark ink needs a pale panel and a dark scheme's light
+  // ink needs a deep one. Dimming a single set would break one of the two.
+  it.each(sentiments)("%s is pale on light and deep on dark", (sentiment) => {
+    expect(lightness(sentimentTints("light", sentiment).base)).toBeGreaterThan(
+      lightness(sentimentTints("dark", sentiment).base),
+    );
+  });
 
-      expect(base).not.toBe(colors.surfaceSunken);
-      // Faint: the base is nearer the plain surface than the peak is.
-      const distance = (hex: string) =>
-        [1, 3, 5].reduce(
-          (sum, i) =>
-            sum +
-            Math.abs(
-              parseInt(hex.slice(i, i + 2), 16) -
-                parseInt(colors.surfaceSunken.slice(i, i + 2), 16),
-            ),
-          0,
-        );
+  it.each(schemes)("%s keeps the three sentiments distinct", (mode) => {
+    const bases = sentiments.map(
+      (sentiment) => sentimentTints(mode, sentiment).base,
+    );
 
-      expect(distance(base)).toBeLessThan(distance(peak));
+    expect(new Set(bases).size).toBe(3);
+  });
+
+  // The breathe travels toward the *other shade of the same hue*, not toward
+  // white or black — so the peak stays in the color family rather than washing
+  // out. On a dark scheme that means moving lighter, on a light one deeper.
+  it.each(sentiments)("%s breathes along its own hue axis", (sentiment) => {
+    const dark = sentimentTints("dark", sentiment);
+    const light = sentimentTints("light", sentiment);
+
+    expect(lightness(dark.peak)).toBeGreaterThan(lightness(dark.base));
+    expect(lightness(light.peak)).toBeLessThan(lightness(light.base));
+  });
+
+  // Small on purpose — this is a background a summary is read on, so the
+  // movement should register as the panel being alive, not as a color change.
+  it.each(sentiments)("%s stays near its base as it breathes", (sentiment) => {
+    for (const mode of schemes) {
+      const { base, peak } = sentimentTints(mode, sentiment);
+
+      expect(Math.abs(lightness(peak) - lightness(base))).toBeLessThan(120);
     }
-  });
-
-  // Reusing `success` / `error` / the warning accent rather than adding
-  // sentiment tokens is what makes a mood read correctly on all five palettes
-  // for free — but only if the three stay visibly apart on each of them.
-  it.each(names)("%s keeps the three sentiments distinct", (name) => {
-    const [positive, negative, mixed] = sentiments.map(
-      (sentiment) => sentimentTints(themes[name].colors, sentiment).peak,
-    );
-
-    expect(new Set([positive, negative, mixed]).size).toBe(3);
-  });
-
-  it("draws each sentiment from the accent it means", () => {
-    const { colors } = themes.dexter;
-
-    // success / error / the warning accent — good, bad, and pulling both ways.
-    expect(sentimentTints(colors, "positive").peak).not.toBe(
-      sentimentTints(colors, "negative").peak,
-    );
-    expect(sentimentTints(colors, "positive")).toEqual({
-      base: "#deeede", // #00d390 at 10% over dexter's #f7f1e7
-      peak: "#bcead2", // and the same accent at 24%
-    });
   });
 });
 

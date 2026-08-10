@@ -51,6 +51,18 @@ const SCROLL_HINT_ICON = {
  */
 const heroGlyphSize = (theme: Theme) => theme.controls.md * 2;
 
+/**
+ * How far above true center the hero's content sits.
+ *
+ * A screenful holding one glyph and one line reads better high than dead
+ * center — centered, it drifts toward the fold and looks like it is falling
+ * out of the screen. Derived from `controls.md` rather than written as a
+ * literal, so it tracks the density tier: 120 comfortable, 96 compact. Applied
+ * as bottom padding on the centering box, so the content rises by half of it
+ * and the chevron below is unaffected.
+ */
+const heroLift = (theme: Theme) => theme.controls.md * 3;
+
 type THoroscopeStepProps = {
   /** The day being walked through — the ritual's date, not necessarily today. */
   date: Temporal.PlainDate;
@@ -122,8 +134,8 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
         peak: theme.colors.surfaceSunken,
       };
     }
-    return sentimentTints(theme.colors, horoscope.sentiment);
-  }, [horoscope, theme.colors]);
+    return sentimentTints(theme.mode, horoscope.sentiment);
+  }, [horoscope, theme.mode, theme.colors.surfaceSunken]);
 
   const tintStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(breathe.value, [0, 1], [base, peak]),
@@ -161,7 +173,11 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
           onLayout={onLayout}
           testID="horoscope-scroll"
         >
-          <Hero horoscope={horoscope} viewportHeight={viewportHeight} />
+          <Hero
+            bottomInset={insets.bottom}
+            horoscope={horoscope}
+            viewportHeight={viewportHeight}
+          />
           <View
             style={{
               gap: theme.space.lg,
@@ -212,22 +228,46 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
  * is not a caption to a glyph. The whole role is spread rather than its
  * `fontSize` lifted off it (see docs/design.md, "Type scale").
  *
+ * **The bottom inset comes out of the hero's height**, and both symptoms it
+ * fixes are the same bug: the host `SafeAreaView` omits the bottom edge so
+ * content scrolls under the translucent tab bar, which means the scroller's
+ * measured height runs *behind* that bar. Centering in the full box put the
+ * content visibly low, and the chevron pinned to the bottom of it landed
+ * underneath the nav entirely. `EmptyScreen` reserves the same inset for the
+ * same reason.
+ *
  * `minHeight` rather than `height` because the first render has no measurement
  * yet — at 0 the hero is merely its natural size for one frame instead of
  * collapsing the summary out of view.
  */
 function Hero({
+  bottomInset,
   horoscope,
   viewportHeight,
 }: {
+  bottomInset: number;
   horoscope: THoroscope;
   viewportHeight: number;
 }) {
   const theme = useTheme();
 
   return (
-    <View style={[styles.hero, { minHeight: viewportHeight }]}>
-      <View style={[styles.heroContent, { gap: theme.space.lg }]}>
+    <View
+      style={[
+        styles.hero,
+        { minHeight: Math.max(0, viewportHeight - bottomInset) },
+      ]}
+    >
+      {/* The lift rides on the inner box, not on `hero`: padding on the
+          centering container would also move what `scrollHint` measures its
+          `bottom` against. Padding a centered child raises its content by half
+          the padding and leaves the chevron where it is. */}
+      <View
+        style={[
+          styles.heroContent,
+          { gap: theme.space.lg, paddingBottom: heroLift(theme) },
+        ]}
+      >
         <Text
           style={{
             color: theme.colors.text,

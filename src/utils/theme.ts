@@ -238,46 +238,60 @@ const mutePriorities = (
 };
 
 /**
- * The two ends of the Horoscope step's breathing tint (DEX-128).
+ * The Horoscope panel's color, per sentiment and per scheme (DEX-128).
  *
- * A sentiment does **not** get its own tokens. `success`, `error` and the
- * warning accent are already this app's vocabulary for good / bad / needs
- * attention, and they are tuned per theme — so a mood reads correctly on all
- * five palettes for free, where fifteen hand-picked hexes would be fifteen
- * things to keep in tune. `mixed` takes `priority[IMPORTANT_AND_URGENT]`
- * because it is the theme's warning yellow, which is what "the facets pull
- * both ways" wants; nothing about it is a task priority here.
+ * **These are the one place in the app where a color is not a theme token**,
+ * and the exception is deliberate rather than an oversight — `docs/design.md`
+ * carries it in its exceptions list. The panel is a mood, not a surface: it has
+ * to say *green day / purple day / blue day* at a glance, and a token that
+ * changed hue with the user's palette could not. Every other rule still
+ * applies to what sits on it — the glyph and the summary take `colors.text`,
+ * which is what the two-shade split below exists to keep legible.
  *
- * Both ends are **pre-blended opaque**, for the reason `priorityMuted` is: an
- * alpha fill takes on whatever is behind it, so an animation between two
- * alphas would drift in hue as well as strength. Blending each end first means
- * the interpolation runs between two fixed colors. Deliberately faint — this
- * is a background a summary is read on, not an accent.
- *
- * The blend is over `surfaceSunken`, not `background`. The panel holds
- * content, so `surfaceSunken` is what it is when there is no mood to show
- * (still loading, or a day the generator never covered) — tinting from that
- * same surface keeps the untinted and tinted panels one object rather than two
- * that swap when the data lands.
+ * Green reads positive and purple negative; blue is the neutral, which the DB
+ * enum spells `mixed` (the facets genuinely pull both ways). The dark shades
+ * are the brand values as given; the light ones hold their hue and saturation
+ * and raise lightness to ~88%, so a light theme's dark ink stays readable on
+ * them exactly as a dark theme's light ink does on the deep ones. Swapping by
+ * scheme rather than dimming one set is what keeps that contrast in both
+ * directions.
  */
-const SENTIMENT_TINT_BASE_ALPHA = 0.1;
-const SENTIMENT_TINT_PEAK_ALPHA = 0.24;
+const SENTIMENT_COLORS: Record<
+  THoroscopeSentiment,
+  { light: string; dark: string }
+> = {
+  // hsl(174 73% 16%) deep, hsl(174 45% 87%) light
+  positive: { light: "#cfedea", dark: "#0b453f" },
+  // hsl(311 79% 11%) deep, hsl(311 45% 89%) light
+  negative: { light: "#f0d6eb", dark: "#33062b" },
+  // hsl(220 43% 19%) deep, hsl(220 45% 88%) light
+  mixed: { light: "#d3dcee", dark: "#1c2a47" },
+};
 
+/**
+ * How far along its own light↔dark axis a sentiment travels as it breathes.
+ *
+ * Small, and it has to be: this is a background a summary is read on, so the
+ * movement should register as the panel being alive rather than as a color
+ * change. Traveling toward the *other shade of the same hue* — rather than
+ * toward white or black — is what keeps the peak in the same color family
+ * instead of washing it out.
+ */
+const SENTIMENT_BREATHE_ALPHA = 0.12;
+
+/** The two ends of the Horoscope panel's breathing color. */
 export function sentimentTints(
-  colors: TThemeColors,
+  mode: "light" | "dark",
   sentiment: THoroscopeSentiment,
 ): { base: string; peak: string } {
-  const accent =
-    sentiment === "positive"
-      ? colors.success
-      : sentiment === "negative"
-        ? colors.error
-        : colors.priority[ETaskPriority.IMPORTANT_AND_URGENT];
+  const shades = SENTIMENT_COLORS[sentiment];
+  const base = mode === "dark" ? shades.dark : shades.light;
+  const toward = mode === "dark" ? shades.light : shades.dark;
 
-  return {
-    base: blend(accent, colors.surfaceSunken, SENTIMENT_TINT_BASE_ALPHA),
-    peak: blend(accent, colors.surfaceSunken, SENTIMENT_TINT_PEAK_ALPHA),
-  };
+  // Pre-blended opaque, for the reason `priorityMuted` is: an alpha fill takes
+  // on whatever is behind it, so interpolating between two alphas would drift
+  // in hue as well as strength.
+  return { base, peak: blend(toward, base, SENTIMENT_BREATHE_ALPHA) };
 }
 
 // Each theme is a daisyUI theme ported oklch → hex. The TThemeColors fields map

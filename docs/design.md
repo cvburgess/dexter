@@ -101,34 +101,41 @@ than as a fourth surface color, so it does not get a token.
 
 ## Sentiment
 
-A horoscope's sentiment tints the Ritual tab's Horoscope panel (DEX-128), and
-it does so **without tokens of its own**. `sentimentTints(colors, sentiment)`
-in `utils/theme.ts` derives both ends from accents that already exist:
+A horoscope's sentiment colors the Ritual tab's Horoscope panel (DEX-128).
+`sentimentTints(mode, sentiment)` in `utils/theme.ts` returns the two ends it
+breathes between, and the values are **fixed brand colors rather than theme
+tokens** — the one place in the app where a color does not come from the
+palette:
 
-| Sentiment | Accent | Why |
-| --- | --- | --- |
-| `positive` | `colors.success` | The app's "this went well" |
-| `negative` | `colors.error` | The app's "this needs care" |
-| `mixed` | `priority[IMPORTANT_AND_URGENT]` | The theme's warning yellow — pulling both ways. Nothing about it is a task priority here |
+| Sentiment | Reads as | Dark scheme | Light scheme |
+| --- | --- | --- | --- |
+| `positive` | green | `#0b453f` | `#cfedea` |
+| `negative` | purple | `#33062b` | `#f0d6eb` |
+| `mixed` | blue — the neutral | `#1c2a47` | `#d3dcee` |
 
-Reusing them is the point rather than a shortcut. These three are tuned per
-theme, so a mood reads correctly on all five palettes for free; fifteen
-hand-picked hexes would be fifteen more things to keep in tune, and this
-document says adding a token should be uncomfortable. `theme.test.ts` pins that
-the three stay visibly apart on every palette, which is the property the reuse
-has to earn.
+**This is a deliberate exception, and it is listed at the bottom of this file.**
+The panel is a mood, not a surface: it has to say *green day / purple day /
+blue day* at a glance, and a token that changed hue with the user's chosen
+palette could not do that. Everything sitting *on* the panel still obeys the
+normal rules — the glyph and the summary take `colors.text`.
 
-Both ends are **pre-blended opaque**, for the same reason `priorityMuted` is:
-an alpha fill takes on whatever is behind it, so animating between two alphas
-would drift in hue as well as strength. Blending each end first leaves the
-animation interpolating between two fixed colors.
+**The two shades per hue are what make that safe.** The panel carries the
+theme's ink, so a light scheme's dark text needs a pale panel and a dark
+scheme's light text needs a deep one. The dark values are the brand colors as
+given; the light ones hold the same hue and saturation and raise lightness to
+~88%. Swapping by scheme rather than dimming one set is what keeps the contrast
+working in both directions, and `theme.test.ts` pins it.
 
-The blend is over **`surfaceSunken`, not `background`**. The panel holds
-content, so `surfaceSunken` is what it looks like with no mood to show — still
-loading, or a day the generator never covered — and washing from that same
-surface keeps the untinted and tinted panels one object rather than two that
-swap when the row lands. It is not a third surface: it is `surfaceSunken` with
-a wash on it.
+The breathe travels a short way along each hue's own light↔dark axis — toward
+the *other shade of the same color*, never toward white or black, so the peak
+stays in the family instead of washing out. Both ends are **pre-blended
+opaque**, for the same reason `priorityMuted` is: an alpha fill takes on
+whatever is behind it, so animating between two alphas would drift in hue as
+well as strength.
+
+With no mood to show — still loading, or a day the generator never covered —
+the panel falls back to `surfaceSunken`, which is the ordinary token for a
+surface that holds content.
 
 ## Border
 
@@ -439,6 +446,12 @@ a pre-blended token, or the fill takes on whatever is behind it.
 Everything below is a deliberate literal. Adding to this list should be
 uncomfortable.
 
+- **`SENTIMENT_COLORS`** (`utils/theme.ts`, DEX-128) — six hexes, two shades of
+  each of three hues, and the only colors in the app that are not theme tokens.
+  The Horoscope panel has to read as *green day / purple day / blue day*, which
+  a token that changes hue with the user's palette cannot do. Scoped to that one
+  panel's background; everything drawn on it still takes `colors.text`. See
+  **Sentiment** above for why there are two shades rather than one.
 - **`CalendarView`'s coordinate system.** `GUTTER_WIDTH`, `HOUR_HEIGHT`,
   `GUTTER_INSET`, `EVENT_GAP`, `NOW_DOT_SIZE` and friends position the hour
   labels, hour lines, now line, and events area against each other. They
