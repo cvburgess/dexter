@@ -250,8 +250,18 @@ function JournalResponseField({
   testID,
 }: TJournalResponseFieldProps) {
   const theme = useTheme();
-  const minHeight = responseHeight(response.split("\n").length, theme.space.md);
   const [contentHeight, setContentHeight] = useState(0);
+
+  // The seed is only good until the field has measured itself. `response` is
+  // the saved answer at mount and never changes after it — the input is
+  // uncontrolled and typing writes refs rather than state — so keeping its
+  // newline count as the floor would leave a five-line answer's box five lines
+  // tall after the user cleared it. Once a measurement exists it takes over,
+  // and one line is the only floor still worth holding.
+  const minHeight =
+    contentHeight > 0
+      ? Math.max(responseHeight(1, theme.space.md), contentHeight)
+      : responseHeight(response.split("\n").length, theme.space.md);
 
   return (
     <View style={{ gap: theme.space.sm }}>
@@ -271,7 +281,7 @@ function JournalResponseField({
         }
         onFocus={onFocus}
         placeholder="Write your response…"
-        style={{ minHeight: Math.max(minHeight, contentHeight) }}
+        style={{ minHeight }}
         testID={testID}
         textAlignVertical="top"
       />

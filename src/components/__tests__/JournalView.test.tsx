@@ -248,5 +248,29 @@ describe("JournalView", () => {
       expect(heightOf(screen.getByTestId("journal-response-0"))).toBe(floor);
       expect(floor).toBeGreaterThan(0);
     });
+
+    // The seed is only good until the field measures itself. `response` is the
+    // saved answer at mount and never changes after it (the input is
+    // uncontrolled, and typing writes refs rather than state), so holding its
+    // newline count as the floor would leave a cleared five-line answer's box
+    // five lines tall.
+    it("drops the seeded floor once a shorter measurement arrives", () => {
+      const screen = setup({
+        prompts: [{ prompt: "How was today?", response: "one\ntwo\nthree" }],
+      });
+      const seeded = heightOf(screen.getByTestId("journal-response-0"));
+
+      // The user clears the answer; the field remeasures at one line.
+      act(() => {
+        fireEvent(
+          screen.getByTestId("journal-response-0"),
+          "contentSizeChange",
+          { nativeEvent: { contentSize: { height: 20, width: 200 } } },
+        );
+      });
+
+      const measured = heightOf(screen.getByTestId("journal-response-0"));
+      expect(measured).toBeLessThan(seeded as number);
+    });
   });
 });
