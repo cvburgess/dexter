@@ -96,19 +96,24 @@ const heroGlyphSize = (theme: Theme) => theme.controls.md * 2;
  * drawn frame: text has to sit off a border rather than against it, and a line
  * of `heading` set edge to edge on a phone is too long to scan anyway.
  *
- * **Triple on a large screen** (DEX-138), which corrects an inversion rather
- * than just adding room. `space.lg` is a density token, and `compact` — which
- * applies on web at exactly the widths where the panel is now a centered card —
- * shrinks it from 24 to 18. Doubled, that put *36* between the text and the
- * card edge on a desktop window against the phone's 48: the least air on the
- * screen with the most room to give, and the more obvious for the panel having
- * stopped running to the window's edges. Tripling lands 54 there and 72 on a
- * tablet, where the tier stays `comfortable`.
+ * **Six times on a large screen** (DEX-138). Doubling it there corrected an
+ * inversion: `space.lg` is a density token, and `compact` — which applies on
+ * web at exactly the widths where the panel is now a centered card — shrinks it
+ * from 24 to 18, so the doubled gutter put *36* between the text and the card
+ * edge on a desktop window against the phone's 48. The least air on the screen
+ * with the most room to give, and the more obvious for the panel having stopped
+ * running to the window's edges.
+ *
+ * Six lands 108 on desktop web and 144 on a tablet, where the tier stays
+ * `comfortable`. Deliberately far past the point where it merely clears the
+ * border: against a 768dp cap it narrows the hero's measure to roughly 530 and
+ * 450dp, which is the width the centered `heading` actually wants — this is the
+ * card's margin, not its padding.
  *
  * Not a token — see `heroGlyphSize` above for why deriving beats adding one.
  */
 const contentGutter = (theme: Theme, largeScreen: boolean) =>
-  theme.space.lg * (largeScreen ? 3 : 2);
+  theme.space.lg * (largeScreen ? 6 : 2);
 
 /**
  * The hero summary's leading.
