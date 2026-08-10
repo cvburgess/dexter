@@ -400,16 +400,28 @@ publication it belongs to.
   never accept `user_id`; user ownership is derived from the validated bearer
   token. The one exception to how that ownership is enforced is `search`, which
   adds no `.eq("user_id", …)` filter of its own — see "Search" below.
-- **Task status is shared, not mirrored.** `src/utils/taskStatus.ts` holds
-  `ETaskStatus` and `isCompletionStatus` and is imported by the app, by
-  `mcp-server`, and by `scripts/demoData.ts` over the `@src/` alias, so a new
-  status can't be added to one side and forgotten on the other. It must stay import-free — Deno requires explicit
+- **Task status and priority are shared, not mirrored.**
+  `src/utils/taskStatus.ts` holds `ETaskStatus` and `isCompletionStatus`;
+  `src/utils/taskPriority.ts` holds `ETaskPriority`. Both are imported by the
+  app, by `mcp-server`, and by `scripts/demoData.ts` over the `@src/` alias, so a
+  new member can't be added to one side and forgotten on the other. They must
+  stay import-free — Deno requires explicit
   `.ts` extensions on relative imports while Metro/tsc forbid them, which is why
-  the enum can't simply live in `src/api/tasks.ts` (that file pulls in
-  `@supabase/supabase-js`). The values are persisted as `tasks.status smallint`
-  with no Postgres enum or check constraint, so `taskStatusSchema`
-  (`z.nativeEnum(ETaskStatus)`) is the only thing rejecting a bogus status.
-  Terminal statuses are done, won't do, and delegated.
+  the enums can't simply live in `src/api/tasks.ts` (that file pulls in
+  `@supabase/supabase-js`); it re-exports them instead, so app-side imports still
+  come from `@/api/tasks`. The values are persisted as `tasks.status` /
+  `tasks.priority smallint` with no Postgres enum or check constraint, so
+  `taskStatusSchema` and `taskPrioritySchema` (both `z.nativeEnum(…)`) are the
+  only thing rejecting a bogus value. Terminal statuses are done, won't do, and
+  delegated. Lower priority is *more* urgent, and `UNPRIORITIZED` (4) means
+  "never chosen", not "lowest".
+- **MCP tool params carry `.describe()`, not prose.** Both task schemas above
+  describe their own `0–4` numbering and explicitly contrast the other field's,
+  because the two sit adjacent in the same tool input and agents were writing a
+  priority into `status` (DEX-137). A schema wrapped in `z.union` — the
+  `list_tasks` status/priority filters — does not inherit its members'
+  description and needs its own. Future tool params should follow this rather
+  than folding field semantics into tool-level description strings.
 - **Repeat tasks are recurred in TypeScript, not Postgres.** Completing a task
   linked to a `repeat_task_templates` row (status → any terminal status) creates
   the next occurrence, with its date computed by `src/utils/repeatSchedule.ts`

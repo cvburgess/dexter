@@ -115,14 +115,26 @@ async function maybeCreateNextRecurringTask(
   await insertOccurrence(ctx, template, nextDate);
 }
 
+// Zod emits a union's own description, not its members' — so the descriptions
+// these two wrap have to be restated here or the filter fields would be the one
+// place an agent still sees a bare `0–4` with no explanation (DEX-137).
 const statusFilterSchema = z.union([
   taskStatusSchema,
   z.array(taskStatusSchema).min(1),
-]);
+]).describe(
+  "Filter by task status, as one value or an array of them. 0 = In Progress, " +
+    "1 = To Do, 2 = Done, 3 = Won't Do, 4 = Delegated. This is NOT the same " +
+    "numbering as `priority` — 1 here is To Do, not Urgent.",
+);
 const priorityFilterSchema = z.union([
   taskPrioritySchema,
   z.array(taskPrioritySchema).min(1),
-]);
+]).describe(
+  "Filter by Eisenhower-matrix priority, as one value or an array of them. " +
+    "0 = Important & Urgent, 1 = Urgent, 2 = Important, 3 = Neither, " +
+    "4 = Unprioritized (never set). Lower is more urgent. This is NOT the same " +
+    "numbering as `status` — 1 here is Urgent, not To Do.",
+);
 
 export const listTasksInputSchema = {
   today: z.boolean().optional().default(false),
@@ -327,8 +339,8 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         "Update one or more task fields. Only provided fields are changed. " +
         "`subtasks` REPLACES the whole checklist array — to change one item, " +
         "read the task first, modify the array, and send it back in full. " +
-        "Setting `status` to done (2), won't-do (3), or delegated (4) also " +
-        "sweeps every subtask to that status automatically, so do not send " +
+        "Setting `status` to any terminal status (Done, Won't Do, Delegated) " +
+        "also sweeps every subtask to that status automatically, so do not send " +
         "`subtasks` just to close them; send it only to make a different " +
         "change. Do not send `templateId` unless you mean to re-link the task. " +
         "Clearing it to null on a repeat's only open task leaves the schedule " +

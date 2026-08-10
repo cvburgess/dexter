@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { Constants } from "@src/types/database.types.ts";
 import { normalizeTaskUrl } from "@src/utils/taskUrl.ts";
+import { ETaskPriority } from "@src/utils/taskPriority.ts";
 import { ETaskStatus } from "@src/utils/taskStatus.ts";
 
 import { captureException } from "../../_shared/sentry.ts";
@@ -11,16 +12,33 @@ export const dateSchema = z.string().regex(
   /^\d{4}-\d{2}-\d{2}$/,
   "Expected date in YYYY-MM-DD format",
 );
-export const taskPrioritySchema = z.number().int().min(0).max(4);
 /**
- * Derived from the app's enum rather than a hand-written numeric bound, so it can
- * never fall behind a newly added status. That drift mattered: `tasks.status` is
- * an unconstrained smallint with no check constraint, making this schema the only
- * thing that rejects a bogus status — and it also validates *stored* rows on read
- * (see `storedSubtasksSchema`), where a parse failure is read as "no subtasks" and
- * silently skips a task's completion sweep.
+ * Both derived from the app's enums rather than hand-written numeric bounds, so
+ * neither can fall behind a newly added member. That drift matters: `priority`
+ * and `status` are unconstrained smallints with no check constraint, making these
+ * schemas the only thing that rejects a bogus value — and `taskStatusSchema` also
+ * validates *stored* rows on read (see `storedSubtasksSchema`), where a parse
+ * failure is read as "no subtasks" and silently skips a task's completion sweep.
+ *
+ * The descriptions are load-bearing, not decoration (DEX-137). The two fields sit
+ * adjacent in the same tool input as bare `0–4` integers meaning entirely
+ * different things, so each names every value and contrasts the other field's
+ * numbering. Prefer this over folding field semantics into tool-level prose.
  */
-export const taskStatusSchema = z.nativeEnum(ETaskStatus);
+export const taskPrioritySchema = z.nativeEnum(ETaskPriority).describe(
+  "Eisenhower-matrix priority. 0 = Important & Urgent, 1 = Urgent, " +
+    "2 = Important, 3 = Neither (explicitly deprioritized), " +
+    "4 = Unprioritized (never set; the default for a new task). Lower is more " +
+    "urgent. Note 4 means 'no priority chosen', not 'lowest priority'. This is " +
+    "NOT the same numbering as `status` — 1 here is Urgent, not To Do.",
+);
+
+export const taskStatusSchema = z.nativeEnum(ETaskStatus).describe(
+  "Task status. 0 = In Progress, 1 = To Do (the default for a new task), " +
+    "2 = Done, 3 = Won't Do, 4 = Delegated. 0 and 1 are open; 2, 3 and 4 are " +
+    "terminal. This is NOT the same numbering as `priority` — 1 here is To Do, " +
+    "not Urgent.",
+);
 export const themeModeSchema = z.number().int().min(0).max(2);
 /**
  * A sun sign (DEX-128), built from the generated runtime enum array rather than
