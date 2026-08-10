@@ -22,11 +22,8 @@ import {
   scrollOffsetForTarget,
   TPositionedEvent,
 } from "@/utils/calendarLayout";
-import {
-  formatHourLabel,
-  formatTime,
-  parseTimeToMinutes,
-} from "@/utils/formatPlainTime";
+import { calendarWindow } from "@/utils/calendarStats";
+import { formatHourLabel, formatTime } from "@/utils/formatPlainTime";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 import { EmptyScreen } from "./EmptyScreen";
@@ -100,9 +97,6 @@ function AccentBar({
     />
   );
 }
-/** Fallback window if stored times are missing or inverted. */
-const DEFAULT_START_HOUR = 6;
-const DEFAULT_END_HOUR = 20;
 /** How often the "now" line / past-event dimming re-evaluates. */
 const NOW_REFRESH_MS = 60_000;
 /** Padding above the first hour, inside the scroll content. */
@@ -136,7 +130,7 @@ export function CalendarView({ date }: TCalendarViewProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [preferences] = usePreferences();
-  const [events, { isLoading, isError, permissionDenied }] =
+  const [events, { isLoading, isError, permissionDenied, notConfigured }] =
     useCalendarEvents(date);
 
   // Minutes-from-midnight of "now" relative to the viewed day, refreshed on an
@@ -154,21 +148,23 @@ export function CalendarView({ date }: TCalendarViewProps) {
     return () => clearInterval(id);
   }, [date]);
 
-  // Snap the window to whole hours: the start/end preferences name the first
-  // and last hours shown. Fall back to a sane default if unset or inverted.
-  const { startHour, endHour } = useMemo(() => {
-    const start = Math.floor(
-      parseTimeToMinutes(preferences.calendarStartTime) / 60,
-    );
-    const end = Math.ceil(parseTimeToMinutes(preferences.calendarEndTime) / 60);
-    if (!(end > start)) {
-      return { startHour: DEFAULT_START_HOUR, endHour: DEFAULT_END_HOUR };
-    }
-    return { startHour: start, endHour: end };
-  }, [preferences.calendarStartTime, preferences.calendarEndTime]);
+  // Snapped to whole hours in `calendarWindow`, which the ritual's Calendar
+  // step reads too so its "Nh free" is measured against the very window drawn
+  // here.
+  const {
+    startHour,
+    endHour,
+    startMin: windowStartMin,
+    endMin: windowEndMin,
+  } = useMemo(
+    () =>
+      calendarWindow(
+        preferences.calendarStartTime,
+        preferences.calendarEndTime,
+      ),
+    [preferences.calendarStartTime, preferences.calendarEndTime],
+  );
 
-  const windowStartMin = startHour * 60;
-  const windowEndMin = endHour * 60;
   const totalHeight = ((windowEndMin - windowStartMin) / 60) * HOUR_HEIGHT;
 
   const allDayEvents = useMemo(
@@ -227,11 +223,16 @@ export function CalendarView({ date }: TCalendarViewProps) {
 
   const dividerColor = withOpacity(theme.colors.text, 0.25);
 
+  // Ordered most specific first. `notConfigured` sits ahead of the generic
+  // message because a user with no calendar source at all was being told their
+  // day was clear, which is a claim about a calendar we never read.
   const emptyMessage = permissionDenied
     ? "Calendar access is off. Enable it in your system settings to see your events."
     : isError
       ? "Couldn't load your calendars. Check your connection or feed URLs."
-      : "No events scheduled for this day.";
+      : notConfigured
+        ? "No calendars yet. Add one in Settings → Calendars to see your events."
+        : "No events scheduled for this day.";
 
   const showEmpty =
     !isLoading && allDayEvents.length === 0 && positioned.length === 0;

@@ -63,9 +63,9 @@ export type TRitualStep = {
 
 /**
  * The steps of each ritual, in order, for a user with every step turned on.
- * Read through `stepsFor` rather than directly — `journal` drops out when the
- * user has the journal disabled. Most steps still render a centered
- * placeholder; later DEX-34 sub-issues replace them one at a time in
+ * Read through `stepsFor` rather than directly — `journal` and `calendar` each
+ * drop out when the user has that feature disabled. Most steps still render a
+ * centered placeholder; later DEX-34 sub-issues replace them one at a time in
  * `components/RitualStepView.tsx`.
  */
 export const RITUAL_STEPS: Record<TRitualMode, readonly TRitualStep[]> = {
@@ -87,18 +87,83 @@ export const RITUAL_STEPS: Record<TRitualMode, readonly TRitualStep[]> = {
 };
 
 /**
- * The same lists with the journal step removed, for `enableJournal: false`
- * (DEX-105) — the journal left the Today tab for the ritual, so the preference
- * that used to hide a day view now hides a step.
+ * The preferences that decide which steps a ritual has at all: the journal
+ * (DEX-105) left the Today tab for the ritual, and the calendar (DEX-140) only
+ * appears for a user who has one — so a preference that used to hide a day view
+ * now hides a step.
+ */
+export type TRitualStepToggles = {
+  journalEnabled: boolean;
+  calendarEnabled: boolean;
+};
+
+/**
+ * Which toggle, if any, keeps each step. Ids absent from this table are
+ * unconditional.
  *
- * Precomputed rather than filtered per call so `stepsFor` returns one of four
+ * A `Partial<Record<TRitualStepId, …>>` rather than a plain object literal, so
+ * a mistyped id is a compile error rather than a step that silently never
+ * drops.
+ */
+const STEP_TOGGLE: Partial<Record<TRitualStepId, keyof TRitualStepToggles>> = {
+  journal: "journalEnabled",
+  calendar: "calendarEnabled",
+};
+
+/**
+ * One key per combination of the toggles above, spelled out as literals so
+ * `STEP_LISTS` is an exhaustive `Record` — an `Object.fromEntries` build would
+ * widen the key to `string` and let a missing combination through as
+ * `undefined` at runtime.
+ */
+const TOGGLE_KEYS = ["jc", "j-", "-c", "--"] as const;
+type TToggleKey = (typeof TOGGLE_KEYS)[number];
+
+// The return annotation is the check that matters: TypeScript infers the
+// template's own union of four literals, so a key shape that drifted out of
+// `TOGGLE_KEYS` would fail here rather than at a lookup returning `undefined`.
+const toggleKey = (toggles: TRitualStepToggles): TToggleKey =>
+  `${toggles.journalEnabled ? "j" : "-"}${toggles.calendarEnabled ? "c" : "-"}`;
+
+const togglesForKey = (key: TToggleKey): TRitualStepToggles => ({
+  journalEnabled: key[0] === "j",
+  calendarEnabled: key[1] === "c",
+});
+
+const listsForMode = (
+  mode: TRitualMode,
+): Record<TToggleKey, readonly TRitualStep[]> => {
+  const lists = {} as Record<TToggleKey, readonly TRitualStep[]>;
+  for (const key of TOGGLE_KEYS) {
+    const toggles = togglesForKey(key);
+    lists[key] = RITUAL_STEPS[mode].filter((step) => {
+      const toggle = STEP_TOGGLE[step.id];
+      return toggle ? toggles[toggle] : true;
+    });
+  }
+  return lists;
+};
+
+/**
+ * Every ritual's step list, for every combination of the toggles.
+ *
+ * Precomputed rather than filtered per call so `stepsFor` returns one of eight
  * **stable** references: a fresh array on every render would defeat the
  * identity comparisons downstream (`ritualPageKey` aside, `ritualStepOptions`
  * maps it on every render of both switchers).
+ *
+ * The evening ritual has no calendar step, so its `"jc"`/`"j-"` entries (and
+ * its `"-c"`/`"--"` pair) are distinct arrays holding identical steps. That is
+ * harmless — nothing compares lists across a preference change, only across
+ * renders at the same settings — but worth knowing before assuming identity
+ * implies content-equality here.
  */
-const JOURNAL_FREE_STEPS: Record<TRitualMode, readonly TRitualStep[]> = {
-  am: RITUAL_STEPS.am.filter((step) => step.id !== "journal"),
-  pm: RITUAL_STEPS.pm.filter((step) => step.id !== "journal"),
+const STEP_LISTS: Record<
+  TRitualMode,
+  Record<TToggleKey, readonly TRitualStep[]>
+> = {
+  am: listsForMode("am"),
+  pm: listsForMode("pm"),
 };
 
 /** Noon is the boundary: before it the morning ritual, from it the evening one. */
@@ -120,40 +185,54 @@ export const currentRitualMode = (): TRitualMode =>
 export const otherMode = (mode: TRitualMode): TRitualMode =>
   mode === "am" ? "pm" : "am";
 
-/** Everything a ritual surface needs to render, and nothing it doesn't. */
-export type TRitualState = {
+/**
+ * Everything a ritual surface needs to render, and nothing it doesn't.
+ *
+ * `journalEnabled` and `calendarEnabled` are `preferences.enableJournal` /
+ * `preferences.enableCalendar`, mirrored into the state rather than read
+ * alongside it.
+ *
+ * Two reasons they live here rather than being passed to each function below.
+ * A state carrying the derived *list* instead would silently disagree with a
+ * `{ ...state, mode }` override; and a `currentStep(state, prefs)` signature
+ * would break during the render pass React runs with the **stale** state after
+ * a set-state-during-render — it would index a six-step list with an index
+ * bounded by a five-step one, hand `undefined` to `RitualStepView`, and throw
+ * on `step.title`. Keeping the discriminators inside the state makes that pass
+ * self-consistent.
+ */
+export type TRitualState = TRitualStepToggles & {
   date: Temporal.PlainDate;
   mode: TRitualMode;
   /** Index into `stepsFor(state)`. */
   step: number;
   /** Which way the last change travelled; drives `SwipeablePage`'s intro. */
   direction: -1 | 0 | 1;
-  /**
-   * `preferences.enableJournal`, mirrored into the state rather than read
-   * alongside it.
-   *
-   * Two reasons it lives here rather than being passed to each function below.
-   * A state carrying the derived *list* instead would silently disagree with a
-   * `{ ...state, mode }` override; and a `currentStep(state, prefs)` signature
-   * would break during the render pass React runs with the **stale** state
-   * after a set-state-during-render — it would index a six-step list with an
-   * index bounded by a five-step one, hand `undefined` to `RitualStepView`, and
-   * throw on `step.title`. Keeping the discriminator inside the state makes
-   * that pass self-consistent.
-   */
-  journalEnabled: boolean;
 };
 
 /** The steps of the ritual on screen, minus any the user has turned off. */
 export const stepsFor = (state: TRitualState): readonly TRitualStep[] =>
-  (state.journalEnabled ? RITUAL_STEPS : JOURNAL_FREE_STEPS)[state.mode];
+  STEP_LISTS[state.mode][toggleKey(state)];
 
-/** A fresh ritual: today's morning or evening flow, at its first step. */
+/**
+ * A fresh ritual: today's morning or evening flow, at its first step.
+ *
+ * The toggles arrive as an object rather than as two more positional
+ * parameters: they are the same type, so a transposed pair would be a silent
+ * bug rather than a compile error. Both default to on, matching `RITUAL_STEPS`.
+ */
 export const createRitualState = (
   date: Temporal.PlainDate = Temporal.Now.plainDateISO(),
   mode: TRitualMode = currentRitualMode(),
-  journalEnabled = true,
-): TRitualState => ({ date, mode, step: 0, direction: 0, journalEnabled });
+  toggles: Partial<TRitualStepToggles> = {},
+): TRitualState => ({
+  date,
+  mode,
+  step: 0,
+  direction: 0,
+  journalEnabled: toggles.journalEnabled ?? true,
+  calendarEnabled: toggles.calendarEnabled ?? true,
+});
 
 /** The step on screen. */
 export const currentStep = (state: TRitualState): TRitualStep =>
@@ -222,7 +301,7 @@ export const goToStep = (state: TRitualState, step: number): TRitualState => {
  * view.
  *
  * Carrying the index across is safe because a date change touches neither
- * `mode` nor `journalEnabled`, so `stepsFor` returns the very same list and the
+ * `mode` nor either toggle, so `stepsFor` returns the very same list and the
  * index still means the step it meant. `withMode` resets to 0 precisely because
  * it *does* change that list.
  *
@@ -260,27 +339,19 @@ export const withMode = (
 };
 
 /**
- * Follow a change to `preferences.enableJournal` while the ritual is on screen
- * — the settings toggle lives in another tab, and this one stays mounted.
+ * Re-point a toggled state at the step it was already on, found by **id** in
+ * the list the toggle produced rather than by index: journal is index 1 of the
+ * morning ritual and 2 of the evening one, so removing it shifts every later
+ * step down. A plain clamp never fires for those (they're still in range) and
+ * would silently move someone from Calendar to Backlog. Preserving the id also
+ * leaves `ritualPageKey` unchanged, so `SwipeablePage` doesn't remount and
+ * replay its intro for a toggle flipped in another tab.
  *
- * Keeps the user on the **same step**, found by id in the new list rather than
- * by index: journal is index 1 of the morning ritual and 2 of the evening one,
- * so removing it shifts every later step down. A plain clamp never fires for
- * those (they're still in range) and would silently move someone from Calendar
- * to Backlog. Preserving the id also leaves `ritualPageKey` unchanged, so
- * `SwipeablePage` doesn't remount and replay its intro for a toggle flipped in
- * another tab.
- *
- * The clamp is only the fallback for the one step that can actually vanish —
- * the journal itself.
+ * The clamp is only the fallback for the step that can actually vanish — the
+ * one the toggle just removed, when the user was standing on it.
  */
-export const withJournalEnabled = (
-  state: TRitualState,
-  journalEnabled: boolean,
-): TRitualState => {
-  if (journalEnabled === state.journalEnabled) return state;
+const keepingStep = (state: TRitualState, next: TRitualState): TRitualState => {
   const id = currentStep(state).id;
-  const next = { ...state, journalEnabled, direction: 0 as const };
   const steps = stepsFor(next);
   const index = steps.findIndex((step) => step.id === id);
   return {
@@ -288,6 +359,41 @@ export const withJournalEnabled = (
     step: index === -1 ? Math.min(state.step, steps.length - 1) : index,
   };
 };
+
+/**
+ * Follow a change to `preferences.enableJournal` while the ritual is on screen
+ * — the settings toggle lives in another tab, and this one stays mounted.
+ *
+ * **The unchanged guard lives here, not in `keepingStep`.** `ritual/index.tsx`
+ * sets state during render whenever the flag disagrees with preferences, so a
+ * path that returned a state whose flag was *not* updated — tempting for the
+ * evening ritual, where a calendar toggle changes no list — would leave that
+ * comparison failing forever and spin the render loop.
+ */
+export const withJournalEnabled = (
+  state: TRitualState,
+  journalEnabled: boolean,
+): TRitualState =>
+  journalEnabled === state.journalEnabled
+    ? state
+    : keepingStep(state, { ...state, journalEnabled, direction: 0 });
+
+/**
+ * Follow a change to `preferences.enableCalendar` (DEX-140), the same way
+ * `withJournalEnabled` follows the journal's.
+ *
+ * Runs in the *opposite* direction on a cold launch: the calendar preference
+ * defaults to off, so an enabled user's ritual gains the step a moment after
+ * mount rather than losing one. Keeping the step by id is what makes that
+ * unremarkable — someone who opened straight onto Horoscope stays there.
+ */
+export const withCalendarEnabled = (
+  state: TRitualState,
+  calendarEnabled: boolean,
+): TRitualState =>
+  calendarEnabled === state.calendarEnabled
+    ? state
+    : keepingStep(state, { ...state, calendarEnabled, direction: 0 });
 
 /**
  * Apply a deep link (`utils/ritualRoute.ts`) as **one** transition.

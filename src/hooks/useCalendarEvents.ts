@@ -26,6 +26,7 @@ const STALE_TIME_MS = 1000 * 60 * 10;
 type TDeviceResult = {
   events: TCalendarEvent[];
   permissionDenied: boolean;
+  notConfigured: boolean;
 };
 
 // Minimal structural shapes for the expo-calendar objects we read — decoupled
@@ -135,6 +136,11 @@ const nativeToEvent = (
  * on first use; a denied grant returns no events with `permissionDenied` set so
  * the UI can prompt. `enabledIds === null` means the user hasn't customized the
  * selection yet, so every calendar is included.
+ *
+ * `notConfigured` says there was nothing to read from at all — no grant, no
+ * calendars on the device, or every one of them switched off. It falls out of
+ * the two early returns below rather than costing a second `expo-calendar`
+ * call (and, on the denied branch, a second permission prompt).
  */
 const fetchDeviceEvents = async (
   dateIso: string,
@@ -143,13 +149,15 @@ const fetchDeviceEvents = async (
 ): Promise<TDeviceResult> => {
   const { granted } = await Calendar.requestCalendarPermissions();
   if (!granted) {
-    return { events: [], permissionDenied: true };
+    return { events: [], permissionDenied: true, notConfigured: true };
   }
 
   const calendars = await Calendar.getCalendars(Calendar.EntityTypes.EVENT);
   const allIds = calendars.map((c) => c.id);
   const ids = (enabledIds ?? allIds).filter((id) => allIds.includes(id));
-  if (ids.length === 0) return { events: [], permissionDenied: false };
+  if (ids.length === 0) {
+    return { events: [], permissionDenied: false, notConfigured: true };
+  }
 
   const colorById = new Map<string, string | undefined>(
     calendars.map((c) => [c.id, c.color] as [string, string | undefined]),
@@ -172,7 +180,7 @@ const fetchDeviceEvents = async (
       return nativeToEvent(event, timeZone, colorById, response);
     }),
   );
-  return { events, permissionDenied: false };
+  return { events, permissionDenied: false, notConfigured: false };
 };
 
 /**
@@ -203,13 +211,21 @@ export const useCalendarEvents = (
     refetchOnMount: "always",
   });
 
-  const result = data ?? { events: [], permissionDenied: false };
+  // The placeholder's `notConfigured: false` is what keeps a still-loading read
+  // from reading as an unconfigured one — the answer isn't known until the
+  // query resolves.
+  const result = data ?? {
+    events: [],
+    permissionDenied: false,
+    notConfigured: false,
+  };
   return [
     result.events,
     {
       isLoading: active && (enabledLoading || isLoading),
       isError,
       permissionDenied: result.permissionDenied,
+      notConfigured: result.notConfigured,
     },
   ];
 };

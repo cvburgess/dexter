@@ -63,8 +63,11 @@ export const scrollOffsetForTarget = (
  * event that starts the previous day is negative, one that ends the next day is
  * >1440. Computing from the date (not bare `hour`/`minute`) is what lets
  * cross-midnight and multi-day events clamp into the window correctly.
+ *
+ * Exported for `utils/calendarStats`, which measures the same events in minutes
+ * rather than pixels and must clamp them the same way.
  */
-const minutesFromDayStart = (
+export const minutesFromDayStart = (
   moment: Temporal.PlainDateTime,
   dayStart: Temporal.PlainDateTime,
 ): number =>
@@ -112,6 +115,9 @@ export const layoutEvents = (
       endMin: minutesFromDayStart(event.end, dayStart),
     }))
     // Treat a zero/negative-length event as a short block so it stays visible.
+    // A drawing decision, not a claim about the day: `calendarStats` lets the
+    // same event contribute zero minutes, because a reminder pinned to an
+    // instant does not book a quarter hour of anybody's time.
     .map((e) =>
       e.endMin <= e.startMin ? { ...e, endMin: e.startMin + 15 } : e,
     )

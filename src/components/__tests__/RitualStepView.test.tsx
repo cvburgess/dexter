@@ -31,6 +31,22 @@ jest.mock("@/components/HoroscopeStep", () => {
   };
 });
 
+// And the calendar step: it owns the events query, the preferences read and the
+// timeline underneath it.
+jest.mock("@/components/CalendarStep", () => {
+  const { Text: RNText } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+  return {
+    CalendarStep: function MockCalendarStep({
+      date,
+    }: {
+      date: Temporal.PlainDate;
+    }) {
+      return <RNText>{`calendar:${date.toString()}`}</RNText>;
+    },
+  };
+});
+
 const DATE = Temporal.PlainDate.from("2026-08-09");
 
 const renderStep = (step: TRitualStep) =>
@@ -73,6 +89,14 @@ describe("RitualStepView", () => {
     );
   });
 
+  // Only reachable while the calendar preference is on — `stepsFor` drops the
+  // step from the flow entirely otherwise.
+  it("renders the calendar for the ritual's day", () => {
+    renderStep({ id: "calendar", title: "Calendar" });
+
+    expect(screen.getByText("calendar:2026-08-09")).toBeTruthy();
+  });
+
   it("hands a step the ritual's date rather than today's", () => {
     const other = Temporal.PlainDate.from("2026-01-02");
 
@@ -93,7 +117,10 @@ describe("RitualStepView", () => {
   // screen rather than a failure.
   it.each(
     [...RITUAL_STEPS.am, ...RITUAL_STEPS.pm].filter(
-      (step) => step.id !== "journal" && step.id !== "horoscope",
+      (step) =>
+        step.id !== "journal" &&
+        step.id !== "horoscope" &&
+        step.id !== "calendar",
     ),
   )("renders $title as a placeholder", (step) => {
     renderStep(step);

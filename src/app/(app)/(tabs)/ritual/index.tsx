@@ -13,6 +13,7 @@ import {
   createRitualState,
   goToStep,
   otherMode,
+  withCalendarEnabled,
   withDate,
   withJournalEnabled,
   withLink,
@@ -58,7 +59,10 @@ export default function RitualScreen() {
   // which is the worst possible shape for the bug.
   const [state, setState] = useState(() =>
     withLink(
-      createRitualState(undefined, undefined, preferences.enableJournal),
+      createRitualState(undefined, undefined, {
+        journalEnabled: preferences.enableJournal,
+        calendarEnabled: preferences.enableCalendar,
+      }),
       link ?? { date: null, step: null },
     ),
   );
@@ -83,14 +87,20 @@ export default function RitualScreen() {
     if (link) setState((current) => withLink(current, link));
   }
 
-  // Follow the journal preference, which is toggled in another tab while this
-  // screen stays mounted. `usePreferences` serves defaults (journal on) until
-  // the row loads, so on a cold launch with it disabled this corrects a moment
-  // after mount — `withJournalEnabled` keeps the user on the same step by id,
-  // which is what makes that correction unremarkable.
+  // Follow the journal and calendar preferences, both toggled in another tab
+  // while this screen stays mounted. `usePreferences` serves defaults until the
+  // row loads, so each corrects a moment after mount on a cold launch — and in
+  // opposite directions, since the journal defaults on and the calendar off.
+  // `withJournalEnabled` / `withCalendarEnabled` keep the user on the same step
+  // by id, which is what makes both corrections unremarkable.
   if (state.journalEnabled !== preferences.enableJournal) {
     setState((current) =>
       withJournalEnabled(current, preferences.enableJournal),
+    );
+  }
+  if (state.calendarEnabled !== preferences.enableCalendar) {
+    setState((current) =>
+      withCalendarEnabled(current, preferences.enableCalendar),
     );
   }
 
