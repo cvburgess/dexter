@@ -52,12 +52,11 @@ jest.mock("@/components/TasksView", () => ({
   TasksView: (props: Parameters<typeof mockTasksView>[0]) =>
     mockTasksView(props),
 }));
-// Notes/Journal/Calendar read via hooks that need a QueryClientProvider or
-// native modules this unit test doesn't mount; their own behavior is covered
-// by their own tests. Stub each to a marker exposing its date, plus a mount
-// counter (`useEffect` with no deps) — NotesView/JournalView/CalendarView all
-// seed uncontrolled/one-time state from `date` at mount (see their own
-// comments) and rely on the host remounting them via a date-keyed `key` for a
+// Notes/Calendar read via hooks that need a QueryClientProvider or native
+// modules this unit test doesn't mount; their own behavior is covered by their
+// own tests. Stub each to a marker exposing its date, plus a mount counter
+// (`useEffect` with no deps) — both seed uncontrolled/one-time state from
+// `date` at mount (see their own comments) and rely on the host remounting them via a date-keyed `key` for a
 // new day to take effect; the large-screen suite below asserts on this count
 // to catch a missing `key` (a stale-content bug a marker's `date` prop alone
 // can't reveal, since the prop updates fine even without a remount).
@@ -69,13 +68,6 @@ const MockNotesView = ({ date }: { date: string }) => {
 jest.mock("@/components/NotesView", () => ({
   NotesView: (props: Parameters<typeof MockNotesView>[0]) =>
     MockNotesView(props),
-}));
-const MockJournalView = ({ date }: { date: string }) => (
-  <Text>journal-view:{date}</Text>
-);
-jest.mock("@/components/JournalView", () => ({
-  JournalView: (props: Parameters<typeof MockJournalView>[0]) =>
-    MockJournalView(props),
 }));
 const mockCalendarViewMount = jest.fn();
 const MockCalendarView = ({ date }: { date: Temporal.PlainDate }) => {
@@ -131,7 +123,7 @@ const mockDayViewSwitcher = ({
   onOpenDrawer?: () => void;
 }) => (
   <>
-    {["tasks", "notes", "journal"].map((view) => (
+    {["tasks", "notes", "calendar"].map((view) => (
       <TouchableOpacity
         accessibilityLabel={`view-${view}`}
         key={view}
@@ -160,12 +152,10 @@ jest.mock("@/components/DayViewSwitcher", () => ({
 const mockDayPaneToggles = ({
   onTogglePane,
   enableNotes,
-  enableJournal,
   enableCalendar,
 }: {
   onTogglePane: (pane: string) => void;
   enableNotes: boolean;
-  enableJournal: boolean;
   enableCalendar: boolean;
 }) => (
   <>
@@ -175,14 +165,6 @@ const mockDayPaneToggles = ({
         onPress={() => onTogglePane("notes")}
       >
         <Text>notes</Text>
-      </TouchableOpacity>
-    )}
-    {enableJournal && (
-      <TouchableOpacity
-        accessibilityLabel="pane-toggle-journal"
-        onPress={() => onTogglePane("journal")}
-      >
-        <Text>journal</Text>
       </TouchableOpacity>
     )}
     {enableCalendar && (
@@ -227,7 +209,6 @@ const mockUseTodayPanes = useTodayPanes as jest.MockedFunction<
 const preferences = (
   overrides: Partial<{
     enableNotes: boolean;
-    enableJournal: boolean;
     enableCalendar: boolean;
     enableHabits: boolean;
   }> = {},
@@ -235,7 +216,6 @@ const preferences = (
   [
     {
       enableNotes: true,
-      enableJournal: true,
       enableCalendar: true,
       enableHabits: true,
       ...overrides,
@@ -248,7 +228,6 @@ const mockOpenPane = jest.fn();
 const panes = (
   overrides: Partial<{
     notes: boolean;
-    journal: boolean;
     calendar: boolean;
     drawer: boolean;
   }> = {},
@@ -256,7 +235,6 @@ const panes = (
   [
     {
       notes: true,
-      journal: true,
       calendar: true,
       drawer: false,
       ...overrides,
@@ -361,26 +339,28 @@ describe("TodayScreen", () => {
       ).toBeTruthy();
     });
 
-    it("renders the Journal view when Journal is selected", () => {
+    it("renders the Calendar view when Calendar is selected", () => {
       const screen = render(<TodayScreen />);
 
-      fireEvent.press(screen.getByLabelText("view-journal"));
+      fireEvent.press(screen.getByLabelText("view-calendar"));
 
       expect(
         screen.getByText(
-          `journal-view:${Temporal.Now.plainDateISO().toString()}`,
+          `calendar-view:${Temporal.Now.plainDateISO().toString()}`,
         ),
       ).toBeTruthy();
       expect(screen.queryByText(/^tasks-view:/)).toBeNull();
     });
 
-    it("falls back to Tasks when Journal is selected but disabled", () => {
-      mockUsePreferences.mockReturnValue(preferences({ enableJournal: false }));
+    it("falls back to Tasks when the selected view is disabled", () => {
+      mockUsePreferences.mockReturnValue(
+        preferences({ enableCalendar: false }),
+      );
       const screen = render(<TodayScreen />);
 
-      fireEvent.press(screen.getByLabelText("view-journal"));
+      fireEvent.press(screen.getByLabelText("view-calendar"));
 
-      expect(screen.queryByText(/^journal-view:/)).toBeNull();
+      expect(screen.queryByText(/^calendar-view:/)).toBeNull();
       expect(
         screen.getByText(
           `tasks-view:${Temporal.Now.plainDateISO().toString()}`,
@@ -467,8 +447,6 @@ describe("TodayScreen", () => {
       const screen = render(<TodayScreen />);
       const today = Temporal.Now.plainDateISO().toString();
 
-      // Notes/Journal share one tabbed pane (see NotesJournalTabs.test) and
-      // default to the Notes tab.
       expect(screen.getByText(`tasks-view:${today}`)).toBeTruthy();
       expect(screen.getByText(`notes-view:${today}`)).toBeTruthy();
       expect(screen.getByText(`calendar-view:${today}`)).toBeTruthy();
@@ -504,7 +482,7 @@ describe("TodayScreen", () => {
       mockUseTodayPanes.mockImplementation(
         () =>
           [
-            { notes: true, journal: true, calendar: true, drawer: drawerOpen },
+            { notes: true, calendar: true, drawer: drawerOpen },
             {
               togglePane: (pane: string) => {
                 if (pane === "drawer") drawerOpen = !drawerOpen;
@@ -556,33 +534,21 @@ describe("TodayScreen", () => {
       expect(screen.queryByLabelText("pane-toggle-calendar")).toBeNull();
     });
 
-    it("switches the combined pane to Journal when Notes is toggled off", () => {
+    it("hides the Notes pane when it is toggled off", () => {
       mockUseTodayPanes.mockReturnValue(panes({ notes: false }));
       const screen = render(<TodayScreen />);
       const today = Temporal.Now.plainDateISO().toString();
 
       expect(screen.queryByText(`notes-view:${today}`)).toBeNull();
-      expect(screen.getByText(`journal-view:${today}`)).toBeTruthy();
-    });
-
-    it("hides the combined Notes/Journal pane when both are toggled off", () => {
-      mockUseTodayPanes.mockReturnValue(
-        panes({ notes: false, journal: false }),
-      );
-      const screen = render(<TodayScreen />);
-      const today = Temporal.Now.plainDateISO().toString();
-
-      expect(screen.queryByText(`notes-view:${today}`)).toBeNull();
-      expect(screen.queryByText(`journal-view:${today}`)).toBeNull();
       expect(screen.getByText(`calendar-view:${today}`)).toBeTruthy();
     });
 
     it("toggles a pane via its header button", () => {
       const screen = render(<TodayScreen />);
 
-      fireEvent.press(screen.getByLabelText("pane-toggle-journal"));
+      fireEvent.press(screen.getByLabelText("pane-toggle-notes"));
 
-      expect(mockTogglePane).toHaveBeenCalledWith("journal");
+      expect(mockTogglePane).toHaveBeenCalledWith("notes");
     });
 
     it("moves every pane to the next day together via DayNav", () => {
@@ -596,7 +562,7 @@ describe("TodayScreen", () => {
       expect(screen.getByText(`calendar-view:${tomorrow}`)).toBeTruthy();
     });
 
-    it("remounts Notes/Journal and Calendar on a date change, not just re-rendering them", () => {
+    it("remounts Notes and Calendar on a date change, not just re-rendering them", () => {
       mockNotesViewMount.mockClear();
       mockCalendarViewMount.mockClear();
       const screen = render(<TodayScreen />);
@@ -605,7 +571,7 @@ describe("TodayScreen", () => {
 
       fireEvent.press(screen.getByLabelText("Next day"));
 
-      // NotesView/JournalView seed uncontrolled inputs, and CalendarView
+      // NotesView seeds uncontrolled inputs, and CalendarView
       // seeds its "now" line, only once per mount — a second render with a
       // new `date` prop but the same component instance would leave both
       // showing stale content instead of the new day's.
@@ -660,15 +626,25 @@ describe("TodayScreen", () => {
     });
 
     it("selects the view named by ?mode=", () => {
-      mockSearchParams.current = { date: "2026-07-14", mode: "journal" };
+      mockSearchParams.current = { date: "2026-07-14", mode: "notes" };
 
       const screen = render(<TodayScreen />);
 
-      expect(screen.getByText("journal-view:2026-07-14")).toBeTruthy();
+      expect(screen.getByText("notes-view:2026-07-14")).toBeTruthy();
     });
 
     it("ignores an unrecognized ?mode= rather than blanking the day", () => {
       mockSearchParams.current = { date: "2026-07-14", mode: "nonsense" };
+
+      const screen = render(<TodayScreen />);
+
+      expect(screen.getByText("tasks-view:2026-07-14")).toBeTruthy();
+    });
+
+    // A stale link from before DEX-105, when the journal was a day view. It has
+    // to fall through to Tasks rather than select a view that no longer exists.
+    it("ignores a stale ?mode=journal", () => {
+      mockSearchParams.current = { date: "2026-07-14", mode: "journal" };
 
       const screen = render(<TodayScreen />);
 
@@ -754,17 +730,15 @@ describe("TodayScreen", () => {
     describe("large screens", () => {
       beforeEach(() => mockUseIsLargeDevice.mockReturnValue(true));
 
-      it("opens the pane named by ?mode= and selects its tab", () => {
-        mockSearchParams.current = { date: "2026-07-14", mode: "journal" };
+      it("opens the pane named by ?mode=", () => {
+        mockSearchParams.current = { date: "2026-07-14", mode: "notes" };
 
         const screen = render(<TodayScreen />);
 
         // `openPane`, not `togglePane`: following the link twice, or following
         // it when the pane is already open, must not close it.
-        expect(mockOpenPane).toHaveBeenCalledWith("journal");
-        // Notes and Journal share one tabbed pane, which defaults to Notes —
-        // so opening the pane isn't enough, the tab has to follow too.
-        expect(screen.getByText("journal-view:2026-07-14")).toBeTruthy();
+        expect(mockOpenPane).toHaveBeenCalledWith("notes");
+        expect(screen.getByText("notes-view:2026-07-14")).toBeTruthy();
       });
 
       it("opens the docked drawer pre-filtered and pre-searched", () => {

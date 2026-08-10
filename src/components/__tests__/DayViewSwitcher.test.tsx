@@ -36,35 +36,30 @@ const lastBacklogOption = (): TIconMenuOption | undefined =>
     .find((option) => option.id === "drawer");
 
 describe("dayViewOptions", () => {
-  const ids = (
-    view: TDayView,
-    notes: boolean,
-    journal: boolean,
-    calendar = false,
-  ) =>
-    dayViewOptions(view, jest.fn(), notes, journal, calendar).map((o) => o.id);
+  const ids = (view: TDayView, notes: boolean, calendar = false) =>
+    dayViewOptions(view, jest.fn(), notes, calendar).map((o) => o.id);
 
   it("always offers Tasks", () => {
-    expect(ids("tasks", false, false)).toEqual(["tasks"]);
+    expect(ids("tasks", false)).toEqual(["tasks"]);
   });
 
   it("includes Notes only when enabled", () => {
-    expect(ids("tasks", true, false)).toContain("notes");
-    expect(ids("tasks", false, false)).not.toContain("notes");
+    expect(ids("tasks", true)).toContain("notes");
+    expect(ids("tasks", false)).not.toContain("notes");
   });
 
-  it("includes Journal only when enabled", () => {
-    expect(ids("tasks", false, true)).toContain("journal");
-    expect(ids("tasks", false, false)).not.toContain("journal");
+  // The journal is not among them since DEX-105 — it lives on the Ritual tab.
+  it("never offers the journal", () => {
+    expect(ids("tasks", true, true)).not.toContain("journal");
   });
 
   it("includes Calendar only when enabled", () => {
-    expect(ids("tasks", false, false, true)).toContain("calendar");
-    expect(ids("tasks", false, false, false)).not.toContain("calendar");
+    expect(ids("tasks", false, true)).toContain("calendar");
+    expect(ids("tasks", false, false)).not.toContain("calendar");
   });
 
   it("marks the active view as selected and no others", () => {
-    const options = dayViewOptions("notes", jest.fn(), true, true, true);
+    const options = dayViewOptions("notes", jest.fn(), true, true);
     const selected = options.filter((o) => o.isSelected).map((o) => o.id);
 
     expect(selected).toEqual(["notes"]);
@@ -72,7 +67,7 @@ describe("dayViewOptions", () => {
 
   it("calls onChangeView with the option's id when selected", () => {
     const onChangeView = jest.fn();
-    const options = dayViewOptions("tasks", onChangeView, true, true, true);
+    const options = dayViewOptions("tasks", onChangeView, true, true);
 
     options.find((o) => o.id === "calendar")?.onSelect();
 
@@ -92,7 +87,6 @@ describe("DayViewSwitcher", () => {
         view="notes"
         onChangeView={jest.fn()}
         enableNotes
-        enableJournal
         enableCalendar
       />,
     );
@@ -107,7 +101,6 @@ describe("DayViewSwitcher", () => {
         onChangeView={jest.fn()}
         attention
         enableNotes={false}
-        enableJournal={false}
         enableCalendar={false}
       />,
     );
@@ -123,7 +116,6 @@ describe("DayViewSwitcher", () => {
         view="tasks"
         onChangeView={jest.fn()}
         enableNotes={false}
-        enableJournal={false}
         enableCalendar={false}
       />,
     );
@@ -141,7 +133,6 @@ describe("DayViewSwitcher", () => {
         onOpenDrawer={jest.fn()}
         attention
         enableNotes={false}
-        enableJournal={false}
         enableCalendar={false}
       />,
     );
@@ -163,7 +154,6 @@ describe("DayViewSwitcher", () => {
         onChangeView={jest.fn()}
         onOpenDrawer={jest.fn()}
         enableNotes={false}
-        enableJournal={false}
         enableCalendar={false}
       />,
     );

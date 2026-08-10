@@ -46,6 +46,50 @@ jest.mock("../RitualStepSegments", () => ({
     mockStepSegments(props),
 }));
 
+// The step content has its own test and (for the journal) needs a query client
+// and a session; stand it in with the step's title, the date it was handed, and
+// a pressable that reports focus so this file can assert the swipe suspends.
+const mockStepView = ({
+  step,
+  date,
+  onEditingChange,
+}: {
+  step: { title: string };
+  date: Temporal.PlainDate;
+  onEditingChange: (editing: boolean) => void;
+}) => (
+  <>
+    <Text>{step.title}</Text>
+    <Text>{`step-date:${date.toString()}`}</Text>
+    <TouchableOpacity
+      accessibilityLabel="focus-field"
+      onPress={() => onEditingChange(true)}
+    >
+      <Text>focus</Text>
+    </TouchableOpacity>
+  </>
+);
+jest.mock("../RitualStepView", () => ({
+  RitualStepView: (props: Parameters<typeof mockStepView>[0]) =>
+    mockStepView(props),
+}));
+
+// Records what the layout hands the pager while still rendering the real one,
+// so the swipe tests below stay end-to-end. `fireGestureHandler` binds the
+// handler at mount, so an `enabled` that flips *after* mount can only be
+// observed as a prop.
+const mockSwipeablePage = jest.fn();
+jest.mock("../SwipeablePage", () => {
+  const actual = jest.requireActual("../SwipeablePage");
+  return {
+    ...actual,
+    SwipeablePage: (props: Record<string, unknown>) => {
+      mockSwipeablePage(props);
+      return <actual.SwipeablePage {...props} />;
+    },
+  };
+});
+
 const DATE = Temporal.PlainDate.from("2026-08-09");
 
 const state = (overrides: Partial<TRitualState> = {}): TRitualState => ({
@@ -72,6 +116,12 @@ describe("LargeScreenRitual", () => {
     const screen = renderRitual();
 
     expect(screen.getByLabelText("Next day")).toBeTruthy();
+  });
+
+  it("hands the step the ritual's day", () => {
+    const screen = renderRitual({ state: state({ step: 2 }) });
+
+    expect(screen.getByText("step-date:2026-08-09")).toBeTruthy();
   });
 
   // The ritual runs in the tab now, not behind a play button in a modal.
@@ -160,5 +210,21 @@ describe("LargeScreenRitual", () => {
 
       expect(onSwipe).not.toHaveBeenCalled();
     });
+  });
+
+  // The journal step's response fields are the reason: a focused field owns
+  // horizontal drags for caret/selection, so the pager has to stand down.
+  it("is suspended while a step reports it is being edited", () => {
+    const screen = renderRitual({ state: state({ step: 1 }) });
+
+    expect(mockSwipeablePage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: true }),
+    );
+
+    fireEvent.press(screen.getByLabelText("focus-field"));
+
+    expect(mockSwipeablePage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: false }),
+    );
   });
 });

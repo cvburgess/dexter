@@ -14,10 +14,11 @@ import { SearchResultCard } from "@/components/SearchResultCard";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { TaskCard } from "@/components/TaskCard";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { usePreferences } from "@/hooks/usePreferences";
 import { MIN_SEARCH_LENGTH, useSearch } from "@/hooks/useSearch";
 import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
-import { canOpenSearchResult, searchResultRoute } from "@/utils/todayRoute";
+import { canOpenSearchResult, searchResultRoute } from "@/utils/searchRoute";
 import { useTheme } from "@/utils/theme";
 
 // The flattened shape `FlashList` renders: section headers and results in one
@@ -84,6 +85,13 @@ export default function SearchScreen() {
     skipQuery: true,
   });
   const [, { deleteTemplate }] = useTemplates({ skipQuery: true });
+  // Only for where a result opens: with the journal disabled its entries are
+  // still searchable but have no ritual step to land on (DEX-105).
+  const [preferences] = usePreferences();
+  const routeOptions = useMemo(
+    () => ({ enableJournal: preferences.enableJournal }),
+    [preferences.enableJournal],
+  );
 
   // Whether the *field* holds a searchable query, as opposed to `enabled`, which
   // the hook derives from the debounced value. The two disagree for up to one
@@ -130,12 +138,14 @@ export default function SearchScreen() {
         result,
         matchedQuery,
         String(navigationCount.current),
+        routeOptions,
       );
-      // Null for a completed, unscheduled task, which has nowhere to open —
-      // those render without an `onPress` below, so this is belt and braces.
+      // Null for a result with nowhere to open (a completed unscheduled task,
+      // or a journal entry with the journal off) — those render without an
+      // `onPress` below, so this is belt and braces.
       if (route) router.push(route);
     },
-    [router, matchedQuery],
+    [router, matchedQuery, routeOptions],
   );
 
   const renderItem = useCallback(
@@ -164,7 +174,9 @@ export default function SearchScreen() {
             // with nowhere to go (a completed, unscheduled task) so the title
             // isn't a link that opens an empty drawer.
             onPress={
-              canOpenSearchResult(result) ? () => openResult(result) : undefined
+              canOpenSearchResult(result, routeOptions)
+                ? () => openResult(result)
+                : undefined
             }
             onUpdate={(diff) => updateTask({ id: task.id, ...diff })}
             onDuplicate={() => createTask(duplicateTaskInput(task))}
@@ -187,13 +199,20 @@ export default function SearchScreen() {
           prompt={result.kind === "journal" ? result.prompt : undefined}
           content={result.content}
           query={matchedQuery}
-          onPress={() => openResult(result)}
+          // Omitted for a journal entry the ritual has no step for; the card
+          // stays readable, it just isn't a link (see `canOpenSearchResult`).
+          onPress={
+            canOpenSearchResult(result, routeOptions)
+              ? () => openResult(result)
+              : undefined
+          }
         />
       );
     },
     [
       matchedQuery,
       openResult,
+      routeOptions,
       updateTask,
       createTask,
       deleteTask,

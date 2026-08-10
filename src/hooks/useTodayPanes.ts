@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
-export type TTodayPane = "notes" | "journal" | "calendar" | "drawer";
+export type TTodayPane = "notes" | "calendar" | "drawer";
 
 export type TTodayPanes = Record<TTodayPane, boolean>;
 
@@ -11,13 +11,12 @@ export type TTodayPanes = Record<TTodayPane, boolean>;
 // AsyncStorage rather than the Supabase `preferences` row.
 export const TODAY_PANES_KEY = "dexter.today.panes";
 
-// "Whole day at a glance" — the original three panes default open so the
-// multi-column layout is useful (and discoverable) the first time a user
-// sees it. The task drawer (DEX-33) is an opt-in triage tool rather than a
-// glance surface, so it defaults closed.
+// "Whole day at a glance" — the display panes default open so the multi-column
+// layout is useful (and discoverable) the first time a user sees it. The task
+// drawer (DEX-33) is an opt-in triage tool rather than a glance surface, so it
+// defaults closed.
 const DEFAULT_PANES: TTodayPanes = {
   notes: true,
-  journal: true,
   calendar: true,
   drawer: false,
 };
@@ -29,7 +28,9 @@ const TODAY_PANE_KEYS = Object.keys(DEFAULT_PANES) as TTodayPane[];
 // Only checks the keys actually present, so a device's stored value from
 // before a pane was added (e.g. `drawer`) still passes — `readPanes` below
 // fills in any missing keys from `DEFAULT_PANES` rather than discarding the
-// user's existing notes/journal/calendar choices.
+// user's existing notes/calendar choices. It says nothing about a key for a
+// pane that has since been *removed* (`journal`, DEX-105): unknown keys are
+// simply not examined here, and `readPanes` drops them.
 const isPartialTodayPanes = (value: unknown): value is Partial<TTodayPanes> =>
   typeof value === "object" &&
   value !== null &&
@@ -43,9 +44,14 @@ const readPanes = async (): Promise<TTodayPanes> => {
   if (!raw) return DEFAULT_PANES;
   try {
     const parsed: unknown = JSON.parse(raw);
-    return isPartialTodayPanes(parsed)
-      ? { ...DEFAULT_PANES, ...parsed }
-      : DEFAULT_PANES;
+    if (!isPartialTodayPanes(parsed)) return DEFAULT_PANES;
+    // Built key by key from `TODAY_PANE_KEYS` rather than spread over the
+    // defaults, so a stored key for a pane that has since been *removed*
+    // (`journal`, DEX-105) is dropped instead of riding along in a value typed
+    // as `TTodayPanes`. The next write then clears it from storage too.
+    return Object.fromEntries(
+      TODAY_PANE_KEYS.map((key) => [key, parsed[key] ?? DEFAULT_PANES[key]]),
+    ) as TTodayPanes;
   } catch {
     return DEFAULT_PANES;
   }
@@ -61,7 +67,7 @@ type TUseTodayPanes = [
 ];
 
 /**
- * Which optional Today-tab panes (notes/journal/calendar) are shown in the
+ * Which optional Today-tab panes (notes/calendar) are shown in the
  * large-screen multi-column layout, persisted to the device. Shared through
  * React Query so a toggle re-renders immediately.
  */

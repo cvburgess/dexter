@@ -6,7 +6,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { CalendarView } from "@/components/CalendarView";
 import { DayNavHeader } from "@/components/DayNavHeader";
 import { DayViewSwitcher, TDayView } from "@/components/DayViewSwitcher";
-import { JournalView } from "@/components/JournalView";
 import { NotesView } from "@/components/NotesView";
 import { SwipeablePage } from "@/components/SwipeablePage";
 import {
@@ -63,8 +62,6 @@ export function SmallScreenToday({
   // Suspends notes day-swipe while the editor is focused, so horizontal drags
   // position the caret / select text instead of changing days.
   const [notesEditing, setNotesEditing] = useState(false);
-  // Same for Journal: a focused response field owns horizontal drags.
-  const [journalEditing, setJournalEditing] = useState(false);
   const taskDrawerRef = useRef<TTaskDrawerSheetHandle>(null);
 
   // Select the view a `?mode=` deep link asked for (DEX-47). Adjusted during
@@ -100,7 +97,6 @@ export function SmallScreenToday({
   // toggled off while viewing it). All views share `date`.
   const viewDisabled =
     (view === "notes" && !preferences.enableNotes) ||
-    (view === "journal" && !preferences.enableJournal) ||
     (view === "calendar" && !preferences.enableCalendar);
   // Reset the stored `view` when its feature is disabled, so re-enabling later
   // doesn't jump back into a view the user hasn't been looking at. Adjusting
@@ -109,16 +105,10 @@ export function SmallScreenToday({
   if (viewDisabled) setView("tasks");
   const activeView: TDayView = viewDisabled ? "tasks" : view;
 
-  // Suspended while a note/journal response field is focused — a focused
-  // editor owns horizontal drags for caret/selection until the user taps
-  // Done. Calendar and Tasks have no such conflict (Calendar's timeline
-  // scrolls vertically) and always allow swiping.
-  const swipeEnabled =
-    activeView === "notes"
-      ? !notesEditing
-      : activeView === "journal"
-        ? !journalEditing
-        : undefined;
+  // Suspended while the note editor is focused — it owns horizontal drags for
+  // caret/selection until the user taps Done. Calendar and Tasks have no such
+  // conflict (Calendar's timeline scrolls vertically) and always allow swiping.
+  const swipeEnabled = activeView === "notes" ? !notesEditing : undefined;
 
   return (
     <SafeAreaView
@@ -150,7 +140,6 @@ export function SmallScreenToday({
             }
             attention={backlogAttention}
             enableNotes={preferences.enableNotes}
-            enableJournal={preferences.enableJournal}
             enableCalendar={preferences.enableCalendar}
           />
         }
@@ -161,7 +150,6 @@ export function SmallScreenToday({
         direction={direction}
         swipeEnabled={swipeEnabled}
         onNotesEditingChange={setNotesEditing}
-        onJournalEditingChange={setJournalEditing}
         onSwipe={changeDateBy}
       />
       <TaskDrawerSheet ref={taskDrawerRef} date={date} />
@@ -175,7 +163,6 @@ type TDayViewContentProps = {
   direction: -1 | 0 | 1;
   swipeEnabled: boolean | undefined;
   onNotesEditingChange: (editing: boolean) => void;
-  onJournalEditingChange: (editing: boolean) => void;
   onSwipe: (days: 1 | -1) => void;
 };
 
@@ -188,7 +175,6 @@ function DayViewContent({
   direction,
   swipeEnabled,
   onNotesEditingChange,
-  onJournalEditingChange,
   onSwipe,
 }: TDayViewContentProps) {
   return (
@@ -202,11 +188,6 @@ function DayViewContent({
         <NotesView
           date={date.toString()}
           onEditingChange={onNotesEditingChange}
-        />
-      ) : view === "journal" ? (
-        <JournalView
-          date={date.toString()}
-          onEditingChange={onJournalEditingChange}
         />
       ) : view === "calendar" ? (
         <CalendarView date={date} />

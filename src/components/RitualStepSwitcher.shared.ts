@@ -1,7 +1,7 @@
 import { VIEW_META } from "@/components/DayViewSwitcher";
 import type { TIconName } from "@/components/Icon.types";
 import {
-  RITUAL_STEPS,
+  stepsFor,
   type TRitualState,
   type TRitualStepId,
 } from "@/utils/ritualSteps";
@@ -12,15 +12,17 @@ import {
  * for `DayViewSwitcher`/`DayPaneToggles`.
  *
  * A `Record` over `TRitualStepId`, so adding a step without an icon is a
- * compile error rather than a blank button. Four steps reuse the Today tab's
+ * compile error rather than a blank button. Three steps reuse the Today tab's
  * icons outright: they open the very surfaces those icons already stand for, so
  * inventing second glyphs for them would be the drift this table exists to
  * prevent. `open-tasks` is the evening's look at the same task list, so it
- * shares Tasks' icon too.
+ * shares Tasks' icon too. The journal's is spelled out rather than borrowed —
+ * it is no longer a day view at all (DEX-105), so `VIEW_META` has no entry for
+ * it to read.
  */
 export const STEP_ICONS: Record<TRitualStepId, TIconName> = {
   horoscope: { sf: "sparkles", ionicon: "sparkles-outline" },
-  journal: VIEW_META.journal.icon,
+  journal: { sf: "book", ionicon: "book-outline" },
   calendar: VIEW_META.calendar.icon,
   backlog: { sf: "tray.full", ionicon: "file-tray-full-outline" },
   tasks: VIEW_META.tasks.icon,
@@ -55,7 +57,7 @@ export type TRitualStepOption = {
 
 /**
  * Builds the switcher's options for the ritual on screen: every step of the
- * active mode, in order, with the current one marked.
+ * active mode the user has turned on, in order, with the current one marked.
  *
  * Exported and pure so the wiring is unit-testable without a platform menu host
  * — the `dayViewOptions` / `paneToggleOptions` precedent.
@@ -64,7 +66,7 @@ export function ritualStepOptions(
   state: TRitualState,
   onSelectStep: (index: number) => void,
 ): TRitualStepOption[] {
-  return RITUAL_STEPS[state.mode].map((step, index) => ({
+  return stepsFor(state).map((step, index) => ({
     index,
     id: step.id,
     title: step.title,
