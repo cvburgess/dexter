@@ -182,3 +182,35 @@ export function backlogCounts(
 export function defaultBacklogFilter(counts: TBacklogCounts): TFilterId {
   return BACKLOG_COUNT_ORDER.find((id) => counts[id] > 0) ?? "none";
 }
+
+/** Whether a preset is one of the three the hero counts. */
+const isCountedFilter = (id: TFilterId): id is keyof TBacklogCounts =>
+  (BACKLOG_COUNT_ORDER as readonly TFilterId[]).includes(id);
+
+/**
+ * The preset the ritual Backlog step should be showing, given whichever one the
+ * reader last landed on and the counts as they stand now.
+ *
+ * `current` while it still has tasks; otherwise the next bucket that does, in
+ * the hero's order. Clearing out Left Behind moves the reader on to Overdue
+ * rather than leaving them looking at an empty list they have to notice and
+ * re-filter their way out of — which is the point of the step, working down
+ * what is slipping until there is none of it left.
+ *
+ * **The emptiness is what licenses the move.** A preset that still has tasks in
+ * it is never swapped: derived from the counts alone, the filter would jump the
+ * moment a *different* bucket changed and the reader would lose their place
+ * mid-list. And a preset outside the hero's three ("Unscheduled", "No Filter")
+ * is a detour the reader chose deliberately, so it is left alone whether or not
+ * it is empty — this step has no opinion about it.
+ *
+ * Pure, so the step derives it during render rather than reaching for an effect
+ * to chase the counts.
+ */
+export function nextBacklogFilter(
+  current: TFilterId,
+  counts: TBacklogCounts,
+): TFilterId {
+  if (!isCountedFilter(current) || counts[current] > 0) return current;
+  return defaultBacklogFilter(counts);
+}

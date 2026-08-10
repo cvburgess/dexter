@@ -7,6 +7,7 @@ import {
   backlogAttentionFilter,
   backlogCounts,
   defaultBacklogFilter,
+  nextBacklogFilter,
   filterTasks,
   isCompletionStatus,
   selectBacklogTasks,
@@ -392,8 +393,6 @@ describe("defaultBacklogFilter", () => {
     ).toBe("none");
   });
 
-  // The attention dot answers a different question and puts overdue first
-  // (DEX-58); these two must not be collapsed into one function.
   it("differs from backlogAttentionFilter's order", () => {
     const tasks = [
       task({ id: "1", scheduledFor: "2026-07-10" }),
@@ -406,4 +405,53 @@ describe("defaultBacklogFilter", () => {
     );
     expect(backlogAttentionFilter(tasks, today)).toBe("overdue");
   });
+});
+
+describe("nextBacklogFilter", () => {
+  // Emptiness is the only thing allowed to move the filter: a bucket that still
+  // has tasks in it is where the reader is working.
+  it("keeps a preset that still has tasks", () => {
+    expect(
+      nextBacklogFilter("leftBehind", {
+        leftBehind: 1,
+        overdue: 9,
+        dueSoon: 9,
+      }),
+    ).toBe("leftBehind");
+  });
+
+  it("moves on once the reader's bucket is empty", () => {
+    expect(
+      nextBacklogFilter("leftBehind", {
+        leftBehind: 0,
+        overdue: 3,
+        dueSoon: 0,
+      }),
+    ).toBe("overdue");
+  });
+
+  it("follows the hero's order rather than the next one along", () => {
+    // Due Soon emptied, but Left Behind has tasks — it reads first, so it wins.
+    expect(
+      nextBacklogFilter("dueSoon", { leftBehind: 2, overdue: 1, dueSoon: 0 }),
+    ).toBe("leftBehind");
+  });
+
+  // The step drops the drawer entirely at that point, so the value is moot —
+  // but it must not be a preset that would show a stale list on the way out.
+  it("returns 'none' when every bucket is empty", () => {
+    expect(
+      nextBacklogFilter("overdue", { leftBehind: 0, overdue: 0, dueSoon: 0 }),
+    ).toBe("none");
+  });
+
+  // A detour the reader chose deliberately; the step has no opinion about it.
+  it.each(["unscheduled", "none"] as const)(
+    "leaves %s alone even when the hero's buckets have tasks",
+    (current) => {
+      expect(
+        nextBacklogFilter(current, { leftBehind: 4, overdue: 0, dueSoon: 0 }),
+      ).toBe(current);
+    },
+  );
 });

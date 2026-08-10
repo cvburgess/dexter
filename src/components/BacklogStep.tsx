@@ -18,6 +18,7 @@ import {
   BACKLOG_COUNT_ORDER,
   backlogCounts,
   defaultBacklogFilter,
+  nextBacklogFilter,
   selectBacklogTasks,
   TBacklogCounts,
 } from "@/utils/taskFilters";
@@ -37,34 +38,31 @@ const HERO_LABELS: Record<keyof TBacklogCounts, string> = {
 type TBacklogListProps = {
   /** The day a row's "+" schedules its task onto. */
   date: Temporal.PlainDate;
-  /**
-   * The counts as of this list's first render, read once to pick the opening
-   * Filter preset and never again.
-   */
-  initialCounts: TBacklogCounts;
+  /** The counts as they stand — the opening preset is read off the first. */
+  counts: TBacklogCounts;
 };
 
 /**
  * The drawer half of the step, split out for the seeding: its parent renders it
- * only once the tasks have resolved *and* something needs attention, so a lazy
- * initializer here is a one-time latch that never sees `useTasks`'s empty
- * placeholder array.
+ * only once the tasks have resolved *and* something needs attention, so the
+ * lazy initializer below never sees `useTasks`'s empty placeholder array.
  *
- * Which is the whole point of the split — the preset has to be pinned rather
- * than derived. Derived every render, the filter would move out from under the
- * reader the moment they cleared the last left-behind task and Overdue became
- * the first non-zero count.
+ * State holds where the reader last landed; what is *shown* is that adjusted by
+ * `nextBacklogFilter`, which moves them on once the bucket they are looking at
+ * is empty and leaves them alone while it isn't. Derived during render rather
+ * than chased with an effect — see that function for why emptiness is the only
+ * thing allowed to move the filter.
  */
-function BacklogList({ date, initialCounts }: TBacklogListProps) {
-  const [filterId, setFilterId] = useState(() =>
-    defaultBacklogFilter(initialCounts),
+function BacklogList({ date, counts }: TBacklogListProps) {
+  const [chosenFilter, setChosenFilter] = useState(() =>
+    defaultBacklogFilter(counts),
   );
 
   return (
     <TaskDrawer
       date={date}
-      filterId={filterId}
-      onFilterChange={setFilterId}
+      filterId={nextBacklogFilter(chosenFilter, counts)}
+      onFilterChange={setChosenFilter}
       // The step walks the reader down a short list of what is slipping; it is
       // not where you go to hunt for a task you already have in mind, and the
       // field cost the hero a line of height for it (DEX-141).
@@ -179,7 +177,7 @@ export function BacklogStep({ date }: TBacklogStepProps) {
           `SwipeablePage`'s intro already slides the page, and a second axis
           compounds into a diagonal drift. */}
       <Animated.View style={[styles.drawer, drawerStyle]}>
-        <BacklogList date={date} initialCounts={counts} />
+        <BacklogList counts={counts} date={date} />
       </Animated.View>
     </View>
   );

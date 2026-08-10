@@ -236,19 +236,61 @@ describe("BacklogStep", () => {
 
       expect(drawerProps().filterId).toBe("unscheduled");
     });
+  });
 
-    // Derived fresh every render, the filter would move out from under the
-    // reader as they cleared the last left-behind task and Overdue became the
-    // first non-zero count.
-    it("does not re-seed when the counts change underneath it", () => {
-      const screen = renderStep([leftBehind("1"), overdue("2")]);
+  // Working down what is slipping is the whole step, so emptying one bucket
+  // hands the reader the next rather than leaving them looking at nothing.
+  describe("as a bucket is cleared out", () => {
+    /** Re-renders with a new set of tasks, as a schedule change would. */
+    const withTasks = (screen: ReturnType<typeof render>, tasks: TTask[]) => {
+      mockUseTasks.mockReturnValue(tasksResult(tasks));
+      screen.rerender(<BacklogStep date={TODAY} />);
+    };
+
+    it("moves on to the next bucket that still has tasks", () => {
+      const screen = renderStep([leftBehind("1"), dueSoon("2")]);
       expect(drawerProps().filterId).toBe("leftBehind");
 
-      mockUseTasks.mockReturnValue(tasksResult([overdue("2")]));
-      screen.rerender(<BacklogStep date={TODAY} />);
+      withTasks(screen, [dueSoon("2")]);
 
       expect(screen.getByLabelText("0 tasks left behind")).toBeTruthy();
+      expect(drawerProps().filterId).toBe("dueSoon");
+    });
+
+    it("follows the hero's order when more than one is left", () => {
+      const screen = renderStep([leftBehind("1"), overdue("2"), dueSoon("3")]);
+
+      withTasks(screen, [overdue("2"), dueSoon("3")]);
+
+      expect(drawerProps().filterId).toBe("overdue");
+    });
+
+    // The emptiness is what licenses the move. Derived from the counts alone,
+    // the filter would jump the moment a *different* bucket changed and the
+    // reader would lose their place mid-list.
+    it("stays put while the reader's bucket still has tasks", () => {
+      const screen = renderStep([
+        leftBehind("1"),
+        leftBehind("2"),
+        overdue("3"),
+      ]);
       expect(drawerProps().filterId).toBe("leftBehind");
+
+      withTasks(screen, [leftBehind("2")]);
+
+      expect(screen.getByLabelText("1 task left behind")).toBeTruthy();
+      expect(drawerProps().filterId).toBe("leftBehind");
+    });
+
+    // A preset outside the hero's three is a detour the reader chose; the step
+    // has no opinion about it, empty or not.
+    it("leaves a preset the hero does not count alone", () => {
+      const screen = renderStep([leftBehind("1"), overdue("2")]);
+      act(() => drawerProps().onFilterChange?.("unscheduled"));
+
+      withTasks(screen, [overdue("2")]);
+
+      expect(drawerProps().filterId).toBe("unscheduled");
     });
   });
 });
