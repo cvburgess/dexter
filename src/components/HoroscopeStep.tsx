@@ -199,8 +199,18 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
 }
 
 /**
- * The screenful above the fold: the sign's glyph and name over the day's
- * summary, with a chevron marking that there is more below.
+ * The screenful above the fold: the sign's glyph over the day's summary, with a
+ * chevron at the very bottom marking that there is more below.
+ *
+ * **The sign's name is deliberately not here.** The glyph already says which
+ * sign this is, to anyone who would care, and the name is a label on a thing
+ * the reader picked themselves — it pushed the summary down the screen to
+ * restate what the settings row already told them.
+ *
+ * With the name gone the **summary takes `heading`**: it is what this screen is
+ * about, which is exactly the question that role answers, and one line of prose
+ * is not a caption to a glyph. The whole role is spread rather than its
+ * `fontSize` lifted off it (see docs/design.md, "Type scale").
  *
  * `minHeight` rather than `height` because the first render has no measurement
  * yet — at 0 the hero is merely its natural size for one frame instead of
@@ -214,26 +224,38 @@ function Hero({
   viewportHeight: number;
 }) {
   const theme = useTheme();
-  const sign = SUN_SIGNS[horoscope.sunSign];
 
   return (
-    <View
-      style={[styles.hero, { gap: theme.space.md, minHeight: viewportHeight }]}
-    >
-      <Text style={{ fontSize: heroGlyphSize(theme) }}>{sign.glyph}</Text>
-      <Text style={[theme.fonts.heading, { color: theme.colors.text }]}>
-        {sign.label}
-      </Text>
-      <Text
-        style={[
-          styles.summary,
-          theme.fonts.body,
-          { color: theme.colors.textSecondary },
-        ]}
-      >
-        {horoscope.summary}
-      </Text>
-      <Icon {...SCROLL_HINT_ICON} color={theme.colors.textSecondary} />
+    <View style={[styles.hero, { minHeight: viewportHeight }]}>
+      <View style={[styles.heroContent, { gap: theme.space.lg }]}>
+        <Text
+          style={{
+            color: theme.colors.text,
+            fontSize: heroGlyphSize(theme),
+            // The glyph's own line box, which at this size otherwise reserves
+            // the font's full ascent and descent and reads as a gap above it.
+            lineHeight: heroGlyphSize(theme),
+          }}
+        >
+          {SUN_SIGNS[horoscope.sunSign].glyph}
+        </Text>
+        <Text
+          style={[
+            styles.summary,
+            theme.fonts.heading,
+            { color: theme.colors.text },
+          ]}
+        >
+          {horoscope.summary}
+        </Text>
+      </View>
+      {/* Pinned to the fold rather than trailing the summary: it points at
+          what is below the screen, so it belongs at the edge the reader is
+          about to cross, not tucked under the text. Absolute, so it cannot
+          shift the centered content as the summary's length changes. */}
+      <View style={[styles.scrollHint, { bottom: theme.space.lg }]}>
+        <Icon {...SCROLL_HINT_ICON} color={theme.colors.textSecondary} />
+      </View>
     </View>
   );
 }
@@ -247,9 +269,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  heroContent: {
+    alignItems: "center",
+  },
   panel: {
     flex: 1,
     overflow: "hidden",
+  },
+  // Spans the hero's width so the chevron centers in it, rather than being
+  // pinned to one side by a `left`/`right` of its own.
+  scrollHint: {
+    alignItems: "center",
+    left: 0,
+    position: "absolute",
+    right: 0,
   },
   summary: {
     textAlign: "center",

@@ -113,12 +113,29 @@ describe("HoroscopeStep", () => {
   });
 
   describe("with the day's horoscope", () => {
-    it("leads with the sign and its summary", () => {
+    it("leads with the sign's glyph and the day's summary", () => {
       const screen = renderStep();
 
       expect(screen.getByText(SUN_SIGNS.leo.glyph)).toBeTruthy();
-      expect(screen.getByText("Leo")).toBeTruthy();
       expect(screen.getByText(HOROSCOPE.summary)).toBeTruthy();
+    });
+
+    // The glyph says which sign this is; the name would only restate what the
+    // settings row the user set it from already told them, and it pushed the
+    // summary down the screen to do it.
+    it("does not name the sign", () => {
+      const screen = renderStep();
+
+      expect(screen.queryByText("Leo")).toBeNull();
+    });
+
+    // The zodiac code points have `Emoji_Presentation=Yes`, so a bare one
+    // renders as a full-color emoji in a palette no theme controls. U+FE0E is
+    // what makes the mark take `colors.text` like any other type.
+    it("draws the glyph in text presentation, not as emoji", () => {
+      renderStep();
+
+      expect(SUN_SIGNS.leo.glyph).toContain("︎");
     });
 
     it("renders every facet below it", () => {
@@ -140,7 +157,6 @@ describe("HoroscopeStep", () => {
         nativeEvent: { layout: { height: 600 } },
       });
 
-      expect(screen.getByText("Leo").parent).toBeTruthy();
       expect(
         screen.UNSAFE_root.findAll(
           (node) =>

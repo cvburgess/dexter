@@ -23,23 +23,28 @@ import { Constants } from "@/types/database.types";
  * doesn't have; `docs/design.md` already treats an emoji standing in for an
  * icon as an icon, and these render on every platform with nothing bundled.
  *
- * Note these code points default to *emoji* presentation, so iOS and Android
- * draw them in color rather than as monochrome type. That is intended — the
- * step uses one as a hero mark. Appending U+FE0E would force the text form.
+ * **Every glyph carries a trailing `︎`**, and it is load-bearing rather
+ * than decoration. U+2648–U+2653 have `Emoji_Presentation=Yes`, so bare code
+ * points render as full-color emoji on iOS and Android — a sticker rather than
+ * a mark, and one drawn in a palette no theme controls. U+FE0E is the
+ * variation selector that forces *text* presentation, which is what makes the
+ * hero glyph take `colors.text` like any other type. The escape is written out
+ * per entry rather than appended in a helper because the selector is invisible
+ * in source: spelled this way, the table shows exactly the string that renders.
  */
 export const SUN_SIGNS: Record<TSunSign, { label: string; glyph: string }> = {
-  aries: { label: "Aries", glyph: "♈" },
-  taurus: { label: "Taurus", glyph: "♉" },
-  gemini: { label: "Gemini", glyph: "♊" },
-  cancer: { label: "Cancer", glyph: "♋" },
-  leo: { label: "Leo", glyph: "♌" },
-  virgo: { label: "Virgo", glyph: "♍" },
-  libra: { label: "Libra", glyph: "♎" },
-  scorpio: { label: "Scorpio", glyph: "♏" },
-  sagittarius: { label: "Sagittarius", glyph: "♐" },
-  capricorn: { label: "Capricorn", glyph: "♑" },
-  aquarius: { label: "Aquarius", glyph: "♒" },
-  pisces: { label: "Pisces", glyph: "♓" },
+  aries: { label: "Aries", glyph: "♈︎" },
+  taurus: { label: "Taurus", glyph: "♉︎" },
+  gemini: { label: "Gemini", glyph: "♊︎" },
+  cancer: { label: "Cancer", glyph: "♋︎" },
+  leo: { label: "Leo", glyph: "♌︎" },
+  virgo: { label: "Virgo", glyph: "♍︎" },
+  libra: { label: "Libra", glyph: "♎︎" },
+  scorpio: { label: "Scorpio", glyph: "♏︎" },
+  sagittarius: { label: "Sagittarius", glyph: "♐︎" },
+  capricorn: { label: "Capricorn", glyph: "♑︎" },
+  aquarius: { label: "Aquarius", glyph: "♒︎" },
+  pisces: { label: "Pisces", glyph: "♓︎" },
 };
 
 /**

@@ -322,10 +322,17 @@ when the two differ. `SettingsRow` is the case; `icons.sm` stays correct for a
 chevron with no leading glyph opposite it.
 
 **Emoji are icons**, not type: an emoji standing in for an icon (list tiles,
-habit tiles, habit rings) is sized from `icons`, not from a font role. The
-Ritual tab's zodiac glyphs are the same case — U+2648–U+2653 rendered as
+habit tiles, habit rings) is sized from `icons`, not from a font role.
+
+The Ritual tab's zodiac glyphs are the same case — U+2648–U+2653 rendered as
 `<Text>`, because neither SF Symbols nor Ionicons has a zodiac set and there is
-no SVG asset pipeline to add twelve to.
+no SVG asset pipeline to add twelve to. **They carry a trailing U+FE0E**, and
+that is a theming decision rather than a typographic nicety: those code points
+have `Emoji_Presentation=Yes`, so a bare one is drawn as a full-color emoji in
+a palette no theme controls. The variation selector forces text presentation,
+which is what lets the mark take `colors.text` like the type around it. Any
+future glyph pulled from the emoji-presentation ranges needs the same
+treatment.
 
 **A hero mark is derived, not tokenized.** The Horoscope step's sign glyph is
 `controls.md * 2` (DEX-128). `icons.md` is a row's leading glyph and cannot
