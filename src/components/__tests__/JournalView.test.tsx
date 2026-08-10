@@ -1,5 +1,6 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
-import { ScrollView } from "react-native";
+import type { ReactTestInstance } from "react-test-renderer";
+import { ScrollView, StyleSheet, type ViewStyle } from "react-native";
 
 import { TJournalPrompt } from "@/api/journals";
 import { useJournals } from "@/hooks/useJournals";
@@ -168,5 +169,64 @@ describe("JournalView", () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  // The field is prose the user is writing, so it grows instead of hiding the
+  // top of its own content behind a scrollbar; the surrounding ScrollView is
+  // what scrolls.
+  describe("growing to fit the response", () => {
+    const styleOf = (element: ReactTestInstance): ViewStyle =>
+      StyleSheet.flatten(element.props.style as ViewStyle);
+    const heightOf = (element: ReactTestInstance) => styleOf(element).height;
+
+    it("never scrolls inside itself", () => {
+      const screen = setup({
+        prompts: [{ prompt: "How was today?", response: "" }],
+      });
+      const input = screen.getByTestId("journal-response-0");
+
+      // `scrollEnabled` covers native; `overflow` covers web, where
+      // react-native-web ignores it and renders a plain textarea.
+      expect(input.props.scrollEnabled).toBe(false);
+      expect(styleOf(input).overflow).toBe("hidden");
+    });
+
+    // The bug this replaced: height came from counting "\n", so a paragraph
+    // typed without a single Enter stayed one line tall and scrolled.
+    it("takes its height from the measured content, not the newline count", () => {
+      const screen = setup({
+        prompts: [{ prompt: "How was today?", response: "" }],
+      });
+      const input = screen.getByTestId("journal-response-0");
+
+      act(() => {
+        fireEvent(input, "contentSizeChange", {
+          nativeEvent: { contentSize: { height: 300, width: 200 } },
+        });
+      });
+
+      expect(heightOf(screen.getByTestId("journal-response-0"))).toBe(300);
+    });
+
+    it("keeps a one-line floor when the content measures smaller", () => {
+      // A zero or missing measurement must not collapse the field to nothing.
+      const screen = setup({
+        prompts: [{ prompt: "How was today?", response: "" }],
+      });
+      const floor = heightOf(screen.getByTestId("journal-response-0"));
+
+      act(() => {
+        fireEvent(
+          screen.getByTestId("journal-response-0"),
+          "contentSizeChange",
+          {
+            nativeEvent: { contentSize: { height: 0, width: 200 } },
+          },
+        );
+      });
+
+      expect(heightOf(screen.getByTestId("journal-response-0"))).toBe(floor);
+      expect(floor).toBeGreaterThan(0);
+    });
   });
 });

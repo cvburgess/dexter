@@ -23,18 +23,20 @@ type TJournalViewProps = {
 // Matches NotesView.
 const SAVE_DEBOUNCE_MS = 800;
 
-// Approximate line height for the response field's 16px font, used to size a
-// field from its line count. Fields grow from here as the user types (see
-// JournalResponseField), so a short answer doesn't render as a tall empty box
-// that's more likely to sit under the keyboard.
+// Approximate line height for the response field's 16px font. Only ever used
+// for the size a field starts at, before it has measured itself — a short
+// answer shouldn't render as a tall empty box that's more likely to sit under
+// the keyboard.
 const RESPONSE_LINE_HEIGHT = 20;
 
 // Height for `lines` lines of response text, including the shared TextInput's
-// own vertical padding. Deliberately synchronous (no native measurement
-// callback like `onContentSizeChange`): `today/index.tsx` already documents
-// this app hitting stale/corrupted async-sizing native views during rapid
-// day-paging remounts (the @expo/ui menu-host issue TaskCard pins heights to
-// avoid) — a text-derived estimate can't go stale the same way.
+// own vertical padding.
+//
+// This is a **floor and a first paint**, not the real height: it counts hard
+// newlines, so it has no idea how many rows a long paragraph wraps onto. The
+// height that matters comes from the field measuring its own content (see
+// `JournalResponseField`). Keeping the estimate as the floor is what stops a
+// missing or zero measurement from collapsing a field to nothing.
 const responseHeight = (lines: number, spacing: number) =>
   Math.max(1, lines) * RESPONSE_LINE_HEIGHT + spacing * 2;
 
@@ -213,12 +215,21 @@ type TJournalResponseFieldProps = {
   testID: string;
 };
 
-// A single prompt + response row. Starts at one line and grows with the
-// content instead of rendering a tall empty box up front — a short answer is
-// much less likely to end up sitting under the keyboard. Height is derived
-// from the text's own line count (see `responseHeight`), not a native
-// measurement callback, so a remount always starts from a correct, freshly
-// computed size — it can't inherit a stale size left over by the previous day.
+// A single prompt + response row.
+//
+// **The field never scrolls — it grows.** A response is prose the user is
+// writing, so a box that hides the top of it behind its own scrollbar is the
+// wrong shape entirely; the step's own `ScrollView` is what scrolls. Two
+// halves make that work: `scrollEnabled={false}` on native, `overflow: hidden`
+// for web (where `react-native-web` ignores `scrollEnabled` and renders a
+// plain `<textarea>`), plus a height that tracks the content.
+//
+// That height has to be **measured**, not derived from the text. An earlier cut
+// counted `\n`s, which meant a long paragraph typed without a single Enter
+// stayed one line tall and scrolled inside itself — the estimate cannot see
+// wrapping, which is most of what a journal response does. It survives as the
+// floor (see `responseHeight`) so nothing collapses before the first
+// measurement lands.
 function JournalResponseField({
   prompt,
   response,
@@ -228,14 +239,8 @@ function JournalResponseField({
   testID,
 }: TJournalResponseFieldProps) {
   const theme = useTheme();
-  const [height, setHeight] = useState(() =>
-    responseHeight(response.split("\n").length, theme.space.md),
-  );
-
-  const handleChangeText = (text: string) => {
-    setHeight(responseHeight(text.split("\n").length, theme.space.md));
-    onChangeText(text);
-  };
+  const minHeight = responseHeight(response.split("\n").length, theme.space.md);
+  const [contentHeight, setContentHeight] = useState(0);
 
   return (
     <View style={{ gap: theme.space.sm }}>
@@ -247,10 +252,19 @@ function JournalResponseField({
         defaultValue={response}
         multiline
         onBlur={onBlur}
-        onChangeText={handleChangeText}
+        onChangeText={onChangeText}
+        // Fires whenever the wrapped content's size changes, which is the only
+        // thing that knows how tall the text actually renders.
+        onContentSizeChange={(event) =>
+          setContentHeight(event.nativeEvent.contentSize.height)
+        }
         onFocus={onFocus}
         placeholder="Write your response…"
-        style={{ height }}
+        scrollEnabled={false}
+        style={{
+          height: Math.max(minHeight, contentHeight),
+          overflow: "hidden",
+        }}
         testID={testID}
         textAlignVertical="top"
       />
