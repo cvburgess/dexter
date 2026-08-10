@@ -100,6 +100,7 @@ export interface DemoPreferences {
   enableNotes: boolean;
   enableJournal: boolean;
   enableHabits: boolean;
+  enableHoroscope: boolean;
   templatePrompts: string[];
 }
 
@@ -412,6 +413,7 @@ export function buildDemoData(): DemoDataset {
     enableNotes: true,
     enableJournal: true,
     enableHabits: true,
+    enableHoroscope: true,
     templatePrompts: [...PROMPTS],
   };
 

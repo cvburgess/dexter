@@ -120,6 +120,19 @@ existing `user_id` policies on `preferences` already cover the new column, and
 the client reads the horoscope itself through the blanket `authenticated`
 select policy above.
 
+**Whether you see one at all** is `preferences.enable_horoscope` (DEX-142), a
+`boolean not null default true` alongside `enable_journal` / `enable_habits` /
+`enable_notes` / `enable_calendar`. It defaults **on** because the Horoscope
+ritual step shipped that way in DEX-128, and any other default would silently
+take a step away from users who already had it. Note the contrast with
+`enable_calendar`, which defaults off — the app's cold-launch corrections
+therefore run in both directions, which `docs/frontend.md` covers. It is
+independent of `sun_sign`: turning the step off leaves a chosen sign stored, so
+turning it back on restores the horoscope rather than re-asking. The column
+changes nothing about generation — `generate-horoscopes` writes one global row
+per sign per day regardless of who reads it — so this is purely a read-side
+preference, and no RLS change was needed for the same reason as above.
+
 ## Scheduled jobs (pg_cron)
 
 `dex84-generate-horoscopes` runs `select public.trigger_generate_horoscopes();`

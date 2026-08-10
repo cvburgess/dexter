@@ -12,7 +12,10 @@ import {
 } from "../../functions/mcp-server/tools/habits.ts";
 import { registerJournalTools } from "../../functions/mcp-server/tools/journals.ts";
 import { registerNoteTools } from "../../functions/mcp-server/tools/notes.ts";
-import { updatePreferencesInputSchema } from "../../functions/mcp-server/tools/preferences.ts";
+import {
+  registerPreferenceTools,
+  updatePreferencesInputSchema,
+} from "../../functions/mcp-server/tools/preferences.ts";
 import {
   registerSearchTools,
   searchSchema,
@@ -274,6 +277,25 @@ Deno.test("daily habit writes only expose stepsComplete", () => {
 Deno.test("preference updates do not accept user ids", () => {
   assertEquals("userId" in updatePreferencesInputSchema, false);
   assertEquals("user_id" in updatePreferencesInputSchema, false);
+});
+
+// DEX-142: the schema and the snake_case mapping are two separate places to
+// remember a field, and a field present in only the first is accepted and then
+// silently dropped. Driving the handler covers both at once.
+Deno.test("update_preferences writes the horoscope toggle through", async () => {
+  const registry = new ToolRegistry();
+  const supabase = new FakeSupabase();
+
+  assertEquals("enableHoroscope" in updatePreferencesInputSchema, true);
+
+  registerPreferenceTools(
+    registry as unknown as McpServer,
+    makeToolContext(supabase, "00000000-0000-4000-8000-0000000000aa"),
+  );
+
+  await registry.run("update_preferences", { enableHoroscope: false });
+
+  assertEquals(supabase.lastBuilder?.payload, { enable_horoscope: false });
 });
 
 Deno.test("create_task derives user_id from authenticated context", async () => {

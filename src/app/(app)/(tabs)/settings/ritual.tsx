@@ -26,8 +26,13 @@ import {
 import { useTheme } from "@/utils/theme";
 
 /**
- * Settings for the guided Ritual flow (DEX-34): which sign its Horoscope step
- * reads, and the prompts its Journal step seeds each day from.
+ * Settings for the guided Ritual flow (DEX-34): whether its Horoscope and
+ * Journal steps appear at all, which sign the horoscope reads, and the prompts
+ * the journal seeds each day from.
+ *
+ * Each step's sub-settings sit under its own toggle and hide with it — a sun
+ * sign feeds nothing but the Horoscope step, so leaving the picker on screen
+ * with the step turned off would offer a choice that changes nothing.
  */
 export default function RitualScreen() {
   const theme = useTheme();
@@ -120,37 +125,47 @@ export default function RitualScreen() {
         ]}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={{ gap: theme.space.sm }}>
-          <SettingsSectionTitle subtitle="The Horoscope step reads this sign's prediction for the day.">
-            Horoscope
-          </SettingsSectionTitle>
-          {/* The card is here rather than inside `PickerField` for the reason
-              settings/tasks/index.tsx spells out: this is a settings input,
-              while the field's other call sites are bare rows stacked into a
-              form. Same surface/radius/padding as `SettingsToggleCard`. */}
-          <View
-            style={{
-              backgroundColor: theme.colors.surfaceSunken,
-              borderRadius: theme.radii.md,
-              padding: theme.space.md,
-            }}
-          >
-            <PickerField<TSunSignOption>
-              label="Sun sign"
-              options={SUN_SIGN_OPTIONS}
-              // An unset sign is `null` in the DB but the Picker needs a value
-              // matching one of its items, so it lands on the "Not set"
-              // sentinel and is mapped back on the way out.
-              selectedValue={preferences.sunSign ?? NO_SUN_SIGN}
-              testID="sun-sign-picker"
-              onValueChange={(value) =>
-                updatePreferences({
-                  sunSign: value === NO_SUN_SIGN ? null : value,
-                })
-              }
-            />
+        <SettingsToggleCard
+          label="Horoscope"
+          value={preferences.enableHoroscope}
+          onValueChange={(enableHoroscope) =>
+            updatePreferences({ enableHoroscope })
+          }
+        />
+
+        {preferences.enableHoroscope && (
+          <View style={{ gap: theme.space.sm }}>
+            <SettingsSectionTitle subtitle="The Horoscope step reads this sign's prediction for the day.">
+              Horoscope
+            </SettingsSectionTitle>
+            {/* The card is here rather than inside `PickerField` for the reason
+                settings/tasks/index.tsx spells out: this is a settings input,
+                while the field's other call sites are bare rows stacked into a
+                form. Same surface/radius/padding as `SettingsToggleCard`. */}
+            <View
+              style={{
+                backgroundColor: theme.colors.surfaceSunken,
+                borderRadius: theme.radii.md,
+                padding: theme.space.md,
+              }}
+            >
+              <PickerField<TSunSignOption>
+                label="Sun sign"
+                options={SUN_SIGN_OPTIONS}
+                // An unset sign is `null` in the DB but the Picker needs a value
+                // matching one of its items, so it lands on the "Not set"
+                // sentinel and is mapped back on the way out.
+                selectedValue={preferences.sunSign ?? NO_SUN_SIGN}
+                testID="sun-sign-picker"
+                onValueChange={(value) =>
+                  updatePreferences({
+                    sunSign: value === NO_SUN_SIGN ? null : value,
+                  })
+                }
+              />
+            </View>
           </View>
-        </View>
+        )}
 
         <SettingsToggleCard
           label="Journal"

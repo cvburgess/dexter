@@ -25,6 +25,7 @@ const defaultPreferences: TPreferences = {
   darkTheme: "dark",
   enableCalendar: false,
   enableHabits: true,
+  enableHoroscope: true,
   enableJournal: true,
   enableNotes: true,
   lightTheme: "dexter",

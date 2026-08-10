@@ -14,6 +14,7 @@ import {
   stepsFor,
   withCalendarEnabled,
   withDate,
+  withHoroscopeEnabled,
   withJournalEnabled,
   withLink,
   withMode,
@@ -86,16 +87,32 @@ describe("createRitualState", () => {
       direction: 0,
       journalEnabled: true,
       calendarEnabled: true,
+      horoscopeEnabled: true,
     });
   });
 
   it("carries the step preferences into the state", () => {
     expect(
       createRitualState(DATE, "am", { journalEnabled: false }),
-    ).toMatchObject({ journalEnabled: false, calendarEnabled: true });
+    ).toMatchObject({
+      journalEnabled: false,
+      calendarEnabled: true,
+      horoscopeEnabled: true,
+    });
     expect(
       createRitualState(DATE, "am", { calendarEnabled: false }),
-    ).toMatchObject({ journalEnabled: true, calendarEnabled: false });
+    ).toMatchObject({
+      journalEnabled: true,
+      calendarEnabled: false,
+      horoscopeEnabled: true,
+    });
+    expect(
+      createRitualState(DATE, "am", { horoscopeEnabled: false }),
+    ).toMatchObject({
+      journalEnabled: true,
+      calendarEnabled: true,
+      horoscopeEnabled: false,
+    });
   });
 });
 
@@ -140,14 +157,55 @@ describe("stepsFor", () => {
     expect(ids).toEqual(["horoscope", "backlog", "tasks", "congrats"]);
   });
 
+  // DEX-142: the horoscope is opt-out, and it is the morning ritual's *first*
+  // step — so turning it off changes which step the ritual opens on, which no
+  // other toggle does.
+  it("drops the morning horoscope step when the horoscope is disabled", () => {
+    const ids = stepsFor(state({ horoscopeEnabled: false })).map(
+      (step) => step.id,
+    );
+
+    expect(ids).not.toContain("horoscope");
+    expect(ids[0]).toBe("journal");
+    expect(ids).toHaveLength(RITUAL_STEPS.am.length - 1);
+  });
+
+  it("leaves the evening ritual alone when the horoscope is disabled", () => {
+    expect(
+      stepsFor(state({ mode: "pm", horoscopeEnabled: false })).map(
+        (step) => step.id,
+      ),
+    ).toEqual(RITUAL_STEPS.pm.map((step) => step.id));
+  });
+
+  it("drops all three steps when all three are disabled", () => {
+    const ids = stepsFor(
+      state({
+        journalEnabled: false,
+        calendarEnabled: false,
+        horoscopeEnabled: false,
+      }),
+    ).map((step) => step.id);
+
+    expect(ids).toEqual(["backlog", "tasks", "congrats"]);
+  });
+
   // Stable references, not fresh arrays: both switchers map this on every
   // render, and the route compares against it to detect a preference change.
-  it.each([
-    { journalEnabled: true, calendarEnabled: true },
-    { journalEnabled: false, calendarEnabled: true },
-    { journalEnabled: true, calendarEnabled: false },
-    { journalEnabled: false, calendarEnabled: false },
-  ])("returns the same array for the same inputs (%p)", (toggles) => {
+  // Every combination, because `STEP_LISTS` is precomputed per key — a key that
+  // fell out of `TOGGLE_KEYS` would return `undefined` here rather than a stale
+  // list, and only an exhaustive sweep catches it.
+  it.each(
+    [false, true].flatMap((journalEnabled) =>
+      [false, true].flatMap((calendarEnabled) =>
+        [false, true].map((horoscopeEnabled) => ({
+          journalEnabled,
+          calendarEnabled,
+          horoscopeEnabled,
+        })),
+      ),
+    ),
+  )("returns the same array for the same inputs (%p)", (toggles) => {
     expect(stepsFor(state(toggles))).toBe(stepsFor(state(toggles)));
   });
 });
@@ -452,6 +510,84 @@ describe("withCalendarEnabled", () => {
     expect(currentStep(withCalendarEnabled(before, false)).title).toBe(
       "Backlog",
     );
+  });
+});
+
+describe("withHoroscopeEnabled", () => {
+  // Same reason as the other two: `ritual/index.tsx` compares this flag against
+  // preferences *during render*, so a transition returning an unchanged flag
+  // would spin forever.
+  it("returns the same state when the preference hasn't changed", () => {
+    const before = state({ step: 2 });
+
+    expect(withHoroscopeEnabled(before, true)).toBe(before);
+  });
+
+  it("updates the flag even when the step list doesn't change", () => {
+    // The evening ritual has no horoscope step at all, so this is the whole
+    // effect there — and the case that would hang the render loop if the flag
+    // went unwritten.
+    const next = withHoroscopeEnabled(state({ mode: "pm", step: 2 }), false);
+
+    expect(next.horoscopeEnabled).toBe(false);
+    expect(currentStep(next).title).toBe("Journal");
+  });
+
+  it("keeps the user on the same step by id when the horoscope is removed", () => {
+    const next = withHoroscopeEnabled(state({ step: 3 }), false);
+
+    expect(currentStep(next).title).toBe("Backlog");
+    expect(next.step).toBe(2);
+    expect(next.direction).toBe(0);
+  });
+
+  it("keeps the user on the same step by id when the horoscope is added", () => {
+    const before = state({ horoscopeEnabled: false, step: 2 });
+
+    expect(currentStep(before).title).toBe("Backlog");
+    expect(currentStep(withHoroscopeEnabled(before, true)).title).toBe(
+      "Backlog",
+    );
+  });
+
+  it("leaves the page key alone when the step survives", () => {
+    const before = state({ step: 3 });
+
+    expect(ritualPageKey(withHoroscopeEnabled(before, false))).toBe(
+      ritualPageKey(before),
+    );
+  });
+
+  // The horoscope is index 0, so there is no earlier step to fall back to: the
+  // clamp lands on index 0 of the *new* list, which is whatever now opens the
+  // ritual. This is the one toggle that can change where a ritual starts.
+  it("moves to the new first step when the horoscope itself was on screen", () => {
+    const next = withHoroscopeEnabled(state({ step: 0 }), false);
+
+    expect(next.step).toBe(0);
+    expect(currentStep(next).title).toBe("Journal");
+  });
+
+  it("moves to Calendar when the journal is off too", () => {
+    const before = state({ journalEnabled: false, step: 0 });
+
+    expect(currentStep(before).title).toBe("Horoscope");
+    expect(currentStep(withHoroscopeEnabled(before, false)).title).toBe(
+      "Calendar",
+    );
+  });
+
+  it("repairs the step with the journal already gone", () => {
+    // Journal off puts Calendar at index 1; removing the horoscope shifts it to
+    // index 0, and the user has to travel with it rather than sit on the index.
+    const before = state({ journalEnabled: false, step: 1 });
+
+    expect(currentStep(before).title).toBe("Calendar");
+
+    const next = withHoroscopeEnabled(before, false);
+
+    expect(next.step).toBe(0);
+    expect(currentStep(next).title).toBe("Calendar");
   });
 });
 
