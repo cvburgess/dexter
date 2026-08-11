@@ -1,5 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { Text } from "react-native";
+import { StyleSheet, Text } from "react-native";
 
 import { DayTaskList } from "@/components/DayTaskList";
 import { useTheme } from "@/utils/theme";
@@ -43,7 +43,20 @@ export function TasksStep({ date }: TTasksStepProps) {
       emptyMessage="No tasks scheduled for today."
       emptyAction={
         <Text
-          style={{ ...theme.fonts.body, color: theme.colors.textSecondary }}
+          style={[
+            styles.prompt,
+            {
+              ...theme.fonts.body,
+              color: theme.colors.textSecondary,
+              // `EmptyScreen` separates its children from the message by its
+              // own in-group `sm`, which is less than a line — the prompt read
+              // as a second half of the sentence above it rather than as the
+              // thing to go and do. Tops it up to the group step, the same
+              // arithmetic `TaskDrawer` uses for its control cluster (see
+              // docs/design.md, "Spacing").
+              marginTop: theme.space.lg - theme.space.sm,
+            },
+          ]}
         >
           {/* Names the global button rather than adding a second one — the
               issue's point. It is in the tab bar's bottom accessory on a phone
@@ -56,3 +69,11 @@ export function TasksStep({ date }: TTasksStepProps) {
     />
   );
 }
+
+const styles = StyleSheet.create({
+  // `EmptyScreen` centers its own message but only `alignItems`-centers its
+  // children, which centers the *box* — a prompt long enough to wrap (which
+  // this one is, on a phone) would set its second line flush left under a
+  // centered sentence.
+  prompt: { textAlign: "center" },
+});
