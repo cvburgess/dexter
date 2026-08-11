@@ -33,17 +33,14 @@ Create a GitHub pull request for the current branch.
 
    | If the diff touches... | Review this doc |
    |---|---|
-   | `src/` app code (routes, hooks, components, contexts, utils) | `AGENTS.md` |
+   | `src/` app code (routes, hooks, components, contexts, utils) | `docs/frontend.md`, `AGENTS.md` |
    | `supabase/` (edge functions, config, migrations, types) | `docs/backend.md`, `AGENTS.md` |
    | `www/` (website code) | `docs/website.md`, `AGENTS.md` |
-   | Pricing, subscription, paywall, RevenueCat | `docs/pricing.md` |
-   | New features, feature removal, status changes | `docs/features.md`, `docs/positioning.md` AND relevant marketing content in `www/src/_data/features.json`, `www/src/tips/`, or `www/src/_data/faqs.json` |
+   | New features, feature removal, status changes | Marketing content in `www/src/_data/features.json`, `www/src/tips/`, or `www/src/_data/faqs.json` |
    | User-facing behavior covered by existing website content | The matching `www/src/tips/<feature>.md` page or `www/src/_data/faqs.json` entry |
-   | UI copy, tone, colors, typography, branding | `docs/brand.md` |
+   | UI copy, tone, colors, typography, branding | `docs/design.md` |
    | App Store metadata, screenshots, keywords | `docs/appstore.md` |
-   | User-facing flows that change who/how | `docs/personas.md` |
    | `.claude/skills/` files | The affected skill's `SKILL.md` |
-   | New patterns, anti-patterns, or conventions that PRs should enforce | `.cursor/BUGBOT.md` |
 
    For each affected doc: Read it, determine if the PR requires a concrete update, and apply changes with Edit. Skip docs not affected. Most PRs need 0–2 updates.
 
@@ -56,7 +53,7 @@ Create a GitHub pull request for the current branch.
 5. **Commit documentation updates** if any docs were changed:
 
    ```bash
-   git add docs/ CLAUDE.md AGENTS.md .claude/skills/ .cursor/BUGBOT.md
+   git add docs/ CLAUDE.md AGENTS.md .claude/skills/
    ```
 
    Only commit if there are staged changes. Use message: `Update documentation for PR`. Skip entirely if no docs changed.

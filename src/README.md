@@ -15,17 +15,4 @@ EXPO_PUBLIC_SUPABASE_URL=...
 EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 ```
 
-## Commands
-
-| Script                            | Description               |
-| --------------------------------- | ------------------------- |
-| `npm start`                       | Dev server                |
-| `npm run web`                     | Web only                  |
-| `npm run ios` / `npm run android` | Open simulator / device   |
-| `npm run lint`                    | `eslint .`                |
-| `npm run format`                  | Prettier                  |
-| `npm test`                        | Jest                      |
-| `npm run typecheck`               | `tsc --noEmit`            |
-| `npm run supabase:types`          | Regenerate Supabase types |
-
-See [`../docs/frontend.md`](../docs/frontend.md) for conventions.
+Commands and conventions: [`../AGENTS.md`](../AGENTS.md) and [`../docs/frontend.md`](../docs/frontend.md).

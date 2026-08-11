@@ -37,7 +37,6 @@ Launch a sonnet subagent to explore the codebase for context:
 
 Prompt the agent with the user's request description. Ask it to:
 
-- Check `docs/` for relevant product context (personas, features, pricing, brand guidelines)
 - Find relevant source files, components, hooks, utilities related to the request
 - Find existing patterns or implementations that relate to or would be affected by this request
 - Find relevant types, database schemas, or edge functions
