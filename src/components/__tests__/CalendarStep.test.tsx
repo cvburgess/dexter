@@ -3,6 +3,7 @@ import { fireEvent, render } from "@testing-library/react-native";
 import { StyleSheet, TextStyle } from "react-native";
 import type { ReactTestInstance } from "react-test-renderer";
 
+import { ETaskPriority } from "@/api/tasks";
 import { CalendarStep } from "@/components/CalendarStep";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { TCalendarEvent } from "@/hooks/useCalendarEvents.types";
@@ -178,27 +179,31 @@ describe("CalendarStep", () => {
       });
 
       expect(screen.getByLabelText("3 events")).toBeTruthy();
-      expect(screen.getByLabelText("5h 30m planned")).toBeTruthy();
-      expect(screen.getByLabelText("8h 30m free")).toBeTruthy();
+      expect(screen.getByLabelText("5.5 hours planned")).toBeTruthy();
+      expect(screen.getByLabelText("8.5 hours free")).toBeTruthy();
       expect(screen.getByText(`calendar:${DATE.toString()}`)).toBeTruthy();
     });
 
-    it("writes the singular for one event", () => {
+    // "1 hours planned" would be the visible cost of pluralizing on whether
+    // the figure is whole rather than on the value, so exactly sixty minutes is
+    // the one span that takes the singular.
+    it("writes the singular for one event and one hour", () => {
       const screen = renderStep({ events: [timed("a", 9, 10)] });
 
       expect(screen.getByLabelText("1 event")).toBeTruthy();
-      expect(screen.getByLabelText("1h planned")).toBeTruthy();
-      expect(screen.getByLabelText("13h free")).toBeTruthy();
+      expect(screen.getByLabelText("1 hour planned")).toBeTruthy();
+      expect(screen.getByLabelText("13 hours free")).toBeTruthy();
     });
 
     // Time booked reads as spent, time left as available — the figures carry
-    // that, and the words beside them stay in ink. The count is neither, so it
-    // stays ink too: it is the neutral fact the other two lines qualify.
+    // that, and the words beside them stay in ink. The count takes the same
+    // warning token the backlog step's "due soon" figure does: a day's events
+    // are a heads-up, neither the failure `error` marks nor an all-clear.
     it("colors the figures rather than the words", () => {
       const screen = renderStep({ events: [timed("a", 9, 10, 30)] });
 
       expect(colorOf(screen.getByTestId("hero-figure-events"))).toBe(
-        colors.text,
+        colors.priority[ETaskPriority.IMPORTANT_AND_URGENT],
       );
       expect(colorOf(screen.getByTestId("hero-figure-planned"))).toBe(
         colors.error,
@@ -223,8 +228,8 @@ describe("CalendarStep", () => {
       });
 
       expect(screen.getByLabelText("1 event")).toBeTruthy();
-      expect(screen.getByLabelText("0h planned")).toBeTruthy();
-      expect(screen.getByLabelText("14h free")).toBeTruthy();
+      expect(screen.getByLabelText("0 hours planned")).toBeTruthy();
+      expect(screen.getByLabelText("14 hours free")).toBeTruthy();
     });
   });
 });

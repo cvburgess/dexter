@@ -1,6 +1,6 @@
 import {
-  formatDuration,
   formatHourLabel,
+  formatHours,
   formatTime,
   parseTimeToMinutes,
 } from "../formatPlainTime";
@@ -29,28 +29,30 @@ describe("formatHourLabel", () => {
   });
 });
 
-describe("formatDuration", () => {
-  it("writes both parts when both are there", () => {
-    expect(formatDuration(90)).toBe("1h 30m");
+describe("formatHours", () => {
+  it("writes a whole number of hours without a decimal part", () => {
+    expect(formatHours(60)).toBe("1");
+    expect(formatHours(120)).toBe("2");
+    expect(formatHours(0)).toBe("0");
   });
 
-  // A zero part is dropped rather than written out — "1h 0m" reads as a
-  // rounding artefact.
-  it("drops the zero part", () => {
-    expect(formatDuration(45)).toBe("45m");
-    expect(formatDuration(60)).toBe("1h");
-    expect(formatDuration(120)).toBe("2h");
+  // Only the places that are needed: never "1.00" or "1.50", which read as a
+  // precision the clock arithmetic behind them does not have.
+  it("keeps only the decimal places it needs", () => {
+    expect(formatHours(90)).toBe("1.5");
+    expect(formatHours(75)).toBe("1.25");
+    expect(formatHours(45)).toBe("0.75");
   });
 
-  // Nothing left to drop, so it falls back to the hours shape and keeps the
-  // same silhouette as the figure beside it ("0h free" under "14h planned").
-  it("falls back to 0h for an empty span", () => {
-    expect(formatDuration(0)).toBe("0h");
+  // Two places at most. A third would be a minute-level distinction written in
+  // a unit nobody reads at that resolution.
+  it("rounds to two decimal places", () => {
+    expect(formatHours(50)).toBe("0.83");
+    expect(formatHours(80)).toBe("1.33");
   });
 
-  it("floors a negative and rounds a fraction rather than rejecting either", () => {
-    expect(formatDuration(-30)).toBe("0h");
-    expect(formatDuration(89.6)).toBe("1h 30m");
+  it("clamps a negative rather than rejecting it", () => {
+    expect(formatHours(-30)).toBe("0");
   });
 });
 

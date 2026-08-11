@@ -535,6 +535,16 @@ native build phases and needs the `SENTRY_AUTH_TOKEN` **EAS secret** (Release
 profiles only — dev profiles set `SENTRY_DISABLE_AUTO_UPLOAD`). Triage with
 the `/triage-sentry` skill.
 
+**`SENTRY_ENABLED` in `app/_layout.tsx` is off in development**, and `debug`
+follows that flag rather than `__DEV__`. Sentry's ingest domains are on
+EasyPrivacy and most ad blockers' default lists, so on web the transport's
+`fetch` is rejected before it leaves the tab, and `debug` printed the failure
+once per envelope — every navigation, at `tracesSampleRate: 1.0`. Turning only
+`debug` off would have hidden that while still filing developers' own
+exceptions against the production issue stream. Flip the flag to `true` to
+exercise reporting locally; leaving `debug: __DEV__` when disabled just
+narrates events being discarded, which is why it is tied to the same constant.
+
 ## Data Layer
 
 `api/` holds typed Supabase query modules; `hooks/` the React Query hooks;

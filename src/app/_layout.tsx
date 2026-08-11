@@ -19,10 +19,29 @@ import { useTheme } from "@/utils/theme";
 // navigation container in ThemedStack.
 const navigationIntegration = Sentry.reactNavigationIntegration();
 
+/**
+ * Whether this build reports to Sentry at all.
+ *
+ * Off in development, for two reasons. Sentry's ingest domains sit on
+ * EasyPrivacy and most ad blockers' default lists, so in a browser the
+ * transport's `fetch` is rejected before it leaves the tab — and `debug` below
+ * printed that failure for every envelope, which at `tracesSampleRate: 1.0`
+ * means every navigation. The noise was the visible half; the other half is
+ * that a developer's own exceptions and traces have no business in the
+ * production issue stream, where they crowd out the reports that came from
+ * real users.
+ *
+ * Flip to `true` to exercise the reporting path locally — `debug` follows this
+ * flag rather than `__DEV__` so doing so also turns the SDK's own logging back
+ * on, which is the only thing that makes such a session legible.
+ */
+const SENTRY_ENABLED = !__DEV__;
+
 // Sentry.init runs at module scope — the earliest point in the app's
 // lifecycle — so it captures errors from as much of startup as possible.
 Sentry.init({
   dsn: getSentryDsn(),
+  enabled: SENTRY_ENABLED,
   integrations: [navigationIntegration],
   tracesSampleRate: 1.0,
   enableAutoSessionTracking: true,
@@ -33,7 +52,9 @@ Sentry.init({
   // same rationale as the AppState guard in utils/supabase.ts.
   enableNative: Platform.OS !== "web",
   enableNativeCrashHandling: Platform.OS !== "web",
-  debug: __DEV__,
+  // Not `__DEV__`: with the SDK disabled this would only narrate events being
+  // discarded, trading one stream of dev-console noise for another.
+  debug: __DEV__ && SENTRY_ENABLED,
 });
 
 // Wire up the AlarmKit App Group as early as possible (per expo-alarm-kit's
