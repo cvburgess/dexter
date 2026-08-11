@@ -127,7 +127,6 @@ BugBot review complete:
 ## Important
 
 - Read the actual code before deciding if a comment is valid — don't trust the comment blindly
-- Check `.cursor/BUGBOT.md` for the project's own BugBot rules to understand intent
 - Don't fix issues that would change intentional behavior
 - Keep fixes minimal and focused — only address what BugBot flagged
 - Never force-push or amend commits
