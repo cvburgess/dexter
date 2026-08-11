@@ -396,23 +396,29 @@ the whole phrase. Stage timing lives in `useHeroReveal`/`useStageOpacity`;
 the reveal is opacity-only — `SwipeablePage`'s intro already slides, and two
 axes compound into a diagonal drift.
 
-### Tasks step (DEX-144)
+### Congrats step (DEX-144)
 
-`components/DayTaskList.tsx` reused **unmodified** — the same component the
-Today pane and the Week columns render, so contents and ordering cannot drift
-from Today's, and its own `ScrollView` already meets the step contract (no side
-gutter, `insets.bottom` inside the scroller). Deliberately not `TasksView`: the
-habit tracker is Today's, not the ritual's. No hero — the two steps before it
-summarize something, this one *is* the thing. Drag-to-schedule switches itself
-off, since `DraggableTaskCard` degrades without a `DragScheduleProvider` and
-this tab has none.
+One line and a button out to the day's real task list
+(`todayRoute({ date, mode: "tasks" })`, carrying the **ritual's** date so
+yesterday's ritual lands on yesterday). The link needs its `n` nonce for the
+same reason the Search tab's does: cross-tab navigation reuses the mounted
+Today screen and only swaps its params, so two presses carrying one date would
+be indistinguishable and the second would switch tabs and do nothing.
 
-The step's only code of its own is its empty state, which is why `DayTaskList`
-grew an optional `emptyAction` (rendered as `EmptyScreen`'s children): the
-ritual points at the global "＋ New Task" button rather than adding a second
-one. **The copy says "today" on whatever day the header is on** — the ritual can
-be paged to another date (DEX-138), and speaking from inside the day was
-preferred to narrating which one it is.
+**A morning task-list step was built here first and removed.** `DayTaskList`
+dropped into the step worked and cost almost nothing — but it copied a surface
+it could not replace, leaving two lists of the same day a swipe apart, and the
+ritual is a sequence you walk once where the day's list is what you return to
+all day. Reach for this history before re-proposing it. What survives from that
+attempt is the shape of the close: the step ends on the same information by
+handing the reader over rather than by drawing it twice.
+
+No `HeroLines` — that component is a measured two-column layout built around a
+figure, and a bare sentence has nothing to align against, so this takes the
+reveal's first stages directly the way `CalendarStep`'s clear-day block does.
+Stage 1 for the button, deliberately not `BODY_STAGE`: that constant means
+"after all three hero lines", and waiting for it would leave a one-line step's
+only control missing for most of a 3.6s sequence.
 
 ## Drag-to-schedule (DEX-77)
 

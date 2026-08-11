@@ -63,13 +63,17 @@ jest.mock("@/components/BacklogStep", () => {
   };
 });
 
-// And the tasks step: it owns the tasks query and the day's card list.
-jest.mock("@/components/TasksStep", () => {
+// And the congrats step: it owns a reveal and a router push.
+jest.mock("@/components/CongratsStep", () => {
   const { Text: RNText } =
     jest.requireActual<typeof import("react-native")>("react-native");
   return {
-    TasksStep: function MockTasksStep({ date }: { date: Temporal.PlainDate }) {
-      return <RNText>{`tasks:${date.toString()}`}</RNText>;
+    CongratsStep: function MockCongratsStep({
+      date,
+    }: {
+      date: Temporal.PlainDate;
+    }) {
+      return <RNText>{`congrats:${date.toString()}`}</RNText>;
     },
   };
 });
@@ -77,7 +81,13 @@ jest.mock("@/components/TasksStep", () => {
 const DATE = Temporal.PlainDate.from("2026-08-09");
 
 /** The step ids that no longer fall through to the placeholder branch. */
-const BUILT_STEP_IDS = ["horoscope", "journal", "calendar", "backlog", "tasks"];
+const BUILT_STEP_IDS = [
+  "horoscope",
+  "journal",
+  "calendar",
+  "backlog",
+  "congrats",
+];
 
 const renderStep = (step: TRitualStep) =>
   render(
@@ -135,11 +145,11 @@ describe("RitualStepView", () => {
     expect(screen.getByText("backlog:2026-08-09")).toBeTruthy();
   });
 
-  // Unconditional too, and the step the backlog hands off to.
-  it("renders the day's task list for the tasks id", () => {
-    renderStep({ id: "tasks", title: "Tasks" });
+  // The one built step both rituals reach, and the last of each.
+  it("renders the congrats step for the congrats id", () => {
+    renderStep({ id: "congrats", title: "Congrats" });
 
-    expect(screen.getByText("tasks:2026-08-09")).toBeTruthy();
+    expect(screen.getByText("congrats:2026-08-09")).toBeTruthy();
   });
 
   it("hands a step the ritual's date rather than today's", () => {

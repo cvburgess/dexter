@@ -4,8 +4,8 @@ import { BacklogStep } from "@/components/BacklogStep";
 import { CalendarStep } from "@/components/CalendarStep";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { HoroscopeStep } from "@/components/HoroscopeStep";
+import { CongratsStep } from "@/components/CongratsStep";
 import { JournalView } from "@/components/JournalView";
-import { TasksStep } from "@/components/TasksStep";
 import type { TRitualStep } from "@/utils/ritualSteps";
 
 type TRitualStepViewProps = {
@@ -31,8 +31,8 @@ type TRitualStepViewProps = {
  * This is the seam each DEX-34 sub-issue fills in: a step branches on `step.id`
  * here and nothing else about the flow has to change. Five are built —
  * Horoscope (DEX-128), Journal (DEX-105), Calendar (DEX-140), Backlog
- * (DEX-141) and Tasks (DEX-144) — and the rest fall through to the default and
- * render their name centered.
+ * (DEX-141) and Congrats (DEX-144) — and the rest fall through to the default
+ * and render their name centered.
  *
  * Carries no side gutter of its own — `SwipeablePage` supplies it at both
  * widths on this tab (see docs/design.md, "Who owns spacing").
@@ -62,10 +62,11 @@ export function RitualStepView({
     // drops the backlog, since every user has one.
     case "backlog":
       return <BacklogStep date={date} />;
-    // DEX-144: unconditional too, and the same list the Today tab draws — the
-    // step after the backlog, showing what the day ended up holding.
-    case "tasks":
-      return <TasksStep date={date} />;
+    // DEX-144: the only step both rituals share besides the journal, and the
+    // last of each — it closes the walk and hands the reader over to the day's
+    // real task list rather than drawing a second copy of it here.
+    case "congrats":
+      return <CongratsStep date={date} />;
     default:
       return <EmptyScreen message={step.title} />;
   }

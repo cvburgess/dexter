@@ -202,7 +202,7 @@ describe("LargeScreenRitual", () => {
 
     it("is declined past the last step", () => {
       const onSwipe = jest.fn();
-      renderRitual({ onSwipe, state: state({ step: 5 }) });
+      renderRitual({ onSwipe, state: state({ step: 4 }) });
 
       fireGestureHandler(getByGestureTestId("page-swipe"), [
         { translationX: -200, velocityX: -900 },

@@ -80,7 +80,6 @@ describe("ritualStepOptions", () => {
       "Journal",
       "Calendar",
       "Backlog",
-      "Tasks",
       "Congrats",
     ]);
     expect(options.filter((option) => option.isCurrent)).toHaveLength(1);
@@ -124,7 +123,6 @@ describe("RitualStepSwitcher (small screens)", () => {
       "Journal",
       "Calendar",
       "Backlog",
-      "Tasks",
       "Congrats",
     ]);
     expect(lastOptions().filter((option) => option.isSelected)).toHaveLength(1);

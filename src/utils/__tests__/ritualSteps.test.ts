@@ -36,7 +36,6 @@ describe("RITUAL_STEPS", () => {
       "Journal",
       "Calendar",
       "Backlog",
-      "Tasks",
       "Congrats",
     ]);
   });
@@ -154,7 +153,7 @@ describe("stepsFor", () => {
       state({ journalEnabled: false, calendarEnabled: false }),
     ).map((step) => step.id);
 
-    expect(ids).toEqual(["horoscope", "backlog", "tasks", "congrats"]);
+    expect(ids).toEqual(["horoscope", "backlog", "congrats"]);
   });
 
   // DEX-142: the horoscope is opt-out, and it is the morning ritual's *first*
@@ -187,7 +186,7 @@ describe("stepsFor", () => {
       }),
     ).map((step) => step.id);
 
-    expect(ids).toEqual(["backlog", "tasks", "congrats"]);
+    expect(ids).toEqual(["backlog", "congrats"]);
   });
 
   // Stable references, not fresh arrays: both switchers map this on every
@@ -383,12 +382,13 @@ describe("step position helpers", () => {
     );
   });
 
-  // The last index differs per mode (six morning steps, five evening ones), so
+  // The last index differs per mode (five morning steps, five evening ones —
+  // equal today, but they have not been and the lists move independently), so
   // the check has to read the active list rather than a single constant.
   it("knows both ends of each ritual", () => {
     expect(isFirstStep(state())).toBe(true);
     expect(isLastStep(state())).toBe(false);
-    expect(isLastStep(state({ step: 5 }))).toBe(true);
+    expect(isLastStep(state({ step: 4 }))).toBe(true);
     expect(isLastStep(state({ mode: "pm", step: 4 }))).toBe(true);
     expect(isLastStep(state({ mode: "pm", step: 3 }))).toBe(false);
   });
@@ -597,11 +597,11 @@ describe("withLink", () => {
     // pre-link step for a frame.
     const next = withLink(state(), {
       date: DATE.add({ days: 1 }),
-      step: "tasks",
+      step: "congrats",
     });
 
     expect(next.date.toString()).toBe("2026-08-10");
-    expect(currentStep(next).title).toBe("Tasks");
+    expect(currentStep(next).title).toBe("Congrats");
   });
 
   it("applies a step on its own", () => {

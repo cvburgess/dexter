@@ -36,7 +36,6 @@ export const RITUAL_STEP_IDS = [
   "journal",
   "calendar",
   "backlog",
-  "tasks",
   "congrats",
   "open-tasks",
   "review",
@@ -67,6 +66,13 @@ export type TRitualStep = {
  * `horoscope` each drop out when the user has that feature disabled. Most steps
  * still render a centered placeholder; later DEX-34 sub-issues replace them one
  * at a time in `components/RitualStepView.tsx`.
+ *
+ * **The morning ritual deliberately has no task-list step.** One was built
+ * (DEX-144) and removed: a second copy of the Today list inside the ritual
+ * duplicated the surface it was copying without being able to replace it — the
+ * ritual is a sequence you walk once, the day's list is the thing you come back
+ * to all day. `congrats` closes the morning by handing the reader over to the
+ * real one instead (`components/CongratsStep.tsx`).
  */
 export const RITUAL_STEPS: Record<TRitualMode, readonly TRitualStep[]> = {
   am: [
@@ -74,7 +80,6 @@ export const RITUAL_STEPS: Record<TRitualMode, readonly TRitualStep[]> = {
     { id: "journal", title: "Journal" },
     { id: "calendar", title: "Calendar" },
     { id: "backlog", title: "Backlog" },
-    { id: "tasks", title: "Tasks" },
     { id: "congrats", title: "Congrats" },
   ],
   pm: [

@@ -12,11 +12,11 @@ import {
  * for `DayViewSwitcher`/`DayPaneToggles`.
  *
  * A `Record` over `TRitualStepId`, so adding a step without an icon is a
- * compile error rather than a blank button. Three steps reuse the Today tab's
+ * compile error rather than a blank button. Two steps reuse the Today tab's
  * icons outright: they open the very surfaces those icons already stand for, so
  * inventing second glyphs for them would be the drift this table exists to
  * prevent. `open-tasks` is the evening's look at the same task list, so it
- * shares Tasks' icon too. The journal's is spelled out rather than borrowed —
+ * borrows Tasks' icon too. The journal's is spelled out rather than borrowed —
  * it is no longer a day view at all (DEX-105), so `VIEW_META` has no entry for
  * it to read.
  */
@@ -25,7 +25,6 @@ export const STEP_ICONS: Record<TRitualStepId, TIconName> = {
   journal: { sf: "book", ionicon: "book-outline" },
   calendar: VIEW_META.calendar.icon,
   backlog: { sf: "tray.full", ionicon: "file-tray-full-outline" },
-  tasks: VIEW_META.tasks.icon,
   congrats: { sf: "checkmark.circle", ionicon: "checkmark-circle-outline" },
   "open-tasks": VIEW_META.tasks.icon,
   review: { sf: "magnifyingglass", ionicon: "search-outline" },
