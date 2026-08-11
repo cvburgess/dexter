@@ -159,7 +159,7 @@ export function SummaryStep({ date }: TSummaryStepProps) {
     return (
       <View
         style={[
-          styles.container,
+          styles.blank,
           {
             gap: theme.space.lg,
             padding: theme.space.lg,
@@ -188,22 +188,28 @@ export function SummaryStep({ date }: TSummaryStepProps) {
   }
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          padding: theme.space.lg,
-          paddingBottom: theme.space.lg + insets.bottom,
-        },
-      ]}
-      testID="summary-step"
-    >
+    // No padding of its own: `HeroLines` brings its own vertical breathing room
+    // and `SwipeablePage` the side gutter, the same arrangement the calendar and
+    // backlog steps use.
+    <View style={styles.container} testID="summary-step">
       <HeroLines lines={heroLines} reveal={reveal} />
-      {/* The closing line and the button arrive together, as one movement after
-          the figures — the line is what the figures add up to and the button is
-          what to do about it, so staggering them would read as two endings. */}
+      {/* `flex: 1` belongs to this wrapper, so the close sits in the middle of
+          whatever the hero leaves rather than directly under it — the figures
+          are a heading, and the line plus the button are what the step is
+          actually asking for. The two arrive together, as one movement after the
+          figures: the line is what they add up to and the button is what to do
+          about it, so staggering them would read as two endings. */}
       <Animated.View
-        style={[styles.close, { gap: theme.space.lg }, closeStyle]}
+        style={[
+          styles.close,
+          {
+            gap: theme.space.lg,
+            // The host SafeAreaView omits the bottom edge (the tab bar owns
+            // it), so centering in the full box would sit this visibly low.
+            paddingBottom: insets.bottom,
+          },
+          closeStyle,
+        ]}
       >
         <Animated.Text
           style={[
@@ -221,14 +227,20 @@ export function SummaryStep({ date }: TSummaryStepProps) {
 }
 
 const styles = StyleSheet.create({
-  // Centered as one column: this step has no body to fill the way the calendar
-  // and backlog steps do, so the whole block sits in the middle rather than
-  // hanging from the top with empty space under it.
-  container: {
+  // Hero on top, body below — the shape the calendar and backlog steps take.
+  container: { flex: 1 },
+  // The body: fills what the hero leaves and centers its two children in it.
+  close: {
     alignItems: "center",
     flex: 1,
     justifyContent: "center",
   },
-  close: { alignItems: "center" },
+  // The blank day has no hero to hang from, so the one line and the button
+  // center in the whole step instead.
+  blank: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+  },
   line: { textAlign: "center" },
 });
