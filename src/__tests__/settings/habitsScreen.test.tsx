@@ -51,20 +51,6 @@ describe("HabitsScreen", () => {
     mockUseIsLargeDevice.mockReturnValue(false);
   });
 
-  it("skips the left safe-area edge in two-pane mode (sidebar owns it)", () => {
-    mockUseIsLargeDevice.mockReturnValue(true);
-    const screen = renderWith({ enableHabits: true });
-
-    expect(screen.getByTestId("safe-area-edges-right")).toBeTruthy();
-  });
-
-  it("includes the left safe-area edge in single-column mode", () => {
-    mockUseIsLargeDevice.mockReturnValue(false);
-    const screen = renderWith({ enableHabits: true });
-
-    expect(screen.getByTestId("safe-area-edges-left,right")).toBeTruthy();
-  });
-
   it("shows the header add button when habit tracking is enabled", () => {
     renderWith({ enableHabits: true });
 

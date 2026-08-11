@@ -1535,10 +1535,9 @@ Deno.test("note, journal, and search tools never accept a user id", () => {
 });
 
 // DEX-47: search. The handler is thin by design — the matching lives in the
-// `search_entries` RPC (see supabase/__tests__/migrations/search_entries.test.ts)
-// — so these pin the call it makes and the two paths where a thin handler still
-// gets it wrong: reporting "no results" as an error, and dropping the caller's
-// filters.
+// `search_entries` RPC — so these pin the call it makes and the two paths
+// where a thin handler still gets it wrong: reporting "no results" as an
+// error, and dropping the caller's filters.
 
 function searchTools(supabase: FakeSupabase): ToolRegistry {
   const registry = new ToolRegistry();

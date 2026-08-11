@@ -177,20 +177,6 @@ describe("RitualScreen", () => {
     expect(renderHeader().getByLabelText("Add prompt")).toBeTruthy();
   });
 
-  it("skips the left safe-area edge in two-pane mode (sidebar owns it)", () => {
-    mockUseIsLargeDevice.mockReturnValue(true);
-    const screen = renderWith({ enableJournal: true });
-
-    expect(screen.getByTestId("safe-area-edges-right")).toBeTruthy();
-  });
-
-  it("includes the left safe-area edge in single-column mode", () => {
-    mockUseIsLargeDevice.mockReturnValue(false);
-    const screen = renderWith({ enableJournal: true });
-
-    expect(screen.getByTestId("safe-area-edges-left,right")).toBeTruthy();
-  });
-
   // Without this, a focused prompt low on the screen stays under the keyboard:
   // the wrapper this replaced padded the scroller's frame, which gave scroll
   // room but never moved content to the field (DEX-92).

@@ -485,8 +485,7 @@ describe("TaskDrawer", () => {
 
   // The drawer reserves whatever bottom inset its host publishes, so the last
   // row clears the native tab bar in the docked pane (DEX-91). Hosts that
-  // aren't overlapped by the bar zero it for their subtree — see
-  // TaskDrawerSheet.test.
+  // aren't overlapped by the bar zero it for their subtree.
   it("reserves the host's bottom inset below the list's last row", () => {
     mockUseTasks.mockReturnValue(tasksResult([task()]));
     const screen = renderWithBottomInset(34, <TaskDrawer date={date} />);

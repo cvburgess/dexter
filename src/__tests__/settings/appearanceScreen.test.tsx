@@ -52,6 +52,9 @@ describe("AppearanceScreen", () => {
     mockUseIsLargeDevice.mockReturnValue(false);
   });
 
+  // Every settings screen that scrolls shares these edge arrays through
+  // settingsSafeAreaEdges.ts; the pair is asserted once, here. (account.tsx
+  // builds its own edges — the bottom-edge exception — and keeps its own pair.)
   it("skips the left safe-area edge in two-pane mode (sidebar owns it)", () => {
     mockUseIsLargeDevice.mockReturnValue(true);
     const screen = renderWith();

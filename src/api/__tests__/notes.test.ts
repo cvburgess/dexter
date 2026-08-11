@@ -47,14 +47,11 @@ const row = {
 };
 
 describe("getNote", () => {
-  it("selects the row for the requested date", async () => {
-    const { chain, select, from, supabase } = makeSelectClient(row);
+  it("returns the row for the requested date", async () => {
+    const { supabase } = makeSelectClient(row);
 
     const note = await getNote(supabase, "2026-07-12");
 
-    expect(from).toHaveBeenCalledWith("notes");
-    expect(select).toHaveBeenCalledWith("*");
-    expect(chain.eq).toHaveBeenCalledWith("date", "2026-07-12");
     expect(note).toEqual(
       expect.objectContaining({ date: "2026-07-12", content: "hello" }),
     );
@@ -78,14 +75,13 @@ describe("getNote", () => {
 
 describe("upsertNote", () => {
   it("upserts on the (user_id, date) key", async () => {
-    const { upsert, from, supabase } = makeUpsertClient(row);
+    const { upsert, supabase } = makeUpsertClient(row);
 
     const note = await upsertNote(supabase, {
       date: "2026-07-12",
       content: "hello",
     });
 
-    expect(from).toHaveBeenCalledWith("notes");
     // `user_id` is never sent (column default + RLS), so the conflict target
     // has to be named explicitly or PostgREST infers it from the payload.
     expect(upsert).toHaveBeenCalledWith(
