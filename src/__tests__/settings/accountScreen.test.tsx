@@ -65,8 +65,9 @@ describe("AccountScreen", () => {
     mockUseIsLargeDevice.mockReturnValue(false);
   });
 
-  // Every settings screen shares this two-pane/single-column edge behavior
-  // through SettingsScreen; it is asserted once, here.
+  // account.tsx builds its own edge arrays (it claims `bottom` — no scroller),
+  // so its pair is asserted here; the shared settingsSafeAreaEdges pair is
+  // asserted once in appearanceScreen.test.tsx.
   it("skips the left safe-area edge in two-pane mode (sidebar owns it)", () => {
     mockUseIsLargeDevice.mockReturnValue(true);
     const screen = render(<AccountScreen />);
