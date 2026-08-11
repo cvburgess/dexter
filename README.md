@@ -31,10 +31,10 @@ Prioritize with the Eisenhower Matrix, plan your day intentionally, brain-dump t
 - [x] Customizable themes (`dexter`, `light`, `dim`, `dark`, `abyss`) with light/dark/system modes
 - [x] One universal app for iOS, Android, and web
 - [x] Fully deletable data — no third-party analytics, and we never sell your data
-- [ ] Week-at-a-glance view
+- [x] Week-at-a-glance view
 - [ ] Focus blocks (Pomodoro technique)
 - [x] Search across tasks, notes, and journal entries
-- [ ] Subtasks
+- [x] Subtasks
 - [ ] Fully exportable data
 
 ## Connect your AI

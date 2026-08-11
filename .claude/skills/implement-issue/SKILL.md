@@ -62,7 +62,6 @@ Prompt with the full issue payload from `get_issue` (and comments if loaded). As
 - Map each plan step to specific files, components, hooks, utilities, or edge functions in the codebase
 - Identify existing patterns the implementation should follow (similar features, conventions, naming)
 - Find relevant types, schemas, database tables, and edge functions
-- Check `docs/` for product context (personas, features, pricing, brand)
 - Return a structured mapping: plan step → relevant files and patterns
 
 Set `subagent_type: "Explore"`.
@@ -73,8 +72,8 @@ Prompt with the issue title and description. Ask it to:
 
 - Find existing tests related to the areas being changed (search `__tests__/` directories)
 - Identify which test patterns to follow (unit, hook, route — see `docs/testing.md`)
-- Identify which docs in `docs/` may need updating based on the issue (use the mapping from the open-pr skill: features.md, pricing.md, personas.md, brand.md, appstore.md, backend.md, frontend.md)
-- Check if feature changes warrant updates to `docs/features.md`, `docs/positioning.md`, and the marketing website in `www/` (feature data lives in `www/src/_data/features.json`; tips pages live in `www/src/tips/`; read `docs/website.md` for website patterns)
+- Identify which docs in `docs/` may need updating based on the issue (use the mapping from the open-pr skill: frontend.md, backend.md, design.md, testing.md, website.md, appstore.md)
+- Check if feature changes warrant updates to the marketing website in `www/` (feature data lives in `www/src/_data/features.json`; tips pages live in `www/src/tips/`; read `docs/website.md` for website patterns)
 - Check if the change affects user-visible behavior covered by an existing tip page in `www/src/tips/`, FAQ copy in `www/src/_data/faqs.json`, or release notes in `www/src/_data/releases.ts`.
 - Return: relevant test files, test patterns to follow, and docs/website files that may need updates
 
@@ -142,7 +141,7 @@ Based on the test landscape from Step 3 (or the issue's test cases if Step 3 was
 1. **Add new tests** for new functionality — follow the patterns in `docs/testing.md`
 2. **Update existing tests** if behavior changed
 3. **Place tests correctly** — in `__tests__/` directories adjacent to source, never inside `src/app/`
-Tests run automatically via hooks when Claude stops responding. If tests fail, fix them before proceeding. Do not skip or disable tests.
+Run the relevant suite yourself (`cd src && npm test` / the deno test command in `AGENTS.md`) — the Stop hook lints but does not run tests. If tests fail, fix them before proceeding. Do not skip or disable tests.
 
 ### Step 8: Update documentation
 
@@ -150,11 +149,9 @@ Review which docs need updating based on what changed:
 
 | If you changed... | Update these |
 |---|---|
-| App features, feature status | `docs/features.md`, `docs/positioning.md` AND `www/` website content when marketing claims change (feature data in `www/src/_data/features.json`, tips in `www/src/tips/` — see `docs/website.md` for patterns) |
+| App features, feature status | `www/` website content when marketing claims change (feature data in `www/src/_data/features.json`, tips in `www/src/tips/` — see `docs/website.md` for patterns) |
 | User-facing behavior covered by an existing tip page or FAQ | The matching `www/src/tips/<feature>.md` page or `www/src/_data/faqs.json` entry |
-| Pricing, subscriptions, paywall | `docs/pricing.md` |
-| User-facing flows | `docs/personas.md` |
-| UI copy, colors, branding | `docs/brand.md` |
+| UI copy, colors, branding | `docs/design.md` |
 | App Store metadata | `docs/appstore.md` |
 | Supabase functions, DB schema | `docs/backend.md` |
 | App patterns, hooks, routing | `docs/frontend.md` |

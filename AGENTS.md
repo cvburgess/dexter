@@ -2,127 +2,57 @@
 
 Dexter is a planner product delivered as an Expo (React Native) app with iOS, Android, and web support, backed by Supabase (PostgreSQL + Deno Edge Functions).
 
-This file is the working guide for AI/code agents in this monorepo.
-
-**IMPORTANT: When reading this file, agents must log/echo "AGENT RULES READ"**
-
 ## Monorepo at a glance
 
 - **GitHub**: `cvburgess/dexter`
 - `/src` — Expo (React Native) application
 - `/supabase` — Supabase backend (Edge Functions + config + migrations)
-- `/www` — Lume marketing website for `dexterplanner.com`
+- `/www` — Lume marketing website for [dexterplanner.com](https://dexterplanner.com)
 - `/docs` — Engineering documentation
 - `/scripts` — Repo-level developer utilities (not shipped with any app)
 
-**Marketing website:** Source lives in `/www` and deploys to **[https://dexterplanner.com](https://dexterplanner.com)**. See `docs/website.md`.
+**Issue tracking is Linear** (team `DEX`, board: https://linear.app/cvburgess/team/DEX/all — pass `team: "DEX"` in `save_issue`); GitHub (`gh`) is for pull requests, releases, and repository metadata only.
 
-## Task routing
+## Standards
 
-- If work is mobile app UX, screens, hooks, navigation, or client data flow, start in `/src`.
-- If work is schema, RLS, auth, storage, or API/function behavior, start in `/supabase`.
-- If work is landing pages, marketing copy, SEO, or the Lume marketing site, start in `/www`.
-- If requirements are unclear, read the matching docs under `/docs` before changing code.
-
-## MCP servers
-
-Agents may have access to MCP servers for common tasks (configure per environment), for example:
-
-- **Supabase** — Database, migrations, RLS, Edge Functions
-- **Expo** — Builds, EAS, metadata
-- **Linear** — Issue tracking via the Linear MCP server. All product issue tracking uses Linear; GitHub (`gh`) is for pull requests, releases, and repository metadata only. Default Linear team for this repo: **`DEX`** — pass `team: "DEX"` in `save_issue` unless the user specifies otherwise. Board: https://linear.app/cvburgess/team/DEX/all
-
-## Global standards
-
-- Use TypeScript everywhere possible.
-- Do not introduce `any` unless there is a documented, unavoidable boundary.
-- Prefer small, focused changes over broad refactors.
-- Keep naming explicit and consistent with existing patterns.
-- Add tests for behavior changes when practical.
-- Do not alter unrelated files.
-
-## Agent behavior rules
-
-- **No co-author lines:** Never add `Co-Authored-By` trailers to git commit messages.
-- **No Claude Code footer:** Never add the "Generated with Claude Code" line to PR descriptions.
-- **No script gymnastics:** Don't write complex Python or bash scripts to parse data or transcripts. Use simple, direct tool calls instead.
-- **Hardcode known values:** Use `cvburgess/dexter` directly in skills, scripts, and `gh` commands — never use dynamic resolution like `gh repo view`.
-- **Use AskUserQuestion for interactive skills:** Skills that ask the user questions (e.g. `/grill-me`) must use the `AskUserQuestion` tool, not plain text questions.
-- **Grill-me step naming:** When integrating `/grill-me` into other skills, name the step "Collaborate on the plan" (not "Stress-test" or similar).
+- TypeScript everywhere; no `any` without a documented, unavoidable boundary.
+- Small, focused changes; don't alter unrelated files.
+- **No co-author lines** in commits and **no "Generated with Claude Code" footer** in PR descriptions.
+- **No script gymnastics:** don't write complex Python/bash to parse data or transcripts — use simple, direct tool calls.
+- **Hardcode known values:** use `cvburgess/dexter` directly in skills, scripts, and `gh` commands — never dynamic resolution like `gh repo view`.
+- **Interactive skills use `AskUserQuestion`**, not plain-text questions; when integrating `/grill-me` into another skill, name the step "Collaborate on the plan".
 
 ## Key constraints
 
-**Supabase Edge Functions:** Run on Deno, not Node.js. Never import Node.js-only packages (e.g. `fs`, `path`, `child_process`). Use Deno equivalents (`std/fs`, `std/path`) or skip if not needed.
+- **Supabase Edge Functions run on Deno, not Node.js.** Never import Node-only packages (`fs`, `path`, `child_process`); use Deno equivalents.
+- **Never place test files inside `/src/app/`** — Expo Router treats that directory as routes. Tests live in `__tests__/` directories adjacent to source.
+- **Migration ordering:** production applies migrations with `supabase db push --include-all`, so a migration can land *after* one with a later timestamp. Never write a migration that depends on a later-timestamped one; if two must land in order, ship them in one PR. See `docs/backend.md`.
 
-**Test file placement:** Never place test files inside `/src/app/` — Expo Router treats this directory as routes. Place tests in `__tests__/` directories adjacent to source files.
+## Commands
 
-**Migration ordering:** Production applies migrations with `supabase db push --include-all`, so a migration can land *after* one with a later timestamp (PRs merge in a different order than their migrations were authored). Never write a migration that depends on a later-timestamped one having already run — if two must land in order, ship them in one PR. See `docs/backend.md`.
-
-## App (`/src`)
-
-Primary reference: `docs/frontend.md`
-
-Common local commands:
-
-- `cd src && npm install`
-- `cd src && npm start`
-- `cd src && npm test`
-- `cd src && npm run lint`
-- `cd src && npm run typecheck`
-- `cd src && npm run format`
-
-## Supabase (`/supabase`)
-
-Primary reference: `docs/backend.md`
-
-Common local commands:
-
-- `cd supabase && deno fmt`
-- `cd supabase && deno test --allow-all --config __tests__/deno.json __tests__/` (add `--env-file=.env` when tests need secrets)
-- `cd supabase && deno check --config functions/<name>/deno.json functions/<name>/index.ts` — **`deno test` does not cover this.** It only type-checks modules a test imports, and nothing imports an entrypoint, so a function's `index.ts` is otherwise unchecked. CI runs this for every function in `functions/*/`.
-
-## Website (marketing)
-
-Primary reference: `docs/website.md`
-
-Common local commands:
-
-- `cd www && deno task serve`
-- `cd www && deno task build`
+- App: `cd src && npm install | npm start | npm test | npm run lint | npm run typecheck | npm run format` (Node.js >= 24)
+- Supabase (Deno v2.x): `cd supabase && deno fmt`; tests: `deno test --allow-all --config __tests__/deno.json __tests__/` (add `--env-file=.env` for secrets); entrypoints: `deno check --config functions/<name>/deno.json functions/<name>/index.ts` — **`deno test` does not type-check entrypoints**, CI checks every function.
+- Website: `cd www && deno task serve | deno task build`
 
 ## Documentation map (`/docs`)
 
-- `frontend.md` — **Read first for any `/src` work.** App architecture and commands
+- `frontend.md` — **Read first for any `/src` work.** App architecture, conventions, build/tooling gotchas
 - `design.md` — **Read before touching any style value.** The token system in `src/utils/theme.ts`
 - `backend.md` — **Read first for any `/supabase` work.** Backend layout and operations
-- `website.md` — Marketing site in `/www` and **dexterplanner.com**
-- `testing.md` — Testing conventions
+- `testing.md` — Which tests are worth writing, and the test-harness gotchas
+- `website.md` — Marketing site in `/www` and dexterplanner.com
+- `appstore.md` — App Store Connect metadata, IDs, and screenshot rules
 
-## Definition of done for agent changes
+### Which docs are worth writing
 
-- Scope is fully addressed.
-- Relevant checks/tests have been run (or explicitly noted if not run).
-- Documentation is updated when behavior or developer workflow changes.
-- Changes are concise, reviewable, and aligned with existing project patterns.
-
-## Runtime requirements
-
-- **Node.js >= 24** for `/src` (see `src/package.json` `engines`).
-- **Deno v2.x** for `/supabase` Edge Functions and `/www`. Ensure `deno` is on your PATH.
-
-## Running services
-
-| Service | Command | Port | Notes |
-|---------|---------|------|------|
-| Expo (app + web) | `cd src && npm start` (or `npm run web`) | 8081 | Default Expo dev server |
-| Marketing site | `cd www && deno task serve` | Lume default | Static marketing site |
+Docs exist to hold what the code cannot say: **gotchas, counterfactuals ("X was tried and failed because Y"), team opinions, and constraints invisible at the point of use**. Do not write file listings, command tables, workflow enumerations, feature narratives, or per-change changelogs — the repo and its git history already answer those, and prose copies drift stale. Delegate procedures to skills; keep docs to facts and rules. Prefer tightening an existing section over adding a new one, and when a change makes a paragraph obsolete, delete it in the same PR.
 
 ## Gotchas
 
-- **No plaintext `.env` files are committed.** Use local env files or your host's secret manager; document new `EXPO_PUBLIC_*` or function secrets in the relevant README or `docs/backend.md`. The one exception is `supabase/.env.preview`, whose values are dotenvx-encrypted so Supabase's branching executor can apply Edge Function secrets to preview branches — its private key (`supabase/.env.keys`) is gitignored and must never be committed. See `docs/backend.md`.
+- **No plaintext `.env` files are committed.** The one exception is `supabase/.env.preview` (dotenvx-encrypted for preview branches); its private key `supabase/.env.keys` is gitignored and must never be committed. See `docs/backend.md`.
 - **Supabase local dev** (`supabase start`) requires Docker.
-- **A green `npm test` is not a typecheck.** Jest runs through Babel, which strips types without checking them, so a type error passes the whole suite silently. Run `npm run typecheck` (`tsc --noEmit`) alongside the tests — it is what catches things like casting a `<Text>`'s flattened style to `ViewStyle` and reading `.color` off it.
-- **`npm run lint` is `eslint .`, not `expo lint` (DEX-95).** `expo lint` with no path walks only `src`, `app`, and `components` relative to its working directory, so from `/src` it silently skipped `hooks/`, `utils/`, `api/`, `providers/`, `plugins/`, `testUtils/`, and the top-level `__tests__/` — 46% of the app — while still exiting 0. Don't switch it back. `eslint` has no such default: it lints the working directory either way, so coverage can't narrow by accident. Test files run a relaxed rule set; see `docs/testing.md`.
-- **Don't pass a file path through `npm run lint`/`npm run format`.** Both scripts carry their own target (`eslint .`, `prettier --write .`), so `npm run lint -- --fix foo.ts` runs `eslint . foo.ts --fix` and rewrites the whole tree. Call `npx eslint --fix <file>` / `npx prettier --write <file>` for a single file.
-- **Expo's generated type files are gitignored, so local and CI type-checking differ.** `expo-env.d.ts` and `.expo/types/router.d.ts` are written by `expo start`/`expo export` and never committed. Two consequences. (1) A *stale* `.expo/types/router.d.ts` fails `npm run typecheck` on a route that exists — start the dev server once before believing it. (2) Anything the generated files supply is missing in CI, so a type-aware lint rule can pass locally and fail there. `src/global.d.ts` carries `/// <reference types="expo/types" />` for exactly this reason (DEX-95) — don't remove it. When you need to reproduce a CI type result, move both generated paths aside first; checking one of them is not enough.
-- **Applying `expo-doctor`'s version bumps means regenerating the lockfile, which bumps everything else too (DEX-116).** `expo install --check` rewrites `package.json` only, and npm will not bump a package it has already locked as a peer — an SDK patch bump whose new `react-native` pins an exact `@react-native/jest-preset` therefore dies on `ERESOLVE` forever, no matter how many times you re-run it. The fix is `rm -rf node_modules package-lock.json && npm install` in `/src`; repairing the old lock does not work. Budget for the blast radius: a full regen also floats every caret/tilde range to its newest match, so a stricter `typescript-eslint` or `@types/*` can turn `npm run lint`/`npm run typecheck` red in files the bump never touched. Re-run all four checks (`typecheck`, `test`, `lint`, `format:check`) afterward, not just `expo-doctor`. Check `patches/` in the same pass — a patch whose fix has landed upstream stops applying, which is only a red warning locally but a hard failure in every `npm ci` workflow.
+- **A green `npm test` is not a typecheck** — Jest strips types without checking them. Run `npm run typecheck` alongside the tests.
+- **`npm run lint` is `eslint .`, not `expo lint` (DEX-95)** — `expo lint` silently skipped 46% of the app while exiting 0. Don't switch it back.
+- **Don't pass a file path through `npm run lint`/`npm run format`** — both scripts carry their own `.` target, so an appended path rewrites the whole tree. Use `npx eslint --fix <file>` / `npx prettier --write <file>`.
+- **Expo's generated type files are gitignored, so local and CI type-checking differ.** A stale `.expo/types/router.d.ts` fails typecheck on a route that exists (start the dev server once), and CI lacks the generated files entirely — `src/global.d.ts` compensates; don't remove it. Details in `docs/frontend.md`.
+- **Applying `expo-doctor`'s version bumps means regenerating the lockfile (DEX-116)** — `rm -rf node_modules package-lock.json && npm install` in `/src`; repairing the old lock does not work, and the regen floats every range, so re-run all four checks and re-verify `patches/`. Details in `docs/frontend.md`.
