@@ -335,6 +335,50 @@ export function sentimentTints(sentiment: THoroscopeSentiment): {
 export const SENTIMENT_FRAME = "#ffffff";
 
 /**
+ * The three rating columns' circles on the Horoscope step (DEX-145).
+ *
+ * The third and last set of non-token colors, and it sits here with the other
+ * two for the same reason: these are drawn *on* the sentiment panel, which does
+ * not follow the user's scheme, so a theme token would be painting into a
+ * surface it knows nothing about.
+ *
+ * **They are far lighter than `SENTIMENT_COLORS` on purpose.** Those are
+ * backgrounds at ~6% lightness; these are marks *on* one of those backgrounds,
+ * and a mark at the same lightness as its ground is not a mark. At ~35% each
+ * circle reads as a filled disc against every one of the three card hues while
+ * still sitting well below the panel's ink, so the faces stay the brightest
+ * thing in the block.
+ *
+ * **`negative` is red, not the panel's purple**, and this is the one place the
+ * two vocabularies deliberately diverge. Purple carries "negative" fine as a
+ * whole-day mood across a screen-sized wash, but at circle size next to a green
+ * and a blue it reads as a fourth hue rather than as the bad one — and on a
+ * purple card it would vanish into its own background. Red is the only hue that
+ * says the same thing at both sizes.
+ *
+ * `mixed` keeps hue 220 and `positive` sits a little greener than the panel's
+ * 174, close enough that the pair still reads as the same family.
+ *
+ * Each circle also takes a hairline in the panel's ink. That is not decoration:
+ * `docs/design.md` requires an edge rather than a shadow for anything that has
+ * to separate itself on every theme, and a shadow would do nothing at all on a
+ * near-black card.
+ */
+const RATING_BUCKET_COLORS: Record<THoroscopeSentiment, string> = {
+  // hsl(0 70% 35%)
+  negative: "#981b1b",
+  // hsl(220 60% 35%) — the panel's own `mixed` hue, lifted to mark weight.
+  mixed: "#24478f",
+  // hsl(165 70% 32%)
+  positive: "#188b6e",
+};
+
+/** The fill for a rating column's circle. */
+export function ratingBucketColor(bucket: THoroscopeSentiment): string {
+  return RATING_BUCKET_COLORS[bucket];
+}
+
+/**
  * The ink for anything drawn on the sentiment panel.
  *
  * The panel is a night sky whatever the user's theme, so a light theme's dark

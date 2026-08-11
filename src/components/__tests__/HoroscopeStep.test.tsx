@@ -7,7 +7,7 @@ import { HoroscopeStep } from "@/components/HoroscopeStep";
 import { useHoroscope } from "@/hooks/useHoroscope";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { useSunSignPreference } from "@/hooks/usePreferences";
-import { HOROSCOPE_FACETS, SUN_SIGNS } from "@/utils/horoscope";
+import { RATING_BUCKETS, SUN_SIGNS } from "@/utils/horoscope";
 
 jest.mock("@/hooks/usePreferences", () => ({
   useSunSignPreference: jest.fn(),
@@ -60,14 +60,23 @@ const DATE = Temporal.PlainDate.from("2026-08-09");
 const HOROSCOPE: THoroscope = {
   sunSign: "leo",
   date: "2026-08-09",
-  summary: "A day that rewards saying the thing out loud.",
+  text: "A day that rewards saying the thing out loud.",
+  overallRating: 4,
   sentiment: "positive",
-  personalLife: "An old thread picks back up.",
-  profession: "Momentum on the work you left half-done.",
-  health: "Sleep is the whole strategy today.",
-  emotions: "Steadier than yesterday, and you can tell.",
-  travel: "Nothing far, but the short trip is worth it.",
-  luck: "Favors the second attempt.",
+  tips: ["Say the thing.", "Sleep on the rest.", "Take the short trip."],
+  // Spread across all three buckets so the columns each have something to draw.
+  ratingIdentity: 5,
+  ratingHealth: 1,
+  ratingFinance: 3,
+  ratingCareer: 4,
+  ratingLove: 2,
+  ratingRelationships: 3,
+  ratingCreativity: 5,
+  ratingSpirituality: 3,
+  ratingHome: 3,
+  ratingLearning: 3,
+  ratingCommunication: 3,
+  ratingTravel: 3,
 };
 
 const renderStep = ({
@@ -157,11 +166,11 @@ describe("HoroscopeStep", () => {
   });
 
   describe("with the day's horoscope", () => {
-    it("leads with the sign's glyph and the day's summary", () => {
+    it("leads with the sign's glyph and the day's reading", () => {
       const screen = renderStep();
 
       expect(screen.getByText(SUN_SIGNS.leo.glyph)).toBeTruthy();
-      expect(screen.getByText(HOROSCOPE.summary)).toBeTruthy();
+      expect(screen.getByText(HOROSCOPE.text)).toBeTruthy();
     });
 
     // DEX-138: the panel is capped at a fixed width on a large screen, so the
@@ -220,16 +229,39 @@ describe("HoroscopeStep", () => {
       expect(renderStep().getByTestId("horoscope-sky")).toBeTruthy();
     });
 
-    it("renders every facet below it", () => {
+    it("renders the day's tips below it", () => {
       const screen = renderStep();
 
-      for (const facet of HOROSCOPE_FACETS) {
-        expect(screen.getByText(facet.label)).toBeTruthy();
-        expect(screen.getByText(HOROSCOPE[facet.key])).toBeTruthy();
+      for (const tip of HOROSCOPE.tips) {
+        expect(screen.getByText(tip)).toBeTruthy();
       }
     });
 
-    // The facets are meant to start below the fold, so the hero is sized to the
+    it("draws a face for each of the three rating columns", () => {
+      const screen = renderStep();
+
+      for (const bucket of RATING_BUCKETS) {
+        expect(screen.getByText(bucket.glyph)).toBeTruthy();
+      }
+    });
+
+    // The grouping is the whole content of this block: an area under the wrong
+    // face is the one failure a reader would actually act on, and every rating
+    // being an interchangeable 1-5 means nothing else would look wrong.
+    it("files each life area under the face matching its rating", () => {
+      const screen = renderStep();
+
+      // ratingHealth: 1 and ratingLove: 2 are the fixture's only low ones;
+      // ratingIdentity: 5 and ratingCreativity: 5 its only high ones.
+      expect(screen.getByText("Health")).toBeTruthy();
+      expect(screen.getByText("Identity")).toBeTruthy();
+      expect(screen.getByText("Love")).toBeTruthy();
+      expect(screen.getByText("Creativity")).toBeTruthy();
+      // All twelve are drawn, each exactly once.
+      expect(screen.getAllByText("Finance")).toHaveLength(1);
+    });
+
+    // The columns are meant to start below the fold, so the hero is sized to the
     // scroller rather than to its own content — otherwise the "scroll to
     // reveal" reads as a list that merely happens to be long.
     it("sizes the hero to the measured viewport", () => {

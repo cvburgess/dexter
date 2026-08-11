@@ -1,13 +1,13 @@
-import { THoroscope, TSunSign } from "@/api/horoscopes";
-import type { TIconName } from "@/components/Icon.types";
+import { THoroscope, THoroscopeSentiment, TSunSign } from "@/api/horoscopes";
 import { Constants } from "@/types/database.types";
 
 /**
- * The Horoscope ritual step's presentation tables (DEX-128): how a sign is
- * named and drawn, and how the day's six facets are labeled and ordered.
+ * The Horoscope ritual step's presentation tables (DEX-128; re-shaped for
+ * astrology-api.io v3 in DEX-145): how a sign is named and drawn, and how the
+ * day's twelve life areas are labeled, ordered, and grouped.
  *
- * React-free so both are unit-testable without a native host, the same split
- * `ritualSteps.ts` uses.
+ * React-free so all of it is unit-testable without a native host, the same
+ * split `ritualSteps.ts` uses.
  */
 
 /**
@@ -78,67 +78,105 @@ export const SUN_SIGN_OPTIONS: readonly {
   })),
 ];
 
-/** One of the six facets the step scrolls to reveal. */
-export type THoroscopeFacet = {
+/** One of the twelve life areas the upstream rates. */
+export type THoroscopeLifeArea = {
   /** The `THoroscope` field it reads — also the DB column, camelCased. */
   key: keyof THoroscope;
   label: string;
-  icon: TIconName;
 };
 
 /**
- * The day's facets, in reading order.
+ * The twelve life areas, in the upstream's order (which is house order).
  *
- * The order is editorial, not the column order: the two that shape a day
- * (emotions, personal life) lead, work and health follow, and the two
- * incidentals close. `key` is typed against `THoroscope` so a renamed field
- * breaks here rather than rendering `undefined`.
+ * Deliberately *not* re-ordered editorially the way the old six facets were.
+ * These are not read top to bottom — they are sorted into three columns by
+ * their rating, so the list order only decides the order within a column, and
+ * house order is the one arrangement an astrologer would recognize.
  *
- * **Pick each SF Symbol by how it renders, not by its name.** The suffix is not
- * a reliable guide to weight in this set: `face.smiling.fill` draws as an
- * outline here and the unsuffixed `face.smiling` draws solid, which is backwards
- * from the convention, and several unsuffixed symbols (`airplane`) are solid
- * with no outline variant at all. The six sit in one list and have to read as
- * one weight, so each was chosen against the others on a device.
+ * `key` is typed against `THoroscope` so a renamed field breaks here rather
+ * than rendering `undefined`. There are no icons: twelve glyphs competing with
+ * three faces made the block read as a toolbar, and the label is already the
+ * whole content.
  */
-export const HOROSCOPE_FACETS: readonly THoroscopeFacet[] = [
-  {
-    key: "emotions",
-    label: "Emotions",
-    icon: { sf: "face.smiling.fill", ionicon: "happy-outline" },
-  },
-  {
-    key: "personalLife",
-    label: "Personal life",
-    icon: { sf: "heart", ionicon: "heart-outline" },
-  },
-  {
-    key: "profession",
-    label: "Profession",
-    icon: { sf: "briefcase", ionicon: "briefcase-outline" },
-  },
-  {
-    key: "health",
-    label: "Health",
-    // Ionicons has no stethoscope, so the two halves are not the same drawing
-    // here — `medical-outline` is that set's nearest instrument. Only Android
-    // and web ever see it; iOS takes the SF Symbol.
-    icon: { sf: "stethoscope", ionicon: "medical-outline" },
-  },
-  {
-    key: "travel",
-    label: "Travel",
-    // A boat rather than a plane because SF draws `airplane` solid and
-    // `sailboat` as an outline, and the row of six has to read as one weight.
-    // The Ionicon follows the symbol so the two platforms show the same object.
-    icon: { sf: "sailboat", ionicon: "boat-outline" },
-  },
-  {
-    key: "luck",
-    label: "Luck",
-    icon: { sf: "die.face.5", ionicon: "dice-outline" },
-  },
+export const LIFE_AREAS: readonly THoroscopeLifeArea[] = [
+  { key: "ratingIdentity", label: "Identity" },
+  { key: "ratingHealth", label: "Health" },
+  { key: "ratingFinance", label: "Finance" },
+  { key: "ratingCareer", label: "Career" },
+  { key: "ratingLove", label: "Love" },
+  { key: "ratingRelationships", label: "Relationships" },
+  { key: "ratingCreativity", label: "Creativity" },
+  { key: "ratingSpirituality", label: "Spirituality" },
+  { key: "ratingHome", label: "Home" },
+  { key: "ratingLearning", label: "Learning" },
+  { key: "ratingCommunication", label: "Communication" },
+  { key: "ratingTravel", label: "Travel" },
 ];
+
+/**
+ * Buckets a 1-5 life-area rating into the app's three-way sentiment vocabulary.
+ *
+ * **The same thresholds the database uses** to derive `horoscopes.sentiment`
+ * from `overall_rating` (see the DEX-145 migration). Sharing the rule is the
+ * point: the card's tint and these columns are the same judgement applied to
+ * the whole day and to one area of it, so a reader seeing a green card over a
+ * column of sad faces would be looking at a bug, not a nuance.
+ *
+ * Three even-ish groups out of five values means one of them takes the odd
+ * width; the middle takes it, since a lone 3 is the genuinely neutral case and
+ * splitting 1-2 / 3 / 4-5 keeps the two ends symmetric.
+ */
+export function ratingBucket(rating: number): THoroscopeSentiment {
+  if (rating >= 4) return "positive";
+  if (rating <= 2) return "negative";
+  return "mixed";
+}
+
+/** One of the three columns the life areas are sorted into. */
+export type THoroscopeRatingBucket = {
+  id: THoroscopeSentiment;
+  label: string;
+  glyph: string;
+};
+
+/**
+ * The three columns, worst to best.
+ *
+ * **Every glyph carries a trailing `︎`**, for the reason `SUN_SIGNS` above
+ * spells out and `docs/design.md` states as a rule: these code points would
+ * otherwise render as full-color emoji in a palette no theme controls, and the
+ * variation selector is what forces text presentation so the mark can take a
+ * color the panel chose.
+ *
+ * The two ends come from the U+2600 block, which is text-presentation by
+ * default and needs the selector only for safety. **The neutral face does not
+ * exist there** — U+1F610 is the only expressionless face Unicode has, and it
+ * is squarely in the emoji block, so it is the one glyph here that genuinely
+ * depends on U+FE0E rather than merely being belt-and-braces. It also comes
+ * from a different block than its neighbours, so it is the one to look at first
+ * if the row ever reads uneven.
+ */
+export const RATING_BUCKETS: readonly THoroscopeRatingBucket[] = [
+  { id: "negative", label: "Negative", glyph: "☹︎" },
+  { id: "mixed", label: "Neutral", glyph: "😐︎" },
+  { id: "positive", label: "Positive", glyph: "☺︎" },
+];
+
+/**
+ * The life areas that fall in one bucket, in house order.
+ *
+ * A column can legitimately come back empty — a day where nothing rates 1 or 2
+ * is a good day, not a missing one — so the step renders the heading regardless
+ * and lets the absence say what it says.
+ */
+export function lifeAreasInBucket(
+  horoscope: THoroscope,
+  bucket: THoroscopeSentiment,
+): readonly THoroscopeLifeArea[] {
+  return LIFE_AREAS.filter(
+    (area) => ratingBucket(horoscope[area.key] as number) === bucket,
+  );
+}
 
 /**
  * Sets prose one sentence to a line.

@@ -33,8 +33,14 @@ import { useHoroscopeAudio } from "@/hooks/useHoroscopeAudio";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { useSunSignPreference } from "@/hooks/usePreferences";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
-import { bySentence, HOROSCOPE_FACETS, SUN_SIGNS } from "@/utils/horoscope";
 import {
+  bySentence,
+  lifeAreasInBucket,
+  RATING_BUCKETS,
+  SUN_SIGNS,
+} from "@/utils/horoscope";
+import {
+  ratingBucketColor,
   SENTIMENT_FRAME,
   sentimentInk,
   SHADOW_2XL,
@@ -177,7 +183,7 @@ const panelRadius = (theme: Theme) => theme.radii.md * 4;
 const panelBorder = (theme: Theme) => theme.space.md;
 
 /**
- * The arrival: sign, then summary, then the chevron and the six facets
+ * The arrival: sign, then the reading, then the chevron and the detail below
  * together.
  *
  * A reading should not simply be *there* when the screen is. Fading it in in
@@ -208,8 +214,9 @@ type THoroscopeStepProps = {
 };
 
 /**
- * The morning ritual's first step (DEX-128): the user's sign, the day's
- * one-line summary, and — a scroll further down — the six facets behind it.
+ * The morning ritual's first step (DEX-128, re-shaped in DEX-145): the user's
+ * sign, the day's reading, and — a scroll further down — the day's tips and its
+ * twelve life areas sorted into three rated columns.
  *
  * The panel breathes between two shades of the day's sentiment (see
  * `sentimentTints`), and is **a night sky on every theme** — so everything
@@ -240,7 +247,7 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
   const isLoading = isLoadingSign || isLoadingHoroscope;
 
   // The scroller's own height, so the hero fills exactly one screenful and the
-  // facets start just below the fold — which is what makes the scroll a
+  // detail starts just below the fold — which is what makes the scroll a
   // reveal rather than a list that happens to be long.
   const [viewportHeight, setViewportHeight] = useState(0);
   const onLayout = (event: LayoutChangeEvent) =>
@@ -303,7 +310,7 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
     });
   }, [reduceMotion, reveal, revealDate]);
 
-  const facetsStyle = useAnimatedStyle(() => ({
+  const detailStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
       reveal.value,
       [REVEAL_STARTS[2], REVEAL_STARTS[2] + REVEAL_FADE],
@@ -410,7 +417,7 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
           ]}
         />
         {/* Drawn into the panel itself rather than wrapping the content, so the
-            field holds still while the facets scroll over it. */}
+            field holds still while the detail scrolls over it. */}
         {horoscope ? (
           <View style={StyleSheet.absoluteFill} testID="horoscope-sky">
             <StarField color={withOpacity(ink.text, STAR_OPACITY)} />
@@ -458,52 +465,91 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
             scrollOffset={scrollOffset}
             viewportHeight={viewportHeight}
           />
-          {/* The six arrive as one block rather than in sequence with each
-              other: they are below the fold, so a reader who scrolls straight
-              down would otherwise watch them appear under their thumb. */}
+          {/* Tips and columns arrive as one block rather than in sequence with
+              each other: they are below the fold, so a reader who scrolls
+              straight down would otherwise watch them appear under their
+              thumb. */}
           <Animated.View
             style={[
               {
                 gap: theme.space.lg,
                 // The host `SafeAreaView` omits the bottom edge so content
                 // scrolls under the tab bar; the inset belongs to the scroll
-                // content, which is what lets the last facet clear it (DEX-91).
-                // Well past that here: Luck is the end of the reading, and
-                // landing its last line hard against the tab bar reads as the
-                // text being cut off rather than as having finished.
+                // content, which is what lets the last row clear it (DEX-91).
+                // Well past that here: the columns are the end of the reading,
+                // and landing them hard against the tab bar reads as the block
+                // being cut off rather than as having finished.
                 //
                 // **Overscroll, not clearance, on a large screen** (DEX-138).
                 // The hero above is a full viewport whose content is centered
                 // in it, so its lower half is empty sky — and with only enough
                 // padding to clear the bar, the scroll runs out while that band
                 // is still on screen and the reading ends pinned to the bottom
-                // edge under it. The extra travel lets the last facets climb
+                // edge under it. The extra travel lets the last rows climb
                 // into that space instead. Matches the side gutter's multiple,
                 // so the card's air reads as one measure on three sides.
                 paddingBottom:
                   theme.space.lg * (largeScreen ? 6 : 2) + insets.bottom,
               },
-              facetsStyle,
+              detailStyle,
             ]}
           >
-            {HOROSCOPE_FACETS.map((facet) => (
-              // `sm` rather than `xs` between the heading and its prose. The
-              // outer `lg` still separates one facet from the next, so the
-              // grouping holds — this is the smallest step that lets the
-              // heading read as a label *on* the text rather than the first
-              // line of it.
-              <View key={facet.key} style={{ gap: theme.space.sm }}>
-                <View style={[styles.facetHeader, { gap: theme.space.sm }]}>
-                  <Icon {...facet.icon} color={ink.text} />
-                  <Text style={[theme.fonts.title, { color: ink.text }]}>
-                    {facet.label}
-                  </Text>
-                </View>
-                <Text style={[theme.fonts.body, { color: ink.textSecondary }]}>
-                  {horoscope[facet.key]}
+            {/* `sm` within, so the three read as one list rather than three
+                separate lines of prose. They are advice, not a reading — the
+                hero above already carried that. */}
+            <View style={{ gap: theme.space.sm }}>
+              {horoscope.tips.map((tip) => (
+                <Text key={tip} style={[theme.fonts.body, { color: ink.text }]}>
+                  {tip}
                 </Text>
-              </View>
-            ))}
+              ))}
+            </View>
+
+            <View style={[styles.bucketRow, { gap: theme.space.sm }]}>
+              {RATING_BUCKETS.map((bucket) => (
+                <View
+                  key={bucket.id}
+                  style={[styles.bucketColumn, { gap: theme.space.sm }]}
+                >
+                  <View
+                    style={[
+                      styles.bucketCircle,
+                      {
+                        backgroundColor: ratingBucketColor(bucket.id),
+                        // An edge rather than a lift: the panel is near-black on
+                        // every theme, where a shadow shows nothing at all
+                        // (docs/design.md, "Scrims and shadows").
+                        borderColor: ink.text,
+                        borderRadius: theme.radii.full,
+                        height: theme.controls.md,
+                        width: theme.controls.md,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        theme.fonts.title,
+                        { color: ink.text, lineHeight: theme.controls.md },
+                      ]}
+                    >
+                      {bucket.glyph}
+                    </Text>
+                  </View>
+                  {lifeAreasInBucket(horoscope, bucket.id).map((area) => (
+                    <Text
+                      key={area.key}
+                      style={[
+                        styles.bucketLabel,
+                        theme.fonts.body,
+                        { color: ink.textSecondary },
+                      ]}
+                    >
+                      {area.label}
+                    </Text>
+                  ))}
+                </View>
+              ))}
+            </View>
           </Animated.View>
         </Animated.ScrollView>
       )}
@@ -580,7 +626,7 @@ function Hero({
   }));
 
   // Two fades multiplied rather than one winning: the chevron arrives with the
-  // facets and then leaves as the reader scrolls, and a reader who scrolls
+  // detail and then leaves as the reader scrolls, and a reader who scrolls
   // during the arrival should see it do both at once rather than pop to full
   // strength. Both factors are 0–1, so the product is whichever is dimmer.
   const hintStyle = useAnimatedStyle(() => ({
@@ -646,7 +692,7 @@ function Hero({
             summaryStyle,
           ]}
         >
-          {bySentence(horoscope.summary)}
+          {bySentence(horoscope.text)}
         </Animated.Text>
       </View>
       {/* Pinned to the fold rather than trailing the summary: it points at
@@ -664,8 +710,26 @@ function Hero({
 }
 
 const styles = StyleSheet.create({
-  facetHeader: {
+  bucketCircle: {
     alignItems: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: "center",
+  },
+  bucketColumn: {
+    alignItems: "center",
+    // Equal thirds regardless of how the areas fall: an empty column still
+    // holds its width, so a day with nothing negative does not slide the other
+    // two across the card.
+    flex: 1,
+  },
+  bucketLabel: {
+    textAlign: "center",
+  },
+  bucketRow: {
+    // `flex-start`, not `stretch`: the columns hold different numbers of areas,
+    // and each should hang from its circle rather than centering its own list
+    // against the tallest neighbour.
+    alignItems: "flex-start",
     flexDirection: "row",
   },
   hero: {
