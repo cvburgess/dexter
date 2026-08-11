@@ -11,6 +11,8 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
+import { ritualStepInsetTop } from "@/utils/ritualSteps";
 import { useTheme } from "@/utils/theme";
 
 /**
@@ -156,6 +158,14 @@ type THeroLinesProps = {
   /** Up to three lines; each takes the matching `REVEAL_STARTS` stage. */
   lines: THeroLine[];
   reveal: SharedValue<number>;
+  /**
+   * Vertical space the body below the hero already brings itself, subtracted
+   * from this block's bottom padding so the total stays symmetric. The Backlog
+   * step passes `TaskDrawer`'s own padding; the Calendar step's timeline brings
+   * none, so it passes nothing.
+   */
+  bodyInsetTop?: number;
+  testID?: string;
 };
 
 /**
@@ -172,8 +182,23 @@ type THeroLinesProps = {
  * Carries its own vertical breathing room but no side gutter; `SwipeablePage`
  * and the ritual layouts own that (see docs/design.md, "Who owns spacing").
  */
-export function HeroLines({ lines, reveal }: THeroLinesProps) {
+export function HeroLines({
+  lines,
+  reveal,
+  bodyInsetTop = 0,
+  testID,
+}: THeroLinesProps) {
   const theme = useTheme();
+
+  // The ritual layout has already placed its step inset above this block, so
+  // `lg` on both sides would leave the hero sitting visibly low — the space
+  // over it is that inset *plus* the padding, and under it only the padding.
+  // Matching the inset below evens the two out: above is `inset + lg`, below is
+  // `lg + (inset - bodyInsetTop) + bodyInsetTop`, which is the same number at
+  // either breakpoint. `useIsLargeDevice` is the very predicate `ritual/index`
+  // picks the layout with, so this cannot disagree with the inset actually
+  // applied.
+  const insetAbove = ritualStepInsetTop(theme.space, useIsLargeDevice());
 
   // One width for every figure, so the words all start on the same vertical
   // line however many characters each figure runs to. Measured rather than
@@ -190,7 +215,16 @@ export function HeroLines({ lines, reveal }: THeroLinesProps) {
   }, []);
 
   return (
-    <View style={[styles.block, { paddingVertical: theme.space.lg }]}>
+    <View
+      style={[
+        styles.block,
+        {
+          paddingTop: theme.space.lg,
+          paddingBottom: theme.space.lg + insetAbove - bodyInsetTop,
+        },
+      ]}
+      testID={testID}
+    >
       <View style={{ gap: theme.space.xs }}>
         {lines.map((line, stage) => (
           <HeroLine

@@ -458,3 +458,21 @@ export const withLink = (
     stepsFor(dated).findIndex((step) => step.id === link.step),
   );
 };
+
+/**
+ * The inset the ritual layouts place above a step, in `theme.space` units.
+ *
+ * Doubled on a large screen: a step that paints to its own edges — the
+ * horoscope's card — reads as hanging off the toolbar at a matching inset once
+ * `SwipeablePage` centers it inside its width cap (DEX-138).
+ *
+ * Stated here rather than inline in each layout because a third party needs it:
+ * `HeroLines` matches it *below* the hero so the figures sit equally spaced
+ * above and below, and a layout that quietly changed its own inset would tilt
+ * every reporting step's hero without touching it. Takes the numbers rather
+ * than a theme, keeping this module React- and import-free.
+ */
+export const ritualStepInsetTop = (
+  space: { md: number },
+  isLargeDevice: boolean,
+): number => (isLargeDevice ? space.md * 2 : space.md);

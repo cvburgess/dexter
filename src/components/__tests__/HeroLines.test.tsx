@@ -1,9 +1,19 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
-import { StyleSheet, TextStyle } from "react-native";
+import { StyleSheet, TextStyle, ViewStyle } from "react-native";
 import { useSharedValue } from "react-native-reanimated";
 
 import { HeroLines, type THeroLine } from "@/components/HeroLines";
-import { themes } from "@/utils/theme";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
+import { ritualStepInsetTop } from "@/utils/ritualSteps";
+import { DENSITY, themes } from "@/utils/theme";
+
+jest.mock("@/hooks/useIsLargeDevice", () => ({
+  useIsLargeDevice: jest.fn(() => false),
+}));
+
+const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
+  typeof useIsLargeDevice
+>;
 
 const { colors } = themes.dexter;
 
@@ -13,11 +23,39 @@ const LINES: THeroLine[] = [
   { key: "free", figure: "8h 30m", words: "free", color: colors.success },
 ];
 
+// The scale `useTheme` resolves to outside a provider — `DENSITY` is where it
+// reads them from, so this is the same object the component sees.
+const { space } = DENSITY.comfortable;
+
 /** Stands in for a step: `HeroLines` takes a shared value it does not own. */
-function Host({ lines = LINES }: { lines?: THeroLine[] }) {
+function Host({
+  lines = LINES,
+  bodyInsetTop,
+}: {
+  lines?: THeroLine[];
+  bodyInsetTop?: number;
+}) {
   const reveal = useSharedValue(1);
-  return <HeroLines lines={lines} reveal={reveal} />;
+  return (
+    <HeroLines
+      bodyInsetTop={bodyInsetTop}
+      lines={lines}
+      reveal={reveal}
+      testID="hero-block"
+    />
+  );
 }
+
+/** The hero block's own vertical padding. */
+const paddingOf = (screen: ReturnType<typeof render>) => {
+  const style = StyleSheet.flatten(
+    screen.getByTestId("hero-block").props.style as ViewStyle[],
+  );
+  return {
+    top: style.paddingTop as number,
+    bottom: style.paddingBottom as number,
+  };
+};
 
 const figure = (screen: ReturnType<typeof render>, key: string) =>
   screen.getByTestId(`hero-figure-${key}`);
@@ -37,6 +75,57 @@ const layOut = (
       });
     }
   });
+
+beforeEach(() => {
+  mockUseIsLargeDevice.mockReturnValue(false);
+});
+
+// The ritual layout puts its step inset above the block, so equal padding on
+// both sides left the hero sitting visibly low. What has to match is the
+// *total*: `inset + paddingTop` above, `paddingBottom + bodyInsetTop` below.
+describe("its vertical spacing", () => {
+  const isEven = (
+    screen: ReturnType<typeof render>,
+    {
+      isLargeDevice,
+      bodyInsetTop = 0,
+    }: {
+      isLargeDevice: boolean;
+      bodyInsetTop?: number;
+    },
+  ) => {
+    const { top, bottom } = paddingOf(screen);
+    const inset = ritualStepInsetTop(space, isLargeDevice);
+    expect(inset + top).toBe(bottom + bodyInsetTop);
+  };
+
+  it.each([false, true])(
+    "leaves the same room above and below the hero (large: %s)",
+    (isLargeDevice) => {
+      mockUseIsLargeDevice.mockReturnValue(isLargeDevice);
+
+      isEven(render(<Host />), { isLargeDevice });
+    },
+  );
+
+  // The Backlog step's drawer pads itself, and that padding lands under the
+  // hero; stacked rather than absorbed, the gap below would outgrow the space
+  // above by exactly it.
+  it.each([false, true])(
+    "absorbs padding the body brings itself (large: %s)",
+    (isLargeDevice) => {
+      mockUseIsLargeDevice.mockReturnValue(isLargeDevice);
+      const bodyInsetTop = 16;
+
+      const screen = render(<Host bodyInsetTop={bodyInsetTop} />);
+
+      isEven(screen, { isLargeDevice, bodyInsetTop });
+      expect(paddingOf(screen).bottom).toBe(
+        paddingOf(render(<Host />)).bottom - bodyInsetTop,
+      );
+    },
+  );
+});
 
 describe("HeroLines", () => {
   it("renders a figure and its words per line", () => {

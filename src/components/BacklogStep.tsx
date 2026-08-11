@@ -183,7 +183,14 @@ export function BacklogStep({ date }: TBacklogStepProps) {
 
   return (
     <View style={styles.container}>
-      <HeroLines lines={heroLines} reveal={reveal} />
+      {/* `TaskDrawer` pads itself by `md`, which lands under the hero — handed
+          over so the block can take it back off its own bottom padding rather
+          than the two stacking into a gap wider than the space above. */}
+      <HeroLines
+        bodyInsetTop={theme.space.md}
+        lines={heroLines}
+        reveal={reveal}
+      />
       {/* `flex: 1` belongs to this wrapper: `TaskDrawer` bounds its FlashList to
           its own `flex: 1` root, and an `Animated.View` sized to its content
           would give it nothing to fill. Opacity only, no translate —

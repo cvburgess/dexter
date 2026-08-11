@@ -14,6 +14,7 @@ import {
   isFirstStep,
   isLastStep,
   ritualPageKey,
+  ritualStepInsetTop,
   type TRitualState,
 } from "@/utils/ritualSteps";
 import { useTheme } from "@/utils/theme";
@@ -94,7 +95,12 @@ export function LargeScreenRitual({
           gutter ever will. Derived from the same token the sides use so the two
           cannot drift; the phone keeps them equal, having no centering bands to
           answer to. */}
-      <View style={[styles.body, { paddingTop: theme.space.md * 2 }]}>
+      <View
+        style={[
+          styles.body,
+          { paddingTop: ritualStepInsetTop(theme.space, true) },
+        ]}
+      >
         <SwipeablePage
           canNext={!lastStep}
           canPrev={!isFirstStep(state)}
