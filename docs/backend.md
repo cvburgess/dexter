@@ -1,833 +1,384 @@
 # Backend (`/supabase`)
 
 The Dexter backend is hosted on [Supabase](https://supabase.com/docs):
-PostgreSQL (with RLS), Auth, Storage as needed, and **Edge Functions**
-(Deno/TypeScript).
+PostgreSQL (with RLS), Auth, and **Edge Functions** (Deno/TypeScript). Config,
+functions, and migrations live under `/supabase`; commands are in `AGENTS.md`.
+For query optimization, schema design, and RLS guidance, load the
+`supabase-postgres-best-practices` skill before touching the database.
 
-All backend config and migrations live under `/supabase`.
-
-## Directory layout
-
-- `functions/generate-horoscopes/` — daily sun-sign horoscope generation, driven
-  by a pg_cron job (see "Horoscopes" below)
-- `functions/ics-proxy/` — production Edge Function for proxying public `.ics`
-  calendar URLs
-- `functions/mcp-server/` — MCP-compatible planning data server for
-  authenticated AI clients
-- `functions/verify-demo-otp/` — signs the App Store demo account in with a
-  fixed code (see "Demo account login" below)
-- `functions/_shared/` — modules shared across functions (`sentry.ts`,
-  `demoAuth.ts`)
-- `templates/magic_link.html` — the passwordless login email (magic link +
-  `{{ .Token }}` code), wired via `[auth.email.template.magic_link]` in
-  `config.toml`
-- `migrations/` — SQL migrations (timestamped filenames), including the
-  production baseline
-- `config.toml` — Local Supabase CLI configuration
-- `seed.sql` — Optional seed data for local dev; the production baseline
-  currently requires none
-- `scripts/` — Operational Deno scripts. `seed-demo.ts` resets the App Store
-  review / marketing demo account to a curated, known-good dataset (service
-  role, idempotent); see [`../supabase/scripts/README.md`](../supabase/scripts/README.md)
-  and [`appstore.md`](appstore.md)
-
-For query optimization, schema design, and RLS guidance, see the repo skill at
-[`.claude/skills/supabase-postgres-best-practices/SKILL.md`](../.claude/skills/supabase-postgres-best-practices/SKILL.md).
+A general rule that keeps repeating: **a new column on a user-owned table needs
+no RLS change** — the existing `user_id` policies cover it. Only new tables and
+new access patterns need policy work.
 
 ## Notes and journals
 
-Notes and the journal used to be two columns on one `public.days` row
-(`notes text`, `prompts jsonb`, keyed `(date, user_id)`). DEX-51 split them into
-`public.notes` (`content text`) and `public.journals` (`prompts jsonb`, with a
-`jsonb_typeof(prompts) = 'array'` check constraint), each keyed
-`(user_id, date)` — one row per user per date, no `id`, no `updated_at`
-(nothing in this schema maintains one). DEX-90 then dropped `days`, once the
-legacy `dexter-app` (Electron/PWA), which shares this production project, had
-shipped a release reading the new tables.
+`public.notes` (`content text`) and `public.journals` (`prompts jsonb`, checked
+to be an array), each keyed `(user_id, date)` — one row per user per date, no
+`id`, no `updated_at`. They replaced a shared `days` row (DEX-51; `days` dropped
+in DEX-90 once the legacy `dexter-app`, which shares this production project,
+had shipped a release reading the new tables).
 
-The backfill deliberately copied only rows the user had actually put content in,
-so a day that was never written still reads as "no row" — which is what the notes
-template chooser keys off (`useNotes`' `exists`). For notes that meant a non-empty
-`days.notes`; for journals it meant **at least one non-empty response**, not
-merely a non-empty `prompts` array. Those are not the same test: the old shared
-row seeded template prompts on the first *note* write, so most `days` rows carried
-scaffolding the user never answered (160 of 162 rows had a non-empty array; only
-47 held a response).
-
-**If you ever need to roll DEX-51 back**, note that the drop migration
-(`20260727035544_drop_days.sql`) invalidates the split's own rollback comment:
-`days` is no longer a standing copy of the data, so restoring it means recreating
-the table and backfilling *from* `notes`/`journals`. The drop migration's header
-carries that DDL — as commented lines, so strip the leading `-- ` rather than
-pasting it verbatim, and run it **before** dropping `notes`/`journals`. Those two
-tables are the only copy of everything written since the split; drop them first
-and the backfill has nothing to read from.
+**"No row" means "never written", and the app depends on that** — the notes
+template chooser keys off `useNotes`' `exists`. The split's backfill preserved
+the distinction deliberately: for journals, only days with at least one
+non-empty *response* were copied, because the old shared row seeded template
+prompts on the first note write, so most rows carried scaffolding the user
+never answered.
 
 ## Horoscopes
 
-`public.horoscopes` (DEX-84) holds one sun-sign prediction per day: the six
-facets AstrologyAPI returns (`personal_life`, `profession`, `health`, `emotions`,
-`travel`, `luck`), plus a `summary` and a `sentiment` produced by an LLM. It is
-the first table in this schema that
-**nobody owns** — global reference data, not user data — which drives everything
-unusual about it:
+`public.horoscopes` (DEX-84) holds one sun-sign prediction per day — six text
+facets from AstrologyAPI plus an LLM `summary` and `sentiment`. It is the first
+table in this schema that **nobody owns** (global reference data), which drives
+its shape:
 
-- **No `user_id`, and no `id`.** The PK is `(sun_sign, date)`. That order is
-  deliberate: both columns are equality predicates for "my sign, today", but only
-  `sun_sign`-first also serves `where sun_sign = $1 order by date desc` under the
-  leftmost-prefix rule. There is no secondary index — twelve rows a day is a
-  trivial scan for anything the PK misses.
-- **RLS is enabled with a single `for select ... using (true)` policy** and *no*
-  write policy. The absence of a policy is the denial.
-- **Grants are stated explicitly, not inherited**, and this is the part that
-  surprises. `alter default privileges` for `postgres` in `public` on this stack
-  grants only `Dxt` (TRUNCATE/REFERENCES/TRIGGER) to `anon`, `authenticated`, and
-  `service_role` — no DML. The baseline's `grant all on all tables in schema
-  public` was a one-time snapshot and does not reach tables created afterwards.
-  So `service_role` does **not** get INSERT for free: BYPASSRLS exempts a role
-  from policies, not from grants, and without an explicit grant the generator
-  fails with "permission denied" while RLS never even fires. `authenticated`
-  likewise does not get SELECT for free. Both are granted by name in the
-  migration. Check `\dp public.<table>` rather than assuming, for any new table.
-- **No `*_rating` columns and no `average_rating`, though DEX-84 asked for
-  them.** The issue's sample response is from 2024 and carries a
-  `<facet>_rating` integer per facet; the live API returns only the six text
-  facets (verified 2026-08-04 across `daily/next/aries`, `daily/next/leo`,
-  `daily/aries`, `daily/previous/aries`). NOT NULL rating columns would have
-  failed every insert and `average_rating` had nothing to average, so they are
-  omitted rather than left permanently null. **The lesson generalizes: build
-  fixtures from a real response, not from the spec.** The tests all passed
-  against the issue's sample right up until a live call was made.
-- **Not in the `supabase_realtime` publication** — the rows change once a day at
-  a fixed hour, so a subscription would idle for 24 hours to deliver what a
-  refetch already gets.
-- `sun_sign` and `horoscope_sentiment` are the schema's **first Postgres enums**,
-  justified only because both sets are genuinely closed. Contrast `tasks.status`
-  (a bare `smallint`) and `preferences.alarm_sound` (unconstrained text), both
-  deliberately un-enumerated because those lists are expected to grow. Enum
-  values can never be removed, and adding one needs `alter type ... add value`.
+- **No `user_id`, no `id`.** PK is `(sun_sign, date)` — `sun_sign` first so the
+  leftmost prefix also serves `where sun_sign = $1 order by date desc`. No
+  secondary index; twelve rows a day is a trivial scan.
+- **RLS: a single `for select using (true)` policy and no write policy** — the
+  absence of a policy is the denial.
+- **Grants must be stated explicitly on any new table.** Default privileges on
+  this stack grant no DML to `anon`/`authenticated`/`service_role`; the
+  baseline's `grant all` was a one-time snapshot. `service_role` does **not**
+  get INSERT for free — BYPASSRLS exempts a role from policies, not grants —
+  so both `service_role` INSERT and `authenticated` SELECT are granted by name.
+  Check `\dp public.<table>` rather than assuming.
+- **No `*_rating` columns although the issue asked for them** — the live API
+  no longer returns them. The transferable lesson: **build fixtures from a real
+  response, not from the spec**; the tests passed against the issue's sample
+  right up until a live call was made.
+- Not in the realtime publication (rows change once a day).
+- `sun_sign` and `horoscope_sentiment` are the schema's first Postgres enums,
+  justified only because both sets are genuinely closed. `tasks.status` and
+  `preferences.alarm_sound` stay unconstrained on purpose — those lists grow,
+  and enum values can never be removed.
 
-**Which row is yours** is `preferences.sun_sign` (DEX-128), reusing the same
-`public.sun_sign` enum rather than a second spelling of the twelve values — the
-column exists to look up a table keyed by that very type, and two independent
-lists could drift into a lookup that silently returns nothing. It is the one
-column on `preferences` that is **nullable with no default**: every other
-preference has an answer that is right for a brand-new user, but guessing a
-sign would show a stranger's horoscope as though it were theirs, so "not set"
-is a real state the app renders. Nothing backfills it — the birth date that
-would derive a sign is not in this schema. No RLS change was needed; the
-existing `user_id` policies on `preferences` already cover the new column, and
-the client reads the horoscope itself through the blanket `authenticated`
-select policy above.
-
-**Whether you see one at all** is `preferences.enable_horoscope` (DEX-142), a
-`boolean not null default true` alongside `enable_journal` / `enable_habits` /
-`enable_notes` / `enable_calendar`. It defaults **on** because the Horoscope
-ritual step shipped that way in DEX-128, and any other default would silently
-take a step away from users who already had it. Note the contrast with
-`enable_calendar`, which defaults off — the app's cold-launch corrections
-therefore run in both directions, which `docs/frontend.md` covers. It is
-independent of `sun_sign`: turning the step off leaves a chosen sign stored, so
-turning it back on restores the horoscope rather than re-asking. The column
-changes nothing about generation — `generate-horoscopes` writes one global row
-per sign per day regardless of who reads it — so this is purely a read-side
-preference, and no RLS change was needed for the same reason as above.
+**Which row is yours** is `preferences.sun_sign` (DEX-128) — the same
+`public.sun_sign` enum, so the lookup can't drift. It is the one preference
+that is **nullable with no default**: guessing a sign would show a stranger's
+horoscope as though it were the user's, so "not set" is a real rendered state.
+**Whether you see one at all** is `preferences.enable_horoscope` (DEX-142,
+`boolean not null default true` — the step shipped on, and any other default
+would silently take it away). It is independent of `sun_sign` (toggling off
+keeps the chosen sign) and read-side only — generation writes global rows
+regardless.
 
 ## Scheduled jobs (pg_cron)
 
 `dex84-generate-horoscopes` runs `select public.trigger_generate_horoscopes();`
-at **06:00, 07:00 and 08:00 UTC**, which POSTs to the `generate-horoscopes`
-function through pg_net. This is the repo's only pg_cron job and its only use of
-Vault.
+at **06:00, 07:00 and 08:00 UTC**, POSTing to `generate-horoscopes` through
+pg_net. The repo's only pg_cron job and only Vault use.
 
-**Three runs, because each one is nearly free.** The function reads which signs
-already exist for the target date and requests only the rest, so a complete day
-costs one indexed `SELECT` and zero upstream calls — the 07:00 and 08:00 runs
-normally do nothing at all. What they buy is a retry for the signs that failed,
-which is most often the LLM returning output that does not parse or does not
-match the schema. A single daily run would leave such a sign missing for 24
-hours. This replaced an in-function retry: it is roughly fifty times less code
-for the same number of attempts, at the cost of taking two hours rather than two
-seconds to converge.
+- **Three runs because each is nearly free**: the function requests only the
+  signs missing for the target date, so the later runs are retries for LLM
+  outputs that failed to parse — fifty times less code than in-function retry.
+- **The endpoint is never in the migration.** Preview branches replay
+  migrations against a different project ref, so a hardcoded URL would point
+  every open PR's database at production on a timer. URL and secret come from
+  Vault (per-project, not in git); everywhere Vault is empty the job is inert
+  by design (`NULL`, no request).
+- **The deadline is 10:00 UTC** (earliest local midnight on Earth is UTC+14).
+  There is no lower bound, but only because the request sends
+  `timezone: -5.5`: the upstream's clock is IST and its `timezone` body param
+  is relative *to that*. `timezone: 0` is the intuitive value and it is wrong —
+  it tests clean between 00:00 and 18:29 UTC and silently returns the day
+  after tomorrow outside that window (measured 2026-08-04). This is why
+  `index.ts` reports any `expected`-vs-written date disagreement to Sentry: a
+  silent mismatch would re-fetch the same signs forever on paid calls.
+- **Observability, in increasing trustworthiness:** `cron.job_run_details`
+  proves only that the statement fired (pg_net is async — "succeeded" is
+  compatible with a 500); `net._http_response` has the real HTTP outcome but a
+  ~6 hour TTL; the `horoscopes` row counts and Sentry are the only durable
+  signals. pg_net's timeout does **not** cancel the Edge Function, so
+  `timed_out = true` can coexist with a successful generation — which is why
+  the function short-circuits when the day's rows exist and a naive retry must
+  not be added. `select public.trigger_generate_horoscopes();` is a complete
+  manual smoke test: `NULL` = unprovisioned, a number = enqueued.
 
-**The endpoint is never in the migration.** Preview branches replay every
-migration against a *different* project ref, so a hardcoded URL would put every
-open PR's database on a daily timer pointed at production. The URL and the shared
-secret come from Vault instead, which is per-project and not in git. A migration
-test asserts that no URL appears in the executable SQL.
-
-The consequence is that the job is scheduled **everywhere** and inert almost
-everywhere: on preview branches and on every local `supabase db reset` it finds
-an empty Vault and returns `NULL` without making a request. That is the design,
-not a bug. A production dump restored into another project behaves the same way,
-since the Vault root key is project-scoped and the decrypt raises.
-
-**Why all three run in one morning.** There is exactly one constraint, and it is
-an upper bound: **land before 10:00 UTC.** The earliest local midnight on Earth
-is UTC+14, which enters date D at 10:00 UTC on D-1, and D is what these runs
-generate. A 14:00 or 22:00 UTC run would still write correct rows — it would just
-repair a gap those users had already seen — so spreading the schedule across the
-day buys nothing.
-
-**There is no lower bound**, but the reason is worth knowing because it is easy
-to get wrong. The upstream's clock is **IST (UTC+5:30)**, and its `timezone` body
-parameter is an offset applied *relative to that*, not an absolute UTC offset. So
-the request sends `timezone: -5.5` to cancel it, and `/daily/next/` returns
-UTC-tomorrow — the date the function computes as `expected` — at any hour.
-
-`timezone: 0` is the intuitive value and it is wrong. It tests clean between
-00:00 and 18:29 UTC, because IST shares the UTC calendar date then, and silently
-returns the day *after* tomorrow outside that window. Measured 2026-08-04 at
-18:32 UTC, where UTC-tomorrow was 2026-08-05: `timezone: 0` → 2026-08-06,
-`timezone: -5.5` → 2026-08-05.
-
-That failure mode is why `index.ts` reports any disagreement between `expected`
-and the written dates to Sentry. A silent mismatch would leave `expected`
-permanently short of twelve signs, so every later run would re-fetch the same
-signs forever — paid calls, on a loop, with `complete` never turning true.
-
-(An earlier revision of this doc claimed a 05:00 UTC floor on the theory that the
-upstream computed "today" from a US-eastern date. That was speculation, and it
-was wrong.)
-
-The runs are an hour apart rather than minutes apart because the failures worth
-a second attempt are the ones an immediate retry would hit again.
-
-pg_cron reads `cron.timezone` (GMT by default, UTC on Supabase) — worth a `show
-cron.timezone;` after deploying rather than assuming.
-
-**Provisioning production** — one time, and only **after** the function is
-deployed (`deploy.yml` runs `migrate` before `deploy-functions`, so the job
-exists for a minute before its endpoint does; harmless precisely because Vault is
-still empty). Set the three function secrets, confirm the function answers, then
-point the job at it:
+**Provisioning** (once, after the function is deployed): create Vault secrets
+`generate_horoscopes_url` (the function URL) and `generate_horoscopes_secret`
+(must equal the `HOROSCOPE_CRON_SECRET` function secret — rotate the two
+together or the job 401s silently every morning). **Rotation** uses
+`vault.update_secret` (`create_secret` raises on a duplicate name):
 
 ```sql
--- In the production SQL editor, as postgres. First provisioning only:
--- vault.create_secret raises on a duplicate name, so this is not the rotation
--- procedure. generate_horoscopes_secret must equal the HOROSCOPE_CRON_SECRET
--- function secret; rotate the two together or the job 401s silently every
--- morning.
-select vault.create_secret(
-  'https://<project-ref>.supabase.co/functions/v1/generate-horoscopes',
-  'generate_horoscopes_url'
-);
-select vault.create_secret('<the HOROSCOPE_CRON_SECRET value>', 'generate_horoscopes_secret');
+select vault.update_secret(id, '<new value>')
+  from vault.secrets where name = 'generate_horoscopes_secret';
 ```
-
-**Rotating the secret** — update the Vault row in place; `create_secret` would
-raise on the existing name. Set the `HOROSCOPE_CRON_SECRET` function secret to
-the same new value in the same sitting:
-
-```sql
-select vault.update_secret(id, '<the new HOROSCOPE_CRON_SECRET value>')
-  from vault.secrets
-  where name = 'generate_horoscopes_secret';
-```
-
-**Observability**, in increasing order of trustworthiness:
-
-- `select * from cron.job_run_details order by start_time desc;` — proves only
-  that the statement *fired*. pg_net is asynchronous, so `status = 'succeeded'`
-  here is compatible with a 500, a 404, or a DNS failure. Don't alert on it.
-- `select * from net._http_response order by created desc;` — the real HTTP
-  outcome, joined by the id `trigger_generate_horoscopes()` returns. **~6 hour
-  TTL**, so a 06:00 UTC run is unauditable here by lunchtime.
-- `select date, count(*) from public.horoscopes group by 1 order by 1 desc;` and
-  Sentry — the only durable signals, and the ones to actually watch.
-
-Two asymmetries to keep in mind: pg_net's `timeout_milliseconds` does **not**
-cancel the Edge Function, so `timed_out = true` can coexist with a fully
-successful generation (which is why the function short-circuits when the day's
-rows already exist, and why a naive retry must not be added); and
-`select public.trigger_generate_horoscopes();` is a complete manual smoke test —
-`NULL` means unprovisioned, a number means enqueued.
 
 ## Search
 
-`public.search_entries(query text)` (DEX-47,
-`20260727232854_add_search_entries.sql`) is the whole of search. It returns a
-uniform `(kind, entry_date, task, prompt, content)` row set over three sources:
-`tasks.title` plus any subtask title in `tasks.subtasks`, `notes.content`, and —
-one row per matching response, not per day — the `response` of each
-`{prompt, response}` element of `journals.prompts`.
+`public.search_entries(query text)` (DEX-47) is the whole of search: a uniform
+`(kind, entry_date, task, prompt, content)` row set over task/subtask titles,
+`notes.content`, and — one row per matching response — journal responses. Both
+the app (`src/api/search.ts`) and the MCP `search` tool call it, so swapping
+the matching strategy changes its body and neither caller.
 
-**Journal prompts are returned but never matched against.** The prompt comes
-back with each hit so the result card can show which question was answered, but
-searching it would be actively harmful: prompts are seeded from a shared
-template (`preferences.templatePrompts`), so every day carries the same handful
-of questions, and a query like "well" — from "What went well?" — would return
-every journal entry the user has ever written, burying the days they actually
-wrote that word. Only responses are the user's own text. A consequence worth
-knowing: an unanswered prompt can never be a hit, since an empty response cannot
-contain a term.
-
-Both the app (`src/api/search.ts`) and the MCP server's
-`search` tool call it, so "search" means one thing however it is asked for, and
-the function is the abstraction boundary: swapping the matching strategy changes
-its body and neither caller.
-
-**It is `SECURITY INVOKER` — the first in this schema**, and that is load-bearing
-rather than stylistic. It runs under the caller's JWT, so RLS scopes all three
-branches to the caller's own rows. A `DEFINER` function would bypass RLS and make
-correct scoping depend on a hand-written `user_id = auth.uid()` filter in every
-branch — three chances to leak another user's journal. This is also why the MCP
-`search` tool, alone among the tools, adds no `user_id` filter; a test in
-`__tests__/mcp-server/tools.test.ts` pins that, since an `eq:user_id` filter
-appearing there later would signal the function had been switched to `DEFINER`
-without the tool catching up.
-
-**Matching is substring `ilike`, ANDed across whitespace-separated terms** — so
-"buy milk" finds a note reading "milk, remember to buy". Not `tsvector`, for two
-reasons: the UI highlights the matched text, and substring matching hands the
-client exact offsets, whereas full-text search stems (a genuine hit often
-contains no literal occurrence of the term, leaving nothing to mark); and
-mid-word queries work, so "eisen" finds "eisenhower". What FTS would add is
-relevance ranking, and at this corpus size — 92 notes and 48 journals in
-production at time of writing — there is no result set to rank.
-
-Two details in the function are load-bearing and easy to drop in a rewrite, both
-pinned by `__tests__/migrations/search_entries.test.ts`: each term escapes LIKE's
-`\`, `%`, and `_` metacharacters (unescaped, a query containing `%` matches every
-row), and each of the three branches carries its own
-`exists (select 1 from terms)` guard (with zero terms the `not exists` test is
-vacuously true, so a blank query would return the caller's entire corpus).
-
-There is **no index**, deliberately: a seq scan over this data is
-sub-millisecond. If that ever changes, `create extension pg_trgm` plus a
-`using gin (content gin_trgm_ops)` index makes a leading-wildcard `ilike`
-indexable without changing the query at all.
+- **Journal prompts are returned but never matched against.** Prompts are
+  seeded from a shared template, so matching them would return every entry the
+  user ever wrote for a query like "well". Only responses are the user's own
+  text; an unanswered prompt can never be a hit.
+- **It is `SECURITY INVOKER`, and that is load-bearing**: it runs under the
+  caller's JWT so RLS scopes all three branches. A `DEFINER` function would
+  make scoping depend on hand-written `user_id` filters — three chances to
+  leak a journal. This is also why the MCP `search` tool alone adds no
+  `user_id` filter (pinned in `__tests__/mcp-server/tools.test.ts`).
+- **Matching is substring `ilike`, ANDed across terms** — not `tsvector`,
+  because the UI highlights exact matched offsets (stemming leaves nothing to
+  mark) and mid-word queries work ("eisen" finds "eisenhower"). At this corpus
+  size there is no result set to rank. There is deliberately no index; if that
+  changes, `pg_trgm` + a GIN index makes leading-wildcard `ilike` indexable
+  without touching the query.
+- Two details are load-bearing and easy to drop in a rewrite: each term
+  escapes LIKE's `\`, `%`, `_` metacharacters (unescaped, `%` matches every
+  row), and each branch carries its own `exists (select 1 from terms)` guard
+  (with zero terms, a blank query would return the caller's entire corpus).
 
 ## RLS policy invariants
 
 Every user-owned table enables RLS with per-operation policies keyed on
-`auth.uid() = user_id`. Two invariants must hold for every table:
+`auth.uid() = user_id`. Invariants for every table:
 
 - **UPDATE policies must constrain `WITH CHECK`, not just `USING`.** `USING`
-  gates the pre-update row; `WITH CHECK` gates the post-update row. An UPDATE
-  policy with `with check (true)` lets a user reassign `user_id` to another user
-  (ownership transfer). Always require `(select auth.uid()) = user_id` in
-  `WITH CHECK` so ownership is preserved across updates.
-- **Tenant-scoped foreign keys must reference rows the caller owns.** Where a
-  row points at another user-owned row (e.g. `tasks.list_id`/`goal_id`/
-  `template_id`, `repeat_task_templates.list_id`/`goal_id`,
-  `daily_habits.habit_id`), the `WITH CHECK` clause should confirm the
-  referenced row belongs to `auth.uid()` (`is null or exists (...)` for nullable
-  FKs) so a user cannot attach another user's records.
-- **A policy must never sub-select the table it guards.** Postgres re-applies
-  the table's policies while evaluating the sub-select and raises
-  `42P17 infinite recursion detected in policy` (see `DEX-4`/`DEX-32`). This
-  bit the old `tasks.subtask_of` self-referential FK guard
-  (`select 1 from public.tasks`). That column was dropped in DEX-70 — subtasks
-  are now a jsonb array, not rows — so no self-referential FK exists in the
-  schema today, and the rule stands as a constraint on any future one: the
-  `USING` clause already restricts the operation to rows the caller owns, and a
-  genuine cross-owner guard belongs in a `SECURITY DEFINER` helper (which
-  bypasses RLS and so does not recurse), never an inline sub-select.
-  `supabase/__tests__/migrations/tasks_update_rls.test.ts` pins this.
+  gates the pre-update row, `WITH CHECK` the post-update row; `with check
+  (true)` lets a user reassign `user_id` to someone else.
+- **Tenant-scoped foreign keys must reference rows the caller owns** — the
+  `WITH CHECK` confirms the referenced row belongs to `auth.uid()`
+  (`is null or exists (...)` for nullable FKs).
+- **A policy must never sub-select the table it guards** — Postgres re-applies
+  the policies inside the sub-select and raises `42P17 infinite recursion`
+  (DEX-4/DEX-32, via the since-dropped `tasks.subtask_of` guard). A genuine
+  cross-owner guard belongs in a `SECURITY DEFINER` helper, never an inline
+  sub-select.
 
 ## Realtime
 
-All nine user-owned tables (`tasks`, `repeat_task_templates`, `lists`,
-`goals`, `habits`, `daily_habits`, `notes`, `journals`, `preferences`)
-are added to the `supabase_realtime` publication via guarded migrations
-(`20260717193451_realtime_publication.sql` for the original eight — one of
-which, `days`, has since been dropped — and
-`20260726215745_split_notes_journals.sql` for `notes`/`journals`), so Postgres
-emits change events for them. Publication membership is **migration-managed** —
-do not add/remove tables via the dashboard, since a later migration re-adding an
-already-present table would no-op (the guard checks `pg_publication_tables`),
-but a dashboard-only addition would drift from what the migration declares.
-Removal needs no statement at all: dropping a table drops it from every
-publication it belongs to.
+All nine user-owned tables are in the `supabase_realtime` publication via
+guarded migrations. Membership is **migration-managed** — a dashboard-only
+addition would drift from what the migrations declare. Dropping a table drops
+it from every publication automatically.
 
-- **RLS gates delivery**: Realtime evaluates `postgres_changes` subscriptions
-  through the same RLS policies as normal queries, so a client only receives
-  events for rows it could `SELECT`. No separate realtime-specific
-  authorization exists.
-- **DELETE events are not filterable** by column (a Postgres/Realtime
-  limitation, not specific to this schema): with default `REPLICA IDENTITY`,
-  a DELETE's `old` record contains only primary-key columns, so a filter on
-  any other column — including the `user_id=eq.<uuid>` filter the client
-  applies — can never match. Only `notes`, `journals`, and `preferences` key on
-  `user_id`; for the other six tables (`tasks`, `goals`, `lists`, `habits`,
-  `daily_habits`, `repeat_task_templates`), this means
-  DELETE-triggered realtime invalidation **never fires, by construction** — not
-  an occasional miss, a structural gap for every deletion on those tables.
-  Keeping `user_id` in a primary key is therefore a deliberate schema choice,
-  not incidental: `notes`/`journals` are keyed `(user_id, date)` (DEX-51) partly
-  for this reason, and partly because leading with `user_id` lets the PK index
-  serve every user-scoped lookup without a second index.
-- **Client contract: invalidation-only.** The app's realtime consumer
-  (`useRealtimeInvalidation`, see `docs/frontend.md`) never reads event
-  payloads as data — an event only triggers a query-cache invalidation, and
-  the subsequent refetch goes through the normal RLS-scoped REST path. This
-  sidesteps the PK-only old-record limitation (there's no payload data to be
-  wrong), but does not change the DELETE-filter gap above: a deleted row on
-  those six tables persists on screen until the next focus/staleness-
-  triggered refetch (`DEFAULT_STALE_TIME_MS`), not until the next event.
+- **RLS gates delivery** — a client only receives events for rows it could
+  `SELECT`; there is no separate realtime authorization.
+- **DELETE events are not filterable by column** (default `REPLICA IDENTITY`
+  puts only PK columns in the `old` record). Only `notes`/`journals`/
+  `preferences` key on `user_id`, so for the other six tables the client's
+  `user_id=eq.<uuid>` filter can never match a DELETE — deletion-triggered
+  invalidation **never fires there, by construction**. Keeping `user_id` in a
+  PK is therefore a deliberate schema choice (`(user_id, date)` on
+  notes/journals also lets the PK index serve every user-scoped lookup).
+- **Client contract: invalidation-only.** `useRealtimeInvalidation` (see
+  `docs/frontend.md`) never reads event payloads as data — an event triggers a
+  cache invalidation and the refetch goes through the normal RLS-scoped REST
+  path. A deleted row on the six tables above persists on screen until the
+  next focus/staleness refetch, not the next event.
 
 ## Edge Functions
 
-- Runtime is **Deno**, not Node: avoid Node-only built-ins and npm packages that
-  assume Node.
-- Prefer JSR / `npm:` specifiers compatible with Supabase’s Edge runtime, as in
-  each function’s `deno.json`.
-- `ics-proxy` has JWT verification disabled and requires no configured function
-  secrets. Since it is publicly callable, target URLs are hardened against
-  open-proxy/SSRF abuse in `functions/ics-proxy/validation.ts`: only `http`/
-  `https` schemes are allowed, the pathname must end in `.ics` (query params
-  such as feed tokens are preserved), embedded credentials are rejected, and
-  private/ loopback/link-local/cloud-metadata hosts are blocked — including
-  across manually-followed redirect hops. Inbound headers are never forwarded
-  upstream (an explicit outbound allowlist is used) so caller credentials cannot
-  leak to the target host, and responses are bounded by a 5 MB size cap and a
-  10s timeout.
-- `mcp-server` also has Supabase JWT verification disabled at the function
-  gateway so it can validate bearer tokens inline. It creates a publishable-key
-  Supabase client with the incoming `Authorization: Bearer <token>` header,
-  calls `auth.getUser()`, and uses that user-scoped client for all tools so RLS
-  policies remain the enforcement layer. The service role key is not used.
-- `generate-horoscopes` also disables gateway JWT verification, for a reason
-  worth stating plainly: **`verify_jwt` is authentication of the project, not
-  authorization of the caller.** It checks only that the bearer is a valid,
-  unexpired token this project signed — which any signed-in user's access token
-  is, and so is the publishable key that ships inside the app bundle and the web
-  export. On an endpoint that spends paid upstream and LLM quota per call that is
-  no gate at all. The function instead requires an `x-cron-secret` header
-  matching `HOROSCOPE_CRON_SECRET`, compared in constant time
-  (`functions/generate-horoscopes/auth.ts`). Don't "harden" this by flipping
-  `verify_jwt` on and deleting the header check.
-- `generate-horoscopes` is the one function that uses the **service role key**.
-  Every other function acts on behalf of a signed-in user, so a user-scoped
-  client keeps RLS as the enforcement layer; horoscopes are global rows that no
-  user owns and that no RLS policy grants INSERT on, so there is no user whose
-  privileges could write them. The exposure is bounded by the function never
-  reading a caller-supplied identifier and never returning row data.
-- `mcp-server` validates browser `Origin` headers for MCP DNS-rebinding
-  protection. Requests without an `Origin` are allowed for desktop MCP clients.
-  Trusted origins include localhost/dev clients, common AI client origins,
-  `https://dexterplanner.com`, and `https://app.dexterplanner.com`.
-- MCP tool groups cover tasks, goals, lists, habits and daily habit progress,
-  notes, journals, repeat task templates, preferences, and search. Tool inputs
-  never accept `user_id`; user ownership is derived from the validated bearer
-  token. The one exception to how that ownership is enforced is `search`, which
-  adds no `.eq("user_id", …)` filter of its own — see "Search" below.
-- **Task status and priority are shared, not mirrored.**
-  `src/utils/taskStatus.ts` holds `ETaskStatus` and `isCompletionStatus`;
-  `src/utils/taskPriority.ts` holds `ETaskPriority`. Both are imported by the
-  app, by `mcp-server`, and by `scripts/demoData.ts` over the `@src/` alias, so a
-  new member can't be added to one side and forgotten on the other. They must
-  stay import-free — Deno requires explicit
-  `.ts` extensions on relative imports while Metro/tsc forbid them, which is why
-  the enums can't simply live in `src/api/tasks.ts` (that file pulls in
-  `@supabase/supabase-js`); it re-exports them instead, so app-side imports still
-  come from `@/api/tasks`. The values are persisted as `tasks.status` /
-  `tasks.priority smallint` with no Postgres enum or check constraint, so
-  `taskStatusSchema` and `taskPrioritySchema` (both `z.nativeEnum(…)`) are the
-  only thing rejecting a bogus value. Terminal statuses are done, won't do, and
-  delegated. Lower priority is *more* urgent, and `UNPRIORITIZED` (4) means
-  "never chosen", not "lowest".
-- **MCP tool params carry `.describe()`, not prose.** Both task schemas above
-  describe their own `0–4` numbering and explicitly contrast the other field's,
-  because the two sit adjacent in the same tool input and agents were writing a
-  priority into `status` (DEX-137). A schema wrapped in `z.union` — the
-  `list_tasks` status/priority filters — does not inherit its members'
-  description and needs its own. Future tool params should follow this rather
-  than folding field semantics into tool-level description strings.
-- **Repeat tasks are recurred in TypeScript, not Postgres.** Completing a task
-  linked to a `repeat_task_templates` row (status → any terminal status) creates
-  the next occurrence, with its date computed by `src/utils/repeatSchedule.ts`
-  (croner-backed) — imported by both the app and `mcp-server` (via the `@src/`
-  alias in `functions/mcp-server/deno.json`). The legacy
-  `create_next_recurring_task` trigger was dropped (migration
-  `20260712142149_drop_recurring_task_trigger.sql`); `update_task`/`archive_task`
-  invoke the shared logic, and `delete_task` also deletes a linked *scheduled*
-  template so future occurrences stop — a linked scheduleless one is a saved
-  task template the user may still be stamping from, and survives. A recurred
-  occurrence copies the template's `alarm_time` (see below) so repeat tasks keep
-  their alarm.
+Runtime is **Deno**, not Node; prefer JSR / `npm:` specifiers as in each
+function's `deno.json`.
+
+- **`ics-proxy`** — public (JWT verification off), no secrets. Target URLs are
+  hardened against open-proxy/SSRF in `validation.ts`: `http(s)` only, `.ics`
+  pathname, no embedded credentials, private/loopback/link-local/cloud-metadata
+  hosts blocked across manually-followed redirect hops. Inbound headers are
+  never forwarded (explicit outbound allowlist); responses capped at 5 MB / 10s.
+- **`mcp-server`** — gateway JWT verification off so it validates bearer
+  tokens inline: a publishable-key client with the incoming `Authorization`
+  header, `auth.getUser()`, then that user-scoped client for all tools so
+  **RLS remains the enforcement layer**; the service role key is not used. It
+  validates browser `Origin` headers (DNS-rebinding protection; no-Origin
+  requests are allowed for desktop clients). Tool inputs never accept
+  `user_id` — ownership derives from the token.
+- **`generate-horoscopes`** — gateway JWT verification off for a reason worth
+  stating plainly: **`verify_jwt` is authentication of the project, not
+  authorization of the caller** — any signed-in user's token passes, and so
+  does the publishable key that ships in the app bundle. On an endpoint that
+  spends paid quota that is no gate at all; it instead requires an
+  `x-cron-secret` header matching `HOROSCOPE_CRON_SECRET`, compared in
+  constant time. Don't "harden" this by flipping `verify_jwt` on. It is also
+  the one function using the **service role key**: horoscopes are global rows
+  no user owns, so there is no user whose privileges could write them; the
+  exposure is bounded by never reading a caller-supplied identifier and never
+  returning row data.
+- All functions report to **Sentry** via `functions/_shared/sentry.ts` —
+  graceful no-ops when `SENTRY_DSN` is unset, `withSentry`-wrapped handlers,
+  and every MCP `toolError(...)` also reports. Triage with the
+  `/triage-sentry` skill.
+
+### Shared task semantics
+
+- **Task status/priority enums are shared, not mirrored.**
+  `src/utils/taskStatus.ts` / `taskPriority.ts` are imported by the app,
+  `mcp-server`, and `scripts/demoData.ts` over the `@src/` alias, and must stay
+  **import-free** (Deno requires `.ts` extensions on relative imports;
+  Metro/tsc forbid them — which is why the enums can't live in
+  `src/api/tasks.ts`, which re-exports them). Values persist as unconstrained
+  `smallint`, so the zod schemas are the only rejection of a bogus value.
+  Lower priority is *more* urgent; `UNPRIORITIZED` (4) means "never chosen".
+- **MCP tool params carry `.describe()`, not tool-level prose** — the status
+  and priority schemas describe their own 0–4 numbering and contrast each
+  other, because agents were writing a priority into `status` (DEX-137). A
+  `z.union` does not inherit its members' descriptions and needs its own.
+- **Repeat tasks recur in TypeScript, not Postgres.** Completing a task linked
+  to a `repeat_task_templates` row creates the next occurrence via
+  `src/utils/repeatSchedule.ts` (croner-backed, shared over `@src/`); the old
+  Postgres trigger was dropped. `delete_task` also deletes a linked *scheduled*
+  template so occurrences stop — a scheduleless one is a saved template the
+  user may still stamp from, and survives.
 - **Both halves of the one-open-task invariant live in
-  `functions/mcp-server/tools/recurrence.ts`** (DEX-94), the server's mirror of
-  `src/api/tasks.ts` + `src/hooks/useTemplates.tsx` — see `docs/frontend.md` for
-  the invariant itself. *Don't create a second:* `hasOpenTaskForTemplate` skips
-  the spawn when another **open** task already links to the template, so
-  completing several tasks stamped from a since-scheduled template starts one
-  chain rather than several; a failed lookup reads as "has one", since an extra
-  parallel chain is silent and permanent while a stalled repeat is surfaced and
-  repairable. *Don't leave zero:* `create_template` and `update_template` seed a
-  first occurrence via `getFirstOccurrence` (which counts today), so an agent
-  creating a repeat — or promoting a task template to one — can't leave a cadence
-  that never fires. The seed is best-effort and never fails the template write,
-  which has already landed. It is deliberately **not** applied to `create_task` /
-  `update_task`'s `templateId` argument: the app has the identical gap, guarding
-  it would cost a lookup on every task write, and Settings → Tasks already flags
-  a stalled repeat beside a one-tap repair.
-- **A `repeat_task_templates` row with a NULL `schedule` is a task template, not
-  a repeat task (DEX-65).** `schedule` is nullable and has no default (migration
-  `20260726215225_repeat_task_templates_nullable_schedule.sql`); both RLS
-  policies already guarded the cron regex with `schedule IS NULL OR …`. Nothing
-  recurs from a scheduleless row — every recurrence path bails on a falsy
-  schedule — so the same table serves both the repeat schedules under Settings →
-  Tasks → Repeat tasks and the reusable blueprints under Task templates, and
-  switching a row between them is just writing or clearing `schedule`. Because
-  the column lost its default, **every insert must state its schedule**: the
-  app's "Repeat" flow passes an explicit daily cron and "Save as template"
-  passes `null`. `create_template` with `schedule` omitted therefore creates a
-  task template, and `update_template` accepts `schedule: null` to clear one.
-- **Subtasks are a jsonb array, not rows (`subtasks`).** `tasks` and
-  `repeat_task_templates` each carry `subtasks jsonb NOT NULL DEFAULT '[]'`
-  (migration `20260721182025_add_task_subtasks.sql`). A subtask is a
-  lightweight checklist item — `{id, title, status}` on a task, `{id, title}`
-  on a template, with ids minted client-side and unique only within their own
-  array. Choosing the array over the relational `tasks.subtask_of` column
-  (dropped by the same migration, and never app-writable) buys three things:
-  subtasks are one level deep by construction; completing a parent sweeps its
-  whole checklist in a **single row update**, so a done parent is never stored
-  alongside open children; and recurrence has no orphan-spawn hazard, because
-  array items carry no `template_id`. It needs no RLS change — subtasks live
-  inside rows the existing `user_id` policies already guard — and no triggers.
-  - **Accepted tradeoff: last-write-wins on the whole array.** The phone and an
-    MCP client editing the same checklist inside one refetch window will clobber
-    each other. Whole-array replacement is the contract everywhere (the MCP
-    `update_task` tool documents it explicitly). If this becomes a real problem,
-    the mitigation is RPC array surgery — `subtask_add` / `subtask_set_status` /
-    `subtask_promote` — which needs **no schema change**.
-  - **Promotion is two non-atomic writes.** A subtask graduating to a real task
-    inherits the parent's `list_id`/`goal_id`/`priority`/`scheduled_for`/
-    `due_on` but never its `alarm_time`; the task is inserted, then the parent's
-    array is rewritten without it. A crash between the two leaves a duplicate,
-    not data loss.
-  - **Write bounds are not read bounds.** `tools/helpers.ts` exports bounded
-    schemas for tool *input* (`subtasksSchema`, `templateSubtasksSchema` — 100
-    items, 100-char titles) and separate unbounded ones for parsing *stored*
-    rows (`storedSubtasksSchema`, `storedTemplateSubtasksSchema`). Reusing the
-    input schema on a read is a trap: a failed parse means "no subtasks", so an
-    over-long stored title would silently skip that task's completion sweep
-    instead of rejecting anything. The app caps input at
-    `SUBTASK_TITLE_MAX_LENGTH` to match the write bound.
-  - **Every write path that can complete a task sweeps.** `update_task` and
-    `archive_task` fold the sweep into their existing pre-update read
-    (`readForCompletion`), and `create_task` sweeps when it inserts an
-    already-complete task — otherwise the forbidden state could be created
-    directly, sidestepping both.
-  - If subtasks ever need fields of their own, that is a jsonb→rows migration.
-- **Task alarms (`alarm_time`).** `tasks` and `repeat_task_templates` each carry
-  a nullable `alarm_time` (`time`) column (migration
-  `20260717230155_add_task_alarm_time.sql`). It stores the time-of-day a task's
-  native iOS alarm fires, combined with `scheduled_for` for the date; the app
-  reconciles these onto AlarmKit (`src/utils/alarms.ts`, iOS-only). The column
-  needs no RLS change — the existing `user_id` policies cover it — and both
-  tables are already in the realtime publication, so alarm edits sync like any
-  other field.
-- **Task links (`tasks.url`).** A nullable `text` column (migration
-  `20260803165904_add_task_url.sql`, DEX-66) holding the link a task is about —
-  typed into the form's Link row, or pre-filled from a page shared into the app
-  through the iOS share extension / Android intent filter. Deliberately
-  unvalidated in the database *and* at the MCP boundary: the rule is
-  `normalizeTaskUrl` (`src/utils/taskUrl.ts` — kept import-free so
-  `functions/mcp-server/tools/helpers.ts` can load it over the `@src/` alias and
-  apply the identical `taskUrlSchema` transform), which trims, stores `null` for
-  blank, and prepends `https://` to a bare host so the value actually opens.
-  Rejecting a malformed link would fail a write over an optional field. No RLS
-  change — the existing `user_id` policies cover it — and no read path needed
-  touching: `search_entries` projects tasks with `to_jsonb(t)`, and the MCP task
-  reads already `select("*")`. `repeat_task_templates` has no counterpart, for
-  the same reason it has no `due_on`: a link belongs to the task, not the
-  schedule that mints occurrences of it.
-- **Alarm sound (`preferences.alarm_sound`).** Which sound those alarms ring
-  with, as a `text not null default 'echos'` column on `preferences` (migration
-  `20260726193509_add_preferences_alarm_sound.sql`, DEX-72). The value names an
-  entry in the app's `ALARM_SOUNDS` registry (`src/utils/alarms.shared.ts`), not
-  a file path — the audio is bundled into the iOS app at prebuild, so the DB only
-  records the choice, and `'system'` means "leave AlarmKit on its default sound".
-  Deliberately unconstrained text: the sound list is app-owned and expected to
-  grow, and a client that doesn't recognize a stored value falls back to the
-  system sound rather than failing. Defaulting to `'echos'` is what gives
-  existing rows Dexter's sound without a backfill.
-- Both functions report errors to **Sentry** via `functions/_shared/sentry.ts`
-  (`npm:@sentry/deno`, aliased in each function's `deno.json` import map since
-  there is no shared import map across functions today). `initSentry`/
-  `captureException` are graceful no-ops when `SENTRY_DSN` is unset, so local
-  dev and tests never need the secret or network access. `mcp-server` wraps
-  its `Deno.serve` handler with `withSentry` and captures the previously-
-  swallowed top-level error, and every `toolError(...)` result (the shape MCP
-  tools return instead of throwing) also reports to Sentry. `ics-proxy` wraps
-  its handler the same way and captures unexpected upstream-fetch failures
-  without leaking internal error details in the sanitized client response.
-  Reported errors are triaged with the `/triage-sentry` skill
-  (`.claude/skills/triage-sentry/SKILL.md`), which maps the
-  `/var/tmp/sb-compile-edge-runtime/functions/` culprit paths Sentry records
-  back onto `supabase/functions/`. It needs a Sentry MCP connection, which this
-  repo does not configure.
+  `functions/mcp-server/tools/recurrence.ts`** (DEX-94) — see
+  `docs/frontend.md` for the invariant. *Don't create a second:*
+  `hasOpenTaskForTemplate` skips the spawn when another open task links to the
+  template, and a failed lookup reads as "has one" (an extra chain is silent
+  and permanent; a stalled repeat is surfaced and repairable). *Don't leave
+  zero:* `create_template`/`update_template` seed a first occurrence,
+  best-effort, never failing the template write. Deliberately not applied to
+  `create_task`/`update_task`'s `templateId` — the app has the same gap, and
+  Settings → Tasks flags a stalled repeat beside a one-tap repair.
+- **A `repeat_task_templates` row with NULL `schedule` is a task template, not
+  a repeat (DEX-65).** Nothing recurs from a scheduleless row, so one table
+  serves both; switching between them is writing or clearing `schedule`. The
+  column has **no default**, so every insert must state its schedule —
+  `create_template` with `schedule` omitted creates a task template.
+- **Subtasks are a jsonb array, not rows** (`tasks.subtasks`,
+  `repeat_task_templates.subtasks`). The array buys: one level deep by
+  construction; completing a parent sweeps its checklist in a single row
+  update; no orphan-spawn hazard. Accepted tradeoffs and traps:
+  - **Last-write-wins on the whole array** — concurrent editors clobber each
+    other within a refetch window; the mitigation if ever needed is RPC array
+    surgery, no schema change.
+  - **Promotion is two non-atomic writes** (insert task, rewrite parent array);
+    a crash between them leaves a duplicate, not data loss. A promoted subtask
+    never inherits `alarm_time`.
+  - **Write bounds are not read bounds** — `tools/helpers.ts` has bounded
+    schemas for tool input and separate unbounded ones for parsing stored
+    rows. Reusing the input schema on a read is a trap: a failed parse means
+    "no subtasks", so an over-long stored title would silently skip the
+    completion sweep.
+  - **Every write path that can complete a task sweeps** — including
+    `create_task` inserting an already-complete task.
+- **`tasks.alarm_time`** (`time`, nullable, also on templates) — time-of-day a
+  task's native iOS alarm fires; the app reconciles onto AlarmKit
+  (`src/utils/alarms.ts`). A recurred occurrence copies the template's, so
+  repeats keep their alarm.
+- **`tasks.url`** (DEX-66) — deliberately unvalidated in the database and at
+  the MCP boundary; the rule is `normalizeTaskUrl` (`src/utils/taskUrl.ts`,
+  import-free so `mcp-server` applies the identical transform). Rejecting a
+  malformed link would fail a write over an optional field. Templates have no
+  counterpart for the same reason they have no `due_on`: a link belongs to the
+  task, not the schedule that mints it.
+- **`preferences.alarm_sound`** (DEX-72) — `text not null default 'echos'`,
+  naming an entry in the app-owned `ALARM_SOUNDS` registry. Deliberately
+  unconstrained: the list grows, and an unrecognized value falls back to the
+  system sound rather than failing.
 
 ## Demo account login (App Store review)
 
-The app's login is passwordless (email magic link / OTP code + Google), so an
-App Store reviewer can't receive a code out of band. `verify-demo-otp` bridges
-that gap: the reviewer enters the demo email and a fixed code (`DEMO_OTP`), and
-the function exchanges them for a real session.
+Login is passwordless, so a reviewer can't receive a code out of band.
+`verify-demo-otp` bridges the gap: demo email + fixed code (`DEMO_OTP`)
+exchanges for a real session.
 
-- **Identity is shared, not duplicated by drift.** `functions/_shared/demoAuth.ts`
-  exports `DEMO_EMAIL` (matched *exactly* — never a whole domain — so a real
-  user can never be routed through the bypass) and `deriveDemoPassword(otp)`.
-  The `seed-demo` script sets the demo user's password to
-  `deriveDemoPassword(DEMO_OTP)`; the function signs in with the same derived
-  value. So the only shared secret is `DEMO_OTP` — no password is stored or
-  shipped in the app. The app re-declares `DEMO_EMAIL`/`isDemoEmail` in
-  `src/hooks/useAuth.tsx` (it can't import the Deno module); keep them identical.
-- **The function uses the publishable key, not the service role.** It validates
-  `isDemoEmail(email) && token === DEMO_OTP` (one constant rejection for any bad
-  input, so it can't be used to probe accounts), then calls
-  `signInWithPassword` — a normal auth call — and returns the session. This
-  keeps `verify-demo-otp` from widening backend privileges even though it's
-  public (`verify_jwt = false`, since it mints the session). If the demo user or
-  password is missing (the seed script hasn't run, or `DEMO_OTP` changed since),
-  it returns a distinct "not ready" error.
-- **The login email carries both a link and the code.** `signInWithOtp` (with
-  `emailRedirectTo`) still sends the magic link, and `templates/magic_link.html`
-  renders `{{ .Token }}` alongside `{{ .ConfirmationURL }}`, so real users can
-  tap the link or type the code on the login screen's code-entry step
-  (`verifyOtp({ type: "email" })`). See `docs/frontend.md` (Auth) and
-  `docs/appstore.md` for the reviewer flow.
-- **Required secret:** `DEMO_OTP` (set as a function secret and passed to the
-  seed script). `SUPABASE_URL`/`SUPABASE_PUBLISHABLE_KEYS` are already present.
-  Because the endpoint is public and unthrottled, use a **long, random**
-  `DEMO_OTP` (not a 6-digit number) so the demo account can't be brute-forced —
-  the login screen lets the demo code entry accept a long non-numeric secret,
-  unlike the 6-digit field real users see. Rotate or disable the function after
-  review if desired; it only ever reaches the demo account's data.
-- **Deploying the email template:** `[auth.email.template.magic_link]` in
-  `config.toml` only applies to the **local** `supabase start` stack. The hosted
-  project's Magic Link template is dashboard-managed — paste
-  `templates/magic_link.html` into Authentication → Email Templates → Magic Link
-  so production emails carry the `{{ .Token }}` code, not just the link.
+- **Identity is shared, not duplicated by drift** — `_shared/demoAuth.ts`
+  exports `DEMO_EMAIL` (matched exactly, never a domain) and
+  `deriveDemoPassword(otp)`; `seed-demo` sets the password to
+  `deriveDemoPassword(DEMO_OTP)` and the function signs in with the same
+  derived value, so the only shared secret is `DEMO_OTP`. The app re-declares
+  `DEMO_EMAIL`/`isDemoEmail` in `src/hooks/useAuth.tsx` (it can't import the
+  Deno module); keep them identical.
+- **Publishable key, not service role** — one constant rejection for any bad
+  input (can't probe accounts), then a normal `signInWithPassword`. Public and
+  unthrottled, so `DEMO_OTP` must be **long and random**, not 6 digits; the
+  login screen's demo path accepts a long non-numeric code.
+- **The login email carries both a link and the code** —
+  `templates/magic_link.html` renders `{{ .Token }}` alongside the link.
+  `config.toml`'s template mapping only applies to the **local** stack; the
+  hosted project's Magic Link template is dashboard-managed — paste the file
+  into Authentication → Email Templates or production emails carry only the
+  link. See `docs/appstore.md` for the reviewer flow.
 
 ## OAuth server (MCP authorization)
 
-The `mcp-server` function validates bearer tokens but does not issue them —
-authorization is handled by Supabase Auth's built-in **OAuth 2.1 server**,
-enabled in `config.toml`:
+`mcp-server` validates bearer tokens but doesn't issue them — Supabase Auth's
+built-in OAuth 2.1 server does (`[auth.oauth_server]` in `config.toml`, dynamic
+registration off). The consent redirect goes to
+`{site_url}/oauth/consent?authorization_id=…`, which is the Expo screen at
+`src/app/oauth/consent.tsx` (approve/deny via `supabase.auth.oauth.*`; an
+unauthenticated visitor is bounced to sign-in and returned). **`site_url` must
+match the Expo web port** (8081 locally) or the redirect 404s.
 
-```toml
-[auth.oauth_server]
-enabled = true
-authorization_url_path = "/oauth/consent"
-allow_dynamic_registration = false
-```
-
-When an MCP client (Claude, ChatGPT, Cursor, …) starts the OAuth flow, Supabase
-redirects the browser to `{site_url}{authorization_url_path}` —
-`http://localhost:8081/oauth/consent?authorization_id=…` locally, or
-`https://app.dexterplanner.com/oauth/consent?authorization_id=…` in production.
-That route is the Expo screen at `src/app/oauth/consent.tsx`, which reads the
-`authorization_id`, shows which client is requesting access, and calls
-`supabase.auth.oauth.approveAuthorization` / `denyAuthorization` to finish the
-handshake. An unauthenticated visitor is bounced to sign-in with the
-`authorization_id` stashed and returned afterward.
-
-> **`site_url` must match the Expo web port.** The consent URL is built as
-> `{site_url}{authorization_url_path}`, so `[auth].site_url`
-> (`http://localhost:8081`) has to point at wherever the Expo web dev server
-> actually serves. 8081 is Expo's default; if you remap the port, update
-> `site_url` or the redirect 404s.
-
-### Pre-registering clients
-
-`allow_dynamic_registration = false`, so every client must be registered ahead
-of time with its exact redirect URI — an unregistered `redirect_uri` fails the
-authorization before the consent screen is ever reached. Register clients with
-the Auth Admin OAuth API using the **service-role** key (never ship this key to
-a client):
-
-```bash
-curl -X POST "$SUPABASE_URL/auth/v1/admin/oauth/clients" \
-  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "client_name": "Claude",
-    "redirect_uris": ["https://claude.ai/api/mcp/auth_callback"],
-    "grant_types": ["authorization_code", "refresh_token"]
-  }'
-```
-
-The response returns a `client_id` (and, for confidential clients, a
-`client_secret`). Confirm the exact request shape against the
-[Supabase Auth OAuth server docs](https://supabase.com/docs/guides/auth), as the
-admin API is still evolving.
-
-Redirect URIs to register for the initial clients:
-
-| Client                     | Redirect URI                                                |
-| -------------------------- | ----------------------------------------------------------- |
-| Claude.ai / Claude Desktop | `https://claude.ai/api/mcp/auth_callback`                   |
-| ChatGPT                    | Per ChatGPT's connector docs (confirm at registration time) |
-| Cursor / Gemini            | Per each client's docs                                      |
-
-**Claude Code** uses a dynamic loopback port (`http://localhost:<random>/…`),
-which a fixed pre-registered redirect URI cannot match. Enabling
-`allow_dynamic_registration` for the flows that need it (or registering a
-loopback pattern if/when Supabase supports one) is the path for Claude Code;
-track this before advertising Claude Code support.
-
-## Local commands
-
-```bash
-cd supabase
-deno fmt
-deno test --allow-all --config __tests__/deno.json __tests__/
-```
-
-**Supabase CLI** (`supabase start`, migrations, deploy) requires Docker and CLI
-setup; see [Supabase CLI docs](https://supabase.com/docs/guides/cli).
+Every client must be pre-registered with its exact redirect URI via the Auth
+Admin OAuth API using the service-role key (Claude.ai/Desktop:
+`https://claude.ai/api/mcp/auth_callback`; others per their docs). **Claude
+Code** uses a dynamic loopback port, which a fixed redirect URI cannot match —
+enabling dynamic registration for that flow is the open path before
+advertising Claude Code support.
 
 ## Deployment (CI/CD)
 
-Backend and app deploys run from GitHub Actions in `.github/workflows/`:
+Workflows live in `.github/workflows/` — read them there rather than here.
+Facts that aren't visible from the YAML alone:
 
-- **`deploy.yml`** — on push to `main` touching `supabase/**` or `src/**` (or
-  manual `workflow_dispatch`). Detects which paths changed, then runs, in order:
-  `migrate` (`supabase db push --include-all`), `deploy-functions`
-  (`supabase functions deploy`), and `deploy-eas` (web export → `eas deploy`
-  → OTA `eas update`). The migrate/functions jobs run only when `supabase/**`
-  changed; the EAS job runs only when `src/**` changed and the backend jobs
-  succeeded or were skipped.
-- **`test-backend.yml`** — on any `supabase/**` PR/push: `deno fmt --check` plus
-  `deno test`. Backend tests set their own env, so no secrets are required.
-- **`test-frontend.yml`** — the `src/**` counterpart: `npm run format:check`,
-  `npm run typecheck`, `npm run lint`, `npm test` (cheapest check first).
-  `jest.setup.js` defaults the `EXPO_PUBLIC_*` vars, so this needs no secrets
-  either (DEX-95). Note `deploy.yml` does not depend on it — a red test run
-  does not block the production deploy.
-- **`preview-branch.yml`** — fills the gaps Supabase's native branching leaves
-  on a PR's preview branch. A `resolve` job gates on the `Supabase Preview`
-  check reporting success (so it never fires on a PR without a preview),
-  resolves the branch's `project_ref`, and hands it to two parallel jobs:
-  `deploy-functions` redeploys edge functions (Supabase deploys them on branch
-  creation but doesn't reliably redeploy on later pushes, so a function edited
-  afterward 404s), and `seed-demo` runs `supabase/scripts/seed-demo.ts` against
-  the branch with its own service-role key so the demo account exists. Both are
-  idempotent and safe to re-run on every push; `workflow_dispatch` with a
-  `git_branch` input targets an existing preview branch on demand.
-- **`reset-demo.yml`** — daily cron (`0 12 * * *`, plus `workflow_dispatch`)
-  that runs the same `supabase/scripts/seed-demo.ts` against **production**, so
-  the public demo account returns to the curated dataset every morning no
-  matter what the previous day's visitors did to it — and so its relative-dated
-  tasks never go stale. It needs no new repo secrets: the service-role key is
-  fetched from the Management API like `preview-branch.yml` does, and
-  `DEMO_OTP` comes from the encrypted `.env.preview`. It uses its own
-  `reset-demo-production` concurrency group rather than joining `deploy.yml`'s:
-  GitHub keeps only one *pending* run per group, so sharing would let a second
-  deploy evict the queued reseed and silently skip a day.
-  12:00 UTC is 08:00 EDT / 07:00 EST — GitHub cron is UTC-only with no DST, and
-  the winter hour of drift is accepted. Don't move it to an overnight slot:
-  `seed-demo.ts` derives "today" from UTC, so a 03:00 UTC run would seed
-  tomorrow's dates for a US viewer (DEX-117).
-- **`preview.yml`** — `workflow_dispatch` EAS preview OTA update (`eas update
-  --auto`) that comments on the PR.
-
-> **Migrations can apply out of timestamp order.** PRs merge in a different
-> order than their migrations were authored, so a migration timestamped before
-> another PR's can reach production after it. Plain `supabase db push` refuses
-> that case outright ("Found local migration files to be inserted before the
-> last migration on remote database") and fails the whole deploy, which is why
-> `migrate` passes `--include-all`. The rule that falls out: **every migration
-> must stand alone.** Never write one that depends on a later-timestamped
-> migration having already run, and prefer `IF EXISTS` / `IF NOT EXISTS` so a
-> replay is harmless. If two migrations genuinely must land in a fixed order,
-> put them in the same PR.
-
-EAS deploys/updates rely on **EAS Update** wiring in `src/`: the `export:web`
-script (`expo export --platform web`), the `expo-updates` dependency, and the
-`updates.url` + `runtimeVersion` config in `src/app.json`.
+- **Migrations can apply out of timestamp order.** PRs merge in a different
+  order than migrations were authored, which plain `supabase db push` refuses
+  outright — so the deploy passes `--include-all`. The rule that falls out:
+  **every migration must stand alone.** Never depend on a later-timestamped
+  migration; prefer `IF EXISTS`/`IF NOT EXISTS`; if two must land in order,
+  ship them in one PR.
+- **A red test run does not block the production deploy** — `deploy.yml` has
+  no dependency on the test workflows; tests gate PR merge only.
+- **Preview branches need `preview-branch.yml`'s help**: Supabase deploys
+  functions on branch creation but doesn't reliably redeploy on later pushes
+  (an edited function 404s), and it never copies function secrets or seeds the
+  demo account. Both jobs are idempotent.
+- **`reset-demo.yml` reseeds the production demo account daily at 12:00 UTC.**
+  Don't move it overnight: `seed-demo.ts` derives "today" from UTC, so a 03:00
+  UTC run seeds tomorrow's dates for a US viewer (DEX-117). It keeps its own
+  concurrency group — sharing `deploy.yml`'s would let a deploy evict the
+  queued reseed and silently skip a day.
 
 **Required GitHub repo secrets:** `SUPABASE_PROJECT_ID`, `SUPABASE_DB_PASSWORD`,
 `SUPABASE_ACCESS_TOKEN`, `DOTENV_PRIVATE_KEY_PREVIEW` (backend); `EXPO_TOKEN`,
 `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
 `EXPO_PUBLIC_SENTRY_DSN` (app/EAS).
 
-> **First-run reconciliation.** Production's migration-history table was empty
-> while the schema was already live (migrations had been applied out-of-band),
-> so a naive `supabase db push` would fail replaying the baseline. Before the
-> first automated run, the applied migrations must be baselined
-> (`supabase migration repair --status applied <version>`) and deployed function
-> versions redeployed so they match `main`. Enabling the Supabase GitHub
-> integration (for preview branches) is a one-time dashboard step.
-
 ## Secrets
 
-Configure secrets via Supabase dashboard or CLI for deployed projects; reference
-them from function code with `Deno.env.get(...)`. Do not commit real keys.
+Function secrets, referenced with `Deno.env.get(...)`:
 
 | Secret                  | Used by                                   | Required?                                                                    |
 | ----------------------- | ----------------------------------------- | ---------------------------------------------------------------------------- |
-| `DEMO_OTP`              | `verify-demo-otp`, `scripts/seed-demo.ts` | Required for demo login — the function 500s without it                       |
-| `SENTRY_DSN`            | every function (all wrap `withSentry`)    | Optional — Sentry reporting no-ops gracefully if unset. `generate-horoscopes` has no other durable failure signal, so set it there |
-| `ASTROLOGY_API_KEY`     | `generate-horoscopes`                     | Required — sent as the `x-astrologyapi-key` header; the function 500s without it |
-| `AI_GATEWAY_API_KEY`    | `generate-horoscopes`                     | Required — read implicitly by the AI SDK, never via `Deno.env.get`            |
+| `DEMO_OTP`              | `verify-demo-otp`, `scripts/seed-demo.ts` | Required — the function 500s without it                                      |
+| `SENTRY_DSN`            | every function                            | Optional — but `generate-horoscopes` has no other durable failure signal     |
+| `ASTROLOGY_API_KEY`     | `generate-horoscopes`                     | Required                                                                     |
+| `AI_GATEWAY_API_KEY`    | `generate-horoscopes`                     | Required — read implicitly by the AI SDK, never via `Deno.env.get`           |
 | `HOROSCOPE_CRON_SECRET` | `generate-horoscopes`                     | Required — must equal the Vault `generate_horoscopes_secret`; rotate together |
 
 ### Preview-branch secrets (dotenvx)
 
-Supabase's branching integration copies migrations and redeploys functions to a
-preview branch but **does not copy the parent project's function secrets** — a
-fresh preview had no `DEMO_OTP`, so `verify-demo-otp` returned "Demo login is
-not configured". Preview secrets are managed with
-[dotenvx](https://dotenvx.com/) instead: an encrypted `supabase/.env.preview` is
-committed to the repo, and the branching executor decrypts it and applies the
-values to every new branch.
+Supabase's branching integration does **not** copy the parent project's
+function secrets to a preview branch. Preview secrets come from the encrypted,
+committed `supabase/.env.preview` (dotenvx), which the branching executor
+decrypts and applies. `config.toml` `[edge_runtime.secrets]` maps each as
+`KEY = "env(KEY)"`; add a secret with
+`npx @dotenvx/dotenvx set NAME "value" -f supabase/.env.preview` and commit
+both files — `__tests__/config/previewSecrets.test.ts` fails if they drift or
+a value lands in plaintext. The decryption key is a production project secret
+plus the `DOTENV_PRIVATE_KEY_PREVIEW` repo secret.
 
-- `supabase/.env.preview` holds encrypted values (safe to commit).
-- [`supabase/config.toml`](../supabase/config.toml) `[edge_runtime.secrets]`
-  maps each secret as `KEY = "env(KEY)"`. Because it's `env(...)` indirection,
-  a local `supabase start` reads the value from your shell environment — same
-  convention as the existing `env(SUPABASE_AUTH_GOOGLE_SECRET)`. **Export
-  `DEMO_OTP` before `supabase start`**: an unresolved `env(...)` reference is
-  not an error, so the local Edge Runtime can receive the literal string
-  `env(DEMO_OTP)` as the secret rather than `verify-demo-otp` reporting "not
-  configured". Hosted projects are unaffected — production sets the secret
-  directly, and previews get it from `.env.preview`.
-- The decryption key is stored as a Supabase **project** secret on production,
-  uploaded once with
-  `npx supabase secrets set --env-file supabase/.env.keys --project-ref <parent_ref>`,
-  and as the `DOTENV_PRIVATE_KEY_PREVIEW` GitHub repo secret so
-  `preview-branch.yml` can decrypt in CI.
+Three traps:
 
-Add or update a secret:
-
-```bash
-npx @dotenvx/dotenvx set SECRET_NAME "value" -f supabase/.env.preview
-```
-
-Add the matching `KEY = "env(KEY)"` to `config.toml` and commit both files —
-`supabase/__tests__/config/previewSecrets.test.ts` fails if the two drift or if
-a value is committed in plaintext. Re-upload `.env.keys` if the decryption key
-rotates.
-
-> **`.env.keys` must sit next to `.env.preview`** — dotenvx *reads* the key
-> from the `-f` file's own directory (`supabase/`), but *writes* it to whatever
-> directory you ran the command in. Running `set` from the repo root therefore
-> drops `./.env.keys` in the wrong place, and the next decrypt fails with
-> `[DECRYPTION_FAILED]`; move it to `supabase/.env.keys`. `.gitignore` matches
-> the filename at any depth, so it stays uncommitted either way — but only the
-> `supabase/` copy actually works.
-
-> **`DEMO_OTP` and the seeded password rotate together.** The demo user's
-> password is `deriveDemoPassword(DEMO_OTP)`, so changing `DEMO_OTP` requires
-> re-encrypting `.env.preview` **and** re-running `seed-demo` against every
-> project that holds a demo account, or login breaks. Preview branches
-> deliberately reuse production's `DEMO_OTP` so App Store review and preview
-> behave identically; the tradeoff is that the production demo credential lives
-> encrypted in git, decryptable by anything holding the preview private key.
->
-> Since `reset-demo.yml` reseeds production daily from this same file,
-> `.env.preview` is now the effective source of truth for the production demo
-> password. Setting a new `DEMO_OTP` function secret on production **without**
-> re-encrypting `.env.preview` therefore breaks review login and keeps
-> re-breaking it every morning — the workflow stays green while it does. Always
-> rotate both together.
-
-See the
-[Supabase branching docs](https://supabase.com/docs/guides/deployment/branching/configuration#using-dotenvx-for-git-based-workflow)
-for details.
+- **Export `DEMO_OTP` before a local `supabase start`** — an unresolved
+  `env(...)` reference is not an error, so the local runtime can receive the
+  literal string `env(DEMO_OTP)` as the secret.
+- **`.env.keys` must sit next to `.env.preview`** — dotenvx reads the key from
+  the `-f` file's directory but writes it to the *current* directory, so
+  running `set` from the repo root drops `./.env.keys` in the wrong place and
+  the next decrypt fails; move it to `supabase/.env.keys` (gitignored at any
+  depth, but only the `supabase/` copy works).
+- **`DEMO_OTP` and the seeded password rotate together** — the demo password
+  is `deriveDemoPassword(DEMO_OTP)`, and `reset-demo.yml` reseeds production
+  daily from `.env.preview`, making that file the effective source of truth
+  for the production demo password. Setting a new `DEMO_OTP` function secret
+  without re-encrypting `.env.preview` breaks review login and re-breaks it
+  every morning while the workflow stays green.
