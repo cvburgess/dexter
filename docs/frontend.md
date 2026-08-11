@@ -1,452 +1,793 @@
 # App (`/src`)
 
-The Dexter app is built with [Expo](https://docs.expo.dev/) (React Native) and [Expo Router](https://docs.expo.dev/router/introduction/) for file-based navigation. Targets **iOS**, **Android**, and **web**.
-
-## Layout
-
-- `app/` — Expo Router routes
-- `components/` — Shared UI (add as the app grows)
-- `hooks/` — Custom hooks (optional)
-- `utils/` — Helpers (optional)
-- `types/` — TypeScript types (optional)
-
-Place tests in `__tests__/` next to source files. **Do not** put `*.test.ts(x)` under `app/` (phantom routes).
-
-## Navigation
-
-The route tree is grouped so authenticated screens sit behind an auth boundary:
-
-```
-app/
-  _layout.tsx              # Providers (QueryProvider + AuthProvider) + a headerless root Stack
-  index.tsx                # Branches on useAuth(): login when signed out, /(app)/(tabs)/today when signed in
-  auth-callback.tsx        # Landing route for magic-link / OAuth redirects (required on web)
-  +native-intent.tsx       # Pre-routing hook for OS deep links; swallows the share extension's `dexter://dataUrl=…` (DEX-66)
-  (auth)/
-    _layout.tsx            # Redirects signed-in users into the app
-    login.tsx              # Single login/signup screen: magic-link email + "Continue with Google"
-  (app)/
-    _layout.tsx            # Stack for the authenticated group; redirects signed-out users to login
-    new-task.tsx           # Create-task modal (formSheet presentation). Route params: `scheduledFor`, `url` (DEX-66)
-    (tabs)/
-      _layout.tsx          # Native tabs (expo-router/unstable-native-tabs) on **phones**; tablets branch to the shared AppShell
-      _layout.web.tsx      # Web override: the same AppShell, choosing rail vs dock by viewport width
-      today/               # "Today" tab — sun icon. Small screens: a `DayViewSwitcher` toggles the day's content between Tasks (the task list, preceded by a tappable habit tracker `components/HabitTracker` → `HabitRing`, gated on `enableHabits`), Notes (`components/NotesView`), and Calendar (`components/CalendarView`, a scrollable timeline of the day's calendar events, gated on `enableCalendar`). The journal is **not** here — it moved to the Ritual tab (DEX-105). Large screens (`useIsLargeDevice`, ≥768dp): a multi-column layout instead — Tasks always visible, Notes/Calendar toggleable as columns (DEX-40)
-      ritual/              # "Ritual" tab — moon icon (DEX-127, part of DEX-34). A guided walk through the start or end of a day, one step at a time. The morning ritual is Horoscope → Journal → Calendar → Backlog → Tasks → Congrats; the evening one is Open tasks → Review → Journal → Preview tomorrow → Congrats. Steps are filled in one at a time by DEX-34 sub-issues, branching on `step.id` in `components/RitualStepView`; **Horoscope** (DEX-128), **Journal** (DEX-105), **Calendar** (DEX-140) and **Backlog** (DEX-141) are built; every other id falls through to a centered placeholder of its own name. The step list is not a constant — `stepsFor(state)` drops the Journal step when `enableJournal` is off, the Calendar step when `enableCalendar` is off, and the Horoscope step when `enableHoroscope` is off (DEX-142), which is why `TRitualState` carries a `journalEnabled`, a `calendarEnabled` and a `horoscopeEnabled` boolean (see the Ritual state note below). The horoscope is the only one of the three that can change which step a ritual *opens* on, since it is the morning list's first. Small screens: `components/SmallScreenRitual` — the AM/PM switch and the step switcher flanking `DayNav`, with a swipe that pages *steps* rather than days. Large screens: `components/LargeScreenRitual` — the same flow with the steps as a segmented control in the toolbar. Both suspend the swipe while a step reports it is being edited, and both take the ritual's day and hand it to the step
-      week/                # "Week" tab — calendar icon, **large screens only** (DEX-96). Seven Monday-first day columns at once, each a `components/WeekDayColumn` (day chip, the day's habits, and its tasks via the shared `components/DayTaskList`), with `components/WeekNav` paging a whole week at a time and an optional docked backlog. Ported from the legacy dexter-app's Week view, including its drag-to-reschedule (DEX-77)
-      settings/            # "Settings" tab — gear icon; grouped list of subview rows (Account, Appearance, Tasks, Lists, Calendars, Habits, Ritual, Notes, Licenses). Log out lives in the Account subview; Appearance is the theme picker; Habits toggles habit tracking and inline-edits habits (`components/HabitRow`); Tasks (its own nested stack: `tasks/index` + `tasks/[id]`, whose header the parent settings stack owns — see the modal-stack section) lists Repeat tasks and Task templates in two sections (one `repeat_task_templates` table, split on whether the row has a `schedule` — see `isTaskTemplate`) and `tasks/[id]` edits either — or, at `id: "new"`, an unsaved draft seeded from the task in `fromTask`. Its **Repeats** picker offers frequency presets that build the cron string plus a **Never** option that clears the schedule, turning a repeat into a task template and back (DEX-65). Both directions work because a schedule is never left without an open task to fire from — see the one-open-task invariant below. Only a task that doesn't already come from a template is offered as `linkTaskId`: a task carries one `template_id`, and re-pointing it would rewrite where it came from and could strand a repeat with nothing to fire from — so `createTemplate` falls back to seeding the new row its own occurrence when it wrote a schedule and had no task to link; Lists (`lists/index` + `lists/[id]`) manages task lists — a `components/ListRow` per list (emoji, title, open-task count) with a header "+" to create and a modal to edit title/emoji or archive (archiving cancels the list's open tasks via the DB trigger); Notes toggles notes on/off and edits the daily-note template; Ritual holds the settings for the Ritual tab's flow — a Horoscope on/off toggle (DEX-142) above the **sun sign** its Horoscope step reads (a `PickerField` over the twelve, with a "Not set" option that writes `null`), then a Journal on/off toggle above its daily prompt template (add/edit-on-blur/delete prompts). Each step's sub-settings hide with its toggle: a sun sign feeds nothing but the Horoscope step, so leaving the picker up with the step off would offer a choice that changes nothing. Turning a step off never clears its sub-settings, so turning it back on restores the step rather than re-asking. It was called "Journal" until DEX-128, and was renamed rather than joined by a second section because all of these settings belong to the same guided walk; Licenses lists the app's open-source dependencies (generated by `npm run licenses` into utils/licenses.json); Calendars toggles the calendar on/off, sets the daily timeline's start/end hours (`components/TimeField.*`), and manages calendar sources via the platform-split `components/CalendarSourceList.*` (web: add/edit-on-blur/delete `.ics` feed URLs in `preferences.calendarUrls`; native: toggle which device calendars appear, saved to the device via `hooks/useEnabledDeviceCalendars`)
-      search/              # "Search" tab — one query across task titles (and subtask titles), note content, and journal responses, grouped by kind (DEX-47). Tapping a result deep-links into the Today tab via `?date=&mode=&q=`, or — for a journal entry — into the Ritual tab via `?date=&step=` (see below)
-```
-
-**Navigation is chosen by form factor, not by width (DEX-104).** Three surfaces, two implementations:
-
-| Surface | Navigator | Chrome |
-| --- | --- | --- |
-| Phone (iOS + Android) | `NativeTabs` | Native platform tab bar |
-| Tablet (iPad + Android tablet) | JS `Tabs`, bar hidden | Nav rail, at **every** window width |
-| Web | JS `Tabs`, bar hidden | Rail at ≥`RAIL_MIN_WIDTH`, bottom dock below |
-
-`utils/deviceType.ts` makes the call: `IS_TABLET` is `Platform.isPad` on iOS and Android's own `sw600dp` bucket (`Math.min` of `Dimensions.get("screen")`) elsewhere. It reads `screen` rather than `window` — an iPad in a narrow Split View slice is still an iPad — and it is a module-scope **constant**, not a hook, deliberately: it selects a navigator, and anything that could flip at runtime would swap the navigator under a running app and reset every tab's state. Web is `false` by construction, which is what keeps it on its own width-based split. It is not `expo-device`: that isn't a dependency, its Android path is this same screen-size bucket, and a native module would force a dev-client rebuild for three lines of arithmetic.
-
-**Phones** use `NativeTabs`, so they render with the platform tab bar. Icons are set per platform on `NativeTabs.Trigger.Icon` via `sf` (iOS SF Symbol) and `md` (Android Material). Elsewhere in the app, icons come from `expo-symbols` (`SymbolView`) or `@react-native-vector-icons/ionicons`. Native tabs require a dev client / native build (they do **not** appear in Expo Go).
-
-**Web and tablets** share `components/AppShell.tsx`: the classic JS `Tabs` navigator with its bar hidden via `tabBarStyle: { display: "none" }`, wrapped in its own nav chrome. They arrive there for different reasons — web *can't* use `NativeTabs` (it renders a Radix tab bar with no supported way to hide it, DEX-74), while a tablet *shouldn't* (iPadOS's adaptive sidebar, which DEX-61 enabled via `sidebarAdaptable`, reads worse than the rail; that prop is now gone, since nothing reaches it). The shell owns the navigator **and** the four `Tabs.Screen` registrations, not just the chrome — that's why it's shared, so the rule that every route stays registered regardless of which nav items are visible is one declaration rather than two that drift.
-
-The chrome is `components/AppNav.tsx`, a port of the legacy dexter-app's `Nav`: a 76pt left icon rail and a labelled bottom dock. **Only web ever swaps between them.** `hooks/useShowNavRail.ts` (`RAIL_MIN_WIDTH` = `LARGE_DEVICE_MIN_WIDTH` + the rail's width) is a web-only decision: a tablet pins the rail at every width so its navigation never moves, and a phone never renders either. That threshold exists because the rail takes its width out of the tab *content* while Today and Settings decide on multi-pane from the _window_ width, so on web a shared threshold would let those layouts engage inside a region narrower than they were built for. **Tablets accept exactly that trade:** between 768 and 844dp of window (an 11" iPad or Air in portrait, 820dp) the large-screen layouts run against 744dp of real content. If it reads badly on device, subtract the rail's width inside `useIsLargeDevice` rather than at its ~15 call sites.
-
-Destinations are `Link`s, not press handlers, so they render real `<a href>` anchors on web — cmd/middle-click opens a tab, and "copy link address" works; `Link` navigates with `NAVIGATE` semantics, which is what tabs want. Both variants list the same destinations from a shared `NAV_ITEMS` array and are **flex siblings** of the tab content, not overlays, so no screen has to reserve space for them; the layout owns the breakpoint and the components just render, the same split as `settings/_layout.tsx` and `SettingsSidebar`. The rail additionally absorbs the **top, bottom and left** safe-area insets — on a tablet it owns the physical left edge with no stack header above it, so it clears the status bar, the home indicator and a landscape cutout itself (its width *grows* by the left inset rather than padding into the fixed 76dp). All three are 0 on web, so the rail is unchanged there.
-
-**Ritual is the counter-example, and the contrast is the point.** It is declared in all four places — its route folder, `NAV_ITEMS`, `AppShell`'s `Tabs.Screen`, and a phone `NativeTabs.Trigger` — with no `largeScreenOnly` flag, because it is a phone-first flow rather than one that needs room. One route serves every width — the layouts differ, the destination does not — so there is nothing to gate on and no width at which it should disappear. If a new destination is neither of these shapes, say which one it is and why in its own comment — nothing enforces the four declarations automatically.
-
-**One destination is conditional, and the asymmetry is deliberate.** Week is large-screens-only (DEX-96). On a **phone** it simply doesn't exist: `_layout.tsx` declares no `week` trigger at all, unconditionally, because a phone is the only thing that reaches that branch. `NativeTabs` is built with expo-router's `useOnlyUserDefinedScreens`, so a route whose trigger isn't rendered is not registered with the navigator either — `/week` therefore doesn't resolve on a phone, and nothing links to it there.
-
-Everywhere else the route **is** registered unconditionally (`AppShell`'s `<Tabs.Screen name="week" />`), because a `/week` URL typed, bookmarked, or deep-linked below the breakpoint has to resolve to something — and `week/index.tsx` renders an explanation rather than the grid. Whether the *nav item* is offered is a separate, width-based question: its `NAV_ITEMS` entry carries a `largeScreenOnly` flag that `useAppNav` filters on for both variants, declared on the item rather than per render site (the same reasoning as `pinnedToBottom`) so the two can't disagree about which destinations exist. Keeping that a width predicate is deliberate — an iPad mini in portrait is 744dp and genuinely can't render seven columns, so `IS_TABLET` has no business overriding it.
-
-**The coupling this used to have is gone, and that's the point of DEX-104.** Week's native trigger was previously gated on `useIsLargeDevice()`, which meant a window-width value decided the trigger set — and expo-router warns on `NativeTabTriggerProps.hidden` that "dynamically hiding tabs will remount the navigator and the state will be reset", with changing the set of rendered triggers being no gentler. That was survivable only under an argument about `app.json`'s `"orientation": "portrait"` pinning the width, which was **never true of iPad** (Expo's `orientation` only restricts iPhone; the prebuilt `Info.plist` gives iPad all four via `UISupportedInterfaceOrientations~ipad`). Now no window-dependent value touches a trigger anywhere, so crossing the breakpoint on a tablet adds or removes one `Pressable` in the rail — not a navigator remount. A foldable phone is no longer a problem waiting to happen; `hooks/useIsLargeDevice.ts` carries the remaining caveat, which is about content width, not remounts. Icons come from `components/SettingsIcon.tsx` (Ionicons — identical on native and web, unlike SF Symbols). The active destination is matched by prefix off `usePathname()` so Settings stays lit inside its nested routes, is marked with `aria-current="page"` (the signal assistive tech actually reads on a link — `accessibilityState.selected` maps to `aria-selected`, which is ignored outside tab/option/row roles), and is drawn the legacy way — filled with the inverted ink color (`withOpacity(colors.text, 0.8)`) on the rail, tinted `primary` on the dock — deliberately leaving `primary` to the create-task button alone. The phone tab bar is tinted with the theme's primary color, and a `NativeTabs.BottomAccessory` (iOS 26+ only) hosts the "+ New Task" button (`components/NewTaskButton.tsx`) that opens the create-task modal; on web and tablets the rail/dock's primary-filled "+" (below the gear) is the equivalent entry point, opening the same modal through the shared `utils/newTaskRoute.ts` helper. Android **phones** still have no create entry point — the accessory is iOS-only — but Android *tablets* now get one via the rail (DEX-104).
-
-Modal screens get their options from `utils/stackOptions.ts` (`createModalScreenOptions` — form-sheet presentation with a native header; the `.web.ts` variant hides the header and screens render `components/WebModalHeader` instead). On web those form sheets render through Expo Router's experimental modal stack, enabled by `EXPO_UNSTABLE_WEB_MODAL=1`. That flag is read by Expo CLI at Metro-resolver time, so it has to live in the process environment rather than `app.json` — `package.json` prefixes it onto the `start`, `web`, and `export:web` scripts, which covers local dev and the CI web deploy (`.github/workflows/deploy.yml` runs `npm run export:web`) without committing a `.env`.
-
-**It is bundle-wide, not per-screen.** The resolver swaps `expo-router`'s `Stack.web` from `BaseStack` to `ExperimentalModalStack` for the whole web bundle, so _every_ `Stack` in the app gets it, and every screen `expo-router` counts as a modal presentation — which includes `formSheet` — renders as a centered dialog (`expo-router/assets/modal.module.css`) dismissible by a backdrop click. In practice that's `new-task` and `edit-task/[id]` plus the three settings screens that use `createModalScreenOptions`: `settings/tasks/[id]`, `settings/lists/[id]`, and `settings/habits/[id]`. Those overlay the nav rail and the settings sidebar rather than rendering in the detail pane. Worth re-checking whenever the flag is flipped or a new `formSheet` screen is added on web.
-
-**Every modal screen's contents must sit in one flex column — `components/ModalScreen.*`.** The stack drops the screen straight into its `.modalBody`, which is `display: flex; flex: 1` with _no_ `flex-direction`, so it falls back to the CSS default of `row`. A screen that returns a fragment hands the modal two row siblings: `WebModalHeader` (`width: "100%"`) takes the full width with its buttons centered down the middle, and the body is squeezed to nothing — the modal renders empty apart from a stray ✕ and ✓. `ModalScreen` is the platform split that fixes it: a `flex: 1` `View` on web, and a plain passthrough on native, where adding a wrapper would stop iOS's `contentInsetAdjustmentBehavior`/`automaticallyAdjustKeyboardInsets` from insetting the scroll view under the floating form-sheet header. Wrap new modal screens in it; the `flexGrow: 1` that react-native-web's `ScrollView` already carries does the rest.
-
-Modal headers put Cancel (✕) on the left and Save (✓, tinted with the primary color) on the right, wired via `navigation.setOptions` with `unstable_headerLeftItems`/`unstable_headerRightItems` (native iOS bar items) plus `headerLeft`/`headerRight` fallbacks from `components/ModalHeaderButtons.tsx`. Both of those live in the *form*, which the four `[id]` modals only render once their row resolves — so a gate that returns a bare `<LoadingScreen />` leaves the modal with no ✕ at all, recoverable only by a backdrop click nobody knows about. **Render `components/ModalLoadingScreen.tsx` from an async modal gate, never a bare `LoadingScreen`** (DEX-101). Its docstring carries the why, including the part worth knowing before you go looking for a navigator-level fix: on web there is no header slot to configure — expo-router's modal stack renders the screen straight into its drawer, so `headerShown: false` documents that rather than causing it, and the in-tree `WebModalHeader` is the only header a web modal can have. It is one of three siblings a modal gate picks between, all built on `useDismissModal` and all carrying the same chrome: `ModalLoadingScreen` while the query resolves, `ModalErrorScreen` when it failed, and `DismissModal` once the record is known to be gone (DEX-100). Because every one of them needs the same destination, each `[id]` modal pins a single `HOME` constant that its gate, its error screen, its dismissal, and its form all share — they have to agree, or a stale link and a ✕ land in different places. `new-task.tsx` is the one modal form still on a bare `router.back()`. DEX-101 scoped it out because it has no async gate — but that governs only the *loading-state* header, and the close guard is a separate defect it does have: `app/(app)/_layout.tsx` declares no `unstable_settings` anchor (unlike the two settings layouts), so a cold load of `/new-task` leaves that screen alone in the stack, where ✕ is a dead unhandled `GO_BACK` and ✓ creates the task and leaves the modal open over it — with `hasSaved` then blocking the retry. `useDismissModal("/")` is the fix; it is not done.
-
-**Every web overlay goes through `components/WebOverlay.web.tsx` — no exceptions, and never React Native's `Modal`.** The cause is **inherited `pointer-events`**, not `inert` or `aria-hidden`. While a Radix dismissable layer is open, `@radix-ui/react-dismissable-layer` sets `pointer-events: none` on `document.body` and re-enables `auto` on its own layer only; `pointer-events` is inherited, so anything outside that layer paints on top (its z-index still wins) and silently swallows every click — visible, unreachable, no error, no fallback. **The trigger is any open dialog _or_ drawer**, which is broader than it first looked: the modal stack renders each screen through **`vaul`** (`ModalStackRouteDrawer`), and `components/TaskDrawerSheet.tsx` is a vaul drawer on small screens, so a prompt owned by the *page* tree — `TaskCard`, `DayTaskList`, `DragScheduleProvider` — is outside the layer too whenever the Backlog drawer is up. Rendering **in-tree** dodges it only for an overlay whose owner happens to be inside the open layer, which is why fixing this one component at a time kept producing a new instance of it (DEX-134).
-
-`WebOverlay` portals its children into `document.body` and declares `pointerEvents: "auto"` on the portal root — the same move Radix makes for its own layers and expo-router makes for its `.modal` div. It portals rather than rendering in-tree because `position: fixed` resolves against `.modal`'s `will-change: transform` containing block, which throws off any popover anchored to a `getBoundingClientRect()` reading; the body root keeps viewport coordinates honest and the `pointerEvents` declaration buys back the interactivity. Its root also **stops `pointerdown` propagation — and only `pointerdown`**: Radix reads a pointer event outside its layer as an outside click, and a body portal is outside by construction, so re-enabling those events would otherwise let a click inside a date popover dismiss the modal screen behind it. Do not extend that to `mousedown` or `touchstart`, however tempting the symmetry: react-native-web's responder system binds both on the *document* in the bubble phase (`ResponderSystem.js`, `attachListeners`), so stopping either makes every `Pressable` and `TouchableOpacity` inside an overlay dead to the touch — the same symptom, reached by a different route, and invisible to a react-test-renderer suite. The root covers the viewport and takes pointer events, so render it only while the overlay is open and give it a dismiss layer (a full-bleed catcher or a backdrop). `DateField.web`, `ConfirmationModal.web`, and `IconMenu.web` all route through it; add the next overlay the same way. There is no web e2e harness, so the jsdom tests can prove an overlay renders and fires its handlers but not that a click lands under a real dialog — verify that part in a browser. (`components/PickerSheet.tsx` was another RN `Modal` user, behind `SetDateModal`/`SetAlarmModal`; all three went with DEX-98 when the menu stopped opening sheets. `rn-emoji-keyboard`'s internal `ModalWithBackdrop` still has the defect in the list and habit editors — third-party, unfixed.)
-
-**Create _in_ the modal, not before opening it — route to `id: "new"` and let ✓ do the write.** An action that opens an editor is not the same as an action that saves, and a menu item that writes a row and then pushes the editor for it conflates the two. Two things go wrong. First, ✕ has nothing to cancel: the row already exists, so backing out leaves an orphan. Second, pushing from the mutation's `onSuccess` makes navigation asynchronous, so doing the action twice in quick succession lets the _first_ mutation's late callback push its editor over the second's — a phantom modal for the wrong record. The convention across `settings/lists/[id]`, `settings/habits/[id]`, and `settings/tasks/[id]` is instead to navigate **synchronously** to the editor at `id: "new"` (plus whatever params seed it, e.g. `fromTask`), have the screen build an unsaved draft, and branch in its save handler — `create…` when there is no existing row, `update…` when there is. The editor hides its delete action for a draft, since there is nothing to delete yet. Anything the write needs to decide, decide from the _saved_ values rather than from which entry point opened the draft: `createTemplate` seeds a first occurrence only when the row it just wrote carries a schedule _and_ no task was linked to it, so Repeat and Save as template share one path and differ only in the cadence their draft opens on.
-
-**A modal screen can be opened with nothing beneath it, so `router.back()` is not a safe close.** These screens are routes, not overlays, and several are pushed from outside their own stack — every one of `MoreMenu`'s template items (Repeat / Save as template on an unlinked task, Edit repeat schedule / Edit template on a linked one) opens `settings/tasks/[id]` straight from a task card. With that screen flat in the settings stack, entering it that way left the stack holding only the modal: on web it floated over an empty black pane with nothing selected in the sidebar, and `back()` was an unhandled `GO_BACK` (a dev-only warning) that left both header buttons looking dead. The fix is structural — `settings/tasks/` is **its own stack anchored on its `index`** (`unstable_settings = { anchor: "index" }`), so the list is mounted beneath the editor however it is reached, and callers entering from outside push with `{ withAnchor: true }` so the anchor comes along the first time navigation enters that navigator. Pushing the list first at the call site is _not_ enough: on a cold navigation both pushes coalesce before the navigator exists, which only appears to work once the route has already been visited. Closing then **pops**, and save/delete route through the same handler. Reach for `back()` over `router.dismissTo(href)` here: `dismissTo` _replaces_ the current screen when it can't find its target, which throws away the history under it — on native that left Tasks as the root of the settings tab with its own back button gone. Once the anchor guarantees something to pop, popping is both simpler and non-destructive.
-
-**A nested stack's root screen gets no back button, so the parent has to own its header.** The anchor above puts `settings/index` under `tasks` and `tasks/index` under `tasks/[id]`, but that history was still unreachable on native: `settings/_layout.tsx` declared `tasks` with `headerShown: false` and let the nested stack draw the Tasks list's header, and `tasks/index` is that stack's _root_. The native back item is drawn by the platform from its own controller's stack — expo-router's `useHeaderConfigProps` never sends a "show back button" flag, and the parent-aware `canGoBack` it computes (`NativeStackView.native.js`, `previousDescriptor != null || parentHeaderBack != null`) only reaches custom `headerLeft`/`unstable_headerLeftItems` render functions. So the Tasks list had no back button and no swipe-back, with the tab bar as its only way out (DEX-93). `settings/_layout.tsx` therefore keeps the `createListScreenOptions(theme, "Tasks")` header for the whole nested stack and `tasks/_layout.tsx` sets `headerShown: false` on its `index`. Web never showed this because its JS stack header _does_ read the parent-aware value, and the sidebar is the affordance there anyway. Anything that nests a stack under a settings route inherits the same rule.
-
-**One close for every modal editor — `hooks/useDismissModal.ts`.** `useDismissModal(fallback)` returns the handler `useModalHeaderActions`' ✕/✓ and every mutation `onSuccess` share, so a screen can't pop one way from Save and another from Archive; each screen names its own `HOME` so a stale link and a ✕ land in the same place. Its guard is **`router.canDismiss()`, not `router.canGoBack()`**: `canGoBack` is global, so it is also true when the only "back" available is the tab navigator jumping to another tab, and the fallback would never fire — ✕ would land the user on a different tab (DEX-93). `canDismiss` walks the active chain for a _stack_ with something to pop, which is what `back()` will actually do. All five modal editors use it — the three settings editors plus `new-task` and `edit-task/[id]`, which fall back to `/`. `settings/lists/[id]` and `settings/habits/[id]` stay **flat** in the settings stack on purpose: `ListRow`/`HabitRow` render only inside their own list screens, so unlike `tasks/[id]` those editors are never pushed from outside, and giving them nested stacks would import the header problem above for no reachable case.
-
-**A modal that resolves a record must branch three ways, not two — loading, errored, absent (DEX-100).** `isLoading ? <LoadingScreen /> : <Redirect href="/" />` reads "the query failed" as "the record was deleted", because neither hook's loading flag survives an error: `useTasks`' is `isPlaceholderData`, and react-query only serves `placeholderData` while the query is *pending*, so on failure `tasks` falls back to `[]` and the flag is `false`; `useTemplates`' `isPending` behaves the same. An offline deep link therefore looked exactly like a stale one. Both hooks now expose **`isError`** and a void-returning **`refetch`** on their tuple's second element — `isError` following `useCalendarEvents`, which set that precedent for `CalendarView`'s error copy; `refetch` is new, and swallows the promise so a call site can hand it straight to an `onPress`. The resolving screens branch: record → form, `isLoading` → `LoadingScreen`, `isError` → `components/ModalErrorScreen` (the modal header's ✕ plus an `EmptyScreen` message and a "Try again" button, with `loadFailedMessage(records)` supplying the one shared sentence), otherwise → `components/DismissModal`. **Check the record first**, ahead of `isError`: a background refetch can fail long after the first load resolved, and the form the user is typing into has to survive that. `DismissModal` is what replaced `<Redirect>` for the absent case — it pops instead of navigating the whole app, so whatever the modal was opened over is still there. Its pop is one-shot (a `useRef` guard, so a re-render can't pop twice) **and runs from `useFocusEffect`, not `useEffect`**: `router.back()` acts on whichever navigator is focused, and a modal screen stays mounted while its tab is in the background — so a mount effect would let a refetch that drops the record (a template deleted on another device, landing on the next focus refetch) pop the screen the user is actually looking at somewhere else. Waiting for focus also keeps a close already in flight from being doubled, since a delete's `handleClose` pops before its invalidation's refetch resolves. **The rule is not yet universal:** of the four record-resolving modals, only `edit-task/[id]` and `settings/tasks/[id]` were converted. `settings/lists/[id]` and `settings/habits/[id]` still read `isLoading ? <LoadingScreen /> : <Redirect … />` and still carry the bug — `useLists`' `isPending` and `useHabits`' `isLoading` fail the same way — so converting them needs `isError`/`refetch` on those two hooks first.
-
-**One form, two modals.** `components/TaskForm.tsx` renders every field a task carries — title, priority, list, schedule, deadline, alarm (iOS only), link, checklist — and is shared verbatim by the create modal (`app/(app)/new-task.tsx`) and the edit modal (`app/(app)/edit-task/[id].tsx`); `hooks/useTaskForm.ts` holds the state behind it and takes an optional seed `task` that switches it out of create mode (DEX-98). The two screens differ only in what wraps the form and what ✓ writes: create adds the New/Template/AI segmented control and calls `createTask`, edit resolves its task from `useTasks()` (the three-way guard above: `LoadingScreen` while fetching, a retry when the query failed, a dismissal once the task is known to be gone) and calls `updateTask` with the whole field set. `goalId` and `status` are deliberately absent from that payload — the form doesn't own them, so a save can't clobber them. Create autofocuses the title; edit doesn't, since the form opens already filled and the keyboard would only cover the fields below. **Shorthand tokens are create-only:** a saved title may legitimately contain a `!` or a `#`, so edit mode seeds each control from the task's own column and never runs the parser — see below.
-
-The create-task modal pairs that form with a priority icon row (`components/PriorityControl.tsx`, `expo-symbols` icons tinted with the theme's priority colors), a menu-appearance list picker (`@expo/ui` universal `Picker` inside a `Host`), and `DateField` date chips (`components/DateField.*` — the SwiftUI compact date picker hosted with `matchContents` on iOS so it sizes to its chip, the community `DateTimePicker` on Android, and — since the community picker renders nothing on web — a themed [`react-day-picker`](https://daypicker.dev) calendar popover on web (`DateField.web.tsx`, following the legacy dexter-app's `ButtonWithPopover`: a `"Weekday, Mon D"` trigger button opens a calendar themed from `useTheme`); all three share the `Date`-based `TDateFieldProps` contract). Shorthand tokens typed into the title (`!` priority, `#list-slug`, `due:N` — parsed by `utils/parseTaskShorthand.ts`) drive the controls live; a manually changed control wins over tokens, and tokens are stripped from the title on save. The schedule date defaults to the day the user is viewing on the Today tab rather than always today: `hooks/useViewedDay.tsx` holds it in a module-scoped store (not React context — `NewTaskButton` renders inside the `NativeTabs.BottomAccessory`, which react-native-screens hosts outside the app's provider tree, so a context value wouldn't reach it). The Today screen publishes its day via `usePublishViewedDay` on focus and clears it on blur; because opening the modal blurs the tab, the day has to be read at press time, not render time. `utils/newTaskRoute.ts`'s `newTaskRoute()` owns that contract — it reads `getViewedDay()` and returns the modal route with the day as the `scheduledFor` param, falling back to a bare `/new-task` (and so to today) when no day is on screen (e.g. opened from Settings/Search). Every create-task entry point calls it: `NewTaskButton` and `AppNav`'s rail/dock "+".
-
-Each tab is its own folder with a nested `_layout.tsx` Stack (headers/titles, room for pushed detail screens) and an `index.tsx` screen.
-
-The Today tab (`app/(app)/(tabs)/today/index.tsx`) pairs `components/DayNav.tsx` (prev/today/next arrows) with day state (`{date, direction}`) that both the small- and large-screen layouts share; the route is a thin selector that renders `components/SmallScreenToday.tsx` or `components/LargeScreenToday.tsx` (`useIsLargeDevice`), each owning its own view/pane state while the route keeps only the genuinely shared state — day, `preferences`, and the `backlogAttentionFilter` signal (DEX-55). `DayNav` renders the shared `components/PeriodNav.tsx` — the prev/center/next row it has in common with the Week tab's `WeekNav`, which owns the arrow hit area, the 24pt chevrons, and the center slot's fixed width so the two tabs' header rows sit on the same baseline and the arrows don't shift as the label's text width changes (DEX-97). `DayNav`'s center control is dual-purpose: when viewing a day other than today it's a tap-to-reset-to-today shortcut (a `PeriodNavLabel`), but when already on today it renders a `DateField` calendar picker so any date is one tap away (converting `Date` ↔ `Temporal.PlainDate` at the boundary; its `accessibilityLabel` flips between `"Go to today"` and `"Open date picker"`). Jumping to a far-off date still animates in the correct direction because `today/index.tsx` derives `direction` from `Temporal.PlainDate.compare`. Paging between days needs no extra fetch: `hooks/useTasks.tsx`'s `useTasks()` fetches the account's tasks once under a single canonical `["tasks"]` query (every incomplete task, plus anything scheduled within the last 30 days — see below), and every view derives its own slice from that one cached array client-side (`utils/taskFilters.ts`), so switching days is instant (DEX-57). The 30-day window is a known limitation, not a bug: paging to a day older than that shows its incomplete tasks (never excluded) but not its closed-out ones (done, won't do, delegated) — widen `RECENT_TASK_WINDOW_DAYS` in `useTasks.tsx` if that's ever too narrow.
-
-**Safe areas** follow one convention across every scrolling screen in the tabs, and it is worth understanding before adding another. Screens wrap their content in a `SafeAreaView` that **omits the `bottom` edge** — `SmallScreenToday`/`LargeScreenToday` use `edges={["top", "left", "right"]}`, and the Settings screens take `EDGES_SINGLE_PANE`/`EDGES_TWO_PANE` from `utils/settingsSafeAreaEdges.ts` (`["left", "right"]` / `["right"]`, the left inset dropped in two-pane mode because `SettingsSidebar` absorbs it). Content therefore renders _behind_ the translucent native tab bar, which is what `minimizeBehavior="onScrollDown"` (`(tabs)/_layout.tsx`) needs in order to have something to reveal as the bar collapses, and what lets the large-screen pane borders run to the screen edge.
-
-The cost of that is a standing obligation: each surface must reserve `insets.bottom` (`useSafeAreaInsets`) in its **own scrollable content**, or its last row can never be scrolled clear of the bar. `TasksView` and `TaskDrawer` add it to their list `contentContainerStyle`; every Settings screen adds `theme.spacing + insets.bottom` to its `ScrollView`/`FlatList` content padding; `CalendarView` adds it to its timeline's, and `EmptyScreen` to its centered box. Put the inset on the scroll **content**, never on the scroller's frame or a wrapper's padding — padding the frame ends the viewport above the bar, which cuts content off at it instead of letting it pass under. Settings originally did the opposite — claiming `"bottom"` and stopping above the bar — which suited short lists but read as a cut-off on long ones (DEX-75, then DEX-91).
-
-**Keyboard avoidance is a separate mechanism, and the two compose.** A screen with text fields in a scroller sets `automaticallyAdjustKeyboardInsets` on the `ScrollView` (`new-task.tsx`, `settings/tasks/[id].tsx`, and `JournalView`): on iOS that insets the content by the keyboard's height so a focused field is scrolled clear of it, Android resizes the window instead (Expo's default `softwareKeyboardLayoutMode`), and web has no overlay keyboard. It layers cleanly on the safe-area rule above — closed keyboard means a zero keyboard inset and the content padding handles the tab bar; open keyboard adds the keyboard inset on top. **Do not** pair it with a reanimated wrapper that pads the scroller's frame by `keyboard.height`: both subtract the keyboard, and frame-padding never moves content, so a focused field stays covered. That was the DEX-92 bug in the journal. `NoteEditor.native.tsx` is the one place that still shrinks a frame to the keyboard — it has no `ScrollView`, just a rich-text input that scrolls its own caret within its own frame.
-
-**One screen doesn't frame itself with `react-native-safe-area-context`'s `SafeAreaView`.** `search/index.tsx` uses the one from **`react-native-screens/experimental`** instead (DEX-107) — it still reads `useSafeAreaInsets` from the context for the bottom half, so only the frame changed. `Stack.SearchBar` sets `headerSearchBarOptions`, which makes expo-router force the header _translucent_ on iOS; react-native-screens answers that by setting `edgesForExtendedLayout = UIRectEdgeAll` and zeroing the screen's content offset — it lays the body out underneath the navigation bar on purpose and leaves the inset to the scroll view. Its one automatic compensation, flipping the first scroll view's `contentInsetAdjustmentBehavior` back to `automatic`, walks a strict first-child chain **once, at mount**, and at mount that screen renders its idle `EmptyScreen` rather than the `FlashList` — so nothing compensates. `useSafeAreaInsets` can't cover for it either: on the phone path expo-router mounts a `SafeAreaProvider` per native tab screen, _above_ each tab's Stack, so its top inset is the status bar and nothing more. (On a tablet there is no per-tab provider at all now — the JS `Tabs` shell resolves insets from the root one — which changes where the number comes from but not the conclusion, since the fix reads its insets from `RNSScreenView` rather than from context.) That went unnoticed on iPhone, where UIKit hides the bar while the field is focused; on iPad `placement="automatic"` resolves to `integrated` — the field sits in a bar that stays visible — and ~63pt of header sat over the results. The screens `SafeAreaView` resolves its insets from `RNSScreenView`, the stack screen's own view, whose safe area already includes that bar, and re-dispatches as UIKit hides and shows it. Its `edges` is a partial record (`{top: true, …}`), not an array, and on web it degrades to a plain `View` — inert there today, since web insets need `viewport-fit=cover` (see `AppNav.tsx`). The bottom half is unchanged: the list still reserves `insets.bottom` from the context in its own content, per the rule above. Any future screen that puts a search bar or a large title in its header inherits this and needs the same frame. This is the repo's only use of `react-native-screens/experimental`, and that entry point warns that its symbols "might be subject to breaking changes without notice or library major version change" — so **re-check the Search tab on an iPad after any `react-native-screens` bump**, patch releases included.
-
-Two further deliberate exceptions. `settings/account.tsx` still claims the bottom edge: it has no scroll container at all, just a profile block and two buttons, so there is nothing to scroll out from under the bar. And `TaskDrawerSheet` has to _correct_ the ambient inset rather than consume it — it's presented **over** the tab bar, so the `bottom` it inherits from the Today screen's React tree has a bar's height baked in that no longer sits below its content. It wraps its content in a `SafeAreaInsetsContext.Provider` with `bottom: 0`, which fixes the figure for everything in the sheet (the drawer's list and the `EmptyScreen` it falls back to) rather than adding a per-child opt-out prop. `testUtils/renderWithBottomInset.tsx` drives these insets from tests using that same mechanism.
-
-**Tasks** (always visible, both layouts) is `components/TasksView.tsx` — the habit tracker (gated on `enableHabits`) plus the day's task list, extracted from the route so it's composable across layouts. The list itself is `components/DayTaskList.tsx`, split out so the Week tab's day columns reuse it (DEX-96) rather than re-deriving its repeat-aware delete confirmation, which has to tell a task's repeat schedule (delete it alongside the task) from a saved task template (keep it). Task cards (`components/TaskCard.tsx`) carry a `minHeight` floor and pin every `IconMenu` trigger (`StatusButton`, and the subtask row's status button and `⋯` menu) to its exact pixel size — 32×32 for task-level controls, 24×24 inside a subtask row — so the async-sizing native menu hosts can never define a row's height; the SwiftUI view-host isolation in `expo-modules-core` (see the platform-split section below) is what keeps those hosts from corrupting card rendering when days are paged.
-
-**Small screens** wrap the active view in `components/SwipeablePage.tsx`, a `react-native-gesture-handler` pan so swiping left/right also pages a day forward/back (a `react-native-reanimated` shared value driving the intro fade/slide on a keyed remount — deliberately *not* an `entering` layout animation, which on the new architecture intermittently leaves the mounted subtree blank or mis-measured). An inline `components/DayViewSwitcher.tsx` (a circular, icon-only `GlassIconButton` at the right of the `DayNav` row that opens an `IconMenu`) switches the content between **Tasks**, **Notes**, and **Calendar** — all sharing the screen's single `{date}` state. The button's icon reflects the active view. The Notes/Calendar entries appear only when enabled in settings (`enableNotes` / `enableCalendar`); its option list is built by the exported `dayViewOptions` helper (unit-tested without the native menu host). When incomplete tasks are **overdue or left behind** as of today, the trigger button shows a warning-yellow attention dot (DEX-58) — the small-screen home for the indicator, since the Backlog action lives inside this menu (its large-screen counterpart sits on the drawer-toggle button below) — and the "Backlog" menu row itself is tinted the same warning-yellow (via `IconMenu`'s `iconColor`/`titleColor`) so it's clear what the dot refers to. Tapping "Backlog" opens the drawer **pre-filtered** to the preset the dot maps to (`backlogAttentionFilter`: Overdue if any overdue task exists, else Left Behind) by calling the sheet's imperative `present(filter)`. Notes is wrapped in `SwipeablePage` with the pan suspended while the editor is focused (`enabled={!editing}`, driven by the view's `onEditingChange`) so horizontal drags position the caret/selection instead of paging days; `SwipeablePage` is keyed by date, so switching days remounts the view — re-seeding the (uncontrolled) editor/inputs and resetting the Notes template choice.
-
-**That component is shared with the Ritual tab, which is why its prop is `pageKey` rather than `dateKey` (DEX-127).** Today pages days, Ritual pages steps; the gesture, the intro animation and the phone's side gutter are identical either way, so only the arithmetic behind the key differs and that stays with the host. It also takes **`canNext`/`canPrev`** (both defaulting to true, so Today's unbounded days are unaffected), and the reason they exist is not obvious: `onEnd` deliberately does *not* reset `translateX` on a commit, because the host changing `pageKey` remounts the content at zero and resetting on the UI thread first is what caused the old day to flash back to center. A bounded pager therefore has to decline the swipe **inside** the component — a host that simply ignored a swipe past the last step would leave the key unchanged, nothing would remount, and the content would stay parked wherever the finger left it.
-
-The **task drawer** opens from a "Backlog" action inside the `DayViewSwitcher` menu (passed as its `onOpenDrawer` prop, appended as a divided section below the view options) — folded in rather than given a second header button, which crowded `DayNav`'s next-day arrow — see below.
-
-**Large screens** (`hooks/useIsLargeDevice.ts`, width ≥ `utils/breakpoints.ts`'s `LARGE_DEVICE_MIN_WIDTH`) show a multi-column layout instead (DEX-40): Tasks is always visible at a fixed `TASKS_PANE_WIDTH` (280dp, the legacy dexter-app's `w-standard` column) — it does **not** flex, so a `TaskCard` is the same shape at every window size and the panes beside it absorb whatever the window gives or takes (DEX-111). The docked drawer on both tabs still flexes, floored at `TASK_LIST_PANE_MIN_WIDTH` — the width below which a task _list_ pane, with its filter and search chrome, stops reading as one, and deliberately **not** a `TaskCard` minimum, since the Week tab's columns render the same cards far narrower at `WEEK_COLUMN_MIN_WIDTH`. Notes/Calendar are toggleable columns to its right — no swiping (`DayNav`'s arrows/picker are the only way to change days). The bordered header row itself is `components/LargeScreenHeader.tsx`, a two-slot shell (leading nav, trailing actions) shared with the Week tab so switching tabs doesn't shift the nav row _vertically_ (DEX-97); horizontally the two still differ by design, because the `DayNav` slot inside it is capped to the Tasks pane's width so the nav centers over that pane, while Week's `WeekNav` starts flush at the gutter. `components/DayPaneToggles.tsx` renders one round `GlassIconButton` per enabled surface in the header (reusing `DayViewSwitcher`'s `VIEW_META` icons/labels), tinted via the button's `active` prop; pressing one calls `hooks/useTodayPanes.ts`'s `togglePane`, which persists which panes are open to the device (`AsyncStorage`, like `useEnabledDeviceCalendars` — not the synced `preferences` row, since it's a per-device layout choice) and defaults every pane open. `readPanes` rebuilds the stored value key by key from the panes that currently exist, so a missing key falls back to its default *and* a key for a pane since removed (`journal`, DEX-105) is dropped rather than riding along in a value typed as `TTodayPanes`. Notes is a bordered pane keyed on `date` (its editor seeds uncontrolled and relies on the remount), with `card={false}` so it doesn't double-border against the pane's own. Until DEX-105 it shared a manila-folder-tabbed pane with the journal; that component is gone. Calendar gets its own narrower cap (`CALENDAR_PANE_MAX_WIDTH`) and a bordered card, and is pinned to the row's right edge via `marginLeft: "auto"` so it stays rightmost even when Notes isn't rendered. The header carries **no create button of its own**: the nav rail and the native tab-bar accessory both already offer one, and a third in the header was redundant (DEX-96). Both of those read the day back through `usePublishViewedDay`/`newTaskRoute` rather than taking it from this screen, so a task created while viewing another day still lands on that day. `NativeTabs.BottomAccessory` being iOS 26+ costs nothing here — `app.json` sets `deploymentTarget: "26.1"`, so every supported iOS build has it. **The Android gap is now phone-only**: an Android tablet renders the rail and so has the "+" (DEX-104), but an Android phone has neither the accessory nor the rail, and this header button was never on a phone anyway.
-
-**The Week tab** (`app/(app)/(tabs)/week/index.tsx`, DEX-96) shows seven Monday-first day columns at once — the legacy dexter-app's Week view, minus notes/journals/calendars (they never existed there). The route is a thin selector like Today's: it owns the viewed week's Monday and renders `components/WeekView.tsx` above the breakpoint, an explanation below it. `components/WeekNav.tsx` is `DayNav`'s sibling: both render the shared `components/PeriodNav.tsx` (see the Today section), which is what keeps the two tabs' header rows on the same baseline and the same height, and both sit in a shared `components/LargeScreenHeader.tsx`. `WeekNav` has no picker branch — its label is always the "back to this week" shortcut. It labels the week from ISO `weekOfYear`/**`yearOfWeek`**, not `year`: a week can belong to the neighbouring calendar year (Dec 30 2024 is week 1 of 2025; Jan 1 2027 is week 53 of 2026), which the legacy app got wrong. Week math lives in `utils/weekStartEnd.ts` — `weekOf(date)`/`weekDays(monday)` are anchored on an arbitrary date so paging is whole-week arithmetic from whichever week is on screen, and the pre-existing today-relative `weekStartEnd(offset)` is now built on `weekOf`.
-
-The columns live in a **horizontal `ScrollView`**: each is `flex: 1` with a `WEEK_COLUMN_MIN_WIDTH` (160dp, the legacy "compact" width) floor, and the content container carries `flexGrow: 1` so they divide the full width when all seven fit (~1150dp and up) and scroll sideways below that instead of squeezing `TaskCard` past the width its controls need. On mount, today's column is anchored into the left third — measured from its own `onLayout` `x` and applied through `utils/calendarLayout.ts`'s `scrollOffsetForTarget`, which is axis-agnostic despite its vertical naming — guarded to fire once per week so a later re-layout can't yank the user back after they've scrolled. Each column reuses `components/DayTaskList.tsx` (extracted from `TasksView`, which is now `HabitTracker` + `DayTaskList`) so the repeat-aware delete confirmation isn't re-derived. The columns are deliberately read-only chrome: no per-column "+", and `DayTaskList` takes `emptyMessage={null}` so an empty day renders nothing — seven "no tasks" messages side by side read as noise, and seven create buttons did too. They also run **flush**, and nothing has to ask for that: `DayTaskList`, `HabitTracker` and the day chip carry no side gutter at all, because a gutter belongs to whoever places a component rather than to the component (DEX-115 — see `docs/design.md`, "Who owns spacing"). A gutter on each column would stack with its neighbour's and double every gap in the grid. All horizontal spacing therefore comes from one place — the row's `gap`, set to `theme.spacing` so the space between columns matches the row's own `paddingHorizontal` outside the first and last. That gap is load-bearing beyond spacing: the today-anchor derives its column pitch from it, so the two have to move together. For the same reason `HabitTracker` gets `showCreateNudge={false}`, suppressing seven copies of "Create a habit". Today's chip uses the same inverted-ink fill `NavRail` gives its selected tile (`withOpacity(colors.text, 0.8)` behind `colors.background`), a direct port of the legacy `bg-base-content/80 text-base-100` badge.
-
-The **backlog** docks outside the horizontal scroller so it stays put while the week scrolls under it, and `TaskDrawer` grew an optional `weekStart` that swaps its scope to `utils/taskFilters.ts`'s `selectBacklogTasksForWeek` — the day-scoped `selectBacklogTasks` would list six of the columns already on screen back to the user. Its row "+" now names the target day rather than saying "this day", which is ambiguous beside seven of them. Here the drawer is left **uncontrolled** and its toggle is plain local state: the controlled filter, the attention dot, and `?mode=backlog` seeding all belong to Today's DEX-47/DEX-58 deep-link contract, and reusing `useTodayPanes` would have meant opening the backlog on Week also opened it on Today. Paging weeks costs no fetch — all seven columns and the drawer slice the same canonical `["tasks"]` cache client-side, so the 30-day window noted above applies here too: a week further back than that shows its incomplete tasks but not its closed-out ones. Known cost: with habits on, seven `HabitTracker`s mount at once, each with its own `useHabits({filters})` and `["dailyHabits", date]` query plus a possible `createDailyHabits` bootstrap. The legacy app did the same and the tables are small; a `daily_habits` range query is the fix if it ever shows.
-
-**The Ritual tab** (`app/(app)/(tabs)/ritual/index.tsx`, DEX-127 — the first sub-issue of DEX-34) walks the user through the start or end of a day, one step at a time. The route is a thin selector like Today's and Week's: it owns a single `TRitualState` (`{date, mode, step, direction}` plus one boolean per optional step — `journalEnabled`, `calendarEnabled`, `horoscopeEnabled`) and branches on `useIsLargeDevice()`.
-
-**Every rule lives in `utils/ritualSteps.ts`, and nothing in it is React.** The two step lists, the noon boundary (`modeForHour`: before noon the morning ritual, from noon the evening one), and the transitions — `advanceStep`, `goToStep`, `withDate`, `withMode`, `withJournalEnabled`, `withCalendarEnabled`, `withHoroscopeEnabled`, `withLink` — are pure functions, so the whole model is unit-tested without a native host, the same split `dayViewOptions` uses. Three details are deliberate. Changing the date *or* the mode restarts the ritual at step 0: a ritual belongs to its day, and the two step lists differ in both length and content, so a carried index would land somewhere arbitrary. `advanceStep` returns **the same object** at either end rather than a clamped copy, so a declined swipe doesn't re-render and restart the intro animation. And `withDate`/`withMode` return the same object for the value already on screen, for the same reason `today/index.tsx` skips a `direction === 0` deep link.
-
-
-**The step list is derived, and the state carries the input rather than the output (DEX-105, DEX-140, DEX-142).** `RITUAL_STEPS` is what a user with everything turned on sees; `STEP_LISTS` is the precomputed table of sixteen — two modes × the three optional steps' on/off — and `stepsFor(state)` picks one off the `journalEnabled`, `calendarEnabled` and `horoscopeEnabled` booleans on `TRitualState`. Precomputed, not filtered per call, because both switchers map the result on every render and a fresh array each time would defeat the identity comparisons downstream; the evening ritual has neither a Calendar nor a Horoscope step, so its eight entries are distinct arrays holding only two distinct lists, which is harmless but worth knowing before assuming identity implies content-equality. The `TOGGLE_KEYS` literals are spelled out by hand (one character per toggle) so `STEP_LISTS` is an exhaustive `Record` rather than a `string`-keyed object that returns `undefined` for a combination nobody built — the cost is that each new optional step doubles the list, which is the signal to swap it for a lazy cache once it stops being legible by eye. Which preference keeps which step is a `Partial<Record<TRitualStepId, …>>` table, so a mistyped id is a compile error rather than a step that silently never drops. Three things follow, all of them load-bearing. **`state.step` indexes a list that can shrink**, so it may only ever be produced by a transition in that module — never by a `{ ...state, step: n }` at a call site. **Storing the boolean rather than the resolved array** is what keeps a `{ ...state, mode }` override honest (an array would silently disagree with the new mode) and what makes the render pass React runs with the *stale* state after a set-state-during-render self-consistent — a `currentStep(state, prefs)` signature would index a six-step list with a bound from a five-step one and hand `undefined` to `RitualStepView`, which reads `step.title`. **The `withXEnabled` transitions move the user by step *id*, not by index** (all three share one `keepingStep` helper): Journal is index 1 of the morning ritual and 2 of the evening one, so removing it shifts everything after it down, and a clamp — which never fires for a step still in range — would quietly move someone from Calendar to Backlog. Preserving the id also leaves `ritualPageKey` unchanged, so `SwipeablePage` doesn't remount and replay its intro for a preference flipped in another tab. The horoscope is the one exception, and only for someone standing *on* it: it is the morning list's index 0, so there is no earlier step to fall back to and the clamp lands them on whatever now opens the ritual. Note that `usePreferences` serves defaults until the row loads, so a cold launch corrects a round trip later — which is exactly why that correction has to be unremarkable. They do not all run in the same direction: the journal and horoscope default on, so a user who has one off loses a step; the calendar defaults off, so a user who has it on gains one. And the "unchanged" guard stays on each exported transition rather than inside `keepingStep`, because `ritual/index.tsx` compares each flag against preferences *during render* and sets state when they disagree — a path that returned a state whose flag was not updated (tempting for the evening ritual, where a calendar or horoscope toggle changes no list) would spin the render loop forever. Each preference gets its own `if` in that screen rather than one merged comparison: they move independently, and every transition already returns its input when its own flag hasn't changed.
-**Small screens** render `components/SmallScreenRitual.tsx`: `DayNav` between the AM/PM switch and the step switcher, with `SwipeablePage` below paging the steps. **Nothing there is a "next" button.** Advancing is the swipe — exactly as it is for days on the Today tab — and the switcher is navigation, jumping to any step; the pager is told `canPrev`/`canNext` so the ends decline rather than strand the drag.
-
-**The step control splits by screen size, not by platform, and mirrors Today's split exactly.** `components/RitualStepSwitcher.tsx` is the small-screen form — `DayViewSwitcher`'s shape applied to steps: a round trigger wearing the current step's icon, opening an `IconMenu` with a row per step. `components/RitualStepSegments.tsx` is the large-screen form — `DayPaneToggles`' shape, one segment per step in the toolbar, which doubles as a progress indicator because the whole ritual is visible at once. Both read one `STEP_ICONS` table (`RitualStepSwitcher.shared.ts`), a `Record` over the `TRitualStepId` union so a step added without an icon is a compile error, and four of its entries reuse `VIEW_META`'s icons outright since those steps open the very surfaces the icons already stand for. The shared `ritualStepOptions` helper is pure and unit-tested without either host, following `dayViewOptions`/`paneToggleOptions`.
-
-**On iOS the segments are a real `UISegmentedControl`, not a drawn one.** `RitualStepSegments.ios.tsx` hosts a SwiftUI `Picker` with `pickerStyle("segmented")` and `Image systemName=` children carrying `tag()` values, the same way `DateField.ios.tsx` hosts the compact date picker. The reason is liquid glass: on iOS 26 the system draws this control in it, matching the `GlassIconButton` next to it in the toolbar (which is real glass via `expo-glass-effect`), and the sliding selection animation, the haptics and the VoiceOver behavior come with it rather than being imitated. `app.json` pins `deploymentTarget: "26.1"`, so there is no pre-glass iOS to branch for. Each `Image` segment takes an `accessibilityLabel` modifier, since an image segment has no text for VoiceOver to fall back on, and the selection is coerced with `Number()` on the way out — the tag comes back raw, and `PickerField` already documents the universal picker handing its value over as a string. **`Host matchContents` is the part to re-check on device after an `@expo/ui` bump**: these hosts size asynchronously, and a mis-sized one renders *untappable* rather than merely wrong — which is why `DayViewSwitcher`, `StatusButton` and `TaskCard` all pin theirs to exact pixels.
-
-Android and web keep the drawn `components/SegmentedControl.tsx`, which grew two options to serve this: an `icon` on a segment (drawn in place of the label, which becomes the segment's accessibility name — six words don't fit a toolbar, six glyphs do) and `stretch={false}`. That second one is load-bearing rather than cosmetic: segments are `flex: 1` by default, and in `LargeScreenHeader`'s actions row — which has no width of its own — they would divide nothing and collapse.
-
-The AM/PM control (`components/RitualModeButton.tsx`, which owns `MODE_META` the way `DayViewSwitcher` owns `VIEW_META`) passes `GlassIconButton`'s `active={false}` on purpose, and omitting it would not be the same thing: neither half of the day is the "on" state of a toggle, so a primary tint would read as a setting rather than a position — the icon carries the position (sun/moon) while the accessibility label carries the action — and the prop's *default* is platform-dependent (primary on iOS, text elsewhere), so leaving it off drew the button in two different colors depending on the device. The header row itself is `components/DayNavHeader.tsx`, extracted from `SmallScreenToday` so both tabs share it — the controls are **absolutely positioned rather than flex siblings**, which is what keeps `DayNav` screen-centered whatever sits beside it, since a flex sibling pushes it off-center by its own width.
-
-**Large screens** render `components/LargeScreenRitual.tsx`: a `LargeScreenHeader` with `DayNav` flush at the gutter (Week's arrangement, not Today's pane-width slot, because there is no column here to label) and the step segments plus the AM/PM switch trailing, over the step's own content. It differs from the phone in one way, and it is about having room — the steps are a segmented control rather than a menu.
-
-**The swipe runs on every width here, which is the opposite of the Today tab, and deliberately.** Today pages days only on the phone: on a large screen `DayNav`'s arrows are the way, because moving between days is navigation between equals and the arrows say plainly what a gesture only implies. A ritual is a sequence you move *through*, so the gesture means something the segments don't, and it is offered alongside them at every size — `SwipeablePage` needs no platform gate for that, since it is one file with no `.ios`/`.web` variant and already ships on web wherever `SmallScreenToday` renders below the breakpoint. The one thing that stops it, at either width, is a step reporting that it is being edited: both layouts hold their own `editing` flag and pass `enabled={!editing}` down, so a focused journal response field owns horizontal drags for its caret instead of paging steps. That flag is per layout on purpose — crossing the breakpoint remounts the layout and resets it to `false`, which is the safe direction.
-
-**`components/RitualStepView.tsx` is the seam every step lands in.** It takes the step, the ritual's day, and an `onEditingChange`, and branches on `step.id`; anything not built yet falls through to a centered placeholder of its own name, which is what lets DEX-34's sub-issues fill steps in one at a time without touching the flow. **Four are real so far** — Horoscope (DEX-128), Journal (DEX-105), Calendar (DEX-140) and Backlog (DEX-141). Journal renders `components/JournalView.tsx` for `state.date`, carrying no gutter of its own because `SwipeablePage` supplies one at both widths on this tab. Its `onEditingChange` must be passed **unwrapped** (a `useState` setter, never an inline arrow) all the way down: `JournalView`'s reset-on-unmount effect depends on that callback's identity, so a new function each render would re-run its cleanup and clear the editing flag the moment a field was focused.
-
-**The Horoscope step is the first one built** (`components/HoroscopeStep.tsx`, DEX-128), and it is the proof that `RitualStepView` is the right seam: it branches on `step.id` and nothing else about the flow changed. The backend had already shipped with DEX-84 — `public.horoscopes` holds one row per sign per day, written by a cron-driven Edge Function — so this is only the read half: `api/horoscopes.ts` + `hooks/useHoroscope.tsx`, keyed `["horoscopes", sunSign, date]`. It is deliberately **not** wired to `useRealtimeInvalidation`: the table is not in the `supabase_realtime` publication, because the rows change once a day at a fixed hour and a subscription would idle 24 hours to deliver what the shared 60s `staleTime` plus a focus refetch already gets. Which sign to read is `preferences.sun_sign`, the one nullable preference — "not set" is a real state (the step prompts for a sign rather than showing one), and there is no sign it would be right to guess.
-
-The step is a panel filled with the day's `sentiment` color — green positive, purple negative, blue neutral — **breathing between two shades of its own hue** (`sentimentTints` in `utils/theme.ts`). Those six hexes are the app's only non-token colors. **The panel is a night sky on every theme, light ones included** — which makes it the app's one surface that does not follow the user's scheme, so everything drawn on it takes `sentimentInk(theme)` rather than `colors.text`, which on a light theme would be near-black ink on a near-black panel. `docs/design.md` carries the exception, that consequence, and why the breath animates `opacity` over a second layer rather than interpolating `backgroundColor` (a paint property re-filling a screen-sized layer every frame is what a reported stutter turned out to be). It is drawn as a **tarot card**: a white `space.md` frame (`SENTIMENT_FRAME`) at four times `radii.md`, on three sides only, since the card runs off the bottom of the screen. See design.md for why the frame is white rather than `colors.border`, why its width and radius are tied, and for the `EdgeFade` it replaced — a soft edge that a radial gradient provably cannot give a rectangle.
-
-A drawn night sky sits over that color on every theme: `components/StarField.tsx` over `utils/starField.ts`. It began as a photograph and became vector for a reason worth keeping — a photo is one fixed sky that can only be cross-faded whole, where drawn stars twinkle individually, and it dropped ~873KB from the bundle. Three things about it are deliberate. The field is **seeded, not random** (`Math.random` would reshuffle the sky on every render — the one thing a sky must not do). Stars are dealt into **four layers, each with one shared opacity animation**, because a shared value per star would each drive a worklet every frame where four do the same job for the eye; the layers' periods share no common factor, so they never re-align into a single visible pulse. This is also why **star count is the cheap dial and layer count is not**: the circles rasterize once per layer and only the layer's opacity animates, so 320 stars cost a one-off draw rather than per-frame work. And that opacity animates on the **wrapping `Animated.View`, not on the SVG nodes** — an animated `Circle` prop needs `createAnimatedComponent` plus a `useAnimatedProps` per node, where one plain style on the wrapper covers the whole group. The stars take `sentimentInk` at partial opacity, so they are the same ink as the type in front of them rather than a literal white. The field is absolutely positioned rather than wrapping the content, so it holds still while the facets scroll over it. The panel carries **no `overflow: hidden`** — clipping to a radius makes it an offscreen-rendered layer on iOS, re-composited every frame a child changes, and nothing needs the clip. Nothing draws until there is a horoscope — an empty or loading step is a plain `surfaceSunken` panel with no stars. That the panel does not clip is also why the breathing tint layer carries the frame's inner radius itself: a square child would otherwise push its corners out through the rounded ones. A panel inside the gutter rather than a full-bleed background, because `SwipeablePage` owns that gutter at every width on this tab and escaping it would take negative margins. The loop is `withRepeat(withTiming(…), -1, true)` on a plain shared value — not an `entering` animation, for the reason `SwipeablePage` documents — and `useReducedMotion()` skips it entirely, leaving the value at 0 so the panel simply holds the calmer of the two tints. Above the fold: the sign's Unicode glyph (neither icon set has a zodiac, and `docs/design.md` already treats an emoji standing in for an icon as an icon) over the day's ~100-character summary set a sentence to a line (`bySentence`), with the scroll chevron pinned to the fold itself rather than trailing the text, fading out as the reader scrolls (`useScrollViewOffset`, so it never touches the JS thread). The sign's **name is deliberately absent** — the glyph already identifies it, and a label restating what the settings row said only pushed the summary down the screen. With it gone the summary takes `heading`: it is what this screen is about, which is the question that role answers. The content **fades in on arrival** in reading order — sign, summary, then the chevron and facets together — driven by one shared value with overlapping windows onto it, keyed on the horoscope's date so `DayNav` replays it and a refetch does not. The six facets scroll into view below, sized off the scroller's own measured height so they genuinely start past the fold. The vertical scroll composes with the horizontal pan for free — `SwipeablePage`'s gesture already declares `failOffsetY([-10, 10])`. **The step also plays a track** (`hooks/useHoroscopeAudio.ts`, `expo-audio`), starting with the reveal and gated on the horoscope rather than on mounting, so an empty or still-loading day is silent. It is built on `createAudioPlayer` rather than the `useAudioPlayer` hook deliberately: that hook releases its player the instant the component unmounts, which cuts the audio dead and leaves no window to fade in — owning the player lets the effect's cleanup ride the volume down over 2s and only then release. The price is that the hook, not React, owns the lifetime, so every path out has to end in `remove()`. The track's own ending fades over its last 5s, read off `currentTime` each tick rather than counted from playback start, so drift or a slow load still lands the fade on the end of the audio. Two things follow from mounting being the trigger: the track restarts whenever the step remounts (`SwipeablePage` keys on `ritualPageKey`, so that includes changing the day), and there is no preference gating it, because the app has no sounds setting yet. iOS's default audio mode is left alone, so a phone on silent stays silent. `expo-audio`'s config plugin is deliberately **not** installed — it exists only to add `NSMicrophoneUsageDescription` and `RECORD_AUDIO`, and this is playback-only. **Two things about volume.** `MAX_VOLUME` is linear amplitude against roughly logarithmic hearing, so it reads as decibels rather than as a percentage: 0.5 is only −6dB and was reported as no change at all. Perceived loudness halves about every −10dB. And **none of the volume work happens in a browser on iOS** — Apple reserves `HTMLMediaElement.volume` to the hardware buttons and ignores writes, so on an iPhone or iPad browser the track plays at device volume and cuts at the end instead of fading (`expo-audio` warns once in the console). Native and desktop browsers are unaffected. Short of routing through the Web Audio API's own gain node there is no workaround, so a report of "the fade does nothing" on mobile web is this, not the arithmetic.
-
-**The Calendar step reuses the Today tab's timeline and states the day above it** (`components/CalendarStep.tsx`, DEX-140). Three `HeroLines` — "N events", "«Xh Ym» planned", "«Xh Ym» free" — above `components/CalendarView.tsx` unchanged. Booked and free began as one line split by a `textSecondary` bullet, on the grounds that they are one fact read two ways; in the column they are two figures of the same kind, and stacking them puts all three on the same vertical line instead of hiding two inside a sentence. The count line dropped its "today" with the same move — the ritual is already a day, and the word was doing nothing the header does not. Only the figures carry color (`error` for booked, `success` for free), and the count stays ink, being the neutral fact the other two qualify. A day with nothing on it drops the timeline entirely for two centered lines, "No events today" over "Enjoy the space" — no figures, so no column, and a local block rather than `EmptyScreen`, which hard-codes one string in one color, though it copies that component's `insets.bottom` reservation for the same reason (the host `SafeAreaView` omits the bottom edge, so centering in the full box sits visibly low behind the tab bar).
-
-The arithmetic lives in `utils/calendarStats.ts`, React-free beside `calendarLayout`. Three decisions in it are worth keeping. **Planned time is the union of the events' spans, not their sum** — two meetings booked over each other cost that hour once, or a day of double-bookings would report thirty hours back at the user — and it **clamps before it merges**, which is what makes an event running in from yesterday contribute only its in-window part. **The window is the user's own** `calendarStartTime`→`calendarEndTime`, so free time is measured against exactly the grid drawn underneath it; `calendarWindow` moved out of `CalendarView` for that reason, since a window derived twice is a window that can disagree with the picture. And **`layoutEvents` is deliberately not reused**: it floors block heights and inflates a zero-length event to fifteen minutes so it stays visible, both of which are drawing decisions that would be lies in a total. `eventCount` counts everything the hook returned, all-day events and out-of-window ones included — the hero says "today", not "on your timeline". `formatDuration` sits in `utils/formatPlainTime.ts` with the app's other hand-rolled time strings (Hermes ships a partial Intl); it drops a zero part ("1h", not "1h 0m") and falls back to "0h" when there is nothing left to drop.
-
-The step never has to stand in for a user with no calendar — `stepsFor` drops it from the flow when `enableCalendar` is off — but it does cover the case underneath that: a calendar switched on with no source behind it. `useCalendarEvents` grew a **`notConfigured`** flag for it, computed in both platform files from what they already knew (native: the denied grant or the `ids.length === 0` early return, which covers a device with no event calendars, every calendar switched off, and a stale saved selection at once; web: an empty `calendarUrls`). It costs no extra `expo-calendar` call and no second permission prompt. The step checks `isLoading` **first**, and the order is load-bearing: an unresolved read looks exactly like an unconfigured one, so testing the source ahead of it would flash the setup prompt at a configured user on every cold open. A dropped connection gets the plain message and no button — it is not a configuration problem. `CalendarView` adopted the flag for its empty copy only; the CTA belongs to the step, since that view also renders in Today's large-screen panes.
-
-The hero and its arrival are `components/HeroLines.tsx`, shared with the Backlog step — see below, where the column and the stagger are described. **Opacity only, no translate**: `SwipeablePage`'s intro already slides the page 25px, a second axis compounds into a diagonal drift, and sliding a grid past its own fixed hour gutter reads as a scroll the user never made. The hero is a fixed header above a `flex: 1` wrapper rather than both inside one scroller — nesting two same-axis scrollables would make `CalendarView`'s `scrollToNow` measure a viewport that isn't the visible one, and would break the `insets.bottom` that only works from inside its own scroll content.
-
-**The Backlog step counts what is slipping and docks the Today tab's drawer under it** (`components/BacklogStep.tsx`, DEX-141). Three `HeroLines` — "N tasks left behind", "N tasks overdue", "N tasks due soon" — over `components/TaskDrawer.tsx`, which already carries "the same controls as today": Filter, Group, and a per-row "+" that schedules onto whatever `date` it is handed. It shares the Calendar step's whole shape — the same hero component, the same fixed-hero-over-`flex: 1`-body layout, and the same convention that only the figures carry color while the words stay in ink: `error` for left behind and overdue, `priority[0]` for due soon (the daisyUI warning token — there is no dedicated `warning` color; see `Theme.colors.priority`), and `success` for any bucket at zero, since a zero is a result worth stating rather than a count worth alarming about. **All three at zero drops the drawer entirely** for the same three lines, centered with the `insets.bottom` reservation the clear-day block makes — the all-clear state is the same sentence read a different way, not separate copy. That means a backlog of undated, unscheduled tasks reads as clear and is not reachable from this step; deliberate, since the step is about what is slipping and Today's own drawer covers browsing the rest. The step carries no gutter and no padding of its own: `HeroLines` brings the space above and below the figures, and `TaskDrawer` its own `md` above the controls, so the container adds no gap of its own on top of the two.
-
-**Both reporting steps share one hero — `components/HeroLines.tsx`.** Calendar and Backlog each open with three figures and their words, so the column, the measurement and the stagger live in one component that takes a list of `{key, figure, words, color}` and the shared value driving the arrival. The figure is always the colored part and the words always stay in `colors.text`; a step decides only what a figure means.
-
-**It is a two-column block, centered as a unit.** The figures are right-aligned and the words left-aligned, so every line's text begins on one vertical line — centering each line on its own length left as many starting positions as there were lines. That takes two nested views: the outer centers, the inner shrinks to the widest line so the rows stretch to a common width. The figure column needs a width shared across the rows or the edge jags on any line whose figure is a different length, and it is **measured rather than derived from the font size**: each figure reports its width, the widest raises a `minWidth` the others then measure exactly, so it converges in one extra layout pass and cannot oscillate. It is monotonic on purpose — a shrinking figure leaves the column slightly wide rather than re-flowing the hero under the reader. Splitting the sentence across two `Text`s costs the phrase its reading, so each row is one accessibility node carrying the whole line as its label; the step tests assert through that label rather than the visible text, which covers the reading too. The block owns its own vertical padding — the hero's breathing room rather than a gutter, so it is the one thing here a step does not get from `SwipeablePage` — and that padding is **deliberately not symmetric**. The ritual layout has already placed its step inset above the block, so equal padding left the hero sitting visibly low: 40 above against 24 below on a phone, 56 against 24 on a large screen. What has to match is the total, so the block adds the inset to its *bottom* padding — above is `inset + lg`, below is `lg + inset`. `ritualStepInsetTop` in `utils/ritualSteps.ts` states that inset once for the two layouts and the hero, since a layout that quietly changed its own would otherwise tilt every reporting step's hero without touching it, and `HeroLines` reads the breakpoint through `useIsLargeDevice` — the very predicate `ritual/index.tsx` picks the layout with, so the two cannot disagree. A body that pads itself passes that amount as `bodyInsetTop` and the block takes it back off its own bottom, which is how the Backlog step stays even despite `TaskDrawer`'s `md`.
-
-**Each line fades in on its own stage** — four windows onto the shared value (three lines, then the body) rather than the hero arriving whole. `useHeroReveal` owns the driver, the `revealKey` wait and the `useReducedMotion` snap; `useStageOpacity` turns a stage into a style, resolving the window bounds outside the worklet the way `HoroscopeStep` resolves its fade distance, so only numbers are captured. Hooks cannot be called from a `.map()`, which is why a line is its own component rather than an element in a loop. The timing is **1008ms per fade, starting 864ms apart, over a 3600ms `REVEAL_MS`**, and the two figures trade against each other — worth knowing before retuning either. The invariant fixes `3 × spacing + fade` at 1, so widening the gap at a fixed total can only come out of the fade, and past a spacing of `0.25` the windows stop overlapping at all. Both passes that asked for more air between the lines therefore lengthened the whole sequence rather than just spreading the starts: 1200ms, then 2400, now 3600. That matches the horoscope's total but not its shape — four stages here against three, so it still moves faster per stage — and the overlap is now slight where it began generous, deliberately: the horoscope is producing a reading and wants one gathering movement, where three figures being counted off read better as three distinct events.
-
-**The step hides the drawer's search field** (`showSearch={false}`). It is walking the reader down a short list of what is slipping, not somewhere to hunt for a task already in mind, and the field cost the hero a line of height. This is the one place where the step diverges from DEX-141's "same controls as today". `TaskDrawer` drops only the field, never the search *state*, so a host can still seed `search` while hiding the box. Note the field also owned the margin holding the control cluster a group step above the list — hidden, that margin moves to the Filter/Group row, or the first card sits at the container's in-group `sm` and reads as one more control.
-
-Two things about it are load-bearing. **The counts anchor to today while the scope is the ritual's day**: `backlogCounts(selectBacklogTasks(tasks, [date]), Temporal.Now.plainDateISO())`, because `TaskDrawer` filters against today whichever day `DayNav` is on, and a hero that disagreed with the list under it would be worse than no hero. Sharing the scope is also what makes the numbers fall as tasks are cleared — both read the one `useTasks()` query, so a row's "+" drops a task from the count and the list in the same render. **And the filter follows the reader down the buckets.** `defaultBacklogFilter` (in `utils/taskFilters.ts`, beside the counts) picks the opening preset — the first non-zero of Left Behind → Overdue → Due Soon — and `nextBacklogFilter` decides what to show from then on: whatever the reader last landed on while it still has tasks, otherwise the next bucket that does. Clearing out Left Behind hands them Overdue rather than leaving them staring at an empty list they have to notice and re-filter their way out of, which is the step working as intended — down what is slipping until there is none of it left.
-
-**Emptiness is the only thing allowed to move it**, and that is the whole design. Derived from the counts alone, the filter would jump the moment a *different* bucket changed and the reader would lose their place mid-list; pinned outright, they would sit on an empty list. A preset outside the hero's three (`"Unscheduled"`, `"No Filter"`) is a detour the reader chose deliberately, so it is left alone whether or not it is empty. `nextBacklogFilter` is pure, so this is worked out during render rather than by an effect chasing the counts — but **the advance has to be written back to state, not merely derived**. Left in state, the emptied bucket is still the one the function reads, so refilling it (un-completing a task from the drawer, or a change arriving from another device) would count it as non-empty again and yank the list off whatever the reader had moved on to — the one thing this filter must never do. The write is a set-state-during-render adjustment, the same pattern `ritual/index.tsx` uses to follow a link or a preference, and it cannot loop because an advance always lands on a bucket with tasks in it, which the function then returns unchanged.
-
-The seeding is why the drawer half is **a separate `BacklogList` component**: the step renders it only once the tasks have resolved *and* something needs attention, so a lazy `useState` initializer there never sees `useTasks`'s empty placeholder array. That is worth knowing before collapsing the two — the same latch written in the step itself has to fight `react-hooks`, since both a seeding effect (`set-state-in-effect`) and a render-phase ref (`refs`) are lint errors, and both are the rule being right: there is nothing to subscribe to and nothing to mutate, only a value to compute once at the right mount. A new day re-seeds it anyway, since `ritualPageKey` remounts the step. Note this is **not** `backlogAttentionFilter`, which answers a different question for Today's attention dot (DEX-58) — that one puts Overdue first and ignores Due Soon, because a dot has to pick the single most time-sensitive thing where this step has already shown the reader all three. `backlogCounts` is built from `filterTasks(...).length` rather than from its own predicates, so a figure can never drift from the Filter preset it labels, and its buckets overlap on purpose: a task both scheduled and due last week counts in two of them, because each figure answers for its own preset rather than for a share of one total. The step checks `isLoading` first for the same reason the Calendar step does — `useTasks` serves an empty placeholder array until the query resolves, so every count is zero on a cold open and the all-clear hero would congratulate someone whose backlog is full. It threads no `onEditingChange`: the drawer's search field is single-line and does not report focus, so the step swipe stays live while searching. Nothing else needed wiring — `backlog` was already a registered step id with an icon, and `ritual/index.tsx` already publishes its day through `usePublishViewedDay`, so the app-wide "+" creates tasks on the day chosen in the header without this step touching it.
-
-**It runs in the tab, and that replaced an earlier cut worth knowing about.** The first version showed nothing on the large-screen body and put a play button in the toolbar that opened the phone experience in a `ritual-session` form sheet. That meant two copies of the ritual state (change the date in the modal, and the tab's toolbar kept its own), a route that rendered nothing on its own, and a modal that had to hide its native header to fit a `DayNav` where a title string goes. One route rendering one flow is simpler, linkable, and has one state; the modal, its route, and the `RitualStepSwitcher.web` variant that only existed because `IconMenu.web`'s React Native `Modal` cannot live inside a vaul dialog all went with it.
-
-**Drag-to-schedule** (DEX-77) is **large screens only**, and on two layouts: the Week tab (card → another day column, backlog → a day, card → the backlog to unschedule) and Today's multi-pane layout (backlog ↔ the Tasks pane). It is not available on phones, where the backlog is an `@expo/ui` `BottomSheetModal` rendered _over_ the day list — a drag can't cross that native presentation boundary, and the sheet covers the drop target anyway. It also isn't a replacement for anything: the backlog's row "+" and `MoreMenu`'s Schedule submenu both remain, and are the only paths available to a keyboard or a screen reader.
-
-The library is `react-native-drax`, pure JS over `react-native-gesture-handler` and `react-native-reanimated` (both already native deps, so this stays OTA-safe), and the same one `magic-meal-kit` uses. Four components: `components/DragScheduleProvider.tsx` hosts drax plus the single `useTasks()` subscription and the one `ConfirmationModal` per layout; `components/TaskDropTarget.tsx` receives a drop and writes `scheduledFor` (or `null`, which is what makes the backlog pane a target); `components/DraggableTaskCard.tsx` sources one; `components/TaskCardPreview.tsx` is the shell that follows the finger. `useDragSchedule()` returns `null` outside a provider and both the source and the target degrade to plain views there — that gate is what keeps a `DraxView` from mounting on a small screen, where drax's `useDraxContext()` would throw, without threading an `enableDrag` prop through every host.
-
-Five things are load-bearing:
-
-- **The week's horizontal scroller is a `DraxScrollView`, not a `ScrollView`.** Drax hit-tests a drop against measurements taken at layout time, corrected by the scroll offset of the nearest _drax_ scroll container. A plain `ScrollView` registers no such offset and scrolling fires no layout, so once the week had been scrolled sideways every column's hit box would be stale by the distance scrolled and drops would land on the wrong day. Edge auto-scroll during a drag comes with the swap.
-- **Drax caches a view's props in its registry** at registration, refreshing them only when a _capability_ prop changes (`draggable`/`receptive`/`monitoring`/`collisionAlgorithm`), and dispatches off that snapshot rather than the live element. So drop handlers are identity-stable closures reading refs — a `useCallback` keyed on the date is *not* a fix, since a new identity is exactly what the registry declines to pick up. For the same reason the drag **payload is a task id**, resolved against the cache at drop time, rather than the task itself: a whole-task payload freezes, and a card that stayed mounted while the user set an alarm on it would drag the alarm-less version and skip the prompt.
-- **The drop target is the whole day column**, not its task list. The column is `flex: 1` and full height whatever it holds, which is what makes an *empty* day droppable at all given `emptyMessage={null}`.
-- **Activation is by direction, not by time** (`utils/dragActivation.ts`), and one configuration covers every platform. A card sits under two gestures that matter more than dragging: its list scrolls vertically, and `MoreMenu` opens a native context menu on a long press of the whole card. So `longPressDelay: 0` (a stationary press never starts a drag, leaving the menu to open), `dragActivationOffsetX` (only a deliberate sideways pull picks a card up), and `dragActivationFailOffsetY` (vertical travel abandons the drag and hands the gesture back to the list). 15px each, the same shape `SwipeablePage` uses. This works because **every meaningful drop is sideways** — day → day, backlog → day, day → backlog, backlog ↔ Tasks pane — while a *vertical* drag has nothing to mean, since tasks carry no manual order and there is no intra-day reordering to express.
-
-  A timed hold was tried twice first (100ms, then 200ms) and cannot work: gesture-handler's `activateAfterLongPress` activates the pan after its delay **regardless of movement**, so any value below the menu's ~500ms threshold silently cancels the menu, and any value above it loses the drag. The menu appeared only when the drag happened to fail first — which is why it presented as intermittent rather than broken. The direction scheme also retires a footgun the old one carried: with a 0ms delay, a symmetric `dragActivationFailOffset` was the only rule gesture-handler had left, so setting one killed the drag outright.
-
-  `dragActivationOffsetX`/`dragActivationFailOffsetY` are **per-axis props added by `patches/react-native-drax+1.1.0.patch`**. Upstream ships a single symmetric `dragActivationFailOffset` applying to both axes at once, which cannot express "activate sideways, fail vertically". The patch touches `src/` (what Metro bundles), `lib/typescript/` (what `tsc` reads) and `lib/module/` (the `default` export condition) so every entry point agrees.
-- **The hover preview is a static shell.** Drax's default hover re-renders the dragged view's children into its overlay, which here would mount a second set of `@expo/ui` menu hosts; those size asynchronously and report 0 on native, so the card appeared to teleport rather than travel. `TaskCardPreview` also needs `alignSelf: "flex-start"` and an explicit width — drax's hover wrapper shrink-wraps, and a `stretch` child of it collapses to zero on native (web sized it from intrinsic text width, so this only ever broke on device).
-
-One deliberate trade-off: between 768 and ~1150dp the week itself scrolls horizontally, and a sideways gesture starting on a card now goes to the card rather than to that scroller — scroll the week from a day chip or the gutter between columns instead. This isn't new so much as newly consistent: drax already sets `touch-action: pan-y` on drag sources, so touch browsers have always behaved this way. Flipping to `pan-x` would trade away vertical scrolling within a column, which is worse.
-
-`useScheduleChange` (`hooks/useScheduleChange.ts`) is the one path a task's `scheduledFor` changes through, and it exists because a drop needed the alarm-confirmation flow that used to be private to `TaskCard`. Every surface now shares it — the card's menu, the backlog's "+", and the drop targets — which fixed a real bug on the way: the "+" wrote `scheduledFor` directly, moving a task off the day its alarm was set for and leaving the alarm behind.
-
-**The task drawer** (`components/TaskDrawer.tsx`, DEX-33) surfaces every incomplete task not scheduled for the viewed day — unscheduled backlog, tasks left behind on earlier days, and tasks scheduled for other days — with Filter (No Filter/Overdue/Due Soon/Left Behind/Unscheduled) and Group (No Grouping/By List/By Priority/By Goal) `IconMenu`s and a live title-only search, mirroring the legacy dexter-app's QuickPlanner. Tapping a row's "+" schedules that task onto the viewed day through `useScheduleChange` (so it prompts first if the task carries an alarm — see the Week section); since it and the Tasks pane both read the same canonical `["tasks"]` cache entry, the Tasks pane picks up the change automatically. On large screens the row can also be dragged onto a day instead. Rather than issuing its own server query, the drawer derives its base scope from `useTasks()`'s canonical fetch via `utils/taskFilters.ts`'s `selectBacklogTasks(tasks, date)` (incomplete tasks unscheduled or scheduled for another day), then applies whichever Filter preset is selected via `filterTasks` — all client-side, so switching the Filter menu, typing a search, or changing the Group menu never triggers a fetch (DEX-57). `useLists`/`useGoals` (needed once a matching Group is picked) are pre-warmed as soon as a session exists (`app/(app)/_layout.tsx`'s `prefetchQuery` calls), rather than only starting on first selection, so picking "By List"/"By Goal" doesn't wait on a cold fetch either. `isLoading` reflects the shared canonical `["tasks"]` query, which is usually already resolved by the time the drawer first mounts (the Tasks pane fetches it eagerly), showing an `ActivityIndicator` instead of the empty state only on a cold start.
-
-The controls+search sit in a plain `View` above a `@shopify/flash-list` `FlashList` of the (potentially large, unlike a single day's list) backlog: `groupTasks`'s `{id, title, tasks}[]` groups are flattened into one array of `{type: "header"|"task", ...}` rows (`getItemType` keys recycling off `type`) so FlashList can recycle rows instead of every `TaskCard` mounting at once — each row carries multiple `@expo/ui` native menu hosts (`StatusButton` always, `MoreMenu` for incomplete tasks), which is expensive in bulk (see `TaskCard.tsx`'s `minHeight` comment). FlashList v2 is JS-only (no native recycler module), which matters here: `TasksView.tsx`'s own un-virtualized `ScrollView` explicitly avoids virtualization because a _native_ recycler's off-viewport mount/unmount worsens those same native menu hosts' async-sizing (`expo/expo#42576`) — v2's rewrite is why the Backlog can virtualize without hitting that. The app deliberately runs a **newer `@shopify/flash-list` than SDK 57 pins** (`^2.3.2` against the SDK's 2.0.2) for the recycling fixes in 2.1–2.3, so it is listed in `package.json`'s `expo.install.exclude` (DEX-116) — without that, `expo install --check`/`expo-doctor` keep proposing the downgrade. It's hosted two ways. **Small screens:** `components/TaskDrawerSheet.tsx` wraps it in `@expo/ui/community/bottom-sheet`'s `BottomSheetModal` — a native SwiftUI sheet on iOS, a Compose `ModalBottomSheet` on Android, and a vaul drawer on web — with fixed `snapPoints` (`["55%", "90%"]`) and a `BottomSheetView` filling the detent, opened imperatively via `ref.current?.present()` from the `DayViewSwitcher` menu's drawer action (`BottomSheetModal` has no controlled "visible" prop); it defers rendering `TaskDrawer` until the first open, avoiding the cost of building its content on every Today load even though the underlying `["tasks"]`/`["lists"]`/`["goals"]` queries are all shared and already warm. Two things are load-bearing when hosting the drawer in a sheet: (1) the Filter/Group `controlButtonInner`s need an **explicit `height`** (not `flex: 1`) — the native `@expo/ui` menu host sizes to its child's intrinsic height, so a flex-only child with no bounded ancestor collapses the control to ~2px (invisible); the docked pane happened to bound it, so this only bit inside a scroller. (2) `TaskDrawer`'s root `View` and its `FlashList` both need `flex: 1` to bound the list's height to the sheet/pane, or it lays out at full content height and overflows instead of scrolling. **Large screens:** docked inline as the pane row's rightmost column (after Calendar, `DRAWER_PANE_MAX_WIDTH`), toggled by a `GlassIconButton` in `headerActions` and persisted via `useTodayPanes` (a `"drawer"` pane alongside notes/journal/calendar, defaulting closed rather than open since it's an opt-in triage tool, not a glance surface — `useTodayPanes` merges a stored value's present keys onto the defaults, so a device's pre-DEX-33 storage keeps its notes/journal/calendar choices when the drawer key is missing). This drawer-toggle button carries the **overdue/left-behind attention dot** (DEX-58): `today/index.tsx` computes `utils/taskFilters.ts`'s `backlogAttentionFilter(tasks, today)` off the shared `["tasks"]` cache — the Filter preset (`"overdue"` if any incomplete task is overdue (`dueOn < today`), else `"leftBehind"` if any is left behind (`scheduledFor < today`), else `null`) as of the real today — and passes it to `components/LargeScreenToday.tsx`, which derives the dot from `!== null` and passes it as the button's `indicator` prop, which `GlassIconButton` renders as a warning-yellow dot (`theme.colors.priority[0]`, shared with the small-screen `DayViewSwitcher` trigger via `GlassIconButton.indicator.tsx`). This reimplements the legacy app's yellow side-panel icon, extended to overdue tasks. Tapping either Backlog surface pre-applies that filter: on small screens `TaskDrawerSheet` owns the filter state and exposes `present(filter?)` so the `DayViewSwitcher` "Backlog" action can seed it; on large screens `LargeScreenToday` owns `drawerFilterId` and its header drawer-toggle resets both when _opening_ the pane (not when closing) — to the attention filter or, with nothing needing attention, to No Filter and an empty search. That reset is load-bearing rather than tidy-minded: a `?mode=backlog` deep link seeds Unscheduled, and without it that filter survived into the header's "Backlog" action, which then showed only a slice of the backlog it promises. `TaskDrawer` runs controlled off whichever owner (optional `filterId`/`onFilterChange`, and the matching `search`/`onSearchChange` pair a `?mode=backlog` search result seeds — see Search below), and the user can still change either in-drawer afterward.
-
-Calendar renders `components/CalendarView.tsx`, a themed, scrollable vertical timeline of the day's events bounded by the user's configured start/end hours (`preferences.calendarStartTime`/`calendarEndTime`). All-day events pin to a header; timed events are positioned by `utils/calendarLayout.ts`, which clamps them to the window and packs overlapping events into side-by-side columns. Times are formatted manually (`utils/formatPlainTime.ts`) for the same Hermes-`Intl` reason as `formatPlainDate`. The event source is the platform-split `hooks/useCalendarEvents.*` (see the platform-split section): on **native** it reads the device's enabled calendars via `expo-calendar` (requesting permission, filtered by the device-local `hooks/useEnabledDeviceCalendars`); on **web** it fetches each `.ics` feed through the `ics-proxy` Edge Function and parses it with `ical.js` (`utils/icsEvents.ts`, expanding recurrence rules). Both normalize to a shared `TCalendarEvent` (`useCalendarEvents.types.ts`), so `CalendarView` is source-agnostic. This is frontend-only — the proxy and the `calendar_*` preference columns already existed (DEX-39). On today, the timeline auto-scrolls once on first layout so the "now" line lands in the upper third of the viewport — recent and upcoming meetings in frame without manual scrolling (DEX-54). The offset is a pure, clamped helper (`utils/calendarLayout.ts`'s `scrollOffsetForTarget`), fired from the `ScrollView`'s `onLayout` (which is when its viewport height is known) and guarded to run once per mount; since the view remounts per day (`SwipeablePage` on small screens, a date `key` on large ones), that single mount-time scroll covers both "view loads" and "day changed". On any other day the now line is `null`, so it stays at the top.
-
-Notes render `components/NotesView.tsx`, which reads/writes the day's markdown blob via `hooks/useNotes.tsx` (`notes.content`, one row per date) and autosaves edits debounced. When the day has no note row yet and a `templateNote` is configured, it first offers "Use daily note template" / "Blank note" (both write a row via `upsertNote`, so the choice persists across remounts/tab switches instead of re-prompting; `useNotes` exposes `exists` for this and no longer auto-seeds the template into a blank day). The editor itself is `components/NoteEditor.*`, a platform-split wrapper over `react-native-enriched-markdown` (see the platform-split section). The **journal** renders `components/JournalView.tsx` — since DEX-105 only from the Ritual tab's Journal step, never from Today. It reads/writes the day's reflection prompts via `hooks/useJournals.tsx` (`journals.prompts`, a `{prompt, response}[]` jsonb column) and autosaves debounced; responses are **plain text** (a multiline `components/TextInput` — no rich-text dependency, so it's identical on web and native), and prompts auto-seed from `preferences.templatePrompts` (so there's no template chooser — nothing persists until the user answers, and an empty template shows an "add prompts in Settings" message). Both rituals have a Journal step and both edit the **same** entry: a `journals` row is per date, and the prompt template is one list, so there are no separate morning and evening prompts. The two surfaces write to separate tables since DEX-51 (see `docs/backend.md`), so neither has to re-send the other's data to survive a write — `JournalView` still rebuilds the whole `prompts` array per edit, but only because that one jsonb column is replaced wholesale.
-
-**Search** (`app/(app)/(tabs)/search/index.tsx`, DEX-47) runs one query across task titles (including subtask titles), note content, and journal responses (prompts are shown on a result but never searched — see `docs/backend.md` for why). It does **not** filter `useTasks()`' client-side cache: that holds every incomplete task plus the last 30 days only (`RECENT_TASK_WINDOW_DAYS`), so searching it would silently miss anything older that had been completed. Instead `hooks/useSearch.tsx` → `api/search.ts` calls the `search_entries` Postgres function, which is also what the MCP server's `search` tool calls — see `docs/backend.md` for why matching is substring `ilike` rather than full-text search, and why the function is `SECURITY INVOKER`. The input itself is the platform's own search bar, via the platform-split `components/SearchField.*`. On **native** that's `Stack.SearchBar`, which renders `null` and appends itself to the screen's navigation options — so it appears in the navigation header rather than the screen body, and on iOS 26+ is what lets the `role="search"` tab collapse into a search field in the tab bar. It forces `headerShown: true`, which costs nothing here since the Search tab's Stack already shows a themed header — but it also forces that header **translucent**, which is not free: the screen body is then laid out underneath the navigation bar, and the Search screen has to take its top inset from `react-native-screens`' `SafeAreaView` rather than the context's to compensate (DEX-107; the safe-area section above carries the mechanism). Two things to know before touching it: the native bar is **uncontrolled** (`SearchBarProps` has no `value`, only a `ref` of imperative `SearchBarCommands`), so `value` is honored on web and ignored on native; and its `onChangeText` hands back a `NativeSyntheticEvent`, _not_ a string like React Native's own `TextInput` — the native half unwraps `event.nativeEvent.text` so both halves satisfy one string-based contract. On **web** it stays an in-body themed `TextInput`, because `react-native-screens` implements the header search bar on iOS and Android only; without that half the web build would have no way to type a query at all. The hook is keyed on the trimmed query and gated at `MIN_SEARCH_LENGTH` (2) — note the screen gates its _idle prompt_ on the live field against that same constant, not on the hook's `enabled`, which lags the field by a debounce window and would otherwise tell a user who had just typed two characters that they hadn't typed anything; the screen keeps rendering the raw input so typing stays immediate but searches the value `hooks/useDebouncedValue.ts` settles 250ms later, so typing "eisenhower" is one round trip rather than nine. That is deliberately a timer and not `useDeferredValue`, which is a rendering-priority hint rather than a throttle — it only skips intermediate values while a low-priority render is still in flight, so when the deferred render is cheap (as it is when the list is showing a spinner) every keystroke would still reach the server. Results are grouped into Tasks/Notes/Journal sections in one recycled `FlashList` (the same flattened `{type: "header"|"result"}` shape `TaskDrawer` uses) — grouped rather than interleaved because substring matching produces no relevance score that could order a task card against a paragraph of note prose. Tasks render the real `components/TaskCard.tsx`, given the optional `onPress` this added: the title becomes a link instead of a rename affordance (`EditableText` grew the same prop), while the status button, the due-date badge, and the long-press `MoreMenu` keep working, so a result can still be checked off or rescheduled without leaving Search. Notes and journal entries render `components/SearchResultCard.tsx` — the day, the journal prompt when there is one, and a `components/HighlightedExcerpt.tsx` body whose matched terms are marked. Its `onPress` is optional: a journal result is not a link when the journal is disabled (see the deep-link contract below). `utils/searchHighlight.ts` builds that excerpt: it collapses whitespace _before_ matching so every offset indexes the string that actually renders, windows on the first match, and falls back to the head of the text when nothing matches — defensive rather than expected, since `ilike` case-folds by collation while the client uses JS `toLowerCase()` and the two disagree on some Unicode.
-
-**The deep-link contract** lives in three modules, split apart in DEX-105 when a search result could first open a tab other than Today. `utils/routeParams.ts` holds the primitives both route modules parse with (`firstParam`, `parseDayDate`, `linkNonce`); `utils/todayRoute.ts` and `utils/ritualRoute.ts` each own **both directions** for their own tab — the builder and the parser — so the two halves of one contract can't drift; and `utils/searchRoute.ts` decides which of them a result goes to. Splitting the primitives out is what avoids an import cycle, since `searchRoute` needs both builders. `/today?date=YYYY-MM-DD&mode=tasks|notes&n=<nonce>` opens a specific day and surface; `/today?mode=backlog&q=<query>&n=<nonce>` is where an _unscheduled_ task result goes, since it has no day to open; `/ritual?date=YYYY-MM-DD&step=journal&n=<nonce>` is where a **journal** result goes. That link names a step but deliberately **no mode** — the Journal step exists in both rituals, so the tab keeps picking morning or evening by the clock, which does mean a bookmarked link renders a different flow before and after noon. A malformed or impossible `date` (these routes are linkable on web, so a hand-edited URL is a real input) parses to null and falls back to today rather than throwing, and an unrecognized `step` is dropped rather than cast. Two results deliberately have **no** route, both of which `canOpenSearchResult` returns false for: a _completed_ task with no scheduled date, and a journal entry while `enableJournal` is off (the ritual has no Journal step to land on). The backlog is where an unscheduled task would go, and it can never show that task — `selectBacklogTasks` filters to incomplete tasks and the canonical `["tasks"]` fetch excludes completed rows with a null `scheduledFor` outright — so a link would open an empty drawer reading "you're all caught up". The Search screen omits `onPress` for those, leaving the card itself as the surface; `TaskCard` renders its `StatusButton` above the `isComplete` guard, so the task can still be reopened from the results. `parseDayLink`/`parseRitualLink` fold the lot into a single `TDayLink`/`TRitualLink` whose `id` changes per navigation (see below); each route hands that one object on. On the Today tab's **small screens** `SmallScreenToday` selects the view, or — for `backlog`, which is not a day view — calls the sheet's `present("unscheduled", q)`, so the task the user tapped is on screen straight away instead of somewhere in the backlog. On its **large screens** `LargeScreenToday` opens the pane via `useTodayPanes`' `openPane`; `backlog` opens the docked drawer with its filter and search seeded. `ritual/index.tsx` applies its link through `withLink`, which sets the day and the step in **one** transition — `withDate` restarts the ritual at step 0, so two separate updates would land on the day's first step rather than the one asked for. `TaskDrawer` and `TaskDrawerSheet` grew an optionally-controlled `search`/`onSearchChange` pair for that, mirroring their existing `filterId`/`onFilterChange`.
-
-Three things about that plumbing are deliberate and easy to undo by accident. **`openPane`, not `togglePane`:** a toggle guarded by a `panes[pane]` check at the call site would put `panes` in the effect's dependency list, so every later pane toggle would re-run the effect and re-open a pane the user had just closed; `openPane` does the already-open check inside its own updater and stays referentially stable. **The state syncs are render-phase adjustments, not effects** — React's supported pattern for deriving state from a changed prop, the same one `SmallScreenToday`'s `viewDisabled` reset and `EditableText`'s re-seed already use, and required by the `react-hooks/set-state-in-effect` lint rule. Each pairs a `useState` _initializer_ (so arriving with the link already set is right on the first render) with an applied-value guard (so a later change re-applies without stomping the user's own navigation); dropping either half breaks a different case. Effects are kept only for the two genuinely external systems — the imperative sheet handle and `openPane`'s AsyncStorage write.
-
-**Every one of those guards keys on `link.id`, not on the link's contents.** Cross-tab navigation does not remount the Today screen — Expo Router downgrades a `push` to a `JUMP_TO` when the divergent navigator isn't a stack, so the existing instance is reused and only its params change. A guard comparing values therefore cannot tell "already applied" from "applied, then the user navigated away, and has now asked again": tap a note result, swipe to another day, go back to Search, tap the same result, and the tab would switch while the day stayed put. `searchResultRoute` stamps each tap with an incrementing `n` and `parseDayLink` folds it into `id`, which is what makes re-following a link work. A hand-typed or bookmarked URL carries no `n`, so its id derives from its contents alone and it applies exactly once — the right behavior for a link that was typed rather than tapped. The Ritual tab additionally seeds its state **from the link in the `useState` initializer**, not only in the render-time adjustment. Tab screens mount lazily, so the first journal result followed in a session mounts that screen with its params already present and no change for the adjustment to notice — without the initializer it would open on Horoscope for the first tap and work for every one after, which is the worst possible shape for the bug.
+The Dexter app is built with [Expo](https://docs.expo.dev/) (React Native) and
+[Expo Router](https://docs.expo.dev/router/introduction/) for file-based
+navigation. Targets **iOS**, **Android**, and **web**. Commands live in
+`AGENTS.md`; tests go in `__tests__/` next to source files, never under `app/`
+(phantom routes).
+
+This doc records the conventions, gotchas, and rejected alternatives that the
+code cannot say for itself. Read the section for the area you're touching; read
+`docs/design.md` before touching any style value.
+
+## Navigation and shell
+
+Routes live under `app/`: `(auth)/login` behind an auth boundary,
+`(app)/(tabs)/` holding the five tabs (`today`, `ritual`, `week`, `settings`,
+`search`), plus the `new-task` / `edit-task/[id]` modals and `oauth/consent`.
+Read the route files themselves for what each screen does.
+
+**Navigation is chosen by form factor, not by width (DEX-104).** Phones get
+`NativeTabs` (platform tab bar); tablets and web get the JS `Tabs` with its bar
+hidden inside `components/AppShell.tsx` — web because `NativeTabs` renders a
+Radix tab bar that cannot be hidden (DEX-74), tablets because the rail reads
+better than iPadOS's adaptive sidebar. `utils/deviceType.ts`'s `IS_TABLET` is a
+module-scope **constant, not a hook**, deliberately: it selects a navigator,
+and anything that could flip at runtime would swap the navigator under a
+running app and reset every tab's state. It reads `Dimensions.get("screen")`
+(an iPad in Split View is still an iPad).
+
+`AppShell` owns the navigator **and** all the `Tabs.Screen` registrations so
+the rule "every route stays registered regardless of which nav items are
+visible" is one declaration. The chrome is `components/AppNav.tsx` (rail +
+dock, ported from the legacy dexter-app); only web swaps between them
+(`useShowNavRail`) — a tablet pins the rail at every width so its navigation
+never moves. Between 768 and 844dp of window a tablet's large-screen layouts
+run against ~744dp of real content; if that reads badly, subtract the rail's
+width inside `useIsLargeDevice`, not at its ~15 call sites. Destinations are
+`Link`s, not press handlers, so they render real anchors on web; the active
+item carries `aria-current="page"` (`accessibilityState.selected` maps to
+`aria-selected`, ignored outside tab-like roles).
+
+**No window-dependent value may touch a native tab trigger.** expo-router
+warns that dynamically hiding tabs remounts the navigator and resets its
+state; Week's trigger used to be gated on `useIsLargeDevice()` and survived
+only by a portrait-lock argument that was never true of iPad. Now: a phone
+declares no `week` trigger at all (with `useOnlyUserDefinedScreens`, the route
+doesn't resolve there), everywhere else registers it unconditionally and
+`week/index.tsx` renders an explanation below the breakpoint. Whether the nav
+*item* is offered is a `largeScreenOnly` flag on `NAV_ITEMS`, filtered in one
+place. Keep that a width predicate — an iPad mini in portrait genuinely can't
+render seven columns.
+
+**Create-task entry points**: the phone tab bar's `NativeTabs.BottomAccessory`
+(iOS 26+ — free, since `deploymentTarget` is 26.1) and the rail/dock's "+".
+Both route through `utils/newTaskRoute.ts`, which reads the viewed day from
+`hooks/useViewedDay.tsx` — a module-scoped store, not context, because the
+accessory renders outside the app's provider tree; the day must be read at
+press time, since opening the modal blurs the tab. Android phones have no
+create entry point (no accessory, no rail); Android tablets get the rail's.
+
+## Modal screens
+
+- Web form sheets render through Expo Router's experimental modal stack,
+  enabled by `EXPO_UNSTABLE_WEB_MODAL=1` — read by Expo CLI at Metro-resolver
+  time, so it lives in the `start`/`web`/`export:web` scripts, not `app.json`.
+  It is **bundle-wide**: every screen expo-router counts as a modal
+  presentation renders as a centered dialog dismissible by backdrop click.
+- **Every modal screen's contents must sit in one flex column —
+  `components/ModalScreen.*`.** The stack's `.modalBody` is `display: flex`
+  with no `flex-direction`, so it defaults to `row`; a screen returning a
+  fragment renders empty apart from a stray ✕/✓. `ModalScreen` is a `flex: 1`
+  View on web and a passthrough on native (a wrapper would break iOS's
+  keyboard/content insetting under the form-sheet header).
+- **Render `components/ModalLoadingScreen.tsx` from an async modal gate, never
+  a bare `LoadingScreen`** (DEX-101) — the header buttons live in the form, so
+  a bare loading gate leaves the modal with no ✕. On web there is no header
+  slot at all; the in-tree `WebModalHeader` is the only header a web modal has.
+- **A modal that resolves a record branches three ways — loading, errored,
+  absent (DEX-100).** `isLoading ? <LoadingScreen /> : <Redirect />` reads "the
+  query failed" as "the record was deleted", because no hook's loading flag
+  survives an error (placeholder data is only served while pending). Branch:
+  record → form (check the record **first** — a background refetch can fail
+  after first load and must not blow away the form), `isLoading` → loading,
+  `isError` → `ModalErrorScreen` (retry), else → `DismissModal`, which pops
+  one-shot **from `useFocusEffect`** so a background-tab refetch can't pop the
+  screen the user is looking at. **The rule is not yet universal:**
+  `settings/lists/[id]` and `settings/habits/[id]` still carry the two-way
+  bug; converting them needs `isError`/`refetch` on `useLists`/`useHabits`
+  first. `new-task.tsx` still has a bare `router.back()` close — on a cold
+  `/new-task` load ✕ is a dead `GO_BACK`; `useDismissModal("/")` is the fix,
+  not yet done.
+- **Create *in* the modal — route to `id: "new"` and let ✓ do the write.** A
+  menu item that writes a row and then opens its editor leaves ✕ nothing to
+  cancel (orphan row) and, pushed from `onSuccess`, can open a phantom modal
+  for the wrong record when the action fires twice. Decide anything the write
+  needs from the *saved* values, not the entry point.
+- **`router.back()` is not a safe close** — several modals are pushed from
+  outside their own stack (MoreMenu's template items). `settings/tasks/` is
+  its own stack anchored on its `index` (`unstable_settings = { anchor:
+  "index" }`); outside callers push `{ withAnchor: true }`. Pushing the list
+  first at the call site is *not* enough — cold-navigation pushes coalesce.
+  Prefer `back()` over `router.dismissTo(href)`: `dismissTo` *replaces* when it
+  can't find its target and throws away the history under it.
+- **A nested stack's root gets no back button on native unless the parent owns
+  its header** (DEX-93): the native back item comes from the platform
+  controller's own stack, and expo-router's parent-aware `canGoBack` only
+  reaches custom header render functions. `settings/_layout.tsx` keeps the
+  Tasks header for the nested stack; `tasks/_layout.tsx` hides its index's.
+- **One close for every modal editor — `hooks/useDismissModal.ts`.** Its guard
+  is **`router.canDismiss()`, not `canGoBack()`**: `canGoBack` is also true
+  when the only "back" is the tab navigator jumping tabs, so the fallback
+  would never fire and ✕ would land on another tab (DEX-93).
+  `settings/lists/[id]`/`habits/[id]` stay flat on purpose — they are never
+  pushed from outside, so a nested stack would only import the header problem.
+
+## Web overlays
+
+**Every web overlay goes through `components/WebOverlay.web.tsx` — never React
+Native's `Modal`.** The cause is **inherited `pointer-events`**: while any
+Radix dismissable layer is open (the modal stack renders through vaul, and so
+does `TaskDrawerSheet`), `@radix-ui/react-dismissable-layer` sets
+`pointer-events: none` on `document.body` and re-enables it on its own layer
+only — anything outside still paints on top but silently swallows every click.
+Fixing this one component at a time kept producing new instances (DEX-134).
+
+`WebOverlay` portals into `document.body` (in-tree `position: fixed` resolves
+against `.modal`'s `will-change: transform` containing block, which breaks
+`getBoundingClientRect` anchoring) and re-declares `pointerEvents: "auto"`. It
+stops propagation of **`pointerdown` only** — Radix reads an outside
+pointerdown as a dismiss, and a body portal is outside by construction. **Do
+not extend that to `mousedown` or `touchstart`**: react-native-web's responder
+system binds both on the document, so stopping either makes every `Pressable`
+inside an overlay dead — same symptom, different route, invisible to jsdom
+tests. There is no web e2e harness; verify overlay-under-dialog clicks in a
+browser. (`rn-emoji-keyboard`'s internal modal still has the defect in the
+list/habit editors — third-party, unfixed.)
+
+## Today tab
+
+The route is a thin selector over `SmallScreenToday`/`LargeScreenToday`,
+keeping only the shared state: day, preferences, and the backlog-attention
+signal. `hooks/useTasks.tsx` fetches once under the canonical `["tasks"]`
+query — every incomplete task plus anything scheduled in the last
+`RECENT_TASK_WINDOW_DAYS` (30) — and every view slices that cached array
+client-side (`utils/taskFilters.ts`), so paging days is fetch-free (DEX-57).
+The 30-day window is a known limitation: older days show their incomplete
+tasks but not their closed-out ones.
+
+### Safe areas and keyboard
+
+One convention across every scrolling tab screen: the screen's `SafeAreaView`
+**omits the `bottom` edge** (Settings screens take
+`utils/settingsSafeAreaEdges.ts`'s constants; two-pane mode drops `left`
+because the sidebar absorbs it), so content renders behind the translucent tab
+bar — which `minimizeBehavior="onScrollDown"` needs, and which lets pane
+borders reach the screen edge. The standing obligation: each surface reserves
+`insets.bottom` in its **own scrollable content**, never on the scroller's
+frame or a wrapper — frame padding ends the viewport above the bar and cuts
+content off instead of letting it pass under (DEX-75 → DEX-91).
+
+Keyboard avoidance composes with that: screens with fields in a scroller set
+`automaticallyAdjustKeyboardInsets` (iOS insets content; Android resizes the
+window). **Do not** pair it with a reanimated wrapper padding the frame by
+`keyboard.height` — both subtract the keyboard and frame padding never moves
+content, so the field stays covered (the DEX-92 journal bug).
+
+Exceptions, all deliberate: `settings/account.tsx` claims the bottom edge (no
+scroller). `TaskDrawerSheet` presents *over* the tab bar, so it corrects the
+inherited inset with a `SafeAreaInsetsContext.Provider` `bottom: 0`
+(`testUtils/renderWithBottomInset.tsx` drives tests through the same
+mechanism). And `search/index.tsx` frames itself with
+**`react-native-screens/experimental`'s `SafeAreaView`** (DEX-107):
+`Stack.SearchBar` forces the header translucent, react-native-screens lays the
+body under the navigation bar and its one automatic compensation walks a
+first-child chain once at mount — when the screen shows its idle state, not
+the list — while the context's per-tab top inset is only the status bar. The
+screens `SafeAreaView` reads insets from `RNSScreenView`, which includes the
+bar and re-dispatches as UIKit hides/shows it (visible on iPad, where the
+search field stays in the header). That entry point warns its symbols may
+break without a major version — **re-check the Search tab on an iPad after any
+`react-native-screens` bump**, patch releases included.
+
+### Paging and panes
+
+`components/SwipeablePage.tsx` (small screens) pages days with a pan gesture
+and an intro fade/slide on a keyed remount — deliberately *not* an `entering`
+layout animation, which on the new architecture intermittently leaves the
+subtree blank or mis-measured. It is shared with the Ritual tab (prop is
+`pageKey`, not `dateKey`). Its `canNext`/`canPrev` exist because `onEnd` does
+not reset `translateX` on a commit (the host's key change remounts at zero;
+resetting first is what flashed the old day back) — so a bounded pager must
+decline the swipe *inside* the component or the content parks where the finger
+left it.
+
+Large screens: Tasks is always visible at a fixed `TASKS_PANE_WIDTH` — it does
+**not** flex, so a `TaskCard` is the same shape at every window size and the
+other panes absorb the width (DEX-111). Pane visibility persists per device
+via `hooks/useTodayPanes.ts` (AsyncStorage, not the synced `preferences` row —
+a per-device layout choice); `readPanes` rebuilds the stored value key by key
+so removed panes' keys drop out. Notes and Calendar remount on date change
+(both seed uncontrolled state once per mount). The drawer toggle button
+carries the overdue/left-behind **attention dot**
+(`utils/taskFilters.ts`'s `backlogAttentionFilter` — Overdue first, else Left
+Behind, as of the real today); the small-screen home for the dot is the
+`DayViewSwitcher` trigger. Opening the drawer from those buttons pre-applies
+that filter; on large screens the header toggle resets filter+search when
+*opening* — load-bearing, or a `?mode=backlog` deep link's Unscheduled filter
+survives into the header's "Backlog" action and shows a slice of what it
+promises.
+
+### The task drawer
+
+`components/TaskDrawer.tsx` (DEX-33) derives its scope from the canonical
+`["tasks"]` cache (`selectBacklogTasks`), all filtering/grouping/search
+client-side. Its rows' "+" schedules through `useScheduleChange` (alarm
+prompt included). It renders a flattened `{type: "header"|"task"}` FlashList
+so rows recycle — each row carries `@expo/ui` native menu hosts, expensive in
+bulk. FlashList v2 is JS-only, which is exactly why the drawer can virtualize
+while `TasksView`'s un-virtualized `ScrollView` cannot (a *native* recycler's
+off-viewport churn aggravates the hosts' async sizing, expo/expo#42576). The
+app deliberately runs `@shopify/flash-list` newer than the SDK pin, listed in
+`package.json`'s `expo.install.exclude` (DEX-116) so `expo install --check`
+stops proposing the downgrade.
+
+Two things are load-bearing when hosting the drawer in the small-screen sheet
+(`TaskDrawerSheet`, `@expo/ui` bottom sheet): the Filter/Group control inners
+need an **explicit `height`** — a native menu host sizes to its child's
+intrinsic height, and a flex-only child inside a scroller collapses the
+control to ~2px; and the drawer root + FlashList both need `flex: 1` or the
+list lays out at full content height and overflows instead of scrolling. The
+sheet is imperative (`present(filter?)` — `BottomSheetModal` has no controlled
+visible prop) and defers rendering the drawer until first open.
+
+### Calendar and notes
+
+`components/CalendarView.tsx` is a themed timeline bounded by the user's
+start/end hours; `utils/calendarLayout.ts` clamps and packs overlapping
+events; times are hand-formatted (`utils/formatPlainTime.ts` — Hermes ships a
+partial `Intl`). The source is the platform-split `hooks/useCalendarEvents.*`
+(native: `expo-calendar` + device-local `useEnabledDeviceCalendars`; web:
+`.ics` feeds through the `ics-proxy` function, parsed by `utils/icsEvents.ts`),
+normalized to one `TCalendarEvent`. `notConfigured` is computed in both
+platform files from what they already know — no extra permission prompt. On
+today the timeline auto-scrolls once on first layout
+(`scrollOffsetForTarget`), covered for both "view loads" and "day changed" by
+the per-day remount.
+
+`components/NotesView.tsx` autosaves the day's markdown debounced; a day with
+no row offers template/blank (both write a row, so the choice persists —
+`useNotes` exposes `exists` and never auto-seeds). `components/JournalView.tsx`
+(Ritual tab only since DEX-105) autosaves `journals.prompts` wholesale;
+responses are plain text; both rituals edit the same per-date entry.
+
+## Week tab
+
+Seven Monday-first columns (DEX-96), each reusing `components/DayTaskList.tsx`
+(extracted so the repeat-aware delete confirmation isn't re-derived). Labeled
+from ISO `weekOfYear`/**`yearOfWeek`**, not `year` — a week can belong to the
+neighbouring calendar year, which the legacy app got wrong; math lives in
+`utils/weekStartEnd.ts`.
+
+The columns live in a horizontal **`DraxScrollView`** (see drag-to-schedule:
+a plain `ScrollView` registers no scroll offset with drax, so after sideways
+scrolling every drop would land on the wrong day). Columns are deliberately
+read-only chrome — no per-column "+", `emptyMessage={null}`, no create nudge
+(seven copies of anything read as noise) — and run **flush**: all horizontal
+spacing comes from the row's `gap`, which the today-anchor also derives its
+column pitch from, so the two must move together (DEX-115; see
+`docs/design.md`, "Who owns spacing"). The docked backlog stays outside the
+scroller; its drawer is uncontrolled here on purpose — the controlled filter,
+dot, and deep-link seeding are Today's contract, and reusing `useTodayPanes`
+would open the backlog on both tabs at once. Known cost: with habits on,
+seven `HabitTracker`s mount with their own queries; a range query is the fix
+if it ever shows.
+
+## Ritual tab
+
+A guided walk through the start/end of a day (DEX-127). The route owns one
+`TRitualState` (`{date, mode, step, direction}` plus one boolean per optional
+step) and branches on `useIsLargeDevice()`.
+
+**Every rule lives in `utils/ritualSteps.ts`, and nothing in it is React** —
+step lists, the noon boundary, and all transitions are pure functions.
+Contracts that are load-bearing:
+
+- Transitions return **the same object** for a no-op (either end of the list,
+  the value already on screen) so a declined swipe doesn't re-render and
+  restart the intro animation.
+- **The step list is derived; state carries the input (booleans), not the
+  output (an array).** `stepsFor(state)` picks a precomputed list off the
+  enabled flags — precomputed because both switchers map the result every
+  render and fresh arrays would defeat identity comparisons downstream.
+  `state.step` indexes a list that can shrink, so it may only be produced by a
+  transition in that module — never `{ ...state, step: n }` at a call site.
+- **The `withXEnabled` transitions move the user by step *id*, not index** — a
+  clamp would silently move someone from Calendar to Backlog when an earlier
+  step is removed. Preserving the id also keeps `ritualPageKey` unchanged so
+  `SwipeablePage` doesn't remount for a preference flipped in another tab.
+  (`usePreferences` serves defaults until the row loads, so a cold launch
+  corrects a round trip later — the correction has to be unremarkable, and it
+  runs in both directions since journal/horoscope default on but calendar
+  defaults off.)
+- The "unchanged" guard stays on each exported transition because
+  `ritual/index.tsx` compares each flag against preferences **during render**
+  and sets state on disagreement — a transition that returned a state without
+  updating its flag would spin the render loop forever.
+
+The swipe pages **steps**, runs at every width (unlike Today, where large
+screens page by arrows — a ritual is a sequence you move through, so the
+gesture means something), and is suspended while a step reports editing.
+`components/RitualStepView.tsx` is the seam: it branches on `step.id` and
+unbuilt steps fall through to a placeholder, which is what lets sub-issues
+fill steps in without touching the flow. The step's `onEditingChange` must be
+passed **unwrapped** (a `useState` setter, never an inline arrow) — a
+downstream cleanup depends on its identity, and a fresh function per render
+clears the editing flag on focus. The step control mirrors Today's split
+(menu on small screens, segments on large); on iOS the segments are a real
+SwiftUI segmented `Picker` for liquid glass. **`Host matchContents` is the
+part to re-check on device after an `@expo/ui` bump** — these hosts size
+asynchronously, and a mis-sized one renders *untappable*, which is why
+`DayViewSwitcher`, `StatusButton` and `TaskCard` pin theirs to exact pixels.
+The drawn `SegmentedControl` (Android/web) needs `stretch={false}` in the
+header's actions row, which has no width of its own — `flex: 1` segments
+would divide nothing and collapse.
+
+### Horoscope step (DEX-128)
+
+Read-only client of `public.horoscopes` (`["horoscopes", sunSign, date]`),
+deliberately not realtime (rows change once a day). The panel's colors and
+frame are `docs/design.md`'s Sentiment section. App-side gotchas:
+
+- `components/StarField.tsx` is **seeded, not random** (a sky must not
+  reshuffle per render); stars deal into four layers with one shared opacity
+  animation each (a shared value per star would drive a worklet per frame),
+  with co-prime periods so they never re-align into one pulse. Star count is
+  the cheap dial, layer count is not. The panel carries no `overflow: hidden`
+  — clipping to a radius makes it an offscreen-rendered layer re-composited
+  every frame a child animates.
+- The audio (`hooks/useHoroscopeAudio.ts`) is built on `createAudioPlayer`,
+  **not** the `useAudioPlayer` hook — the hook releases its player at unmount,
+  which cuts audio dead with no window to fade; owning the player lets cleanup
+  ride the volume down and then release, at the price that every exit path
+  must end in `remove()`. `MAX_VOLUME` is linear amplitude against
+  logarithmic hearing (0.5 is only −6dB — reported as "no change"). **On iOS
+  browsers none of the volume work happens** — Apple reserves
+  `HTMLMediaElement.volume` for the hardware buttons, so mobile-web tracks
+  play at device volume and cut instead of fading; that's this, not the
+  arithmetic. `expo-audio`'s config plugin is deliberately not installed (it
+  only adds microphone permissions; this is playback-only).
+
+### Calendar step (DEX-140)
+
+Three `HeroLines` over the unchanged `CalendarView`. The arithmetic
+(`utils/calendarStats.ts`, React-free) has three decisions worth keeping:
+**planned time is the union of event spans, not the sum** (double-bookings
+must not report thirty-hour days) and it **clamps before it merges** (an event
+running in from yesterday contributes only its in-window part); the window is
+the user's own configured hours, derived once (`calendarWindow`) so the number
+can't disagree with the grid drawn under it; and **`layoutEvents` is
+deliberately not reused** — it floors heights and inflates zero-length events,
+drawing decisions that would be lies in a total. The step checks `isLoading`
+**before** `notConfigured` — an unresolved read looks exactly like an
+unconfigured one, and testing the source first flashes the setup prompt at
+configured users on every cold open.
+
+### Backlog step (DEX-141)
+
+Three `HeroLines` over the Today drawer's `TaskDrawer` (search field hidden —
+the one divergence from "same controls as today"). Load-bearing:
+
+- **Counts anchor to today while the scope is the ritual's day** —
+  `TaskDrawer` filters against today whichever day is shown, and a hero that
+  disagreed with the list under it is worse than none. Both read the one
+  `useTasks()` query, so clearing a task drops it from count and list in the
+  same render. `backlogCounts` is built from `filterTasks(...).length` so a
+  figure can never drift from the preset it labels; buckets overlap on
+  purpose.
+- **The filter follows the reader down the buckets, and only emptiness moves
+  it.** `defaultBacklogFilter` picks the opening preset; `nextBacklogFilter`
+  advances only when the current bucket empties, and the advance is **written
+  back to state, not merely derived** — left derived, refilling the emptied
+  bucket (un-complete, another device) would yank the list off whatever the
+  reader moved on to. Set-state-during-render; it can't loop because an
+  advance always lands on a non-empty bucket.
+- The drawer half is a separate `BacklogList` component so its lazy state
+  initializer never sees `useTasks`' empty placeholder — the same latch inside
+  the step would fight two `react-hooks` lint rules that are both right. The
+  step checks `isLoading` first or the all-clear hero congratulates a cold
+  cache.
+
+`components/HeroLines.tsx` is shared by both reporting steps: right-aligned
+figures, left-aligned words, the figure column **measured** (widest raises a
+`minWidth`, converges in one pass, monotonic so a shrinking figure never
+re-flows the hero under the reader), each row one accessibility node carrying
+the whole phrase. Stage timing lives in `useHeroReveal`/`useStageOpacity`;
+the reveal is opacity-only — `SwipeablePage`'s intro already slides, and two
+axes compound into a diagonal drift.
+
+## Drag-to-schedule (DEX-77)
+
+Large screens only (a phone's backlog is a native sheet a drag can't cross),
+and never the only path — the row "+" and the Schedule submenu remain for
+keyboard and screen readers. Library is `react-native-drax` (pure JS,
+OTA-safe). `useDragSchedule()` returns `null` outside the provider and both
+ends degrade to plain views, which is what keeps `DraxView` off small screens
+without threading an enable prop.
+
+- **Drax caches a view's props in its registry** at registration, refreshing
+  only when a *capability* prop changes, and dispatches off that snapshot. So
+  drop handlers must be identity-stable closures reading refs (`useCallback`
+  keyed on the date is *not* a fix — a new identity is what the registry
+  declines to pick up), and the drag **payload is a task id** resolved at drop
+  time, never the task object, which would freeze stale.
+- **The drop target is the whole day column**, which is what makes an empty
+  day droppable given `emptyMessage={null}`.
+- **Activation is by direction, not time** (`utils/dragActivation.ts`): a card
+  sits under a vertical list scroll and a long-press context menu, so
+  `longPressDelay: 0` + activate on sideways travel + fail on vertical. Every
+  meaningful drop is sideways. A timed hold was tried twice and **cannot
+  work**: `activateAfterLongPress` activates regardless of movement, so below
+  the menu's ~500ms it silently cancels the menu and above it loses the drag —
+  presenting as intermittent. The per-axis
+  `dragActivationOffsetX`/`dragActivationFailOffsetY` props come from
+  `patches/react-native-drax+1.1.0.patch`, which touches `src/`,
+  `lib/typescript/` and `lib/module/` so every entry point agrees.
+- **The hover preview is a static shell** (`TaskCardPreview`) — drax's default
+  re-renders the dragged children into its overlay, which would mount a second
+  set of async-sizing `@expo/ui` hosts that report 0 on native. It needs
+  `alignSelf: "flex-start"` and an explicit width; drax's wrapper shrink-wraps
+  and a `stretch` child collapses to zero on device.
+
+`hooks/useScheduleChange.ts` is the one path `scheduledFor` changes through —
+extracting it fixed the backlog "+" moving a task off its alarm's day and
+leaving the alarm behind.
+
+## Search (DEX-47)
+
+Search does **not** filter the client task cache (30-day window — it would
+silently miss older completed tasks); `hooks/useSearch.tsx` calls the
+`search_entries` Postgres function (see `docs/backend.md` for the matching
+strategy and `SECURITY INVOKER` reasoning). The input is the platform-split
+`components/SearchField.*`: native is `Stack.SearchBar` (renders `null`,
+appends itself to navigation options; **uncontrolled** — `value` is ignored;
+`onChangeText` hands back a `NativeSyntheticEvent`, unwrapped so both halves
+share one string contract), web is an in-body `TextInput` because
+react-native-screens implements the header bar on iOS/Android only. The query
+debounces through `useDebouncedValue` — deliberately a timer and not
+`useDeferredValue`, which is a rendering-priority hint, not a throttle: when
+the deferred render is cheap every keystroke still reaches the server.
+Results group into sections (substring matching has no relevance score to
+interleave by); `utils/searchHighlight.ts` collapses whitespace *before*
+matching so offsets index the rendered string, and falls back to the head of
+the text — `ilike` case-folds by collation while the client uses
+`toLowerCase()`, and they disagree on some Unicode.
+
+### Deep links
+
+The contract lives in three modules: `utils/routeParams.ts` (shared
+primitives), `utils/todayRoute.ts` / `utils/ritualRoute.ts` (each owns **both
+directions** for its tab so builder and parser can't drift), and
+`utils/searchRoute.ts` (which tab a result goes to; the split avoids an import
+cycle). Malformed dates parse to null and fall back to today — these are web
+URLs, so a hand-edited value is a real input. Two results deliberately have no
+route (`canOpenSearchResult`): a completed task with no scheduled date (the
+backlog can never show it) and a journal entry while the journal is disabled.
+
+Plumbing that is easy to undo by accident:
+
+- **`openPane`, not `togglePane`** — a toggle guarded at the call site puts
+  `panes` in the effect deps, so every later toggle re-runs the effect and
+  re-opens what the user just closed.
+- **The state syncs are render-phase adjustments, not effects** (the
+  `react-hooks/set-state-in-effect` pattern): a `useState` initializer (right
+  when arriving with the link already set) paired with an applied-value guard
+  (re-applies later changes without stomping the user's own navigation).
+  Dropping either half breaks a different case.
+- **Guards key on `link.id`, not contents.** Cross-tab navigation does not
+  remount the screen (a `push` downgrades to `JUMP_TO`), so a value-comparing
+  guard can't tell "already applied" from "applied, user navigated away, asked
+  again". `searchResultRoute` stamps each tap with an incrementing nonce
+  folded into `id`; a bookmarked URL carries none, so it applies exactly once.
+- The Ritual tab additionally seeds from the link **in its `useState`
+  initializer** — tab screens mount lazily, so the first followed link mounts
+  the screen with params already present and no change for the adjustment to
+  notice. `withLink` sets day and step in **one** transition, because
+  `withDate` restarts at step 0.
 
 ## Theming
 
-`utils/theme.ts` is the single source of truth for every style value in the app. **What the tokens mean and when to use each one lives in [`docs/design.md`](./design.md) — read that before touching a style.** This section covers the plumbing: how a theme is resolved and supplied.
+`utils/theme.ts` is the single source of truth for every style value. **What
+tokens mean lives in `docs/design.md` — read it before touching a style.**
+Plumbing:
 
-It defines a `themes` registry keyed by name — `dexter`, `light`, `dim`, `dark`, `abyss` (colors ported from the legacy `dexter-app`'s daisyUI tokens, oklch → hex) — holding the color half of a theme, and a `DENSITY` record holding the numeric half at two tiers. `THEMES` lists the palettes with a `mode` (`light`/`dark`) for the picker.
-
-- **`useTheme()`** composes the two halves and is the only way components should read a style value. Read `theme` from the hook and inject values inline (`style={[styles.card, { backgroundColor: theme.colors.surfaceSunken, padding: theme.space.md }]}`), keeping static *layout* (`flexDirection`, `position`, `flex`) in `StyleSheet.create`. Anything that varies by theme or by density tier has to be inline — `StyleSheet.create` values are static. Don't hardcode hex/rgba colors or numeric sizes in a `StyleSheet`.
-- **Users pick their appearance.** The `preferences` table stores `themeMode` (`EThemeMode` — `SYSTEM`/`LIGHT`/`DARK`, from `api/preferences.ts`), `lightTheme`, and `darkTheme`. `providers/ThemeProvider.tsx` (mounted in the root layout inside the auth + query providers) reads those via `usePreferences()`, resolves the active theme with the pure `resolveTheme(preferences, systemScheme)` helper, and supplies it through `ThemeContext`. The **Settings → Appearance** screen (`app/(app)/(tabs)/settings/appearance.tsx`) is where users set them. Every other preference on that table is non-null with a sensible default; `sunSign` (DEX-128) is the one exception — see the Ritual tab above.
-- **`useTheme()` falls back to an OS default with no provider.** `ThemeContext` is `null` above the providers (root layout chrome), on unauthenticated screens, and in tests; there `useTheme` resolves `dexter` (light) or `dark` (dark) from `useResolvedColorScheme()`. `SYSTEM` mode follows the OS via the same hook, so the app still re-renders live when the device switches light/dark. `app.json` sets `userInterfaceStyle: "automatic"` so native chrome (status bar, tab bar) adapts too.
-- On **web**, the first paint has no reliable `prefers-color-scheme` signal, so `useResolvedColorScheme` renders `light` then resolves the real scheme in a layout effect (before paint, no visible flash).
-- **Navigation surfaces must be themed explicitly.** A bare `<Stack>` renders a default (light) header even in dark mode, so nested tab layouts pass their screens through `createListScreenOptions(theme, title)` and modals through `createModalScreenOptions(theme, title)` (both from `utils/stackOptions.ts`, with `.web.ts` variants). The root Stack sets a themed `contentStyle` background so the gap before a screen paints (cold start, auth redirects) matches the scheme.
-- **`withOpacity(color, alpha)`** applies/compounds an alpha channel on a hex or `rgba()` color — use it to dim content, and to derive scrims and shadows from a theme color instead of hardcoding black rgba. It is *not* the way to tint a surface; see `docs/design.md`.
-- **Density is a pointer tier, not a multiplier.** `useTheme()` returns the `compact` tier only on **web** at and above 768px (`useIsLargeDevice()`); native stays `comfortable` at every width, because compact's 26dp `controls.sm` is under the iOS minimum tap target and reads cramped on an iPad. That is unchanged by the rail rendering on tablets (DEX-104): a tablet draws the same rail at `comfortable`, which is fine because the rail's 48dp tile is its own constant rather than a density-derived control size, and clears the 44pt minimum. A test that mocks the breakpoint gets the matching tier for free, but asserting compact also means saying it's on web — see `docs/design.md`.
-
-## App icons
-
-The brand mark is a **husky on cream** (`#FAF2E6` background, `#593D31` line-art). Icons are configured in `app.json`:
-
-- **iOS/macOS** — an Apple [Icon Composer](https://developer.apple.com/icon-composer/) `.icon` bundle at `assets/app.icon/` (`icon.json` + `Assets/Vector.svg`), wired via `ios.icon`. It carries its own light/dark/tinted (Liquid Glass) variants, so no per-appearance PNGs are needed; older iOS versions get an automatic fallback. Supported in SDK 54+.
-- **Android** — `android.adaptiveIcon` with a solid cream `backgroundColor` plus `foregroundImage` (husky line-art) and `monochromeImage` (silhouette for themed icons) in `assets/images/`.
-- **Web + fallback** — top-level `icon` (`assets/images/icon.png`, a flat cream square) and `web.favicon` (`assets/images/favicon.png`).
-
-The husky vector in `assets/app.icon/Assets/Vector.svg` is the source of truth; the Android foreground/monochrome PNGs are rasterized from it. Native icon files are generated by prebuild/EAS (CNG) — the `ios/`/`android/` dirs are gitignored.
+- **`useTheme()`** composes palette + density and is the only way components
+  read style values. Inject varying values inline; keep static *layout* in
+  `StyleSheet.create` (its values are static, so anything theme- or
+  tier-dependent must be inline).
+- `providers/ThemeProvider.tsx` resolves `preferences.themeMode` /
+  `lightTheme` / `darkTheme` via the pure `resolveTheme`. With no provider
+  (root chrome, unauthenticated screens, tests) `useTheme` falls back to the
+  OS scheme. On web the first paint has no reliable `prefers-color-scheme`, so
+  `useResolvedColorScheme` renders light then resolves in a layout effect
+  (before paint).
+- **Navigation surfaces must be themed explicitly** — a bare `<Stack>` renders
+  a light header in dark mode; layouts pass screens through
+  `createListScreenOptions`/`createModalScreenOptions`
+  (`utils/stackOptions.ts`), and the root Stack sets a themed `contentStyle`
+  so pre-paint gaps match the scheme.
+- **Density is a pointer tier, not a multiplier** — compact on web ≥768px
+  only; see `docs/design.md`.
 
 ## Auth
 
-Auth is Supabase-backed (magic-link email + Google OAuth, PKCE flow) via `hooks/useAuth.tsx`, which exports `AuthProvider`/`useAuth` (`{ initializing, session, userId }`) and `signInWithEmail` / `signInWithGoogle` / `signOut` helpers. The singleton `supabase` client lives in `utils/supabase.ts` (env validation + native `AppState` auto-refresh) and is re-exported from `hooks/useAuth.tsx` for existing call sites.
-
-- **Email login is link _or_ code.** `signInWithEmail` sends a magic link, and the email template (`supabase/templates/magic_link.html`) also renders the `{{ .Token }}` code, so `app/(auth)/login.tsx` shows a two-step flow: enter email → enter the 6-digit code. The code is verified with `verifyEmailOtp` (`verifyOtp({ type: "email" })`); tapping the link still works via `auth-callback`. On success the session is set and `(auth)/_layout.tsx` redirects into the app — no manual navigation.
-- **Demo account login.** `isDemoEmail(email)` (exact match on `DEMO_EMAIL`, duplicated from `supabase/functions/_shared/demoAuth.ts`) routes the App Store demo account down a separate path: no email is sent, and the typed code is verified by the `verify-demo-otp` Edge Function via `verifyDemoOtp`, which returns a session installed with `setSession`. Keeps reviewer login inbox-free. See `docs/backend.md` (Demo account login).
-
-- **MCP / OAuth consent**: `app/oauth/consent.tsx` renders the Supabase OAuth-server consent screen (`{site_url}/oauth/consent?authorization_id=…`). It sits outside the `(app)` group, so it guards itself — an unauthenticated visitor's `authorization_id` is stashed (`utils/oauthReturn.ts`) and replayed by `auth-callback.tsx` after sign-in. See `docs/backend.md` for the server-side config and client registration.
-
-- **Guards live in the layouts**: `(app)/_layout.tsx` redirects signed-out users to `/(auth)/login`; `(auth)/_layout.tsx` redirects signed-in users to the app; `app/index.tsx` branches on session at boot.
-- **Callback URL** is `Linking.createURL("auth-callback")` — platform-adaptive: `dexter://auth-callback` on native (scheme set in `app.json`), `https://<origin>/auth-callback` on web. `app/auth-callback.tsx` exists so the web navigation doesn't 404; `AuthProvider` picks the URL up and exchanges the `?code=` param for a session.
-- **Redirect allowlist**: both callback forms must be registered in `supabase/config.toml` (`additional_redirect_urls`) and the hosted Supabase project's Auth URL allowlist.
-- On native, token auto-refresh is tied to `AppState` (refresh on foreground), and a corrupted/revoked refresh token clears persisted auth storage (`utils/authStorage.ts`) so the user can sign in again.
-
-## Commands
-
-From repository root:
-
-```bash
-cd src
-npm install
-npm start          # dev server (QR / simulator / press w for web)
-npm run web        # web only
-npm run ios        # native build + run iOS
-npm run android    # native build + run Android
-npm run lint       # eslint . (all of /src — see AGENTS.md's Gotchas)
-npm run format     # Prettier
-npm test           # Jest (jest-expo)
-npm run typecheck  # tsc --noEmit
-```
-
-### EAS builds (development client)
-
-Native development uses an [EAS](https://docs.expo.dev/eas/)-built [development client](https://docs.expo.dev/develop/development-builds/introduction/) rather than Expo Go. Build profiles are defined in `src/eas.json` (`development`, `simulator`, `e2e-test`, `preview`, `production`), and `expo-dev-client` is a dependency.
-
-```bash
-npm run dev:simulator   # eas build --platform ios --profile simulator (iOS Simulator)
-npm run dev:ios         # eas build --platform ios --profile development (on-device)
-npm run dev:android     # eas build --platform android --profile development
-```
-
-The EAS project is wired up via `extra.eas.projectId` and `owner` in `app.json`. `appVersionSource` is `remote`, so build/version numbers are managed by EAS.
-
-Production release to the App Store is a manual **Build and Submit** workflow (`.github/workflows/build-and-submit.yml`): `eas build --profile production` → `eas submit` → tag + GitHub release from `CHANGELOG.md`. See [`docs/appstore.md`](appstore.md) for the required credentials (`EXPO_TOKEN`, `submit.production.ios.ascAppId`, an App Store Connect API key on EAS).
-
-## Stack
-
-- **Expo SDK 57** (see `src/package.json` for exact versions)
-- **iOS deployment target 26.0** — set via the `expo-build-properties` plugin in `app.json`; the tab bar's bottom accessory (and other planned features) require iOS 26+
-- **React 19.2** / **React Native 0.86** with **react-native-web** for web
-- **React Compiler** enabled via `experiments.reactCompiler` in `app.json`
-- **`react-native-gesture-handler`** / **`react-native-reanimated`** back the Today tab's swipe-to-change-days gesture (`components/SwipeablePage.tsx`). `GestureHandlerRootView` is mounted once at the root in `app/_layout.tsx`, which any gesture-driven feature builds on.
-- **`react-native-drax`** backs large-screen drag-to-schedule (DEX-77 — see the Week section). Pure JS over the two above, so it adds no native code and stays OTA-safe; v1.1 peer-depends on Reanimated 4, which the app is already on.
-- **TypeScript 6** — `tsconfig.json` extends `expo/tsconfig.base`
-- **ESLint** — `eslint .` over the whole of `/src`. `eslint.config.js` layers `typescript-eslint`'s type-checked rules over `eslint-config-expo/flat`, and relaxes the untypeable ones for test files (see [`docs/testing.md`](testing.md))
-- **Web render mode** — `web.output: "single"` (SPA) so the Supabase-backed `AuthProvider` doesn't have to run under Node SSR.
-
-## Environment
-
-Supabase client code reads the public Expo environment variables below from local, uncommitted `.env` files:
-
-```bash
-EXPO_PUBLIC_SUPABASE_URL=...
-EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
-EXPO_PUBLIC_SENTRY_DSN=...
-```
-
-Generated Supabase database types live at `src/types/database.types.ts`. Regenerate them from `/src` with:
-
-```bash
-npm run supabase:types
-```
-
-Uncommitted `.env` / `.env.local` files are normal; never commit secrets.
+Supabase magic-link email + Google OAuth (PKCE) via `hooks/useAuth.tsx`; the
+singleton client lives in `utils/supabase.ts`. Guards live in the layouts
+(`(app)`/`(auth)`/`index`). The login email carries both a link and a code
+(`verifyOtp({ type: "email" })`); the demo account routes through
+`verify-demo-otp` instead — `isDemoEmail` is duplicated from the Deno module
+(it can't be imported) and must stay identical; see `docs/backend.md`. The
+callback URL is `Linking.createURL("auth-callback")` and both forms must be in
+`config.toml`'s `additional_redirect_urls` **and** the hosted project's
+allowlist. `app/oauth/consent.tsx` (outside the `(app)` group, self-guarding)
+renders the OAuth-server consent screen; an unauthenticated visitor's
+`authorization_id` is stashed (`utils/oauthReturn.ts`) and replayed after
+sign-in.
 
 ## Error monitoring (Sentry)
 
-The app reports errors and performance data via [`@sentry/react-native`](https://docs.sentry.io/platforms/react-native/) (not the deprecated `sentry-expo`), wired through the `@sentry/react-native/expo` config plugin in `app.json` (`organization: "cvburgess"`, `project: "dexter-app"`).
-
-- **DSN**: `utils/sentry.ts` exports `getSentryDsn()`, which reads `EXPO_PUBLIC_SENTRY_DSN` and throws if it's missing — same throw-if-missing pattern as `utils/supabase.ts`. The DSN is a public identifier, safe to expose client-side; set it in `src/.env.local` for local dev (uncommitted, see above).
-- **Init + wrap**: `app/_layout.tsx` calls `Sentry.init(...)` at module scope (before any component renders) and exports `Sentry.wrap(RootLayout)` as the default export — the earliest lifecycle hook available. `Sentry.wrap` is plain component composition (a touch-event boundary + profiler), so it's compatible with the React Compiler (`experiments.reactCompiler` in `app.json`).
-- **Navigation tracing**: a module-scoped `Sentry.reactNavigationIntegration()` instance is passed to `Sentry.init` and registered against the root `Stack`'s navigation container ref (`useNavigationContainerRef` from `expo-router`) inside `ThemedStack`, so screen transitions show up as Sentry spans/breadcrumbs.
-- **Error boundary**: `app/_layout.tsx` also exports `ErrorBoundary({ error, retry })` (Expo Router's per-layout error boundary convention), which reports the error via `Sentry.captureException` and renders a themed fallback with a retry button. Because it can render when a provider above it (e.g. `ThemeProvider`) failed to mount, it relies on `useTheme()`'s OS-resolved fallback rather than assuming providers are present.
-- **React Query**: `providers/QueryProvider.tsx` wires a `QueryCache`/`MutationCache` `onError` handler that reports failed queries and mutations to `Sentry.captureException`, in addition to React Query's normal `isError`/`error` state for UI handling.
-- **Web**: `Sentry.init` sets `enableNative`/`enableNativeCrashHandling` to `Platform.OS !== "web"` explicitly (react-native-web has no native module bridge) — the SDK itself also no-ops native-only behavior on web, but this keeps intent explicit rather than relying on an internal check.
-- **Source maps**: `src/metro.config.js` wraps Expo's default Metro config with `getSentryExpoConfig` (from `@sentry/react-native/metro`) so bundles are annotated for symbolication. Actual source-map / debug-symbol upload happens via native build-phase scripts the config plugin injects into the iOS/Android projects during `eas build`, gated on the build configuration:
-  - `preview` and `production` in `src/eas.json` build with `ios.buildConfiguration: "Release"` and upload source maps + debug symbols. This requires a `SENTRY_AUTH_TOKEN` **EAS secret** (build-time only, never `EXPO_PUBLIC_*`, never hardcoded) — set it with `eas secret:create --scope project --name SENTRY_AUTH_TOKEN --value <token>`.
-  - `development`, `simulator`, and `e2e-test` set `SENTRY_DISABLE_AUTO_UPLOAD: "true"` in their `eas.json` `env` block, since those Debug builds don't have (and don't need) a `SENTRY_AUTH_TOKEN`.
-- **Manual verification**: trigger a test error with `setTimeout(() => { throw new Error("Sentry test"); });` from anywhere in the app and confirm it appears in the Sentry dashboard for the `dexter-app` project.
-- **Triage**: the `/triage-sentry` skill (`.claude/skills/triage-sentry/SKILL.md`) investigates a Sentry issue's root cause and either resolves it as noise or files a Linear bug. It needs a Sentry MCP connection, which this repo does not configure.
+`@sentry/react-native` via its Expo config plugin. Non-obvious parts:
+`Sentry.wrap(RootLayout)` is plain composition, so it's React-Compiler-safe;
+the exported `ErrorBoundary` can render when providers above it failed, so it
+relies on `useTheme()`'s OS fallback; `QueryProvider` reports query/mutation
+failures from cache-level `onError` handlers; source-map upload happens in
+native build phases and needs the `SENTRY_AUTH_TOKEN` **EAS secret** (Release
+profiles only — dev profiles set `SENTRY_DISABLE_AUTO_UPLOAD`). Triage with
+the `/triage-sentry` skill.
 
 ## Data Layer
 
-- `api/` contains typed Supabase query modules.
-- `hooks/` contains React Query hooks and the Expo-compatible `useAuth` provider.
-- `utils/` contains data helpers shared by the query layer and hooks.
-- `providers/QueryProvider.tsx` exports the React Query provider; `providers/ThemeProvider.tsx` resolves the user's chosen theme into `ThemeContext`. Route wiring in `app/` is intentionally separate from the data layer.
+`api/` holds typed Supabase query modules; `hooks/` the React Query hooks;
+`providers/QueryProvider.tsx` the query client. Freshness is three layers, no
+interval polling (DEX-36):
 
-### Keeping data fresh across platforms (DEX-36)
-
-Tasks, notes, and other Supabase-backed data can change from web, MCP, or another device while the app is open — three layers keep the cache from going stale:
-
-- **Shared staleTime.** `QueryProvider` sets `defaultOptions.queries.staleTime` to `DEFAULT_STALE_TIME_MS` (60s), replacing the hand-copied 10-minute `staleTime` every Supabase-backed hook used to set individually. Device-backed hooks still override it: `useTodayPanes`/`useEnabledDeviceCalendars` (`Infinity`, AsyncStorage-backed) and `useCalendarEvents`/`.web.ts` (10 min + `refetchOnMount: "always"`, device calendar/ICS-backed) have no cross-platform staleness to bound.
-- **Focus refetch.** React Query's `refetchOnWindowFocus` needs a `focusManager` event source; the browser's `visibilitychange` covers web for free, but nothing wired one on native. `QueryProvider` now ties `focusManager.setFocused` to `AppState` on native (mirroring the auth-refresh `AppState` listener in `utils/supabase.ts`), so foregrounding the app refetches any query older than the staleTime above.
-- **Realtime invalidation signal.** `useRealtimeInvalidation` (mounted from `(app)/_layout.tsx` once a session exists) subscribes to Supabase Realtime `postgres_changes` on every user-owned table the app reads and invalidates the matching query key(s) — see `REALTIME_INVALIDATIONS` for the table → key map. It is deliberately **invalidation-only**: event payloads are never written into the cache, so every refetch still goes through the normal RLS-scoped REST path (see `docs/backend.md`'s Realtime section for why — unfilterable DELETE events, PK-only old records). A burst of events for one table is coalesced into a single invalidation (~250ms debounce) instead of one refetch per row. Because Realtime does not replay events missed while disconnected, a channel rejoin after the first `SUBSCRIBED` invalidates every mapped key once as a catch-up.
-- **The per-date echo guard (`notes`/`journals`).** `useNotes`'/`useJournals`' autosave upsert echoes back as its own realtime event. Refetching a date's row while that date's mutation is still in flight would race the debounced editor the same way an `invalidateQueries` call in `onSuccess` would (see the comment there) — each hook tags its mutation with `notesMutationKey(date)`/`journalsMutationKey(date)` (scoped per date, not just the table), and `useRealtimeInvalidation` looks the table up in `PER_DATE_MUTATION_KEYS` and invalidates `[table]` with a `predicate` that skips only the date(s) currently mutating. Scoping by date (rather than blocking the whole table) matters because these mutations are designed to survive their component unmounting and keep retrying in the background (e.g. after swiping to another day) — a stuck retry for one date must not suppress a genuine incoming update for a different one.
-
-No interval polling is used — realtime plus the 60s staleTime/focus backstop was judged to cover freshness without the extra request volume.
+- Shared 60s `staleTime` (`DEFAULT_STALE_TIME_MS`); device-backed hooks
+  override it (AsyncStorage: `Infinity`; calendar sources: 10 min +
+  `refetchOnMount: "always"`).
+- **Focus refetch needs a native event source** — the browser's
+  `visibilitychange` is free, but `QueryProvider` must tie
+  `focusManager.setFocused` to `AppState` on native or foregrounding never
+  refetches.
+- `useRealtimeInvalidation` subscribes to `postgres_changes` and is
+  **invalidation-only** — payloads are never written into the cache
+  (unfilterable DELETEs, PK-only old records; see `docs/backend.md`). Bursts
+  coalesce (~250ms); a channel rejoin invalidates every mapped key once, since
+  Realtime does not replay missed events. **The per-date echo guard**: an
+  autosave upsert echoes back as a realtime event, and refetching that date's
+  row mid-mutation races the debounced editor — each notes/journals mutation
+  is tagged with a per-date key, and invalidation skips only the date(s)
+  currently mutating. Per-date, not per-table, because these mutations outlive
+  their component and retry in the background — a stuck retry for one date
+  must not suppress updates for another.
 
 ## Platform-split components
 
-Components that need a native module unavailable on web follow a four-file pattern, e.g. `DateField` (`components/DateField.*`):
+The four-file pattern (`.types.ts` / `.native.tsx` / `.web.tsx` / a `.tsx`
+re-exporting native so `tsc` — which doesn't do platform-extension resolution
+— can resolve the import). Notable splits:
 
-- `Component.types.ts` — shared prop types.
-- `Component.native.tsx` (or `.ios.tsx`/`.android.tsx`) — the native implementation.
-- `Component.web.tsx` — the web fallback.
-- `Component.tsx` — re-exports the native file. Metro/Jest resolve `.native`/`.web` automatically per platform and ignore this file at runtime; it exists only so `tsc` (which doesn't do platform-extension resolution) can resolve `@/components/Component`.
+- `NoteEditor`: native wraps `react-native-enriched-markdown` (uncontrolled —
+  `defaultValue` + `onChangeMarkdown` so React never fights the caret); web is
+  **read-only** (upstream #392). Native module → dev-client rebuild.
+- `SearchField`: two files only; the native half renders `null` and can't be
+  unit-tested — device-only verification.
+- `GlassIconButton`: liquid glass on iOS with plain-circle fallback; needs an
+  explicit `size` because the native menu host requires a fixed-size trigger.
+  Its `active` prop exists because the *default* tint differs by platform —
+  omitting it drew the button two different colors.
+- `utils/alert.ts`/`alert.web.ts` (DEX-102): `showAlert` is `Alert.alert`
+  native / `window.alert` web (RN's `Alert` silently no-ops there). Reach for
+  it instead of another `Platform.OS === "web"` branch; the browser dialog has
+  no title slot, so the message must read without one. `ConfirmationModal`
+  (via `useConfirmation`) remains the answer when the user must *choose*.
 
-`components/NoteEditor` is built this way too: the native file wraps `react-native-enriched-markdown`'s `EnrichedMarkdownTextInput` (a Fabric/New-Architecture rich editor, uncontrolled via `defaultValue` + `onChangeMarkdown` so React state never fights the caret), while the web file renders the note **read-only** via `EnrichedMarkdownText` because the library's editable input has no web support yet (upstream software-mansion/react-native-enriched-markdown#392). The library is a native module, so it needs a **dev-client rebuild** (`npm run dev:ios`) — it won't run in Expo Go. It autolinks via its own `codegenConfig`/`react-native.config.js`; its Expo config plugin is optional (it only toggles LaTeX math) so `app.json` is unchanged.
+### Subtasks and inline editing (DEX-70)
 
-`components/SearchField` (DEX-47) is a two-file variant of the pattern — just `SearchField.tsx` (native) and `SearchField.web.tsx`, with the shared `TSearchFieldProps` exported from the native file rather than a separate `.types.ts`, since there is no third `.native` file to disambiguate. The native half is `Stack.SearchBar` and the web half a themed `TextInput`; see the Search section above for why the split is load-bearing rather than cosmetic. It's the one platform-split component whose native half **cannot be exercised by a unit test** — `Stack.SearchBar` renders `null` — so `searchScreen.test.tsx` stubs it, `SearchField.web.test.tsx` covers the web half directly, and the native bar is only verifiable on a device (iOS 26+ for the tab-bar placement specifically).
+A subtask is a checklist item inside its parent's card, stored in the parent
+row's jsonb (see `docs/backend.md`). Actions hang off a **tap**-triggered `⋯`
+— the card is already wrapped in a long-press menu host, and nesting a second
+long-press host inside it is the fragile arrangement.
 
-`components/GlassIconButton` is a reusable circular, icon-only action button built this way (`.ios.tsx` + base `.tsx` + `.types.ts`, like `DateField`): on iOS it uses Apple's liquid glass (`expo-glass-effect` `GlassView`, iOS 26+, with a plain-circle fallback when `isLiquidGlassAvailable()` is false) around an SF Symbol; on Android/web it's a plain bordered circle around an `Ionicons` glyph (SF Symbols don't render off-iOS, so the caller passes both an `sfSymbol` and an `ionicon`). It's used as the `DayViewSwitcher` trigger, the large-screen `DayPaneToggles`/"New Task" buttons, and is meant for further header-style action buttons; because the native `MenuView` host needs a fixed-size trigger, give it (and the wrapping `IconMenu` `style`) an explicit `size`. An optional `active` prop tints the icon `theme.colors.primary` (`true`) or `theme.colors.text` (`false`) on every platform, for buttons that represent an on/off state (`DayPaneToggles`); omitted, it keeps each platform's original hardcoded color.
+`components/EditableText.tsx` commit rules (one place, every caller):
+committed on blur, on return, **and on unmount-while-editing** (FlashList
+recycles rows out from under a half-typed title); end edits via `blur()`,
+never `Keyboard.dismiss()` (dismissing leaves the input focused, so the next
+tap never fires the committing blur); an emptied title reverts for an existing
+row but discards a never-saved one, decided by *origin*, not stored state;
+editing is disabled once the task completes (re-opening a swept subtask
+restores the state the sweep prevents); clearing edit mode on commit is
+guarded by row id, because the outgoing row's cleanup runs *after* `editing`
+moved to the next row.
 
-`utils/alert.ts` + `alert.web.ts` (DEX-102) applies the two-file split to a util rather than a component: `showAlert(title, message)` is `Alert.alert` on native and `window.alert` on web, because RN's `Alert` is a silent no-op there. `utils/showSaveError.ts` composes it into the "We couldn't save your `<noun>`. Please try again." message the new-task, edit-task, and Settings list/habit/template editors show when a mutation's `onError` fires — those five screens each carried their own copy of that helper before it existed, identical apart from the noun ("task", "task", "changes", "list", "habit"), which is why the extracted version takes one. **Reach for `showAlert` instead of writing another `Platform.OS === "web"` branch**, and remember the browser dialog has no title slot, so the message has to read without it. `components/ConfirmationModal.*` (via `useConfirmation`) remains the answer when the user has to *choose* — `showAlert` is one-button, fire-and-forget.
+`TaskCard` renders `task.subtasks` directly plus at most one never-persisted
+`pending` row (an empty subtask fails MCP validation and would disable the
+sweep). The optimistic cache write in `useTasks.onMutate` is load-bearing, not
+cosmetic: `subtasks` is replaced wholesale, so anything composing the next
+array from a stale read silently clobbers the edit before it —
+`maybeCreateNextRecurringTask` reads the pre-write snapshot from `onMutate`'s
+context for the same reason. **`TaskCard` inside a FlashList must be keyed by
+`task.id`** — FlashList v2 recycles by reusing React keys (`keyExtractor` sets
+only its own stableId), so without the key, edit state and focus survive into
+whichever task lands in the recycled row.
 
-### Subtasks and inline title editing (DEX-70)
+`components/SubtaskFields.tsx` (shared by the new-task and repeat-schedule
+forms) mirrors keystrokes into form state on every change — on native, Save
+does not blur the focused input first, so a blur-committed row would be
+dropped from the payload.
 
-A subtask is a **checklist item inside its parent's card**, never a card of its own — it is stored in the parent row's `subtasks` jsonb array (`{id, title, status}`; see `docs/backend.md` for the storage model and its tradeoffs), so nothing about it is a task. `components/TaskCard.tsx` is a column: the existing title row, then an indented stack of `components/SubtaskRow.tsx` beneath it. All the nesting lives there — `TasksView` and `TaskDrawer` need **zero changes**, because FlashList v2 measures variable-height rows natively.
+### Task links and the share extension (DEX-66)
 
-**Gesture vocabulary.** Tap the status circle to change a status (a subtask's is 24px to the task's 32px — `StatusButton` takes a `size`). Tap a title to edit it inline. Subtask actions (Promote to task / Delete) hang off an explicit `⋯` button rather than a long-press: the card is _already_ wrapped in `MoreMenu`, a long-press `@expo/ui` menu host, and nesting a second long-press host inside it is the fragile arrangement — whereas a **tap**-triggered menu nested inside the card is exactly what `StatusButton` already does reliably. "Add subtask" lives in the parent's `MoreMenu`.
+The link value is **normalized, never rejected** — `utils/taskUrl.ts`
+(import-free so the Deno MCP server applies the identical rule) trims, nulls
+blanks, and prepends `https://` to bare hosts (the scheme match excludes
+`:digit`, or `localhost:3000` reads as a scheme). Since nothing is rejected,
+`utils/openUrl.ts` catches `Linking.openURL`'s rejection on garbage rather
+than leaving a menu row that did nothing.
 
-**Inline editing** (`components/EditableText.tsx`) covers task titles too, which had no rename affordance anywhere before this. The input half is its own component mounted only while editing, which is what makes the draft correct without a sync effect: it is seeded once at mount, and its unmount _is_ the end of the edit. Commit rules, in one place so every caller gets them:
+Sharing into Dexter (`expo-share-intent`; native — dev-client rebuild, inert
+on web): `app/+native-intent.tsx` must swallow the extension's
+`dexter://dataUrl=…` redirect or the router lands on Unmatched Route with the
+modal over it. **Let the provider do the listening** — its `useShareIntent`
+already covers every arrival path and publishes `hasShareIntent` only once the
+payload is populated; re-subscribing underneath it re-derives that boolean
+through a second path that drifts (as magic-meal-kit does). The redirect
+effect must wait on **`useRootNavigationState()?.key`** — on a cold start the
+payload can arrive before any navigator exists and the push is dropped
+silently. Known gap: sharing while signed out loses the link (route params
+don't survive the login redirect). **Don't hand-sync the extension's build
+number**: the plugin already sets the extension's version from
+`config.ios.buildNumber` so app and extension match by construction — Dexter
+shipped exactly such a sync script and it failed the archive outright.
 
-- Committed on blur, on return, **and on unmount-while-editing** — not hypothetical, since FlashList recycles rows as they scroll out and a half-typed title would otherwise vanish.
-- Editing always ends via `blur()`, never `Keyboard.dismiss()` — dismissing the keyboard leaves the input focused, so the next tap elsewhere never fires the blur that commits.
-- An emptied title **reverts** when the row already exists (a titleless task or subtask would be unidentifiable), but **discards the row** when it was just added and never saved. Both surfaces decide this by _origin_, not by searching stored state: `TaskCard` compares against its one `pending` row, `SubtaskFields` against the title captured when the edit began.
-- Disabled once a task is complete, and so are the subtask status/action controls — re-opening a swept subtask would restore exactly the done-parent-with-open-children state the sweep exists to prevent.
-- Return chains the next subtask row; an empty commit ends the chain. `onSubmit` receives the committed title precisely so the caller can tell those apart.
-- Clearing edit mode on commit is **guarded by row id**. React runs the outgoing row's unmount cleanup _after_ `editing` has moved to the row the user just tapped, so clearing unconditionally would cancel the edit they are starting.
+### Menus (`IconMenu` / `MoreMenu`)
 
-**`TaskCard` holds almost no checklist state.** It renders `task.subtasks` directly, plus at most one `pending` row that has never been written — an empty subtask is never persisted, since `title: ""` fails the MCP server's validation and would disable that task's sweep. Everything else works because `useTasks` writes each mutation into the `["tasks"]` cache in `onMutate` and rolls back in `onError` (the same pattern `usePreferences`, `useNotes`, and `useHabits` use). That optimistic write is load-bearing, not cosmetic: `subtasks` is replaced as a whole array, so any consumer composing the next array from a stale read — the sweep in `withSubtaskSweep`, a second edit in the same event — would silently clobber the edit before it. Note `maybeCreateNextRecurringTask` therefore reads the pre-write snapshot from `onMutate`'s context, since the live cache already shows the completing status by the time it runs.
+`IconMenu` is `@expo/ui`'s `MenuView` on native, a custom overlay on web;
+right-click is web's long-press (DEX-60), for `trigger="longPress"` menus
+only. **`MoreMenu` is deliberately short: a menu row whose only job is to open
+a picker is a detour, not a shortcut** (DEX-98) — everything a single tap
+can't finish lives in the edit modal. The reason a picker sheet existed at all
+still stands: neither platform's date picker can be opened imperatively (no
+ref, no `isPresented`), so don't reach for "just focus the date field"
+without a native module. The Schedule presets write immediately, so they keep
+the alarm prompts; the edit modal writes nothing until ✓ and applies the same
+rules silently.
 
-**`TaskCard` inside a FlashList must be keyed by `task.id`** (see `TaskDrawer`). FlashList v2 recycles a row by reusing its React key from a pool and re-rendering with new props — it does _not_ remount, and `keyExtractor` only sets FlashList's own stableId, not the React key. Without the key, inline-edit state and a focused input survive the swap and commit against whichever task landed in the recycled row.
+Template rows: **a task is offered the two ways to make a template or the one
+way to edit the one it has — never both** (DEX-65); `task.templateId` alone
+picks the shape, the resolved row picks only the noun, and an unresolved
+lookup keeps the repeat wording. Repeat and Save-as-template are one flow
+(`id: "new"` + `fromTask`), differing only in the cadence the draft opens on.
+Known consequence: a task made from a template can't become a repeat from its
+card — the escape hatch is Duplicate (drops `template_id`) then Repeat.
 
-The new-task modal opens on a **New / Template / AI** segmented control above the title input (`components/SegmentedControl`, extracted from the appearance screen's light/dark switch). Template lists the scheduleless templates over the ordinary form (`components/TemplatePicker`, outlined-on-select like the theme cards); picking one outlines it _and_ seeds the form via `useTaskForm.applyTemplate`, so Save still creates a plain, fully editable task. `applyTemplate` writes the priority/list _overrides_ so the template's own choices survive any shorthand token in its title, and leaves `scheduledFor`/`dueOn` alone — a template carries no dates, and the task belongs on the day the user was viewing. It also records `form.templateId`, which is both the picker's `selectedId` and the created task's `template_id`: one piece of state, so the outlined card and the saved row can never disagree. That link is provenance, not behavior — `template_id` means "this task came from that template", nothing more, and the picker only lists scheduleless rows so nothing recurs from it. The id is deliberately **not** cleared when the user then edits a field or switches back to the New tab: the seeded values aren't cleared either, so dropping it would produce a task whose contents came from a template but which claims otherwise. AI is a placeholder tab with save disabled.
+Menu styling: `iconColor` on an iOS action button needs `@expo/ui` ≥ 57.0.8
+(below that the system menu ignores `.foregroundColor`). The Android menu's
+light/dark comes from `colorScheme`, fed from `useTheme().mode` — unset, the
+Compose menu follows the *device* scheme, wrong whenever the in-app theme
+disagrees; `mode` lives on the palette (not just `THEMES`) for exactly this.
 
-### Task links and the share extension
+**The one-open-task invariant** (recurrence spawns from *completing* a linked
+task): don't create a second chain (`maybeCreateNextRecurringTask` checks
+`hasOpenTaskForTemplate`, safe to ask the server in `onSuccess` because the
+completing task is already terminal); don't leave zero (`seedNextOccurrence`
+when a row gains a cadence — `getFirstOccurrence` counts today); and say so
+when it hits zero anyway — the spawn is fire-and-forget, so Settings → Tasks
+flags a stalled repeat with a ▶ that calls *literally the same code path*.
+The MCP server mirrors both halves (`docs/backend.md`).
 
-A task can carry a **link** (`tasks.url`) — the article to read, the PR to reply to. It is edited in the shared `TaskForm`'s **Link** row and read back in `MoreMenu`, where a "Go to link" option sits **above** everything that edits the task, ruled off from the shortcuts, and only when the task has one. Two things are worth knowing before touching either. (1) `IconMenu` draws its divider **above** a section, not below, and `hideDivider` means "continue the section above me". The shortcut group's *first* section therefore never sets it — with a link above, that rule is exactly what sets the link apart; with nothing above, there is no rule to suppress. So the flag doesn't vary with whether a link is present, and native gets the same separation for free from the link section being emitted as its own `displayInline` group (see `IconMenu.native.tsx`). (2) The value is **normalized, never rejected**: `utils/taskUrl.ts`'s `normalizeTaskUrl` trims, stores `null` for blank, and prepends `https://` to a bare host (`host:port` included — the scheme match excludes a colon followed by a digit, or `localhost:3000` would read as a scheme and never open) — a link is optional, so a typo must not block saving, but a scheme-less value wouldn't open at all. Because nothing is rejected, `openUrl` has to handle the other end: `Linking.openURL` *rejects* on a value like `https://not a url`, so it catches and tells the user rather than leaving an unhandled rejection and a menu row that did nothing. It runs on the way into the payload, not on keystroke, so a half-typed host is never rewritten under the user. That module is deliberately **import-free** so the Deno MCP server can load it over the `@src/` alias and apply the identical rule to an agent-supplied link; the platform effect lives separately in `utils/openUrl.ts` (`window.open(…, "_blank")` on web so a menu action doesn't navigate the app away, `Linking.openURL` on native).
+### Native-module load-bearing versions
 
-**Sharing a link into Dexter** (DEX-66) opens the create-task modal with that link pre-filled, via `expo-share-intent` — an iOS share extension plus Android `text/*` intent filters, configured in `app.json` against the app group already declared for the alarm widget (`group.com.dexterplanner`). It is **native code, so it needs a dev-client rebuild** and cannot be exercised in Expo Go, on web, or in jest. Three pieces: `ShareIntentProvider` wraps the root layout *outside* the other providers (a share can launch the app cold), `components/ShareIntentRedirect.tsx` — one effect that pushes `/new-task?url=…` and clears the payload — and `app/+native-intent.tsx`, which keeps the router out of it. That last one is not optional: the iOS extension hands off by re-opening the app at `dexter://dataUrl=<key>?nonce=…`, and Expo Router matches every incoming link against the route tree, so without a `redirectSystemPath` returning a falsy path for it the app lands on the built-in **Unmatched Route** screen and the modal opens over *that* — closing it drops the user there. Swallowing the link costs nothing, because the native module reads the same URL through `expo-linking`'s `useLinkingURL`, which has its own subscription. **Let the provider do the listening.** Its `useShareIntent` hook already covers every arrival path (the deep link the share extension redirects on, the native module's `onChange`, and an `AppState` refresh on foreground) and publishes `hasShareIntent`, which is true only once the payload has actually been populated — so there is no half-filled state to guard against and no window where two signals for one share both fire. Re-subscribing to `ShareIntentModule`/`Linking` underneath it, as magic-meal-kit does, re-derives that same boolean through a second path that can drift from the library's own resets; don't. Clearing via `resetShareIntent()` is what stops one share opening two modals, since `hasShareIntent` goes false on the next render. The one thing the effect does have to wait on is **`useRootNavigationState()?.key`** — the component sits beside the root Stack, not inside it, so on a cold start the payload can arrive before there is any navigator to push onto, and that push is dropped silently, losing the share. (magic-meal-kit approximates this with a 100ms timeout; the navigation state is the actual signal.) The handoff to the form is a route param (`/new-task` already took `scheduledFor`), not `AsyncStorage`. **Known gap:** sharing while signed out loses the link — `(app)/_layout.tsx` redirects to login and route params don't survive it. On web the hook disables itself, so the whole path is inert.
-
-**Don't hand-sync the extension's build number.** Apple rejects an upload whose app-extension `CFBundleVersion` differs from its containing app's, which invites a Run Script phase copying one onto the other — and that is wasted work here. `expo-share-intent`'s own plugin already sets the extension target's `CURRENT_PROJECT_VERSION` (and `MARKETING_VERSION`) from `config.ios.buildNumber`, the same value EAS resolves from the remote version source *before* prebuild and the app target derives its own number from, so the two match by construction. A script added on top of that is also mistimed: `ShareExtension` is a target dependency, so it is fully built and embedded before any app-target phase runs, and `addBuildPhase` appends after the embed phase besides. Dexter shipped and then removed exactly such a plugin (DEX-66) — it failed the archive outright.
-
-The same chained-entry pattern appears in the new-task form (`hooks/useTaskForm.ts` — a task and its checklist are one insert) and in the repeat-schedule form, where a template's checklist is a blueprint of `{id, title}` with no status. Those two share `components/SubtaskFields.tsx`, which mirrors keystrokes into form state on every change: on native, tapping Save does not blur the focused input first, so a row committed only on blur would be dropped from the payload. Because that overwrites the stored title as you type, the row's pre-edit title is captured separately to make "revert" possible — and each row carries an explicit ✕, so deleting a template's checklist item never depends on clearing its text.
+- **`expo-modules-core` ≥ 57.0.8**: SwiftUI mutates its hosted platform view
+  asynchronously even after teardown; before the isolation-container fix
+  (carried here as a patch until upstream), those leaked mutations corrupted
+  Fabric rendering — cards ballooned, collapsed, or whole days rendered blank
+  (DEX-28). A downgrade brings the corruption back.
+- **A patch to a *precompiled* Expo module never reaches the binary** —
+  `patch-package` edits source that precompiled linking never compiles, and
+  nothing warns. Only packages shipping `prebuilds/*.tar.gz` are actually
+  precompiled (in SDK 57: `expo-modules-core`, `expo-file-system`,
+  `expo-font`); everything else builds from source, patches included. Set
+  `ios.usePrecompiledModules: false` only when patching one of those — check
+  for the tarball, not `spm.config.json`.
+- **Patch filenames carry the installed version and it is load-bearing** —
+  after any dependency bump, re-run `npx patch-package <name>` so the filename
+  tracks it; a mismatch is a warning locally and a hard `npm ci` failure in CI.
 
 ### Task alarms (AlarmKit, DEX-48)
 
-A task can carry an `alarmTime` (`"HH:MM"`, backed by the `tasks.alarm_time` column) that rings a native alarm at that time on the task's `scheduledFor` date. The ringing is iOS-only via `expo-alarm-kit` (AlarmKit, iOS 26+), so `utils/alarms.*` is platform-split: `alarms.ios.ts` calls the native module, `alarms.ts` is a no-op fallback (web/Android), and `alarms.shared.ts` holds the pure, unit-tested scheduling math (`alarmFireDate`, `reconcileAlarms`). AlarmKit is treated as a **projection of DB state**, not scheduled imperatively: `hooks/useAlarmSync` (mounted once in `(app)/_layout.tsx`) reconciles the alarms that _should_ exist — open tasks with a future alarm moment — against the ones AlarmKit already holds (`getAllAlarms()`), scheduling new/edited alarms and cancelling stale ones, with the **task id as the alarm id**. That makes set/unset/complete/delete/reschedule and background-created repeat occurrences all self-heal, and re-projects DB state onto AlarmKit on every launch. A task's alarm is set on the **Alarm row of the shared `TaskForm`** (iOS-only, gated on `isAlarmSupported`), reachable from either the create modal or Edit task; it used to be a `MoreMenu` item opening `components/SetAlarmModal`, both removed in DEX-98. Recurring alarms are edited in the repeat-schedule screen and copied template→occurrence by both the app and MCP recurrence generators. Because an alarm is anchored to the task's scheduled date, changing that date is not silently allowed to move or orphan it — but **where** that is enforced depends on whether the change is already written. `TaskCard`'s `onChangeSchedule` backs the menu's Schedule presets, which write immediately, so it intercepts a schedule change on a task that has an alarm and prompts (via `useConfirmation`). On a **reschedule** the user picks _Keep alarm_ (leave `alarmTime`; the reconcile re-fires it on the new day) or _Unset alarm_ (clear it), or Cancel. On an **unschedule** there is no date for the alarm to fire on, so the prompt is unset-or-cancel only. A re-tap of the current day changes nothing, so it neither prompts nor clears. `TaskForm` applies the same two rules with **no prompt at all**: nothing is written until ✓, ✕ abandons the lot, and the Alarm row visibly reverting to "Add alarm" is the feedback — a `ConfirmationModal` stacked over a form sheet would be both redundant and, on web, a pointer-events hazard (see the modal section). Either way, enabling an alarm asks AlarmKit for authorization first and surfaces a denial rather than seeding one that silently never rings. The Alarm row's `TimeField` is bounded below by _now_ only when the task is scheduled for today (so a same-day alarm can't be **set** in the past) **and** the alarm the form already holds isn't earlier than that bound — editing opens on a saved alarm, and an 08:00 alarm on a task scheduled today is in the past by lunchtime. A SwiftUI `DatePicker` given a range that excludes its selection clamps it _and_ writes the clamped value back, so keeping the bound there would move the alarm to now just by opening the modal, and ✓ would persist it. Native setup: `expo-alarm-kit` schedules an `AlarmAttributes<Meta>` **Live Activity**, so iOS requires a Widget Extension that registers the matching `ActivityConfiguration(for: AlarmAttributes<Meta>.self)` — without it the scheduled alarm has no Lock Screen / Dynamic Island views (and the iOS build fails to link the module). That extension is `src/targets/DexterAlarmWidget/` (Swift + `expo-target.config.js`), scaffolded at prebuild by the **`@bacons/apple-targets`** plugin; its `struct Meta: AlarmMetadata {}` must stay named exactly `Meta` to match the type `expo-alarm-kit` schedules. `app.json` also sets `ios.appleTeamId` (so the plugin can code-sign the extension), `NSSupportsLiveActivities: true`, the App Group entitlement, `NSAlarmKitUsageDescription`, and `deploymentTarget: "26.1"` (the `expo-alarm-kit` podspec's minimum); `configureAlarms()` runs at the top of the root `_layout`. Because this is native (module + a second target), it needs a **dev-client rebuild**, not OTA, and the App Group + widget bundle id must be on the provisioning profile (EAS credentials sync them). This mirrors magic-meal-kit's proven AlarmKit integration.
+iOS-only (`expo-alarm-kit`, iOS 26+); `utils/alarms.*` is platform-split with
+the pure scheduling math in `alarms.shared.ts`. AlarmKit is a **projection of
+DB state**: `hooks/useAlarmSync` reconciles what should exist against
+`getAllAlarms()` with the **task id as the alarm id**, so set/complete/delete/
+reschedule and background-created occurrences all self-heal on every launch.
+Gotchas:
 
-**Alarm sound (DEX-72).** Which sound an alarm rings with is a synced preference, `preferences.alarm_sound`, surfaced as a `PickerField` under Settings → Tasks (iOS-only, gated on `isAlarmSupported`). The catalog lives in `alarms.shared.ts` as `ALARM_SOUNDS` — `System` (no `fileName`, i.e. leave AlarmKit on `.default`) and `Echos` (`echos.wav`) — and `alarmSoundFileName()` maps a stored value to the filename handed to `scheduleAlarm`'s `soundName`. It resolves **unknown values to `undefined`**, so a sound written by a newer build degrades to the system sound instead of naming a file that isn't in this bundle (which would ring silently). The preference defaults to `echos`, so the Dexter sound is opt-out, and `TPreferences.alarmSound` stays `string` rather than the `TAlarmSound` union for the same forward-compatibility reason. Adding a sound means an `ALARM_SOUNDS` entry **plus** the audio file in the `withAlarmSound` plugin's `sounds` list in `app.json`. Three non-obvious pieces. (1) AlarmKit resolves `soundName` against the **app bundle**, and CNG offers no way to declare a raw bundle resource, so `plugins/withAlarmSound.ts` (this repo's only config plugin) copies each file into the generated iOS project at prebuild and adds it to Copy Bundle Resources via `IOSConfig.XcodeUtils.addResourceFileToGroup` — the same mechanism `expo-notifications` uses for its own `sounds` option. (2) The reconcile's session cache is keyed on **`alarmSignature`** — fire time, title, _and_ sound — not the fire time alone. AlarmKit reports back only ids, so any edit that moves no fire time is otherwise invisible: switching sounds used to be, and so did retitling a task, which kept the stale title on the Lock Screen until the next launch. The sound therefore rides on `TAlarmSchedule` and is stamped by `reconcileAlarms`, keeping "what should be scheduled" answerable by reading the pure module alone. (3) `useAlarmSync` reads the sound through **`useAlarmSoundPreference`**, not `usePreferences`: it needs an `isLoading` flag (scheduling against the placeholder row would ring every alarm with the default and then re-schedule the lot once the saved row lands), and its `select` narrows the subscription so the root of the authenticated tree doesn't re-render on unrelated preference edits. The effect also queues its runs rather than letting them overlap, since a sound change re-fires it with no task mutation: two in-flight reconciles would each read a session cache the other hasn't written yet, and racing on the same alarm id can leave AlarmKit holding the losing run's sound while the cache records the winner's. Like everything else here, a new sound file is a dev-client rebuild, not OTA.
+- Schedule changes on a task with an alarm **prompt only where the change is
+  written immediately** (the menu presets); `TaskForm` applies the same rules
+  silently because nothing is written until ✓, and a `ConfirmationModal` over
+  a form sheet is a pointer-events hazard on web.
+- The Alarm row's `TimeField` lower bound must exclude a saved alarm already
+  in the past: a SwiftUI `DatePicker` given a range excluding its selection
+  **clamps it and writes the clamped value back**, so keeping the bound would
+  move the alarm just by opening the modal.
+- The reconcile's session cache keys on **`alarmSignature`** — time, title,
+  *and* sound — because AlarmKit reports back only ids, so an edit that moves
+  no fire time is otherwise invisible (sound switches and retitles used to
+  be).
+- `useAlarmSync` reads the sound through `useAlarmSoundPreference` (needs an
+  `isLoading` — scheduling against the placeholder row rings everything with
+  the default and then re-schedules) and queues reconciles rather than letting
+  them overlap (two in-flight runs race the session cache and can leave
+  AlarmKit holding the loser's sound).
+- The widget extension (`src/targets/DexterAlarmWidget/`, `@bacons/apple-targets`)
+  must keep its metadata struct named exactly `Meta` to match what
+  `expo-alarm-kit` schedules. All of this is native: dev-client rebuild, never
+  OTA.
+- Alarm sounds: `ALARM_SOUNDS` in `alarms.shared.ts` maps stored values to
+  bundled filenames and resolves **unknown values to `undefined`** (a newer
+  build's sound degrades to the system sound instead of ringing silently —
+  also why `alarmSound` stays `string`, not a union). Adding a sound means a
+  registry entry **plus** the file in `plugins/withAlarmSound.ts`'s list —
+  AlarmKit resolves `soundName` against the app bundle, and that plugin is how
+  a raw resource gets into it under CNG.
 
-`components/IconMenu` is an icon menu (sections of selectable options, opened by a tap or a long-press per its `trigger` prop) built this way: `@expo/ui`'s community `MenuView` on native, a custom modal on web. `StatusButton` and `ListButton` build their sections and render through it as a small tap-to-open trigger; `MoreMenu` wraps an entire task card instead, opening on long-press with no menu title. **`ListButton` is currently unrendered** — DEX-113 took the list emoji off the task card, and it is kept (exported and tested) because it is still the only list picker outside the task form, and the emoji may return elsewhere. On web, right-click is the mouse equivalent of long-press (DEX-60): the web variant wraps the trigger in a layout-neutral `<div onContextMenu>` that, for `trigger="longPress"` menus only, opens the menu at the cursor and suppresses the browser's native context menu — so a `MoreMenu` is reachable with a mouse. Tap-triggered menus keep the browser's default context menu. **`MoreMenu` is deliberately short: a menu row whose only job is to open a picker is a detour, not a shortcut** (DEX-98). It offers **Edit task** (first — the general case the rows below it are shortcuts for), a **Priority** submenu, a **Schedule** submenu, **Add subtask**, then the Duplicate / template / Delete group. Everything a single tap can't finish — the list, the deadline, the alarm, an arbitrary date — lives in the edit modal that Edit task opens. The Schedule submenu keeps the presets that _are_ one tap (Today / Tomorrow / Next Week, plus Unschedule); its **"Pick a date…"** row and the currently-set-date row (when it isn't one of the presets) both open the edit modal instead, which costs the same tap the sheet did while putting every other field within reach. This replaced `components/SetDateModal`/`SetAlarmModal` and the `components/PickerSheet` shell they shared — all three are gone, along with `TaskCard`'s `{field, visible}` sheet state and its confirm handlers. **The reason a sheet existed at all still stands:** a calendar can't be opened imperatively from a button, because neither `@expo/ui`'s SwiftUI `DatePicker` (iOS) nor the community `DateTimePicker` (Android) exposes a ref, an `isPresented` prop, or an `open()` method — so don't reach for "just focus the date field" without writing a native module first. `TaskCard.handleChangeSchedule` and its alarm prompts stay, because the Schedule presets still write immediately: moving or unscheduling a task that has an alarm asks first. The edit modal writes nothing until ✓, so it applies the same alarm rules silently in-form instead. `utils/plainDate.ts` holds the ISO/`PlainDate` ↔ native `Date` conversions all the picker call sites share.
+## Build and tooling
 
-`MoreMenu`'s "Other" group offers Duplicate, one or two template rows, and Delete. **A task is offered either the two ways to make a template or the one way to edit the template it already has — never both** (DEX-65). `getOtherSections` takes a discriminated `TTemplateMenuAction` and splices `getTemplateOptions` between Duplicate and Delete: `unlinked` → **Repeat** + **Save as template**, `repeat` → **Edit repeat schedule**, `template` → **Edit template**. `task.templateId` alone picks the shape, so a task that already belongs to a template can't be saved a second time as an orphaned row; the resolved `getTemplateById` row picks only the noun (via `isTaskTemplate`), and an unresolved lookup keeps the repeat wording rather than relabelling an established repeat while the templates query lands. Both linked kinds push the same route, so only the noun is ever at stake. Repeat and Save as template are the same flow: each opens `settings/tasks/[id]` at `id: "new"` with the task in `fromTask`, and the editor seeds an unsaved draft from it (`templateFieldsFromTask`) — see the create-in-the-modal convention in the navigation section. They differ only in the cadence the draft opens on, which Repeat requests with `repeats: "1"`. Ids stay distinct per kind (`repeat`, `save-as-template`, `edit-repeat`, `edit-template`) even though only one kind renders at a time, since `IconMenu.native` dispatches by id. **Known consequence:** a task made from a template can no longer be turned into a repeat from its card — converting the _template_ would change it for every future use, so the escape hatch is Duplicate (which drops `template_id`) then Repeat. Delete warns and removes the linked template when the task repeats. Completing a repeat task creates its next occurrence — the date is computed in `utils/repeatSchedule.ts` (`getNextTaskDate`, backed by croner) from `useTasks`, replacing the former Postgres trigger. An option can be tinted per-platform via `iconColor` (icon) and `titleColor` (label) — used for the Backlog attention row (DEX-58). Coloring an **iOS menu item's SF Symbol** needs `@expo/ui` ≥ 57.0.8: its `MenuView` used to apply `.foregroundColor` to leaf action buttons, which the iOS system menu ignores, so button icons never tinted (only checkable Toggle items did, via `.tint`). Dexter carried this as `patches/@expo+ui+57.0.4.patch` until the same fix shipped upstream in 57.0.8 (DEX-116); below that version `iconColor` is a no-op on iOS action buttons. (An `@expo+ui` patch still exists, but it is unrelated — Mac Catalyst menu styling, see that section.) **The menu's own light/dark styling is Android-only and comes from `colorScheme`** (also new in 57.0.8, wired up in DEX-121), which `IconMenu.native` feeds from `useTheme().mode`. Leaving it unset makes the Compose menu follow the _device_ scheme, which is wrong whenever the in-app theme disagrees — a `LIGHT`/`DARK` preference overriding the OS, or a dark palette picked on a light phone. That is why `mode` lives on `TThemePalette` (and is re-exported through `useTheme`) rather than only in `THEMES`: `useTheme` holds the resolved palette but not the name `THEMES` is keyed by, so the palette has to carry its own mode. `THEMES` then reads each `mode` off the palette instead of restating it, so the Appearance picker can't group a theme under one heading while a native menu renders it as the other. iOS ignores the prop; its system menu is styled by UIKit.
-
-**A repeat has exactly one open task.** Recurrence spawns from _completing_ a task whose `template_id` points at a scheduled row, so a repeat with no open task can never fire again, and one with several open tasks would fire several parallel chains. Since `template_id` also records provenance for tasks stamped from a template, a template's links may all be long since checked off — so "does this repeat still have something to fire from?" is a question about _open_ tasks specifically, answered by the one shared predicate `hasOpenTaskForTemplate` (`api/tasks.ts`; `OPEN_TASK_STATUSES` in `utils/taskStatus.ts` is what "open" means, shared with the canonical task query and the Deno MCP server). It backs the invariant in three places:
-
-- **Don't create a second.** `maybeCreateNextRecurringTask` skips the spawn when another open task already links to the template. Converting a template to a repeat retroactively makes every stamped task an occurrence, so completing three of them would otherwise start three chains. Safe to ask the server here because it runs in `onSuccess`, after the completing write has landed — the task being completed is already terminal and can't match its own guard. The MCP server (`functions/mcp-server/tools/recurrence.ts`) carries the same guard for `update_task`/`archive_task`.
-- **Don't leave zero.** `useTemplates`'s `seedNextOccurrence` gives a row its next occurrence when it gains a cadence (`getFirstOccurrence`, which counts today, unlike `getNextOccurrence`). Without it, promoting a template under Task templates to Daily would move it to Repeat tasks reading "Every day" while generating nothing, forever. The MCP server's `create_template`/`update_template` seed the same way (DEX-94); its copy of both halves lives in `functions/mcp-server/tools/recurrence.ts`.
-- **Say so when it hits zero anyway.** The spawn above is fire-and-forget inside `onSuccess`; if it throws (offline, transient failure) the chain dies silently, and the cadence-time auto-seed will never see it. So Settings → Tasks flags a repeat with no open task in `theme.colors.error` — "Not recurring — no open task to repeat from", replacing the cadence it is failing to act on — beside a ▶ button that calls `createNextOccurrence`, _literally the same code path_ as the auto-seed. Staleness is computed client-side from the `useTasks` cache, which already holds every incomplete task regardless of date, so it costs no query. `TemplateRow` swaps its root from a `TouchableOpacity` to a plain `View` when it carries an `action`, since nesting a button inside a button is invalid DOM on web (the pattern `HabitRow` documents).
-
-**`expo-modules-core` ≥ 57.0.8 is load-bearing for these menus.** SwiftUI mutates the platform view it hosts (autoresizingMask, frame, visibility) — `Menu`/`ContextMenu` even do so asynchronously after their hierarchy is torn down (e.g. paging the Today screen to another day). When `ExpoSwiftUI.UIViewHost` handed SwiftUI the React-managed UIView directly, those leaked mutations corrupted Fabric rendering: cards ballooned, collapsed to zero height, or whole all-completed days rendered blank (DEX-28, related to expo/expo#40604 / #42225). The fix makes `UIViewHost` hand SwiftUI a disposable isolation container instead, so SwiftUI can never touch React-managed views. Dexter carried it as `patches/expo-modules-core+57.0.3.patch` until it shipped upstream in 57.0.8 (expo/expo#47706, removed in DEX-116) — so a downgrade below that version brings the corruption back.
-
-**A patch to a *precompiled* Expo module never reaches the binary.** `patch-package` edits `node_modules` source; precompiled linking compiles none of it, and nothing warns you. But only a handful of modules are actually precompiled — a package is eligible only if it ships prebuilt tarballs under `prebuilds/`, which in SDK 57 means exactly `expo-modules-core` (`ExpoModulesCore`, `ExpoModulesWorklets`), `expo-file-system` (`ExpoFileSystem`) and `expo-font` (`ExpoFont`). Everything else builds from source regardless of the setting, patches included: `expo-calendar` and `@expo/ui` both ship an `spm.config.json` and so *look* eligible, but with no tarball they resolve as `missing_tarball` and compile from source.
-
-That is why `app.json` carried `ios.usePrecompiledModules: false` (DEX-119) for exactly as long as the `expo-modules-core` patch above existed, and no longer: it was never protecting the other patches, because they were never at risk. With that patch upstream in 57.0.8, iOS is back on the faster default. **Set it to `false` again only if you patch one of the four products named above** — check for `prebuilds/*.tar.gz` in the package, not just `spm.config.json`.
+- **EAS dev client**, not Expo Go (`npm run dev:simulator` / `dev:ios` /
+  `dev:android`; profiles in `eas.json`, `appVersionSource: remote`). Native
+  tabs, the share extension, alarms, and the note editor all require it.
+  Store release is the manual Build and Submit workflow — see
+  `docs/appstore.md`.
+- **Expo's generated type files are gitignored, so local and CI type-checking
+  differ.** `expo-env.d.ts` and `.expo/types/router.d.ts` are written by
+  `expo start`/`expo export`. A *stale* router.d.ts fails `npm run typecheck`
+  on a route that exists — start the dev server once before believing it. CI
+  has neither file, so a type-aware lint rule can pass locally and fail there;
+  `src/global.d.ts` carries `/// <reference types="expo/types" />` for exactly
+  this (DEX-95) — don't remove it. To reproduce a CI type result, move both
+  generated paths aside; one is not enough.
+- **Applying `expo-doctor`'s version bumps means regenerating the lockfile
+  (DEX-116).** `expo install --check` rewrites `package.json` only, and npm
+  will not bump a package it has already locked as a peer — an SDK patch bump
+  pinning an exact transitive dep dies on `ERESOLVE` forever. The fix is
+  `rm -rf node_modules package-lock.json && npm install`; repairing the old
+  lock does not work. The regen floats every caret/tilde range, so a stricter
+  `typescript-eslint` or `@types/*` can turn lint/typecheck red in untouched
+  files — re-run all four checks afterward, and re-run `npx patch-package`
+  for each patch in the same pass (a patch whose fix landed upstream stops
+  applying: a warning locally, a hard failure in `npm ci`).
+- Env: `.env.local` with `EXPO_PUBLIC_SUPABASE_URL` /
+  `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` / `EXPO_PUBLIC_SENTRY_DSN` (see
+  `src/README.md`). Regenerate DB types with `npm run supabase:types`.
+- Web renders as a SPA (`web.output: "single"`) so `AuthProvider` doesn't run
+  under Node SSR. React Compiler is on (`experiments.reactCompiler`). iOS
+  deployment target is 26.1 (accessory, glass, AlarmKit).
+- App icons: iOS uses an Icon Composer `.icon` bundle (own light/dark/tinted
+  variants); Android adaptive icon PNGs are rasterized from the same
+  `assets/app.icon/Assets/Vector.svg` source of truth.
 
 ## Mac Catalyst (experimental — DEX-85)
 
-The app can build as a native **Mac Catalyst** target: a real Mac window with the Mac idiom (`UIDeviceFamily = 6`, Xcode's "Optimize Interface for Mac"), not the free "Designed for iPad" build. It is entirely **opt-in** behind `EXPO_MAC_CATALYST=1`, and no EAS profile sets that variable — with the flag unset, `npx expo config --type prebuild` is byte-identical to before apart from `_internal.dynamicConfigPath`, so iOS, Android and web are unaffected.
+Opt-in behind `EXPO_MAC_CATALYST=1` (no EAS profile sets it; with it unset the
+prebuild config is byte-identical). Three files carry it: `app.config.ts` (the
+only reader of the flag; drops `@bacons/apple-targets`, forces
+building-from-source because neither Expo's nor RN's published binaries have a
+usable Catalyst slice), `plugins/withMacCatalyst.ts` (device family, excludes
+`expo-alarm-kit`, empties the App Group entitlement; **every Podfile edit
+asserts an exact match count** so a template change fails loudly — expect to
+re-anchor on SDK upgrades), and `macCatalystStubs/` + a Metro alias (the
+AlarmKit stub must report **success**, or `useAlarmSync` answers the throw
+with a repeating alert). Build with `xcodebuild` (`expo run:ios` has no
+`variant=` support); sanity-check `UIDeviceFamily` prints `6`, not `2`.
+`IS_TABLET` covers Catalyst (idiom `mac`); `isAlarmSupported` excludes it.
 
-```bash
-cd src
-EXPO_MAC_CATALYST=1 npx expo prebuild --platform ios --clean
-xcodebuild -workspace ios/Dexter.xcworkspace -scheme Dexter -configuration Debug \
-  -destination 'platform=macOS,arch=arm64,variant=Mac Catalyst' \
-  -derivedDataPath ios/build-catalyst CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual \
-  DEVELOPMENT_TEAM="" PROVISIONING_PROFILE_SPECIFIER="" build
-open ios/build-catalyst/Build/Products/Debug-maccatalyst/Dexter.app
-```
-
-Metro needs nothing special — `Platform.OS` stays `"ios"` under Catalyst, so the same `.ios.tsx` graph is served. Start it with `EXPO_MAC_CATALYST=1 npm start` so the Metro alias below applies. `expo run:ios` cannot target Catalyst; `@expo/cli` has no `variant=` support.
-
-**Sanity check:** `/usr/libexec/PlistBuddy -c "Print :UIDeviceFamily" …/Dexter.app/Contents/Info.plist` must print `6`. A `2` means the build came out as "Scaled to Match iPad" and the window will not behave like a Mac window.
-
-Three files carry it:
-
-- **`app.config.ts`** — the only place `EXPO_MAC_CATALYST` is read. Drops `@bacons/apple-targets` (no macOS target type, so no widget/Live Activity on Mac) and forces `usePrecompiledModules: false` + `buildReactNativeFromSource: true`, because neither Expo's nor React Native's published binaries are usable on Catalyst (Expo's ship no `maccatalyst` slice; RN's ship a malformed one that `codesign` rejects as "bundle format is ambiguous").
-- **`plugins/withMacCatalyst.ts`** — sets `SUPPORTS_MACCATALYST`, selects the Mac idiom via `TARGETED_DEVICE_FAMILY[sdk=macosx*] = "2,6"` (leaving the iOS value untouched), flips React Native's own `:mac_catalyst_enabled`, excludes `expo-alarm-kit` from autolinking, disables RaTeX math (`ENRICHED_MARKDOWN_ENABLE_MATH=0` — no Catalyst slice), and empties the App Group entitlement so the build signs to run locally. **Every Podfile edit asserts an exact match count and throws otherwise**, so an Expo template change fails loudly instead of quietly producing a non-Catalyst build; expect to re-anchor these on SDK upgrades.
-- **`macCatalystStubs/` + `metro.config.js`** — AlarmKit's symbols are all `API_UNAVAILABLE(macCatalyst)`, so the pod is excluded and Metro aliases `expo-alarm-kit` to a no-op stub. This keeps the Catalyst branch out of shipping app source. The stub's `scheduleAlarm`/`cancelAlarm` must report **success**: `alarms.ios.ts` turns a `false` into a throw, and `useAlarmSync` answers a throw with a repeating "Alarm not set" alert.
-
-`IS_TABLET` (`utils/deviceType.ts`) covers Catalyst, because its idiom is `mac` rather than `pad` — without that a Mac window would get the phone `NativeTabs` shell and `/week` would never be registered. `isAlarmSupported` (`utils/alarms.shared.ts`) excludes it, since macOS has no alarm surface.
-
-Three native patches exist only for this target; the first two are compile-time-guarded and inert on iOS:
+Three native patches exist for this target (the first two compile-time-guarded
+and inert on iOS):
 
 | Patch | Why |
 |---|---|
-| `react-native+0.86.2.patch` | `UISwitch` resolves to an AppKit checkbox under the Mac idiom. Sets `UISwitchStyleSliding` — and makes `RCTSwitchSize()` measure the *same* style, or Yoga lays out a checkbox-sized box the real control overflows. |
-| `@expo+ui+57.0.8.patch` | SwiftUI resolves `Menu` to an AppKit pull-down, replacing custom `IconMenu` labels. Upstream: [expo/expo#48448](https://github.com/expo/expo/pull/48448). |
-| `expo-calendar+57.0.1.patch` | **Not Catalyst-specific.** `EKCalendarItem.calendar` is `null_unspecified`, so `event?.calendar.calendarIdentifier` force-unwraps it and traps the JS thread. Upstream: [expo/expo#48445](https://github.com/expo/expo/pull/48445). |
+| `react-native+0.86.2.patch` | `UISwitch` resolves to an AppKit checkbox under the Mac idiom; sets sliding style and makes `RCTSwitchSize()` measure the same style. |
+| `@expo+ui+57.0.8.patch` | SwiftUI resolves `Menu` to an AppKit pull-down, replacing custom `IconMenu` labels. Upstream: expo/expo#48448. |
+| `expo-calendar+57.0.1.patch` | **Not Catalyst-specific** — `EKCalendarItem.calendar` is `null_unspecified` and a force-unwrap traps the JS thread. Upstream: expo/expo#48445. |
 
-**The version in each filename is load-bearing** — `patch-package` matches on it, and a bump leaves a "patch file version mismatch" warning (or, if the file moved underneath it, a hard `npm ci` failure). After any dependency bump, re-run `npx patch-package <name>` for each one so the filename tracks the installed version; DEX-116 carried all three forward this way.
-
-**Not implemented:** menu bar / keyboard shortcuts (`UIMenuBuilder`), multi-window (`UISceneDelegate`), and any distribution path — Mac App Store submission, notarization and App Sandbox entitlements are all unexercised, and EAS Build has no first-class macOS platform.
+Not implemented: menu bar, multi-window, and any distribution path.
