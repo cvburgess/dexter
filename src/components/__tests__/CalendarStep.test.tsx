@@ -3,6 +3,7 @@ import { fireEvent, render } from "@testing-library/react-native";
 import { StyleSheet, TextStyle } from "react-native";
 import type { ReactTestInstance } from "react-test-renderer";
 
+import { ETaskPriority } from "@/api/tasks";
 import { CalendarStep } from "@/components/CalendarStep";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { TCalendarEvent } from "@/hooks/useCalendarEvents.types";
@@ -192,13 +193,14 @@ describe("CalendarStep", () => {
     });
 
     // Time booked reads as spent, time left as available — the figures carry
-    // that, and the words beside them stay in ink. The count is neither, so it
-    // stays ink too: it is the neutral fact the other two lines qualify.
+    // that, and the words beside them stay in ink. The count takes the same
+    // warning token the backlog step's "due soon" figure does: a day's events
+    // are a heads-up, neither the failure `error` marks nor an all-clear.
     it("colors the figures rather than the words", () => {
       const screen = renderStep({ events: [timed("a", 9, 10, 30)] });
 
       expect(colorOf(screen.getByTestId("hero-figure-events"))).toBe(
-        colors.text,
+        colors.priority[ETaskPriority.IMPORTANT_AND_URGENT],
       );
       expect(colorOf(screen.getByTestId("hero-figure-planned"))).toBe(
         colors.error,

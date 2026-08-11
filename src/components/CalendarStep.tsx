@@ -5,6 +5,7 @@ import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated from "react-native-reanimated";
 
+import { ETaskPriority } from "@/api/tasks";
 import { Button } from "@/components/Button";
 import { CalendarView } from "@/components/CalendarView";
 import { EmptyScreen } from "@/components/EmptyScreen";
@@ -78,9 +79,13 @@ export function CalendarStep({ date }: TCalendarStepProps) {
       key: "events",
       figure: String(summary.eventCount),
       words: summary.eventCount === 1 ? "event" : "events",
-      // Ink, not an accent: the count is the neutral fact the other two lines
-      // qualify.
-      color: theme.colors.text,
+      // The same token the backlog step's "due soon" figure takes —
+      // `priority[0]` is daisyUI's "warning" (there is no dedicated `warning`
+      // color; see `Theme.colors.priority` in `theme.ts`). A day's events are
+      // a heads-up in exactly that register: not the failure `error` marks on
+      // the line below, not the all-clear of `success`, and not the neutral
+      // ink this used to take, which read as a caption rather than a reading.
+      color: theme.colors.priority[ETaskPriority.IMPORTANT_AND_URGENT],
     },
     {
       key: "planned",
