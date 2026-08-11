@@ -65,6 +65,8 @@ describe("AccountScreen", () => {
     mockUseIsLargeDevice.mockReturnValue(false);
   });
 
+  // Every settings screen shares this two-pane/single-column edge behavior
+  // through SettingsScreen; it is asserted once, here.
   it("skips the left safe-area edge in two-pane mode (sidebar owns it)", () => {
     mockUseIsLargeDevice.mockReturnValue(true);
     const screen = render(<AccountScreen />);

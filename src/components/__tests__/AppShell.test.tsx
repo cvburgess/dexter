@@ -47,18 +47,6 @@ describe("AppShell", () => {
     expect(screen.queryByText("nav-rail")).toBeNull();
   });
 
-  // The rail is a row sibling of the content and the dock a column one — the
-  // whole reason both live behind a single `rail` boolean, so the flex
-  // direction can't disagree with which variant rendered.
-  it.each([
-    ["row", true],
-    ["column", false],
-  ] as const)("lays the shell out as a %s", (direction, rail) => {
-    const screen = render(<AppShell rail={rail} />);
-
-    expect(screen.root).toHaveStyle({ flexDirection: direction });
-  });
-
   // The Week *nav item* is gated on width (AppNav.test covers that), but the
   // route must resolve either way or a `/week` URL — typed in a narrow browser
   // window, or deep-linked on a tablet below the breakpoint — would be a

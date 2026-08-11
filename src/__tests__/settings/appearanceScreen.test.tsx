@@ -52,20 +52,8 @@ describe("AppearanceScreen", () => {
     mockUseIsLargeDevice.mockReturnValue(false);
   });
 
-  it("skips the left safe-area edge in two-pane mode (sidebar owns it)", () => {
-    mockUseIsLargeDevice.mockReturnValue(true);
-    const screen = renderWith();
-
-    expect(screen.getByTestId("safe-area-edges-right")).toBeTruthy();
-  });
-
-  it("includes the left safe-area edge in single-column mode", () => {
-    const screen = renderWith();
-
-    expect(screen.getByTestId("safe-area-edges-left,right")).toBeTruthy();
-  });
-
-  // The edges above omit `bottom` so cards scroll under the tab bar; the scroll
+  // The screen's safe-area edges omit `bottom` so cards scroll under the tab
+  // bar; the scroll
   // content is what has to reserve the inset, or the last one can never be
   // scrolled clear of it (DEX-91).
   it("adds the safe-area bottom inset to the scroll content's own padding", () => {

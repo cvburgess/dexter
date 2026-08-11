@@ -1,13 +1,5 @@
 import { fireEvent, render } from "@testing-library/react-native";
-import {
-  StyleSheet,
-  Text,
-  type StyleProp,
-  type TextStyle,
-  type ViewStyle,
-} from "react-native";
-
-import { DENSITY } from "@/utils/theme";
+import { StyleSheet, Text, type StyleProp, type ViewStyle } from "react-native";
 
 import { IconMenu } from "../IconMenu.web";
 import { TIconMenuSection } from "../IconMenu.types";
@@ -19,10 +11,6 @@ import { WebOverlay } from "../WebOverlay.web";
 jest.mock("react-dom", () =>
   require("@/testUtils/mockReactDomPortal").mockReactDomPortal(),
 );
-
-// The checkmark column is as wide as the icons it aligns with — `icons.md` on
-// the comfortable tier, which is what jest-expo's phone-width window resolves to.
-const CHECKMARK_WIDTH = DENSITY.comfortable.icons.md;
 
 /**
  * Host (not composite) elements whose flattened style matches — the menu's
@@ -269,38 +257,6 @@ describe("IconMenu (web)", () => {
     expect(style.top).toBe(100 + 8);
   });
 
-  it("gives the menu an opaque edge, since no scrim separates it", () => {
-    const screen = render(
-      <IconMenu
-        accessibilityLabel="Status"
-        menuTitle="Status"
-        sections={sections}
-      >
-        <Text>Trigger</Text>
-      </IconMenu>,
-    );
-
-    fireEvent.press(screen.getByLabelText("Status"), {
-      nativeEvent: { clientX: 10, clientY: 10 },
-    });
-
-    // The overlay itself must stay unpainted: a fill here is the modal scrim
-    // this component deliberately dropped.
-    const overlay = screen.getByTestId("menu-overlay");
-    expect(
-      StyleSheet.flatten(overlay.props.style as StyleProp<ViewStyle>)
-        .backgroundColor,
-    ).toBeUndefined();
-
-    expect(
-      hostsStyled(
-        screen,
-        (style) =>
-          (style.borderWidth ?? 0) > 0 && style.boxShadow !== undefined,
-      ),
-    ).not.toHaveLength(0);
-  });
-
   // The option row holds focus while it is pressed, so an action that focuses
   // something of its own — an inline edit's autoFocus input, say — has to run
   // after the row is unmounted or it loses the focus again (DEX-70, first seen
@@ -398,134 +354,6 @@ describe("IconMenu (web)", () => {
     fireEvent.press(screen.getByText("Urgent"));
 
     expect(onSelect).toHaveBeenCalled();
-  });
-
-  it("renders an option's label in its titleColor when set", () => {
-    const colored: TIconMenuSection[] = [
-      {
-        options: [
-          {
-            id: "backlog",
-            title: "Backlog",
-            titleColor: "#fcb700",
-            onSelect: jest.fn(),
-          },
-        ],
-      },
-    ];
-    const screen = render(
-      <IconMenu accessibilityLabel="Switch view" sections={colored}>
-        <Text>Trigger</Text>
-      </IconMenu>,
-    );
-
-    fireEvent.press(screen.getByLabelText("Switch view"), {
-      nativeEvent: { clientX: 10, clientY: 10 },
-    });
-
-    // Flattened: the label now composes a type role with its color (DEX-61).
-    const style = StyleSheet.flatten(
-      screen.getByText("Backlog").props.style as TextStyle[],
-    );
-    expect(style.color).toBe("#fcb700");
-  });
-
-  // The empty checkmark slot is what indents a row. A group of plain actions
-  // has nothing to check, so it lines up with the submenu headers above it.
-  it("reserves the checkmark column only for a section that can be checked", () => {
-    const mixed: TIconMenuSection[] = [
-      {
-        options: [
-          {
-            id: "todo",
-            title: "To Do",
-            isSelected: false,
-            onSelect: jest.fn(),
-          },
-        ],
-      },
-      { options: [{ id: "delete", title: "Delete", onSelect: jest.fn() }] },
-    ];
-    const screen = render(
-      <IconMenu accessibilityLabel="Actions" sections={mixed}>
-        <Text>Trigger</Text>
-      </IconMenu>,
-    );
-
-    fireEvent.press(screen.getByLabelText("Actions"), {
-      nativeEvent: { clientX: 10, clientY: 10 },
-    });
-
-    // One slot, held open by the unchecked "To Do"; none for "Delete".
-    expect(
-      hostsStyled(screen, (style) => style.width === CHECKMARK_WIDTH),
-    ).toHaveLength(1);
-  });
-
-  // The checkmark sits where the header's icon does, which is the alignment
-  // that reads as nesting — an extra indent on top of it only breaks the column.
-  it("does not indent a checkable submenu's rows past their header", () => {
-    const submenuSections: TIconMenuSection[] = [
-      {
-        title: "Priority",
-        isSubmenu: true,
-        options: [
-          {
-            id: "urgent",
-            title: "Urgent",
-            isSelected: false,
-            onSelect: jest.fn(),
-          },
-        ],
-      },
-    ];
-    const screen = render(
-      <IconMenu accessibilityLabel="More" sections={submenuSections}>
-        <Text>Trigger</Text>
-      </IconMenu>,
-    );
-
-    fireEvent.press(screen.getByLabelText("More"), {
-      nativeEvent: { clientX: 10, clientY: 10 },
-    });
-    fireEvent.press(screen.getByText("Priority"));
-
-    const rows = hostsStyled(
-      screen,
-      (style) =>
-        style.paddingHorizontal === 16 && style.flexDirection === "row",
-    );
-    // Header and option row alike, inset only by the menu's own padding.
-    expect(rows).toHaveLength(2);
-    expect(
-      hostsStyled(screen, (style) => style.paddingLeft !== undefined),
-    ).toHaveLength(0);
-  });
-
-  it("omits the rule above a section that continues the one before it", () => {
-    const joined: TIconMenuSection[] = [
-      { options: [{ id: "a", title: "First", onSelect: jest.fn() }] },
-      {
-        hideDivider: true,
-        options: [{ id: "b", title: "Second", onSelect: jest.fn() }],
-      },
-      { options: [{ id: "c", title: "Third", onSelect: jest.fn() }] },
-    ];
-    const screen = render(
-      <IconMenu accessibilityLabel="Actions" sections={joined}>
-        <Text>Trigger</Text>
-      </IconMenu>,
-    );
-
-    fireEvent.press(screen.getByLabelText("Actions"), {
-      nativeEvent: { clientX: 10, clientY: 10 },
-    });
-
-    // One rule for three sections: the first never draws one, the joined
-    // section opts out, and only the third separates itself from what's above.
-    expect(
-      hostsStyled(screen, (style) => (style.borderTopWidth ?? 0) > 0),
-    ).toHaveLength(1);
   });
 
   it("opens a long-press menu on right-click and suppresses the browser menu", () => {

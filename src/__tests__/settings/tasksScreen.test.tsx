@@ -117,20 +117,6 @@ describe("TasksScreen", () => {
     resetPicker();
   });
 
-  it("skips the left safe-area edge in two-pane mode (sidebar owns it)", () => {
-    mockUseIsLargeDevice.mockReturnValue(true);
-    const screen = renderWith([]);
-
-    expect(screen.getByTestId("safe-area-edges-right")).toBeTruthy();
-  });
-
-  it("includes the left safe-area edge in single-column mode", () => {
-    mockUseIsLargeDevice.mockReturnValue(false);
-    const screen = renderWith([]);
-
-    expect(screen.getByTestId("safe-area-edges-left,right")).toBeTruthy();
-  });
-
   it("explains where each kind of saved task comes from when there are none", () => {
     const screen = renderWith([]);
 
