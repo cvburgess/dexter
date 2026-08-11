@@ -156,6 +156,20 @@ describe("SummaryStep", () => {
 
       expect(screen.getByText("Start Your Day")).toBeTruthy();
     });
+
+    // A disabled query keeps serving whatever it last cached, so turning habits
+    // off does not empty `habits` for someone who had them. A total summed from
+    // the hooks rather than from the visible lines counted those hidden rows and
+    // held this day out of the blank state, leaving a lone "0 tasks" where the
+    // canvas line belongs.
+    it("ignores rows cached behind a feature the user turned off", () => {
+      mockUsePreferences.mockReturnValue(preferences({ enableHabits: false }));
+      setDay({ habits: [{}, {}] });
+      render(<SummaryStep date={DATE} />);
+
+      expect(screen.getByText(BLANK)).toBeTruthy();
+      expect(screen.queryByLabelText("0 tasks")).toBeNull();
+    });
   });
 
   // Every source hands back an empty placeholder while it resolves, so a cold

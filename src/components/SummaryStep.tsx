@@ -81,36 +81,37 @@ export function SummaryStep({ date }: TSummaryStepProps) {
   // reading worth stating ("0 tasks" is why the button is there), but a line
   // about calendars for someone with no calendar is noise. `HeroLines` maps
   // lines onto stages by index, so a shorter list simply uses fewer.
-  const heroLines: THeroLine[] = [
-    ...(preferences.enableHabits
-      ? [
-          {
-            key: "habits",
-            figure: String(habits.length),
-            words: plural(habits.length, "habit"),
-            color: theme.colors.primary,
-          },
-        ]
-      : []),
-    ...(preferences.enableCalendar
-      ? [
-          {
-            key: "events",
-            figure: String(events.length),
-            words: plural(events.length, "event"),
-            color: theme.colors.primary,
-          },
-        ]
-      : []),
+  //
+  // **The figures and the total are derived from this one list**, rather than
+  // the total being summed from the three hooks directly. A disabled query
+  // keeps serving whatever it last cached — turning habits off does not empty
+  // `habits` for someone who had them — so a total that counted hidden rows
+  // would hold a day with nothing visible on it out of the blank-canvas state
+  // and render a lone "0 tasks" instead.
+  const counts = [
     {
-      key: "tasks",
-      figure: String(tasks.length),
-      words: plural(tasks.length, "task"),
-      color: theme.colors.primary,
+      key: "habits",
+      noun: "habit",
+      count: habits.length,
+      shown: preferences.enableHabits,
     },
-  ];
+    {
+      key: "events",
+      noun: "event",
+      count: events.length,
+      shown: preferences.enableCalendar,
+    },
+    { key: "tasks", noun: "task", count: tasks.length, shown: true },
+  ].filter((line) => line.shown);
 
-  const total = habits.length + events.length + tasks.length;
+  const heroLines: THeroLine[] = counts.map(({ key, noun, count }) => ({
+    key,
+    figure: String(count),
+    words: plural(count, noun),
+    color: theme.colors.primary,
+  }));
+
+  const total = counts.reduce((sum, line) => sum + line.count, 0);
   const isLoading = habitsLoading || eventsLoading || tasksLoading;
 
   // Held back until every count exists, so the sequence waits rather than
