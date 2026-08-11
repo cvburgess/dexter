@@ -1,5 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { useMemo } from "react";
+import { ReactNode, useMemo } from "react";
 import { ScrollView, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -22,6 +22,17 @@ type TDayTaskListProps = {
    * messages side by side read as noise rather than information (DEX-96).
    */
   emptyMessage?: string | null;
+  /**
+   * Rendered under `emptyMessage`, inside the same empty state — the ritual's
+   * Tasks step points at the global "＋ New Task" button from here (DEX-144).
+   *
+   * Separate from `emptyMessage` rather than folded into it as a second
+   * paragraph because `EmptyScreen` already has the seam (its `children`,
+   * spaced by `space.sm`), and a caller that wants a real control there rather
+   * than a line of prose can pass one without this prop changing shape.
+   * Ignored, like the message, when `emptyMessage` is `null`.
+   */
+  emptyAction?: ReactNode;
 };
 
 /**
@@ -36,6 +47,7 @@ type TDayTaskListProps = {
 export function DayTaskList({
   date,
   emptyMessage = "No tasks scheduled for this day.",
+  emptyAction,
 }: TDayTaskListProps) {
   const { confirm, confirmationProps } = useConfirmation();
   const theme = useTheme();
@@ -81,7 +93,9 @@ export function DayTaskList({
           their heights (see TaskCard/StatusButton) so layout stays stable. */}
       {tasks.length === 0 ? (
         !isLoading &&
-        emptyMessage !== null && <EmptyScreen message={emptyMessage} />
+        emptyMessage !== null && (
+          <EmptyScreen message={emptyMessage}>{emptyAction}</EmptyScreen>
+        )
       ) : (
         <ScrollView
           style={styles.scroll}

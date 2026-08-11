@@ -63,7 +63,21 @@ jest.mock("@/components/BacklogStep", () => {
   };
 });
 
+// And the tasks step: it owns the tasks query and the day's card list.
+jest.mock("@/components/TasksStep", () => {
+  const { Text: RNText } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+  return {
+    TasksStep: function MockTasksStep({ date }: { date: Temporal.PlainDate }) {
+      return <RNText>{`tasks:${date.toString()}`}</RNText>;
+    },
+  };
+});
+
 const DATE = Temporal.PlainDate.from("2026-08-09");
+
+/** The step ids that no longer fall through to the placeholder branch. */
+const BUILT_STEP_IDS = ["horoscope", "journal", "calendar", "backlog", "tasks"];
 
 const renderStep = (step: TRitualStep) =>
   render(
@@ -121,6 +135,13 @@ describe("RitualStepView", () => {
     expect(screen.getByText("backlog:2026-08-09")).toBeTruthy();
   });
 
+  // Unconditional too, and the step the backlog hands off to.
+  it("renders the day's task list for the tasks id", () => {
+    renderStep({ id: "tasks", title: "Tasks" });
+
+    expect(screen.getByText("tasks:2026-08-09")).toBeTruthy();
+  });
+
   it("hands a step the ritual's date rather than today's", () => {
     const other = Temporal.PlainDate.from("2026-01-02");
 
@@ -141,11 +162,7 @@ describe("RitualStepView", () => {
   // screen rather than a failure.
   it.each(
     [...RITUAL_STEPS.am, ...RITUAL_STEPS.pm].filter(
-      (step) =>
-        step.id !== "journal" &&
-        step.id !== "horoscope" &&
-        step.id !== "calendar" &&
-        step.id !== "backlog",
+      (step) => !BUILT_STEP_IDS.includes(step.id),
     ),
   )("renders $title as a placeholder", (step) => {
     renderStep(step);
