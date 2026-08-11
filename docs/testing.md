@@ -1,58 +1,43 @@
 # Testing
 
+## Which tests are worth writing
+
+Write a test when it would catch a real regression:
+
+- **Pure logic** — date math, transforms, parsers, reducers (`src/utils/__tests__/`). No mocks, fast, the highest signal in the repo.
+- **Security properties** — SSRF guards, auth/origin checks, secret handling (`supabase/__tests__/ics-proxy/validation.test.ts`, `config/previewSecrets.test.ts`).
+- **API contracts** — drive real handler logic through a fake at the boundary; `supabase/__tests__/mcp-server/tools.test.ts`'s registry harness is the pattern.
+- **Regressions** — pin a fixed bug and annotate the test with its issue id (`DEX-xxx`) so the guard's reason survives.
+
+Not worth writing (removed en masse in DEX-143 — don't reintroduce):
+
+- **Render-without-crashing / prop-passing** component tests.
+- **Styling assertions** — colors, spacing, flex direction, `props.style` reaches. Visual correctness is verified on a device, not in Jest.
+- **Mock restatement** — hand-mocking a query builder and asserting `.eq()` was called with what the implementation passed. Assert return values, error propagation, and genuine footguns (an `onConflict` target, a column that must never be written) instead.
+- **Migration-text tests** — migrations are immutable once applied, so an assertion over a merged migration's SQL can never fail again.
+- **Re-asserting shared behavior per screen** — behavior owned by a shared component is tested once, in one place.
+
 ## App (`/src`)
 
-- **Jest** with **jest-expo** preset (`jest.config.js` in `/src`)
-- Run: `cd src && npm test`
-- CI runs `npm run format:check`, `npm run lint`, `npm run typecheck`, and `npm test` on every `src/**` PR (`.github/workflows/test-frontend.yml`)
-- Tests live in `__tests__/` directories; paths under `app/` are excluded in Jest config so Expo Router does not pick up test files as routes.
-- **Pulling a real component into a `jest.mock` factory:** factories are hoisted above imports, so they can't reference an imported `View`/`Text`. Prefer `jest.requireActual<typeof import("react-native")>("react-native")` over a bare `require()` — it keeps the mock typed, which the bare form does not. See `components/__tests__/AppNav.test.tsx`.
-- **Test files run a relaxed ESLint rule set** — the test-file override in `src/eslint.config.js` is the source of truth for which rules and why. Only the untypeable Jest boundaries are off (`no-unsafe-*`, `no-require-imports`); everything else is enforced, so give stub components a **named function** (`Stack.Screen = function StackScreen() { … }`) for `react/display-name`, name mock components in **PascalCase** if they use hooks, and use `() => Promise.resolve(x)` rather than `async () => x` for stubs with nothing to await. Prefer typed mocks anyway — the relaxation is for boilerplate, not licence to skip types where they're available.
-- **Mocking a module-scope constant** (rather than a hook) needs a **getter in the factory**. `jest.mock` factories are hoisted above the imports and run while the module graph is still initialising, so the obvious `jest.mock("@/utils/deviceType", () => mockDeviceType)` throws a TDZ `ReferenceError` before any test runs. Returning a plain object with a getter defers the read to render time instead:
-
-  ```tsx
-  let mockIsTablet = false;
-  jest.mock("@/utils/deviceType", () => ({
-    get IS_TABLET() {
-      return mockIsTablet;
-    },
-  }));
-  ```
-
-  with `beforeEach(() => { mockIsTablet = false; })`. This works because Babel compiles `import { IS_TABLET }` to a property access at each use site to preserve live bindings, so every render re-reads the getter — which also means the consumer has to read the constant *inside* its component, not destructure it at module scope. The `mock` name prefix is what `babel-plugin-jest-hoist` allows through its out-of-scope check. See `__tests__/tabsLayout.test.tsx`. Note that `IS_TABLET` is `false` unmocked (jest-expo defaults to iOS with no `interfaceIdiom`), so the phone path is the free default everywhere else.
-- **Web-only components:** import the platform file directly (`import { X } from "../X.web"`) instead of mocking `Platform.OS` — Jest resolves the extension-less path to the native variant. Same for a web route layout: `import Layout from "@/app/.../_layout.web"`.
-- **A wholesale `jest.mock("expo-router", …)` must supply `useFocusEffect`** if anything the screen renders uses it — `components/DismissModal` does, so every modal screen that can resolve a missing record needs it. Stand in for the focus lifecycle with `useEffect(() => effect(), [effect])`, and hold the effect behind a `mockIsFocused` flag when a test needs the screen backgrounded. See `__tests__/edit-task/editTaskScreen.test.tsx` and `hooks/__tests__/useViewedDay.test.tsx`.
-- **Gestures and animations** (`react-native-gesture-handler`, `react-native-reanimated`): `jest.setup.js` loads `react-native-gesture-handler/jestSetup` and mocks `react-native-reanimated` with its shipped `/mock`; `jest.config.js` sets `resolver: "react-native-worklets/jest/resolver"` (required for reanimated 4's worklets runtime under Jest). Drive a `Gesture.Pan`/etc. in tests with `fireGestureHandler(getByGestureTestId(id), [...])` from `react-native-gesture-handler/jest-utils` (the gesture needs `.withTestId(id)`), wrapped in `act()` from `@testing-library/react-native` if the handler triggers a state update — see `components/__tests__/SwipeablePage.test.tsx`. **The shipped mock is incomplete in two ways worth knowing.** It omits `useReducedMotion` outright (its source has the hook stubbed out as `// useReducedMotion: ADD ME IF NEEDED`), so a component guarding an animation on it throws in every test that mounts it — `jest.setup.js` therefore spreads the mock and adds `useReducedMotion: () => false`, which is the motion-allowed branch; a test that wants the reduced path re-mocks the hook for itself. And its `interpolateColor` is a no-op returning `undefined`, so an animated `backgroundColor` never reaches a rendered tree: assert on structure in the component test and pin the color math where it is computed instead (DEX-128 does this with `sentimentTints` in `utils/__tests__/theme.test.ts`).
-
-  **The larger blind spot is the worklet boundary, and no test in this suite can see it.** The mock replaces `useAnimatedStyle` with something that never runs its body on a UI runtime, so a worklet that calls a plain module-level function — legal-looking TypeScript, and green in Jest, lint and `tsc` alike — throws *Tried to synchronously call a Remote Function* the instant it runs on device. Only values and shared values cross that boundary; resolve helper calls outside the worklet and let it capture the result. DEX-128 shipped this bug and found it by running the app. Treat any animation work as unverified until it has been on a device, whatever the suite says.
-- **Drag and drop** (`react-native-drax`, DEX-77): `jest.setup.js` stubs `DraxProvider`/`DraxView` as pass-through `View`s and `DraxScrollView` as a real `ScrollView` (so `WeekView`'s ref/`onLayout` anchoring survives). The real provider throws under `react-native-reanimated/mock`, which doesn't implement the shared values drax hit-tests through. Drive a drop by finding the target's `testID` and invoking its `onReceiveDragDrop`/`acceptsDrag` prop directly, rather than simulating a pointer path.
-
-  **Know what this stub cannot catch.** Drax calls handlers off its own registry snapshot, which it refreshes only when a capability prop changes; a pass-through `View` calls whatever prop is current. So a drop handler that has gone stale still passes if a test reads it off the element — which is exactly how PR #73 shipped a Today pane that scheduled onto whichever day it first mounted with. To guard it, **capture the handler, rerender, then invoke the captured one**; see the "handlers held from an earlier render" block in `components/__tests__/TaskDropTarget.test.tsx`. Worth checking such a guard actually fails against the naive implementation before trusting it.
-- **The native `ConfirmationModal` renders nothing** — it drives `Alert.alert` imperatively — so a confirmation flow is asserted through `jest.spyOn(Alert, "alert")` and its captured buttons, not by querying for text. Jest here sets neither `restoreMocks` nor `resetMocks`, so **restore the spy in an `afterEach`**: one left in place leaks into every later test in the run. See the alarm-prompt block in `components/__tests__/TaskDrawer.test.tsx`.
-- **A test that imports a web overlay must mock `react-dom`'s `createPortal`.** Every web overlay renders through `components/WebOverlay.web.tsx`, which portals into `document.body`; the suite runs on react-test-renderer, which has no DOM to portal into and drops the children silently — so the overlay renders and every query for its contents comes back empty. Use the shared factory: `jest.mock("react-dom", () => require("@/testUtils/mockReactDomPortal").mockReactDomPortal())`, which stands `createPortal` down to rendering its children inline. Only files importing a `.web` overlay directly need it; `Platform.OS` is `ios` under jest-expo, so an extension-less import resolves to the native variant. Note the ceiling: these tests can prove an overlay renders and fires its handlers, but not that a click lands under a real vaul dialog — there is no vaul in the tree and no web e2e harness, so that half is manual (DEX-134).
-- **`expo-audio` has no shipped jest mock and reaches for its native module at import time**, so merely importing anything that imports it throws — several files away from the test that triggered it, with a `Cannot read properties of undefined (reading 'prototype')` that names none of them. `jest.setup.js` stands in an inert player, which is all any component test needs. A test that wants to assert on playback mocks the module for itself with a player it can inspect; see `hooks/__tests__/useHoroscopeAudio.test.ts`, which drives both fades on fake timers (`jest.setSystemTime`, since the exit fade reads `Date.now()`). Note jest's hoisting rule bites here: a variable referenced inside a `jest.mock` factory must be prefixed `mock`, or the factory fails to compile.
-- **Never leave a mocked mutation on a promise that never settles.** It wedges the whole Jest run rather than failing its own test, which makes it expensive to track down.
+- **Jest** with **jest-expo** preset. Run: `cd src && npm test`. CI gates every `src/**` PR on format, lint, typecheck, and tests (`.github/workflows/test-frontend.yml`).
+- Tests live in `__tests__/` directories; never under `app/`, which Expo Router treats as routes.
+- Test files run a relaxed ESLint rule set — the override in `src/eslint.config.js` is the source of truth. Only untypeable Jest boundaries are off; prefer typed mocks anyway.
+- **`jest.mock` factories are hoisted**, so: use `jest.requireActual<typeof import("react-native")>("react-native")` to pull real components into a factory (`components/__tests__/AppNav.test.tsx`); mock a module-scope *constant* with a getter in the factory, read inside the component, variable prefixed `mock` (`__tests__/tabsLayout.test.tsx`).
+- **Web-only components:** import the platform file directly (`../X.web`) — extension-less paths resolve to the native variant under jest-expo.
+- **A wholesale `jest.mock("expo-router", …)` must supply `useFocusEffect`** if anything rendered uses it (`components/DismissModal` does). See `__tests__/edit-task/editTaskScreen.test.tsx`.
+- **Gestures/animations:** `jest.setup.js` wires gesture-handler and the reanimated mock; drive gestures with `fireGestureHandler` (`components/__tests__/SwipeablePage.test.tsx`). The reanimated mock lacks `useReducedMotion` (setup adds the motion-allowed branch) and its `interpolateColor` returns `undefined` — pin color math at its source, not in a rendered tree. **No test can see the worklet boundary**: a worklet calling a plain module function is green everywhere and throws on device (DEX-128). Treat animation work as unverified until it has run on a device.
+- **Drag and drop:** drax is stubbed to pass-through views; drive drops by invoking the target's props. The stub can't see stale registry handlers — capture the handler, rerender, then invoke the captured one (the PR #73 guard in `components/__tests__/TaskDropTarget.test.tsx`).
+- **Native `ConfirmationModal` renders nothing** — spy on `Alert.alert` and restore the spy in `afterEach` (`components/__tests__/TaskDrawer.test.tsx`).
+- **Importing a `.web` overlay needs the `react-dom` portal mock**: `jest.mock("react-dom", () => require("@/testUtils/mockReactDomPortal").mockReactDomPortal())`. These tests can't prove a click lands under a real vaul dialog — that half is manual (DEX-134).
+- **`expo-audio` throws at import time**; `jest.setup.js` stands in an inert player. To assert on playback, mock a player per test (`hooks/__tests__/useHoroscopeAudio.test.ts`).
+- **Never leave a mocked mutation on a promise that never settles** — it wedges the whole run instead of failing one test.
 
 ## Supabase (`/supabase`)
 
-- **Deno test** for Edge Function and shared Deno modules
-- When `__tests__/` exists: `cd supabase && deno test --allow-all --config __tests__/deno.json __tests__/`
-- Add `--env-file=.env` if tests need environment variables
-- CI has **no Postgres and no network**, which shapes two conventions:
-  - Migrations are tested by asserting over their SQL *text* — see
-    `__tests__/migrations/sqlStatements.ts` for the `statements()` /
-    `withoutComments()` helpers. Use `withoutComments()` for anything spanning a
-    `do $$ … $$` block, and for any assertion a header comment could satisfy on
-    its own.
-  - Anything that reaches the network takes its dependency as an argument rather
-    than stubbing a global: `fetchPrediction(sign, key, fetchImpl)`, and a
-    trailing `model` parameter on AI SDK calls.
-    `__tests__/helpers/mockLanguageModel.ts` is the `LanguageModelV3` stand-in
-    (the SDK's own `ai/test` imports vitest and msw at module load and cannot run
-    under `deno test`); `objectModel(x)` is the shortcut for a model that returns
-    `x` as its structured output.
+- **Deno test**: `cd supabase && deno test --allow-all --config __tests__/deno.json __tests__/` (add `--env-file=.env` when tests need secrets).
+- CI has **no Postgres and no network**, so anything that reaches the network takes its dependency as an argument rather than stubbing a global: `fetchPrediction(sign, key, fetchImpl)`, a trailing `model` parameter on AI SDK calls. `__tests__/helpers/mockLanguageModel.ts` is the `LanguageModelV3` stand-in (`ai/test` cannot run under `deno test`).
 
 ## Formatting
 
-- **TypeScript/JavaScript (app):** `cd src && npm run format` (Prettier)
-- **Deno (supabase):** `cd supabase && deno fmt`
+- **App:** `cd src && npm run format` (Prettier)
+- **Supabase:** `cd supabase && deno fmt`
