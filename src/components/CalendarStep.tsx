@@ -19,13 +19,23 @@ import {
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { usePreferences } from "@/hooks/usePreferences";
 import { calendarWindow, summarizeDay } from "@/utils/calendarStats";
-import { formatDuration } from "@/utils/formatPlainTime";
+import { formatHours } from "@/utils/formatPlainTime";
 import { useTheme } from "@/utils/theme";
 
 type TCalendarStepProps = {
   /** The day being walked through — the ritual's date, not necessarily today. */
   date: Temporal.PlainDate;
 };
+
+/**
+ * `hour` only for exactly sixty minutes; `hours` for everything else, a half
+ * hour and zero included ("0.5 hours", "0 hours"). English pluralizes on the
+ * value rather than on whether it is whole, so this reads off the minutes
+ * instead of the formatted string — `"1"` is the only figure that takes the
+ * singular, and it is the only one this can produce it for.
+ */
+const hoursLabel = (minutes: number): string =>
+  Math.round(Math.max(0, minutes)) === 60 ? "hour" : "hours";
 
 /**
  * The morning ritual's Calendar step (DEX-140): what the day already holds,
@@ -87,16 +97,19 @@ export function CalendarStep({ date }: TCalendarStepProps) {
       // ink this used to take, which read as a caption rather than a reading.
       color: theme.colors.priority[ETaskPriority.IMPORTANT_AND_URGENT],
     },
+    // The unit sits in the words rather than the figure, so it takes their ink
+    // and the figure column measures only the number — "1.5" and "12" line up
+    // where "1h 30m" and "12h" could not.
     {
       key: "planned",
-      figure: formatDuration(summary.plannedMinutes),
-      words: "planned",
+      figure: formatHours(summary.plannedMinutes),
+      words: `${hoursLabel(summary.plannedMinutes)} planned`,
       color: theme.colors.error,
     },
     {
       key: "free",
-      figure: formatDuration(summary.freeMinutes),
-      words: "free",
+      figure: formatHours(summary.freeMinutes),
+      words: `${hoursLabel(summary.freeMinutes)} free`,
       color: theme.colors.success,
     },
   ];

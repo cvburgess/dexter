@@ -179,17 +179,20 @@ describe("CalendarStep", () => {
       });
 
       expect(screen.getByLabelText("3 events")).toBeTruthy();
-      expect(screen.getByLabelText("5h 30m planned")).toBeTruthy();
-      expect(screen.getByLabelText("8h 30m free")).toBeTruthy();
+      expect(screen.getByLabelText("5.5 hours planned")).toBeTruthy();
+      expect(screen.getByLabelText("8.5 hours free")).toBeTruthy();
       expect(screen.getByText(`calendar:${DATE.toString()}`)).toBeTruthy();
     });
 
-    it("writes the singular for one event", () => {
+    // "1 hours planned" would be the visible cost of pluralizing on whether
+    // the figure is whole rather than on the value, so exactly sixty minutes is
+    // the one span that takes the singular.
+    it("writes the singular for one event and one hour", () => {
       const screen = renderStep({ events: [timed("a", 9, 10)] });
 
       expect(screen.getByLabelText("1 event")).toBeTruthy();
-      expect(screen.getByLabelText("1h planned")).toBeTruthy();
-      expect(screen.getByLabelText("13h free")).toBeTruthy();
+      expect(screen.getByLabelText("1 hour planned")).toBeTruthy();
+      expect(screen.getByLabelText("13 hours free")).toBeTruthy();
     });
 
     // Time booked reads as spent, time left as available — the figures carry
@@ -225,8 +228,8 @@ describe("CalendarStep", () => {
       });
 
       expect(screen.getByLabelText("1 event")).toBeTruthy();
-      expect(screen.getByLabelText("0h planned")).toBeTruthy();
-      expect(screen.getByLabelText("14h free")).toBeTruthy();
+      expect(screen.getByLabelText("0 hours planned")).toBeTruthy();
+      expect(screen.getByLabelText("14 hours free")).toBeTruthy();
     });
   });
 });
