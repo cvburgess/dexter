@@ -191,6 +191,33 @@ Deno.test("a non-ISO date is rejected", () => {
   }
 });
 
+Deno.test("a well-formed but impossible date is rejected", () => {
+  // The shape check alone passes every one of these, and every one is a value
+  // Postgres refuses — which fails the whole twelve-row upsert, not just the
+  // sign that carried it. The predecessor had this guard for `31-2-2026`;
+  // moving to an ISO format did not remove the need for it.
+  for (const date of ["2026-02-31", "2026-13-01", "2026-00-10", "2026-04-31"]) {
+    assert(
+      !horoscopeResponseSchema.safeParse({
+        ...envelope,
+        data: { ...data, date },
+      })
+        .success,
+      `"${date}" is not a real day and must be rejected`,
+    );
+  }
+});
+
+Deno.test("a leap day is accepted", () => {
+  // The round-trip must not be so strict that it rejects real days.
+  assert(
+    horoscopeResponseSchema.safeParse({
+      ...envelope,
+      data: { ...data, date: "2028-02-29" },
+    }).success,
+  );
+});
+
 Deno.test("life areas flatten to a complete twelve-key record", () => {
   const ratings = toLifeAreaRatings(data.life_area_focus);
 

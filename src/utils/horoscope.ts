@@ -78,10 +78,20 @@ export const SUN_SIGN_OPTIONS: readonly {
   })),
 ];
 
+/**
+ * The rating fields of `THoroscope`, and nothing else.
+ *
+ * Narrowed from `keyof THoroscope` deliberately: that would also admit `text`,
+ * `tips`, and `sunSign`, so a table entry pointing at one of them would compile
+ * and then be compared against numeric thresholds at runtime. This makes the
+ * mistake a type error and lets the lookup below drop its cast.
+ */
+type THoroscopeRatingKey = Extract<keyof THoroscope, `rating${string}`>;
+
 /** One of the twelve life areas the upstream rates. */
 export type THoroscopeLifeArea = {
   /** The `THoroscope` field it reads — also the DB column, camelCased. */
-  key: keyof THoroscope;
+  key: THoroscopeRatingKey;
   label: string;
 };
 
@@ -174,7 +184,7 @@ export function lifeAreasInBucket(
   bucket: THoroscopeSentiment,
 ): readonly THoroscopeLifeArea[] {
   return LIFE_AREAS.filter(
-    (area) => ratingBucket(horoscope[area.key] as number) === bucket,
+    (area) => ratingBucket(horoscope[area.key]) === bucket,
   );
 }
 

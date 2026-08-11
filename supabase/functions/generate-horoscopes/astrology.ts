@@ -84,9 +84,22 @@ export const horoscopeDataSchema = z.object({
   life_area_focus: z.array(
     z.object({ area: z.string(), rating }),
   ),
-  // Already ISO (`2026-08-11`) — unlike AstrologyAPI's `D-M-YYYY`, which needed
-  // a parser and a round-trip to reject `31-2-2026`. Verified 2026-08-11.
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "date must be ISO YYYY-MM-DD"),
+  // Already ISO (`2026-08-11`), unlike AstrologyAPI's `D-M-YYYY` — but the
+  // shape check alone is not enough, and the reason survived the provider
+  // change intact. `2026-02-31` and `2026-13-01` both match the pattern and
+  // both are values Postgres rejects, which fails the *whole* twelve-row upsert
+  // rather than the one sign that carried it. The round-trip is what separates
+  // a well-formed string from a real day: JS rolls an impossible date over
+  // (`2026-02-31` → `2026-03-03`) instead of erroring, so a value that comes
+  // back unchanged is a date that exists.
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "date must be ISO YYYY-MM-DD")
+    .refine((value) => {
+      const parsed = new Date(`${value}T00:00:00Z`);
+      return !Number.isNaN(parsed.getTime()) &&
+        parsed.toISOString().slice(0, 10) === value;
+    }, "date must be a real calendar date"),
 });
 
 /**

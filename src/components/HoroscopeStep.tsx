@@ -498,8 +498,15 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
                 separate lines of prose. They are advice, not a reading — the
                 hero above already carried that. */}
             <View style={{ gap: theme.space.sm }}>
-              {horoscope.tips.map((tip) => (
-                <Text key={tip} style={[theme.fonts.body, { color: ink.text }]}>
+              {/* Keyed by position, not by the string: the list is fixed for a
+                  given day and never reorders, and two tips coming back
+                  identical is a thing a generator does — which on a string key
+                  is a React collision rather than two lines. */}
+              {horoscope.tips.map((tip, index) => (
+                <Text
+                  key={index}
+                  style={[theme.fonts.body, { color: ink.text }]}
+                >
                   {tip}
                 </Text>
               ))}
