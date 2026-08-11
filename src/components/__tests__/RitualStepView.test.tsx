@@ -63,17 +63,17 @@ jest.mock("@/components/BacklogStep", () => {
   };
 });
 
-// And the congrats step: it owns a reveal and a router push.
-jest.mock("@/components/CongratsStep", () => {
+// And the summary step: it owns three queries, a reveal and a router push.
+jest.mock("@/components/SummaryStep", () => {
   const { Text: RNText } =
     jest.requireActual<typeof import("react-native")>("react-native");
   return {
-    CongratsStep: function MockCongratsStep({
+    SummaryStep: function MockSummaryStep({
       date,
     }: {
       date: Temporal.PlainDate;
     }) {
-      return <RNText>{`congrats:${date.toString()}`}</RNText>;
+      return <RNText>{`summary:${date.toString()}`}</RNText>;
     },
   };
 });
@@ -86,7 +86,7 @@ const BUILT_STEP_IDS = [
   "journal",
   "calendar",
   "backlog",
-  "congrats",
+  "summary",
 ];
 
 const renderStep = (step: TRitualStep) =>
@@ -146,10 +146,10 @@ describe("RitualStepView", () => {
   });
 
   // The one built step both rituals reach, and the last of each.
-  it("renders the congrats step for the congrats id", () => {
-    renderStep({ id: "congrats", title: "Congrats" });
+  it("renders the summary step for the summary id", () => {
+    renderStep({ id: "summary", title: "Summary" });
 
-    expect(screen.getByText("congrats:2026-08-09")).toBeTruthy();
+    expect(screen.getByText("summary:2026-08-09")).toBeTruthy();
   });
 
   it("hands a step the ritual's date rather than today's", () => {

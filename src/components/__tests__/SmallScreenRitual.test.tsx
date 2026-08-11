@@ -147,11 +147,11 @@ describe("SmallScreenRitual", () => {
   });
 
   // The switcher is navigation, not progression — it stays on the last step so
-  // the user can still jump back out of Congrats.
+  // the user can still jump back out of Summary.
   it("keeps the switcher on the last step", () => {
     const screen = renderRitual({ state: state({ step: 4 }) });
 
-    expect(screen.getByText("Congrats")).toBeTruthy();
+    expect(screen.getByText("Summary")).toBeTruthy();
     expect(screen.getByText("switcher:am:4")).toBeTruthy();
   });
 

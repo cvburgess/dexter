@@ -36,7 +36,7 @@ describe("RITUAL_STEPS", () => {
       "Journal",
       "Calendar",
       "Backlog",
-      "Congrats",
+      "Summary",
     ]);
   });
 
@@ -46,7 +46,7 @@ describe("RITUAL_STEPS", () => {
       "Review",
       "Journal",
       "Preview tomorrow",
-      "Congrats",
+      "Summary",
     ]);
   });
 
@@ -153,7 +153,7 @@ describe("stepsFor", () => {
       state({ journalEnabled: false, calendarEnabled: false }),
     ).map((step) => step.id);
 
-    expect(ids).toEqual(["horoscope", "backlog", "congrats"]);
+    expect(ids).toEqual(["horoscope", "backlog", "summary"]);
   });
 
   // DEX-142: the horoscope is opt-out, and it is the morning ritual's *first*
@@ -186,7 +186,7 @@ describe("stepsFor", () => {
       }),
     ).map((step) => step.id);
 
-    expect(ids).toEqual(["backlog", "congrats"]);
+    expect(ids).toEqual(["backlog", "summary"]);
   });
 
   // Stable references, not fresh arrays: both switchers map this on every
@@ -445,7 +445,7 @@ describe("withJournalEnabled", () => {
     const before = state({ mode: "pm", journalEnabled: false, step: 3 });
     const next = withJournalEnabled(before, true);
 
-    expect(currentStep(next).title).toBe("Congrats");
+    expect(currentStep(next).title).toBe("Summary");
   });
 });
 
@@ -597,11 +597,11 @@ describe("withLink", () => {
     // pre-link step for a frame.
     const next = withLink(state(), {
       date: DATE.add({ days: 1 }),
-      step: "congrats",
+      step: "summary",
     });
 
     expect(next.date.toString()).toBe("2026-08-10");
-    expect(currentStep(next).title).toBe("Congrats");
+    expect(currentStep(next).title).toBe("Summary");
   });
 
   it("applies a step on its own", () => {

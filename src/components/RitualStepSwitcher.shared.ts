@@ -25,7 +25,7 @@ export const STEP_ICONS: Record<TRitualStepId, TIconName> = {
   journal: { sf: "book", ionicon: "book-outline" },
   calendar: VIEW_META.calendar.icon,
   backlog: { sf: "tray.full", ionicon: "file-tray-full-outline" },
-  congrats: { sf: "checkmark.circle", ionicon: "checkmark-circle-outline" },
+  summary: { sf: "checkmark.circle", ionicon: "checkmark-circle-outline" },
   "open-tasks": VIEW_META.tasks.icon,
   review: { sf: "magnifyingglass", ionicon: "search-outline" },
   "preview-tomorrow": { sf: "sunrise", ionicon: "partly-sunny-outline" },

@@ -36,7 +36,7 @@ export const RITUAL_STEP_IDS = [
   "journal",
   "calendar",
   "backlog",
-  "congrats",
+  "summary",
   "open-tasks",
   "review",
   "preview-tomorrow",
@@ -48,7 +48,7 @@ export const RITUAL_STEP_IDS = [
  * Enumerated (rather than inferred from `RITUAL_STEPS`) so
  * `components/RitualStepSwitcher.shared`'s icon table is a `Record` over it and
  * the compiler catches a step added without one. Some ids appear in both
- * rituals (`journal`, `congrats`) — they are the same step at a different time
+ * rituals (`journal`, `summary`) — they are the same step at a different time
  * of day, so they share an icon.
  */
 export type TRitualStepId = (typeof RITUAL_STEP_IDS)[number];
@@ -71,8 +71,8 @@ export type TRitualStep = {
  * (DEX-144) and removed: a second copy of the Today list inside the ritual
  * duplicated the surface it was copying without being able to replace it — the
  * ritual is a sequence you walk once, the day's list is the thing you come back
- * to all day. `congrats` closes the morning by handing the reader over to the
- * real one instead (`components/CongratsStep.tsx`).
+ * to all day. `summary` closes the morning by counting the day and handing the
+ * reader over to the real one instead (`components/SummaryStep.tsx`).
  */
 export const RITUAL_STEPS: Record<TRitualMode, readonly TRitualStep[]> = {
   am: [
@@ -80,14 +80,14 @@ export const RITUAL_STEPS: Record<TRitualMode, readonly TRitualStep[]> = {
     { id: "journal", title: "Journal" },
     { id: "calendar", title: "Calendar" },
     { id: "backlog", title: "Backlog" },
-    { id: "congrats", title: "Congrats" },
+    { id: "summary", title: "Summary" },
   ],
   pm: [
     { id: "open-tasks", title: "Open tasks" },
     { id: "review", title: "Review" },
     { id: "journal", title: "Journal" },
     { id: "preview-tomorrow", title: "Preview tomorrow" },
-    { id: "congrats", title: "Congrats" },
+    { id: "summary", title: "Summary" },
   ],
 };
 
