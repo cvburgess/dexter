@@ -25,18 +25,26 @@ import { useTheme } from "@/utils/theme";
  *
  * The stages are three hero lines and then the body beneath them, so the
  * figures land one at a time in the order they read. At the values below that
- * is a **960ms fade per stage, starting 480ms apart**. Windows overlap, so the
- * per-line staging costs nothing against a hero that arrived whole.
+ * is a **1008ms fade per stage, starting 864ms apart**.
  *
- * Slower than the horoscope per *stage* but shorter overall: that step is
- * producing a reading and its slowness is the conceit, where these report
- * figures. The first pass here was half this and read as a flicker rather than
- * as three things arriving.
+ * **Those two numbers trade against each other, which is why retuning one means
+ * touching `REVEAL_MS` too.** The invariant above fixes `3 × spacing + fade` at
+ * 1, so widening the gap at a fixed total can only come out of the fade — and
+ * past a spacing of `0.25` the windows stop overlapping altogether. Both passes
+ * that asked for more air between the lines therefore lengthened the whole
+ * sequence rather than just spreading the starts: 1200ms, then 2400, now 3600.
+ *
+ * That last figure matches the horoscope's total, though the shape is not the
+ * same — four stages here against three, so this still moves faster per stage.
+ * The overlap is now slight (144ms) where it began generous. Deliberate: the
+ * horoscope is producing a reading and wants one gathering movement, where
+ * three figures being counted off read better arriving as three distinct
+ * events.
  */
-const REVEAL_MS = 2400;
-const REVEAL_FADE = 0.4;
+const REVEAL_MS = 3600;
+const REVEAL_FADE = 0.28;
 /** Start of each stage's window: one per hero line, then the body. */
-const REVEAL_STARTS = [0, 0.2, 0.4, 0.6] as const;
+const REVEAL_STARTS = [0, 0.24, 0.48, 0.72] as const;
 /** The stage the body arrives on — after all three lines. */
 export const BODY_STAGE = 3;
 
