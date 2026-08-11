@@ -117,3 +117,100 @@ export function backlogAttentionFilter(
   }
   return hasLeftBehind ? "leftBehind" : null;
 }
+
+/** What the ritual Backlog step's hero counts (DEX-141). */
+export type TBacklogCounts = {
+  leftBehind: number;
+  overdue: number;
+  dueSoon: number;
+};
+
+/**
+ * The order the Backlog step's hero states its three counts in, which is also
+ * the order `defaultBacklogFilter` walks them.
+ *
+ * Exported so the hero maps over this rather than restating the order beside
+ * its labels: the reading order and the filter priority are one product
+ * decision, and a second copy is a copy that can be reordered on its own.
+ */
+export const BACKLOG_COUNT_ORDER = [
+  "leftBehind",
+  "overdue",
+  "dueSoon",
+] as const satisfies readonly (keyof TBacklogCounts & TFilterId)[];
+
+/**
+ * The three figures the ritual Backlog step's hero states (DEX-141), over an
+ * array already scoped by `selectBacklogTasks` — which is what excludes
+ * completed tasks and the day the ritual is on, since the presets below don't
+ * check either themselves.
+ *
+ * Built from `filterTasks` rather than from its own predicates so a count can
+ * never drift from the Filter preset it labels: the hero says "3 tasks left
+ * behind" directly above a menu whose "Left Behind" entry has to show those
+ * same three.
+ *
+ * The buckets deliberately overlap — a task scheduled last week *and* due last
+ * week is counted in both `leftBehind` and `overdue`, because each figure
+ * answers for its own preset rather than for a share of one total.
+ *
+ * Anchored to `today`, not the ritual's date, for the same reason: the drawer
+ * beneath the hero filters against today whichever day the header is on.
+ */
+export function backlogCounts(
+  tasks: TTask[],
+  today: Temporal.PlainDate,
+): TBacklogCounts {
+  return {
+    leftBehind: filterTasks(tasks, "leftBehind", today).length,
+    overdue: filterTasks(tasks, "overdue", today).length,
+    dueSoon: filterTasks(tasks, "dueSoon", today).length,
+  };
+}
+
+/**
+ * The Filter preset the ritual Backlog step opens on: the first non-zero count
+ * in the order the hero reads, Left Behind → Overdue → Due Soon, or `"none"`
+ * when nothing needs attention.
+ *
+ * Deliberately not `backlogAttentionFilter`, which answers a different question
+ * for the Today tab's attention dot (DEX-58) — that one puts Overdue first and
+ * ignores Due Soon entirely, because a dot has to pick the single most
+ * time-sensitive thing, where this step is walking the reader down a list it
+ * has already shown them in full.
+ */
+export function defaultBacklogFilter(counts: TBacklogCounts): TFilterId {
+  return BACKLOG_COUNT_ORDER.find((id) => counts[id] > 0) ?? "none";
+}
+
+/** Whether a preset is one of the three the hero counts. */
+const isCountedFilter = (id: TFilterId): id is keyof TBacklogCounts =>
+  (BACKLOG_COUNT_ORDER as readonly TFilterId[]).includes(id);
+
+/**
+ * The preset the ritual Backlog step should be showing, given whichever one the
+ * reader last landed on and the counts as they stand now.
+ *
+ * `current` while it still has tasks; otherwise the next bucket that does, in
+ * the hero's order. Clearing out Left Behind moves the reader on to Overdue
+ * rather than leaving them looking at an empty list they have to notice and
+ * re-filter their way out of — which is the point of the step, working down
+ * what is slipping until there is none of it left.
+ *
+ * **The emptiness is what licenses the move.** A preset that still has tasks in
+ * it is never swapped: derived from the counts alone, the filter would jump the
+ * moment a *different* bucket changed and the reader would lose their place
+ * mid-list. And a preset outside the hero's three ("Unscheduled", "No Filter")
+ * is a detour the reader chose deliberately, so it is left alone whether or not
+ * it is empty — this step has no opinion about it.
+ *
+ * Pure, so the step derives it during render rather than reaching for an effect
+ * to chase the counts.
+ */
+export function nextBacklogFilter(
+  current: TFilterId,
+  counts: TBacklogCounts,
+): TFilterId {
+  if (!isCountedFilter(current) || counts[current] > 0) return current;
+  return defaultBacklogFilter(counts);
+}

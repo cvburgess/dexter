@@ -5,6 +5,9 @@ import { weekDays } from "@/utils/weekStartEnd";
 
 import {
   backlogAttentionFilter,
+  backlogCounts,
+  defaultBacklogFilter,
+  nextBacklogFilter,
   filterTasks,
   isCompletionStatus,
   selectBacklogTasks,
@@ -286,4 +289,169 @@ describe("backlogAttentionFilter", () => {
   it("returns null for an empty task list", () => {
     expect(backlogAttentionFilter([], today)).toBeNull();
   });
+});
+
+describe("backlogCounts", () => {
+  const today = Temporal.PlainDate.from("2026-07-16");
+
+  it("counts each bucket separately", () => {
+    const tasks = [
+      task({ id: "1", scheduledFor: "2026-07-10" }),
+      task({ id: "2", scheduledFor: "2026-07-15" }),
+      task({ id: "3", dueOn: "2026-07-15" }),
+      task({ id: "4", dueOn: "2026-07-20" }),
+    ];
+
+    expect(backlogCounts(tasks, today)).toEqual({
+      leftBehind: 2,
+      overdue: 1,
+      dueSoon: 1,
+    });
+  });
+
+  it("counts a task in every bucket it belongs to", () => {
+    // The three figures each answer for their own Filter preset rather than
+    // for a share of one total, so a task both left behind and overdue has to
+    // show up under either preset the reader picks.
+    const tasks = [task({ scheduledFor: "2026-07-10", dueOn: "2026-07-12" })];
+
+    expect(backlogCounts(tasks, today)).toEqual({
+      leftBehind: 1,
+      overdue: 1,
+      dueSoon: 0,
+    });
+  });
+
+  it("uses a strict boundary — due today / scheduled today is not overdue or left behind", () => {
+    const tasks = [
+      task({ id: "1", scheduledFor: "2026-07-16" }),
+      task({ id: "2", dueOn: "2026-07-16" }),
+    ];
+
+    expect(backlogCounts(tasks, today)).toEqual({
+      leftBehind: 0,
+      // Due today is not yet overdue, but it *is* due soon — the window opens
+      // on today.
+      overdue: 0,
+      dueSoon: 1,
+    });
+  });
+
+  it("counts the due-soon window inclusive at both ends", () => {
+    const tasks = [
+      task({ id: "1", dueOn: "2026-07-16" }), // today
+      task({ id: "2", dueOn: "2026-07-29" }), // today + 13
+      task({ id: "3", dueOn: "2026-07-30" }), // today + 14, outside
+    ];
+
+    expect(backlogCounts(tasks, today).dueSoon).toBe(2);
+  });
+
+  it("is all zeroes for an empty backlog", () => {
+    expect(backlogCounts([], today)).toEqual({
+      leftBehind: 0,
+      overdue: 0,
+      dueSoon: 0,
+    });
+  });
+
+  it("counts nothing for a backlog of undated, unscheduled tasks", () => {
+    // The step hides its list entirely on all-zero counts, so this is the case
+    // where a non-empty backlog still reads as all clear (DEX-141).
+    const tasks = [task({ id: "1" }), task({ id: "2" })];
+
+    expect(backlogCounts(tasks, today)).toEqual({
+      leftBehind: 0,
+      overdue: 0,
+      dueSoon: 0,
+    });
+  });
+});
+
+describe("defaultBacklogFilter", () => {
+  it("prefers left behind over everything else", () => {
+    expect(
+      defaultBacklogFilter({ leftBehind: 1, overdue: 4, dueSoon: 9 }),
+    ).toBe("leftBehind");
+  });
+
+  it("falls to overdue when nothing is left behind", () => {
+    expect(
+      defaultBacklogFilter({ leftBehind: 0, overdue: 2, dueSoon: 9 }),
+    ).toBe("overdue");
+  });
+
+  it("falls to due soon when nothing is left behind or overdue", () => {
+    expect(
+      defaultBacklogFilter({ leftBehind: 0, overdue: 0, dueSoon: 3 }),
+    ).toBe("dueSoon");
+  });
+
+  it("returns 'none' when nothing needs attention", () => {
+    expect(
+      defaultBacklogFilter({ leftBehind: 0, overdue: 0, dueSoon: 0 }),
+    ).toBe("none");
+  });
+
+  it("differs from backlogAttentionFilter's order", () => {
+    const tasks = [
+      task({ id: "1", scheduledFor: "2026-07-10" }),
+      task({ id: "2", dueOn: "2026-07-15" }),
+    ];
+    const today = Temporal.PlainDate.from("2026-07-16");
+
+    expect(defaultBacklogFilter(backlogCounts(tasks, today))).toBe(
+      "leftBehind",
+    );
+    expect(backlogAttentionFilter(tasks, today)).toBe("overdue");
+  });
+});
+
+describe("nextBacklogFilter", () => {
+  // Emptiness is the only thing allowed to move the filter: a bucket that still
+  // has tasks in it is where the reader is working.
+  it("keeps a preset that still has tasks", () => {
+    expect(
+      nextBacklogFilter("leftBehind", {
+        leftBehind: 1,
+        overdue: 9,
+        dueSoon: 9,
+      }),
+    ).toBe("leftBehind");
+  });
+
+  it("moves on once the reader's bucket is empty", () => {
+    expect(
+      nextBacklogFilter("leftBehind", {
+        leftBehind: 0,
+        overdue: 3,
+        dueSoon: 0,
+      }),
+    ).toBe("overdue");
+  });
+
+  it("follows the hero's order rather than the next one along", () => {
+    // Due Soon emptied, but Left Behind has tasks — it reads first, so it wins.
+    expect(
+      nextBacklogFilter("dueSoon", { leftBehind: 2, overdue: 1, dueSoon: 0 }),
+    ).toBe("leftBehind");
+  });
+
+  // The step drops the drawer entirely at that point, so the value is moot —
+  // but it must not be a preset that would show a stale list on the way out.
+  it("returns 'none' when every bucket is empty", () => {
+    expect(
+      nextBacklogFilter("overdue", { leftBehind: 0, overdue: 0, dueSoon: 0 }),
+    ).toBe("none");
+  });
+
+  // A detour the reader chose deliberately; the step has no opinion about it.
+  it.each(["unscheduled", "none"] as const)(
+    "leaves %s alone even when the hero's buckets have tasks",
+    (current) => {
+      expect(
+        nextBacklogFilter(current, { leftBehind: 4, overdue: 0, dueSoon: 0 }),
+      ).toBe(current);
+    },
+  );
 });

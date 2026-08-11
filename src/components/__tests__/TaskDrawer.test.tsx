@@ -67,6 +67,12 @@ const outlineColor = (screen: ReturnType<typeof render>, testID: string) =>
   StyleSheet.flatten(screen.getByTestId(testID).props.style as ViewStyle[])
     .borderColor;
 
+/** The bottom margin on the Filter/Group row — the cluster's tail when there is no search field below it. */
+const rowMarginBottom = (screen: ReturnType<typeof render>) =>
+  StyleSheet.flatten(
+    screen.getByTestId("drawer-controls").props.style as ViewStyle[],
+  ).marginBottom;
+
 /** The style handed to a captured IconMenu trigger, flattened. */
 const triggerStyle = (label: string) =>
   StyleSheet.flatten(
@@ -664,6 +670,44 @@ describe("TaskDrawer", () => {
 
     expect(labelColor(screen, "No Grouping")).toBe(colors.text);
     expect(outlineColor(screen, "drawer-group-surface")).toBe(colors.border);
+  });
+
+  // The ritual's Backlog step drops the field (DEX-141); every other host keeps
+  // it, so the default has to stay on.
+  describe("the search field", () => {
+    it("is rendered by default", () => {
+      const screen = render(<TaskDrawer date={date} />);
+
+      expect(screen.getByLabelText("Search")).toBeTruthy();
+    });
+
+    it("is dropped when showSearch is false", () => {
+      const screen = render(<TaskDrawer date={date} showSearch={false} />);
+
+      expect(screen.queryByLabelText("Search")).toBeNull();
+    });
+
+    // The cluster's tail is what holds the list a group step below the
+    // controls. Dropped with the field, the first card sat at the container's
+    // in-group `sm` and read as one more control — so it moves to the controls
+    // row rather than disappearing.
+    it("hands its bottom margin to the controls row when hidden", () => {
+      const withSearch = render(<TaskDrawer date={date} />);
+      // Read off the field rather than rebuilt from tokens: what matters is
+      // that the same gap survives, not what it resolves to on this density.
+      const tail = StyleSheet.flatten(
+        withSearch.getByLabelText("Search").props.style as ViewStyle,
+      ).marginBottom;
+
+      expect(tail).toBeGreaterThan(0);
+      expect(rowMarginBottom(withSearch)).toBeUndefined();
+
+      const withoutSearch = render(
+        <TaskDrawer date={date} showSearch={false} />,
+      );
+
+      expect(rowMarginBottom(withoutSearch)).toBe(tail);
+    });
   });
 
   // A group heading carries the group step above it, on top of the row

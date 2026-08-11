@@ -295,6 +295,17 @@ type TTaskDrawerProps = {
    */
   search?: string;
   onSearchChange?: (value: string) => void;
+  /**
+   * Whether to render the search field. On by default; the ritual's Backlog
+   * step turns it off (DEX-141), where the reader is being walked through a
+   * short list of what is slipping rather than hunting for a task they already
+   * have in mind.
+   *
+   * Only the field is dropped, not the search *state* — a host can still seed
+   * `search` while hiding the box, and `searchTasksByTitle` is a no-op at the
+   * empty default either way.
+   */
+  showSearch?: boolean;
 };
 
 /**
@@ -325,6 +336,7 @@ export function TaskDrawer({
   onFilterChange,
   search: controlledSearch,
   onSearchChange,
+  showSearch = true,
 }: TTaskDrawerProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -492,6 +504,13 @@ export function TaskDrawer({
     [insets.bottom],
   );
 
+  // The gap between the control cluster and the list, owned by whichever
+  // control ends the cluster (see its two use sites below).
+  const clusterTailStyle = useMemo(
+    () => ({ marginBottom: theme.space.lg - theme.space.sm }),
+    [theme.space.lg, theme.space.sm],
+  );
+
   return (
     <View
       style={[
@@ -499,7 +518,18 @@ export function TaskDrawer({
         { gap: theme.space.sm, padding: theme.space.md },
       ]}
     >
-      <View style={[styles.controls, { gap: theme.space.sm }]}>
+      <View
+        style={[
+          styles.controls,
+          { gap: theme.space.sm },
+          // The cluster's tail carries the step down to the list, so it moves
+          // to whichever control is last: the search field when it is there,
+          // this row when it isn't. Dropped entirely, the first card sat at the
+          // container's in-group `sm` and read as one more control.
+          showSearch ? null : clusterTailStyle,
+        ]}
+        testID="drawer-controls"
+      >
         <DrawerControl
           label="Filter"
           title={titleFor(FILTER_META, filterId)}
@@ -515,19 +545,22 @@ export function TaskDrawer({
           testID="drawer-group-surface"
         />
       </View>
-      <TextInput
-        accessibilityLabel="Search"
-        placeholder="Search"
-        value={search}
-        onChangeText={setSearch}
-        // Filter, Group and Search are one cluster of controls; the list below
-        // is a different thing entirely, and at the container's in-group `sm`
-        // the first card read as one more control. Tops that up to the group
-        // step, the same way a group heading does — see docs/design.md,
-        // "Spacing". Supplied here rather than inside `TextInput`, which is
-        // shared app-wide and owns no spacing of its own.
-        style={{ marginBottom: theme.space.lg - theme.space.sm }}
-      />
+      {showSearch ? (
+        <TextInput
+          accessibilityLabel="Search"
+          placeholder="Search"
+          value={search}
+          onChangeText={setSearch}
+          // Filter, Group and Search are one cluster of controls; the list
+          // below is a different thing entirely, and at the container's
+          // in-group `sm` the first card read as one more control. Tops that up
+          // to the group step, the same way a group heading does — see
+          // docs/design.md, "Spacing". Supplied here rather than inside
+          // `TextInput`, which is shared app-wide and owns no spacing of its
+          // own.
+          style={clusterTailStyle}
+        />
+      ) : null}
       {isLoading && !hasTasks ? (
         // `isLoading` reflects the canonical `useTasks()` query shared with
         // the Tasks pane — usually already resolved by the time this drawer

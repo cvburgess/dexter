@@ -13,6 +13,7 @@ import {
   isFirstStep,
   isLastStep,
   ritualPageKey,
+  ritualStepInsetTop,
   type TRitualState,
 } from "@/utils/ritualSteps";
 import { useTheme } from "@/utils/theme";
@@ -76,7 +77,12 @@ export function SmallScreenRitual({
           the horoscope's card does — sits the same distance off the header as
           it does off the sides. Matches what `LargeScreenRitual` has always
           added (see docs/design.md, "Who owns spacing"). */}
-      <View style={[styles.body, { paddingTop: theme.space.md }]}>
+      <View
+        style={[
+          styles.body,
+          { paddingTop: ritualStepInsetTop(theme.space, false) },
+        ]}
+      >
         <SwipeablePage
           canNext={!lastStep}
           canPrev={!isFirstStep(state)}

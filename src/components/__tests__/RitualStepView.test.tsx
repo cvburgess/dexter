@@ -47,6 +47,22 @@ jest.mock("@/components/CalendarStep", () => {
   };
 });
 
+// And the backlog step: it owns the tasks query, the counts hero and the
+// drawer underneath it.
+jest.mock("@/components/BacklogStep", () => {
+  const { Text: RNText } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+  return {
+    BacklogStep: function MockBacklogStep({
+      date,
+    }: {
+      date: Temporal.PlainDate;
+    }) {
+      return <RNText>{`backlog:${date.toString()}`}</RNText>;
+    },
+  };
+});
+
 const DATE = Temporal.PlainDate.from("2026-08-09");
 
 const renderStep = (step: TRitualStep) =>
@@ -97,6 +113,14 @@ describe("RitualStepView", () => {
     expect(screen.getByText("calendar:2026-08-09")).toBeTruthy();
   });
 
+  // Unlike the calendar, this one has no preference gating it — every user has
+  // a backlog, so the branch is always reachable.
+  it("renders the backlog for the ritual's day", () => {
+    renderStep({ id: "backlog", title: "Backlog" });
+
+    expect(screen.getByText("backlog:2026-08-09")).toBeTruthy();
+  });
+
   it("hands a step the ritual's date rather than today's", () => {
     const other = Temporal.PlainDate.from("2026-01-02");
 
@@ -120,7 +144,8 @@ describe("RitualStepView", () => {
       (step) =>
         step.id !== "journal" &&
         step.id !== "horoscope" &&
-        step.id !== "calendar",
+        step.id !== "calendar" &&
+        step.id !== "backlog",
     ),
   )("renders $title as a placeholder", (step) => {
     renderStep(step);
