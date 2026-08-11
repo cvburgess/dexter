@@ -396,6 +396,24 @@ the whole phrase. Stage timing lives in `useHeroReveal`/`useStageOpacity`;
 the reveal is opacity-only — `SwipeablePage`'s intro already slides, and two
 axes compound into a diagonal drift.
 
+### Tasks step (DEX-144)
+
+`components/DayTaskList.tsx` reused **unmodified** — the same component the
+Today pane and the Week columns render, so contents and ordering cannot drift
+from Today's, and its own `ScrollView` already meets the step contract (no side
+gutter, `insets.bottom` inside the scroller). Deliberately not `TasksView`: the
+habit tracker is Today's, not the ritual's. No hero — the two steps before it
+summarize something, this one *is* the thing. Drag-to-schedule switches itself
+off, since `DraggableTaskCard` degrades without a `DragScheduleProvider` and
+this tab has none.
+
+The step's only code of its own is its empty state, which is why `DayTaskList`
+grew an optional `emptyAction` (rendered as `EmptyScreen`'s children): the
+ritual points at the global "＋ New Task" button rather than adding a second
+one. **The copy says "today" on whatever day the header is on** — the ritual can
+be paged to another date (DEX-138), and speaking from inside the day was
+preferred to narrating which one it is.
+
 ## Drag-to-schedule (DEX-77)
 
 Large screens only (a phone's backlog is a native sheet a drag can't cross),
