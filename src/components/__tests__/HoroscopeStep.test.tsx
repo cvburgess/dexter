@@ -7,7 +7,8 @@ import { HoroscopeStep } from "@/components/HoroscopeStep";
 import { useHoroscope } from "@/hooks/useHoroscope";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { useSunSignPreference } from "@/hooks/usePreferences";
-import { HOROSCOPE_FACETS, SUN_SIGNS } from "@/utils/horoscope";
+import { LIFE_AREAS, RATING_BUCKETS, SUN_SIGNS } from "@/utils/horoscope";
+import { SERIF } from "@/utils/theme";
 
 jest.mock("@/hooks/usePreferences", () => ({
   useSunSignPreference: jest.fn(),
@@ -60,14 +61,23 @@ const DATE = Temporal.PlainDate.from("2026-08-09");
 const HOROSCOPE: THoroscope = {
   sunSign: "leo",
   date: "2026-08-09",
-  summary: "A day that rewards saying the thing out loud.",
+  text: "A day that rewards saying the thing out loud.",
+  overallRating: 4,
   sentiment: "positive",
-  personalLife: "An old thread picks back up.",
-  profession: "Momentum on the work you left half-done.",
-  health: "Sleep is the whole strategy today.",
-  emotions: "Steadier than yesterday, and you can tell.",
-  travel: "Nothing far, but the short trip is worth it.",
-  luck: "Favors the second attempt.",
+  tips: ["Say the thing.", "Sleep on the rest.", "Take the short trip."],
+  // Spread across all three buckets so the columns each have something to draw.
+  ratingIdentity: 5,
+  ratingHealth: 1,
+  ratingFinance: 3,
+  ratingCareer: 4,
+  ratingLove: 2,
+  ratingRelationships: 3,
+  ratingCreativity: 5,
+  ratingSpirituality: 3,
+  ratingHome: 3,
+  ratingLearning: 3,
+  ratingCommunication: 3,
+  ratingTravel: 3,
 };
 
 const renderStep = ({
@@ -157,11 +167,42 @@ describe("HoroscopeStep", () => {
   });
 
   describe("with the day's horoscope", () => {
-    it("leads with the sign's glyph and the day's summary", () => {
+    it("leads with the sign's glyph and the day's first tip", () => {
       const screen = renderStep();
 
       expect(screen.getByText(SUN_SIGNS.leo.glyph)).toBeTruthy();
-      expect(screen.getByText(HOROSCOPE.summary)).toBeTruthy();
+      expect(screen.getByText(HOROSCOPE.tips[0])).toBeTruthy();
+    });
+
+    // The tips are the app's only custom-font text — every one of them, in the
+    // same cut, which is what makes the block read as one voice rather than a
+    // hero with two footnotes.
+    //
+    // The two resets are the real assertion: `fonts.heading` carries a 700 the
+    // loaded file already has, and the file is already italic, so leaving either
+    // in place stacks a *synthetic* weight or slant on top of a real one (see
+    // `SERIF`). Both are invisible failures — the text still renders, just
+    // smeared or double-slanted.
+    it("sets every tip in the serif, with no synthetic weight or slant", () => {
+      const screen = renderStep();
+
+      for (const tip of HOROSCOPE.tips) {
+        const style = StyleSheet.flatten(screen.getByText(tip).props.style);
+
+        expect(style.fontFamily).toBe(SERIF.displayItalic);
+        expect(style.fontWeight).toBe("normal");
+        expect(style.fontStyle).toBe("normal");
+      }
+    });
+
+    // The upstream's prose is still fetched and stored — it is the horoscope
+    // proper — but it is three sentences of astrological mechanism, and the
+    // step deliberately shows the tips instead. Asserted so "keep it in the DB"
+    // cannot quietly become "put it back on screen".
+    it("never renders the upstream's own text", () => {
+      const screen = renderStep();
+
+      expect(screen.queryByText(HOROSCOPE.text)).toBeNull();
     });
 
     // DEX-138: the panel is capped at a fixed width on a large screen, so the
@@ -220,16 +261,63 @@ describe("HoroscopeStep", () => {
       expect(renderStep().getByTestId("horoscope-sky")).toBeTruthy();
     });
 
-    it("renders every facet below it", () => {
+    it("renders the remaining tips below it, and the first one only once", () => {
       const screen = renderStep();
 
-      for (const facet of HOROSCOPE_FACETS) {
-        expect(screen.getByText(facet.label)).toBeTruthy();
-        expect(screen.getByText(HOROSCOPE[facet.key])).toBeTruthy();
+      for (const tip of HOROSCOPE.tips.slice(1)) {
+        expect(screen.getByText(tip)).toBeTruthy();
+      }
+      // The hero took the first one, so repeating it below would show it twice.
+      expect(screen.getAllByText(HOROSCOPE.tips[0])).toHaveLength(1);
+    });
+
+    it("draws a mark for each of the three rating bands", () => {
+      const screen = renderStep();
+
+      for (const bucket of RATING_BUCKETS) {
+        expect(screen.getByText(bucket.glyph)).toBeTruthy();
       }
     });
 
-    // The facets are meant to start below the fold, so the hero is sized to the
+    // The grouping is the whole content of this block: an area under the wrong
+    // mark is the one failure a reader would actually act on, and every rating
+    // being an interchangeable 1-5 means nothing else would look wrong.
+    //
+    // Written out rather than derived from `lifeAreasInBucket`, which is what
+    // renders them — a derived expectation would pass even if both sides shared
+    // the same mistake. The order inside each band is house order.
+    it("files each life area under the mark matching its rating", () => {
+      const screen = renderStep();
+
+      // ratingHealth: 1, ratingLove: 2
+      expect(screen.getByText("Health, Love")).toBeTruthy();
+      // ratingIdentity: 5, ratingCareer: 4, ratingCreativity: 5
+      expect(screen.getByText("Identity, Career, Creativity")).toBeTruthy();
+      // Everything else sits at 3.
+      expect(
+        screen.getByText(
+          "Finance, Relationships, Spirituality, Home, Learning, Communication, Travel",
+        ),
+      ).toBeTruthy();
+    });
+
+    // A day with nothing rated 1-2 is a good day, not a broken one. The row is
+    // still drawn so the legend keeps its shape from one morning to the next,
+    // but a mark with nothing beside it would read as a bug rather than as an
+    // absence.
+    it("shows a dash for a band with no areas in it", () => {
+      const allNeutral = Object.fromEntries(
+        LIFE_AREAS.map((area) => [area.key, 3]),
+      ) as unknown as THoroscope;
+      const screen = renderStep({
+        horoscope: { ...HOROSCOPE, ...allNeutral },
+      });
+
+      // Both ends are empty, so the dash is drawn twice.
+      expect(screen.getAllByText("—")).toHaveLength(2);
+    });
+
+    // The columns are meant to start below the fold, so the hero is sized to the
     // scroller rather than to its own content — otherwise the "scroll to
     // reveal" reads as a list that merely happens to be long.
     it("sizes the hero to the measured viewport", () => {

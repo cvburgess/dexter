@@ -71,6 +71,21 @@ has to say *green day / purple day / blue day* at a glance, which a token that
 changes hue with the user's palette cannot do. This is a listed exception at the
 bottom of this file.
 
+**Sentiment is derived, not sent** (DEX-145): the database generates it from
+the upstream's 1-5 `overall_rating`, and `ratingBucket()` in `utils/horoscope.ts`
+groups each of the day's twelve life areas with the *same* thresholds. One rule
+at two scales — the whole day, and one area of it — so a green card can never
+sit over a band of down arrows.
+
+Those bands' circles reuse **the panel's own colors** rather than a second
+palette — `sentimentTints(bucket).peak`, so a band and a day of the same mood
+are literally the same hue. A brighter set was tried and cut: it read as a
+fourth vocabulary competing with the card behind it, and it meant three more
+literals on the list below. The cost is that these fills sit at the panel's own
+~6-10% lightness, so **the hairline is what describes the shape**, not the fill.
+That is also why it is an edge and not a shadow, per **Scrims and shadows**
+below: a near-black card shows no lift at all.
+
 **It is a night sky on every theme, light ones included** — a pale set for
 light schemes was tried and cut. That makes it the app's one surface that does
 not follow the user's scheme, so **anything drawn on it takes
@@ -106,7 +121,8 @@ re-composited every frame the tint changes.
 The panel carries a drawn starfield (`components/StarField.tsx`) in
 `sentimentInk` at partial opacity, and the content fades in on arrival in
 reading order — one shared value with overlapping windows, keyed on the
-horoscope's *date* so walking `DayNav` replays it and a refetch does not.
+horoscope's *date* so walking `DayNav` replays it and a refetch does not. Below
+the fold each block fades again as it scrolls into view.
 Reduce Motion jumps straight to visible. With no mood to show, the panel falls
 back to `surfaceSunken` and draws neither stars nor frame.
 
@@ -211,6 +227,34 @@ Safari zooms the page when a focused input's font-size is under 16px, and
 bites is a 16px floor on web in `components/TextInput.tsx`, not pushing the
 role up.
 
+## Font families
+
+**The system face is the app's voice, and `SERIF` is its second one.** Every one
+of the six roles above carries a size and a weight and no family, because until
+DEX-145 there was exactly one face — a role said how loud a thing is, never in
+what voice. `SERIF` (`utils/theme.ts`, Playfair Display) is the exception, and
+it is scoped by intent rather than by size: reach for it where the app is
+*saying* something, not where it is labelling something. Today that is one
+place, the Horoscope step's tips.
+
+Two things to know before using it:
+
+- **A custom family name maps to exactly one file.** There is no
+  family-plus-weight resolution the way there is on the web, so anything set in
+  `SERIF` must also set `fontWeight: "normal"` and `fontStyle: "normal"` — the
+  loaded file already carries both, and leaving a role's weight in place gets a
+  *synthetic* bold or oblique stacked on a real one. On a typeface picked for
+  its italic that is exactly the wrong result, and it fails invisibly: the text
+  still renders, just smeared.
+- **Adding a cut costs a download.** Each weight/style is a separate ~100-200KB
+  asset, imported in `app/_layout.tsx` and named in `SERIF`. Load only what is
+  used.
+
+This is also the app's **only startup gate**: `app/_layout.tsx` holds the splash
+until the font is in memory. That is not caution on principle — the hero fades
+in over ~3.6s, so a face that swaps a frame after first paint does it in full
+view rather than under a splash the way a normal cold start would hide it.
+
 ## Controls
 
 `controls.md` is a round icon button or tile; `controls.sm` an inline control
@@ -232,7 +276,12 @@ zodiac glyphs are `<Text>` (no icon set carries a zodiac) and **carry a
 trailing U+FE0E**: those code points default to emoji presentation in a palette
 no theme controls, and the variation selector is what lets the mark take
 `colors.text`. Any future glyph from the emoji-presentation ranges needs the
-same treatment.
+same treatment — the Horoscope step's three rating arrows (DEX-145) are the
+second case. **Pick marks that share a Unicode block.** Those started as faces
+and could not: U+2639/U+263A carry the two ends, but Unicode's only
+expressionless face is U+1F610, in the emoji block, so the middle mark came from
+a different font at a different weight and the row read uneven.
+U+2191/U+2192/U+2193 are one family and solve it outright.
 
 **A hero mark is derived, not tokenized** — the Horoscope step's sign glyph is
 `controls.md * 2` (DEX-128), the same move `subtaskGeometry` makes, and still

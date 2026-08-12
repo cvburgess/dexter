@@ -1,7 +1,12 @@
+import {
+  PlayfairDisplay_700Bold_Italic,
+  useFonts,
+} from "@expo-google-fonts/playfair-display";
 import * as Sentry from "@sentry/react-native";
 import { Stack, useNavigationContainerRef } from "expo-router";
 import type { ErrorBoundaryProps } from "expo-router";
 import { ShareIntentProvider } from "expo-share-intent";
+import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -13,6 +18,22 @@ import { ThemeProvider } from "@/providers/ThemeProvider";
 import { configureAlarms } from "@/utils/alarms";
 import { getSentryDsn } from "@/utils/sentry";
 import { useTheme } from "@/utils/theme";
+
+// Hold the splash until the custom font is in memory. Module scope, because the
+// splash auto-hides as soon as the root component's first frame lands and a call
+// inside the component is already too late.
+//
+// This is the app's only startup gate, and it exists for a specific failure
+// rather than on principle: the Horoscope step's hero is set in `SERIF`, and
+// without the hold it paints in the system face and swaps a frame later. The
+// step fades its content in over ~3.6s, so that swap does not land under a
+// splash the way a normal cold start would hide it — it happens in full view,
+// mid-animation.
+//
+// It is deliberately not awaited anywhere: `catch` rather than `void` because a
+// rejected prevent-auto-hide is not a reason to fail to launch. The worst case
+// is the swap this exists to avoid.
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Instantiated once at module scope (not per-render) so the same integration
 // instance is both passed to Sentry.init below and registered against the
@@ -84,6 +105,25 @@ function ThemedStack() {
 }
 
 function RootLayout() {
+  // `error` is as good as `loaded` here: a font that failed to load is a reason
+  // to start in the system face, not a reason to hold the splash forever. The
+  // hero degrades to the platform serif fallback, which is the same thing every
+  // other line in the app already uses.
+  //
+  // One entry per loaded file — React Native resolves a custom family name to
+  // exactly one, and cannot derive a weight from it. See `SERIF` in
+  // `utils/theme.ts` before adding another.
+  const [fontsLoaded, fontError] = useFonts({ PlayfairDisplay_700Bold_Italic });
+
+  useEffect(() => {
+    if (fontsLoaded || fontError) SplashScreen.hideAsync().catch(() => {});
+  }, [fontsLoaded, fontError]);
+
+  // Nothing rather than a placeholder: the splash is still up, so this frame is
+  // never seen. Rendering the tree early and swapping the font underneath it is
+  // the whole thing being avoided.
+  if (!fontsLoaded && !fontError) return null;
+
   return (
     <GestureHandlerRootView style={styles.root}>
       {/* Outside the providers: a share can launch the app cold, and the

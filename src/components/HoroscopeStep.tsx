@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import {
   LayoutChangeEvent,
   Platform,
+  StyleProp,
   StyleSheet,
   Text,
   View,
+  ViewStyle,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
@@ -33,10 +35,16 @@ import { useHoroscopeAudio } from "@/hooks/useHoroscopeAudio";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { useSunSignPreference } from "@/hooks/usePreferences";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
-import { bySentence, HOROSCOPE_FACETS, SUN_SIGNS } from "@/utils/horoscope";
+import {
+  bySentence,
+  lifeAreasInBucket,
+  RATING_BUCKETS,
+  SUN_SIGNS,
+} from "@/utils/horoscope";
 import {
   SENTIMENT_FRAME,
   sentimentInk,
+  SERIF,
   SHADOW_2XL,
   sentimentTints,
   Theme,
@@ -76,6 +84,23 @@ const SCROLL_HINT_ICON = {
  * behind.
  */
 const STAR_OPACITY = 0.55;
+
+/**
+ * How strongly a band's ring is drawn — the arrow inside it takes the panel's
+ * full ink.
+ *
+ * **Deliberately almost nothing.** Both were at half, which drew three rings as
+ * hard as the arrows they contained and made the ring the thing the eye found
+ * first. At 5% the edge is a seam rather than a border: enough to keep the
+ * disc's near-black fill from bleeding into the panel's near-black on the two
+ * bands whose hue is closest to it, and not enough to be read as a shape in its
+ * own right. The arrow at full strength is then the only mark, which is the
+ * right answer to "what is this row" — the ring is a container, not a symbol.
+ *
+ * The disc still relies on `SHADOW_2XL` for most of its separation, which is
+ * why dropping this far does not lose it entirely.
+ */
+const RATING_EDGE_OPACITY = 0.05;
 
 /**
  * The hero glyph's size, derived rather than tokenized.
@@ -133,6 +158,74 @@ const summaryLineHeight = (theme: Theme) =>
   Math.round(theme.fonts.heading.fontSize * 1.4);
 
 /**
+ * The breath between the day's tips and the rated columns.
+ *
+ * **Measured from the viewport, not the spacing scale**, so it holds its
+ * proportion on every device rather than matching on one and drifting on the
+ * rest. A quarter of a screenful: half the hero's own air, which was the first
+ * cut and read as a dead zone rather than a breath — the columns had gone far
+ * enough below the fold that nothing suggested they were there.
+ *
+ * This is the step's rhythm rather than a one-off: a screenful for the tip, the
+ * remaining tips, a breath of the same measure, then the columns. It is the same
+ * argument `heroGlyphSize` and `contentGutter` make — derive from something the
+ * component already knows rather than adding a token only this file would read —
+ * except that the thing known here is the measurement, not a density tier.
+ *
+ * The floor matters for one frame only: `viewportHeight` is 0 until the
+ * scroller reports its layout, and without it the columns would start out
+ * tucked under the tips before snapping down.
+ */
+const tipsToColumnsGap = (theme: Theme, viewportHeight: number) =>
+  Math.max(theme.space.lg * 2, Math.round(viewportHeight / 4));
+
+/**
+ * The nearest thing to `text-wrap: balance` that React Native has.
+ *
+ * Applied to the tips, which are short centred lines — exactly the case where a
+ * last line holding one orphaned word is most obvious, and the case CSS's
+ * `balance` exists for.
+ *
+ * **It does not do the same thing on both platforms, and cannot.** There is no
+ * cross-platform API for this and no library either — see
+ * react-native-community/discussions-and-proposals#890, where the ask is open
+ * and the author's own answer is "I have to balance by hand".
+ * `textBreakStrategy` genuinely balances on Android. `lineBreakStrategyIOS` has
+ * no balance option at all — `none | standard | hangul-word | push-out` — so
+ * `standard` is a nudge rather than the Android result.
+ *
+ * **Web gets nothing here.** CSS `text-wrap: balance` is exactly what this
+ * wants, but it is not a React Native style key and whether RNW forwards an
+ * unknown one is unverified, so it is left for a `.web` variant rather than
+ * claimed on a guess.
+ *
+ * Kept as one object rather than spelled out at each call site so the tips stay
+ * in step, and so there is one place to delete from if React Native ever ships
+ * a real API.
+ */
+const BALANCED_WRAP = {
+  textBreakStrategy: "balanced",
+  lineBreakStrategyIOS: "standard",
+} as const;
+
+/**
+ * The leading for the step's two runs of body prose — the tips and each band's
+ * areas.
+ *
+ * `body`'s default line box is tuned for a row's label, where lines are short
+ * and rarely wrap. Both of these are the opposite: the tips are centred, which
+ * leaves no left edge to return to, and a band's areas are a comma-joined
+ * string long enough to wrap two or three times. 1.5 gives the eye somewhere to
+ * land in both.
+ *
+ * Deliberately looser than `summaryLineHeight`'s 1.4 despite being the smaller
+ * type: that one sets `heading`, where the size itself already separates the
+ * lines. Rounded and derived for the same reasons given there.
+ */
+const proseLineHeight = (theme: Theme) =>
+  Math.round(theme.fonts.body.fontSize * 1.5);
+
+/**
  * How far the reader has to scroll before the chevron is fully gone.
  *
  * Four tap targets' worth of travel — roughly a quarter of a phone's hero. Long
@@ -141,6 +234,31 @@ const summaryLineHeight = (theme: Theme) =>
  * inside one gesture is indistinguishable from a toggle.
  */
 const scrollHintFade = (theme: Theme) => theme.controls.md * 4;
+
+/**
+ * Where a block sits on screen when its fade starts and finishes, as fractions
+ * of the viewport measured from the top.
+ *
+ * **This is the whole point of measuring.** Two earlier cuts keyed the fade to
+ * an absolute scroll offset — first one shared window, then a per-block stagger
+ * — and both had the same flaw: scroll offset is not visibility. The detail
+ * starts at the fold, so "scroll 0" is already the moment the first tip begins
+ * sliding into view, and no amount of delay applied to a number that starts at
+ * the wrong place fixes that. Read against the block's own top, 0.95 means "just
+ * clear of the bottom edge" and 0.55 means "a little above the middle" on every
+ * block, whatever it is and however far apart they are spaced.
+ *
+ * The gap between them is the fade's length — 40% of a screenful, roughly 280pt
+ * on a phone, and deliberately long: this replaces two versions that were read
+ * as too quick, and a fade tied to a scroll position can afford to be slow
+ * because the reader controls the rate.
+ *
+ * `ENTER` is under 1 on purpose. At exactly 1 a block would start fading the
+ * instant its top crossed the bottom edge of the screen, which is the behavior
+ * being fixed; the margin holds it blank until it is properly on screen.
+ */
+const REVEAL_ENTER = 0.95;
+const REVEAL_EXIT = 0.55;
 
 /**
  * How far the painted panel hangs below its own box.
@@ -177,7 +295,7 @@ const panelRadius = (theme: Theme) => theme.radii.md * 4;
 const panelBorder = (theme: Theme) => theme.space.md;
 
 /**
- * The arrival: sign, then summary, then the chevron and the six facets
+ * The arrival: sign, then the reading, then the chevron and the detail below
  * together.
  *
  * A reading should not simply be *there* when the screen is. Fading it in in
@@ -208,8 +326,9 @@ type THoroscopeStepProps = {
 };
 
 /**
- * The morning ritual's first step (DEX-128): the user's sign, the day's
- * one-line summary, and — a scroll further down — the six facets behind it.
+ * The morning ritual's first step (DEX-128, re-shaped in DEX-145): the user's
+ * sign, the day's reading, and — a scroll further down — the day's tips and its
+ * twelve life areas sorted into three rated columns.
  *
  * The panel breathes between two shades of the day's sentiment (see
  * `sentimentTints`), and is **a night sky on every theme** — so everything
@@ -240,11 +359,18 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
   const isLoading = isLoadingSign || isLoadingHoroscope;
 
   // The scroller's own height, so the hero fills exactly one screenful and the
-  // facets start just below the fold — which is what makes the scroll a
+  // detail starts just below the fold — which is what makes the scroll a
   // reveal rather than a list that happens to be long.
   const [viewportHeight, setViewportHeight] = useState(0);
   const onLayout = (event: LayoutChangeEvent) =>
     setViewportHeight(event.nativeEvent.layout.height);
+
+  // The other half of the scroll range, so the reveal below can be spread across
+  // exactly the travel this day's reading has. The cheapest possible read of the
+  // layout — one number for the whole scroller, rather than a measurement per
+  // block — and safe to take while the blocks are fading because opacity does
+  // not change what anything measures.
+  const [contentHeight, setContentHeight] = useState(0);
 
   const reduceMotion = useReducedMotion();
   const breathe = useSharedValue(0);
@@ -303,14 +429,11 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
     });
   }, [reduceMotion, reveal, revealDate]);
 
-  const facetsStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      reveal.value,
-      [REVEAL_STARTS[2], REVEAL_STARTS[2] + REVEAL_FADE],
-      [0, 1],
-      Extrapolation.CLAMP,
-    ),
-  }));
+  // Read straight off the scroller rather than through an `onScroll` handler,
+  // so neither of the scroll-driven fades below ever touches the JS thread —
+  // the same reason the breath animates a compositor property.
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const scrollOffset = useScrollViewOffset(scrollRef);
 
   // With no sentiment to show (no sign, still loading, or a day with no row)
   // both ends collapse onto the plain surface, so the panel sits still.
@@ -327,15 +450,17 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
 
   const tintStyle = useAnimatedStyle(() => ({ opacity: breathe.value }));
 
-  // Read straight off the scroller rather than through an `onScroll` handler,
-  // so the chevron's fade never touches the JS thread — the same reason the
-  // breath animates a compositor property.
-  const scrollRef = useAnimatedRef<Animated.ScrollView>();
-  const scrollOffset = useScrollViewOffset(scrollRef);
-
   // Not `theme.colors.text`: the panel is a night sky whatever scheme the user
   // is on, so a light theme's dark ink would be invisible on it.
   const ink = sentimentInk(theme);
+
+  // The first tip is the hero's, so these are the rest.
+  const remainingTips = horoscope?.tips.slice(1) ?? [];
+
+  // How far this day's reading can actually be scrolled — the one thing a block
+  // cannot work out from its own position, and what stops the last band being
+  // asked to finish its fade past the end of the scroll (see `RevealOnScroll`).
+  const maxScroll = Math.max(0, contentHeight - viewportHeight);
 
   // Starts with the reveal and stops with the step. Gated on the horoscope
   // rather than on mounting, so an empty day or a still-loading read is silent
@@ -410,7 +535,7 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
           ]}
         />
         {/* Drawn into the panel itself rather than wrapping the content, so the
-            field holds still while the facets scroll over it. */}
+            field holds still while the detail scrolls over it. */}
         {horoscope ? (
           <View style={StyleSheet.absoluteFill} testID="horoscope-sky">
             <StarField color={withOpacity(ink.text, STAR_OPACITY)} />
@@ -442,7 +567,29 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
         <Animated.ScrollView
           contentContainerStyle={{
             paddingHorizontal: contentGutter(theme, largeScreen),
+            // The host `SafeAreaView` omits the bottom edge so content scrolls
+            // under the tab bar; the inset belongs to the scroll content, which
+            // is what lets the last row clear it (DEX-91). Well past that here:
+            // the columns are the end of the reading, and landing them hard
+            // against the tab bar reads as the block being cut off rather than
+            // as having finished.
+            //
+            // **Overscroll, not clearance, on a large screen** (DEX-138). The
+            // hero above is a full viewport whose content is centered in it, so
+            // its lower half is empty sky — and with only enough padding to
+            // clear the bar, the scroll runs out while that band is still on
+            // screen and the reading ends pinned to the bottom edge under it.
+            // The extra travel lets the last rows climb into that space
+            // instead. Matches the side gutter's multiple, so the card's air
+            // reads as one measure on three sides.
+            //
+            // It sits on the scroller rather than on a wrapper around the
+            // detail because there is no longer a wrapper — see the blocks
+            // below for why they are flat.
+            paddingBottom:
+              theme.space.lg * (largeScreen ? 6 : 2) + insets.bottom,
           }}
+          onContentSizeChange={(_width, height) => setContentHeight(height)}
           onLayout={onLayout}
           ref={scrollRef}
           // The chevron already says there is more below, and it fades out as
@@ -458,53 +605,162 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
             scrollOffset={scrollOffset}
             viewportHeight={viewportHeight}
           />
-          {/* The six arrive as one block rather than in sequence with each
-              other: they are below the fold, so a reader who scrolls straight
-              down would otherwise watch them appear under their thumb. */}
-          <Animated.View
-            style={[
-              {
-                gap: theme.space.lg,
-                // The host `SafeAreaView` omits the bottom edge so content
-                // scrolls under the tab bar; the inset belongs to the scroll
-                // content, which is what lets the last facet clear it (DEX-91).
-                // Well past that here: Luck is the end of the reading, and
-                // landing its last line hard against the tab bar reads as the
-                // text being cut off rather than as having finished.
-                //
-                // **Overscroll, not clearance, on a large screen** (DEX-138).
-                // The hero above is a full viewport whose content is centered
-                // in it, so its lower half is empty sky — and with only enough
-                // padding to clear the bar, the scroll runs out while that band
-                // is still on screen and the reading ends pinned to the bottom
-                // edge under it. The extra travel lets the last facets climb
-                // into that space instead. Matches the side gutter's multiple,
-                // so the card's air reads as one measure on three sides.
-                paddingBottom:
-                  theme.space.lg * (largeScreen ? 6 : 2) + insets.bottom,
-              },
-              facetsStyle,
-            ]}
-          >
-            {HOROSCOPE_FACETS.map((facet) => (
-              // `sm` rather than `xs` between the heading and its prose. The
-              // outer `lg` still separates one facet from the next, so the
-              // grouping holds — this is the smallest step that lets the
-              // heading read as a label *on* the text rather than the first
-              // line of it.
-              <View key={facet.key} style={{ gap: theme.space.sm }}>
-                <View style={[styles.facetHeader, { gap: theme.space.sm }]}>
-                  <Icon {...facet.icon} color={ink.text} />
-                  <Text style={[theme.fonts.title, { color: ink.text }]}>
-                    {facet.label}
+          {/* **Every block below is a direct child of the scroller, and that is
+              load-bearing rather than tidy.** Each one reveals off its own
+              position (see `RevealOnScroll`), which it reads with `onLayout` —
+              and `onLayout` reports a `y` relative to the immediate parent. Flat
+              against the content container, that `y` *is* the scroll offset the
+              block sits at, with nothing to convert. Grouped inside wrappers, as
+              the tips and the columns used to be, every block would report a `y`
+              measured from its own group and reveal at a plausible-but-wrong
+              place — which looks like a tuning problem and is not one.
+
+              The price is that the spacing between them is `marginTop` per block
+              instead of `gap` on two wrappers. That is the whole cost, and it
+              buys the wrappers' removal as well. */}
+          {/* Keyed by position, not by the string: the list is fixed for a
+              given day and never reorders, and two tips coming back identical
+              is a thing a generator does — which on a string key is a React
+              collision rather than two lines. */}
+          {remainingTips.map((tip, index) => (
+            <RevealOnScroll
+              key={`tip-${index}`}
+              maxScroll={maxScroll}
+              reveal={reveal}
+              scrollOffset={scrollOffset}
+              // One measure for the whole run, the first one included. It used
+              // to be nothing above the first tip — the hero is a full viewport
+              // and the tip simply started at the fold — which left it landing
+              // directly under the chevron, and the chevron sits only
+              // `space.lg` off the hero's own bottom edge. A mark pointing at
+              // something needs room between it and the thing it points at,
+              // or it reads as a bullet for that line.
+              style={{ marginTop: theme.space.lg * 4 }}
+              viewportHeight={viewportHeight}
+            >
+              <Text
+                {...BALANCED_WRAP}
+                style={[
+                  styles.tip,
+                  theme.fonts.heading,
+                  {
+                    color: ink.text,
+                    fontFamily: SERIF.displayItalic,
+                    fontStyle: "normal",
+                    fontWeight: "normal",
+                    lineHeight: summaryLineHeight(theme),
+                  },
+                ]}
+              >
+                {tip}
+              </Text>
+            </RevealOnScroll>
+          ))}
+
+          {/* Stacked rather than three parallel columns. The columns gave
+              every band the same third of the card regardless of how many
+              areas fell in it, so a day with one bad area and eleven good
+              ones drew two near-empty columns beside a crowded one. Stacked,
+              each band takes exactly the height its own list needs. */}
+          {RATING_BUCKETS.map((bucket, bucketIndex) => {
+            const areas = lifeAreasInBucket(horoscope, bucket.id);
+
+            return (
+              <RevealOnScroll
+                key={bucket.id}
+                maxScroll={maxScroll}
+                reveal={reveal}
+                scrollOffset={scrollOffset}
+                style={[
+                  styles.bucketRow,
+                  {
+                    gap: theme.space.md,
+                    // The boundary between the two kinds of thing on this
+                    // screen — prose to read, then a chart to scan — so the
+                    // first band takes the wide measure and the rest take the
+                    // ordinary row gap.
+                    marginTop:
+                      bucketIndex === 0
+                        ? tipsToColumnsGap(theme, viewportHeight)
+                        : theme.space.lg,
+                  },
+                ]}
+                viewportHeight={viewportHeight}
+              >
+                <View
+                  style={[
+                    styles.bucketCircle,
+                    {
+                      // The card's own sentiment colors, so a band and a day
+                      // of the same mood are literally the same hue. The
+                      // `peak` end rather than `base`: both are near-black by
+                      // design, and against a near-black panel the lighter of
+                      // the two is what keeps the disc from disappearing into
+                      // its own background.
+                      backgroundColor: sentimentTints(bucket.id).peak,
+                      // A seam, not a border — see `RATING_EDGE_OPACITY`.
+                      // At this lightness the fill alone does not quite
+                      // separate from the panel, and this is the least that
+                      // fixes it without competing with the arrow.
+                      borderColor: withOpacity(ink.text, RATING_EDGE_OPACITY),
+                      // The card's own lift, the same rung it draws
+                      // (`SHADOW_2XL`). Note what it can and cannot do here:
+                      // shadows are black on every theme by design, so on a
+                      // near-black panel this reads as depth under the disc
+                      // rather than as the separation a lighter surface would
+                      // get from it. The edge still describes the shape.
+                      boxShadow: SHADOW_2XL,
+                      borderRadius: theme.radii.full,
+                      height: theme.controls.md,
+                      width: theme.controls.md,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      theme.fonts.title,
+                      {
+                        // Full ink, the same the tips and the areas take.
+                        // The arrow is the row's only mark now that the ring
+                        // has stepped back, and a dimmed one read as a
+                        // disabled control rather than as a legend.
+                        color: ink.text,
+                        lineHeight: theme.controls.md,
+                      },
+                    ]}
+                  >
+                    {bucket.glyph}
                   </Text>
                 </View>
-                <Text style={[theme.fonts.body, { color: ink.textSecondary }]}>
-                  {horoscope[facet.key]}
+                {/* One string rather than a list of nodes: these are a
+                        band's contents, not twelve separate things to look at,
+                        and joined they wrap as prose beside the mark instead of
+                        forcing a column of one-word lines.
+
+                        An em dash when the band is empty. The row is drawn
+                        either way — a day with nothing negative is a good day,
+                        and dropping the row would change the legend's shape from
+                        one morning to the next — but a mark with nothing beside
+                        it reads as a bug rather than as an absence. */}
+                <Text
+                  style={[
+                    styles.bucketAreas,
+                    theme.fonts.body,
+                    // The panel's full ink, the same the tips take. These
+                    // already shared `body`'s weight — `textSecondary` was
+                    // the whole difference, and against a near-black card it
+                    // dropped them closer to the background than to the prose
+                    // they belong with.
+                    { color: ink.text, lineHeight: proseLineHeight(theme) },
+                  ]}
+                >
+                  {areas.length > 0
+                    ? areas.map((area) => area.label).join(", ")
+                    : "—"}
                 </Text>
-              </View>
-            ))}
-          </Animated.View>
+              </RevealOnScroll>
+            );
+          })}
         </Animated.ScrollView>
       )}
     </View>
@@ -512,15 +768,113 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
 }
 
 /**
- * The screenful above the fold: the sign's glyph over the day's summary, with a
- * chevron at the very bottom marking that there is more below.
+ * One block below the fold, fading in as it comes into view — **from its own
+ * measured position, not from a scroll offset guessed for it**.
+ *
+ * It reads that position with `onLayout` and keeps it in state, which is why the
+ * blocks are flat children of the scroller: see the step's own comment at the
+ * call sites for what nesting them would cost. The `y` reported there is the
+ * scroll offset the block sits at, so the window below is arithmetic on one
+ * number rather than a walk up a tree.
+ *
+ * A component, rather than an animated style per block back in the step, because
+ * these are rendered from `.map()` and a hook cannot be called there — that
+ * constraint is what makes this a file-level function and not an inline style.
+ *
+ * **The window is clamped to the end of the scroll**, and this is the part that
+ * is easy to leave out and hard to notice: the last band sits close to the
+ * bottom of the content, so its ideal `exit` — its top a little above the middle
+ * of the screen — is a scroll position that does not exist. Unclamped it would
+ * hold at partial opacity forever with no way for the reader to force it. The
+ * clamp slides the whole window earlier rather than shortening it, so a block
+ * pushed against the end still fades over the same distance.
+ *
+ * The reveal factor is multiplied in, so the arrival still gates every block — a
+ * reader who scrolls during those first seconds gets the dimmer of the two,
+ * exactly as the chevron does. Both factors are 0–1, so the product is whichever
+ * is dimmer.
+ *
+ * Zero opacity before the block is measured, and zero while it is below the
+ * fold. Both are safe only because opacity does not touch layout: the content
+ * keeps its full height, so there is always something to scroll and no block can
+ * be stranded out of reach. The measurement gate leans on `onLayout` firing,
+ * which this step already stakes the hero's entire sizing on.
+ */
+function RevealOnScroll({
+  children,
+  maxScroll,
+  reveal,
+  scrollOffset,
+  style,
+  viewportHeight,
+}: {
+  children: React.ReactNode;
+  maxScroll: number;
+  reveal: SharedValue<number>;
+  scrollOffset: SharedValue<number>;
+  style?: StyleProp<ViewStyle>;
+  viewportHeight: number;
+}) {
+  const [top, setTop] = useState<number | null>(null);
+
+  // The block's own offset within the scroll content — see the note above on why
+  // this is `y` and nothing more.
+  const onLayout = (event: LayoutChangeEvent) =>
+    setTop(event.nativeEvent.layout.y);
+
+  // Both resolved out here rather than in the worklet, which runs on the UI
+  // runtime and can only capture plain values.
+  const measured = top !== null && viewportHeight > 0;
+  const exit = measured
+    ? Math.min(top - viewportHeight * REVEAL_EXIT, maxScroll)
+    : 0;
+  const enter = exit - viewportHeight * (REVEAL_ENTER - REVEAL_EXIT);
+
+  const revealStyle = useAnimatedStyle(() => {
+    if (!measured) return { opacity: 0 };
+
+    return {
+      opacity:
+        interpolate(
+          reveal.value,
+          [REVEAL_STARTS[2], REVEAL_STARTS[2] + REVEAL_FADE],
+          [0, 1],
+          Extrapolation.CLAMP,
+        ) *
+        interpolate(
+          scrollOffset.value,
+          [enter, exit],
+          [0, 1],
+          Extrapolation.CLAMP,
+        ),
+    };
+  });
+
+  return (
+    <Animated.View onLayout={onLayout} style={[style, revealStyle]}>
+      {children}
+    </Animated.View>
+  );
+}
+
+/**
+ * The screenful above the fold: the sign's glyph over the day's first tip, with
+ * a chevron at the very bottom marking that there is more below.
+ *
+ * **The upstream's `text` is deliberately not shown anywhere.** It is still
+ * fetched and stored — it is the horoscope proper, and dropping the column would
+ * throw away the only prose the reading has — but as a hero it was three
+ * sentences of astrological mechanism ("Mars strains against the Sun's natal
+ * position") where the tips are the part written *to* the reader. The first tip
+ * is one line, it is advice, and it is what someone opening a planner at 7am
+ * came for.
  *
  * **The sign's name is deliberately not here.** The glyph already says which
  * sign this is, to anyone who would care, and the name is a label on a thing
  * the reader picked themselves — it pushed the summary down the screen to
  * restate what the settings row already told them.
  *
- * With the name gone the **summary takes `heading`**: it is what this screen is
+ * With the name gone the **tip takes `heading`**: it is what this screen is
  * about, which is exactly the question that role answers, and one line of prose
  * is not a caption to a glyph. The whole role is spread rather than its
  * `fontSize` lifted off it (see docs/design.md, "Type scale").
@@ -535,7 +889,7 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
  *
  * `minHeight` rather than `height` because the first render has no measurement
  * yet — at 0 the hero is merely its natural size for one frame instead of
- * collapsing the summary out of view.
+ * collapsing the tip out of view.
  */
 function Hero({
   bottomInset,
@@ -580,7 +934,7 @@ function Hero({
   }));
 
   // Two fades multiplied rather than one winning: the chevron arrives with the
-  // facets and then leaves as the reader scrolls, and a reader who scrolls
+  // detail and then leaves as the reader scrolls, and a reader who scrolls
   // during the arrival should see it do both at once rather than pop to full
   // strength. Both factors are 0–1, so the product is whichever is dimmer.
   const hintStyle = useAnimatedStyle(() => ({
@@ -639,14 +993,25 @@ function Hero({
           {SUN_SIGNS[horoscope.sunSign].glyph}
         </Animated.Text>
         <Animated.Text
+          {...BALANCED_WRAP}
           style={[
             styles.summary,
             theme.fonts.heading,
-            { color: ink.text, lineHeight: summaryLineHeight(theme) },
+            {
+              color: ink.text,
+              fontFamily: SERIF.displayItalic,
+              // Both reset on purpose. `fonts.heading` carries a 700 that the
+              // loaded file already has, and the file is already italic — see
+              // `SERIF`, where leaving either in place gets a *synthetic* weight
+              // or slant stacked on top of a real one.
+              fontStyle: "normal",
+              fontWeight: "normal",
+              lineHeight: summaryLineHeight(theme),
+            },
             summaryStyle,
           ]}
         >
-          {bySentence(horoscope.summary)}
+          {bySentence(horoscope.tips[0] ?? "")}
         </Animated.Text>
       </View>
       {/* Pinned to the fold rather than trailing the summary: it points at
@@ -664,7 +1029,22 @@ function Hero({
 }
 
 const styles = StyleSheet.create({
-  facetHeader: {
+  bucketCircle: {
+    alignItems: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: "center",
+  },
+  bucketAreas: {
+    // Takes the rest of the row so the string wraps against the card's edge
+    // rather than against its own content, which is what keeps the left edge of
+    // every band's text in the same place.
+    flex: 1,
+    textAlign: "left",
+  },
+  bucketRow: {
+    // Centred against the mark rather than top-aligned: most bands are one line,
+    // where hanging the text from the top of a 40pt disc reads as misaligned.
+    // A band long enough to wrap still centres acceptably.
     alignItems: "center",
     flexDirection: "row",
   },
@@ -693,6 +1073,9 @@ const styles = StyleSheet.create({
     right: 0,
   },
   summary: {
+    textAlign: "center",
+  },
+  tip: {
     textAlign: "center",
   },
 });

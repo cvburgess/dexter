@@ -1,38 +1,54 @@
 import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert";
 
 import {
-  fetchPrediction,
-  parsePredictionDate,
-  predictionResponseSchema,
+  fetchHoroscope,
+  horoscopeResponseSchema,
+  LIFE_AREAS,
+  toLifeAreaRatings,
   ZODIAC_SIGNS,
 } from "../../functions/generate-horoscopes/astrology.ts";
 
-// DEX-84. `index.ts` is a thin I/O shell by design, so the upstream contract —
-// request shape, response validation, date format — is pinned here instead.
-// Nothing in this file touches the network: `fetchPrediction` takes its fetch.
+// DEX-145. `index.ts` is a thin I/O shell by design, so the upstream contract —
+// request shape, response validation, life-area flattening — is pinned here
+// instead. Nothing in this file touches the network: `fetchHoroscope` takes its
+// fetch.
 //
 // The fixture below is the shape a live call actually returns (checked
-// 2026-08-04), NOT the sample in the issue. Those differ: the issue's 2024
-// sample carries a `<facet>_rating` integer per facet and the API no longer
-// sends them. Writing fixtures from the spec rather than from a real response is
-// what let that go unnoticed until the schema was already built around it — so
-// re-check against a live call before changing this.
+// 2026-08-11 against four signs and two dates), NOT the vendor's published
+// sample. Those differ in the way that matters most: the sample shows only the
+// inner object, while the wire format wraps it in
+// `{ success, data, metadata, ... }`. A fixture written from the docs would have
+// made every assertion here pass against a parser that reads `undefined` in
+// production. Re-check against a live call before changing this.
 
-const prediction = {
-  personal_life: "a",
-  profession: "b",
-  health: "c",
-  emotions: "d",
-  travel: "e",
-  luck: "f",
+const data = {
+  text: "The universe offers subtle guidance through synchronicities.",
+  format: "short",
+  word_count: 35,
+  sign: "Aries",
+  sign_emoji: "♈",
+  timeframe: "daily",
+  overall_rating: 4,
+  time_window: {
+    start: "2026-08-12",
+    end: "2026-08-12",
+    timeframe: "daily",
+    days: 1,
+  },
+  tips: ["Focus on progress.", "Take practical steps.", "Stay open."],
+  life_area_focus: LIFE_AREAS.map((area, index) => ({
+    // A distinct value per area, cycling 1-5, so a mapping that crosses two
+    // areas produces a different number rather than coincidentally the same one.
+    area,
+    rating: (index % 5) + 1,
+  })),
+  planetary_influences: [{ planet: "Chiron", exact_time: null }],
+  date: "2026-08-12",
+  language: "en",
+  has_emoji: true,
 };
 
-const response = {
-  status: true,
-  sun_sign: "aries",
-  prediction_date: "21-3-2024",
-  prediction,
-};
+const envelope = { success: true, data, metadata: { credits_used: 1 } };
 
 function stubFetch(body: unknown, init: { status?: number } = {}) {
   const calls: { url: string; init?: RequestInit }[] = [];
@@ -57,130 +73,187 @@ Deno.test("there are exactly twelve signs, in astrological order", () => {
   );
 });
 
-Deno.test("prediction dates are converted from D-M-YYYY to ISO", () => {
-  // The upstream zero-pads neither field, which is the whole reason this
-  // function exists rather than a `new Date(...)` call.
-  assertEquals(parsePredictionDate("21-3-2024"), "2024-03-21");
-  assertEquals(parsePredictionDate("1-3-2024"), "2024-03-01");
-  assertEquals(parsePredictionDate("01-12-2024"), "2024-12-01");
-  assertEquals(parsePredictionDate(" 5-7-2026 "), "2026-07-05");
-  assertEquals(
-    parsePredictionDate("29-2-2024"),
-    "2024-02-29",
-    "a real leap day",
-  );
+Deno.test("there are exactly twelve life areas, each distinct", () => {
+  // Each one is a NOT NULL `rating_<area>` column. A duplicate here would leave
+  // one column unwritten and fail the insert for every sign at once.
+  assertEquals(LIFE_AREAS.length, 12);
+  assertEquals(new Set(LIFE_AREAS).size, 12);
 });
 
-Deno.test("an unusable prediction date throws rather than producing a wrong one", () => {
-  // Silently coercing here would write a row under the wrong date, which is
-  // worse than failing the sign: nobody would notice until the day arrived.
-  for (
-    const value of [
-      "2024-03-21",
-      "21/3/2024",
-      "",
-      "tomorrow",
-      "21-13-2024",
-      "32-3-2024",
-      // A day that does not exist in that month. Passing it through would
-      // produce `2024-02-31`, which Postgres rejects — failing the whole
-      // twelve-row upsert rather than the one sign.
-      "31-2-2024",
-      "29-2-2023",
-    ]
-  ) {
-    assertThrows(
-      () => parsePredictionDate(value),
-      Error,
-      undefined,
-      `"${value}" must be rejected`,
-    );
-  }
-});
+Deno.test("the request is a POST carrying a bearer token", async () => {
+  const { fetch: fetchImpl, calls } = stubFetch(envelope);
 
-Deno.test("the request is a POST carrying the token header", async () => {
-  const { fetch: fetchImpl, calls } = stubFetch(response);
-
-  await fetchPrediction("aries", "secret-key", fetchImpl);
+  await fetchHoroscope("aries", "2026-08-12", "secret-key", fetchImpl);
 
   assertEquals(calls.length, 1);
-  assert(
-    calls[0].url.endsWith("/sun_sign_prediction/daily/next/aries"),
-    `unexpected URL: ${calls[0].url}`,
-  );
   assertEquals(calls[0].init?.method, "POST");
   const headers = calls[0].init?.headers as Record<string, string>;
-  assertEquals(headers["x-astrologyapi-key"], "secret-key");
+  assertEquals(
+    headers.Authorization,
+    "Bearer secret-key",
+    "v3 is bearer-authenticated; the old provider used an x-astrologyapi-key header",
+  );
 });
 
-Deno.test("the request pins the upstream's timezone to UTC", () => {
-  // Load-bearing for the schedule, and -5.5 rather than 0 for a reason worth
-  // pinning: the upstream applies `timezone` relative to IST, not UTC, so its
-  // clock is 5.5 hours ahead. `timezone: 0` tests clean between 00:00 and 18:29
-  // UTC — IST is the same calendar date then — and silently writes tomorrow's
-  // rows under the day after outside that window, which makes `expected` never
-  // fill and every later run re-fetch the same signs forever.
-  const { fetch: fetchImpl, calls } = stubFetch(response);
+Deno.test("the request asks for a specific date in short format", async () => {
+  // The date is load-bearing: the cron generates *tomorrow* so the reading is
+  // ready when the reader wakes. Under the old provider this was an endpoint
+  // meaning "next" plus a timezone offset reverse-engineered against a server
+  // clock in IST; here it is a parameter, and this pins that it is actually sent.
+  const { fetch: fetchImpl, calls } = stubFetch(envelope);
 
-  fetchPrediction("aries", "key", fetchImpl);
+  await fetchHoroscope("scorpio", "2026-08-12", "key", fetchImpl);
 
-  assertEquals(JSON.parse(calls[0].init?.body as string), { timezone: -5.5 });
+  assertEquals(JSON.parse(calls[0].init?.body as string), {
+    sign: "scorpio",
+    date: "2026-08-12",
+    format: "short",
+    use_emoji: false,
+  });
 });
 
 Deno.test("a non-2xx upstream response fails without echoing the body", async () => {
-  const { fetch: fetchImpl } = stubFetch({ error: "invalid key sk-abc123" }, {
-    status: 401,
-  });
+  // 429 is the expected failure on a metered plan, and the body can echo the
+  // request. Neither belongs in the message that reaches Sentry.
+  const { fetch: fetchImpl } = stubFetch(
+    { error: "quota exceeded key sk-abc" },
+    {
+      status: 429,
+    },
+  );
 
   const error = await assertRejects(
-    () => fetchPrediction("leo", "bad-key", fetchImpl),
+    () => fetchHoroscope("leo", "2026-08-12", "bad-key", fetchImpl),
     Error,
   );
-  assert(
-    !error.message.includes("sk-abc123"),
-    "the upstream echoes credentials in some error bodies, so the body must not reach the message that goes to Sentry",
-  );
-  assert(error.message.includes("401"));
+  assert(!error.message.includes("sk-abc"), "the body must not reach Sentry");
+  assert(error.message.includes("429"));
+  assert(error.message.includes("leo"), "the message has to name the sign");
 });
 
-Deno.test("a malformed prediction is rejected rather than partially stored", async () => {
-  const { fetch: fetchImpl } = stubFetch({
-    ...response,
-    prediction: { ...prediction, luck: undefined },
-  });
+Deno.test("the response envelope is unwrapped", async () => {
+  // The regression this exists for: the vendor's docs show the inner object, so
+  // a schema written from them parses `{ text, ... }` and silently reads
+  // `undefined` against the real `{ success, data: { text, ... } }`.
+  const { fetch: fetchImpl } = stubFetch(envelope);
 
-  await assertRejects(() => fetchPrediction("virgo", "key", fetchImpl));
+  const parsed = await fetchHoroscope("aries", "2026-08-12", "key", fetchImpl);
+
+  assertEquals(parsed.text, data.text);
+  assertEquals(parsed.date, "2026-08-12");
+  assertEquals(parsed.overall_rating, 4);
 });
 
-Deno.test("a non-string facet is rejected", () => {
-  // Every facet lands in a NOT NULL text column, so a non-string has to fail
-  // here — one failed sign — rather than at the upsert, which would take the
-  // whole batch with it.
-  const result = predictionResponseSchema.safeParse({
-    ...response,
-    prediction: { ...prediction, luck: 7 },
-  });
-
-  assert(!result.success);
+Deno.test("an unwrapped body is rejected rather than read as undefined", () => {
+  assert(!horoscopeResponseSchema.safeParse(data).success);
 });
 
 Deno.test("extra upstream fields are tolerated, not rejected", () => {
-  // The upstream has already changed shape once under this feature (the 2024
-  // sample's `<facet>_rating` fields are gone). A schema that rejected unknown
-  // keys would turn a purely additive upstream change into twelve failed signs,
-  // so the fields we need are required and anything else is ignored.
-  const result = predictionResponseSchema.safeParse({
-    ...response,
-    prediction: { ...prediction, luck_rating: 7, some_new_facet: "x" },
+  // The fixture already carries `planetary_influences`, `sign_emoji`,
+  // `time_window`, `language`, and `word_count`, none of which are stored. A
+  // schema that rejected unknown keys would turn a purely additive upstream
+  // change into twelve failed signs.
+  const result = horoscopeResponseSchema.safeParse({
+    ...envelope,
+    data: { ...data, brand_new_field: "x" },
   });
 
   assert(result.success);
 });
 
-Deno.test("a well-formed response parses", async () => {
-  const { fetch: fetchImpl } = stubFetch(response);
-  const parsed = await fetchPrediction("aries", "key", fetchImpl);
+Deno.test("a rating outside 1-5 is rejected", () => {
+  // Every rating lands in a column with a CHECK, and all twelve rows go up in
+  // one upsert — so an out-of-range value has to fail here, costing one sign,
+  // rather than at the insert, which would take the whole batch.
+  for (const overall_rating of [0, 6, 2.5, -1]) {
+    assert(
+      !horoscopeResponseSchema.safeParse({
+        ...envelope,
+        data: { ...data, overall_rating },
+      }).success,
+      `${overall_rating} must be rejected`,
+    );
+  }
+});
 
-  assertEquals(parsed.prediction_date, "21-3-2024");
-  assertEquals(parsed.prediction.luck, "f");
+Deno.test("a non-ISO date is rejected", () => {
+  // The column is a `date`, and a value Postgres cannot parse fails all twelve
+  // rows rather than the one sign.
+  for (const date of ["12-8-2026", "2026/08/12", "tomorrow", ""]) {
+    assert(
+      !horoscopeResponseSchema.safeParse({
+        ...envelope,
+        data: { ...data, date },
+      })
+        .success,
+      `"${date}" must be rejected`,
+    );
+  }
+});
+
+Deno.test("a well-formed but impossible date is rejected", () => {
+  // The shape check alone passes every one of these, and every one is a value
+  // Postgres refuses — which fails the whole twelve-row upsert, not just the
+  // sign that carried it. The predecessor had this guard for `31-2-2026`;
+  // moving to an ISO format did not remove the need for it.
+  for (const date of ["2026-02-31", "2026-13-01", "2026-00-10", "2026-04-31"]) {
+    assert(
+      !horoscopeResponseSchema.safeParse({
+        ...envelope,
+        data: { ...data, date },
+      })
+        .success,
+      `"${date}" is not a real day and must be rejected`,
+    );
+  }
+});
+
+Deno.test("a leap day is accepted", () => {
+  // The round-trip must not be so strict that it rejects real days.
+  assert(
+    horoscopeResponseSchema.safeParse({
+      ...envelope,
+      data: { ...data, date: "2028-02-29" },
+    }).success,
+  );
+});
+
+Deno.test("life areas flatten to a complete twelve-key record", () => {
+  const ratings = toLifeAreaRatings(data.life_area_focus);
+
+  assertEquals(Object.keys(ratings).length, 12);
+  // Spot-check that each area kept its own number rather than a neighbour's.
+  assertEquals(ratings.identity, 1);
+  assertEquals(ratings.health, 2);
+  assertEquals(ratings.travel, (LIFE_AREAS.indexOf("travel") % 5) + 1);
+});
+
+Deno.test("a missing life area throws and names what is missing", () => {
+  // Every rating column is NOT NULL, so there is no sensible default: a zero is
+  // outside the CHECK and an invented 3 would show the reader a neutral face for
+  // an area the upstream never rated.
+  const error = assertThrows(
+    () =>
+      toLifeAreaRatings(
+        data.life_area_focus.filter((entry) =>
+          entry.area !== "career" && entry.area !== "home"
+        ),
+      ),
+    Error,
+  );
+
+  assert(error.message.includes("career"), error.message);
+  assert(error.message.includes("home"), error.message);
+});
+
+Deno.test("an unknown life area is ignored rather than carried through", () => {
+  // A thirteenth area from the upstream has no column to land in, so it must not
+  // reach the insert — the same additive-change tolerance the schema has.
+  const ratings = toLifeAreaRatings([
+    ...data.life_area_focus,
+    { area: "astral_projection", rating: 5 },
+  ]);
+
+  assertEquals(Object.keys(ratings).length, 12);
+  assert(!("astral_projection" in ratings));
 });

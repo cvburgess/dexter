@@ -35,7 +35,8 @@ Not worth writing (removed en masse in DEX-143 — don't reintroduce):
 ## Supabase (`/supabase`)
 
 - **Deno test**: `cd supabase && deno test --allow-all --config __tests__/deno.json __tests__/` (add `--env-file=.env` when tests need secrets).
-- CI has **no Postgres and no network**, so anything that reaches the network takes its dependency as an argument rather than stubbing a global: `fetchPrediction(sign, key, fetchImpl)`, a trailing `model` parameter on AI SDK calls. `__tests__/helpers/mockLanguageModel.ts` is the `LanguageModelV3` stand-in (`ai/test` cannot run under `deno test`).
+- CI has **no Postgres and no network**, so anything that reaches the network takes its dependency as an argument rather than stubbing a global: `fetchHoroscope(sign, date, key, fetchImpl)` is the pattern.
+- **Write upstream fixtures from a real response, not from the vendor's docs.** Both times this table changed providers, the published sample disagreed with the wire format — once by carrying fields the API no longer sent, once by omitting the `{ success, data, metadata }` envelope the response is actually wrapped in. A fixture copied from documentation makes the whole suite pass against a parser that reads `undefined` in production.
 
 ## Formatting
 
