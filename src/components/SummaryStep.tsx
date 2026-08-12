@@ -159,6 +159,12 @@ export function SummaryStep({ date }: TSummaryStepProps) {
     </Button>
   );
 
+  // The ritual layout has already pushed this step's box down by its step
+  // inset, so a block centered inside the box lands half that inset below the
+  // middle of the space the reader actually sees. Paid back as bottom padding
+  // in both branches below, which re-centers the *content* rather than the box.
+  const insetAbove = ritualStepInsetTop(theme.space, isLargeDevice);
+
   if (total === 0) {
     return (
       <View
@@ -167,11 +173,13 @@ export function SummaryStep({ date }: TSummaryStepProps) {
           {
             gap: theme.space.lg,
             padding: theme.space.lg,
-            // The host SafeAreaView omits the bottom edge (the tab bar owns
-            // it), so centering in the full box would sit this visibly low —
-            // the same reservation `EmptyScreen` and the calendar step's
-            // clear-day block make.
-            paddingBottom: theme.space.lg + insets.bottom,
+            // Its own `lg` is already symmetric, so this branch owes only the
+            // step inset — plus `insets.bottom`, since the host SafeAreaView
+            // omits the bottom edge (the tab bar owns it) and centering in the
+            // full box would otherwise sit this visibly low. The same
+            // reservation `EmptyScreen` and the calendar step's clear-day block
+            // make.
+            paddingBottom: theme.space.lg + insets.bottom + insetAbove,
           },
         ]}
         testID="summary-step-blank"
@@ -199,26 +207,27 @@ export function SummaryStep({ date }: TSummaryStepProps) {
       style={[
         styles.container,
         {
-          // The host SafeAreaView omits the bottom edge (the tab bar owns it),
-          // so centering in the full box would sit this visibly low — the same
-          // reservation the blank branch and the calendar step's clear-day
-          // block make.
-          paddingBottom: insets.bottom,
+          // The step inset (see `insetAbove`), plus `HeroLines`' own `lg` of
+          // top padding — which sits inside the centered block with nothing
+          // matching it under the button, so the box is taller above the
+          // figures than below them and the content reads low by half the
+          // difference. Both are paid back here.
+          //
+          // `insets.bottom` on top of that, since the host SafeAreaView omits
+          // the bottom edge (the tab bar owns it) — the same reservation the
+          // blank branch and the calendar step's clear-day block make.
+          paddingBottom: insets.bottom + insetAbove + theme.space.lg,
         },
       ]}
       testID="summary-step"
     >
       {/* `bodyInsetTop` cancels the compensation `HeroLines` adds below itself
-          for the ritual layout's step inset. That compensation is right for a
-          hero anchored to the top of the step, which is what the calendar and
-          backlog steps have — here the block is centered instead, so the extra
-          padding would only make it bottom-heavy and pull the figures above
-          true center. Zeroing it leaves `lg` above and below them. */}
-      <HeroLines
-        bodyInsetTop={ritualStepInsetTop(theme.space, isLargeDevice)}
-        lines={heroLines}
-        reveal={reveal}
-      />
+          for the step inset. That compensation is right for a hero anchored to
+          the top of the step, which is what the calendar and backlog steps
+          have — here the block is centered instead, so it would only widen the
+          gap to the button. Zeroing it leaves `lg` above and below the
+          figures. */}
+      <HeroLines bodyInsetTop={insetAbove} lines={heroLines} reveal={reveal} />
       <Animated.View style={closeStyle}>{startButton}</Animated.View>
     </View>
   );
