@@ -130,7 +130,7 @@ export const LIFE_AREAS: readonly THoroscopeLifeArea[] = [
  * from `overall_rating` (see the DEX-145 migration). Sharing the rule is the
  * point: the card's tint and these columns are the same judgement applied to
  * the whole day and to one area of it, so a reader seeing a green card over a
- * column of sad faces would be looking at a bug, not a nuance.
+ * column of down arrows would be looking at a bug, not a nuance.
  *
  * Three even-ish groups out of five values means one of them takes the odd
  * width; the middle takes it, since a lone 3 is the genuinely neutral case and
@@ -152,24 +152,25 @@ export type THoroscopeRatingBucket = {
 /**
  * The three columns, worst to best.
  *
- * **Every glyph carries a trailing `︎`**, for the reason `SUN_SIGNS` above
- * spells out and `docs/design.md` states as a rule: these code points would
- * otherwise render as full-color emoji in a palette no theme controls, and the
- * variation selector is what forces text presentation so the mark can take a
- * color the panel chose.
+ * **Arrows rather than faces**, and the reason is consistency rather than
+ * taste. The faces this started with could not come from one Unicode block:
+ * U+2639 and U+263A carry the two ends, but there is no expressionless face
+ * there at all — U+1F610 is the only one Unicode has, and it sits in the emoji
+ * block, so the middle mark was drawn from a different font at a different
+ * weight than its neighbours. U+2191/2192/2193 are one family, so the three
+ * read as one set.
  *
- * The two ends come from the U+2600 block, which is text-presentation by
- * default and needs the selector only for safety. **The neutral face does not
- * exist there** — U+1F610 is the only expressionless face Unicode has, and it
- * is squarely in the emoji block, so it is the one glyph here that genuinely
- * depends on U+FE0E rather than merely being belt-and-braces. It also comes
- * from a different block than its neighbours, so it is the one to look at first
- * if the row ever reads uneven.
+ * **Every glyph still carries a trailing `︎`**, for the reason `SUN_SIGNS`
+ * above spells out and `docs/design.md` states as a rule. These three default
+ * to text presentation rather than depending on the selector the way U+1F610
+ * did, so here it is belt-and-braces — but a bare arrow *can* be given an emoji
+ * form by a following U+FE0F, and the app should never be one stray codepoint
+ * away from a colored sticker in a palette no theme controls.
  */
 export const RATING_BUCKETS: readonly THoroscopeRatingBucket[] = [
-  { id: "negative", label: "Negative", glyph: "☹︎" },
-  { id: "mixed", label: "Neutral", glyph: "😐︎" },
-  { id: "positive", label: "Positive", glyph: "☺︎" },
+  { id: "negative", label: "Negative", glyph: "↓︎" },
+  { id: "mixed", label: "Neutral", glyph: "→︎" },
+  { id: "positive", label: "Positive", glyph: "↑︎" },
 ];
 
 /**

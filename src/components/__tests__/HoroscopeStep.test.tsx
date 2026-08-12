@@ -166,11 +166,21 @@ describe("HoroscopeStep", () => {
   });
 
   describe("with the day's horoscope", () => {
-    it("leads with the sign's glyph and the day's reading", () => {
+    it("leads with the sign's glyph and the day's first tip", () => {
       const screen = renderStep();
 
       expect(screen.getByText(SUN_SIGNS.leo.glyph)).toBeTruthy();
-      expect(screen.getByText(HOROSCOPE.text)).toBeTruthy();
+      expect(screen.getByText(HOROSCOPE.tips[0])).toBeTruthy();
+    });
+
+    // The upstream's prose is still fetched and stored — it is the horoscope
+    // proper — but it is three sentences of astrological mechanism, and the
+    // step deliberately shows the tips instead. Asserted so "keep it in the DB"
+    // cannot quietly become "put it back on screen".
+    it("never renders the upstream's own text", () => {
+      const screen = renderStep();
+
+      expect(screen.queryByText(HOROSCOPE.text)).toBeNull();
     });
 
     // DEX-138: the panel is capped at a fixed width on a large screen, so the
@@ -229,12 +239,14 @@ describe("HoroscopeStep", () => {
       expect(renderStep().getByTestId("horoscope-sky")).toBeTruthy();
     });
 
-    it("renders the day's tips below it", () => {
+    it("renders the remaining tips below it, and the first one only once", () => {
       const screen = renderStep();
 
-      for (const tip of HOROSCOPE.tips) {
+      for (const tip of HOROSCOPE.tips.slice(1)) {
         expect(screen.getByText(tip)).toBeTruthy();
       }
+      // The hero took the first one, so repeating it below would show it twice.
+      expect(screen.getAllByText(HOROSCOPE.tips[0])).toHaveLength(1);
     });
 
     it("draws a face for each of the three rating columns", () => {

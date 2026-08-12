@@ -40,7 +40,6 @@ import {
   SUN_SIGNS,
 } from "@/utils/horoscope";
 import {
-  ratingBucketColor,
   SENTIMENT_FRAME,
   sentimentInk,
   SHADOW_2XL,
@@ -472,7 +471,12 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
           <Animated.View
             style={[
               {
-                gap: theme.space.lg,
+                // Double the usual group step. This container holds exactly two
+                // children — the tips and the rated columns — so this gap *is*
+                // the boundary between them, and they are different kinds of
+                // thing: prose to read, then a chart to scan. At `lg` they read
+                // as one block.
+                gap: theme.space.lg * 2,
                 // The host `SafeAreaView` omits the bottom edge so content
                 // scrolls under the tab bar; the inset belongs to the scroll
                 // content, which is what lets the last row clear it (DEX-91).
@@ -494,18 +498,19 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
               detailStyle,
             ]}
           >
-            {/* `sm` within, so the three read as one list rather than three
-                separate lines of prose. They are advice, not a reading — the
-                hero above already carried that. */}
-            <View style={{ gap: theme.space.sm }}>
+            {/* The first tip is the hero (see `Hero`), so this is the rest of
+                them. `lg` between: centred lines with no left edge to run an eye
+                down need the separation to read as separate thoughts rather than
+                one ragged paragraph. */}
+            <View style={{ gap: theme.space.lg }}>
               {/* Keyed by position, not by the string: the list is fixed for a
                   given day and never reorders, and two tips coming back
                   identical is a thing a generator does — which on a string key
                   is a React collision rather than two lines. */}
-              {horoscope.tips.map((tip, index) => (
+              {horoscope.tips.slice(1).map((tip, index) => (
                 <Text
                   key={index}
-                  style={[theme.fonts.body, { color: ink.text }]}
+                  style={[styles.tip, theme.fonts.body, { color: ink.text }]}
                 >
                   {tip}
                 </Text>
@@ -522,10 +527,19 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
                     style={[
                       styles.bucketCircle,
                       {
-                        backgroundColor: ratingBucketColor(bucket.id),
-                        // An edge rather than a lift: the panel is near-black on
-                        // every theme, where a shadow shows nothing at all
-                        // (docs/design.md, "Scrims and shadows").
+                        // The card's own sentiment colors, so a column and a
+                        // day of the same mood are literally the same hue. The
+                        // `peak` end rather than `base`: both are near-black by
+                        // design, and against a near-black panel the lighter of
+                        // the two is what keeps the disc from disappearing into
+                        // its own background.
+                        backgroundColor: sentimentTints(bucket.id).peak,
+                        // Which is also why the edge is load-bearing here rather
+                        // than decorative — at this lightness the fill alone
+                        // does not describe a shape. An edge and not a shadow:
+                        // the panel is near-black on every theme, where a shadow
+                        // shows nothing at all (docs/design.md, "Scrims and
+                        // shadows").
                         borderColor: ink.text,
                         borderRadius: theme.radii.full,
                         height: theme.controls.md,
@@ -565,15 +579,23 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
 }
 
 /**
- * The screenful above the fold: the sign's glyph over the day's summary, with a
- * chevron at the very bottom marking that there is more below.
+ * The screenful above the fold: the sign's glyph over the day's first tip, with
+ * a chevron at the very bottom marking that there is more below.
+ *
+ * **The upstream's `text` is deliberately not shown anywhere.** It is still
+ * fetched and stored — it is the horoscope proper, and dropping the column would
+ * throw away the only prose the reading has — but as a hero it was three
+ * sentences of astrological mechanism ("Mars strains against the Sun's natal
+ * position") where the tips are the part written *to* the reader. The first tip
+ * is one line, it is advice, and it is what someone opening a planner at 7am
+ * came for.
  *
  * **The sign's name is deliberately not here.** The glyph already says which
  * sign this is, to anyone who would care, and the name is a label on a thing
  * the reader picked themselves — it pushed the summary down the screen to
  * restate what the settings row already told them.
  *
- * With the name gone the **summary takes `heading`**: it is what this screen is
+ * With the name gone the **tip takes `heading`**: it is what this screen is
  * about, which is exactly the question that role answers, and one line of prose
  * is not a caption to a glyph. The whole role is spread rather than its
  * `fontSize` lifted off it (see docs/design.md, "Type scale").
@@ -588,7 +610,7 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
  *
  * `minHeight` rather than `height` because the first render has no measurement
  * yet — at 0 the hero is merely its natural size for one frame instead of
- * collapsing the summary out of view.
+ * collapsing the tip out of view.
  */
 function Hero({
   bottomInset,
@@ -699,7 +721,7 @@ function Hero({
             summaryStyle,
           ]}
         >
-          {bySentence(horoscope.text)}
+          {bySentence(horoscope.tips[0] ?? "")}
         </Animated.Text>
       </View>
       {/* Pinned to the fold rather than trailing the summary: it points at
@@ -764,6 +786,9 @@ const styles = StyleSheet.create({
     right: 0,
   },
   summary: {
+    textAlign: "center",
+  },
+  tip: {
     textAlign: "center",
   },
 });

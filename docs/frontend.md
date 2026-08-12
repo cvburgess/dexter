@@ -329,15 +329,19 @@ Read-only client of `public.horoscopes` (`["horoscopes", sunSign, date]`),
 deliberately not realtime (rows change once a day). The panel's colors and
 frame are `docs/design.md`'s Sentiment section. App-side gotchas:
 
-- **The hero is sized to exactly one screenful**, so the length of `text` is a
-  layout constraint rather than a detail. The Edge Function pins the upstream's
-  `format: "short"` (~35 words) for this reason — a longer format would push the
-  chevron off the fold and break the scroll-to-reveal conceit the whole step is
-  built on. Change that request parameter and this is what to look at.
-- Below the fold: the day's three `tips`, then its twelve life areas sorted
-  into three columns by rating (`lifeAreasInBucket`). A column can legitimately
-  be empty — a day with nothing rated 1-2 is a good day — so the columns hold
-  equal thirds regardless, or the row would shift as the ratings changed.
+- **The hero shows the first tip, and `horoscopes.text` is never rendered at
+  all.** The column is still fetched and stored — it is the horoscope proper —
+  but as a hero it was three sentences of astrological mechanism ("Mars strains
+  against the Sun's natal position") where the tips are the part written *to*
+  the reader. Keep it stored; putting it back on screen is a decision, not a
+  fix, and a test asserts it stays off.
+- **The hero is sized to exactly one screenful**, so whatever it holds is a
+  layout constraint rather than a detail — a taller hero pushes the chevron off
+  the fold and breaks the scroll-to-reveal conceit the whole step is built on.
+- Below the fold: the remaining `tips`, then the twelve life areas sorted into
+  three columns by rating (`lifeAreasInBucket`). A column can legitimately be
+  empty — a day with nothing rated 1-2 is a good day — so the columns hold equal
+  thirds regardless, or the row would shift as the ratings changed.
 
 - `components/StarField.tsx` is **seeded, not random** (a sky must not
   reshuffle per render); stars deal into four layers with one shared opacity

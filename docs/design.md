@@ -75,17 +75,16 @@ bottom of this file.
 the upstream's 1-5 `overall_rating`, and `ratingBucket()` in `utils/horoscope.ts`
 groups each of the day's twelve life areas with the *same* thresholds. One rule
 at two scales — the whole day, and one area of it — so a green card can never
-sit over a column of sad faces.
+sit over a column of down arrows.
 
-Those columns get their own three colors (`RATING_BUCKET_COLORS`, also a listed
-exception). They are **much lighter than the panel's, ~35% against ~6%**,
-because these are marks *on* one of those backgrounds and a mark at its ground's
-lightness is not a mark. **`negative` is red there, not purple** — the one place
-the two vocabularies diverge on purpose. Purple carries "negative" across a
-screen-sized wash but at circle size beside a green and a blue it reads as a
-fourth hue rather than the bad one, and on a purple card it would disappear into
-its own background. Each circle takes a hairline in `sentimentInk` rather than a
-shadow, per **Scrims and shadows** below: a near-black card shows no lift.
+Those columns' circles reuse **the panel's own colors** rather than a second
+palette — `sentimentTints(bucket).peak`, so a column and a day of the same mood
+are literally the same hue. A brighter set was tried and cut: it read as a
+fourth vocabulary competing with the card behind it, and it meant three more
+literals on the list below. The cost is that these fills sit at the panel's own
+~6-10% lightness, so **the hairline is what describes the shape**, not the fill.
+That is also why it is an edge and not a shadow, per **Scrims and shadows**
+below: a near-black card shows no lift at all.
 
 **It is a night sky on every theme, light ones included** — a pale set for
 light schemes was tried and cut. That makes it the app's one surface that does
@@ -248,12 +247,12 @@ zodiac glyphs are `<Text>` (no icon set carries a zodiac) and **carry a
 trailing U+FE0E**: those code points default to emoji presentation in a palette
 no theme controls, and the variation selector is what lets the mark take
 `colors.text`. Any future glyph from the emoji-presentation ranges needs the
-same treatment — the Horoscope step's three rating faces (DEX-145) are the
-second case. Two of those come from U+2600, which is text-presentation already;
-the neutral face is U+1F610, the only expressionless face Unicode has and
-squarely in the emoji block, so it is the one that genuinely depends on the
-selector. It is also the one to check first if that row ever reads uneven,
-since it is drawn from a different block than its neighbours.
+same treatment — the Horoscope step's three rating arrows (DEX-145) are the
+second case. **Pick marks that share a Unicode block.** Those started as faces
+and could not: U+2639/U+263A carry the two ends, but Unicode's only
+expressionless face is U+1F610, in the emoji block, so the middle mark came from
+a different font at a different weight and the row read uneven.
+U+2191/U+2192/U+2193 are one family and solve it outright.
 
 **A hero mark is derived, not tokenized** — the Horoscope step's sign glyph is
 `controls.md * 2` (DEX-128), the same move `subtaskGeometry` makes, and still
@@ -324,12 +323,9 @@ pre-blended token, or the fill takes on whatever is behind it.
 Everything below is a deliberate literal. Adding to this list should be
 uncomfortable.
 
-- **`SENTIMENT_COLORS`, `SENTIMENT_FRAME`, and `RATING_BUCKET_COLORS`**
-  (`utils/theme.ts`, DEX-128 and DEX-145) — the panel's six hexes, its white
-  frame, and the three rating circles drawn on it: the only colors in the app
-  that are not theme tokens. All three sets exist for one reason — the panel
-  does not follow the user's scheme, so a token painting into it would know
-  nothing about its ground. See **Sentiment** above.
+- **`SENTIMENT_COLORS` and `SENTIMENT_FRAME`** (`utils/theme.ts`, DEX-128) —
+  the panel's six hexes plus its white frame, the only colors in the app that
+  are not theme tokens. See **Sentiment** above.
 - **`CalendarView`'s coordinate system** — `GUTTER_WIDTH`, `HOUR_HEIGHT`, etc.
   position labels, lines, and events against each other and misalign the moment
   one moves independently; the system stays fixed in named constants.

@@ -89,7 +89,7 @@ describe("LIFE_AREAS", () => {
 describe("ratingBucket", () => {
   // These thresholds are also the database's, which derives
   // `horoscopes.sentiment` from `overall_rating` with the same three buckets.
-  // If one side moves, a reader gets a green card over a column of sad faces.
+  // If one side moves, a reader gets a green card over a column of down arrows.
   it("splits 1-5 into three groups, worst to best", () => {
     expect(ratingBucket(1)).toBe("negative");
     expect(ratingBucket(2)).toBe("negative");
