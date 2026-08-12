@@ -147,12 +147,12 @@ describe("SmallScreenRitual", () => {
   });
 
   // The switcher is navigation, not progression — it stays on the last step so
-  // the user can still jump back out of Congrats.
+  // the user can still jump back out of Summary.
   it("keeps the switcher on the last step", () => {
-    const screen = renderRitual({ state: state({ step: 5 }) });
+    const screen = renderRitual({ state: state({ step: 4 }) });
 
-    expect(screen.getByText("Congrats")).toBeTruthy();
-    expect(screen.getByText("switcher:am:5")).toBeTruthy();
+    expect(screen.getByText("Summary")).toBeTruthy();
+    expect(screen.getByText("switcher:am:4")).toBeTruthy();
   });
 
   describe("the swipe", () => {
@@ -194,7 +194,7 @@ describe("SmallScreenRitual", () => {
 
     it("is declined past the last step", () => {
       const onSwipe = jest.fn();
-      renderRitual({ onSwipe, state: state({ step: 5 }) });
+      renderRitual({ onSwipe, state: state({ step: 4 }) });
 
       fireGestureHandler(getByGestureTestId("page-swipe"), [
         { translationX: -200, velocityX: -900 },

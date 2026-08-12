@@ -188,12 +188,12 @@ describe("RitualScreen", () => {
   it("stops at the last step", () => {
     const screen = render(<RitualScreen />);
 
-    // Six morning steps, so the seventh swipe has nowhere to go.
-    for (let press = 0; press < 7; press++) {
+    // Five morning steps, so the sixth swipe has nowhere to go.
+    for (let press = 0; press < 6; press++) {
       fireEvent.press(screen.getByLabelText("swipe-forward"));
     }
 
-    expect(screen.getByText(`small:${TODAY}:am:5:1`)).toBeTruthy();
+    expect(screen.getByText(`small:${TODAY}:am:4:1`)).toBeTruthy();
   });
 
   // The switcher hands back an index, so a jump can skip several steps at once
@@ -316,11 +316,11 @@ describe("RitualScreen", () => {
     it("stops one step earlier", () => {
       const screen = render(<RitualScreen />);
 
-      for (let press = 0; press < 7; press++) {
+      for (let press = 0; press < 6; press++) {
         fireEvent.press(screen.getByLabelText("swipe-forward"));
       }
 
-      expect(screen.getByText(`small:${TODAY}:am:4:1`)).toBeTruthy();
+      expect(screen.getByText(`small:${TODAY}:am:3:1`)).toBeTruthy();
     });
 
     // `usePreferences` serves defaults (journal on) until the row loads, so
@@ -372,11 +372,11 @@ describe("RitualScreen", () => {
     it("stops one step earlier", () => {
       const screen = render(<RitualScreen />);
 
-      for (let press = 0; press < 7; press++) {
+      for (let press = 0; press < 6; press++) {
         fireEvent.press(screen.getByLabelText("swipe-forward"));
       }
 
-      expect(screen.getByText(`small:${TODAY}:am:4:1`)).toBeTruthy();
+      expect(screen.getByText(`small:${TODAY}:am:3:1`)).toBeTruthy();
     });
 
     it("leaves the evening ritual, which has no calendar step, alone", () => {
@@ -412,11 +412,11 @@ describe("RitualScreen", () => {
     it("stops one step earlier", () => {
       const screen = render(<RitualScreen />);
 
-      for (let press = 0; press < 7; press++) {
+      for (let press = 0; press < 6; press++) {
         fireEvent.press(screen.getByLabelText("swipe-forward"));
       }
 
-      expect(screen.getByText(`small:${TODAY}:am:4:1`)).toBeTruthy();
+      expect(screen.getByText(`small:${TODAY}:am:3:1`)).toBeTruthy();
     });
 
     it("leaves the evening ritual, which has no horoscope step, alone", () => {

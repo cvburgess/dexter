@@ -7,6 +7,10 @@ layout: layouts/tips.vto
 
 ![Task diagram](/assets/tips/tasks.png)
 
+Your tasks live in the [Day](/tips/day) view. Your daily ritual ends by sending
+you there: once the Backlog step has helped you decide what the day is actually
+for, the last step hands you straight to that day's list.
+
 ## Status
 
 - **Todo**: Tasks you haven't seriously started

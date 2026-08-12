@@ -423,6 +423,42 @@ the whole phrase. Stage timing lives in `useHeroReveal`/`useStageOpacity`;
 the reveal is opacity-only — `SwipeablePage`'s intro already slides, and two
 axes compound into a diagonal drift.
 
+### Summary step (DEX-144)
+
+The last step of **both** rituals (id `summary`, so it doesn't drift from the
+label): habits/events/tasks counted through the same `HeroLines`, over a button
+into `todayRoute({ date, mode: "tasks" })`, the two centered as one block.
+Load-bearing:
+
+- **A morning task-list step was built here first and removed.** `DayTaskList`
+  dropped into the step worked and cost almost nothing — but it copied a
+  surface it could not replace, leaving two lists of the same day a swipe
+  apart, where the ritual is a sequence you walk once and the day's list is
+  what you return to all day. Reach for this history before re-proposing it.
+- **The link carries the ritual's date, and needs its `n` nonce** for the same
+  reason the Search tab's does: cross-tab navigation reuses the mounted Today
+  screen and only swaps its params, so two presses carrying one date would be
+  indistinguishable and the second would switch tabs and do nothing.
+- **A line exists per feature the reader has, not per non-zero count.** A zero
+  is a reading — it is why the button is there — but a calendar line for
+  someone with no calendar is noise, so `enableHabits`/`enableCalendar` decide
+  which lines exist and the counts only decide what they say. All three figures
+  take `colors.primary` rather than the sentiment colors of the two reporting
+  steps: this summarizes a day the reader has just finished planning, and none
+  of its numbers is bad news.
+- **The button is staged at `heroLines.length`, not `BODY_STAGE`.** That
+  constant means "after all three hero lines" and is right for the two steps
+  that always draw three; this one draws as few as one, and waiting for stage 3
+  there would leave the button missing for most of a 3.6s sequence.
+- **It passes `bodyInsetTop` to cancel `HeroLines`' own bottom compensation.**
+  That padding evens out the ritual layout's step inset for a hero anchored to
+  the top of the step — which is what the calendar and backlog steps have.
+  Centering a block instead makes it bottom-heavy, pulling the figures above
+  true center, so this is the one caller that zeroes it out.
+- An entirely empty day replaces the figures with one line
+  (`summary-step-blank`) and keeps the button. `isLoading` is checked first or
+  a cold cache tells someone with a full morning they have nothing on.
+
 ## Drag-to-schedule (DEX-77)
 
 Large screens only (a phone's backlog is a native sheet a drag can't cross),

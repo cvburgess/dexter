@@ -76,7 +76,7 @@ describe("RitualStepSegments on iOS", () => {
       STEP_ICONS.review.sf,
       STEP_ICONS.journal.sf,
       STEP_ICONS["preview-tomorrow"].sf,
-      STEP_ICONS.congrats.sf,
+      STEP_ICONS.summary.sf,
     ]);
   });
 
@@ -84,7 +84,7 @@ describe("RitualStepSegments on iOS", () => {
     renderSegments();
 
     expect(segments().map((segment) => modifier(segment, "tag"))).toEqual([
-      0, 1, 2, 3, 4, 5,
+      0, 1, 2, 3, 4,
     ]);
   });
 
@@ -94,14 +94,7 @@ describe("RitualStepSegments on iOS", () => {
 
     expect(
       segments().map((segment) => modifier(segment, "accessibilityLabel")),
-    ).toEqual([
-      "Horoscope",
-      "Journal",
-      "Calendar",
-      "Backlog",
-      "Tasks",
-      "Congrats",
-    ]);
+    ).toEqual(["Horoscope", "Journal", "Calendar", "Backlog", "Summary"]);
   });
 
   it("selects the step on screen", () => {

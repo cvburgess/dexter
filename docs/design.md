@@ -353,8 +353,12 @@ Everything below is a deliberate literal. Adding to this list should be
 uncomfortable.
 
 - **`SENTIMENT_COLORS` and `SENTIMENT_FRAME`** (`utils/theme.ts`, DEX-128) —
-  the panel's six hexes plus its white frame, the only colors in the app that
-  are not theme tokens. See **Sentiment** above.
+  the panel's six hexes plus its white frame. See **Sentiment** above.
+- **`BANDS`** (`components/SunriseBackground.tsx`, DEX-144) — five warm hexes
+  behind the Summary step, for the reason sentiment has its own: a sunrise in
+  the user's palette is a green one on `dexter`. Held at 10–20% alpha so the
+  theme still shows through and everything over it keeps `colors.text` —
+  strengthen them past that and this needs its own ink, as sentiment did.
 - **`CalendarView`'s coordinate system** — `GUTTER_WIDTH`, `HOUR_HEIGHT`, etc.
   position labels, lines, and events against each other and misalign the moment
   one moves independently; the system stays fixed in named constants.

@@ -63,7 +63,31 @@ jest.mock("@/components/BacklogStep", () => {
   };
 });
 
+// And the summary step: it owns three queries, a reveal and a router push.
+jest.mock("@/components/SummaryStep", () => {
+  const { Text: RNText } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+  return {
+    SummaryStep: function MockSummaryStep({
+      date,
+    }: {
+      date: Temporal.PlainDate;
+    }) {
+      return <RNText>{`summary:${date.toString()}`}</RNText>;
+    },
+  };
+});
+
 const DATE = Temporal.PlainDate.from("2026-08-09");
+
+/** The step ids that no longer fall through to the placeholder branch. */
+const BUILT_STEP_IDS = [
+  "horoscope",
+  "journal",
+  "calendar",
+  "backlog",
+  "summary",
+];
 
 const renderStep = (step: TRitualStep) =>
   render(
@@ -121,6 +145,13 @@ describe("RitualStepView", () => {
     expect(screen.getByText("backlog:2026-08-09")).toBeTruthy();
   });
 
+  // The one built step both rituals reach, and the last of each.
+  it("renders the summary step for the summary id", () => {
+    renderStep({ id: "summary", title: "Summary" });
+
+    expect(screen.getByText("summary:2026-08-09")).toBeTruthy();
+  });
+
   it("hands a step the ritual's date rather than today's", () => {
     const other = Temporal.PlainDate.from("2026-01-02");
 
@@ -141,11 +172,7 @@ describe("RitualStepView", () => {
   // screen rather than a failure.
   it.each(
     [...RITUAL_STEPS.am, ...RITUAL_STEPS.pm].filter(
-      (step) =>
-        step.id !== "journal" &&
-        step.id !== "horoscope" &&
-        step.id !== "calendar" &&
-        step.id !== "backlog",
+      (step) => !BUILT_STEP_IDS.includes(step.id),
     ),
   )("renders $title as a placeholder", (step) => {
     renderStep(step);
