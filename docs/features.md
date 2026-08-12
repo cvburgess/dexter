@@ -177,6 +177,16 @@ phrase. Stage timing lives in `useHeroReveal`/`useStageOpacity`; the reveal is
 opacity-only — `SwipeablePage`'s intro already slides, and two axes compound into
 a diagonal drift.
 
+**The stage table is stated in milliseconds and the fractions derived from it**
+(864ms between stage starts, a 1008ms fade, five stages: four hero lines then the
+body). That is what let DEX-148 add a stage without retuning anything: `REVEAL_MS`
+grew from 3600 to 4464 and every existing step's stages still start at
+0/864/1728/2592. Adding a sixth works the same way — raise `STAGE_COUNT`. The
+window arithmetic is exported as `stageWindow` because everything past it is a
+worklet the reanimated mock renders opaque, and a stage index off the end of the
+table produces `NaN` whose only symptom is a body that never fades in, on device
+only.
+
 ### Horoscope step (DEX-128, re-shaped in DEX-145)
 
 Read-only client of `public.horoscopes` (`["horoscopes", sunSign, date]`),
@@ -373,6 +383,58 @@ next-day one. Load-bearing:
   `DayTaskList` share. A second copy is what would let one surface drop a repeat
   schedule while the other keeps it. (`TaskDrawer` still deletes straight through
   — a pre-existing divergence, not a decision.)
+
+### Review step (DEX-148)
+
+The evening's other task pass: four figures over the Today tab's habit rings and
+the cards for everything closed out. It is the **complement** of Open tasks two
+swipes back, not a second copy of it — `selectOpenTasksForDate` and
+`selectCompletedTasksForDate` partition the day, so no task appears in both and
+neither list is the other's leftovers. (That is also the axis it differs from the
+removed morning task-list step on: a finished day has no other surface listing
+it, where the Today list mixes closed rows in with open ones.)
+
+- **"Events complete" is every event the day held**, not the ones whose end time
+  has passed. A wall-clock comparison reads zero on a ritual paged to tomorrow
+  and everything on one paged to last week, so the figure would mean something
+  different depending on when you looked — and `DayNav` can page anywhere. Same
+  reading `calendarStats.eventCount` already takes.
+- **The habit figure is the only count that must come from `useDailyHabits`.**
+  `SummaryStep` reads `useHabits` because it asks how many habits the day *has*;
+  a review asks how many got *done*, which only the daily rows know
+  (`stepsComplete >= steps`). It applies `HabitTracker`'s paused/archived filter
+  too — the trigger clears the row but a habit edit doesn't invalidate the
+  `dailyHabits` cache, so the hero would otherwise count a ring the row below it
+  no longer draws.
+- **Completed tasks are cache-bounded to about 30 days.** `canonicalTaskFilters`
+  fetches open tasks *or* anything scheduled within 30 days, so a ritual paged
+  further back than that reports zero completions with no error anywhere. Not
+  worth its own query for a step you reach by walking tonight's ritual, but it is
+  invisible at the point of use.
+- **Focus blocks are hardcoded to `0`** until DEX-49 builds the timer — drawn
+  rather than deferred so the hero keeps its shape, and so the step doesn't gain
+  a figure (and a reveal stage) on the day the timer lands.
+- `useDailyHabits` gained the `skipQuery` `useHabits` already had, so a reader
+  with habits off adds no observer for them. It silences the inner `useHabits`
+  too; the mutations stay wired, since a `create` that silently did nothing would
+  be the worse surprise.
+- Every figure takes `colors.primary`, following Summary rather than the two
+  morning reporting steps: those flag something that might still be wrong, where
+  this is a day already lived and marking a low count in `error` would turn a
+  report into a verdict on it.
+- **The body is staged at `heroLines.length`, not `BODY_STAGE`** — the trap
+  Summary and Open tasks both document, and live here because the line count runs
+  from two to four with the reader's preferences.
+- Nothing closed out *and* no rings to tap centers the figures
+  (`review-step-quiet`). No confetti: a day with nothing finished is a reading,
+  not a win. With habits on the rings are always drawn, since a habit ticked
+  after dinner is what an evening review is for.
+- A completed `TaskCard` is already a record rather than a handle — no
+  `MoreMenu`, no rename, no due-date badge, frozen checklist — so "non-
+  interactive" needed no read-only variant. Its mutations are wired to the real
+  ones anyway (including `useTaskDelete`, not the raw `deleteTask`): every path
+  to them is closed on this card, and an unreachable stub is the easiest kind to
+  leave wrong.
 
 ## Drag-to-schedule (DEX-77)
 
