@@ -94,6 +94,22 @@ jest.mock("@/components/SummaryStep", () => {
   };
 });
 
+// And the review step: it owns three queries, a four-figure hero, the habit
+// rings and a list of cards.
+jest.mock("@/components/ReviewStep", () => {
+  const { Text: RNText } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+  return {
+    ReviewStep: function MockReviewStep({
+      date,
+    }: {
+      date: Temporal.PlainDate;
+    }) {
+      return <RNText>{`review:${date.toString()}`}</RNText>;
+    },
+  };
+});
+
 const DATE = Temporal.PlainDate.from("2026-08-09");
 
 /** The step ids that no longer fall through to the placeholder branch. */
@@ -104,6 +120,7 @@ const BUILT_STEP_IDS = [
   "backlog",
   "summary",
   "open-tasks",
+  "review",
 ];
 
 const renderStep = (step: TRitualStep) =>
@@ -168,6 +185,15 @@ describe("RitualStepView", () => {
     renderStep({ id: "open-tasks", title: "Open tasks" });
 
     expect(screen.getByText("open-tasks:2026-08-09")).toBeTruthy();
+  });
+
+  // The other half of the evening's task pass. It takes no `onEditingChange` —
+  // a completed card renames nothing — which is why this branch passes only the
+  // date.
+  it("renders the review step for the ritual's day", () => {
+    renderStep({ id: "review", title: "Review" });
+
+    expect(screen.getByText("review:2026-08-09")).toBeTruthy();
   });
 
   // The one built step both rituals reach, and the last of each.

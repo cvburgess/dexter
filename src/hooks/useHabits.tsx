@@ -103,9 +103,27 @@ type TUseDailyHabits = [
   },
 ];
 
-export const useDailyHabits = (date: string): TUseDailyHabits => {
+/**
+ * A day's habit rows and the two mutations that move them.
+ *
+ * `skipQuery` is the same option `useHabits` takes, and it silences **both**
+ * reads — this hook's own and the inner `useHabits` it needs for
+ * `createDailyHabits`. A caller that only wants the count when the reader has
+ * the feature on (the ritual's Review step, DEX-148) would otherwise fire two
+ * observers and a request for a habit list it never draws, which is the cost
+ * `SummaryStep` already avoids on the plain `useHabits` side.
+ *
+ * The mutations are left wired rather than stubbed out under the flag: they are
+ * unreachable from a caller that skipped the read, and a `create` that silently
+ * did nothing would be the worse surprise if one ever did call it.
+ */
+export const useDailyHabits = (
+  date: string,
+  options?: { skipQuery?: boolean },
+): TUseDailyHabits => {
   const queryClient = useQueryClient();
   const [habits] = useHabits({
+    skipQuery: options?.skipQuery,
     filters: [
       ...habitFilters.notPaused,
       ...habitFilters.activeForDay(Temporal.PlainDate.from(date).dayOfWeek),
@@ -113,6 +131,7 @@ export const useDailyHabits = (date: string): TUseDailyHabits => {
   });
 
   const { data: dailyHabits = [], isLoading } = useQuery({
+    enabled: !options?.skipQuery,
     queryKey: ["dailyHabits", date],
     queryFn: () => getDailyHabits(supabase, date),
     retry: false,

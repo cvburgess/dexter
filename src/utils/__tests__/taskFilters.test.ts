@@ -11,6 +11,7 @@ import {
   filterTasks,
   isCompletionStatus,
   selectBacklogTasks,
+  selectCompletedTasksForDate,
   selectOpenTasksForDate,
   selectTasksForDate,
 } from "../taskFilters";
@@ -126,6 +127,95 @@ describe("selectOpenTasksForDate", () => {
     expect(selectOpenTasksForDate(tasks, date).map((t) => t.id)).toEqual([
       "today",
     ]);
+  });
+});
+
+describe("selectCompletedTasksForDate", () => {
+  // The Review step reports what the day added up to (DEX-148), and abandoning
+  // a task or handing it off both count as putting it down — the same reading
+  // `selectOpenTasksForDate` takes from the other side, so the two partition
+  // the day rather than leaving WONT_DO and DELEGATED in neither list.
+  it("keeps every terminal status, not just DONE", () => {
+    const tasks = [
+      task({
+        id: "todo",
+        scheduledFor: "2026-07-16",
+        status: ETaskStatus.TODO,
+      }),
+      task({
+        id: "doing",
+        scheduledFor: "2026-07-16",
+        status: ETaskStatus.IN_PROGRESS,
+      }),
+      task({
+        id: "done",
+        scheduledFor: "2026-07-16",
+        status: ETaskStatus.DONE,
+      }),
+      task({
+        id: "wont",
+        scheduledFor: "2026-07-16",
+        status: ETaskStatus.WONT_DO,
+      }),
+      task({
+        id: "delegated",
+        scheduledFor: "2026-07-16",
+        status: ETaskStatus.DELEGATED,
+      }),
+    ];
+
+    expect(selectCompletedTasksForDate(tasks, date).map((t) => t.id)).toEqual([
+      "done",
+      "wont",
+      "delegated",
+    ]);
+  });
+
+  // Scope is `scheduledFor`, since tasks carry no completion timestamp: a task
+  // finished today but scheduled for yesterday is yesterday's review, not this
+  // one's.
+  it("ignores other days and the unscheduled backlog", () => {
+    const tasks = [
+      task({
+        id: "yesterday",
+        scheduledFor: "2026-07-15",
+        status: ETaskStatus.DONE,
+      }),
+      task({
+        id: "today",
+        scheduledFor: "2026-07-16",
+        status: ETaskStatus.DONE,
+      }),
+      task({
+        id: "unscheduled",
+        scheduledFor: null,
+        status: ETaskStatus.DONE,
+      }),
+    ];
+
+    expect(selectCompletedTasksForDate(tasks, date).map((t) => t.id)).toEqual([
+      "today",
+    ]);
+  });
+
+  // Together with the suite above: no task scheduled for the day falls outside
+  // both selectors, which is what makes the evening's two steps a partition of
+  // it rather than two overlapping filters.
+  it("partitions the day with selectOpenTasksForDate", () => {
+    const tasks = [
+      ETaskStatus.TODO,
+      ETaskStatus.IN_PROGRESS,
+      ETaskStatus.DONE,
+      ETaskStatus.WONT_DO,
+      ETaskStatus.DELEGATED,
+    ].map((status) =>
+      task({ id: String(status), scheduledFor: "2026-07-16", status }),
+    );
+
+    expect([
+      ...selectOpenTasksForDate(tasks, date),
+      ...selectCompletedTasksForDate(tasks, date),
+    ]).toHaveLength(tasks.length);
   });
 });
 

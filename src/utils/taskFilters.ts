@@ -50,6 +50,29 @@ export function selectOpenTasksForDate(
 }
 
 /**
+ * Tasks scheduled for `date` that somebody closed out — the evening ritual's
+ * Review step (DEX-148), and the exact complement of `selectOpenTasksForDate`.
+ *
+ * Both read `isCompletionStatus` rather than testing `status` themselves, so
+ * "done with" stays one decision made in `utils/taskStatus` (shared with the
+ * Deno MCP server) and the two selectors cannot come to disagree about a status
+ * added there.
+ *
+ * **Scope is `scheduledFor`, not a completion timestamp** — tasks have no
+ * `completedAt` column, so this is "what the day was carrying, finished" rather
+ * than "what was finished during the day". A task closed out today but
+ * scheduled for yesterday belongs to yesterday's review.
+ */
+export function selectCompletedTasksForDate(
+  tasks: TTask[],
+  date: Temporal.PlainDate,
+): TTask[] {
+  return selectTasksForDate(tasks, date).filter((task) =>
+    isCompletionStatus(task.status),
+  );
+}
+
+/**
  * Incomplete tasks that are unscheduled or scheduled for a day *not* already on
  * screen — the Backlog drawer's base scope (on-device equivalent of the former
  * `notScheduledForDateFilters` server query, DEX-57).

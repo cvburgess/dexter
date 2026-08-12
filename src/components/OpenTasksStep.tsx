@@ -12,7 +12,7 @@ import {
 } from "@/api/tasks";
 import { Confetti } from "@/components/Confetti";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
-import { GlassIconButton } from "@/components/GlassIconButton";
+import { TaskScheduleButton } from "@/components/TaskScheduleButton";
 import {
   HeroLines,
   type THeroLine,
@@ -23,27 +23,13 @@ import { TaskCard } from "@/components/TaskCard";
 import { useScheduleChange } from "@/hooks/useScheduleChange";
 import { useTaskDelete } from "@/hooks/useTaskDelete";
 import { useTasks } from "@/hooks/useTasks";
-import { formatWeekdayMonthDay } from "@/utils/formatPlainDate";
 import { selectOpenTasksForDate } from "@/utils/taskFilters";
 import { useTheme } from "@/utils/theme";
 
-// Ionicons has no calendar-with-a-minus, and `calendar-clear-outline` is a
-// calendar with an *x* — which reads as delete rather than as taking the task
-// off the day. A bare minus says the same thing as the SF Symbol's badge
-// without miscasting it.
-const UNSCHEDULE_ICON = {
-  sf: "calendar.badge.minus",
-  ionicon: "remove-outline",
-} as const;
-
-// Also `StatusButton`'s glyph for DELEGATED — harmless here, since delegated is
-// a terminal status and so never appears in this list.
-const TOMORROW_ICON = { sf: "arrow.right", ionicon: "arrow-forward" } as const;
-
 type TOpenTaskRowProps = {
   task: TTask;
-  /** The day after the one being closed out — where the right arrow sends it. */
-  tomorrow: Temporal.PlainDate;
+  /** The day being closed out; the buttons derive their own targets from it. */
+  date: Temporal.PlainDate;
   onChangeSchedule: (task: TTask, scheduledFor: string | null) => void;
   onDelete: (task: TTask) => void;
   onEditingChange: (editing: boolean) => void;
@@ -56,14 +42,14 @@ type TOpenTaskRowProps = {
  * One task, between its two dispositions.
  *
  * The same shape the backlog drawer's rows take — a card in a `flex: 1` wrapper
- * with a round button beside it — mirrored so this one has a button on each
- * side. Both labels name the *day* rather than saying "tomorrow", the convention
- * the drawer's "+" set: the ritual can be paged to any date, so the arrow does
- * not always mean the day after today.
+ * with a `TaskScheduleButton` beside it — mirrored so this one has a button on
+ * each side. Both are `solid`: liquid glass cannot sample its backdrop through
+ * the fade `SwipeablePage` runs over every ritual step, so the glass circles
+ * washed out here and left two bare glyphs beside the card.
  */
 function OpenTaskRow({
   task,
-  tomorrow,
+  date,
   onChangeSchedule,
   onDelete,
   onEditingChange,
@@ -74,11 +60,12 @@ function OpenTaskRow({
 
   return (
     <View style={[styles.row, { gap: theme.space.sm }]}>
-      <GlassIconButton
-        accessibilityLabel={`Unschedule "${task.title}"`}
-        ionicon={UNSCHEDULE_ICON.ionicon}
-        onPress={() => onChangeSchedule(task, null)}
-        sfSymbol={UNSCHEDULE_ICON.sf}
+      <TaskScheduleButton
+        date={date}
+        mode="unschedule"
+        onChangeSchedule={onChangeSchedule}
+        solid
+        task={task}
       />
       <View style={styles.cardWrapper}>
         {/* A plain `TaskCard`, not `DraggableTaskCard`: there is no
@@ -94,11 +81,12 @@ function OpenTaskRow({
           task={task}
         />
       </View>
-      <GlassIconButton
-        accessibilityLabel={`Move "${task.title}" to ${formatWeekdayMonthDay(tomorrow)}`}
-        ionicon={TOMORROW_ICON.ionicon}
-        onPress={() => onChangeSchedule(task, tomorrow.toString())}
-        sfSymbol={TOMORROW_ICON.sf}
+      <TaskScheduleButton
+        date={date}
+        mode="defer"
+        onChangeSchedule={onChangeSchedule}
+        solid
+        task={task}
       />
     </View>
   );
@@ -150,11 +138,6 @@ export function OpenTasksStep({ date, onEditingChange }: TOpenTasksStepProps) {
     () => selectOpenTasksForDate(allTasks, date),
     [allTasks, date],
   );
-
-  // The day after the one on screen, not the day after *today*: the ritual can
-  // be paged with `DayNav`, and every other part of this step reads the ritual's
-  // date. It is also the day the Preview tomorrow step two along will show.
-  const tomorrow = date.add({ days: 1 });
 
   // Held back until the tasks exist, so the sequence waits rather than running
   // against `useTasks`'s empty placeholder array.
@@ -243,6 +226,7 @@ export function OpenTasksStep({ date, onEditingChange }: TOpenTasksStepProps) {
           {tasks.map((task) => (
             <OpenTaskRow
               key={task.id}
+              date={date}
               onChangeSchedule={(target, scheduledFor) =>
                 void changeSchedule(target, scheduledFor)
               }
@@ -251,7 +235,6 @@ export function OpenTasksStep({ date, onEditingChange }: TOpenTasksStepProps) {
               onEditingChange={onEditingChange}
               onUpdate={(diff) => updateTask({ id: task.id, ...diff })}
               task={task}
-              tomorrow={tomorrow}
             />
           ))}
         </ScrollView>

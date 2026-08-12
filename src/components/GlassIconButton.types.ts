@@ -25,4 +25,20 @@ export type TGlassIconButtonProps = {
    * Backlog's overdue/left-behind indicator).
    */
   indicator?: boolean;
+  /**
+   * Draws the plain bordered circle on iOS even where liquid glass is
+   * available — the same shape the pre-26 fallback uses.
+   *
+   * **For a button under an animated opacity.** Liquid glass is a
+   * `UIVisualEffectView` sampling what is behind it, and it cannot do that
+   * through a non-opaque ancestor layer: inside a ritual step, where
+   * `SwipeablePage` fades the whole page in on every swipe, the circle washes
+   * out to nothing and the icon reads as a bare glyph floating beside the card.
+   * Off iOS this changes nothing — that branch already draws this circle.
+   *
+   * A flag rather than a fix in `SwipeablePage`, because the fade is the
+   * ritual's whole arrival and the buttons are the part that has to stay legible
+   * mid-animation, not the other way round.
+   */
+  solid?: boolean;
 };
