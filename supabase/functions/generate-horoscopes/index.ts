@@ -1,5 +1,11 @@
 // Generates tomorrow's horoscope for all twelve sun signs and upserts them into
-// `public.horoscopes` (DEX-84).
+// `public.horoscopes` (DEX-84; re-pointed at astrology-api.io v3 in DEX-145).
+//
+// There is no summarization step: the upstream returns display-ready prose, so
+// the row is what it sent plus the sign we asked for. That also removes the
+// failure mode the old pipeline had, where a paid fetch succeeded, the LLM call
+// after it failed, and the run stored nothing — spending a call and leaving the
+// sign for the next hour to buy again.
 //
 // Invoked once a day by the pg_cron job in
 // 20260804005119_schedule_generate_horoscopes.sql, which POSTs here through
@@ -24,10 +30,9 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@src/types/database.types.ts";
 
 import { captureException, withSentry } from "../_shared/sentry.ts";
-import { fetchPrediction, type TSunSign, ZODIAC_SIGNS } from "./astrology.ts";
+import { fetchHoroscope, type TSunSign, ZODIAC_SIGNS } from "./astrology.ts";
 import { isAuthorizedCronRequest } from "./auth.ts";
 import { toHoroscopeRow } from "./row.ts";
-import { summarizePrediction } from "./summarize.ts";
 
 // No CORS headers and no OPTIONS branch, unlike the other functions in this
 // directory. Nothing browser-based ever calls this — pg_net is the only client —
@@ -43,16 +48,14 @@ function expectedDate(): string {
   return tomorrow.toISOString().slice(0, 10);
 }
 
-async function generateForSign(sign: TSunSign, apiKey: string) {
+async function generateForSign(sign: TSunSign, date: string, apiKey: string) {
   try {
-    const response = await fetchPrediction(sign, apiKey);
-    const summary = await summarizePrediction(response.prediction);
-    return toHoroscopeRow(sign, response, summary);
+    return toHoroscopeRow(sign, await fetchHoroscope(sign, date, apiKey));
   } catch (error) {
     // Twelve signs run concurrently and `Promise.allSettled` keeps only the
     // reason, so without this the sign is lost for every failure that does not
-    // name it itself — "Summarization returned no object" and the Zod errors
-    // are the common ones. Sentry is the durable signal for this job
+    // name it itself — the Zod errors and "life_area_focus is missing" are the
+    // ones to expect. Sentry is the durable signal for this job
     // (docs/backend.md "Scheduled jobs"), so it has to say which sign.
     throw new Error(`Failed to generate the horoscope for ${sign}`, {
       cause: error,
@@ -102,12 +105,13 @@ async function handler(req: Request): Promise<Response> {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  // The date this run *expects* to write. It is only a prediction: the row's
-  // date comes from the upstream's own `prediction_date`, and the two can
-  // disagree — keeping the cron inside 05:00–09:59 UTC is what makes that rare
-  // rather than impossible. A disagreement costs a redundant regeneration (the
-  // upsert absorbs it), never a wrong row, which is why the cheap guess is
-  // preferred to fetching one sign first to find out.
+  // The date this run writes — and, since DEX-145, the date it *asks* for:
+  // v3 takes an explicit ISO date, so this is a request parameter rather than
+  // the guess it was under AstrologyAPI (whose `/daily/next` endpoint meant
+  // "tomorrow" relative to a server clock in IST, and needed an offset derived
+  // by experiment). The row's date still comes from the response, so the
+  // disagreement check below is still worth making — it is now an assertion
+  // that the upstream honored the request rather than a timezone tripwire.
   const expected = expectedDate();
 
   // The quota guard, and the work list: the signs already stored for the
@@ -153,12 +157,11 @@ async function handler(req: Request): Promise<Response> {
     }
   }
 
-  // Per-sign isolation: one sign failing upstream or in summarization must not
-  // cost the others. Run concurrently — at most twelve short calls against two
-  // services, well inside the wall-clock budget, and far enough under the AI
-  // Gateway's rate cap that a concurrency bound would be premature.
+  // Per-sign isolation: one sign failing upstream must not cost the others.
+  // Run concurrently — at most twelve short calls against one service, well
+  // inside the wall-clock budget.
   const results = await Promise.allSettled(
-    pending.map((sign) => generateForSign(sign, astrologyApiKey)),
+    pending.map((sign) => generateForSign(sign, expected, astrologyApiKey)),
   );
 
   const rows = results
@@ -189,26 +192,27 @@ async function handler(req: Request): Promise<Response> {
     }
   }
 
-  // Report the dates actually written rather than the guess above, so a
+  // Report the dates actually written rather than the date requested, so a
   // disagreement with `expected` is visible in `net._http_response` instead of
   // silently looking like a normal run. Normally one date; more than one means
-  // the upstream is straddling a rollover and is worth a look.
+  // the upstream answered different signs for different days and is worth a look.
   const dates = [...new Set(rows.map((row) => row.date))].sort();
 
   // A row whose upstream date is not `expected` was written under a different
-  // key, so it does nothing for the date this run is completing. Pinning
-  // `timezone: 0` on the request should make that impossible, but `alreadyStored`
-  // is scoped to `expected` and counting rows that landed elsewhere alongside it
-  // would report `complete: true` for a date still missing signs — and `complete`
-  // is precisely the field an operator trusts without checking.
+  // key, so it does nothing for the date this run is completing. Asking for an
+  // explicit date should make that impossible, but `alreadyStored` is scoped to
+  // `expected` and counting rows that landed elsewhere alongside it would report
+  // `complete: true` for a date still missing signs — and `complete` is precisely
+  // the field an operator trusts without checking.
   const storedForDate = alreadyStored +
     rows.filter((row) => row.date === expected).length;
 
   if (dates.some((date) => date !== expected)) {
-    // Should be unreachable. If it fires, the upstream stopped honoring the
-    // pinned timezone, and every later run will re-fetch the same signs forever
-    // because `expected` never fills up — worth an alert, not just a field in a
-    // response body nobody is reading.
+    // Should be unreachable: the date is a request parameter and the response
+    // echoes it. If it fires, the upstream stopped honoring `date`, and every
+    // later run will re-fetch the same signs forever because `expected` never
+    // fills up — worth an alert, not just a field in a response body nobody is
+    // reading.
     captureException(
       new Error(
         `generate-horoscopes expected ${expected} but wrote ${

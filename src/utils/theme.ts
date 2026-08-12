@@ -332,6 +332,37 @@ export function sentimentTints(sentiment: THoroscopeSentiment): {
  * color: the card reads as a dark shape with white space around it rather than
  * as a drawn border. That is the accepted cost of one frame everywhere.
  */
+/**
+ * The app's serif family, for the places that want a voice rather than a label.
+ *
+ * **The app's only custom font.** Everything else is the platform's system face,
+ * which is why the six type roles carry a size and a weight and no family: a
+ * role says how loud a thing is, and until now every one of them said it in the
+ * same voice. This is the second voice, and it is deliberately scoped — reach
+ * for it where the app is *saying* something (the Horoscope step's tips) rather
+ * than labelling something.
+ *
+ * **Each entry is a separate loaded file, not a family plus modifiers.** This is
+ * the part that surprises: on the web `font-family: Playfair` with
+ * `font-weight: 700` picks the bold cut, but React Native has no such
+ * resolution — a custom family name maps to exactly one file. Asking for a
+ * weight or a style this map does not name gets you the platform's *synthetic*
+ * one: a smeared faux-bold on Android, an oblique slant on iOS, and on a
+ * typeface chosen for its italic that is precisely the wrong result. So
+ * anything using one of these must set `fontWeight` and `fontStyle` to
+ * `"normal"` — the file already carries both.
+ *
+ * Adding a cut is two lines: the import in `app/_layout.tsx`'s `useFonts` and an
+ * entry here. Only load what is used — each is a separate ~100-200KB asset in
+ * the bundle and a separate download on web. A 400 cut was carried here briefly
+ * for the tips below the hero and removed once they took the 700 as well: an
+ * entry nothing sets is a download every user pays for.
+ */
+export const SERIF = {
+  /** Playfair Display, 700 italic. */
+  displayItalic: "PlayfairDisplay_700Bold_Italic",
+} as const;
+
 export const SENTIMENT_FRAME = "#ffffff";
 
 /**

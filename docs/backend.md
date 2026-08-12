@@ -27,10 +27,11 @@ never answered.
 
 ## Horoscopes
 
-`public.horoscopes` (DEX-84) holds one sun-sign prediction per day — six text
-facets from AstrologyAPI plus an LLM `summary` and `sentiment`. It is the first
-table in this schema that **nobody owns** (global reference data), which drives
-its shape:
+`public.horoscopes` (DEX-84; rebuilt for astrology-api.io v3 in DEX-145) holds
+one sun-sign horoscope per day — a short prose `text`, an `overall_rating`,
+three `tips`, and a rating for each of twelve life areas. It is the first table
+in this schema that **nobody owns** (global reference data), which drives its
+shape:
 
 - **No `user_id`, no `id`.** PK is `(sun_sign, date)` — `sun_sign` first so the
   leftmost prefix also serves `where sun_sign = $1 order by date desc`. No
@@ -43,10 +44,17 @@ its shape:
   get INSERT for free — BYPASSRLS exempts a role from policies, not grants —
   so both `service_role` INSERT and `authenticated` SELECT are granted by name.
   Check `\dp public.<table>` rather than assuming.
-- **No `*_rating` columns although the issue asked for them** — the live API
-  no longer returns them. The transferable lesson: **build fixtures from a real
-  response, not from the spec**; the tests passed against the issue's sample
-  right up until a live call was made.
+- **`sentiment` is a generated column**, bucketed from `overall_rating` (≥4
+  positive, ≤2 negative, else mixed) rather than written by the function. The
+  UI groups each life area with the same thresholds, so the card's tint and the
+  columns under it cannot disagree. Generated columns need an IMMUTABLE
+  expression; a string literal cast to an enum qualifies, a `now()` would not.
+- **Build fixtures from a real response, not from the spec.** Learned twice on
+  this table. DEX-84 shipped tests against the issue's 2024 sample, which had
+  `<facet>_rating` fields the live API no longer sent. DEX-145 then found the
+  vendor's published sample showed only the inner object while the wire format
+  wraps it in `{ success, data, metadata }` — a schema written from the docs
+  would have parsed cleanly and read `undefined` in production.
 - Not in the realtime publication (rows change once a day).
 - `sun_sign` and `horoscope_sentiment` are the schema's first Postgres enums,
   justified only because both sets are genuinely closed. `tasks.status` and
@@ -70,21 +78,24 @@ at **06:00, 07:00 and 08:00 UTC**, POSTing to `generate-horoscopes` through
 pg_net. The repo's only pg_cron job and only Vault use.
 
 - **Three runs because each is nearly free**: the function requests only the
-  signs missing for the target date, so the later runs are retries for LLM
-  outputs that failed to parse — fifty times less code than in-function retry.
+  signs missing for the target date, so the later runs are retries for signs
+  that failed — fifty times less code than in-function retry. They cost nothing
+  on a complete day, returning `skipped: true` without a single upstream call.
 - **The endpoint is never in the migration.** Preview branches replay
   migrations against a different project ref, so a hardcoded URL would point
   every open PR's database at production on a timer. URL and secret come from
   Vault (per-project, not in git); everywhere Vault is empty the job is inert
   by design (`NULL`, no request).
-- **The deadline is 10:00 UTC** (earliest local midnight on Earth is UTC+14).
-  There is no lower bound, but only because the request sends
-  `timezone: -5.5`: the upstream's clock is IST and its `timezone` body param
-  is relative *to that*. `timezone: 0` is the intuitive value and it is wrong —
-  it tests clean between 00:00 and 18:29 UTC and silently returns the day
-  after tomorrow outside that window (measured 2026-08-04). This is why
-  `index.ts` reports any `expected`-vs-written date disagreement to Sentry: a
-  silent mismatch would re-fetch the same signs forever on paid calls.
+- **The deadline is 10:00 UTC** (earliest local midnight on Earth is UTC+14),
+  and since DEX-145 there is no lower bound at all: v3 takes an explicit ISO
+  `date` and echoes it back, so which day is being generated is a request
+  parameter rather than an inference. The predecessor was not so kind —
+  AstrologyAPI's `timezone` body param was relative to its own IST clock, so
+  the intuitive `timezone: 0` tested clean between 00:00 and 18:29 UTC and
+  silently returned the day after tomorrow outside that window. `index.ts`
+  still reports any `expected`-vs-written date disagreement to Sentry, now as
+  an assertion that the upstream honored the request: a silent mismatch would
+  re-fetch the same signs forever on metered calls.
 - **Observability, in increasing trustworthiness:** `cron.job_run_details`
   proves only that the statement fired (pg_net is async — "succeeded" is
   compatible with a 500); `net._http_response` has the real HTTP outcome but a
@@ -350,8 +361,7 @@ Function secrets, referenced with `Deno.env.get(...)`:
 | ----------------------- | ----------------------------------------- | ---------------------------------------------------------------------------- |
 | `DEMO_OTP`              | `verify-demo-otp`, `scripts/seed-demo.ts` | Required — the function 500s without it                                      |
 | `SENTRY_DSN`            | every function                            | Optional — but `generate-horoscopes` has no other durable failure signal     |
-| `ASTROLOGY_API_KEY`     | `generate-horoscopes`                     | Required                                                                     |
-| `AI_GATEWAY_API_KEY`    | `generate-horoscopes`                     | Required — read implicitly by the AI SDK, never via `Deno.env.get`           |
+| `ASTROLOGY_API_KEY`     | `generate-horoscopes`                     | Required — astrology-api.io bearer token; the name predates the vendor swap  |
 | `HOROSCOPE_CRON_SECRET` | `generate-horoscopes`                     | Required — must equal the Vault `generate_horoscopes_secret`; rotate together |
 
 ### Preview-branch secrets (dotenvx)

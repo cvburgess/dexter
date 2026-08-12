@@ -89,7 +89,6 @@ enabled = false
 [edge_runtime.secrets]
 DEMO_OTP = "env(DEMO_OTP)"
 ASTROLOGY_API_KEY = "env(ASTROLOGY_API_KEY)"
-AI_GATEWAY_API_KEY = "env(AI_GATEWAY_API_KEY)"
 HOROSCOPE_CRON_SECRET = "env(HOROSCOPE_CRON_SECRET)"
 
 # ---------- Edge Functions ----------
@@ -110,8 +109,8 @@ entrypoint = "./functions/mcp-server/index.ts"
 # (public.trigger_generate_horoscopes). verify_jwt is off because a project JWT
 # is not authorization: any signed-in user's access token passes it, as does the
 # publishable key that ships in the app bundle, and this endpoint spends paid
-# upstream and LLM quota. The function checks a dedicated x-cron-secret header
-# instead. See docs/backend.md.
+# upstream quota. The function checks a dedicated x-cron-secret header instead.
+# See docs/backend.md.
 [functions.generate-horoscopes]
 enabled = true
 verify_jwt = false

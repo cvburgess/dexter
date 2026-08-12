@@ -323,11 +323,38 @@ The drawn `SegmentedControl` (Android/web) needs `stretch={false}` in the
 header's actions row, which has no width of its own — `flex: 1` segments
 would divide nothing and collapse.
 
-### Horoscope step (DEX-128)
+### Horoscope step (DEX-128, re-shaped in DEX-145)
 
 Read-only client of `public.horoscopes` (`["horoscopes", sunSign, date]`),
 deliberately not realtime (rows change once a day). The panel's colors and
 frame are `docs/design.md`'s Sentiment section. App-side gotchas:
+
+- **The tips are the app's only custom-font text** (`SERIF`, see
+  `docs/design.md`), and the reason `app/_layout.tsx` holds the splash at
+  startup. Both resets on those styles are load-bearing — see the design doc.
+- **The hero shows the first tip, and `horoscopes.text` is never rendered at
+  all.** The column is still fetched and stored — it is the horoscope proper —
+  but as a hero it was three sentences of astrological mechanism ("Mars strains
+  against the Sun's natal position") where the tips are the part written *to*
+  the reader. Keep it stored; putting it back on screen is a decision, not a
+  fix, and a test asserts it stays off.
+- **The hero is sized to exactly one screenful**, so whatever it holds is a
+  layout constraint rather than a detail — a taller hero pushes the chevron off
+  the fold and breaks the scroll-to-reveal conceit the whole step is built on.
+- **Balanced wrapping is per-platform and partial.** The tips carry
+  `BALANCED_WRAP` — `textBreakStrategy` genuinely balances on Android,
+  `lineBreakStrategyIOS: "standard"` is a nudge rather than the same thing (iOS
+  has no balance option), and web gets nothing because CSS `text-wrap: balance`
+  is not an RN style key. There is no cross-platform API and no library:
+  react-native-community/discussions-and-proposals#890 is the open ask.
+- Below the fold: the remaining `tips`, then the twelve life areas sorted into
+  three stacked bands by rating (`lifeAreasInBucket`), each a mark beside its
+  areas joined into one string. Three parallel *columns* were the first cut and
+  were cut: they gave every band the same third of the card however the ratings
+  fell, so a day with one bad area and eleven good ones drew two near-empty
+  columns beside a crowded one. A band can legitimately be empty — a day with
+  nothing rated 1-2 is a good day — and it still draws its row, with an em dash,
+  so the legend keeps its shape from one morning to the next.
 
 - `components/StarField.tsx` is **seeded, not random** (a sky must not
   reshuffle per render); stars deal into four layers with one shared opacity

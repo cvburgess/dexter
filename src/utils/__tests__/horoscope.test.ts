@@ -2,13 +2,16 @@ import { THoroscope } from "@/api/horoscopes";
 import { Constants } from "@/types/database.types";
 import {
   bySentence,
-  HOROSCOPE_FACETS,
+  LIFE_AREAS,
+  lifeAreasInBucket,
   NO_SUN_SIGN,
+  RATING_BUCKETS,
+  ratingBucket,
   SUN_SIGN_OPTIONS,
   SUN_SIGNS,
 } from "@/utils/horoscope";
 
-// DEX-128: the Horoscope step's presentation tables.
+// DEX-128, re-shaped in DEX-145: the Horoscope step's presentation tables.
 
 const SIGNS = Constants.public.Enums.sun_sign;
 
@@ -56,33 +59,118 @@ describe("SUN_SIGN_OPTIONS", () => {
   });
 });
 
-describe("HOROSCOPE_FACETS", () => {
-  // The six text columns the generator writes. `summary` and `sentiment` are
-  // deliberately absent — they are the hero, not the detail below it.
-  it("covers exactly the six facet fields", () => {
+describe("LIFE_AREAS", () => {
+  it("covers exactly the twelve rating columns", () => {
     const keys: (keyof THoroscope)[] = [
-      "emotions",
-      "personalLife",
-      "profession",
-      "health",
-      "travel",
-      "luck",
+      "ratingIdentity",
+      "ratingHealth",
+      "ratingFinance",
+      "ratingCareer",
+      "ratingLove",
+      "ratingRelationships",
+      "ratingCreativity",
+      "ratingSpirituality",
+      "ratingHome",
+      "ratingLearning",
+      "ratingCommunication",
+      "ratingTravel",
     ];
 
-    expect([...HOROSCOPE_FACETS].map((facet) => facet.key).sort()).toEqual(
+    expect([...LIFE_AREAS].map((area) => area.key).sort()).toEqual(
       [...keys].sort(),
     );
   });
 
-  // Both names are required so neither platform silently falls back to a third
-  // icon set (DEX-61) — the same guarantee `TIconName` gives at compile time,
-  // asserted here because an empty string would satisfy the type.
-  it("names both an SF Symbol and an Ionicon for every facet", () => {
-    for (const facet of HOROSCOPE_FACETS) {
-      expect(facet.icon.sf).toBeTruthy();
-      expect(facet.icon.ionicon).toBeTruthy();
-      expect(facet.label).toBeTruthy();
+  it("labels every area", () => {
+    for (const area of LIFE_AREAS) expect(area.label).toBeTruthy();
+  });
+});
+
+describe("ratingBucket", () => {
+  // These thresholds are also the database's, which derives
+  // `horoscopes.sentiment` from `overall_rating` with the same three buckets.
+  // If one side moves, a reader gets a green card over a band of down arrows.
+  it("splits 1-5 into three groups, worst to best", () => {
+    expect(ratingBucket(1)).toBe("negative");
+    expect(ratingBucket(2)).toBe("negative");
+    expect(ratingBucket(3)).toBe("mixed");
+    expect(ratingBucket(4)).toBe("positive");
+    expect(ratingBucket(5)).toBe("positive");
+  });
+});
+
+describe("RATING_BUCKETS", () => {
+  // Best first, deliberately: worst-first put a list of what is going badly
+  // directly under the day's advice, which read as an accusation rather than a
+  // reading. The arrows carry the meaning either way, so the order is free to
+  // serve the tone.
+  it("leads with the positive band", () => {
+    expect(RATING_BUCKETS.map((bucket) => bucket.id)).toEqual([
+      "positive",
+      "mixed",
+      "negative",
+    ]);
+  });
+
+  it("gives each bucket a distinct label and glyph", () => {
+    expect(new Set(RATING_BUCKETS.map((b) => b.glyph)).size).toBe(3);
+    expect(new Set(RATING_BUCKETS.map((b) => b.label)).size).toBe(3);
+  });
+
+  // The variation selector is what forces text presentation, which is what lets
+  // the mark take the panel's ink instead of rendering as a full-color emoji in
+  // a palette no theme controls (docs/design.md, "Icons"). It is invisible in
+  // source, so nothing but a test will notice it going missing.
+  it("forces text presentation on every glyph", () => {
+    for (const bucket of RATING_BUCKETS) {
+      expect(bucket.glyph).toContain("︎");
     }
+  });
+});
+
+describe("lifeAreasInBucket", () => {
+  const horoscope = {
+    ratingIdentity: 1,
+    ratingHealth: 3,
+    ratingFinance: 5,
+    ratingCareer: 2,
+    ratingLove: 3,
+    ratingRelationships: 4,
+    ratingCreativity: 3,
+    ratingSpirituality: 3,
+    ratingHome: 3,
+    ratingLearning: 3,
+    ratingCommunication: 3,
+    ratingTravel: 3,
+  } as THoroscope;
+
+  it("sorts each area into exactly one band", () => {
+    const total = RATING_BUCKETS.reduce(
+      (sum, bucket) => sum + lifeAreasInBucket(horoscope, bucket.id).length,
+      0,
+    );
+
+    expect(total).toBe(LIFE_AREAS.length);
+  });
+
+  it("groups by the area's own rating", () => {
+    expect(
+      lifeAreasInBucket(horoscope, "negative").map((a) => a.label),
+    ).toEqual(["Identity", "Career"]);
+    expect(
+      lifeAreasInBucket(horoscope, "positive").map((a) => a.label),
+    ).toEqual(["Finance", "Relationships"]);
+  });
+
+  // A day where nothing rates 1 or 2 is a good day, not a broken one — the step
+  // still draws the band's row and marks it with an em dash.
+  it("returns an empty list rather than throwing when a band has nothing", () => {
+    const allNeutral = Object.fromEntries(
+      LIFE_AREAS.map((area) => [area.key, 3]),
+    ) as unknown as THoroscope;
+
+    expect(lifeAreasInBucket(allNeutral, "negative")).toEqual([]);
+    expect(lifeAreasInBucket(allNeutral, "mixed")).toHaveLength(12);
   });
 });
 
