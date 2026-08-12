@@ -252,7 +252,12 @@ can resolve the import). Notable splits:
 - `GlassIconButton`: liquid glass on iOS with plain-circle fallback; needs an
   explicit `size` because the native menu host requires a fixed-size trigger. Its
   `active` prop exists because the *default* tint differs by platform — omitting
-  it drew the button two different colors.
+  it drew the button two different colors. **`solid` forces the fallback circle
+  on iOS, and any button under an animated opacity needs it**: the glass is a
+  `UIVisualEffectView` sampling what is behind it and cannot do that through a
+  non-opaque ancestor layer, so it washes out to nothing and leaves a bare glyph.
+  That is every button inside a ritual step, which `SwipeablePage` fades in on
+  each swipe. Invisible on web and Android, which draw that circle regardless.
 - `utils/alert.ts`/`alert.web.ts` (DEX-102): `showAlert` is `Alert.alert` native /
   `window.alert` web (RN's `Alert` silently no-ops there). Reach for it instead of
   another `Platform.OS === "web"` branch; the browser dialog has no title slot, so

@@ -361,11 +361,28 @@ next-day one. Load-bearing:
   `isCompletionStatus` the backlog scope uses. Stragglers from earlier days stay
   the morning Backlog step's business; pulling them in makes the evening list the
   thing it exists to close.
-- **Both buttons write through `useScheduleChange`, never `updateTask`** — the
-  alarm rule the drawer's "+" learned the hard way (DEX-77). The right arrow
-  targets **`date.add({days: 1})`, not the real tomorrow**: `DayNav` can page the
-  ritual anywhere, and both labels name the day (`formatWeekdayMonthDay`) rather
-  than saying "tomorrow", so a paged ritual can't lie about where a task went.
+- **Both buttons are `components/TaskScheduleButton.tsx`**, the one component for
+  every circle that writes `scheduledFor` — this step's two and the backlog
+  drawer's "+". It owns the glyph per mode (`schedule` / `defer` / `unschedule`),
+  the target-date arithmetic, and the label rule: **name the day, never say
+  "today" or "tomorrow"**, since the drawer sits beside seven days on the Week
+  tab and `DayNav` can page the ritual anywhere, so a relative word would be a
+  button that lies about where a task went. `defer` targets `date.add({days: 1})`
+  — the day after the one *on screen*, not the real tomorrow.
+- **It takes `changeSchedule` as a prop and never calls `useScheduleChange`
+  itself.** Every write owes the alarm prompt that hook gives, never a raw
+  `updateTask` (DEX-77, the rule the drawer's "+" learned the hard way) — but the
+  hook returns the props for **one** `ConfirmationModal`, so a button that owned
+  it would mount a modal per row. The hook belongs to the surface, the button to
+  the row.
+- **Both pass `solid`**, which draws the plain bordered circle instead of liquid
+  glass. Glass is a `UIVisualEffectView` sampling what is behind it, and it
+  cannot do that through a non-opaque ancestor: `SwipeablePage` fades every
+  ritual step in, so the circles washed out entirely and left two bare glyphs
+  beside the card. The drawer docked on the Today tab has no such ancestor and
+  stays glass. **The same fade is over the Backlog step's "+"** — it has the
+  bug too and is not yet passing `solid`, because `TaskDrawer` cannot tell
+  whether it is docked or inside a ritual.
 - **The body is staged at `heroLines.length`, not `BODY_STAGE`** — the same trap
   the Summary step documents, and sharper here since this hero is always one line.
 - `isLoading` is checked before the all-clear, or a cold cache throws confetti at

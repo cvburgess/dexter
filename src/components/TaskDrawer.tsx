@@ -10,7 +10,7 @@ import { duplicateTaskInput, ETaskPriority, TTask } from "@/api/tasks";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { DraggableTaskCard } from "@/components/DraggableTaskCard";
 import { EmptyScreen } from "@/components/EmptyScreen";
-import { GlassIconButton } from "@/components/GlassIconButton";
+import { TaskScheduleButton } from "@/components/TaskScheduleButton";
 import { IconMenu, TIconMenuOption } from "@/components/IconMenu";
 import { PRIORITY_OPTIONS } from "@/components/PriorityControl";
 import { TextInput } from "@/components/TextInput";
@@ -18,7 +18,6 @@ import { useGoals } from "@/hooks/useGoals";
 import { useLists } from "@/hooks/useLists";
 import { useScheduleChange } from "@/hooks/useScheduleChange";
 import { useTasks } from "@/hooks/useTasks";
-import { formatWeekdayMonthDay } from "@/utils/formatPlainDate";
 import { searchTerms } from "@/utils/searchHighlight";
 import {
   filterTasks,
@@ -453,18 +452,18 @@ export function TaskDrawer({
               onDelete={() => deleteTask(task.id)}
             />
           </View>
-          <GlassIconButton
-            // Names the target day rather than saying "this day": on the Week
-            // tab the drawer sits beside seven of them (DEX-96).
-            accessibilityLabel={`Schedule "${task.title}" for ${formatWeekdayMonthDay(date)}`}
-            sfSymbol="plus"
-            ionicon="add-outline"
-            // Through `changeSchedule`, not a direct `updateTask`: this button
-            // reschedules, so it owes the same alarm prompt the card's own menu
-            // and the drag drop targets give. Writing `scheduledFor` straight
-            // through moved a task off the day its alarm was set for and left
-            // the alarm behind (DEX-77).
-            onPress={() => void changeSchedule(task, date.toString())}
+          {/* Names the target day rather than saying "this day" — on the Week
+              tab the drawer sits beside seven of them (DEX-96) — and writes
+              through `changeSchedule` rather than `updateTask` for the alarm
+              prompt (DEX-77). Both rules now live in `TaskScheduleButton`,
+              which the ritual's Open tasks step draws two more of. */}
+          <TaskScheduleButton
+            date={date}
+            mode="schedule"
+            onChangeSchedule={(target, scheduledFor) =>
+              void changeSchedule(target, scheduledFor)
+            }
+            task={task}
           />
         </View>
       );
