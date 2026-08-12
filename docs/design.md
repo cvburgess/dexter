@@ -75,10 +75,10 @@ bottom of this file.
 the upstream's 1-5 `overall_rating`, and `ratingBucket()` in `utils/horoscope.ts`
 groups each of the day's twelve life areas with the *same* thresholds. One rule
 at two scales — the whole day, and one area of it — so a green card can never
-sit over a column of down arrows.
+sit over a band of down arrows.
 
-Those columns' circles reuse **the panel's own colors** rather than a second
-palette — `sentimentTints(bucket).peak`, so a column and a day of the same mood
+Those bands' circles reuse **the panel's own colors** rather than a second
+palette — `sentimentTints(bucket).peak`, so a band and a day of the same mood
 are literally the same hue. A brighter set was tried and cut: it read as a
 fourth vocabulary competing with the card behind it, and it meant three more
 literals on the list below. The cost is that these fills sit at the panel's own

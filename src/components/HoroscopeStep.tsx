@@ -548,80 +548,92 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
               ))}
             </View>
 
-            <View style={[styles.bucketRow, { gap: theme.space.sm }]}>
-              {RATING_BUCKETS.map((bucket) => (
-                <View
-                  key={bucket.id}
-                  style={[styles.bucketColumn, { gap: theme.space.md }]}
-                >
+            {/* Stacked rather than three parallel columns. The columns gave
+                every band the same third of the card regardless of how many
+                areas fell in it, so a day with one bad area and eleven good
+                ones drew two near-empty columns beside a crowded one. Stacked,
+                each band takes exactly the height its own list needs. */}
+            <View style={{ gap: theme.space.md }}>
+              {RATING_BUCKETS.map((bucket) => {
+                const areas = lifeAreasInBucket(horoscope, bucket.id);
+
+                return (
                   <View
-                    style={[
-                      styles.bucketCircle,
-                      {
-                        // The card's own sentiment colors, so a column and a
-                        // day of the same mood are literally the same hue. The
-                        // `peak` end rather than `base`: both are near-black by
-                        // design, and against a near-black panel the lighter of
-                        // the two is what keeps the disc from disappearing into
-                        // its own background.
-                        backgroundColor: sentimentTints(bucket.id).peak,
-                        // Which is also why the edge is load-bearing here rather
-                        // than decorative — at this lightness the fill alone
-                        // does not describe a shape. An edge and not a shadow:
-                        // the panel is near-black on every theme, where a shadow
-                        // shows nothing at all (docs/design.md, "Scrims and
-                        // shadows").
-                        borderColor: withOpacity(ink.text, RATING_MARK_OPACITY),
-                        // The card's own lift, the same rung it draws
-                        // (`SHADOW_2XL`). Note what it can and cannot do here:
-                        // shadows are black on every theme by design, so on a
-                        // near-black panel this reads as depth under the disc
-                        // rather than as the separation a lighter surface would
-                        // get from it. The edge is still what describes the
-                        // shape.
-                        boxShadow: SHADOW_2XL,
-                        borderRadius: theme.radii.full,
-                        height: theme.controls.md,
-                        width: theme.controls.md,
-                      },
-                    ]}
+                    key={bucket.id}
+                    style={[styles.bucketRow, { gap: theme.space.md }]}
                   >
-                    <Text
+                    <View
                       style={[
-                        theme.fonts.title,
+                        styles.bucketCircle,
                         {
-                          color: withOpacity(ink.text, RATING_MARK_OPACITY),
-                          lineHeight: theme.controls.md,
+                          // The card's own sentiment colors, so a band and a day
+                          // of the same mood are literally the same hue. The
+                          // `peak` end rather than `base`: both are near-black by
+                          // design, and against a near-black panel the lighter of
+                          // the two is what keeps the disc from disappearing into
+                          // its own background.
+                          backgroundColor: sentimentTints(bucket.id).peak,
+                          // Which is also why the edge is load-bearing here
+                          // rather than decorative — at this lightness the fill
+                          // alone does not describe a shape.
+                          borderColor: withOpacity(
+                            ink.text,
+                            RATING_MARK_OPACITY,
+                          ),
+                          // The card's own lift, the same rung it draws
+                          // (`SHADOW_2XL`). Note what it can and cannot do here:
+                          // shadows are black on every theme by design, so on a
+                          // near-black panel this reads as depth under the disc
+                          // rather than as the separation a lighter surface would
+                          // get from it. The edge still describes the shape.
+                          boxShadow: SHADOW_2XL,
+                          borderRadius: theme.radii.full,
+                          height: theme.controls.md,
+                          width: theme.controls.md,
                         },
                       ]}
                     >
-                      {bucket.glyph}
-                    </Text>
-                  </View>
-                  {/* The labels keep their own tighter step: the column's `md`
-                      is the gap between the mark and the list it heads, not the
-                      gap between one area and the next. */}
-                  <View style={[styles.bucketColumn, { gap: theme.space.sm }]}>
-                    {lifeAreasInBucket(horoscope, bucket.id).map((area) => (
                       <Text
-                        key={area.key}
                         style={[
-                          styles.bucketLabel,
-                          theme.fonts.body,
-                          // The panel's full ink, the same the tips take. These
-                          // already shared `body`'s weight — `textSecondary` was
-                          // the whole difference, and against a near-black card
-                          // it dropped them closer to the background than to the
-                          // prose they belong with.
-                          { color: ink.text },
+                          theme.fonts.title,
+                          {
+                            color: withOpacity(ink.text, RATING_MARK_OPACITY),
+                            lineHeight: theme.controls.md,
+                          },
                         ]}
                       >
-                        {area.label}
+                        {bucket.glyph}
                       </Text>
-                    ))}
+                    </View>
+                    {/* One string rather than a list of nodes: these are a
+                        band's contents, not twelve separate things to look at,
+                        and joined they wrap as prose beside the mark instead of
+                        forcing a column of one-word lines.
+
+                        An em dash when the band is empty. The row is drawn
+                        either way — a day with nothing negative is a good day,
+                        and dropping the row would change the legend's shape from
+                        one morning to the next — but a mark with nothing beside
+                        it reads as a bug rather than as an absence. */}
+                    <Text
+                      style={[
+                        styles.bucketAreas,
+                        theme.fonts.body,
+                        // The panel's full ink, the same the tips take. These
+                        // already shared `body`'s weight — `textSecondary` was
+                        // the whole difference, and against a near-black card it
+                        // dropped them closer to the background than to the prose
+                        // they belong with.
+                        { color: ink.text },
+                      ]}
+                    >
+                      {areas.length > 0
+                        ? areas.map((area) => area.label).join(", ")
+                        : "—"}
+                    </Text>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           </Animated.View>
         </Animated.ScrollView>
@@ -796,21 +808,18 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     justifyContent: "center",
   },
-  bucketColumn: {
-    alignItems: "center",
-    // Equal thirds regardless of how the areas fall: an empty column still
-    // holds its width, so a day with nothing negative does not slide the other
-    // two across the card.
+  bucketAreas: {
+    // Takes the rest of the row so the string wraps against the card's edge
+    // rather than against its own content, which is what keeps the left edge of
+    // every band's text in the same place.
     flex: 1,
-  },
-  bucketLabel: {
-    textAlign: "center",
+    textAlign: "left",
   },
   bucketRow: {
-    // `flex-start`, not `stretch`: the columns hold different numbers of areas,
-    // and each should hang from its circle rather than centering its own list
-    // against the tallest neighbour.
-    alignItems: "flex-start",
+    // Centred against the mark rather than top-aligned: most bands are one line,
+    // where hanging the text from the top of a 40pt disc reads as misaligned.
+    // A band long enough to wrap still centres acceptably.
+    alignItems: "center",
     flexDirection: "row",
   },
   hero: {

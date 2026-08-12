@@ -18,9 +18,11 @@ export type THoroscopeSentiment =
  * signed-in user reads the same twelve rows a day. `preferences.sun_sign` is
  * the only user-scoped half — it says which of them is yours.
  *
- * `text` is the reading itself (~35 words), shown in the step's hero. Below it
- * the step shows `tips` and then the twelve life-area ratings grouped into
- * three columns — see `LIFE_AREAS` and `ratingBucket` in `utils/horoscope.ts`.
+ * `text` is the reading itself (~35 words) and is **stored but never rendered**
+ * — see the Horoscope step's `Hero` for why the tips carry the screen instead.
+ * The step shows the first tip as its hero, the rest below it, and then the
+ * twelve life-area ratings grouped into three bands — see `LIFE_AREAS` and
+ * `ratingBucket` in `utils/horoscope.ts`.
  *
  * `sentiment` is derived in the database from `overallRating`, not sent by the
  * upstream, which is why the two can never disagree.

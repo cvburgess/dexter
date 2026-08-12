@@ -7,7 +7,7 @@ import { HoroscopeStep } from "@/components/HoroscopeStep";
 import { useHoroscope } from "@/hooks/useHoroscope";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { useSunSignPreference } from "@/hooks/usePreferences";
-import { RATING_BUCKETS, SUN_SIGNS } from "@/utils/horoscope";
+import { LIFE_AREAS, RATING_BUCKETS, SUN_SIGNS } from "@/utils/horoscope";
 
 jest.mock("@/hooks/usePreferences", () => ({
   useSunSignPreference: jest.fn(),
@@ -249,7 +249,7 @@ describe("HoroscopeStep", () => {
       expect(screen.getAllByText(HOROSCOPE.tips[0])).toHaveLength(1);
     });
 
-    it("draws a face for each of the three rating columns", () => {
+    it("draws a mark for each of the three rating bands", () => {
       const screen = renderStep();
 
       for (const bucket of RATING_BUCKETS) {
@@ -258,19 +258,41 @@ describe("HoroscopeStep", () => {
     });
 
     // The grouping is the whole content of this block: an area under the wrong
-    // face is the one failure a reader would actually act on, and every rating
+    // mark is the one failure a reader would actually act on, and every rating
     // being an interchangeable 1-5 means nothing else would look wrong.
-    it("files each life area under the face matching its rating", () => {
+    //
+    // Written out rather than derived from `lifeAreasInBucket`, which is what
+    // renders them — a derived expectation would pass even if both sides shared
+    // the same mistake. The order inside each band is house order.
+    it("files each life area under the mark matching its rating", () => {
       const screen = renderStep();
 
-      // ratingHealth: 1 and ratingLove: 2 are the fixture's only low ones;
-      // ratingIdentity: 5 and ratingCreativity: 5 its only high ones.
-      expect(screen.getByText("Health")).toBeTruthy();
-      expect(screen.getByText("Identity")).toBeTruthy();
-      expect(screen.getByText("Love")).toBeTruthy();
-      expect(screen.getByText("Creativity")).toBeTruthy();
-      // All twelve are drawn, each exactly once.
-      expect(screen.getAllByText("Finance")).toHaveLength(1);
+      // ratingHealth: 1, ratingLove: 2
+      expect(screen.getByText("Health, Love")).toBeTruthy();
+      // ratingIdentity: 5, ratingCareer: 4, ratingCreativity: 5
+      expect(screen.getByText("Identity, Career, Creativity")).toBeTruthy();
+      // Everything else sits at 3.
+      expect(
+        screen.getByText(
+          "Finance, Relationships, Spirituality, Home, Learning, Communication, Travel",
+        ),
+      ).toBeTruthy();
+    });
+
+    // A day with nothing rated 1-2 is a good day, not a broken one. The row is
+    // still drawn so the legend keeps its shape from one morning to the next,
+    // but a mark with nothing beside it would read as a bug rather than as an
+    // absence.
+    it("shows a dash for a band with no areas in it", () => {
+      const allNeutral = Object.fromEntries(
+        LIFE_AREAS.map((area) => [area.key, 3]),
+      ) as unknown as THoroscope;
+      const screen = renderStep({
+        horoscope: { ...HOROSCOPE, ...allNeutral },
+      });
+
+      // Both ends are empty, so the dash is drawn twice.
+      expect(screen.getAllByText("—")).toHaveLength(2);
     });
 
     // The columns are meant to start below the fold, so the hero is sized to the

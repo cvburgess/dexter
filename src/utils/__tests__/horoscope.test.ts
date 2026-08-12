@@ -89,7 +89,7 @@ describe("LIFE_AREAS", () => {
 describe("ratingBucket", () => {
   // These thresholds are also the database's, which derives
   // `horoscopes.sentiment` from `overall_rating` with the same three buckets.
-  // If one side moves, a reader gets a green card over a column of down arrows.
+  // If one side moves, a reader gets a green card over a band of down arrows.
   it("splits 1-5 into three groups, worst to best", () => {
     expect(ratingBucket(1)).toBe("negative");
     expect(ratingBucket(2)).toBe("negative");
@@ -100,7 +100,7 @@ describe("ratingBucket", () => {
 });
 
 describe("RATING_BUCKETS", () => {
-  it("runs worst to best, so the columns read left to right", () => {
+  it("runs worst to best, so the bands read top to bottom", () => {
     expect(RATING_BUCKETS.map((bucket) => bucket.id)).toEqual([
       "negative",
       "mixed",
@@ -140,7 +140,7 @@ describe("lifeAreasInBucket", () => {
     ratingTravel: 3,
   } as THoroscope;
 
-  it("sorts each area into exactly one column", () => {
+  it("sorts each area into exactly one band", () => {
     const total = RATING_BUCKETS.reduce(
       (sum, bucket) => sum + lifeAreasInBucket(horoscope, bucket.id).length,
       0,
@@ -159,8 +159,8 @@ describe("lifeAreasInBucket", () => {
   });
 
   // A day where nothing rates 1 or 2 is a good day, not a broken one — the step
-  // still draws the column so the three keep their thirds.
-  it("returns an empty list rather than throwing when a column has nothing", () => {
+  // still draws the band's row and marks it with an em dash.
+  it("returns an empty list rather than throwing when a band has nothing", () => {
     const allNeutral = Object.fromEntries(
       LIFE_AREAS.map((area) => [area.key, 3]),
     ) as unknown as THoroscope;

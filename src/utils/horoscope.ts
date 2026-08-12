@@ -99,14 +99,14 @@ export type THoroscopeLifeArea = {
  * The twelve life areas, in the upstream's order (which is house order).
  *
  * Deliberately *not* re-ordered editorially the way the old six facets were.
- * These are not read top to bottom — they are sorted into three columns by
- * their rating, so the list order only decides the order within a column, and
+ * These are not read straight through — they are sorted into three bands by
+ * their rating, so the list order only decides the order within a band, and
  * house order is the one arrangement an astrologer would recognize.
  *
  * `key` is typed against `THoroscope` so a renamed field breaks here rather
  * than rendering `undefined`. There are no icons: twelve glyphs competing with
- * three faces made the block read as a toolbar, and the label is already the
- * whole content.
+ * three marks made the block read as a toolbar, and the label is already the
+ * whole content — the step joins a band's labels into one string anyway.
  */
 export const LIFE_AREAS: readonly THoroscopeLifeArea[] = [
   { key: "ratingIdentity", label: "Identity" },
@@ -130,7 +130,7 @@ export const LIFE_AREAS: readonly THoroscopeLifeArea[] = [
  * from `overall_rating` (see the DEX-145 migration). Sharing the rule is the
  * point: the card's tint and these columns are the same judgement applied to
  * the whole day and to one area of it, so a reader seeing a green card over a
- * column of down arrows would be looking at a bug, not a nuance.
+ * band of down arrows would be looking at a bug, not a nuance.
  *
  * Three even-ish groups out of five values means one of them takes the odd
  * width; the middle takes it, since a lone 3 is the genuinely neutral case and
@@ -142,7 +142,7 @@ export function ratingBucket(rating: number): THoroscopeSentiment {
   return "mixed";
 }
 
-/** One of the three columns the life areas are sorted into. */
+/** One of the three bands the life areas are sorted into. */
 export type THoroscopeRatingBucket = {
   id: THoroscopeSentiment;
   label: string;
@@ -150,7 +150,7 @@ export type THoroscopeRatingBucket = {
 };
 
 /**
- * The three columns, worst to best.
+ * The three bands, worst to best.
  *
  * **Arrows rather than faces**, and the reason is consistency rather than
  * taste. The faces this started with could not come from one Unicode block:
@@ -176,9 +176,9 @@ export const RATING_BUCKETS: readonly THoroscopeRatingBucket[] = [
 /**
  * The life areas that fall in one bucket, in house order.
  *
- * A column can legitimately come back empty — a day where nothing rates 1 or 2
- * is a good day, not a missing one — so the step renders the heading regardless
- * and lets the absence say what it says.
+ * A band can legitimately come back empty — a day where nothing rates 1 or 2
+ * is a good day, not a missing one — so the step draws its row regardless and
+ * marks the absence with an em dash.
  */
 export function lifeAreasInBucket(
   horoscope: THoroscope,

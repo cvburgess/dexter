@@ -339,9 +339,13 @@ frame are `docs/design.md`'s Sentiment section. App-side gotchas:
   layout constraint rather than a detail — a taller hero pushes the chevron off
   the fold and breaks the scroll-to-reveal conceit the whole step is built on.
 - Below the fold: the remaining `tips`, then the twelve life areas sorted into
-  three columns by rating (`lifeAreasInBucket`). A column can legitimately be
-  empty — a day with nothing rated 1-2 is a good day — so the columns hold equal
-  thirds regardless, or the row would shift as the ratings changed.
+  three stacked bands by rating (`lifeAreasInBucket`), each a mark beside its
+  areas joined into one string. Three parallel *columns* were the first cut and
+  were cut: they gave every band the same third of the card however the ratings
+  fell, so a day with one bad area and eleven good ones drew two near-empty
+  columns beside a crowded one. A band can legitimately be empty — a day with
+  nothing rated 1-2 is a good day — and it still draws its row, with an em dash,
+  so the legend keeps its shape from one morning to the next.
 
 - `components/StarField.tsx` is **seeded, not random** (a sky must not
   reshuffle per render); stars deal into four layers with one shared opacity
