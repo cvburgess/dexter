@@ -138,6 +138,29 @@ const summaryLineHeight = (theme: Theme) =>
   Math.round(theme.fonts.heading.fontSize * 1.4);
 
 /**
+ * The breath between the day's tips and the rated columns.
+ *
+ * **Measured from the viewport, not the spacing scale**, which is the only way
+ * it can be what it is asked to be: the same distance the reader already crosses
+ * between the first tip and the rest. That gap is not a token either — the first
+ * tip is centred in a full screenful, so the air under it is whatever half a
+ * hero happens to be on this device. Matching it with a multiple of `space.lg`
+ * would hold on one phone and drift on every other size.
+ *
+ * This is the step's rhythm rather than a one-off: a screenful for the tip, the
+ * remaining tips, a breath of the same measure, then the columns. It is the same
+ * argument `heroGlyphSize` and `contentGutter` make — derive from something the
+ * component already knows rather than adding a token only this file would read —
+ * except that the thing known here is the measurement, not a density tier.
+ *
+ * The floor matters for one frame only: `viewportHeight` is 0 until the
+ * scroller reports its layout, and without it the columns would start out
+ * tucked under the tips before snapping down.
+ */
+const tipsToColumnsGap = (theme: Theme, viewportHeight: number) =>
+  Math.max(theme.space.lg * 2, Math.round(viewportHeight / 2));
+
+/**
  * How far the reader has to scroll before the chevron is fully gone.
  *
  * Four tap targets' worth of travel — roughly a quarter of a phone's hero. Long
@@ -471,12 +494,11 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
           <Animated.View
             style={[
               {
-                // Double the usual group step. This container holds exactly two
-                // children — the tips and the rated columns — so this gap *is*
-                // the boundary between them, and they are different kinds of
-                // thing: prose to read, then a chart to scan. At `lg` they read
-                // as one block.
-                gap: theme.space.lg * 2,
+                // This container holds exactly two children — the tips and the
+                // rated columns — so this gap *is* the boundary between them,
+                // and they are different kinds of thing: prose to read, then a
+                // chart to scan.
+                gap: tipsToColumnsGap(theme, viewportHeight),
                 // The host `SafeAreaView` omits the bottom edge so content
                 // scrolls under the tab bar; the inset belongs to the scroll
                 // content, which is what lets the last row clear it (DEX-91).
