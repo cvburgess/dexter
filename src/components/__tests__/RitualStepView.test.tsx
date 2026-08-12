@@ -110,18 +110,23 @@ jest.mock("@/components/ReviewStep", () => {
   };
 });
 
-const DATE = Temporal.PlainDate.from("2026-08-09");
+// And the preview tomorrow step: it owns five calendar reads, the tasks query
+// and a scroll-driven reveal.
+jest.mock("@/components/PreviewTomorrowStep", () => {
+  const { Text: RNText } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+  return {
+    PreviewTomorrowStep: function MockPreviewTomorrowStep({
+      date,
+    }: {
+      date: Temporal.PlainDate;
+    }) {
+      return <RNText>{`preview-tomorrow:${date.toString()}`}</RNText>;
+    },
+  };
+});
 
-/** The step ids that no longer fall through to the placeholder branch. */
-const BUILT_STEP_IDS = [
-  "horoscope",
-  "journal",
-  "calendar",
-  "backlog",
-  "summary",
-  "open-tasks",
-  "review",
-];
+const DATE = Temporal.PlainDate.from("2026-08-09");
 
 const renderStep = (step: TRitualStep) =>
   render(
@@ -196,6 +201,15 @@ describe("RitualStepView", () => {
     expect(screen.getByText("review:2026-08-09")).toBeTruthy();
   });
 
+  // The one step that renders a day other than the ritual's own — it takes the
+  // ritual's date here and adds the day itself, so this branch looks like every
+  // other one.
+  it("renders the preview tomorrow step with the ritual's own day", () => {
+    renderStep({ id: "preview-tomorrow", title: "Preview tomorrow" });
+
+    expect(screen.getByText("preview-tomorrow:2026-08-09")).toBeTruthy();
+  });
+
   // The one built step both rituals reach, and the last of each.
   it("renders the summary step for the summary id", () => {
     renderStep({ id: "summary", title: "Summary" });
@@ -217,18 +231,18 @@ describe("RitualStepView", () => {
     expect(screen.getByText("horoscope:2026-01-02")).toBeTruthy();
   });
 
-  // The default branch is what lets the remaining DEX-34 sub-issues fill steps
-  // in one at a time, so every id that isn't built yet has to keep working. A
-  // step that quietly stopped rendering anything would look like an empty
-  // screen rather than a failure.
-  it.each(
-    [...RITUAL_STEPS.am, ...RITUAL_STEPS.pm].filter(
-      (step) => !BUILT_STEP_IDS.includes(step.id),
-    ),
-  )("renders $title as a placeholder", (step) => {
-    renderStep(step);
+  // DEX-149 filled the last of them, so the placeholder branch is no longer
+  // reachable from either flow — which is exactly what this now guards. The
+  // default still exists, and an id added to `RITUAL_STEPS` without a branch
+  // here would quietly render its own bare title in the ritual rather than
+  // failing anywhere; a step showing nothing but its name reads as an empty
+  // screen, not as unfinished work.
+  it.each([...RITUAL_STEPS.am, ...RITUAL_STEPS.pm])(
+    "renders $title as a built step rather than its own name",
+    (step) => {
+      renderStep(step);
 
-    expect(screen.getByText(step.title)).toBeTruthy();
-    expect(mockJournalView).not.toHaveBeenCalled();
-  });
+      expect(screen.queryByText(step.title)).toBeNull();
+    },
+  );
 });
