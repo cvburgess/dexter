@@ -555,12 +555,18 @@ describe("TaskDrawer", () => {
   // invisible to Jest — this is cover for the flag reaching the button at all,
   // and for the docked hosts not getting it by default.
   describe("the row button's solid flag", () => {
-    const solidOfSchedule = () =>
-      mockGlassIconButton.mock.calls.find(
+    // Throws rather than returning undefined when the button isn't there: an
+    // absent flag and an absent button both read as `undefined`, and the
+    // negative case below would pass on a drawer that rendered no rows at all.
+    const solidOfSchedule = () => {
+      const call = mockGlassIconButton.mock.calls.find(
         ([props]) =>
           props.accessibilityLabel ===
           'Schedule "Write report" for Thursday, Jul 16',
-      )?.[0].solid;
+      );
+      if (!call) throw new Error("The row's schedule button never rendered");
+      return call[0].solid;
+    };
 
     it("passes solid down to the row's schedule button when set", () => {
       mockUseTasks.mockReturnValue(tasksResult([task()]));
