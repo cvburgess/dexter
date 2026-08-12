@@ -27,9 +27,13 @@ import { formatWeekdayMonthDay } from "@/utils/formatPlainDate";
 import { selectOpenTasksForDate } from "@/utils/taskFilters";
 import { useTheme } from "@/utils/theme";
 
+// Ionicons has no calendar-with-a-minus, and `calendar-clear-outline` is a
+// calendar with an *x* — which reads as delete rather than as taking the task
+// off the day. A bare minus says the same thing as the SF Symbol's badge
+// without miscasting it.
 const UNSCHEDULE_ICON = {
   sf: "calendar.badge.minus",
-  ionicon: "calendar-clear-outline",
+  ionicon: "remove-outline",
 } as const;
 
 // Also `StatusButton`'s glyph for DELEGATED — harmless here, since delegated is
