@@ -80,6 +80,11 @@ function BacklogList({ date, counts }: TBacklogListProps) {
       // not where you go to hunt for a task you already have in mind, and the
       // field cost the hero a line of height for it (DEX-141).
       showSearch={false}
+      // This drawer sits under two animated opacities — the step's own
+      // `<Animated.View style={drawerStyle}>` below, and `SwipeablePage`'s
+      // intro over every ritual step — which liquid glass cannot sample
+      // through, leaving each row's "+" a bare glyph (DEX-150).
+      solid
     />
   );
 }

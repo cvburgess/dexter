@@ -307,6 +307,9 @@ one divergence from "same controls as today").
   initializer never sees `useTasks`' empty placeholder — the same latch inside
   the step would fight two `react-hooks` lint rules that are both right. The step
   checks `isLoading` first or the all-clear hero congratulates a cold cache.
+- **It is the one host that passes `TaskDrawer`'s `solid`** — a declaration that
+  the drawer sits under an animated opacity, not a style choice; see the Open
+  tasks step below for the mechanism.
 
 ### Summary step (DEX-144)
 
@@ -380,9 +383,9 @@ next-day one. Load-bearing:
   cannot do that through a non-opaque ancestor: `SwipeablePage` fades every
   ritual step in, so the circles washed out entirely and left two bare glyphs
   beside the card. The drawer docked on the Today tab has no such ancestor and
-  stays glass. **The same fade is over the Backlog step's "+"** — it has the
-  bug too and is not yet passing `solid`, because `TaskDrawer` cannot tell
-  whether it is docked or inside a ritual.
+  stays glass. `TaskDrawer` can't tell the two apart, so it takes a `solid` prop
+  that its host declares (DEX-150) — set only by the Backlog step, which is under
+  the same fade.
 - **The body is staged at `heroLines.length`, not `BODY_STAGE`** — the same trap
   the Summary step documents, and sharper here since this hero is always one line.
 - `isLoading` is checked before the all-clear, or a cold cache throws confetti at

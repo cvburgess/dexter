@@ -24,6 +24,7 @@ jest.mock("@/components/TaskDrawer", () => {
       filterId?: TFilterId;
       onFilterChange?: (id: TFilterId) => void;
       showSearch?: boolean;
+      solid?: boolean;
     }) {
       mockTaskDrawer(props);
       return <RNText>{`drawer:${props.date.toString()}`}</RNText>;
@@ -95,6 +96,7 @@ const drawerProps = () =>
     filterId?: TFilterId;
     onFilterChange?: (id: TFilterId) => void;
     showSearch?: boolean;
+    solid?: boolean;
   };
 
 // The palette `useTheme` falls back to outside a provider on a light scheme.
@@ -198,6 +200,16 @@ describe("BacklogStep", () => {
       renderStep([leftBehind("1")]);
 
       expect(drawerProps().showSearch).toBe(false);
+    });
+
+    // The drawer sits under this step's fade and `SwipeablePage`'s, which
+    // liquid glass cannot sample through — each row's "+" would be a bare
+    // glyph on iOS (DEX-150). The rendering is device-only; this is cover for
+    // the step still declaring it.
+    it("tells the drawer it is under an animated opacity", () => {
+      renderStep([leftBehind("1")]);
+
+      expect(drawerProps().solid).toBe(true);
     });
 
     it("hands the drawer the ritual's day rather than today's", () => {
