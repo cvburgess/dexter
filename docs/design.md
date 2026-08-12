@@ -355,15 +355,10 @@ uncomfortable.
 - **`SENTIMENT_COLORS` and `SENTIMENT_FRAME`** (`utils/theme.ts`, DEX-128) —
   the panel's six hexes plus its white frame. See **Sentiment** above.
 - **`BANDS`** (`components/SunriseBackground.tsx`, DEX-144) — five warm hexes
-  for the Summary step's sunrise, for the same reason sentiment has its own: a
-  sunrise that took the user's palette would be a green one on `dexter` and a
-  blue one elsewhere, which is not a sunrise. **Unlike sentiment, it does not
-  make the surface its own** — the bands sit at 10–20% alpha, so the theme's
-  background still shows through and everything drawn over them keeps
-  `colors.text` and `colors.primary`. That is the line to hold if the palette
-  is ever strengthened: past the point where the theme stops showing through,
-  this needs an ink of its own the way the horoscope panel needed
-  `sentimentInk`.
+  behind the Summary step, for the reason sentiment has its own: a sunrise in
+  the user's palette is a green one on `dexter`. Held at 10–20% alpha so the
+  theme still shows through and everything over it keeps `colors.text` —
+  strengthen them past that and this needs its own ink, as sentiment did.
 - **`CalendarView`'s coordinate system** — `GUTTER_WIDTH`, `HOUR_HEIGHT`, etc.
   position labels, lines, and events against each other and misalign the moment
   one moves independently; the system stays fixed in named constants.
