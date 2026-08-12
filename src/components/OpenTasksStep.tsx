@@ -27,12 +27,13 @@ import { formatWeekdayMonthDay } from "@/utils/formatPlainDate";
 import { selectOpenTasksForDate } from "@/utils/taskFilters";
 import { useTheme } from "@/utils/theme";
 
-// Ionicons has no calendar-with-a-minus, and `calendar-clear-outline` is a
-// calendar with an *x* — which reads as delete rather than as taking the task
-// off the day. A bare minus says the same thing as the SF Symbol's badge
-// without miscasting it.
+// A bare minus on both platforms. This was `calendar.badge.minus` on iOS, since
+// SF Symbols has the glyph and Ionicons does not — but the closest Ionicon,
+// `calendar-clear-outline`, is a calendar with an *x*, which reads as delete
+// rather than as taking the task off the day. Rather than let the two platforms
+// draw different things, both say the same plain minus.
 const UNSCHEDULE_ICON = {
-  sf: "calendar.badge.minus",
+  sf: "minus",
   ionicon: "remove-outline",
 } as const;
 
