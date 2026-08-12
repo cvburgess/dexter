@@ -35,7 +35,7 @@ export type TSearchFieldProps = {
  * provider is mounted per tab screen, above the Stack — so the host has to take
  * its top inset from `react-native-screens/experimental`'s `SafeAreaView`, which
  * resolves against the stack screen's own view. `app/(app)/(tabs)/search/index.tsx`
- * is the worked example; the safe-area section of `docs/frontend.md` has the
+ * is the worked example; the Search section of `docs/features.md` has the
  * mechanism. The same applies to `headerLargeTitle`, which forces it too.
  *
  * `components/SearchField.web.tsx` is the web half: `react-native-screens` has

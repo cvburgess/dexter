@@ -36,16 +36,34 @@ Dexter is a planner product delivered as an Expo (React Native) app with iOS, An
 
 ## Documentation map (`/docs`)
 
-- `frontend.md` — **Read first for any `/src` work.** App architecture, conventions, build/tooling gotchas
+- `frontend.md` — **Read first for any `/src` work.** Conventions for building *any* screen; build/tooling gotchas
 - `design.md` — **Read before touching any style value.** The token system in `src/utils/theme.ts`
-- `backend.md` — **Read first for any `/supabase` work.** Backend layout and operations
+- `backend.md` — **Read first for any `/supabase` work.** Rules for any table, migration, or function
+- `features.md` — What one feature *is*, end to end: its screens and its tables together
+- `api-routes.md` — What one endpoint promises: Edge Functions, the search RPC, the cron job, OAuth
 - `testing.md` — Which tests are worth writing, and the test-harness gotchas
 - `website.md` — Marketing site in `/www` and dexterplanner.com
 - `appstore.md` — App Store Connect metadata, IDs, and screenshot rules
 
 ### Which docs are worth writing
 
-Docs exist to hold what the code cannot say: **gotchas, counterfactuals ("X was tried and failed because Y"), team opinions, and constraints invisible at the point of use**. Do not write file listings, command tables, workflow enumerations, feature narratives, or per-change changelogs — the repo and its git history already answer those, and prose copies drift stale. Delegate procedures to skills; keep docs to facts and rules. Prefer tightening an existing section over adding a new one, and when a change makes a paragraph obsolete, delete it in the same PR.
+Docs exist to hold what the code cannot say: **gotchas, counterfactuals ("X was tried and failed because Y"), team opinions, and constraints invisible at the point of use**. Do not write file listings, command tables, workflow enumerations, feature narratives, or per-change changelogs — the repo and its git history already answer those, and prose copies drift stale. Delegate procedures to skills; keep docs to facts and rules.
+
+**Writing anything is the exception.** Before editing a doc, ask whether the change produced a durable fact the code cannot say for itself. Usually it did not — shipping a feature, fixing a bug, refactoring, renaming, or adding a test earns no doc update at all. Most PRs need none.
+
+**If it does earn one, route by the kind of fact, not the directory you touched:**
+
+| The fact is... | It goes in |
+|---|---|
+| A rule for building any screen | `frontend.md` |
+| A rule for any table, migration, or function | `backend.md` |
+| What one feature does and why — screens and tables together | `features.md` |
+| What one endpoint promises | `api-routes.md` |
+| What a style token means | `design.md` |
+
+A feature narrative inside `frontend.md`/`backend.md` is the specific failure this split exists to prevent — those two files grew to 1,260 lines that way.
+
+Prefer tightening or deleting existing prose over adding: when a change makes a paragraph obsolete, delete it in the same PR. A doc edit that only removes text is a success, not a no-op.
 
 ## Gotchas
 

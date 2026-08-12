@@ -9,11 +9,11 @@
 //
 // Invoked once a day by the pg_cron job in
 // 20260804005119_schedule_generate_horoscopes.sql, which POSTs here through
-// pg_net with the shared `x-cron-secret` header. See docs/backend.md
-// "Scheduled jobs (pg_cron)".
+// pg_net with the shared `x-cron-secret` header. See docs/api-routes.md
+// "Scheduled job: dex84-generate-horoscopes".
 //
 // This is the first Edge Function to use the service role key. Every other
-// function deliberately does not (docs/backend.md notes this for mcp-server):
+// function deliberately does not (docs/api-routes.md notes this for mcp-server):
 // they act for a signed-in user, so a user-scoped client keeps RLS as the
 // enforcement layer. Horoscopes are global rows that no user owns and no RLS
 // policy grants INSERT on, so there is no user whose privileges could write
@@ -56,7 +56,7 @@ async function generateForSign(sign: TSunSign, date: string, apiKey: string) {
     // reason, so without this the sign is lost for every failure that does not
     // name it itself — the Zod errors and "life_area_focus is missing" are the
     // ones to expect. Sentry is the durable signal for this job
-    // (docs/backend.md "Scheduled jobs"), so it has to say which sign.
+    // (docs/api-routes.md "Scheduled job"), so it has to say which sign.
     throw new Error(`Failed to generate the horoscope for ${sign}`, {
       cause: error,
     });

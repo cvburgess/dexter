@@ -253,8 +253,8 @@ export default function SearchScreen() {
     // into a bar that stays visible, ~63pt of header sat over the results. This
     // SafeAreaView resolves against `RNSScreenView` — the stack screen's own
     // view, whose safe area includes that bar — and follows it as UIKit hides and
-    // shows it. Reverting the import reopens DEX-107; the safe-area section of
-    // `docs/frontend.md` carries the full mechanism.
+    // shows it. Reverting the import reopens DEX-107; the Search section of
+    // `docs/features.md` carries the full mechanism.
     <SafeAreaView
       edges={SCREEN_EDGES}
       style={[

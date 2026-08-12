@@ -11,8 +11,8 @@ import { applyFilters, TQueryFilter } from "./applyFilters";
 /**
  * A subtask is a lightweight checklist item stored inside its parent's
  * `subtasks` jsonb array — never its own row. Ids are minted client-side and
- * are only unique within the array. See `docs/backend.md` for the model and its
- * accepted last-write-wins tradeoff.
+ * are only unique within the array. See `docs/features.md` (Tasks → Subtasks)
+ * for the model and its accepted last-write-wins tradeoff.
  */
 export type TSubtask = {
   id: string;
