@@ -100,11 +100,15 @@ describe("ratingBucket", () => {
 });
 
 describe("RATING_BUCKETS", () => {
-  it("runs worst to best, so the bands read top to bottom", () => {
+  // Best first, deliberately: worst-first put a list of what is going badly
+  // directly under the day's advice, which read as an accusation rather than a
+  // reading. The arrows carry the meaning either way, so the order is free to
+  // serve the tone.
+  it("leads with the positive band", () => {
     expect(RATING_BUCKETS.map((bucket) => bucket.id)).toEqual([
-      "negative",
-      "mixed",
       "positive",
+      "mixed",
+      "negative",
     ]);
   });
 

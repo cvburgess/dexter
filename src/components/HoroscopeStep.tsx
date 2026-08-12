@@ -170,6 +170,23 @@ const tipsToColumnsGap = (theme: Theme, viewportHeight: number) =>
   Math.max(theme.space.lg * 2, Math.round(viewportHeight / 4));
 
 /**
+ * The leading for the step's two runs of body prose — the tips and each band's
+ * areas.
+ *
+ * `body`'s default line box is tuned for a row's label, where lines are short
+ * and rarely wrap. Both of these are the opposite: the tips are centred, which
+ * leaves no left edge to return to, and a band's areas are a comma-joined
+ * string long enough to wrap two or three times. 1.5 gives the eye somewhere to
+ * land in both.
+ *
+ * Deliberately looser than `summaryLineHeight`'s 1.4 despite being the smaller
+ * type: that one sets `heading`, where the size itself already separates the
+ * lines. Rounded and derived for the same reasons given there.
+ */
+const proseLineHeight = (theme: Theme) =>
+  Math.round(theme.fonts.body.fontSize * 1.5);
+
+/**
  * How far the reader has to scroll before the chevron is fully gone.
  *
  * Four tap targets' worth of travel — roughly a quarter of a phone's hero. Long
@@ -541,7 +558,11 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
               {horoscope.tips.slice(1).map((tip, index) => (
                 <Text
                   key={index}
-                  style={[styles.tip, theme.fonts.body, { color: ink.text }]}
+                  style={[
+                    styles.tip,
+                    theme.fonts.body,
+                    { color: ink.text, lineHeight: proseLineHeight(theme) },
+                  ]}
                 >
                   {tip}
                 </Text>
@@ -553,7 +574,7 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
                 areas fell in it, so a day with one bad area and eleven good
                 ones drew two near-empty columns beside a crowded one. Stacked,
                 each band takes exactly the height its own list needs. */}
-            <View style={{ gap: theme.space.md }}>
+            <View style={{ gap: theme.space.lg }}>
               {RATING_BUCKETS.map((bucket) => {
                 const areas = lifeAreasInBucket(horoscope, bucket.id);
 
@@ -624,7 +645,7 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
                         // the whole difference, and against a near-black card it
                         // dropped them closer to the background than to the prose
                         // they belong with.
-                        { color: ink.text },
+                        { color: ink.text, lineHeight: proseLineHeight(theme) },
                       ]}
                     >
                       {areas.length > 0

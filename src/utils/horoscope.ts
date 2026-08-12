@@ -150,7 +150,13 @@ export type THoroscopeRatingBucket = {
 };
 
 /**
- * The three bands, worst to best.
+ * The three bands, **best first**.
+ *
+ * Worst-first was the first cut, on the reasoning that a reader scans for what
+ * needs attention. It reads as an accusation: the first thing under the day's
+ * advice was a list of what is going badly. Leading with what is going well
+ * makes the same information land as a reading rather than a warning, and the
+ * arrows still say which end is which without depending on the order.
  *
  * **Arrows rather than faces**, and the reason is consistency rather than
  * taste. The faces this started with could not come from one Unicode block:
@@ -168,9 +174,9 @@ export type THoroscopeRatingBucket = {
  * away from a colored sticker in a palette no theme controls.
  */
 export const RATING_BUCKETS: readonly THoroscopeRatingBucket[] = [
-  { id: "negative", label: "Negative", glyph: "↓︎" },
-  { id: "mixed", label: "Neutral", glyph: "→︎" },
   { id: "positive", label: "Positive", glyph: "↑︎" },
+  { id: "mixed", label: "Neutral", glyph: "→︎" },
+  { id: "negative", label: "Negative", glyph: "↓︎" },
 ];
 
 /**
