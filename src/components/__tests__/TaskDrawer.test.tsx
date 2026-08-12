@@ -111,16 +111,23 @@ jest.mock("../TaskCard", () => ({
   TaskCard: (props: Parameters<typeof mockTaskCard>[0]) => mockTaskCard(props),
 }));
 
-const mockGlassIconButton = ({
-  accessibilityLabel,
-  onPress,
-}: {
-  accessibilityLabel: string;
-  onPress?: () => void;
-}) => (
-  <TouchableOpacity accessibilityLabel={accessibilityLabel} onPress={onPress}>
-    <Text>{accessibilityLabel}</Text>
-  </TouchableOpacity>
+// A jest.fn so the props can be asserted on as well as pressed — `solid` never
+// reaches the DOM off iOS (that branch draws the bordered circle regardless), so
+// the call is the only place the flag is visible to a unit test. `clearAllMocks`
+// in beforeEach clears the calls but keeps this implementation.
+const mockGlassIconButton = jest.fn(
+  ({
+    accessibilityLabel,
+    onPress,
+  }: {
+    accessibilityLabel: string;
+    onPress?: () => void;
+    solid?: boolean;
+  }) => (
+    <TouchableOpacity accessibilityLabel={accessibilityLabel} onPress={onPress}>
+      <Text>{accessibilityLabel}</Text>
+    </TouchableOpacity>
+  ),
 );
 jest.mock("../GlassIconButton", () => ({
   GlassIconButton: (props: Parameters<typeof mockGlassIconButton>[0]) =>
@@ -540,6 +547,39 @@ describe("TaskDrawer", () => {
     expect(mockUpdateTask).toHaveBeenCalledWith({
       id: "task-1",
       scheduledFor: "2026-07-16",
+    });
+  });
+
+  // `solid` says "this drawer is under an animated opacity", which only the
+  // ritual's Backlog step is (DEX-150). What it *looks* like is iOS-only and
+  // invisible to Jest — this is cover for the flag reaching the button at all,
+  // and for the docked hosts not getting it by default.
+  describe("the row button's solid flag", () => {
+    // Throws rather than returning undefined when the button isn't there: an
+    // absent flag and an absent button both read as `undefined`, and the
+    // negative case below would pass on a drawer that rendered no rows at all.
+    const solidOfSchedule = () => {
+      const call = mockGlassIconButton.mock.calls.find(
+        ([props]) =>
+          props.accessibilityLabel ===
+          'Schedule "Write report" for Thursday, Jul 16',
+      );
+      if (!call) throw new Error("The row's schedule button never rendered");
+      return call[0].solid;
+    };
+
+    it("passes solid down to the row's schedule button when set", () => {
+      mockUseTasks.mockReturnValue(tasksResult([task()]));
+      render(<TaskDrawer date={date} solid />);
+
+      expect(solidOfSchedule()).toBe(true);
+    });
+
+    it("leaves it off by default, so a docked drawer keeps its glass", () => {
+      mockUseTasks.mockReturnValue(tasksResult([task()]));
+      render(<TaskDrawer date={date} />);
+
+      expect(solidOfSchedule()).toBeFalsy();
     });
   });
 

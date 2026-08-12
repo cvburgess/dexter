@@ -305,6 +305,16 @@ type TTaskDrawerProps = {
    * empty default either way.
    */
   showSearch?: boolean;
+  /**
+   * **Declares that this drawer is mounted under an animated opacity** — not a
+   * style knob. Liquid glass is a `UIVisualEffectView` sampling what is behind
+   * it and cannot do that through a non-opaque ancestor layer, so a row's "+"
+   * washes out to a bare glyph; the flag forces the plain bordered circle
+   * instead (see `GlassIconButton`). Only the ritual's Backlog step qualifies
+   * (DEX-150) — every other host docks the drawer under nothing animated, and
+   * setting it there would flatten glass that works and looks right.
+   */
+  solid?: boolean;
 };
 
 /**
@@ -336,6 +346,7 @@ export function TaskDrawer({
   search: controlledSearch,
   onSearchChange,
   showSearch = true,
+  solid,
 }: TTaskDrawerProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -463,12 +474,13 @@ export function TaskDrawer({
             onChangeSchedule={(target, scheduledFor) =>
               void changeSchedule(target, scheduledFor)
             }
+            solid={solid}
             task={task}
           />
         </View>
       );
     },
-    [theme, date, changeSchedule, updateTask, createTask, deleteTask],
+    [theme, date, changeSchedule, updateTask, createTask, deleteTask, solid],
   );
 
   const keyExtractor = useCallback((item: TDrawerListItem) => item.id, []);
