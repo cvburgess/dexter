@@ -4,11 +4,37 @@
 
 type THourMinute = { hour: number; minute: number };
 
-/** e.g. "9:05 AM" / "12:00 PM" from any object exposing `hour`/`minute`. */
-export const formatTime = ({ hour, minute }: THourMinute): string => {
-  const period = hour < 12 ? "AM" : "PM";
+/** e.g. "9:05" — the clock face, with no period on it. */
+const formatClock = ({ hour, minute }: THourMinute): string => {
   const hour12 = hour % 12 === 0 ? 12 : hour % 12;
-  return `${hour12}:${minute.toString().padStart(2, "0")} ${period}`;
+  return `${hour12}:${minute.toString().padStart(2, "0")}`;
+};
+
+const periodOf = ({ hour }: THourMinute): string => (hour < 12 ? "AM" : "PM");
+
+/** e.g. "9:05 AM" / "12:00 PM" from any object exposing `hour`/`minute`. */
+export const formatTime = (time: THourMinute): string =>
+  `${formatClock(time)} ${periodOf(time)}`;
+
+/**
+ * An event's span, e.g. `"4:00-5:15 PM"` — the agenda row in the ritual's
+ * Preview tomorrow step (DEX-149).
+ *
+ * **The period is stated once when both ends share it**, and on both ends when
+ * they don't (`"11:30 AM-1:00 PM"`). Dropping it entirely is shorter still and
+ * was the first cut, but `"4:00-5:15"` in a list a reader is scanning to plan
+ * their morning is genuinely ambiguous — and the one place the ambiguity bites
+ * is the one place an agenda has to be right. Repeating it on every row is the
+ * other extreme: the row is already four elements wide, and "4:00 PM-5:15 PM"
+ * spends its longest token saying the same thing twice.
+ */
+export const formatTimeRange = (
+  start: THourMinute,
+  end: THourMinute,
+): string => {
+  const startText =
+    periodOf(start) === periodOf(end) ? formatClock(start) : formatTime(start);
+  return `${startText}-${formatTime(end)}`;
 };
 
 /** e.g. "9 AM" / "12 PM" — the compact label for a timeline hour gutter. */
