@@ -308,7 +308,9 @@ into `todayRoute({ date, mode: "tasks" })`, the two centered as one block.
   dropped into the step worked and cost almost nothing — but it copied a surface
   it could not replace, leaving two lists of the same day a swipe apart, where
   the ritual is a sequence you walk once and the day's list is what you return to
-  all day. Reach for this history before re-proposing it.
+  all day. Reach for this history before re-proposing it. The evening's Open
+  tasks step below is **not** a reversal of it: see there for the axis the two
+  differ on.
 - **The link carries the ritual's date, and needs its `n` nonce** for the same
   reason the Search tab's does: cross-tab navigation reuses the mounted Today
   screen and only swaps its params, so two presses carrying one date would be
@@ -332,6 +334,45 @@ into `todayRoute({ date, mode: "tasks" })`, the two centered as one block.
 - An entirely empty day replaces the figures with one line
   (`summary-step-blank`) and keeps the button. `isLoading` is checked first or a
   cold cache tells someone with a full morning they have nothing on.
+
+### Open tasks step (DEX-146)
+
+The evening ritual's first step: one `HeroLines` count over the day's still-open
+tasks, each row between a leading Unschedule button and a trailing move-to-the-
+next-day one. Load-bearing:
+
+- **It is not the morning task-list step the Summary section records being
+  removed**, and the difference is the axis that one failed on. That step copied
+  a surface it could not replace; the evening ritual has no other task list to
+  duplicate, and every row here exists to be *dispatched* by one of the two
+  buttons rather than read. The list empties as it is worked, which is the step.
+- **Scope is the ritual's day and only what is still open** —
+  `selectOpenTasksForDate`, which is `selectTasksForDate` narrowed by the same
+  `isCompletionStatus` the backlog scope uses. Stragglers from earlier days stay
+  the morning Backlog step's business; pulling them in makes the evening list the
+  thing it exists to close.
+- **Both buttons write through `useScheduleChange`, never `updateTask`** — the
+  alarm rule the drawer's "+" learned the hard way (DEX-77). The right arrow
+  targets **`date.add({days: 1})`, not the real tomorrow**: `DayNav` can page the
+  ritual anywhere, and both labels name the day (`formatWeekdayMonthDay`) rather
+  than saying "tomorrow", so a paged ritual can't lie about where a task went.
+- **The body is staged at `heroLines.length`, not `BODY_STAGE`** — the same trap
+  the Summary step documents, and sharper here since this hero is always one line.
+- `isLoading` is checked before the all-clear, or a cold cache throws confetti at
+  someone whose evening is full.
+- `components/Confetti.tsx` is the all-clear's, built like `SunriseBackground`
+  (measured box, one linear driver, per-piece windows) over a deterministic
+  React-free field in `utils/confetti.ts` — seeded for the reason `starField.ts`
+  gives, since the step re-renders under it while the burst is in flight. Two
+  deliberate divergences from its neighbours: it takes **theme colors** where the
+  sunrise takes fixed hexes (a sunrise in the user's palette isn't a sunrise,
+  where confetti has no true color), and it renders **nothing at all** under
+  reduced motion rather than settling — its settled state is paper hanging in
+  mid-air, which reads as a bug.
+- `hooks/useTaskDelete.ts` holds the repeat-aware delete this step and
+  `DayTaskList` share. A second copy is what would let one surface drop a repeat
+  schedule while the other keeps it. (`TaskDrawer` still deletes straight through
+  — a pre-existing divergence, not a decision.)
 
 ## Drag-to-schedule (DEX-77)
 

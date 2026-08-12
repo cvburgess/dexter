@@ -11,6 +11,7 @@ import {
   filterTasks,
   isCompletionStatus,
   selectBacklogTasks,
+  selectOpenTasksForDate,
   selectTasksForDate,
 } from "../taskFilters";
 
@@ -67,6 +68,63 @@ describe("selectTasksForDate", () => {
     expect(selectTasksForDate(tasks, date).map((t) => t.id)).toEqual([
       "2",
       "1",
+    ]);
+  });
+});
+
+describe("selectOpenTasksForDate", () => {
+  // The evening ritual's step is about what is left to put down, so every
+  // terminal status drops out — including DELEGATED and WONT_DO, which are
+  // "closed" without having been finished and are the two a hand-written
+  // `status === DONE` check would miss.
+  it("keeps only the day's tasks nobody has closed out", () => {
+    const tasks = [
+      task({
+        id: "todo",
+        scheduledFor: "2026-07-16",
+        status: ETaskStatus.TODO,
+      }),
+      task({
+        id: "doing",
+        scheduledFor: "2026-07-16",
+        status: ETaskStatus.IN_PROGRESS,
+      }),
+      task({
+        id: "done",
+        scheduledFor: "2026-07-16",
+        status: ETaskStatus.DONE,
+      }),
+      task({
+        id: "wont",
+        scheduledFor: "2026-07-16",
+        status: ETaskStatus.WONT_DO,
+      }),
+      task({
+        id: "delegated",
+        scheduledFor: "2026-07-16",
+        status: ETaskStatus.DELEGATED,
+      }),
+    ];
+
+    expect(selectOpenTasksForDate(tasks, date).map((t) => t.id)).toEqual([
+      "todo",
+      "doing",
+    ]);
+  });
+
+  // The scope is the ritual's own day (DEX-146): stragglers from earlier days
+  // and the unscheduled backlog are the morning Backlog step's job, and pulling
+  // them in here would make the evening list the thing it is meant to close.
+  it("ignores other days and the unscheduled backlog", () => {
+    const tasks = [
+      task({ id: "yesterday", scheduledFor: "2026-07-15" }),
+      task({ id: "today", scheduledFor: "2026-07-16" }),
+      task({ id: "tomorrow", scheduledFor: "2026-07-17" }),
+      task({ id: "unscheduled", scheduledFor: null }),
+    ];
+
+    expect(selectOpenTasksForDate(tasks, date).map((t) => t.id)).toEqual([
+      "today",
     ]);
   });
 });

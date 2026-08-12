@@ -3,14 +3,12 @@ import { useMemo } from "react";
 import { ScrollView, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { duplicateTaskInput, TTask } from "@/api/tasks";
-import { isRepeatTask } from "@/api/templates";
+import { duplicateTaskInput } from "@/api/tasks";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { DraggableTaskCard } from "@/components/DraggableTaskCard";
-import { useConfirmation } from "@/hooks/useConfirmation";
+import { useTaskDelete } from "@/hooks/useTaskDelete";
 import { useTasks } from "@/hooks/useTasks";
-import { useTemplates } from "@/hooks/useTemplates";
 import { selectTasksForDate } from "@/utils/taskFilters";
 import { useTheme } from "@/utils/theme";
 
@@ -37,40 +35,17 @@ export function DayTaskList({
   date,
   emptyMessage = "No tasks scheduled for this day.",
 }: TDayTaskListProps) {
-  const { confirm, confirmationProps } = useConfirmation();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const [allTasks, { isLoading, updateTask, createTask, deleteTask }] =
-    useTasks();
+  const [allTasks, { isLoading, updateTask, createTask }] = useTasks();
   const tasks = useMemo(
     () => selectTasksForDate(allTasks, date),
     [allTasks, date],
   );
-  const [, { deleteTemplate, getTemplateById }] = useTemplates();
-
-  const handleDelete = async (task: TTask) => {
-    // A linked template is only this task's repeat schedule while it still
-    // carries one. Since DEX-65 it may have been converted into a saved task
-    // template — which is the user's, not this task's, and must outlive it.
-    // Unknown (still loading, stale id) counts as "not a repeat": leaving a
-    // schedule behind is visible and undoable in Settings, whereas deleting a
-    // template the user saved is neither.
-    const linkedTemplate = getTemplateById(task.templateId);
-    const isRepeating = linkedTemplate ? isRepeatTask(linkedTemplate) : false;
-    const confirmed = await confirm({
-      title: isRepeating ? "Delete repeating task?" : "Delete Task",
-      message: isRepeating
-        ? "This task repeats. Deleting it also removes its repeat schedule, so no new occurrences will be created."
-        : "Delete this task?",
-      confirmLabel: "Delete",
-      destructive: true,
-    });
-    if (!confirmed) return;
-    // The task→template FK is ON DELETE SET NULL, so the template must be removed
-    // explicitly to stop future occurrences (DEX-21).
-    if (isRepeating && task.templateId) deleteTemplate(task.templateId);
-    deleteTask(task.id);
-  };
+  // The repeat-aware delete lives in the hook so the ritual's Open tasks step
+  // shares it (DEX-146) — a second copy could drop a repeat schedule on one
+  // surface and keep it on the other.
+  const { confirmDelete, confirmationProps } = useTaskDelete();
 
   return (
     <>
@@ -116,7 +91,7 @@ export function DayTaskList({
               onUpdate={(diff) => updateTask({ id: item.id, ...diff })}
               onDuplicate={() => createTask(duplicateTaskInput(item))}
               onPromoteSubtask={(promoted) => createTask(promoted)}
-              onDelete={() => handleDelete(item)}
+              onDelete={() => void confirmDelete(item)}
             />
           ))}
         </ScrollView>
