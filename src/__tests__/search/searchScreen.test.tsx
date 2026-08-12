@@ -426,8 +426,8 @@ describe("SearchScreen", () => {
     // the stack screen's own view — whose safe area includes the translucent
     // header `Stack.SearchBar` forces — and not the per-tab SafeAreaProvider,
     // whose top inset is only the status bar. Swapping this back to the
-    // context's SafeAreaView reopens the bug; the safe-area section of
-    // `docs/frontend.md` carries the mechanism.
+    // context's SafeAreaView reopens the bug; the Search section of
+    // `docs/features.md` carries the mechanism.
     expect(
       screen.getByTestId("screen-safe-area-edges-left,right,top"),
     ).toBeTruthy();

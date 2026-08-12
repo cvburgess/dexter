@@ -64,7 +64,7 @@ Dexter is a monorepo:
 | App | `cd src && npm install --legacy-peer-deps && npm start` |
 | Backend | See [`supabase/README.md`](supabase/README.md) |
 | Website | `cd www && deno task serve` |
-| Docs | Start with [`docs/frontend.md`](docs/frontend.md) and [`docs/backend.md`](docs/backend.md) |
+| Docs | Conventions in [`docs/frontend.md`](docs/frontend.md) / [`docs/backend.md`](docs/backend.md); what each feature does in [`docs/features.md`](docs/features.md) and [`docs/api-routes.md`](docs/api-routes.md) |
 
 ### Contributing
 

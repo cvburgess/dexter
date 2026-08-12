@@ -81,6 +81,8 @@ Read the architecture doc for the areas the diff touches:
 
 - `src/` → [`docs/frontend.md`](docs/frontend.md)
 - `supabase/` → [`docs/backend.md`](docs/backend.md)
+- a specific feature's screens or tables → [`docs/features.md`](docs/features.md)
+- an edge function, the search RPC, the cron job, OAuth → [`docs/api-routes.md`](docs/api-routes.md)
 - tests → [`docs/testing.md`](docs/testing.md)
 - style values → [`docs/design.md`](docs/design.md)
 

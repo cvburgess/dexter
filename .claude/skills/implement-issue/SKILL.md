@@ -58,6 +58,7 @@ Prompt with the full issue payload from `get_issue` (and comments if loaded). As
 
 - Read `docs/backend.md` if the issue affects `supabase/` (DB schema, RLS, edge functions, storage) — use it as primary context for backend patterns
 - Read `docs/frontend.md` if the issue affects `src/` (routing, hooks, patterns, paywall, navigation) — use it as primary context for app patterns
+- Read `docs/features.md` for the section covering the feature being changed (its screens and its tables), and `docs/api-routes.md` if the issue touches an edge function, the search RPC, the cron job, or OAuth
 - Read `docs/website.md` if the issue affects `www/` (landing pages, marketing copy, SEO, Lume templates, or website deploy behavior) — use it as primary context for website patterns
 - Map each plan step to specific files, components, hooks, utilities, or edge functions in the codebase
 - Identify existing patterns the implementation should follow (similar features, conventions, naming)
@@ -72,10 +73,10 @@ Prompt with the issue title and description. Ask it to:
 
 - Find existing tests related to the areas being changed (search `__tests__/` directories)
 - Identify which test patterns to follow (unit, hook, route — see `docs/testing.md`)
-- Identify which docs in `docs/` may need updating based on the issue (use the mapping from the open-pr skill: frontend.md, backend.md, design.md, testing.md, website.md, appstore.md)
-- Check if feature changes warrant updates to the marketing website in `www/` (feature data lives in `www/src/_data/features.json`; tips pages live in `www/src/tips/`; read `docs/website.md` for website patterns)
-- Check if the change affects user-visible behavior covered by an existing tip page in `www/src/tips/`, FAQ copy in `www/src/_data/faqs.json`, or release notes in `www/src/_data/releases.ts`.
-- Return: relevant test files, test patterns to follow, and docs/website files that may need updates
+- Identify which docs are worth **reading** for context (conventions in `docs/frontend.md` / `docs/backend.md`; the feature's own section in `docs/features.md`; an endpoint's contract in `docs/api-routes.md`)
+- Do **not** go looking for docs to update. Report a doc *update* only if you can name the specific durable gotcha or counterfactual this work would produce and quote the paragraph it would replace — shipping a feature, fixing a bug, or adding a test is not itself a reason to write. Returning "no doc updates needed" is the expected answer.
+- Check if the change affects user-visible behavior covered by an existing tip page in `www/src/tips/`, FAQ copy in `www/src/_data/faqs.json`, feature data in `www/src/_data/features.json`, or release notes in `www/src/_data/releases.ts` — stale marketing claims are a real defect (read `docs/website.md` for patterns)
+- Return: relevant test files, test patterns to follow, docs worth reading, and any website copy that would go stale
 
 Set `subagent_type: "Explore"`.
 
@@ -124,7 +125,7 @@ git checkout -b <gitBranchName> main
 
 Work through the plan step by step. For each step:
 
-1. **Read architecture docs first** — read `docs/backend.md` before modifying `supabase/`, `docs/frontend.md` before modifying `src/`, and `docs/website.md` before modifying `www/` to follow established patterns
+1. **Read architecture docs first** — read `docs/backend.md` before modifying `supabase/`, `docs/frontend.md` before modifying `src/`, and `docs/website.md` before modifying `www/` to follow established patterns; add the relevant `docs/features.md` section (or `docs/api-routes.md` for an endpoint) for the feature you're changing
 2. **Read before writing** — always read files before modifying them
 3. **Follow existing patterns** — match the codebase's style, naming, and conventions
 4. **Keep changes focused** — only change what's needed for this issue
@@ -143,21 +144,33 @@ Based on the test landscape from Step 3 (or the issue's test cases if Step 3 was
 3. **Place tests correctly** — in `__tests__/` directories adjacent to source, never inside `src/app/`
 Run the relevant suite yourself (`cd src && npm test` / the deno test command in `AGENTS.md`) — the Stop hook lints but does not run tests. If tests fail, fix them before proceeding. Do not skip or disable tests.
 
-### Step 8: Update documentation
+### Step 8: Review documentation — usually this means changing nothing
 
-Review which docs need updating based on what changed:
+**Gate 1: did this work produce a durable fact the code cannot say for itself?**
+A gotcha, a counterfactual (something tried that failed, and why), a constraint invisible at the point of use, or a decision that would otherwise be re-litigated. **If no, write nothing and go to step 9.** Most issues stop here.
 
-| If you changed... | Update these |
+These do **not** earn a doc update:
+
+- A new feature or screen that works as designed — shipping is not a reason to narrate
+- A new endpoint whose contract is already readable in its own file
+- A bug fix, a refactor, a rename, a new test
+- Anything the repo, the types, or `git log` already answers
+
+**Gate 2: route by the kind of fact, not the directory you touched.**
+
+| The fact is... | It goes in |
 |---|---|
-| App features, feature status | `www/` website content when marketing claims change (feature data in `www/src/_data/features.json`, tips in `www/src/tips/` — see `docs/website.md` for patterns) |
-| User-facing behavior covered by an existing tip page or FAQ | The matching `www/src/tips/<feature>.md` page or `www/src/_data/faqs.json` entry |
-| UI copy, colors, branding | `docs/design.md` |
+| A rule for building any screen | `docs/frontend.md` |
+| A rule for any table, migration, or function | `docs/backend.md` |
+| What one feature does and why — screens and tables together | `docs/features.md` |
+| What one endpoint promises | `docs/api-routes.md` |
+| What a style token means | `docs/design.md` |
+| A test-harness gotcha | `docs/testing.md` |
 | App Store metadata | `docs/appstore.md` |
-| Supabase functions, DB schema | `docs/backend.md` |
-| App patterns, hooks, routing | `docs/frontend.md` |
-| Testing patterns or setup | `docs/testing.md` |
 
-Only make factual updates — no speculative or cosmetic edits. Skip docs that aren't affected. Most issues need 0–2 doc updates.
+**Prefer tightening or deleting over adding** — if this issue made a paragraph obsolete, delete it in the same PR. A feature narrative inside `frontend.md`/`backend.md` is the specific failure the docs split exists to prevent.
+
+Separately, if the change alters **user-facing behavior the marketing site claims**, update the matching `www/src/tips/<feature>.md` page, `www/src/_data/faqs.json` entry, or `www/src/_data/features.json` (see `docs/website.md`) — that is product copy going stale, not engineering docs growing.
 
 ### Step 9: Self-review
 

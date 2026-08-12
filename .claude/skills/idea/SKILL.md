@@ -29,6 +29,7 @@ If it's a bare problem with no proposed solution, sketch one or two approaches i
 Issue these reads **in one parallel batch**, not one at a time:
 
 - The architecture doc for the area being touched — `docs/frontend.md` for `src/`, `docs/backend.md` for `supabase/`, `docs/website.md` for `www/`
+- `docs/features.md` for the feature the idea sits next to (it records what was already tried and rejected there), and `docs/api-routes.md` if the idea needs an endpoint
 - `docs/design.md` if the idea touches any style value (it usually does)
 - A grep for the existing component, hook, or utility this idea should extend
 

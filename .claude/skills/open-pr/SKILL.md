@@ -27,24 +27,40 @@ Create a GitHub pull request for the current branch.
    - Else, if the branch matches `^([a-z]+)-(\d+)-` (e.g., `dex-294-integrate-linear`), uppercase the prefix to build the identifier and call `get_issue` to confirm.
    - If no Linear issue is found, skip the `Closes` line in the PR body.
 
-4. **Review and update documentation:**
+4. **Review documentation — usually this means changing nothing.**
 
-   Analyze `git diff main...HEAD` and use the mapping table below to determine which docs may need updating:
+   **Gate 1: did this PR produce a durable fact the code cannot say for itself?**
+   A gotcha, a counterfactual (something tried that failed, and why), a constraint
+   invisible at the point of use, or a decision that would otherwise be
+   re-litigated. **If no, write nothing and go to step 5.** Most PRs stop here.
 
-   | If the diff touches... | Review this doc |
+   These do **not** earn a doc update:
+   - A new feature or screen that works as designed — shipping is not a reason to narrate
+   - A new endpoint whose contract is already readable in its own file
+   - A bug fix, a refactor, a rename, a new test
+   - Anything the repo, the types, or `git log` already answers
+
+   **Gate 2: route by the kind of fact, not the directory you touched.**
+
+   | The fact is... | It goes in |
    |---|---|
-   | `src/` app code (routes, hooks, components, contexts, utils) | `docs/frontend.md`, `AGENTS.md` |
-   | `supabase/` (edge functions, config, migrations, types) | `docs/backend.md`, `AGENTS.md` |
-   | `www/` (website code) | `docs/website.md`, `AGENTS.md` |
-   | New features, feature removal, status changes | Marketing content in `www/src/_data/features.json`, `www/src/tips/`, or `www/src/_data/faqs.json` |
-   | User-facing behavior covered by existing website content | The matching `www/src/tips/<feature>.md` page or `www/src/_data/faqs.json` entry |
-   | UI copy, tone, colors, typography, branding | `docs/design.md` |
+   | A rule for building any screen | `docs/frontend.md` |
+   | A rule for any table, migration, or function | `docs/backend.md` |
+   | What one feature does and why — screens and tables together | `docs/features.md` |
+   | What one endpoint promises | `docs/api-routes.md` |
+   | What a style token means | `docs/design.md` |
    | App Store metadata, screenshots, keywords | `docs/appstore.md` |
-   | `.claude/skills/` files | The affected skill's `SKILL.md` |
+   | A repo-wide constraint or command | `AGENTS.md` |
+   | Behavior a skill documents | The affected skill's `SKILL.md` |
 
-   For each affected doc: Read it, determine if the PR requires a concrete update, and apply changes with Edit. Skip docs not affected. Most PRs need 0–2 updates.
+   Separately, if the PR changes **user-facing behavior the marketing site
+   claims**, update the matching `www/src/tips/<feature>.md` page,
+   `www/src/_data/faqs.json` entry, or `www/src/_data/features.json` — that is
+   product copy going stale, not engineering docs growing.
 
    Key rules:
+   - **Prefer tightening or deleting over adding.** If this PR made a paragraph obsolete, delete it — a doc edit that only removes text is a success
+   - A feature narrative inside `frontend.md`/`backend.md` is the specific failure the docs split exists to prevent
    - `CLAUDE.md` and `AGENTS.md` must always stay identical — update both if either changes
    - Only update skills if the PR directly changes behavior the skill documents
    - Only make factual updates — no speculative or cosmetic edits
@@ -104,7 +120,7 @@ If a Linear issue was found, replace `DEX-XXX` in the `Closes` line with the act
 - Never force-push or amend commits as part of this skill
 - If the branch has no commits ahead of main, inform the user and do not create a PR
 - Keep the summary focused on **what changed and why**, not listing every file
-- Documentation updates should be factual and minimal
+- **Most PRs need no doc changes at all** — writing is the exception, not the routine
 - `CLAUDE.md` and `AGENTS.md` must always have identical content — update both if either changes
 - Do not update docs for purely cosmetic code changes
 - If unsure whether a doc needs updating, err on the side of not updating
