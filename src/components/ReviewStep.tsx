@@ -101,13 +101,13 @@ export function ReviewStep({ date }: TReviewStepProps) {
     {
       key: "habits",
       figure: String(completedHabits),
-      words: `${plural(completedHabits, "habit")} complete`,
+      words: `${plural(completedHabits, "habit")} done`,
       shown: preferences.enableHabits,
     },
     {
       key: "tasks",
       figure: String(tasks.length),
-      words: `${plural(tasks.length, "task")} complete`,
+      words: `${plural(tasks.length, "task")} done`,
       shown: true,
     },
     {

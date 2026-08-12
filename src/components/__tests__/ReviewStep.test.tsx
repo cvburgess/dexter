@@ -161,19 +161,19 @@ describe("ReviewStep", () => {
 
       // One accessibility node per line carries the whole phrase, which is what
       // the hero reads as — and pins the pluralization at both ends.
-      expect(screen.getByLabelText("1 habit complete")).toBeTruthy();
-      expect(screen.getByLabelText("3 tasks complete")).toBeTruthy();
+      expect(screen.getByLabelText("1 habit done")).toBeTruthy();
+      expect(screen.getByLabelText("3 tasks done")).toBeTruthy();
       expect(screen.getByLabelText("2 events")).toBeTruthy();
       expect(screen.getByLabelText("0 focus blocks")).toBeTruthy();
     });
 
     it("says 'tasks' for none of them and 'task' for one", () => {
       render(<ReviewStep date={DATE} />);
-      expect(screen.getByLabelText("0 tasks complete")).toBeTruthy();
+      expect(screen.getByLabelText("0 tasks done")).toBeTruthy();
 
       setDay({ tasks: [task()] });
       screen.rerender(<ReviewStep date={DATE} />);
-      expect(screen.getByLabelText("1 task complete")).toBeTruthy();
+      expect(screen.getByLabelText("1 task done")).toBeTruthy();
     });
 
     // A habit paused or archived after the fact keeps its row until the trigger
@@ -190,7 +190,7 @@ describe("ReviewStep", () => {
       });
       render(<ReviewStep date={DATE} />);
 
-      expect(screen.getByLabelText("1 habit complete")).toBeTruthy();
+      expect(screen.getByLabelText("1 habit done")).toBeTruthy();
     });
 
     // The rule the summary step set: a line exists per feature the reader has,
@@ -203,9 +203,9 @@ describe("ReviewStep", () => {
       setDay({ tasks: [task()] });
       render(<ReviewStep date={DATE} />);
 
-      expect(screen.getByLabelText("1 task complete")).toBeTruthy();
+      expect(screen.getByLabelText("1 task done")).toBeTruthy();
       expect(screen.getByLabelText("0 focus blocks")).toBeTruthy();
-      expect(screen.queryByLabelText(/habit complete/)).toBeNull();
+      expect(screen.queryByLabelText(/habit done/)).toBeNull();
       expect(screen.queryByLabelText(/event/)).toBeNull();
     });
 
@@ -236,7 +236,7 @@ describe("ReviewStep", () => {
       });
       render(<ReviewStep date={DATE} />);
 
-      expect(screen.getByLabelText("3 tasks complete")).toBeTruthy();
+      expect(screen.getByLabelText("3 tasks done")).toBeTruthy();
       expect(screen.getByText("card:Finished")).toBeTruthy();
       expect(screen.getByText("card:Abandoned")).toBeTruthy();
       expect(screen.getByText("card:Handed off")).toBeTruthy();
@@ -265,7 +265,7 @@ describe("ReviewStep", () => {
 
       expect(screen.getByTestId("review-step-quiet")).toBeTruthy();
       expect(screen.queryByText("habit-tracker")).toBeNull();
-      expect(screen.getByLabelText("0 tasks complete")).toBeTruthy();
+      expect(screen.getByLabelText("0 tasks done")).toBeTruthy();
     });
   });
 });
