@@ -144,21 +144,22 @@ function SunriseBand({ band, stage, rise, width, height }: TSunriseBandProps) {
 
 type TSunriseBackgroundProps = {
   /**
-   * Gates the rise and replays it when it changes — the day, the same key
-   * `useHeroReveal` takes. `null` holds it back while the step's data is still
-   * loading, so the sun doesn't come up behind figures that aren't there yet.
+   * Replays the rise when it changes — the day, the same key `useHeroReveal`
+   * takes. Not nullable: the step returns `null` while its counts are loading,
+   * so this never mounts against data that isn't there yet.
    */
-  revealKey: string | null;
+  revealKey: string;
 };
 
 /**
  * The sunrise behind the ritual's Summary step: concentric arcs rising from
  * below it, one band at a time.
  *
- * It starts as soon as the step has a day and a measured box — **alongside the
- * hero, not after it.** Waiting the figures out was tried first and read as two
- * unrelated events; run together, the sun comes up as the day is being counted
- * and the outermost band settles about when the button lands.
+ * It starts as soon as the step has a measured box, and **the step's own
+ * content waits for it** (`SUNRISE_MS`, exported for that). Running the two
+ * together was tried first: the figures counting themselves off competed with
+ * the bands for the same stretch of time, and neither read. Sequenced, the step
+ * is a sky coming up and then the day being handed over.
  *
  * Deliberately not a gradient image — vector circles at a handful of fixed
  * radii stay crisp at every width, weigh nothing in the bundle, and can be
@@ -181,11 +182,13 @@ export function SunriseBackground({ revealKey }: TSunriseBackgroundProps) {
     );
   };
 
-  const ready = revealKey !== null && size.height > 0;
+  // Nothing to animate until the box has been measured — the bands' travel is
+  // a fraction of its height.
+  const ready = size.height > 0;
 
   // The same shape `useHeroReveal` uses, for the same reasons: keyed on the day
-  // so the rise replays when it changes, held at 0 until there is a day *and* a
-  // measured box, and **assigned** rather than skipped under reduced motion —
+  // so the rise replays when it changes, held at 0 until the box is measured,
+  // and **assigned** rather than skipped under reduced motion —
   // a plain write cancels whatever is running on the value, which is what stops
   // a rise mid-flight when the setting is turned on while the step is open.
   useEffect(() => {

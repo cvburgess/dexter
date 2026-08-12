@@ -37,11 +37,12 @@ type TSummaryStepProps = {
 /**
  * How long the figures and the button take to arrive, once the sky has.
  *
- * Long — a little over half the sunrise itself. The block has no stagger of its
- * own to fill the time (the figures land together, unlike the calendar and
- * backlog heroes), so the duration *is* the whole gesture: at 700ms it read as
- * a switch being thrown after the sky had finished, where drawn out it reads as
- * the day surfacing out of the light.
+ * Long — most of the sunrise's own length again, for a step that takes about
+ * four seconds end to end. The block has no stagger of its own to fill the time
+ * (the figures land together, unlike the calendar and backlog heroes), so the
+ * duration *is* the whole gesture: at 700ms it read as a switch being thrown
+ * after the sky had finished, where drawn out it reads as the day surfacing out
+ * of the light.
  */
 const CONTENT_FADE_MS = 1800;
 
@@ -77,6 +78,10 @@ export function SummaryStep({ date }: TSummaryStepProps) {
   const reduceMotion = useReducedMotion();
   const router = useRouter();
   const [preferences] = usePreferences();
+  // The day as a value rather than an object: it keys all three animations and
+  // the link, and comparing `PlainDate` identity would restart them for an
+  // equal-but-new one.
+  const day = date.toString();
 
   // Active, unpaused habits scheduled for this weekday — the same selection
   // `HabitTracker` treats as the source of truth for a day, rather than
@@ -136,11 +141,11 @@ export function SummaryStep({ date }: TSummaryStepProps) {
   const total = counts.reduce((sum, line) => sum + line.count, 0);
   const isLoading = habitsLoading || eventsLoading || tasksLoading;
 
-  // Held back until every count exists, so the sequence waits rather than
-  // running against three placeholder zeros.
-  const reveal = useHeroReveal(isLoading ? null : date.toString());
-  // The blank day has no figures, so its message takes the first stage itself
-  // and the button the second. Only that branch staggers now — see below.
+  // **The blank day's driver, and only its.** Its message takes the first stage
+  // and its button the second — the one branch that still staggers, since it
+  // has no sunrise to sequence against (see below). Held at `null` on every
+  // other path, so a counted day doesn't run a 3.6s timing nothing reads.
+  const reveal = useHeroReveal(isLoading || total > 0 ? null : day);
   const blankStyle = useStageOpacity(reveal, 0);
   const blankCloseStyle = useStageOpacity(reveal, 1);
 
@@ -168,7 +173,10 @@ export function SummaryStep({ date }: TSummaryStepProps) {
       SUNRISE_MS,
       withTiming(1, { duration: CONTENT_FADE_MS }),
     );
-  }, [content, isLoading, reduceMotion, date]);
+    // `date.toString()`, not `date`: the same key the reveal and the sunrise
+    // take, so all three restart together on a day change rather than this one
+    // also restarting for an equal-but-new `PlainDate`.
+  }, [content, isLoading, reduceMotion, day]);
   const contentStyle = useAnimatedStyle(() => ({ opacity: content.value }));
 
   // `HeroLines` staggers its lines by index onto one driver. Pinned at 1, every
@@ -187,7 +195,7 @@ export function SummaryStep({ date }: TSummaryStepProps) {
     navigationCount.current += 1;
     router.push(
       todayRoute({
-        date: date.toString(),
+        date: day,
         mode: "tasks",
         n: String(navigationCount.current),
       }),
@@ -271,7 +279,7 @@ export function SummaryStep({ date }: TSummaryStepProps) {
       {/* First child, so it paints under the figures and the button without
           either needing a z-index. It is absolutely filled and takes no part in
           the centering above. */}
-      <SunriseBackground revealKey={date.toString()} />
+      <SunriseBackground revealKey={day} />
       {/* Figures and button under one opacity, so they arrive as a unit.
           `bodyInsetTop` cancels the compensation `HeroLines` adds below itself
           for the step inset: that compensation is right for a hero anchored to
