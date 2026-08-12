@@ -174,11 +174,11 @@ describe("HoroscopeStep", () => {
       expect(screen.getByText(HOROSCOPE.tips[0])).toBeTruthy();
     });
 
-    // The hero is the app's only custom-font text, and the two resets are the
-    // point: `fonts.heading` carries a 700 the loaded file already has, and the
-    // file is already italic, so leaving either in place stacks a synthetic
-    // weight or slant on top of a real one (see `SERIF`). Both are invisible
-    // failures — the text still renders, just smeared or double-slanted.
+    // The tips are the app's only custom-font text, and the two resets are the
+    // point: the roles carry a weight the loaded file already has, and the files
+    // are already italic, so leaving either in place stacks a synthetic weight
+    // or slant on top of a real one (see `SERIF`). Both are invisible failures —
+    // the text still renders, just smeared or double-slanted.
     it("sets the hero in the serif, with no synthetic weight or slant", () => {
       const screen = renderStep();
 
@@ -189,6 +189,21 @@ describe("HoroscopeStep", () => {
       expect(style.fontFamily).toBe(SERIF.displayItalic);
       expect(style.fontWeight).toBe("normal");
       expect(style.fontStyle).toBe("normal");
+    });
+
+    // The *other* cut, and that is the whole assertion: React Native cannot
+    // derive a 400 from the hero's 700, so a tip pointed at `displayItalic`
+    // would render a full bold paragraph rather than a lighter one.
+    it("sets the remaining tips in the serif's lighter cut", () => {
+      const screen = renderStep();
+
+      for (const tip of HOROSCOPE.tips.slice(1)) {
+        const style = StyleSheet.flatten(screen.getByText(tip).props.style);
+
+        expect(style.fontFamily).toBe(SERIF.bodyItalic);
+        expect(style.fontWeight).toBe("normal");
+        expect(style.fontStyle).toBe("normal");
+      }
     });
 
     // The upstream's prose is still fetched and stored — it is the horoscope

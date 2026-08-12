@@ -329,9 +329,11 @@ Read-only client of `public.horoscopes` (`["horoscopes", sunSign, date]`),
 deliberately not realtime (rows change once a day). The panel's colors and
 frame are `docs/design.md`'s Sentiment section. App-side gotchas:
 
-- **The hero is the app's only custom-font text** (`SERIF`, see
+- **The tips are the app's only custom-font text** (`SERIF`, see
   `docs/design.md`), and the reason `app/_layout.tsx` holds the splash at
-  startup. Both resets on that style are load-bearing — see the design doc.
+  startup. Both resets on those styles are load-bearing — see the design doc.
+  The hero and the tips below it take *different entries*, not one entry at two
+  weights, which is the same constraint stated there.
 - **The hero shows the first tip, and `horoscopes.text` is never rendered at
   all.** The column is still fetched and stored — it is the horoscope proper —
   but as a hero it was three sentences of astrological mechanism ("Mars strains

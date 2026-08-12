@@ -84,14 +84,21 @@ const SCROLL_HINT_ICON = {
 const STAR_OPACITY = 0.55;
 
 /**
- * How strongly the rating columns' arrows and edges are drawn.
+ * How strongly a band's ring is drawn — the arrow inside it takes the panel's
+ * full ink.
  *
- * Half the panel's ink. These are a legend for the labels under them rather
- * than the content itself — at full strength three arrows and three rings were
- * the brightest thing below the fold, which put the emphasis on the scale
- * instead of on what it was measuring.
+ * **Deliberately almost nothing.** Both were at half, which drew three rings as
+ * hard as the arrows they contained and made the ring the thing the eye found
+ * first. At 5% the edge is a seam rather than a border: enough to keep the
+ * disc's near-black fill from bleeding into the panel's near-black on the two
+ * bands whose hue is closest to it, and not enough to be read as a shape in its
+ * own right. The arrow at full strength is then the only mark, which is the
+ * right answer to "what is this row" — the ring is a container, not a symbol.
+ *
+ * The disc still relies on `SHADOW_2XL` for most of its separation, which is
+ * why dropping this far does not lose it entirely.
  */
-const RATING_MARK_OPACITY = 0.5;
+const RATING_EDGE_OPACITY = 0.05;
 
 /**
  * The hero glyph's size, derived rather than tokenized.
@@ -592,7 +599,18 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
                   style={[
                     styles.tip,
                     theme.fonts.body,
-                    { color: ink.text, lineHeight: proseLineHeight(theme) },
+                    {
+                      color: ink.text,
+                      // The hero's voice, at `body`'s size and weight —
+                      // `SERIF.bodyItalic` is the 400 cut, so these read as the
+                      // hero's sentence continued rather than as three more
+                      // heroes. The two resets are the ones the hero makes, for
+                      // the same reason: see `SERIF`.
+                      fontFamily: SERIF.bodyItalic,
+                      fontStyle: "normal",
+                      fontWeight: "normal",
+                      lineHeight: proseLineHeight(theme),
+                    },
                   ]}
                 >
                   {tip}
@@ -625,12 +643,13 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
                           // the two is what keeps the disc from disappearing into
                           // its own background.
                           backgroundColor: sentimentTints(bucket.id).peak,
-                          // Which is also why the edge is load-bearing here
-                          // rather than decorative — at this lightness the fill
-                          // alone does not describe a shape.
+                          // A seam, not a border — see `RATING_EDGE_OPACITY`.
+                          // At this lightness the fill alone does not quite
+                          // separate from the panel, and this is the least that
+                          // fixes it without competing with the arrow.
                           borderColor: withOpacity(
                             ink.text,
-                            RATING_MARK_OPACITY,
+                            RATING_EDGE_OPACITY,
                           ),
                           // The card's own lift, the same rung it draws
                           // (`SHADOW_2XL`). Note what it can and cannot do here:
@@ -649,7 +668,11 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
                         style={[
                           theme.fonts.title,
                           {
-                            color: withOpacity(ink.text, RATING_MARK_OPACITY),
+                            // Full ink, the same the tips and the areas take.
+                            // The arrow is the row's only mark now that the ring
+                            // has stepped back, and a dimmed one read as a
+                            // disabled control rather than as a legend.
+                            color: ink.text,
                             lineHeight: theme.controls.md,
                           },
                         ]}

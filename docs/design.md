@@ -234,7 +234,8 @@ DEX-145 there was exactly one face — a role said how loud a thing is, never in
 what voice. `SERIF` (`utils/theme.ts`, Playfair Display) is the exception, and
 it is scoped by intent rather than by size: reach for it where the app is
 *saying* something, not where it is labelling something. Today that is one
-place, the Horoscope step's hero.
+place, the Horoscope step's tips — the hero in `displayItalic`, the two below it
+in `bodyItalic`.
 
 Two things to know before using it:
 
@@ -247,7 +248,9 @@ Two things to know before using it:
   still renders, just smeared.
 - **Adding a cut costs a download.** Each weight/style is a separate ~100-200KB
   asset, imported in `app/_layout.tsx` and named in `SERIF`. Load only what is
-  used.
+  used. The two entries there are one family at two weights for exactly this
+  reason: keeping a `heading`'s 700 and a `body`'s 400 apart in this typeface is
+  a second file, not a second `fontWeight`.
 
 This is also the app's **only startup gate**: `app/_layout.tsx` holds the splash
 until the font is in memory. That is not caution on principle — the hero fades

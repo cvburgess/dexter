@@ -1,4 +1,5 @@
 import {
+  PlayfairDisplay_400Regular_Italic,
   PlayfairDisplay_700Bold_Italic,
   useFonts,
 } from "@expo-google-fonts/playfair-display";
@@ -109,7 +110,14 @@ function RootLayout() {
   // to start in the system face, not a reason to hold the splash forever. The
   // hero degrades to the platform serif fallback, which is the same thing every
   // other line in the app already uses.
-  const [fontsLoaded, fontError] = useFonts({ PlayfairDisplay_700Bold_Italic });
+  //
+  // Two cuts of one family, because React Native resolves a custom family name
+  // to exactly one file and cannot derive a 400 from a 700 — see `SERIF` in
+  // `utils/theme.ts`.
+  const [fontsLoaded, fontError] = useFonts({
+    PlayfairDisplay_400Regular_Italic,
+    PlayfairDisplay_700Bold_Italic,
+  });
 
   useEffect(() => {
     if (fontsLoaded || fontError) SplashScreen.hideAsync().catch(() => {});

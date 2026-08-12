@@ -339,8 +339,8 @@ export function sentimentTints(sentiment: THoroscopeSentiment): {
  * which is why the six type roles carry a size and a weight and no family: a
  * role says how loud a thing is, and until now every one of them said it in the
  * same voice. This is the second voice, and it is deliberately scoped — reach
- * for it where the app is *saying* something (the Horoscope step's hero) rather
- * than labelling something.
+ * for it where the app is *saying* something (the Horoscope step's hero and the
+ * tips under it) rather than labelling something.
  *
  * **Each entry is a separate loaded file, not a family plus modifiers.** This is
  * the part that surprises: on the web `font-family: Playfair` with
@@ -352,6 +352,11 @@ export function sentimentTints(sentiment: THoroscopeSentiment): {
  * anything using one of these must set `fontWeight` and `fontStyle` to
  * `"normal"` — the file already carries both.
  *
+ * The two entries below make that concrete: they are one family at two weights,
+ * and they are two entries because they are two files. Keeping a `heading`'s 700
+ * and a `body`'s 400 apart in this typeface is a second download, not a second
+ * `fontWeight`.
+ *
  * Adding a cut is two lines: the import in `app/_layout.tsx`'s `useFonts` and an
  * entry here. Only load what is used — each is a separate ~100-200KB asset in
  * the bundle and a separate download on web.
@@ -359,6 +364,8 @@ export function sentimentTints(sentiment: THoroscopeSentiment): {
 export const SERIF = {
   /** Playfair Display, 700 italic. */
   displayItalic: "PlayfairDisplay_700Bold_Italic",
+  /** Playfair Display, 400 italic. */
+  bodyItalic: "PlayfairDisplay_400Regular_Italic",
 } as const;
 
 export const SENTIMENT_FRAME = "#ffffff";
