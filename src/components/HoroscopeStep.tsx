@@ -83,6 +83,16 @@ const SCROLL_HINT_ICON = {
 const STAR_OPACITY = 0.55;
 
 /**
+ * How strongly the rating columns' arrows and edges are drawn.
+ *
+ * Half the panel's ink. These are a legend for the labels under them rather
+ * than the content itself — at full strength three arrows and three rings were
+ * the brightest thing below the fold, which put the emphasis on the scale
+ * instead of on what it was measuring.
+ */
+const RATING_MARK_OPACITY = 0.5;
+
+/**
  * The hero glyph's size, derived rather than tokenized.
  *
  * `icons.md` (24) is a row's leading glyph and far too small to carry a screen,
@@ -140,12 +150,11 @@ const summaryLineHeight = (theme: Theme) =>
 /**
  * The breath between the day's tips and the rated columns.
  *
- * **Measured from the viewport, not the spacing scale**, which is the only way
- * it can be what it is asked to be: the same distance the reader already crosses
- * between the first tip and the rest. That gap is not a token either — the first
- * tip is centred in a full screenful, so the air under it is whatever half a
- * hero happens to be on this device. Matching it with a multiple of `space.lg`
- * would hold on one phone and drift on every other size.
+ * **Measured from the viewport, not the spacing scale**, so it holds its
+ * proportion on every device rather than matching on one and drifting on the
+ * rest. A quarter of a screenful: half the hero's own air, which was the first
+ * cut and read as a dead zone rather than a breath — the columns had gone far
+ * enough below the fold that nothing suggested they were there.
  *
  * This is the step's rhythm rather than a one-off: a screenful for the tip, the
  * remaining tips, a breath of the same measure, then the columns. It is the same
@@ -158,7 +167,7 @@ const summaryLineHeight = (theme: Theme) =>
  * tucked under the tips before snapping down.
  */
 const tipsToColumnsGap = (theme: Theme, viewportHeight: number) =>
-  Math.max(theme.space.lg * 2, Math.round(viewportHeight / 2));
+  Math.max(theme.space.lg * 2, Math.round(viewportHeight / 4));
 
 /**
  * How far the reader has to scroll before the chevron is fully gone.
@@ -543,7 +552,7 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
               {RATING_BUCKETS.map((bucket) => (
                 <View
                   key={bucket.id}
-                  style={[styles.bucketColumn, { gap: theme.space.sm }]}
+                  style={[styles.bucketColumn, { gap: theme.space.md }]}
                 >
                   <View
                     style={[
@@ -562,7 +571,15 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
                         // the panel is near-black on every theme, where a shadow
                         // shows nothing at all (docs/design.md, "Scrims and
                         // shadows").
-                        borderColor: ink.text,
+                        borderColor: withOpacity(ink.text, RATING_MARK_OPACITY),
+                        // The card's own lift, the same rung it draws
+                        // (`SHADOW_2XL`). Note what it can and cannot do here:
+                        // shadows are black on every theme by design, so on a
+                        // near-black panel this reads as depth under the disc
+                        // rather than as the separation a lighter surface would
+                        // get from it. The edge is still what describes the
+                        // shape.
+                        boxShadow: SHADOW_2XL,
                         borderRadius: theme.radii.full,
                         height: theme.controls.md,
                         width: theme.controls.md,
@@ -572,24 +589,37 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
                     <Text
                       style={[
                         theme.fonts.title,
-                        { color: ink.text, lineHeight: theme.controls.md },
+                        {
+                          color: withOpacity(ink.text, RATING_MARK_OPACITY),
+                          lineHeight: theme.controls.md,
+                        },
                       ]}
                     >
                       {bucket.glyph}
                     </Text>
                   </View>
-                  {lifeAreasInBucket(horoscope, bucket.id).map((area) => (
-                    <Text
-                      key={area.key}
-                      style={[
-                        styles.bucketLabel,
-                        theme.fonts.body,
-                        { color: ink.textSecondary },
-                      ]}
-                    >
-                      {area.label}
-                    </Text>
-                  ))}
+                  {/* The labels keep their own tighter step: the column's `md`
+                      is the gap between the mark and the list it heads, not the
+                      gap between one area and the next. */}
+                  <View style={[styles.bucketColumn, { gap: theme.space.sm }]}>
+                    {lifeAreasInBucket(horoscope, bucket.id).map((area) => (
+                      <Text
+                        key={area.key}
+                        style={[
+                          styles.bucketLabel,
+                          theme.fonts.body,
+                          // The panel's full ink, the same the tips take. These
+                          // already shared `body`'s weight — `textSecondary` was
+                          // the whole difference, and against a near-black card
+                          // it dropped them closer to the background than to the
+                          // prose they belong with.
+                          { color: ink.text },
+                        ]}
+                      >
+                        {area.label}
+                      </Text>
+                    ))}
+                  </View>
                 </View>
               ))}
             </View>
