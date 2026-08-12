@@ -63,6 +63,22 @@ jest.mock("@/components/BacklogStep", () => {
   };
 });
 
+// And the open tasks step: it owns the tasks query, two schedule prompts and a
+// list of cards.
+jest.mock("@/components/OpenTasksStep", () => {
+  const { Text: RNText } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+  return {
+    OpenTasksStep: function MockOpenTasksStep({
+      date,
+    }: {
+      date: Temporal.PlainDate;
+    }) {
+      return <RNText>{`open-tasks:${date.toString()}`}</RNText>;
+    },
+  };
+});
+
 // And the summary step: it owns three queries, a reveal and a router push.
 jest.mock("@/components/SummaryStep", () => {
   const { Text: RNText } =
@@ -87,6 +103,7 @@ const BUILT_STEP_IDS = [
   "calendar",
   "backlog",
   "summary",
+  "open-tasks",
 ];
 
 const renderStep = (step: TRitualStep) =>
@@ -143,6 +160,14 @@ describe("RitualStepView", () => {
     renderStep({ id: "backlog", title: "Backlog" });
 
     expect(screen.getByText("backlog:2026-08-09")).toBeTruthy();
+  });
+
+  // The evening ritual's first step, and the only built one it reaches before
+  // the journal. Like the backlog, no preference gates it.
+  it("renders the open tasks step for the ritual's day", () => {
+    renderStep({ id: "open-tasks", title: "Open tasks" });
+
+    expect(screen.getByText("open-tasks:2026-08-09")).toBeTruthy();
   });
 
   // The one built step both rituals reach, and the last of each.

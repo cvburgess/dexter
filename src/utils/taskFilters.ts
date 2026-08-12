@@ -33,6 +33,23 @@ export function selectTasksForDate(
 }
 
 /**
+ * Tasks scheduled for `date` that nobody has closed out — the evening ritual's
+ * Open tasks step (DEX-146).
+ *
+ * `selectTasksForDate` narrowed by the same `isIncomplete` the backlog scope
+ * uses, rather than a `status` test of its own: "still open" is one decision,
+ * and it lives in `utils/taskStatus`'s `isCompletionStatus` (shared with the
+ * Deno MCP server), so a status added there becomes open-or-closed everywhere at
+ * once.
+ */
+export function selectOpenTasksForDate(
+  tasks: TTask[],
+  date: Temporal.PlainDate,
+): TTask[] {
+  return selectTasksForDate(tasks, date).filter(isIncomplete);
+}
+
+/**
  * Incomplete tasks that are unscheduled or scheduled for a day *not* already on
  * screen — the Backlog drawer's base scope (on-device equivalent of the former
  * `notScheduledForDateFilters` server query, DEX-57).
