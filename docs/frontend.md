@@ -426,8 +426,9 @@ axes compound into a diagonal drift.
 ### Summary step (DEX-144)
 
 The last step of **both** rituals (id `summary`, so it doesn't drift from the
-label): habits/events/tasks counted through the same `HeroLines`, then "You got
-this", then a button into `todayRoute({ date, mode: "tasks" })`. Load-bearing:
+label): habits/events/tasks counted through the same `HeroLines`, over a button
+into `todayRoute({ date, mode: "tasks" })`, the two centered as one block.
+Load-bearing:
 
 - **A morning task-list step was built here first and removed.** `DayTaskList`
   dropped into the step worked and cost almost nothing — but it copied a
@@ -445,10 +446,15 @@ this", then a button into `todayRoute({ date, mode: "tasks" })`. Load-bearing:
   take `colors.primary` rather than the sentiment colors of the two reporting
   steps: this summarizes a day the reader has just finished planning, and none
   of its numbers is bad news.
-- **The close is staged at `heroLines.length`, not `BODY_STAGE`.** That
+- **The button is staged at `heroLines.length`, not `BODY_STAGE`.** That
   constant means "after all three hero lines" and is right for the two steps
   that always draw three; this one draws as few as one, and waiting for stage 3
   there would leave the button missing for most of a 3.6s sequence.
+- **It passes `bodyInsetTop` to cancel `HeroLines`' own bottom compensation.**
+  That padding evens out the ritual layout's step inset for a hero anchored to
+  the top of the step — which is what the calendar and backlog steps have.
+  Centering a block instead makes it bottom-heavy, pulling the figures above
+  true center, so this is the one caller that zeroes it out.
 - An entirely empty day replaces the figures with one line
   (`summary-step-blank`) and keeps the button. `isLoading` is checked first or
   a cold cache tells someone with a full morning they have nothing on.

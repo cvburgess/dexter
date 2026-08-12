@@ -98,7 +98,7 @@ beforeEach(() => {
 
 describe("SummaryStep", () => {
   describe("with something on the day", () => {
-    it("counts habits, events and tasks, and closes on the line", () => {
+    it("counts habits, events and tasks", () => {
       setDay({
         habits: [{}, {}],
         events: [event("standup")],
@@ -111,7 +111,6 @@ describe("SummaryStep", () => {
       expect(screen.getByLabelText("2 habits")).toBeTruthy();
       expect(screen.getByLabelText("1 event")).toBeTruthy();
       expect(screen.getByLabelText("3 tasks")).toBeTruthy();
-      expect(screen.getByText("You got this")).toBeTruthy();
       expect(screen.queryByText(BLANK)).toBeNull();
     });
 
@@ -123,7 +122,7 @@ describe("SummaryStep", () => {
 
       expect(screen.getByLabelText("1 habit")).toBeTruthy();
       expect(screen.getByLabelText("0 tasks")).toBeTruthy();
-      expect(screen.getByText("You got this")).toBeTruthy();
+      expect(screen.queryByText(BLANK)).toBeNull();
     });
   });
 
@@ -147,7 +146,6 @@ describe("SummaryStep", () => {
       render(<SummaryStep date={DATE} />);
 
       expect(screen.getByText(BLANK)).toBeTruthy();
-      expect(screen.queryByText("You got this")).toBeNull();
       expect(screen.queryByLabelText("0 tasks")).toBeNull();
     });
 

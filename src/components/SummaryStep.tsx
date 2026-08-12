@@ -14,8 +14,10 @@ import {
 } from "@/components/HeroLines";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { habitFilters, useHabits } from "@/hooks/useHabits";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTasks } from "@/hooks/useTasks";
+import { ritualStepInsetTop } from "@/utils/ritualSteps";
 import { selectTasksForDate } from "@/utils/taskFilters";
 import { todayRoute } from "@/utils/todayRoute";
 import { useTheme } from "@/utils/theme";
@@ -53,6 +55,7 @@ const plural = (count: number, noun: string) =>
 export function SummaryStep({ date }: TSummaryStepProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const isLargeDevice = useIsLargeDevice();
   const router = useRouter();
   const [preferences] = usePreferences();
 
@@ -189,49 +192,44 @@ export function SummaryStep({ date }: TSummaryStepProps) {
   }
 
   return (
-    // No padding of its own: `HeroLines` brings its own vertical breathing room
-    // and `SwipeablePage` the side gutter, the same arrangement the calendar and
-    // backlog steps use.
-    <View style={styles.container} testID="summary-step">
-      <HeroLines lines={heroLines} reveal={reveal} />
-      {/* `flex: 1` belongs to this wrapper, so the close sits in the middle of
-          whatever the hero leaves rather than directly under it — the figures
-          are a heading, and the line plus the button are what the step is
-          actually asking for. The two arrive together, as one movement after the
-          figures: the line is what they add up to and the button is what to do
-          about it, so staggering them would read as two endings. */}
-      <Animated.View
-        style={[
-          styles.close,
-          {
-            gap: theme.space.lg,
-            // The host SafeAreaView omits the bottom edge (the tab bar owns
-            // it), so centering in the full box would sit this visibly low.
-            paddingBottom: insets.bottom,
-          },
-          closeStyle,
-        ]}
-      >
-        <Animated.Text
-          style={[
-            styles.line,
-            theme.fonts.heading,
-            { color: theme.colors.text },
-          ]}
-        >
-          You got this
-        </Animated.Text>
-        {startButton}
-      </Animated.View>
+    // Figures and button centered as one block. No side gutter or padding of
+    // its own beyond the bottom inset — `HeroLines` brings its own vertical
+    // breathing room and `SwipeablePage` the gutter.
+    <View
+      style={[
+        styles.container,
+        {
+          // The host SafeAreaView omits the bottom edge (the tab bar owns it),
+          // so centering in the full box would sit this visibly low — the same
+          // reservation the blank branch and the calendar step's clear-day
+          // block make.
+          paddingBottom: insets.bottom,
+        },
+      ]}
+      testID="summary-step"
+    >
+      {/* `bodyInsetTop` cancels the compensation `HeroLines` adds below itself
+          for the ritual layout's step inset. That compensation is right for a
+          hero anchored to the top of the step, which is what the calendar and
+          backlog steps have — here the block is centered instead, so the extra
+          padding would only make it bottom-heavy and pull the figures above
+          true center. Zeroing it leaves `lg` above and below them. */}
+      <HeroLines
+        bodyInsetTop={ritualStepInsetTop(theme.space, isLargeDevice)}
+        lines={heroLines}
+        reveal={reveal}
+      />
+      <Animated.View style={closeStyle}>{startButton}</Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Hero on top, body below — the shape the calendar and backlog steps take.
-  container: { flex: 1 },
-  // The body: fills what the hero leaves and centers its two children in it.
-  close: {
+  // Figures and button as one centered block, rather than the hero-on-top,
+  // body-below shape the calendar and backlog steps take — there is no body
+  // here to fill the space, so hanging the figures from the top would leave the
+  // step bottom-empty.
+  container: {
     alignItems: "center",
     flex: 1,
     justifyContent: "center",
