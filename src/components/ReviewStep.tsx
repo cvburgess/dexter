@@ -212,8 +212,17 @@ export function ReviewStep({ date }: TReviewStepProps) {
           already counted them off one at a time. `flex: 1` belongs to this
           wrapper so the scroll view has something to fill. Opacity only, no
           translate — `SwipeablePage`'s intro already slides the page, and a
-          second axis compounds into a diagonal drift. */}
-      <Animated.View style={[styles.body, bodyStyle]}>
+          second axis compounds into a diagonal drift.
+
+          **The `md` handed to `bodyInsetTop` above is paid here, not on the
+          scroll view.** This step is the first with two things under its hero,
+          and `HabitTracker` brings no padding of its own (see docs/design.md,
+          "Who owns spacing") — left on the list, the inset would sit below the
+          rings and leave them tight against the figures while the hero had
+          already given the space back. */}
+      <Animated.View
+        style={[styles.body, bodyStyle, { paddingTop: theme.space.md }]}
+      >
         {habitRow}
         {/* A plain ScrollView, not a FlashList: one day's completed tasks is a
             short list, so virtualization buys nothing. Same call `DayTaskList`
@@ -221,7 +230,10 @@ export function ReviewStep({ date }: TReviewStepProps) {
         <ScrollView
           contentContainerStyle={{
             gap: theme.space.sm,
-            paddingTop: theme.space.md,
+            // Only the rings-to-cards gap; the space above the body is the
+            // wrapper's. Zero without rings, or the first card would sit twice
+            // as far down as it does on every other step.
+            paddingTop: habitRow ? theme.space.md : 0,
             // The host SafeAreaView omits the bottom edge, so the inset goes on
             // the scrolling content — which also lets the last card clear the
             // translucent tab bar instead of hiding behind it.
@@ -256,8 +268,8 @@ export function ReviewStep({ date }: TReviewStepProps) {
 }
 
 const styles = StyleSheet.create({
-  // No gap: `HeroLines` owns the space under the hero, and the scroll view its
-  // own `md` of padding above the first card.
+  // No gap: `HeroLines` owns the space under the hero, and the body wrapper the
+  // `md` it handed back.
   container: { flex: 1 },
   body: { flex: 1 },
   scroll: { flex: 1 },

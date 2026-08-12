@@ -46,9 +46,10 @@ import { useTheme } from "@/utils/theme";
 const STAGE_GAP_MS = 864;
 const STAGE_FADE_MS = 1008;
 /**
- * Four hero lines and then the body. Raised from four total by DEX-148, whose
- * Review step counts habits, tasks, events and focus blocks before it draws
- * anything — see above for why the added stage moved none of the others.
+ * Four hero lines and then the body — one more stage than the four DEX-148
+ * found, since its Review step counts habits, tasks, events and focus blocks
+ * before it draws anything. See above for why adding it moved none of the
+ * others; a sixth would work the same way.
  */
 const STAGE_COUNT = 5;
 
