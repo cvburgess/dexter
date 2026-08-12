@@ -8,6 +8,7 @@ import { useHoroscope } from "@/hooks/useHoroscope";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { useSunSignPreference } from "@/hooks/usePreferences";
 import { LIFE_AREAS, RATING_BUCKETS, SUN_SIGNS } from "@/utils/horoscope";
+import { SERIF } from "@/utils/theme";
 
 jest.mock("@/hooks/usePreferences", () => ({
   useSunSignPreference: jest.fn(),
@@ -171,6 +172,23 @@ describe("HoroscopeStep", () => {
 
       expect(screen.getByText(SUN_SIGNS.leo.glyph)).toBeTruthy();
       expect(screen.getByText(HOROSCOPE.tips[0])).toBeTruthy();
+    });
+
+    // The hero is the app's only custom-font text, and the two resets are the
+    // point: `fonts.heading` carries a 700 the loaded file already has, and the
+    // file is already italic, so leaving either in place stacks a synthetic
+    // weight or slant on top of a real one (see `SERIF`). Both are invisible
+    // failures — the text still renders, just smeared or double-slanted.
+    it("sets the hero in the serif, with no synthetic weight or slant", () => {
+      const screen = renderStep();
+
+      const style = StyleSheet.flatten(
+        screen.getByText(HOROSCOPE.tips[0]).props.style,
+      );
+
+      expect(style.fontFamily).toBe(SERIF.displayItalic);
+      expect(style.fontWeight).toBe("normal");
+      expect(style.fontStyle).toBe("normal");
     });
 
     // The upstream's prose is still fetched and stored — it is the horoscope

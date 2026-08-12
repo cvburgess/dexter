@@ -329,6 +329,9 @@ Read-only client of `public.horoscopes` (`["horoscopes", sunSign, date]`),
 deliberately not realtime (rows change once a day). The panel's colors and
 frame are `docs/design.md`'s Sentiment section. App-side gotchas:
 
+- **The hero is the app's only custom-font text** (`SERIF`, see
+  `docs/design.md`), and the reason `app/_layout.tsx` holds the splash at
+  startup. Both resets on that style are load-bearing — see the design doc.
 - **The hero shows the first tip, and `horoscopes.text` is never rendered at
   all.** The column is still fetched and stored — it is the horoscope proper —
   but as a hero it was three sentences of astrological mechanism ("Mars strains
@@ -338,6 +341,12 @@ frame are `docs/design.md`'s Sentiment section. App-side gotchas:
 - **The hero is sized to exactly one screenful**, so whatever it holds is a
   layout constraint rather than a detail — a taller hero pushes the chevron off
   the fold and breaks the scroll-to-reveal conceit the whole step is built on.
+- **Balanced wrapping is per-platform and partial.** The tips carry
+  `BALANCED_WRAP` — `textBreakStrategy` genuinely balances on Android,
+  `lineBreakStrategyIOS: "standard"` is a nudge rather than the same thing (iOS
+  has no balance option), and web gets nothing because CSS `text-wrap: balance`
+  is not an RN style key. There is no cross-platform API and no library:
+  react-native-community/discussions-and-proposals#890 is the open ask.
 - Below the fold: the remaining `tips`, then the twelve life areas sorted into
   three stacked bands by rating (`lifeAreasInBucket`), each a mark beside its
   areas joined into one string. Three parallel *columns* were the first cut and

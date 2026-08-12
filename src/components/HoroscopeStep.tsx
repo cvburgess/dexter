@@ -42,6 +42,7 @@ import {
 import {
   SENTIMENT_FRAME,
   sentimentInk,
+  SERIF,
   SHADOW_2XL,
   sentimentTints,
   Theme,
@@ -168,6 +169,35 @@ const summaryLineHeight = (theme: Theme) =>
  */
 const tipsToColumnsGap = (theme: Theme, viewportHeight: number) =>
   Math.max(theme.space.lg * 2, Math.round(viewportHeight / 4));
+
+/**
+ * The nearest thing to `text-wrap: balance` that React Native has.
+ *
+ * Applied to the tips, which are short centred lines — exactly the case where a
+ * last line holding one orphaned word is most obvious, and the case CSS's
+ * `balance` exists for.
+ *
+ * **It does not do the same thing on both platforms, and cannot.** There is no
+ * cross-platform API for this and no library either — see
+ * react-native-community/discussions-and-proposals#890, where the ask is open
+ * and the author's own answer is "I have to balance by hand".
+ * `textBreakStrategy` genuinely balances on Android. `lineBreakStrategyIOS` has
+ * no balance option at all — `none | standard | hangul-word | push-out` — so
+ * `standard` is a nudge rather than the Android result.
+ *
+ * **Web gets nothing here.** CSS `text-wrap: balance` is exactly what this
+ * wants, but it is not a React Native style key and whether RNW forwards an
+ * unknown one is unverified, so it is left for a `.web` variant rather than
+ * claimed on a guess.
+ *
+ * Kept as one object rather than spelled out at each call site so the tips stay
+ * in step, and so there is one place to delete from if React Native ever ships
+ * a real API.
+ */
+const BALANCED_WRAP = {
+  textBreakStrategy: "balanced",
+  lineBreakStrategyIOS: "standard",
+} as const;
 
 /**
  * The leading for the step's two runs of body prose — the tips and each band's
@@ -558,6 +588,7 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
               {horoscope.tips.slice(1).map((tip, index) => (
                 <Text
                   key={index}
+                  {...BALANCED_WRAP}
                   style={[
                     styles.tip,
                     theme.fonts.body,
@@ -799,10 +830,21 @@ function Hero({
           {SUN_SIGNS[horoscope.sunSign].glyph}
         </Animated.Text>
         <Animated.Text
+          {...BALANCED_WRAP}
           style={[
             styles.summary,
             theme.fonts.heading,
-            { color: ink.text, lineHeight: summaryLineHeight(theme) },
+            {
+              color: ink.text,
+              fontFamily: SERIF.displayItalic,
+              // Both reset on purpose. `fonts.heading` carries a 700 that the
+              // loaded file already has, and the file is already italic — see
+              // `SERIF`, where leaving either in place gets a *synthetic* weight
+              // or slant stacked on top of a real one.
+              fontStyle: "normal",
+              fontWeight: "normal",
+              lineHeight: summaryLineHeight(theme),
+            },
             summaryStyle,
           ]}
         >

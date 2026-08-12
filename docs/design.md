@@ -226,6 +226,34 @@ Safari zooms the page when a focused input's font-size is under 16px, and
 bites is a 16px floor on web in `components/TextInput.tsx`, not pushing the
 role up.
 
+## Font families
+
+**The system face is the app's voice, and `SERIF` is its second one.** Every one
+of the six roles above carries a size and a weight and no family, because until
+DEX-145 there was exactly one face — a role said how loud a thing is, never in
+what voice. `SERIF` (`utils/theme.ts`, Playfair Display) is the exception, and
+it is scoped by intent rather than by size: reach for it where the app is
+*saying* something, not where it is labelling something. Today that is one
+place, the Horoscope step's hero.
+
+Two things to know before using it:
+
+- **A custom family name maps to exactly one file.** There is no
+  family-plus-weight resolution the way there is on the web, so anything set in
+  `SERIF` must also set `fontWeight: "normal"` and `fontStyle: "normal"` — the
+  loaded file already carries both, and leaving a role's weight in place gets a
+  *synthetic* bold or oblique stacked on a real one. On a typeface picked for
+  its italic that is exactly the wrong result, and it fails invisibly: the text
+  still renders, just smeared.
+- **Adding a cut costs a download.** Each weight/style is a separate ~100-200KB
+  asset, imported in `app/_layout.tsx` and named in `SERIF`. Load only what is
+  used.
+
+This is also the app's **only startup gate**: `app/_layout.tsx` holds the splash
+until the font is in memory. That is not caution on principle — the hero fades
+in over ~3.6s, so a face that swaps a frame after first paint does it in full
+view rather than under a splash the way a normal cold start would hide it.
+
 ## Controls
 
 `controls.md` is a round icon button or tile; `controls.sm` an inline control
