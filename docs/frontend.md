@@ -459,6 +459,29 @@ Load-bearing:
   (`summary-step-blank`) and keeps the button. `isLoading` is checked first or
   a cold cache tells someone with a full morning they have nothing on.
 
+#### The sunrise
+
+`components/SunriseBackground.tsx` — concentric `react-native-svg` circles
+rising from below the step, then the figures and button fading in as one block
+once it settles (`withDelay(SUNRISE_MS, …)`, exported so the delay tracks the
+real duration rather than a copied number). Its colors are a listed exception
+in `docs/design.md`. Three things a reader will otherwise get wrong:
+
+- **Paint order and arrival order are deliberately opposite.** `BANDS` is
+  outermost-first so each circle covers the one behind it — that is what turns
+  a stack of discs into arcs — while the light travels inside-out, so the map
+  passes `BANDS.length - 1 - index` as the stage. Reordering the array to "fix"
+  the animation silently breaks the drawing.
+- **A layer per band, not one `Svg` for all five.** Each has to move
+  independently, and moving a layer is `opacity` + `transform`; animating each
+  circle's own `r`/`cy` would re-rasterize a screen-sized SVG every frame. The
+  same trade `StarField` makes for its star layers.
+- **`HeroLines` is handed a reveal pinned at 1.** Its per-line stagger is right
+  for the calendar and backlog steps and wrong here, where the block arrives as
+  a unit — pinning it resolves every line to visible immediately and lets the
+  wrapper own the fade, rather than growing a no-stagger variant of a component
+  two other steps depend on.
+
 ## Drag-to-schedule (DEX-77)
 
 Large screens only (a phone's backlog is a native sheet a drag can't cross),

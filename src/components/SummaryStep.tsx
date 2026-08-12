@@ -1,9 +1,15 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useRouter } from "expo-router";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated from "react-native-reanimated";
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from "react-native-reanimated";
 
 import { Button } from "@/components/Button";
 import {
@@ -12,6 +18,7 @@ import {
   useHeroReveal,
   useStageOpacity,
 } from "@/components/HeroLines";
+import { SUNRISE_MS, SunriseBackground } from "@/components/SunriseBackground";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { habitFilters, useHabits } from "@/hooks/useHabits";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
@@ -26,6 +33,17 @@ type TSummaryStepProps = {
   /** The day being walked through — the ritual's date, not necessarily today. */
   date: Temporal.PlainDate;
 };
+
+/**
+ * How long the figures and the button take to arrive, once the sky has.
+ *
+ * Long — a little over half the sunrise itself. The block has no stagger of its
+ * own to fill the time (the figures land together, unlike the calendar and
+ * backlog heroes), so the duration *is* the whole gesture: at 700ms it read as
+ * a switch being thrown after the sky had finished, where drawn out it reads as
+ * the day surfacing out of the light.
+ */
+const CONTENT_FADE_MS = 1800;
 
 /** `1 habit` / `2 habits` — the same inline plural the backlog step's hero uses. */
 const plural = (count: number, noun: string) =>
@@ -56,6 +74,7 @@ export function SummaryStep({ date }: TSummaryStepProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const isLargeDevice = useIsLargeDevice();
+  const reduceMotion = useReducedMotion();
   const router = useRouter();
   const [preferences] = usePreferences();
 
@@ -120,15 +139,43 @@ export function SummaryStep({ date }: TSummaryStepProps) {
   // Held back until every count exists, so the sequence waits rather than
   // running against three placeholder zeros.
   const reveal = useHeroReveal(isLoading ? null : date.toString());
-  // Straight after the last figure, rather than at `BODY_STAGE`. That constant
-  // means "after all three hero lines" and is right for the two steps that
-  // always draw three — but this one draws as few as one, and waiting for stage
-  // 3 there would leave the close missing for most of a 3.6s sequence.
-  const closeStyle = useStageOpacity(reveal, heroLines.length);
   // The blank day has no figures, so its message takes the first stage itself
-  // and the button the second.
+  // and the button the second. Only that branch staggers now — see below.
   const blankStyle = useStageOpacity(reveal, 0);
   const blankCloseStyle = useStageOpacity(reveal, 1);
+
+  // **The counted day's content does not stagger.** The figures and the button
+  // arrive together, as one block, once the sunrise behind them has settled —
+  // so the step reads as a sky coming up and then the day being handed over,
+  // rather than as two sequences running against each other. Counting the
+  // figures off one at a time is what the calendar and backlog steps do, and
+  // here it competed with the bands for the same stretch of time.
+  const content = useSharedValue(0);
+  useEffect(() => {
+    if (isLoading) {
+      content.value = 0;
+      return;
+    }
+    if (reduceMotion) {
+      // Assigned rather than skipped, so a fade already in flight is cancelled
+      // when the setting is turned on mid-step — the rule `useHeroReveal` and
+      // the sunrise both follow.
+      content.value = 1;
+      return;
+    }
+    content.value = 0;
+    content.value = withDelay(
+      SUNRISE_MS,
+      withTiming(1, { duration: CONTENT_FADE_MS }),
+    );
+  }, [content, isLoading, reduceMotion, date]);
+  const contentStyle = useAnimatedStyle(() => ({ opacity: content.value }));
+
+  // `HeroLines` staggers its lines by index onto one driver. Pinned at 1, every
+  // line resolves to fully visible immediately and the wrapper above owns the
+  // arrival instead — which is how the block fades in as a unit without this
+  // step needing a variant of a component two other steps depend on.
+  const pinnedReveal = useSharedValue(1);
 
   const navigationCount = useRef(0);
   const openDay = () => {
@@ -221,14 +268,25 @@ export function SummaryStep({ date }: TSummaryStepProps) {
       ]}
       testID="summary-step"
     >
-      {/* `bodyInsetTop` cancels the compensation `HeroLines` adds below itself
-          for the step inset. That compensation is right for a hero anchored to
+      {/* First child, so it paints under the figures and the button without
+          either needing a z-index. It is absolutely filled and takes no part in
+          the centering above. */}
+      <SunriseBackground revealKey={date.toString()} />
+      {/* Figures and button under one opacity, so they arrive as a unit.
+          `bodyInsetTop` cancels the compensation `HeroLines` adds below itself
+          for the step inset: that compensation is right for a hero anchored to
           the top of the step, which is what the calendar and backlog steps
           have — here the block is centered instead, so it would only widen the
           gap to the button. Zeroing it leaves `lg` above and below the
           figures. */}
-      <HeroLines bodyInsetTop={insetAbove} lines={heroLines} reveal={reveal} />
-      <Animated.View style={closeStyle}>{startButton}</Animated.View>
+      <Animated.View style={[styles.content, contentStyle]}>
+        <HeroLines
+          bodyInsetTop={insetAbove}
+          lines={heroLines}
+          reveal={pinnedReveal}
+        />
+        {startButton}
+      </Animated.View>
     </View>
   );
 }
@@ -243,6 +301,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
   },
+  // Centers the figures over the button; the container above centers this.
+  content: { alignItems: "center" },
   // The blank day has no hero to hang from, so the one line and the button
   // center in the whole step instead.
   blank: {
