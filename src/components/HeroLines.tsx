@@ -16,36 +16,58 @@ import { ritualStepInsetTop } from "@/utils/ritualSteps";
 import { useTheme } from "@/utils/theme";
 
 /**
- * The arrival shared by the ritual's reporting steps — Calendar (DEX-140) and
- * Backlog (DEX-141) — as one 0→1 with four overlapping windows onto it. The
- * same structure `HoroscopeStep` uses, and for the same reason: a stagger built
- * from one driver cannot drift out of order however the timings are retuned.
- * Keep `last start + REVEAL_FADE` at 1, or the tail of the sequence is dead
- * time.
+ * The arrival shared by the ritual's reporting steps — Calendar (DEX-140),
+ * Backlog (DEX-141), Open tasks (DEX-146) and Review (DEX-148) — as one 0→1
+ * with a set of overlapping windows onto it. The same structure `HoroscopeStep`
+ * uses, and for the same reason: a stagger built from one driver cannot drift
+ * out of order however the timings are retuned.
  *
- * The stages are three hero lines and then the body beneath them, so the
- * figures land one at a time in the order they read. At the values below that
- * is a **1008ms fade per stage, starting 864ms apart**.
+ * The stages are the hero lines and then the body beneath them, so the figures
+ * land one at a time in the order they read: a **1008ms fade per stage,
+ * starting 864ms apart**.
  *
- * **Those two numbers trade against each other, which is why retuning one means
- * touching `REVEAL_MS` too.** The invariant above fixes `3 × spacing + fade` at
- * 1, so widening the gap at a fixed total can only come out of the fade — and
- * past a spacing of `0.25` the windows stop overlapping altogether. Both passes
- * that asked for more air between the lines therefore lengthened the whole
- * sequence rather than just spreading the starts: 1200ms, then 2400, now 3600.
+ * **Those two figures are the tuning, and they are stated in milliseconds
+ * rather than as fractions of the total.** `useStageOpacity` needs fractions,
+ * but deriving them here means the invariant the sequence depends on — the last
+ * window closing exactly as the driver lands, so the tail is not dead time —
+ * holds by construction rather than by arithmetic someone has to redo. It is
+ * what let DEX-148 add a fifth stage without moving the first four by a
+ * millisecond: `REVEAL_MS` grew from 3600 to 4464, and every existing step's
+ * stages still start at 0 / 864 / 1728 / 2592.
  *
- * That last figure matches the horoscope's total, though the shape is not the
- * same — four stages here against three, so this still moves faster per stage.
- * The overlap is now slight (144ms) where it began generous. Deliberate: the
- * horoscope is producing a reading and wants one gathering movement, where
- * three figures being counted off read better arriving as three distinct
- * events.
+ * The two numbers do still trade against each other — widening the gap at a
+ * *fixed* total can only come out of the fade — which is why both passes that
+ * asked for more air between the lines lengthened the whole sequence instead:
+ * 1200ms, then 2400, then 3600. The overlap that leaves is slight (144ms) where
+ * it began generous. Deliberate: the horoscope is producing a reading and wants
+ * one gathering movement, where figures being counted off read better arriving
+ * as distinct events.
  */
-const REVEAL_MS = 3600;
-const REVEAL_FADE = 0.28;
+const STAGE_GAP_MS = 864;
+const STAGE_FADE_MS = 1008;
+/**
+ * Four hero lines and then the body. Raised from four total by DEX-148, whose
+ * Review step counts habits, tasks, events and focus blocks before it draws
+ * anything — see above for why the added stage moved none of the others.
+ */
+const STAGE_COUNT = 5;
+
+const REVEAL_MS = STAGE_GAP_MS * (STAGE_COUNT - 1) + STAGE_FADE_MS;
+const REVEAL_FADE = STAGE_FADE_MS / REVEAL_MS;
 /** Start of each stage's window: one per hero line, then the body. */
-const REVEAL_STARTS = [0, 0.24, 0.48, 0.72] as const;
-/** The stage the body arrives on — after all three lines. */
+const REVEAL_STARTS = Array.from(
+  { length: STAGE_COUNT },
+  (_unused, stage) => (stage * STAGE_GAP_MS) / REVEAL_MS,
+);
+/**
+ * The stage the body arrives on **for a hero that draws exactly three lines** —
+ * the Calendar and Backlog steps, which always do.
+ *
+ * Not "the last stage": a step whose line count varies has to stage its body at
+ * `heroLines.length` instead, or the body waits for figures that were never
+ * drawn. That is the trap `SummaryStep`, `OpenTasksStep` and `ReviewStep` each
+ * document at their own call site.
+ */
 export const BODY_STAGE = 3;
 
 /**
@@ -86,12 +108,26 @@ export function useHeroReveal(revealKey: string | null): SharedValue<number> {
   return reveal;
 }
 
+/**
+ * One stage's window onto the reveal, as `[from, to]` fractions of it.
+ *
+ * Split out of `useStageOpacity` because it is the whole of the stage table's
+ * arithmetic and the only part of this module a test can see: everything below
+ * it crosses into a worklet, which the reanimated mock renders opaque (see
+ * docs/testing.md). A stage past the end of `REVEAL_STARTS` returns `NaN` here
+ * rather than silently interpolating over `undefined` inside the worklet, where
+ * the only symptom is a body that never fades in.
+ */
+export const stageWindow = (stage: number): [number, number] => {
+  const from = REVEAL_STARTS[stage];
+  return [from, from + REVEAL_FADE];
+};
+
 /** One stage's window onto a reveal, as an opacity style. */
 export function useStageOpacity(reveal: SharedValue<number>, stage: number) {
   // Resolved out here rather than indexed inside the worklet, the way
   // `HoroscopeStep` resolves its fade distance: only numbers are captured.
-  const from = REVEAL_STARTS[stage];
-  const to = from + REVEAL_FADE;
+  const [from, to] = stageWindow(stage);
 
   return useAnimatedStyle(() => ({
     opacity: interpolate(reveal.value, [from, to], [0, 1], Extrapolation.CLAMP),
@@ -163,7 +199,7 @@ function HeroLine({
 }
 
 type THeroLinesProps = {
-  /** Up to three lines; each takes the matching `REVEAL_STARTS` stage. */
+  /** Up to four lines; each takes the matching `REVEAL_STARTS` stage. */
   lines: THeroLine[];
   reveal: SharedValue<number>;
   /**

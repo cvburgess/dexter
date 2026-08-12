@@ -6,6 +6,7 @@ import { EmptyScreen } from "@/components/EmptyScreen";
 import { HoroscopeStep } from "@/components/HoroscopeStep";
 import { JournalView } from "@/components/JournalView";
 import { OpenTasksStep } from "@/components/OpenTasksStep";
+import { ReviewStep } from "@/components/ReviewStep";
 import { SummaryStep } from "@/components/SummaryStep";
 import type { TRitualStep } from "@/utils/ritualSteps";
 
@@ -30,10 +31,10 @@ type TRitualStepViewProps = {
  * The content of one ritual step.
  *
  * This is the seam each DEX-34 sub-issue fills in: a step branches on `step.id`
- * here and nothing else about the flow has to change. Six are built —
+ * here and nothing else about the flow has to change. Seven are built —
  * Horoscope (DEX-128), Journal (DEX-105), Calendar (DEX-140), Backlog
- * (DEX-141), Summary (DEX-144) and Open tasks (DEX-146) — and the rest fall
- * through to the default and render their name centered.
+ * (DEX-141), Summary (DEX-144), Open tasks (DEX-146) and Review (DEX-148) — and
+ * the rest fall through to the default and render their name centered.
  *
  * Carries no side gutter of its own — `SwipeablePage` supplies it at both
  * widths on this tab (see docs/design.md, "Who owns spacing").
@@ -69,6 +70,12 @@ export function RitualStepView({
     // leftovers rather than offering a second place to read them.
     case "open-tasks":
       return <OpenTasksStep date={date} onEditingChange={onEditingChange} />;
+    // DEX-148: the other half of the evening's task pass — what got closed out,
+    // where `open-tasks` two swipes back is what didn't. Takes no
+    // `onEditingChange`: a completed card renames nothing, so this step has no
+    // field to suspend the swipe for.
+    case "review":
+      return <ReviewStep date={date} />;
     // DEX-144: the only step both rituals share besides the journal, and the
     // last of each — it counts the day and hands the reader over to their real
     // task list rather than drawing a second copy of it here.

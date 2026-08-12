@@ -2,7 +2,7 @@ import { act, fireEvent, render } from "@testing-library/react-native";
 import { StyleSheet, TextStyle } from "react-native";
 import { useSharedValue } from "react-native-reanimated";
 
-import { HeroLines, type THeroLine } from "@/components/HeroLines";
+import { HeroLines, stageWindow, type THeroLine } from "@/components/HeroLines";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { themes } from "@/utils/theme";
 
@@ -103,6 +103,39 @@ describe("HeroLines", () => {
       layOut(screen, { planned: 20 });
 
       expect(minWidthOf(screen, "planned")).toBe(64);
+    });
+  });
+
+  // The stage table's arithmetic, tested on this side of the worklet boundary —
+  // past it the reanimated mock shows nothing, so a `NaN` window would render
+  // as a body that simply never appears, on device only.
+  describe("the stage windows", () => {
+    // Four hero lines (the most `THeroLinesProps` allows) and then the body. A
+    // step that draws four figures stages its body at 4, which is exactly the
+    // index that did not exist before DEX-148.
+    it.each([0, 1, 2, 3, 4])("stage %i lands inside the reveal", (stage) => {
+      const [from, to] = stageWindow(stage);
+
+      expect(from).toBeGreaterThanOrEqual(0);
+      expect(to).toBeLessThanOrEqual(1);
+    });
+
+    // The invariant the module's doc block states: the last window closes as
+    // the driver lands, so the tail of the sequence is not dead time.
+    it("closes the last window exactly as the reveal completes", () => {
+      expect(stageWindow(4)[1]).toBeCloseTo(1, 10);
+    });
+
+    // DEX-148 added a fifth stage by lengthening `REVEAL_MS`, not by respacing
+    // the others. Scaled back to milliseconds, the first four still start where
+    // they always did — 864ms apart — so no existing step's rhythm moved.
+    it("leaves the first four stages where they were", () => {
+      const totalMs = 4 * 864 + 1008;
+      const startsMs = [0, 1, 2, 3].map((stage) =>
+        Math.round(stageWindow(stage)[0] * totalMs),
+      );
+
+      expect(startsMs).toEqual([0, 864, 1728, 2592]);
     });
   });
 });
