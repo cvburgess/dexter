@@ -47,9 +47,6 @@ import {
  */
 const BELOW_FOLD_STAGE = 2;
 
-/** How wide the mark beside an event is. */
-const bulletSize = (space: { sm: number }) => space.sm;
-
 type TPreviewTomorrowStepProps = {
   /** The day being walked through — the ritual's date, not necessarily today. */
   date: Temporal.PlainDate;
@@ -94,13 +91,15 @@ export function PreviewTomorrowStep({ date }: TPreviewTomorrowStepProps) {
   // re-walking the ritual costs nothing. The price is paid on web, where each
   // date re-fetches and re-parses the same `.ics` feed — worth revisiting with
   // a range parser if the feeds get large, not before.
-  const [events, { isLoading: eventsLoading, notConfigured }] =
+  const [events, { isLoading: eventsLoading, isError, notConfigured }] =
     useCalendarEvents(tomorrow);
-  const [lastWeekEvents, { isLoading: loading1 }] = useCalendarEvents(lastWeek);
-  const [twoWeeksEvents, { isLoading: loading2 }] = useCalendarEvents(twoWeeks);
-  const [threeWeeksEvents, { isLoading: loading3 }] =
+  const [lastWeekEvents, { isLoading: loading1, isError: error1 }] =
+    useCalendarEvents(lastWeek);
+  const [twoWeeksEvents, { isLoading: loading2, isError: error2 }] =
+    useCalendarEvents(twoWeeks);
+  const [threeWeeksEvents, { isLoading: loading3, isError: error3 }] =
     useCalendarEvents(threeWeeks);
-  const [fourWeeksEvents, { isLoading: loading4 }] =
+  const [fourWeeksEvents, { isLoading: loading4, isError: error4 }] =
     useCalendarEvents(fourWeeks);
 
   const [allTasks, { isLoading: tasksLoading, updateTask, createTask }] =
@@ -115,6 +114,19 @@ export function PreviewTomorrowStep({ date }: TPreviewTomorrowStepProps) {
   // button stranded below the fold on a step nobody reaches to configure
   // anything.
   const showAgenda = preferences.enableCalendar && !notConfigured;
+
+  // **A day that failed to load is not a day with nothing in it**, and the
+  // comparison is where that distinction actually bites: an errored read hands
+  // back an empty array, so a dropped connection would book tomorrow at zero
+  // hours against a history that has some and tell the reader their day is
+  // calmer than usual. Any of the five failing drops the meetings axis
+  // entirely, which is what `null` already means to `tomorrowCopy` — the
+  // sentence falls through to the tasks it does know about.
+  const calendarError = isError || error1 || error2 || error3 || error4;
+  // Only claimed when there is nothing to show for it: React Query serves the
+  // last good array while a background refetch fails, and a cached day is still
+  // worth drawing. Same guard the morning's Calendar step makes.
+  const agendaFailed = isError && events.length === 0;
 
   const tasks = useMemo(
     () => selectTasksForDate(allTasks, tomorrow),
@@ -137,7 +149,7 @@ export function PreviewTomorrowStep({ date }: TPreviewTomorrowStepProps) {
   );
 
   const eventLoad = useMemo(() => {
-    if (!showAgenda) return null;
+    if (!showAgenda || calendarError) return null;
 
     const { startMin, endMin } = calendarWindow(
       preferences.calendarStartTime,
@@ -153,6 +165,7 @@ export function PreviewTomorrowStep({ date }: TPreviewTomorrowStepProps) {
       booked(fourWeeksEvents, fourWeeks),
     ]);
   }, [
+    calendarError,
     events,
     fourWeeks,
     fourWeeksEvents,
@@ -318,7 +331,13 @@ export function PreviewTomorrowStep({ date }: TPreviewTomorrowStepProps) {
                   { color: theme.colors.textSecondary },
                 ]}
               >
-                No events tomorrow
+                {/* A dropped connection is not an empty day, and saying it is
+                    would be the one claim on this step the reader has no way
+                    to check. A plain message rather than the morning step's
+                    "Set up calendars" button: nothing here is misconfigured. */}
+                {agendaFailed
+                  ? "Couldn't load your calendars"
+                  : "No events tomorrow"}
               </Text>
             ) : (
               agenda.map((event) => <EventRow event={event} key={event.id} />)
@@ -377,12 +396,19 @@ export function PreviewTomorrowStep({ date }: TPreviewTomorrowStepProps) {
  */
 function EventRow({ event }: { event: TCalendarEvent }) {
   const theme = useTheme();
-  const size = bulletSize(theme.space);
+  // The mark tracks the density tier without earning a token only this row would
+  // read — the same derivation `CalendarView`'s now-dot makes.
+  const size = theme.space.sm;
+  const when = event.allDay
+    ? "all-day"
+    : formatTimeRange(event.start, event.end);
 
   return (
     <View
       accessible
-      accessibilityLabel={`${event.allDay ? "all-day" : formatTimeRange(event.start, event.end)} ${event.title}`}
+      // One node for the whole row: split across three children it would be read
+      // out as an orphaned time and then an orphaned title.
+      accessibilityLabel={`${when} ${event.title}`}
       style={[styles.eventRow, { gap: theme.space.sm }]}
     >
       <View
@@ -400,7 +426,7 @@ function EventRow({ event }: { event: TCalendarEvent }) {
         style={[theme.fonts.body, { color: theme.colors.textSecondary }]}
         testID={`event-time-${event.id}`}
       >
-        {event.allDay ? "all-day" : formatTimeRange(event.start, event.end)}
+        {when}
       </Text>
       {/* Takes the rest of the row so a long title wraps against the step's edge
           rather than against its own content, which keeps every row's title

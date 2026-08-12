@@ -477,6 +477,12 @@ below the fold. The only step that reads a day other than the ritual's own.
   if feeds get large, not before. All five days are measured through the reader's
   own `calendarWindow`, so a history measured over a different window can't read
   as a change in the day.
+- **A failed read is not an empty day, and the comparison is where that bites.**
+  An errored `useCalendarEvents` hands back an empty array, so a dropped
+  connection would book tomorrow at zero hours against a history that has some
+  and tell the reader their day is calmer than usual. Any of the five failing
+  drops the meetings axis to `null`; only tomorrow's own failure, and only with
+  nothing cached to draw, changes what the agenda says.
 - **The reveal waits on all five days, history included.** Every reporting step
   holds its reveal until its numbers exist; here the empty-history rule makes a
   confident "typical" that rewrites itself as "busier" the *likely* outcome of

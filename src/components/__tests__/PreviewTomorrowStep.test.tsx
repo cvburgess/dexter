@@ -315,6 +315,30 @@ describe("PreviewTomorrowStep", () => {
       expect(screen.queryByText("No events tomorrow")).toBeNull();
     });
 
+    // A failed read hands back an empty array, which is indistinguishable from
+    // a clear day — and would book tomorrow at zero hours against a history
+    // that has some, telling the reader their day is calmer because their wifi
+    // dropped.
+    it("says a read failed rather than claiming the day is empty", () => {
+      renderStep({ meta: { isError: true } });
+
+      expect(screen.getByText("Couldn't load your calendars")).toBeTruthy();
+      expect(screen.queryByText("No events tomorrow")).toBeNull();
+    });
+
+    it("drops the meetings axis when any of the five reads failed", () => {
+      renderStep({
+        meta: { isError: true },
+        tasks: [
+          ...tasksOn(TOMORROW, 2),
+          ...HISTORY.flatMap((d) => tasksOn(d, 2)),
+        ],
+        history: Object.fromEntries(HISTORY.map((d) => [d, hoursOn(d, 4)])),
+      });
+
+      expect(sentence()).toBe("Tomorrow might be a typical Thursday,");
+    });
+
     it("never mentions meetings when the calendar is off", () => {
       renderStep({
         enableCalendar: false,
