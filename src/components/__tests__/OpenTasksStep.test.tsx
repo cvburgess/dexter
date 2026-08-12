@@ -15,8 +15,14 @@ jest.mock("@/hooks/useTasks", () => ({
   ...jest.requireActual<typeof import("@/hooks/useTasks")>("@/hooks/useTasks"),
   useTasks: jest.fn(),
 }));
+// Reached only through `useTaskDelete`, which has its own suite — but stubbed
+// with real functions rather than `{}` so a delete added here fails on the
+// assertion rather than on `getTemplateById is not a function`.
 jest.mock("@/hooks/useTemplates", () => ({
-  useTemplates: jest.fn(() => [[], {}]),
+  useTemplates: jest.fn(() => [
+    [],
+    { deleteTemplate: jest.fn(), getTemplateById: () => undefined },
+  ]),
 }));
 
 // The card has its own suite and carries several `@expo/ui` menu hosts that a

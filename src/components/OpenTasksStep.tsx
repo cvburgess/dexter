@@ -4,7 +4,12 @@ import { ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated from "react-native-reanimated";
 
-import { duplicateTaskInput, TTask } from "@/api/tasks";
+import {
+  duplicateTaskInput,
+  TCreateTask,
+  TTask,
+  TUpdateTask,
+} from "@/api/tasks";
 import { Confetti } from "@/components/Confetti";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { GlassIconButton } from "@/components/GlassIconButton";
@@ -38,6 +43,9 @@ type TOpenTaskRowProps = {
   onChangeSchedule: (task: TTask, scheduledFor: string | null) => void;
   onDelete: (task: TTask) => void;
   onEditingChange: (editing: boolean) => void;
+  /** Bound to this row's task by the parent, the way the drawer binds its rows. */
+  onUpdate: (diff: Omit<TUpdateTask, "id">) => void;
+  onCreate: (task: TCreateTask) => void;
 };
 
 /**
@@ -55,9 +63,10 @@ function OpenTaskRow({
   onChangeSchedule,
   onDelete,
   onEditingChange,
+  onUpdate,
+  onCreate,
 }: TOpenTaskRowProps) {
   const theme = useTheme();
-  const [, { updateTask, createTask }] = useTasks();
 
   return (
     <View style={[styles.row, { gap: theme.space.sm }]}>
@@ -74,10 +83,10 @@ function OpenTaskRow({
             gate, which this step needs in order to suspend the step swipe. */}
         <TaskCard
           onDelete={() => onDelete(task)}
-          onDuplicate={() => createTask(duplicateTaskInput(task))}
+          onDuplicate={() => onCreate(duplicateTaskInput(task))}
           onEditingChange={onEditingChange}
-          onPromoteSubtask={(promoted) => createTask(promoted)}
-          onUpdate={(diff) => updateTask({ id: task.id, ...diff })}
+          onPromoteSubtask={onCreate}
+          onUpdate={onUpdate}
           task={task}
         />
       </View>
@@ -120,7 +129,10 @@ type TOpenTasksStepProps = {
 export function OpenTasksStep({ date, onEditingChange }: TOpenTasksStepProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const [allTasks, { isLoading, updateTask }] = useTasks();
+  // Read once here and bound per row below — the shape `TaskDrawer` and
+  // `DayTaskList` both take. Calling `useTasks()` inside the row instead would
+  // add a query observer and a set of mutations per task on screen.
+  const [allTasks, { isLoading, updateTask, createTask }] = useTasks();
   // Every `scheduledFor` write goes through here rather than straight to
   // `updateTask` (DEX-77): an alarm is bound to the task's scheduled date, so
   // both buttons owe the same prompt the card's own menu gives. This is the bug
@@ -230,8 +242,10 @@ export function OpenTasksStep({ date, onEditingChange }: TOpenTasksStepProps) {
               onChangeSchedule={(target, scheduledFor) =>
                 void changeSchedule(target, scheduledFor)
               }
+              onCreate={createTask}
               onDelete={(target) => void confirmDelete(target)}
               onEditingChange={onEditingChange}
+              onUpdate={(diff) => updateTask({ id: task.id, ...diff })}
               task={task}
               tomorrow={tomorrow}
             />

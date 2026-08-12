@@ -53,13 +53,29 @@ const tintsFor = (colors: {
   primary: string;
   success: string;
   priority: string[];
-}) => [
+}): TTints => [
   colors.primary,
   colors.success,
   colors.priority[ETaskPriority.IMPORTANT_AND_URGENT],
   colors.priority[ETaskPriority.URGENT],
   colors.priority[ETaskPriority.IMPORTANT],
 ];
+
+/**
+ * A tuple rather than `string[]`, so `TINT_COUNT` below cannot drift from the
+ * palette it counts — the field is dealt against that number at module load,
+ * before any theme exists to measure.
+ */
+type TTints = [string, string, string, string, string];
+const TINT_COUNT = 5;
+
+/**
+ * Dealt once at module load, not per render: every argument is a constant, and
+ * the all-clear re-renders under the burst whenever a task arrives from another
+ * device. `buildConfetti` is deterministic, so this is the same field the step
+ * would have built anyway — it just isn't rebuilt thirty times on the way down.
+ */
+const PIECES = buildConfetti(PIECE_COUNT, TINT_COUNT, CONFETTI_SEED);
 
 type TConfettiPieceProps = {
   piece: TConfettiPiece;
@@ -193,7 +209,6 @@ export function Confetti({ revealKey }: TConfettiProps) {
   if (reduceMotion) return null;
 
   const tints = tintsFor(theme.colors);
-  const pieces = buildConfetti(PIECE_COUNT, tints.length, CONFETTI_SEED);
 
   return (
     <Animated.View
@@ -201,11 +216,15 @@ export function Confetti({ revealKey }: TConfettiProps) {
       // it is celebrating.
       pointerEvents="none"
       onLayout={onLayout}
-      style={StyleSheet.absoluteFill}
+      // Clipped to its own box: the pieces are absolutely positioned and drift
+      // sideways as they fall, and React Native does not clip overflow by
+      // default — without this, paper leaves the step and paints over the tab
+      // bar and the toolbar above it.
+      style={[StyleSheet.absoluteFill, styles.clip]}
       testID="confetti"
     >
       {ready
-        ? pieces.map((piece, index) => (
+        ? PIECES.map((piece, index) => (
             <ConfettiPiece
               key={index}
               color={tints[piece.tint]}
@@ -221,6 +240,7 @@ export function Confetti({ revealKey }: TConfettiProps) {
 }
 
 const styles = StyleSheet.create({
+  clip: { overflow: "hidden" },
   // Positioned from the top-left and moved entirely by transform, so a piece
   // never triggers layout while it falls.
   piece: {
