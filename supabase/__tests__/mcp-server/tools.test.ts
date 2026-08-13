@@ -1045,12 +1045,13 @@ Deno.test("update_task rejects malformed subtask entries", () => {
     schema.subtasks.safeParse([{ title: "No id", done: false }]).success,
     false,
   );
-  // The clean break: a legacy status is not a `done`, and must not be read as
-  // one. `status` is simply unknown here — zod strips it — so this parses to an
-  // *unchecked* item rather than silently inheriting the old meaning.
+  // The clean break fails loudly. Zod strips unknown keys by default, which
+  // would turn a legacy `status: 2` into a *not*-done item and silently uncheck
+  // a completed subtask; `.strict()` makes the caller read an error instead.
   assertEquals(
-    schema.subtasks.safeParse([{ id: "s1", title: "Legacy", status: 2 }]),
-    { success: true, data: [{ id: "s1", title: "Legacy", done: false }] },
+    schema.subtasks.safeParse([{ id: "s1", title: "Legacy", status: 2 }])
+      .success,
+    false,
   );
   assertEquals(
     schema.subtasks.safeParse([{ id: "s1", title: "Truthy", done: 1 }]).success,
@@ -1164,6 +1165,31 @@ Deno.test("update_task sweeps a checklist still stored with statuses", async () 
   assertEquals(supabase.updates[0].payload.subtasks, [
     { id: "s1", title: "Open", done: true },
     { id: "s2", title: "Abandoned", done: true },
+  ]);
+});
+
+// The stored `status` is legacy debris being read, not a value being accepted,
+// so nothing about it may fail the item — a failed parse means "no subtasks",
+// which skips the sweep silently rather than rejecting anything.
+Deno.test("an unreadable stored status still cannot disable the sweep", async () => {
+  const supabase = new RecordingSupabase({
+    tasks: [
+      {
+        status: 1,
+        subtasks: [
+          { id: "s1", title: "Out of enum", status: 99 },
+          { id: "s2", title: "Not even a number", status: "DONE" },
+        ],
+      },
+      { status: 2, template_id: null, scheduled_for: null },
+    ],
+  });
+
+  await taskTools(supabase).run("update_task", { taskId: SUB_TASK, status: 2 });
+
+  assertEquals(supabase.updates[0].payload.subtasks, [
+    { id: "s1", title: "Out of enum", done: true },
+    { id: "s2", title: "Not even a number", done: true },
   ]);
 });
 
