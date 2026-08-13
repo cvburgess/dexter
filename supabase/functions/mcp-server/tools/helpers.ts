@@ -3,7 +3,7 @@ import { z } from "zod";
 import { Constants } from "@src/types/database.types.ts";
 import { normalizeTaskUrl } from "@src/utils/taskUrl.ts";
 import { ETaskPriority } from "@src/utils/taskPriority.ts";
-import { ETaskStatus } from "@src/utils/taskStatus.ts";
+import { ETaskStatus, isCompletionStatus } from "@src/utils/taskStatus.ts";
 
 import { captureException } from "../../_shared/sentry.ts";
 
@@ -77,11 +77,15 @@ const subtaskIdSchema = z.string().min(1).max(64);
 const subtaskTitleSchema = z.string().min(1).max(100);
 const MAX_SUBTASKS = 100;
 
-/** A task's checklist item, which carries its own status. */
+/**
+ * A task's checklist item: complete or incomplete, nothing else (DEX-153).
+ * `done` defaults to `false` so an agent composing a checklist can send bare
+ * titles — the overwhelmingly common case — without restating it per item.
+ */
 export const subtaskSchema = z.object({
   id: subtaskIdSchema,
   title: subtaskTitleSchema,
-  status: taskStatusSchema,
+  done: z.boolean().default(false),
 });
 
 export const subtasksSchema = z.array(subtaskSchema).max(MAX_SUBTASKS);
@@ -92,13 +96,24 @@ export const subtasksSchema = z.array(subtaskSchema).max(MAX_SUBTASKS);
  * and applying them to a read makes an over-long row unparseable — which, since
  * a failed parse means "no subtasks", would silently skip that task's
  * completion sweep instead of rejecting anything.
+ *
+ * For the same reason this accepts a legacy `{id, title, status}` item and
+ * coerces it (DEX-153) rather than rejecting it. The backfill migration converts
+ * what is stored, but an app bundle predating the change keeps writing `status`
+ * until its user updates, and refusing those rows would disable the sweep on
+ * exactly the tasks still being edited from an old client.
  */
 export const storedSubtasksSchema = z.array(
   z.object({
     id: z.string().min(1),
     title: z.string(),
-    status: taskStatusSchema,
-  }),
+    done: z.boolean().optional(),
+    status: taskStatusSchema.optional(),
+  }).transform(({ id, title, done, status }) => ({
+    id,
+    title,
+    done: done ?? isCompletionStatus(status),
+  })),
 );
 
 export const storedTemplateSubtasksSchema = z.array(

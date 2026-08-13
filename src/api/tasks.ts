@@ -3,7 +3,11 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { camelCase, snakeCase } from "@/utils/changeCase";
 import { makeSubtaskId, withFreshIds } from "@/utils/subtasks";
 import { ETaskPriority } from "@/utils/taskPriority";
-import { ETaskStatus, OPEN_TASK_STATUSES } from "@/utils/taskStatus";
+import {
+  ETaskStatus,
+  isCompletionStatus,
+  OPEN_TASK_STATUSES,
+} from "@/utils/taskStatus";
 import { Database, TablesInsert, TablesUpdate } from "@/types/database.types";
 
 import { applyFilters, TQueryFilter } from "./applyFilters";
@@ -13,11 +17,16 @@ import { applyFilters, TQueryFilter } from "./applyFilters";
  * `subtasks` jsonb array — never its own row. Ids are minted client-side and
  * are only unique within the array. See `docs/features.md` (Tasks → Subtasks)
  * for the model and its accepted last-write-wins tradeoff.
+ *
+ * Complete or incomplete, and nothing else (DEX-153). The field is `done` rather
+ * than `isComplete` deliberately: `changeCase` converts keys `deep: true`, so a
+ * two-word key would be stored `is_complete` by the app while the MCP server —
+ * which writes this array as raw jsonb — would store `isComplete`.
  */
 export type TSubtask = {
   id: string;
   title: string;
-  status: ETaskStatus;
+  done: boolean;
 };
 
 export type TTask = {
@@ -57,18 +66,40 @@ export const getTasks = async (
 };
 
 /**
- * Guarantees `subtasks` is an array. The row shape is an unchecked cast, and
- * the app and the database deploy independently — a bundle that reaches users
- * before the migration runs gets rows with no `subtasks` column at all, and
- * every consumer here dereferences it without guarding. Mirrors the `alarmTime`
- * `== null` handling in `TaskCard` (DEX-48) for the same reason.
+ * Guarantees `subtasks` is an array of `{id, title, done}`. The row shape is an
+ * unchecked cast, and the app and the database deploy independently — a bundle
+ * that reaches users before the migration runs gets rows with no `subtasks`
+ * column at all, and every consumer here dereferences it without guarding.
+ * Mirrors the `alarmTime` `== null` handling in `TaskCard` (DEX-48).
+ *
+ * It also fills `done` from a legacy `status` (DEX-153). The backfill migration
+ * converts what is stored, but the reverse skew is the one that outlives it: an
+ * app bundle predating this change keeps writing `{id, title, status}` until its
+ * user updates. Coerce, never reject — the terminal statuses map to `done`.
  *
  * Exported for `api/search.ts`, whose task results come back as jsonb from the
  * `search_entries` RPC rather than through `getTasks` — same rows, same guard.
  */
 export const withSubtasksArray = <T extends { subtasks?: TSubtask[] }>(
   row: T,
-): T => (Array.isArray(row.subtasks) ? row : { ...row, subtasks: [] });
+): T =>
+  Array.isArray(row.subtasks)
+    ? { ...row, subtasks: row.subtasks.map(withDone) }
+    : { ...row, subtasks: [] };
+
+/**
+ * One stored item, given a `done`. Reads the legacy `status` through
+ * `isCompletionStatus` so "terminal" means the same thing it does everywhere
+ * else, rather than a second list of which statuses count as finished.
+ */
+const withDone = (subtask: TSubtask): TSubtask => {
+  if (typeof subtask.done === "boolean") return subtask;
+
+  // Destructured out rather than spread over: the next write rewrites the whole
+  // array, so carrying the dead key along would re-persist it indefinitely.
+  const { status, ...rest } = subtask as TSubtask & { status?: ETaskStatus };
+  return { ...rest, done: isCompletionStatus(status) };
+};
 
 export type TCreateTask = {
   alarmTime?: string | null;
@@ -111,7 +142,12 @@ export const duplicateTaskInput = (task: TTask): TCreateTask => ({
  * commitment, and silently cloning it onto a checklist item would ring an alarm
  * the user never set. That side effect is what sets `alarmTime` apart; a link
  * just sits there, so it travels with the rest of the context. The subtask keeps
- * its own title and status.
+ * its own title.
+ *
+ * This is the one place the two-state checklist meets the five-state task
+ * (DEX-153): a checked subtask becomes a `DONE` task, an unchecked one a `TODO`.
+ * The three other statuses are a task's to acquire — promotion is the moment an
+ * item earns them, so it can't have arrived carrying one.
  *
  * Promotion is two non-atomic writes (create the task, then update the parent
  * minus the element); a crash between them leaves a duplicate, not data loss.
@@ -121,7 +157,7 @@ export const promoteSubtaskInput = (
   subtask: TSubtask,
 ): TCreateTask => ({
   title: subtask.title,
-  status: subtask.status,
+  status: subtask.done ? ETaskStatus.DONE : ETaskStatus.TODO,
   alarmTime: null,
   dueOn: parent.dueOn,
   goalId: parent.goalId,
@@ -141,10 +177,10 @@ export const removeSubtask = (
   subtaskId: string,
 ): TSubtask[] => subtasks.filter(({ id }) => id !== subtaskId);
 
-/** Appends an empty-titled subtask, ready for inline entry. */
+/** Appends an empty-titled, unchecked subtask, ready for inline entry. */
 export const appendSubtask = (subtasks: TSubtask[]): TSubtask[] => [
   ...subtasks,
-  { id: makeSubtaskId(), title: "", status: ETaskStatus.TODO },
+  { id: makeSubtaskId(), title: "", done: false },
 ];
 
 export const createTask = async (

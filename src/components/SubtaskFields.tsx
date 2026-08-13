@@ -6,11 +6,12 @@ import { useTheme } from "@/utils/theme";
 
 import { EditableText } from "./EditableText";
 import { FormRow } from "./FormRow";
+import { SubtaskCheck } from "./SubtaskCheck";
 import { subtaskGeometry, SubtaskConnectors } from "./SubtaskConnector";
 
 /**
  * The minimum a row needs to be edited here. Generic over the rest so this
- * serves both a task's `TSubtask` (which carries a status) and a template's
+ * serves both a task's `TSubtask` (which carries a `done`) and a template's
  * `TTemplateSubtask` (which doesn't) without either widening to the other.
  */
 type TEditableRow = { id: string; title: string };
@@ -43,10 +44,10 @@ type TSubtaskFieldsProps<S extends TEditableRow> = {
  * surfaces — creating a task and editing a repeat template. Both previously
  * carried an identical copy of this and had already drifted apart.
  *
- * Distinct from `SubtaskRow`, which is the in-card presentation: rows here have
- * no status to toggle, because a form row is a value being composed rather than
- * stored state. They do have an explicit ×, since the template form seeds this
- * from saved rows and emptying a title reverts rather than deletes.
+ * Distinct from `SubtaskRow`, which is the in-card presentation: the checkbox
+ * here is inert, because a form row is a value being composed rather than stored
+ * state. Rows do have an explicit ×, since the template form seeds this from
+ * saved rows and emptying a title reverts rather than deletes.
  */
 export function SubtaskFields<S extends TEditableRow>({
   value,
@@ -151,16 +152,12 @@ export function SubtaskFields<S extends TEditableRow>({
                 { gap: theme.space.md, height: checklist.rowHeight },
               ]}
             >
-              <View
-                style={[
-                  styles.marker,
-                  {
-                    borderColor: theme.colors.textSecondary,
-                    borderRadius: theme.radii.full,
-                    height: checklist.statusSize,
-                    width: checklist.statusSize,
-                  },
-                ]}
+              {/* Inert — no `onToggle`: a form row is a value being composed,
+                  and has nothing to check off yet. */}
+              <SubtaskCheck
+                done={false}
+                borderColor={theme.colors.textSecondary}
+                contentColor={theme.colors.text}
               />
               <EditableText
                 value={row.title}
@@ -214,10 +211,5 @@ const styles = StyleSheet.create({
   row: {
     alignItems: "center",
     flexDirection: "row",
-  },
-  // The circle StatusButton draws for a TODO subtask, but inert: a row here is
-  // a value being composed, and has no status to toggle yet.
-  marker: {
-    borderWidth: 1,
   },
 });

@@ -2,7 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
 import { getNextTaskDate } from "@src/utils/repeatSchedule.ts";
-import { sweepSubtasks } from "@src/utils/subtasks.ts";
+import { completeSubtasks } from "@src/utils/subtasks.ts";
 // The app's own enum and terminal-status predicate, not a copy of them — see the
 // module header for why this one is safe to import from Deno.
 import { ETaskStatus, isCompletionStatus } from "@src/utils/taskStatus.ts";
@@ -43,15 +43,16 @@ const readSubtasks = (value: unknown): Subtask[] => {
 /**
  * Reads the row a completing write is about to overwrite, returning both the
  * pre-update status (so recurrence can tell a fresh completion from a re-tap)
- * and the checklist swept to `status`. Shared by `update_task` and
- * `archive_task` — the two completion paths — so the read and the sweep can't
- * drift apart between them. Piggybacks on the read recurrence already needed:
- * no extra round trip.
+ * and the checklist checked off. Shared by `update_task` and `archive_task` —
+ * the two completion paths — so the read and the sweep can't drift apart between
+ * them. Piggybacks on the read recurrence already needed: no extra round trip.
+ *
+ * The caller decides *whether* to sweep by only calling this on a terminal
+ * status; every terminal status sweeps the same way, so none is passed in.
  */
 async function readForCompletion(
   ctx: ToolContext,
   taskId: string,
-  status: number,
 ): Promise<{ previousStatus?: number; sweptSubtasks?: Subtask[] }> {
   const { data: existing } = await ctx.supabase
     .from("tasks")
@@ -64,9 +65,7 @@ async function readForCompletion(
 
   return {
     previousStatus: existing?.status,
-    sweptSubtasks: current.length > 0
-      ? sweepSubtasks(current, status)
-      : undefined,
+    sweptSubtasks: current.length > 0 ? completeSubtasks(current) : undefined,
   };
 }
 
@@ -279,9 +278,11 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
       title: "Create Task",
       description:
         "Create a new task for the authenticated user. `subtasks` is an " +
-        "optional checklist of `{id, title, status}` items stored on the task " +
-        "itself — they are not tasks and have no fields beyond these. Mint " +
-        "each `id` yourself; it only needs to be unique within this array. " +
+        "optional checklist of `{id, title, done}` items stored on the task " +
+        "itself — they are not tasks and have no fields beyond these. A " +
+        "subtask is only complete or incomplete; `done` defaults to false, so " +
+        "omit it for a fresh checklist. Mint each `id` yourself; it only " +
+        "needs to be unique within this array. " +
         "Leave `templateId` unset unless you are deliberately stamping a task " +
         "from a template: a repeat has exactly one open task, so pointing a " +
         "second open task at a *scheduled* template makes it generate two " +
@@ -318,7 +319,7 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
           // would apply, so the done-parent-with-open-children state the sweep
           // exists to prevent can't be inserted through the front door.
           subtasks: isCompletionStatus(task.status)
-            ? sweepSubtasks(task.subtasks ?? [], task.status)
+            ? completeSubtasks(task.subtasks ?? [])
             : (task.subtasks ?? []),
           template_id: task.templateId ?? null,
           url: task.url ?? null,
@@ -337,11 +338,11 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
       title: "Update Task",
       description:
         "Update one or more task fields. Only provided fields are changed. " +
-        "`subtasks` REPLACES the whole checklist array — to change one item, " +
-        "read the task first, modify the array, and send it back in full. " +
-        "Setting `status` to any terminal status (Done, Won't Do, Delegated) " +
-        "also sweeps every subtask to that status automatically, so do not send " +
-        "`subtasks` just to close them; send it only to make a different " +
+        "`subtasks` REPLACES the whole checklist array with `{id, title, done}` " +
+        "items — to change one, read the task first, modify the array, and send " +
+        "it back in full. Setting `status` to any terminal status (Done, Won't " +
+        "Do, Delegated) marks every subtask done automatically, so do not send " +
+        "`subtasks` just to check them off; send it only to make a different " +
         "change. Do not send `templateId` unless you mean to re-link the task. " +
         "Clearing it to null on a repeat's only open task leaves the schedule " +
         "with nothing to recur from, and it stops generating. Pointing it at a " +
@@ -393,11 +394,7 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
       const isCompleting = isCompletionStatus(update.status);
       let previousStatus: number | null | undefined;
       if (isCompleting) {
-        const completion = await readForCompletion(
-          ctx,
-          taskId,
-          update.status as number,
-        );
+        const completion = await readForCompletion(ctx, taskId);
         previousStatus = completion.previousStatus;
 
         // Fold the checklist sweep into this same write so a completed parent
@@ -494,8 +491,8 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
       title: "Archive Task",
       description:
         "Archive a task by setting its status to won't-do, or restore it to " +
-        "todo. Archiving also sweeps the task's subtasks to won't-do; " +
-        "restoring leaves them as they are.",
+        "todo. Archiving also marks the task's subtasks done; restoring leaves " +
+        "them as they are.",
       inputSchema: {
         taskId: uuidSchema,
         restore: z.boolean().optional().default(false),
@@ -515,11 +512,7 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         // Archiving is a completion, so it sweeps the checklist in the same
         // write — the mirror of update_task. Restoring does not: a restored
         // task returns to todo with its checklist as the user left it.
-        const completion = await readForCompletion(
-          ctx,
-          taskId,
-          ETaskStatus.WONT_DO,
-        );
+        const completion = await readForCompletion(ctx, taskId);
         previousStatus = completion.previousStatus;
         sweptSubtasks = completion.sweptSubtasks;
       }

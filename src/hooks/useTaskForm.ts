@@ -172,9 +172,10 @@ export const useTaskForm = (
     setPriorityOverride(template.priority);
     setListOverride(template.listId);
     setDueOnOverride(dueOn);
-    // A template's checklist is a blueprint with no status. `subtasksFromTemplate`
-    // mints fresh ids, so two tasks stamped from one template never share them.
-    setSubtasks(subtasksFromTemplate(template.subtasks, ETaskStatus.TODO));
+    // A template's checklist is a blueprint, so every item arrives unchecked.
+    // `subtasksFromTemplate` mints fresh ids, so two tasks stamped from one
+    // template never share them.
+    setSubtasks(subtasksFromTemplate(template.subtasks));
     // `scheduledFor` is left alone on purpose — a template carries no dates, and
     // the task belongs on the day the user was viewing. `url` likewise: a
     // template has no link column, so applying one has nothing to say about a

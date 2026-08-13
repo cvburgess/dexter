@@ -228,7 +228,7 @@ export function TaskForm({
       <SubtaskFields
         value={form.subtasks}
         onChange={form.setSubtasks}
-        makeRow={(id) => ({ id, title: "", status: ETaskStatus.TODO })}
+        makeRow={(id) => ({ id, title: "", done: false })}
         onAddRow={onAddSubtaskRow}
         testIDPrefix={testIDPrefix}
       />

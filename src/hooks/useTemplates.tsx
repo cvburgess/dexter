@@ -101,7 +101,7 @@ const seedNextOccurrence = async (template: TTemplate): Promise<void> => {
     scheduledFor,
     templateId: template.id,
     status: ETaskStatus.TODO,
-    subtasks: subtasksFromTemplate(template.subtasks, ETaskStatus.TODO),
+    subtasks: subtasksFromTemplate(template.subtasks),
   });
 };
 
