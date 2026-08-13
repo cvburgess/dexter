@@ -2,6 +2,7 @@ import { Tabs } from "expo-router";
 import { StyleSheet, View } from "react-native";
 
 import { NavDock, NavRail } from "@/components/AppNav";
+import { FocusTimerBar } from "@/components/FocusTimerBar";
 
 /**
  * The app's non-native navigation shell: the classic JS `Tabs` navigator with
@@ -45,6 +46,11 @@ export function AppShell({ rail }: { rail: boolean }) {
           <Tabs.Screen name="settings" />
           <Tabs.Screen name="search" />
         </Tabs>
+        {/* A flex sibling of the tab content for the same reason the rail and
+            dock are: no screen has to reserve space for it, and it can't cover
+            the last card in a list. Renders `null` unless a block is running,
+            and on narrow web it lands directly above the dock (DEX-49). */}
+        <FocusTimerBar />
       </View>
       {rail ? null : <NavDock />}
     </View>

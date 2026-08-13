@@ -33,6 +33,15 @@ export const NAV_RAIL_WIDTH = 76;
 export const NAV_TILE_SIZE = 48;
 export const NAV_ICON_SIZE = 26;
 
+// Height (in dp) of Android's navigation bar — Material 3's fixed 80dp, which
+// is what `FocusTimerDock` anchors the focus timer above (DEX-49).
+//
+// A constant is only defensible because Android's bar *is* one: iOS 26's tab bar
+// floats translucently and minimizes on scroll, so no fixed offset there is ever
+// right for long, which is exactly why that platform hosts the timer in the tab
+// bar's own accessory instead of over it.
+export const ANDROID_TAB_BAR_HEIGHT = 80;
+
 // Width (in dp) at or above which **web** shows the nav rail rather than the
 // bottom dock. Deliberately not `LARGE_DEVICE_MIN_WIDTH`: the rail takes its
 // width *out of* the tab content, while Today and Settings decide on multi-pane

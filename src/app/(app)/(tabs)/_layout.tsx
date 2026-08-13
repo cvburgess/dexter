@@ -1,7 +1,7 @@
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 
 import { AppShell } from "@/components/AppShell";
-import { NewTaskButton } from "@/components/NewTaskButton";
+import { TabBarAccessory } from "@/components/TabBarAccessory";
 import { IS_TABLET } from "@/utils/deviceType";
 import { useTheme } from "@/utils/theme";
 
@@ -33,8 +33,11 @@ export default function TabsLayout() {
       minimizeBehavior="onScrollDown"
       tintColor={theme.colors.primary}
     >
+      {/* One accessory element, two jobs: the running focus block when there is
+          one, "＋ New Task" otherwise (DEX-49). The slot takes a single element,
+          so the branch lives inside it. */}
       <NativeTabs.BottomAccessory>
-        <NewTaskButton />
+        <TabBarAccessory />
       </NativeTabs.BottomAccessory>
       <NativeTabs.Trigger name="today">
         <NativeTabs.Trigger.Icon sf="sun.max" md="light_mode" />

@@ -2,6 +2,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Redirect, Stack } from "expo-router";
 import { useEffect } from "react";
 
+import { StyleSheet, View } from "react-native";
+
+import { FocusTimerDock } from "@/components/FocusTimerDock";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useAlarmSync } from "@/hooks/useAlarmSync";
 import { useAuth } from "@/hooks/useAuth";
@@ -65,16 +68,27 @@ export default function AppLayout() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen
-        name="new-task"
-        options={createModalScreenOptions(theme, "New Task")}
-      />
-      <Stack.Screen
-        name="edit-task/[id]"
-        options={createModalScreenOptions(theme, "Edit Task")}
-      />
-    </Stack>
+    <View style={styles.root}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen
+          name="new-task"
+          options={createModalScreenOptions(theme, "New Task")}
+        />
+        <Stack.Screen
+          name="edit-task/[id]"
+          options={createModalScreenOptions(theme, "Edit Task")}
+        />
+      </Stack>
+      {/* Android phones only — every other surface hosts the timer inside its
+          own layout. Renders `null` everywhere else (DEX-49). */}
+      <FocusTimerDock />
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});

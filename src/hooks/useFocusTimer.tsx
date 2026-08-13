@@ -12,7 +12,7 @@ import { liveRemainingSeconds } from "@/utils/focusBlocks";
 
 import { useLiveFocusBlock } from "./useFocusBlocks";
 
-type TFocusTimerActions = {
+export type TFocusTimerActions = {
   cancelFocusBlock: (block: TFocusBlock) => void;
   pauseFocusBlock: (block: TFocusBlock) => void;
   resumeFocusBlock: (block: TFocusBlock) => void;

@@ -52,8 +52,11 @@ jest.mock("@/components/AppShell", () => {
   };
 });
 
-jest.mock("@/components/NewTaskButton", () => ({
-  NewTaskButton: function NewTaskButton() {
+// The accessory's own branch (timer vs. "＋ New Task") is its own component's
+// concern; here it only has to not drag expo-router's untransformed navigation
+// internals into this suite.
+jest.mock("@/components/TabBarAccessory", () => ({
+  TabBarAccessory: function TabBarAccessory() {
     return null;
   },
 }));

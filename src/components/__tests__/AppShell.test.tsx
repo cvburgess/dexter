@@ -18,6 +18,19 @@ jest.mock("@/components/AppNav", () => {
   };
 });
 
+// The timer bar is a live query away from Supabase and draws nothing without a
+// running block; stub it to a marker so the shell's composition is what's under
+// test (DEX-49).
+jest.mock("@/components/FocusTimerBar", () => {
+  const { Text } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+  return {
+    FocusTimerBar: function FocusTimerBar() {
+      return <Text>focus-timer-bar</Text>;
+    },
+  };
+});
+
 // The real Tabs/Tabs.Screen require a navigation container this unit test
 // doesn't mount; render children through a passthrough so the wrapping View
 // structure around the nav is still exercised. Tabs.Screen echoes its `name`
