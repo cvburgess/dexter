@@ -52,10 +52,18 @@ describe("useLists", () => {
   it("fetches under a single stable query key, not one per caller", async () => {
     const { wrapper, queryClient } = createWrapper();
 
-    renderHook(() => useLists(), { wrapper });
-    renderHook(() => useLists(), { wrapper });
+    const first = renderHook(() => useLists(), { wrapper });
+    const second = renderHook(() => useLists(), { wrapper });
 
-    await waitFor(() => expect(mockGetLists).toHaveBeenCalledTimes(1));
+    // Both callers, not just the fetch count: the shared query notifies each
+    // of them when it resolves, and a test that returns before those land
+    // leaves the updates outside act() (DEX-130).
+    await waitFor(() => {
+      expect(first.result.current[1].isLoading).toBe(false);
+      expect(second.result.current[1].isLoading).toBe(false);
+    });
+
+    expect(mockGetLists).toHaveBeenCalledTimes(1);
     expect(
       queryClient.getQueryCache().findAll({ queryKey: ["lists"] }),
     ).toHaveLength(1);

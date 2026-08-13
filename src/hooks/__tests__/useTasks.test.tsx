@@ -16,6 +16,7 @@ import {
   updateTasks,
 } from "@/api/tasks";
 import { TTemplate } from "@/api/templates";
+import { settleQueries } from "@/testUtils/settleQueries";
 
 import { canonicalTaskFilters, useTasks } from "../useTasks";
 
@@ -46,6 +47,9 @@ const createWrapper = () => {
   });
   return {
     queryClient,
+    /** Every mutation here ends in `onSettled` → `invalidateQueries`; close on
+     * the refetch that follows, not on the call count that says it started. */
+    settled: () => settleQueries(queryClient),
     wrapper: ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     ),
@@ -77,10 +81,18 @@ describe("useTasks", () => {
   it("fetches under a single stable query key, not one per caller", async () => {
     const { wrapper, queryClient } = createWrapper();
 
-    renderHook(() => useTasks(), { wrapper });
-    renderHook(() => useTasks(), { wrapper });
+    const first = renderHook(() => useTasks(), { wrapper });
+    const second = renderHook(() => useTasks(), { wrapper });
 
-    await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(1));
+    // Both callers, not just the fetch count: the shared query notifies each
+    // of them when it resolves, and a test that returns before those land
+    // leaves the updates outside act() (DEX-130).
+    await waitFor(() => {
+      expect(first.result.current[1].isLoading).toBe(false);
+      expect(second.result.current[1].isLoading).toBe(false);
+    });
+
+    expect(mockGetTasks).toHaveBeenCalledTimes(1);
     expect(
       queryClient.getQueryCache().findAll({ queryKey: ["tasks"] }),
     ).toHaveLength(1);
@@ -130,18 +142,19 @@ describe("useTasks", () => {
   });
 
   it("fetches with the canonical task filters", async () => {
-    const { wrapper } = createWrapper();
+    const { settled, wrapper } = createWrapper();
 
     renderHook(() => useTasks(), { wrapper });
 
     await waitFor(() => expect(mockGetTasks).toHaveBeenCalled());
+    await settled();
 
     const [, filters] = mockGetTasks.mock.calls[0];
     expect(filters).toEqual(canonicalTaskFilters());
   });
 
   it("refetches the single canonical query after a mutation", async () => {
-    const { wrapper } = createWrapper();
+    const { settled, wrapper } = createWrapper();
     const task: TTask = {
       id: "task-1",
       alarmTime: null,
@@ -164,6 +177,7 @@ describe("useTasks", () => {
     act(() => result.current[1].createTask({ title: "New task" }));
 
     await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(2));
+    await settled();
   });
 
   describe("refetching after a mutation", () => {
@@ -172,7 +186,7 @@ describe("useTasks", () => {
     // it settles. A create/delete that only invalidated on success would strand
     // another device's change made in that window.
     it("refetches even when a create fails", async () => {
-      const { wrapper } = createWrapper();
+      const { settled, wrapper } = createWrapper();
       mockCreateTask.mockRejectedValue(new Error("offline"));
 
       const { result } = renderHook(() => useTasks(), { wrapper });
@@ -181,10 +195,11 @@ describe("useTasks", () => {
       act(() => result.current[1].createTask({ title: "New task" }));
 
       await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(2));
+      await settled();
     });
 
     it("refetches even when a delete fails", async () => {
-      const { wrapper } = createWrapper();
+      const { settled, wrapper } = createWrapper();
       mockDeleteTask.mockRejectedValue(new Error("offline"));
 
       const { result } = renderHook(() => useTasks(), { wrapper });
@@ -193,6 +208,7 @@ describe("useTasks", () => {
       act(() => result.current[1].deleteTask("task-1"));
 
       await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(2));
+      await settled();
     });
   });
 
@@ -229,7 +245,7 @@ describe("useTasks", () => {
     ];
 
     const bulkUpdate = async (diffs: Parameters<typeof updateTasks>[1]) => {
-      const { wrapper, queryClient } = createWrapper();
+      const { settled, wrapper, queryClient } = createWrapper();
       mockGetTasks.mockResolvedValue(cached);
       mockUpdateTasks.mockResolvedValue(cached);
 
@@ -240,6 +256,7 @@ describe("useTasks", () => {
 
       act(() => result.current[1].updateTasks(diffs));
       await waitFor(() => expect(mockUpdateTasks).toHaveBeenCalled());
+      await settled();
 
       return mockUpdateTasks.mock.calls[0][1];
     };
@@ -279,7 +296,7 @@ describe("useTasks", () => {
   });
 
   it("carries the template's alarm time onto the next recurring occurrence", async () => {
-    const { wrapper, queryClient } = createWrapper();
+    const { settled, wrapper, queryClient } = createWrapper();
     const today = Temporal.Now.plainDateISO().toString();
 
     const task: TTask = {
@@ -328,6 +345,8 @@ describe("useTasks", () => {
     );
 
     await waitFor(() => expect(mockCreateTask).toHaveBeenCalled());
+    await settled();
+
     const [, created] = mockCreateTask.mock.calls[0];
     expect(created.alarmTime).toBe("17:30");
     expect(created.templateId).toBe("template-1");
@@ -352,7 +371,7 @@ describe("useTasks", () => {
     };
 
     const completeLinkedTask = async () => {
-      const { wrapper, queryClient } = createWrapper();
+      const { settled, wrapper, queryClient } = createWrapper();
       const task: TTask = {
         id: "task-1",
         alarmTime: null,
@@ -383,6 +402,7 @@ describe("useTasks", () => {
           status: ETaskStatus.DONE,
         }),
       );
+      await settled();
     };
 
     it("spawns nothing when another open task already links to the template", async () => {
@@ -429,7 +449,7 @@ describe("useTasks", () => {
     });
 
     const completeTask = async (task: TTask, status: ETaskStatus) => {
-      const { wrapper, queryClient } = createWrapper();
+      const { settled, wrapper, queryClient } = createWrapper();
       mockGetTasks.mockResolvedValue([task]);
       mockUpdateTask.mockResolvedValue([{ ...task, status }]);
 
@@ -440,6 +460,7 @@ describe("useTasks", () => {
 
       act(() => result.current[1].updateTask({ id: task.id, status }));
       await waitFor(() => expect(mockUpdateTask).toHaveBeenCalled());
+      await settled();
 
       return mockUpdateTask.mock.calls[0][1];
     };
@@ -485,7 +506,7 @@ describe("useTasks", () => {
     it("respects an explicitly supplied subtasks array over the sweep", async () => {
       // Editing a checklist item and completing the parent in one call must not
       // have the sweep clobber the caller's array.
-      const { wrapper, queryClient } = createWrapper();
+      const { settled, wrapper, queryClient } = createWrapper();
       const task = withSubtasks();
       const explicit = [
         { id: "sub-1", title: "Renamed", status: ETaskStatus.TODO },
@@ -506,13 +527,14 @@ describe("useTasks", () => {
         }),
       );
       await waitFor(() => expect(mockUpdateTask).toHaveBeenCalled());
+      await settled();
 
       expect(mockUpdateTask.mock.calls[0][1].subtasks).toEqual(explicit);
     });
   });
 
   it("materializes the template's checklist onto the next occurrence, reset to open", async () => {
-    const { wrapper, queryClient } = createWrapper();
+    const { settled, wrapper, queryClient } = createWrapper();
     const today = Temporal.Now.plainDateISO().toString();
 
     const task: TTask = {
@@ -561,8 +583,9 @@ describe("useTasks", () => {
     );
 
     await waitFor(() => expect(mockCreateTask).toHaveBeenCalled());
-    const [, created] = mockCreateTask.mock.calls[0];
+    await settled();
 
+    const [, created] = mockCreateTask.mock.calls[0];
     expect(created.subtasks?.map(({ title }) => title)).toEqual([
       "Clear inbox",
       "Review goals",
@@ -594,7 +617,7 @@ describe("useTasks", () => {
     };
 
     it("applies the diff to the cache before the request resolves", async () => {
-      const { wrapper, queryClient } = createWrapper();
+      const { settled, wrapper, queryClient } = createWrapper();
       mockGetTasks.mockResolvedValue([cached]);
       let resolve: ((value: TTask[]) => void) | undefined;
       mockUpdateTask.mockReturnValue(
@@ -619,11 +642,16 @@ describe("useTasks", () => {
           "Shipped",
         ),
       );
-      resolve?.([{ ...cached, title: "Shipped" }]);
+
+      // Resolve inside `act`: settling drives `onSettled`, which invalidates
+      // ["tasks"] and refetches the server's copy on top of the optimistic one.
+      act(() => resolve?.([{ ...cached, title: "Shipped" }]));
+      await settled();
+      expect(result.current[0][0].title).toBe("Ship it");
     });
 
     it("does not write undefined over fields the diff omitted", async () => {
-      const { wrapper, queryClient } = createWrapper();
+      const { settled, wrapper, queryClient } = createWrapper();
       mockGetTasks.mockResolvedValue([cached]);
       mockUpdateTask.mockResolvedValue([cached]);
 
@@ -639,10 +667,15 @@ describe("useTasks", () => {
       const optimistic = queryClient.getQueryData<TTask[]>(["tasks"])?.[0];
       expect(optimistic?.subtasks).toEqual(cached.subtasks);
       expect(optimistic?.priority).toBe(ETaskPriority.NEITHER);
+
+      // And the refetch that `onSettled` invalidation triggers puts the
+      // server's title back over it.
+      await settled();
+      expect(result.current[0][0].title).toBe("Ship it");
     });
 
     it("restores the snapshot when the write fails", async () => {
-      const { wrapper, queryClient } = createWrapper();
+      const { settled, wrapper, queryClient } = createWrapper();
       mockGetTasks.mockResolvedValue([cached]);
       mockUpdateTask.mockRejectedValue(new Error("offline"));
 
@@ -662,12 +695,13 @@ describe("useTasks", () => {
           "Ship it",
         ),
       );
+      await settled();
     });
 
     it("still spawns a recurrence, despite the optimistic write marking the task complete", async () => {
       // The recurrence guard skips already-complete tasks; reading the live
       // cache after the optimistic write would see DONE and skip every time.
-      const { wrapper, queryClient } = createWrapper();
+      const { settled, wrapper, queryClient } = createWrapper();
       const today = Temporal.Now.plainDateISO().toString();
       const repeating: TTask = {
         ...cached,
@@ -709,6 +743,7 @@ describe("useTasks", () => {
       );
 
       await waitFor(() => expect(mockCreateTask).toHaveBeenCalled());
+      await settled();
     });
   });
 });
