@@ -26,7 +26,7 @@ import { calendarWindow, plannedMinutes } from "@/utils/calendarStats";
 import { formatWeekday } from "@/utils/formatPlainDate";
 import { formatTimeRange } from "@/utils/formatPlainTime";
 import { selectTasksForDate } from "@/utils/taskFilters";
-import { useTheme } from "@/utils/theme";
+import { type Theme, useTheme } from "@/utils/theme";
 import {
   compareToTypical,
   copyToText,
@@ -46,6 +46,23 @@ import {
  * already what every step drawing fewer than four hero lines does.
  */
 const BELOW_FOLD_STAGE = 2;
+
+/**
+ * The gutter the sentence keeps, inside the one `SwipeablePage` already gives
+ * the step.
+ *
+ * **This is a measure, not clearance.** The hero is a `heading`-sized sentence
+ * centered on a phone, and run to the step's own edges it sets one or two very
+ * long lines that the eye has to track all the way across and back. Pulling the
+ * measure in makes it wrap sooner and read as a stanza, which is what the two
+ * lines under it already look like. `contentGutter` in `HoroscopeStep` derives
+ * the same numbers for the same reason on the same tier — six on a large screen,
+ * where the width cap leaves the most room and the least reason to use all of
+ * it. It is only the hero's: the agenda rows and the task cards below want the
+ * full width, and indenting a card would read as a nesting that isn't there.
+ */
+const heroGutter = (theme: Theme, largeScreen: boolean) =>
+  theme.space.lg * (largeScreen ? 6 : 2);
 
 type TPreviewTomorrowStepProps = {
   /** The day being walked through — the ritual's date, not necessarily today. */
@@ -265,6 +282,7 @@ export function PreviewTomorrowStep({ date }: TPreviewTomorrowStepProps) {
             {
               gap: theme.space.xs,
               minHeight: Math.max(0, viewportHeight - insets.bottom),
+              paddingHorizontal: heroGutter(theme, largeScreen),
             },
           ]}
         >

@@ -313,9 +313,16 @@ one divergence from "same controls as today").
 
 ### Summary step (DEX-144)
 
-The last step of **both** rituals (id `summary`, so it doesn't drift from the
-label): habits/events/tasks counted through the same `HeroLines`, over a button
-into `todayRoute({ date, mode: "tasks" })`, the two centered as one block.
+The morning's last step: habits/events/tasks counted through the same
+`HeroLines`, over a button into `todayRoute({ date, mode: "tasks" })`, the two
+centered as one block.
+
+**It closed the evening too until DEX-149.** Preview tomorrow replaced it there,
+and the two were answering the same question badly: a count of the day you have
+just walked Open tasks and Review through is a third reading of it, where the
+last thing the evening actually has to say is about the day ahead. The morning
+keeps it because there the count is the *first* word on the day and the hand-off
+to the Today tab is the point of the step.
 
 - **A morning task-list step was built here first and removed.** `DayTaskList`
   dropped into the step worked and cost almost nothing — but it copied a surface

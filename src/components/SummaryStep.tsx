@@ -51,7 +51,9 @@ const plural = (count: number, noun: string) =>
   `${noun}${count === 1 ? "" : "s"}`;
 
 /**
- * The ritual's closing step: what the day adds up to, and the door out to it.
+ * The morning ritual's closing step: what the day adds up to, and the door out
+ * to it. It closed the evening too until DEX-149 — see `utils/ritualSteps` for
+ * why a count of a day already reviewed stopped being the last word there.
  *
  * **This is where the morning's task-list step went (DEX-144).** `DayTaskList`
  * dropped into the ritual worked and cost almost nothing — but it copied a

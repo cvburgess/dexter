@@ -40,14 +40,21 @@ describe("RITUAL_STEPS", () => {
     ]);
   });
 
-  it("lists the evening steps in order", () => {
+  // The evening closes on Preview tomorrow, not on a Summary (DEX-149): a count
+  // of the day you have just finished reviewing is a third reading of it, where
+  // the last question the evening actually has is about the day ahead.
+  it("lists the evening steps in order, ending on the preview", () => {
     expect(RITUAL_STEPS.pm.map((step) => step.title)).toEqual([
       "Open tasks",
       "Review",
       "Journal",
       "Preview tomorrow",
-      "Summary",
     ]);
+  });
+
+  it("keeps the summary in the morning only", () => {
+    expect(RITUAL_STEPS.am.map((step) => step.id)).toContain("summary");
+    expect(RITUAL_STEPS.pm.map((step) => step.id)).not.toContain("summary");
   });
 
   // The id is half of the swipe pager's remount key, so a duplicate inside one
@@ -277,11 +284,11 @@ describe("goToStep", () => {
     },
   );
 
-  // The evening ritual is a step shorter, so the same index can be valid in one
-  // mode and out of range in the other.
+  // The evening ritual is a step shorter than the morning one, so the same
+  // index can be valid in one mode and out of range in the other.
   it("bounds against the active ritual's own length", () => {
-    expect(goToStep(state({ mode: "pm" }), 4)).toMatchObject({ step: 4 });
-    expect(goToStep(state({ mode: "pm" }), 5)).toMatchObject({ step: 0 });
+    expect(goToStep(state({ mode: "am" }), 4)).toMatchObject({ step: 4 });
+    expect(goToStep(state({ mode: "pm" }), 4)).toMatchObject({ step: 0 });
   });
 });
 
@@ -382,15 +389,15 @@ describe("step position helpers", () => {
     );
   });
 
-  // The last index differs per mode (five morning steps, five evening ones —
-  // equal today, but they have not been and the lists move independently), so
-  // the check has to read the active list rather than a single constant.
+  // The last index differs per mode — five morning steps, four evening ones
+  // since DEX-149 dropped the summary from the evening — so the check has to
+  // read the active list rather than a single constant.
   it("knows both ends of each ritual", () => {
     expect(isFirstStep(state())).toBe(true);
     expect(isLastStep(state())).toBe(false);
     expect(isLastStep(state({ step: 4 }))).toBe(true);
-    expect(isLastStep(state({ mode: "pm", step: 4 }))).toBe(true);
-    expect(isLastStep(state({ mode: "pm", step: 3 }))).toBe(false);
+    expect(isLastStep(state({ mode: "pm", step: 3 }))).toBe(true);
+    expect(isLastStep(state({ mode: "pm", step: 2 }))).toBe(false);
   });
 });
 
@@ -439,13 +446,16 @@ describe("withJournalEnabled", () => {
     expect(currentStep(next).title).toBe("Calendar");
   });
 
-  it("clamps to the last step when the removed one was at the end", () => {
-    // The evening ritual read backwards: nothing follows a step that is last
-    // once the journal is gone, so the clamp is the only repair available.
-    const before = state({ mode: "pm", journalEnabled: false, step: 3 });
+  it("keeps the evening's last step by id when the journal is added back", () => {
+    // Read backwards: the step that was last with the journal gone is no longer
+    // last once it returns, so an index carried across would land short of it.
+    const before = state({ mode: "pm", journalEnabled: false, step: 2 });
+    expect(currentStep(before).title).toBe("Preview tomorrow");
+
     const next = withJournalEnabled(before, true);
 
-    expect(currentStep(next).title).toBe("Summary");
+    expect(currentStep(next).title).toBe("Preview tomorrow");
+    expect(next.step).toBe(3);
   });
 });
 

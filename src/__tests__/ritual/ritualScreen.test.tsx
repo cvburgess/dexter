@@ -387,7 +387,7 @@ describe("RitualScreen", () => {
         fireEvent.press(screen.getByLabelText("swipe-forward"));
       }
 
-      expect(screen.getByText(`small:${TODAY}:pm:4:1`)).toBeTruthy();
+      expect(screen.getByText(`small:${TODAY}:pm:3:1`)).toBeTruthy();
     });
   });
 
@@ -427,7 +427,7 @@ describe("RitualScreen", () => {
         fireEvent.press(screen.getByLabelText("swipe-forward"));
       }
 
-      expect(screen.getByText(`small:${TODAY}:pm:4:1`)).toBeTruthy();
+      expect(screen.getByText(`small:${TODAY}:pm:3:1`)).toBeTruthy();
     });
 
     it("refuses a horoscope deep link rather than landing somewhere arbitrary", () => {

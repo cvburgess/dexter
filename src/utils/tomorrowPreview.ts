@@ -138,13 +138,15 @@ export const tomorrowCopy = (
 ): TTomorrowCopy => {
   const eventLoad: TLoad = events ?? "comparable";
 
+  // `calmer` and `busier` carry the reading on their own, so they take the ink
+  // the clauses below take — the whole sentence is the comparison here, where
+  // the two-axis lines have a phrase per axis to mark instead.
   if (eventLoad === "lower" && tasks === "lower") {
     return {
       segments: [
-        {
-          text: `Tomorrow is calmer than your typical ${weekday}.`,
-          tone: "plain",
-        },
+        { text: "Tomorrow is ", tone: "plain" },
+        { text: "calmer", tone: "down" },
+        { text: ` than your typical ${weekday}.`, tone: "plain" },
       ],
       followUp: "Enjoy the extra space.",
     };
@@ -153,10 +155,9 @@ export const tomorrowCopy = (
   if (eventLoad === "higher" && tasks === "higher") {
     return {
       segments: [
-        {
-          text: `Tomorrow is busier than your typical ${weekday}.`,
-          tone: "plain",
-        },
+        { text: "Tomorrow is ", tone: "plain" },
+        { text: "busier", tone: "up" },
+        { text: ` than your typical ${weekday}.`, tone: "plain" },
       ],
       followUp: "Don't forget to eat.",
     };

@@ -82,12 +82,14 @@ export function RitualStepView({
     // previews `date + 1`, computed there rather than here so every other
     // branch keeps meaning "the day being walked through". Unconditional even
     // for a reader with no calendar: the agenda is what the preference gates,
-    // not the step, since tomorrow's tasks are worth seeing either way.
+    // not the step, since tomorrow's tasks are worth seeing either way. It is
+    // also the evening's *last* step now, having replaced the summary there.
     case "preview-tomorrow":
       return <PreviewTomorrowStep date={date} />;
-    // DEX-144: the only step both rituals share besides the journal, and the
-    // last of each — it counts the day and hands the reader over to their real
-    // task list rather than drawing a second copy of it here.
+    // DEX-144: the morning's last step — it counts the day and hands the reader
+    // over to their real task list rather than drawing a second copy of it here.
+    // The morning's alone since DEX-149; see `ritualSteps` for why the evening
+    // stopped closing on a count of a day it had just reviewed.
     case "summary":
       return <SummaryStep date={date} />;
     default:

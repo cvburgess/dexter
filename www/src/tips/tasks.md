@@ -7,14 +7,16 @@ layout: layouts/tips.vto
 
 ![Task diagram](/assets/tips/tasks.png)
 
-Your tasks live in the [Day](/tips/day) view. Your daily ritual ends by sending
+Your tasks live in the [Day](/tips/day) view. The morning ritual ends by sending
 you there: once the Backlog step has helped you decide what the day is actually
 for, the last step hands you straight to that day's list.
 
 The evening ritual opens with the other half of that: everything still open on
 the day you're closing out, with a button on each side of it — send it to
 tomorrow, or take it off the calendar and back into your backlog. Clear the list
-and the step says so.
+and the step says so. It ends on the day you just sent all of that to: whether
+tomorrow is busier or calmer than a typical one of its weekday, and the events
+and tasks it holds.
 
 ## Status
 

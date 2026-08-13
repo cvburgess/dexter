@@ -171,6 +171,30 @@ describe("tomorrowCopy", () => {
     );
   });
 
+  // The single word carries the whole reading on these two lines, so it takes
+  // the ink the two-axis clauses take.
+  it("marks calmer down and busier up", () => {
+    expect(tomorrowCopy("lower", "lower", "Thursday").segments).toEqual([
+      { text: "Tomorrow is ", tone: "plain" },
+      { text: "calmer", tone: "down" },
+      { text: " than your typical Thursday.", tone: "plain" },
+    ]);
+    expect(tomorrowCopy("higher", "higher", "Thursday").segments).toEqual([
+      { text: "Tomorrow is ", tone: "plain" },
+      { text: "busier", tone: "up" },
+      { text: " than your typical Thursday.", tone: "plain" },
+    ]);
+  });
+
+  // Nothing in a typical day is unusual, so nothing in it is marked.
+  it("leaves a typical day entirely unmarked", () => {
+    expect(
+      tomorrowCopy("comparable", "comparable", "Thursday").segments.every(
+        (segment) => segment.tone === "plain",
+      ),
+    ).toBe(true);
+  });
+
   // The ink is the whole reason the sentence is segmented rather than a string.
   it("marks a heavier phrase up and a lighter one down, and nothing else", () => {
     expect(tomorrowCopy("lower", "higher", "Thursday").segments).toEqual([
