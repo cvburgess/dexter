@@ -629,11 +629,23 @@ Plumbing that is easy to undo by accident:
 
 ## Tasks
 
-### Subtasks and inline editing (DEX-70)
+### Subtasks and inline editing (DEX-70, DEX-153)
 
-A subtask is a checklist item inside its parent's card. Actions hang off a
-**tap**-triggered `⋯` — the card is already wrapped in a long-press menu host, and
-nesting a second long-press host inside it is the fragile arrangement.
+A subtask is a checklist item inside its parent's card: `{id, title, done}` and
+nothing else. It shipped carrying the full five-member `ETaskStatus` and lost it
+— the five statuses now meet the two-state checklist in exactly one place,
+`promoteSubtaskInput`, which maps done → `DONE` and not-done → `TODO`. Promotion
+is the moment an item earns a status, so it can't arrive holding one.
+
+The field is `done`, not `isComplete`, because `changeCase` converts keys
+`deep: true`: a two-word key would be stored `is_complete` by the app while the
+MCP server, which writes this array as raw jsonb, would store `isComplete`.
+
+Actions hang off a **tap**-triggered `⋯` — the card is already wrapped in a
+long-press menu host, and nesting a second long-press host inside it is the
+fragile arrangement. The checkbox itself (`components/SubtaskCheck.tsx`) is
+deliberately not a shrunk `StatusButton`, which exists to open a five-option
+menu: one tap is faster, and it drops a native menu host per row.
 
 `components/EditableText.tsx` commit rules (one place, every caller): committed on
 blur, on return, **and on unmount-while-editing** (FlashList recycles rows out
@@ -641,7 +653,7 @@ from under a half-typed title); end edits via `blur()`, never
 `Keyboard.dismiss()` (dismissing leaves the input focused, so the next tap never
 fires the committing blur); an emptied title reverts for an existing row but
 discards a never-saved one, decided by *origin*, not stored state; editing is
-disabled once the task completes (re-opening a swept subtask restores the state
+disabled once the task completes (unchecking a swept subtask restores the state
 the sweep prevents); clearing edit mode on commit is guarded by row id, because
 the outgoing row's cleanup runs *after* `editing` moved to the next row.
 
@@ -663,8 +675,8 @@ payload.
 
 **Storage is a jsonb array, not rows** (`tasks.subtasks`,
 `repeat_task_templates.subtasks`). The array buys: one level deep by
-construction; completing a parent sweeps its checklist in a single row update; no
-orphan-spawn hazard. Accepted tradeoffs and traps:
+construction; completing a parent checks its whole checklist off in a single row
+update; no orphan-spawn hazard. Accepted tradeoffs and traps:
 
 - **Last-write-wins on the whole array** — concurrent editors clobber each other
   within a refetch window; the mitigation if ever needed is RPC array surgery, no
@@ -675,9 +687,16 @@ orphan-spawn hazard. Accepted tradeoffs and traps:
 - **Write bounds are not read bounds** — `tools/helpers.ts` has bounded schemas
   for tool input and separate unbounded ones for parsing stored rows. Reusing the
   input schema on a read is a trap: a failed parse means "no subtasks", so an
-  over-long stored title would silently skip the completion sweep.
-- **Every write path that can complete a task sweeps** — including `create_task`
-  inserting an already-complete task.
+  over-long stored title would silently skip the completion sweep. The same rule
+  makes the read schemas **coerce a legacy `status` rather than reject it**
+  (`withSubtasksArray` app-side, `storedSubtasksSchema` server-side): the DEX-153
+  backfill converts what is stored, but an app bundle predating it keeps writing
+  `status` until its user updates, and refusing those rows would disable the
+  sweep on exactly the tasks still being edited from an old client.
+- **Every terminal status sweeps, not just done** — a won't-do or delegated
+  parent is equally finished with, and two states leave its checklist nowhere
+  else to go. Every write path that can close a task sweeps, including
+  `create_task` inserting an already-complete one.
 
 ### Task links and the share extension (DEX-66)
 
