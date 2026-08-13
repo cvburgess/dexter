@@ -76,7 +76,6 @@ describe("RitualStepSegments on iOS", () => {
       STEP_ICONS.review.sf,
       STEP_ICONS.journal.sf,
       STEP_ICONS["preview-tomorrow"].sf,
-      STEP_ICONS.summary.sf,
     ]);
   });
 

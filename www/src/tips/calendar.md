@@ -23,7 +23,9 @@ Open the day view switcher in the toolbar and choose **Calendar** to see it.
 It is also a step of your daily ritual. Open the **Ritual** tab in the morning
 and the Calendar step tells you how many events you have, how much of the day is
 already booked, and how much of it is still yours — with the same timeline
-underneath.
+underneath. In the evening, the Preview tomorrow step uses it again: whether
+tomorrow is busier or calmer than a typical one of its weekday, and the events
+themselves a scroll below that.
 
 ## Settings
 
@@ -33,8 +35,8 @@ underneath.
 
 - **Enabled**: The calendar will appear in the Day view, and as a step of your
   daily ritual
-- **Disabled**: The calendar will be hidden, and the ritual will skip its
-  Calendar step
+- **Disabled**: The calendar will be hidden, the ritual will skip its Calendar
+  step, and the evening's Preview tomorrow step will show only your tasks
 
 ### Calendar start and end time
 

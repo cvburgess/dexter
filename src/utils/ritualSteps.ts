@@ -47,9 +47,8 @@ export const RITUAL_STEP_IDS = [
  *
  * Enumerated (rather than inferred from `RITUAL_STEPS`) so
  * `components/RitualStepSwitcher.shared`'s icon table is a `Record` over it and
- * the compiler catches a step added without one. Some ids appear in both
- * rituals (`journal`, `summary`) — they are the same step at a different time
- * of day, so they share an icon.
+ * the compiler catches a step added without one. `journal` appears in both
+ * rituals — the same step at a different time of day, so it shares an icon.
  */
 export type TRitualStepId = (typeof RITUAL_STEP_IDS)[number];
 
@@ -73,6 +72,13 @@ export type TRitualStep = {
  * ritual is a sequence you walk once, the day's list is the thing you come back
  * to all day. `summary` closes the morning by counting the day and handing the
  * reader over to the real one instead (`components/SummaryStep.tsx`).
+ *
+ * **`summary` is the morning's alone (DEX-149).** It closed the evening too
+ * until Preview tomorrow landed, and the two were answering the same question
+ * badly: a summary of the day you have just finished reviewing is a third count
+ * of it, where the evening's actual last question is what you are walking into.
+ * The morning keeps it because there the count is the *first* thing said about
+ * the day, and its hand-off to the Today tab is the point of the step.
  */
 export const RITUAL_STEPS: Record<TRitualMode, readonly TRitualStep[]> = {
   am: [
@@ -87,7 +93,6 @@ export const RITUAL_STEPS: Record<TRitualMode, readonly TRitualStep[]> = {
     { id: "review", title: "Review" },
     { id: "journal", title: "Journal" },
     { id: "preview-tomorrow", title: "Preview tomorrow" },
-    { id: "summary", title: "Summary" },
   ],
 };
 

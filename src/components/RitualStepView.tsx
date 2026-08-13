@@ -6,6 +6,7 @@ import { EmptyScreen } from "@/components/EmptyScreen";
 import { HoroscopeStep } from "@/components/HoroscopeStep";
 import { JournalView } from "@/components/JournalView";
 import { OpenTasksStep } from "@/components/OpenTasksStep";
+import { PreviewTomorrowStep } from "@/components/PreviewTomorrowStep";
 import { ReviewStep } from "@/components/ReviewStep";
 import { SummaryStep } from "@/components/SummaryStep";
 import type { TRitualStep } from "@/utils/ritualSteps";
@@ -31,10 +32,11 @@ type TRitualStepViewProps = {
  * The content of one ritual step.
  *
  * This is the seam each DEX-34 sub-issue fills in: a step branches on `step.id`
- * here and nothing else about the flow has to change. Seven are built —
+ * here and nothing else about the flow has to change. Eight are built —
  * Horoscope (DEX-128), Journal (DEX-105), Calendar (DEX-140), Backlog
- * (DEX-141), Summary (DEX-144), Open tasks (DEX-146) and Review (DEX-148) — and
- * the rest fall through to the default and render their name centered.
+ * (DEX-141), Summary (DEX-144), Open tasks (DEX-146), Review (DEX-148) and
+ * Preview tomorrow (DEX-149) — and the rest fall through to the default and
+ * render their name centered.
  *
  * Carries no side gutter of its own — `SwipeablePage` supplies it at both
  * widths on this tab (see docs/design.md, "Who owns spacing").
@@ -76,9 +78,24 @@ export function RitualStepView({
     // field to suspend the swipe for.
     case "review":
       return <ReviewStep date={date} />;
-    // DEX-144: the only step both rituals share besides the journal, and the
-    // last of each — it counts the day and hands the reader over to their real
-    // task list rather than drawing a second copy of it here.
+    // DEX-149: the one step that reads a day other than the ritual's own — it
+    // previews `date + 1`, computed there rather than here so every other
+    // branch keeps meaning "the day being walked through". Unconditional even
+    // for a reader with no calendar: the agenda is what the preference gates,
+    // not the step, since tomorrow's tasks are worth seeing either way. It is
+    // also the evening's *last* step now, having replaced the summary there.
+    //
+    // Takes `onEditingChange` where `review` does not: its cards are tomorrow's
+    // open tasks, so they rename, and a caret drag across a live field would
+    // otherwise page the ritual.
+    case "preview-tomorrow":
+      return (
+        <PreviewTomorrowStep date={date} onEditingChange={onEditingChange} />
+      );
+    // DEX-144: the morning's last step — it counts the day and hands the reader
+    // over to their real task list rather than drawing a second copy of it here.
+    // The morning's alone since DEX-149; see `ritualSteps` for why the evening
+    // stopped closing on a count of a day it had just reviewed.
     case "summary":
       return <SummaryStep date={date} />;
     default:

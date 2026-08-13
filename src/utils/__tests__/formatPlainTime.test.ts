@@ -2,6 +2,7 @@ import {
   formatHourLabel,
   formatHours,
   formatTime,
+  formatTimeRange,
   parseTimeToMinutes,
 } from "../formatPlainTime";
 
@@ -17,6 +18,31 @@ describe("formatTime", () => {
 
   it("formats afternoon times with PM", () => {
     expect(formatTime({ hour: 20, minute: 30 })).toBe("8:30 PM");
+  });
+});
+
+describe("formatTimeRange", () => {
+  it("states the period once when both ends share it", () => {
+    expect(
+      formatTimeRange({ hour: 16, minute: 0 }, { hour: 17, minute: 15 }),
+    ).toBe("4:00-5:15 PM");
+  });
+
+  // The case the shared-period form cannot cover: dropped, a reader would have
+  // to guess which side of noon a meeting starts on.
+  it("states both when the span crosses noon", () => {
+    expect(
+      formatTimeRange({ hour: 11, minute: 30 }, { hour: 13, minute: 0 }),
+    ).toBe("11:30 AM-1:00 PM");
+  });
+
+  it("treats noon as PM and midnight as AM", () => {
+    expect(
+      formatTimeRange({ hour: 12, minute: 0 }, { hour: 12, minute: 45 }),
+    ).toBe("12:00-12:45 PM");
+    expect(
+      formatTimeRange({ hour: 0, minute: 0 }, { hour: 1, minute: 30 }),
+    ).toBe("12:00-1:30 AM");
   });
 });
 

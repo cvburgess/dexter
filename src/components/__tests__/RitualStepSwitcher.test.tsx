@@ -92,8 +92,10 @@ describe("ritualStepOptions", () => {
       jest.fn(),
     );
 
-    expect(options).toHaveLength(5);
+    // Four, not the morning's five: the evening has no summary (DEX-149).
+    expect(options).toHaveLength(4);
     expect(options[0].title).toBe("Open tasks");
+    expect(options[3].title).toBe("Preview tomorrow");
   });
 
   it("selects by index, which is what goToStep takes", () => {

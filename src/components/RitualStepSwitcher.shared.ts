@@ -27,8 +27,11 @@ export const STEP_ICONS: Record<TRitualStepId, TIconName> = {
   backlog: { sf: "tray.full", ionicon: "file-tray-full-outline" },
   summary: { sf: "checkmark.circle", ionicon: "checkmark-circle-outline" },
   "open-tasks": VIEW_META.tasks.icon,
-  review: { sf: "magnifyingglass", ionicon: "search-outline" },
-  "preview-tomorrow": { sf: "sunrise", ionicon: "partly-sunny-outline" },
+  review: { sf: "eyeglasses", ionicon: "glasses-outline" },
+  // `cloud.sun` rather than `sunrise`: the two platforms draw the same step, and
+  // a sunrise beside `partly-sunny-outline` read as a different one depending on
+  // which device you opened.
+  "preview-tomorrow": { sf: "cloud.sun", ionicon: "partly-sunny-outline" },
 };
 
 /**

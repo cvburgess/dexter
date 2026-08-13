@@ -313,9 +313,16 @@ one divergence from "same controls as today").
 
 ### Summary step (DEX-144)
 
-The last step of **both** rituals (id `summary`, so it doesn't drift from the
-label): habits/events/tasks counted through the same `HeroLines`, over a button
-into `todayRoute({ date, mode: "tasks" })`, the two centered as one block.
+The morning's last step: habits/events/tasks counted through the same
+`HeroLines`, over a button into `todayRoute({ date, mode: "tasks" })`, the two
+centered as one block.
+
+**It closed the evening too until DEX-149.** Preview tomorrow replaced it there,
+and the two were answering the same question badly: a count of the day you have
+just walked Open tasks and Review through is a third reading of it, where the
+last thing the evening actually has to say is about the day ahead. The morning
+keeps it because there the count is the *first* word on the day and the hand-off
+to the Today tab is the point of the step.
 
 - **A morning task-list step was built here first and removed.** `DayTaskList`
   dropped into the step worked and cost almost nothing — but it copied a surface
@@ -455,6 +462,71 @@ it, where the Today list mixes closed rows in with open ones.)
   ones anyway (including `useTaskDelete`, not the raw `deleteTask`): every path
   to them is closed on this card, and an unreachable stub is the easiest kind to
   leave wrong.
+
+### Preview tomorrow step (DEX-149)
+
+One sentence on the shape of `date + 1`, then its agenda and its tasks a scroll
+below the fold. The only step that reads a day other than the ritual's own.
+
+- **The comparison band is ±30% of the average of the last four matching
+  weekdays, and an entirely empty history reads as *typical*.** Against a zero
+  average any figure is infinitely above it, so the arithmetic alone tells a
+  first-time reader that tomorrow is busier than a Thursday the app has never
+  seen. A *partly* empty history is real evidence and is averaged as-is. The band
+  is wide on purpose: four samples of a noisy quantity, and a band tight enough
+  to be statistically interesting would call almost every day unusual.
+- **The calendar history is four extra `useCalendarEvents()` calls, not a range
+  hook.** The hook takes one `PlainDate` and has no range form; four more calls
+  buy the history with none of the fetching, caching, permission or error
+  handling written twice, and React Query keys each day separately. The price is
+  paid on web, where each date re-fetches and re-parses the same `.ics` feed —
+  `parseIcsEventsForDate` is hard-scoped to one target date. Worth a range parser
+  if feeds get large, not before. All five days are measured through the reader's
+  own `calendarWindow`, so a history measured over a different window can't read
+  as a change in the day.
+- **A failed read is not an empty day, and the comparison is where that bites.**
+  An errored `useCalendarEvents` hands back an empty array, so a dropped
+  connection would book tomorrow at zero hours against a history that has some
+  and tell the reader their day is calmer than usual. Any of the five failing
+  drops the meetings axis to `null`; only tomorrow's own failure, and only with
+  nothing cached to draw, changes what the agenda says.
+- **The reveal waits on all five days, history included.** Every reporting step
+  holds its reveal until its numbers exist; here the empty-history rule makes a
+  confident "typical" that rewrites itself as "busier" the *likely* outcome of
+  not waiting, rather than an edge case.
+- **This is the one place sentiment ink is right on an evening step.** Review
+  refuses it because a day already lived would be getting a verdict; a day still
+  ahead is exactly when being warned is actionable.
+- **The hero is a sentence, not `HeroLines`.** That component is a figure column
+  whose words always take `colors.text`, and this copy needs `more meetings` in
+  `error` mid-phrase. Nested `Text` is the only thing that colors a span and
+  still wraps with the rest — hence the segment/tone table in
+  `utils/tomorrowPreview.ts`, which keeps the whole of the copy testable without
+  a theme.
+- **The agenda is gated on `enableCalendar`; the step is not.** Tomorrow's tasks
+  are worth seeing either way, so `ritualSteps` drops nothing — unlike the
+  morning Calendar step. A calendar switched on with no source behind it takes
+  the same path as one switched off, rather than stranding that step's "Set up
+  calendars" button below the fold on a step nobody reaches to configure
+  anything. With no agenda the sentence falls through to the task axis alone, out
+  of the same copy table rather than a parallel one.
+- **`DayTaskList` is deliberately not reused**: it owns a vertical `ScrollView`,
+  which cannot nest inside the reveal scroller. The cards are mapped directly, as
+  Review does. And this is not the morning task-list step DEX-144 removed — that
+  one drew a second copy of a list the reader could already see, where this draws
+  a day the Today tab is not showing.
+- **`matchingWeekdaysBefore` returns a fixed-length tuple**, and that is
+  load-bearing: the step reads each date with its own hook call, so the count has
+  to be a constant the Rules of Hooks can see. Its oldest date is 28 days back,
+  three days inside `canonicalTaskFilters`' 30-day cache — widening one means
+  widening the other, or the oldest sample silently drops its completed tasks.
+- `components/ScrollReveal.tsx` holds `RevealOnScroll` and the chevron, lifted
+  out of `HoroscopeStep` when this step wanted them. Both take their arrival
+  window as `[revealFrom, revealTo]` fractions rather than reading a stage table:
+  the two callers count stages differently (three of the horoscope's own, versus
+  `HeroLines`' `stageWindow`), so a shared constant would have to be wrong for
+  one of them. Its measurement rules — flat direct children, clamp to `maxScroll`
+  — are documented there and are the whole of why it works.
 
 ## Drag-to-schedule (DEX-77)
 
