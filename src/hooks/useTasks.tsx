@@ -26,6 +26,7 @@ import { isCompletionStatus } from "@/utils/taskFilters";
 import { OPEN_TASK_STATUSES } from "@/utils/taskStatus";
 
 import { supabase } from "./useAuth";
+import { FOCUS_BLOCKS_INVALIDATION_KEYS } from "./useFocusBlocks";
 
 type TMutateCallbacks = {
   onError?: (error: Error) => void;
@@ -370,6 +371,16 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
     // On settle, for the same reason as `create` above.
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      // `focus_blocks.task_id` cascades, so deleting a task silently takes its
+      // blocks with it — including a running one. Realtime cannot tell us:
+      // a DELETE's `old` record carries PK columns only, so the client's
+      // `user_id` filter never matches one on that table (docs/backend.md).
+      // Without this the timer bar keeps counting down a row that is gone, its
+      // pause/stop writes fail against no row, and every other task hides
+      // "Start focus block" until an unrelated refetch clears it.
+      FOCUS_BLOCKS_INVALIDATION_KEYS.forEach((queryKey) => {
+        void queryClient.invalidateQueries({ queryKey });
+      });
     },
   });
 

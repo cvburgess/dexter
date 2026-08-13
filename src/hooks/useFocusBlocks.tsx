@@ -29,11 +29,19 @@ const LIVE_FOCUS_BLOCK_KEY = ["focusBlocks", "live"];
  */
 export const FOCUS_BLOCKS_INVALIDATION_KEYS = [["focusBlocks"]];
 
+type TMutateCallbacks = {
+  onError?: (error: Error) => void;
+  onSuccess?: () => void;
+};
+
 type TUseLiveFocusBlock = [
   TFocusBlock | null,
   {
     cancelFocusBlock: (block: TFocusBlock) => void;
-    finishFocusBlock: (block: TFocusBlock) => void;
+    finishFocusBlock: (
+      block: TFocusBlock,
+      callbacks?: TMutateCallbacks,
+    ) => void;
     isLoading: boolean;
     pauseFocusBlock: (block: TFocusBlock) => void;
     resumeFocusBlock: (block: TFocusBlock) => void;
@@ -148,9 +156,13 @@ export const useLiveFocusBlock = (): TUseLiveFocusBlock => {
   // what makes `finishFocusBlock` idempotent: the completion timeout and the
   // AppState listener can both fire for the same block, and the second must not
   // reopen or rewrite it.
-  const move = (block: TFocusBlock, diff: Omit<TUpdateFocusBlock, "id">) => {
+  const move = (
+    block: TFocusBlock,
+    diff: Omit<TUpdateFocusBlock, "id">,
+    callbacks?: TMutateCallbacks,
+  ) => {
     if (!isLiveFocusStatus(block.status)) return;
-    transition({ id: block.id, ...diff });
+    transition({ id: block.id, ...diff }, callbacks);
   };
 
   return [
@@ -162,12 +174,15 @@ export const useLiveFocusBlock = (): TUseLiveFocusBlock => {
           resumedAt: null,
           status: "cancelled",
         }),
-      finishFocusBlock: (block) =>
-        move(block, {
-          remainingSeconds: 0,
-          resumedAt: null,
-          status: "complete",
-        }),
+      // The only transition that takes callbacks: its caller latches the block
+      // id so the timeout and the AppState listener can't both write it, and
+      // needs to know when to release that latch (see `usePublishFocusTimer`).
+      finishFocusBlock: (block, callbacks) =>
+        move(
+          block,
+          { remainingSeconds: 0, resumedAt: null, status: "complete" },
+          callbacks,
+        ),
       isLoading,
       pauseFocusBlock: (block) =>
         move(block, {

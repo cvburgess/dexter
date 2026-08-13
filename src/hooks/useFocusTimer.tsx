@@ -195,7 +195,18 @@ export const usePublishFocusTimer = (): void => {
       if (completed.current === block.id) return;
       if (liveRemainingSeconds(block, Date.now()) > 0) return;
       completed.current = block.id;
-      latest.current.finishFocusBlock(block);
+      latest.current.finishFocusBlock(block, {
+        // Release the latch if the write never landed. Latching optimistically
+        // is what stops the timeout and the AppState listener both completing
+        // the same block, but holding it through a *failed* write would strand
+        // the block: the optimistic clear rolls back, so it sits at 0:00 still
+        // `active`, the one-live-block index refuses a new start, and Stop
+        // records it `cancelled` — a finished session that never counts. Freed,
+        // the next due signal (a foreground, or the next launch) retries.
+        onError: () => {
+          if (completed.current === block.id) completed.current = null;
+        },
+      });
     };
 
     // Already past due at mount — the app was closed or force-quit through the

@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react-native";
+import { AppState } from "react-native";
 
 import { TFocusBlock } from "@/api/focusBlocks";
 import { useLiveFocusBlock } from "@/hooks/useFocusBlocks";
@@ -57,6 +58,7 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.useRealTimers();
+  jest.restoreAllMocks();
 });
 
 describe("the published snapshot", () => {
@@ -169,6 +171,35 @@ describe("completing a block when its time runs out", () => {
     });
 
     expect(finishFocusBlock).not.toHaveBeenCalled();
+  });
+
+  // Latching the block id is what stops the timeout and the AppState listener
+  // both writing it — but holding the latch through a *failed* write would
+  // strand the block at 0:00 as still `active`, where the one-live-block index
+  // refuses a new start and Stop would record it `cancelled`.
+  it("retries after a completion write fails", () => {
+    const foregrounds: ((state: string) => void)[] = [];
+    jest
+      .spyOn(AppState, "addEventListener")
+      .mockImplementation((_event, handler) => {
+        foregrounds.push(handler as (state: string) => void);
+        return { remove: jest.fn() };
+      });
+    finishFocusBlock.mockImplementation((_block, callbacks) =>
+      callbacks?.onError?.(new Error("offline")),
+    );
+    setLiveBlock(block({ remainingSeconds: 60 }));
+    renderHook(() => usePublishFocusTimer());
+
+    act(() => {
+      jest.setSystemTime(START + 60_000);
+      jest.advanceTimersByTime(60_000);
+    });
+    expect(finishFocusBlock).toHaveBeenCalledTimes(1);
+
+    act(() => foregrounds.forEach((handler) => handler("active")));
+
+    expect(finishFocusBlock).toHaveBeenCalledTimes(2);
   });
 
   it("does nothing at all with no block", () => {

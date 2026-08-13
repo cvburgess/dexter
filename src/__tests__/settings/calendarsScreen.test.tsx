@@ -1,20 +1,28 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render } from "@testing-library/react-native";
-import { ReactNode } from "react";
 
 import CalendarsScreen from "@/app/(app)/(tabs)/settings/calendars";
-import { useEnabledDeviceCalendars } from "@/hooks/useEnabledDeviceCalendars";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
 
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
-jest.mock("@/hooks/useEnabledDeviceCalendars", () => ({
-  useEnabledDeviceCalendars: jest.fn(() => [
-    null,
-    { setEnabledIds: jest.fn(), isLoading: false },
-  ]),
-}));
 jest.mock("@/hooks/useIsLargeDevice", () => ({ useIsLargeDevice: jest.fn() }));
+
+// The source list runs an unmocked React Query against the device's calendars,
+// which resolves a microtask or two *after* these synchronous assertions — a
+// state update outside `act()` that `jest.setupAfterEnv.js` then fails whichever
+// test happens to be running when React flushes it (DEX-130). Nothing here
+// asserts on the list, and both its variants have their own suite in
+// `components/__tests__/CalendarSourceList.test.tsx`, so it stands in as a
+// marker rather than being re-exercised per screen.
+jest.mock("@/components/CalendarSourceList", () => {
+  const { Text } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+  return {
+    CalendarSourceList: function CalendarSourceList() {
+      return <Text>calendar-source-list</Text>;
+    },
+  };
+});
 
 jest.mock("react-native-safe-area-context", () =>
   require("@/testUtils/mockSafeAreaEdges").mockSafeAreaContext(),
@@ -28,16 +36,6 @@ const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
 >;
 const mockUpdate = jest.fn();
 
-// The device-calendars source list (native variant on the default jest
-// platform) reads via React Query, so the screen needs a client.
-const wrapper = ({ children }: { children: ReactNode }) => (
-  <QueryClientProvider
-    client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-  >
-    {children}
-  </QueryClientProvider>
-);
-
 const renderWith = (overrides: Record<string, unknown> = {}) => {
   mockUsePreferences.mockReturnValue([
     {
@@ -49,16 +47,12 @@ const renderWith = (overrides: Record<string, unknown> = {}) => {
     } as never,
     { updatePreferences: mockUpdate },
   ]);
-  return render(<CalendarsScreen />, { wrapper });
+  return render(<CalendarsScreen />);
 };
 
 describe("CalendarsScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (useEnabledDeviceCalendars as jest.Mock).mockReturnValue([
-      null,
-      { setEnabledIds: jest.fn(), isLoading: false },
-    ]);
     mockUseIsLargeDevice.mockReturnValue(false);
   });
 
