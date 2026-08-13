@@ -15,6 +15,7 @@ import {
 } from "@/components/HeroLines";
 import { TaskCard } from "@/components/TaskCard";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
+import { useFocusBlocks } from "@/hooks/useFocusBlocks";
 import { useDailyHabits } from "@/hooks/useHabits";
 import { useTaskDelete } from "@/hooks/useTaskDelete";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -76,10 +77,18 @@ export function ReviewStep({ date }: TReviewStepProps) {
   // kind to leave wrong.
   const { confirmDelete, confirmationProps } = useTaskDelete();
 
+  const [focusBlocks, { isLoading: focusBlocksLoading }] = useFocusBlocks(
+    date.toString(),
+  );
+
   const tasks = useMemo(
     () => selectCompletedTasksForDate(allTasks, date),
     [allTasks, date],
   );
+
+  const completedFocusBlocks = focusBlocks.filter(
+    (block) => block.status === "complete",
+  ).length;
 
   // Drop rings for habits since paused or archived, the same defensive filter
   // `HabitTracker` applies to the rows it draws: the DB trigger removes the
@@ -124,13 +133,15 @@ export function ReviewStep({ date }: TReviewStepProps) {
     },
     {
       key: "focus",
-      // Hardcoded until DEX-49 builds the focus timer — there is no focus block
-      // anywhere in the app yet, so there is nothing to count and no preference
-      // to hide the line behind. Drawn rather than deferred so the hero's shape
-      // is the one it will keep, and so the step doesn't gain a figure (and a
-      // fifth reveal stage) on the day the timer lands.
-      figure: "0",
-      words: "focus blocks",
+      // **`complete` only.** A block stopped early is recorded as `cancelled`
+      // and deliberately doesn't count: the whole reason that is its own status
+      // rather than a deletion is so abandoning a block is honest without
+      // inflating the evening's figure. A block still running at the moment the
+      // ritual is read doesn't count either — it hasn't happened yet.
+      figure: String(completedFocusBlocks),
+      words: plural(completedFocusBlocks, "focus block"),
+      // No preference gate, unlike habits and the calendar: there is nothing to
+      // turn focus blocks off, so every reader has this line.
       shown: true,
     },
   ].filter((line) => line.shown);
@@ -149,7 +160,8 @@ export function ReviewStep({ date }: TReviewStepProps) {
 
   // Held back until every count exists, so the sequence waits rather than
   // running against the empty placeholders the hooks serve while they resolve.
-  const isLoading = habitsLoading || eventsLoading || tasksLoading;
+  const isLoading =
+    habitsLoading || eventsLoading || tasksLoading || focusBlocksLoading;
   const reveal = useHeroReveal(isLoading ? null : date.toString());
   // **Staged at `heroLines.length`, not `BODY_STAGE`.** That constant means
   // "after all three hero lines" and is right for the two steps that always

@@ -8,17 +8,22 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
 import {
-  pickerOptions,
-  pickerProps,
+  pickerOptionsFor,
+  pickerPropsFor,
   resetPicker,
 } from "@/testUtils/mockExpoUiPicker";
+
+// This screen renders two pickers, so every read names the one it means.
+const ALARM_PICKER = "alarm-sound-picker";
+const FOCUS_PICKER = "focus-block-length-picker";
 
 jest.mock("@/hooks/useTemplates", () => ({ useTemplates: jest.fn() }));
 // useTasks pulls in the supabase client via useAuth; the screen only reads the
 // cached tasks to tell a live repeat from a stalled one.
 jest.mock("@/hooks/useTasks", () => ({ useTasks: jest.fn() }));
 jest.mock("@/hooks/useIsLargeDevice", () => ({ useIsLargeDevice: jest.fn() }));
-// usePreferences pulls in the supabase client; the screen only reads the sound.
+// usePreferences pulls in the supabase client; the screen reads the alarm sound
+// and the focus block length.
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 
 // The global @expo/ui mock renders Picker as null, so it can't be driven from a
@@ -111,7 +116,7 @@ describe("TasksScreen", () => {
     jest.clearAllMocks();
     mockUseIsLargeDevice.mockReturnValue(false);
     mockUsePreferences.mockReturnValue([
-      { alarmSound: "echos" } as never,
+      { alarmSound: "echos", focusBlockMinutes: 50 } as never,
       { updatePreferences: mockUpdatePreferences },
     ]);
     resetPicker();
@@ -259,11 +264,11 @@ describe("TasksScreen", () => {
     const screen = renderWith([]);
 
     expect(screen.getByText("Sound")).toBeTruthy();
-    expect(pickerOptions()).toEqual([
+    expect(pickerOptionsFor(ALARM_PICKER)).toEqual([
       { label: "System", value: "system" },
       { label: "Echos", value: "echos" },
     ]);
-    expect(pickerProps()?.selectedValue).toBe("echos");
+    expect(pickerPropsFor(ALARM_PICKER)?.selectedValue).toBe("echos");
   });
 
   it("falls back to System for a stored sound this build doesn't ship", () => {
@@ -275,19 +280,64 @@ describe("TasksScreen", () => {
     ]);
     renderWith([]);
 
-    expect(pickerProps()?.selectedValue).toBe("system");
+    expect(pickerPropsFor(ALARM_PICKER)?.selectedValue).toBe("system");
   });
 
   it("saves the alarm sound when a different one is picked", () => {
     renderWith([]);
 
-    const onValueChange = pickerProps()?.onValueChange as (
+    const onValueChange = pickerPropsFor(ALARM_PICKER)?.onValueChange as (
       value: string,
     ) => void;
     onValueChange("system");
 
     expect(mockUpdatePreferences).toHaveBeenCalledWith({
       alarmSound: "system",
+    });
+  });
+
+  describe("focus block length (DEX-49)", () => {
+    it("offers every length, with the stored one selected", () => {
+      const screen = renderWith([]);
+
+      expect(screen.getByText("Length")).toBeTruthy();
+      expect(pickerOptionsFor(FOCUS_PICKER).map((o) => o.value)).toEqual([
+        "15",
+        "20",
+        "25",
+        "30",
+        "45",
+        "50",
+        "60",
+      ]);
+      expect(pickerPropsFor(FOCUS_PICKER)?.selectedValue).toBe("50");
+    });
+
+    // Same footgun as the alarm sound: the column is unconstrained, and a value
+    // this build doesn't offer leaves the picker showing nothing at all.
+    it("falls back to 25 for a stored length this build doesn't offer", () => {
+      mockUsePreferences.mockReturnValue([
+        { alarmSound: "echos", focusBlockMinutes: 37 } as never,
+        { updatePreferences: mockUpdatePreferences },
+      ]);
+      renderWith([]);
+
+      expect(pickerPropsFor(FOCUS_PICKER)?.selectedValue).toBe("25");
+    });
+
+    // The picker round-trips through strings; the preference is a number, and
+    // storing "45" would make every later multiplication concatenate instead.
+    it("saves the length as a number", () => {
+      renderWith([]);
+
+      const onValueChange = pickerPropsFor(FOCUS_PICKER)?.onValueChange as (
+        value: string,
+      ) => void;
+      onValueChange("45");
+
+      expect(mockUpdatePreferences).toHaveBeenCalledWith({
+        focusBlockMinutes: 45,
+      });
     });
   });
 });

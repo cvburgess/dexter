@@ -2,8 +2,10 @@ import { Temporal } from "@js-temporal/polyfill";
 import { render, screen } from "@testing-library/react-native";
 
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
+import type { TFocusBlockStatus } from "@/utils/focusBlocks";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import type { TCalendarEvent } from "@/hooks/useCalendarEvents.types";
+import { useFocusBlocks } from "@/hooks/useFocusBlocks";
 import { useDailyHabits } from "@/hooks/useHabits";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTasks } from "@/hooks/useTasks";
@@ -25,6 +27,12 @@ jest.mock("@/hooks/useHabits", () => ({
 }));
 jest.mock("@/hooks/useCalendarEvents", () => ({
   useCalendarEvents: jest.fn(),
+}));
+jest.mock("@/hooks/useFocusBlocks", () => ({
+  ...jest.requireActual<typeof import("@/hooks/useFocusBlocks")>(
+    "@/hooks/useFocusBlocks",
+  ),
+  useFocusBlocks: jest.fn(),
 }));
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 // Reached only through `useTaskDelete`, which has its own suite — stubbed with
@@ -73,6 +81,9 @@ const mockUseCalendarEvents = useCalendarEvents as jest.MockedFunction<
 const mockUsePreferences = usePreferences as jest.MockedFunction<
   typeof usePreferences
 >;
+const mockUseFocusBlocks = useFocusBlocks as jest.MockedFunction<
+  typeof useFocusBlocks
+>;
 
 const DATE = Temporal.PlainDate.from("2026-08-09");
 const OTHER_DAY = "2026-08-08";
@@ -110,16 +121,24 @@ const dailyHabit = ({
   habits: { isPaused, isArchived },
 });
 
-/** Seeds all three sources at once; every count defaults to empty. */
+/** A focus block row; only `status` decides whether the hero counts it. */
+const focusBlock = (status: TFocusBlockStatus, id: string = status) => ({
+  id,
+  status,
+});
+
+/** Seeds all four sources at once; every count defaults to empty. */
 const setDay = ({
   habits = [] as ReturnType<typeof dailyHabit>[],
   events = [] as TCalendarEvent[],
   tasks = [] as TTask[],
+  focusBlocks = [] as ReturnType<typeof focusBlock>[],
   isLoading = false,
 } = {}) => {
   mockUseDailyHabits.mockReturnValue([habits, { isLoading }] as never);
   mockUseCalendarEvents.mockReturnValue([events, { isLoading }] as never);
   mockUseTasks.mockReturnValue([tasks, { isLoading }] as never);
+  mockUseFocusBlocks.mockReturnValue([focusBlocks, { isLoading }] as never);
 };
 
 const preferences = (
@@ -156,6 +175,7 @@ describe("ReviewStep", () => {
         ],
         events: [event("standup"), event("review")],
         tasks: [task({ id: "1" }), task({ id: "2" }), task({ id: "3" })],
+        focusBlocks: [focusBlock("complete", "a"), focusBlock("complete", "b")],
       });
       render(<ReviewStep date={DATE} />);
 
@@ -164,7 +184,7 @@ describe("ReviewStep", () => {
       expect(screen.getByLabelText("1 habit done")).toBeTruthy();
       expect(screen.getByLabelText("3 tasks done")).toBeTruthy();
       expect(screen.getByLabelText("2 events")).toBeTruthy();
-      expect(screen.getByLabelText("0 focus blocks")).toBeTruthy();
+      expect(screen.getByLabelText("2 focus blocks")).toBeTruthy();
     });
 
     it("says 'tasks' for none of them and 'task' for one", () => {
@@ -209,13 +229,21 @@ describe("ReviewStep", () => {
       expect(screen.queryByLabelText(/event/)).toBeNull();
     });
 
-    // Hardcoded until DEX-49 builds the timer. Pinned so the line can't quietly
-    // disappear before there is something real behind it.
-    it("always reports zero focus blocks", () => {
-      setDay({ tasks: [task()], events: [event("standup")] });
+    // The reason `cancelled` is its own status rather than a deleted row: a
+    // block stopped early is recorded honestly and still kept out of the
+    // evening's figure. A block still running hasn't happened yet either.
+    it("counts only completed focus blocks, not cancelled or running ones", () => {
+      setDay({
+        focusBlocks: [
+          focusBlock("complete"),
+          focusBlock("cancelled"),
+          focusBlock("active"),
+          focusBlock("paused"),
+        ],
+      });
       render(<ReviewStep date={DATE} />);
 
-      expect(screen.getByLabelText("0 focus blocks")).toBeTruthy();
+      expect(screen.getByLabelText("1 focus block")).toBeTruthy();
     });
   });
 
