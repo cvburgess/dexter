@@ -74,13 +74,9 @@ const createWrapper = () => {
     /** These mutations invalidate on success; close on the refetch that
      * follows, not on the mock call that says it started. */
     settled: () => settleQueries(queryClient),
-    wrapper: function Wrapper({ children }: { children: ReactNode }) {
-      return (
-        <QueryClientProvider client={queryClient}>
-          {children}
-        </QueryClientProvider>
-      );
-    },
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    ),
   };
 };
 

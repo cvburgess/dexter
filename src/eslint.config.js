@@ -84,8 +84,13 @@ module.exports = defineConfig([
     ],
     languageOptions: {
       // The jest setup files are plain JS, so `@types/jest` globals never
-      // reach them.
-      globals: { jest: "readonly" },
+      // reach them — `jest.setupAfterEnv.js` registers lifecycle hooks, which
+      // is the whole reason it exists rather than living in `jest.setup.js`.
+      globals: {
+        afterAll: "readonly",
+        afterEach: "readonly",
+        jest: "readonly",
+      },
     },
     rules: {
       "@typescript-eslint/no-require-imports": "off",
