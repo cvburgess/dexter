@@ -21,20 +21,16 @@ describe("useTodayPanes", () => {
     await AsyncStorage.clear();
   });
 
-  it("defaults every pane to open, except the task drawer, when nothing is stored", async () => {
+  it("defaults the task drawer closed when nothing is stored", async () => {
     const { result } = renderHook(() => useTodayPanes(), {
       wrapper: createWrapper(),
     });
 
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
-    expect(result.current[0]).toEqual({
-      notes: true,
-      calendar: true,
-      drawer: false,
-    });
+    expect(result.current[0]).toEqual({ drawer: false });
   });
 
-  it("defaults to open when the stored value is corrupt JSON", async () => {
+  it("defaults when the stored value is corrupt JSON", async () => {
     await AsyncStorage.setItem(TODAY_PANES_KEY, "{not json");
 
     const { result } = renderHook(() => useTodayPanes(), {
@@ -42,17 +38,13 @@ describe("useTodayPanes", () => {
     });
 
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
-    expect(result.current[0]).toEqual({
-      notes: true,
-      calendar: true,
-      drawer: false,
-    });
+    expect(result.current[0]).toEqual({ drawer: false });
   });
 
-  it("defaults to open when the stored value has an invalid key type", async () => {
+  it("defaults when the stored value has an invalid key type", async () => {
     await AsyncStorage.setItem(
       TODAY_PANES_KEY,
-      JSON.stringify({ notes: "yes" }),
+      JSON.stringify({ drawer: "yes" }),
     );
 
     const { result } = renderHook(() => useTodayPanes(), {
@@ -60,59 +52,45 @@ describe("useTodayPanes", () => {
     });
 
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
-    expect(result.current[0]).toEqual({
-      notes: true,
-      calendar: true,
-      drawer: false,
-    });
+    expect(result.current[0]).toEqual({ drawer: false });
   });
 
-  it("fills in a pane added after the value was stored, keeping the rest", async () => {
-    // Simulates a device that stored its preferences before `drawer` existed
-    // and while `journal` still did (DEX-105) — the missing key falls back to
-    // its default and the removed one is dropped, rather than the whole value
-    // being treated as corrupt and reset.
+  it("drops the keys of panes that no longer exist, keeping the rest", async () => {
+    // Simulates a device that stored its panes while `journal` (DEX-105) and
+    // the Notes/Calendar toggles (DEX-152) still existed. The removed keys are
+    // dropped and the surviving one keeps the user's choice, rather than the
+    // whole value being treated as corrupt and reset — which is what lets a
+    // pane be retired without a migration.
     await AsyncStorage.setItem(
       TODAY_PANES_KEY,
-      JSON.stringify({ notes: false, journal: true, calendar: false }),
-    );
-
-    const { result } = renderHook(() => useTodayPanes(), {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() => expect(result.current[1].isLoading).toBe(false));
-    expect(result.current[0]).toEqual({
-      notes: false,
-      calendar: false,
-      drawer: false,
-    });
-  });
-
-  it("toggles a single pane and persists the change", async () => {
-    const { result } = renderHook(() => useTodayPanes(), {
-      wrapper: createWrapper(),
-    });
-    await waitFor(() => expect(result.current[1].isLoading).toBe(false));
-
-    await act(() => result.current[1].togglePane("notes"));
-
-    await waitFor(() =>
-      expect(result.current[0]).toEqual({
+      JSON.stringify({
         notes: false,
-        calendar: true,
-        drawer: false,
+        journal: true,
+        calendar: false,
+        drawer: true,
       }),
     );
-    const stored = await AsyncStorage.getItem(TODAY_PANES_KEY);
-    expect(JSON.parse(stored as string)).toEqual({
-      notes: false,
-      calendar: true,
-      drawer: false,
+
+    const { result } = renderHook(() => useTodayPanes(), {
+      wrapper: createWrapper(),
     });
+
+    await waitFor(() => expect(result.current[1].isLoading).toBe(false));
+    expect(result.current[0]).toEqual({ drawer: true });
   });
 
-  it("toggles the task drawer pane independently of the others", async () => {
+  it("fills in a pane added after the value was stored", async () => {
+    await AsyncStorage.setItem(TODAY_PANES_KEY, JSON.stringify({}));
+
+    const { result } = renderHook(() => useTodayPanes(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current[1].isLoading).toBe(false));
+    expect(result.current[0]).toEqual({ drawer: false });
+  });
+
+  it("toggles a pane and persists the change", async () => {
     const { result } = renderHook(() => useTodayPanes(), {
       wrapper: createWrapper(),
     });
@@ -120,24 +98,22 @@ describe("useTodayPanes", () => {
 
     await act(() => result.current[1].togglePane("drawer"));
 
-    await waitFor(() => expect(result.current[0].drawer).toBe(true));
-    expect(result.current[0]).toMatchObject({
-      notes: true,
-      calendar: true,
-    });
+    await waitFor(() => expect(result.current[0]).toEqual({ drawer: true }));
+    const stored = await AsyncStorage.getItem(TODAY_PANES_KEY);
+    expect(JSON.parse(stored as string)).toEqual({ drawer: true });
   });
 
-  it("toggling a pane twice returns it to open", async () => {
+  it("toggling a pane twice returns it to closed", async () => {
     const { result } = renderHook(() => useTodayPanes(), {
       wrapper: createWrapper(),
     });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
-    await act(() => result.current[1].togglePane("calendar"));
-    await waitFor(() => expect(result.current[0].calendar).toBe(false));
-    await act(() => result.current[1].togglePane("calendar"));
+    await act(() => result.current[1].togglePane("drawer"));
+    await waitFor(() => expect(result.current[0].drawer).toBe(true));
+    await act(() => result.current[1].togglePane("drawer"));
 
-    await waitFor(() => expect(result.current[0].calendar).toBe(true));
+    await waitFor(() => expect(result.current[0].drawer).toBe(false));
   });
 
   it("applies two toggles fired before either resolves, without losing one", async () => {
@@ -146,22 +122,35 @@ describe("useTodayPanes", () => {
     });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
-    // Simulates two rapid button taps (Notes then Calendar) landing
-    // before the first toggle's AsyncStorage write resolves and re-renders
-    // this hook — both must still be applied, not just the last one.
+    // Simulates two rapid taps landing before the first toggle's AsyncStorage
+    // write resolves and re-renders this hook. Both must be applied to the
+    // *cache*, leaving the pane back where it started — reading the value
+    // closed over at the last render instead would have both see `false` and
+    // both write `true`, leaving the drawer open after an even number of taps.
     await act(async () => {
-      const first = result.current[1].togglePane("notes");
-      const second = result.current[1].togglePane("calendar");
+      const first = result.current[1].togglePane("drawer");
+      const second = result.current[1].togglePane("drawer");
       await Promise.all([first, second]);
     });
 
-    const expected = {
-      notes: false,
-      calendar: false,
-      drawer: false,
-    };
-    await waitFor(() => expect(result.current[0]).toEqual(expected));
+    await waitFor(() => expect(result.current[0]).toEqual({ drawer: false }));
+    // Read back rather than trusting the hook's own state: the key exists only
+    // because both writes ran, so a value of `false` here is the second toggle
+    // having seen the first rather than neither having happened at all.
     const stored = await AsyncStorage.getItem(TODAY_PANES_KEY);
-    expect(JSON.parse(stored as string)).toEqual(expected);
+    expect(JSON.parse(stored as string)).toEqual({ drawer: false });
+  });
+
+  it("opens a pane without closing one already open", async () => {
+    const { result } = renderHook(() => useTodayPanes(), {
+      wrapper: createWrapper(),
+    });
+    await waitFor(() => expect(result.current[1].isLoading).toBe(false));
+
+    await act(() => result.current[1].openPane("drawer"));
+    await waitFor(() => expect(result.current[0].drawer).toBe(true));
+    await act(() => result.current[1].openPane("drawer"));
+
+    await waitFor(() => expect(result.current[0].drawer).toBe(true));
   });
 });

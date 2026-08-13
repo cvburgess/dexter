@@ -146,41 +146,6 @@ jest.mock("@/components/DayViewSwitcher", () => ({
   DayViewSwitcher: (props: Parameters<typeof mockDayViewSwitcher>[0]) =>
     mockDayViewSwitcher(props),
 }));
-// The large-screen pane toggles wrap the same native trigger; stub similarly,
-// gated on the enable* props like the real component. Its own gating/wiring
-// is covered by DayPaneToggles.test.
-const mockDayPaneToggles = ({
-  onTogglePane,
-  enableNotes,
-  enableCalendar,
-}: {
-  onTogglePane: (pane: string) => void;
-  enableNotes: boolean;
-  enableCalendar: boolean;
-}) => (
-  <>
-    {enableNotes && (
-      <TouchableOpacity
-        accessibilityLabel="pane-toggle-notes"
-        onPress={() => onTogglePane("notes")}
-      >
-        <Text>notes</Text>
-      </TouchableOpacity>
-    )}
-    {enableCalendar && (
-      <TouchableOpacity
-        accessibilityLabel="pane-toggle-calendar"
-        onPress={() => onTogglePane("calendar")}
-      >
-        <Text>calendar</Text>
-      </TouchableOpacity>
-    )}
-  </>
-);
-jest.mock("@/components/DayPaneToggles", () => ({
-  DayPaneToggles: (props: Parameters<typeof mockDayPaneToggles>[0]) =>
-    mockDayPaneToggles(props),
-}));
 // The header's "New Task" trigger wraps the same native circular button; stub
 // it so it renders as a plain pressable exposing its a11y label.
 const mockGlassIconButton = ({
@@ -226,19 +191,10 @@ const preferences = (
 const mockTogglePane = jest.fn();
 const mockOpenPane = jest.fn();
 const panes = (
-  overrides: Partial<{
-    notes: boolean;
-    calendar: boolean;
-    drawer: boolean;
-  }> = {},
+  overrides: Partial<{ drawer: boolean }> = {},
 ): ReturnType<typeof useTodayPanes> =>
   [
-    {
-      notes: true,
-      calendar: true,
-      drawer: false,
-      ...overrides,
-    },
+    { drawer: false, ...overrides },
     { togglePane: mockTogglePane, openPane: mockOpenPane, isLoading: false },
   ] as never;
 
@@ -482,7 +438,7 @@ describe("TodayScreen", () => {
       mockUseTodayPanes.mockImplementation(
         () =>
           [
-            { notes: true, calendar: true, drawer: drawerOpen },
+            { drawer: drawerOpen },
             {
               togglePane: (pane: string) => {
                 if (pane === "drawer") drawerOpen = !drawerOpen;
@@ -523,7 +479,9 @@ describe("TodayScreen", () => {
       expect(screen.queryByLabelText("view-tasks")).toBeNull();
     });
 
-    it("hides a pane whose feature is disabled in settings, and hides its toggle", () => {
+    // Settings is the only control over Notes and Calendar since DEX-152 retired
+    // the header's pane toggles, so this is the whole of their visibility rule.
+    it("hides a pane whose feature is disabled in settings", () => {
       mockUsePreferences.mockReturnValue(
         preferences({ enableCalendar: false }),
       );
@@ -531,24 +489,7 @@ describe("TodayScreen", () => {
       const today = Temporal.Now.plainDateISO().toString();
 
       expect(screen.queryByText(`calendar-view:${today}`)).toBeNull();
-      expect(screen.queryByLabelText("pane-toggle-calendar")).toBeNull();
-    });
-
-    it("hides the Notes pane when it is toggled off", () => {
-      mockUseTodayPanes.mockReturnValue(panes({ notes: false }));
-      const screen = render(<TodayScreen />);
-      const today = Temporal.Now.plainDateISO().toString();
-
-      expect(screen.queryByText(`notes-view:${today}`)).toBeNull();
-      expect(screen.getByText(`calendar-view:${today}`)).toBeTruthy();
-    });
-
-    it("toggles a pane via its header button", () => {
-      const screen = render(<TodayScreen />);
-
-      fireEvent.press(screen.getByLabelText("pane-toggle-notes"));
-
-      expect(mockTogglePane).toHaveBeenCalledWith("notes");
+      expect(screen.getByText(`notes-view:${today}`)).toBeTruthy();
     });
 
     it("moves every pane to the next day together via DayNav", () => {
@@ -730,15 +671,15 @@ describe("TodayScreen", () => {
     describe("large screens", () => {
       beforeEach(() => mockUseIsLargeDevice.mockReturnValue(true));
 
-      it("opens the pane named by ?mode=", () => {
+      it("lands on the pane named by ?mode= without opening anything", () => {
         mockSearchParams.current = { date: "2026-07-14", mode: "notes" };
 
         const screen = render(<TodayScreen />);
 
-        // `openPane`, not `togglePane`: following the link twice, or following
-        // it when the pane is already open, must not close it.
-        expect(mockOpenPane).toHaveBeenCalledWith("notes");
+        // Notes shows whenever it is enabled in settings (DEX-152), so a link
+        // naming it has already arrived — there is no pane state left to write.
         expect(screen.getByText("notes-view:2026-07-14")).toBeTruthy();
+        expect(mockOpenPane).not.toHaveBeenCalled();
       });
 
       it("opens the docked drawer pre-filtered and pre-searched", () => {
