@@ -84,8 +84,14 @@ export function RitualStepView({
     // for a reader with no calendar: the agenda is what the preference gates,
     // not the step, since tomorrow's tasks are worth seeing either way. It is
     // also the evening's *last* step now, having replaced the summary there.
+    //
+    // Takes `onEditingChange` where `review` does not: its cards are tomorrow's
+    // open tasks, so they rename, and a caret drag across a live field would
+    // otherwise page the ritual.
     case "preview-tomorrow":
-      return <PreviewTomorrowStep date={date} />;
+      return (
+        <PreviewTomorrowStep date={date} onEditingChange={onEditingChange} />
+      );
     // DEX-144: the morning's last step — it counts the day and hands the reader
     // over to their real task list rather than drawing a second copy of it here.
     // The morning's alone since DEX-149; see `ritualSteps` for why the evening

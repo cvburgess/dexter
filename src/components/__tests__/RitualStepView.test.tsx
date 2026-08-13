@@ -112,16 +112,16 @@ jest.mock("@/components/ReviewStep", () => {
 
 // And the preview tomorrow step: it owns five calendar reads, the tasks query
 // and a scroll-driven reveal.
+const mockPreviewTomorrowStep = jest.fn();
 jest.mock("@/components/PreviewTomorrowStep", () => {
   const { Text: RNText } =
     jest.requireActual<typeof import("react-native")>("react-native");
   return {
-    PreviewTomorrowStep: function MockPreviewTomorrowStep({
-      date,
-    }: {
+    PreviewTomorrowStep: function MockPreviewTomorrowStep(props: {
       date: Temporal.PlainDate;
     }) {
-      return <RNText>{`preview-tomorrow:${date.toString()}`}</RNText>;
+      mockPreviewTomorrowStep(props);
+      return <RNText>{`preview-tomorrow:${props.date.toString()}`}</RNText>;
     },
   };
 });
@@ -208,6 +208,24 @@ describe("RitualStepView", () => {
     renderStep({ id: "preview-tomorrow", title: "Preview tomorrow" });
 
     expect(screen.getByText("preview-tomorrow:2026-08-09")).toBeTruthy();
+  });
+
+  // Unlike `review` two steps back, this one lists *open* tasks, so its cards
+  // rename and the swipe has to be suspendable — passed unwrapped for the same
+  // reason the journal's is.
+  it("hands the preview tomorrow step the editing callback, unwrapped", () => {
+    const onEditingChange = jest.fn();
+    render(
+      <RitualStepView
+        date={DATE}
+        onEditingChange={onEditingChange}
+        step={{ id: "preview-tomorrow", title: "Preview tomorrow" }}
+      />,
+    );
+
+    expect(mockPreviewTomorrowStep).toHaveBeenCalledWith(
+      expect.objectContaining({ onEditingChange }),
+    );
   });
 
   // The one built step both rituals reach, and the last of each.

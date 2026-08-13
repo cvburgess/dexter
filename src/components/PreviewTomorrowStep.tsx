@@ -50,6 +50,15 @@ const BELOW_FOLD_STAGE = 2;
 type TPreviewTomorrowStepProps = {
   /** The day being walked through — the ritual's date, not necessarily today. */
   date: Temporal.PlainDate;
+  /**
+   * Fired as a card's title or subtask field gains/loses focus, so the layout
+   * can suspend the step swipe while the caret is being positioned.
+   *
+   * **Must be referentially stable** — pass it through unwrapped, never an
+   * inline arrow: `TaskCard` notifies from an effect keyed on this callback's
+   * identity, so a new function each render would re-run it continuously.
+   */
+  onEditingChange: (editing: boolean) => void;
 };
 
 /**
@@ -73,7 +82,10 @@ type TPreviewTomorrowStepProps = {
  * Carries no side gutter and no top inset of its own; `SwipeablePage` and the
  * ritual layouts own those (see docs/design.md, "Who owns spacing").
  */
-export function PreviewTomorrowStep({ date }: TPreviewTomorrowStepProps) {
+export function PreviewTomorrowStep({
+  date,
+  onEditingChange,
+}: TPreviewTomorrowStepProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const largeScreen = useIsLargeDevice();
@@ -369,12 +381,21 @@ export function PreviewTomorrowStep({ date }: TPreviewTomorrowStepProps) {
             tasks.map((task) => (
               // Plain `TaskCard`, not `DraggableTaskCard`: there is no
               // `DragScheduleProvider` above the ritual, so the draggable one
-              // would degrade to exactly this anyway. Wired to the real
-              // mutations the same way the review step wires its own.
+              // would degrade to exactly this anyway — and it claims
+              // `onEditingChange` for its own drag gate, which this step needs
+              // to suspend the step swipe. Wired to the real mutations the same
+              // way the review step wires its own.
+              //
+              // **`onEditingChange` matters here where it doesn't on Review.**
+              // Tomorrow's tasks are open, so these cards rename; a horizontal
+              // caret or selection drag across a live field would page the
+              // ritual instead of editing. Review's cards are completed, which
+              // renders no field at all.
               <TaskCard
                 key={task.id}
                 onDelete={() => void confirmDelete(task)}
                 onDuplicate={() => createTask(duplicateTaskInput(task))}
+                onEditingChange={onEditingChange}
                 onPromoteSubtask={createTask}
                 onUpdate={(diff) => updateTask({ id: task.id, ...diff })}
                 task={task}

@@ -32,12 +32,14 @@ jest.mock("@/hooks/useTemplates", () => ({
 // The card has its own suite and carries several `@expo/ui` menu hosts a unit
 // test can't drive; standing it in as a marker keeps this file about the
 // sentence and the two lists.
+const mockTaskCard = jest.fn();
 jest.mock("@/components/TaskCard", () => {
   const { Text: RNText } =
     jest.requireActual<typeof import("react-native")>("react-native");
   return {
-    TaskCard: function MockTaskCard({ task }: { task: { title: string } }) {
-      return <RNText>{`card:${task.title}`}</RNText>;
+    TaskCard: function MockTaskCard(props: { task: { title: string } }) {
+      mockTaskCard(props);
+      return <RNText>{`card:${props.task.title}`}</RNText>;
     },
   };
 });
@@ -153,7 +155,9 @@ const renderStep = ({
     { updatePreferences: jest.fn() },
   ] as never);
 
-  return render(<PreviewTomorrowStep date={DATE} />);
+  return render(
+    <PreviewTomorrowStep date={DATE} onEditingChange={jest.fn()} />,
+  );
 };
 
 /** The hero sentence as prose — the label carries the whole of it. */
@@ -389,6 +393,33 @@ describe("PreviewTomorrowStep", () => {
       renderStep();
 
       expect(screen.getByText("No tasks tomorrow")).toBeTruthy();
+    });
+
+    // Tomorrow's tasks are open, so these cards rename — and a horizontal caret
+    // or selection drag across a live field would page the ritual instead of
+    // editing. `ReviewStep` can omit this only because a completed card renders
+    // no field at all. Unwrapped, because `TaskCard` notifies from an effect
+    // keyed on the callback's identity.
+    it("hands each card the editing callback, unwrapped", () => {
+      const onEditingChange = jest.fn();
+      mockUseCalendarEvents.mockReturnValue([[], READY]);
+      mockUseTasks.mockReturnValue([[task()], { isLoading: false }] as never);
+      mockUsePreferences.mockReturnValue([
+        {
+          enableCalendar: false,
+          calendarStartTime: "06:00:00",
+          calendarEndTime: "20:00:00",
+        },
+        { updatePreferences: jest.fn() },
+      ] as never);
+
+      render(
+        <PreviewTomorrowStep date={DATE} onEditingChange={onEditingChange} />,
+      );
+
+      expect(mockTaskCard).toHaveBeenCalledWith(
+        expect.objectContaining({ onEditingChange }),
+      );
     });
   });
 });
