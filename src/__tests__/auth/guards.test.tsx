@@ -11,6 +11,7 @@ import Index from "@/app/index";
 import { getGoals } from "@/api/goals";
 import { getLists } from "@/api/lists";
 import { useAuth } from "@/hooks/useAuth";
+import { settleQueries } from "@/testUtils/settleQueries";
 import { setPendingOAuthAuthorizationId } from "@/utils/oauthReturn";
 
 jest.mock("@/hooks/useAuth", () => ({
@@ -138,20 +139,26 @@ describe("auth guards", () => {
       ).toBeTruthy();
     });
 
-    it("renders the authenticated stack for signed-in users", () => {
+    it("renders the authenticated stack for signed-in users", async () => {
       mockUseAuth.mockReturnValue(authStates.signedIn);
-      expect(
-        renderWithQueryClient(<AppLayout />).getByText("stack"),
-      ).toBeTruthy();
+      const screen = renderWithQueryClient(<AppLayout />);
+
+      expect(screen.getByText("stack")).toBeTruthy();
+      // A signed-in mount also kicks off the prefetch below, which this test
+      // has no interest in but still has to see through (DEX-130).
+      await settleQueries(screen.queryClient);
     });
 
     it("prefetches lists and goals once a session exists", async () => {
       mockUseAuth.mockReturnValue(authStates.signedIn);
 
-      renderWithQueryClient(<AppLayout />);
+      const screen = renderWithQueryClient(<AppLayout />);
 
       await waitFor(() => expect(mockGetLists).toHaveBeenCalled());
       await waitFor(() => expect(mockGetGoals).toHaveBeenCalled());
+      // Both calls are still in flight at that point — let them land, or the
+      // layout re-renders after the test returns (DEX-130).
+      await settleQueries(screen.queryClient);
     });
 
     it("does not prefetch while signed out", () => {
@@ -177,6 +184,7 @@ describe("auth guards", () => {
         userId: "user-1",
       });
       screen.rerender(<AppLayout />);
+      await settleQueries(screen.queryClient);
 
       expect(mockGetLists).toHaveBeenCalledTimes(1);
       expect(mockGetGoals).toHaveBeenCalledTimes(1);

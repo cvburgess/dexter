@@ -17,6 +17,7 @@ import {
   TTemplate,
   updateTemplate,
 } from "@/api/templates";
+import { settleQueries } from "@/testUtils/settleQueries";
 
 import { useTemplates } from "../useTemplates";
 
@@ -69,17 +70,21 @@ const createWrapper = () => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return function Wrapper({ children }: { children: ReactNode }) {
-    return (
+  return {
+    /** These mutations invalidate on success; close on the refetch that
+     * follows, not on the mock call that says it started. */
+    settled: () => settleQueries(queryClient),
+    wrapper: ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
+    ),
   };
 };
 
 const renderUseTemplates = async () => {
-  const view = renderHook(() => useTemplates(), { wrapper: createWrapper() });
+  const { settled, wrapper } = createWrapper();
+  const view = renderHook(() => useTemplates(), { wrapper });
   await waitFor(() => expect(view.result.current[1].isLoading).toBe(false));
-  return view;
+  return { ...view, settled };
 };
 
 describe("useTemplates", () => {
@@ -100,9 +105,8 @@ describe("useTemplates", () => {
   it("reports a failed fetch rather than an empty template list", async () => {
     mockGetTemplates.mockRejectedValue(new Error("network error"));
 
-    const { result } = renderHook(() => useTemplates(), {
-      wrapper: createWrapper(),
-    });
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useTemplates(), { wrapper });
 
     await waitFor(() => expect(result.current[1].isError).toBe(true));
     expect(result.current[0]).toEqual([]);
@@ -112,9 +116,8 @@ describe("useTemplates", () => {
   it("recovers from a failed fetch on refetch", async () => {
     mockGetTemplates.mockRejectedValueOnce(new Error("network error"));
 
-    const { result } = renderHook(() => useTemplates(), {
-      wrapper: createWrapper(),
-    });
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useTemplates(), { wrapper });
     await waitFor(() => expect(result.current[1].isError).toBe(true));
 
     const template = { id: "template-1", title: "Water the plants" };
@@ -151,6 +154,7 @@ describe("useTemplates", () => {
       });
 
       await waitFor(() => expect(mockUpdateTemplate).toHaveBeenCalled());
+      await view.settled();
     };
 
     it("creates one when a template gains a cadence and has no task", async () => {
@@ -278,6 +282,7 @@ describe("useTemplates", () => {
       act(() => {
         view.result.current[1].createNextOccurrence(template);
       });
+      await view.settled();
     };
 
     it("creates the repeat's next open task", async () => {

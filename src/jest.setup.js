@@ -5,16 +5,71 @@ process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??= "test-publishable-key";
 
 require("react-native-gesture-handler/jestSetup");
 
-// Deliberately NOT requiring `@shopify/flash-list/jestSetup` here: FlashList
-// already renders every item under test by default (no native layout events
-// fire under react-test-renderer, so it can't measure a real viewport to
-// virtualize against); that mock exists to constrain it back down to a
-// realistic viewport for tests that specifically assert on recycling. Loading
-// it globally via `setupFiles` (which re-runs per test file) was measured to
-// balloon the full suite from ~5s to 90-100s for no behavior difference in
-// any current test — add it scoped to a single test file instead, if a test
-// ever needs to assert what does/doesn't render off-screen.
-// The shipped mock leaves `useReducedMotion` out — its source has the hook
+// FlashList stands in as a plain view that renders every item, which is what
+// the real one already did here: no native layout events fire under
+// react-test-renderer, so it can't measure a viewport to virtualize against.
+// The mock is for `act(...)` noise, not virtualization — FlashList v2 sets
+// `isLoaded` from inside a `requestAnimationFrame` and pokes its render id
+// from several `setTimeout`s, all of which land after a synchronous test body
+// returns. That was 41 of the 45 warnings this suite emitted (DEX-130), and
+// no amount of awaiting in a test file stops the *next* one from reappearing.
+//
+// This is not `@shopify/flash-list/jestSetup`, which is a different thing and
+// still the wrong one: it only stubs `measureLayout` to constrain the list
+// back down to a realistic viewport (useful only for a test asserting on what
+// does/doesn't render off-screen — scope it to that one file), it does not
+// touch the timers, and loading it globally via `setupFiles` (which re-runs
+// per test file) was measured to balloon the full suite from ~5s to 90-100s.
+jest.mock("@shopify/flash-list", () => {
+  const { Fragment, forwardRef, useImperativeHandle } = require("react");
+  const { View } = require("react-native");
+
+  const FlashList = forwardRef(function FlashList(
+    {
+      contentContainerStyle,
+      data,
+      extraData,
+      ItemSeparatorComponent,
+      keyExtractor,
+      renderItem,
+      ...props
+    },
+    ref,
+  ) {
+    // TaskDrawer scrolls the list back to the top when its filter changes.
+    // Pinned with `[]` so the handle is stable across renders, as the real
+    // component's is — a test can capture it and still see later calls.
+    useImperativeHandle(
+      ref,
+      () => ({
+        scrollToEnd: jest.fn(),
+        scrollToIndex: jest.fn(),
+        scrollToOffset: jest.fn(),
+        scrollToTop: jest.fn(),
+      }),
+      [],
+    );
+
+    return (
+      <View {...props}>
+        <View style={contentContainerStyle}>
+          {(data ?? []).map((item, index) => (
+            <Fragment key={keyExtractor ? keyExtractor(item, index) : index}>
+              {index > 0 && ItemSeparatorComponent ? (
+                <ItemSeparatorComponent />
+              ) : null}
+              {renderItem?.({ item, index, target: "Cell", extraData })}
+            </Fragment>
+          ))}
+        </View>
+      </View>
+    );
+  });
+
+  return { FlashList };
+});
+
+// The reanimated mock leaves `useReducedMotion` out — its source has the hook
 // stubbed as `// useReducedMotion: ADD ME IF NEEDED` — so any component that
 // guards an animation on it throws in every test that mounts it (DEX-128,
 // `HoroscopeStep`). Report motion as allowed, which is the branch under test;
