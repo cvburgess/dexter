@@ -61,7 +61,7 @@ const task: TTask = {
   priority: ETaskPriority.IMPORTANT,
   scheduledFor: "2026-07-26",
   status: ETaskStatus.IN_PROGRESS,
-  subtasks: [{ id: "sub-1", title: "Passport", status: ETaskStatus.DONE }],
+  subtasks: [{ id: "sub-1", title: "Passport", done: true }],
   templateId: null,
   url: null,
 };
@@ -171,11 +171,7 @@ describe("useTemplates", () => {
           scheduledFor: Temporal.Now.plainDateISO().toString(),
           // Its own copy of the checklist, freshly keyed and open.
           subtasks: [
-            {
-              id: expect.any(String),
-              title: "Passport",
-              status: ETaskStatus.TODO,
-            },
+            { id: expect.any(String), title: "Passport", done: false },
           ],
         }),
       );
@@ -302,11 +298,7 @@ describe("useTemplates", () => {
             // Counts today, so a daily repeat is actionable straight away.
             scheduledFor: Temporal.Now.plainDateISO().toString(),
             subtasks: [
-              {
-                id: expect.any(String),
-                title: "Fill the can",
-                status: ETaskStatus.TODO,
-              },
+              { id: expect.any(String), title: "Fill the can", done: false },
             ],
           }),
         ),

@@ -283,7 +283,7 @@ describe("searchTasksByTitle", () => {
       task({
         id: "4",
         title: "Groceries",
-        subtasks: [{ id: "s1", title: "Oat milk", status: ETaskStatus.TODO }],
+        subtasks: [{ id: "s1", title: "Oat milk", done: false }],
       }),
     ];
 

@@ -64,8 +64,8 @@ const baseTask: TTask = {
   scheduledFor: "2026-07-03",
   status: ETaskStatus.TODO,
   subtasks: [
-    { id: "sub-1", title: "Draft outline", status: ETaskStatus.TODO },
-    { id: "sub-2", title: "Gather figures", status: ETaskStatus.DONE },
+    { id: "sub-1", title: "Draft outline", done: false },
+    { id: "sub-2", title: "Gather figures", done: true },
   ],
   templateId: null,
   url: null,
@@ -210,8 +210,8 @@ describe("TaskCard subtasks", () => {
 
       expect(onUpdate).toHaveBeenCalledWith({
         subtasks: [
-          { id: "sub-1", title: "Draft the outline", status: ETaskStatus.TODO },
-          { id: "sub-2", title: "Gather figures", status: ETaskStatus.DONE },
+          { id: "sub-1", title: "Draft the outline", done: false },
+          { id: "sub-2", title: "Gather figures", done: true },
         ],
       });
     });
@@ -373,10 +373,7 @@ describe("TaskCard subtasks", () => {
         subtasks: [
           baseTask.subtasks[0],
           baseTask.subtasks[1],
-          expect.objectContaining({
-            title: "Proofread",
-            status: ETaskStatus.TODO,
-          }),
+          expect.objectContaining({ title: "Proofread", done: false }),
         ],
       });
     });
@@ -508,9 +505,7 @@ describe("TaskCard subtasks", () => {
       url: null,
     });
     expect(onUpdate).toHaveBeenCalledWith({
-      subtasks: [
-        { id: "sub-2", title: "Gather figures", status: ETaskStatus.DONE },
-      ],
+      subtasks: [{ id: "sub-2", title: "Gather figures", done: true }],
     });
   });
 
@@ -521,22 +516,36 @@ describe("TaskCard subtasks", () => {
     selectOption("Subtask actions", 1, "delete");
 
     expect(onUpdate).toHaveBeenCalledWith({
+      subtasks: [{ id: "sub-1", title: "Draft outline", done: false }],
+    });
+  });
+
+  // DEX-153: one tap, no menu — and the whole array is rewritten, because that
+  // is the unit the jsonb column stores.
+  it("writes the whole array when a subtask is checked off", () => {
+    const onUpdate = jest.fn();
+    renderCard(baseTask, { onUpdate });
+
+    fireEvent.press(screen.getAllByLabelText("Subtask complete")[0]);
+
+    expect(onUpdate).toHaveBeenCalledWith({
       subtasks: [
-        { id: "sub-1", title: "Draft outline", status: ETaskStatus.TODO },
+        { id: "sub-1", title: "Draft outline", done: true },
+        { id: "sub-2", title: "Gather figures", done: true },
       ],
     });
   });
 
-  it("writes the whole array when one subtask's status changes", () => {
+  it("unchecks a subtask that was already done", () => {
     const onUpdate = jest.fn();
     renderCard(baseTask, { onUpdate });
 
-    selectOption("Subtask status", 0, "done");
+    fireEvent.press(screen.getAllByLabelText("Subtask complete")[1]);
 
     expect(onUpdate).toHaveBeenCalledWith({
       subtasks: [
-        { id: "sub-1", title: "Draft outline", status: ETaskStatus.DONE },
-        { id: "sub-2", title: "Gather figures", status: ETaskStatus.DONE },
+        { id: "sub-1", title: "Draft outline", done: false },
+        { id: "sub-2", title: "Gather figures", done: false },
       ],
     });
   });
@@ -550,16 +559,16 @@ describe("TaskCard subtasks", () => {
       expect(screen.getByTestId("subtask-row-sub-1")).toBeTruthy();
     });
 
-    it("offers no status menu or row actions", () => {
+    it("offers no checkbox or row actions", () => {
       renderCard(done);
 
-      // Re-opening a swept subtask would restore exactly the
+      // Unchecking a swept subtask would restore exactly the
       // done-parent-with-open-children state the sweep exists to prevent — and
       // nothing re-sweeps until the parent is completed again.
+      expect(screen.queryByLabelText("Subtask complete")).toBeNull();
       const labels = mockIconMenu.mock.calls.map(
         ([props]) => props.accessibilityLabel,
       );
-      expect(labels).not.toContain("Subtask status");
       expect(labels).not.toContain("Subtask actions");
     });
 

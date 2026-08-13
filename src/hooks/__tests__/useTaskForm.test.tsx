@@ -213,8 +213,8 @@ describe("useTaskForm", () => {
 
       act(() =>
         result.current.setSubtasks([
-          { id: "s1", title: "First", status: ETaskStatus.TODO },
-          { id: "s2", title: "Second", status: ETaskStatus.TODO },
+          { id: "s1", title: "First", done: false },
+          { id: "s2", title: "Second", done: false },
         ]),
       );
 
@@ -230,8 +230,8 @@ describe("useTaskForm", () => {
 
       act(() =>
         result.current.setSubtasks([
-          { id: "s1", title: "Real", status: ETaskStatus.TODO },
-          { id: "s2", title: "   ", status: ETaskStatus.TODO },
+          { id: "s1", title: "Real", done: false },
+          { id: "s2", title: "   ", done: false },
         ]),
       );
 
@@ -309,14 +309,14 @@ describe("useTaskForm", () => {
 
     // A template's checklist is a blueprint with no status, so every item has
     // to start this task's own copy open.
-    it("materializes the checklist blueprint as open subtasks", () => {
+    it("materializes the checklist blueprint as unchecked subtasks", () => {
       const { result } = renderHook(() => useTaskForm([homeList]));
 
       act(() => result.current.applyTemplate(template));
 
       expect(result.current.task.subtasks).toEqual([
-        { id: expect.any(String), title: "Passport", status: ETaskStatus.TODO },
-        { id: expect.any(String), title: "Charger", status: ETaskStatus.TODO },
+        { id: expect.any(String), title: "Passport", done: false },
+        { id: expect.any(String), title: "Charger", done: false },
       ]);
     });
 
@@ -454,7 +454,7 @@ describe("useTaskForm", () => {
         listId: "list-home",
         priority: ETaskPriority.IMPORTANT,
         scheduledFor: "2026-07-20",
-        subtasks: [{ id: "s1", title: "Passport", status: ETaskStatus.DONE }],
+        subtasks: [{ id: "s1", title: "Passport", done: true }],
         templateId: "template-1",
         title: "Pack for Berlin",
         url: "https://example.com/packing",

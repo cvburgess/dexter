@@ -21,7 +21,7 @@ import {
 } from "@/api/tasks";
 import { getTemplates, TTemplate } from "@/api/templates";
 import { getNextTaskDate } from "@/utils/repeatSchedule";
-import { subtasksFromTemplate, sweepSubtasks } from "@/utils/subtasks";
+import { completeSubtasks, subtasksFromTemplate } from "@/utils/subtasks";
 import { isCompletionStatus } from "@/utils/taskFilters";
 import { OPEN_TASK_STATUSES } from "@/utils/taskStatus";
 
@@ -94,23 +94,25 @@ const applyDiff = (task: TTask, { id: _id, ...diff }: TUpdateTask): TTask => {
  * at each call site is what makes the sweep atomic — and means no future caller
  * can complete a task and silently leave its children open.
  *
+ * Any terminal status sweeps, not only `DONE` — a won't-do or delegated parent
+ * is equally finished with, and a two-state checklist has nowhere else to go.
+ *
  * Deliberately does nothing when the caller already supplied `subtasks` (an
  * explicit array wins over the sweep), when the task isn't in the cache, or when
- * every subtask already carries the target status.
+ * every subtask is already checked off.
  */
 const withSubtaskSweep = (
   queryClient: QueryClient,
   diff: TUpdateTask,
 ): TUpdateTask => {
-  const { status } = diff;
-  if (!isCompletionStatus(status) || diff.subtasks) return diff;
+  if (!isCompletionStatus(diff.status) || diff.subtasks) return diff;
 
   const task = findCachedTask(queryClient, diff.id);
   // `?.` on subtasks too, not just task: a bundle running against a database
   // where the migration hasn't landed yet returns rows without the column.
   if (!task?.subtasks?.length) return diff;
 
-  const subtasks = sweepSubtasks(task.subtasks, status);
+  const subtasks = completeSubtasks(task.subtasks);
   const unchanged = subtasks.every(
     (subtask, index) => subtask === task.subtasks[index],
   );
@@ -215,9 +217,9 @@ const maybeCreateNextRecurringTask = async (
     scheduledFor: nextDate,
     templateId: template.id,
     status: ETaskStatus.TODO,
-    // Each occurrence gets its own copy of the checklist, reset to open. Array
+    // Each occurrence gets its own copy of the checklist, all unchecked. Array
     // items carry no template link, so there is no orphan-spawn hazard here.
-    subtasks: subtasksFromTemplate(template.subtasks, ETaskStatus.TODO),
+    subtasks: subtasksFromTemplate(template.subtasks),
   });
 };
 

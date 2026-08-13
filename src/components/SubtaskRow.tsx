@@ -1,14 +1,13 @@
 import { StyleSheet, Text, View } from "react-native";
 
-import { ETaskStatus, TSubtask } from "@/api/tasks";
+import { TSubtask } from "@/api/tasks";
 import { SUBTASK_TITLE_MAX_LENGTH } from "@/utils/subtasks";
-import { isCompletionStatus } from "@/utils/taskFilters";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 import { EditableText } from "./EditableText";
 import { IconMenu } from "./IconMenu";
 import type { TIconMenuSection } from "./IconMenu.types";
-import { StatusButton } from "./StatusButton";
+import { SubtaskCheck } from "./SubtaskCheck";
 import { subtaskGeometry } from "./SubtaskConnector";
 
 // The icons are hoisted; the sections themselves close over the row's callbacks
@@ -50,20 +49,20 @@ type TSubtaskRowProps = {
   onStartEdit: () => void;
   onCommitTitle: (title: string) => void;
   onSubmit?: (title: string) => void;
-  onChangeStatus: (status: ETaskStatus) => void;
+  onToggleDone: (done: boolean) => void;
   onPromote: () => void;
   onDelete: () => void;
   /**
    * Whether the row's controls respond. False for a completed parent, whose
-   * checklist is frozen — and which also drops two native menu hosts per row
-   * from a card that can no longer act on them.
+   * checklist is frozen — and which also drops the native menu host this row
+   * mounts, from a card that can no longer act on it.
    */
   interactive?: boolean;
 };
 
 /**
  * One checklist item inside its parent's card. A subtask is not a task and is
- * deliberately not rendered as one — it has a status, a title, and nothing else.
+ * deliberately not rendered as one — a checkbox, a title, and nothing else.
  *
  * Actions hang off an explicit `⋯` button rather than a long-press. The card is
  * already wrapped in a long-press menu host (`MoreMenu`), and nesting a second
@@ -77,14 +76,13 @@ export function SubtaskRow({
   onStartEdit,
   onCommitTitle,
   onSubmit,
-  onChangeStatus,
+  onToggleDone,
   onPromote,
   onDelete,
   interactive = true,
 }: TSubtaskRowProps) {
   const theme = useTheme();
   const { statusSize, rowHeight } = subtaskGeometry(theme);
-  const isComplete = isCompletionStatus(subtask.status);
   // Like StatusButton, the native menu host is pinned to its trigger's exact
   // size — an unpinned host reports 0 height while sizing and collapses the row.
   const box = { height: statusSize, width: statusSize };
@@ -104,18 +102,16 @@ export function SubtaskRow({
       ]}
       testID={`subtask-row-${subtask.id}`}
     >
-      <StatusButton
-        status={subtask.status}
+      <SubtaskCheck
+        done={subtask.done}
+        borderColor={withOpacity(contentColor, 0.25)}
         contentColor={contentColor}
-        size={statusSize}
-        accessibilityLabel="Subtask status"
-        interactive={interactive}
-        onChangeStatus={onChangeStatus}
+        onToggle={interactive ? onToggleDone : undefined}
       />
       <EditableText
         value={subtask.title}
         editing={editing}
-        editable={interactive && !isComplete}
+        editable={interactive && !subtask.done}
         maxLength={SUBTASK_TITLE_MAX_LENGTH}
         onStartEdit={onStartEdit}
         onCommit={onCommitTitle}
@@ -126,7 +122,7 @@ export function SubtaskRow({
           theme.fonts.body,
           {
             color: contentColor,
-            textDecorationLine: isComplete ? "line-through" : "none",
+            textDecorationLine: subtask.done ? "line-through" : "none",
           },
         ]}
       />

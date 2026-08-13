@@ -3,9 +3,12 @@
  * and the Deno MCP server via the `@src/` alias — the same arrangement
  * `repeatSchedule.ts` uses. Nothing here may import React Native or Supabase.
  *
- * The helpers are generic over the status type so they impose no status
- * representation of their own — both callers happen to pass `ETaskStatus` from
- * `utils/taskStatus.ts`, but a template's checklist carries no status at all.
+ * A subtask is `{id, title, done}` (DEX-153) — a checklist item, not a small
+ * task. The five-member `ETaskStatus` belongs to tasks alone; the one place the
+ * two meet is `promoteSubtaskInput`, which maps done → `DONE` and not-done →
+ * `TODO`. Nothing here imports that enum, and can't: `utils/taskStatus.ts` is a
+ * sibling leaf module and Deno requires a `.ts` extension on the relative import
+ * that Metro and tsc forbid.
  */
 
 /**
@@ -48,29 +51,31 @@ export const withFreshIds = <S extends { id: string }>(
 ): S[] => subtasks.map((subtask) => ({ ...subtask, id: makeSubtaskId() }));
 
 /**
- * Sets every subtask to `status`. Completing a parent sweeps its checklist in
- * the *same* row update, which is what makes the sweep atomic — there is no
- * window where a done parent still shows open children.
+ * Checks off every subtask. Closing a parent sweeps its checklist in the *same*
+ * row update, which is what makes the sweep atomic — there is no window where a
+ * closed parent still shows open children.
+ *
+ * Any terminal parent status sweeps, not just `DONE`: a won't-do or delegated
+ * task is equally finished with, and two states leave nowhere else for its
+ * checklist to go. One rule, and the frozen list reads the same either way.
  */
-export const sweepSubtasks = <S extends { status: unknown }>(
+export const completeSubtasks = <S extends { done: boolean }>(
   subtasks: readonly S[],
-  status: S["status"],
 ): S[] =>
   subtasks.map((subtask) =>
-    subtask.status === status ? subtask : { ...subtask, status },
+    subtask.done ? subtask : { ...subtask, done: true },
   );
 
 /**
  * Materializes a repeat template's checklist (`{id, title}`) onto a new
- * occurrence, with fresh ids and every item reset to open. Templates store no
- * status of their own — a template's checklist is a blueprint, not state.
+ * occurrence, with fresh ids and every item unchecked. Templates store no
+ * `done` of their own — a template's checklist is a blueprint, not state.
  */
-export const subtasksFromTemplate = <T>(
+export const subtasksFromTemplate = (
   templateSubtasks: readonly { title: string }[],
-  todoStatus: T,
-): { id: string; title: string; status: T }[] =>
+): { id: string; title: string; done: boolean }[] =>
   templateSubtasks.map(({ title }) => ({
     id: makeSubtaskId(),
     title,
-    status: todoStatus,
+    done: false,
   }));

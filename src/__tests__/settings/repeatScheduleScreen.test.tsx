@@ -106,7 +106,7 @@ const seedTask: TTask = {
   priority: ETaskPriority.IMPORTANT,
   scheduledFor: "2026-07-26",
   status: ETaskStatus.IN_PROGRESS,
-  subtasks: [{ id: "sub-1", title: "Passport", status: ETaskStatus.DONE }],
+  subtasks: [{ id: "sub-1", title: "Passport", done: true }],
   templateId: null,
   url: null,
 };

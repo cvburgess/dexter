@@ -2,7 +2,6 @@ import { Temporal } from "@js-temporal/polyfill";
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { TList } from "@/api/lists";
-import { ETaskStatus } from "@/api/tasks";
 import { DateField } from "@/components/DateField";
 import { FormRow } from "@/components/FormRow";
 import { PickerField } from "@/components/PickerField";
@@ -228,7 +227,7 @@ export function TaskForm({
       <SubtaskFields
         value={form.subtasks}
         onChange={form.setSubtasks}
-        makeRow={(id) => ({ id, title: "", status: ETaskStatus.TODO })}
+        makeRow={(id) => ({ id, title: "", done: false })}
         onAddRow={onAddSubtaskRow}
         testIDPrefix={testIDPrefix}
       />

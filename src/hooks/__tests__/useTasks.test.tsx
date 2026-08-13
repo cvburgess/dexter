@@ -224,7 +224,7 @@ describe("useTasks", () => {
         priority: ETaskPriority.NEITHER,
         scheduledFor: "2026-07-03",
         status: ETaskStatus.TODO,
-        subtasks: [{ id: "sub-1", title: "Tag it", status: ETaskStatus.TODO }],
+        subtasks: [{ id: "sub-1", title: "Tag it", done: false }],
         templateId: null,
         url: null,
       },
@@ -440,8 +440,8 @@ describe("useTasks", () => {
       scheduledFor: null,
       status: ETaskStatus.TODO,
       subtasks: [
-        { id: "sub-1", title: "Tag it", status: ETaskStatus.TODO },
-        { id: "sub-2", title: "Write notes", status: ETaskStatus.DONE },
+        { id: "sub-1", title: "Tag it", done: false },
+        { id: "sub-2", title: "Write notes", done: true },
       ],
       templateId: null,
       url: null,
@@ -472,20 +472,20 @@ describe("useTasks", () => {
       // the sweep atomic; a done parent is never briefly shown with open children.
       expect(diff.status).toBe(ETaskStatus.DONE);
       expect(diff.subtasks).toEqual([
-        { id: "sub-1", title: "Tag it", status: ETaskStatus.DONE },
-        { id: "sub-2", title: "Write notes", status: ETaskStatus.DONE },
+        { id: "sub-1", title: "Tag it", done: true },
+        { id: "sub-2", title: "Write notes", done: true },
       ]);
     });
 
+    // DEX-153: with two states there is nowhere else for an abandoned or
+    // handed-off parent's checklist to go — every terminal status checks it off.
     it.each([
       ["won't-do", ETaskStatus.WONT_DO],
       ["delegated", ETaskStatus.DELEGATED],
-    ])("sweeps to %s, not just done", async (_label, status) => {
+    ])("checks the list off for %s too, not just done", async (_l, status) => {
       const diff = await completeTask(withSubtasks(), status);
 
-      expect(diff.subtasks?.every((subtask) => subtask.status === status)).toBe(
-        true,
-      );
+      expect(diff.subtasks?.every((subtask) => subtask.done)).toBe(true);
     });
 
     it("leaves the update untouched for a task with no subtasks", async () => {
@@ -508,9 +508,7 @@ describe("useTasks", () => {
       // have the sweep clobber the caller's array.
       const { settled, wrapper, queryClient } = createWrapper();
       const task = withSubtasks();
-      const explicit = [
-        { id: "sub-1", title: "Renamed", status: ETaskStatus.TODO },
-      ];
+      const explicit = [{ id: "sub-1", title: "Renamed", done: false }];
       mockGetTasks.mockResolvedValue([task]);
       mockUpdateTask.mockResolvedValue([task]);
 
@@ -533,7 +531,7 @@ describe("useTasks", () => {
     });
   });
 
-  it("materializes the template's checklist onto the next occurrence, reset to open", async () => {
+  it("materializes the template's checklist onto the next occurrence, unchecked", async () => {
     const { settled, wrapper, queryClient } = createWrapper();
     const today = Temporal.Now.plainDateISO().toString();
 
@@ -547,9 +545,7 @@ describe("useTasks", () => {
       priority: ETaskPriority.NEITHER,
       scheduledFor: today,
       status: ETaskStatus.TODO,
-      subtasks: [
-        { id: "sub-1", title: "Clear inbox", status: ETaskStatus.TODO },
-      ],
+      subtasks: [{ id: "sub-1", title: "Clear inbox", done: false }],
       templateId: "template-1",
       url: null,
     };
@@ -590,11 +586,9 @@ describe("useTasks", () => {
       "Clear inbox",
       "Review goals",
     ]);
-    // The new occurrence starts fresh: open, and not sharing ids with either the
-    // template or the task that just completed.
-    expect(
-      created.subtasks?.every(({ status }) => status === ETaskStatus.TODO),
-    ).toBe(true);
+    // The new occurrence starts fresh: unchecked, and not sharing ids with
+    // either the template or the task that just completed.
+    expect(created.subtasks?.every(({ done }) => done === false)).toBe(true);
     const ids = created.subtasks?.map(({ id }) => id) ?? [];
     expect(ids).not.toContain("tpl-1");
     expect(ids).not.toContain("sub-1");
@@ -611,7 +605,7 @@ describe("useTasks", () => {
       priority: ETaskPriority.NEITHER,
       scheduledFor: null,
       status: ETaskStatus.TODO,
-      subtasks: [{ id: "s1", title: "Open", status: ETaskStatus.TODO }],
+      subtasks: [{ id: "s1", title: "Open", done: false }],
       templateId: null,
       url: null,
     };

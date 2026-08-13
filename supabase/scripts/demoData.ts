@@ -34,14 +34,14 @@ export interface DemoHabit {
   daysActive: number[];
 }
 
-/** A subtask on a demo task: `{id, title, status}`, matching the jsonb column. */
+/** A subtask on a demo task: `{id, title, done}`, matching the jsonb column. */
 export interface DemoSubtask {
   id: string;
   title: string;
-  status: number;
+  done: boolean;
 }
 
-/** A template's checklist blueprint: `{id, title}` only — no status. */
+/** A template's checklist blueprint: `{id, title}` only — no `done`. */
 export interface DemoTemplateSubtask {
   id: string;
   title: string;
@@ -206,19 +206,11 @@ export function buildDemoData(): DemoDataset {
       scheduledForOffset: 0,
       dueOnOffset: 1,
       listKey: "work",
-      // A checklist mid-flight: some done, some still open.
+      // A checklist mid-flight: some checked off, some still open.
       subtasks: [
-        { id: "bf-1", title: "Triage new reports", status: DEMO_STATUS.DONE },
-        {
-          id: "bf-2",
-          title: "Reply to the crash on iPad",
-          status: DEMO_STATUS.IN_PROGRESS,
-        },
-        {
-          id: "bf-3",
-          title: "Thank the TestFlight group",
-          status: DEMO_STATUS.TODO,
-        },
+        { id: "bf-1", title: "Triage new reports", done: true },
+        { id: "bf-2", title: "Reply to the crash on iPad", done: false },
+        { id: "bf-3", title: "Thank the TestFlight group", done: false },
       ],
     },
     {
@@ -231,13 +223,9 @@ export function buildDemoData(): DemoDataset {
       goalKey: "launch",
       // A fresh checklist, nothing started yet.
       subtasks: [
-        {
-          id: "rn-1",
-          title: "Summarize new features",
-          status: DEMO_STATUS.TODO,
-        },
-        { id: "rn-2", title: "List bug fixes", status: DEMO_STATUS.TODO },
-        { id: "rn-3", title: "Proofread", status: DEMO_STATUS.TODO },
+        { id: "rn-1", title: "Summarize new features", done: false },
+        { id: "rn-2", title: "List bug fixes", done: false },
+        { id: "rn-3", title: "Proofread", done: false },
       ],
     },
     {
@@ -248,19 +236,12 @@ export function buildDemoData(): DemoDataset {
       dueOnOffset: null,
       listKey: "work",
       templateKey: "weeklyReview",
-      // This occurrence's copy of the template's checklist, materialized open.
+      // This occurrence's copy of the template's checklist, materialized
+      // unchecked.
       subtasks: [
-        { id: "wro-1", title: "Clear inbox to zero", status: DEMO_STATUS.TODO },
-        {
-          id: "wro-2",
-          title: "Review this week's goals",
-          status: DEMO_STATUS.TODO,
-        },
-        {
-          id: "wro-3",
-          title: "Plan next week's priorities",
-          status: DEMO_STATUS.TODO,
-        },
+        { id: "wro-1", title: "Clear inbox to zero", done: false },
+        { id: "wro-2", title: "Review this week's goals", done: false },
+        { id: "wro-3", title: "Plan next week's priorities", done: false },
       ],
     },
     {

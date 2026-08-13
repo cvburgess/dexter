@@ -77,12 +77,9 @@ export async function insertOccurrence(
     scheduled_for: scheduledFor,
     template_id: template.id,
     status: ETaskStatus.TODO,
-    // Each occurrence gets its own copy of the template's checklist, reset to
-    // open. Array items carry no template link, so no orphan-spawn hazard.
-    subtasks: subtasksFromTemplate(
-      readTemplateSubtasks(template.subtasks),
-      ETaskStatus.TODO,
-    ),
+    // Each occurrence gets its own copy of the template's checklist, all
+    // unchecked. Array items carry no template link, so no orphan-spawn hazard.
+    subtasks: subtasksFromTemplate(readTemplateSubtasks(template.subtasks)),
   });
 }
 

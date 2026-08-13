@@ -47,17 +47,19 @@ Some tasks are really a short checklist. Rather than cluttering your day with
 five separate cards, add subtasks and they'll live inside the parent task's
 card.
 
-- Tap the circle beside a subtask to change its status, just like a task
+- Tap the circle beside a subtask to check it off, and again to uncheck it
 - **Completing the parent checks off everything under it**, so you don't have to
   tick each one on your way out
 - Tap the `⋯` beside a subtask to **delete** it, or **promote it to a task** if
   it turns out to be bigger than a checklist item — the new task keeps the
-  parent's list, priority, and dates
+  parent's list, priority, and dates, and arrives done if you'd already checked
+  it off, or to do if you hadn't
 - Repeating tasks carry their checklist too, so each new occurrence starts fresh
 
-Subtasks are deliberately lightweight: a title and a status, nothing more. They
-can't have their own subtasks, their own due dates, or their own alarms. If a
-subtask needs any of that, it wants to be a real task — promote it.
+Subtasks are deliberately lightweight: a title and a checkbox, nothing more.
+They have no statuses of their own — no in progress, no won't do — and no
+subtasks, due dates, or alarms. If a subtask needs any of that, it wants to be a
+real task — promote it.
 
 ## Priority
 

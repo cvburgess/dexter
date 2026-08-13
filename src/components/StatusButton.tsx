@@ -9,11 +9,6 @@ type TStatusButtonProps = {
   status: ETaskStatus;
   contentColor: string;
   onChangeStatus: (status: ETaskStatus) => void;
-  /**
-   * Diameter in px. Defaults to `theme.controls.sm`; subtask rows pass a
-   * smaller value so they read as subordinate to the parent's.
-   */
-  size?: number;
   accessibilityLabel?: string;
   /** When false the glyph still renders but no menu opens — and no native menu host is mounted. */
   interactive?: boolean;
@@ -23,12 +18,13 @@ export function StatusButton({
   status,
   contentColor,
   onChangeStatus,
-  size,
   accessibilityLabel = "Status",
   interactive = true,
 }: TStatusButtonProps) {
   const theme = useTheme();
-  const diameter = size ?? theme.controls.sm;
+  // Since DEX-153 this is only ever a task's status circle — subtasks toggle a
+  // `SubtaskCheck` instead — so the diameter is the token, not a prop.
+  const diameter = theme.controls.sm;
   const sections = getStatusSections(onChangeStatus, theme.colors);
 
   const glyph = (

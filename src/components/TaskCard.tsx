@@ -358,12 +358,10 @@ export function TaskCard({
               // every row, and re-opening one would restore exactly the
               // done-parent-with-open-children state the sweep exists to prevent.
               interactive={!isComplete}
-              onChangeStatus={(status) =>
+              onToggleDone={(done) =>
                 onUpdate({
                   subtasks: task.subtasks.map((current) =>
-                    current.id === subtask.id
-                      ? { ...current, status }
-                      : current,
+                    current.id === subtask.id ? { ...current, done } : current,
                   ),
                 })
               }
