@@ -74,8 +74,8 @@ export const getTasks = async (
  *
  * It also fills `done` from a legacy `status` (DEX-153). The backfill migration
  * converts what is stored, but the reverse skew is the one that outlives it: an
- * app bundle predating this change keeps writing `{id, title, status}` until its
- * user updates. Coerce, never reject — the terminal statuses map to `done`.
+ * app bundle predating this change keeps writing `status` until its user
+ * updates. Coerce, never reject — the terminal statuses map to `done`.
  *
  * Exported for `api/search.ts`, whose task results come back as jsonb from the
  * `search_entries` RPC rather than through `getTasks` — same rows, same guard.
@@ -91,13 +91,28 @@ export const withSubtasksArray = <T extends { subtasks?: TSubtask[] }>(
  * One stored item, given a `done`. Reads the legacy `status` through
  * `isCompletionStatus` so "terminal" means the same thing it does everywhere
  * else, rather than a second list of which statuses count as finished.
+ *
+ * **A `status` present at all wins over a `done` beside it.** Nothing written
+ * since DEX-153 emits one — this strips it, and no other write path adds it —
+ * so its presence identifies a pre-DEX-153 writer. Those clients build their
+ * write by spreading the item they read, which *post*-backfill already carries
+ * `done`, so they emit both: a fresh `status` and the stale `done` they never
+ * touched. Preferring `done` there would drop the user's action and could leave
+ * an unchecked checklist under a closed parent — the one state the sweep exists
+ * to prevent.
  */
 const withDone = (subtask: TSubtask): TSubtask => {
-  if (typeof subtask.done === "boolean") return subtask;
+  const legacy = subtask as TSubtask & { status?: ETaskStatus };
+
+  if (legacy.status === undefined) {
+    return typeof legacy.done === "boolean"
+      ? subtask
+      : { ...subtask, done: false };
+  }
 
   // Destructured out rather than spread over: the next write rewrites the whole
   // array, so carrying the dead key along would re-persist it indefinitely.
-  const { status, ...rest } = subtask as TSubtask & { status?: ETaskStatus };
+  const { status, ...rest } = legacy;
   return { ...rest, done: isCompletionStatus(status) };
 };
 

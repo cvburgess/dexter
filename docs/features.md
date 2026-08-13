@@ -692,7 +692,11 @@ update; no orphan-spawn hazard. Accepted tradeoffs and traps:
   (`withSubtasksArray` app-side, `storedSubtasksSchema` server-side): the DEX-153
   backfill converts what is stored, but an app bundle predating it keeps writing
   `status` until its user updates, and refusing those rows would disable the
-  sweep on exactly the tasks still being edited from an old client.
+  sweep on exactly the tasks still being edited from an old client. **A `status`
+  present at all outranks a `done` beside it** — nothing written since DEX-153
+  emits one, so its presence marks a pre-DEX-153 writer, and those build their
+  write by spreading the item they read, sending a fresh `status` next to the
+  stale `done` they never touched. The migration applies the same precedence.
 - **Every terminal status sweeps, not just done** — a won't-do or delegated
   parent is equally finished with, and two states leave its checklist nowhere
   else to go. Every write path that can close a task sweeps, including

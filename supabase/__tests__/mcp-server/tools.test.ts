@@ -5,6 +5,7 @@ import type { ToolContext } from "../../functions/mcp-server/server.ts";
 import {
   cronScheduleSchema,
   getTodayIsoDate,
+  storedSubtasksSchema,
 } from "../../functions/mcp-server/tools/helpers.ts";
 import {
   registerHabitTools,
@@ -1166,6 +1167,27 @@ Deno.test("update_task sweeps a checklist still stored with statuses", async () 
     { id: "s1", title: "Open", done: true },
     { id: "s2", title: "Abandoned", done: true },
   ]);
+});
+
+// Driven through the schema directly rather than a tool: every server-side read
+// of stored subtasks is followed by a sweep, which marks every item done and so
+// would mask the precedence this pins. The app reads the same shape with no
+// sweep in front of it — see `withSubtasksArray` in `src/api/__tests__`.
+Deno.test("a stored status outranks the stale done written beside it", () => {
+  // An old client spreads the item it read, so post-backfill it writes a fresh
+  // `status` beside the stale `done` it never touched.
+  assertEquals(
+    storedSubtasksSchema.parse([
+      { id: "s1", title: "Checked on an old client", done: false, status: 2 },
+      { id: "s2", title: "Unchecked on an old client", done: true, status: 1 },
+      { id: "s3", title: "Written since", done: true },
+    ]),
+    [
+      { id: "s1", title: "Checked on an old client", done: true },
+      { id: "s2", title: "Unchecked on an old client", done: false },
+      { id: "s3", title: "Written since", done: true },
+    ],
+  );
 });
 
 // The stored `status` is legacy debris being read, not a value being accepted,

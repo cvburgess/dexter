@@ -104,11 +104,16 @@ export const subtasksSchema = z.array(subtaskSchema).max(MAX_SUBTASKS);
  * a failed parse means "no subtasks", would silently skip that task's
  * completion sweep instead of rejecting anything.
  *
- * For the same reason this accepts a legacy `{id, title, status}` item and
- * coerces it (DEX-153) rather than rejecting it. The backfill migration converts
- * what is stored, but an app bundle predating the change keeps writing `status`
- * until its user updates, and refusing those rows would disable the sweep on
- * exactly the tasks still being edited from an old client.
+ * For the same reason this accepts a legacy `status` item and coerces it
+ * (DEX-153) rather than rejecting it. The backfill migration converts what is
+ * stored, but an app bundle predating the change keeps writing `status` until
+ * its user updates, and refusing those rows would disable the sweep on exactly
+ * the tasks still being edited from an old client.
+ *
+ * A `status` present at all wins over a `done` beside it. Nothing written since
+ * DEX-153 emits one, so its presence identifies a pre-DEX-153 writer — and those
+ * clients spread the item they read, so post-backfill they send a fresh `status`
+ * alongside the stale `done` they never touched.
  */
 export const storedSubtasksSchema = z.array(
   z.object({
@@ -124,7 +129,7 @@ export const storedSubtasksSchema = z.array(
   }).transform(({ id, title, done, status }) => ({
     id,
     title,
-    done: done ?? isCompletionStatus(status),
+    done: status === undefined ? done ?? false : isCompletionStatus(status),
   })),
 );
 

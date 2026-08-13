@@ -13,8 +13,8 @@
 -- Readers coerce rather than reject on the way in (`withSubtasksArray` in the
 -- app, `storedSubtasksSchema` in the MCP server), which is what covers the skew
 -- this migration cannot: an app bundle predating the change keeps writing
--- `status` until its user updates. That also makes this safe to re-run — an
--- item that already has `done` keeps it.
+-- `status` until its user updates. This is safe to re-run, and resolves a
+-- mixed item the same way those readers do — see the precedence note below.
 
 update public.tasks
 set subtasks = coalesce((
@@ -27,11 +27,23 @@ set subtasks = coalesce((
       -- persisted data under an append-only rule, so it cannot shift underneath
       -- this. Every terminal status maps to done — a won't-do parent's checklist
       -- was already swept to won't-do, and two states leave nowhere else for it.
-      'done', coalesce(
-        (item -> 'done')::boolean,
-        (item ->> 'status')::int = any (array[2, 3, 4]),
-        false
-      )
+      --
+      -- `status` outranks a `done` beside it, matching the app and the MCP
+      -- server. On the first run no item has a `done` at all, so the order only
+      -- matters on a re-run over items a pre-DEX-153 client has written since:
+      -- those spread the item they read and emit a fresh `status` next to the
+      -- stale `done` they never touched.
+      --
+      -- Branching on `jsonb_typeof` rather than casting under a coalesce keeps
+      -- this total: a non-numeric `status` or non-boolean `done` reads as
+      -- absent instead of failing the cast and aborting the whole migration.
+      'done', case
+        when jsonb_typeof(item -> 'status') = 'number'
+          then (item ->> 'status')::int = any (array[2, 3, 4])
+        when jsonb_typeof(item -> 'done') = 'boolean'
+          then (item -> 'done')::boolean
+        else false
+      end
     )
     order by ordinality
   )

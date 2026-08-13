@@ -157,6 +157,23 @@ describe("withSubtasksArray", () => {
     ]);
   });
 
+  // The case that outlives the backfill. An old client builds its write by
+  // spreading the item it read — which post-backfill already carries `done` —
+  // so it emits a fresh `status` beside the stale `done` it never touched.
+  // Preferring `done` would silently drop the user's action, and for a sweep
+  // would leave an unchecked checklist under a closed parent.
+  it("prefers a legacy status over the stale done written beside it", () => {
+    expect(
+      rowWith([
+        { id: "a", title: "Checked on an old client", done: false, status: 2 },
+        { id: "b", title: "Unchecked on an old client", done: true, status: 1 },
+      ]),
+    ).toEqual([
+      { id: "a", title: "Checked on an old client", done: true },
+      { id: "b", title: "Unchecked on an old client", done: false },
+    ]);
+  });
+
   // A bundle reaching users before the DEX-70 migration gets rows with no
   // column at all, and every consumer dereferences it without guarding.
   it("substitutes an empty array for a missing column", () => {
