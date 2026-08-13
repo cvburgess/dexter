@@ -17,6 +17,10 @@ import { act, waitFor } from "@testing-library/react-native";
  * `invalidateQueries` → refetch → notify is a chain that no single `waitFor`
  * on a mock's call count can see the end of: the call count goes up when the
  * refetch *starts*.
+ *
+ * Needs real timers — under `jest.useFakeTimers()` the yield below never fires
+ * and this hangs until the test times out. Drive those files with
+ * `act(() => jest.runOnlyPendingTimers())` instead.
  */
 export const settleQueries = async (client: QueryClient) => {
   await waitFor(() => {

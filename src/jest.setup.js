@@ -37,12 +37,18 @@ jest.mock("@shopify/flash-list", () => {
     ref,
   ) {
     // TaskDrawer scrolls the list back to the top when its filter changes.
-    useImperativeHandle(ref, () => ({
-      scrollToEnd: jest.fn(),
-      scrollToIndex: jest.fn(),
-      scrollToOffset: jest.fn(),
-      scrollToTop: jest.fn(),
-    }));
+    // Pinned with `[]` so the handle is stable across renders, as the real
+    // component's is — a test can capture it and still see later calls.
+    useImperativeHandle(
+      ref,
+      () => ({
+        scrollToEnd: jest.fn(),
+        scrollToIndex: jest.fn(),
+        scrollToOffset: jest.fn(),
+        scrollToTop: jest.fn(),
+      }),
+      [],
+    );
 
     return (
       <View {...props}>

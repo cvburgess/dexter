@@ -8,14 +8,14 @@
 // before the test framework is installed, so it cannot register lifecycle
 // hooks.
 
-// Replaced by assignment rather than `jest.spyOn`, because ~65 test files call
-// `jest.restoreAllMocks()`/`resetAllMocks()` in a hook, any of which would
-// silently disarm a spy and leave the guard passing for the wrong reason.
 const { format } = require("util");
 
 const originalError = console.error;
 const actWarnings = [];
 
+// Replaced by assignment rather than `jest.spyOn`, because ~65 test files call
+// `jest.restoreAllMocks()`/`resetAllMocks()` in a hook, any of which would
+// silently disarm a spy and leave the guard passing for the wrong reason.
 console.error = (...args) => {
   if (typeof args[0] === "string" && args[0].includes("not wrapped in act")) {
     // React passes the component name as a `%s` argument, so the message has
@@ -38,11 +38,12 @@ console.error = (...args) => {
 const failOnActWarnings = () => {
   if (actWarnings.length === 0) return;
 
+  const count = actWarnings.length;
   const seen = actWarnings.map((warning) => `  - ${warning}`).join("\n");
   actWarnings.length = 0;
 
   throw new Error(
-    `React logged ${seen.split("\n").length} "not wrapped in act(...)" warning(s):\n${seen}\n\n` +
+    `React logged ${count} "not wrapped in act(...)" warning(s):\n${seen}\n\n` +
       "A state update landed outside act(), so whatever this test asserted " +
       "ran against state that hadn't settled. The cause may be an earlier " +
       "test in this file whose async work outlived it: resolve mocked " +
