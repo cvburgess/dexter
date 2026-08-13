@@ -20,10 +20,13 @@ promises is `docs/api-routes.md`.
   `grant all` was a one-time snapshot. `service_role` does **not** get INSERT for
   free — BYPASSRLS exempts a role from policies, not grants. Check
   `\dp public.<table>` rather than assuming.
-- **Enums only for genuinely closed sets.** `sun_sign` and `horoscope_sentiment`
-  qualify. `tasks.status` and `preferences.alarm_sound` stay unconstrained on
-  purpose — those lists grow, and enum values can never be removed. An
-  unconstrained value means the zod schemas are the only rejection of a bogus one.
+- **Enums only for genuinely closed sets.** `sun_sign`, `horoscope_sentiment`,
+  and `focus_block_status` qualify — a focus block is running, held, finished, or
+  abandoned, and there is no fifth thing. `tasks.status`,
+  `preferences.alarm_sound`, and `preferences.focus_block_minutes` stay
+  unconstrained on purpose — those lists grow, and enum values can never be
+  removed. A third enum does **not** reopen that; an unconstrained value means
+  the zod schemas are the only rejection of a bogus one.
 - **Generated columns need an IMMUTABLE expression** — a string literal cast to an
   enum qualifies, a `now()` would not.
 
@@ -45,7 +48,7 @@ Every user-owned table enables RLS with per-operation policies keyed on
 
 ## Realtime
 
-All nine user-owned tables are in the `supabase_realtime` publication via guarded
+All ten user-owned tables are in the `supabase_realtime` publication via guarded
 migrations. Membership is **migration-managed** — a dashboard-only addition would
 drift from what the migrations declare. Dropping a table drops it from every
 publication automatically.
