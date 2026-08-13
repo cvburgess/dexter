@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useAlarmSync } from "@/hooks/useAlarmSync";
 import { useAuth } from "@/hooks/useAuth";
+import { usePublishFocusTimer } from "@/hooks/useFocusTimer";
 import { goalsQueryOptions } from "@/hooks/useGoals";
 import { listsQueryOptions } from "@/hooks/useLists";
 import { useRealtimeInvalidation } from "@/hooks/useRealtimeInvalidation";
@@ -23,6 +24,13 @@ export default function AppLayout() {
   // Projects task alarm times onto native iOS AlarmKit (no-op elsewhere) so
   // set/unset/complete/reschedule and repeat occurrences all stay in sync.
   useAlarmSync();
+
+  // Publishes the running focus block to the module store the tab-bar accessory
+  // reads, and owns the write that completes a block when its time runs out
+  // (DEX-49). Mounted here, and only here: it is inside the providers, alive on
+  // every tab, and outside any single tab screen, so the completion write can
+  // neither depend on which screen is focused nor happen twice.
+  usePublishFocusTimer();
 
   // Warms the lists/goals caches (`useLists`/`useGoals`'s own query options)
   // as soon as a session exists, so the Backlog drawer's Group menu never has

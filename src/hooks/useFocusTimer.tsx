@@ -1,0 +1,203 @@
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { AppState } from "react-native";
+
+import { TFocusBlock } from "@/api/focusBlocks";
+import { liveRemainingSeconds } from "@/utils/focusBlocks";
+
+import { useLiveFocusBlock } from "./useFocusBlocks";
+
+type TFocusTimerActions = {
+  cancelFocusBlock: (block: TFocusBlock) => void;
+  pauseFocusBlock: (block: TFocusBlock) => void;
+  resumeFocusBlock: (block: TFocusBlock) => void;
+};
+
+export type TFocusTimerSnapshot = {
+  actions: TFocusTimerActions;
+  block: TFocusBlock | null;
+};
+
+const NO_OP_ACTIONS: TFocusTimerActions = {
+  cancelFocusBlock: () => {},
+  pauseFocusBlock: () => {},
+  resumeFocusBlock: () => {},
+};
+
+const EMPTY_SNAPSHOT: TFocusTimerSnapshot = {
+  actions: NO_OP_ACTIONS,
+  block: null,
+};
+
+// The live block, in a module-scoped slot rather than context — the
+// `useViewedDay` pattern, with a subscription added because the accessory has to
+// re-render when the block changes rather than read it once at press time.
+//
+// The reason it is a store at all is the tab-bar accessory: react-native-screens
+// renders that element **twice at once**, one instance for the `regular`
+// placement and one for `inline` (see `TabsHost.ios.js`). Two instances calling
+// the query hooks directly would mean two query observers, two one-second
+// intervals, and — the dangerous part — every write effect firing twice. So the
+// accessory stays a dumb reader over one shared anchor, and the single publisher
+// below owns every write.
+let snapshot: TFocusTimerSnapshot = EMPTY_SNAPSHOT;
+const listeners = new Set<() => void>();
+
+const subscribe = (listener: () => void) => {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+};
+
+const getSnapshot = () => snapshot;
+
+// Publishing a fresh object on every render would re-render every subscriber on
+// every render — `useSyncExternalStore` compares snapshots by identity. Only the
+// publisher's block-changed effect calls this.
+const publish = (next: TFocusTimerSnapshot) => {
+  snapshot = next;
+  listeners.forEach((listener) => listener());
+};
+
+/**
+ * The live focus block and its controls, for surfaces that sit outside the
+ * provider tree's reach or must not hold their own query observers — which today
+ * means the iOS tab-bar accessory. Everything else calls `useLiveFocusBlock`.
+ */
+export const useFocusTimer = (): TFocusTimerSnapshot =>
+  useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+
+/**
+ * How many whole seconds are left, ticking once a second while the block runs.
+ *
+ * Every tick **recomputes from `Date.now()`** rather than decrementing a
+ * counter: `setInterval` drifts, and a decremented counter accumulates that
+ * drift across a 25-minute block, where a recomputation cannot — and a
+ * foregrounded app is instantly right instead of however many seconds behind it
+ * spent suspended.
+ *
+ * Keep this behind a component that renders nothing but the countdown itself
+ * (`FocusCountdown`), so a per-second render never reaches the surrounding bar.
+ */
+export const useFocusCountdown = (block: TFocusBlock | null): number => {
+  // The clock is the state; the countdown is derived from it during render. The
+  // other way round — storing the seconds and setting them from an effect —
+  // needs a synchronous setState in the effect body to seed and to correct on a
+  // block change, which cascades renders (react-hooks/set-state-in-effect).
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    // A paused block's remaining time cannot move, and an ended one has none,
+    // so neither holds an interval.
+    if (block?.status !== "active") return;
+
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [block?.status]);
+
+  // `now` can be up to a second behind immediately after a resume, which at most
+  // holds the previous whole second on screen for one extra frame before the
+  // next tick corrects it. Reading the clock during render instead would make
+  // this impure for a difference nobody can see.
+  return block ? Math.ceil(liveRemainingSeconds(block, now)) : 0;
+};
+
+/**
+ * Publishes the live block to the store above, and owns the write that ends a
+ * block when its time runs out.
+ *
+ * **Call this exactly once**, from `app/(app)/_layout.tsx` — inside the
+ * providers, alive on every tab, and outside any single tab screen, so the
+ * completion write neither depends on which screen is focused nor runs twice.
+ */
+export const usePublishFocusTimer = (): void => {
+  const [
+    block,
+    { cancelFocusBlock, finishFocusBlock, pauseFocusBlock, resumeFocusBlock },
+  ] = useLiveFocusBlock();
+
+  // The mutation callbacks are fresh closures every render. Publishing them
+  // directly would republish (and re-render every subscriber) on every render,
+  // so the store gets stable wrappers that delegate through this ref instead.
+  const latest = useRef({
+    cancelFocusBlock,
+    finishFocusBlock,
+    pauseFocusBlock,
+    resumeFocusBlock,
+  });
+
+  useEffect(() => {
+    latest.current = {
+      cancelFocusBlock,
+      finishFocusBlock,
+      pauseFocusBlock,
+      resumeFocusBlock,
+    };
+  });
+
+  // Built once and never rebuilt, so the published snapshot's identity tracks
+  // the block alone. `useMemo` rather than a ref because a ref may not be read
+  // during render (react-hooks/refs); these wrappers only touch `latest` when
+  // they are actually called, which is always after render.
+  const actions = useMemo<TFocusTimerActions>(
+    () => ({
+      cancelFocusBlock: (block) => latest.current.cancelFocusBlock(block),
+      pauseFocusBlock: (block) => latest.current.pauseFocusBlock(block),
+      resumeFocusBlock: (block) => latest.current.resumeFocusBlock(block),
+    }),
+    [],
+  );
+
+  useEffect(() => {
+    publish({ actions, block });
+    // Clearing on unmount is what stops a signed-out accessory from drawing a
+    // timer belonging to the account that just left.
+    return () => publish(EMPTY_SNAPSHOT);
+  }, [actions, block]);
+
+  // Which block this mount has already completed. The timeout and the AppState
+  // listener can both come due for the same block, and the row's own status is
+  // no guard — both closures captured it while it was still `active`.
+  const completed = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!block || block.status !== "active") return;
+
+    const complete = () => {
+      if (completed.current === block.id) return;
+      if (liveRemainingSeconds(block, Date.now()) > 0) return;
+      completed.current = block.id;
+      latest.current.finishFocusBlock(block);
+    };
+
+    // Already past due at mount — the app was closed or force-quit through the
+    // end of the block. Because `date` was stamped when the block started, it
+    // still counts toward the correct day however late this runs.
+    const remainingMs = liveRemainingSeconds(block, Date.now()) * 1000;
+    if (remainingMs <= 0) {
+      complete();
+      return;
+    }
+
+    // One timeout for the whole block rather than a per-second poll.
+    const timeout = setTimeout(complete, remainingMs);
+
+    // JS is frozen while the app is suspended, so the timeout fires late on
+    // resume rather than on time. This makes that moment deterministic instead
+    // of leaving it to how the runtime handles an overdue timer.
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") complete();
+    });
+
+    return () => {
+      clearTimeout(timeout);
+      subscription.remove();
+    };
+  }, [block]);
+};
