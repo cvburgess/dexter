@@ -1020,46 +1020,40 @@ Deno.test("update_task rejects malformed subtask entries", () => {
   const schema = registry.tools.get("update_task")
     ?.inputSchema as Record<
       string,
-      { safeParse(v: unknown): { success: boolean } }
+      // `data` too, not just `success`: the shape a valid input parses *to* is
+      // part of the contract now that `done` has a default.
+      { safeParse(v: unknown): { success: boolean; data?: unknown } }
     >;
 
   assertEquals(
-    schema.subtasks.safeParse([{ id: "s1", title: "Ok", status: 1 }]).success,
+    schema.subtasks.safeParse([{ id: "s1", title: "Ok", done: true }]).success,
     true,
   );
-  // A subtask is exactly {id, title, status}; anything else is a client bug and
+  // DEX-153: `done` defaults to false, so an agent can compose a checklist from
+  // bare titles — the overwhelmingly common call.
+  assertEquals(
+    schema.subtasks.safeParse([{ id: "s1", title: "Fresh" }]),
+    { success: true, data: [{ id: "s1", title: "Fresh", done: false }] },
+  );
+  // A subtask is exactly {id, title, done}; anything else is a client bug and
   // must not reach the column, since nothing downstream re-validates it.
   assertEquals(
     schema.subtasks.safeParse([{ id: "s1", title: "" }]).success,
     false,
   );
   assertEquals(
-    schema.subtasks.safeParse([{ title: "No id", status: 1 }]).success,
+    schema.subtasks.safeParse([{ title: "No id", done: false }]).success,
     false,
   );
+  // The clean break: a legacy status is not a `done`, and must not be read as
+  // one. `status` is simply unknown here — zod strips it — so this parses to an
+  // *unchecked* item rather than silently inheriting the old meaning.
   assertEquals(
-    schema.subtasks.safeParse([{ id: "s1", title: "Bad status", status: 9 }])
-      .success,
-    false,
-  );
-  // 4 is delegated (DEX-68). The bound gates stored rows as well as tool input,
-  // and a subtask that fails to parse silently loses its parent's sweep.
-  assertEquals(
-    schema.subtasks.safeParse([{ id: "s1", title: "Delegated", status: 4 }])
-      .success,
-    true,
+    schema.subtasks.safeParse([{ id: "s1", title: "Legacy", status: 2 }]),
+    { success: true, data: [{ id: "s1", title: "Legacy", done: false }] },
   );
   assertEquals(
-    schema.subtasks.safeParse([{ id: "s1", title: "Past the end", status: 5 }])
-      .success,
-    false,
-  );
-  // The bound is `z.nativeEnum(ETaskStatus)`, and a numeric TS enum carries a
-  // reverse mapping — assert the key names are not silently accepted as values,
-  // which would put a string into a smallint column.
-  assertEquals(
-    schema.subtasks.safeParse([{ id: "s1", title: "By name", status: "DONE" }])
-      .success,
+    schema.subtasks.safeParse([{ id: "s1", title: "Truthy", done: 1 }]).success,
     false,
   );
   assertEquals(schema.subtasks.safeParse("not an array").success, false);
@@ -1126,8 +1120,8 @@ Deno.test("update_task sweeps open subtasks closed in the same write", async () 
       {
         status: 1,
         subtasks: [
-          { id: "s1", title: "Open", status: 1 },
-          { id: "s2", title: "Already done", status: 2 },
+          { id: "s1", title: "Open", done: false },
+          { id: "s2", title: "Already done", done: true },
         ],
       },
       { status: 2, template_id: null, scheduled_for: null },
@@ -1140,8 +1134,36 @@ Deno.test("update_task sweeps open subtasks closed in the same write", async () 
   assertEquals(supabase.updates.length, 1);
   assertEquals(supabase.updates[0].payload.status, 2);
   assertEquals(supabase.updates[0].payload.subtasks, [
-    { id: "s1", title: "Open", status: 2 },
-    { id: "s2", title: "Already done", status: 2 },
+    { id: "s1", title: "Open", done: true },
+    { id: "s2", title: "Already done", done: true },
+  ]);
+});
+
+// DEX-153: a bundle predating the `done` change keeps writing `{id, title,
+// status}` until its user updates, and the backfill migration cannot reach what
+// has not been written yet. Rejecting those rows would read as "no subtasks" and
+// disable the sweep on exactly the tasks still being edited from an old client.
+Deno.test("update_task sweeps a checklist still stored with statuses", async () => {
+  const supabase = new RecordingSupabase({
+    tasks: [
+      {
+        status: 1,
+        subtasks: [
+          { id: "s1", title: "Open", status: 1 },
+          { id: "s2", title: "Abandoned", status: 3 },
+        ],
+      },
+      { status: 2, template_id: null, scheduled_for: null },
+    ],
+  });
+
+  await taskTools(supabase).run("update_task", { taskId: SUB_TASK, status: 2 });
+
+  // Coerced on read, then swept — and rewritten in the new shape, so the row
+  // converts itself the first time it is touched.
+  assertEquals(supabase.updates[0].payload.subtasks, [
+    { id: "s1", title: "Open", done: true },
+    { id: "s2", title: "Abandoned", done: true },
   ]);
 });
 
@@ -1151,8 +1173,8 @@ Deno.test("update_task sweeps the checklist for delegated too, not just done", a
       {
         status: 1,
         subtasks: [
-          { id: "s1", title: "Open", status: 1 },
-          { id: "s2", title: "Started", status: 0 },
+          { id: "s1", title: "Open", done: false },
+          { id: "s2", title: "Started", done: false },
         ],
       },
       { status: 4, template_id: null, scheduled_for: null },
@@ -1160,21 +1182,22 @@ Deno.test("update_task sweeps the checklist for delegated too, not just done", a
   });
 
   // Delegated (4) is terminal alongside done (2) and won't-do (3) — handing the
-  // parent off closes its checklist the same way (DEX-68).
+  // parent off closes its checklist the same way (DEX-68). With two states there
+  // is nowhere else for it to land than done (DEX-153).
   await taskTools(supabase).run("update_task", { taskId: SUB_TASK, status: 4 });
 
   assertEquals(supabase.updates.length, 1);
   assertEquals(supabase.updates[0].payload.subtasks, [
-    { id: "s1", title: "Open", status: 4 },
-    { id: "s2", title: "Started", status: 4 },
+    { id: "s1", title: "Open", done: true },
+    { id: "s2", title: "Started", done: true },
   ]);
 });
 
 Deno.test("update_task lets an explicit checklist win over the sweep", async () => {
-  const explicit = [{ id: "s1", title: "Renamed", status: 1 }];
+  const explicit = [{ id: "s1", title: "Renamed", done: false }];
   const supabase = new RecordingSupabase({
     tasks: [
-      { status: 1, subtasks: [{ id: "s1", title: "Open", status: 1 }] },
+      { status: 1, subtasks: [{ id: "s1", title: "Open", done: false }] },
       { status: 2, template_id: null, scheduled_for: null },
     ],
   });
@@ -1202,7 +1225,7 @@ Deno.test("update_task does not touch the checklist on a non-completing update",
 Deno.test("archive_task sweeps the checklist, and restoring leaves it alone", async () => {
   const archiving = new RecordingSupabase({
     tasks: [
-      { status: 1, subtasks: [{ id: "s1", title: "Open", status: 1 }] },
+      { status: 1, subtasks: [{ id: "s1", title: "Open", done: false }] },
       { status: 3, template_id: null, scheduled_for: null },
     ],
   });
@@ -1210,7 +1233,7 @@ Deno.test("archive_task sweeps the checklist, and restoring leaves it alone", as
   await taskTools(archiving).run("archive_task", { taskId: SUB_TASK });
 
   assertEquals(archiving.updates[0].payload.subtasks, [
-    { id: "s1", title: "Open", status: 3 },
+    { id: "s1", title: "Open", done: true },
   ]);
 
   const restoring = new RecordingSupabase({
@@ -1229,7 +1252,7 @@ Deno.test("archive_task sweeps the checklist, and restoring leaves it alone", as
 Deno.test("a recurring occurrence gets a fresh copy of the template's checklist", async () => {
   const supabase = new RecordingSupabase({
     tasks: [
-      { status: 1, subtasks: [{ id: "old", title: "Water", status: 1 }] },
+      { status: 1, subtasks: [{ id: "old", title: "Water", done: false }] },
       { status: 2, template_id: RECUR_TEMPLATE, scheduled_for: "2030-01-01" },
     ],
     repeat_task_templates: [
@@ -1255,13 +1278,13 @@ Deno.test("a recurring occurrence gets a fresh copy of the template's checklist"
   const subtasks = inserted.payload.subtasks as {
     id: string;
     title: string;
-    status: number;
+    done: boolean;
   }[];
 
   assertEquals(subtasks.map((s) => s.title), ["Water", "Prune"]);
-  // Reset to open, and sharing ids with neither the template nor the task that
-  // just completed — each occurrence's checklist is independent state.
-  assertEquals(subtasks.every((s) => s.status === 1), true);
+  // Unchecked, and sharing ids with neither the template nor the task that just
+  // completed — each occurrence's checklist is independent state.
+  assertEquals(subtasks.every((s) => s.done === false), true);
   assertEquals(subtasks.some((s) => s.id === "tpl-1" || s.id === "old"), false);
 });
 
@@ -1272,7 +1295,7 @@ Deno.test("the sweep survives a stored title longer than the input cap", async (
   const longTitle = "x".repeat(250);
   const supabase = new RecordingSupabase({
     tasks: [
-      { status: 1, subtasks: [{ id: "s1", title: longTitle, status: 1 }] },
+      { status: 1, subtasks: [{ id: "s1", title: longTitle, done: false }] },
       { status: 2, template_id: null, scheduled_for: null },
     ],
   });
@@ -1280,7 +1303,7 @@ Deno.test("the sweep survives a stored title longer than the input cap", async (
   await taskTools(supabase).run("update_task", { taskId: SUB_TASK, status: 2 });
 
   assertEquals(supabase.updates[0].payload.subtasks, [
-    { id: "s1", title: longTitle, status: 2 },
+    { id: "s1", title: longTitle, done: true },
   ]);
 });
 
@@ -1291,22 +1314,22 @@ Deno.test("create_task sweeps a checklist when the task is created complete", as
     title: "Already handled",
     status: 2,
     subtasks: [
-      { id: "s1", title: "Open", status: 1 },
-      { id: "s2", title: "Also open", status: 0 },
+      { id: "s1", title: "Open", done: false },
+      { id: "s2", title: "Also open", done: false },
     ],
   });
 
   // Otherwise a done parent with open children could be inserted directly,
   // sidestepping the invariant update_task and archive_task both enforce.
   assertEquals(supabase.inserts[0].payload.subtasks, [
-    { id: "s1", title: "Open", status: 2 },
-    { id: "s2", title: "Also open", status: 2 },
+    { id: "s1", title: "Open", done: true },
+    { id: "s2", title: "Also open", done: true },
   ]);
 });
 
 Deno.test("create_task leaves the checklist alone for an incomplete task", async () => {
   const supabase = new RecordingSupabase({ tasks: [{ ok: true }] });
-  const subtasks = [{ id: "s1", title: "Open", status: 1 }];
+  const subtasks = [{ id: "s1", title: "Open", done: false }];
 
   await taskTools(supabase).run("create_task", {
     title: "In flight",

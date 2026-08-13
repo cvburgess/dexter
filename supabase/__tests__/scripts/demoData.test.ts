@@ -82,8 +82,8 @@ Deno.test("subtasks are well-formed and uniquely keyed within their array", () =
         `${task.title} subtask title length`,
       );
       assert(
-        ETaskStatus[subtask.status] !== undefined,
-        `${task.title} subtask status`,
+        typeof subtask.done === "boolean",
+        `${task.title} subtask done`,
       );
     }
   }
@@ -92,8 +92,8 @@ Deno.test("subtasks are well-formed and uniquely keyed within their array", () =
     if (!template.subtasks) continue;
     const ids = new Set<string>();
     for (const subtask of template.subtasks) {
-      // Template subtasks are a blueprint: id + title, no status field at all.
-      assert(!("status" in subtask), `${template.key} template subtask status`);
+      // Template subtasks are a blueprint: id + title, no `done` field at all.
+      assert(!("done" in subtask), `${template.key} template subtask done`);
       assert(!ids.has(subtask.id), `${template.key} duplicate subtask id`);
       ids.add(subtask.id);
       assert(
@@ -108,12 +108,10 @@ Deno.test("demo showcases subtask states for DEX-70", () => {
   const withSubtasks = data.tasks.filter((t) => (t.subtasks?.length ?? 0) > 0);
   assert(withSubtasks.length >= 2, "expected several tasks with checklists");
 
-  // A checklist mid-flight — some items closed, some still open — is the state
-  // the completion sweep and the in-card rendering are most worth showing.
+  // A checklist mid-flight — some items checked off, some still open — is the
+  // state the completion sweep and the in-card rendering are most worth showing.
   const hasPartial = withSubtasks.some(
-    (t) =>
-      t.subtasks!.some((s) => s.status === DEMO_STATUS.TODO) &&
-      t.subtasks!.some((s) => s.status !== DEMO_STATUS.TODO),
+    (t) => t.subtasks!.some((s) => s.done) && t.subtasks!.some((s) => !s.done),
   );
   assert(hasPartial, "expected a partially-completed checklist");
 
