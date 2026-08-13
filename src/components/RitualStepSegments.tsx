@@ -24,7 +24,7 @@ import {
  * `stretch={false}` is load-bearing: this sits in `LargeScreenHeader`'s actions
  * row, which claims half the width the centered nav leaves over — so `flex: 1`
  * segments would spread across all of it rather than sizing to the ritual's
- * steps, and the control would stop reading as a group of five buttons.
+ * steps, and the control would stop reading as a group of buttons.
  */
 export function RitualStepSegments({
   state,
