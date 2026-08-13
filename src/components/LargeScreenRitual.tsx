@@ -49,9 +49,9 @@ type TLargeScreenRitualProps = {
  * most direct way to say "next". It costs nothing to offer alongside the
  * segments.
  *
- * `DayNav` sits flush at the gutter, matching the Week tab rather than Today —
- * Today centers its nav inside a slot capped to the Tasks pane so it labels
- * that column, and there is no column here to label.
+ * The header is a mirror of `SmallScreenRitual`'s (DEX-152): `DayNav` centered,
+ * the AM/PM button at the leading edge, the step control at the trailing one.
+ * The one difference is the step control itself, for the reason above.
  */
 export function LargeScreenRitual({
   state,
@@ -75,11 +75,9 @@ export function LargeScreenRitual({
     >
       <LargeScreenHeader
         actions={
-          <>
-            <RitualStepSegments onSelectStep={onSelectStep} state={state} />
-            <RitualModeButton mode={state.mode} onPress={onToggleMode} />
-          </>
+          <RitualStepSegments onSelectStep={onSelectStep} state={state} />
         }
+        leading={<RitualModeButton mode={state.mode} onPress={onToggleMode} />}
       >
         <DayNav date={state.date} onChangeDate={onChangeDate} />
       </LargeScreenHeader>

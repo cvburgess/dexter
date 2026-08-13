@@ -9,8 +9,9 @@ import { TIconMenuOption, TIconMenuSection } from "./IconMenu.types";
 export type TDayView = "tasks" | "notes" | "calendar";
 
 /**
- * Icon metadata for each day view, shared with `DayPaneToggles` (the
- * large-screen equivalent) so both surfaces use the same icons/labels.
+ * Icon metadata for each day view, shared with the ritual's `STEP_ICONS` (see
+ * `RitualStepSwitcher.shared.ts`) so a step that opens a day's surface wears the
+ * same icon that surface does.
  */
 export const VIEW_META: Record<TDayView, { label: string; icon: TIconName }> = {
   tasks: {

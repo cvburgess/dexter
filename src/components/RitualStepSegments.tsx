@@ -13,10 +13,8 @@ import {
  *
  * A segmented control rather than the small screen's menu because there is room
  * to show the whole ritual at once — which makes it a progress indicator as
- * much as a picker, saying how far through the user is without being asked. It
- * is the same small-screen-menu / large-screen-controls split Today makes
- * between `DayViewSwitcher` and `DayPaneToggles`, and both ritual variants read
- * one `STEP_ICONS` table so the glyphs can't drift.
+ * much as a picker, saying how far through the user is without being asked.
+ * Both ritual variants read one `STEP_ICONS` table so the glyphs can't drift.
  *
  * **Android and web only.** iOS hosts the real `UISegmentedControl` instead
  * (`RitualStepSegments.ios.tsx`) so it draws in the system's liquid glass; this
@@ -24,8 +22,9 @@ import {
  * split `GlassIconButton` and `DateField` make.
  *
  * `stretch={false}` is load-bearing: this sits in `LargeScreenHeader`'s actions
- * row, which has no width of its own, so `flex: 1` segments would divide
- * nothing and collapse.
+ * row, which claims half the width the centered nav leaves over — so `flex: 1`
+ * segments would spread across all of it rather than sizing to the ritual's
+ * steps, and the control would stop reading as a group of five buttons.
  */
 export function RitualStepSegments({
   state,

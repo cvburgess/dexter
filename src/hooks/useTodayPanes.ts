@@ -2,22 +2,24 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
-export type TTodayPane = "notes" | "calendar" | "drawer";
+export type TTodayPane = "drawer";
 
 export type TTodayPanes = Record<TTodayPane, boolean>;
 
-// Which optional panes are shown on the large-screen Today layout is a
+// Whether the docked pane is shown on the large-screen Today layout is a
 // per-device choice (like `useEnabledDeviceCalendars`), so it lives in
 // AsyncStorage rather than the Supabase `preferences` row.
+//
+// It was `notes`/`calendar`/`drawer` until DEX-152 retired the header's pane
+// toggles: Notes and Calendar are now shown whenever they're enabled in
+// settings, which is a synced preference, leaving the drawer as the only pane
+// with a per-device answer. The key is unchanged so the choice survives the
+// narrowing — see `readPanes` on what happens to the two stored keys.
 export const TODAY_PANES_KEY = "dexter.today.panes";
 
-// "Whole day at a glance" — the display panes default open so the multi-column
-// layout is useful (and discoverable) the first time a user sees it. The task
-// drawer (DEX-33) is an opt-in triage tool rather than a glance surface, so it
-// defaults closed.
+// The task drawer (DEX-33) is an opt-in triage tool rather than a glance
+// surface, so it defaults closed.
 const DEFAULT_PANES: TTodayPanes = {
-  notes: true,
-  calendar: true,
   drawer: false,
 };
 
@@ -26,11 +28,11 @@ const DEFAULT_PANES: TTodayPanes = {
 const TODAY_PANE_KEYS = Object.keys(DEFAULT_PANES) as TTodayPane[];
 
 // Only checks the keys actually present, so a device's stored value from
-// before a pane was added (e.g. `drawer`) still passes — `readPanes` below
-// fills in any missing keys from `DEFAULT_PANES` rather than discarding the
-// user's existing notes/calendar choices. It says nothing about a key for a
-// pane that has since been *removed* (`journal`, DEX-105): unknown keys are
-// simply not examined here, and `readPanes` drops them.
+// before a pane was added still passes — `readPanes` below fills in any missing
+// keys from `DEFAULT_PANES` rather than discarding the user's existing choices.
+// It says nothing about a key for a pane that has since been *removed*
+// (`journal`, DEX-105; `notes`/`calendar`, DEX-152): unknown keys are simply
+// not examined here, and `readPanes` drops them.
 const isPartialTodayPanes = (value: unknown): value is Partial<TTodayPanes> =>
   typeof value === "object" &&
   value !== null &&
@@ -47,8 +49,10 @@ const readPanes = async (): Promise<TTodayPanes> => {
     if (!isPartialTodayPanes(parsed)) return DEFAULT_PANES;
     // Built key by key from `TODAY_PANE_KEYS` rather than spread over the
     // defaults, so a stored key for a pane that has since been *removed*
-    // (`journal`, DEX-105) is dropped instead of riding along in a value typed
-    // as `TTodayPanes`. The next write then clears it from storage too.
+    // (`journal`, DEX-105; `notes`/`calendar`, DEX-152) is dropped instead of
+    // riding along in a value typed as `TTodayPanes`. The next write then
+    // clears it from storage too — which is why narrowing this type needs no
+    // migration.
     return Object.fromEntries(
       TODAY_PANE_KEYS.map((key) => [key, parsed[key] ?? DEFAULT_PANES[key]]),
     ) as TTodayPanes;
@@ -67,9 +71,9 @@ type TUseTodayPanes = [
 ];
 
 /**
- * Which optional Today-tab panes (notes/calendar) are shown in the
- * large-screen multi-column layout, persisted to the device. Shared through
- * React Query so a toggle re-renders immediately.
+ * Which optional Today-tab panes — the task drawer, and only it since DEX-152 —
+ * are shown in the large-screen multi-column layout, persisted to the device.
+ * Shared through React Query so a toggle re-renders immediately.
  */
 export const useTodayPanes = (): TUseTodayPanes => {
   const queryClient = useQueryClient();

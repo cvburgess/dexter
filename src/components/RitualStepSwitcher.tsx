@@ -20,9 +20,8 @@ import { useTheme } from "@/utils/theme";
  * icon, also says where they are.
  *
  * Large screens have room to show every step at once and use
- * `RitualStepSegments` in the toolbar instead — the same small-screen-menu /
- * large-screen-controls split Today makes between `DayViewSwitcher` and
- * `DayPaneToggles`. Both read one `STEP_ICONS` table, so the two can't drift.
+ * `RitualStepSegments` in the toolbar instead. Both read one `STEP_ICONS`
+ * table, so the two can't drift.
  */
 export function RitualStepSwitcher({
   state,
