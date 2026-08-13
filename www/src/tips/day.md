@@ -8,8 +8,7 @@ layout: layouts/tips.vto
 ![Day View](/assets/tips/day.png)
 
 The day view in Dexter is your home base. See everything you need in one,
-focused workspace including your tasks, habits, notes, calendar, and
-more.
+focused workspace including your tasks, habits, notes, calendar, and more.
 
 **👋 New to Dexter?** Read the [Dexter Method](/method) first to learn how the
 app works, and why.
@@ -25,9 +24,6 @@ view.
   come back to today
 - <i class="ph-bold ph-caret-left"></i><i class="ph-bold ph-caret-right"></i>
   **Arrows**: Use the arrows to navigate forward and backwards one day at a time
-- <i class="ph-bold ph-resize"></i> **Card size**: Toggle this size of task
-  cards
-- <i class="ph-bold ph-calendar-blank"></i> **Calendar**: Toggle the calendar
 - <i class="ph-bold ph-square-half"></i> **Quick Planner**: Toggle the quick
   planner
 
@@ -67,7 +63,8 @@ If you don't want to use the notes feature, it can be disabled in settings.
 
 ## Calendar
 
-The calendar icon in the toolbar toggles a calendar view.
+On a wide screen the calendar sits alongside your tasks whenever calendars are
+turned on in settings. On a phone, switch to it from the day view switcher.
 
 The calendar can show as many calendar feeds as you'd like, including Google,
 iCloud, Outlook, and more.

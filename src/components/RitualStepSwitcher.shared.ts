@@ -9,7 +9,7 @@ import {
 /**
  * One icon per step, shared by both switcher variants so the menu row and the
  * web icon it corresponds to can never drift — the same job `VIEW_META` does
- * for `DayViewSwitcher`/`DayPaneToggles`.
+ * for `DayViewSwitcher`.
  *
  * A `Record` over `TRitualStepId`, so adding a step without an icon is a
  * compile error rather than a blank button. Two steps reuse the Today tab's
@@ -62,7 +62,7 @@ export type TRitualStepOption = {
  * active mode the user has turned on, in order, with the current one marked.
  *
  * Exported and pure so the wiring is unit-testable without a platform menu host
- * — the `dayViewOptions` / `paneToggleOptions` precedent.
+ * — the `dayViewOptions` precedent.
  */
 export function ritualStepOptions(
   state: TRitualState,

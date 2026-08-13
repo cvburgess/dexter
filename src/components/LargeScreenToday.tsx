@@ -5,7 +5,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CalendarView } from "@/components/CalendarView";
 import { DayNav } from "@/components/DayNav";
-import { DayPaneToggles } from "@/components/DayPaneToggles";
 import { DragScheduleProvider } from "@/components/DragScheduleProvider";
 import { GlassIconButton } from "@/components/GlassIconButton";
 import { LargeScreenHeader } from "@/components/LargeScreenHeader";
@@ -35,9 +34,10 @@ type TLargeScreenTodayProps = {
   attentionFilter: TFilterId | null;
   /**
    * The deep link this screen was opened with (DEX-47), or null for an ordinary
-   * tab press. Tasks is always visible here, so `mode: "tasks"` is a no-op;
-   * `notes` opens that pane, and `backlog` opens the docked drawer seeded with
-   * `query`. Keyed on `id` so re-following the same link works.
+   * tab press. Only `backlog` has anything left to do here — it opens the docked
+   * drawer seeded with `query`. Tasks is always visible, and so is Notes when
+   * it's enabled in settings, so those two modes arrive already showing what
+   * they name. Keyed on `id` so re-following the same link works.
    */
   link: TDayLink | null;
 };
@@ -91,25 +91,30 @@ export function LargeScreenToday({
     }
   }
 
-  // Opening a pane writes through to AsyncStorage — an external system, so an
-  // effect is the right home. `openPane` (not `togglePane`) is stable and does
-  // its own already-open check, which keeps `panes` out of the dependencies:
-  // with it here, every later pane toggle would re-run this and re-open a pane
-  // the user had just closed.
+  // Opening the drawer writes through to AsyncStorage — an external system, so
+  // an effect is the right home. `openPane` (not `togglePane`) is stable and
+  // does its own already-open check, which keeps `panes` out of the
+  // dependencies: with it here, every later drawer toggle would re-run this and
+  // re-open a pane the user had just closed.
   //
-  // No `preferences.enable*` guard: with the feature off the pane simply doesn't
-  // render, and `panes.notes` defaults to open anyway, so setting it is very
-  // nearly a no-op. `panes.drawer` is the one that defaults closed.
+  // Only `backlog` has anything to open. `mode: "tasks"` was always a no-op
+  // here, and `notes` became one when the pane toggles went (DEX-152): Notes
+  // and Calendar now show whenever they're enabled in settings, so a link
+  // naming one has already arrived at it.
+  //
   // `linkId` is in the dependencies alongside `mode` because re-following the
-  // same link has to re-open a pane the user closed in between; `mode` is
+  // same link has to re-open a drawer the user closed in between; `mode` is
   // encoded in `linkId`, so listing both costs no extra firings.
   useEffect(() => {
-    if (!mode || mode === "tasks") return;
-    void openPane(mode === "backlog" ? "drawer" : mode);
+    if (mode !== "backlog") return;
+    void openPane("drawer");
   }, [linkId, mode, openPane]);
 
-  const showNotes = preferences.enableNotes && panes.notes;
-  const showCalendar = preferences.enableCalendar && panes.calendar;
+  // Settings is the only control over these now (DEX-152) — the header's pane
+  // toggles are gone. Named rather than read inline because `showCalendar` is a
+  // layout question the drawer's margin below also asks, not just a setting.
+  const showNotes = preferences.enableNotes;
+  const showCalendar = preferences.enableCalendar;
 
   // Toggling the drawer pane; when it's opening (not closing) and there are
   // stragglers, pre-apply the filter the dot points to so it lands on the
@@ -138,27 +143,17 @@ export function LargeScreenToday({
     >
       <LargeScreenHeader
         actions={
-          <>
-            <DayPaneToggles
-              enableCalendar={preferences.enableCalendar}
-              enableNotes={preferences.enableNotes}
-              onTogglePane={togglePane}
-              panes={panes}
-            />
-            <GlassIconButton
-              accessibilityLabel="Toggle task drawer pane"
-              active={panes.drawer}
-              indicator={backlogAttention}
-              ionicon="file-tray-full-outline"
-              onPress={toggleDrawerPane}
-              sfSymbol="tray.full"
-            />
-          </>
+          <GlassIconButton
+            accessibilityLabel="Toggle task drawer pane"
+            active={panes.drawer}
+            indicator={backlogAttention}
+            ionicon="file-tray-full-outline"
+            onPress={toggleDrawerPane}
+            sfSymbol="tray.full"
+          />
         }
       >
-        <View style={[styles.fixedPane, styles.taskHeaderSlot]}>
-          <DayNav date={date} onChangeDate={changeDate} />
-        </View>
+        <DayNav date={date} onChangeDate={changeDate} />
       </LargeScreenHeader>
       {/* Backlog rows can be dragged onto the Tasks pane to schedule them for
           the viewed day, and a scheduled card dragged back onto the backlog to
@@ -265,17 +260,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  // DayNav centers within this slot's width (cross-axis alignment on the
-  // default column direction), same as it's centered over the full width on
-  // small screens. The slot itself is capped to the Tasks pane's width (below)
-  // so the nav sits over that pane; the row around it is `LargeScreenHeader`,
-  // shared with the Week tab.
-  taskHeaderSlot: {
-    alignItems: "center",
-  },
   // `space.md` for the gutter, not a literal: `LargeScreenHeader` above uses
-  // the same token, which is what keeps the DayNav slot lined up over the Tasks
-  // pane.
+  // the same token, so the panes start where the header's own contents do.
   //
   // The `gap` reads that same token, matching the Week tab's column gap
   // (DEX-115) — so the space between two panes equals the space outside the
@@ -288,10 +274,7 @@ const styles = StyleSheet.create({
   },
   // Tasks holds one fixed width rather than flexing (DEX-111): a task card is
   // the same object on every screen, and stretching with the window made it a
-  // different shape on each. The panes beside it absorb the difference. Shared
-  // with `taskHeaderSlot` above, which is what keeps DayNav centered over this
-  // pane — a fixed width locks the two together instead of leaving the header
-  // to track a flexing column.
+  // different shape on each. The panes beside it absorb the difference.
   fixedPane: {
     width: TASKS_PANE_WIDTH,
   },

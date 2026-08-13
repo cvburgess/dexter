@@ -22,9 +22,14 @@ type TDayNavHeaderProps = {
  * arrows and date stay screen-centered; a control taking row space would push it
  * off-center by its own width, so Today (one control) and Ritual (two) would
  * center their navs in different places and the row would visibly shift as you
- * moved between the tabs. Overlaying keeps the nav put whatever sits beside it —
- * the horizontal counterpart of what `LargeScreenHeader` does for the
- * large-screen tabs (DEX-127).
+ * moved between the tabs. Overlaying keeps the nav put whatever sits beside it
+ * (DEX-127).
+ *
+ * `LargeScreenHeader` reaches the same place a second way — a zero-basis flex
+ * spacer on each side — because it has room to reserve for its controls and
+ * would rather have them push the nav than sit on top of it. Either would work
+ * on either form factor; what matters is that both keep the nav centered, so
+ * the row doesn't move as the window crosses the breakpoint (DEX-152).
  *
  * This only works while each control is about as wide as the space beside the
  * nav, which is why the Ritual flow's small-screen step control is a single

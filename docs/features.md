@@ -28,11 +28,15 @@ is what flashed the old day back) — a bounded pager must decline the swipe
 
 Large screens: Tasks is always visible at a fixed `TASKS_PANE_WIDTH` — it does
 **not** flex, so a `TaskCard` is the same shape at every window size and the
-other panes absorb the width (DEX-111). Pane visibility persists per device via
-`hooks/useTodayPanes.ts` (AsyncStorage, not the synced `preferences` row — a
-per-device layout choice); `readPanes` rebuilds the stored value key by key so
-removed panes' keys drop out. Notes and Calendar remount on date change (both
-seed uncontrolled state once per mount).
+other panes absorb the width (DEX-111). Notes and Calendar show whenever they are
+enabled in settings, a synced `preferences` choice with no per-device override
+since the header's pane toggles went (DEX-152). The task drawer is the one pane
+left with a per-device answer, persisted through `hooks/useTodayPanes.ts`
+(AsyncStorage, deliberately not `preferences` — where a docked pane sits is a
+property of the screen you are at, not the account); `readPanes` rebuilds the
+stored value key by key so a retired pane's key drops out, which is why retiring
+one needs no migration. Notes and Calendar remount on date change (both seed
+uncontrolled state once per mount).
 
 The drawer toggle carries the overdue/left-behind **attention dot**
 (`utils/taskFilters.ts`'s `backlogAttentionFilter` — Overdue first, else Left
@@ -166,8 +170,9 @@ The step control mirrors Today's split (menu on small screens, segments on
 large); on iOS the segments are a real SwiftUI segmented `Picker` for liquid
 glass, pinned to exact pixels for the reason `docs/frontend.md` gives about
 `@expo/ui` host sizing. The drawn `SegmentedControl` (Android/web) needs
-`stretch={false}` in the header's actions row, which has no width of its own —
-`flex: 1` segments would divide nothing and collapse.
+`stretch={false}` in the header's actions row: that row claims half the width the
+centered nav leaves over, so `flex: 1` segments would spread across all of it
+rather than sizing to the ritual's steps.
 
 `components/HeroLines.tsx` is shared by the reporting steps: right-aligned
 figures, left-aligned words, the figure column **measured** (widest raises a
