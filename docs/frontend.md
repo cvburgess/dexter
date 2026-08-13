@@ -68,6 +68,12 @@ otherwise, and the module store there is justified by press-time reads, not by
 context.) `TabBarAccessory` is therefore a dumb reader over `useFocusTimer`'s
 module store, and the write that completes a block lives in `(app)/_layout.tsx`.
 
+That store has a second caller for an unrelated reason: **`MoreMenu` renders
+once per task card**, so reading the live block through `useLiveFocusBlock` there
+put a query observer and two mutation observers on every row of a long list to
+read one shared value. Reach for `useFocusTimer` from anything that renders per
+row; `useLiveFocusBlock` is for the handful of surfaces that own the timer.
+
 ## Modal screens
 
 - Web form sheets render through Expo Router's experimental modal stack, enabled

@@ -77,7 +77,16 @@ export const liveRemainingSeconds = (
   if (block.status === "paused") return Math.max(0, block.remainingSeconds);
   if (block.status !== "active" || !block.resumedAt) return 0;
 
-  const elapsedSeconds = (nowMs - Date.parse(block.resumedAt)) / 1000;
+  // Elapsed is clamped at zero, which matters for a `nowMs` that predates the
+  // anchor. A countdown's clock only ticks while the block runs, so after a ten
+  // minute pause the caller's last reading is ten minutes older than the fresh
+  // `resumedAt` a resume writes — a negative elapsed there would *add* those ten
+  // minutes to the remaining time and show the timer jumping up. Clamped, the
+  // worst case is the pre-pause figure holding for one tick.
+  const elapsedSeconds = Math.max(
+    0,
+    (nowMs - Date.parse(block.resumedAt)) / 1000,
+  );
   return Math.max(0, block.remainingSeconds - elapsedSeconds);
 };
 

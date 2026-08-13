@@ -5,7 +5,7 @@ import type { StyleProp, ViewStyle } from "react-native";
 
 import { ETaskPriority, TTask } from "@/api/tasks";
 import { isTaskTemplate, NEW_TEMPLATE } from "@/api/templates";
-import { useLiveFocusBlock } from "@/hooks/useFocusBlocks";
+import { useFocusTimer } from "@/hooks/useFocusTimer";
 import { useTemplates } from "@/hooks/useTemplates";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
 import { openUrl } from "@/utils/openUrl";
@@ -50,8 +50,10 @@ export function MoreMenu({
   const theme = useTheme();
   const router = useRouter();
   const [, { getTemplateById }] = useTemplates();
-  const [liveFocusBlock, { cancelFocusBlock, startFocusBlock }] =
-    useLiveFocusBlock();
+  // The module store, not `useLiveFocusBlock`: this component renders once per
+  // task card, and a query observer plus two mutation observers on every row of
+  // a long list is a lot of machinery to read one shared value.
+  const { actions: focusActions, block: liveFocusBlock } = useFocusTimer();
 
   /**
    * The focus block row, or nothing (DEX-49).
@@ -71,13 +73,13 @@ export function MoreMenu({
     if (!liveFocusBlock) {
       return {
         title: "Start focus block",
-        onSelect: () => startFocusBlock(task.id),
+        onSelect: () => focusActions.startFocusBlock(task.id),
       };
     }
     if (liveFocusBlock.taskId === task.id) {
       return {
         title: "Stop focus block",
-        onSelect: () => cancelFocusBlock(liveFocusBlock),
+        onSelect: () => focusActions.cancelFocusBlock(liveFocusBlock),
       };
     }
     return undefined;

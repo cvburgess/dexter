@@ -35,6 +35,19 @@ describe("liveRemainingSeconds", () => {
     expect(liveRemainingSeconds(anchor(), START + 3_600_000)).toBe(0);
   });
 
+  // Nothing ticks while a block is paused, so the countdown's clock is as stale
+  // as the pause was long when a resume writes a fresh anchor. Unclamped, that
+  // negative elapsed would *add* the pause to the remaining time and show the
+  // timer jumping upward for a tick.
+  it("never reads above the snapshot for a clock behind the anchor", () => {
+    const resumed = anchor({
+      remainingSeconds: 900,
+      resumedAt: new Date(START + 600_000).toISOString(),
+    });
+
+    expect(liveRemainingSeconds(resumed, START)).toBe(900);
+  });
+
   it("has nothing left for a block that already ended", () => {
     expect(
       liveRemainingSeconds(

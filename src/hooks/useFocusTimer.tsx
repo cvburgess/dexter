@@ -16,6 +16,7 @@ export type TFocusTimerActions = {
   cancelFocusBlock: (block: TFocusBlock) => void;
   pauseFocusBlock: (block: TFocusBlock) => void;
   resumeFocusBlock: (block: TFocusBlock) => void;
+  startFocusBlock: (taskId: string) => void;
 };
 
 export type TFocusTimerSnapshot = {
@@ -27,6 +28,7 @@ const NO_OP_ACTIONS: TFocusTimerActions = {
   cancelFocusBlock: () => {},
   pauseFocusBlock: () => {},
   resumeFocusBlock: () => {},
+  startFocusBlock: () => {},
 };
 
 const EMPTY_SNAPSHOT: TFocusTimerSnapshot = {
@@ -66,9 +68,18 @@ const publish = (next: TFocusTimerSnapshot) => {
 };
 
 /**
- * The live focus block and its controls, for surfaces that sit outside the
- * provider tree's reach or must not hold their own query observers — which today
- * means the iOS tab-bar accessory. Everything else calls `useLiveFocusBlock`.
+ * The live focus block and its controls, for surfaces that must not hold query
+ * observers of their own.
+ *
+ * Two callers, for two different reasons. The tab-bar accessory is rendered
+ * **twice at once** (above), so hooks there would double every observer and
+ * every write. `MoreMenu` renders **once per task card**, so calling
+ * `useLiveFocusBlock` there put a query observer and two mutation observers on
+ * every row of a long list to read one shared value. This costs a `Set` entry
+ * each and re-renders only when the block actually changes.
+ *
+ * Surfaces that own the timer rather than merely reading it — the bar itself —
+ * still call `useLiveFocusBlock`; there are at most a couple of those.
  */
 export const useFocusTimer = (): TFocusTimerSnapshot =>
   useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
@@ -101,10 +112,12 @@ export const useFocusCountdown = (block: TFocusBlock | null): number => {
     return () => clearInterval(interval);
   }, [block?.status]);
 
-  // `now` can be up to a second behind immediately after a resume, which at most
-  // holds the previous whole second on screen for one extra frame before the
-  // next tick corrects it. Reading the clock during render instead would make
-  // this impure for a difference nobody can see.
+  // `now` lags the anchor between ticks — by a second while running, and by the
+  // whole pause after a resume, since nothing ticks while a block is held.
+  // `liveRemainingSeconds` clamps elapsed at zero for exactly that, so the worst
+  // case is one stale tick rather than a countdown that jumps upward. Reading
+  // the clock during render instead would make this impure for a difference
+  // nobody can see.
   return block ? Math.ceil(liveRemainingSeconds(block, now)) : 0;
 };
 
@@ -119,7 +132,13 @@ export const useFocusCountdown = (block: TFocusBlock | null): number => {
 export const usePublishFocusTimer = (): void => {
   const [
     block,
-    { cancelFocusBlock, finishFocusBlock, pauseFocusBlock, resumeFocusBlock },
+    {
+      cancelFocusBlock,
+      finishFocusBlock,
+      pauseFocusBlock,
+      resumeFocusBlock,
+      startFocusBlock,
+    },
   ] = useLiveFocusBlock();
 
   // The mutation callbacks are fresh closures every render. Publishing them
@@ -130,6 +149,7 @@ export const usePublishFocusTimer = (): void => {
     finishFocusBlock,
     pauseFocusBlock,
     resumeFocusBlock,
+    startFocusBlock,
   });
 
   useEffect(() => {
@@ -138,6 +158,7 @@ export const usePublishFocusTimer = (): void => {
       finishFocusBlock,
       pauseFocusBlock,
       resumeFocusBlock,
+      startFocusBlock,
     };
   });
 
@@ -150,6 +171,7 @@ export const usePublishFocusTimer = (): void => {
       cancelFocusBlock: (block) => latest.current.cancelFocusBlock(block),
       pauseFocusBlock: (block) => latest.current.pauseFocusBlock(block),
       resumeFocusBlock: (block) => latest.current.resumeFocusBlock(block),
+      startFocusBlock: (taskId) => latest.current.startFocusBlock(taskId),
     }),
     [],
   );

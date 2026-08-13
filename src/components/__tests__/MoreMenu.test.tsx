@@ -67,21 +67,19 @@ jest.mock("@/utils/openUrl", () => ({
   openUrl: (url: string) => mockOpenUrl(url),
 }));
 
-// useFocusBlocks reaches the supabase client through useAuth, which reads the
-// app's URI scheme at module scope — not available under Jest.
-jest.mock("@/hooks/useAuth", () => ({ supabase: {} }));
-
+// The menu reads the focus timer's module store rather than the query hooks —
+// it renders once per task card. Stubbed here so the store needs no publisher.
 const mockCancelFocusBlock = jest.fn();
 const mockStartFocusBlock = jest.fn();
 let mockLiveFocusBlock: { id: string; taskId: string } | null = null;
-jest.mock("@/hooks/useFocusBlocks", () => ({
-  useLiveFocusBlock: () => [
-    mockLiveFocusBlock,
-    {
+jest.mock("@/hooks/useFocusTimer", () => ({
+  useFocusTimer: () => ({
+    actions: {
       cancelFocusBlock: mockCancelFocusBlock,
       startFocusBlock: mockStartFocusBlock,
     },
-  ],
+    block: mockLiveFocusBlock,
+  }),
 }));
 
 /** Renders the menu with the props every test would otherwise restate. */
