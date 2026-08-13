@@ -2,7 +2,6 @@ import { Temporal } from "@js-temporal/polyfill";
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { TList } from "@/api/lists";
-import { ETaskStatus } from "@/api/tasks";
 import { DateField } from "@/components/DateField";
 import { FormRow } from "@/components/FormRow";
 import { PickerField } from "@/components/PickerField";

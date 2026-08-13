@@ -2,13 +2,7 @@ import { Temporal } from "@js-temporal/polyfill";
 import { useState } from "react";
 
 import { TList } from "@/api/lists";
-import {
-  ETaskPriority,
-  ETaskStatus,
-  TCreateTask,
-  TSubtask,
-  TTask,
-} from "@/api/tasks";
+import { ETaskPriority, TCreateTask, TSubtask, TTask } from "@/api/tasks";
 import { TTemplate } from "@/api/templates";
 import { withTitledRows } from "@/components/SubtaskFields";
 import { parseTaskShorthand } from "@/utils/parseTaskShorthand";

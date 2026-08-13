@@ -1,7 +1,7 @@
 import {
+  completeSubtasks,
   makeSubtaskId,
   subtasksFromTemplate,
-  sweepSubtasks,
   withFreshIds,
 } from "../subtasks";
 
@@ -18,15 +18,15 @@ describe("makeSubtaskId", () => {
 
 describe("withFreshIds", () => {
   const subtasks = [
-    { id: "a", title: "First", status: 1 },
-    { id: "b", title: "Second", status: 2 },
+    { id: "a", title: "First", done: false },
+    { id: "b", title: "Second", done: true },
   ];
 
   it("replaces every id while preserving the other fields and order", () => {
     const copied = withFreshIds(subtasks);
 
     expect(copied.map(({ title }) => title)).toEqual(["First", "Second"]);
-    expect(copied.map(({ status }) => status)).toEqual([1, 2]);
+    expect(copied.map(({ done }) => done)).toEqual([false, true]);
     expect(copied.map(({ id }) => id)).not.toEqual(["a", "b"]);
     expect(new Set(copied.map(({ id }) => id)).size).toBe(2);
   });
@@ -42,27 +42,24 @@ describe("withFreshIds", () => {
   });
 });
 
-describe("sweepSubtasks", () => {
-  it("sets every subtask to the given status", () => {
-    const swept = sweepSubtasks(
-      [
-        { id: "a", title: "Open", status: 1 },
-        { id: "b", title: "In progress", status: 0 },
-      ],
-      2,
-    );
+describe("completeSubtasks", () => {
+  it("checks off every subtask, including ones already done", () => {
+    const swept = completeSubtasks([
+      { id: "a", title: "Open", done: false },
+      { id: "b", title: "Already done", done: true },
+    ]);
 
-    expect(swept.map(({ status }) => status)).toEqual([2, 2]);
+    expect(swept.map(({ done }) => done)).toEqual([true, true]);
   });
 
   it("preserves ids and titles so the sweep is not a rewrite", () => {
-    const swept = sweepSubtasks([{ id: "a", title: "Open", status: 1 }], 2);
+    const swept = completeSubtasks([{ id: "a", title: "Open", done: false }]);
 
-    expect(swept[0]).toEqual({ id: "a", title: "Open", status: 2 });
+    expect(swept[0]).toEqual({ id: "a", title: "Open", done: true });
   });
 
   it("returns an empty array unchanged", () => {
-    expect(sweepSubtasks<{ status: number }>([], 2)).toEqual([]);
+    expect(completeSubtasks([])).toEqual([]);
   });
 });
 
@@ -74,14 +71,14 @@ describe("subtasksFromTemplate", () => {
     { id: "t2", title: "Fill bottle" },
   ];
 
-  it("materializes template titles with fresh ids at the open status", () => {
-    const materialized = subtasksFromTemplate(templateSubtasks, 1);
+  it("materializes template titles with fresh ids, all unchecked", () => {
+    const materialized = subtasksFromTemplate(templateSubtasks);
 
     expect(materialized.map(({ title }) => title)).toEqual([
       "Pack bag",
       "Fill bottle",
     ]);
-    expect(materialized.every(({ status }) => status === 1)).toBe(true);
+    expect(materialized.every(({ done }) => done === false)).toBe(true);
     // Ids must not carry over from the template — each occurrence's checklist is
     // independent state, not a reference back to the blueprint.
     expect(materialized.map(({ id }) => id)).not.toContain("t1");
@@ -89,6 +86,6 @@ describe("subtasksFromTemplate", () => {
   });
 
   it("returns an empty array for a template with no checklist", () => {
-    expect(subtasksFromTemplate([], 1)).toEqual([]);
+    expect(subtasksFromTemplate([])).toEqual([]);
   });
 });

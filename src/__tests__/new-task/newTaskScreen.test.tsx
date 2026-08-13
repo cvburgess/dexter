@@ -1,7 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render } from "@testing-library/react-native";
 
-import { ETaskPriority, ETaskStatus } from "@/api/tasks";
+import { ETaskPriority } from "@/api/tasks";
 import NewTaskScreen from "@/app/(app)/new-task";
 import { useTasks } from "@/hooks/useTasks";
 
@@ -488,11 +488,7 @@ describe("NewTaskScreen", () => {
           templateId: "template-packing",
           // Fresh ids, so two tasks from one template never collide.
           subtasks: [
-            {
-              id: expect.any(String),
-              title: "Passport",
-              status: ETaskStatus.TODO,
-            },
+            { id: expect.any(String), title: "Passport", done: false },
           ],
         },
         expect.objectContaining({ onSuccess: expect.any(Function) }),
