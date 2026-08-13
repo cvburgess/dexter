@@ -6,6 +6,7 @@ import { ReactNode } from "react";
 
 import { useEnabledDeviceCalendars } from "@/hooks/useEnabledDeviceCalendars";
 import { usePreferences } from "@/hooks/usePreferences";
+import { settleQueries } from "@/testUtils/settleQueries";
 
 // The web/native hooks are separate platform variants that we test side by side.
 // The resolver collapses the `.web` suffix to the same module, but these must
@@ -125,6 +126,12 @@ describe("useCalendarEvents (web)", () => {
     const second = renderHook(() => useWebCalendarEvents(DAY), { wrapper });
     await waitFor(() => expect(second.result.current[0]).toHaveLength(1));
     expect(fetch).toHaveBeenCalledTimes(2);
+
+    // That second mount serves the cached day straight away and refetches
+    // behind it, so both assertions above land while the request is still in
+    // flight. Wait for it to finish, or it updates the hook after the test has
+    // returned (DEX-130).
+    await settleQueries(client);
   });
 
   it("stays idle with no feeds configured, and says so", () => {

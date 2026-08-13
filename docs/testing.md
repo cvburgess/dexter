@@ -30,7 +30,11 @@ Not worth writing (removed en masse in DEX-143 — don't reintroduce):
 - **Native `ConfirmationModal` renders nothing** — spy on `Alert.alert` and restore the spy in `afterEach` (`components/__tests__/TaskDrawer.test.tsx`).
 - **Importing a `.web` overlay needs the `react-dom` portal mock**: `jest.mock("react-dom", () => require("@/testUtils/mockReactDomPortal").mockReactDomPortal())`. These tests can't prove a click lands under a real vaul dialog — that half is manual (DEX-134).
 - **`expo-audio` throws at import time**; `jest.setup.js` stands in an inert player. To assert on playback, mock a player per test (`hooks/__tests__/useHoroscopeAudio.test.ts`).
-- **Never leave a mocked mutation on a promise that never settles** — it wedges the whole run instead of failing one test.
+- **An `act(...)` warning fails the suite** (`jest.setupAfterEnv.js`). It means a state update landed after its test returned — so the assertion before it never saw settled state — and React reports it from whichever test happened to be running when the timer fired, which is usually *not* the culprit. Read the component it names, not the test it failed.
+- **Don't close a mutation test on a mock's call count.** `toHaveBeenCalled()` goes true when the request *starts*, while `onSettled` → `invalidateQueries` → refetch → notify all land after the test returns. End on `settleQueries(client)` (`@/testUtils/settleQueries`) or on the hook's own terminal state — `hooks/__tests__/useRealtimeInvalidation.test.tsx` resolves its deferred inside `act`, then waits for `result.current[0].content`.
+- **Never leave a mocked mutation on a promise that never settles** — it wedges the whole run instead of failing one test. The one deliberate exception says so at the call site (`useRealtimeInvalidation.test.tsx`, simulating an autosave still retrying after unmount).
+- **`@shopify/flash-list` is mocked** in `jest.setup.js` as a plain view rendering every item, which is what the real one did here anyway. It schedules layout state from a `requestAnimationFrame` that always outlives a synchronous test. Its own `jestSetup` is not the fix: it only stubs `measureLayout`, and loading it globally cost the suite 5s → 90s.
+- **`npm test` needs `--forceExit`** — tests build a `QueryClient` and none clears it, so react-query's gc timers hold the event loop open for minutes after the last assertion (`--detectOpenHandles` names them).
 
 ## Supabase (`/supabase`)
 

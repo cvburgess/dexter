@@ -75,11 +75,22 @@ module.exports = defineConfig([
     // lint, not surface later as a flaky test.
     //
     // Tests all live in `__tests__/` directories (see CLAUDE.md), so that glob
-    // plus the two shared-infrastructure files is the whole surface.
-    files: ["**/__tests__/**", "testUtils/**", "jest.setup.js"],
+    // plus the shared-infrastructure files is the whole surface.
+    files: [
+      "**/__tests__/**",
+      "testUtils/**",
+      "jest.setup.js",
+      "jest.setupAfterEnv.js",
+    ],
     languageOptions: {
-      // jest.setup.js is plain JS, so the `@types/jest` globals never reach it.
-      globals: { jest: "readonly" },
+      // The jest setup files are plain JS, so `@types/jest` globals never
+      // reach them — `jest.setupAfterEnv.js` registers lifecycle hooks, which
+      // is the whole reason it exists rather than living in `jest.setup.js`.
+      globals: {
+        afterAll: "readonly",
+        afterEach: "readonly",
+        jest: "readonly",
+      },
     },
     rules: {
       "@typescript-eslint/no-require-imports": "off",
