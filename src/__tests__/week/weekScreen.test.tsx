@@ -17,6 +17,11 @@ jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 jest.mock("@/hooks/useViewedDay", () => ({
   usePublishViewedDay: jest.fn(),
 }));
+// The screen subscribes to the current day rather than reading the clock
+// (DEX-161). Mocked so a test can move the day under a mounted screen; the
+// store's own foreground/timer wiring is covered by hooks/useToday.test.
+const mockToday = { current: Temporal.Now.plainDateISO() };
+jest.mock("@/hooks/useToday", () => ({ useToday: () => mockToday.current }));
 
 // WeekView is exercised through its own pieces (WeekNav/WeekDayColumn tests);
 // stub it to markers that echo the props this route decides — which week is on
@@ -73,6 +78,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockUseIsLargeDevice.mockReturnValue(true);
   mockUsePreferences.mockReturnValue(preferences());
+  mockToday.current = today;
 });
 
 describe("WeekScreen", () => {
@@ -90,6 +96,55 @@ describe("WeekScreen", () => {
     expect(
       screen.getByText(`week-view:${thisMonday.add({ weeks: 1 }).toString()}`),
     ).toBeTruthy();
+  });
+
+  // DEX-161: `monday` was frozen in a `useState` initializer, so an app open
+  // across midnight kept last week once the week itself turned over.
+  describe("the day changing underneath the screen", () => {
+    it("follows the rollover into a new week while this week is on screen", () => {
+      const screen = render(<WeekScreen />);
+
+      mockToday.current = thisMonday.add({ weeks: 1 });
+      screen.rerender(<WeekScreen />);
+
+      expect(
+        screen.getByText(
+          `week-view:${thisMonday.add({ weeks: 1 }).toString()}`,
+        ),
+      ).toBeTruthy();
+    });
+
+    it("leaves a week the user paged to alone", () => {
+      const screen = render(<WeekScreen />);
+      // Two weeks out, so the rollover's own +1 can't be mistaken for staying.
+      fireEvent.press(screen.getByLabelText("next-week"));
+      fireEvent.press(screen.getByLabelText("next-week"));
+
+      mockToday.current = thisMonday.add({ weeks: 1 });
+      screen.rerender(<WeekScreen />);
+
+      expect(
+        screen.getByText(
+          `week-view:${thisMonday.add({ weeks: 2 }).toString()}`,
+        ),
+      ).toBeTruthy();
+    });
+
+    it("moves the today chip within the week it stays in", () => {
+      // A day change inside the same week moves nothing but the day itself —
+      // and it has to move, or the chip marks yesterday.
+      const screen = render(<WeekScreen />);
+
+      mockToday.current = thisMonday.add({ days: 1 });
+      screen.rerender(<WeekScreen />);
+
+      expect(
+        screen.getByText(`today:${thisMonday.add({ days: 1 }).toString()}`),
+      ).toBeTruthy();
+      expect(
+        screen.getByText(`week-view:${thisMonday.toString()}`),
+      ).toBeTruthy();
+    });
   });
 
   it("passes the habits preference through", () => {

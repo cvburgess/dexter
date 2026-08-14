@@ -21,6 +21,12 @@ jest.mock("@/hooks/useViewedDay", () => ({
 jest.mock("@/hooks/usePreferences", () => ({
   usePreferences: jest.fn(),
 }));
+// The screen subscribes to the current day rather than reading the clock for it
+// (DEX-161). Mocked so a test can move the day under a mounted screen; the
+// store's own foreground/timer wiring is covered by hooks/useToday.test. The
+// *mode* still comes from the faked clock, so a rollover test moves both.
+const mockToday = { current: Temporal.PlainDate.from("2026-08-09") };
+jest.mock("@/hooks/useToday", () => ({ useToday: () => mockToday.current }));
 // The route parses `?date=&step=&n=` (DEX-105); each test names its own params.
 const mockUseLocalSearchParams = jest.fn<Record<string, unknown>, []>(
   () => ({}),
@@ -133,11 +139,12 @@ const TODAY = "2026-08-09";
 const today = Temporal.PlainDate.from(TODAY);
 // Local time, not UTC: the screen reads the device's calendar day and hour, so
 // a fixed instant has to be pinned in the same zone the code will read it in.
-const localTime = (hour: number) => new Date(2026, 7, 9, hour, 0);
+const localTime = (hour: number, day = 9) => new Date(2026, 7, day, hour, 0);
 
 beforeEach(() => {
   jest.clearAllMocks();
   jest.useFakeTimers({ now: localTime(9) });
+  mockToday.current = today;
   mockUseIsLargeDevice.mockReturnValue(false);
   mockUsePreferences.mockReturnValue(preferences());
   mockUseLocalSearchParams.mockReturnValue({});
@@ -161,6 +168,49 @@ describe("RitualScreen", () => {
     const screen = render(<RitualScreen />);
 
     expect(screen.getByText(`small:${TODAY}:pm:0:0`)).toBeTruthy();
+  });
+
+  // DEX-161: the whole state — date *and* mode — was frozen in a `useState`
+  // initializer, so an app open across midnight kept offering yesterday's
+  // ritual until a force-quit.
+  describe("the day changing underneath the screen", () => {
+    const TOMORROW = "2026-08-10";
+
+    it("starts the new day's ritual from its first step", () => {
+      const screen = render(<RitualScreen />);
+      fireEvent.press(screen.getByLabelText("swipe-forward"));
+
+      mockToday.current = today.add({ days: 1 });
+      jest.setSystemTime(localTime(9, 10));
+      screen.rerender(<RitualScreen />);
+
+      expect(screen.getByText(`small:${TOMORROW}:am:0:0`)).toBeTruthy();
+    });
+
+    it("re-derives the mode from the clock rather than carrying it over", () => {
+      // Left open in the evening ritual; the mode has to come back from the
+      // clock on the new day, not ride along with the old state.
+      jest.setSystemTime(localTime(20));
+      const screen = render(<RitualScreen />);
+      expect(screen.getByText(`small:${TODAY}:pm:0:0`)).toBeTruthy();
+
+      mockToday.current = today.add({ days: 1 });
+      jest.setSystemTime(localTime(9, 10));
+      screen.rerender(<RitualScreen />);
+
+      expect(screen.getByText(`small:${TOMORROW}:am:0:0`)).toBeTruthy();
+    });
+
+    it("leaves a day the user paged to alone", () => {
+      const screen = render(<RitualScreen />);
+      fireEvent.press(screen.getByLabelText("jump-forward"));
+
+      mockToday.current = today.add({ days: 1 });
+      jest.setSystemTime(localTime(9, 10));
+      screen.rerender(<RitualScreen />);
+
+      expect(screen.getByText("small:2026-08-12:am:0:1")).toBeTruthy();
+    });
   });
 
   it("publishes the viewed day so the create-task modal defaults to it", () => {

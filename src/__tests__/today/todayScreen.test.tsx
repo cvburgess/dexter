@@ -246,6 +246,14 @@ const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
   typeof useIsLargeDevice
 >;
 
+// The screen subscribes to the current day rather than reading the clock
+// (DEX-161). Mocked so a test can move the day under a mounted screen; the
+// store's own foreground/timer wiring is covered by hooks/useToday.test.
+const mockToday = { current: Temporal.Now.plainDateISO() };
+jest.mock("@/hooks/useToday", () => ({
+  useToday: () => mockToday.current,
+}));
+
 const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
 const tasksResult = (tasks: TTask[] = []): ReturnType<typeof useTasks> =>
   [tasks, {}] as never;
@@ -275,6 +283,7 @@ describe("TodayScreen", () => {
     mockUsePreferences.mockReturnValue(preferences());
     mockUseTodayPanes.mockReturnValue(panes());
     mockUseTasks.mockReturnValue(tasksResult());
+    mockToday.current = Temporal.Now.plainDateISO();
   });
 
   const lastPublishedDay = () =>
@@ -284,6 +293,41 @@ describe("TodayScreen", () => {
     render(<TodayScreen />);
 
     expect(lastPublishedDay()).toBe(Temporal.Now.plainDateISO().toString());
+  });
+
+  // DEX-161: the app was open before midnight and came back after it. Before
+  // this, `day.date` was frozen in a `useState` initializer and only a
+  // force-quit moved it.
+  describe("the day changing underneath the screen", () => {
+    const tomorrow = () => Temporal.Now.plainDateISO().add({ days: 1 });
+
+    it("follows the rollover while the screen is showing the day that ended", () => {
+      const screen = render(<TodayScreen />);
+
+      mockToday.current = tomorrow();
+      screen.rerender(<TodayScreen />);
+
+      expect(
+        screen.getByText(`tasks-view:${tomorrow().toString()}`),
+      ).toBeTruthy();
+      expect(lastPublishedDay()).toBe(tomorrow().toString());
+    });
+
+    it("leaves a day the user paged to alone", () => {
+      const screen = render(<TodayScreen />);
+      // Two days out, so the rollover's own +1 can't be mistaken for staying.
+      fireEvent.press(screen.getByLabelText("Next day"));
+      fireEvent.press(screen.getByLabelText("Next day"));
+
+      mockToday.current = tomorrow();
+      screen.rerender(<TodayScreen />);
+
+      expect(
+        screen.getByText(
+          `tasks-view:${Temporal.Now.plainDateISO().add({ days: 2 }).toString()}`,
+        ),
+      ).toBeTruthy();
+    });
   });
 
   it("publishes the new day after navigating a day forward", () => {
