@@ -13,12 +13,37 @@
 
 import { Temporal } from "@js-temporal/polyfill";
 
+import { TDailyHabit, THabit } from "@/api/habits";
 import { TTask } from "@/api/tasks";
 import { selectOpenTasksForDate } from "@/utils/taskFilters";
 import { TThemeColors } from "@/utils/theme";
 
 /** The App Group key the snapshot is written under, read by `DexterWidgetSnapshot.load()`. */
 export const WIDGET_SNAPSHOT_KEY = "todaySnapshot";
+
+/**
+ * The habits payload's own key, read by `DexterHabitWidgetSnapshot.load()`
+ * (DEX-160).
+ *
+ * A second key rather than another field on `TWidgetSnapshot`, because a reload
+ * is metered per widget kind: one shared blob would make every task edit spend
+ * the habits widget's daily budget and every habit tap spend the task widget's.
+ * The two palettes ride along twice, which is fourteen short strings — cheaper
+ * than the reloads it saves.
+ */
+export const HABIT_SNAPSHOT_KEY = "habitsSnapshot";
+
+/**
+ * Where `DexterHabitStepIntent` parks the steps it could not persist itself
+ * (DEX-160). A `Record<string, number>` of `pendingHabitStepsKey()` to the new
+ * absolute `stepsComplete`, serialized as JSON.
+ *
+ * **Only the extension writes it, and only the app clears it.** That one-way
+ * ownership is the point: the widget renders `pending ?? snapshot`, so a
+ * republish the app makes for an unrelated reason — a task edited on the phone,
+ * a theme change — cannot revert a tap that has not been drained yet.
+ */
+export const PENDING_HABIT_STEPS_KEY = "pendingHabitSteps";
 
 /**
  * Today plus the next three days.
@@ -48,6 +73,17 @@ export const WIDGET_DAY_COUNT = 4;
  */
 export const WIDGET_TASKS_PER_DAY = 14;
 
+/**
+ * How many habits per day travel in the payload.
+ *
+ * Eight is the medium widget's whole 4×2 grid, and the small widget's 2×2 draws
+ * the first four of the same array — so this is the cap for both families and
+ * the point past which extra habits are dropped silently (DEX-160). No count
+ * accompanies them the way `openCount` accompanies tasks: a habit row is a set
+ * of rings, and "and three more" is not something a ring can say.
+ */
+export const WIDGET_HABITS_PER_DAY = 8;
+
 export type TWidgetTask = {
   id: string;
   title: string;
@@ -73,12 +109,17 @@ export type TWidgetDay = {
  * side parses `#rrggbb` only — SwiftUI derives the dimmed ink with
  * `.opacity()` instead. `priorityMuted` is left out because it is blended at
  * module load and nothing in these layouts fills a row behind a task.
+ *
+ * `primaryContent` earns its place only because a completed habit ring fills
+ * solid `primary` and stamps a checkmark on top of it (DEX-160) — the one mark
+ * in any widget drawn *over* the accent rather than beside it.
  */
 export type TWidgetPalette = {
   background: string;
   border: string;
   text: string;
   primary: string;
+  primaryContent: string;
   priority: string[];
 };
 
@@ -100,6 +141,7 @@ const toWidgetPalette = (colors: TThemeColors): TWidgetPalette => ({
   border: colors.border,
   text: colors.text,
   primary: colors.primary,
+  primaryContent: colors.primaryContent,
   priority: colors.priority,
 });
 
@@ -139,3 +181,160 @@ export const buildWidgetSnapshot = (
   light: toWidgetPalette(palettes.light),
   dark: toWidgetPalette(palettes.dark),
 });
+
+export type TWidgetHabit = {
+  id: string;
+  emoji: string;
+  /** Only the accessibility label reads it; the ring itself draws the emoji. */
+  title: string;
+  /** The day's target. `steps === stepsComplete` is a finished ring. */
+  steps: number;
+  stepsComplete: number;
+};
+
+export type TWidgetHabitDay = {
+  /** ISO `YYYY-MM-DD`; the widget matches its own local day against this. */
+  date: string;
+  habits: TWidgetHabit[];
+};
+
+/** The habits counterpart of `TWidgetSnapshot`, under `HABIT_SNAPSHOT_KEY`. */
+export type TWidgetHabitSnapshot = {
+  days: TWidgetHabitDay[];
+  light: TWidgetPalette;
+  dark: TWidgetPalette;
+};
+
+/**
+ * Today plus the next three days of habit rings (DEX-160).
+ *
+ * **Every day is built from `habits`, not from `dailyHabits`** — today included,
+ * with its progress overlaid from the matching daily row where one exists. The
+ * rows are bootstrapped by an effect in `HabitTracker`, so a user who has not
+ * opened the Today tab yet has none at all; driving the widget off them would
+ * leave the home screen empty until the app happened to run, on exactly the
+ * mornings a habit widget is most worth having. Building from `habits` means
+ * the rings are right first, and `useHabitWidgetDrain` creates whatever row a
+ * tap turns out to need.
+ *
+ * The same substitution is what makes the future days free: they have no rows
+ * and never will until they arrive, so they are the general case rather than a
+ * branch — `stepsComplete` is simply 0 for a date no row matches.
+ *
+ * Sorted by `id` to match `getDailyHabits`' `.order("habit_id")`, so the widget
+ * lists rings in the same order as the Today row above them. (`HabitTracker`'s
+ * *future* columns on the Week tab sort by title instead — a pre-existing
+ * inconsistency in the app that this does not try to settle.)
+ */
+export const buildHabitWidgetSnapshot = (
+  habits: THabit[],
+  dailyHabits: TDailyHabit[],
+  today: Temporal.PlainDate,
+  palettes: { light: TThemeColors; dark: TThemeColors },
+): TWidgetHabitSnapshot => ({
+  days: Array.from({ length: WIDGET_DAY_COUNT }, (_unused, offset) => {
+    const date = today.add({ days: offset });
+
+    // The same three conditions `HabitTracker` applies, in one place: the DB
+    // trigger already drops today's row on pause/archive, but a habit edit does
+    // not invalidate the `dailyHabits` cache, so a ring the app has stopped
+    // drawing could otherwise survive on the home screen.
+    const active = habits
+      .filter(
+        (habit) =>
+          !habit.isPaused &&
+          !habit.isArchived &&
+          habit.daysActive.includes(date.dayOfWeek),
+      )
+      .sort((a, b) => a.id.localeCompare(b.id));
+
+    return {
+      date: date.toString(),
+      habits: active.slice(0, WIDGET_HABITS_PER_DAY).map((habit) => {
+        const row = dailyHabits.find(
+          (dailyHabit) =>
+            dailyHabit.habitId === habit.id &&
+            dailyHabit.date === date.toString(),
+        );
+
+        return {
+          id: habit.id,
+          emoji: habit.emoji,
+          title: habit.title,
+          // The row's own `steps`, not the habit's, whenever one exists: the
+          // trigger syncs the two on a same-day edit, and trusting the row
+          // keeps the ring in step with the fraction the app is showing.
+          steps: row?.steps ?? habit.steps,
+          stepsComplete: row?.stepsComplete ?? 0,
+        };
+      }),
+    };
+  }),
+  light: toWidgetPalette(palettes.light),
+  dark: toWidgetPalette(palettes.dark),
+});
+
+/** The queue `DexterHabitStepIntent` writes: key → new absolute `stepsComplete`. */
+export type TPendingHabitSteps = Record<string, number>;
+
+/**
+ * The composite key a pending step is filed under.
+ *
+ * Keyed by date *and* habit, because the payload carries four days: a tap made
+ * at 23:59 has to land on the day the widget was showing when it was tapped,
+ * not on whichever day the app happens to be looking at when it drains. Stated
+ * here rather than in both `DexterPendingHabitSteps.swift` and the drain hook,
+ * though Swift necessarily restates the `|` — see the note there.
+ */
+export const pendingHabitStepsKey = (date: string, habitId: string): string =>
+  `${date}|${habitId}`;
+
+/** The inverse of `pendingHabitStepsKey`, or null for a key this build cannot read. */
+export const parsePendingHabitStepsKey = (
+  key: string,
+): { date: string; habitId: string } | null => {
+  const [date, habitId, ...rest] = key.split("|");
+  if (!date || !habitId || rest.length > 0) return null;
+  return { date, habitId };
+};
+
+/**
+ * The queue as the app sees it, from whatever string the App Group held.
+ *
+ * Total rather than throwing, and per-entry rather than all-or-nothing: this
+ * parses a payload written by a *different binary* — the extension's — which a
+ * partial upgrade or a half-finished write can leave malformed. Dropping one
+ * unreadable entry costs a single tap; rejecting the object costs every tap the
+ * user has made since the app was last open.
+ */
+export const parsePendingHabitSteps = (
+  raw: string | null,
+): TPendingHabitSteps => {
+  if (!raw) return {};
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return {};
+  }
+
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return {};
+  }
+
+  return Object.entries(parsed).reduce<TPendingHabitSteps>(
+    (pending, [key, value]) => {
+      if (
+        typeof value === "number" &&
+        Number.isInteger(value) &&
+        value >= 0 &&
+        parsePendingHabitStepsKey(key)
+      ) {
+        pending[key] = value;
+      }
+      return pending;
+    },
+    {},
+  );
+};

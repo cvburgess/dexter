@@ -973,15 +973,18 @@ setting, and no new Swift target: the DEX-48 widget already renders
   `Text(timerInterval:)`. A custom `ProgressViewStyle` is no help either; the
   timer-interval initialisers hand it `fractionCompleted == nil`.
 
-### Widgets (DEX-83)
+### Widgets (DEX-83, DEX-160)
 
 Today's tasks on the home screen (small / medium / large, plus a four-column
 extra-large on iPad showing today and the next three days) and on the lock screen
 (a three-task list and a bare `+` button). Every task circle is stroked in its
-`colors.priority` accent. They live in `src/targets/DexterAlarmWidget/` —
-`DexterWidgetSnapshot.swift` and `DexterTasksWidget.swift` — alongside the DEX-48
-Live Activity, published from `hooks/useWidgetSync.ts` over
-`utils/widgets{,.ios}.ts` and `utils/widgets.shared.ts`.
+`colors.priority` accent. Today's habits on the home screen too (DEX-160), as a
+2×2 grid of `HabitRing`s on small and 4×2 on medium, each ring a button that logs
+a step. They live in `src/targets/DexterAlarmWidget/` —
+`DexterWidgetSnapshot.swift`, `DexterTasksWidget.swift`, and
+`DexterHabitsWidget.swift` — alongside the DEX-48 Live Activity, published from
+`hooks/useWidgetSync.ts` over `utils/widgets{,.ios}.ts` and
+`utils/widgets.shared.ts`.
 
 - **The widget renders a snapshot; it never fetches.** The Supabase session lives
   in AsyncStorage inside the *app* container, which an extension cannot read.
@@ -999,6 +1002,14 @@ Live Activity, published from `hooks/useWidgetSync.ts` over
   fourth day `day(on:)` finds nothing and the widget says "Open Dexter" rather
   than presenting a stale day as today's — which is also why the accessory's
   empty state distinguishes "All done!" from having no snapshot at all.
+- **The habit payload builds *every* day from `habits`, today included, and
+  overlays progress from the daily rows.** Not an accident of sharing code with
+  the future days: `daily_habits` rows are created by an effect in
+  `HabitTracker`, so a user who has not opened the Today tab has none at all, and
+  a widget driven off them would be empty on exactly the mornings it is most
+  worth having. Deriving from `daysActive` instead means the rings are right
+  before the app has run, and the future days — which have no rows and cannot —
+  are the general case rather than a branch.
 - **Both palettes ship, because the extension cannot read
   `preferences.theme_mode`.** `useWidgetSync` calls `resolveTheme` twice and
   SwiftUI picks with `@Environment(\.colorScheme)`. A user who has *forced* light
@@ -1012,21 +1023,46 @@ Live Activity, published from `hooks/useWidgetSync.ts` over
   and the reason the accessory view applies no palette and no container
   background at all.
 - **`Link` works from `.systemMedium` up; `.systemSmall` and the accessories get
-  one `widgetURL` for the whole widget.** That is why the small widget has no `+`
-  button — a platform rule, not an omission. Taps are the only interaction:
-  completing from a widget would have to reimplement the subtask sweep and the
-  recurrence spawn that `useTasks` does in TypeScript.
+  one `widgetURL` for the whole widget.** That is why the task widget's small
+  family has no `+` button — a platform rule, not an omission. It is also why the
+  habit rings are `Button(intent:)` and not links: on a 2×2 grid a `Link` does
+  nothing, so an `AppIntent` is the only interaction a small widget can have at
+  all.
+- **A habit step is an `AppIntent`; a task completion is still a deep link.** The
+  line is not caution, it is the size of the write: an increment is one integer
+  and a wrap at the target, whereas completing a task would have to reimplement
+  the subtask sweep and the recurrence spawn that `useTasks` does in TypeScript.
+  Anything with a cascade stays in the app.
+- **The extension writes to the App Group, never to Supabase — the credentials
+  argument above is unchanged.** `DexterHabitStepIntent` advances the ring and
+  files the new value under `pendingHabitSteps`; `hooks/useHabitWidgetDrain.ts`
+  persists the queue through `upsertDailyHabit` on the next foreground, clearing
+  only the keys that landed so a failed write is retried rather than lost. It
+  upserts because `daily_habits` rows are bootstrapped by an effect in
+  `HabitTracker`, so a step tapped before the Today screen has run that day has
+  no row to update. **Pending is a separate key from the snapshot, and only the
+  extension writes it** — the widget renders `pending ?? snapshot`, which is what
+  stops a republish the app makes for an unrelated reason from reverting a tap
+  that has not drained yet. The accepted cost is one the tasks widget does not
+  pay: a step tapped on the home screen is invisible to web, MCP, and every other
+  device until this app next runs.
 - **One extension hosts everything, and it keeps its alarm-era name.**
   `DexterAlarmWidget` shipped in v2.0.0; renaming the target or its
   `bundleIdentifier` mints a new extension bundle id and provisioning profile for
   nothing a user sees, since the gallery groups by app and labels each entry with
-  its own `configurationDisplayName`. Only `displayName` changed. Nothing added
-  there may collide with `Meta` (see Alarms above).
-- `useWidgetSync` compares the serialized payload against the last one published
+  its own `configurationDisplayName`. Only `displayName` and `frameworks` have
+  changed since. Nothing added there may collide with `Meta` (see Alarms above).
+- `useWidgetSync` compares each serialized payload against the last one published
   and writes nothing when they match — widget reloads are metered, roughly 40-70 a
-  day. It waits on both queries' `isLoading` (publishing placeholders would paint
+  day. It waits on every query's `isLoading` (publishing placeholders would paint
   an empty day in the default palette and then spend a second reload) and clears
-  the key on sign-out, since the home screen is outside the app's own UI.
+  the keys on sign-out, since the home screen is outside the app's own UI.
+- **Tasks and habits are separate keys with separate `reloadTimelines(ofKind:)`
+  calls, because the budget is per kind.** One shared blob would have every task
+  edit spend the habits widget's reloads and every habit tap spend the task
+  widget's; the price is the two palettes riding along twice, which is fourteen
+  short strings. They still share one hook — "is it safe to publish yet" is a
+  single question, and answering it twice is how the two answers drift.
 - The App Group literal lives in `utils/appGroup.ts` and is duplicated in four
   places outside TypeScript; a mismatch is silent, because
   `UserDefaults(suiteName:)` returns nothing rather than failing for a group the
