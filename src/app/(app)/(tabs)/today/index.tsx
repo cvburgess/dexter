@@ -79,7 +79,15 @@ export default function TodayScreen() {
   const [lastToday, setLastToday] = useState(today);
   if (!today.equals(lastToday)) {
     setLastToday(today);
-    if (day.date.equals(lastToday)) setDay({ date: today, direction: 1 });
+    if (day.date.equals(lastToday)) {
+      // Derived rather than hardcoded to 1: the day normally moves forward, but
+      // a device flown east across the date line moves it back, and the
+      // direction drives which way the day-change animation travels.
+      setDay({
+        date: today,
+        direction: Temporal.PlainDate.compare(today, day.date),
+      });
+    }
   }
 
   // Follow a `?date=` that arrives after mount. Navigating here from the Search

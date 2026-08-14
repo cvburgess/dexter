@@ -372,9 +372,9 @@ export function TaskDrawer({
   // routes through `DragScheduleProvider`'s own copy — this drawer renders on
   // small screens too, where there is no provider.
   const { changeSchedule, confirmationProps } = useScheduleChange(updateTask);
+  const today = useToday();
   // The `?? [date]` fallback lives inside the memo: as an inline prop default
   // it would allocate a fresh array every render and defeat it.
-  const today = useToday();
   const tasks = useMemo(
     () =>
       filterTasks(
