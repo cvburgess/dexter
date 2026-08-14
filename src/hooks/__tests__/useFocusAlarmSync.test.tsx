@@ -85,6 +85,9 @@ describe("useFocusAlarmSync", () => {
           durationSeconds: 1500,
           soundName: "echos.wav",
         }),
+        // The reader's `colors.primary`, baked in at schedule time — the theme
+        // resolves to Dexter's own in a test with no ThemeProvider above.
+        expect.stringMatching(/^#[0-9a-f]{6}$/i),
       ),
     );
   });
@@ -162,6 +165,7 @@ describe("useFocusAlarmSync", () => {
     );
     expect(mockAlarms.scheduleFocusAlarm).toHaveBeenLastCalledWith(
       expect.objectContaining({ durationSeconds: 1200 }),
+      expect.any(String),
     );
   });
 

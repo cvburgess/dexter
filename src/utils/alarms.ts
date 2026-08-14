@@ -18,10 +18,12 @@ export const requestAlarmAuthorization = (): Promise<boolean> =>
 
 export const scheduleTaskAlarm = async (
   _alarm: TAlarmSchedule,
+  _tintColor: string,
 ): Promise<void> => {};
 
 export const scheduleFocusAlarm = async (
   _alarm: TFocusAlarm,
+  _tintColor: string,
 ): Promise<void> => {};
 
 export const cancelTaskAlarm = async (_id: string): Promise<void> => {};

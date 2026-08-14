@@ -12,12 +12,7 @@ import {
   scheduleTimerAlarm,
 } from "expo-alarm-kit";
 
-import {
-  ALARM_APP_GROUP,
-  ALARM_TINT_COLOR,
-  TAlarmSchedule,
-  TFocusAlarm,
-} from "./alarms.shared";
+import { ALARM_APP_GROUP, TAlarmSchedule, TFocusAlarm } from "./alarms.shared";
 
 export * from "./alarms.shared";
 
@@ -58,9 +53,19 @@ export const requestAlarmAuthorization = async (): Promise<boolean> => {
  * `soundName` names a file bundled by the `withAlarmSound` plugin (DEX-72); the
  * key is omitted entirely when absent so AlarmKit stays on its default sound
  * rather than trying to resolve an empty name.
+ *
+ * `tintColor` is the reader's current `colors.primary`, and it is **baked in
+ * here rather than tracked**: `AlarmAttributes` carries one colour, fixed when
+ * the alarm is scheduled, and there is no way to repaint an alarm already with
+ * AlarmKit short of cancelling and re-scheduling it. Changing theme therefore
+ * recolours the alarms set *after* the change and leaves the rest — which is why
+ * the tint is deliberately absent from `alarmSignature`. Re-scheduling every
+ * alarm to restate a colour would run twice a day on its own for anyone on
+ * `themeMode: "system"`, where the palette follows the OS scheme.
  */
 export const scheduleTaskAlarm = async (
   alarm: TAlarmSchedule,
+  tintColor: string,
 ): Promise<void> => {
   await cancelAlarm(alarm.id);
   const scheduled = await scheduleAlarm({
@@ -68,7 +73,7 @@ export const scheduleTaskAlarm = async (
     epochSeconds: alarm.epochSeconds,
     title: alarm.title,
     launchAppOnDismiss: true,
-    tintColor: ALARM_TINT_COLOR,
+    tintColor,
     ...(alarm.soundName ? { soundName: alarm.soundName } : {}),
   });
   if (!scheduled) {
@@ -98,7 +103,10 @@ export const scheduleTaskAlarm = async (
  * the block on its own. It costs nothing now and is what a second device would
  * need (DEX-155).
  */
-export const scheduleFocusAlarm = async (alarm: TFocusAlarm): Promise<void> => {
+export const scheduleFocusAlarm = async (
+  alarm: TFocusAlarm,
+  tintColor: string,
+): Promise<void> => {
   await cancelAlarm(alarm.id);
   const scheduled = await scheduleTimerAlarm({
     id: alarm.id,
@@ -106,7 +114,7 @@ export const scheduleFocusAlarm = async (alarm: TFocusAlarm): Promise<void> => {
     title: alarm.title,
     launchAppOnDismiss: true,
     dismissPayload: alarm.id,
-    tintColor: ALARM_TINT_COLOR,
+    tintColor,
     ...(alarm.soundName ? { soundName: alarm.soundName } : {}),
   });
   if (!scheduled) {

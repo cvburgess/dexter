@@ -4,11 +4,11 @@ import { cancelAlarm, scheduleAlarm, scheduleTimerAlarm } from "expo-alarm-kit";
 // exercised regardless of the resolver's platform (see docs/testing.md — the
 // same reason `.web` files are imported by path). `expo-alarm-kit` is mocked in
 // `jest.setup.js`.
-import {
-  ALARM_TINT_COLOR,
-  scheduleFocusAlarm,
-  scheduleTaskAlarm,
-} from "../alarms.ios";
+import { scheduleFocusAlarm, scheduleTaskAlarm } from "../alarms.ios";
+
+/** Stands in for the reader's `colors.primary` — the dim theme's, so a test that
+ * passed only for the brand green would fail. */
+const TINT = "#9fe88d";
 
 const mockScheduleAlarm = scheduleAlarm as jest.MockedFunction<
   typeof scheduleAlarm
@@ -27,7 +27,7 @@ describe("scheduleTaskAlarm", () => {
   });
 
   it("passes the bundled sound filename to AlarmKit", async () => {
-    await scheduleTaskAlarm({ ...alarm, soundName: "echos.wav" });
+    await scheduleTaskAlarm({ ...alarm, soundName: "echos.wav" }, TINT);
 
     expect(mockScheduleAlarm).toHaveBeenCalledWith(
       expect.objectContaining({ id: "task-1", soundName: "echos.wav" }),
@@ -37,24 +37,24 @@ describe("scheduleTaskAlarm", () => {
   it("omits soundName entirely when there is no custom sound", async () => {
     // Passing an empty/undefined name would have AlarmKit resolve nothing; the
     // key has to be absent for it to fall back to `.default`.
-    await scheduleTaskAlarm(alarm);
+    await scheduleTaskAlarm(alarm, TINT);
 
     expect(mockScheduleAlarm).toHaveBeenCalledTimes(1);
     expect(mockScheduleAlarm.mock.calls[0][0]).not.toHaveProperty("soundName");
   });
 
-  it("tints the presentation with the brand colour, not AlarmKit's blue", async () => {
-    await scheduleTaskAlarm(alarm);
+  it("tints the presentation with the theme colour, not AlarmKit's blue", async () => {
+    await scheduleTaskAlarm(alarm, TINT);
 
     expect(mockScheduleAlarm).toHaveBeenCalledWith(
-      expect.objectContaining({ tintColor: ALARM_TINT_COLOR }),
+      expect.objectContaining({ tintColor: TINT }),
     );
   });
 
   it("throws when AlarmKit rejects the alarm", async () => {
     mockScheduleAlarm.mockResolvedValue(false);
 
-    await expect(scheduleTaskAlarm(alarm)).rejects.toThrow("task-1");
+    await expect(scheduleTaskAlarm(alarm, TINT)).rejects.toThrow("task-1");
   });
 });
 
@@ -78,7 +78,7 @@ describe("scheduleFocusAlarm", () => {
     // paused alarm's state but never its elapsed time, so a lock-screen pause
     // could only be mirrored into `remaining_seconds` as a guess. Omitting them
     // relies on `patches/expo-alarm-kit+0.1.11.patch`.
-    await scheduleFocusAlarm(focusAlarm);
+    await scheduleFocusAlarm(focusAlarm, TINT);
 
     const options = mockScheduleTimerAlarm.mock.calls[0][0];
     expect(options).not.toHaveProperty("pauseButtonLabel");
@@ -86,7 +86,7 @@ describe("scheduleFocusAlarm", () => {
   });
 
   it("hands AlarmKit the remaining duration, not the fire instant", async () => {
-    await scheduleFocusAlarm(focusAlarm);
+    await scheduleFocusAlarm(focusAlarm, TINT);
 
     expect(mockScheduleTimerAlarm).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -100,7 +100,7 @@ describe("scheduleFocusAlarm", () => {
   });
 
   it("cancels before scheduling so a resume replaces rather than duplicates", async () => {
-    await scheduleFocusAlarm(focusAlarm);
+    await scheduleFocusAlarm(focusAlarm, TINT);
 
     expect(mockCancelAlarm).toHaveBeenCalledWith("block-1");
     expect(mockCancelAlarm.mock.invocationCallOrder[0]).toBeLessThan(
@@ -109,23 +109,25 @@ describe("scheduleFocusAlarm", () => {
   });
 
   it("passes the bundled sound filename, and omits the key without one", async () => {
-    await scheduleFocusAlarm({ ...focusAlarm, soundName: "echos.wav" });
+    await scheduleFocusAlarm({ ...focusAlarm, soundName: "echos.wav" }, TINT);
     expect(mockScheduleTimerAlarm).toHaveBeenCalledWith(
       expect.objectContaining({ soundName: "echos.wav" }),
     );
 
     mockScheduleTimerAlarm.mockClear();
-    await scheduleFocusAlarm(focusAlarm);
+    await scheduleFocusAlarm(focusAlarm, TINT);
     expect(mockScheduleTimerAlarm.mock.calls[0][0]).not.toHaveProperty(
       "soundName",
     );
   });
 
-  it("tints the countdown the same as a task alarm — the two stay in step", async () => {
-    await scheduleFocusAlarm(focusAlarm);
+  it("tints the countdown from the same colour a task alarm takes", async () => {
+    // The two features are kept in step deliberately: one sound preference, one
+    // tint, both read off the reader's theme at schedule time.
+    await scheduleFocusAlarm(focusAlarm, TINT);
 
     expect(mockScheduleTimerAlarm).toHaveBeenCalledWith(
-      expect.objectContaining({ tintColor: ALARM_TINT_COLOR }),
+      expect.objectContaining({ tintColor: TINT }),
     );
   });
 
@@ -133,6 +135,8 @@ describe("scheduleFocusAlarm", () => {
     // A swallowed `false` would leave the user trusting a block that won't ring.
     mockScheduleTimerAlarm.mockResolvedValue(false);
 
-    await expect(scheduleFocusAlarm(focusAlarm)).rejects.toThrow("block-1");
+    await expect(scheduleFocusAlarm(focusAlarm, TINT)).rejects.toThrow(
+      "block-1",
+    );
   });
 });

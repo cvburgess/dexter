@@ -10,26 +10,9 @@ import { Platform } from "react-native";
 import { TTask } from "@/api/tasks";
 import { liveRemainingSeconds, TFocusAnchor } from "@/utils/focusBlocks";
 import { isCompletionStatus } from "@/utils/taskFilters";
-import { themes } from "@/utils/theme";
 
 /** The App Group shared with the AlarmKit dismiss intent (see `app.json`). */
 export const ALARM_APP_GROUP = "group.com.dexterplanner";
-
-/**
- * What AlarmKit tints its lock screen and Dynamic Island presentations with, for
- * task alarms and focus blocks alike — without it the module defaults to a
- * generic `Color.blue` that belongs to no theme.
- *
- * **Pinned to the brand theme rather than the reader's.** A tint is baked into
- * the alarm when it is scheduled, so tracking `useTheme().colors.primary` would
- * mean re-scheduling every alarm on every theme change — including
- * automatically, twice a day, for anyone on `themeMode: "system"`, since the
- * active palette flips with the OS scheme. Forty native calls to restate a
- * colour. This is also the one surface the app doesn't own: it renders over the
- * user's wallpaper, next to other apps' alarms, where carrying Dexter's colour
- * identifies it the way the app icon does.
- */
-export const ALARM_TINT_COLOR = themes.dexter.colors.primary;
 
 /**
  * Whether task alarms can actually ring on this platform. AlarmKit is iOS-only,

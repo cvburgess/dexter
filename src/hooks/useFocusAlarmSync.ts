@@ -10,6 +10,7 @@ import {
   getScheduledAlarmIds,
   scheduleFocusAlarm,
 } from "@/utils/alarms";
+import { useTheme } from "@/utils/theme";
 
 import { useAlarmSoundPreference } from "./usePreferences";
 
@@ -34,6 +35,10 @@ export const useFocusAlarmSync = (block: TFocusBlock | null): void => {
   const { alarmSound, isLoading: preferencesLoading } =
     useAlarmSoundPreference();
   const soundName = alarmSoundFileName(alarmSound);
+
+  // Baked in at schedule time and deliberately absent from the signature, the
+  // same bargain `useAlarmSync` takes — see `scheduleFocusAlarm`.
+  const { colors } = useTheme();
 
   // What we last scheduled, by id — AlarmKit reports only ids back, so this is
   // how a still-correct alarm is told apart from one that needs replacing. At
@@ -111,7 +116,7 @@ export const useFocusAlarmSync = (block: TFocusBlock | null): void => {
       if (scheduled.current.get(desired.id) === signature) return;
 
       try {
-        await scheduleFocusAlarm(desired);
+        await scheduleFocusAlarm(desired, colors.primary);
         scheduled.current.set(desired.id, signature);
       } catch (error) {
         // Left unrecorded so the next run retries. The alert matches
@@ -141,5 +146,6 @@ export const useFocusAlarmSync = (block: TFocusBlock | null): void => {
     title,
     soundName,
     preferencesLoading,
+    colors.primary,
   ]);
 };

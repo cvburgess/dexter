@@ -10,6 +10,8 @@ import {
   scheduleTaskAlarm,
 } from "@/utils/alarms";
 
+import { useTheme } from "@/utils/theme";
+
 import { useLiveFocusBlockId } from "./useFocusBlocks";
 import { useAlarmSoundPreference } from "./usePreferences";
 import { useTasks } from "./useTasks";
@@ -31,6 +33,12 @@ export const useAlarmSync = (): void => {
   const { alarmSound, isLoading: preferencesLoading } =
     useAlarmSoundPreference();
   const soundName = alarmSoundFileName(alarmSound);
+
+  // Baked into each alarm as it is scheduled, and deliberately *not* part of
+  // `alarmSignature` — see `scheduleTaskAlarm`. A theme change re-runs this
+  // effect and finds every signature unchanged, so it recolours nothing already
+  // scheduled and costs no native calls.
+  const { colors } = useTheme();
 
   // The running focus block's timer is an alarm this reconcile does not own
   // (DEX-156), and ids carry no marker of which kind they are — so it has to be
@@ -90,7 +98,7 @@ export const useAlarmSync = (): void => {
         }),
         ...toSchedule.map(async (alarm) => {
           try {
-            await scheduleTaskAlarm(alarm);
+            await scheduleTaskAlarm(alarm, colors.primary);
             scheduled.current.set(alarm.id, alarmSignature(alarm));
           } catch (error) {
             // Leave it unrecorded so a later reconcile retries. Flag the
@@ -125,5 +133,6 @@ export const useAlarmSync = (): void => {
     soundName,
     focusBlockLoading,
     protectedIds,
+    colors.primary,
   ]);
 };
