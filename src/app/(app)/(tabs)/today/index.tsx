@@ -7,6 +7,7 @@ import { SmallScreenToday } from "@/components/SmallScreenToday";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTasks } from "@/hooks/useTasks";
+import { useToday } from "@/hooks/useToday";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
 import { backlogAttentionFilter } from "@/utils/taskFilters";
 import { parseDayLink } from "@/utils/todayRoute";
@@ -36,8 +37,9 @@ export default function TodayScreen() {
     n?: string | string[];
   }>();
   const link = parseDayLink(params);
+  const today = useToday();
   const [day, setDay] = useState<TDayState>(() => ({
-    date: link?.date ?? Temporal.Now.plainDateISO(),
+    date: link?.date ?? today,
     direction: 0,
   }));
   // So "New Task" opened from this tab defaults its schedule to the viewed day.
@@ -51,8 +53,8 @@ export default function TodayScreen() {
   // it costs no extra fetch.
   const [allTasks] = useTasks();
   const attentionFilter = useMemo(
-    () => backlogAttentionFilter(allTasks, Temporal.Now.plainDateISO()),
-    [allTasks],
+    () => backlogAttentionFilter(allTasks, today),
+    [allTasks, today],
   );
 
   const changeDate = (next: Temporal.PlainDate) =>
@@ -66,6 +68,19 @@ export default function TodayScreen() {
       const next = date.add({ days });
       return { date: next, direction: Temporal.PlainDate.compare(next, date) };
     });
+
+  // Follow the day itself changing under the screen — an app foregrounded after
+  // midnight, or left open across it (DEX-161). Only when the screen is showing
+  // the day that just stopped being today: a user who paged to next Tuesday
+  // meant it, and rolling over is no reason to take that away.
+  //
+  // Adjusted during render for the same reason the link below is, and *before*
+  // it so a link arriving in the same pass still wins.
+  const [lastToday, setLastToday] = useState(today);
+  if (!today.equals(lastToday)) {
+    setLastToday(today);
+    if (day.date.equals(lastToday)) setDay({ date: today, direction: 1 });
+  }
 
   // Follow a `?date=` that arrives after mount. Navigating here from the Search
   // tab re-renders this screen with new params rather than remounting it, so the

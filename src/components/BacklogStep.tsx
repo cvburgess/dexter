@@ -14,6 +14,7 @@ import {
 } from "@/components/HeroLines";
 import { TaskDrawer } from "@/components/TaskDrawer";
 import { useTasks } from "@/hooks/useTasks";
+import { useToday } from "@/hooks/useToday";
 import {
   BACKLOG_COUNT_ORDER,
   backlogCounts,
@@ -116,13 +117,10 @@ export function BacklogStep({ date }: TBacklogStepProps) {
   // under it would be worse than no hero. The *scope* is the ritual's day,
   // though — the same `[date]` the drawer defaults to — so a task scheduled
   // onto today's ritual leaves both at once.
+  const today = useToday();
   const counts = useMemo(
-    () =>
-      backlogCounts(
-        selectBacklogTasks(allTasks, [date]),
-        Temporal.Now.plainDateISO(),
-      ),
-    [allTasks, date],
+    () => backlogCounts(selectBacklogTasks(allTasks, [date]), today),
+    [allTasks, date, today],
   );
   const total = counts.leftBehind + counts.overdue + counts.dueSoon;
 

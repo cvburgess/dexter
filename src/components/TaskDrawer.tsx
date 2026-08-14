@@ -18,6 +18,7 @@ import { useGoals } from "@/hooks/useGoals";
 import { useLists } from "@/hooks/useLists";
 import { useScheduleChange } from "@/hooks/useScheduleChange";
 import { useTasks } from "@/hooks/useTasks";
+import { useToday } from "@/hooks/useToday";
 import { searchTerms } from "@/utils/searchHighlight";
 import {
   filterTasks,
@@ -373,14 +374,15 @@ export function TaskDrawer({
   const { changeSchedule, confirmationProps } = useScheduleChange(updateTask);
   // The `?? [date]` fallback lives inside the memo: as an inline prop default
   // it would allocate a fresh array every render and defeat it.
+  const today = useToday();
   const tasks = useMemo(
     () =>
       filterTasks(
         selectBacklogTasks(allTasks, daysOnScreen ?? [date]),
         filterId,
-        Temporal.Now.plainDateISO(),
+        today,
       ),
-    [allTasks, date, daysOnScreen, filterId],
+    [allTasks, date, daysOnScreen, filterId, today],
   );
 
   const groups = useMemo(

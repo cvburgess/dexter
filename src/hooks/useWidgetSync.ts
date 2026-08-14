@@ -1,4 +1,3 @@
-import { Temporal } from "@js-temporal/polyfill";
 import { useEffect, useRef } from "react";
 
 import { resolveTheme } from "@/utils/theme";
@@ -11,6 +10,7 @@ import {
 import { useAuth } from "./useAuth";
 import { useThemePreferences } from "./usePreferences";
 import { useTasks } from "./useTasks";
+import { useToday } from "./useToday";
 
 /**
  * Publishes the snapshot the iOS widget extension renders from (DEX-83), the
@@ -23,6 +23,12 @@ import { useTasks } from "./useTasks";
  */
 export const useWidgetSync = (): void => {
   const [tasks, { isLoading }] = useTasks();
+  // The day the snapshot is sliced from, subscribed so the rollover re-slices
+  // it (DEX-161). The extension's own timeline already rolls over at midnight
+  // (`utils/widgets.shared.ts`), so this only matters for the hours *after* it
+  // — an app foregrounded at 9am would otherwise keep publishing yesterday's
+  // three-day window until a task changed.
+  const today = useToday();
   const { initializing, session } = useAuth();
   const {
     themeMode,
@@ -84,7 +90,7 @@ export const useWidgetSync = (): void => {
     if (isLoading || preferencesLoading) return;
 
     const themePreferences = { themeMode, lightTheme, darkTheme };
-    const snapshot = buildWidgetSnapshot(tasks, Temporal.Now.plainDateISO(), {
+    const snapshot = buildWidgetSnapshot(tasks, today, {
       light: resolveTheme(themePreferences, "light").colors,
       dark: resolveTheme(themePreferences, "dark").colors,
     });
@@ -98,6 +104,7 @@ export const useWidgetSync = (): void => {
     published.current = serialized;
   }, [
     tasks,
+    today,
     isLoading,
     initializing,
     isSignedIn,
