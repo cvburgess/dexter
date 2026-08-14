@@ -119,7 +119,7 @@ private struct DexterTaskRow: View {
     var font: Font = .caption
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
             DexterTaskCircle(color: palette.color(for: task.priority))
                 // A circle has no baseline of its own, so it aligns to the top
                 // of the row and drifts up off a two-line title without this.
@@ -316,7 +316,7 @@ private struct DexterTasksAccessoryView: View {
         VStack(alignment: .leading, spacing: 2) {
             if let day, !day.tasks.isEmpty {
                 ForEach(Array(day.tasks.prefix(3))) { task in
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Image(systemName: "circle")
                             .font(.system(size: 9))
                         Text(task.title)
@@ -430,13 +430,21 @@ struct DexterAddTaskWidget: Widget {
             kind: "DexterAddTaskWidget",
             provider: DexterAddTaskProvider()
         ) { _ in
-            Image(systemName: "plus")
-                .font(.system(size: 22, weight: .semibold))
-                // The standard translucent disc behind a circular complication.
-                // Without it the glyph floats on bare wallpaper and reads as
-                // part of the photo rather than as a button.
-                .containerBackground(for: .widget) { AccessoryWidgetBackground() }
-                .widgetURL(dexterNewTaskURL)
+            ZStack {
+                // The ring is what makes the glyph read as a button rather than
+                // as a mark on the wallpaper. `strokeBorder` insets the line so
+                // it stays inside the slot's circular bounds instead of being
+                // clipped in half by them.
+                Circle().strokeBorder(lineWidth: 2)
+                Image(systemName: "plus")
+                    .font(.system(size: 20, weight: .semibold))
+            }
+            .padding(1)
+            // The standard translucent disc behind a circular complication.
+            // Without it the glyph floats on bare wallpaper and reads as part
+            // of the photo rather than as a button.
+            .containerBackground(for: .widget) { AccessoryWidgetBackground() }
+            .widgetURL(dexterNewTaskURL)
         }
         .configurationDisplayName("New Task")
         .description("Add a task without unlocking.")

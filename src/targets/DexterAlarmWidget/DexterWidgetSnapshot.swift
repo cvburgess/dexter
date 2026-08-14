@@ -19,6 +19,12 @@ let dexterAppGroup = "group.com.dexterplanner"
 /// The key `writeWidgetSnapshot` stores under.
 let dexterSnapshotKey = "todaySnapshot"
 
+/// Indexes into `DexterWidgetPalette.priority`, mirroring `ETaskPriority`
+/// (`utils/taskPriority.ts`). Only the two the widget has to tell apart are
+/// named; see `DexterWidgetPalette.color(for:)`.
+private let dexterNeitherPriority = 3
+private let dexterUnprioritizedPriority = 4
+
 struct DexterWidgetTask: Decodable, Identifiable {
     let id: String
     let title: String
@@ -47,9 +53,22 @@ struct DexterWidgetPalette: Decodable {
     /// The accent for a task's priority, falling back to the theme's ink for an
     /// index this build doesn't know. A ring in the wrong colour is a far
     /// smaller failure than a crash on the home screen.
+    ///
+    /// `NEITHER` is remapped to `UNPRIORITIZED`, because on all five themes
+    /// `priority[NEITHER]` *is* the theme's `background` (both are daisyUI's
+    /// base-100) — so a ring drawn in it is not merely low-contrast, it is
+    /// invisible. The app never meets this: its cards fill with `priorityMuted`,
+    /// whose `NEITHER` entry is replaced by `surfaceSunken` for exactly the same
+    /// reason (`mutePriorities` in `utils/theme.ts`). This is the ring-shaped
+    /// counterpart of that substitution, and it lands on the theme's ink —
+    /// already what "no priority chosen" looks like, which is the right
+    /// neighbour for "explicitly neither important nor urgent".
     func color(for priority: Int) -> Color {
-        guard priority >= 0, priority < self.priority.count,
-              let color = dexterColor(hex: self.priority[priority])
+        let index = priority == dexterNeitherPriority
+            ? dexterUnprioritizedPriority
+            : priority
+        guard index >= 0, index < self.priority.count,
+              let color = dexterColor(hex: self.priority[index])
         else { return textColor }
         return color
     }

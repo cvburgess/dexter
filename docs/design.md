@@ -49,9 +49,13 @@ a task card), `priorityContent[i]` (text readable on top of `priority[i]`).
 - **`priorityMuted` is pre-blended over `background` at 80%, at module load.**
   A card composited at 80% alpha at render time took on whatever pane was behind
   it, so the same task read as two colors depending on its column.
-- **`priorityMuted[NEITHER]` is `surfaceSunken` outright, not a blend**
-  (DEX-114): `priority[NEITHER]` is `base-100`, so blending it dissolves the
-  card into the pane.
+- **`priority[NEITHER]` is `base-100` — the same value as `background` — so
+  anything that paints it onto a Dexter surface disappears.** Every consumer has
+  to substitute: `priorityMuted[NEITHER]` is `surfaceSunken` outright rather than
+  a blend, because blending dissolved the card into the pane (DEX-114), and the
+  widget's priority ring falls through to the `UNPRIORITIZED` entry, because a
+  stroke in it was not low-contrast but invisible (DEX-83). Reach for
+  `priority[NEITHER]` directly and you have drawn nothing.
 - **`priority[UNPRIORITIZED]` is always the theme's `text`**, never daisyUI's
   `neutral`. The unprioritized card and the active nav tile are the same mark —
   a block of ink — and `neutral` is a dark swatch on every daisyUI theme, which
