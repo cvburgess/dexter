@@ -32,14 +32,18 @@ const block = (overrides: Partial<TFocusBlock> = {}): TFocusBlock =>
     ...overrides,
   }) as TFocusBlock;
 
+const cancelFocusBlock = jest.fn();
 const finishFocusBlock = jest.fn();
+
+/** Stands in for `useConfirmation`'s `confirm`, which the host owns. */
+const confirmStop = jest.fn(() => Promise.resolve(true));
 
 /** Seeds what `useLiveFocusBlock` hands the publisher. */
 const setLiveBlock = (live: TFocusBlock | null) => {
   mockUseLiveFocusBlock.mockReturnValue([
     live,
     {
-      cancelFocusBlock: jest.fn(),
+      cancelFocusBlock,
       finishFocusBlock,
       isLoading: false,
       pauseFocusBlock: jest.fn(),
@@ -53,6 +57,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.useFakeTimers();
   jest.setSystemTime(START);
+  confirmStop.mockResolvedValue(true);
   setLiveBlock(null);
 });
 
@@ -72,7 +77,7 @@ describe("the published snapshot", () => {
     const live = block();
     setLiveBlock(live);
 
-    renderHook(() => usePublishFocusTimer());
+    renderHook(() => usePublishFocusTimer(confirmStop));
     const { result } = renderHook(() => useFocusTimer());
 
     expect(result.current.block).toBe(live);
@@ -82,7 +87,7 @@ describe("the published snapshot", () => {
   // account that just left.
   it("clears when the publisher unmounts", () => {
     setLiveBlock(block());
-    const publisher = renderHook(() => usePublishFocusTimer());
+    const publisher = renderHook(() => usePublishFocusTimer(confirmStop));
     const { result } = renderHook(() => useFocusTimer());
 
     publisher.unmount();
@@ -97,7 +102,7 @@ describe("the published snapshot", () => {
     const live = block();
     setLiveBlock(live);
 
-    const publisher = renderHook(() => usePublishFocusTimer());
+    const publisher = renderHook(() => usePublishFocusTimer(confirmStop));
     let renders = 0;
     renderHook(() => {
       renders += 1;
@@ -112,10 +117,46 @@ describe("the published snapshot", () => {
   });
 });
 
+// Stopping records the time the block actually ran and there is no un-cancel,
+// so every surface that offers it — the bar, the accessory, the task menu —
+// goes through the one prompt the host renders.
+describe("stopping a block", () => {
+  it("asks first, and stops once confirmed", async () => {
+    const live = block();
+    setLiveBlock(live);
+    renderHook(() => usePublishFocusTimer(confirmStop));
+    const { result } = renderHook(() => useFocusTimer());
+
+    await act(() => {
+      result.current.actions.cancelFocusBlock(live);
+      return Promise.resolve();
+    });
+
+    expect(confirmStop).toHaveBeenCalledTimes(1);
+    expect(cancelFocusBlock).toHaveBeenCalledWith(live);
+  });
+
+  it("leaves the block running when the prompt is declined", async () => {
+    confirmStop.mockResolvedValue(false);
+    const live = block();
+    setLiveBlock(live);
+    renderHook(() => usePublishFocusTimer(confirmStop));
+    const { result } = renderHook(() => useFocusTimer());
+
+    await act(() => {
+      result.current.actions.cancelFocusBlock(live);
+      return Promise.resolve();
+    });
+
+    expect(confirmStop).toHaveBeenCalledTimes(1);
+    expect(cancelFocusBlock).not.toHaveBeenCalled();
+  });
+});
+
 describe("completing a block when its time runs out", () => {
   it("writes complete once the countdown reaches zero", () => {
     setLiveBlock(block({ remainingSeconds: 60 }));
-    renderHook(() => usePublishFocusTimer());
+    renderHook(() => usePublishFocusTimer(confirmStop));
 
     expect(finishFocusBlock).not.toHaveBeenCalled();
 
@@ -132,7 +173,7 @@ describe("completing a block when its time runs out", () => {
   // was still active.
   it("writes complete exactly once, not once per due signal", () => {
     setLiveBlock(block({ remainingSeconds: 60 }));
-    renderHook(() => usePublishFocusTimer());
+    renderHook(() => usePublishFocusTimer(confirmStop));
 
     act(() => {
       jest.setSystemTime(START + 60_000);
@@ -152,7 +193,7 @@ describe("completing a block when its time runs out", () => {
     jest.setSystemTime(START + 3_600_000);
     setLiveBlock(block({ remainingSeconds: 60 }));
 
-    renderHook(() => usePublishFocusTimer());
+    renderHook(() => usePublishFocusTimer(confirmStop));
 
     expect(finishFocusBlock).toHaveBeenCalledTimes(1);
   });
@@ -163,7 +204,7 @@ describe("completing a block when its time runs out", () => {
     setLiveBlock(
       block({ status: "paused", remainingSeconds: 60, resumedAt: null }),
     );
-    renderHook(() => usePublishFocusTimer());
+    renderHook(() => usePublishFocusTimer(confirmStop));
 
     act(() => {
       jest.setSystemTime(START + 86_400_000);
@@ -189,7 +230,7 @@ describe("completing a block when its time runs out", () => {
       callbacks?.onError?.(new Error("offline")),
     );
     setLiveBlock(block({ remainingSeconds: 60 }));
-    renderHook(() => usePublishFocusTimer());
+    renderHook(() => usePublishFocusTimer(confirmStop));
 
     act(() => {
       jest.setSystemTime(START + 60_000);
@@ -203,7 +244,7 @@ describe("completing a block when its time runs out", () => {
   });
 
   it("does nothing at all with no block", () => {
-    renderHook(() => usePublishFocusTimer());
+    renderHook(() => usePublishFocusTimer(confirmStop));
 
     act(() => {
       jest.advanceTimersByTime(86_400_000);

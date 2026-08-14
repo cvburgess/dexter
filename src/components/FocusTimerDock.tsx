@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FocusTimerBar } from "@/components/FocusTimerBar";
 import { ANDROID_TAB_BAR_HEIGHT } from "@/utils/breakpoints";
 import { IS_TABLET } from "@/utils/deviceType";
+import { useTheme } from "@/utils/theme";
 
 /**
  * The focus timer bar for **Android phones**, and only those (DEX-49).
@@ -22,13 +23,20 @@ import { IS_TABLET } from "@/utils/deviceType";
  */
 export function FocusTimerDock() {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
 
   if (Platform.OS !== "android" || IS_TABLET) return null;
 
   return (
     <View
       pointerEvents="box-none"
-      style={[styles.dock, { bottom: ANDROID_TAB_BAR_HEIGHT + insets.bottom }]}
+      style={[
+        styles.dock,
+        {
+          bottom: ANDROID_TAB_BAR_HEIGHT + insets.bottom,
+          paddingHorizontal: theme.space.md,
+        },
+      ]}
     >
       <FocusTimerBar />
     </View>
@@ -37,6 +45,7 @@ export function FocusTimerDock() {
 
 const styles = StyleSheet.create({
   dock: {
+    alignItems: "center",
     left: 0,
     position: "absolute",
     right: 0,

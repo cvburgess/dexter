@@ -8,6 +8,7 @@ import {
 import { AppState } from "react-native";
 
 import { TFocusBlock } from "@/api/focusBlocks";
+import type { ConfirmOptions } from "@/hooks/useConfirmation";
 import { liveRemainingSeconds } from "@/utils/focusBlocks";
 
 import { useLiveFocusBlock } from "./useFocusBlocks";
@@ -125,11 +126,15 @@ export const useFocusCountdown = (block: TFocusBlock | null): number => {
  * Publishes the live block to the store above, and owns the write that ends a
  * block when its time runs out.
  *
- * **Call this exactly once**, from `app/(app)/_layout.tsx` — inside the
+ * **Call this exactly once**, from `components/FocusTimerHost.tsx` — inside the
  * providers, alive on every tab, and outside any single tab screen, so the
  * completion write neither depends on which screen is focused nor runs twice.
+ * `confirm` comes from the host's `useConfirmation`, which renders the one
+ * `ConfirmationModal` the stop prompt needs.
  */
-export const usePublishFocusTimer = (): void => {
+export const usePublishFocusTimer = (
+  confirm: (options: ConfirmOptions) => Promise<boolean>,
+): void => {
   const [
     block,
     {
@@ -146,6 +151,7 @@ export const usePublishFocusTimer = (): void => {
   // so the store gets stable wrappers that delegate through this ref instead.
   const latest = useRef({
     cancelFocusBlock,
+    confirm,
     finishFocusBlock,
     pauseFocusBlock,
     resumeFocusBlock,
@@ -155,6 +161,7 @@ export const usePublishFocusTimer = (): void => {
   useEffect(() => {
     latest.current = {
       cancelFocusBlock,
+      confirm,
       finishFocusBlock,
       pauseFocusBlock,
       resumeFocusBlock,
@@ -168,7 +175,25 @@ export const usePublishFocusTimer = (): void => {
   // they are actually called, which is always after render.
   const actions = useMemo<TFocusTimerActions>(
     () => ({
-      cancelFocusBlock: (block) => latest.current.cancelFocusBlock(block),
+      // Stopping asks first, everywhere it is offered — the bar, the accessory,
+      // and the task menu all route through here. A block records the time it
+      // actually ran and there is no un-cancel, so a mis-tap twenty minutes in
+      // costs the session. Hosting the prompt with the publisher rather than at
+      // each call site is what lets the task menu offer this at all: `MoreMenu`
+      // renders once per card and has nowhere of its own to put a modal.
+      cancelFocusBlock: (block) => {
+        void latest.current
+          .confirm({
+            title: "Stop focus block?",
+            message:
+              "This block won't count toward today's focus blocks. You can start another one whenever you like.",
+            confirmLabel: "Stop",
+            destructive: true,
+          })
+          .then((confirmed) => {
+            if (confirmed) latest.current.cancelFocusBlock(block);
+          });
+      },
       pauseFocusBlock: (block) => latest.current.pauseFocusBlock(block),
       resumeFocusBlock: (block) => latest.current.resumeFocusBlock(block),
       startFocusBlock: (taskId) => latest.current.startFocusBlock(taskId),

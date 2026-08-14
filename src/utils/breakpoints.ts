@@ -33,6 +33,13 @@ export const NAV_RAIL_WIDTH = 76;
 export const NAV_TILE_SIZE = 48;
 export const NAV_ICON_SIZE = 26;
 
+// Max width (in dp) of the floating focus timer bar (DEX-49). It floats over
+// the content rather than sitting in the layout, so it is sized to be readable
+// at a glance and deliberately not to span a desktop window — the same
+// now-playing proportions Apple Music's player uses. A reading measure, like
+// `SWIPEABLE_PAGE_MAX_WIDTH`, not a threshold where a layout changes shape.
+export const FOCUS_TIMER_MAX_WIDTH = 440;
+
 // Height (in dp) of Android's navigation bar — Material 3's fixed 80dp, which
 // is what `FocusTimerDock` anchors the focus timer above (DEX-49).
 //

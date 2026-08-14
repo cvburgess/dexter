@@ -851,15 +851,30 @@ transition writes both halves of the anchor or is rejected.
   all. Offering "start" there would silently cancel a block the user may be
   twenty minutes into, and `MoreMenu` renders no confirmation.
 
-Four surfaces draw the same bar, because no one mount point reaches them all:
-iOS phones get `TabBarAccessory` in the tab bar's bottom accessory (sharing it
-with "＋ New Task"), tablets and web get `FocusTimerBar` as a flex sibling in
-`AppShell`, and Android phones — which have no accessory, rail, or dock — get
-`FocusTimerDock`, the one absolutely-positioned overlay in the feature. Without
-it, an Android phone could start a block and never stop it.
+Surfaces, because no one mount point reaches them all: iOS phones get
+`TabBarAccessory` in the tab bar's bottom accessory, which a running block takes
+over from "＋ New Task" entirely; tablets and web get `FocusTimerBar`; Android
+phones — no accessory, rail, or dock — get `FocusTimerDock`, without which they
+could start a block and never stop it.
 
-`usePublishFocusTimer` is mounted once in `app/(app)/_layout.tsx` and owns the
-completion write: one `setTimeout` for the whole block plus an `AppState`
+**The bar floats over the content rather than sitting in the layout**, the way
+Apple Music's player does. It was a flex sibling of the tab content first, which
+reserved nothing when absent but moved the app's entire bottom edge the moment a
+block started — the layout shifting under a list is a worse cost than a capsule
+covering the last few pixels of one. It centres itself and stops at
+`FOCUS_TIMER_MAX_WIDTH`; each mount decides only where the bottom edge is
+(`AppShell` inside `content`, so on narrow web it lands above the dock rather
+than over it), and every wrapper is `pointerEvents="box-none"` so only the
+capsule takes touches.
+
+**Stopping asks first**, from all three surfaces. A block records the time it
+actually ran and there is no un-cancel, so a mis-tap twenty minutes in costs the
+session. The prompt is hosted once in `FocusTimerHost` rather than per call site:
+the accessory renders twice (it would ask twice) and `MoreMenu` renders once per
+task card.
+
+`usePublishFocusTimer` is mounted once, by `FocusTimerHost` in
+`app/(app)/_layout.tsx`, and owns the completion write: one `setTimeout` for the whole block plus an `AppState`
 listener, since JS is frozen while suspended and the timeout fires late on
 resume. A block found already past due at mount is completed on the spot — the
 app-was-closed path, and the whole of the rule. There is deliberately **no grace

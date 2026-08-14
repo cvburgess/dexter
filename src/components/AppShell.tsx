@@ -3,6 +3,7 @@ import { StyleSheet, View } from "react-native";
 
 import { NavDock, NavRail } from "@/components/AppNav";
 import { FocusTimerBar } from "@/components/FocusTimerBar";
+import { useTheme } from "@/utils/theme";
 
 /**
  * The app's non-native navigation shell: the classic JS `Tabs` navigator with
@@ -26,6 +27,8 @@ import { FocusTimerBar } from "@/components/FocusTimerBar";
  * each tab's own child `Stack`, so they stay off here.
  */
 export function AppShell({ rail }: { rail: boolean }) {
+  const theme = useTheme();
+
   return (
     <View style={[styles.shell, { flexDirection: rail ? "row" : "column" }]}>
       {rail ? <NavRail /> : null}
@@ -46,11 +49,19 @@ export function AppShell({ rail }: { rail: boolean }) {
           <Tabs.Screen name="settings" />
           <Tabs.Screen name="search" />
         </Tabs>
-        {/* A flex sibling of the tab content for the same reason the rail and
-            dock are: no screen has to reserve space for it, and it can't cover
-            the last card in a list. Renders `null` unless a block is running,
-            and on narrow web it lands directly above the dock (DEX-49). */}
-        <FocusTimerBar />
+        {/* Floats over the tab content rather than sitting beside it, the way
+            Apple Music's player does — a block is usually absent, and giving
+            every screen a permanent strip for it would move the app's bottom
+            edge whenever one starts. Inside `content`, so on narrow web it
+            lands directly above the dock rather than over it. `box-none` lets
+            everything but the capsule itself keep receiving touches, and the
+            bar renders `null` with no live block (DEX-49). */}
+        <View
+          pointerEvents="box-none"
+          style={[styles.timer, { padding: theme.space.md }]}
+        >
+          <FocusTimerBar />
+        </View>
       </View>
       {rail ? null : <NavDock />}
     </View>
@@ -63,5 +74,12 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  timer: {
+    alignItems: "center",
+    bottom: 0,
+    left: 0,
+    position: "absolute",
+    right: 0,
   },
 });
