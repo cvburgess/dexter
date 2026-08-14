@@ -236,12 +236,12 @@ export type TFocusAlarm = TAlarmSchedule & { durationSeconds: number };
  * The native timer a focus block should have right now, or `null` for no timer
  * at all — the block is paused, ended, or too near its end to schedule.
  *
- * **Signed by `epochSeconds`, not `durationSeconds`.** The duration falls by a
- * second every time this is called; the fire instant moves only when the block
- * actually transitions. Keying the reconcile's cache on the instant is what
- * stops a re-render from tearing down and rebuilding a perfectly good alarm
- * every second — which would also mean an alarm that is, briefly, not scheduled
- * at all, once a second, forever.
+ * **`epochSeconds` identifies the alarm; `durationSeconds` is what AlarmKit is
+ * handed.** The two say the same thing, but only the first is stable: the
+ * duration shrinks with every call, where the end instant is fixed by the anchor
+ * and moves only when the block transitions. That is why {@link alarmSignature}
+ * can be reused unchanged — an alarm recomputed a minute later still compares
+ * equal to the one already scheduled.
  *
  * A block inside its last minute gets no alarm: AlarmKit's floor is 60 seconds.
  * The in-app timeout still ends it on time whenever the app is open, so the only

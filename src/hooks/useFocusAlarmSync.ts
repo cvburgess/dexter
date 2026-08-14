@@ -7,7 +7,6 @@ import {
   alarmSoundFileName,
   cancelTaskAlarm,
   focusAlarmFor,
-  getScheduledAlarmIds,
   scheduleFocusAlarm,
 } from "@/utils/alarms";
 
@@ -95,17 +94,12 @@ export const useFocusAlarmSync = (block: TFocusBlock | null): void => {
 
       if (!desired) return;
 
-      // Re-check against what AlarmKit actually holds, not just the cache: on a
-      // fresh launch the cache is empty but the alarm may well have survived
-      // from the last session, and rescheduling it would be a visible flicker
-      // on the lock screen for no change.
+      // Already scheduled in exactly this shape — nothing to do. The cache is
+      // per-session, so a launch always reschedules the running block once; that
+      // is `useAlarmSync`'s bargain too, and the only way to be sure, since
+      // AlarmKit reports ids and never what they were scheduled with.
       const signature = alarmSignature(desired);
-      if (
-        scheduled.current.get(desired.id) === signature &&
-        getScheduledAlarmIds().includes(desired.id)
-      ) {
-        return;
-      }
+      if (scheduled.current.get(desired.id) === signature) return;
 
       try {
         await scheduleFocusAlarm(desired);

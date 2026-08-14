@@ -8,6 +8,8 @@ import {
   DEFAULT_ALARM_LEAD_MINUTES,
   DEFAULT_ALARM_SOUND,
   defaultAlarmTime,
+  focusAlarmFor,
+  MIN_TIMER_ALARM_SECONDS,
   reconcileAlarms,
   resolveAlarmSound,
   TAlarmSchedule,
@@ -218,6 +220,123 @@ describe("reconcileAlarms", () => {
 
     const { toSchedule } = reconcileAlarms([task], [], new Map(), NOW);
     expect(toSchedule.map((a) => a.id)).toEqual(["task-2"]);
+  });
+
+  it("leaves a protected id alone while still cancelling everything else", () => {
+    // The running focus block's timer (DEX-156). Alarm ids are row ids in one
+    // flat namespace, so without this it looks exactly like a task alarm whose
+    // task no longer wants one, and dies on the next task mutation.
+    const { toCancel } = reconcileAlarms(
+      [],
+      ["block-1", "task-9"],
+      new Map(),
+      NOW,
+      undefined,
+      new Set(["block-1"]),
+    );
+
+    expect(toCancel).toEqual(["task-9"]);
+  });
+
+  it("protects an id the session cache tracked as well as one AlarmKit reports", () => {
+    const { toCancel } = reconcileAlarms(
+      [],
+      [],
+      new Map([["block-1", "signature"]]),
+      NOW,
+      undefined,
+      new Set(["block-1"]),
+    );
+
+    expect(toCancel).toEqual([]);
+  });
+
+  it("cancels everything unwanted when nothing is protected", () => {
+    // The default argument has to keep DEX-48's behavior exactly.
+    const { toCancel } = reconcileAlarms(
+      [],
+      ["block-1", "task-9"],
+      new Map(),
+      NOW,
+    );
+
+    expect(toCancel.sort()).toEqual(["block-1", "task-9"]);
+  });
+});
+
+describe("focusAlarmFor", () => {
+  const RESUMED_AT = new Date(2026, 6, 17, 11, 45, 0); // 15 minutes before NOW
+  const focusBlock = (overrides = {}) => ({
+    id: "block-1",
+    title: "Write report",
+    status: "active" as const,
+    remainingSeconds: 1500,
+    resumedAt: RESUMED_AT.toISOString(),
+    ...overrides,
+  });
+
+  it("hands AlarmKit the time actually left, not the block's full length", () => {
+    const alarm = focusAlarmFor(focusBlock(), NOW);
+
+    // 1500s of block, 900s already run.
+    expect(alarm).toMatchObject({
+      id: "block-1",
+      title: "Write report",
+      durationSeconds: 600,
+    });
+  });
+
+  it("identifies the alarm by the instant it will ring, not the shrinking duration", () => {
+    // Why `alarmSignature` needs no focus-block variant: recomputed later in the
+    // same block, the alarm still compares equal to the one already scheduled,
+    // so a reconcile leaves a good alarm in place.
+    const early = focusAlarmFor(focusBlock(), NOW);
+    const later = focusAlarmFor(focusBlock(), new Date(NOW.getTime() + 30_000));
+
+    expect(early?.epochSeconds).toBe(later?.epochSeconds);
+    expect(alarmSignature(early!)).toBe(alarmSignature(later!));
+    expect(later?.durationSeconds).toBe(570);
+  });
+
+  it("carries the bundled sound through to the timer", () => {
+    expect(focusAlarmFor(focusBlock(), NOW, "echos.wav")?.soundName).toBe(
+      "echos.wav",
+    );
+  });
+
+  it("wants no alarm for a paused block", () => {
+    // Held time cannot run out, and the lock screen has no resume button to
+    // offer — the countdown leaves the screen until the app resumes the block.
+    expect(
+      focusAlarmFor(focusBlock({ status: "paused", resumedAt: null }), NOW),
+    ).toBeNull();
+  });
+
+  it("wants no alarm for a block that has ended", () => {
+    expect(
+      focusAlarmFor(focusBlock({ status: "complete", resumedAt: null }), NOW),
+    ).toBeNull();
+    expect(
+      focusAlarmFor(focusBlock({ status: "cancelled", resumedAt: null }), NOW),
+    ).toBeNull();
+  });
+
+  it("wants no alarm inside the last minute, which AlarmKit won't take", () => {
+    // `scheduleTimerAlarm` throws below 60s rather than returning false, so this
+    // guard is what keeps the reconcile from alerting the user every run. The
+    // in-app timeout still ends the block on time whenever the app is open.
+    expect(
+      focusAlarmFor(focusBlock({ remainingSeconds: 959 }), NOW),
+    ).toBeNull();
+    expect(
+      focusAlarmFor(focusBlock({ remainingSeconds: 960 }), NOW),
+    ).toMatchObject({ durationSeconds: MIN_TIMER_ALARM_SECONDS });
+  });
+
+  it("wants no alarm for a block already past its end", () => {
+    expect(
+      focusAlarmFor(focusBlock({ remainingSeconds: 300 }), NOW),
+    ).toBeNull();
   });
 });
 
