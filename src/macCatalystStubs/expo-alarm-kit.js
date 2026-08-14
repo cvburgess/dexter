@@ -16,13 +16,14 @@
 // The no-op semantics mirror `utils/alarms.ts`, the existing web/Android
 // implementation: scheduling is inert and succeeds silently.
 //
-// `scheduleAlarm`/`cancelAlarm` must report success. `utils/alarms.ios.ts:67`
-// turns a `false` into a thrown error, and `hooks/useAlarmSync.ts` responds to
-// a throw by leaving the id out of `scheduled.current` *and* raising an
-// "Alarm not set" alert. Returning `false` here would therefore pop a modal at
-// launch — and again on every reconcile, forever — for anyone whose tasks
-// already carry alarms set on their iPhone. `configure()` is the exception:
-// `alarms.ios.ts` treats a `false` from it as a soft failure and only warns.
+// `scheduleAlarm`/`cancelAlarm` must report success. `scheduleTaskAlarm` in
+// `utils/alarms.ios.ts` turns a `false` into a thrown error, and
+// `hooks/useAlarmSync.ts` responds to a throw by leaving the id out of
+// `scheduled.current` *and* raising an "Alarm not set" alert. Returning `false`
+// here would therefore pop a modal at launch — and again on every reconcile,
+// forever — for anyone whose tasks already carry alarms set on their iPhone.
+// `configure()` is the exception: `alarms.ios.ts` treats a `false` from it as a
+// soft failure and only warns.
 //
 // If Catalyst graduates from POC to shipping, this stub should be deleted and
 // replaced by real branching in `utils/alarms.ios.ts` — a Mac has no alarm
