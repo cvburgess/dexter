@@ -50,6 +50,53 @@ func dexterAlarmFormat(_ seconds: TimeInterval) -> String {
     return String(format: "%d:%02d", total / 60, total % 60)
 }
 
+// A focus block is the only thing scheduled with a countdown presentation
+// (`scheduleTimerAlarm`); `scheduleAlarm` builds an alert and nothing else. So
+// the presentation itself says which feature this activity belongs to, with no
+// metadata to carry — which is just as well, since `Meta` must stay empty to
+// match what `expo-alarm-kit` schedules.
+@available(iOS 26.0, *)
+func dexterAlarmIsTimer(_ attributes: AlarmAttributes<Meta>) -> Bool {
+    attributes.presentation.countdown != nil
+}
+
+// The depleting ring the Clock app shows, for the compact and minimal Dynamic
+// Island slots where a glyph would otherwise sit. `ProgressView(timerInterval:)`
+// is driven by the system rather than by view updates, so it animates smoothly
+// in a Live Activity with no timeline of our own — the reason this is five lines
+// instead of a TimelineProvider.
+@available(iOS 26.0, *)
+@ViewBuilder
+func dexterAlarmRing(state: AlarmPresentationState, tint: Color) -> some View {
+    switch state.mode {
+    case .countdown(let countdown):
+        ProgressView(
+            timerInterval: countdown.startDate...countdown.fireDate,
+            countsDown: true
+        )
+        .progressViewStyle(.circular)
+        .labelsHidden()
+        .tint(tint)
+    case .paused(let paused):
+        // No dates to interpolate between while held, so the ring is static at
+        // whatever fraction is left. Unreachable for focus blocks — they are
+        // scheduled with no paused presentation — but a snoozed task alarm can
+        // land here.
+        ProgressView(
+            value: max(0, paused.totalCountdownDuration - paused.previouslyElapsedDuration),
+            total: max(1, paused.totalCountdownDuration)
+        )
+        .progressViewStyle(.circular)
+        .labelsHidden()
+        .tint(tint)
+    case .alert:
+        Image(systemName: "bell.fill")
+            .foregroundStyle(tint)
+    @unknown default:
+        EmptyView()
+    }
+}
+
 @available(iOS 26.0, *)
 struct DexterAlarmLiveActivity: Widget {
     var body: some WidgetConfiguration {
@@ -60,38 +107,32 @@ struct DexterAlarmLiveActivity: Widget {
             )
         } dynamicIsland: { context in
             let title = dexterAlarmTitle(for: context.attributes)
+            let tint = context.attributes.tintColor
             return DynamicIsland {
+                // Expanded keeps the readable figures; the ring lives in the
+                // slots too small to print them, which is how the Clock app
+                // splits it too.
                 DynamicIslandExpandedRegion(.leading) {
-                    Label {
-                        Text(title)
-                            .font(.headline)
-                            .lineLimit(1)
-                    } icon: {
-                        Image(systemName: "alarm.fill")
-                            .foregroundStyle(context.attributes.tintColor)
-                    }
+                    Text(title)
+                        .font(.headline)
+                        .lineLimit(1)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     dexterAlarmCountdown(state: context.state)
                         .font(.system(size: 28, design: .rounded))
-                        .foregroundStyle(context.attributes.tintColor)
+                        .foregroundStyle(tint)
                         .multilineTextAlignment(.trailing)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
             } compactLeading: {
-                Image(systemName: "alarm.fill")
-                    .foregroundStyle(context.attributes.tintColor)
+                Image(systemName: dexterAlarmIsTimer(context.attributes) ? "timer" : "alarm.fill")
+                    .foregroundStyle(tint)
             } compactTrailing: {
-                dexterAlarmCountdown(state: context.state)
-                    .foregroundStyle(context.attributes.tintColor)
-                    .monospacedDigit()
-                    .multilineTextAlignment(.trailing)
-                    .frame(maxWidth: 56, alignment: .trailing)
+                dexterAlarmRing(state: context.state, tint: tint)
             } minimal: {
-                Image(systemName: "alarm.fill")
-                    .foregroundStyle(context.attributes.tintColor)
+                dexterAlarmRing(state: context.state, tint: tint)
             }
-            .keylineTint(context.attributes.tintColor)
+            .keylineTint(tint)
         }
     }
 }
@@ -103,18 +144,17 @@ struct DexterAlarmLockScreenView: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            Label {
-                Text(dexterAlarmTitle(for: attributes))
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-            } icon: {
-                Image(systemName: "alarm.fill")
-                    .foregroundStyle(attributes.tintColor)
-            }
-            // Let the title take the slack so it truncates only when it reaches
-            // the countdown, instead of a Spacer clipping it early.
-            .frame(maxWidth: .infinity, alignment: .leading)
+            // No glyph here on purpose: the row is a task title next to its own
+            // countdown, and iOS already attributes the activity to Dexter in the
+            // chrome around it. The Dynamic Island keeps one, because its compact
+            // and minimal slots have nowhere to put words.
+            Text(dexterAlarmTitle(for: attributes))
+                .font(.headline)
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+                // Let the title take the slack so it truncates only when it
+                // reaches the countdown, instead of a Spacer clipping it early.
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             dexterAlarmCountdown(state: state)
                 .font(.system(size: 40, weight: .light, design: .rounded))

@@ -796,6 +796,13 @@ recurred occurrence copies the template's, so repeats keep their alarm.
   time is otherwise invisible (sound switches and retitles used to be).
 - **AlarmKit holds more than task alarms**, so the reconcile's cancel sweep takes
   `protectedIds` — see Focus blocks below.
+- **Task alarms and focus blocks are kept in step deliberately**: one sound
+  preference, one `ALARM_TINT_COLOR`. That tint is pinned to the *brand* theme
+  rather than the reader's, because a tint is baked in at schedule time —
+  tracking `useTheme().colors.primary` would re-schedule every alarm on every
+  theme change, including twice a day on `themeMode: "system"` as the palette
+  follows the OS scheme. It is also the one surface the app doesn't own: it
+  renders over the user's wallpaper beside other apps' alarms.
 - `useAlarmSync` reads the sound through `useAlarmSoundPreference` (needs an
   `isLoading` — scheduling against the placeholder row rings everything with the
   default and then re-schedules) and queues reconciles rather than letting them

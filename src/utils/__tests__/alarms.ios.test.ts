@@ -4,7 +4,11 @@ import { cancelAlarm, scheduleAlarm, scheduleTimerAlarm } from "expo-alarm-kit";
 // exercised regardless of the resolver's platform (see docs/testing.md — the
 // same reason `.web` files are imported by path). `expo-alarm-kit` is mocked in
 // `jest.setup.js`.
-import { scheduleFocusAlarm, scheduleTaskAlarm } from "../alarms.ios";
+import {
+  ALARM_TINT_COLOR,
+  scheduleFocusAlarm,
+  scheduleTaskAlarm,
+} from "../alarms.ios";
 
 const mockScheduleAlarm = scheduleAlarm as jest.MockedFunction<
   typeof scheduleAlarm
@@ -37,6 +41,14 @@ describe("scheduleTaskAlarm", () => {
 
     expect(mockScheduleAlarm).toHaveBeenCalledTimes(1);
     expect(mockScheduleAlarm.mock.calls[0][0]).not.toHaveProperty("soundName");
+  });
+
+  it("tints the presentation with the brand colour, not AlarmKit's blue", async () => {
+    await scheduleTaskAlarm(alarm);
+
+    expect(mockScheduleAlarm).toHaveBeenCalledWith(
+      expect.objectContaining({ tintColor: ALARM_TINT_COLOR }),
+    );
   });
 
   it("throws when AlarmKit rejects the alarm", async () => {
@@ -106,6 +118,14 @@ describe("scheduleFocusAlarm", () => {
     await scheduleFocusAlarm(focusAlarm);
     expect(mockScheduleTimerAlarm.mock.calls[0][0]).not.toHaveProperty(
       "soundName",
+    );
+  });
+
+  it("tints the countdown the same as a task alarm — the two stay in step", async () => {
+    await scheduleFocusAlarm(focusAlarm);
+
+    expect(mockScheduleTimerAlarm).toHaveBeenCalledWith(
+      expect.objectContaining({ tintColor: ALARM_TINT_COLOR }),
     );
   });
 

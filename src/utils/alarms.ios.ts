@@ -12,7 +12,12 @@ import {
   scheduleTimerAlarm,
 } from "expo-alarm-kit";
 
-import { ALARM_APP_GROUP, TAlarmSchedule, TFocusAlarm } from "./alarms.shared";
+import {
+  ALARM_APP_GROUP,
+  ALARM_TINT_COLOR,
+  TAlarmSchedule,
+  TFocusAlarm,
+} from "./alarms.shared";
 
 export * from "./alarms.shared";
 
@@ -63,6 +68,7 @@ export const scheduleTaskAlarm = async (
     epochSeconds: alarm.epochSeconds,
     title: alarm.title,
     launchAppOnDismiss: true,
+    tintColor: ALARM_TINT_COLOR,
     ...(alarm.soundName ? { soundName: alarm.soundName } : {}),
   });
   if (!scheduled) {
@@ -100,6 +106,7 @@ export const scheduleFocusAlarm = async (alarm: TFocusAlarm): Promise<void> => {
     title: alarm.title,
     launchAppOnDismiss: true,
     dismissPayload: alarm.id,
+    tintColor: ALARM_TINT_COLOR,
     ...(alarm.soundName ? { soundName: alarm.soundName } : {}),
   });
   if (!scheduled) {
