@@ -219,3 +219,30 @@ export const useAlarmSoundPreference = (): {
     isLoading: !!userId && isPlaceholderData,
   };
 };
+
+/**
+ * Just the habits switch, for `useWidgetSync` (DEX-160).
+ *
+ * Same shape and same `userId` pairing as `useAlarmSoundPreference`, for the
+ * same two reasons: publishing rings off the `true` placeholder would put a
+ * habit grid on the home screen of someone who has the feature switched off and
+ * then spend a second reload taking it away, and the narrow `select` keeps a
+ * calendar URL from re-rendering the root of the authenticated tree.
+ */
+export const useHabitsEnabledPreference = (): {
+  enableHabits: boolean;
+  isLoading: boolean;
+} => {
+  const { userId } = useAuth();
+
+  const { data, isPlaceholderData } = useQuery({
+    ...preferencesQueryOptions,
+    enabled: !!userId,
+    select: (preferences) => preferences.enableHabits,
+  });
+
+  return {
+    enableHabits: data ?? defaultPreferences.enableHabits,
+    isLoading: !!userId && isPlaceholderData,
+  };
+};

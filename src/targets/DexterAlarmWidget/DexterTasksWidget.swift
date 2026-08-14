@@ -221,20 +221,9 @@ private struct DexterAddTaskButton: View {
     }
 }
 
-/// Shown when there is no snapshot at all: signed out, or the app has not run
-/// since this widget was added. Distinct from "All done!", which is a real
-/// answer about a real day.
-private struct DexterNoDataView: View {
-    let palette: DexterWidgetPalette
-
-    var body: some View {
-        Text("Open Dexter to see today's tasks")
-            .font(.caption)
-            .foregroundStyle(palette.textColor.opacity(0.6))
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
+/// What `DexterNoDataView` says on this widget. Distinct from "All done!",
+/// which is a real answer about a real day.
+private let dexterNoTasksMessage = "Open Dexter to see today's tasks"
 
 // MARK: - Home screen
 
@@ -462,7 +451,7 @@ private struct DexterTasksWidgetView: View {
             // today — and saying "All done!" here would be a claim about a day
             // we don't have, on a surface the user reads *instead of* opening
             // the app.
-            DexterNoDataView(palette: palette)
+            DexterNoDataView(palette: palette, message: dexterNoTasksMessage)
         } else if family == .systemExtraLarge {
             DexterTasksColumnsView(entry: entry, palette: palette)
         } else {
@@ -544,13 +533,3 @@ private struct DexterAddTaskProvider: TimelineProvider {
         )
     }
 }
-
-/// The `dexter` theme, the app's own default light palette. Only reached when
-/// no snapshot exists, so it paints the empty state and nothing else.
-private let dexterFallbackPalette = DexterWidgetPalette(
-    background: "#fffbf4",
-    border: "#e0d5c2",
-    text: "#593d31",
-    primary: "#00674f",
-    priority: ["#fcb700", "#ff627d", "#00bafe", "#fffbf4", "#593d31"]
-)
