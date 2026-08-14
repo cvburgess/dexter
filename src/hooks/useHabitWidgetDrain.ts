@@ -10,7 +10,7 @@ import {
 } from "@/utils/widgets";
 
 import { supabase, useAuth } from "./useAuth";
-import { HABITS_INVALIDATION_KEYS, useHabits } from "./useHabits";
+import { useHabits } from "./useHabits";
 
 /**
  * Persists the habit steps the widget could not (DEX-160).
@@ -112,13 +112,13 @@ export const useHabitWidgetDrain = (): void => {
 
       clearPendingHabitSteps(drained);
 
+      // Only the daily rows, not `HABITS_INVALIDATION_KEYS`. That pairing exists
+      // for a habit *edit*, which can change today's rows through the DB
+      // trigger; a step changes nothing about the habit itself, and refetching
+      // the list would re-render the root of the authenticated tree — where
+      // `useWidgetSync` now reads it — for no new data.
       if (dates.size > 0) {
-        // Both keys, not just `dailyHabits`: the Review step's hero counts
-        // finished habits and reads through the same pairing
-        // `HABITS_INVALIDATION_KEYS` exists to keep in step.
-        HABITS_INVALIDATION_KEYS.forEach((queryKey) => {
-          void queryClient.invalidateQueries({ queryKey });
-        });
+        void queryClient.invalidateQueries({ queryKey: ["dailyHabits"] });
       }
     } finally {
       draining.current = false;

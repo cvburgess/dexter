@@ -67,19 +67,8 @@ struct DexterTasksEntry: TimelineEntry {
     /// on. Derived from `date` rather than from "now" so an entry scheduled for
     /// a future midnight renders that day when it comes up.
     var isoDate: String {
-        DexterTasksEntry.isoFormatter.string(from: date)
+        dexterISOFormatter.string(from: date)
     }
-
-    /// `yyyy-MM-dd` in the device's own calendar and time zone, matching what
-    /// `Temporal.PlainDate` produced on the JS side. Pinned to `en_US_POSIX`
-    /// because a locale with a non-Gregorian calendar would otherwise format
-    /// digits and eras the payload never uses.
-    static let isoFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter
-    }()
 }
 
 /// One entry for now, then one at each upcoming local midnight the snapshot
@@ -119,7 +108,7 @@ struct DexterTasksProvider: TimelineProvider {
         // than from now. A snapshot four days old would otherwise book three
         // midnights it has no data for, and sit on the empty state until the
         // last of them passed before `.atEnd` asked for anything new.
-        let today = DexterTasksEntry.isoFormatter.string(from: now)
+        let today = dexterISOFormatter.string(from: now)
         let upcoming = snapshot?.days.filter { $0.date > today } ?? []
 
         let calendar = Calendar.current
@@ -311,7 +300,7 @@ private struct DexterTasksColumnsView: View {
     private func columnTitle(offset: Int, iso: String) -> String {
         if offset == 0 { return "Today" }
         if offset == 1 { return "Tomorrow" }
-        guard let date = DexterTasksEntry.isoFormatter.date(from: iso) else {
+        guard let date = dexterISOFormatter.date(from: iso) else {
             return iso
         }
         return date.formatted(.dateTime.weekday(.wide))

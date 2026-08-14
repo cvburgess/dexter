@@ -274,6 +274,21 @@ enum DexterPendingHabitSteps {
     }
 }
 
+// MARK: - Shared
+
+/// `yyyy-MM-dd` in the device's own calendar and time zone, matching what
+/// `Temporal.PlainDate` produced on the JS side — the form every `date` in both
+/// payloads is keyed by.
+///
+/// Pinned to `en_US_POSIX` because a locale with a non-Gregorian calendar would
+/// otherwise format digits and eras the payload never uses.
+let dexterISOFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.dateFormat = "yyyy-MM-dd"
+    return formatter
+}()
+
 // MARK: - Shared views
 
 /// Shown when there is no snapshot at all: signed out, or the app has not run

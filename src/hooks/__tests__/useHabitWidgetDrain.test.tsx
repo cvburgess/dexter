@@ -88,6 +88,9 @@ describe("useHabitWidgetDrain", () => {
       stepsComplete: 3,
     });
     expect(mockWidgets.clearPendingHabitSteps).toHaveBeenCalledWith([KEY]);
+    // The daily rows only. A step changes nothing about the habit itself, and
+    // refetching the list would re-render the tree root for no new data.
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
     expect(mockInvalidateQueries).toHaveBeenCalledWith({
       queryKey: ["dailyHabits"],
     });

@@ -81,7 +81,7 @@ struct DexterHabitsEntry: TimelineEntry {
     let pending: [String: Int]
 
     var isoDate: String {
-        DexterTasksEntry.isoFormatter.string(from: date)
+        dexterISOFormatter.string(from: date)
     }
 }
 
@@ -126,7 +126,7 @@ struct DexterHabitsProvider: TimelineProvider {
         // Counted from *now*, not from `days.count - 1`: a snapshot four days
         // old would otherwise book three midnights it has no data for and sit
         // on the empty state until the last of them passed.
-        let today = DexterTasksEntry.isoFormatter.string(from: now)
+        let today = dexterISOFormatter.string(from: now)
         let upcoming = snapshot?.days.filter { $0.date > today } ?? []
 
         let calendar = Calendar.current
@@ -252,7 +252,17 @@ private struct DexterHabitsGridView: View {
             )
         } else {
             GeometryReader { geometry in
-                let spacing = geometry.size.width * 0.06
+                // Off the *height*, which small and medium share, rather than
+                // the width, which they do not: a proportion of the width makes
+                // medium's gaps almost three times small's, and with fixed
+                // columns that piles the rings against the left edge with a
+                // ring-and-a-half of dead space on the right.
+                let spacing = geometry.size.height * 0.07
+
+                // Flexible columns so the row divides the full width evenly and
+                // each ring centres in its own cell. A day with fewer habits
+                // than columns still fills from the left, which is what makes
+                // two rings read as two rings rather than as a broken grid.
                 let ring = min(
                     (geometry.size.width - spacing * CGFloat(columns - 1))
                         / CGFloat(columns),
@@ -262,7 +272,7 @@ private struct DexterHabitsGridView: View {
                 LazyVGrid(
                     columns: Array(
                         repeating: GridItem(
-                            .fixed(ring),
+                            .flexible(),
                             spacing: spacing,
                             alignment: .center
                         ),
