@@ -24,24 +24,37 @@ private let dexterAllDone = "All done! No more tasks today"
 
 /// How many task rows a family has room for.
 ///
-/// Measured rather than guessed: after WidgetKit's 16pt content margins a medium
-/// widget leaves ~138pt of height, the header and its spacing take ~28 of it, and
-/// a `.caption` row plus its 6pt spacing is ~22 — so five rows fit and a sixth
-/// does not. A large widget is 382pt tall and fits fourteen by the same
-/// arithmetic, which is more than `WIDGET_TASKS_PER_DAY` ever sends; large and
-/// extra-large therefore draw whatever arrives and let that cap do the limiting,
-/// rather than restating a number that would have to be kept in step with the JS
-/// side.
+/// Measured off a device rather than guessed: after WidgetKit's 16pt content
+/// margins a small or medium widget leaves ~138pt of height, the header and its
+/// spacing take ~28 of it, and a `.caption` row pitches at ~18.5 — so six rows
+/// fit. A large widget is 382pt tall and fits about fourteen, which is what
+/// `WIDGET_TASKS_PER_DAY` is sized to; large and extra-large therefore draw
+/// whatever arrives and let that cap do the limiting, rather than restating a
+/// number that would have to be kept in step with the JS side.
 ///
-/// Small stays at four despite fitting five: it is the one family narrow enough
-/// that titles routinely wrap to the second line `DexterTaskRow` allows, and a
-/// wrapped row is half again as tall as the arithmetic above assumes.
+/// **Medium stops one row short of its capacity, and small does not.** Six is
+/// exact, with nothing left for a title that wraps onto the second line
+/// `DexterTaskRow` allows — so medium keeps a row of slack for one, while small
+/// gives up wrapping entirely (see `dexterTitleLineLimit`) and can be packed to
+/// the edge because nothing there can grow.
 private func dexterRowLimit(for family: WidgetFamily) -> Int {
     switch family {
-    case .systemSmall: 4
+    case .systemSmall: 6
     case .systemMedium: 5
     default: Int.max
     }
+}
+
+/// How many lines a task title may take.
+///
+/// Small is the narrowest family and the one where wrapping was costing the most:
+/// a second line there buys a few more characters of a title while spending a
+/// whole task's worth of height. One line each fits six tasks instead of four,
+/// which is the better trade on a widget whose job is the count and the shape of
+/// the day. Every other family is wide enough that a wrapped title is the
+/// exception, and reads better completed than truncated.
+private func dexterTitleLineLimit(for family: WidgetFamily) -> Int {
+    family == .systemSmall ? 1 : 2
 }
 
 // MARK: - Timeline
@@ -139,6 +152,7 @@ private struct DexterTaskRow: View {
     let task: DexterWidgetTask
     let palette: DexterWidgetPalette
     var font: Font = .caption
+    var lineLimit: Int = 2
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -149,7 +163,7 @@ private struct DexterTaskRow: View {
             Text(task.title)
                 .font(font)
                 .foregroundStyle(palette.textColor)
-                .lineLimit(2)
+                .lineLimit(lineLimit)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -226,6 +240,7 @@ private struct DexterTasksListView: View {
     let day: DexterWidgetDay?
     let palette: DexterWidgetPalette
     let limit: Int
+    let titleLineLimit: Int
     let showsAddButton: Bool
 
     var body: some View {
@@ -241,7 +256,11 @@ private struct DexterTasksListView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(Array(rows.enumerated()), id: \.element.id) {
                         index, task in
-                        DexterTaskRow(task: task, palette: palette)
+                        DexterTaskRow(
+                            task: task,
+                            palette: palette,
+                            lineLimit: titleLineLimit
+                        )
                             // Only the bottom row can collide with the `+`,
                             // which overlays that corner rather than taking a
                             // row of its own. Insetting every row instead cost
@@ -442,6 +461,7 @@ private struct DexterTasksWidgetView: View {
                 day: day,
                 palette: palette,
                 limit: dexterRowLimit(for: family),
+                titleLineLimit: dexterTitleLineLimit(for: family),
                 showsAddButton: family != .systemSmall
             )
         }
