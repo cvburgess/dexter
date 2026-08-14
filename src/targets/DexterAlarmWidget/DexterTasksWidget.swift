@@ -22,6 +22,28 @@ private let dexterNewTaskURL = URL(string: "dexter:///new-task")!
 /// would drown the one day that has work in it.
 private let dexterAllDone = "All done! No more tasks today"
 
+/// How many task rows a family has room for.
+///
+/// Measured rather than guessed: after WidgetKit's 16pt content margins a medium
+/// widget leaves ~138pt of height, the header and its spacing take ~28 of it, and
+/// a `.caption` row plus its 6pt spacing is ~22 — so five rows fit and a sixth
+/// does not. A large widget is 382pt tall and fits fourteen by the same
+/// arithmetic, which is more than `WIDGET_TASKS_PER_DAY` ever sends; large and
+/// extra-large therefore draw whatever arrives and let that cap do the limiting,
+/// rather than restating a number that would have to be kept in step with the JS
+/// side.
+///
+/// Small stays at four despite fitting five: it is the one family narrow enough
+/// that titles routinely wrap to the second line `DexterTaskRow` allows, and a
+/// wrapped row is half again as tall as the arithmetic above assumes.
+private func dexterRowLimit(for family: WidgetFamily) -> Int {
+    switch family {
+    case .systemSmall: 4
+    case .systemMedium: 5
+    default: Int.max
+    }
+}
+
 // MARK: - Timeline
 
 struct DexterTasksEntry: TimelineEntry {
@@ -215,13 +237,21 @@ private struct DexterTasksListView: View {
             )
 
             if let day, !day.tasks.isEmpty {
+                let rows = Array(day.tasks.prefix(limit))
                 VStack(alignment: .leading, spacing: 6) {
-                    ForEach(Array(day.tasks.prefix(limit))) { task in
+                    ForEach(Array(rows.enumerated()), id: \.element.id) {
+                        index, task in
                         DexterTaskRow(task: task, palette: palette)
-                            // Keeps a long title from running under the `+`,
-                            // which overlays this corner rather than taking a
-                            // row of its own.
-                            .padding(.trailing, showsAddButton ? 34 : 0)
+                            // Only the bottom row can collide with the `+`,
+                            // which overlays that corner rather than taking a
+                            // row of its own. Insetting every row instead cost
+                            // the whole list 34pt of title width to protect one
+                            // of them.
+                            .padding(
+                                .trailing,
+                                showsAddButton && index == rows.count - 1
+                                    ? 34 : 0
+                            )
                     }
                 }
                 Spacer(minLength: 0)
@@ -285,7 +315,10 @@ private struct DexterTasksColumnsView: View {
                         palette: palette
                     )
                     Divider().overlay(palette.borderColor)
-                    ForEach(Array((column.day?.tasks ?? []).prefix(9))) { task in
+                    // A column is as tall as a large widget, so it fits more
+                    // rows than `WIDGET_TASKS_PER_DAY` ever sends — no slice of
+                    // its own.
+                    ForEach(column.day?.tasks ?? []) { task in
                         DexterTaskRow(task: task, palette: palette)
                     }
                     Spacer(minLength: 0)
@@ -405,12 +438,10 @@ private struct DexterTasksWidgetView: View {
         } else if family == .systemExtraLarge {
             DexterTasksColumnsView(entry: entry, palette: palette)
         } else {
-            // Row counts are what each family fits beneath the heading with the
-            // `+` clear of the last row; tuned on device.
             DexterTasksListView(
                 day: day,
                 palette: palette,
-                limit: family == .systemLarge ? 9 : 4,
+                limit: dexterRowLimit(for: family),
                 showsAddButton: family != .systemSmall
             )
         }

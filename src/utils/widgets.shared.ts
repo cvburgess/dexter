@@ -34,12 +34,19 @@ export const WIDGET_SNAPSHOT_KEY = "todaySnapshot";
 export const WIDGET_DAY_COUNT = 4;
 
 /**
- * How many tasks per day travel in the payload. Comfortably more than the
- * largest family renders (the extra-large columns are the greediest), so this
- * never truncates something a widget would have drawn — it exists to bound the
- * payload, and with it the churn that decides whether we spend a widget reload.
+ * How many tasks per day travel in the payload.
+ *
+ * Sized to the tallest family rather than picked round: a large widget is 382pt
+ * high, which after content margins, the header, and a ~22pt row leaves room for
+ * about fourteen — so this is what keeps the payload from being the thing that
+ * runs out before the widget does (`dexterRowLimit` in `DexterTasksWidget.swift`
+ * relies on that, drawing whatever arrives on large and extra-large rather than
+ * restating a number that would have to be kept in step with this one). It
+ * exists to bound the payload, and with it the churn that decides whether we
+ * spend a widget reload. A day busier than this still reports its true total in
+ * the header.
  */
-export const WIDGET_TASKS_PER_DAY = 12;
+export const WIDGET_TASKS_PER_DAY = 14;
 
 export type TWidgetTask = {
   id: string;
