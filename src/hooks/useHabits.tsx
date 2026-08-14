@@ -22,7 +22,7 @@ import {
   updateHabit,
 } from "@/api/habits";
 
-import { supabase } from "./useAuth";
+import { supabase, useAuth } from "./useAuth";
 
 type TMutateCallbacks = {
   onError?: (error: Error) => void;
@@ -52,23 +52,45 @@ type TSupabaseHookOptions = {
 // hand-copied definition that could drift out of sync.
 export const HABITS_INVALIDATION_KEYS = [["habits"], ["dailyHabits"]];
 
-/**
- * One day's habit rows, without the rest of `useDailyHabits`.
- *
- * Exported for `useWidgetSync` (DEX-160), which needs today's progress and
- * nothing else. The hook can't serve it: `useDailyHabits` mounts an inner
- * `useHabits` for `createDailyHabits`, and its `skipQuery` silences *both*
- * reads rather than just that one — so at the root of the authenticated tree
- * it would add a second, filtered habits fetch on every tab that isn't Today,
- * for a list the widget never reads. Same reason `preferencesQueryOptions` is
- * exported alongside `usePreferences`.
- */
-export const dailyHabitsQueryOptions = (date: string) =>
+const dailyHabitsQueryOptions = (date: string) =>
   queryOptions({
     queryKey: ["dailyHabits", date],
     queryFn: () => getDailyHabits(supabase, date),
     retry: false,
   });
+
+/**
+ * One day's rows and nothing else, for `useWidgetSync` (DEX-160).
+ *
+ * `useDailyHabits` can't serve it: that hook mounts an inner `useHabits` to
+ * bootstrap missing rows, and its `skipQuery` silences *both* reads rather than
+ * just that one — so at the root of the authenticated tree it would add a
+ * second, filtered habits fetch on every tab that isn't Today, for a list the
+ * widget never reads. The same reason `useThemePreferences` and
+ * `useAlarmSoundPreference` sit alongside `usePreferences`.
+ *
+ * It also deliberately does *not* bootstrap. Creating a day's rows is the
+ * Today screen's job, and doing it here would have the widget's publisher
+ * writing to the database as a side effect of drawing a home screen.
+ */
+export const useDailyHabitProgress = (
+  date: string,
+): { dailyHabits: TDailyHabit[]; isLoading: boolean } => {
+  const { userId } = useAuth();
+
+  const { data, isPending } = useQuery({
+    ...dailyHabitsQueryOptions(date),
+    enabled: !!userId,
+  });
+
+  return {
+    dailyHabits: data ?? [],
+    // Paired with `userId` for the reason `useAlarmSoundPreference` spells out:
+    // a disabled query never leaves `pending`, so this would otherwise report
+    // "still loading" forever while signed out.
+    isLoading: !!userId && isPending,
+  };
+};
 
 export const useHabits = (options?: TSupabaseHookOptions): TUseHabits => {
   const queryClient = useQueryClient();

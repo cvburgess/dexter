@@ -1,5 +1,4 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 
 import { resolveTheme } from "@/utils/theme";
@@ -13,7 +12,7 @@ import {
 } from "@/utils/widgets";
 
 import { useAuth } from "./useAuth";
-import { dailyHabitsQueryOptions, useHabits } from "./useHabits";
+import { useDailyHabitProgress, useHabits } from "./useHabits";
 import {
   useHabitsEnabledPreference,
   useThemePreferences,
@@ -54,14 +53,11 @@ export const useWidgetSync = (): void => {
   const [habits, { isLoading: habitsLoading }] = useHabits();
 
   // Today's rows supply the progress the rings are filled to; the habits above
-  // supply which rings exist. Read through the query options rather than
-  // `useDailyHabits` so the root of the tree doesn't also mount that hook's
-  // inner filtered habits fetch.
+  // supply which rings exist.
   const today = Temporal.Now.plainDateISO();
-  const { data: dailyHabits = [], isPending: dailyHabitsLoading } = useQuery({
-    ...dailyHabitsQueryOptions(today.toString()),
-    enabled: !!session,
-  });
+  const { dailyHabits, isLoading: dailyHabitsLoading } = useDailyHabitProgress(
+    today.toString(),
+  );
 
   // A boolean, not the `Session` itself. Supabase hands back a new object on
   // every token refresh — roughly hourly for a user who never signs out — and

@@ -1,5 +1,7 @@
+import { Temporal } from "@js-temporal/polyfill";
 import { renderHook } from "@testing-library/react-native";
 
+import { TDailyHabit, THabit } from "@/api/habits";
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import { EThemeMode } from "@/api/preferences";
 
@@ -12,6 +14,8 @@ import { useWidgetSync } from "../useWidgetSync";
 const mockWidgets = {
   writeWidgetSnapshot: jest.fn(),
   clearWidgetSnapshot: jest.fn(),
+  writeHabitWidgetSnapshot: jest.fn(),
+  clearHabitWidgetSnapshot: jest.fn(),
 };
 // Wrappers rather than direct references: the jest.mock factory is hoisted above
 // the `const mockWidgets` initializer.
@@ -24,6 +28,9 @@ jest.mock("@/utils/widgets", () => {
     writeWidgetSnapshot: (...args: unknown[]) =>
       mockWidgets.writeWidgetSnapshot(...args),
     clearWidgetSnapshot: () => mockWidgets.clearWidgetSnapshot(),
+    writeHabitWidgetSnapshot: (...args: unknown[]) =>
+      mockWidgets.writeHabitWidgetSnapshot(...args),
+    clearHabitWidgetSnapshot: () => mockWidgets.clearHabitWidgetSnapshot(),
   };
 });
 
@@ -69,8 +76,37 @@ const mockThemeState = {
   darkTheme: "dark",
   isLoading: false,
 };
+const mockHabitsEnabledState = { enableHabits: true, isLoading: false };
 jest.mock("../usePreferences", () => ({
   useThemePreferences: () => mockThemeState,
+  useHabitsEnabledPreference: () => mockHabitsEnabledState,
+}));
+
+const habit = (overrides: Partial<THabit> = {}): THabit => ({
+  id: "habit-1",
+  daysActive: [1, 2, 3, 4, 5, 6, 7],
+  emoji: "💧",
+  isArchived: false,
+  isPaused: false,
+  steps: 8,
+  title: "Drink water",
+  ...overrides,
+});
+
+const mockHabitsState: { habits: THabit[]; isLoading: boolean } = {
+  habits: [],
+  isLoading: false,
+};
+const mockDailyHabitsState: {
+  dailyHabits: TDailyHabit[];
+  isLoading: boolean;
+} = { dailyHabits: [], isLoading: false };
+jest.mock("../useHabits", () => ({
+  useHabits: () => [
+    mockHabitsState.habits,
+    { isLoading: mockHabitsState.isLoading },
+  ],
+  useDailyHabitProgress: () => mockDailyHabitsState,
 }));
 
 describe("useWidgetSync", () => {
@@ -84,6 +120,12 @@ describe("useWidgetSync", () => {
     mockThemeState.lightTheme = "dexter";
     mockThemeState.darkTheme = "dark";
     mockThemeState.isLoading = false;
+    mockHabitsEnabledState.enableHabits = true;
+    mockHabitsEnabledState.isLoading = false;
+    mockHabitsState.habits = [];
+    mockHabitsState.isLoading = false;
+    mockDailyHabitsState.dailyHabits = [];
+    mockDailyHabitsState.isLoading = false;
   });
 
   it("publishes a snapshot once both queries have settled", () => {
@@ -179,5 +221,98 @@ describe("useWidgetSync", () => {
 
     expect(mockWidgets.clearWidgetSnapshot).not.toHaveBeenCalled();
     expect(mockWidgets.writeWidgetSnapshot).not.toHaveBeenCalled();
+  });
+
+  // The hook slices its window off `Temporal.Now`, so anything that has to land
+  // *inside* that window has to be dated from the same clock.
+  const TODAY = Temporal.Now.plainDateISO().toString();
+
+  describe("habits (DEX-160)", () => {
+    it("publishes the habits payload alongside the tasks one", () => {
+      mockHabitsState.habits = [habit()];
+
+      renderHook(() => useWidgetSync());
+
+      expect(mockWidgets.writeHabitWidgetSnapshot).toHaveBeenCalledTimes(1);
+      const [snapshot] = mockWidgets.writeHabitWidgetSnapshot.mock.calls[0] as [
+        { days: { habits: { id: string }[] }[] },
+      ];
+      expect(snapshot.days).toHaveLength(4);
+      expect(snapshot.days[0].habits.map((h) => h.id)).toEqual(["habit-1"]);
+    });
+
+    it("publishes nothing while either habits query is still loading", () => {
+      mockHabitsState.isLoading = true;
+
+      const { rerender } = renderHook(() => useWidgetSync());
+      expect(mockWidgets.writeHabitWidgetSnapshot).not.toHaveBeenCalled();
+
+      mockHabitsState.isLoading = false;
+      mockDailyHabitsState.isLoading = true;
+      rerender({});
+
+      expect(mockWidgets.writeHabitWidgetSnapshot).not.toHaveBeenCalled();
+    });
+
+    it("sends an empty payload when the habits feature is off", () => {
+      // Not a skipped write: the switch can be turned off *after* a snapshot
+      // was published, and a widget already on the home screen would otherwise
+      // keep showing rings for a feature the app no longer has.
+      mockHabitsEnabledState.enableHabits = false;
+      mockHabitsState.habits = [habit()];
+
+      renderHook(() => useWidgetSync());
+
+      const [snapshot] = mockWidgets.writeHabitWidgetSnapshot.mock.calls[0] as [
+        { days: { habits: unknown[] }[] },
+      ];
+      expect(snapshot.days.every((day) => day.habits.length === 0)).toBe(true);
+    });
+
+    it("does not republish habits when only the tasks changed", () => {
+      // The two payloads meter separately — a task edit must not spend the
+      // habit widget's reload budget, and vice versa.
+      mockHabitsState.habits = [habit()];
+
+      const { rerender } = renderHook(() => useWidgetSync());
+      // Dated off the real clock, because the payload only carries today and
+      // the next three days — a fixed date would fall outside the window and
+      // leave the snapshot unchanged, which is not what this asserts.
+      mockTasksState.tasks = [task({ scheduledFor: TODAY })];
+      rerender({});
+
+      expect(mockWidgets.writeWidgetSnapshot).toHaveBeenCalledTimes(2);
+      expect(mockWidgets.writeHabitWidgetSnapshot).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not republish tasks when only a habit's progress changed", () => {
+      mockHabitsState.habits = [habit()];
+
+      const { rerender } = renderHook(() => useWidgetSync());
+      mockDailyHabitsState.dailyHabits = [
+        {
+          date: TODAY,
+          habitId: "habit-1",
+          habits: habit(),
+          percentComplete: 25,
+          steps: 8,
+          stepsComplete: 2,
+        },
+      ];
+      rerender({});
+
+      expect(mockWidgets.writeHabitWidgetSnapshot).toHaveBeenCalledTimes(2);
+      expect(mockWidgets.writeWidgetSnapshot).toHaveBeenCalledTimes(1);
+    });
+
+    it("clears the habits payload and the pending queue on sign-out", () => {
+      mockHabitsState.habits = [habit()];
+
+      const { rerender } = renderHook(() => useWidgetSync());
+      mockAuthState.session = null;
+      rerender({});
+
+      expect(mockWidgets.clearHabitWidgetSnapshot).toHaveBeenCalledTimes(1);
+    });
   });
 });
