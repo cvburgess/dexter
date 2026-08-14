@@ -150,6 +150,47 @@ export const useSunSignPreference = (): {
 };
 
 /**
+ * Just the three fields `resolveTheme` reads, for `useWidgetSync` (DEX-83).
+ * Separate from `usePreferences` for the same two reasons
+ * `useAlarmSoundPreference` is — and returned as flat primitives rather than a
+ * settings object so an effect can depend on them without re-firing on a `select`
+ * that rebuilt an equal object.
+ *
+ * `isLoading` earns its place the same way: publishing the placeholder would
+ * paint every widget in the default `dexter`/`dark` palettes and then spend a
+ * second reload repainting them once the saved row lands.
+ */
+export const useThemePreferences = (): {
+  themeMode: EThemeMode;
+  lightTheme: string;
+  darkTheme: string;
+  isLoading: boolean;
+} => {
+  const { userId } = useAuth();
+
+  const { data, isPlaceholderData } = useQuery({
+    ...preferencesQueryOptions,
+    enabled: !!userId,
+    select: ({ themeMode, lightTheme, darkTheme }) => ({
+      themeMode,
+      lightTheme,
+      darkTheme,
+    }),
+  });
+
+  return {
+    themeMode: data?.themeMode ?? defaultPreferences.themeMode,
+    lightTheme: data?.lightTheme ?? defaultPreferences.lightTheme,
+    darkTheme: data?.darkTheme ?? defaultPreferences.darkTheme,
+    // Paired with `userId` for the reason spelled out in
+    // `useAlarmSoundPreference`: a disabled query never leaves `pending`, so
+    // `isPlaceholderData` alone would report "still loading" forever when
+    // signed out and the sign-out clear would never run.
+    isLoading: !!userId && isPlaceholderData,
+  };
+};
+
+/**
  * Just the alarm sound, for `useAlarmSync` (DEX-72). Separate from
  * `usePreferences` for two reasons: `isLoading` matters here and nowhere else —
  * scheduling on the placeholder would ring every alarm with the default sound

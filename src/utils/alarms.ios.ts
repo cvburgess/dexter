@@ -12,12 +12,9 @@ import {
   scheduleTimerAlarm,
 } from "expo-alarm-kit";
 
-import {
-  ALARM_APP_GROUP,
-  TAlarmColors,
-  TAlarmSchedule,
-  TFocusAlarm,
-} from "./alarms.shared";
+import { APP_GROUP } from "@/utils/appGroup";
+
+import { TAlarmColors, TAlarmSchedule, TFocusAlarm } from "./alarms.shared";
 
 export * from "./alarms.shared";
 
@@ -30,7 +27,7 @@ let configured = false;
  */
 export const configureAlarms = (): void => {
   if (configured) return;
-  configured = configure(ALARM_APP_GROUP);
+  configured = configure(APP_GROUP);
   if (!configured) {
     console.warn(
       "[alarms] Failed to configure AlarmKit — check the App Group entitlement.",
