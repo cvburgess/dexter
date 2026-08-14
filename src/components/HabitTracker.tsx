@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity } from "react-native";
 
 import { habitFilters, useDailyHabits, useHabits } from "@/hooks/useHabits";
+import { useToday } from "@/hooks/useToday";
 import { useTheme } from "@/utils/theme";
 
 import { HabitRing } from "./HabitRing";
@@ -36,7 +37,10 @@ export function HabitTracker({
   const theme = useTheme();
   const router = useRouter();
 
-  const today = Temporal.Now.plainDateISO();
+  // Subscribed rather than read from the clock so the rings stop being inert
+  // the moment the day catches up with them, without waiting for a remount
+  // (DEX-161).
+  const today = useToday();
   const isFutureDate = Temporal.PlainDate.compare(date, today) > 0;
 
   // Every non-archived habit — used only to tell "no habits at all" (show the

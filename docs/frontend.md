@@ -257,6 +257,31 @@ interval polling (DEX-36):
   per-table, because these mutations outlive their component and retry in the
   background — a stuck retry for one date must not suppress updates for another.
 
+## Today is a subscription, not a clock read (DEX-161)
+
+**Anything that renders "today" reads `hooks/useToday.ts`.** A
+`Temporal.Now.plainDateISO()` in a `useState` initializer is frozen for the life
+of the mount, which is why an app open before midnight kept yesterday until a
+force-quit; one during render is correct only whenever something *else*
+re-renders, and nothing does at midnight. The hook's snapshot re-reads the clock
+but hands back the **same `PlainDate` until the day changes** — load-bearing, or
+`usePublishViewedDay` re-registers its focus effect on every unrelated render and
+momentarily clears the day the nav rail's "+" reads.
+
+`useDayRollover()` (once, in `(app)/_layout.tsx`) is what re-renders subscribers
+at the boundary: a timeout anchored on the next local midnight *and* an
+`AppState` listener, since JS is frozen while suspended and the timer fires
+however late on resume. Not an interval — the no-polling rule above still holds.
+
+**Press-time and mutation code keeps reading `Temporal.Now` directly** (schedule
+presets, form defaults, `useTasks`'s fetch window). Those run when the user acts,
+so the live clock is strictly fresher than any subscribed value.
+
+A screen holding a day in state **follows a rollover only when it was showing
+the day that just ended** — a user who paged to next Tuesday meant it. All three
+(Today, Week, Ritual) reconcile during render, next to their deep-link
+adjustments, so the day never paints wrong for a frame.
+
 ## Platform-split components
 
 The four-file pattern (`.types.ts` / `.native.tsx` / `.web.tsx` / a `.tsx`

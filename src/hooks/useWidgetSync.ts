@@ -1,4 +1,3 @@
-import { Temporal } from "@js-temporal/polyfill";
 import { useEffect, useRef } from "react";
 
 import { resolveTheme } from "@/utils/theme";
@@ -18,6 +17,7 @@ import {
   useThemePreferences,
 } from "./usePreferences";
 import { useTasks } from "./useTasks";
+import { useToday } from "./useToday";
 
 /**
  * Publishes the snapshots the iOS widget extension renders from (DEX-83, and
@@ -54,7 +54,13 @@ export const useWidgetSync = (): void => {
 
   // Today's rows supply the progress the rings are filled to; the habits above
   // supply which rings exist.
-  const today = Temporal.Now.plainDateISO();
+  //
+  // Subscribed rather than read from the clock (DEX-161), which is what lets it
+  // be a real dependency below: this re-keys the query and re-slices both
+  // snapshots when the day changes. The extension's own timeline still handles
+  // midnight itself (DEX-83); what it can't do is notice that the app came back
+  // at 9am still publishing yesterday's window.
+  const today = useToday();
   const { dailyHabits, isLoading: dailyHabitsLoading } = useDailyHabitProgress(
     today.toString(),
   );
@@ -162,13 +168,9 @@ export const useWidgetSync = (): void => {
       writeHabitWidgetSnapshot(habitSnapshot);
       publishedHabits.current = serializedHabits;
     }
-    // `today` is a fresh `Temporal.PlainDate` on every render and would make
-    // this effect run each time; the payload comparison above absorbs that, but
-    // the date only moves at midnight — and the widget's own timeline is what
-    // handles the rollover (DEX-83), not a re-run here.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     tasks,
+    today,
     isLoading,
     initializing,
     isSignedIn,

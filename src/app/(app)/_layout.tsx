@@ -12,6 +12,7 @@ import { goalsQueryOptions } from "@/hooks/useGoals";
 import { useHabitWidgetDrain } from "@/hooks/useHabitWidgetDrain";
 import { listsQueryOptions } from "@/hooks/useLists";
 import { useRealtimeInvalidation } from "@/hooks/useRealtimeInvalidation";
+import { useDayRollover } from "@/hooks/useToday";
 import { useWidgetSync } from "@/hooks/useWidgetSync";
 import { createModalScreenOptions } from "@/utils/stackOptions";
 import { useTheme } from "@/utils/theme";
@@ -24,6 +25,10 @@ export default function AppLayout() {
   // Keeps every screen's query cache current when data changes on another
   // platform (web, MCP) — see docs/frontend.md's Data Layer section (DEX-36).
   useRealtimeInvalidation(userId);
+
+  // Moves `useToday` off the day that just ended, so an app foregrounded after
+  // midnight is on the new day without a force-quit (DEX-161).
+  useDayRollover();
 
   // Projects task alarm times onto native iOS AlarmKit (no-op elsewhere) so
   // set/unset/complete/reschedule and repeat occurrences all stay in sync.

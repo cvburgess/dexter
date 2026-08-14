@@ -7,6 +7,7 @@ import { EmptyScreen } from "@/components/EmptyScreen";
 import { WeekView } from "@/components/WeekView";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useToday } from "@/hooks/useToday";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
 import { useTheme } from "@/utils/theme";
 import { weekOf } from "@/utils/weekStartEnd";
@@ -31,9 +32,28 @@ export default function WeekScreen() {
   const largeDevice = useIsLargeDevice();
   const theme = useTheme();
 
+  // Subscribed, not read from the clock: `useToday` re-renders this screen when
+  // the day changes and hands back the same object until it does (DEX-161).
+  // Read *here* for the whole screen — `WeekView` takes it as a prop instead of
+  // calling the clock again, so the day the columns highlight and the day tasks
+  // get scheduled onto cannot disagree. They did when this was captured once:
+  // an app left open across midnight moved the today chip but kept scheduling
+  // onto yesterday.
+  const today = useToday();
+
   const [monday, setMonday] = useState<Temporal.PlainDate>(
-    () => weekOf(Temporal.Now.plainDateISO()).monday,
+    () => weekOf(today).monday,
   );
+
+  // Follow the day changing under the screen, and only while the week on
+  // screen is the one that just stopped holding today — paging to another week
+  // is a choice the rollover has no business undoing (DEX-161).
+  const [lastToday, setLastToday] = useState(today);
+  if (!today.equals(lastToday)) {
+    setLastToday(today);
+    if (weekOf(lastToday).monday.equals(monday))
+      setMonday(weekOf(today).monday);
+  }
 
   // The day both "+" entry points schedule onto, and what the create-task
   // modal defaults to while this tab is focused. Today when it's in view —
@@ -41,24 +61,15 @@ export default function WeekScreen() {
   // week's Monday otherwise, so a task created while looking at another week
   // lands in the week being looked at rather than silently on today.
   //
-  // Read live rather than frozen at mount, and read *here* for the whole
-  // screen: `WeekView` takes it as a prop instead of calling the clock again,
-  // so the day the columns highlight and the day tasks get scheduled onto
-  // cannot disagree. They did when this was captured once — an app left open
-  // across midnight moved the today chip but kept scheduling onto yesterday.
-  const today = Temporal.Now.plainDateISO();
-
-  // Keyed on the ISO string, not the `PlainDate`, so the memo still returns a
-  // stable object across renders within a day while tracking the real date
-  // across midnight. That identity is load-bearing: `usePublishViewedDay` keys
-  // its focus effect on it, and a fresh `PlainDate` each render would tear the
+  // The memo's stable identity is load-bearing: `usePublishViewedDay` keys its
+  // focus effect on it, and a fresh `PlainDate` each render would tear the
   // effect down and re-register it on every unrelated re-render, momentarily
-  // clearing the module-scoped viewed day the nav rail's "+" reads.
-  const todayIso = today.toString();
-  const targetDate = useMemo(() => {
-    const day = Temporal.PlainDate.from(todayIso);
-    return weekOf(day).monday.equals(monday) ? day : monday;
-  }, [monday, todayIso]);
+  // clearing the module-scoped viewed day the nav rail's "+" reads. `today`
+  // carries that identity itself, so the memo only has to preserve it.
+  const targetDate = useMemo(
+    () => (weekOf(today).monday.equals(monday) ? today : monday),
+    [monday, today],
+  );
 
   usePublishViewedDay(targetDate);
 

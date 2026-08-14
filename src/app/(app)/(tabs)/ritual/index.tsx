@@ -6,11 +6,13 @@ import { LargeScreenRitual } from "@/components/LargeScreenRitual";
 import { SmallScreenRitual } from "@/components/SmallScreenRitual";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useToday } from "@/hooks/useToday";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
 import { parseRitualLink } from "@/utils/ritualRoute";
 import {
   advanceStep,
   createRitualState,
+  currentRitualMode,
   goToStep,
   otherMode,
   withCalendarEnabled,
@@ -48,6 +50,7 @@ export default function RitualScreen() {
     n?: string | string[];
   }>();
   const link = parseRitualLink(params);
+  const today = useToday();
 
   // Seeded inside the initializer so the clock is read on mount rather than at
   // module load — an app launched in the morning and left open must not still
@@ -74,6 +77,28 @@ export default function RitualScreen() {
   // journal entry therefore defaults a new task to that day until the user
   // navigates — the Today tab has always behaved this way.
   usePublishViewedDay(state.date);
+
+  // Follow the day changing under the screen — foregrounded after midnight, or
+  // left open across it (DEX-161) — and only while the ritual is on the day
+  // that just ended, so paging back to an old journal entry survives it.
+  //
+  // A whole new state rather than `withDate`: a new day is a new walk, so it
+  // re-derives the mode from the clock and starts at step 0, exactly what a
+  // force-quit produced before this existed. The toggles are carried across
+  // rather than re-read from preferences so the corrections below stay no-ops.
+  const [lastToday, setLastToday] = useState(today);
+  if (!today.equals(lastToday)) {
+    setLastToday(today);
+    if (state.date.equals(lastToday)) {
+      setState((current) =>
+        createRitualState(today, currentRitualMode(), {
+          journalEnabled: current.journalEnabled,
+          calendarEnabled: current.calendarEnabled,
+          horoscopeEnabled: current.horoscopeEnabled,
+        }),
+      );
+    }
+  }
 
   // Follow a link that arrives after mount. Navigating here from Search
   // re-renders this screen with new params rather than remounting it, so the

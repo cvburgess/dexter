@@ -3,6 +3,7 @@ import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { DateField } from "@/components/DateField";
 import { PeriodNav, PeriodNavLabel } from "@/components/PeriodNav";
+import { useToday } from "@/hooks/useToday";
 import { formatWeekdayMonthDay } from "@/utils/formatPlainDate";
 import { dateToPlainDate, plainDateToDate } from "@/utils/plainDate";
 import { useTheme } from "@/utils/theme";
@@ -14,10 +15,11 @@ type TDayNavProps = {
 
 export function DayNav({ date, onChangeDate }: TDayNavProps) {
   const theme = useTheme();
+  const today = useToday();
 
   // When already viewing today, the center control becomes a calendar picker
   // (fast jump to any date). Otherwise it keeps the "reset to today" shortcut.
-  const isToday = Temporal.Now.plainDateISO().equals(date);
+  const isToday = today.equals(date);
 
   return (
     <PeriodNav
