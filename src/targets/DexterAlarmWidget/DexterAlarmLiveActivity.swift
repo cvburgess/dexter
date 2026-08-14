@@ -50,21 +50,11 @@ func dexterAlarmFormat(_ seconds: TimeInterval) -> String {
     return String(format: "%d:%02d", total / 60, total % 60)
 }
 
-// A focus block is the only thing scheduled with a countdown presentation
-// (`scheduleTimerAlarm`); `scheduleAlarm` builds an alert and nothing else. So
-// the presentation itself says which feature this activity belongs to, with no
-// metadata to carry — which is just as well, since `Meta` must stay empty to
-// match what `expo-alarm-kit` schedules.
-@available(iOS 26.0, *)
-func dexterAlarmIsTimer(_ attributes: AlarmAttributes<Meta>) -> Bool {
-    attributes.presentation.countdown != nil
-}
-
-// The depleting ring the Clock app shows, for the compact and minimal Dynamic
-// Island slots where a glyph would otherwise sit. `ProgressView(timerInterval:)`
-// is driven by the system rather than by view updates, so it animates smoothly
-// in a Live Activity with no timeline of our own — the reason this is five lines
-// instead of a TimelineProvider.
+// The depleting ring the Clock app shows, filling every Dynamic Island slot that
+// would otherwise hold a glyph. `ProgressView(timerInterval:)` is driven by the
+// system rather than by view updates, so it animates smoothly in a Live Activity
+// with no timeline of our own — the reason this is a few lines instead of a
+// TimelineProvider.
 @available(iOS 26.0, *)
 @ViewBuilder
 func dexterAlarmRing(state: AlarmPresentationState, tint: Color) -> some View {
@@ -125,10 +115,13 @@ struct DexterAlarmLiveActivity: Widget {
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
             } compactLeading: {
-                Image(systemName: dexterAlarmIsTimer(context.attributes) ? "timer" : "alarm.fill")
-                    .foregroundStyle(tint)
-            } compactTrailing: {
                 dexterAlarmRing(state: context.state, tint: tint)
+            } compactTrailing: {
+                dexterAlarmCountdown(state: context.state)
+                    .foregroundStyle(tint)
+                    .monospacedDigit()
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: 56, alignment: .trailing)
             } minimal: {
                 dexterAlarmRing(state: context.state, tint: tint)
             }
