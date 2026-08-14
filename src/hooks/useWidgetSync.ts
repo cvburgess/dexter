@@ -31,6 +31,14 @@ export const useWidgetSync = (): void => {
     isLoading: preferencesLoading,
   } = useThemePreferences();
 
+  // A boolean, not the `Session` itself. Supabase hands back a new object on
+  // every token refresh — roughly hourly for a user who never signs out — and
+  // depending on it would re-run this effect each time (`app/(app)/_layout.tsx`
+  // keys its own prefetch on `userId` to dodge exactly that). The payload
+  // comparison below would swallow the extra runs, but the point is not to make
+  // them.
+  const isSignedIn = !!session;
+
   // The last payload handed to the App Group this session. A widget reload is
   // metered — WidgetKit spends a daily budget of roughly 40-70 refreshes on a
   // widget the user actually looks at — so an effect run that computes an
@@ -55,11 +63,14 @@ export const useWidgetSync = (): void => {
     // own UI, so without this it keeps showing the departing user's tasks to
     // whoever picks the phone up next. Ahead of the loading gate: with no
     // session there is nothing left to wait for.
-    if (!session) {
+    if (!isSignedIn) {
       if (cleared.current) return;
+      clearWidgetSnapshot();
+      // Recorded only once the call has returned, so a throw leaves this run
+      // unmarked and the next one retries — the same reason `useAlarmSync`
+      // records a scheduled alarm after AlarmKit accepts it, not before.
       cleared.current = true;
       published.current = null;
-      clearWidgetSnapshot();
       return;
     }
 
@@ -72,29 +83,24 @@ export const useWidgetSync = (): void => {
     // on the same two signals).
     if (isLoading || preferencesLoading) return;
 
-    const palettes = {
-      light: resolveTheme({ themeMode, lightTheme, darkTheme }, "light").colors,
-      dark: resolveTheme({ themeMode, lightTheme, darkTheme }, "dark").colors,
-    };
-
-    const snapshot = buildWidgetSnapshot(
-      tasks,
-      Temporal.Now.plainDateISO(),
-      palettes,
-    );
+    const themePreferences = { themeMode, lightTheme, darkTheme };
+    const snapshot = buildWidgetSnapshot(tasks, Temporal.Now.plainDateISO(), {
+      light: resolveTheme(themePreferences, "light").colors,
+      dark: resolveTheme(themePreferences, "dark").colors,
+    });
 
     // Compared as a string rather than field by field: the payload is nested,
     // and it is a string a moment later anyway.
     const serialized = JSON.stringify(snapshot);
     if (serialized === published.current) return;
 
-    published.current = serialized;
     writeWidgetSnapshot(snapshot);
+    published.current = serialized;
   }, [
     tasks,
     isLoading,
     initializing,
-    session,
+    isSignedIn,
     preferencesLoading,
     themeMode,
     lightTheme,

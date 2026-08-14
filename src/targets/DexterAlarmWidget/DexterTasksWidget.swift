@@ -114,13 +114,17 @@ struct DexterTasksProvider: TimelineProvider {
         let now = Date()
         var entries = [DexterTasksEntry(date: now, snapshot: snapshot)]
 
+        // One entry per day the snapshot still covers *ahead of today* — not
+        // `days.count - 1`, which counts from the day the app published rather
+        // than from now. A snapshot four days old would otherwise book three
+        // midnights it has no data for, and sit on the empty state until the
+        // last of them passed before `.atEnd` asked for anything new.
+        let today = DexterTasksEntry.isoFormatter.string(from: now)
+        let upcoming = snapshot?.days.filter { $0.date > today } ?? []
+
         let calendar = Calendar.current
         var midnight = calendar.startOfDay(for: now)
-        // One entry per remaining day in the payload. Bounded by the snapshot's
-        // own length rather than a constant, so shortening the window on the JS
-        // side can't leave this scheduling entries for days that aren't there.
-        let remaining = max(0, (snapshot?.days.count ?? 1) - 1)
-        for _ in 0..<remaining {
+        for _ in upcoming {
             guard
                 let next = calendar.date(byAdding: .day, value: 1, to: midnight)
             else { break }
@@ -300,7 +304,7 @@ private struct DexterTasksColumnsView: View {
     let entry: DexterTasksEntry
     let palette: DexterWidgetPalette
 
-    private var columns: [(title: String, day: DexterWidgetDay?)] {
+    private var columns: [(title: String, day: DexterWidgetDay)] {
         guard let snapshot = entry.snapshot,
               let start = snapshot.days.firstIndex(where: {
                   $0.date >= entry.isoDate
@@ -326,23 +330,28 @@ private struct DexterTasksColumnsView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
-            ForEach(columns, id: \.title) { column in
+            ForEach(columns, id: \.day.date) { column in
                 VStack(alignment: .leading, spacing: 8) {
                     DexterTasksHeader(
                         title: column.title,
-                        count: column.day?.openCount ?? 0,
+                        count: column.day.openCount,
                         palette: palette
                     )
                     Divider().overlay(palette.borderColor)
                     // A column is as tall as a large widget, so it fits more
                     // rows than `WIDGET_TASKS_PER_DAY` ever sends — no slice of
                     // its own.
-                    ForEach(column.day?.tasks ?? []) { task in
+                    ForEach(column.day.tasks) { task in
                         DexterTaskRow(task: task, palette: palette)
                     }
                     Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
+                // The `+` overlays the bottom of the *last* column, so only that
+                // one has to stop short of it. A full column here reaches the
+                // bottom edge, and without this its final rows read through the
+                // button.
+                .padding(.bottom, column.day.date == columns.last?.day.date ? 36 : 0)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
