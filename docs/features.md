@@ -798,14 +798,22 @@ recurred occurrence copies the template's, so repeats keep their alarm.
   `protectedIds` — see Focus blocks below.
 - **Task alarms and focus blocks are kept in step deliberately**: one sound
   preference, and both tinted with the reader's `colors.primary`.
-- **The tint is baked in when an alarm is scheduled, and never repainted.**
-  `AlarmAttributes` carries one `Color`, fixed at schedule time, so recolouring
-  an alarm AlarmKit already holds means cancelling and re-scheduling it. The tint
-  is therefore kept *out* of `alarmSignature`: changing theme recolours the
-  alarms set after the change and leaves the rest, which for something as
-  short-lived as an alarm is the cheaper trade. Tracking the live palette instead
-  would re-schedule every alarm twice a day on its own for anyone on
+- **The colours are baked in when an alarm is scheduled, and never repainted.**
+  An `AlarmAttributes` colour is fixed at schedule time, so recolouring an alarm
+  AlarmKit already holds means cancelling and re-scheduling it. They are
+  therefore kept *out* of `alarmSignature`: changing theme recolours the alarms
+  set after the change and leaves the rest, which for something as short-lived as
+  an alarm is the cheaper trade. Tracking the live palette instead would
+  re-schedule every alarm twice a day on its own for anyone on
   `themeMode: "system"`, where it follows the OS scheme.
+- **It has to be both colours out of the signature, or neither** — never one.
+  They are baked as a pair, so a stale alarm shows the old `primary` under the
+  old `primaryContent`: wrong, but a pair that still reads. Tracking one would
+  reschedule on a theme change and repaint half of it, giving the new background
+  under the old foreground — the unreadable combination `primaryContent` exists
+  to prevent. `TAlarmColors` is a separate type from `TAlarmSchedule` so this is
+  structural, not a convention: a colour cannot reach `alarmSignature` without
+  changing its parameter type.
 - `useAlarmSync` reads the sound through `useAlarmSoundPreference` (needs an
   `isLoading` — scheduling against the placeholder row rings everything with the
   default and then re-schedules) and queues reconciles rather than letting them
@@ -813,8 +821,12 @@ recurred occurrence copies the template's, so repeats keep their alarm.
   holding the loser's sound).
 - The widget extension (`src/targets/DexterAlarmWidget/`,
   `@bacons/apple-targets`) must keep its metadata struct named exactly `Meta` to
-  match what `expo-alarm-kit` schedules. All of this is native: dev-client
-  rebuild, never OTA.
+  match what `expo-alarm-kit` schedules — ActivityKit matches on the *unqualified*
+  type name, which is why a struct in the widget's module matches one declared in
+  the module's, and why renaming it breaks the lock screen with no compile error
+  on either side. All of this is native: dev-client rebuild, never OTA. (A JS-only
+  OTA *can* reach an older native binary, and degrades safely — ExpoModulesCore's
+  `Record` ignores dictionary keys it doesn't know.)
 - Alarm sounds: `ALARM_SOUNDS` in `alarms.shared.ts` maps stored values to bundled
   filenames and resolves **unknown values to `undefined`** (a newer build's sound
   degrades to the system sound instead of ringing silently — also why
@@ -911,12 +923,13 @@ setting, and no new Swift target: the DEX-48 widget already renders
   is the one number the anchor exists to keep exact. The app owns the anchor; the
   lock screen shows it. Bridging the presentation state would change this, and
   nothing less would.
-- Suppressing those buttons needs `patches/expo-alarm-kit+0.1.11.patch` —
-  `AlarmPresentation.Countdown.pauseButton` is optional in AlarmKit, but the
-  module built one unconditionally. Consequence worth knowing: since
-  `AlarmPresentation.Paused.resumeButton` is *not* optional, there is no
-  "paused, no button" presentation, so pausing in the app cancels the alarm and
-  the countdown leaves the lock screen until you resume.
+- Suppressing those buttons is one of the two reasons Dexter runs a fork of
+  `expo-alarm-kit` (DEX-158) — `AlarmPresentation.Countdown.pauseButton` is
+  optional in AlarmKit, but the published module built one unconditionally.
+  Consequence worth knowing: since `AlarmPresentation.Paused.resumeButton` is
+  *not* optional, there is no "paused, no button" presentation, so pausing in the
+  app cancels the alarm and the countdown leaves the lock screen until you
+  resume.
 - **Task alarms and focus alarms share one id namespace**, so `reconcileAlarms`
   takes `protectedIds` — without it the task reconcile reads a block's timer as a
   task alarm nobody wants and cancels it on the next task mutation. A prefix
@@ -932,15 +945,26 @@ setting, and no new Swift target: the DEX-48 widget already renders
 - `dismissPayload` carries the block id and nothing reads it yet: pressing Stop
   lands on the past-due-at-mount rule above, which completes the block on its
   own. It is there for the second device (DEX-155).
-- **Only one colour reaches the widget, so `primaryContent` is derived, not
-  sent.** `AlarmAttributes` has a single `tintColor`, and its one other channel —
-  `metadata` — must stay the empty `Meta` that `expo-alarm-kit` schedules or
-  ActivityKit stops matching the activity to the widget. So the lock screen takes
-  `colors.primary` as its `activityBackgroundTint` and `dexterAlarmOnTint`
-  reconstructs what reads on top of it from perceived luminance. That is the job
-  `primaryContent` does in the app, and it lands on the same side of the split
-  for all five themes — Dexter's light themes pair a dark primary with a
-  near-white content colour, its dark themes the reverse.
+- **Both colours reach the widget, through `metadata` (DEX-158).**
+  `AlarmAttributes` has a single `tintColor`, so the lock screen takes
+  `colors.primary` as its `activityBackgroundTint`; `primaryContent` travels in
+  the alarm's `metadata`, which is the second reason for the fork — the published
+  module schedules an empty `Meta` and leaves the widget nothing to read.
+- **The widget derives no colour of its own, and this is enforced by types on
+  both sides.** `TAlarmColors` cannot be constructed without both halves and
+  `primaryContent` is required on the palette, so every alarm carries one; the
+  widget's `Meta` therefore decodes `contentColor` as non-Optional. An earlier
+  cut reconstructed the on-colour from Rec. 601 luma, which landed on the correct
+  side of the light/dark split for all five themes but was never the token —
+  dexter resolved to white rather than `#c3ffcf`, abyss to black rather than
+  `#427600`. It shipped in the same release as this, so no alarm predating
+  `contentColor` was ever scheduled by a build users had, and the derivation was
+  deleted rather than kept as a fallback.
+- **The fork's `Meta` keeps `contentColor` Optional even though Dexter's does
+  not.** Swift synthesises `decodeIfPresent` only for Optional stored
+  properties, so that is what lets a consumer whose `Meta` is still empty keep
+  decoding — Magic Meal Kit migrates on its own schedule (MMK-452). Making the
+  fork's field required would break it the moment it shipped.
 - The lock screen draws a **linear** progress bar and the Dynamic Island a
   circular one, both `ProgressView(timerInterval:)`. The system animates those
   without a timeline of our own, which matters because **nothing can update this

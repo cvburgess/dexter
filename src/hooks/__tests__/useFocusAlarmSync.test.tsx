@@ -85,9 +85,12 @@ describe("useFocusAlarmSync", () => {
           durationSeconds: 1500,
           soundName: "echos.wav",
         }),
-        // The reader's `colors.primary`, baked in at schedule time — the theme
-        // resolves to Dexter's own in a test with no ThemeProvider above.
-        expect.stringMatching(/^#[0-9a-f]{6}$/i),
+        // The reader's `colors.primary`/`colors.primaryContent`, baked in at
+        // schedule time — the theme resolves to Dexter's own in a test with no
+        // ThemeProvider above. Asserted as literals rather than "some hex
+        // string": both are hex, so only the exact values catch the pair being
+        // passed the wrong way round.
+        { tint: "#00674f", content: "#c3ffcf" },
       ),
     );
   });
@@ -165,7 +168,7 @@ describe("useFocusAlarmSync", () => {
     );
     expect(mockAlarms.scheduleFocusAlarm).toHaveBeenLastCalledWith(
       expect.objectContaining({ durationSeconds: 1200 }),
-      expect.any(String),
+      { tint: "#00674f", content: "#c3ffcf" },
     );
   });
 

@@ -116,7 +116,10 @@ export const useFocusAlarmSync = (block: TFocusBlock | null): void => {
       if (scheduled.current.get(desired.id) === signature) return;
 
       try {
-        await scheduleFocusAlarm(desired, colors.primary);
+        await scheduleFocusAlarm(desired, {
+          tint: colors.primary,
+          content: colors.primaryContent,
+        });
         scheduled.current.set(desired.id, signature);
       } catch (error) {
         // Left unrecorded so the next run retries. The alert matches
@@ -147,5 +150,6 @@ export const useFocusAlarmSync = (block: TFocusBlock | null): void => {
     soundName,
     preferencesLoading,
     colors.primary,
+    colors.primaryContent,
   ]);
 };

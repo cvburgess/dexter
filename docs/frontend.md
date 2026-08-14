@@ -331,6 +331,21 @@ lives on the palette (not just `THEMES`) for exactly this.
 - **Patch filenames carry the installed version and it is load-bearing** — after
   any dependency bump, re-run `npx patch-package <name>` so the filename tracks
   it; a mismatch is a warning locally and a hard `npm ci` failure in CI.
+- **`expo-alarm-kit` is a fork, not a patch** (`cvburgess/expo-alarm-kit`, pinned
+  by git ref; DEX-158). A patch could make the timer's pause button optional but
+  could not add a field to the metadata struct AlarmKit carries — that meant
+  editing three function-local structs in someone else's package. Things to know
+  before touching it:
+  - **`build/` is committed and there is no `prepare` script.** `prepare` would
+    make npm install the module's own devDependencies — Expo 54, RN 0.81 — into
+    every `npm ci`, local and EAS, just to run `tsc`, and a failure there fails
+    the whole install. The cost is that a stale `build/` ships silently, so the
+    fork's CI rebuilds and diffs it. Change its source, commit the build.
+  - **npm rewrites the `git+https://` spec to `git+ssh://` in the lockfile.**
+    Harmless *only* while the fork is public: pacote fetches hosted GitHub repos
+    over the codeload tarball and never invokes ssh. Making it private breaks CI
+    and EAS with no obvious error.
+  - Dropping the fork means restoring a patch, not just bumping a version.
 
 ## Build and tooling
 
