@@ -11,6 +11,7 @@ import { TFocusBlock } from "@/api/focusBlocks";
 import type { ConfirmOptions } from "@/hooks/useConfirmation";
 import { liveRemainingSeconds } from "@/utils/focusBlocks";
 
+import { useFocusAlarmSync } from "./useFocusAlarmSync";
 import { useLiveFocusBlock } from "./useFocusBlocks";
 
 export type TFocusTimerActions = {
@@ -207,6 +208,11 @@ export const usePublishFocusTimer = (
     // timer belonging to the account that just left.
     return () => publish(EMPTY_SNAPSHOT);
   }, [actions, block]);
+
+  // The native countdown, scheduled from the same block this hook publishes.
+  // It belongs to the single publisher for the same reason the completion write
+  // does: it is a write, and a surface that renders twice would make it twice.
+  useFocusAlarmSync(block);
 
   // Which block this mount has already completed. The timeout and the AppState
   // listener can both come due for the same block, and the row's own status is

@@ -1,5 +1,10 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import {
   createFocusBlock,
@@ -20,6 +25,14 @@ import { preferencesQueryOptions } from "./usePreferences";
 
 /** The running-or-held block, if any. One row, one key. */
 const LIVE_FOCUS_BLOCK_KEY = ["focusBlocks", "live"];
+
+/** Shared by the full hook below and `useLiveFocusBlockId`, so the two observe
+ * one query rather than two hand-copied definitions — `preferencesQueryOptions`
+ * exists for the same reason. */
+const liveFocusBlockQueryOptions = queryOptions({
+  queryKey: LIVE_FOCUS_BLOCK_KEY,
+  queryFn: () => getLiveFocusBlock(supabase),
+});
 
 /**
  * Exported so `useRealtimeInvalidation` shares this definition instead of a
@@ -63,12 +76,11 @@ export const useLiveFocusBlock = (): TUseLiveFocusBlock => {
   const queryClient = useQueryClient();
 
   const { data: block, isLoading } = useQuery({
+    ...liveFocusBlockQueryOptions,
     // Gated on `userId` for the same reason `usePreferences` is: this hook is
     // mounted at the root of the authenticated tree, where its effects still run
     // during the auth-initializing pass, and RLS would reject the read.
     enabled: !!userId,
-    queryKey: LIVE_FOCUS_BLOCK_KEY,
-    queryFn: () => getLiveFocusBlock(supabase),
   });
 
   const invalidate = () => {
@@ -200,6 +212,30 @@ export const useLiveFocusBlock = (): TUseLiveFocusBlock => {
       startFocusBlock: start,
     },
   ];
+};
+
+/**
+ * Whether a block is live, and which one — for a reader that needs to know a
+ * block exists without the five mutations `useLiveFocusBlock` builds.
+ *
+ * `useAlarmSync` is the caller (DEX-156): the running block's timer is an
+ * AlarmKit alarm it must not cancel, and mounting the full hook at the root of
+ * the tree would add mutation observers to read one string. `select` narrows the
+ * re-render to an id change, so a pause or a tick down doesn't reach it.
+ */
+export const useLiveFocusBlockId = (): {
+  id: string | null;
+  isLoading: boolean;
+} => {
+  const { userId } = useAuth();
+
+  const { data, isLoading } = useQuery({
+    ...liveFocusBlockQueryOptions,
+    enabled: !!userId,
+    select: (block) => block?.id ?? null,
+  });
+
+  return { id: data ?? null, isLoading };
 };
 
 type TUseFocusBlocks = [TFocusBlock[], { isLoading: boolean }];

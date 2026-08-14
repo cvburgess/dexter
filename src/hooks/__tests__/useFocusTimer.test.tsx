@@ -12,6 +12,12 @@ jest.mock("@/hooks/useAuth", () => ({
 jest.mock("@/hooks/useFocusBlocks", () => ({
   useLiveFocusBlock: jest.fn(),
 }));
+// The native countdown is `useFocusAlarmSync`'s own subject; here it would only
+// drag the preferences query (and a QueryClientProvider) into a test about the
+// store and the completion write.
+jest.mock("@/hooks/useFocusAlarmSync", () => ({
+  useFocusAlarmSync: jest.fn(),
+}));
 
 const mockUseLiveFocusBlock = useLiveFocusBlock as jest.MockedFunction<
   typeof useLiveFocusBlock
