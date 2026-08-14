@@ -794,6 +794,18 @@ recurred occurrence copies the template's, so repeats keep their alarm.
 - The reconcile's session cache keys on **`alarmSignature`** — time, title, *and*
   sound — because AlarmKit reports back only ids, so an edit that moves no fire
   time is otherwise invisible (sound switches and retitles used to be).
+- **AlarmKit holds more than task alarms**, so the reconcile's cancel sweep takes
+  `protectedIds` — see Focus blocks below.
+- **Task alarms and focus blocks are kept in step deliberately**: one sound
+  preference, and both tinted with the reader's `colors.primary`.
+- **The tint is baked in when an alarm is scheduled, and never repainted.**
+  `AlarmAttributes` carries one `Color`, fixed at schedule time, so recolouring
+  an alarm AlarmKit already holds means cancelling and re-scheduling it. The tint
+  is therefore kept *out* of `alarmSignature`: changing theme recolours the
+  alarms set after the change and leaves the rest, which for something as
+  short-lived as an alarm is the cheaper trade. Tracking the live palette instead
+  would re-schedule every alarm twice a day on its own for anyone on
+  `themeMode: "system"`, where it follows the OS scheme.
 - `useAlarmSync` reads the sound through `useAlarmSoundPreference` (needs an
   `isLoading` — scheduling against the placeholder row rings everything with the
   default and then re-schedules) and queues reconciles rather than letting them
@@ -878,13 +890,61 @@ task card.
 listener, since JS is frozen while suspended and the timeout fires late on
 resume. A block found already past due at mount is completed on the spot — the
 app-was-closed path, and the whole of the rule. There is deliberately **no grace
-window**: once DEX-156 schedules a native alarm the block will have rung at zero
-whether or not the app was open, and "the user didn't stop it, so it ran" is
-what that concludes too.
+window**: the native alarm has rung at zero whether or not the app was open, and
+"the user didn't stop it, so it ran" is what that concludes too.
 
-**What an in-app-only timer cannot do**, until DEX-156: a block that ends while
-you are in another app tells you nothing until you come back. No sound, no
-haptic (`expo-haptics` is not a dependency), no notification, nothing on the lock
-screen. For a feature whose point is to let you stop looking at the planner, that
-is the gap worth closing next — and `expo-alarm-kit` already exports
-`scheduleTimerAlarm`, so it needs no new Swift target.
+### The native countdown (DEX-156)
+
+iOS gets an AlarmKit timer alongside every running block (`useFocusAlarmSync`,
+called by `usePublishFocusTimer` so the schedule stays with the single owner of
+every focus-block write). A live countdown on the lock screen and in the Dynamic
+Island, ringing at zero with the `alarm_sound` preference — no second sound
+setting, and no new Swift target: the DEX-48 widget already renders
+`AlarmAttributes<Meta>`.
+
+- **The countdown carries no pause or resume button, and that is the ruling.**
+  AlarmKit will draw them, but nothing reports a press back:
+  `AlarmManager.shared.alarms` gives an alarm's `state` and never its elapsed
+  time — that lives in `AlarmPresentationState.Mode.Paused`, inside the widget
+  process. So a lock-screen pause could only be mirrored into `remaining_seconds`
+  as a guess, high by however long the app stayed closed, and `remaining_seconds`
+  is the one number the anchor exists to keep exact. The app owns the anchor; the
+  lock screen shows it. Bridging the presentation state would change this, and
+  nothing less would.
+- Suppressing those buttons needs `patches/expo-alarm-kit+0.1.11.patch` —
+  `AlarmPresentation.Countdown.pauseButton` is optional in AlarmKit, but the
+  module built one unconditionally. Consequence worth knowing: since
+  `AlarmPresentation.Paused.resumeButton` is *not* optional, there is no
+  "paused, no button" presentation, so pausing in the app cancels the alarm and
+  the countdown leaves the lock screen until you resume.
+- **Task alarms and focus alarms share one id namespace**, so `reconcileAlarms`
+  takes `protectedIds` — without it the task reconcile reads a block's timer as a
+  task alarm nobody wants and cancels it on the next task mutation. A prefix
+  wouldn't work: AlarmKit parses every id as a UUID, which is also why the row id
+  doubles as the alarm id here exactly as it does for tasks.
+- `useAlarmSync` therefore waits on the live-block query as well as tasks and
+  preferences. An unloaded query and "no block" look identical, and acting on the
+  first cancels a running block's timer at launch.
+- **A block inside its last minute gets no alarm at all** — AlarmKit's floor is
+  60 seconds and `scheduleTimerAlarm` *throws* below it rather than returning
+  `false`. The in-app timeout still ends it on time whenever the app is open, so
+  the loss is a ring for a block backgrounded during its final minute.
+- `dismissPayload` carries the block id and nothing reads it yet: pressing Stop
+  lands on the past-due-at-mount rule above, which completes the block on its
+  own. It is there for the second device (DEX-155).
+- **Only one colour reaches the widget, so `primaryContent` is derived, not
+  sent.** `AlarmAttributes` has a single `tintColor`, and its one other channel —
+  `metadata` — must stay the empty `Meta` that `expo-alarm-kit` schedules or
+  ActivityKit stops matching the activity to the widget. So the lock screen takes
+  `colors.primary` as its `activityBackgroundTint` and `dexterAlarmOnTint`
+  reconstructs what reads on top of it from perceived luminance. That is the job
+  `primaryContent` does in the app, and it lands on the same side of the split
+  for all five themes — Dexter's light themes pair a dark primary with a
+  near-white content colour, its dark themes the reverse.
+- The lock screen draws a **linear** progress bar and the Dynamic Island a
+  circular one, both `ProgressView(timerInterval:)`. The system animates those
+  without a timeline of our own, which matters because **nothing can update this
+  activity**: AlarmKit owns it and the app never holds the `Activity` handle. Any
+  moving part has to be one of the two self-animating primitives — that one and
+  `Text(timerInterval:)`. A custom `ProgressViewStyle` is no help either; the
+  timer-interval initialisers hand it `fractionCompleted == nil`.

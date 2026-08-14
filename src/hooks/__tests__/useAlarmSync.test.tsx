@@ -46,6 +46,16 @@ jest.mock("../usePreferences", () => ({
   useAlarmSoundPreference: () => preferencesState,
 }));
 
+// useFocusBlocks pulls in the supabase client as well; the hook reads only the
+// live block's id, to keep its alarm out of the reconcile's cancel sweep.
+const focusBlockState: { id: string | null; isLoading: boolean } = {
+  id: null,
+  isLoading: false,
+};
+jest.mock("../useFocusBlocks", () => ({
+  useLiveFocusBlockId: () => focusBlockState,
+}));
+
 describe("useAlarmSync", () => {
   let alertSpy: jest.SpyInstance;
   let warnSpy: jest.SpyInstance;
@@ -55,6 +65,8 @@ describe("useAlarmSync", () => {
     tasksState.isLoading = false;
     preferencesState.alarmSound = "echos";
     preferencesState.isLoading = false;
+    focusBlockState.id = null;
+    focusBlockState.isLoading = false;
     mockAlarms.getScheduledAlarmIds.mockReturnValue([]);
     alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
     // The hook console.warns each failure; silence it to keep test output clean.
@@ -111,6 +123,7 @@ describe("useAlarmSync", () => {
         expect.any(Map),
         expect.any(Date),
         "echos.wav",
+        expect.any(Set),
       ),
     );
 
@@ -124,6 +137,7 @@ describe("useAlarmSync", () => {
         expect.any(Map),
         expect.any(Date),
         undefined,
+        expect.any(Set),
       ),
     );
   });

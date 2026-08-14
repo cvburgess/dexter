@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Alert } from "react-native";
 
 import {
@@ -10,6 +10,9 @@ import {
   scheduleTaskAlarm,
 } from "@/utils/alarms";
 
+import { useTheme } from "@/utils/theme";
+
+import { useLiveFocusBlockId } from "./useFocusBlocks";
 import { useAlarmSoundPreference } from "./usePreferences";
 import { useTasks } from "./useTasks";
 
@@ -31,6 +34,22 @@ export const useAlarmSync = (): void => {
     useAlarmSoundPreference();
   const soundName = alarmSoundFileName(alarmSound);
 
+  // Baked into each alarm as it is scheduled, and deliberately *not* part of
+  // `alarmSignature` — see `scheduleTaskAlarm`. A theme change re-runs this
+  // effect and finds every signature unchanged, so it recolours nothing already
+  // scheduled and costs no native calls.
+  const { colors } = useTheme();
+
+  // The running focus block's timer is an alarm this reconcile does not own
+  // (DEX-156), and ids carry no marker of which kind they are — so it has to be
+  // named here or the next task mutation cancels it.
+  const { id: focusBlockId, isLoading: focusBlockLoading } =
+    useLiveFocusBlockId();
+  const protectedIds = useMemo(
+    () => new Set(focusBlockId ? [focusBlockId] : []),
+    [focusBlockId],
+  );
+
   // What we last scheduled per id this session (see `alarmSignature`) — AlarmKit
   // reports only ids back, so this is how an edit to an existing alarm is seen.
   const scheduled = useRef(new Map<string, string>());
@@ -46,10 +65,13 @@ export const useAlarmSync = (): void => {
   const queue = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
-    // Both queries serve placeholder data first. Acting on the placeholder
-    // preferences would schedule every alarm with the default sound and then
-    // re-schedule them all once the real row lands (DEX-72).
-    if (isLoading || preferencesLoading) return;
+    // Every query serves placeholder or empty data first. Acting on the
+    // placeholder preferences would schedule every alarm with the default sound
+    // and then re-schedule them all once the real row lands (DEX-72); acting
+    // before the focus block resolves would cancel a running block's timer that
+    // survived from the last session, since an unloaded query and "no block"
+    // look identical here.
+    if (isLoading || preferencesLoading || focusBlockLoading) return;
 
     const sync = async () => {
       const { toSchedule, toCancel } = reconcileAlarms(
@@ -58,6 +80,7 @@ export const useAlarmSync = (): void => {
         scheduled.current,
         new Date(),
         soundName,
+        protectedIds,
       );
 
       // Tracks whether any alarm this run failed to schedule, so we warn the
@@ -75,7 +98,7 @@ export const useAlarmSync = (): void => {
         }),
         ...toSchedule.map(async (alarm) => {
           try {
-            await scheduleTaskAlarm(alarm);
+            await scheduleTaskAlarm(alarm, colors.primary);
             scheduled.current.set(alarm.id, alarmSignature(alarm));
           } catch (error) {
             // Leave it unrecorded so a later reconcile retries. Flag the
@@ -103,5 +126,13 @@ export const useAlarmSync = (): void => {
     queue.current = queue.current.then(sync).catch((error) => {
       console.warn("[alarms] Alarm sync failed", error);
     });
-  }, [tasks, isLoading, preferencesLoading, soundName]);
+  }, [
+    tasks,
+    isLoading,
+    preferencesLoading,
+    soundName,
+    focusBlockLoading,
+    protectedIds,
+    colors.primary,
+  ]);
 };
