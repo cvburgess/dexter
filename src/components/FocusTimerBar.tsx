@@ -50,7 +50,7 @@ export function FocusTimerBar() {
           // compact density tier tightens `space.md` but the capsule keeps its
           // full width — without it the figure reads as crowded against the
           // leading curve.
-          paddingLeft: theme.space.md + (isLargeScreen ? theme.space.xs : 0),
+          paddingLeft: theme.space.md + (isLargeScreen ? theme.space.sm : 0),
         },
       ]}
     >
