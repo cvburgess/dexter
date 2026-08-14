@@ -117,8 +117,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   // Everything else in the row is fixed-width and load-bearing, so the task
-  // name is what truncates.
+  // name is what truncates. Centred in the space it is left, matching the bar.
   title: {
     flex: 1,
+    textAlign: "center",
   },
 });

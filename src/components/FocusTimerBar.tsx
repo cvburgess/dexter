@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { FocusCountdown } from "@/components/FocusCountdown";
 import { GlassIconButton } from "@/components/GlassIconButton";
 import { useFocusTimer } from "@/hooks/useFocusTimer";
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { FOCUS_TIMER_MAX_WIDTH } from "@/utils/breakpoints";
 import { SHADOW_LG, useTheme } from "@/utils/theme";
 
@@ -25,6 +26,7 @@ import { SHADOW_LG, useTheme } from "@/utils/theme";
  */
 export function FocusTimerBar() {
   const theme = useTheme();
+  const isLargeScreen = useIsLargeDevice();
   const { actions, block } = useFocusTimer();
 
   if (!block) return null;
@@ -44,6 +46,11 @@ export function FocusTimerBar() {
           gap: theme.space.md,
           maxWidth: FOCUS_TIMER_MAX_WIDTH,
           padding: theme.space.md,
+          // A touch more room before the countdown on a large screen, where the
+          // compact density tier tightens `space.md` but the capsule keeps its
+          // full width — without it the figure reads as crowded against the
+          // leading curve.
+          paddingLeft: theme.space.md + (isLargeScreen ? theme.space.xs : 0),
         },
       ]}
     >
@@ -103,7 +110,13 @@ const styles = StyleSheet.create({
   // The title yields first: the countdown and the two controls are fixed-width
   // and are what the bar exists for, so a long task name truncates rather than
   // pushing the stop button off the end.
+  //
+  // Centred **within that remaining space**, not within the capsule — the
+  // countdown and the button pair are different widths, so the two are not the
+  // same thing. Truly centring it against the capsule would mean floating the
+  // title over the row, where a long name would run under the controls.
   title: {
     flex: 1,
+    textAlign: "center",
   },
 });
