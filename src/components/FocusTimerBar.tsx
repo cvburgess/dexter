@@ -1,11 +1,12 @@
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { FocusCountdown } from "@/components/FocusCountdown";
-import { GlassIconButton } from "@/components/GlassIconButton";
+import type { TGlassIconButtonProps } from "@/components/GlassIconButton.types";
+import { Icon } from "@/components/Icon";
 import { useFocusTimer } from "@/hooks/useFocusTimer";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { FOCUS_TIMER_MAX_WIDTH } from "@/utils/breakpoints";
-import { SHADOW_LG, useTheme } from "@/utils/theme";
+import { SHADOW_LG, useTheme, withOpacity } from "@/utils/theme";
 
 /**
  * The running focus block, as a floating capsule (DEX-49) — the "now playing"
@@ -39,8 +40,8 @@ export function FocusTimerBar() {
       style={[
         styles.bar,
         {
-          backgroundColor: theme.colors.surfaceSunken,
-          borderColor: theme.colors.border,
+          backgroundColor: theme.colors.primary,
+          borderColor: withOpacity(theme.colors.primaryContent, 0.25),
           borderRadius: theme.radii.full,
           boxShadow: SHADOW_LG,
           gap: theme.space.md,
@@ -56,22 +57,19 @@ export function FocusTimerBar() {
     >
       <FocusCountdown
         block={block}
-        style={[theme.fonts.control, { color: theme.colors.text }]}
+        style={[theme.fonts.control, { color: theme.colors.primaryContent }]}
       />
       <Text
         numberOfLines={1}
         style={[
           theme.fonts.body,
           styles.title,
-          { color: theme.colors.textSecondary },
+          { color: withOpacity(theme.colors.primaryContent, 0.8) },
         ]}
       >
         {block.tasks.title}
       </Text>
-      {/* `solid` on both: these can sit under an animated opacity (the bar is
-          drawn over a ritual step mid-fade), where liquid glass samples through
-          a non-opaque layer and washes out to a bare glyph — docs/frontend.md. */}
-      <GlassIconButton
+      <FocusControl
         accessibilityLabel={
           isRunning ? "Pause focus block" : "Resume focus block"
         }
@@ -82,18 +80,63 @@ export function FocusTimerBar() {
             : actions.resumeFocusBlock(block)
         }
         sfSymbol={isRunning ? "pause.fill" : "play.fill"}
-        size={theme.controls.md}
-        solid
       />
-      <GlassIconButton
+      <FocusControl
         accessibilityLabel="Stop focus block"
         ionicon="stop"
         onPress={() => actions.cancelFocusBlock(block)}
         sfSymbol="stop.fill"
-        size={theme.controls.md}
-        solid
       />
     </View>
+  );
+}
+
+/**
+ * One of the bar's circular controls: the same shape `GlassIconButton` draws,
+ * but keyed to the capsule it sits on — a `primaryContent` outline and glyph
+ * over a `primary` fill.
+ *
+ * Local rather than a `GlassIconButton` prop: that component fixes its own
+ * colors (`surfaceSunken` fill, `text` glyph) because every one of its ~dozen
+ * call sites sits on a page background, and opening it up to arbitrary colors
+ * to serve the one control that doesn't would make the exception everyone's
+ * problem.
+ */
+function FocusControl({
+  accessibilityLabel,
+  ionicon,
+  onPress,
+  sfSymbol,
+}: Pick<
+  TGlassIconButtonProps,
+  "accessibilityLabel" | "ionicon" | "onPress" | "sfSymbol"
+>) {
+  const theme = useTheme();
+  const diameter = theme.controls.md;
+
+  return (
+    <TouchableOpacity
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={[
+        styles.control,
+        {
+          backgroundColor: theme.colors.primary,
+          borderColor: theme.colors.primaryContent,
+          borderRadius: theme.radii.full,
+          height: diameter,
+          width: diameter,
+        },
+      ]}
+    >
+      <Icon
+        color={theme.colors.primaryContent}
+        ionicon={ionicon}
+        sf={sfSymbol}
+        size={diameter * 0.5}
+      />
+    </TouchableOpacity>
   );
 }
 
@@ -118,5 +161,10 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     textAlign: "center",
+  },
+  control: {
+    alignItems: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: "center",
   },
 });
