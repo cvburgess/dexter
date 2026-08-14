@@ -70,8 +70,9 @@ export const requestAlarmAuthorization = async (): Promise<boolean> => {
  *
  * `contentColor` reaches the widget through the alarm's `metadata`, which is
  * why Dexter consumes a fork of `expo-alarm-kit` (DEX-158) — the published
- * module schedules an empty metadata struct, leaving `tintColor` as the only
- * colour that crosses, and the widget reconstructing the other from luminance.
+ * module schedules an empty metadata struct, which would leave `tintColor` as
+ * the only colour that crosses. Both are always sent: `TAlarmColors` cannot be
+ * built without them, so the widget never derives a colour of its own.
  */
 export const scheduleTaskAlarm = async (
   alarm: TAlarmSchedule,

@@ -1,7 +1,6 @@
 import ActivityKit
 import AlarmKit
 import SwiftUI
-import UIKit
 import WidgetKit
 
 // Mirrors the metadata struct that `expo-alarm-kit` schedules its alarms with.
@@ -9,14 +8,17 @@ import WidgetKit
 // against the scheduled activity — `String(describing:)` erases the module and
 // any enclosing context — so it must stay named exactly `Meta` on both sides.
 //
-// `contentColor` must stay Optional. Swift synthesises `decodeIfPresent` for an
-// Optional stored property, which is what lets this decode an alarm scheduled by
-// a build that predates the field. A non-Optional property with a default value
-// does *not* get that treatment: synthesised `Decodable` ignores the default and
-// throws, and a throw here is a lock screen that renders nothing.
+// `contentColor` is non-Optional because every alarm Dexter schedules carries
+// one: `TAlarmColors` cannot be built without it, and `primaryContent` is a
+// required field on the palette, so there is no theme that omits it. Decoding it
+// as required makes a metadata shape we didn't write a loud failure rather than a
+// silently wrong colour.
+//
+// The fork's own `Meta` keeps it Optional, and must — that is what lets a widget
+// whose `Meta` predates the field keep decoding (MMK-452).
 @available(iOS 26.0, *)
 nonisolated struct Meta: AlarmMetadata {
-    let contentColor: String?
+    let contentColor: String
 }
 
 // `expo-alarm-kit` exposes a single `title` string, and `scheduleTaskAlarm`
@@ -56,50 +58,35 @@ func dexterAlarmFormat(_ seconds: TimeInterval) -> String {
     return String(format: "%d:%02d", total / 60, total % 60)
 }
 
-// What reads on top of the tint: the reader's real `primaryContent`, sent in the
-// alarm's `metadata` (DEX-158).
+// What reads on top of the tint: the reader's `primaryContent`, sent in the
+// alarm's `metadata` (DEX-158). Nothing is derived here — the app sends both
+// halves of the pair it themes itself with.
 //
-// The fallback is for alarms scheduled by a build that predates that field —
-// they decode to `nil` rather than failing, and get the luminance derivation
-// that used to be the only option. Every newly scheduled alarm takes the token,
-// so this converges as old alarms fire or are replaced. It cannot be deleted
-// while an alarm scheduled by an older build can still be pending.
+// `AlarmAttributes.metadata` is Optional in AlarmKit's own API, so the type
+// forces a default even though Dexter always schedules one. White is the safe
+// end of that branch: the card is a translucent wash of `primary`, and every
+// Dexter theme pairs it with light content except the two whose primary is a
+// near-fluorescent green.
 @available(iOS 26.0, *)
 func dexterAlarmOnTint(for attributes: AlarmAttributes<Meta>) -> Color {
-    if let hex = attributes.metadata?.contentColor,
-       let sent = dexterAlarmColor(hex: hex) {
-        return sent
-    }
-    return dexterAlarmDerivedOnTint(attributes.tintColor)
+    attributes.metadata.flatMap { dexterAlarmColor(hex: $0.contentColor) } ?? .white
 }
 
-// `#rrggbb`, matching what the module parses on the way in. Anything else is
-// treated as absent so a malformed value falls back rather than rendering black.
+// `#rrggbb`, matching what the module parses on the way in. Every value that
+// reaches this is a `primaryContent` token, so the nil path is unreachable in
+// practice — it exists so a malformed string falls back rather than scanning to
+// black, which `Scanner.scanHexInt64` would do silently.
 @available(iOS 26.0, *)
 func dexterAlarmColor(hex: String) -> Color? {
     var value = hex.trimmingCharacters(in: .whitespacesAndNewlines)
     if value.hasPrefix("#") { value.removeFirst() }
-    guard value.count == 6, let rgb = UInt64(value, radix: 16) else { return nil }
+    guard value.count == 6, value.allSatisfy(\.isHexDigit),
+          let rgb = UInt64(value, radix: 16) else { return nil }
     return Color(
         red: Double((rgb & 0xFF0000) >> 16) / 255.0,
         green: Double((rgb & 0x00FF00) >> 8) / 255.0,
         blue: Double(rgb & 0x0000FF) / 255.0
     )
-}
-
-// The pre-DEX-158 reconstruction: Dexter's light themes pair a dark primary with
-// a near-white content colour and its dark themes do the reverse, so luma lands
-// on the correct side of that split for all five. It is only ever an
-// approximation of the token — Dexter resolves to white rather than `#c3ffcf`,
-// abyss to black rather than `#427600`.
-@available(iOS 26.0, *)
-func dexterAlarmDerivedOnTint(_ tint: Color) -> Color {
-    let components = UIColor(tint).cgColor.components ?? []
-    guard components.count >= 3 else { return .white }
-    // Rec. 601 luma — perceived brightness, not the raw average, or a saturated
-    // green reads as darker than it looks.
-    let luma = 0.299 * components[0] + 0.587 * components[1] + 0.114 * components[2]
-    return luma > 0.6 ? .black : .white
 }
 
 // The depleting ring the Clock app shows, filling every Dynamic Island slot that

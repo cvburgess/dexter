@@ -949,17 +949,22 @@ setting, and no new Swift target: the DEX-48 widget already renders
   `AlarmAttributes` has a single `tintColor`, so the lock screen takes
   `colors.primary` as its `activityBackgroundTint`; `primaryContent` travels in
   the alarm's `metadata`, which is the second reason for the fork — the published
-  module schedules an empty `Meta` and leaves the widget nothing to read. Before
-  that, `dexterAlarmOnTint` reconstructed the on-colour from perceived luminance,
-  which landed on the correct side of the light/dark split for all five themes
-  but was never the token: Dexter resolved to white rather than `#c3ffcf`, abyss
-  to black rather than `#427600`.
-- **The luminance derivation survives as a fallback and cannot be deleted yet.**
-  An alarm scheduled by a build predating `contentColor` decodes it to `nil` —
-  `Meta`'s property is Optional precisely so that decodes rather than throws —
-  and still has to render. It converges away as those alarms fire or are
-  replaced. The same Optionality is what lets Magic Meal Kit's widget keep an
-  empty `Meta` and migrate on its own schedule (MMK-452).
+  module schedules an empty `Meta` and leaves the widget nothing to read.
+- **The widget derives no colour of its own, and this is enforced by types on
+  both sides.** `TAlarmColors` cannot be constructed without both halves and
+  `primaryContent` is required on the palette, so every alarm carries one; the
+  widget's `Meta` therefore decodes `contentColor` as non-Optional. An earlier
+  cut reconstructed the on-colour from Rec. 601 luma, which landed on the correct
+  side of the light/dark split for all five themes but was never the token —
+  dexter resolved to white rather than `#c3ffcf`, abyss to black rather than
+  `#427600`. It shipped in the same release as this, so no alarm predating
+  `contentColor` was ever scheduled by a build users had, and the derivation was
+  deleted rather than kept as a fallback.
+- **The fork's `Meta` keeps `contentColor` Optional even though Dexter's does
+  not.** Swift synthesises `decodeIfPresent` only for Optional stored
+  properties, so that is what lets a consumer whose `Meta` is still empty keep
+  decoding — Magic Meal Kit migrates on its own schedule (MMK-452). Making the
+  fork's field required would break it the moment it shipped.
 - The lock screen draws a **linear** progress bar and the Dynamic Island a
   circular one, both `ProgressView(timerInterval:)`. The system animates those
   without a timeline of our own, which matters because **nothing can update this
