@@ -12,6 +12,7 @@ import { useFocusAlarmSync } from "../useFocusAlarmSync";
 const mockAlarms = {
   scheduleFocusAlarm: jest.fn(),
   cancelTaskAlarm: jest.fn(),
+  getScheduledAlarmIds: jest.fn(() => [] as string[]),
 };
 jest.mock("@/utils/alarms", () => {
   const shared = jest.requireActual<typeof import("@/utils/alarms.shared")>(
@@ -25,6 +26,7 @@ jest.mock("@/utils/alarms", () => {
       mockAlarms.scheduleFocusAlarm(...args),
     cancelTaskAlarm: (...args: unknown[]) =>
       mockAlarms.cancelTaskAlarm(...args),
+    getScheduledAlarmIds: () => mockAlarms.getScheduledAlarmIds(),
   };
 });
 
@@ -59,6 +61,7 @@ describe("useFocusAlarmSync", () => {
     jest.setSystemTime(START);
     preferencesState.alarmSound = "echos";
     preferencesState.isLoading = false;
+    mockAlarms.getScheduledAlarmIds.mockReturnValue([]);
     mockAlarms.scheduleFocusAlarm.mockResolvedValue(undefined);
     mockAlarms.cancelTaskAlarm.mockResolvedValue(undefined);
     alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
@@ -202,6 +205,36 @@ describe("useFocusAlarmSync", () => {
     await waitFor(() =>
       expect(mockAlarms.cancelTaskAlarm).toHaveBeenCalledWith("block-1"),
     );
+  });
+
+  it("cancels an alarm left over for a paused block from a previous session", async () => {
+    // The cache is per-session, and while a block is live `useAlarmSync`
+    // protects its id from its own sweep — so if a pause's cancel never landed
+    // before the app closed, nothing else will ever clear this. It would ring
+    // at the original end time with the block sitting paused.
+    mockAlarms.getScheduledAlarmIds.mockReturnValue(["block-1"]);
+
+    renderHook(() =>
+      useFocusAlarmSync(
+        block({ status: "paused", resumedAt: null, remainingSeconds: 1200 }),
+      ),
+    );
+
+    await waitFor(() =>
+      expect(mockAlarms.cancelTaskAlarm).toHaveBeenCalledWith("block-1"),
+    );
+    expect(mockAlarms.scheduleFocusAlarm).not.toHaveBeenCalled();
+  });
+
+  it("leaves a task's alarm alone even when AlarmKit reports it", async () => {
+    // The sweep only ever considers ids this hook could own — what it scheduled
+    // and the live block's own id — so DEX-48's alarms are out of reach.
+    mockAlarms.getScheduledAlarmIds.mockReturnValue(["task-7", "task-8"]);
+
+    renderHook(() => useFocusAlarmSync(null));
+
+    await act(async () => {});
+    expect(mockAlarms.cancelTaskAlarm).not.toHaveBeenCalled();
   });
 
   it("schedules nothing inside the last minute, which AlarmKit won't take", async () => {

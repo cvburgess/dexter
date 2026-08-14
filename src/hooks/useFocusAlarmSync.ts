@@ -7,6 +7,7 @@ import {
   alarmSoundFileName,
   cancelTaskAlarm,
   focusAlarmFor,
+  getScheduledAlarmIds,
   scheduleFocusAlarm,
 } from "@/utils/alarms";
 
@@ -73,12 +74,20 @@ export const useFocusAlarmSync = (block: TFocusBlock | null): void => {
           : null;
 
       // Everything AlarmKit holds *for a focus block* that shouldn't be there.
-      // Task alarms are filtered out by the cache: only ids this hook scheduled
-      // are ever candidates, so a reconcile here can never touch DEX-48's work.
-      // The mirror of this is `protectedIds` in `useAlarmSync`.
-      const toCancel = [...scheduled.current.keys()].filter(
-        (scheduledId) => scheduledId !== desired?.id,
-      );
+      // Only ids this hook could own are ever candidates — what it scheduled
+      // this session, plus the live block's own id — so a sweep here can never
+      // reach a task alarm. The mirror of this is `protectedIds` in
+      // `useAlarmSync`.
+      //
+      // The live block's id has to be in that set, not just the cache: the cache
+      // is per-session, and while a block is live `useAlarmSync` protects its id
+      // from *its* sweep. A pause whose cancel didn't land before the app closed
+      // would otherwise leave an alarm no one will ever cancel, ringing at the
+      // original end time while the block sits paused.
+      const owned = new Set(scheduled.current.keys());
+      if (id && getScheduledAlarmIds().includes(id)) owned.add(id);
+
+      const toCancel = [...owned].filter((ownedId) => ownedId !== desired?.id);
 
       for (const staleId of toCancel) {
         try {
