@@ -55,7 +55,10 @@ jest.mock("../useTasks", () => ({
   ],
 }));
 
-const mockAuthState: { session: object | null } = { session: { user: {} } };
+const mockAuthState: { session: object | null; initializing: boolean } = {
+  session: { user: {} },
+  initializing: false,
+};
 jest.mock("../useAuth", () => ({
   useAuth: () => mockAuthState,
 }));
@@ -76,6 +79,7 @@ describe("useWidgetSync", () => {
     mockTasksState.tasks = [];
     mockTasksState.isLoading = false;
     mockAuthState.session = { user: {} };
+    mockAuthState.initializing = false;
     mockThemeState.themeMode = EThemeMode.SYSTEM;
     mockThemeState.lightTheme = "dexter";
     mockThemeState.darkTheme = "dark";
@@ -143,8 +147,33 @@ describe("useWidgetSync", () => {
     expect(mockWidgets.clearWidgetSnapshot).toHaveBeenCalledTimes(1);
   });
 
-  it("does not clear when there was never a session to clear", () => {
+  it("clears a snapshot a previous launch left behind", () => {
+    // A token revoked while the app was closed: this process never published,
+    // but the App Group still holds the last session's tasks.
     mockAuthState.session = null;
+
+    renderHook(() => useWidgetSync());
+
+    expect(mockWidgets.clearWidgetSnapshot).toHaveBeenCalledTimes(1);
+    expect(mockWidgets.writeWidgetSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("clears only once while signed out", () => {
+    mockAuthState.session = null;
+
+    const { rerender } = renderHook(() => useWidgetSync());
+    mockTasksState.tasks = [task({ scheduledFor: "2026-07-16" })];
+    rerender({});
+
+    expect(mockWidgets.clearWidgetSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it("touches nothing while auth is still restoring", () => {
+    // `session` is null on every cold start until the stored one loads.
+    // Clearing here would blank the widget on launch and repopulate it a beat
+    // later — two reloads and a visible flash of the empty state.
+    mockAuthState.session = null;
+    mockAuthState.initializing = true;
 
     renderHook(() => useWidgetSync());
 

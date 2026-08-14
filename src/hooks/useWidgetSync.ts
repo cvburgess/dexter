@@ -23,7 +23,7 @@ import { useTasks } from "./useTasks";
  */
 export const useWidgetSync = (): void => {
   const [tasks, { isLoading }] = useTasks();
-  const { session } = useAuth();
+  const { initializing, session } = useAuth();
   const {
     themeMode,
     lightTheme,
@@ -38,18 +38,32 @@ export const useWidgetSync = (): void => {
   // preference edit, a re-render) must cost nothing.
   const published = useRef<string | null>(null);
 
+  // Whether the App Group has already been emptied for the current signed-out
+  // stretch. Separate from `published` because the two answer different
+  // questions: `published` is "what did *this process* write", and the snapshot
+  // that needs clearing is usually one a *previous* launch wrote.
+  const cleared = useRef(false);
+
   useEffect(() => {
+    // `session` is null while auth is still restoring, which is every cold
+    // start. Clearing on that would wipe the widget on launch and repopulate it
+    // a beat later — two reloads and a visible flash of the empty state.
+    if (initializing) return;
+
     // Signed out, whether by the Log Out button or by a token the server
-    // revoked. The home screen is outside the app's own UI, so it would
-    // otherwise keep showing the departing user's tasks to whoever picks the
-    // phone up next. Deliberately ahead of the loading gate: with no session
-    // there is nothing left to wait for.
+    // revoked while the app was closed. The home screen sits outside the app's
+    // own UI, so without this it keeps showing the departing user's tasks to
+    // whoever picks the phone up next. Ahead of the loading gate: with no
+    // session there is nothing left to wait for.
     if (!session) {
-      if (published.current === null) return;
+      if (cleared.current) return;
+      cleared.current = true;
       published.current = null;
       clearWidgetSnapshot();
       return;
     }
+
+    cleared.current = false;
 
     // Both queries serve placeholder data first — `[]` for tasks, the default
     // row for preferences. Publishing that would put an empty "All done!" on
@@ -79,6 +93,7 @@ export const useWidgetSync = (): void => {
   }, [
     tasks,
     isLoading,
+    initializing,
     session,
     preferencesLoading,
     themeMode,

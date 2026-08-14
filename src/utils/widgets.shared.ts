@@ -69,7 +69,6 @@ export type TWidgetDay = {
  */
 export type TWidgetPalette = {
   background: string;
-  surfaceSunken: string;
   border: string;
   text: string;
   primary: string;
@@ -91,7 +90,6 @@ export type TWidgetSnapshot = {
 
 const toWidgetPalette = (colors: TThemeColors): TWidgetPalette => ({
   background: colors.background,
-  surfaceSunken: colors.surfaceSunken,
   border: colors.border,
   text: colors.text,
   primary: colors.primary,

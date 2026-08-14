@@ -311,7 +311,6 @@ private struct DexterTasksColumnsView: View {
 /// platform, not something to work around.
 private struct DexterTasksAccessoryView: View {
     let day: DexterWidgetDay?
-    let hasSnapshot: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -326,10 +325,11 @@ private struct DexterTasksAccessoryView: View {
                     }
                 }
             } else {
-                // "All done" is a claim about a day we actually have. With no
-                // snapshot we know nothing, and telling a signed-out user their
-                // day is clear would be a lie on their lock screen.
-                Text(hasSnapshot ? dexterAllDone : "Open Dexter")
+                // `day` is non-nil only when the snapshot actually covers
+                // today, so an empty list here really is a cleared day — the
+                // caller routes the no-data case away before it reaches this
+                // view.
+                Text(dexterAllDone)
                     .font(.caption2)
                     .lineLimit(2)
             }
@@ -394,8 +394,13 @@ private struct DexterTasksWidgetView: View {
     @ViewBuilder
     private var content: some View {
         if family == .accessoryRectangular {
-            DexterTasksAccessoryView(day: day, hasSnapshot: entry.snapshot != nil)
-        } else if entry.snapshot == nil {
+            DexterTasksAccessoryView(day: day)
+        } else if day == nil {
+            // No snapshot, or one that has aged past its four-day window with
+            // the app never opened. Both mean we have nothing to say about
+            // today — and saying "All done!" here would be a claim about a day
+            // we don't have, on a surface the user reads *instead of* opening
+            // the app.
             DexterNoDataView(palette: palette)
         } else if family == .systemExtraLarge {
             DexterTasksColumnsView(entry: entry, palette: palette)
@@ -405,7 +410,7 @@ private struct DexterTasksWidgetView: View {
             DexterTasksListView(
                 day: day,
                 palette: palette,
-                limit: family == .systemSmall ? 4 : (family == .systemMedium ? 4 : 9),
+                limit: family == .systemLarge ? 9 : 4,
                 showsAddButton: family != .systemSmall
             )
         }
@@ -476,7 +481,6 @@ private struct DexterAddTaskProvider: TimelineProvider {
 /// no snapshot exists, so it paints the empty state and nothing else.
 private let dexterFallbackPalette = DexterWidgetPalette(
     background: "#fffbf4",
-    surfaceSunken: "#f7f1e7",
     border: "#e0d5c2",
     text: "#593d31",
     primary: "#00674f",

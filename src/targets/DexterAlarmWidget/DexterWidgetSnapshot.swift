@@ -39,7 +39,6 @@ struct DexterWidgetDay: Decodable {
 
 struct DexterWidgetPalette: Decodable {
     let background: String
-    let surfaceSunken: String
     let border: String
     let text: String
     let primary: String
