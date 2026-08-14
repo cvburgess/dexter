@@ -972,3 +972,62 @@ setting, and no new Swift target: the DEX-48 widget already renders
   moving part has to be one of the two self-animating primitives — that one and
   `Text(timerInterval:)`. A custom `ProgressViewStyle` is no help either; the
   timer-interval initialisers hand it `fractionCompleted == nil`.
+
+### Widgets (DEX-83)
+
+Today's tasks on the home screen (small / medium / large, plus a four-column
+extra-large on iPad showing today and the next three days) and on the lock screen
+(a three-task list and a bare `+` button). Every task circle is stroked in its
+`colors.priority` accent. They live in `src/targets/DexterAlarmWidget/` —
+`DexterWidgetSnapshot.swift` and `DexterTasksWidget.swift` — alongside the DEX-48
+Live Activity, published from `hooks/useWidgetSync.ts` over
+`utils/widgets{,.ios}.ts` and `utils/widgets.shared.ts`.
+
+- **The widget renders a snapshot; it never fetches.** The Supabase session lives
+  in AsyncStorage inside the *app* container, which an extension cannot read.
+  Mirroring it into the App Group was rejected on a specific hazard, not on
+  effort: Supabase rotates refresh tokens with a 10-second reuse interval and
+  revokes the whole session on a reuse outside it, so a widget refreshing on its
+  own 40-70×/day would leave the app's stored token generations behind and sign
+  the user out. It would also restate `canonicalTaskFilters` in Swift. The cost
+  accepted instead is that edits made on *another* device (web, MCP, a second
+  phone) are stale until this one next runs the app.
+- **The payload carries four days, and that is what makes the rollover free.**
+  The timeline emits an entry per upcoming local midnight, each re-slicing the
+  same snapshot; a day planned tonight is on the lock screen tomorrow morning
+  with no network, no background task, and no midnight timer in JS. Past the
+  fourth day `day(on:)` finds nothing and the widget says "Open Dexter" rather
+  than presenting a stale day as today's — which is also why the accessory's
+  empty state distinguishes "All done!" from having no snapshot at all.
+- **Both palettes ship, because the extension cannot read
+  `preferences.theme_mode`.** `useWidgetSync` calls `resolveTheme` twice and
+  SwiftUI picks with `@Environment(\.colorScheme)`. A user who has *forced* light
+  or dark gets that palette in both halves, so the widget correctly stops
+  following the OS. `textSecondary` and `priorityMuted` are deliberately absent:
+  the first is an `rgba()` string the `#rrggbb` parser can't read (the dimmed ink
+  is `.opacity(0.6)` in Swift), the second is blended at module load.
+- **iOS renders lock screen accessories in `WidgetRenderingMode.vibrant`,
+  desaturating them to monochrome.** Priority reaches that surface as *brightness*
+  and never as hue, whatever colour is sent — the platform, not a bug to chase,
+  and the reason the accessory view applies no palette and no container
+  background at all.
+- **`Link` works from `.systemMedium` up; `.systemSmall` and the accessories get
+  one `widgetURL` for the whole widget.** That is why the small widget has no `+`
+  button — a platform rule, not an omission. Taps are the only interaction:
+  completing from a widget would have to reimplement the subtask sweep and the
+  recurrence spawn that `useTasks` does in TypeScript.
+- **One extension hosts everything, and it keeps its alarm-era name.**
+  `DexterAlarmWidget` shipped in v2.0.0; renaming the target or its
+  `bundleIdentifier` mints a new extension bundle id and provisioning profile for
+  nothing a user sees, since the gallery groups by app and labels each entry with
+  its own `configurationDisplayName`. Only `displayName` changed. Nothing added
+  there may collide with `Meta` (see Alarms above).
+- `useWidgetSync` compares the serialized payload against the last one published
+  and writes nothing when they match — widget reloads are metered, roughly 40-70 a
+  day. It waits on both queries' `isLoading` (publishing placeholders would paint
+  an empty day in the default palette and then spend a second reload) and clears
+  the key on sign-out, since the home screen is outside the app's own UI.
+- The App Group literal lives in `utils/appGroup.ts` and is duplicated in four
+  places outside TypeScript; a mismatch is silent, because
+  `UserDefaults(suiteName:)` returns nothing rather than failing for a group the
+  target isn't entitled to. Native throughout: dev-client rebuild, never OTA.
