@@ -21,6 +21,12 @@ export const updatePreferencesInputSchema = {
   enableHoroscope: z.boolean().optional(),
   enableJournal: z.boolean().optional(),
   enableNotes: z.boolean().optional(),
+  /**
+   * How long a focus block runs, in whole minutes (DEX-49). The column itself is
+   * unconstrained so an older client can read a length it doesn't offer, but
+   * there is no reason to let an agent write a zero or a negative one.
+   */
+  focusBlockMinutes: z.number().int().positive().optional(),
   lightTheme: z.string().min(1).optional(),
   /**
    * The sign the Ritual's Horoscope step reads (DEX-128). `.nullable()` as well
@@ -81,6 +87,7 @@ export function registerPreferenceTools(
         enable_horoscope: fields.enableHoroscope,
         enable_journal: fields.enableJournal,
         enable_notes: fields.enableNotes,
+        focus_block_minutes: fields.focusBlockMinutes,
         light_theme: fields.lightTheme,
         sun_sign: fields.sunSign,
         template_note: fields.templateNote,

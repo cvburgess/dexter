@@ -14,6 +14,7 @@ import {
   updatePreferences,
 } from "@/api/preferences";
 import { DEFAULT_ALARM_SOUND } from "@/utils/alarms";
+import { DEFAULT_FOCUS_BLOCK_MINUTES } from "@/utils/focusBlocks";
 
 import { supabase, useAuth } from "./useAuth";
 
@@ -28,6 +29,7 @@ const defaultPreferences: TPreferences = {
   enableHoroscope: true,
   enableJournal: true,
   enableNotes: true,
+  focusBlockMinutes: DEFAULT_FOCUS_BLOCK_MINUTES,
   lightTheme: "dexter",
   // No sign until the user picks one (DEX-128) — see `TPreferences.sunSign`.
   sunSign: null,
@@ -36,7 +38,11 @@ const defaultPreferences: TPreferences = {
   themeMode: EThemeMode.SYSTEM,
 };
 
-const preferencesQueryOptions = queryOptions({
+/** Exported so a mutation can `ensureQueryData` the saved row on demand —
+ * `useFocusBlocks` needs the focus block length at the moment a block starts,
+ * and adding an observer to every task card's menu just to read it would
+ * re-render the whole list on any unrelated preference edit. */
+export const preferencesQueryOptions = queryOptions({
   placeholderData: defaultPreferences,
   queryKey: ["preferences"],
   queryFn: () => getPreferences(supabase),

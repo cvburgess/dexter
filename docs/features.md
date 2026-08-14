@@ -438,9 +438,12 @@ it, where the Today list mixes closed rows in with open ones.)
   further back than that reports zero completions with no error anywhere. Not
   worth its own query for a step you reach by walking tonight's ritual, but it is
   invisible at the point of use.
-- **Focus blocks are hardcoded to `0`** until DEX-49 builds the timer — drawn
-  rather than deferred so the hero keeps its shape, and so the step doesn't gain
-  a figure (and a reveal stage) on the day the timer lands.
+- **The focus figure counts `complete` blocks only** (DEX-49) — not `cancelled`,
+  which is why stopping early is its own status rather than a deleted row, and
+  not a block still running, which hasn't happened yet. It is also the one line
+  with no preference behind it: there is nothing to turn focus blocks off. Note
+  its per-date query has no equivalent of the 30-day bound above, so on a ritual
+  paged far enough back the two figures reach different distances.
 - `useDailyHabits` gained the `skipQuery` `useHabits` already had, so a reader
   with habits off adds no observer for them. It silences the inner `useHabits`
   too; the mutations stay wired, since a `create` that silently did nothing would
@@ -808,3 +811,80 @@ recurred occurrence copies the template's, so repeats keep their alarm.
   **plus** the file in `plugins/withAlarmSound.ts`'s list — AlarmKit resolves
   `soundName` against the app bundle, and that plugin is how a raw resource gets
   into it under CNG.
+
+### Focus blocks (DEX-49)
+
+A Pomodoro-style timer, always tied to a task: started in one tap from the task
+card's `MoreMenu`, watched from a mini bar, counted by the evening ritual's
+Review step. `public.focus_blocks` holds one row per timer; the length comes from
+`preferences.focus_block_minutes` (default 25), picked in Settings → Tasks.
+
+**The clock is an anchor, not a countdown.** `remaining_seconds` is a snapshot
+taken at the last pause and `resumed_at` is when the current run began; every
+client derives live remaining as `remaining_seconds - (now - resumed_at)`
+(`utils/focusBlocks.ts`). The row is written at most five times in a block's life
+— start, pause, resume, and whichever of finish/cancel ends it — where writing
+the countdown down each second would be ~1,500 UPDATEs per block, each one
+replicated to `supabase_realtime` and invalidating a cache, to store a
+subtraction. It is also what will make cross-device sync (DEX-155) cheap. A
+`resumed_at_iff_active` CHECK states the invariant in the database, so every
+transition writes both halves of the anchor or is rejected.
+
+- **`date` is the local day, supplied by the client**, like `notes.date`.
+  `created_at` cannot substitute: it is a UTC instant, so a block started at
+  22:00 in UTC-8 lands on the next UTC day and the wrong evening counts it.
+  Stamped once at start, so a block running past midnight — or completed on next
+  launch days later — still belongs to the day it began.
+- **`cancelled` is a status, not a deleted row.** Review counts `complete` only,
+  so stopping early is recorded without inflating the figure; and an UPDATE is
+  filterable by realtime where a DELETE on this table is not (`docs/backend.md`).
+- **A partial unique index allows one live block per user.** The whole UI is
+  written against "one running block or none", and two devices starting one
+  without seeing each other is the case the app cannot detect — a rejected insert
+  (23505) beats a second invisible timer draining in the background.
+- **No per-block length.** Starting a block is one tap precisely because the
+  length is settled ahead of time; a menu row whose only job is to open a picker
+  is the detour DEX-98 removed. `total_seconds` is still per-row, so per-block
+  lengths need no migration if that changes.
+- **The menu row has three states and the third is the point**: start, stop the
+  block running on *this* task, or — while another task's block runs — no row at
+  all. Offering "start" there would silently cancel a block the user may be
+  twenty minutes into, and `MoreMenu` renders no confirmation.
+
+Surfaces, because no one mount point reaches them all: iOS phones get
+`TabBarAccessory` in the tab bar's bottom accessory, which a running block takes
+over from "＋ New Task" entirely; tablets and web get `FocusTimerBar`; Android
+phones — no accessory, rail, or dock — get `FocusTimerDock`, without which they
+could start a block and never stop it.
+
+**The bar floats over the content rather than sitting in the layout**, the way
+Apple Music's player does. It was a flex sibling of the tab content first, which
+reserved nothing when absent but moved the app's entire bottom edge the moment a
+block started — the layout shifting under a list is a worse cost than a capsule
+covering the last few pixels of one. It centres itself and stops at
+`FOCUS_TIMER_MAX_WIDTH`; each mount decides only where the bottom edge is
+(`AppShell` inside `content`, so on narrow web it lands above the dock rather
+than over it), and every wrapper is `pointerEvents="box-none"` so only the
+capsule takes touches.
+
+**Stopping asks first**, from all three surfaces. A block records the time it
+actually ran and there is no un-cancel, so a mis-tap twenty minutes in costs the
+session. The prompt is hosted once in `FocusTimerHost` rather than per call site:
+the accessory renders twice (it would ask twice) and `MoreMenu` renders once per
+task card.
+
+`usePublishFocusTimer` is mounted once, by `FocusTimerHost` in
+`app/(app)/_layout.tsx`, and owns the completion write: one `setTimeout` for the whole block plus an `AppState`
+listener, since JS is frozen while suspended and the timeout fires late on
+resume. A block found already past due at mount is completed on the spot — the
+app-was-closed path, and the whole of the rule. There is deliberately **no grace
+window**: once DEX-156 schedules a native alarm the block will have rung at zero
+whether or not the app was open, and "the user didn't stop it, so it ran" is
+what that concludes too.
+
+**What an in-app-only timer cannot do**, until DEX-156: a block that ends while
+you are in another app tells you nothing until you come back. No sound, no
+haptic (`expo-haptics` is not a dependency), no notification, nothing on the lock
+screen. For a feature whose point is to let you stop looking at the planner, that
+is the gap worth closing next — and `expo-alarm-kit` already exports
+`scheduleTimerAlarm`, so it needs no new Swift target.

@@ -23,6 +23,10 @@ import {
   isAlarmSupported,
   resolveAlarmSound,
 } from "@/utils/alarms";
+import {
+  FOCUS_BLOCK_LENGTHS,
+  resolveFocusBlockMinutes,
+} from "@/utils/focusBlocks";
 import { describeSchedule } from "@/utils/repeatSchedule";
 import {
   EDGES_SINGLE_PANE,
@@ -40,7 +44,8 @@ export default function TasksScreen() {
   const theme = useTheme();
   const [templates, { createNextOccurrence }] = useTemplates();
   const [tasks, { isLoading: isLoadingTasks }] = useTasks();
-  const [{ alarmSound }, { updatePreferences }] = usePreferences();
+  const [{ alarmSound, focusBlockMinutes }, { updatePreferences }] =
+    usePreferences();
   // Two kinds of row live in one table; the schedule is what tells them apart
   // (DEX-65). Both are edited by the same `tasks/[id]` screen.
   const taskTemplates = templates.filter(isTaskTemplate);
@@ -118,6 +123,35 @@ export default function TasksScreen() {
             </View>
           </View>
         )}
+
+        <View style={{ gap: theme.space.sm }}>
+          <SettingsSectionTitle>Focus blocks</SettingsSectionTitle>
+          {/* Same card-at-the-call-site reasoning as the alarm sound above. */}
+          <View
+            style={{
+              backgroundColor: theme.colors.surfaceSunken,
+              borderRadius: theme.radii.md,
+              padding: theme.space.md,
+            }}
+          >
+            <PickerField
+              label="Length"
+              options={FOCUS_BLOCK_LENGTHS}
+              // Every block runs for this long — there is no per-block choice,
+              // which is what keeps starting one a single tap from a task's
+              // menu (DEX-49). Resolved for the same reason the sound is: the
+              // column is unconstrained, and an unmatched value renders the
+              // Picker with nothing selected.
+              selectedValue={String(
+                resolveFocusBlockMinutes(focusBlockMinutes),
+              )}
+              testID="focus-block-length-picker"
+              onValueChange={(value) =>
+                updatePreferences({ focusBlockMinutes: Number(value) })
+              }
+            />
+          </View>
+        </View>
 
         <TemplateSection
           title="Repeat tasks"

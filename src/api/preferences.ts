@@ -27,6 +27,11 @@ export type TPreferences = {
   enableHoroscope: boolean;
   enableJournal: boolean;
   enableNotes: boolean;
+  /** How long a focus block runs, in whole minutes (DEX-49). Typed as a plain
+   * number because the DB column is unconstrained: an older build must be able
+   * to read a length it doesn't offer, which `resolveFocusBlockMinutes` narrows
+   * back to one it does. */
+  focusBlockMinutes: number;
   lightTheme: string;
   /** The sign the Horoscope ritual step reads for, or `null` when unset —
    * the only preference with no sensible default, since guessing one would
@@ -61,6 +66,7 @@ export type TUpdatePreferences = {
   enableHoroscope?: boolean;
   enableJournal?: boolean;
   enableNotes?: boolean;
+  focusBlockMinutes?: number;
   lightTheme?: string;
   /** `null` clears the sign back to unset, which is why this is nullable
    * rather than merely optional — omitting it leaves the stored sign alone. */

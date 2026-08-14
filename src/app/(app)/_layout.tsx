@@ -2,6 +2,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Redirect, Stack } from "expo-router";
 import { useEffect } from "react";
 
+import { StyleSheet, View } from "react-native";
+
+import { FocusTimerHost } from "@/components/FocusTimerHost";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useAlarmSync } from "@/hooks/useAlarmSync";
 import { useAuth } from "@/hooks/useAuth";
@@ -57,16 +60,29 @@ export default function AppLayout() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen
-        name="new-task"
-        options={createModalScreenOptions(theme, "New Task")}
-      />
-      <Stack.Screen
-        name="edit-task/[id]"
-        options={createModalScreenOptions(theme, "Edit Task")}
-      />
-    </Stack>
+    <View style={styles.root}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen
+          name="new-task"
+          options={createModalScreenOptions(theme, "New Task")}
+        />
+        <Stack.Screen
+          name="edit-task/[id]"
+          options={createModalScreenOptions(theme, "Edit Task")}
+        />
+      </Stack>
+      {/* Publishes the running focus block to the store every timer surface
+          reads, completes a block when its time runs out, and hosts the prompt
+          that guards stopping one. Here, and only here: inside the providers,
+          alive on every tab, outside any single tab screen (DEX-49). */}
+      <FocusTimerHost />
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});

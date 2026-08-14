@@ -51,10 +51,29 @@ predicate — an iPad mini in portrait genuinely can't render seven columns.
 **Create-task entry points**: the phone tab bar's `NativeTabs.BottomAccessory`
 (iOS 26+ — free, since `deploymentTarget` is 26.1) and the rail/dock's "+". Both
 route through `utils/newTaskRoute.ts`, which reads the viewed day from
-`hooks/useViewedDay.tsx` — a module-scoped store, not context, because the
-accessory renders outside the app's provider tree; the day must be read at press
-time, since opening the modal blurs the tab. Android phones have no create entry
-point (no accessory, no rail); Android tablets get the rail's.
+`hooks/useViewedDay.tsx` — a module-scoped store, not context, because the day
+must be read **at press time**: opening the modal blurs the tab that publishes
+it. Android phones have no create entry point (no accessory, no rail); Android
+tablets get the rail's. **Since DEX-49 a running focus block takes the accessory
+over entirely**, so an iOS phone has no create-task entry point for the length of
+a block — deliberate, since a block is time spent not adding to the list, and the
+button returns the moment it ends.
+
+**The bottom accessory renders its children twice, at once.**
+`react-native-screens` renders `ios.bottomAccessory('regular')` *and*
+`ios.bottomAccessory('inline')` as two live children, wrapped in expo-router's
+placement context. Two consequences, and the first is the trap: **every effect
+there runs twice**, so nothing mounted in the accessory may write. (The second:
+React context *does* reach it — an older comment in `useViewedDay.tsx` claimed
+otherwise, and the module store there is justified by press-time reads, not by
+context.) `TabBarAccessory` is therefore a dumb reader over `useFocusTimer`'s
+module store, and the write that completes a block lives in `(app)/_layout.tsx`.
+
+That store has a second caller for an unrelated reason: **`MoreMenu` renders
+once per task card**, so reading the live block through `useLiveFocusBlock` there
+put a query observer and two mutation observers on every row of a long list to
+read one shared value. Reach for `useFocusTimer` from anything that renders per
+row; `useLiveFocusBlock` is for the handful of surfaces that own the timer.
 
 ## Modal screens
 
@@ -270,7 +289,12 @@ can resolve the import). Notable splits:
 right-click is web's long-press (DEX-60), for `trigger="longPress"` menus only.
 **`MoreMenu` is deliberately short: a menu row whose only job is to open a picker
 is a detour, not a shortcut** (DEX-98) — everything a single tap can't finish
-lives in the edit modal. The reason a picker sheet existed at all still stands:
+lives in the edit modal. The focus-block row (DEX-49) clears that bar only
+because the length is a preference; making it ask "how long?" would put it back
+under the rule. It is also **absent**, not disabled, while another task's block
+runs — see `docs/features.md`. Its Stop *does* prompt, per the rule above that a
+menu action writing immediately keeps its confirmation: the modal is hosted once
+in `FocusTimerHost`, since `MoreMenu` renders per card and has nowhere to put one. The reason a picker sheet existed at all still stands:
 neither platform's date picker can be opened imperatively (no ref, no
 `isPresented`), so don't reach for "just focus the date field" without a native
 module. Menu actions that write immediately keep their confirmation prompts; the

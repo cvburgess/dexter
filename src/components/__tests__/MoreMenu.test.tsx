@@ -67,6 +67,21 @@ jest.mock("@/utils/openUrl", () => ({
   openUrl: (url: string) => mockOpenUrl(url),
 }));
 
+// The menu reads the focus timer's module store rather than the query hooks —
+// it renders once per task card. Stubbed here so the store needs no publisher.
+const mockCancelFocusBlock = jest.fn();
+const mockStartFocusBlock = jest.fn();
+let mockLiveFocusBlock: { id: string; taskId: string } | null = null;
+jest.mock("@/hooks/useFocusTimer", () => ({
+  useFocusTimer: () => ({
+    actions: {
+      cancelFocusBlock: mockCancelFocusBlock,
+      startFocusBlock: mockStartFocusBlock,
+    },
+    block: mockLiveFocusBlock,
+  }),
+}));
+
 /** Renders the menu with the props every test would otherwise restate. */
 const renderMenu = (task: TTask = makeTask(), props = {}) =>
   render(
@@ -89,9 +104,11 @@ const optionById = (id: string) =>
     .flatMap((section) => section.options)
     .find((option) => option.id === id);
 
-// The untitled inline groups: the subtask edit and Edit task, then Duplicate /
-// the template rows / Delete. The subtask group drops out when a task can't
-// take one, so a menu without it starts at Edit task.
+// The untitled inline groups: the task actions (focus block, subtask) and Edit
+// task, then Duplicate / the template rows / Delete. That first group is
+// conditional at both ends — no subtask row where a task can't take one, no
+// focus row where one can't be started (DEX-49) — so it drops out entirely when
+// neither applies and the menu starts at Edit task.
 const inlineOptionTitles = () =>
   renderedSections()
     .filter((section) => !section.isSubmenu)
@@ -101,6 +118,7 @@ describe("MoreMenu", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetTemplateById.mockReturnValue(undefined);
+    mockLiveFocusBlock = null;
   });
 
   it("opens on long-press with no menu title, wrapping its children", () => {
@@ -291,6 +309,7 @@ describe("MoreMenu", () => {
     renderMenu(makeTask({ templateId: null }));
 
     expect(inlineOptionTitles()).toEqual([
+      ["Start focus block"],
       ["Edit task"],
       ["Duplicate", "Repeat", "Save as template", "Delete"],
     ]);
@@ -308,6 +327,7 @@ describe("MoreMenu", () => {
     renderMenu(makeTask({ templateId: "template-1" }));
 
     expect(inlineOptionTitles()).toEqual([
+      ["Start focus block"],
       ["Edit task"],
       ["Duplicate", "Edit repeat schedule", "Delete"],
     ]);
@@ -409,6 +429,46 @@ describe("MoreMenu", () => {
       );
     },
   );
+
+  describe("focus block (DEX-49)", () => {
+    it("starts one on this task when nothing is running", () => {
+      renderMenu(makeTask({ id: "task-9" }));
+
+      expect(optionById("focus-block")?.title).toBe("Start focus block");
+      optionById("focus-block")?.onSelect();
+
+      expect(mockStartFocusBlock).toHaveBeenCalledWith("task-9");
+    });
+
+    it("stops the block running on this very task", () => {
+      mockLiveFocusBlock = { id: "block-1", taskId: "task-9" };
+      renderMenu(makeTask({ id: "task-9" }));
+
+      expect(optionById("focus-block")?.title).toBe("Stop focus block");
+      optionById("focus-block")?.onSelect();
+
+      expect(mockCancelFocusBlock).toHaveBeenCalledWith(mockLiveFocusBlock);
+      expect(mockStartFocusBlock).not.toHaveBeenCalled();
+    });
+
+    // The row is absent rather than offering "Start": starting here would have
+    // to silently cancel a block the user may be twenty minutes into, and this
+    // menu has no way to render a confirmation.
+    it("offers nothing while a different task's block is running", () => {
+      mockLiveFocusBlock = { id: "block-1", taskId: "another-task" };
+      renderMenu(makeTask({ id: "task-9" }));
+
+      expect(optionById("focus-block")).toBeUndefined();
+    });
+
+    // Timing work on something already closed out is meaningless, and the
+    // completed cards in the evening's Review are exactly where this would show.
+    it("offers nothing on a task that is already closed out", () => {
+      renderMenu(makeTask({ id: "task-9", status: ETaskStatus.DONE }));
+
+      expect(optionById("focus-block")).toBeUndefined();
+    });
+  });
 });
 
 describe("getOtherSections", () => {
@@ -512,6 +572,34 @@ describe("getTaskActionSections", () => {
 
     section.options[0].onSelect();
     expect(onAddSubtask).toHaveBeenCalledTimes(1);
+  });
+
+  // Both are task-level actions, so they share one group rather than drawing a
+  // divider between them — and the focus row leads, being the one that starts
+  // something rather than editing the card.
+  it("puts the focus block above the subtask action in the same group", () => {
+    const sections = getTaskActionSections(jest.fn(), {
+      title: "Start focus block",
+      onSelect: jest.fn(),
+    });
+
+    expect(sections).toHaveLength(1);
+    expect(sections[0].options.map((option) => option.title)).toEqual([
+      "Start focus block",
+      "Add subtask",
+    ]);
+  });
+
+  it("still forms a group when the focus block is the only action", () => {
+    const onSelect = jest.fn();
+    const [section] = getTaskActionSections(undefined, {
+      title: "Stop focus block",
+      onSelect,
+    });
+
+    expect(section.options.map((option) => option.title)).toEqual([
+      "Stop focus block",
+    ]);
   });
 
   // Nothing to act on: a card with no checklist affordance should not open a

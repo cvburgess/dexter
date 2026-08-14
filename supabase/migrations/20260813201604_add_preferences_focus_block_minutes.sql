@@ -1,0 +1,39 @@
+-- DEX-49: Default focus block length.
+--
+-- How long a focus block runs, in whole minutes. There is deliberately **no
+-- per-block length choice**: starting a block is one tap from a task's menu, and
+-- a menu row whose only job is to open a picker is a detour rather than a
+-- shortcut (docs/frontend.md, DEX-98). So the length has to be settled ahead of
+-- time, in Settings → Tasks, beside the alarm sound.
+--
+-- Minutes, not seconds, even though `focus_blocks.total_seconds` is in seconds:
+-- this is a number a person picks off a list, and the two units meet in exactly
+-- one place — the insert that starts a block.
+--
+-- Defaults to 25, the Pomodoro interval the method page already teaches and what
+-- DEX-49 asks for.
+--
+-- `integer` rather than `smallint`: the column is arithmetic input the app
+-- multiplies by 60, and the two bytes saved are not worth a type the rest of the
+-- schema does not use for counts. NOT NULL for the same reason as the `enable_*`
+-- columns — every read path treats it as a plain number without null-guarding,
+-- and "unset" is not a meaningful third state for a duration. The default is
+-- stored in the catalog rather than written to every row, so this does not
+-- rewrite the table.
+--
+-- Deliberately no CHECK constraint. The offered lengths are an app-owned list
+-- expected to move with taste (`FOCUS_BLOCK_LENGTHS` in
+-- src/utils/focusBlocks.ts), and the same reasoning that leaves
+-- `preferences.alarm_sound` unconstrained applies: a value this build does not
+-- offer must stay readable by an older build, which resolves it to the default
+-- rather than failing. `focus_blocks.total_seconds > 0` is where the genuinely
+-- invariant part is enforced.
+--
+-- No RLS changes are needed — the existing `user_id` policies on `preferences`
+-- already cover the new column.
+--
+-- Rollback:
+--   alter table public.preferences drop column if exists focus_block_minutes;
+
+alter table public.preferences
+  add column if not exists focus_block_minutes integer not null default 25;

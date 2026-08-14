@@ -51,6 +51,50 @@ export type Database = {
           },
         ];
       };
+      focus_blocks: {
+        Row: {
+          created_at: string;
+          date: string;
+          id: string;
+          remaining_seconds: number;
+          resumed_at: string | null;
+          status: Database["public"]["Enums"]["focus_block_status"];
+          task_id: string;
+          total_seconds: number;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          date: string;
+          id?: string;
+          remaining_seconds: number;
+          resumed_at?: string | null;
+          status?: Database["public"]["Enums"]["focus_block_status"];
+          task_id: string;
+          total_seconds: number;
+          user_id?: string;
+        };
+        Update: {
+          created_at?: string;
+          date?: string;
+          id?: string;
+          remaining_seconds?: number;
+          resumed_at?: string | null;
+          status?: Database["public"]["Enums"]["focus_block_status"];
+          task_id?: string;
+          total_seconds?: number;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "focus_blocks_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       goals: {
         Row: {
           created_at: string;
@@ -258,6 +302,7 @@ export type Database = {
           enable_horoscope: boolean;
           enable_journal: boolean;
           enable_notes: boolean;
+          focus_block_minutes: number;
           light_theme: string;
           sun_sign: Database["public"]["Enums"]["sun_sign"] | null;
           template_note: string;
@@ -276,6 +321,7 @@ export type Database = {
           enable_horoscope?: boolean;
           enable_journal?: boolean;
           enable_notes?: boolean;
+          focus_block_minutes?: number;
           light_theme?: string;
           sun_sign?: Database["public"]["Enums"]["sun_sign"] | null;
           template_note?: string;
@@ -294,6 +340,7 @@ export type Database = {
           enable_horoscope?: boolean;
           enable_journal?: boolean;
           enable_notes?: boolean;
+          focus_block_minutes?: number;
           light_theme?: string;
           sun_sign?: Database["public"]["Enums"]["sun_sign"] | null;
           template_note?: string;
@@ -449,6 +496,7 @@ export type Database = {
       trigger_generate_horoscopes: { Args: never; Returns: number };
     };
     Enums: {
+      focus_block_status: "active" | "paused" | "complete" | "cancelled";
       horoscope_sentiment: "positive" | "negative" | "mixed";
       sun_sign:
         | "aries"
@@ -590,6 +638,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      focus_block_status: ["active", "paused", "complete", "cancelled"],
       horoscope_sentiment: ["positive", "negative", "mixed"],
       sun_sign: [
         "aries",

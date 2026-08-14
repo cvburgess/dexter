@@ -5,9 +5,11 @@ import type { StyleProp, ViewStyle } from "react-native";
 
 import { ETaskPriority, TTask } from "@/api/tasks";
 import { isTaskTemplate, NEW_TEMPLATE } from "@/api/templates";
+import { useFocusTimer } from "@/hooks/useFocusTimer";
 import { useTemplates } from "@/hooks/useTemplates";
 import { formatMonthDayYear } from "@/utils/formatPlainDate";
 import { openUrl } from "@/utils/openUrl";
+import { isCompletionStatus } from "@/utils/taskFilters";
 import { Theme, useTheme } from "@/utils/theme";
 import { weekStartEnd } from "@/utils/weekStartEnd";
 
@@ -48,6 +50,40 @@ export function MoreMenu({
   const theme = useTheme();
   const router = useRouter();
   const [, { getTemplateById }] = useTemplates();
+  // The module store, not `useLiveFocusBlock`: this component renders once per
+  // task card, and a query observer plus two mutation observers on every row of
+  // a long list is a lot of machinery to read one shared value.
+  const { actions: focusActions, block: liveFocusBlock } = useFocusTimer();
+
+  /**
+   * The focus block row, or nothing (DEX-49).
+   *
+   * Three states, and the third is the one worth defending: while *another*
+   * task's block is running, this row is simply absent. Offering "Start" there
+   * would have to silently cancel a block the user may be twenty minutes into —
+   * data loss from a menu tap — and `docs/frontend.md` requires an
+   * immediate-write menu action to keep a confirmation, which this menu has no
+   * way to render. The running block's own bar is the obvious place to stop it.
+   *
+   * Both offered rows are a single tap that finishes, which is what clears the
+   * DEX-98 bar. The length is a preference precisely so this stays true.
+   */
+  const focusAction = (() => {
+    if (isCompletionStatus(task.status)) return undefined;
+    if (!liveFocusBlock) {
+      return {
+        title: "Start focus block",
+        onSelect: () => focusActions.startFocusBlock(task.id),
+      };
+    }
+    if (liveFocusBlock.taskId === task.id) {
+      return {
+        title: "Stop focus block",
+        onSelect: () => focusActions.cancelFocusBlock(liveFocusBlock),
+      };
+    }
+    return undefined;
+  })();
 
   // One editor for all three entry points: it shows a repeat schedule, a saved
   // template, or an unsaved draft depending on the route it is opened at.
@@ -117,7 +153,7 @@ export function MoreMenu({
   const editSections = [
     ...getPrioritySections(task.priority, onChangePriority, theme),
     ...getScheduleSections(task.scheduledFor, onChangeSchedule, openTaskEditor),
-    ...getTaskActionSections(onAddSubtask),
+    ...getTaskActionSections(onAddSubtask, focusAction),
     // The way into every field at once, last in the group: the rows above are
     // the shortcuts worth reaching for by name, and this is the general case
     // they fall back to. Note it is the only one of them that always renders —
@@ -330,21 +366,30 @@ export const getScheduleSections = (
  */
 export const getTaskActionSections = (
   onAddSubtask?: () => void,
-): TIconMenuSection[] =>
-  onAddSubtask
-    ? [
-        {
-          options: [
-            {
-              id: "add-subtask",
-              title: "Add subtask",
-              icon: { sf: "checklist", ionicon: "list-outline" } as const,
-              onSelect: onAddSubtask,
-            },
-          ],
-        },
-      ]
-    : [];
+  focus?: { title: string; onSelect: () => void },
+): TIconMenuSection[] => {
+  const options: TIconMenuOption[] = [];
+
+  if (focus) {
+    options.push({
+      id: "focus-block",
+      title: focus.title,
+      icon: { sf: "timer", ionicon: "timer-outline" } as const,
+      onSelect: focus.onSelect,
+    });
+  }
+
+  if (onAddSubtask) {
+    options.push({
+      id: "add-subtask",
+      title: "Add subtask",
+      icon: { sf: "checklist", ionicon: "list-outline" } as const,
+      onSelect: onAddSubtask,
+    });
+  }
+
+  return options.length ? [{ options }] : [];
+};
 
 /**
  * What the menu offers for the template side of a task. A repeat task is just a

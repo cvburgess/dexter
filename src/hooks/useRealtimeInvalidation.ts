@@ -5,6 +5,7 @@ import {
   RealtimeChannel,
 } from "@supabase/supabase-js";
 
+import { FOCUS_BLOCKS_INVALIDATION_KEYS } from "./useFocusBlocks";
 import { goalsQueryOptions } from "./useGoals";
 import { HABITS_INVALIDATION_KEYS } from "./useHabits";
 import { journalsMutationKey } from "./useJournals";
@@ -27,6 +28,7 @@ import { supabase } from "./useAuth";
 // below already skips the invalidation while their autosave is in flight.
 export const REALTIME_INVALIDATIONS: Record<string, readonly string[][]> = {
   daily_habits: [["dailyHabits"]],
+  focus_blocks: FOCUS_BLOCKS_INVALIDATION_KEYS,
   goals: [goalsQueryOptions.queryKey],
   habits: HABITS_INVALIDATION_KEYS,
   journals: [["journals"], ["search"]],
