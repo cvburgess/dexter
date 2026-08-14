@@ -5,7 +5,7 @@
 //
 // The pure reconciliation math is shared from `alarms.shared.ts` on every
 // platform — only the native side effects differ.
-import { TAlarmSchedule, TFocusAlarm } from "./alarms.shared";
+import { TAlarmColors, TAlarmSchedule, TFocusAlarm } from "./alarms.shared";
 
 export * from "./alarms.shared";
 
@@ -18,12 +18,12 @@ export const requestAlarmAuthorization = (): Promise<boolean> =>
 
 export const scheduleTaskAlarm = async (
   _alarm: TAlarmSchedule,
-  _tintColor: string,
+  _colors: TAlarmColors,
 ): Promise<void> => {};
 
 export const scheduleFocusAlarm = async (
   _alarm: TFocusAlarm,
-  _tintColor: string,
+  _colors: TAlarmColors,
 ): Promise<void> => {};
 
 export const cancelTaskAlarm = async (_id: string): Promise<void> => {};

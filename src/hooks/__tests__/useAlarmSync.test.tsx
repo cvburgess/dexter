@@ -109,6 +109,27 @@ describe("useAlarmSync", () => {
     expect(alertSpy).not.toHaveBeenCalled();
   });
 
+  it("paints the alarm with both theme colours", async () => {
+    mockAlarms.reconcileAlarms.mockReturnValue({
+      toSchedule: [{ id: "a", title: "A", epochSeconds: 1 }],
+      toCancel: [],
+    });
+    mockAlarms.scheduleTaskAlarm.mockResolvedValue(undefined);
+
+    renderHook(() => useAlarmSync());
+
+    // `primary` and `primaryContent` from the reader's theme — Dexter's own,
+    // with no ThemeProvider above. Literals rather than `expect.any(String)`:
+    // both are hex, so only the exact values catch them being swapped, which
+    // would otherwise type-check and surface as an unreadable lock screen.
+    await waitFor(() =>
+      expect(mockAlarms.scheduleTaskAlarm).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "a" }),
+        { tint: "#00674f", content: "#c3ffcf" },
+      ),
+    );
+  });
+
   it("hands the reconcile the sound file the preference selects", async () => {
     mockAlarms.reconcileAlarms.mockReturnValue({
       toSchedule: [],

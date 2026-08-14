@@ -12,7 +12,12 @@ import {
   scheduleTimerAlarm,
 } from "expo-alarm-kit";
 
-import { ALARM_APP_GROUP, TAlarmSchedule, TFocusAlarm } from "./alarms.shared";
+import {
+  ALARM_APP_GROUP,
+  TAlarmColors,
+  TAlarmSchedule,
+  TFocusAlarm,
+} from "./alarms.shared";
 
 export * from "./alarms.shared";
 
@@ -54,18 +59,23 @@ export const requestAlarmAuthorization = async (): Promise<boolean> => {
  * key is omitted entirely when absent so AlarmKit stays on its default sound
  * rather than trying to resolve an empty name.
  *
- * `tintColor` is the reader's current `colors.primary`, and it is **baked in
- * here rather than tracked**: `AlarmAttributes` carries one colour, fixed when
- * the alarm is scheduled, and there is no way to repaint an alarm already with
- * AlarmKit short of cancelling and re-scheduling it. Changing theme therefore
- * recolours the alarms set *after* the change and leaves the rest — which is why
- * the tint is deliberately absent from `alarmSignature`. Re-scheduling every
+ * `colors` is the reader's current `primary`/`primaryContent` pair, and it is
+ * **baked in here rather than tracked**: an `AlarmAttributes` colour is fixed
+ * when the alarm is scheduled, and there is no way to repaint an alarm already
+ * with AlarmKit short of cancelling and re-scheduling it. Changing theme
+ * therefore recolours the alarms set *after* the change and leaves the rest —
+ * which is why neither colour appears in `alarmSignature`. Re-scheduling every
  * alarm to restate a colour would run twice a day on its own for anyone on
  * `themeMode: "system"`, where the palette follows the OS scheme.
+ *
+ * `contentColor` reaches the widget through the alarm's `metadata`, which is
+ * why Dexter consumes a fork of `expo-alarm-kit` (DEX-158) — the published
+ * module schedules an empty metadata struct, leaving `tintColor` as the only
+ * colour that crosses, and the widget reconstructing the other from luminance.
  */
 export const scheduleTaskAlarm = async (
   alarm: TAlarmSchedule,
-  tintColor: string,
+  colors: TAlarmColors,
 ): Promise<void> => {
   await cancelAlarm(alarm.id);
   const scheduled = await scheduleAlarm({
@@ -73,7 +83,8 @@ export const scheduleTaskAlarm = async (
     epochSeconds: alarm.epochSeconds,
     title: alarm.title,
     launchAppOnDismiss: true,
-    tintColor,
+    tintColor: colors.tint,
+    contentColor: colors.content,
     ...(alarm.soundName ? { soundName: alarm.soundName } : {}),
   });
   if (!scheduled) {
@@ -94,9 +105,9 @@ export const scheduleTaskAlarm = async (
  * carries a paused alarm's `state` but never its elapsed time, so the app could
  * only guess at the `remaining_seconds` a lock-screen pause implied, and would
  * guess high by however long it stayed closed. The app owns the anchor; the
- * lock screen shows it. Omitting the labels needs
- * `patches/expo-alarm-kit+0.1.11.patch`, which stops the module building those
- * buttons unconditionally.
+ * lock screen shows it. Omitting the labels is what the fork's optional
+ * pause/resume buttons are for — the published module builds them
+ * unconditionally.
  *
  * `dismissPayload` is written but nothing reads it yet: pressing Stop already
  * lands on the past-due-at-mount rule in `usePublishFocusTimer`, which completes
@@ -105,7 +116,7 @@ export const scheduleTaskAlarm = async (
  */
 export const scheduleFocusAlarm = async (
   alarm: TFocusAlarm,
-  tintColor: string,
+  colors: TAlarmColors,
 ): Promise<void> => {
   await cancelAlarm(alarm.id);
   const scheduled = await scheduleTimerAlarm({
@@ -114,7 +125,8 @@ export const scheduleFocusAlarm = async (
     title: alarm.title,
     launchAppOnDismiss: true,
     dismissPayload: alarm.id,
-    tintColor,
+    tintColor: colors.tint,
+    contentColor: colors.content,
     ...(alarm.soundName ? { soundName: alarm.soundName } : {}),
   });
   if (!scheduled) {

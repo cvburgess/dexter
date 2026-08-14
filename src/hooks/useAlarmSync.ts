@@ -37,7 +37,8 @@ export const useAlarmSync = (): void => {
   // Baked into each alarm as it is scheduled, and deliberately *not* part of
   // `alarmSignature` — see `scheduleTaskAlarm`. A theme change re-runs this
   // effect and finds every signature unchanged, so it recolours nothing already
-  // scheduled and costs no native calls.
+  // scheduled and costs no native calls. Both colours travel together, so a
+  // stale alarm keeps a pair that still reads.
   const { colors } = useTheme();
 
   // The running focus block's timer is an alarm this reconcile does not own
@@ -98,7 +99,10 @@ export const useAlarmSync = (): void => {
         }),
         ...toSchedule.map(async (alarm) => {
           try {
-            await scheduleTaskAlarm(alarm, colors.primary);
+            await scheduleTaskAlarm(alarm, {
+              tint: colors.primary,
+              content: colors.primaryContent,
+            });
             scheduled.current.set(alarm.id, alarmSignature(alarm));
           } catch (error) {
             // Leave it unrecorded so a later reconcile retries. Flag the
@@ -134,5 +138,6 @@ export const useAlarmSync = (): void => {
     focusBlockLoading,
     protectedIds,
     colors.primary,
+    colors.primaryContent,
   ]);
 };

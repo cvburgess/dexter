@@ -116,12 +116,36 @@ export type TAlarmSchedule = {
 };
 
 /**
+ * The theme pair an alarm is painted with, baked in when it is scheduled.
+ *
+ * An object rather than two positional arguments on purpose: both are hex
+ * strings, so a transposition would type-check silently and leave the lock
+ * screen drawing its background colour on top of itself — unreadable, and only
+ * on a device.
+ */
+export type TAlarmColors = {
+  /** `colors.primary` — the lock-screen card's background wash. */
+  tint: string;
+  /** `colors.primaryContent` — the title, countdown and progress bar over it. */
+  content: string;
+};
+
+/**
  * Everything about an alarm that AlarmKit won't tell us back — it reports only
  * ids. The reconcile compares this against what it last scheduled to decide
  * what needs re-scheduling, so it has to cover every field that reaches
  * AlarmKit: a retitled task and a changed sound both move no fire time, and
  * comparing fire times alone would leave the old alarm ringing until the next
  * launch.
+ *
+ * **Neither colour belongs here, and it has to be neither rather than one.**
+ * They are baked in as a pair, and leaving both out means a theme change leaves
+ * an already-scheduled alarm showing the old `primary` under the old
+ * `primaryContent` — stale, but a pair that still reads. Adding just one would
+ * reschedule on a theme change and repaint half of it, producing the new
+ * background under the old foreground, which is the exact unreadable
+ * combination `primaryContent` exists to prevent. See `scheduleTaskAlarm` for
+ * why neither is tracked at all.
  */
 export const alarmSignature = (alarm: TAlarmSchedule): string =>
   [alarm.epochSeconds, alarm.title, alarm.soundName ?? ""].join("|");
