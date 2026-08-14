@@ -180,6 +180,7 @@ jest.mock("expo-alarm-kit", () => ({
   configure: jest.fn(() => true),
   requestAuthorization: jest.fn(async () => "authorized"),
   scheduleAlarm: jest.fn(async () => true),
+  scheduleTimerAlarm: jest.fn(async () => true),
   cancelAlarm: jest.fn(async () => true),
   getAllAlarms: jest.fn(() => []),
   generateUUID: jest.fn(() => "test-uuid"),

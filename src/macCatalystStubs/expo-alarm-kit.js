@@ -49,6 +49,12 @@ export async function scheduleAlarm() {
   return true;
 }
 
+/** Inert, but must report success — `utils/alarms.ios.ts`'s `scheduleFocusAlarm`
+ * throws on `false` and `hooks/useFocusAlarmSync.ts` alerts on the throw. */
+export async function scheduleTimerAlarm() {
+  return true;
+}
+
 export async function cancelAlarm() {
   return true;
 }
@@ -61,6 +67,7 @@ export default {
   configure,
   requestAuthorization,
   scheduleAlarm,
+  scheduleTimerAlarm,
   cancelAlarm,
   getAllAlarms,
 };
