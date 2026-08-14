@@ -9,9 +9,10 @@ import {
   getAllAlarms,
   requestAuthorization,
   scheduleAlarm,
+  scheduleTimerAlarm,
 } from "expo-alarm-kit";
 
-import { ALARM_APP_GROUP, TAlarmSchedule } from "./alarms.shared";
+import { ALARM_APP_GROUP, TAlarmSchedule, TFocusAlarm } from "./alarms.shared";
 
 export * from "./alarms.shared";
 
@@ -66,6 +67,43 @@ export const scheduleTaskAlarm = async (
   });
   if (!scheduled) {
     throw new Error(`AlarmKit rejected alarm ${alarm.id}`);
+  }
+};
+
+/**
+ * Schedule (or replace) the native countdown for a running focus block
+ * (DEX-156), so it rings at zero whether or not the app is open and shows a
+ * live countdown on the lock screen and in the Dynamic Island. Cancel-first and
+ * throw-on-`false` for the same reasons as `scheduleTaskAlarm` above; the block
+ * id doubles as the alarm id.
+ *
+ * **No `pauseButtonLabel` or `resumeButtonLabel` is passed, and that is the
+ * whole design.** Given one, AlarmKit puts a Pause button on the lock screen —
+ * and nothing reports back that it was pressed. `AlarmManager.shared.alarms`
+ * carries a paused alarm's `state` but never its elapsed time, so the app could
+ * only guess at the `remaining_seconds` a lock-screen pause implied, and would
+ * guess high by however long it stayed closed. The app owns the anchor; the
+ * lock screen shows it. Omitting the labels needs
+ * `patches/expo-alarm-kit+0.1.11.patch`, which stops the module building those
+ * buttons unconditionally.
+ *
+ * `dismissPayload` is written but nothing reads it yet: pressing Stop already
+ * lands on the past-due-at-mount rule in `usePublishFocusTimer`, which completes
+ * the block on its own. It costs nothing now and is what a second device would
+ * need (DEX-155).
+ */
+export const scheduleFocusAlarm = async (alarm: TFocusAlarm): Promise<void> => {
+  await cancelAlarm(alarm.id);
+  const scheduled = await scheduleTimerAlarm({
+    id: alarm.id,
+    duration: alarm.durationSeconds,
+    title: alarm.title,
+    launchAppOnDismiss: true,
+    dismissPayload: alarm.id,
+    ...(alarm.soundName ? { soundName: alarm.soundName } : {}),
+  });
+  if (!scheduled) {
+    throw new Error(`AlarmKit rejected focus alarm ${alarm.id}`);
   }
 };
 

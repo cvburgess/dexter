@@ -1,12 +1,14 @@
 // Pure alarm scheduling logic, shared by the platform variants of
 // `utils/alarms` and unit-tested directly. Native iOS AlarmKit does the
 // ringing (see `alarms.ios.ts`); this module only decides *what* should be
-// scheduled from the current task list. Keeping it native-free means the
-// reconciliation math is testable without mocking the module.
+// scheduled — from the task list (DEX-48) and from the running focus block
+// (DEX-156). Keeping it native-free means the reconciliation math is testable
+// without mocking the module.
 
 import { Platform } from "react-native";
 
 import { TTask } from "@/api/tasks";
+import { liveRemainingSeconds, TFocusAnchor } from "@/utils/focusBlocks";
 import { isCompletionStatus } from "@/utils/taskFilters";
 
 /** The App Group shared with the AlarmKit dismiss intent (see `app.json`). */
@@ -170,6 +172,8 @@ export const alarmFireDate = (
  * @param now           reference time for the past-moment guard
  * @param soundName     bundled sound every alarm rings with (a preference, so
  *                      it applies to all of them); `undefined` = AlarmKit's own
+ * @param protectedIds  ids this reconcile does not own and must leave alone —
+ *                      see the note on `toCancel` below
  */
 export const reconcileAlarms = (
   tasks: TAlarmTask[],
@@ -177,6 +181,7 @@ export const reconcileAlarms = (
   scheduled: Map<string, string>,
   now: Date,
   soundName?: string,
+  protectedIds: ReadonlySet<string> = new Set(),
 ): { toSchedule: TAlarmSchedule[]; toCancel: string[] } => {
   const desired = new Map<string, TAlarmSchedule>();
 
@@ -200,8 +205,68 @@ export const reconcileAlarms = (
 
   // Cancel anything AlarmKit still holds (or we tracked) that is no longer
   // desired — completed, deleted, unscheduled, or its time now sits in the past.
+  //
+  // `protectedIds` is what keeps that sweep honest now that AlarmKit holds more
+  // than task alarms (DEX-156). Alarm ids are row ids in one flat namespace, so
+  // a focus block's timer looks exactly like a task alarm for a task that no
+  // longer wants one — and would be cancelled on the very next task mutation.
+  // The alternative, tagging ids by kind, needs a prefix AlarmKit can't take:
+  // it parses every id as a UUID.
   const staleIds = new Set([...existingIds, ...scheduled.keys()]);
-  const toCancel = [...staleIds].filter((id) => !desired.has(id));
+  const toCancel = [...staleIds].filter(
+    (id) => !desired.has(id) && !protectedIds.has(id),
+  );
 
   return { toSchedule, toCancel };
+};
+
+/** The shortest timer AlarmKit will take, mirroring `expo-alarm-kit`'s own
+ * guard — it throws below this rather than returning `false`. */
+export const MIN_TIMER_ALARM_SECONDS = 60;
+
+/**
+ * A focus block's native countdown. Extends {@link TAlarmSchedule} rather than
+ * standing alone so {@link alarmSignature} covers it unchanged: `epochSeconds`
+ * is the moment it will ring, `durationSeconds` the countdown AlarmKit is
+ * actually handed.
+ */
+export type TFocusAlarm = TAlarmSchedule & { durationSeconds: number };
+
+/**
+ * The native timer a focus block should have right now, or `null` for no timer
+ * at all — the block is paused, ended, or too near its end to schedule.
+ *
+ * **Signed by `epochSeconds`, not `durationSeconds`.** The duration falls by a
+ * second every time this is called; the fire instant moves only when the block
+ * actually transitions. Keying the reconcile's cache on the instant is what
+ * stops a re-render from tearing down and rebuilding a perfectly good alarm
+ * every second — which would also mean an alarm that is, briefly, not scheduled
+ * at all, once a second, forever.
+ *
+ * A block inside its last minute gets no alarm: AlarmKit's floor is 60 seconds.
+ * The in-app timeout still ends it on time whenever the app is open, so the only
+ * loss is a ring for a block backgrounded during its final minute.
+ */
+export const focusAlarmFor = (
+  block: TFocusAnchor & { id: string; title: string },
+  now: Date,
+  soundName?: string,
+): TFocusAlarm | null => {
+  if (block.status !== "active" || !block.resumedAt) return null;
+
+  const remaining = liveRemainingSeconds(block, now.getTime());
+  if (remaining < MIN_TIMER_ALARM_SECONDS) return null;
+
+  return {
+    id: block.id,
+    title: block.title,
+    // Read off the anchor rather than `now + remaining`: the two agree, but
+    // rounding the second half separately would jitter the signature by a
+    // second depending on where in the current second this was called.
+    epochSeconds: Math.floor(
+      (Date.parse(block.resumedAt) + block.remainingSeconds * 1000) / 1000,
+    ),
+    durationSeconds: Math.ceil(remaining),
+    soundName,
+  };
 };
