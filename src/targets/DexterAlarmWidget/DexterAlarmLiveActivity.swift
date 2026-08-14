@@ -67,26 +67,12 @@ func dexterAlarmFormat(_ seconds: TimeInterval) -> String {
 // end of that branch: the card is a translucent wash of `primary`, and every
 // Dexter theme pairs it with light content except the two whose primary is a
 // near-fluorescent green.
+//
+// The hex parser it calls lives in `DexterWidgetSnapshot.swift` now that the
+// task widgets read the same `#rrggbb` tokens (DEX-83) — one parser per target.
 @available(iOS 26.0, *)
 func dexterAlarmOnTint(for attributes: AlarmAttributes<Meta>) -> Color {
-    attributes.metadata.flatMap { dexterAlarmColor(hex: $0.contentColor) } ?? .white
-}
-
-// `#rrggbb`, matching what the module parses on the way in. Every value that
-// reaches this is a `primaryContent` token, so the nil path is unreachable in
-// practice — it exists so a malformed string falls back rather than scanning to
-// black, which `Scanner.scanHexInt64` would do silently.
-@available(iOS 26.0, *)
-func dexterAlarmColor(hex: String) -> Color? {
-    var value = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-    if value.hasPrefix("#") { value.removeFirst() }
-    guard value.count == 6, value.allSatisfy(\.isHexDigit),
-          let rgb = UInt64(value, radix: 16) else { return nil }
-    return Color(
-        red: Double((rgb & 0xFF0000) >> 16) / 255.0,
-        green: Double((rgb & 0x00FF00) >> 8) / 255.0,
-        blue: Double(rgb & 0x0000FF) / 255.0
-    )
+    attributes.metadata.flatMap { dexterColor(hex: $0.contentColor) } ?? .white
 }
 
 // The depleting ring the Clock app shows, filling every Dynamic Island slot that

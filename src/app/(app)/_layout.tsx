@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { goalsQueryOptions } from "@/hooks/useGoals";
 import { listsQueryOptions } from "@/hooks/useLists";
 import { useRealtimeInvalidation } from "@/hooks/useRealtimeInvalidation";
+import { useWidgetSync } from "@/hooks/useWidgetSync";
 import { createModalScreenOptions } from "@/utils/stackOptions";
 import { useTheme } from "@/utils/theme";
 
@@ -26,6 +27,10 @@ export default function AppLayout() {
   // Projects task alarm times onto native iOS AlarmKit (no-op elsewhere) so
   // set/unset/complete/reschedule and repeat occurrences all stay in sync.
   useAlarmSync();
+
+  // Publishes today + the next three days into the App Group the iOS widget
+  // extension reads (no-op elsewhere), and clears it on sign-out.
+  useWidgetSync();
 
   // Warms the lists/goals caches (`useLists`/`useGoals`'s own query options)
   // as soon as a session exists, so the Backlog drawer's Group menu never has

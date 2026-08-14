@@ -11,9 +11,6 @@ import { TTask } from "@/api/tasks";
 import { liveRemainingSeconds, TFocusAnchor } from "@/utils/focusBlocks";
 import { isCompletionStatus } from "@/utils/taskFilters";
 
-/** The App Group shared with the AlarmKit dismiss intent (see `app.json`). */
-export const ALARM_APP_GROUP = "group.com.dexterplanner";
-
 /**
  * Whether task alarms can actually ring on this platform. AlarmKit is iOS-only,
  * so every alarm-setting surface gates on this rather than repeating a raw
