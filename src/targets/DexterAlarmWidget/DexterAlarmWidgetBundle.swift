@@ -15,6 +15,9 @@ struct DexterAlarmWidgetBundle: WidgetBundle {
         DexterTasksWidget()
         DexterAddTaskWidget()
 
+        // Today's habits, home screen only, with tappable rings (DEX-160).
+        DexterHabitsWidget()
+
         if #available(iOS 26.0, *) {
             DexterAlarmLiveActivity()
         }

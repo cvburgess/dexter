@@ -1,12 +1,17 @@
 import { Temporal } from "@js-temporal/polyfill";
 
+import { TDailyHabit, THabit } from "@/api/habits";
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import { EThemeMode } from "@/api/preferences";
 import { resolveTheme, themes } from "@/utils/theme";
 
 import {
+  buildHabitWidgetSnapshot,
   buildWidgetSnapshot,
+  parsePendingHabitSteps,
+  pendingHabitStepsKey,
   WIDGET_DAY_COUNT,
+  WIDGET_HABITS_PER_DAY,
   WIDGET_TASKS_PER_DAY,
 } from "../widgets.shared";
 
@@ -172,9 +177,187 @@ describe("buildWidgetSnapshot", () => {
     expect(light).not.toHaveProperty("textSecondary");
     expect(light).not.toHaveProperty("priorityMuted");
     expect(
-      [light.background, light.text, light.primary, ...light.priority].every(
-        (color) => /^#[0-9a-f]{6}$/i.test(color),
-      ),
+      [
+        light.background,
+        light.text,
+        light.primary,
+        light.primaryContent,
+        ...light.priority,
+      ].every((color) => /^#[0-9a-f]{6}$/i.test(color)),
     ).toBe(true);
+  });
+});
+
+// `today` is a Thursday (ISO weekday 4); the window runs Thu-Fri-Sat-Sun, 4-7.
+const ALL_DAYS = [1, 2, 3, 4, 5, 6, 7];
+
+const habit = (overrides: Partial<THabit> = {}): THabit => ({
+  id: "habit-1",
+  daysActive: ALL_DAYS,
+  emoji: "💧",
+  isArchived: false,
+  isPaused: false,
+  steps: 8,
+  title: "Drink water",
+  ...overrides,
+});
+
+const dailyHabit = (overrides: Partial<TDailyHabit> = {}): TDailyHabit => ({
+  date: "2026-07-16",
+  habitId: "habit-1",
+  habits: habit(),
+  percentComplete: 25,
+  steps: 8,
+  stepsComplete: 2,
+  ...overrides,
+});
+
+const buildHabits = (habits: THabit[], dailyHabits: TDailyHabit[] = []) =>
+  buildHabitWidgetSnapshot(habits, dailyHabits, today, palettes);
+
+describe("buildHabitWidgetSnapshot", () => {
+  it("carries today and the next three days, in order", () => {
+    const { days } = buildHabits([habit()]);
+
+    expect(days).toHaveLength(WIDGET_DAY_COUNT);
+    expect(days.map((day) => day.date)).toEqual([
+      "2026-07-16",
+      "2026-07-17",
+      "2026-07-18",
+      "2026-07-19",
+    ]);
+  });
+
+  it("keeps only habits scheduled for each day's own weekday", () => {
+    // Thursday is 4, Saturday 6 — so the weekday habit lands on days 0 and 1
+    // and the weekend one on days 2 and 3.
+    const { days } = buildHabits([
+      habit({ id: "weekday", daysActive: [1, 2, 3, 4, 5] }),
+      habit({ id: "weekend", daysActive: [6, 7] }),
+    ]);
+
+    expect(days.map((day) => day.habits.map((h) => h.id))).toEqual([
+      ["weekday"],
+      ["weekday"],
+      ["weekend"],
+      ["weekend"],
+    ]);
+  });
+
+  it("drops paused and archived habits from every day", () => {
+    const { days } = buildHabits([
+      habit({ id: "active" }),
+      habit({ id: "paused", isPaused: true }),
+      habit({ id: "archived", isArchived: true }),
+    ]);
+
+    // The DB trigger clears today's row on pause or archive, but a habit edit
+    // doesn't invalidate the dailyHabits cache — so the filter has to be here
+    // as well, the way `HabitTracker` applies it defensively.
+    days.forEach((day) => {
+      expect(day.habits.map((h) => h.id)).toEqual(["active"]);
+    });
+  });
+
+  it("fills today's rings from the daily rows and leaves later days empty", () => {
+    const { days } = buildHabits(
+      [habit({ id: "habit-1" })],
+      [dailyHabit({ habitId: "habit-1", stepsComplete: 5 })],
+    );
+
+    expect(days[0].habits[0]).toEqual({
+      id: "habit-1",
+      emoji: "💧",
+      title: "Drink water",
+      steps: 8,
+      stepsComplete: 5,
+    });
+    expect(days.slice(1).map((day) => day.habits[0].stepsComplete)).toEqual([
+      0, 0, 0,
+    ]);
+  });
+
+  it("still lists a habit whose daily row does not exist yet", () => {
+    // The rows are bootstrapped by an effect in `HabitTracker`, so a user who
+    // hasn't opened Today has none. Driving the widget off `dailyHabits` would
+    // leave the home screen empty on exactly those mornings.
+    const { days } = buildHabits([habit({ id: "habit-1" })], []);
+
+    expect(days[0].habits[0].stepsComplete).toBe(0);
+    expect(days[0].habits[0].steps).toBe(8);
+  });
+
+  it("takes `steps` from the daily row when one exists", () => {
+    // The trigger rewrites the row's `steps` on a same-day edit, so the row is
+    // what the app is showing a fraction of.
+    const { days } = buildHabits(
+      [habit({ id: "habit-1", steps: 8 })],
+      [dailyHabit({ habitId: "habit-1", steps: 3, stepsComplete: 3 })],
+    );
+
+    expect(days[0].habits[0].steps).toBe(3);
+  });
+
+  it("ignores a daily row belonging to another day", () => {
+    const { days } = buildHabits(
+      [habit({ id: "habit-1" })],
+      [dailyHabit({ date: "2026-07-15", stepsComplete: 7 })],
+    );
+
+    expect(days[0].habits[0].stepsComplete).toBe(0);
+  });
+
+  it("caps each day at WIDGET_HABITS_PER_DAY, in habit id order", () => {
+    const habits = Array.from({ length: WIDGET_HABITS_PER_DAY + 3 }, (_, i) =>
+      // Zero-padded so lexical order is numeric order.
+      habit({ id: `habit-${String(i).padStart(2, "0")}` }),
+    );
+
+    const { days } = buildHabits(habits.toReversed());
+
+    expect(days[0].habits).toHaveLength(WIDGET_HABITS_PER_DAY);
+    expect(days[0].habits.map((h) => h.id)).toEqual(
+      habits.slice(0, WIDGET_HABITS_PER_DAY).map((h) => h.id),
+    );
+  });
+
+  it("sends both palettes, with the checkmark ink Swift needs", () => {
+    const { light, dark } = buildHabits([]);
+
+    expect(light.primaryContent).toBe(themes.dexter.colors.primaryContent);
+    expect(dark.primaryContent).toBe(themes.dark.colors.primaryContent);
+  });
+});
+
+describe("parsePendingHabitSteps", () => {
+  const key = pendingHabitStepsKey("2026-07-16", "habit-1");
+
+  it("reads the queue the extension wrote", () => {
+    expect(parsePendingHabitSteps(JSON.stringify({ [key]: 3 }))).toEqual({
+      [key]: 3,
+    });
+  });
+
+  it("is empty for nothing, for junk, and for the wrong shape", () => {
+    expect(parsePendingHabitSteps(null)).toEqual({});
+    expect(parsePendingHabitSteps("")).toEqual({});
+    expect(parsePendingHabitSteps("{ not json")).toEqual({});
+    expect(parsePendingHabitSteps("[1,2]")).toEqual({});
+    expect(parsePendingHabitSteps("null")).toEqual({});
+  });
+
+  it("drops unreadable entries without losing the readable ones", () => {
+    // Written by a different binary — the extension's — so a partial upgrade or
+    // a half-finished write can leave one entry malformed. Rejecting the whole
+    // object would cost the user every tap since the app was last open.
+    const raw = JSON.stringify({
+      [key]: 3,
+      "no-separator": 1,
+      [pendingHabitStepsKey("2026-07-17", "habit-2")]: "4",
+      [pendingHabitStepsKey("2026-07-18", "habit-3")]: -1,
+      [pendingHabitStepsKey("2026-07-19", "habit-4")]: 1.5,
+    });
+
+    expect(parsePendingHabitSteps(raw)).toEqual({ [key]: 3 });
   });
 });

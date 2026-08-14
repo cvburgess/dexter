@@ -9,6 +9,7 @@ import { LoadingScreen } from "@/components/LoadingScreen";
 import { useAlarmSync } from "@/hooks/useAlarmSync";
 import { useAuth } from "@/hooks/useAuth";
 import { goalsQueryOptions } from "@/hooks/useGoals";
+import { useHabitWidgetDrain } from "@/hooks/useHabitWidgetDrain";
 import { listsQueryOptions } from "@/hooks/useLists";
 import { useRealtimeInvalidation } from "@/hooks/useRealtimeInvalidation";
 import { useDayRollover } from "@/hooks/useToday";
@@ -36,6 +37,11 @@ export default function AppLayout() {
   // Publishes today + the next three days into the App Group the iOS widget
   // extension reads (no-op elsewhere), and clears it on sign-out.
   useWidgetSync();
+
+  // The other direction: persists the habit steps tapped on the home screen
+  // while the app wasn't running, since the extension holds no session of its
+  // own (DEX-160).
+  useHabitWidgetDrain();
 
   // Warms the lists/goals caches (`useLists`/`useGoals`'s own query options)
   // as soon as a session exists, so the Backlog drawer's Group menu never has

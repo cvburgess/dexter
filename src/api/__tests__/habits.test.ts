@@ -1,6 +1,11 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
-import { createHabit, getHabits, updateDailyHabit } from "@/api/habits";
+import {
+  createHabit,
+  getHabits,
+  updateDailyHabit,
+  upsertDailyHabit,
+} from "@/api/habits";
 import { Database } from "@/types/database.types";
 
 describe("getHabits", () => {
@@ -75,5 +80,34 @@ describe("updateDailyHabit", () => {
     expect(update).toHaveBeenCalledWith({ steps_complete: 3 });
     expect(eqDate).toHaveBeenCalledWith("date", "2026-07-11");
     expect(eqHabit).toHaveBeenCalledWith("habit_id", "habit-1");
+  });
+});
+
+describe("upsertDailyHabit", () => {
+  it("writes the day's target alongside the progress, on the primary key", async () => {
+    const single = jest.fn(() =>
+      Promise.resolve({ data: { habit_id: "habit-1" }, error: null }),
+    );
+    const select = jest.fn(() => ({ single }));
+    const upsert = jest.fn(() => ({ select }));
+    const from = jest.fn(() => ({ upsert }));
+    const supabase = { from } as unknown as SupabaseClient<Database>;
+
+    await upsertDailyHabit(supabase, {
+      date: "2026-07-11",
+      habitId: "habit-1",
+      steps: 8,
+      stepsComplete: 3,
+    });
+
+    // `steps` travels because the row may not exist yet — a step tapped on the
+    // widget before the Today screen has bootstrapped the day — and the column
+    // is `not null` with no default. Still never `percent_complete` or
+    // `user_id`.
+    expect(upsert).toHaveBeenCalledWith(
+      { date: "2026-07-11", habit_id: "habit-1", steps: 8, steps_complete: 3 },
+      { onConflict: "date,habit_id" },
+    );
+    expect(from).toHaveBeenCalledWith("daily_habits");
   });
 });
