@@ -252,6 +252,16 @@ export function CalendarView({ date }: TCalendarViewProps) {
         // rather than in its place, for the same reason (DEX-136): the walk
         // happens once, when the screen mounts, and a day with no events would
         // otherwise leave nothing for the tab bar to minimize against.
+        //
+        // Keyed on which of the two it is holding, and only measuring for the
+        // timeline. `scrollToNow` fires once per mount and then latches, so
+        // letting the empty state's layout run it would burn that one shot on
+        // a scroll with nowhere to go — and a day whose events arrive on a
+        // later refetch would open at midnight rather than at now. The key
+        // restores the mount (and so the layout pass) that the empty state
+        // used to cost by replacing this view outright.
+        key={showEmpty ? "empty" : "timeline"}
+        onLayout={showEmpty ? undefined : scrollToNow}
         contentContainerStyle={
           showEmpty
             ? styles.emptyContent
@@ -263,7 +273,6 @@ export function CalendarView({ date }: TCalendarViewProps) {
                 { paddingBottom: SCROLL_BOTTOM_PADDING + insets.bottom },
               ]
         }
-        onLayout={scrollToNow}
         showsVerticalScrollIndicator={false}
         testID="calendar-scroll"
       >
