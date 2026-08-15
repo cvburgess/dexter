@@ -3,7 +3,12 @@ import { useRouter } from "expo-router";
 import { useEffect } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity } from "react-native";
 
-import { habitFilters, useDailyHabits, useHabits } from "@/hooks/useHabits";
+import {
+  canBootstrapDailyHabits,
+  habitFilters,
+  useDailyHabits,
+  useHabits,
+} from "@/hooks/useHabits";
 import { useToday } from "@/hooks/useToday";
 import { useTheme } from "@/utils/theme";
 
@@ -75,6 +80,12 @@ export function HabitTracker({
       !dailyHabit.habits.isPaused && !dailyHabit.habits.isArchived,
   );
 
+  // Whether this day's rows may still be created at all — false for future
+  // dates, and for days long enough past that creating them would invent
+  // history rather than record it (DEX-162). Shares its predicate with the
+  // mutation's own guard, so the effect below never calls one that would throw.
+  const canBootstrap = canBootstrapDailyHabits(date, today);
+
   // Whether any active habit for this day still lacks a daily_habits row.
   const hasMissingHabit = habits.some(
     (habit) =>
@@ -88,7 +99,7 @@ export function HabitTracker({
   // habit is added (hasMissingHabit flips true) and settles once rows exist.
   useEffect(() => {
     if (
-      !isFutureDate &&
+      canBootstrap &&
       !dailyHabitsLoading &&
       !habitsLoading &&
       hasMissingHabit
@@ -97,7 +108,7 @@ export function HabitTracker({
     }
     // createDailyHabits reads the latest habits/dailyHabits via react-query.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, dailyHabitsLoading, habitsLoading, isFutureDate, hasMissingHabit]);
+  }, [date, dailyHabitsLoading, habitsLoading, canBootstrap, hasMissingHabit]);
 
   if (habitsLoading || dailyHabitsLoading || allHabitsLoading) {
     return <ScrollView horizontal style={styles.container} />;

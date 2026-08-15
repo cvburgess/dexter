@@ -52,6 +52,41 @@ type TSupabaseHookOptions = {
 // hand-copied definition that could drift out of sync.
 export const HABITS_INVALIDATION_KEYS = [["habits"], ["dailyHabits"]];
 
+// How far back a day's rows may still be created. Matches the task fetch's
+// default reach, which is roughly how far back a user is plausibly catching up.
+const HABIT_BOOTSTRAP_WINDOW_DAYS = 30;
+
+/**
+ * Whether a day's `daily_habits` rows may still be instantiated (DEX-162).
+ *
+ * Future dates have no rows yet by design — they're drawn from the habit
+ * definitions instead. Long-past dates are the case this guard exists for:
+ * bootstrapping is a *write*, so opening an old day would otherwise manufacture
+ * rows out of today's habit definitions and persist them as history that never
+ * happened. Old days are now worth visiting, and the Week tab mounts seven
+ * trackers at once, so this went from rare to routine.
+ *
+ * The window keeps the honest catch-up case working: a day skipped last week
+ * still backfills, and shows the zero progress it actually had.
+ *
+ * Shared by the mutation below and `HabitTracker`'s bootstrap effect, the way
+ * `OPEN_TASK_STATUSES`/`isCompletionStatus` are — the effect decides whether to
+ * call, the mutation refuses if called anyway, and if the two disagreed every
+ * render of an old day would throw a rejected mutation into Sentry.
+ */
+export const canBootstrapDailyHabits = (
+  date: Temporal.PlainDate,
+  today: Temporal.PlainDate,
+): boolean => {
+  if (Temporal.PlainDate.compare(date, today) > 0) return false;
+  return (
+    Temporal.PlainDate.compare(
+      date,
+      today.subtract({ days: HABIT_BOOTSTRAP_WINDOW_DAYS }),
+    ) >= 0
+  );
+};
+
 const dailyHabitsQueryOptions = (date: string) =>
   queryOptions({
     queryKey: ["dailyHabits", date],
@@ -183,9 +218,11 @@ export const useDailyHabits = (
   const { mutate: create } = useMutation<void, Error>({
     mutationFn: async () => {
       const today = Temporal.Now.plainDateISO();
-      const isFutureDate = Temporal.PlainDate.compare(date, today) > 0;
 
-      if (isLoading || isFutureDate) {
+      if (
+        isLoading ||
+        !canBootstrapDailyHabits(Temporal.PlainDate.from(date), today)
+      ) {
         throw new Error("Cannot create daily habits for this date");
       }
 

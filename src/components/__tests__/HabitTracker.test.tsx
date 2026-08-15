@@ -26,15 +26,17 @@ const mockUseDailyHabits = useDailyHabits as jest.MockedFunction<
 const habitsResult = (habits: THabit[] = [], isLoading = false) =>
   [habits, { isLoading }] as never as ReturnType<typeof useHabits>;
 
-const dailyHabitsResult = () =>
+const dailyHabitsResult = (createDailyHabits: jest.Mock = jest.fn()) =>
   [
     [],
     {
-      createDailyHabits: jest.fn(),
+      createDailyHabits,
       incrementDailyHabit: jest.fn(),
       isLoading: false,
     },
   ] as never as ReturnType<typeof useDailyHabits>;
+
+const habit = { id: "habit-1", steps: 1 } as THabit;
 
 const date = Temporal.Now.plainDateISO();
 
@@ -85,6 +87,31 @@ describe("HabitTracker", () => {
 
       expect(screen.toJSON()).not.toBeNull();
       expect(screen.queryByText("Create a habit")).toBeNull();
+    });
+  });
+
+  // Bootstrapping is a write. Old days became routine to visit once they load
+  // their tasks (DEX-162), and the Week tab mounts seven trackers at once, so an
+  // unbounded bootstrap would persist habit history that never happened.
+  describe("bootstrapping a day's rows", () => {
+    const renderOn = (on: Temporal.PlainDate) => {
+      const createDailyHabits = jest.fn();
+      mockUseHabits.mockReturnValue(habitsResult([habit]));
+      mockUseDailyHabits.mockReturnValue(dailyHabitsResult(createDailyHabits));
+      render(<HabitTracker date={on} showCreateNudge={false} />);
+      return createDailyHabits;
+    };
+
+    it("creates missing rows for a day inside the window", () => {
+      expect(renderOn(date.subtract({ days: 2 }))).toHaveBeenCalled();
+    });
+
+    it("creates nothing for a long-past day", () => {
+      expect(renderOn(date.subtract({ days: 200 }))).not.toHaveBeenCalled();
+    });
+
+    it("creates nothing for a future day", () => {
+      expect(renderOn(date.add({ days: 1 }))).not.toHaveBeenCalled();
     });
   });
 });
