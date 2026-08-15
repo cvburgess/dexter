@@ -31,6 +31,7 @@ jest.mock("@shopify/flash-list", () => {
       extraData,
       ItemSeparatorComponent,
       keyExtractor,
+      ListEmptyComponent,
       renderItem,
       ...props
     },
@@ -50,10 +51,18 @@ jest.mock("@shopify/flash-list", () => {
       [],
     );
 
+    // The empty state lives inside the list on the surfaces that keep the list
+    // mounted through it (DEX-136), so a mock that only rendered `data` would
+    // make those screens look blank to a test.
+    const rows = data ?? [];
+
     return (
       <View {...props}>
         <View style={contentContainerStyle}>
-          {(data ?? []).map((item, index) => (
+          {rows.length === 0 && ListEmptyComponent ? (
+            <ListEmptyComponent />
+          ) : null}
+          {rows.map((item, index) => (
             <Fragment key={keyExtractor ? keyExtractor(item, index) : index}>
               {index > 0 && ItemSeparatorComponent ? (
                 <ItemSeparatorComponent />

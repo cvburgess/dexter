@@ -189,6 +189,18 @@ describe("SearchScreen", () => {
     ).toBeTruthy();
   });
 
+  it("keeps the results list mounted while idle (DEX-136)", () => {
+    // Not cosmetic: UIKit resolves this tab screen's content scroll view once,
+    // when it mounts — always on the idle state — by walking first subviews. A
+    // list that only appeared once there were results left the tab bar with
+    // nothing to minimize against for the life of the screen.
+    mockUseSearch.mockReturnValue(searchResult([], { enabled: false }));
+
+    render(<SearchScreen />);
+
+    expect(screen.getByTestId("search-results")).toBeTruthy();
+  });
+
   it("passes what the user types to the search hook", () => {
     render(<SearchScreen />);
 

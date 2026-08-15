@@ -232,15 +232,42 @@ export default function SearchScreen() {
     [theme.space.sm],
   );
 
+  // The idle prompt, the spinner and "no matches" render *inside* the list
+  // rather than in place of it (DEX-136). UIKit resolves a tab screen's content
+  // scroll view once, when the screen mounts, by walking first subviews — and
+  // this tab always mounts on its idle state, so a list that only appears once
+  // there are results was never the scroll view the tab bar minimized against.
+  // See docs/frontend.md, "Safe areas and keyboard".
+  const ListEmpty = useCallback(() => {
+    if (!willSearch) {
+      return <EmptyScreen message="Search your tasks, notes, and journal." />;
+    }
+    // `!enabled` covers the debounce window, where the hook is still keyed on a
+    // query shorter than the floor while the field already isn't. Otherwise
+    // only a cold query shows this — `keepPreviousData` keeps the previous
+    // results on screen (and so out of this branch) while a subsequent search
+    // resolves.
+    if (isLoading || !enabled) return <LoadingScreen />;
+    return <EmptyScreen message="No matches." />;
+  }, [willSearch, isLoading, enabled]);
+
   // The host SafeAreaView omits the bottom edge (the native tab bar owns it), so
   // the list reserves that inset in its own *content* — padding the frame would
   // end the viewport above the bar and cut the last row off at it, instead of
   // letting content scroll past underneath. `useSafeAreaInsets` is still the
   // right source here: it reads the tab-level provider, whose bottom inset is
   // exactly the tab bar plus the home indicator.
+  //
+  // An empty list takes `flexGrow` and none of that padding instead: the states
+  // that fill it are `flex: 1` centred boxes which reserve the same inset
+  // themselves, so adding the list's would centre them against a box already
+  // shortened once and sit them visibly high.
   const listContentStyle = useMemo(
-    () => ({ paddingBottom: insets.bottom + theme.space.md }),
-    [insets.bottom, theme.space.md],
+    () =>
+      listItems.length === 0
+        ? styles.emptyContent
+        : { paddingBottom: insets.bottom + theme.space.md },
+    [listItems.length, insets.bottom, theme.space.md],
   );
 
   return (
@@ -275,30 +302,20 @@ export default function SearchScreen() {
         onChangeText={setQuery}
         placeholder="Search tasks, notes, and journal"
       />
-      {!willSearch ? (
-        <EmptyScreen message="Search your tasks, notes, and journal." />
-      ) : isLoading || !enabled ? (
-        // `!enabled` covers the debounce window, where the hook is still keyed
-        // on a query shorter than the floor while the field already isn't.
-        // Otherwise only a cold query shows this — `keepPreviousData` keeps the
-        // previous results on screen while a subsequent search resolves.
-        <LoadingScreen />
-      ) : listItems.length === 0 ? (
-        <EmptyScreen message="No matches." />
-      ) : (
-        <FlashList
-          data={listItems}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
-          getItemType={getItemType}
-          ItemSeparatorComponent={ItemSeparator}
-          // A result is one tap away while the keyboard is up, rather than the
-          // first tap only dismissing it.
-          keyboardShouldPersistTaps="handled"
-          style={styles.list}
-          contentContainerStyle={listContentStyle}
-        />
-      )}
+      <FlashList
+        data={listItems}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        getItemType={getItemType}
+        ItemSeparatorComponent={ItemSeparator}
+        ListEmptyComponent={ListEmpty}
+        testID="search-results"
+        // A result is one tap away while the keyboard is up, rather than the
+        // first tap only dismissing it.
+        keyboardShouldPersistTaps="handled"
+        style={styles.list}
+        contentContainerStyle={listContentStyle}
+      />
     </SafeAreaView>
   );
 }
@@ -306,6 +323,11 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  // Lets the idle/loading/no-matches state fill the viewport so it centres in
+  // it, which a content container sized to its (empty) content would not.
+  emptyContent: {
+    flexGrow: 1,
   },
   // Fills the space below the field; FlashList owns its own scrolling.
   list: {
