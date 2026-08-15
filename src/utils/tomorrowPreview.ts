@@ -31,10 +31,12 @@ const COMPARABLE_BAND = 0.3;
  * has to be a constant the Rules of Hooks can see; typed as an array, a caller
  * could pass a length and break the step in a way nothing here would catch.
  *
- * Four weeks back is also the furthest the task cache reaches. `canonicalTaskFilters`
- * holds 30 days, and the oldest day this returns is 28 before the ritual's own
- * date — three days of slack, and no more. Widening this window means widening
- * that one too, or the oldest sample silently drops its completed tasks.
+ * Four weeks back also sits just inside the task fetch's *default* reach:
+ * `DEFAULT_TASK_REACH_DAYS` is 30, and the oldest day this returns is 27 before
+ * the ritual's own date — three days of slack, and no more. Lengthening this tuple
+ * means raising that default too, or tonight's ritual silently drops the oldest
+ * sample's completed tasks. (An old ritual date is covered instead by
+ * `oldestDayRead` below, which the screen widens the reach to.)
  */
 export type TWeekdayHistory = [
   Temporal.PlainDate,
@@ -51,6 +53,18 @@ export const matchingWeekdaysBefore = (
   date.subtract({ weeks: 3 }),
   date.subtract({ weeks: 4 }),
 ];
+
+/**
+ * The oldest day a ritual on `date` reads tasks for — its own day is the newest,
+ * and `matchingWeekdaysBefore` samples four weeks back from *tomorrow*.
+ *
+ * The Ritual screen widens the task fetch to this rather than to the day on
+ * screen (DEX-162), so an old ritual's history samples are actually fetched
+ * instead of counting as zero. Derived from the same tuple the step reads, so
+ * the two cannot drift apart.
+ */
+export const oldestDayRead = (date: Temporal.PlainDate): Temporal.PlainDate =>
+  matchingWeekdaysBefore(date.add({ days: 1 }))[3];
 
 /** How one of tomorrow's figures sits against its own recent history. */
 export type TLoad = "higher" | "lower" | "comparable";

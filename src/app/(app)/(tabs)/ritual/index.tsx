@@ -10,6 +10,7 @@ import { useExpandTaskReach } from "@/hooks/useTaskReach";
 import { useToday } from "@/hooks/useToday";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
 import { parseRitualLink } from "@/utils/ritualRoute";
+import { oldestDayRead } from "@/utils/tomorrowPreview";
 import {
   advanceStep,
   createRitualState,
@@ -81,7 +82,14 @@ export default function RitualScreen() {
 
   // So the Review step reports real completions on a ritual paged past the
   // canonical fetch's reach, rather than zero (DEX-162).
-  useExpandTaskReach(state.date);
+  //
+  // The oldest day the ritual *reads*, not the day it shows: Preview tomorrow
+  // compares tomorrow's load against the four matching weekdays before it
+  // (`matchingWeekdaysBefore`), and those samples sit up to four weeks earlier
+  // than the ritual's own date. Expanding only for `state.date` would leave them
+  // outside the fetch, where they count as zero and quietly report every old
+  // day as busier than typical.
+  useExpandTaskReach(oldestDayRead(state.date));
 
   // Follow the day changing under the screen — foregrounded after midnight, or
   // left open across it (DEX-161) — and only while the ritual is on the day
