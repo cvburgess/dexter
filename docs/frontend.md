@@ -163,6 +163,35 @@ its **own scrollable content**, never on the scroller's frame or a wrapper — f
 padding ends the viewport above the bar and cuts content off instead of letting it
 pass under (DEX-75 → DEX-91).
 
+The other half of making that bar minimize is **where the scroll view sits in the
+view tree, and when** (DEX-136). UIKit resolves a tab screen's content scroll
+view by walking only `subviews[0]` at each level from the screen root, and
+`react-native-screens` runs the same walk **once**, on the screen's first frame,
+to flip that scroller's `contentInsetAdjustmentBehavior` off React Native's
+`never` default. Two obligations follow, and a screen that misses either gets no
+minimize at all — silently, since nothing else about it looks wrong:
+
+- **The vertical scroller must be first.** A header, or a horizontal scroller
+  like `HabitTracker`, ahead of it ends the walk somewhere with no scroll view
+  in it. Where the layout wants the header on top, give the wrapper
+  `flexDirection: "column-reverse"` and list the children in reverse: Yoga lays
+  a reversed column out bottom-up while React Native still mounts native
+  subviews in JSX order, so the order changes and the pixels don't
+  (`SmallScreenToday`, `TasksView`, `CalendarView`).
+- **It must be there on the first frame.** An empty or loading state that
+  *replaces* the scroller is usually exactly what the walk sees — Search always
+  mounts idle, Today can open on a day with no tasks. Put those states inside
+  the scroller (`ListEmptyComponent`, or a child of a `flexGrow: 1` content
+  container) rather than in its place. This is the rule the Search tab's DEX-107
+  note in `docs/features.md` is a special case of.
+
+`zIndex` is not a way out of the first rule: Fabric implements it by reordering
+the mounted subviews, which is the thing being fixed. The escape hatch is
+`ScrollViewMarker` from `react-native-screens/experimental`, which names the
+scroll view outright — but its native half compiles only when
+`RNS_GAMMA_ENABLED=1` is set at `pod install`, and is an inert stub otherwise,
+so it would have to be threaded through EAS *and* every local build.
+
 Keyboard avoidance composes with that: screens with fields in a scroller set
 `automaticallyAdjustKeyboardInsets` (iOS insets content; Android resizes the
 window). **Do not** pair it with a reanimated wrapper padding the frame by
