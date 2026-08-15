@@ -161,6 +161,15 @@ describe("TasksView", () => {
     expect(screen.getByText("No tasks scheduled for this day.")).toBeTruthy();
   });
 
+  it("keeps the task list mounted on a day with no tasks (DEX-136)", () => {
+    // Not cosmetic: UIKit resolves a tab screen's content scroll view once, at
+    // mount, by walking first subviews. Opening Today on an empty day used to
+    // leave the tab bar with no scroll view to minimize against for the life of
+    // the screen, because the empty state replaced the scroller outright.
+    const screen = render(<TasksView date={date} />);
+    expect(screen.UNSAFE_getByType(ScrollView)).toBeTruthy();
+  });
+
   it("does not show the empty state while tasks are loading", () => {
     mockUseTasks.mockReturnValue(tasksResult([], true));
     const screen = render(<TasksView date={date} />);

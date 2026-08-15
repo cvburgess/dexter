@@ -238,39 +238,47 @@ export function CalendarView({ date }: TCalendarViewProps) {
     !isLoading && allDayEvents.length === 0 && positioned.length === 0;
 
   return (
+    // Laid out bottom-up so the timeline scroller is the *first* child in the
+    // view tree while the all-day bar still renders above it (DEX-136). UIKit
+    // picks a tab screen's content scroll view by walking first subviews, so a
+    // day that happens to have an all-day event used to hide the scroller
+    // behind a bar that has none. Costs no pixels — React Native mounts native
+    // subviews in JSX order whatever the flex direction is. See
+    // docs/frontend.md, "Safe areas and keyboard".
     <View style={styles.container}>
-      {allDayEvents.length > 0 && (
-        <View
-          style={[
-            styles.allDayBar,
-            {
-              borderBottomColor: dividerColor,
-              gap: theme.space.xs,
-              paddingVertical: theme.space.sm,
-            },
-          ]}
-        >
-          {allDayEvents.map((event) => (
-            <AllDayRow key={event.id} event={event} theme={theme} />
-          ))}
-        </View>
-      )}
-
-      {showEmpty ? (
-        <EmptyScreen message={emptyMessage} />
-      ) : (
-        <ScrollView
-          ref={scrollRef}
-          contentContainerStyle={[
-            styles.scrollContent,
-            // The host SafeAreaView omits the bottom edge (the native tab bar
-            // owns it), so add the inset here or the last hour hides behind it.
-            { paddingBottom: SCROLL_BOTTOM_PADDING + insets.bottom },
-          ]}
-          onLayout={scrollToNow}
-          showsVerticalScrollIndicator={false}
-          testID="calendar-scroll"
-        >
+      <ScrollView
+        ref={scrollRef}
+        // Rendered whatever the day holds, with the empty state inside it
+        // rather than in its place, for the same reason (DEX-136): the walk
+        // happens once, when the screen mounts, and a day with no events would
+        // otherwise leave nothing for the tab bar to minimize against.
+        //
+        // Keyed on which of the two it is holding, and only measuring for the
+        // timeline. `scrollToNow` fires once per mount and then latches, so
+        // letting the empty state's layout run it would burn that one shot on
+        // a scroll with nowhere to go — and a day whose events arrive on a
+        // later refetch would open at midnight rather than at now. The key
+        // restores the mount (and so the layout pass) that the empty state
+        // used to cost by replacing this view outright.
+        key={showEmpty ? "empty" : "timeline"}
+        onLayout={showEmpty ? undefined : scrollToNow}
+        contentContainerStyle={
+          showEmpty
+            ? styles.emptyContent
+            : [
+                styles.scrollContent,
+                // The host SafeAreaView omits the bottom edge (the native tab
+                // bar owns it), so add the inset here or the last hour hides
+                // behind it. The empty state reserves the same inset itself.
+                { paddingBottom: SCROLL_BOTTOM_PADDING + insets.bottom },
+              ]
+        }
+        showsVerticalScrollIndicator={false}
+        testID="calendar-scroll"
+      >
+        {showEmpty ? (
+          <EmptyScreen message={emptyMessage} />
+        ) : (
           <View style={{ height: totalHeight }}>
             {hours.map((hour) => (
               <HourRow
@@ -290,7 +298,24 @@ export function CalendarView({ date }: TCalendarViewProps) {
 
             {nowTopPx !== null && <NowLine top={nowTopPx} theme={theme} />}
           </View>
-        </ScrollView>
+        )}
+      </ScrollView>
+
+      {allDayEvents.length > 0 && (
+        <View
+          style={[
+            styles.allDayBar,
+            {
+              borderBottomColor: dividerColor,
+              gap: theme.space.xs,
+              paddingVertical: theme.space.sm,
+            },
+          ]}
+        >
+          {allDayEvents.map((event) => (
+            <AllDayRow key={event.id} event={event} theme={theme} />
+          ))}
+        </View>
       )}
     </View>
   );
@@ -496,9 +521,15 @@ function AllDayRow({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    flexDirection: "column-reverse",
   },
   allDayBar: {
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  // Lets the empty state fill the viewport so it centres in it, which a content
+  // container sized to its (empty) content would not.
+  emptyContent: {
+    flexGrow: 1,
   },
   allDayRow: {
     alignItems: "center",

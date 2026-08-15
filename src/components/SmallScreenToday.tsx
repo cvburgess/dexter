@@ -1,6 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useEffect, useRef, useState } from "react";
-import { StyleSheet } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CalendarView } from "@/components/CalendarView";
@@ -115,43 +115,59 @@ export function SmallScreenToday({
       edges={["top", "left", "right"]}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      <DayNavHeader
-        date={date}
-        onChangeDate={changeDate}
-        trailing={
-          /* The task-drawer trigger lives inside this menu (via onOpenDrawer)
+      {/* Laid out bottom-up so the day's content — and the vertical scroll view
+          inside it — is the *first* child in the view tree while the header
+          still renders above it (DEX-136). UIKit resolves a tab screen's
+          content scroll view once at mount by walking first subviews, and a
+          header at the front of that order ends the walk on a subtree with no
+          scroll view in it, leaving `minimizeBehavior="onScrollDown"` nothing
+          to track. Reversing the column costs no pixels: React Native mounts
+          native subviews in JSX order whatever the flex direction is. See
+          docs/frontend.md, "Safe areas and keyboard".
+
+          `TaskDrawerSheet` deliberately stays outside this wrapper. It is a
+          `BottomSheetModal`, and whether it contributes to layout at all is
+          not something the fix should quietly depend on — as a later sibling
+          it is child 1 of the screen, which the walk never visits. */}
+      <View style={styles.reversed}>
+        <DayViewContent
+          view={activeView}
+          date={date}
+          direction={direction}
+          swipeEnabled={swipeEnabled}
+          onNotesEditingChange={setNotesEditing}
+          onSwipe={changeDateBy}
+        />
+        <DayNavHeader
+          date={date}
+          onChangeDate={changeDate}
+          trailing={
+            /* The task-drawer trigger lives inside this menu (via onOpenDrawer)
              rather than as a second header button — a standalone button here
              crowded DayNav's next-day arrow. */
-          <DayViewSwitcher
-            view={activeView}
-            onChangeView={setView}
-            onOpenDrawer={() =>
-              // Resets *both* the filter and the search a `mode=backlog` deep
-              // link left seeded: this entry point means "show me my backlog",
-              // not "show it still narrowed to Unscheduled by a link I followed
-              // three screens ago" (DEX-47).
-              //
-              // `"none"` rather than `undefined` when nothing needs attention —
-              // `undefined` leaves the previous filter in place, which is how
-              // the seeded Unscheduled used to survive. Little is lost: opening
-              // with an attention filter already overrode whatever the user had
-              // selected, so the filter never reliably persisted between opens.
-              taskDrawerRef.current?.present(attentionFilter ?? "none", "")
-            }
-            attention={backlogAttention}
-            enableNotes={preferences.enableNotes}
-            enableCalendar={preferences.enableCalendar}
-          />
-        }
-      />
-      <DayViewContent
-        view={activeView}
-        date={date}
-        direction={direction}
-        swipeEnabled={swipeEnabled}
-        onNotesEditingChange={setNotesEditing}
-        onSwipe={changeDateBy}
-      />
+            <DayViewSwitcher
+              view={activeView}
+              onChangeView={setView}
+              onOpenDrawer={() =>
+                // Resets *both* the filter and the search a `mode=backlog` deep
+                // link left seeded: this entry point means "show me my backlog",
+                // not "show it still narrowed to Unscheduled by a link I followed
+                // three screens ago" (DEX-47).
+                //
+                // `"none"` rather than `undefined` when nothing needs attention —
+                // `undefined` leaves the previous filter in place, which is how
+                // the seeded Unscheduled used to survive. Little is lost: opening
+                // with an attention filter already overrode whatever the user had
+                // selected, so the filter never reliably persisted between opens.
+                taskDrawerRef.current?.present(attentionFilter ?? "none", "")
+              }
+              attention={backlogAttention}
+              enableNotes={preferences.enableNotes}
+              enableCalendar={preferences.enableCalendar}
+            />
+          }
+        />
+      </View>
       <TaskDrawerSheet ref={taskDrawerRef} date={date} />
     </SafeAreaView>
   );
@@ -201,5 +217,9 @@ function DayViewContent({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  reversed: {
+    flex: 1,
+    flexDirection: "column-reverse",
   },
 });
