@@ -7,6 +7,7 @@ import { EmptyScreen } from "@/components/EmptyScreen";
 import { WeekView } from "@/components/WeekView";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useExpandTaskReach } from "@/hooks/useTaskReach";
 import { useToday } from "@/hooks/useToday";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
 import { useTheme } from "@/utils/theme";
@@ -72,6 +73,10 @@ export default function WeekScreen() {
   );
 
   usePublishViewedDay(targetDate);
+
+  // The week's Monday, not `targetDate`: the reach only ever widens, so covering
+  // the earliest column covers all seven (DEX-162).
+  useExpandTaskReach(monday);
 
   if (!largeDevice) {
     return (

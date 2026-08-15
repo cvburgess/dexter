@@ -23,10 +23,12 @@ import { getTemplates, TTemplate } from "@/api/templates";
 import { getNextTaskDate } from "@/utils/repeatSchedule";
 import { completeSubtasks, subtasksFromTemplate } from "@/utils/subtasks";
 import { isCompletionStatus } from "@/utils/taskFilters";
+import { DEFAULT_TASK_REACH_DAYS } from "@/utils/taskReach";
 import { OPEN_TASK_STATUSES } from "@/utils/taskStatus";
 
 import { supabase } from "./useAuth";
 import { FOCUS_BLOCKS_INVALIDATION_KEYS } from "./useFocusBlocks";
+import { useTaskReach } from "./useTaskReach";
 
 type TMutateCallbacks = {
   onError?: (error: Error) => void;
@@ -46,6 +48,13 @@ type TUseTasks = [
      * (DEX-100).
      */
     isError: boolean;
+    /**
+     * The canonical fetch has no settled rows for the current reach — the first
+     * load, and also a reach widening under an older day (DEX-162), where
+     * `tasks` still holds the previous reach's rows. Callers that reconcile
+     * against the outside world (`useAlarmSync`, `useWidgetSync`) wait it out
+     * rather than acting on a list that is about to grow.
+     */
     isLoading: boolean;
     /** Re-runs the canonical fetch; the retry behind a failed load. */
     refetch: () => void;
@@ -58,20 +67,33 @@ type TSupabaseHookOptions = {
   skipQuery?: boolean;
 };
 
-// How far back the canonical fetch reaches for completed tasks — wide enough
-// that the Today list's recently-checked-off rows stay visible, bounded so
-// the payload doesn't grow with the account's full task history. Incomplete
-// tasks are never excluded by this window (DEX-57).
-const RECENT_TASK_WINDOW_DAYS = 30;
-
 const getToday = () => Temporal.Now.plainDateISO();
 
-/** Finds a task in the canonical `["tasks"]` cache entry. */
+/**
+ * The canonical fetch's cache entry, keyed by how far back it reaches (DEX-162).
+ *
+ * The reach is in the key so React Query owns the transition when a screen opens
+ * an older day: widening starts a fresh entry, which reads as `isLoading` while
+ * `keepPreviousData` holds the rows already on screen — rather than leaving
+ * `isLoading` false over a stale array, which every day view would draw as "no
+ * tasks scheduled".
+ *
+ * Invalidation deliberately stays on the bare `["tasks"]` prefix everywhere
+ * below, so it keeps matching whatever the current reach is (and so
+ * `useRealtimeInvalidation`'s map needs no change).
+ */
+export const tasksQueryKey = (reach: Temporal.PlainDate) => [
+  "tasks",
+  reach.toString(),
+];
+
+/** Finds a task in the canonical cache entry. */
 const findCachedTask = (
   queryClient: QueryClient,
+  queryKey: readonly unknown[],
   id: string,
 ): TTask | undefined =>
-  queryClient.getQueryData<TTask[]>(["tasks"])?.find((task) => task.id === id);
+  queryClient.getQueryData<TTask[]>(queryKey)?.find((task) => task.id === id);
 
 /** Finds a task in a snapshot taken before an optimistic write. */
 const findTask = (tasks: TTask[] | undefined, id: string): TTask | undefined =>
@@ -104,11 +126,12 @@ const applyDiff = (task: TTask, { id: _id, ...diff }: TUpdateTask): TTask => {
  */
 const withSubtaskSweep = (
   queryClient: QueryClient,
+  queryKey: readonly unknown[],
   diff: TUpdateTask,
 ): TUpdateTask => {
   if (!isCompletionStatus(diff.status) || diff.subtasks) return diff;
 
-  const task = findCachedTask(queryClient, diff.id);
+  const task = findCachedTask(queryClient, queryKey, diff.id);
   // `?.` on subtasks too, not just task: a bundle running against a database
   // where the migration hasn't landed yet returns rows without the column.
   if (!task?.subtasks?.length) return diff;
@@ -135,6 +158,7 @@ const withSubtaskSweep = (
  */
 const normalizeBulkKeys = (
   queryClient: QueryClient,
+  queryKey: readonly unknown[],
   diffs: TUpdateTask[],
 ): TUpdateTask[] => {
   const keys = new Set(diffs.flatMap((diff) => Object.keys(diff)));
@@ -143,7 +167,7 @@ const normalizeBulkKeys = (
   }
 
   return diffs.map((diff) => {
-    const cached = findCachedTask(queryClient, diff.id);
+    const cached = findCachedTask(queryClient, queryKey, diff.id);
 
     return Object.fromEntries(
       [...keys].map((key) => [
@@ -226,24 +250,26 @@ const maybeCreateNextRecurringTask = async (
 
 /**
  * The single fetch the Today and Backlog views derive from: every incomplete
- * task, plus any task (regardless of status) scheduled within the last
- * `RECENT_TASK_WINDOW_DAYS` days — bounding the payload while keeping the
- * Today list's recently-completed rows intact. Filtering, grouping, and
- * searching for a specific view all happen client-side over this one cached
- * array (see `utils/taskFilters.ts`) instead of separate server queries per
- * view/day/filter (DEX-57). Not a general-purpose "all tasks" fetch — a view
- * needing full history or a different window (e.g. an analytics screen)
- * would need its own query, since old closed-out tasks (done, won't do,
- * delegated) fall outside this window entirely.
+ * task, plus any task (regardless of status) scheduled on or after `reach` —
+ * bounding the payload while keeping the Today list's recently-completed rows
+ * intact. Filtering, grouping, and searching for a specific view all happen
+ * client-side over this one cached array (see `utils/taskFilters.ts`) instead of
+ * separate server queries per view/day/filter (DEX-57).
+ *
+ * `reach` defaults to `DEFAULT_TASK_REACH_DAYS` back and widens as the user
+ * opens older days (DEX-162, see `useTaskReach`) — so this *is* the fetch a day
+ * view needs, however far back it pages. Still not a general-purpose "all tasks"
+ * fetch: a view needing full history regardless of where the user has navigated
+ * (e.g. an analytics screen) would need its own query.
  */
-export const canonicalTaskFilters = (): TQueryFilter[] => [
+export const canonicalTaskFilters = (
+  reach: Temporal.PlainDate = getToday().subtract({
+    days: DEFAULT_TASK_REACH_DAYS,
+  }),
+): TQueryFilter[] => [
   makeOrFilter([
     ["status", "in", OPEN_TASK_STATUSES],
-    [
-      "scheduledFor",
-      "gte",
-      getToday().subtract({ days: RECENT_TASK_WINDOW_DAYS }).toString(),
-    ],
+    ["scheduledFor", "gte", reach.toString()],
   ]),
 ];
 
@@ -258,6 +284,8 @@ export const TASKS_MUTATION_KEY = ["tasks"];
 
 export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
   const queryClient = useQueryClient();
+  const reach = useTaskReach();
+  const queryKey = tasksQueryKey(reach);
 
   const {
     data: tasks = [],
@@ -266,9 +294,14 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
     refetch,
   } = useQuery({
     enabled: !options?.skipQuery,
-    placeholderData: [],
-    queryKey: ["tasks"],
-    queryFn: () => getTasks(supabase, canonicalTaskFilters()),
+    // `keepPreviousData`, not `[]`: widening the reach changes the key, and
+    // serving an empty array while the wider fetch lands would blank every
+    // mounted view for the round trip. Holding the previous reach's rows keeps
+    // them on screen, and `isPlaceholderData` still reports the load — which is
+    // what stops a day view drawing "no tasks scheduled" over a pending fetch.
+    placeholderData: (previous: TTask[] | undefined) => previous ?? [],
+    queryKey,
+    queryFn: () => getTasks(supabase, canonicalTaskFilters(reach)),
   });
 
   const { mutate: create } = useMutation<TTask[], Error, TCreateTask>({
@@ -297,23 +330,28 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
   const optimisticUpdate = {
     onMutate: async (diff: TUpdateTask) => {
       await queryClient.cancelQueries({ queryKey: ["tasks"] });
-      const previousTasks = queryClient.getQueryData<TTask[]>(["tasks"]);
+      const previousTasks = queryClient.getQueryData<TTask[]>(queryKey);
 
-      queryClient.setQueryData<TTask[]>(["tasks"], (current = []) =>
+      queryClient.setQueryData<TTask[]>(queryKey, (current = []) =>
         current.map((task) =>
           task.id === diff.id ? applyDiff(task, diff) : task,
         ),
       );
 
-      return { previousTasks };
+      // The key travels with the snapshot rather than being read again on
+      // rollback: the reach can widen while this write is in flight, and
+      // `onError` would then restore the *narrower* entry's rows into the wider
+      // one — dropping every older day the expansion had just loaded.
+      return { previousTasks, queryKey };
     },
     onError: (
       _error: Error,
       _diff: TUpdateTask,
-      context: { previousTasks?: TTask[] } | undefined,
+      context:
+        { previousTasks?: TTask[]; queryKey?: readonly unknown[] } | undefined,
     ) => {
-      if (context?.previousTasks) {
-        queryClient.setQueryData(["tasks"], context.previousTasks);
+      if (context?.previousTasks && context.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.previousTasks);
       }
     },
   };
@@ -322,7 +360,7 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
     TTask[],
     Error,
     TUpdateTask,
-    { previousTasks?: TTask[] }
+    { previousTasks?: TTask[]; queryKey?: readonly unknown[] }
   >({
     mutationKey: TASKS_MUTATION_KEY,
     mutationFn: (diff) => updateTask(supabase, diff),
@@ -346,7 +384,7 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
    * They run in addition to the mutation-level handlers above, never instead.
    */
   const updateWithSweep = (diff: TUpdateTask, callbacks?: TMutateCallbacks) =>
-    update(withSubtaskSweep(queryClient, diff), callbacks);
+    update(withSubtaskSweep(queryClient, queryKey, diff), callbacks);
 
   const { mutate: bulkUpdate } = useMutation<TTask[], Error, TUpdateTask[]>({
     mutationKey: TASKS_MUTATION_KEY,
@@ -357,7 +395,8 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
         // every row carries `subtasks` once any of them needs it.
         normalizeBulkKeys(
           queryClient,
-          diffs.map((diff) => withSubtaskSweep(queryClient, diff)),
+          queryKey,
+          diffs.map((diff) => withSubtaskSweep(queryClient, queryKey, diff)),
         ),
       ),
     onSettled: () => {

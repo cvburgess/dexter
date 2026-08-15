@@ -9,11 +9,21 @@ endpoint contracts in `docs/api-routes.md`.
 
 A thin selector over `SmallScreenToday`/`LargeScreenToday`, sharing only day,
 preferences, and the backlog-attention signal. `hooks/useTasks.tsx` fetches once
-under the canonical `["tasks"]` query — every incomplete task plus anything
-scheduled in the last `RECENT_TASK_WINDOW_DAYS` (30) — and every view slices that
-cached array client-side (`utils/taskFilters.ts`), so paging days is fetch-free
-(DEX-57). Known limitation: older days show their incomplete tasks but not their
-closed-out ones.
+under the canonical `["tasks", reach]` query — every incomplete task plus
+anything scheduled on or after the reach — and every view slices that cached
+array client-side (`utils/taskFilters.ts`), so paging days is fetch-free
+(DEX-57).
+
+**The reach widens, and only widens** (`hooks/useTaskReach.ts`, DEX-162). It
+starts at `DEFAULT_TASK_REACH_DAYS` (30) back and drops to the first of the month
+whenever Today, Week, or Ritual shows an older day — snapped to a month so
+swiping past the boundary doesn't refetch per swipe. Two things make that safe to
+do with one cache entry: the reach is *in the query key*, so widening reads as a
+load rather than a silently stale array (with `keepPreviousData` holding the rows
+already on screen); and every `invalidateQueries` stays on the bare `["tasks"]`
+prefix, so realtime and the mutations' own settle invalidation keep matching
+whatever the reach currently is. **Never narrow it** — one array feeds every
+mounted view, so pulling it back in would empty days another surface is showing.
 
 ### Paging and panes
 
@@ -433,11 +443,6 @@ it, where the Today list mixes closed rows in with open ones.)
   too — the trigger clears the row but a habit edit doesn't invalidate the
   `dailyHabits` cache, so the hero would otherwise count a ring the row below it
   no longer draws.
-- **Completed tasks are cache-bounded to about 30 days.** `canonicalTaskFilters`
-  fetches open tasks *or* anything scheduled within 30 days, so a ritual paged
-  further back than that reports zero completions with no error anywhere. Not
-  worth its own query for a step you reach by walking tonight's ritual, but it is
-  invisible at the point of use.
 - **The focus figure counts `complete` blocks only** (DEX-49) — not `cancelled`,
   which is why stopping early is its own status rather than a deleted row, and
   not a block still running, which hasn't happened yet. It is also the one line

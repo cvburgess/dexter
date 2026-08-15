@@ -6,6 +6,7 @@ import {
   compareToTypical,
   copyToText,
   matchingWeekdaysBefore,
+  oldestDayRead,
   sortAgenda,
   tomorrowCopy,
 } from "../tomorrowPreview";
@@ -38,11 +39,29 @@ describe("matchingWeekdaysBefore", () => {
     );
   });
 
-  // The task cache reaches 30 days back; the oldest sample has to fit inside it.
+  // The task fetch's default reach is 30 days back; the oldest sample has to fit
+  // inside it.
   it("reaches no further back than 28 days", () => {
     const [, , , oldest] = matchingWeekdaysBefore(THURSDAY);
 
     expect(THURSDAY.since(oldest).total({ unit: "days" })).toBe(28);
+  });
+});
+
+// What the Ritual screen widens the task fetch to, so an old ritual's history
+// samples are fetched rather than counted as zero (DEX-162).
+describe("oldestDayRead", () => {
+  it("reaches back past the ritual's own date to the oldest history sample", () => {
+    expect(oldestDayRead(THURSDAY).toString()).toBe("2026-07-17");
+  });
+
+  it("stays inside the default reach for tonight's ritual", () => {
+    const back = THURSDAY.since(oldestDayRead(THURSDAY)).total({
+      unit: "days",
+    });
+
+    expect(back).toBe(27);
+    expect(back).toBeLessThan(30);
   });
 
   it("crosses a month and a leap-year February without drifting", () => {

@@ -17,8 +17,20 @@ import {
 } from "@/api/tasks";
 import { TTemplate } from "@/api/templates";
 import { settleQueries } from "@/testUtils/settleQueries";
+import { resolveReach } from "@/utils/taskReach";
 
-import { canonicalTaskFilters, useTasks } from "../useTasks";
+import { expandTaskReach, resetTaskReach } from "../useTaskReach";
+import { canonicalTaskFilters, tasksQueryKey, useTasks } from "../useTasks";
+
+/**
+ * The cache entry the hook reads under the default reach. The key carries how
+ * far back the fetch reaches (DEX-162), so a test inspecting the cache directly
+ * has to name it — and computes it through `resolveReach` rather than restating
+ * the arithmetic, so a change to the default can't leave these asserting against
+ * a key nothing writes.
+ */
+const tasksKey = () =>
+  tasksQueryKey(resolveReach(null, Temporal.Now.plainDateISO()));
 
 // useTasks imports the supabase client from useAuth, which reads the app's
 // URI scheme at module scope — not available under Jest.
@@ -67,11 +79,27 @@ describe("canonicalTaskFilters", () => {
       ]),
     ]);
   });
+
+  // The whole point of DEX-162: an older day is served by widening this one
+  // fetch, so the day's closed-out tasks arrive in the array every view slices.
+  it("scopes to the reach it is given, so an older day's closed-out tasks load", () => {
+    const reach = Temporal.PlainDate.from("2025-01-01");
+
+    expect(canonicalTaskFilters(reach)).toEqual([
+      makeOrFilter([
+        ["status", "in", [ETaskStatus.TODO, ETaskStatus.IN_PROGRESS]],
+        ["scheduledFor", "gte", "2025-01-01"],
+      ]),
+    ]);
+  });
 });
 
 describe("useTasks", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // The reach is a module store, so a test that widens it would otherwise
+    // leak into every test after it.
+    resetTaskReach();
     mockGetTasks.mockResolvedValue([]);
     // The completing task is already terminal server-side by the time the
     // recurrence guard runs, so the default is "nothing else is open".
@@ -96,6 +124,97 @@ describe("useTasks", () => {
     expect(
       queryClient.getQueryCache().findAll({ queryKey: ["tasks"] }),
     ).toHaveLength(1);
+  });
+
+  describe("reach (DEX-162)", () => {
+    const olderTask: TTask = {
+      alarmTime: null,
+      dueOn: null,
+      goalId: null,
+      id: "old-1",
+      listId: null,
+      priority: ETaskPriority.UNPRIORITIZED,
+      scheduledFor: "2025-01-15",
+      status: ETaskStatus.DONE,
+      subtasks: [],
+      templateId: null,
+      title: "Long done",
+      url: null,
+    };
+
+    it("refetches with a wider scope when a screen opens an older day", async () => {
+      const { wrapper } = createWrapper();
+      const { result } = renderHook(() => useTasks(), { wrapper });
+
+      await waitFor(() => expect(result.current[1].isLoading).toBe(false));
+      expect(mockGetTasks).toHaveBeenCalledTimes(1);
+
+      mockGetTasks.mockResolvedValue([olderTask]);
+      act(() => {
+        expandTaskReach(Temporal.PlainDate.from("2025-01-15"));
+      });
+
+      // The closed-out task from January is what the old window dropped, and
+      // what the day view was drawing as an empty day.
+      await waitFor(() => expect(result.current[0]).toEqual([olderTask]));
+
+      // Widened to the first of that month, not the day itself — so paging
+      // around inside January costs no further fetches.
+      expect(mockGetTasks).toHaveBeenLastCalledWith(
+        expect.anything(),
+        canonicalTaskFilters(Temporal.PlainDate.from("2025-01-01")),
+      );
+    });
+
+    // Without `keepPreviousData` the widened key would serve `[]` for the round
+    // trip, blanking every mounted view; and `isLoading` is what stops a day
+    // view drawing "no tasks scheduled" over the pending fetch.
+    it("keeps the rows already on screen while the wider fetch lands", async () => {
+      const { wrapper } = createWrapper();
+      const existing: TTask = {
+        ...olderTask,
+        id: "task-1",
+        status: ETaskStatus.TODO,
+      };
+      mockGetTasks.mockResolvedValue([existing]);
+
+      const { result } = renderHook(() => useTasks(), { wrapper });
+      await waitFor(() => expect(result.current[0]).toEqual([existing]));
+
+      let resolveFetch: (tasks: TTask[]) => void = () => {};
+      mockGetTasks.mockReturnValue(
+        new Promise<TTask[]>((resolve) => {
+          resolveFetch = resolve;
+        }),
+      );
+
+      act(() => {
+        expandTaskReach(Temporal.PlainDate.from("2025-01-15"));
+      });
+
+      await waitFor(() => expect(result.current[1].isLoading).toBe(true));
+      expect(result.current[0]).toEqual([existing]);
+
+      act(() => {
+        resolveFetch([existing, olderTask]);
+      });
+      await waitFor(() =>
+        expect(result.current[0]).toEqual([existing, olderTask]),
+      );
+    });
+
+    it("ignores a day already inside the reach, so ordinary paging refetches nothing", async () => {
+      const { wrapper } = createWrapper();
+      const { result } = renderHook(() => useTasks(), { wrapper });
+
+      await waitFor(() => expect(result.current[1].isLoading).toBe(false));
+
+      act(() => {
+        expandTaskReach(Temporal.Now.plainDateISO().subtract({ days: 1 }));
+      });
+
+      expect(mockGetTasks).toHaveBeenCalledTimes(1);
+    });
   });
 
   // The whole point of `isError`: react-query only serves `placeholderData`
@@ -251,7 +370,7 @@ describe("useTasks", () => {
 
       const { result } = renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
-        expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual(cached),
+        expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual(cached),
       );
 
       act(() => result.current[1].updateTasks(diffs));
@@ -334,7 +453,7 @@ describe("useTasks", () => {
 
     const { result } = renderHook(() => useTasks(), { wrapper });
     await waitFor(() =>
-      expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual([task]),
+      expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([task]),
     );
 
     act(() =>
@@ -393,7 +512,7 @@ describe("useTasks", () => {
 
       const { result } = renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
-        expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual([task]),
+        expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([task]),
       );
 
       act(() =>
@@ -455,7 +574,7 @@ describe("useTasks", () => {
 
       const { result } = renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
-        expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual([task]),
+        expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([task]),
       );
 
       act(() => result.current[1].updateTask({ id: task.id, status }));
@@ -514,7 +633,7 @@ describe("useTasks", () => {
 
       const { result } = renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
-        expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual([task]),
+        expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([task]),
       );
 
       act(() =>
@@ -571,7 +690,7 @@ describe("useTasks", () => {
 
     const { result } = renderHook(() => useTasks(), { wrapper });
     await waitFor(() =>
-      expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual([task]),
+      expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([task]),
     );
 
     act(() =>
@@ -622,7 +741,7 @@ describe("useTasks", () => {
 
       const { result } = renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
-        expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual([cached]),
+        expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([cached]),
       );
 
       act(() =>
@@ -632,7 +751,7 @@ describe("useTasks", () => {
       // Visible immediately — this is what lets TaskCard compose its next edit
       // from stored state instead of a local overlay that can go stale.
       await waitFor(() =>
-        expect(queryClient.getQueryData<TTask[]>(["tasks"])?.[0].title).toBe(
+        expect(queryClient.getQueryData<TTask[]>(tasksKey())?.[0].title).toBe(
           "Shipped",
         ),
       );
@@ -651,14 +770,14 @@ describe("useTasks", () => {
 
       const { result } = renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
-        expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual([cached]),
+        expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([cached]),
       );
 
       act(() =>
         result.current[1].updateTask({ id: "task-1", title: "Renamed" }),
       );
 
-      const optimistic = queryClient.getQueryData<TTask[]>(["tasks"])?.[0];
+      const optimistic = queryClient.getQueryData<TTask[]>(tasksKey())?.[0];
       expect(optimistic?.subtasks).toEqual(cached.subtasks);
       expect(optimistic?.priority).toBe(ETaskPriority.NEITHER);
 
@@ -675,7 +794,7 @@ describe("useTasks", () => {
 
       const { result } = renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
-        expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual([cached]),
+        expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([cached]),
       );
 
       act(() =>
@@ -685,10 +804,63 @@ describe("useTasks", () => {
       // Without the rollback the card would keep showing unsaved state forever,
       // with no error surfaced anywhere.
       await waitFor(() =>
-        expect(queryClient.getQueryData<TTask[]>(["tasks"])?.[0].title).toBe(
+        expect(queryClient.getQueryData<TTask[]>(tasksKey())?.[0].title).toBe(
           "Ship it",
         ),
       );
+      await settled();
+    });
+
+    // The rollback carries the key it snapshotted, so a reach that widens while
+    // the write is in flight doesn't get the narrower entry's rows written over
+    // it — which would drop every older day the expansion had just loaded.
+    it("rolls back into the entry it snapshotted, not whichever reach is current", async () => {
+      const { settled, wrapper, queryClient } = createWrapper();
+      const older: TTask = {
+        ...cached,
+        id: "old-1",
+        scheduledFor: "2025-01-15",
+      };
+      mockGetTasks.mockResolvedValue([cached]);
+
+      let failUpdate: (error: Error) => void = () => {};
+      mockUpdateTask.mockReturnValue(
+        new Promise<TTask[]>((_resolve, reject) => {
+          failUpdate = reject;
+        }),
+      );
+
+      const { result } = renderHook(() => useTasks(), { wrapper });
+      await waitFor(() =>
+        expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([cached]),
+      );
+
+      const narrowKey = tasksKey();
+      act(() =>
+        result.current[1].updateTask({ id: "task-1", title: "Renamed" }),
+      );
+
+      // The expansion lands mid-write, and brings the older day with it.
+      mockGetTasks.mockResolvedValue([cached, older]);
+      act(() => {
+        expandTaskReach(Temporal.PlainDate.from("2025-01-15"));
+      });
+      await waitFor(() => expect(result.current[0]).toEqual([cached, older]));
+
+      act(() => failUpdate(new Error("offline")));
+
+      // The rollback restored the narrow entry; the widened one — which is what
+      // every view is now reading — still has the older day.
+      await waitFor(() =>
+        expect(queryClient.getQueryData<TTask[]>(narrowKey)?.[0].title).toBe(
+          "Ship it",
+        ),
+      );
+      const wideKey = tasksQueryKey(Temporal.PlainDate.from("2025-01-01"));
+      expect(queryClient.getQueryData<TTask[]>(wideKey)).toEqual([
+        cached,
+        older,
+      ]);
       await settled();
     });
 
@@ -724,7 +896,7 @@ describe("useTasks", () => {
 
       const { result } = renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
-        expect(queryClient.getQueryData<TTask[]>(["tasks"])).toEqual([
+        expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([
           repeating,
         ]),
       );
