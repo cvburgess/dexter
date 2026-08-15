@@ -6,6 +6,7 @@ import { LargeScreenToday } from "@/components/LargeScreenToday";
 import { SmallScreenToday } from "@/components/SmallScreenToday";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useExpandTaskReach } from "@/hooks/useTaskReach";
 import { useTasks } from "@/hooks/useTasks";
 import { useToday } from "@/hooks/useToday";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
@@ -44,6 +45,9 @@ export default function TodayScreen() {
   }));
   // So "New Task" opened from this tab defaults its schedule to the viewed day.
   usePublishViewedDay(day.date);
+  // So paging to a day older than the canonical fetch's reach loads it, rather
+  // than drawing it as empty of closed-out work (DEX-162).
+  useExpandTaskReach(day.date);
 
   // Drives the Backlog attention dot and the filter that tapping Backlog
   // pre-applies (DEX-58): the Filter preset for the first overdue/left-behind

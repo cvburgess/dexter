@@ -6,6 +6,7 @@ import { LargeScreenRitual } from "@/components/LargeScreenRitual";
 import { SmallScreenRitual } from "@/components/SmallScreenRitual";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useExpandTaskReach } from "@/hooks/useTaskReach";
 import { useToday } from "@/hooks/useToday";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
 import { parseRitualLink } from "@/utils/ritualRoute";
@@ -77,6 +78,10 @@ export default function RitualScreen() {
   // journal entry therefore defaults a new task to that day until the user
   // navigates — the Today tab has always behaved this way.
   usePublishViewedDay(state.date);
+
+  // So the Review step reports real completions on a ritual paged past the
+  // canonical fetch's reach, rather than zero (DEX-162).
+  useExpandTaskReach(state.date);
 
   // Follow the day changing under the screen — foregrounded after midnight, or
   // left open across it (DEX-161) — and only while the ritual is on the day
