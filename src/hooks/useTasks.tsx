@@ -48,6 +48,13 @@ type TUseTasks = [
      * (DEX-100).
      */
     isError: boolean;
+    /**
+     * The canonical fetch has no settled rows for the current reach — the first
+     * load, and also a reach widening under an older day (DEX-162), where
+     * `tasks` still holds the previous reach's rows. Callers that reconcile
+     * against the outside world (`useAlarmSync`, `useWidgetSync`) wait it out
+     * rather than acting on a list that is about to grow.
+     */
     isLoading: boolean;
     /** Re-runs the canonical fetch; the retry behind a failed load. */
     refetch: () => void;
@@ -331,15 +338,20 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
         ),
       );
 
-      return { previousTasks };
+      // The key travels with the snapshot rather than being read again on
+      // rollback: the reach can widen while this write is in flight, and
+      // `onError` would then restore the *narrower* entry's rows into the wider
+      // one — dropping every older day the expansion had just loaded.
+      return { previousTasks, queryKey };
     },
     onError: (
       _error: Error,
       _diff: TUpdateTask,
-      context: { previousTasks?: TTask[] } | undefined,
+      context:
+        { previousTasks?: TTask[]; queryKey?: readonly unknown[] } | undefined,
     ) => {
-      if (context?.previousTasks) {
-        queryClient.setQueryData(queryKey, context.previousTasks);
+      if (context?.previousTasks && context.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.previousTasks);
       }
     },
   };
@@ -348,7 +360,7 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
     TTask[],
     Error,
     TUpdateTask,
-    { previousTasks?: TTask[] }
+    { previousTasks?: TTask[]; queryKey?: readonly unknown[] }
   >({
     mutationKey: TASKS_MUTATION_KEY,
     mutationFn: (diff) => updateTask(supabase, diff),

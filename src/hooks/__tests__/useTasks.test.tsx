@@ -811,6 +811,59 @@ describe("useTasks", () => {
       await settled();
     });
 
+    // The rollback carries the key it snapshotted, so a reach that widens while
+    // the write is in flight doesn't get the narrower entry's rows written over
+    // it — which would drop every older day the expansion had just loaded.
+    it("rolls back into the entry it snapshotted, not whichever reach is current", async () => {
+      const { settled, wrapper, queryClient } = createWrapper();
+      const older: TTask = {
+        ...cached,
+        id: "old-1",
+        scheduledFor: "2025-01-15",
+      };
+      mockGetTasks.mockResolvedValue([cached]);
+
+      let failUpdate: (error: Error) => void = () => {};
+      mockUpdateTask.mockReturnValue(
+        new Promise<TTask[]>((_resolve, reject) => {
+          failUpdate = reject;
+        }),
+      );
+
+      const { result } = renderHook(() => useTasks(), { wrapper });
+      await waitFor(() =>
+        expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([cached]),
+      );
+
+      const narrowKey = tasksKey();
+      act(() =>
+        result.current[1].updateTask({ id: "task-1", title: "Renamed" }),
+      );
+
+      // The expansion lands mid-write, and brings the older day with it.
+      mockGetTasks.mockResolvedValue([cached, older]);
+      act(() => {
+        expandTaskReach(Temporal.PlainDate.from("2025-01-15"));
+      });
+      await waitFor(() => expect(result.current[0]).toEqual([cached, older]));
+
+      act(() => failUpdate(new Error("offline")));
+
+      // The rollback restored the narrow entry; the widened one — which is what
+      // every view is now reading — still has the older day.
+      await waitFor(() =>
+        expect(queryClient.getQueryData<TTask[]>(narrowKey)?.[0].title).toBe(
+          "Ship it",
+        ),
+      );
+      const wideKey = tasksQueryKey(Temporal.PlainDate.from("2025-01-01"));
+      expect(queryClient.getQueryData<TTask[]>(wideKey)).toEqual([
+        cached,
+        older,
+      ]);
+      await settled();
+    });
+
     it("still spawns a recurrence, despite the optimistic write marking the task complete", async () => {
       // The recurrence guard skips already-complete tasks; reading the live
       // cache after the optimistic write would see DONE and skip every time.

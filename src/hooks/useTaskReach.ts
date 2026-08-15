@@ -39,14 +39,16 @@ const subscribe = (listener: () => void) => {
  * Widens the reach to cover `date`, and reports whether it moved.
  *
  * A no-op when `date` is already covered, which is the common case — every
- * ordinary day change re-runs this. Exported for tests; screens call
+ * ordinary day change re-runs this. "Covered" includes the default window, so
+ * opening today doesn't record a reach that resolves to the same floor anyway
+ * and wake every subscriber for nothing. Exported for tests; screens call
  * `useExpandTaskReach`.
  */
 export const expandTaskReach = (date: Temporal.PlainDate): boolean => {
   const next = reachFor(date);
-  if (explicitReach && Temporal.PlainDate.compare(next, explicitReach) >= 0) {
-    return false;
-  }
+  const current = resolveReach(explicitReach, Temporal.Now.plainDateISO());
+  if (Temporal.PlainDate.compare(next, current) >= 0) return false;
+
   explicitReach = next;
   listeners.forEach((listener) => listener());
   return true;
@@ -55,6 +57,7 @@ export const expandTaskReach = (date: Temporal.PlainDate): boolean => {
 /** Resets the reach. Test-only — the app widens for the life of the process. */
 export const resetTaskReach = () => {
   explicitReach = null;
+  listeners.forEach((listener) => listener());
 };
 
 /**
