@@ -72,6 +72,7 @@ describe("RitualStepSegments on iOS", () => {
     renderSegments({ state: state({ mode: "pm" }) });
 
     expect(segments().map((segment) => segment.systemName)).toEqual([
+      STEP_ICONS.breathe.sf,
       STEP_ICONS["open-tasks"].sf,
       STEP_ICONS.review.sf,
       STEP_ICONS.journal.sf,

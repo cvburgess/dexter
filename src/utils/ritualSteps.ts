@@ -32,6 +32,7 @@ export type TRitualMode = "am" | "pm";
  * deep link to it dying with no error anywhere.
  */
 export const RITUAL_STEP_IDS = [
+  "breathe",
   "horoscope",
   "journal",
   "calendar",
@@ -79,6 +80,12 @@ export type TRitualStep = {
  * of it, where the evening's actual last question is what you are walking into.
  * The morning keeps it because there the count is the *first* thing said about
  * the day, and its hand-off to the Today tab is the point of the step.
+ *
+ * **The evening opens on `breathe` (DEX-164)**, where it used to open on
+ * `open-tasks`. An evening whose job is to wind down was starting on
+ * administrative work — the same jarring open the morning already avoids by
+ * leading with a horoscope rather than a list. Breathe is the evening's
+ * counterpart to it: a first step that asks for nothing.
  */
 export const RITUAL_STEPS: Record<TRitualMode, readonly TRitualStep[]> = {
   am: [
@@ -89,6 +96,7 @@ export const RITUAL_STEPS: Record<TRitualMode, readonly TRitualStep[]> = {
     { id: "summary", title: "Summary" },
   ],
   pm: [
+    { id: "breathe", title: "Breathe" },
     { id: "open-tasks", title: "Open tasks" },
     { id: "review", title: "Review" },
     { id: "journal", title: "Journal" },

@@ -1,0 +1,44 @@
+-- DEX-164: Defaults for the evening ritual's Breathe step.
+--
+-- The Breathe step opens the PM ritual, and both of its controls need a value
+-- to open *with*. Neither is a per-session setting stored here — the step's own
+-- slider and technique control change that sitting and nothing else. These two
+-- columns are only what it starts from.
+--
+-- `breath_count` is how many breaths a run is, 3 by default: long enough to be
+-- a pause rather than a gesture, short enough that the step does not have to be
+-- talked into. `integer` rather than `smallint`, matching `focus_block_minutes`
+-- — the two bytes are not worth a type the rest of the schema does not use for
+-- counts.
+--
+-- `breathing_technique` is which pattern it runs, and takes one more value than
+-- the step can: `'shuffle'` means "a different one each day", resolved from the
+-- ritual's date rather than stored, so nothing has to be written when the day
+-- turns and two devices opening the same evening agree. It defaults to shuffle
+-- because a first-time reader has no basis to pick between three patterns they
+-- have not tried, and rotating introduces all three.
+--
+-- Both NOT NULL for the reason the `enable_*` columns are: every read path
+-- treats them as plain values without null-guarding, and "unset" is not a
+-- meaningful third state for either. The defaults live in the catalog rather
+-- than being written to every row, so this does not rewrite the table.
+--
+-- Deliberately no CHECK constraint on either, the same call `alarm_sound` and
+-- `focus_block_minutes` make: the range and the list of techniques are
+-- app-owned and expected to move with taste (`utils/breathing.ts`), and a value
+-- a later build stores must stay readable by an older one. `resolveBreathCount`
+-- and `resolveBreathingTechniqueSetting` narrow both at the read site — the
+-- count clamps into range, since a 12 saved by a later build plainly means "as
+-- many as you'll give me", while an unrecognized technique takes the default,
+-- since there is nothing to clamp a name toward.
+--
+-- No RLS changes are needed — the existing `user_id` policies on `preferences`
+-- already cover both new columns.
+--
+-- Rollback:
+--   alter table public.preferences drop column if exists breath_count;
+--   alter table public.preferences drop column if exists breathing_technique;
+
+alter table public.preferences
+  add column if not exists breath_count integer not null default 3,
+  add column if not exists breathing_technique text not null default 'shuffle';

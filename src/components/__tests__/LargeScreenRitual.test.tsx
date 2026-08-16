@@ -134,7 +134,7 @@ describe("LargeScreenRitual", () => {
   it("renders the evening ritual's own steps", () => {
     const screen = renderRitual({ state: state({ mode: "pm", step: 0 }) });
 
-    expect(screen.getByText("Open tasks")).toBeTruthy();
+    expect(screen.getByText("Breathe")).toBeTruthy();
   });
 
   it("hands the segments the step on screen", () => {
