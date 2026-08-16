@@ -57,10 +57,8 @@ type TSliderProps = {
  * positioned by ordinary layout — a shared value would buy nothing but a second
  * copy of the position to keep in step with the prop.
  *
- * `minDistance(0)` is load-bearing where this is used inside the Ritual pager:
- * `SwipeablePage`'s swipe activates at 20px of horizontal travel, and gesture
- * handler cancels an ancestor once a descendant activates, so grabbing on touch
- * is what stops a drag along the track from paging the ritual instead.
+ * Its two gestures are tuned against the two surfaces it sits inside — the
+ * Ritual pager and the Settings scroller; see the comments on them.
  */
 export function Slider({
   value,
@@ -86,17 +84,31 @@ export function Slider({
     if (next !== value) onValueChange(next);
   };
 
-  const pan = Gesture.Pan()
-    .minDistance(0)
-    // Both handlers do the same thing: `onBegin` makes a tap anywhere on the
-    // track move the thumb there, and `onChange` carries the drag after it.
-    .onBegin((event) => {
-      commit(valueAtPosition(event.x, trackWidth, { min, max, step }));
-    })
-    .onChange((event) => {
-      commit(valueAtPosition(event.x, trackWidth, { min, max, step }));
-    })
+  const at = (x: number) =>
+    commit(valueAtPosition(x, trackWidth, { min, max, step }));
+
+  // Two gestures rather than one pan that also accepts taps. A pan loose enough
+  // to fire on a touch that never moves is a pan that fires on the first frame
+  // of a *scroll* that happened to start on the track, which drags the thumb to
+  // wherever the finger landed on the way past.
+  const tap = Gesture.Tap()
+    .onEnd((event) => at(event.x))
     .runOnJS(true);
+
+  const pan = Gesture.Pan()
+    // Both thresholds are about the gestures this sits inside. 5px of travel
+    // claims a horizontal drag well before `SwipeablePage`'s page swipe would
+    // at 20 — gesture handler cancels an ancestor once a descendant activates,
+    // so this is what stops a scrub along the track from paging the ritual.
+    // Failing on vertical travel hands the other direction back, so the
+    // Settings list still scrolls when the drag starts on the slider.
+    .activeOffsetX([-5, 5])
+    .failOffsetY([-10, 10])
+    .onStart((event) => at(event.x))
+    .onChange((event) => at(event.x))
+    .runOnJS(true);
+
+  const gesture = Gesture.Race(tap, pan);
 
   // Clamped rather than trusted: a stored value outside the range would push
   // the thumb off the end of the track, and the resolvers that narrow those
@@ -109,7 +121,7 @@ export function Slider({
   const thumbLeft = ratio * trackWidth - thumbSize / 2;
 
   return (
-    <GestureDetector gesture={pan}>
+    <GestureDetector gesture={gesture}>
       <View
         accessibilityActions={[
           { name: "increment" },

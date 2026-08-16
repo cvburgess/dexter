@@ -5,8 +5,8 @@ import RitualScreen from "@/app/(app)/(tabs)/settings/ritual";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
 import {
-  pickerOptions,
-  pickerProps,
+  pickerOptionsFor,
+  pickerPropsFor,
   resetPicker,
 } from "@/testUtils/mockExpoUiPicker";
 
@@ -46,6 +46,8 @@ const renderWith = (
     enableHoroscope?: boolean;
     templatePrompts?: string[];
     sunSign?: string | null;
+    breathCount?: number;
+    breathingTechnique?: string;
   } = {},
 ) => {
   mockUsePreferences.mockReturnValue([
@@ -54,6 +56,8 @@ const renderWith = (
       enableHoroscope: true,
       templatePrompts: [],
       sunSign: null,
+      breathCount: 3,
+      breathingTechnique: "shuffle",
       ...overrides,
     } as never,
     { updatePreferences: mockUpdate },
@@ -80,7 +84,7 @@ describe("RitualScreen", () => {
     it("offers every sign in astrological order behind an unset option", () => {
       renderWith();
 
-      const options = pickerOptions();
+      const options = pickerOptionsFor("sun-sign-picker");
 
       expect(options[0]).toEqual({ label: "Not set", value: "" });
       expect(options).toHaveLength(13);
@@ -97,7 +101,7 @@ describe("RitualScreen", () => {
     it("selects the stored sign", () => {
       renderWith({ sunSign: "leo" });
 
-      expect(pickerProps()?.selectedValue).toBe("leo");
+      expect(pickerPropsFor("sun-sign-picker")?.selectedValue).toBe("leo");
     });
 
     // A null sign has no matching item of its own, and a Picker given a value
@@ -106,13 +110,13 @@ describe("RitualScreen", () => {
     it("falls back to the unset sentinel when no sign is stored", () => {
       renderWith({ sunSign: null });
 
-      expect(pickerProps()?.selectedValue).toBe("");
+      expect(pickerPropsFor("sun-sign-picker")?.selectedValue).toBe("");
     });
 
     it("saves a chosen sign", () => {
       renderWith({ sunSign: null });
 
-      (pickerProps()?.onValueChange as (value: string) => void)("scorpio");
+      (pickerPropsFor("sun-sign-picker")?.onValueChange as (value: string) => void)("scorpio");
 
       expect(mockUpdate).toHaveBeenCalledWith({ sunSign: "scorpio" });
     });
@@ -122,7 +126,7 @@ describe("RitualScreen", () => {
     it("clears the sign back to null when the unset option is chosen", () => {
       renderWith({ sunSign: "leo" });
 
-      (pickerProps()?.onValueChange as (value: string) => void)("");
+      (pickerPropsFor("sun-sign-picker")?.onValueChange as (value: string) => void)("");
 
       expect(mockUpdate).toHaveBeenCalledWith({ sunSign: null });
     });
@@ -132,7 +136,7 @@ describe("RitualScreen", () => {
     it("stays visible when the Journal is disabled", () => {
       renderWith({ enableJournal: false, sunSign: "leo" });
 
-      expect(pickerProps()?.selectedValue).toBe("leo");
+      expect(pickerPropsFor("sun-sign-picker")?.selectedValue).toBe("leo");
     });
 
     // The Horoscope is the other story: the sign feeds that step and nothing
@@ -142,7 +146,7 @@ describe("RitualScreen", () => {
     it("hides when the Horoscope is disabled", () => {
       renderWith({ enableHoroscope: false, sunSign: "leo" });
 
-      expect(pickerProps()).toBeNull();
+      expect(pickerPropsFor("sun-sign-picker")).toBeNull();
     });
 
     // Hiding the picker must not clear the stored sign: turning the Horoscope
@@ -150,7 +154,7 @@ describe("RitualScreen", () => {
     it("comes back with the stored sign when the Horoscope is re-enabled", () => {
       renderWith({ enableHoroscope: true, sunSign: "leo" });
 
-      expect(pickerProps()?.selectedValue).toBe("leo");
+      expect(pickerPropsFor("sun-sign-picker")?.selectedValue).toBe("leo");
       expect(mockUpdate).not.toHaveBeenCalled();
     });
   });
@@ -284,6 +288,84 @@ describe("RitualScreen", () => {
 
     expect(mockUpdate).toHaveBeenCalledWith({
       templatePrompts: ["Grateful for"],
+    });
+  });
+
+  describe("the Breathe settings", () => {
+    it("offers the three techniques plus shuffle", () => {
+      renderWith();
+
+      expect(
+        pickerOptionsFor("breathing-technique-picker").map((o) => o.value),
+      ).toEqual(["simple", "relax", "box", "shuffle"]);
+    });
+
+    it("selects the stored technique", () => {
+      renderWith({ breathingTechnique: "box" });
+
+      expect(
+        pickerPropsFor("breathing-technique-picker")?.selectedValue,
+      ).toBe("box");
+    });
+
+    // The column carries no CHECK, so a technique a later build stored would
+    // otherwise leave the picker showing nothing selected.
+    it("falls back to shuffle for a technique this build does not know", () => {
+      renderWith({ breathingTechnique: "coherent" });
+
+      expect(
+        pickerPropsFor("breathing-technique-picker")?.selectedValue,
+      ).toBe("shuffle");
+    });
+
+    it("saves a chosen technique", () => {
+      renderWith();
+
+      (
+        pickerPropsFor("breathing-technique-picker")
+          ?.onValueChange as (value: string) => void
+      )("relax");
+
+      expect(mockUpdate).toHaveBeenCalledWith({ breathingTechnique: "relax" });
+    });
+
+    it("shows the stored breath count and its range", () => {
+      const screen = renderWith({ breathCount: 6 });
+
+      expect(screen.getByText("6")).toBeTruthy();
+      expect(
+        screen.getByTestId("breath-count-slider").props.accessibilityValue,
+      ).toEqual({ max: 10, min: 1, now: 6 });
+    });
+
+    it("narrows a stored count outside the range", () => {
+      const screen = renderWith({ breathCount: 0 });
+
+      expect(
+        screen.getByTestId("breath-count-slider").props.accessibilityValue.now,
+      ).toBe(1);
+    });
+
+    it("saves a changed breath count", () => {
+      const screen = renderWith({ breathCount: 3 });
+
+      fireEvent(screen.getByTestId("breath-count-slider"), "accessibilityAction", {
+        nativeEvent: { actionName: "increment" },
+      });
+
+      expect(mockUpdate).toHaveBeenCalledWith({ breathCount: 4 });
+    });
+
+    // Breathe is unconditional, unlike the Horoscope and Journal steps — there
+    // is no toggle above it and nothing hides it.
+    it("stays visible with both other steps turned off", () => {
+      const screen = renderWith({
+        enableHoroscope: false,
+        enableJournal: false,
+      });
+
+      expect(screen.getByTestId("breath-count-slider")).toBeTruthy();
+      expect(pickerPropsFor("breathing-technique-picker")).not.toBeNull();
     });
   });
 });

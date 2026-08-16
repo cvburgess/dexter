@@ -6,14 +6,24 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
+import { FormRow } from "@/components/FormRow";
 import { HeaderAddButton } from "@/components/HeaderAddButton";
 import { PickerField } from "@/components/PickerField";
 import { RowDeleteButton, rowDeleteInset } from "@/components/RowDeleteButton";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { SettingsToggleCard } from "@/components/SettingsToggleCard";
+import { Slider } from "@/components/Slider";
 import { TextInput } from "@/components/TextInput";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
+import {
+  BREATHING_TECHNIQUE_SETTING_OPTIONS,
+  MAX_BREATHS,
+  MIN_BREATHS,
+  resolveBreathCount,
+  resolveBreathingTechniqueSetting,
+  type TBreathingTechniqueSetting,
+} from "@/utils/breathing";
 import {
   NO_SUN_SIGN,
   SUN_SIGN_OPTIONS,
@@ -27,17 +37,19 @@ import { useTheme } from "@/utils/theme";
 
 /**
  * Settings for the guided Ritual flow (DEX-34): whether its Horoscope and
- * Journal steps appear at all, which sign the horoscope reads, and the prompts
- * the journal seeds each day from.
+ * Journal steps appear at all, which sign the horoscope reads, the prompts the
+ * journal seeds each day from, and what the evening's Breathe step opens with.
  *
  * Each step's sub-settings sit under its own toggle and hide with it — a sun
  * sign feeds nothing but the Horoscope step, so leaving the picker on screen
- * with the step turned off would offer a choice that changes nothing.
+ * with the step turned off would offer a choice that changes nothing. Breathe
+ * has no toggle to hide behind because the step is unconditional (DEX-164).
  */
 export default function RitualScreen() {
   const theme = useTheme();
   const navigation = useNavigation();
   const [preferences, { updatePreferences }] = usePreferences();
+  const breathCount = resolveBreathCount(preferences.breathCount);
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = useIsLargeDevice();
   const insets = useSafeAreaInsets();
@@ -218,6 +230,63 @@ export default function RitualScreen() {
             )}
           </View>
         )}
+
+        {/* No toggle above this one: Breathe is unconditional, like Open tasks
+            and Review. Both values below are only what the step *opens* with —
+            its own slider and technique control change the sitting in front of
+            you and write nothing back. */}
+        <View style={{ gap: theme.space.sm }}>
+          <SettingsSectionTitle subtitle="The Breathe step opens the evening ritual. Shuffle runs a different technique each day.">
+            Breathe
+          </SettingsSectionTitle>
+          <View
+            style={{
+              backgroundColor: theme.colors.surfaceSunken,
+              borderRadius: theme.radii.md,
+              gap: theme.space.sm,
+              padding: theme.space.md,
+            }}
+          >
+            <PickerField<TBreathingTechniqueSetting>
+              label="Technique"
+              options={BREATHING_TECHNIQUE_SETTING_OPTIONS}
+              // Narrowed on the way in for the same reason the focus block
+              // length is: the column carries no CHECK, so a value a later
+              // build stored would leave the picker showing nothing selected.
+              selectedValue={resolveBreathingTechniqueSetting(
+                preferences.breathingTechnique,
+              )}
+              testID="breathing-technique-picker"
+              onValueChange={(breathingTechnique) =>
+                updatePreferences({ breathingTechnique })
+              }
+            />
+            {/* The label and its value share a row, and the track spans the
+                card below them — `FormRow` right-aligns its control, which
+                leaves a full-width slider nowhere to go. */}
+            <FormRow label="Breaths">
+              <Text
+                style={{
+                  ...theme.fonts.control,
+                  color: theme.colors.textSecondary,
+                }}
+              >
+                {breathCount}
+              </Text>
+            </FormRow>
+            <Slider
+              accessibilityLabel="Number of breaths"
+              max={MAX_BREATHS}
+              min={MIN_BREATHS}
+              onValueChange={(count) =>
+                updatePreferences({ breathCount: count })
+              }
+              step={1}
+              testID="breath-count-slider"
+              value={breathCount}
+            />
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
