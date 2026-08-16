@@ -39,18 +39,24 @@ describe("valueAtPosition", () => {
 describe("Slider", () => {
   const setup = (value = 3) => {
     const onValueChange = jest.fn();
+    const onSettle = jest.fn();
     render(
       <Slider
         accessibilityLabel="Breaths"
         max={10}
         min={1}
+        onSettle={onSettle}
         onValueChange={onValueChange}
         step={1}
         testID="breaths-slider"
         value={value}
       />,
     );
-    return { onValueChange, slider: screen.getByTestId("breaths-slider") };
+    return {
+      onSettle,
+      onValueChange,
+      slider: screen.getByTestId("breaths-slider"),
+    };
   };
 
   it("reports its range and current value to a screen reader", () => {
@@ -73,12 +79,26 @@ describe("Slider", () => {
     expect(onValueChange).toHaveBeenCalledWith(3);
   });
 
+  // A screen reader user never produces the drag that `onSettle` exists to
+  // batch, so one discrete step has to count as a whole interaction — otherwise
+  // a persisting call site never hears about it.
+  it("settles on each accessibility step", () => {
+    const { onSettle, slider } = setup(4);
+
+    fireEvent(slider, "accessibilityAction", {
+      nativeEvent: { actionName: "increment" },
+    });
+
+    expect(onSettle).toHaveBeenCalledWith(5);
+  });
+
   it("does not step past either end", () => {
-    const { onValueChange, slider } = setup(10);
+    const { onSettle, onValueChange, slider } = setup(10);
     fireEvent(slider, "accessibilityAction", {
       nativeEvent: { actionName: "increment" },
     });
     // Already at the maximum, so the value is unchanged and nothing is written.
     expect(onValueChange).not.toHaveBeenCalled();
+    expect(onSettle).not.toHaveBeenCalled();
   });
 });

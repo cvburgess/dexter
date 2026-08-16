@@ -49,7 +49,16 @@ export default function RitualScreen() {
   const theme = useTheme();
   const navigation = useNavigation();
   const [preferences, { updatePreferences }] = usePreferences();
-  const breathCount = resolveBreathCount(preferences.breathCount);
+
+  // The slider reports every step it crosses so the track can follow the
+  // finger, but only the value the drag *ends* on is written — a drag across
+  // the range would otherwise fire ten mutations, the same reason the prompts
+  // below commit on blur rather than per keystroke. Once dragged, the draft is
+  // authoritative for the rest of the screen's life: `updatePreferences` is
+  // optimistic and its cache write is deferred, so reading back through the
+  // preference would flick the thumb to the stale count for a frame.
+  const [breathDraft, setBreathDraft] = useState<number | null>(null);
+  const breathCount = breathDraft ?? resolveBreathCount(preferences.breathCount);
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = useIsLargeDevice();
   const insets = useSafeAreaInsets();
@@ -278,9 +287,8 @@ export default function RitualScreen() {
               accessibilityLabel="Number of breaths"
               max={MAX_BREATHS}
               min={MIN_BREATHS}
-              onValueChange={(count) =>
-                updatePreferences({ breathCount: count })
-              }
+              onSettle={(breathCount) => updatePreferences({ breathCount })}
+              onValueChange={setBreathDraft}
               step={1}
               testID="breath-count-slider"
               value={breathCount}

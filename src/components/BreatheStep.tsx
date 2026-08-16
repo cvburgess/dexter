@@ -68,34 +68,54 @@ export function BreatheStep({ date }: TBreatheStepProps) {
       date,
     );
 
-  // The plan in flight, or `null` while idle. A fresh object each press, which
-  // is what re-triggers `BreatheFill` — so pressing Begin twice runs twice.
-  const [run, setRun] = useState<TBreathePlan | null>(null);
+  // The plan and whether it is still going, together — rather than a plan that
+  // becomes `null` at the end. `BreatheFill` fades its word out over the run's
+  // end, so the plan those words are drawn from has to outlive the run itself.
+  // A fresh object each press is what re-triggers the fill, so pressing Begin
+  // twice runs twice.
+  const [session, setSession] = useState<{
+    plan: TBreathePlan;
+    running: boolean;
+  } | null>(null);
+  const running = session?.running ?? false;
 
-  const begin = () => setRun(buildBreathePlan(technique, breaths));
+  const begin = () =>
+    setSession({ plan: buildBreathePlan(technique, breaths), running: true });
   // One path out for both endings: a run that finished and a run that was
   // tapped away land in the same place, which is also the place the step
   // opened in.
-  const finish = useCallback(() => setRun(null), []);
+  const finish = useCallback(
+    () =>
+      setSession((current) =>
+        current ? { ...current, running: false } : current,
+      ),
+    [],
+  );
 
   const controls = useSharedValue(1);
   useEffect(() => {
-    controls.value = withTiming(run ? 0 : 1, { duration: CONTROLS_FADE_MS });
-  }, [controls, run]);
+    controls.value = withTiming(running ? 0 : 1, {
+      duration: CONTROLS_FADE_MS,
+    });
+  }, [controls, running]);
   const controlsStyle = useAnimatedStyle(() => ({ opacity: controls.value }));
 
   const beginSize = theme.controls.md * 3;
 
   return (
     <View style={styles.container} testID="breathe-step">
-      <BreatheFill onComplete={finish} run={run} />
+      <BreatheFill
+        onComplete={finish}
+        plan={session?.plan ?? null}
+        running={running}
+      />
 
       {/* Kept mounted through a run rather than unmounted, so the controls
           cross-fade both ways instead of popping back the instant the last
           exhale ends. `pointerEvents` is what makes the faded-out copy
           untappable — opacity alone would leave Begin live under the run. */}
       <Animated.View
-        pointerEvents={run ? "none" : "auto"}
+        pointerEvents={running ? "none" : "auto"}
         style={[styles.controls, { gap: theme.space.lg }, controlsStyle]}
         testID="breathe-controls"
       >
@@ -145,7 +165,7 @@ export function BreatheStep({ date }: TBreatheStepProps) {
 
       {/* Only mounted while a run is in flight, so it can cover the whole step
           without ever competing with the Begin button for a press. */}
-      {run ? (
+      {running ? (
         <Pressable
           accessibilityLabel="Stop breathing"
           accessibilityRole="button"

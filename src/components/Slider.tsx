@@ -32,7 +32,16 @@ type TSliderProps = {
   max: number;
   /** The granularity the thumb snaps to. */
   step: number;
+  /** Fired for every step the thumb crosses, so the track can follow the finger. */
   onValueChange: (value: number) => void;
+  /**
+   * Fired once when the interaction ends, with the value it ended on.
+   *
+   * The seam a persisting call site needs: `onValueChange` fires for every step
+   * crossed, so a drag from one end of the range to the other would write ten
+   * times. Omit it where the value is only local state.
+   */
+  onSettle?: (value: number) => void;
   /** Named for a screen reader, which reads the value from the role. */
   accessibilityLabel: string;
   /** The filled track and the thumb. Defaults to the theme's primary. */
@@ -66,6 +75,7 @@ export function Slider({
   max,
   step,
   onValueChange,
+  onSettle,
   accessibilityLabel,
   tint,
   trackTint,
@@ -84,15 +94,22 @@ export function Slider({
     if (next !== value) onValueChange(next);
   };
 
-  const at = (x: number) =>
-    commit(valueAtPosition(x, trackWidth, { min, max, step }));
+  const at = (x: number) => {
+    const next = valueAtPosition(x, trackWidth, { min, max, step });
+    commit(next);
+    return next;
+  };
+
+  const settle = (x: number) => onSettle?.(at(x));
 
   // Two gestures rather than one pan that also accepts taps. A pan loose enough
   // to fire on a touch that never moves is a pan that fires on the first frame
   // of a *scroll* that happened to start on the track, which drags the thumb to
   // wherever the finger landed on the way past.
   const tap = Gesture.Tap()
-    .onEnd((event) => at(event.x))
+    .onEnd((event, success) => {
+      if (success) settle(event.x);
+    })
     .runOnJS(true);
 
   const pan = Gesture.Pan()
@@ -106,6 +123,13 @@ export function Slider({
     .failOffsetY([-10, 10])
     .onStart((event) => at(event.x))
     .onChange((event) => at(event.x))
+    // `onEnd`, not `onFinalize`: the latter also fires for a pan that *failed*,
+    // which here is every vertical scroll that happened to start on the track —
+    // and settling one of those would write the value under wherever the finger
+    // touched on its way past.
+    .onEnd((event, success) => {
+      if (success) settle(event.x);
+    })
     .runOnJS(true);
 
   const gesture = Gesture.Race(tap, pan);
@@ -132,7 +156,12 @@ export function Slider({
         accessibilityValue={{ max, min, now: value }}
         onAccessibilityAction={(event) => {
           const by = event.nativeEvent.actionName === "increment" ? step : -step;
-          commit(Math.min(max, Math.max(min, value + by)));
+          const next = Math.min(max, Math.max(min, value + by));
+          if (next === value) return;
+          // One discrete step is a whole interaction, so it reports both — a
+          // screen reader user never produces the drag `onSettle` exists for.
+          commit(next);
+          onSettle?.(next);
         }}
         onLayout={onLayout}
         style={[styles.root, { height: theme.controls.md }]}

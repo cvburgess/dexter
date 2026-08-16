@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { type LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
 import Animated, {
+  cancelAnimation,
   Easing,
   Extrapolation,
   interpolate,
@@ -85,8 +86,17 @@ function BreatheWord({
 }
 
 type TBreatheFillProps = {
-  /** The run in flight, or `null` while the step is idle. */
-  run: TBreathePlan | null;
+  /**
+   * The plan being run, or the one that just finished — `null` only before the
+   * first press of Begin.
+   *
+   * Outliving its own run is the point: `running` goes false the moment a run
+   * ends, and dropping the plan on that render would unmount the words while
+   * `voice` was still fading them out.
+   */
+  plan: TBreathePlan | null;
+  /** Whether that plan is in flight. */
+  running: boolean;
   /**
    * Fired when a run reaches its end under its own steam. **Must be
    * referentially stable** — it is a dependency of the effect that starts the
@@ -122,7 +132,11 @@ type TBreatheFillProps = {
  * here it *is* the exercise, and it only runs when the user has pressed Begin.
  * Stopping it would leave a blank step and a word with nothing to pace it.
  */
-export function BreatheFill({ run, onComplete }: TBreatheFillProps) {
+export function BreatheFill({
+  plan,
+  running,
+  onComplete,
+}: TBreatheFillProps) {
   const theme = useTheme();
   // How full the step is, 0 (empty) to 1.
   const level = useSharedValue(0);
@@ -134,22 +148,18 @@ export function BreatheFill({ run, onComplete }: TBreatheFillProps) {
   // Fades the word in with the run and out at its end.
   const voice = useSharedValue(0);
 
-  const [size, setSize] = useState({ height: 0, width: 0 });
-  const onLayout = (event: LayoutChangeEvent) => {
-    const { height, width } = event.nativeEvent.layout;
-    setSize((current) =>
-      current.height === height && current.width === width
-        ? current
-        : { height, width },
-    );
-  };
+  // Only the height is measured: the fill travels vertically and the words
+  // center themselves, so nothing here has a use for the width.
+  const [height, setHeight] = useState(0);
+  const onLayout = (event: LayoutChangeEvent) =>
+    setHeight(event.nativeEvent.layout.height);
 
   // Nothing can be drawn before the box is measured: the fill's travel is its
   // height, so an unmeasured one would translate by zero and cover the step.
-  const ready = size.height > 0;
+  const ready = height > 0;
 
   useEffect(() => {
-    if (!run || !ready) {
+    if (!plan || !running || !ready) {
       // A plain write cancels whatever is running on the value, which is what
       // makes tapping to stop a run settle it rather than fight it. The end of
       // a *finished* run is the same call and a no-op — every technique already
@@ -157,24 +167,29 @@ export function BreatheFill({ run, onComplete }: TBreatheFillProps) {
       // special completion state to unwind.
       level.value = withTiming(0, { duration: SETTLE_MS });
       voice.value = withTiming(0, { duration: VOICE_FADE_MS });
+      // Frozen rather than left to finish. A run cut off partway has a word
+      // table mid-pulse, and a `progress` still travelling to 1 underneath the
+      // fade would pulse the next word in and back out while the whole layer
+      // was on its way out.
+      cancelAnimation(progress);
       return;
     }
 
     progress.value = 0;
     progress.value = withTiming(1, {
-      duration: run.totalMs,
+      duration: plan.totalMs,
       // Linear, because the curve the eye reads belongs to the legs below and
       // to the word windows this drives; bending it here would bend both.
       easing: Easing.linear,
     });
     voice.value = withTiming(1, { duration: VOICE_FADE_MS });
 
-    const last = run.session.length - 1;
+    const last = plan.session.length - 1;
     level.value = 0;
     level.value = withSequence(
-      ...run.session.map((leg, index) =>
+      ...plan.session.map((leg, index) =>
         withTiming(
-          run.levels[index],
+          plan.levels[index],
           {
             duration: leg.ms,
             // Eased where the horoscope's breathing color is deliberately
@@ -194,16 +209,16 @@ export function BreatheFill({ run, onComplete }: TBreatheFillProps) {
         ),
       ),
     );
-  }, [level, onComplete, progress, ready, run, voice]);
+  }, [level, onComplete, plan, progress, ready, running, voice]);
 
   const fillStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: (1 - level.value) * size.height }],
+    transform: [{ translateY: (1 - level.value) * height }],
   }));
 
   // The exact opposite of the fill's travel, so the clipped copy of the word
   // lands on the same pixels as the copy behind it.
   const wordCounterStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: -(1 - level.value) * size.height }],
+    transform: [{ translateY: -(1 - level.value) * height }],
   }));
 
   const voiceStyle = useAnimatedStyle(() => ({ opacity: voice.value }));
@@ -216,11 +231,11 @@ export function BreatheFill({ run, onComplete }: TBreatheFillProps) {
       style={StyleSheet.absoluteFill}
       testID="breathe-fill"
     >
-      {ready && run ? (
+      {ready && plan ? (
         <Animated.View style={[StyleSheet.absoluteFill, voiceStyle]}>
           <BreatheWords
             color={theme.colors.primary}
-            plan={run}
+            plan={plan}
             progress={progress}
           />
         </Animated.View>
@@ -236,12 +251,12 @@ export function BreatheFill({ run, onComplete }: TBreatheFillProps) {
           ]}
           testID="breathe-fill-surface"
         >
-          {run ? (
+          {plan ? (
             <Animated.View style={[StyleSheet.absoluteFill, wordCounterStyle]}>
               <Animated.View style={[StyleSheet.absoluteFill, voiceStyle]}>
                 <BreatheWords
                   color={theme.colors.primaryContent}
-                  plan={run}
+                  plan={plan}
                   progress={progress}
                 />
               </Animated.View>
