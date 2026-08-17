@@ -158,8 +158,11 @@ export const useTaskForm = (
   );
 
   // Not merely ignored in edit mode — never run, so a saved title can't be
-  // rewritten by the parser on its way to the payload.
-  const parsed = isEditing ? undefined : parseTaskShorthand(title, lists);
+  // rewritten by the parser on its way to the payload. `due:N` counts from the
+  // anchor, so it lands the same day the Deadline row's "Add deadline" would.
+  const parsed = isEditing
+    ? undefined
+    : parseTaskShorthand(title, lists, anchorDate);
 
   const priority =
     priorityOverride ?? parsed?.priority ?? ETaskPriority.UNPRIORITIZED;

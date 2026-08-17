@@ -29,6 +29,27 @@ describe("parseTaskShorthand", () => {
     });
   });
 
+  // `due:N` counts from the day the form is about, not the wall clock, so a
+  // task created while viewing a future day gets a deadline relative to that
+  // day (DEX-165).
+  it("counts due:N from the anchor date when one is given", () => {
+    const result = parseTaskShorthand("Ship it due:3", lists, "2026-07-08");
+
+    expect(result.dueOn).toBe("2026-07-11");
+  });
+
+  it("counts due:N across a month boundary", () => {
+    const result = parseTaskShorthand("Ship it due:5", lists, "2026-07-29");
+
+    expect(result.dueOn).toBe("2026-08-03");
+  });
+
+  it("counts due:0 as the anchor day itself", () => {
+    const result = parseTaskShorthand("Ship it due:0", lists, "2026-07-08");
+
+    expect(result.dueOn).toBe("2026-07-08");
+  });
+
   it("leaves the original input when shorthand removes the whole title", () => {
     expect(parseTaskShorthand("!!").title).toBe("!!");
   });

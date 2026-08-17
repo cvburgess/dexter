@@ -159,6 +159,19 @@ describe("useTaskForm", () => {
     });
   });
 
+  // The token and the Deadline row have to agree: both count from the day the
+  // form was opened on, not the wall clock (DEX-165).
+  it("counts a due: token from the viewed day, not today", () => {
+    const { result } = renderHook(() =>
+      useTaskForm([homeList], { defaultScheduledFor: "2026-07-08" }),
+    );
+
+    act(() => result.current.setTitle("Ship the report due:3"));
+
+    expect(result.current.dueOn).toBe("2026-07-11");
+    expect(result.current.task.dueOn).toBe("2026-07-11");
+  });
+
   it.each([
     ["!", ETaskPriority.URGENT],
     ["!!", ETaskPriority.IMPORTANT],
