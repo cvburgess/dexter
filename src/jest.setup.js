@@ -126,9 +126,19 @@ jest.mock("react-native-audio-api", () => {
   return {
     AudioContext: jest.fn().mockImplementation(() => ({
       close: jest.fn().mockResolvedValue(undefined),
+      createBiquadFilter: () => ({
+        connect: jest.fn(),
+        frequency: param(),
+        type: "lowpass",
+      }),
+      createBuffer: (channels, length) => ({
+        getChannelData: () => new Float32Array(length),
+      }),
+      createConvolver: () => ({ buffer: null, connect: jest.fn() }),
       createGain: () => ({ connect: jest.fn(), gain: param() }),
       createOscillator: () => ({
         connect: jest.fn(),
+        detune: param(),
         frequency: param(),
         start: jest.fn(),
         stop: jest.fn(),
@@ -136,6 +146,10 @@ jest.mock("react-native-audio-api", () => {
       }),
       currentTime: 0,
       destination: {},
+      // Small on purpose: the hook fills an impulse response of
+      // `sampleRate * seconds` samples, and every test that mounts the Breathe
+      // step would otherwise pay for 350k `Math.random()` calls.
+      sampleRate: 64,
     })),
     AudioManager: { disableSessionManagement: jest.fn() },
   };

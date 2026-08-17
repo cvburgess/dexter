@@ -381,6 +381,41 @@ export type TBreathAudioRamp = {
 };
 
 /**
+ * How many straight segments approximate each leg's curve.
+ *
+ * The shapes below are curves, and the only automation this is willing to spend
+ * is `setValueAtTime` and `linearRampToValueAtTime` — the two that are known to
+ * work on a device. `setValueCurveAtTime` would express a curve exactly and in
+ * one call, but it is far less travelled in a pre-1.0 library and it throws if
+ * any other automation overlaps it, which would take the whole feature down
+ * rather than sound slightly wrong. Twelve segments over a five-second leg is a
+ * corner every 400ms on a slow swell: inaudible as steps.
+ */
+const CURVE_STEPS = 12;
+
+/**
+ * A raised cosine over 0–1: flat at both ends, steepest in the middle.
+ *
+ * A straight line is what made the first attempt sound mechanical. The ear hears
+ * the *corners* — the instant a linear ramp starts and stops — far more than the
+ * slope between them, so easing both ends is most of what turns a level change
+ * into a breath.
+ */
+const easeInOut = (t: number): number => (1 - Math.cos(Math.PI * t)) / 2;
+
+/**
+ * A swell out to full and back over 0–1, eased at both ends and in the middle.
+ *
+ * Built from `easeInOut` rather than a half-period sine, which is the obvious
+ * spelling and lands on 1.2e-16 instead of 0 — `Math.sin(Math.PI)` is not exact,
+ * while `Math.cos(0)` and `Math.cos(Math.PI)` both are. Inaudible either way, but
+ * a gain that never quite returns to zero is the kind of residue that is far
+ * easier to not introduce than to find later.
+ */
+const arch = (t: number): number =>
+  t <= 0.5 ? easeInOut(t * 2) : easeInOut((1 - t) * 2);
+
+/**
  * Every gain change of one run, in time order (DEX-167).
  *
  * The whole run is scheduled on the audio clock the moment Begin is pressed, so
@@ -396,6 +431,10 @@ export type TBreathAudioRamp = {
  *
  * The hold voice is silent except during a hold, where it swells up and back
  * down. Simple and Relax have no hold legs, so for them it never sounds at all.
+ *
+ * Every leg lands *exactly* on its endpoint rather than near it, which is why
+ * both shapes are built from `easeInOut` — the last segment of a rise arrives at
+ * the level and the last segment of a swell arrives at true silence.
  */
 export const buildBreathAudioSchedule = (
   plan: TBreathePlan,
@@ -405,33 +444,28 @@ export const buildBreathAudioSchedule = (
 
   plan.session.forEach((leg, index) => {
     const start = elapsed;
-    const end = start + leg.ms;
+    const voice: TBreathAudioVoice = leg.phase === "hold" ? "hold" : "breath";
+    // A hold swells from and back to silence; a breath leg travels between the
+    // fill levels either side of it.
+    const from = leg.phase === "hold" ? 0 : (plan.levels[index - 1] ?? 0);
+    const to = leg.phase === "hold" ? 0 : plan.levels[index];
 
-    if (leg.phase === "hold") {
-      schedule.push({ voice: "hold", atMs: start, value: 0, kind: "set" });
+    schedule.push({ voice, atMs: start, value: from, kind: "set" });
+
+    for (let step = 1; step <= CURVE_STEPS; step += 1) {
+      const t = step / CURVE_STEPS;
       schedule.push({
-        voice: "hold",
-        atMs: start + leg.ms / 2,
-        value: 1,
-        kind: "ramp",
-      });
-      schedule.push({ voice: "hold", atMs: end, value: 0, kind: "ramp" });
-    } else {
-      schedule.push({
-        voice: "breath",
-        atMs: start,
-        value: plan.levels[index - 1] ?? 0,
-        kind: "set",
-      });
-      schedule.push({
-        voice: "breath",
-        atMs: end,
-        value: plan.levels[index],
+        voice,
+        atMs: start + leg.ms * t,
+        // An arch for a hold — up and back down inside the one leg — against an
+        // eased traverse between levels for a breath.
+        value:
+          leg.phase === "hold" ? arch(t) : from + (to - from) * easeInOut(t),
         kind: "ramp",
       });
     }
 
-    elapsed = end;
+    elapsed = start + leg.ms;
   });
 
   return schedule;

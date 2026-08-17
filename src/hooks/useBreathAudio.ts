@@ -33,69 +33,128 @@ import {
  */
 AudioManager.disableSessionManagement();
 
-/**
- * The pitch of the breath itself, in hertz.
+/*
+ * ---------------------------------------------------------------------------
+ * Tuning
  *
- * 432Hz because that is what Calm uses. It is low enough to sit under thought
- * rather than demand attention, which is the whole job.
+ * The first version of this was a single sine per voice with its pitch swept
+ * upward across each inhale, taken from a minimal snippet of Calm's approach.
+ * On a device it sounded like microphone feedback, and for two reasons worth
+ * keeping written down.
+ *
+ * **A gliding pure sine is a test tone.** Continuous pitch movement with no
+ * harmonics above it has no instrument to be mistaken for; the ear reads it as
+ * equipment. The sweep is gone entirely — the swell already carries the breath,
+ * and pitch does not need to say it a second time.
+ *
+ * **And the two voices were guaranteed to clash.** The hold's pitch was a fifth
+ * above the breath's *resting* pitch, but the hold voice only ever sounds after
+ * a full inhale, by which point the sweep had carried the breath 4% sharp. The
+ * one moment both sounded together was the one moment they were ~90 cents out —
+ * a near-semitone, which is acoustic roughness rather than harmony.
+ *
+ * What replaced it is a pad: a chord rather than a tone, detuned pairs rather
+ * than single oscillators, and a long reverb. Of everything here the reverb does
+ * the most work — space is most of the difference between an instrument and a
+ * signal generator.
+ * ---------------------------------------------------------------------------
  */
-const BASE_HZ = 432;
 
 /**
- * The hold's pitch, a perfect fifth above the breath.
+ * The chord each voice sounds, in hertz.
  *
- * A fifth rather than an octave or a second: it is consonant enough not to read
- * as a wrong note over the breath's own tail, and far enough away to be heard as
- * a *different* voice rather than the same one getting louder. That distinction
- * is the point — a hold has to sound held, not merely sustained.
+ * The breath is A3–E4–A4, DEX-167's voicing: a root, a fifth and an octave, with
+ * **no third**, so it is neither major nor minor and asks nothing. Low, too —
+ * A3 is well beneath the 432Hz the first attempt used, which sat up where the
+ * ear starts paying attention.
+ *
+ * The hold adds E4 and B4 over it. B is the ninth, which is what makes a hold
+ * sound *suspended* — unresolved, waiting, which is exactly what a held breath
+ * is — while staying consonant against the breath sustaining underneath it.
  */
-const HOLD_HZ = BASE_HZ * 1.5;
+const CHORD: Record<TBreathAudioVoice, readonly number[]> = {
+  breath: [220, 329.63, 440],
+  hold: [329.63, 493.88],
+};
 
 /**
- * How far the breath's pitch rises across an inhale, as a ratio.
+ * The waveform each voice is built from.
  *
- * DEX-167's value. Small on purpose: it is meant to be felt as the breath
- * lifting rather than heard as a melody, and anything larger starts sounding
- * like a siren over a six-second inhale.
+ * **Triangle rather than sine for the breath, and the filter below depends on
+ * it**: a sine has no harmonics, so there is nothing for a lowpass to take off
+ * and no body for it to shape. A triangle's harmonics fall away as 1/n², which
+ * is gentle enough to read as woodwind rather than buzz.
+ *
+ * The hold stays a sine, so it arrives glassier than the pad it sits on and is
+ * told apart by timbre as well as by pitch.
  */
-const PITCH_SWEEP = 1.04;
+const WAVE = { breath: "triangle", hold: "sine" } as const;
 
 /**
- * The loudest each voice gets.
+ * How far each note's two oscillators are detuned from it, in cents.
  *
- * **Read these as decibels, not percentages** — `gain` is linear amplitude while
+ * This is the whole reason a note is a *pair*. Two oscillators a few cents apart
+ * beat against each other slowly — at 220Hz, eight cents of separation is about
+ * one beat a second — and that drift is what a single oscillator cannot sound
+ * like however it is filtered. Push it much past this and the beating speeds up
+ * into the roughness this rewrite exists to remove.
+ */
+const DETUNE_CENTS = 4;
+
+/**
+ * Where the lowpass opens, in hertz.
+ *
+ * Sits above the chord's top note so every fundamental passes untouched, and
+ * takes the upper harmonics off the triangles rather than the notes themselves.
+ */
+const LOWPASS_HZ = 900;
+
+/**
+ * The reverb: how long the tail runs, how fast it decays into that, and how much
+ * of the signal arrives through it.
+ *
+ * DEX-167 asked for ~6s of decay. This is shorter because the impulse response
+ * is generated on the JS thread when Begin is pressed and convolution is not
+ * free — four seconds is still a large room, and it is the one number to raise
+ * first if the result wants more air.
+ */
+const REVERB_SECONDS = 4;
+const REVERB_DECAY = 2.5;
+const REVERB_WET = 0.6;
+
+/**
+ * The loudest each voice gets, before it is divided across its oscillators.
+ *
+ * **Read these as decibels, not percentages** — gain is linear amplitude while
  * hearing is roughly logarithmic, so halving a number here is only −6dB and
- * sounds far less than half as quiet. `useHoroscopeAudio` has the full ladder;
- * the short version is that perceived loudness roughly halves every −10dB.
+ * sounds far less than half as quiet. `useHoroscopeAudio` has the full ladder.
  *
- * Higher than that track's `0.1`, and deliberately: the horoscope's ambience is
- * meant to be noticed only when it stops, whereas these tones *are* the
- * exercise — with your eyes closed they are the only thing pacing you. The hold
- * sits below the breath so it reads as a suspension rather than a third beat.
+ * The hold sits below the breath so it reads as a suspension over the pad rather
+ * than a third beat in the bar.
  */
-const PEAK = 0.25;
-const HOLD_PEAK = 0.15;
+const PEAK = 0.22;
+const HOLD_PEAK = 0.12;
 
 /**
  * How long the tones take to disappear when a run ends or the step goes away.
  *
  * The same shape as `useHoroscopeAudio`'s exit fade and for the same reason: a
- * cut reads as the app having failed, a fade reads as leaving. Shorter than that
- * one because a breath tone is a note rather than a piece of music, and holding
- * it after the user has tapped away just follows them.
+ * cut reads as the app having failed, a fade reads as leaving. This rides a
+ * master gain *after* the reverb rather than the voices before it, so the tail
+ * fades with everything else instead of being chopped off mid-ring.
  */
 const EXIT_FADE_MS = 600;
 
-/** A voice: an oscillator, its gain, and the peak that gain is scaled to. */
+/** A voice: its oscillators, the gain they share, and that gain's ceiling. */
 type TVoice = {
-  oscillator: OscillatorNode;
+  oscillators: OscillatorNode[];
   gain: GainNode;
   peak: number;
 };
 
 /**
- * Sounds a breathing run: a tone that swells with the inhale and recedes with
- * the exhale, and a second one that marks each hold (DEX-167).
+ * Sounds a breathing run: a pad that swells with the inhale and recedes with the
+ * exhale, and a suspended second chord that marks each hold (DEX-167).
  *
  * **Everything is scheduled up front, on the audio clock.** `buildBreathAudioSchedule`
  * turns the plan into the run's every gain change before a note sounds, and this
@@ -148,27 +207,60 @@ export function useBreathAudio(plan: TBreathePlan | null, running: boolean) {
       const startedAt = context.currentTime;
       const at = (ms: number) => startedAt + ms / 1000;
 
-      const createVoice = (hz: number, peak: number): TVoice => {
-        const oscillator = context.createOscillator();
+      // Everything lands here, so the exit fade can take the reverb tail with it.
+      const master = context.createGain();
+      master.gain.setValueAtTime(1, startedAt);
+      master.connect(context.destination);
+
+      const reverb = context.createConvolver();
+      reverb.buffer = buildImpulseResponse(context);
+      const wet = context.createGain();
+      wet.gain.setValueAtTime(REVERB_WET, startedAt);
+      reverb.connect(wet);
+      wet.connect(master);
+
+      const dry = context.createGain();
+      dry.gain.setValueAtTime(1 - REVERB_WET, startedAt);
+      dry.connect(master);
+
+      const lowpass = context.createBiquadFilter();
+      lowpass.type = "lowpass";
+      lowpass.frequency.setValueAtTime(LOWPASS_HZ, startedAt);
+      lowpass.connect(dry);
+      lowpass.connect(reverb);
+
+      const createVoice = (which: TBreathAudioVoice, peak: number): TVoice => {
         const gain = context.createGain();
-        oscillator.type = "sine";
-        oscillator.frequency.setValueAtTime(hz, startedAt);
         // Silent until the schedule opens it, so nothing is audible between
-        // starting the oscillator and its first ramp.
+        // starting the oscillators and the first ramp.
         gain.gain.setValueAtTime(0, startedAt);
-        oscillator.connect(gain);
-        gain.connect(context.destination);
-        oscillator.start(startedAt);
-        return { oscillator, gain, peak };
+        gain.connect(lowpass);
+
+        const oscillators = CHORD[which].flatMap((hz) =>
+          // Two per note, detuned either side of it — see DETUNE_CENTS.
+          [-DETUNE_CENTS, DETUNE_CENTS].map((cents) => {
+            const oscillator = context.createOscillator();
+            oscillator.type = WAVE[which];
+            oscillator.frequency.setValueAtTime(hz, startedAt);
+            oscillator.detune.setValueAtTime(cents, startedAt);
+            oscillator.connect(gain);
+            oscillator.start(startedAt);
+            return oscillator;
+          }),
+        );
+
+        // Divided across the oscillators so a chord cannot sum past the ceiling
+        // its single note was set to.
+        return { oscillators, gain, peak: peak / oscillators.length };
       };
 
       const voices: Record<TBreathAudioVoice, TVoice> = {
-        breath: createVoice(BASE_HZ, PEAK),
-        hold: createVoice(HOLD_HZ, HOLD_PEAK),
+        breath: createVoice("breath", PEAK),
+        hold: createVoice("hold", HOLD_PEAK),
       };
 
       for (const step of buildBreathAudioSchedule(plan)) {
-        const { gain, oscillator, peak } = voices[step.voice];
+        const { gain, peak } = voices[step.voice];
         const time = at(step.atMs);
 
         if (step.kind === "set") {
@@ -176,43 +268,54 @@ export function useBreathAudio(plan: TBreathePlan | null, running: boolean) {
         } else {
           gain.gain.linearRampToValueAtTime(step.value * peak, time);
         }
-
-        // The sweep rides the gain's own schedule rather than getting one of
-        // its own. The breath voice's gain is the fill level, so its every
-        // entry already sits on a leg boundary — and following the same
-        // `set`/`ramp` split matters as much here as it does for gain, since an
-        // unanchored frequency ramp would glide the pitch down across a hold.
-        if (step.voice !== "breath") continue;
-        const hz = BASE_HZ * (1 + (PITCH_SWEEP - 1) * step.value);
-        if (step.kind === "set") {
-          oscillator.frequency.setValueAtTime(hz, time);
-        } else {
-          oscillator.frequency.linearRampToValueAtTime(hz, time);
-        }
       }
 
       return () => {
         const now = context.currentTime;
         const endsAt = now + EXIT_FADE_MS / 1000;
 
+        // One fade, after the reverb, so the tail goes down with the voices
+        // instead of ringing on into a closed context.
+        master.gain.cancelAndHoldAtTime(now);
+        master.gain.linearRampToValueAtTime(0, endsAt);
+
         for (const voice of Object.values(voices)) {
-          // `cancelAndHoldAtTime` rather than `cancelScheduledValues`: the
-          // former keeps the value the run had reached, so the fade starts from
-          // where the tone actually is. The latter would drop it to the last
-          // *set* value first, which is an audible jump on the way out.
-          voice.gain.gain.cancelAndHoldAtTime(now);
-          voice.gain.gain.linearRampToValueAtTime(0, endsAt);
-          voice.oscillator.stop(endsAt);
+          for (const oscillator of voice.oscillators) oscillator.stop(endsAt);
         }
 
         // Closing tears the graph down wherever it has got to, so it has to wait
-        // out the fade it would otherwise cut short. Scheduled against the same
-        // clock the fade is, then handed to a timer only because `close()` has
-        // no scheduled form.
+        // out the fade it would otherwise cut short. Handed to a timer only
+        // because `close()` has no scheduled form.
         setTimeout(() => {
           void context.close();
         }, EXIT_FADE_MS);
       };
     }, [plan, running]),
   );
+}
+
+/**
+ * The reverb's impulse response: noise that decays to nothing.
+ *
+ * Convolving against decaying noise is the cheap, standard way to get a room
+ * without shipping a recording of one, and it is what `Tone.Reverb` generates
+ * internally. The exponent is the shape of the decay — raise it and the tail
+ * disappears faster, which reads as a smaller room.
+ *
+ * Two channels of *independent* noise rather than one copied to both, which is
+ * what makes the tail arrive wider than the mono chord feeding it.
+ */
+function buildImpulseResponse(context: AudioContext) {
+  const length = Math.floor(context.sampleRate * REVERB_SECONDS);
+  const impulse = context.createBuffer(2, length, context.sampleRate);
+
+  for (let channel = 0; channel < 2; channel += 1) {
+    const samples = impulse.getChannelData(channel);
+    for (let i = 0; i < length; i += 1) {
+      samples[i] =
+        (Math.random() * 2 - 1) * Math.pow(1 - i / length, REVERB_DECAY);
+    }
+  }
+
+  return impulse;
 }

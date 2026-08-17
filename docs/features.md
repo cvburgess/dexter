@@ -272,6 +272,28 @@ rather than merely sustained, and which never sounds at all under Simple or Rela
 Every ramp is preceded by a `set` anchoring where it starts from: `linearRampToValueAtTime`
 glides from the previous scheduled event, so an unanchored one slides across a hold.
 
+**A single swept sine sounded like microphone feedback, and both reasons are worth
+keeping.** The first attempt took Calm's minimal snippet literally — one sine per
+voice, pitch swept 4% up across each inhale — and on a device it read as equipment
+rather than an instrument. Continuous pitch movement with no harmonics above it has
+no instrument to be mistaken for; and the hold's pitch was a fifth above the breath's
+*resting* pitch, while the hold voice only ever sounds after a full inhale, by which
+point the sweep had carried the breath sharp. The one moment both voices sounded
+together was the one moment they were ~90 cents out — roughness, not harmony. The
+sweep is gone entirely, and what replaced it is a pad: a chord per voice, two
+oscillators per note detuned a few cents so they beat slowly against each other,
+a lowpass, and a convolution reverb over generated decaying noise. **Triangle waves
+for the breath, and the filter depends on that** — a sine has no harmonics for a
+lowpass to remove. Of everything there the reverb does the most work. The exit fade
+rides a master gain *after* the reverb, or it would chop the tail off mid-ring.
+
+Gain curves are raised cosines approximated by twelve straight segments per leg,
+rather than the single `setValueCurveAtTime` that would express one exactly: that
+call throws if any other automation overlaps it, which would take the feature down
+rather than sound slightly wrong, and it is far less travelled in a pre-1.0 library.
+The ear hears the *corner* where a ramp starts far more than the slope after it, so
+easing the ends is most of what separates a swell from a level change.
+
 **Only the sound is focus-scoped, and that asymmetry is deliberate.** `useBreathAudio`
 hangs off `useFocusEffect` so the tones do not follow the breather to another tab,
 but `BreatheFill` animates from a plain `useEffect` and a run left behind keeps

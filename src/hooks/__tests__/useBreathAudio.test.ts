@@ -16,6 +16,7 @@ const mockParam = () => ({
 
 type TMockOscillator = {
   connect: jest.Mock;
+  detune: ReturnType<typeof mockParam>;
   frequency: ReturnType<typeof mockParam>;
   start: jest.Mock;
   stop: jest.Mock;
@@ -29,6 +30,18 @@ const mockClose = jest.fn().mockResolvedValue(undefined);
 
 const mockContext = {
   close: mockClose,
+  createBiquadFilter: jest.fn(() => ({
+    connect: jest.fn(),
+    frequency: mockParam(),
+    type: "lowpass",
+  })),
+  createBuffer: jest.fn((_channels: number, length: number) => ({
+    getChannelData: () => new Float32Array(length),
+  })),
+  createConvolver: jest.fn(() => ({
+    buffer: null,
+    connect: jest.fn(),
+  })),
   createGain: jest.fn(() => {
     const gain = { connect: jest.fn(), gain: mockParam() };
     mockGains.push(gain);
@@ -37,6 +50,7 @@ const mockContext = {
   createOscillator: jest.fn(() => {
     const oscillator: TMockOscillator = {
       connect: jest.fn(),
+      detune: mockParam(),
       frequency: mockParam(),
       start: jest.fn(),
       stop: jest.fn(),
@@ -47,6 +61,9 @@ const mockContext = {
   }),
   currentTime: 0,
   destination: {},
+  // Keeps the generated impulse response tiny — the real one is
+  // `sampleRate * seconds` samples of noise and nothing here listens to it.
+  sampleRate: 64,
 };
 const mockAudioContext = jest.fn(() => mockContext);
 
@@ -97,13 +114,24 @@ jest.mock("expo-router", () => {
 
 // Mirror the hook's own constants rather than importing them — a test that
 // reads the value it is checking cannot notice it changing.
-const BASE_HZ = 432;
-const HOLD_HZ = 648;
-const PEAK = 0.25;
+const CHORD = { breath: [220, 329.63, 440], hold: [329.63, 493.88] };
+const DETUNE_CENTS = 4;
 const EXIT_FADE_MS = 600;
+// Each voice divides its ceiling across its oscillators, so a chord cannot sum
+// past the level one note was set to.
+const BREATH_PEAK = 0.22 / (CHORD.breath.length * 2);
+const HOLD_PEAK = 0.12 / (CHORD.hold.length * 2);
 
-/** The voice at `index`, in creation order: breath first, then hold. */
-const gainOf = (index: number) => mockGains[index].gain;
+// Gains, in the order the hook builds them: the master everything lands on, the
+// reverb's wet and dry sides, then one per voice.
+const masterGain = () => mockGains[0].gain;
+const breathGain = () => mockGains[3].gain;
+const holdGain = () => mockGains[4].gain;
+
+/** The oscillators belonging to each voice, in creation order. */
+const breathOscillators = () =>
+  mockOscillators.slice(0, CHORD.breath.length * 2);
+const holdOscillators = () => mockOscillators.slice(CHORD.breath.length * 2);
 
 beforeEach(() => {
   jest.useFakeTimers();
@@ -140,26 +168,54 @@ describe("useBreathAudio", () => {
     expect(mockAudioContext).not.toHaveBeenCalled();
   });
 
-  it("opens two silent sine voices a fifth apart", () => {
+  it("builds each voice as a chord of detuned pairs, silent to start", () => {
     renderHook(() => useBreathAudio(buildBreathePlan("box", 1), true));
 
-    expect(mockOscillators).toHaveLength(2);
-    expect(mockOscillators.every((o) => o.type === "sine")).toBe(true);
-    expect(mockOscillators[0].frequency.setValueAtTime).toHaveBeenCalledWith(
-      BASE_HZ,
-      0,
+    // Two oscillators per note, either side of it — a lone oscillator has no
+    // second one to beat against, which is what the warmth comes from.
+    expect(breathOscillators()).toHaveLength(6);
+    expect(holdOscillators()).toHaveLength(4);
+
+    const pitches = breathOscillators().map(
+      (o) => o.frequency.setValueAtTime.mock.calls[0][0],
     );
-    expect(mockOscillators[1].frequency.setValueAtTime).toHaveBeenCalledWith(
-      HOLD_HZ,
-      0,
+    expect(pitches).toEqual([220, 220, 329.63, 329.63, 440, 440]);
+
+    const cents = breathOscillators().map(
+      (o) => o.detune.setValueAtTime.mock.calls[0][0],
     );
+    expect(cents).toEqual([
+      -DETUNE_CENTS,
+      DETUNE_CENTS,
+      -DETUNE_CENTS,
+      DETUNE_CENTS,
+      -DETUNE_CENTS,
+      DETUNE_CENTS,
+    ]);
+
+    // A lowpass has nothing to take off a sine, so the pad has to carry
+    // harmonics for the filter to shape anything at all.
+    expect(breathOscillators().every((o) => o.type === "triangle")).toBe(true);
+    expect(holdOscillators().every((o) => o.type === "sine")).toBe(true);
+
     // Silent until the schedule opens them, so nothing sounds between starting
-    // the oscillator and its first ramp.
-    expect(gainOf(0).setValueAtTime).toHaveBeenCalledWith(0, 0);
-    expect(gainOf(1).setValueAtTime).toHaveBeenCalledWith(0, 0);
+    // the oscillators and the first ramp.
+    expect(breathGain().setValueAtTime).toHaveBeenCalledWith(0, 0);
+    expect(holdGain().setValueAtTime).toHaveBeenCalledWith(0, 0);
     expect(mockOscillators.every((o) => o.start.mock.calls.length === 1)).toBe(
       true,
     );
+  });
+
+  // Space is most of what separates an instrument from a signal generator.
+  it("routes the voices through a filter and a generated reverb", () => {
+    renderHook(() => useBreathAudio(buildBreathePlan("simple", 1), true));
+
+    expect(mockContext.createBiquadFilter).toHaveBeenCalledTimes(1);
+    expect(mockContext.createConvolver).toHaveBeenCalledTimes(1);
+    // Two channels of independent noise, so the tail arrives wider than the
+    // mono chord feeding it.
+    expect(mockContext.createBuffer).toHaveBeenCalledWith(2, 256, 64);
   });
 
   // The whole run goes onto the audio clock at Begin — there is no timer, so
@@ -167,58 +223,75 @@ describe("useBreathAudio", () => {
   it("schedules the entire run up front, in seconds from the context clock", () => {
     renderHook(() => useBreathAudio(buildBreathePlan("simple", 1), true));
 
-    // Simple is inhale 6s then exhale 6s.
-    expect(gainOf(0).linearRampToValueAtTime).toHaveBeenCalledWith(PEAK, 6);
-    expect(gainOf(0).linearRampToValueAtTime).toHaveBeenCalledWith(0, 12);
-    expect(gainOf(0).setValueAtTime).toHaveBeenCalledWith(PEAK, 6);
+    // Simple is inhale 6s then exhale 6s, and each leg lands exactly on its
+    // endpoint rather than near it.
+    expect(breathGain().linearRampToValueAtTime).toHaveBeenCalledWith(
+      BREATH_PEAK,
+      6,
+    );
+    expect(breathGain().linearRampToValueAtTime).toHaveBeenCalledWith(0, 12);
+    expect(breathGain().setValueAtTime).toHaveBeenCalledWith(BREATH_PEAK, 6);
+  });
+
+  // A straight line is what made the first attempt sound mechanical: the ear
+  // hears the corner where a ramp starts far more than the slope after it.
+  it("eases each leg rather than ramping it straight", () => {
+    renderHook(() => useBreathAudio(buildBreathePlan("simple", 1), true));
+
+    const ramps: [number, number][] =
+      breathGain().linearRampToValueAtTime.mock.calls;
+    const valueAt = (time: number) =>
+      ramps.find(([, at]) => at === time)?.[0] as number;
+
+    // Halfway through a six-second inhale an eased rise is at half its peak —
+    // but a quarter of the way through it is still well below a quarter, which
+    // a straight line could not be.
+    expect(valueAt(3)).toBeCloseTo(BREATH_PEAK * 0.5, 6);
+    expect(valueAt(1.5)).toBeLessThan(BREATH_PEAK * 0.25);
   });
 
   it("offsets the schedule from wherever the context clock already is", () => {
     mockContext.currentTime = 40;
     renderHook(() => useBreathAudio(buildBreathePlan("simple", 1), true));
 
-    expect(gainOf(0).linearRampToValueAtTime).toHaveBeenCalledWith(PEAK, 46);
-    expect(gainOf(0).linearRampToValueAtTime).toHaveBeenCalledWith(0, 52);
-  });
-
-  it("sweeps the breath's pitch up with the inhale and back down", () => {
-    renderHook(() => useBreathAudio(buildBreathePlan("simple", 1), true));
-
-    const sweep = mockOscillators[0].frequency.linearRampToValueAtTime;
-    expect(sweep).toHaveBeenCalledWith(BASE_HZ * 1.04, 6);
-    expect(sweep).toHaveBeenCalledWith(BASE_HZ, 12);
+    expect(breathGain().linearRampToValueAtTime).toHaveBeenCalledWith(
+      BREATH_PEAK,
+      46,
+    );
+    expect(breathGain().linearRampToValueAtTime).toHaveBeenCalledWith(0, 52);
   });
 
   it("never sounds the hold voice for a technique that does not hold", () => {
     renderHook(() => useBreathAudio(buildBreathePlan("relax", 3), true));
 
-    expect(gainOf(1).linearRampToValueAtTime).not.toHaveBeenCalled();
+    expect(holdGain().linearRampToValueAtTime).not.toHaveBeenCalled();
   });
 
   it("swells the hold voice through each hold", () => {
     renderHook(() => useBreathAudio(buildBreathePlan("box", 1), true));
 
-    // Box holds 5s from t=5s, so the swell peaks at 7.5s and closes at 10s.
-    expect(gainOf(1).linearRampToValueAtTime).toHaveBeenCalledWith(0.15, 7.5);
-    expect(gainOf(1).linearRampToValueAtTime).toHaveBeenCalledWith(0, 10);
+    // Box holds 5s from t=5s, so the arch peaks at 7.5s and closes at 10s.
+    expect(holdGain().linearRampToValueAtTime).toHaveBeenCalledWith(
+      HOLD_PEAK,
+      7.5,
+    );
+    expect(holdGain().linearRampToValueAtTime).toHaveBeenCalledWith(0, 10);
   });
 
-  it("fades both voices out and releases the context on the way out", () => {
+  it("fades out through the master and releases the context on the way out", () => {
     const { unmount } = renderHook(() =>
       useBreathAudio(buildBreathePlan("box", 1), true),
     );
 
     unmount();
 
-    for (const index of [0, 1]) {
-      // Held at where the run had actually reached, so the fade does not jump
-      // before it starts.
-      expect(gainOf(index).cancelAndHoldAtTime).toHaveBeenCalledWith(0);
-      expect(gainOf(index).linearRampToValueAtTime).toHaveBeenCalledWith(
-        0,
-        EXIT_FADE_MS / 1000,
-      );
-    }
+    // One fade, and it sits *after* the reverb — fading the voices instead
+    // would leave the tail ringing on into a closed context.
+    expect(masterGain().cancelAndHoldAtTime).toHaveBeenCalledWith(0);
+    expect(masterGain().linearRampToValueAtTime).toHaveBeenCalledWith(
+      0,
+      EXIT_FADE_MS / 1000,
+    );
     for (const oscillator of mockOscillators) {
       expect(oscillator.stop).toHaveBeenCalledWith(EXIT_FADE_MS / 1000);
     }
@@ -239,7 +312,7 @@ describe("useBreathAudio", () => {
 
     rerender({ running: false });
 
-    expect(gainOf(0).cancelAndHoldAtTime).toHaveBeenCalled();
+    expect(masterGain().cancelAndHoldAtTime).toHaveBeenCalled();
     jest.advanceTimersByTime(EXIT_FADE_MS);
     expect(mockClose).toHaveBeenCalled();
   });
@@ -261,7 +334,7 @@ describe("useBreathAudio", () => {
 
     expect(mockAudioContext).toHaveBeenCalledTimes(1);
     // And the departure still silenced it, rather than leaving it playing on.
-    expect(gainOf(0).cancelAndHoldAtTime).toHaveBeenCalled();
+    expect(masterGain().cancelAndHoldAtTime).toHaveBeenCalled();
   });
 
   it("starts a fresh context when Begin is pressed again", () => {

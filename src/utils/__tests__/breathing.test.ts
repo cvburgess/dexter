@@ -279,21 +279,49 @@ describe("buildBreathAudioSchedule", () => {
   );
 
   // The tone's loudness *is* how full the screen is, so a drift between these
-  // two would be a sound that no longer matches the animation.
+  // two would be a sound that no longer matches the animation. Only the leg
+  // boundaries are pinned — what the curve does between them is the hook's
+  // business, and `useBreathAudio.test.ts` covers its shape.
   it("tracks the fill level on the breath voice", () => {
     const plan = buildBreathePlan("simple", 2);
     const breath = voice(buildBreathAudioSchedule(plan), "breath");
 
-    expect(breath).toEqual([
+    expect(breath.filter((step) => step.kind === "set")).toEqual([
       { voice: "breath", atMs: 0, value: 0, kind: "set" },
-      { voice: "breath", atMs: 6000, value: 1, kind: "ramp" },
       { voice: "breath", atMs: 6000, value: 1, kind: "set" },
-      { voice: "breath", atMs: 12000, value: 0, kind: "ramp" },
       { voice: "breath", atMs: 12000, value: 0, kind: "set" },
-      { voice: "breath", atMs: 18000, value: 1, kind: "ramp" },
       { voice: "breath", atMs: 18000, value: 1, kind: "set" },
+    ]);
+
+    // Simple's legs are 6s, so only the last segment of each lands on a
+    // multiple of one — the eased points in between never do.
+    expect(
+      breath.filter((step) => step.kind === "ramp" && step.atMs % 6000 === 0),
+    ).toEqual([
+      { voice: "breath", atMs: 6000, value: 1, kind: "ramp" },
+      { voice: "breath", atMs: 12000, value: 0, kind: "ramp" },
+      { voice: "breath", atMs: 18000, value: 1, kind: "ramp" },
       { voice: "breath", atMs: 24000, value: 0, kind: "ramp" },
     ]);
+  });
+
+  // Straight lines are what made the first attempt sound mechanical.
+  it("eases each leg rather than travelling it at a constant rate", () => {
+    const breath = voice(
+      buildBreathAudioSchedule(buildBreathePlan("simple", 1)),
+      "breath",
+    );
+    const rise = breath.filter(
+      (step) => step.kind === "ramp" && step.atMs <= 6000,
+    );
+
+    // Monotonic and symmetric about the midpoint, but nowhere near a line: a
+    // quarter of the way in it has covered well under a quarter of the ground.
+    expect(rise.every((s, i) => i === 0 || s.value > rise[i - 1].value)).toBe(
+      true,
+    );
+    expect(rise.find((s) => s.atMs === 3000)?.value).toBeCloseTo(0.5, 10);
+    expect(rise.find((s) => s.atMs === 1500)?.value).toBeLessThan(0.25);
   });
 
   it.each(BREATHING_TECHNIQUE_ORDER)(
@@ -315,26 +343,28 @@ describe("buildBreathAudioSchedule", () => {
       expect(voice(buildBreathAudioSchedule(plan), "hold")).toEqual([]);
     }
 
+    // Two holds per breath, each opening on an anchor.
     const box = buildBreathAudioSchedule(buildBreathePlan("box", 2));
-    // Two holds per breath, each a swell up and back down.
-    expect(voice(box, "hold")).toHaveLength(2 * 2 * 3);
+    expect(voice(box, "hold").filter((s) => s.kind === "set")).toHaveLength(4);
   });
 
   it("swells the hold voice up and back down within the hold", () => {
     const box = buildBreathAudioSchedule(buildBreathePlan("box", 1));
     const hold = voice(box, "hold");
+    const at = (atMs: number) => hold.find((step) => step.atMs === atMs);
 
-    // Box is inhale 5s, hold 5s, exhale 5s, hold 5s.
-    expect(hold.slice(0, 3)).toEqual([
-      { voice: "hold", atMs: 5000, value: 0, kind: "set" },
-      { voice: "hold", atMs: 7500, value: 1, kind: "ramp" },
-      { voice: "hold", atMs: 10000, value: 0, kind: "ramp" },
-    ]);
-    expect(hold.slice(3)).toEqual([
-      { voice: "hold", atMs: 15000, value: 0, kind: "set" },
-      { voice: "hold", atMs: 17500, value: 1, kind: "ramp" },
-      { voice: "hold", atMs: 20000, value: 0, kind: "ramp" },
-    ]);
+    // Box is inhale 5s, hold 5s, exhale 5s, hold 5s — so each arch opens on its
+    // leg, peaks halfway through, and is back to true silence by the end.
+    expect(hold[0]).toEqual({
+      voice: "hold",
+      atMs: 5000,
+      value: 0,
+      kind: "set",
+    });
+    expect(at(7500)?.value).toBe(1);
+    expect(at(10000)?.value).toBe(0);
+    expect(at(17500)?.value).toBe(1);
+    expect(at(20000)?.value).toBe(0);
   });
 
   // A hold is a timing to the value the breath voice already holds, so it needs
