@@ -75,11 +75,21 @@ has to say *green day / purple day / blue day* at a glance, which a token that
 changes hue with the user's palette cannot do. This is a listed exception at the
 bottom of this file.
 
-**Sentiment is derived, not sent** (DEX-145): the database generates it from
-the upstream's 1-5 `overall_rating`, and `ratingBucket()` in `utils/horoscope.ts`
-groups each of the day's twelve life areas with the *same* thresholds. One rule
-at two scales — the whole day, and one area of it — so a green card can never
-sit over a band of down arrows.
+**Sentiment is derived, not sent** (DEX-145): `ratingBucket()` in
+`utils/horoscope.ts` groups each of the day's twelve life areas by rating, and
+the database generates the day's own label by *counting* those buckets — the
+biggest one wins, any tie is `mixed` (DEX-166). So the panel is not merely
+consistent with the bands drawn on it, it is the largest of them, and a green
+card can never sit over a band of down arrows. Change a threshold in
+`ratingBucket()` and the hue stops matching the chart until a migration changes
+it in the generated column too.
+
+Deriving it from the twelve rather than from the upstream's single
+`overall_rating` was the fix for a panel that was almost always blue: that field
+comes back as 3 nearly every day, and 3 is the one value that buckets to
+`mixed`. An *average* of the twelve was rejected for the same reason — twelve
+values regress to the middle, reaching the identical failure by other
+arithmetic.
 
 Those bands' circles reuse **the panel's own colors** rather than a second
 palette — `sentimentTints(bucket).peak`, so a band and a day of the same mood

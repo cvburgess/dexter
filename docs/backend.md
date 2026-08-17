@@ -28,7 +28,14 @@ promises is `docs/api-routes.md`.
   removed. A third enum does **not** reopen that; an unconstrained value means
   the zod schemas are the only rejection of a bogus one.
 - **Generated columns need an IMMUTABLE expression** — a string literal cast to an
-  enum qualifies, a `now()` would not.
+  enum qualifies, a `now()` would not. A user-defined function qualifies too if
+  declared `immutable` (a `SET search_path` clause does not disqualify it), which
+  is worth reaching for once the expression repeats itself — but **Postgres
+  records no dependency on that function's body**. `create or replace` on it
+  recomputes nothing, leaving stored rows no expression in the schema produces.
+  Changing such a rule means dropping and re-adding the column, which rewrites
+  the table and thereby backfills it (`20260817143500`). Note also that
+  `alter column ... set expression` is Postgres 17 and `config.toml` pins 15.
 
 ## RLS policy invariants
 

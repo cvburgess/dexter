@@ -259,10 +259,14 @@ which drives its shape:
 - **RLS: a single `for select using (true)` policy and no write policy** — the
   absence of a policy is the denial. Grants are stated by name (see
   `docs/backend.md` — this is where that general rule came from).
-- **`sentiment` is a generated column**, bucketed from `overall_rating` (≥4
-  positive, ≤2 negative, else mixed) rather than written by the function. The UI
-  groups each life area with the same thresholds, so the card's tint and the
-  bands under it cannot disagree.
+- **`sentiment` is a generated column** rather than written by the function:
+  each life area buckets by rating (≥4 positive, ≤2 negative, else mixed) and
+  the day takes whichever bucket holds the most, any tie yielding mixed
+  (DEX-166). The UI groups the areas with the same thresholds, so the card's
+  tint *is* the largest band under it. It was generated from the upstream's
+  single `overall_rating` until DEX-166 — a value astrology-api.io returns as 3
+  nearly every day, which tinted the panel neutral almost unconditionally.
+  `overall_rating` is still stored and now read by nothing.
 - Not in the realtime publication (rows change once a day).
 - The fixtures were written from a real response twice over, and both times the
   published sample disagreed with the wire format — DEX-84 against fields the

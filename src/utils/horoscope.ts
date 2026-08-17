@@ -126,11 +126,18 @@ export const LIFE_AREAS: readonly THoroscopeLifeArea[] = [
 /**
  * Buckets a 1-5 life-area rating into the app's three-way sentiment vocabulary.
  *
- * **The same thresholds the database uses** to derive `horoscopes.sentiment`
- * from `overall_rating` (see the DEX-145 migration). Sharing the rule is the
- * point: the card's tint and these columns are the same judgement applied to
- * the whole day and to one area of it, so a reader seeing a green card over a
- * band of down arrows would be looking at a bug, not a nuance.
+ * **The database counts these buckets to derive `horoscopes.sentiment`** — the
+ * day's tint is whichever bucket holds the most of the twelve areas, ties
+ * yielding `mixed` (DEX-166's `horoscope_sentiment_from_ratings`). So the card
+ * behind the bands *is* the largest band, and a green card over a band of down
+ * arrows is not merely a bug, it is unreachable.
+ *
+ * That makes these three lines load-bearing in a way a display helper usually
+ * is not: change a threshold here and the panel's hue stops matching the chart
+ * until a migration changes it there too. DEX-166 kept them identical for that
+ * reason. (Until then the day came from the upstream's single `overall_rating`
+ * instead, which returned 3 nearly every day and tinted the panel neutral
+ * almost unconditionally.)
  *
  * Three even-ish groups out of five values means one of them takes the odd
  * width; the middle takes it, since a lone 3 is the genuinely neutral case and

@@ -87,9 +87,12 @@ describe("LIFE_AREAS", () => {
 });
 
 describe("ratingBucket", () => {
-  // These thresholds are also the database's, which derives
-  // `horoscopes.sentiment` from `overall_rating` with the same three buckets.
-  // If one side moves, a reader gets a green card over a band of down arrows.
+  // DEX-166: these thresholds are also the database's, which derives
+  // `horoscopes.sentiment` by counting the twelve areas into these same three
+  // buckets and taking the biggest. If one side moves, a reader gets a green
+  // card over a band of down arrows — and nothing in CI can catch it, since the
+  // other side of the rule is a generated column no test here reaches. This
+  // case is the pin.
   it("splits 1-5 into three groups, worst to best", () => {
     expect(ratingBucket(1)).toBe("negative");
     expect(ratingBucket(2)).toBe("negative");
