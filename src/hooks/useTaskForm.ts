@@ -25,6 +25,17 @@ export type TTaskForm = {
   setScheduledFor: (scheduledFor: string | null) => void;
   dueOn: string | null;
   setDueOn: (dueOn: string | null) => void;
+  /**
+   * The day this form is *about*: the viewed day when creating, the task's own
+   * schedule when editing, today when neither says otherwise. It is what an
+   * empty date row fills itself with, so adding a deadline on a day the user
+   * navigated to lands on that day rather than on today (DEX-165).
+   *
+   * Fixed at mount, deliberately: it anchors the form to the day it was opened
+   * on, so rescheduling — or clearing the schedule outright — doesn't drag the
+   * other row's default along with it.
+   */
+  anchorDate: string;
   /** Time-of-day the alarm fires (`"HH:MM"`), or null when no alarm is set. */
   alarmTime: string | null;
   setAlarmTime: (alarmTime: string | null) => void;
@@ -110,6 +121,14 @@ export const useTaskForm = (
   const [scheduledFor, setScheduledFor] = useState<string | null>(() =>
     task ? task.scheduledFor : resolveScheduledFor(defaultScheduledFor),
   );
+  // Read once and never updated: the day the form was opened on outlives every
+  // later edit to `scheduledFor`, including clearing it. An unscheduled task
+  // has no day of its own to anchor to, so it falls back to today.
+  const [anchorDate] = useState(() =>
+    task
+      ? resolveScheduledFor(task.scheduledFor ?? undefined)
+      : resolveScheduledFor(defaultScheduledFor),
+  );
   const [alarmTime, setAlarmTime] = useState<string | null>(
     task?.alarmTime ?? null,
   );
@@ -192,6 +211,7 @@ export const useTaskForm = (
     setScheduledFor,
     dueOn,
     setDueOn: setDueOnOverride,
+    anchorDate,
     alarmTime,
     setAlarmTime,
     url,

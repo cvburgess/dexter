@@ -200,6 +200,23 @@ describe("NewTaskScreen", () => {
     );
   });
 
+  // The deadline row starts empty, so "Add deadline" is what picks its date —
+  // and it has to pick the viewed day, not today (DEX-165).
+  it("deadlines the task to the viewed day, not today", () => {
+    mockSearchParams.current = { scheduledFor: "2026-07-08" };
+    const screen = render(<NewTaskScreen />);
+
+    fireEvent.changeText(screen.getByTestId("new-task-title"), "Plan the week");
+    fireEvent.press(screen.getByTestId("new-task-add-deadline"));
+    const save = render(headerOptions().headerRight());
+    fireEvent.press(save.getByTestId("modal-done-button"));
+
+    expect(mockCreateTask).toHaveBeenCalledWith(
+      expect.objectContaining({ dueOn: "2026-07-08" }),
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
+  });
+
   // How a shared link reaches the form: `ShareIntentRedirect` pushes this
   // route with the link as a param (DEX-66).
   it("pre-fills the link passed as a route param", () => {
@@ -403,6 +420,24 @@ describe("NewTaskScreen", () => {
 
     expect(mockCreateTask).toHaveBeenCalledWith(
       expect.objectContaining({ scheduledFor: today.toString() }),
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
+  });
+
+  // Clearing the schedule doesn't forget which day the form was opened on, so
+  // adding it back returns to the viewed day rather than snapping to today.
+  it("restores the viewed day when the schedule is added back", () => {
+    mockSearchParams.current = { scheduledFor: "2026-07-08" };
+    const screen = render(<NewTaskScreen />);
+
+    fireEvent.changeText(screen.getByTestId("new-task-title"), "Pay bills");
+    fireEvent.press(screen.getByTestId("new-task-clear-schedule"));
+    fireEvent.press(screen.getByTestId("new-task-add-schedule"));
+    const save = render(headerOptions().headerRight());
+    fireEvent.press(save.getByTestId("modal-done-button"));
+
+    expect(mockCreateTask).toHaveBeenCalledWith(
+      expect.objectContaining({ scheduledFor: "2026-07-08" }),
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
   });

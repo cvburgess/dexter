@@ -150,6 +150,7 @@ export function TaskForm({
       <FormRow label="Schedule" minHeight={32}>
         <ClearableDateField
           field="schedule"
+          seed={form.anchorDate}
           testIDPrefix={testIDPrefix}
           value={form.scheduledFor}
           onChange={handleChangeSchedule}
@@ -159,6 +160,7 @@ export function TaskForm({
       <FormRow label="Deadline" minHeight={32}>
         <ClearableDateField
           field="deadline"
+          seed={form.anchorDate}
           testIDPrefix={testIDPrefix}
           value={form.dueOn}
           onChange={form.setDueOn}
@@ -238,6 +240,8 @@ export function TaskForm({
 type TClearableDateFieldProps = {
   /** Names the row: drives both the "Add …" copy and the testIDs. */
   field: "schedule" | "deadline";
+  /** ISO date the "Add …" button fills the empty row with. */
+  seed: string;
   testIDPrefix: string;
   value: string | null;
   onChange: (value: string | null) => void;
@@ -245,11 +249,12 @@ type TClearableDateFieldProps = {
 
 /**
  * A date the form can also *not* have: the picker plus a Clear that empties it,
- * collapsing to an "Add …" button that seeds today. Shared by Schedule and
+ * collapsing to an "Add …" button that seeds `seed`. Shared by Schedule and
  * Deadline, which differ only in their copy and testIDs.
  */
 function ClearableDateField({
   field,
+  seed,
   testIDPrefix,
   value,
   onChange,
@@ -261,7 +266,7 @@ function ClearableDateField({
       <TouchableOpacity
         accessibilityRole="button"
         testID={`${testIDPrefix}-add-${field}`}
-        onPress={() => onChange(Temporal.Now.plainDateISO().toString())}
+        onPress={() => onChange(seed)}
       >
         <Text style={[theme.fonts.body, { color: theme.colors.primary }]}>
           Add {field}

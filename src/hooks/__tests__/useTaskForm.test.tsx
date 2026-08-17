@@ -68,6 +68,58 @@ describe("useTaskForm", () => {
     expect(result.current.scheduledFor).toBe(today().toString());
   });
 
+  describe("anchorDate", () => {
+    it("is the provided default date, so empty date rows fill with it", () => {
+      const { result } = renderHook(() =>
+        useTaskForm([], { defaultScheduledFor: "2026-07-08" }),
+      );
+
+      expect(result.current.anchorDate).toBe("2026-07-08");
+    });
+
+    it("falls back to today when no default date is provided", () => {
+      const { result } = renderHook(() => useTaskForm([]));
+
+      expect(result.current.anchorDate).toBe(today().toString());
+    });
+
+    it("falls back to today when the default date is malformed", () => {
+      const { result } = renderHook(() =>
+        useTaskForm([], { defaultScheduledFor: "not-a-date" }),
+      );
+
+      expect(result.current.anchorDate).toBe(today().toString());
+    });
+
+    it("is the task's own schedule when editing", () => {
+      const { result } = renderHook(() =>
+        useTaskForm([], { task: makeTask({ scheduledFor: "2026-09-02" }) }),
+      );
+
+      expect(result.current.anchorDate).toBe("2026-09-02");
+    });
+
+    it("falls back to today when editing an unscheduled task", () => {
+      const { result } = renderHook(() =>
+        useTaskForm([], { task: makeTask({ scheduledFor: null }) }),
+      );
+
+      expect(result.current.anchorDate).toBe(today().toString());
+    });
+
+    it("holds still when the schedule is changed or cleared", () => {
+      const { result } = renderHook(() =>
+        useTaskForm([], { defaultScheduledFor: "2026-07-08" }),
+      );
+
+      act(() => result.current.setScheduledFor("2026-07-20"));
+      expect(result.current.anchorDate).toBe("2026-07-08");
+
+      act(() => result.current.setScheduledFor(null));
+      expect(result.current.anchorDate).toBe("2026-07-08");
+    });
+  });
+
   it("carries a cleared schedule through to the payload as unscheduled", () => {
     const { result } = renderHook(() => useTaskForm([]));
 
