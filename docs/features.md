@@ -299,12 +299,14 @@ to remove, and none for a phone speaker to infer a low fundamental from. Of ever
 there the reverb does the most work. The exit fade rides a master gain *after* the
 reverb, or it would chop the tail off mid-ring.
 
-Gain curves are raised cosines approximated by twelve straight segments per leg,
+Gain curves are quarter sines approximated by twelve straight segments per leg,
 rather than the single `setValueCurveAtTime` that would express one exactly: that
 call throws if any other automation overlaps it, which would take the feature down
 rather than sound slightly wrong, and it is far less travelled in a pre-1.0 library.
-The ear hears the *corner* where a ramp starts far more than the slope after it, so
-easing the ends is most of what separates a swell from a level change.
+**Eased at one end only, and which end matters.** A raised cosine is flat at both,
+and its zero slope at zero read as a *delay* — every leg opened near-silent and the
+tone seemed to arrive late. Leaving at full slope fixes that while still landing
+softly enough that no boundary clicks; only the far corner needs the easing.
 
 **Only the sound is focus-scoped, and that asymmetry is deliberate.** `useBreathAudio`
 hangs off `useFocusEffect` so the tones do not follow the breather to another tab,

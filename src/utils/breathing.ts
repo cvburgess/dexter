@@ -401,14 +401,27 @@ export type TBreathAudioRamp = {
 const CURVE_STEPS = 12;
 
 /**
- * A raised cosine over 0–1: flat at both ends, steepest in the middle.
+ * A quarter sine over 0–1: steepest at the start, flattening into the finish.
  *
- * A straight line is what made the first attempt sound mechanical. The ear hears
- * the *corners* — the instant a linear ramp starts and stops — far more than the
- * slope between them, so easing both ends is most of what turns a level change
- * into a breath.
+ * **Eased at one end only, and that end matters.** A raised cosine is flat at
+ * *both*, which reads as a delay — its slope at zero is zero, so the opening of
+ * every leg spent a second near-silent and the tone seemed to arrive late. This
+ * leaves at full slope, so a leg is audible almost immediately, and still lands
+ * softly enough that no boundary clicks. The ear hears the *corners* far more
+ * than the slope between them; only the corner at the far end needs the help.
+ *
+ * Exact at both ends — `Math.sin(0)` is 0 and `Math.sin(Math.PI / 2)` is 1.
  */
-const easeInOut = (t: number): number => (1 - Math.cos(Math.PI * t)) / 2;
+const easeOut = (t: number): number => Math.sin((Math.PI / 2) * t);
+
+/**
+ * How much of its own leg a tone spends rising, as a fraction.
+ *
+ * Reaching full only as the leg ends meant the clearest moment of every phase
+ * was the moment it was over. Arriving two thirds of the way in leaves a stretch
+ * of steady tone to actually breathe to.
+ */
+const ATTACK_RATIO = 8 / CURVE_STEPS;
 
 /**
  * How much of the *next* leg a finished tone takes to release, as a fraction.
@@ -481,7 +494,8 @@ export const buildBreathAudioSchedule = (
       schedule.push({
         voice,
         atMs: start + leg.ms * t,
-        value: easeInOut(t),
+        // Full once the attack is done, and held there for the rest of the leg.
+        value: t >= ATTACK_RATIO ? 1 : easeOut(t / ATTACK_RATIO),
         kind: "ramp",
       });
     }
@@ -490,7 +504,8 @@ export const buildBreathAudioSchedule = (
       schedule.push({
         voice,
         atMs: end + fallMs * t,
-        value: 1 - easeInOut(t),
+        // Drops fastest at the start for the same reason the attack does.
+        value: 1 - easeOut(t),
         kind: "ramp",
       });
     }
