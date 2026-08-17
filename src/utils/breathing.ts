@@ -353,3 +353,86 @@ const flatIfEmpty = (table: {
  */
 export const breathePlanEndsEmpty = (plan: TBreathePlan): boolean =>
   plan.levels[plan.levels.length - 1] === 0;
+
+/** Which of the two tones a scheduled gain change belongs to (DEX-167). */
+export type TBreathAudioVoice = "breath" | "hold";
+
+/**
+ * One scheduled gain change.
+ *
+ * `value` is normalized 0–1 rather than a gain, so nothing about how *loud* the
+ * exercise is leaks into this module — the hook multiplies by its own peak. That
+ * keeps the tuning constants in one place and lets these tests survive someone
+ * turning the volume down.
+ *
+ * `kind` is the part that is easy to get wrong. `linearRampToValueAtTime` ramps
+ * from *the previous scheduled event*, not from the moment it is called, so a
+ * ramp with nothing anchoring its start glides from wherever the last event left
+ * off — across a hold, that turns a held note into a five-second fade. Every
+ * ramp therefore gets a `set` at the leg's start pinning the value it begins
+ * from, which is exactly what Calm's implementation does before each ramp.
+ */
+export type TBreathAudioRamp = {
+  voice: TBreathAudioVoice;
+  /** Milliseconds from the start of the run. */
+  atMs: number;
+  value: number;
+  kind: "set" | "ramp";
+};
+
+/**
+ * Every gain change of one run, in time order (DEX-167).
+ *
+ * The whole run is scheduled on the audio clock the moment Begin is pressed, so
+ * this is the entire sound — there is no timer anywhere and nothing recomputes
+ * per leg. That is what keeps ten Box breaths (200 seconds) landing on the
+ * fill's phase boundaries at the last breath as exactly as at the first.
+ *
+ * **The breath voice's gain is the fill level**, read straight off `levels`
+ * rather than derived again here: the tone's loudness *is* how full the screen
+ * is, so the two cannot drift apart. A hold consequently schedules nothing on it
+ * — Web Audio holds its last value, the same way `levelAfter` makes a hold "a
+ * timing to the value it already holds" and costs the fill no branch of its own.
+ *
+ * The hold voice is silent except during a hold, where it swells up and back
+ * down. Simple and Relax have no hold legs, so for them it never sounds at all.
+ */
+export const buildBreathAudioSchedule = (
+  plan: TBreathePlan,
+): readonly TBreathAudioRamp[] => {
+  const schedule: TBreathAudioRamp[] = [];
+  let elapsed = 0;
+
+  plan.session.forEach((leg, index) => {
+    const start = elapsed;
+    const end = start + leg.ms;
+
+    if (leg.phase === "hold") {
+      schedule.push({ voice: "hold", atMs: start, value: 0, kind: "set" });
+      schedule.push({
+        voice: "hold",
+        atMs: start + leg.ms / 2,
+        value: 1,
+        kind: "ramp",
+      });
+      schedule.push({ voice: "hold", atMs: end, value: 0, kind: "ramp" });
+    } else {
+      schedule.push({
+        voice: "breath",
+        atMs: start,
+        value: plan.levels[index - 1] ?? 0,
+        kind: "set",
+      });
+      schedule.push({
+        voice: "breath",
+        atMs: end,
+        value: plan.levels[index],
+        kind: "ramp",
+      });
+    }
+
+    elapsed = end;
+  });
+
+  return schedule;
+};

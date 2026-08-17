@@ -2,6 +2,7 @@ import { Temporal } from "@js-temporal/polyfill";
 
 import {
   breathePlanEndsEmpty,
+  buildBreathAudioSchedule,
   BREATHING_TECHNIQUE_ORDER,
   BREATHING_TECHNIQUE_OPTIONS,
   BREATHING_TECHNIQUE_SETTING_OPTIONS,
@@ -14,6 +15,8 @@ import {
   resolveBreathCount,
   resolveBreathingTechniqueSetting,
   techniqueForDay,
+  type TBreathAudioRamp,
+  type TBreathAudioVoice,
   type TBreathingTechnique,
 } from "../breathing";
 
@@ -230,5 +233,117 @@ describe("buildBreathePlan", () => {
     expect(plan.words.inhale.input[0]).toBeGreaterThan(0);
     const exhale = plan.words.exhale.input;
     expect(exhale[exhale.length - 1]).toBeLessThan(1);
+  });
+});
+
+describe("buildBreathAudioSchedule", () => {
+  const voice = (
+    schedule: readonly TBreathAudioRamp[],
+    which: TBreathAudioVoice,
+  ) => schedule.filter((step) => step.voice === which);
+
+  it.each(BREATHING_TECHNIQUE_ORDER)(
+    "keeps every entry in time order and inside the run (%s)",
+    (technique) => {
+      const plan = buildBreathePlan(technique, 3);
+      const schedule = buildBreathAudioSchedule(plan);
+
+      expect(schedule.length).toBeGreaterThan(0);
+      for (let i = 1; i < schedule.length; i += 1) {
+        expect(schedule[i].atMs).toBeGreaterThanOrEqual(schedule[i - 1].atMs);
+      }
+      expect(schedule[0].atMs).toBe(0);
+      expect(schedule[schedule.length - 1].atMs).toBe(plan.totalMs);
+    },
+  );
+
+  // The whole point of the `set`/`ramp` split: a ramp glides from the previous
+  // scheduled event, so one without an anchor at its own leg's start would
+  // slide across whatever came before it — audibly, across a hold.
+  it.each(BREATHING_TECHNIQUE_ORDER)(
+    "anchors every ramp with a set at the same instant or earlier (%s)",
+    (technique) => {
+      const schedule = buildBreathAudioSchedule(buildBreathePlan(technique, 2));
+
+      for (const which of ["breath", "hold"] as const) {
+        const steps = voice(schedule, which);
+        steps.forEach((step, index) => {
+          if (step.kind !== "ramp") return;
+          const anchored = steps
+            .slice(0, index)
+            .some((earlier) => earlier.kind === "set");
+          expect(anchored).toBe(true);
+        });
+      }
+    },
+  );
+
+  // The tone's loudness *is* how full the screen is, so a drift between these
+  // two would be a sound that no longer matches the animation.
+  it("tracks the fill level on the breath voice", () => {
+    const plan = buildBreathePlan("simple", 2);
+    const breath = voice(buildBreathAudioSchedule(plan), "breath");
+
+    expect(breath).toEqual([
+      { voice: "breath", atMs: 0, value: 0, kind: "set" },
+      { voice: "breath", atMs: 6000, value: 1, kind: "ramp" },
+      { voice: "breath", atMs: 6000, value: 1, kind: "set" },
+      { voice: "breath", atMs: 12000, value: 0, kind: "ramp" },
+      { voice: "breath", atMs: 12000, value: 0, kind: "set" },
+      { voice: "breath", atMs: 18000, value: 1, kind: "ramp" },
+      { voice: "breath", atMs: 18000, value: 1, kind: "set" },
+      { voice: "breath", atMs: 24000, value: 0, kind: "ramp" },
+    ]);
+  });
+
+  it.each(BREATHING_TECHNIQUE_ORDER)(
+    "leaves the breath voice silent at the end (%s)",
+    (technique) => {
+      const breath = voice(
+        buildBreathAudioSchedule(buildBreathePlan(technique, 3)),
+        "breath",
+      );
+      expect(breath[breath.length - 1].value).toBe(0);
+    },
+  );
+
+  // Simple and Relax have no hold legs, so the second voice never sounds for
+  // them — it is not merely quiet, it is absent from the schedule entirely.
+  it("only sounds the hold voice for a technique that holds", () => {
+    for (const technique of ["simple", "relax"] as const) {
+      const plan = buildBreathePlan(technique, 3);
+      expect(voice(buildBreathAudioSchedule(plan), "hold")).toEqual([]);
+    }
+
+    const box = buildBreathAudioSchedule(buildBreathePlan("box", 2));
+    // Two holds per breath, each a swell up and back down.
+    expect(voice(box, "hold")).toHaveLength(2 * 2 * 3);
+  });
+
+  it("swells the hold voice up and back down within the hold", () => {
+    const box = buildBreathAudioSchedule(buildBreathePlan("box", 1));
+    const hold = voice(box, "hold");
+
+    // Box is inhale 5s, hold 5s, exhale 5s, hold 5s.
+    expect(hold.slice(0, 3)).toEqual([
+      { voice: "hold", atMs: 5000, value: 0, kind: "set" },
+      { voice: "hold", atMs: 7500, value: 1, kind: "ramp" },
+      { voice: "hold", atMs: 10000, value: 0, kind: "ramp" },
+    ]);
+    expect(hold.slice(3)).toEqual([
+      { voice: "hold", atMs: 15000, value: 0, kind: "set" },
+      { voice: "hold", atMs: 17500, value: 1, kind: "ramp" },
+      { voice: "hold", atMs: 20000, value: 0, kind: "ramp" },
+    ]);
+  });
+
+  // A hold is a timing to the value the breath voice already holds, so it needs
+  // no entry of its own — Web Audio sustains the last one.
+  it("schedules nothing on the breath voice during a hold", () => {
+    const box = buildBreathAudioSchedule(buildBreathePlan("box", 1));
+    const during = voice(box, "breath").filter(
+      (step) => step.atMs > 5000 && step.atMs < 10000,
+    );
+    expect(during).toEqual([]);
   });
 });

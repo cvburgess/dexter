@@ -11,6 +11,7 @@ import Animated, {
 import { BreatheFill } from "@/components/BreatheFill";
 import { PickerField } from "@/components/PickerField";
 import { Slider } from "@/components/Slider";
+import { useBreathAudio } from "@/hooks/useBreathAudio";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
 import {
@@ -98,6 +99,11 @@ export function BreatheStep({ date }: TBreatheStepProps) {
       ),
     [],
   );
+
+  // Takes the plan rather than the technique and count, so the sound is built
+  // from the same object the fill is animating and the two cannot disagree
+  // about what this run is.
+  useBreathAudio(session?.plan ?? null, running);
 
   const controls = useSharedValue(1);
   useEffect(() => {
