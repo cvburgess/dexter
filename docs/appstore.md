@@ -6,10 +6,11 @@ consistent with the app (`src/app.json`) and the marketing site (`/www`).
 
 ## App identity
 
-- **Name:** `Dexter Day Planner` (App Store name, ≤ 30 chars)
+- **Name:** `Dexter Planner` (App Store name, ≤ 30 chars)
 - **Subtitle:** `An opinionated day planner` (≤ 30 chars)
 - **Bundle ID:** `com.dexterplanner` (`src/app.json` → `ios.bundleIdentifier`)
 - **App Store Connect App ID (ascAppId):** `6790178708`
+- **Listing:** https://apps.apple.com/us/app/dexter-planner/id6790178708
 - **Apple Team ID:** `Q77C3BA452`
 - **Primary category:** Productivity
 - **Copyright:** `2026 Charles Burgess`
@@ -44,7 +45,7 @@ FEATURES:
 • Habit tracker, goals, and milestones
 • Repeating tasks and native task alarms so nothing slips
 • Connect to AI: an MCP server lets Claude, ChatGPT, Gemini, and Cursor plan alongside you
-• Customizable themes, on iPhone, iPad, and the web
+• Customizable themes, on iPhone, iPad, Mac, and the web
 
 Dexter is open source under the MIT license: https://github.com/cvburgess/dexter
 
@@ -77,7 +78,11 @@ Store listing. Uploaded to App Store Connect manually.
 
 Required iPhone size: **6.9" — 1320 × 2868**, with **no alpha channel**. Apple
 downscales that set for smaller devices, so the optional 6.5" (1242 × 2688) set
-is deliberately not maintained. See Apple's current
+is deliberately not maintained. The listing also carries an **iPad 13" (2064 ×
+2752)** set, which is required because the app ships for iPad; the Mac listing
+reuses it rather than taking its own, because Mac support is the iPad build
+running on Apple Silicon (see `docs/frontend.md`) and not a separate Mac app.
+Only the iPhone set is scripted — see Apple's current
 [screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications/).
 
 Two traps cause "wrong dimensions" rejections, and both have bitten this project:

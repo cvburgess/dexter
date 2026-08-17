@@ -9,10 +9,10 @@ The [Dexter Day Planner](/) is an all-in-one app that allows you to manage
 tasks, calendars, and more in one place.
 
 It's an app I built for myself and
-[open sourced](https://github.com/cvburgess/dexter-app), but that doesn't mean
-that running it is free. This is a look into what a "free tier" actually costs,
-and a look into how sustainable a donation-based "business" model is for those
-that are curious.
+[open sourced](https://github.com/cvburgess/dexter), but that doesn't mean that
+running it is free. This is a look into what a "free tier" actually costs, and a
+look into how sustainable a donation-based "business" model is for those that
+are curious.
 
 <picture width="2550px" height="1624px">
 

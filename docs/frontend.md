@@ -2,7 +2,9 @@
 
 The Dexter app is built with [Expo](https://docs.expo.dev/) (React Native) and
 [Expo Router](https://docs.expo.dev/router/introduction/) for file-based
-navigation. Targets **iOS**, **Android**, and **web**. Commands live in
+navigation. Targets **iOS**, **Android**, and **web** — and Mac, by way of the
+iPad build running on Apple Silicon, not a Mac target of its own (see
+[Mac Catalyst](#mac-catalyst-experimental--dex-85)). Commands live in
 `AGENTS.md`; tests go in `__tests__/` next to source files, never under `app/`
 (phantom routes).
 
@@ -460,3 +462,8 @@ inert on iOS):
 | `expo-calendar+57.0.1.patch` | **Not Catalyst-specific** — `EKCalendarItem.calendar` is `null_unspecified` and a force-unwrap traps the JS thread. Upstream: expo/expo#48445. |
 
 Not implemented: menu bar, multi-window, and any distribution path.
+
+**The Mac app on the App Store is not this target.** It is the ordinary iOS/iPad
+binary with "Designed for iPad" enabled on Apple Silicon — no EAS profile sets
+`EXPO_MAC_CATALYST=1`, so nothing built by CI has ever been a Catalyst build.
+Shipping Catalyst instead would mean a separate binary and its own submission.

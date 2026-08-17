@@ -1,6 +1,7 @@
 # Dexter app
 
-Expo (React Native) + Expo Router. Runs on **iOS**, **Android**, and **web**.
+Expo (React Native) + Expo Router. Runs on **iOS**, **Android**, and **web** — the
+iOS build also covers **iPad** and **Mac** (Designed for iPad on Apple Silicon).
 
 ## Setup
 
