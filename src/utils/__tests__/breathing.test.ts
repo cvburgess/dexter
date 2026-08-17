@@ -194,10 +194,41 @@ describe("buildBreathePlan", () => {
     expect(plan.words.inhale.input).toHaveLength(2 * 4);
   });
 
-  it("opens and closes the run with a word on screen", () => {
+  // The words used to cross-fade on the boundary, so two were briefly legible
+  // at once. Each one's window now sits inside its own leg, which leaves a beat
+  // of nothing between them.
+  it.each(techniques)(
+    "leaves a gap between one word and the next for %s",
+    (technique) => {
+      const plan = buildBreathePlan(technique, 3);
+      // Every point at which some word is mid-fade or fully on, in time order:
+      // each leg contributes the window [fade-in start, fade-out end].
+      const windows = (["inhale", "hold", "exhale"] as const)
+        .flatMap((phase) => {
+          const { input, output } = plan.words[phase];
+          // The flat table an unused phase gets is not a window.
+          if (!output.includes(1)) return [];
+          const pulses = [];
+          for (let i = 0; i < input.length; i += 4) {
+            pulses.push({ from: input[i], to: input[i + 3] });
+          }
+          return pulses;
+        })
+        .sort((a, b) => a.from - b.from);
+
+      expect(windows).toHaveLength(plan.session.length);
+      for (let i = 1; i < windows.length; i += 1) {
+        expect(windows[i].from).toBeGreaterThan(windows[i - 1].to);
+      }
+    },
+  );
+
+  // The run opens and closes on the neutral background rather than mid-word —
+  // `BreatheFill` fades the whole layer in over the top of this anyway.
+  it("keeps the first and last word inside the run", () => {
     const plan = buildBreathePlan("relax", 2);
-    expect(plan.words.inhale.input[0]).toBe(0);
+    expect(plan.words.inhale.input[0]).toBeGreaterThan(0);
     const exhale = plan.words.exhale.input;
-    expect(exhale[exhale.length - 1]).toBe(1);
+    expect(exhale[exhale.length - 1]).toBeLessThan(1);
   });
 });

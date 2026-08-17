@@ -215,15 +215,29 @@ export type TBreatheInterpolation = {
 };
 
 /**
- * How long each phase word takes to cross-fade into the next, as a share of
- * the leg on either side of the boundary.
+ * How long each phase word takes to fade in and out, as a share of its own leg.
  *
  * A fraction rather than a fixed duration so the fade stays in proportion on a
- * one-breath run and a ten-breath one, and so the windows below can never
- * overlap however the technique durations are retuned — which is what would
- * make the interpolation table non-monotonic and `interpolate` return garbage.
+ * one-breath run and a ten-breath one.
  */
 const WORD_FADE_RATIO = 0.08;
+
+/**
+ * How long the step holds *no* word at each end of a leg, as a share of it.
+ *
+ * The words used to cross-fade: both windows sat on the boundary, so "Exhale"
+ * was arriving while "Inhale" was still leaving and the two were briefly legible
+ * over one another. This is the beat of nothing that separates them — the word
+ * leaves before the turn and the next arrives after it, which is also how the
+ * breath itself feels at the top.
+ *
+ * Both this and the fade are shares of the leg, so a word's whole window is
+ * `2 × (gap + fade)` of it — well under the leg however the durations are
+ * retuned, which is what keeps every `input` array below monotonic. A
+ * non-monotonic one makes `interpolate` return garbage, with no symptom short
+ * of a device.
+ */
+const WORD_GAP_RATIO = 0.06;
 
 /** Everything the step's animation needs, and nothing it has to work out. */
 export type TBreathePlan = {
@@ -293,17 +307,20 @@ export const buildBreathePlan = (
   for (const leg of session) {
     const start = elapsed / totalMs;
     const end = (elapsed + leg.ms) / totalMs;
-    const fade = ((end - start) * WORD_FADE_RATIO) / 2;
+    const span = end - start;
+    const fade = span * WORD_FADE_RATIO;
+    const gap = span * WORD_GAP_RATIO;
     const table = words[leg.phase];
-    // Clamped at the ends so the first word fades up from the run's start
-    // rather than from before it, and the last fades out to its end. Without
-    // the clamp the table would open on a negative input, which `interpolate`
-    // reads as a breakpoint the driver never reaches.
+    // The whole window sits *inside* the leg, which is what puts a gap either
+    // side of every boundary: the word is already gone before the leg ends and
+    // the next one has not started yet. It also means no point can fall outside
+    // [0, 1], so unlike the crossing version this needs no clamping — a
+    // negative input would be a breakpoint the driver never reaches.
     table.input.push(
-      Math.max(0, start - fade),
-      start + fade,
-      end - fade,
-      Math.min(1, end + fade),
+      start + gap,
+      start + gap + fade,
+      end - gap - fade,
+      end - gap,
     );
     table.output.push(0, 1, 1, 0);
     elapsed += leg.ms;
