@@ -68,13 +68,22 @@ AudioManager.disableSessionManagement();
  * A3 is well beneath the 432Hz the first attempt used, which sat up where the
  * ear starts paying attention.
  *
- * The hold adds E4 and B4 over it. B is the ninth, which is what makes a hold
- * sound *suspended* — unresolved, waiting, which is exactly what a held breath
- * is — while staying consonant against the breath sustaining underneath it.
+ * The two accents are each read against that. The hold goes *up* and adds the
+ * ninth (B4), which is what makes it sound suspended — unresolved, waiting,
+ * which is what a held breath is. The exhale goes *down* to E3–A3–C4 and, in
+ * adding the third the breath deliberately omits, is the one moment the harmony
+ * resolves. Descending and warming at once is about as legible as "let go" gets
+ * without saying it.
+ *
+ * Nothing sits below E3 on purpose: a phone speaker reproduces almost nothing
+ * under about 300Hz, and an exhale cue that only exists on headphones would be
+ * missing exactly where it is needed. Triangles carry enough harmonics for the
+ * ear to infer the fundamentals it cannot actually hear.
  */
 const CHORD: Record<TBreathAudioVoice, readonly number[]> = {
   breath: [220, 329.63, 440],
   hold: [329.63, 493.88],
+  exhale: [164.81, 220, 261.63],
 };
 
 /**
@@ -85,10 +94,16 @@ const CHORD: Record<TBreathAudioVoice, readonly number[]> = {
  * and no body for it to shape. A triangle's harmonics fall away as 1/n², which
  * is gentle enough to read as woodwind rather than buzz.
  *
- * The hold stays a sine, so it arrives glassier than the pad it sits on and is
- * told apart by timbre as well as by pitch.
+ * The exhale is a triangle too — it is the breath releasing, and should sound
+ * like the same instrument an octave down rather than a new one. The hold is the
+ * sine, so the one voice that interrupts nothing arrives glassier than the pad
+ * it sits on, and is told apart by timbre as well as by pitch.
  */
-const WAVE = { breath: "triangle", hold: "sine" } as const;
+const WAVE = {
+  breath: "triangle",
+  hold: "sine",
+  exhale: "triangle",
+} as const;
 
 /**
  * How far each note's two oscillators are detuned from it, in cents.
@@ -129,11 +144,16 @@ const REVERB_WET = 0.6;
  * hearing is roughly logarithmic, so halving a number here is only −6dB and
  * sounds far less than half as quiet. `useHoroscopeAudio` has the full ladder.
  *
- * The hold sits below the breath so it reads as a suspension over the pad rather
- * than a third beat in the bar.
+ * Both accents sit below the breath: they mark a turn, and something that only
+ * has to be *noticed* needs far less room than the tone you follow. The exhale
+ * gets a little more than the hold because it arrives over a breath voice that
+ * is still near full, where the hold arrives over one already holding steady.
  */
-const PEAK = 0.22;
-const HOLD_PEAK = 0.12;
+const PEAK: Record<TBreathAudioVoice, number> = {
+  breath: 0.22,
+  hold: 0.12,
+  exhale: 0.14,
+};
 
 /**
  * How long the tones take to disappear when a run ends or the step goes away.
@@ -153,8 +173,14 @@ type TVoice = {
 };
 
 /**
- * Sounds a breathing run: a pad that swells with the inhale and recedes with the
- * exhale, and a suspended second chord that marks each hold (DEX-167).
+ * Sounds a breathing run (DEX-167): a pad that swells with the inhale and
+ * recedes with the exhale, plus an accent on each turn — a suspended chord above
+ * for a hold, a resolving one below for an exhale.
+ *
+ * **The accents are what make the run followable with your eyes shut.** A rise
+ * and a fall of one chord are the same sound run backwards, which the screen
+ * makes obvious and the ear very nearly misses, so each phase that *starts*
+ * announces itself with its own voicing and its own envelope.
  *
  * **Everything is scheduled up front, on the audio clock.** `buildBreathAudioSchedule`
  * turns the plan into the run's every gain change before a note sounds, and this
@@ -229,7 +255,7 @@ export function useBreathAudio(plan: TBreathePlan | null, running: boolean) {
       lowpass.connect(dry);
       lowpass.connect(reverb);
 
-      const createVoice = (which: TBreathAudioVoice, peak: number): TVoice => {
+      const createVoice = (which: TBreathAudioVoice): TVoice => {
         const gain = context.createGain();
         // Silent until the schedule opens it, so nothing is audible between
         // starting the oscillators and the first ramp.
@@ -251,12 +277,13 @@ export function useBreathAudio(plan: TBreathePlan | null, running: boolean) {
 
         // Divided across the oscillators so a chord cannot sum past the ceiling
         // its single note was set to.
-        return { oscillators, gain, peak: peak / oscillators.length };
+        return { oscillators, gain, peak: PEAK[which] / oscillators.length };
       };
 
       const voices: Record<TBreathAudioVoice, TVoice> = {
-        breath: createVoice("breath", PEAK),
-        hold: createVoice("hold", HOLD_PEAK),
+        breath: createVoice("breath"),
+        hold: createVoice("hold"),
+        exhale: createVoice("exhale"),
       };
 
       for (const step of buildBreathAudioSchedule(plan)) {

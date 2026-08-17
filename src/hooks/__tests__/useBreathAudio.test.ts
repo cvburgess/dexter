@@ -114,24 +114,34 @@ jest.mock("expo-router", () => {
 
 // Mirror the hook's own constants rather than importing them — a test that
 // reads the value it is checking cannot notice it changing.
-const CHORD = { breath: [220, 329.63, 440], hold: [329.63, 493.88] };
+const CHORD = {
+  breath: [220, 329.63, 440],
+  hold: [329.63, 493.88],
+  exhale: [164.81, 220, 261.63],
+};
 const DETUNE_CENTS = 4;
 const EXIT_FADE_MS = 600;
 // Each voice divides its ceiling across its oscillators, so a chord cannot sum
 // past the level one note was set to.
 const BREATH_PEAK = 0.22 / (CHORD.breath.length * 2);
 const HOLD_PEAK = 0.12 / (CHORD.hold.length * 2);
+const EXHALE_PEAK = 0.14 / (CHORD.exhale.length * 2);
 
 // Gains, in the order the hook builds them: the master everything lands on, the
 // reverb's wet and dry sides, then one per voice.
 const masterGain = () => mockGains[0].gain;
 const breathGain = () => mockGains[3].gain;
 const holdGain = () => mockGains[4].gain;
+const exhaleGain = () => mockGains[5].gain;
 
 /** The oscillators belonging to each voice, in creation order. */
-const breathOscillators = () =>
-  mockOscillators.slice(0, CHORD.breath.length * 2);
-const holdOscillators = () => mockOscillators.slice(CHORD.breath.length * 2);
+const oscillatorsFor = (which: keyof typeof CHORD) => {
+  const order = ["breath", "hold", "exhale"] as const;
+  const before = order
+    .slice(0, order.indexOf(which))
+    .reduce((sum, name) => sum + CHORD[name].length * 2, 0);
+  return mockOscillators.slice(before, before + CHORD[which].length * 2);
+};
 
 beforeEach(() => {
   jest.useFakeTimers();
@@ -173,15 +183,24 @@ describe("useBreathAudio", () => {
 
     // Two oscillators per note, either side of it — a lone oscillator has no
     // second one to beat against, which is what the warmth comes from.
-    expect(breathOscillators()).toHaveLength(6);
-    expect(holdOscillators()).toHaveLength(4);
+    expect(oscillatorsFor("breath")).toHaveLength(6);
+    expect(oscillatorsFor("hold")).toHaveLength(4);
+    expect(oscillatorsFor("exhale")).toHaveLength(6);
 
-    const pitches = breathOscillators().map(
+    const pitches = oscillatorsFor("breath").map(
       (o) => o.frequency.setValueAtTime.mock.calls[0][0],
     );
     expect(pitches).toEqual([220, 220, 329.63, 329.63, 440, 440]);
 
-    const cents = breathOscillators().map(
+    // The exhale resolves *downward* from the breath's root, which is most of
+    // what makes it legible as "let go" rather than as another swell.
+    const exhalePitches = oscillatorsFor("exhale").map(
+      (o) => o.frequency.setValueAtTime.mock.calls[0][0],
+    );
+    expect(exhalePitches).toEqual([164.81, 164.81, 220, 220, 261.63, 261.63]);
+    expect(Math.max(...exhalePitches)).toBeLessThan(Math.max(...pitches));
+
+    const cents = oscillatorsFor("breath").map(
       (o) => o.detune.setValueAtTime.mock.calls[0][0],
     );
     expect(cents).toEqual([
@@ -195,13 +214,19 @@ describe("useBreathAudio", () => {
 
     // A lowpass has nothing to take off a sine, so the pad has to carry
     // harmonics for the filter to shape anything at all.
-    expect(breathOscillators().every((o) => o.type === "triangle")).toBe(true);
-    expect(holdOscillators().every((o) => o.type === "sine")).toBe(true);
+    expect(oscillatorsFor("breath").every((o) => o.type === "triangle")).toBe(
+      true,
+    );
+    expect(oscillatorsFor("exhale").every((o) => o.type === "triangle")).toBe(
+      true,
+    );
+    expect(oscillatorsFor("hold").every((o) => o.type === "sine")).toBe(true);
 
     // Silent until the schedule opens them, so nothing sounds between starting
     // the oscillators and the first ramp.
     expect(breathGain().setValueAtTime).toHaveBeenCalledWith(0, 0);
     expect(holdGain().setValueAtTime).toHaveBeenCalledWith(0, 0);
+    expect(exhaleGain().setValueAtTime).toHaveBeenCalledWith(0, 0);
     expect(mockOscillators.every((o) => o.start.mock.calls.length === 1)).toBe(
       true,
     );
@@ -259,6 +284,35 @@ describe("useBreathAudio", () => {
       46,
     );
     expect(breathGain().linearRampToValueAtTime).toHaveBeenCalledWith(0, 52);
+  });
+
+  // A rise and a fall of one chord are the same sound run backwards, which the
+  // screen makes obvious and the ear very nearly misses — so the turn at the top
+  // of the breath has to announce itself.
+  it("marks the exhale with an accent that crests early and falls away", () => {
+    renderHook(() => useBreathAudio(buildBreathePlan("simple", 1), true));
+
+    const ramps: [number, number][] =
+      exhaleGain().linearRampToValueAtTime.mock.calls;
+    const valueAt = (time: number) =>
+      ramps.find(([, at]) => at === time)?.[0] as number;
+
+    // Simple exhales from 6s to 12s. The accent crests a sixth of the way in —
+    // a sigh, against the hold's symmetric arch — and is silent by the end.
+    expect(exhaleGain().setValueAtTime).toHaveBeenCalledWith(0, 6);
+    expect(valueAt(7)).toBeCloseTo(EXHALE_PEAK, 6);
+    expect(valueAt(12)).toBe(0);
+    // Well past its crest by the midpoint, where an arch would still be at full.
+    expect(valueAt(9)).toBeLessThan(EXHALE_PEAK * 0.75);
+  });
+
+  it("leaves the exhale accent out of an inhale", () => {
+    renderHook(() => useBreathAudio(buildBreathePlan("simple", 1), true));
+
+    const duringInhale = (
+      exhaleGain().linearRampToValueAtTime.mock.calls as [number, number][]
+    ).filter(([value, time]) => time < 6 && value > 0);
+    expect(duringInhale).toEqual([]);
   });
 
   it("never sounds the hold voice for a technique that does not hold", () => {

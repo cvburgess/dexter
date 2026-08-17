@@ -354,8 +354,17 @@ const flatIfEmpty = (table: {
 export const breathePlanEndsEmpty = (plan: TBreathePlan): boolean =>
   plan.levels[plan.levels.length - 1] === 0;
 
-/** Which of the two tones a scheduled gain change belongs to (DEX-167). */
-export type TBreathAudioVoice = "breath" | "hold";
+/**
+ * Which tone a scheduled gain change belongs to (DEX-167).
+ *
+ * `breath` is the continuous one, and it plays throughout. The other two are
+ * **accents**: they sound only during their own phase, and they exist because a
+ * breather with their eyes closed needs to know the phase has *turned*. A rise
+ * and a fall of the same chord are the same sound going opposite ways, which is
+ * legible on screen and almost nothing to the ear — so each turn gets its own
+ * voicing and its own envelope shape.
+ */
+export type TBreathAudioVoice = "breath" | "hold" | "exhale";
 
 /**
  * One scheduled gain change.
@@ -404,7 +413,13 @@ const CURVE_STEPS = 12;
 const easeInOut = (t: number): number => (1 - Math.cos(Math.PI * t)) / 2;
 
 /**
- * A swell out to full and back over 0–1, eased at both ends and in the middle.
+ * A swell out to full and back over 0–1, cresting at `peakAt`.
+ *
+ * Where the crest sits is what tells the two accents apart by *shape* as well as
+ * by pitch. A hold crests in the middle and is symmetric — it is going nowhere,
+ * which is the point of a hold. An exhale crests early and then takes the rest
+ * of the leg to fall away, which is the shape of a sigh and reads as release
+ * rather than as another swell.
  *
  * Built from `easeInOut` rather than a half-period sine, which is the obvious
  * spelling and lands on 1.2e-16 instead of 0 — `Math.sin(Math.PI)` is not exact,
@@ -412,8 +427,19 @@ const easeInOut = (t: number): number => (1 - Math.cos(Math.PI * t)) / 2;
  * a gain that never quite returns to zero is the kind of residue that is far
  * easier to not introduce than to find later.
  */
-const arch = (t: number): number =>
-  t <= 0.5 ? easeInOut(t * 2) : easeInOut((1 - t) * 2);
+const swell = (t: number, peakAt: number): number =>
+  t <= peakAt ? easeInOut(t / peakAt) : easeInOut((1 - t) / (1 - peakAt));
+
+/**
+ * Where each accent crests, as a fraction of its leg.
+ *
+ * **Both are multiples of `1 / CURVE_STEPS` on purpose.** The curve is sampled
+ * at those steps, so a crest that falls between two of them is never actually
+ * reached — the accent would top out a shade under full, for no reason anyone
+ * could find later.
+ */
+const HOLD_CREST = 6 / CURVE_STEPS;
+const EXHALE_CREST = 2 / CURVE_STEPS;
 
 /**
  * Every gain change of one run, in time order (DEX-167).
@@ -429,11 +455,18 @@ const arch = (t: number): number =>
  * — Web Audio holds its last value, the same way `levelAfter` makes a hold "a
  * timing to the value it already holds" and costs the fill no branch of its own.
  *
- * The hold voice is silent except during a hold, where it swells up and back
- * down. Simple and Relax have no hold legs, so for them it never sounds at all.
+ * The two accents are silent outside their own phase. Simple and Relax have no
+ * hold legs, so for them the hold voice never sounds at all — and an exhale leg
+ * carries two voices, the breath still tracking the fill down while the accent
+ * marks the turn.
+ *
+ * **Entries are in time order per voice rather than across the whole list**,
+ * since an exhale leg emits one voice's curve after another's over the same
+ * span. Per voice is the ordering that matters: `AudioParam` automation is
+ * scheduled independently on each.
  *
  * Every leg lands *exactly* on its endpoint rather than near it, which is why
- * both shapes are built from `easeInOut` — the last segment of a rise arrives at
+ * every shape is built from `easeInOut` — the last segment of a rise arrives at
  * the level and the last segment of a swell arrives at true silence.
  */
 export const buildBreathAudioSchedule = (
@@ -442,27 +475,43 @@ export const buildBreathAudioSchedule = (
   const schedule: TBreathAudioRamp[] = [];
   let elapsed = 0;
 
-  plan.session.forEach((leg, index) => {
-    const start = elapsed;
-    const voice: TBreathAudioVoice = leg.phase === "hold" ? "hold" : "breath";
-    // A hold swells from and back to silence; a breath leg travels between the
-    // fill levels either side of it.
-    const from = leg.phase === "hold" ? 0 : (plan.levels[index - 1] ?? 0);
-    const to = leg.phase === "hold" ? 0 : plan.levels[index];
-
-    schedule.push({ voice, atMs: start, value: from, kind: "set" });
-
+  /** Lays one leg's curve onto one voice, anchor first. */
+  const draw = (
+    voice: TBreathAudioVoice,
+    start: number,
+    ms: number,
+    shape: (t: number) => number,
+  ) => {
+    schedule.push({ voice, atMs: start, value: shape(0), kind: "set" });
     for (let step = 1; step <= CURVE_STEPS; step += 1) {
       const t = step / CURVE_STEPS;
       schedule.push({
         voice,
-        atMs: start + leg.ms * t,
-        // An arch for a hold — up and back down inside the one leg — against an
-        // eased traverse between levels for a breath.
-        value:
-          leg.phase === "hold" ? arch(t) : from + (to - from) * easeInOut(t),
+        atMs: start + ms * t,
+        value: shape(t),
         kind: "ramp",
       });
+    }
+  };
+
+  plan.session.forEach((leg, index) => {
+    const start = elapsed;
+
+    if (leg.phase === "hold") {
+      draw("hold", start, leg.ms, (t) => swell(t, HOLD_CREST));
+    } else {
+      // The breath voice traverses between the fill levels either side of the
+      // leg, on both an inhale and an exhale — that is what keeps it equal to
+      // what is on screen.
+      const from = plan.levels[index - 1] ?? 0;
+      const to = plan.levels[index];
+      draw("breath", start, leg.ms, (t) => from + (to - from) * easeInOut(t));
+
+      // An exhale additionally gets its accent, so the turn at the top of the
+      // breath is heard rather than merely seen.
+      if (leg.phase === "exhale") {
+        draw("exhale", start, leg.ms, (t) => swell(t, EXHALE_CREST));
+      }
     }
 
     elapsed = start + leg.ms;

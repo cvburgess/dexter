@@ -242,18 +242,25 @@ describe("buildBreathAudioSchedule", () => {
     which: TBreathAudioVoice,
   ) => schedule.filter((step) => step.voice === which);
 
+  // Per voice, not across the whole list: an exhale leg lays the breath's curve
+  // and then the accent's over the same span, and `AudioParam` automation is
+  // scheduled independently on each.
   it.each(BREATHING_TECHNIQUE_ORDER)(
-    "keeps every entry in time order and inside the run (%s)",
+    "keeps every voice in time order and inside the run (%s)",
     (technique) => {
       const plan = buildBreathePlan(technique, 3);
       const schedule = buildBreathAudioSchedule(plan);
 
       expect(schedule.length).toBeGreaterThan(0);
-      for (let i = 1; i < schedule.length; i += 1) {
-        expect(schedule[i].atMs).toBeGreaterThanOrEqual(schedule[i - 1].atMs);
+      for (const which of ["breath", "hold", "exhale"] as const) {
+        const steps = voice(schedule, which);
+        for (let i = 1; i < steps.length; i += 1) {
+          expect(steps[i].atMs).toBeGreaterThanOrEqual(steps[i - 1].atMs);
+        }
       }
-      expect(schedule[0].atMs).toBe(0);
-      expect(schedule[schedule.length - 1].atMs).toBe(plan.totalMs);
+
+      expect(Math.min(...schedule.map((step) => step.atMs))).toBe(0);
+      expect(Math.max(...schedule.map((step) => step.atMs))).toBe(plan.totalMs);
     },
   );
 

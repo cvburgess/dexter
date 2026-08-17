@@ -267,10 +267,25 @@ recomputes per leg, so no timer runs beside the animation and nothing has to esc
 voice's gain is the fill level**, read off `levels` rather than derived again, so the
 sound cannot drift from the picture; and **a hold schedules nothing on it**, because
 Web Audio sustains the last value — the same trick `levelAfter` plays on the fill. The
-holds instead get their own voice a fifth up, which is what makes a hold sound *held*
-rather than merely sustained, and which never sounds at all under Simple or Relax.
+holds instead get their own voice, which is what makes a hold sound *held* rather
+than merely sustained, and which never sounds at all under Simple or Relax.
 Every ramp is preceded by a `set` anchoring where it starts from: `linearRampToValueAtTime`
 glides from the previous scheduled event, so an unanchored one slides across a hold.
+
+**Each phase that starts gets an accent, because a rise and a fall of one chord are
+the same sound run backwards.** That asymmetry is obvious on screen and very nearly
+inaudible, so a breather with their eyes closed had nothing marking the turn at the
+top of the breath. The breath voice still tracks the fill through both halves; over
+it, a hold sounds a suspended chord *above* — adding the ninth — and an exhale a
+resolving one *below*, adding the third the breath deliberately omits, so it descends
+and warms at once. Each has its own envelope too: the hold crests in the middle and
+is symmetric, going nowhere, while the exhale crests early and falls away, which is
+the shape of a sigh. Both crests are multiples of `1 / CURVE_STEPS`, or the curve is
+never sampled at its peak and the accent tops out a shade under full for no reason
+anyone could find later. Nothing is voiced below E3: a phone speaker reproduces
+almost nothing under ~300Hz, and a cue that only exists on headphones is missing
+exactly where it is needed. This is also why the schedule is in time order **per
+voice** rather than across the whole list — an exhale leg emits two.
 
 **A single swept sine sounded like microphone feedback, and both reasons are worth
 keeping.** The first attempt took Calm's minimal snippet literally — one sine per
