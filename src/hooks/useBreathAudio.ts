@@ -61,48 +61,42 @@ AudioManager.disableSessionManagement();
  */
 
 /**
- * The chord each voice sounds, in hertz.
+ * The chord each voice sounds, in hertz — all A major, so any two that overlap
+ * are consonant.
  *
- * The breath is A3–E4–A4, DEX-167's voicing: a root, a fifth and an octave, with
- * **no third**, so it is neither major nor minor and asks nothing. Low, too —
- * A3 is well beneath the 432Hz the first attempt used, which sat up where the
- * ear starts paying attention.
+ * The registers step down through the breath: the hold after an inhale is the
+ * highest, then the inhale, then the exhale, then the hold after an exhale at
+ * the bottom. Each hold continues the direction of the leg before it, so the
+ * whole cycle reads as one arch up and back down.
  *
- * The two accents are each read against that. The hold goes *up* and adds the
- * ninth (B4), which is what makes it sound suspended — unresolved, waiting,
- * which is what a held breath is. The exhale goes *down* to E3–A3–C4 and, in
- * adding the third the breath deliberately omits, is the one moment the harmony
- * resolves. Descending and warming at once is about as legible as "let go" gets
- * without saying it.
- *
- * Nothing sits below E3 on purpose: a phone speaker reproduces almost nothing
- * under about 300Hz, and an exhale cue that only exists on headphones would be
- * missing exactly where it is needed. Triangles carry enough harmonics for the
- * ear to infer the fundamentals it cannot actually hear.
+ * The exhale keeps the major third (C#) so it settles rather than saddens. The
+ * bottom hold drops the third and is a bare octave and fifth — empty, which is
+ * what the lungs are at that point.
  */
 const CHORD: Record<TBreathAudioVoice, readonly number[]> = {
-  breath: [220, 329.63, 440],
-  hold: [329.63, 493.88],
-  exhale: [164.81, 220, 261.63],
+  inhaleHold: [440, 554.37, 659.25], // A4  C#5 E5
+  inhale: [220, 277.18, 329.63], //     A3  C#4 E4
+  exhale: [164.81, 220, 277.18], //     E3  A3  C#4
+  exhaleHold: [110, 164.81, 220], //    A2  E3  A3
 };
 
 /**
  * The waveform each voice is built from.
  *
- * **Triangle rather than sine for the breath, and the filter below depends on
- * it**: a sine has no harmonics, so there is nothing for a lowpass to take off
- * and no body for it to shape. A triangle's harmonics fall away as 1/n², which
- * is gentle enough to read as woodwind rather than buzz.
+ * **Triangle rather than sine, and the lowpass depends on it**: a sine has no
+ * harmonics, so there is nothing for a filter to take off and no body for it to
+ * shape. It also carries the low voices on a phone speaker, which reproduces
+ * almost nothing under ~300Hz — the ear infers a fundamental it cannot hear from
+ * the harmonics above it, and a bare sine gives it nothing to work with.
  *
- * The exhale is a triangle too — it is the breath releasing, and should sound
- * like the same instrument an octave down rather than a new one. The hold is the
- * sine, so the one voice that interrupts nothing arrives glassier than the pad
- * it sits on, and is told apart by timbre as well as by pitch.
+ * The top hold is the exception: nothing is below it and a sine reads glassier,
+ * which sets the highest voice apart by timbre as well as by pitch.
  */
 const WAVE = {
-  breath: "triangle",
-  hold: "sine",
+  inhaleHold: "sine",
+  inhale: "triangle",
   exhale: "triangle",
+  exhaleHold: "triangle",
 } as const;
 
 /**
@@ -150,9 +144,10 @@ const REVERB_WET = 0.6;
  * is still near full, where the hold arrives over one already holding steady.
  */
 const PEAK: Record<TBreathAudioVoice, number> = {
-  breath: 0.22,
-  hold: 0.12,
-  exhale: 0.14,
+  inhaleHold: 0.1,
+  inhale: 0.22,
+  exhale: 0.22,
+  exhaleHold: 0.18,
 };
 
 /**
@@ -281,9 +276,10 @@ export function useBreathAudio(plan: TBreathePlan | null, running: boolean) {
       };
 
       const voices: Record<TBreathAudioVoice, TVoice> = {
-        breath: createVoice("breath"),
-        hold: createVoice("hold"),
+        inhaleHold: createVoice("inhaleHold"),
+        inhale: createVoice("inhale"),
         exhale: createVoice("exhale"),
+        exhaleHold: createVoice("exhaleHold"),
       };
 
       for (const step of buildBreathAudioSchedule(plan)) {

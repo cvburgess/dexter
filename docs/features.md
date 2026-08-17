@@ -263,29 +263,22 @@ plays only while the step is on screen. Autolinking is all it needs.
 in `utils/breathing.ts`, for the reason the timeline itself lives there: what can be
 wrong is *which ramp lands when*, and that is testable while a worklet is not. Nothing
 recomputes per leg, so no timer runs beside the animation and nothing has to escape
-`BreatheFill`'s `withSequence`. Two consequences that look like omissions: **the breath
-voice's gain is the fill level**, read off `levels` rather than derived again, so the
-sound cannot drift from the picture; and **a hold schedules nothing on it**, because
-Web Audio sustains the last value — the same trick `levelAfter` plays on the fill. The
-holds instead get their own voice, which is what makes a hold sound *held* rather
-than merely sustained, and which never sounds at all under Simple or Relax.
-Every ramp is preceded by a `set` anchoring where it starts from: `linearRampToValueAtTime`
-glides from the previous scheduled event, so an unanchored one slides across a hold.
+`BreatheFill`'s `withSequence`. Every ramp is preceded by a `set` anchoring where it
+starts from — `linearRampToValueAtTime` glides from the previous scheduled *event*,
+not from when it was called, so an unanchored ramp slides across whatever came before.
 
-**Each phase that starts gets an accent, because a rise and a fall of one chord are
-the same sound run backwards.** That asymmetry is obvious on screen and very nearly
-inaudible, so a breather with their eyes closed had nothing marking the turn at the
-top of the breath. The breath voice still tracks the fill through both halves; over
-it, a hold sounds a suspended chord *above* — adding the ninth — and an exhale a
-resolving one *below*, adding the third the breath deliberately omits, so it descends
-and warms at once. Each has its own envelope too: the hold crests in the middle and
-is symmetric, going nowhere, while the exhale crests early and falls away, which is
-the shape of a sigh. Both crests are multiples of `1 / CURVE_STEPS`, or the curve is
-never sampled at its peak and the accent tops out a shade under full for no reason
-anyone could find later. Nothing is voiced below E3: a phone speaker reproduces
-almost nothing under ~300Hz, and a cue that only exists on headphones is missing
-exactly where it is needed. This is also why the schedule is in time order **per
-voice** rather than across the whole list — an exhale leg emits two.
+**A rise and a fall of one chord are the same sound run backwards**, which the screen
+makes obvious and the ear very nearly misses. So each phase *position* gets its own
+voice — the two holds included, told apart by the leg before them — and each rises
+across its own leg and falls across the next, leaving two chords always crossfading.
+The registers step down through the cycle so the whole breath reads as one arch. The
+exact chords, registers and envelopes are being tuned by ear and will keep moving;
+`useBreathAudio.ts` holds them in one labelled block, and the tests deliberately pin
+the lifecycle rather than the sound. Two constraints on that tuning are not taste:
+nothing is voiced far below E3, because a phone speaker reproduces almost nothing
+under ~300Hz and a cue that only exists on headphones is missing where it is needed;
+and the schedule is in time order **per voice** rather than across the whole list,
+since overlapping legs emit more than one.
 
 **A single swept sine sounded like microphone feedback, and both reasons are worth
 keeping.** The first attempt took Calm's minimal snippet literally — one sine per
@@ -297,10 +290,11 @@ point the sweep had carried the breath sharp. The one moment both voices sounded
 together was the one moment they were ~90 cents out — roughness, not harmony. The
 sweep is gone entirely, and what replaced it is a pad: a chord per voice, two
 oscillators per note detuned a few cents so they beat slowly against each other,
-a lowpass, and a convolution reverb over generated decaying noise. **Triangle waves
-for the breath, and the filter depends on that** — a sine has no harmonics for a
-lowpass to remove. Of everything there the reverb does the most work. The exit fade
-rides a master gain *after* the reverb, or it would chop the tail off mid-ring.
+a lowpass, and a convolution reverb over generated decaying noise. **Triangles rather
+than sines, and the filter depends on that** — a sine has no harmonics for a lowpass
+to remove, and none for a phone speaker to infer a low fundamental from. Of everything
+there the reverb does the most work. The exit fade rides a master gain *after* the
+reverb, or it would chop the tail off mid-ring.
 
 Gain curves are raised cosines approximated by twelve straight segments per leg,
 rather than the single `setValueCurveAtTime` that would express one exactly: that

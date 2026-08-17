@@ -357,14 +357,12 @@ export const breathePlanEndsEmpty = (plan: TBreathePlan): boolean =>
 /**
  * Which tone a scheduled gain change belongs to (DEX-167).
  *
- * `breath` is the continuous one, and it plays throughout. The other two are
- * **accents**: they sound only during their own phase, and they exist because a
- * breather with their eyes closed needs to know the phase has *turned*. A rise
- * and a fall of the same chord are the same sound going opposite ways, which is
- * legible on screen and almost nothing to the ear — so each turn gets its own
- * voicing and its own envelope shape.
+ * One per phase *position* rather than per phase: the two holds are told apart
+ * so each can follow the leg before it — up after an inhale, down after an
+ * exhale.
  */
-export type TBreathAudioVoice = "breath" | "hold" | "exhale";
+export type TBreathAudioVoice =
+  "inhale" | "inhaleHold" | "exhale" | "exhaleHold";
 
 /**
  * One scheduled gain change.
@@ -412,109 +410,76 @@ const CURVE_STEPS = 12;
  */
 const easeInOut = (t: number): number => (1 - Math.cos(Math.PI * t)) / 2;
 
-/**
- * A swell out to full and back over 0–1, cresting at `peakAt`.
- *
- * Where the crest sits is what tells the two accents apart by *shape* as well as
- * by pitch. A hold crests in the middle and is symmetric — it is going nowhere,
- * which is the point of a hold. An exhale crests early and then takes the rest
- * of the leg to fall away, which is the shape of a sigh and reads as release
- * rather than as another swell.
- *
- * Built from `easeInOut` rather than a half-period sine, which is the obvious
- * spelling and lands on 1.2e-16 instead of 0 — `Math.sin(Math.PI)` is not exact,
- * while `Math.cos(0)` and `Math.cos(Math.PI)` both are. Inaudible either way, but
- * a gain that never quite returns to zero is the kind of residue that is far
- * easier to not introduce than to find later.
- */
-const swell = (t: number, peakAt: number): number =>
-  t <= peakAt ? easeInOut(t / peakAt) : easeInOut((1 - t) / (1 - peakAt));
+/** The tone a leg sounds — a hold takes its identity from the leg before it. */
+const voiceFor = (
+  plan: TBreathePlan,
+  index: number,
+): TBreathAudioVoice | null => {
+  const phase = plan.session[index]?.phase;
+  if (phase === "inhale") return "inhale";
+  if (phase === "exhale") return "exhale";
+  if (phase !== "hold") return null;
+  // `levels` is already the answer: full means the inhale just ended.
+  return (plan.levels[index - 1] ?? 0) === 1 ? "inhaleHold" : "exhaleHold";
+};
 
 /**
- * Where each accent crests, as a fraction of its leg.
- *
- * **Both are multiples of `1 / CURVE_STEPS` on purpose.** The curve is sampled
- * at those steps, so a crest that falls between two of them is never actually
- * reached — the accent would top out a shade under full, for no reason anyone
- * could find later.
- */
-const HOLD_CREST = 6 / CURVE_STEPS;
-const EXHALE_CREST = 2 / CURVE_STEPS;
-
-/**
- * Every gain change of one run, in time order (DEX-167).
+ * Every gain change of one run (DEX-167).
  *
  * The whole run is scheduled on the audio clock the moment Begin is pressed, so
  * this is the entire sound — there is no timer anywhere and nothing recomputes
  * per leg. That is what keeps ten Box breaths (200 seconds) landing on the
  * fill's phase boundaries at the last breath as exactly as at the first.
  *
- * **The breath voice's gain is the fill level**, read straight off `levels`
- * rather than derived again here: the tone's loudness *is* how full the screen
- * is, so the two cannot drift apart. A hold consequently schedules nothing on it
- * — Web Audio holds its last value, the same way `levelAfter` makes a hold "a
- * timing to the value it already holds" and costs the fill no branch of its own.
+ * **Each leg's tone rises across its own leg and falls across the next one.**
+ * The overlap is the point: two chords are always crossfading, so the run is one
+ * continuous thing rather than a sequence of separate swells, and the turn is
+ * still audible because the chord arriving is not the chord leaving.
  *
- * The two accents are silent outside their own phase. Simple and Relax have no
- * hold legs, so for them the hold voice never sounds at all — and an exhale leg
- * carries two voices, the breath still tracking the fill down while the accent
- * marks the turn.
- *
- * **Entries are in time order per voice rather than across the whole list**,
- * since an exhale leg emits one voice's curve after another's over the same
- * span. Per voice is the ordering that matters: `AudioParam` automation is
- * scheduled independently on each.
- *
- * Every leg lands *exactly* on its endpoint rather than near it, which is why
- * every shape is built from `easeInOut` — the last segment of a rise arrives at
- * the level and the last segment of a swell arrives at true silence.
+ * Entries are in time order per voice rather than across the whole list, which
+ * is the ordering that matters — `AudioParam` automation is scheduled
+ * independently on each. The last leg's fall runs past `totalMs` for the same
+ * reason a reverb tail does; the exit fade catches it.
  */
 export const buildBreathAudioSchedule = (
   plan: TBreathePlan,
 ): readonly TBreathAudioRamp[] => {
   const schedule: TBreathAudioRamp[] = [];
+  const starts: number[] = [];
   let elapsed = 0;
+  for (const leg of plan.session) {
+    starts.push(elapsed);
+    elapsed += leg.ms;
+  }
 
-  /** Lays one leg's curve onto one voice, anchor first. */
-  const draw = (
-    voice: TBreathAudioVoice,
-    start: number,
-    ms: number,
-    shape: (t: number) => number,
-  ) => {
-    schedule.push({ voice, atMs: start, value: shape(0), kind: "set" });
+  plan.session.forEach((leg, index) => {
+    const voice = voiceFor(plan, index);
+    if (!voice) return;
+
+    const start = starts[index];
+    const end = start + leg.ms;
+    // Falls across whatever follows, or over its own length at the very end.
+    const fallMs = plan.session[index + 1]?.ms ?? leg.ms;
+
+    schedule.push({ voice, atMs: start, value: 0, kind: "set" });
     for (let step = 1; step <= CURVE_STEPS; step += 1) {
       const t = step / CURVE_STEPS;
       schedule.push({
         voice,
-        atMs: start + ms * t,
-        value: shape(t),
+        atMs: start + leg.ms * t,
+        value: easeInOut(t),
         kind: "ramp",
       });
     }
-  };
-
-  plan.session.forEach((leg, index) => {
-    const start = elapsed;
-
-    if (leg.phase === "hold") {
-      draw("hold", start, leg.ms, (t) => swell(t, HOLD_CREST));
-    } else {
-      // The breath voice traverses between the fill levels either side of the
-      // leg, on both an inhale and an exhale — that is what keeps it equal to
-      // what is on screen.
-      const from = plan.levels[index - 1] ?? 0;
-      const to = plan.levels[index];
-      draw("breath", start, leg.ms, (t) => from + (to - from) * easeInOut(t));
-
-      // An exhale additionally gets its accent, so the turn at the top of the
-      // breath is heard rather than merely seen.
-      if (leg.phase === "exhale") {
-        draw("exhale", start, leg.ms, (t) => swell(t, EXHALE_CREST));
-      }
+    for (let step = 1; step <= CURVE_STEPS; step += 1) {
+      const t = step / CURVE_STEPS;
+      schedule.push({
+        voice,
+        atMs: end + fallMs * t,
+        value: 1 - easeInOut(t),
+        kind: "ramp",
+      });
     }
-
-    elapsed = start + leg.ms;
   });
 
   return schedule;
