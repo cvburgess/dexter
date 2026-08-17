@@ -76,7 +76,7 @@ AudioManager.disableSessionManagement();
 const CHORD: Record<TBreathAudioVoice, readonly number[]> = {
   inhaleHold: [440, 554.37, 659.25], // A4  C#5 E5
   inhale: [220, 277.18, 329.63], //     A3  C#4 E4
-  exhale: [164.81, 220, 277.18], //     E3  A3  C#4
+  exhale: [110, 138.59, 164.81], //     A2  C#3 E3
   exhaleHold: [110, 164.81, 220], //    A2  E3  A3
 };
 
@@ -95,7 +95,12 @@ const CHORD: Record<TBreathAudioVoice, readonly number[]> = {
 const WAVE = {
   inhaleHold: "sine",
   inhale: "triangle",
-  exhale: "triangle",
+  // Sawtooth only here, and only because the filter below is closed most of the
+  // way down on it. A saw's harmonics fall off as 1/n rather than 1/n², so what
+  // survives is a reedier, hollower tone than anything a triangle makes — a
+  // different instrument, not a lower note. It also carries far better on a
+  // phone speaker, which reproduces none of these three fundamentals directly.
+  exhale: "sawtooth",
   exhaleHold: "triangle",
 } as const;
 
@@ -111,12 +116,25 @@ const WAVE = {
 const DETUNE_CENTS = 4;
 
 /**
- * Where the lowpass opens, in hertz.
+ * Where each voice's lowpass opens, in hertz.
  *
- * Sits above the chord's top note so every fundamental passes untouched, and
- * takes the upper harmonics off the triangles rather than the notes themselves.
+ * Per voice rather than one filter for the graph, because how *dark* a voice is
+ * turns out to separate two of them better than pitch does. 900 sits above every
+ * chord's top note, so it shapes the harmonics rather than the notes.
+ *
+ * The exhale is the exception and is closed down to 600 — dark and a little
+ * muffled, which is what breathing out sounds like, and enough on its own to
+ * read as a different instrument from the bright triangle above it. Not lower
+ * than 600: these fundamentals are all under 300Hz, where a phone speaker
+ * reproduces nothing directly, so the harmonics between the two are the only
+ * thing carrying the note at all.
  */
-const LOWPASS_HZ = 900;
+const LOWPASS_HZ: Record<TBreathAudioVoice, number> = {
+  inhaleHold: 900,
+  inhale: 900,
+  exhale: 600,
+  exhaleHold: 900,
+};
 
 /**
  * The reverb: how long the tail runs, how fast it decays into that, and how much
@@ -244,18 +262,19 @@ export function useBreathAudio(plan: TBreathePlan | null, running: boolean) {
       dry.gain.setValueAtTime(1 - REVERB_WET, startedAt);
       dry.connect(master);
 
-      const lowpass = context.createBiquadFilter();
-      lowpass.type = "lowpass";
-      lowpass.frequency.setValueAtTime(LOWPASS_HZ, startedAt);
-      lowpass.connect(dry);
-      lowpass.connect(reverb);
-
       const createVoice = (which: TBreathAudioVoice): TVoice => {
         const gain = context.createGain();
         // Silent until the schedule opens it, so nothing is audible between
         // starting the oscillators and the first ramp.
         gain.gain.setValueAtTime(0, startedAt);
-        gain.connect(lowpass);
+        gain.connect(dry);
+        gain.connect(reverb);
+
+        // One filter per voice rather than one for the graph — see LOWPASS_HZ.
+        const lowpass = context.createBiquadFilter();
+        lowpass.type = "lowpass";
+        lowpass.frequency.setValueAtTime(LOWPASS_HZ[which], startedAt);
+        lowpass.connect(gain);
 
         const oscillators = CHORD[which].flatMap((hz) =>
           // Two per note, detuned either side of it — see DETUNE_CENTS.
@@ -264,7 +283,7 @@ export function useBreathAudio(plan: TBreathePlan | null, running: boolean) {
             oscillator.type = WAVE[which];
             oscillator.frequency.setValueAtTime(hz, startedAt);
             oscillator.detune.setValueAtTime(cents, startedAt);
-            oscillator.connect(gain);
+            oscillator.connect(lowpass);
             oscillator.start(startedAt);
             return oscillator;
           }),

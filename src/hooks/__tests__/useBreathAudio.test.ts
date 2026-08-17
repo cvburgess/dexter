@@ -162,7 +162,10 @@ describe("useBreathAudio", () => {
     renderHook(() => useBreathAudio(buildBreathePlan("box", 1), true));
 
     expect(mockOscillators.length).toBeGreaterThan(0);
-    expect(mockContext.createBiquadFilter).toHaveBeenCalledTimes(1);
+    // One filter per voice, one reverb for all of them.
+    expect(mockContext.createBiquadFilter).toHaveBeenCalledTimes(
+      voiceGains().length,
+    );
     expect(mockContext.createConvolver).toHaveBeenCalledTimes(1);
 
     for (const gain of voiceGains()) {
