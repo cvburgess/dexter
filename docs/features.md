@@ -270,7 +270,10 @@ not from when it was called, so an unanchored ramp slides across whatever came b
 **A rise and a fall of one chord are the same sound run backwards**, which the screen
 makes obvious and the ear very nearly misses. So each phase *position* gets its own
 voice — the two holds included, told apart by the leg before them — and each rises
-across its own leg and falls across the next, leaving two chords always crossfading.
+across its own leg and then releases over the opening third of the next. Some overlap
+keeps the run continuous, but releasing across the *whole* next leg left the exhale
+still half-audible halfway through the following inhale, blurring the turn the voices
+exist to mark; `RELEASE_RATIO` is that dial.
 The registers step down through the cycle so the whole breath reads as one arch. The
 exact chords, registers and envelopes are being tuned by ear and will keep moving;
 `useBreathAudio.ts` holds them in one labelled block, and the tests deliberately pin

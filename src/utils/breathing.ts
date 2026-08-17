@@ -410,6 +410,17 @@ const CURVE_STEPS = 12;
  */
 const easeInOut = (t: number): number => (1 - Math.cos(Math.PI * t)) / 2;
 
+/**
+ * How much of the *next* leg a finished tone takes to release, as a fraction.
+ *
+ * The one number that decides how muddy the run is. Too high and the phase you
+ * have left is still sounding well into the one you are in — which is what a
+ * full-length release did, leaving the exhale audible halfway through the next
+ * inhale. Too low and each leg becomes a separate swell with a seam at every
+ * boundary. A third of the way in is gone before the new tone is near its peak.
+ */
+const RELEASE_RATIO = 1 / 3;
+
 /** The tone a leg sounds — a hold takes its identity from the leg before it. */
 const voiceFor = (
   plan: TBreathePlan,
@@ -431,10 +442,11 @@ const voiceFor = (
  * per leg. That is what keeps ten Box breaths (200 seconds) landing on the
  * fill's phase boundaries at the last breath as exactly as at the first.
  *
- * **Each leg's tone rises across its own leg and falls across the next one.**
- * The overlap is the point: two chords are always crossfading, so the run is one
- * continuous thing rather than a sequence of separate swells, and the turn is
- * still audible because the chord arriving is not the chord leaving.
+ * **Each leg's tone rises across its own leg and then releases over the opening
+ * of the next.** Some overlap is the point — it keeps the run continuous rather
+ * than a sequence of separate swells — but only a little of it. Releasing across
+ * the *whole* next leg left the exhale still half-audible halfway through the
+ * following inhale, which blurs the very turn the voices exist to mark.
  *
  * Entries are in time order per voice rather than across the whole list, which
  * is the ordering that matters — `AudioParam` automation is scheduled
@@ -458,8 +470,10 @@ export const buildBreathAudioSchedule = (
 
     const start = starts[index];
     const end = start + leg.ms;
-    // Falls across whatever follows, or over its own length at the very end.
-    const fallMs = plan.session[index + 1]?.ms ?? leg.ms;
+    // A handover at the opening of whatever follows, not a fall across all of
+    // it — see RELEASE_RATIO. The last leg has nothing after it, so it releases
+    // over a share of itself and the exit fade catches the rest.
+    const fallMs = (plan.session[index + 1]?.ms ?? leg.ms) * RELEASE_RATIO;
 
     schedule.push({ voice, atMs: start, value: 0, kind: "set" });
     for (let step = 1; step <= CURVE_STEPS; step += 1) {
