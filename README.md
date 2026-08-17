@@ -1,4 +1,4 @@
-# Dexter — an opinionated day planner for iOS, Android, and the web
+# Dexter — an opinionated day planner for iPhone, iPad, Mac, Android, and the web
 
 > The day planner that fixes _everything_ ... just kidding, but it will help you **get and stay organized** — and it's pretty, too!
 
@@ -8,7 +8,7 @@
   <img src="https://dexterplanner.com/assets/screenshot-light.png" alt="Dexter app screenshot" />
 </picture>
 
-**[Open the web app](https://app.dexterplanner.com)** · [Website](https://dexterplanner.com) · [The Dexter Method](https://dexterplanner.com/method) · [Connect your AI](#connect-your-ai)
+**[Download on the App Store](https://apps.apple.com/us/app/dexter-planner/id6790178708)** · [Open the web app](https://app.dexterplanner.com) · [Website](https://dexterplanner.com) · [The Dexter Method](https://dexterplanner.com/method) · [Connect your AI](#connect-your-ai)
 
 ## What is Dexter?
 
@@ -29,7 +29,7 @@ Prioritize with the Eisenhower Matrix, plan your day intentionally, brain-dump t
 - [x] Native task alarms so nothing slips (iOS 26+, via AlarmKit)
 - [x] MCP server — plan alongside Claude, ChatGPT, Gemini, and Cursor
 - [x] Customizable themes (`dexter`, `light`, `dim`, `dark`, `abyss`) with light/dark/system modes
-- [x] One universal app for iOS, Android, and web
+- [x] One universal app for iPhone, iPad, Mac, Android, and web
 - [x] Fully deletable data — no third-party analytics, and we never sell your data
 - [x] Week-at-a-glance view
 - [x] Focus blocks (Pomodoro technique)

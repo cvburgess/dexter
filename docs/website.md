@@ -46,6 +46,21 @@ Two constraints that bite when drawing a new one:
   retranslated. Keep a glyph's counters in the same `<path>` element as its
   outline — separated, the reverse-wound counter fills solid.
 
+## Release notes (`/releases`)
+
+`src/_data/releases.ts` parses the repo's root `CHANGELOG.md` — not the GitHub
+Releases API, which served the retired `cvburgess/dexter-app` and described a
+different app. Two couplings follow, neither visible from the changelog itself:
+
+- **Only the text above an entry's `---` is published.** Below it is the internal
+  PR list with DEX ticket numbers. Dropping the rule from a new entry leaks it.
+- **Nothing may be appended to a `## vX.Y.Z` heading.**
+  `.github/scripts/tag-and-release.sh` extracts the GitHub release body with an
+  anchored `sed -n "/^## $TAG$/,…"`, so a heading like `## v2.1.0 — 2026-08-17`
+  silently breaks tagging. That is why the page shows no release dates.
+
 ## Deployment
 
-Netlify builds the monorepo with `www` as the base directory; `www/netlify.toml` publishes `_site` and runs `deno task build` after installing Deno in the build image. The scheduled rebuild function reads the `REBUILD_URL` environment variable — keep that secret configured in Netlify, not in this repository.
+Netlify builds the monorepo with `www` as the base directory; `www/netlify.toml` publishes `_site` and runs `deno task build` after installing Deno in the build image.
+
+The build makes **no network requests**, so a deploy is the only thing that changes the site. It used to fetch the Electron download URL and the GitHub releases list, and a scheduled Netlify function pinged a build hook nightly to refresh them; both fetches and the function were removed when the Mac download moved to the App Store. The one remaining build-time value is the footer's copyright year, which is now only as current as the last deploy.

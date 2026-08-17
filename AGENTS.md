@@ -1,6 +1,6 @@
 # AI Agents
 
-Dexter is a planner product delivered as an Expo (React Native) app with iOS, Android, and web support, backed by Supabase (PostgreSQL + Deno Edge Functions).
+Dexter is a planner product delivered as an Expo (React Native) app with iOS, Android, and web support, backed by Supabase (PostgreSQL + Deno Edge Functions). It ships on the App Store for iPhone, iPad, and Mac (the iPad build on Apple Silicon), and as a web app.
 
 ## Monorepo at a glance
 
