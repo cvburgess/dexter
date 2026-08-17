@@ -244,6 +244,43 @@ would leave a blank step and a word with nothing pacing it. Tapping anywhere
 during a run stops it — ten Box breaths is 200 seconds, and cancelling and
 finishing take the same path, so there is one end state rather than two.
 
+**The tones are synthesized, not played from files (DEX-167).** DEX-167 specified
+Tone.js, which cannot run here at all — it wraps the browser's Web Audio API, and
+React Native has none; `react-native-audio-api` is a native implementation of that
+same API, which is why `useBreathAudio` reads as ordinary Web Audio. Pre-rendering
+the tones into assets was planned and then dropped, and the reason is worth keeping:
+Calm's own implementation turns out to be *one sine oscillator and a gain ramp*
+rather than the issue's synth stack, so files would have bought a per-duration asset
+matrix and a JS timer to fire them, and cost the continuous oscillator the effect
+depends on — a tone that never restarts and only changes in loudness. Note this
+makes Breathe the one part of the ritual that needs a dev-client rebuild.
+`react-native-audio-api`'s config plugin is deliberately **not** installed, even
+though `expo install` prints an instruction to add it: its defaults turn on iOS
+background audio, an Android foreground service and two permissions, and this
+plays only while the step is on screen. Autolinking is all it needs.
+
+**The whole run is scheduled on the audio clock at Begin**, by `buildBreathAudioSchedule`
+in `utils/breathing.ts`, for the reason the timeline itself lives there: what can be
+wrong is *which ramp lands when*, and that is testable while a worklet is not. Nothing
+recomputes per leg, so no timer runs beside the animation and nothing has to escape
+`BreatheFill`'s `withSequence`. Two consequences that look like omissions: **the breath
+voice's gain is the fill level**, read off `levels` rather than derived again, so the
+sound cannot drift from the picture; and **a hold schedules nothing on it**, because
+Web Audio sustains the last value — the same trick `levelAfter` plays on the fill. The
+holds instead get their own voice a fifth up, which is what makes a hold sound *held*
+rather than merely sustained, and which never sounds at all under Simple or Relax.
+Every ramp is preceded by a `set` anchoring where it starts from: `linearRampToValueAtTime`
+glides from the previous scheduled event, so an unanchored one slides across a hold.
+
+**Only the sound is focus-scoped, and that asymmetry is deliberate.** `useBreathAudio`
+hangs off `useFocusEffect` so the tones do not follow the breather to another tab,
+but `BreatheFill` animates from a plain `useEffect` and a run left behind keeps
+going. Re-scheduling on return would therefore open on the first inhale against a
+fill most of the way through its fourth, so a run that is returned to stays silent
+for the remainder — the hook keeps the plan it has already scheduled and skips it.
+Silence is the lesser wrong of the two, and the only one that cannot be mistaken
+for the exercise itself.
+
 ### Horoscope step (DEX-128, re-shaped in DEX-145)
 
 Read-only client of `public.horoscopes` (`["horoscopes", sunSign, date]`),

@@ -71,13 +71,26 @@ const disabledSessionsOnImport = jest.mocked(
 
 // Stand in for react-navigation's focus lifecycle, as `useHoroscopeAudio.test.ts`
 // does: the effect runs on mount (focus) and its cleanup on unmount (blur). The
-// hook memoizes on `[plan, running]`, so "unmount" below stands for switching
-// tabs and for swiping to the next step alike.
+// hook memoizes on `[plan, running]`, so "unmount" stands for switching tabs and
+// for swiping to the next step alike.
+//
+// Bumping the generation and re-rendering additionally re-runs the effect with
+// its arguments *untouched* — a real blur-then-focus, which no prop change can
+// model, because the component stays mounted and the hook's refs survive it.
+// Held on an object rather than a `let` because the hoisted `jest.mock` factory
+// closes over this, and Babel makes a captured binding read-only; the property
+// is writable even though the variable is not.
+const mockFocus = { generation: 0 };
+
 jest.mock("expo-router", () => {
   const { useEffect } = require("react");
   return {
     useFocusEffect: (effect: () => void | (() => void)) => {
-      useEffect(() => effect(), [effect]);
+      // The rule is right that mutating this does not itself re-render — the
+      // test bumps it and re-renders, and the dependency is what turns that
+      // render into a fresh focus.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      useEffect(() => effect(), [effect, mockFocus.generation]);
     },
   };
 });
@@ -98,6 +111,7 @@ beforeEach(() => {
   mockOscillators.length = 0;
   mockGains.length = 0;
   mockContext.currentTime = 0;
+  mockFocus.generation = 0;
 });
 
 afterEach(() => {
@@ -228,6 +242,26 @@ describe("useBreathAudio", () => {
     expect(gainOf(0).cancelAndHoldAtTime).toHaveBeenCalled();
     jest.advanceTimersByTime(EXIT_FADE_MS);
     expect(mockClose).toHaveBeenCalled();
+  });
+
+  // Only the audio is focus-scoped; the fill animates on regardless. Opening on
+  // the first inhale against a fill most of the way through a run would be worse
+  // than hearing nothing.
+  it("stays silent rather than restarting a run it comes back to", () => {
+    const plan = buildBreathePlan("box", 4);
+    const { rerender } = renderHook<void, object>(
+      () => useBreathAudio(plan, true),
+      { initialProps: {} },
+    );
+    expect(mockAudioContext).toHaveBeenCalledTimes(1);
+
+    // Away to another tab and back, mid-run.
+    mockFocus.generation += 1;
+    rerender({});
+
+    expect(mockAudioContext).toHaveBeenCalledTimes(1);
+    // And the departure still silenced it, rather than leaving it playing on.
+    expect(gainOf(0).cancelAndHoldAtTime).toHaveBeenCalled();
   });
 
   it("starts a fresh context when Begin is pressed again", () => {

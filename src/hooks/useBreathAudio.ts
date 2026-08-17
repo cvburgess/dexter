@@ -1,5 +1,5 @@
 import { useFocusEffect } from "expo-router";
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import {
   AudioContext,
   AudioManager,
@@ -122,9 +122,27 @@ type TVoice = {
  * no "sounds" setting to hang it off yet.
  */
 export function useBreathAudio(plan: TBreathePlan | null, running: boolean) {
+  // The plan whose sound has already been scheduled once.
+  //
+  // Blur fades the tones out, and coming back re-runs this effect — but only the
+  // *audio* is focus-scoped. `BreatheFill` animates from a plain `useEffect`, so
+  // a run left behind on another tab keeps going, and re-scheduling from the top
+  // on return would open on the first inhale against a fill halfway through its
+  // fourth. Staying silent for the rest of that run is the lesser wrong, and it
+  // is the only one of the two that cannot be mistaken for the exercise itself.
+  //
+  // A ref rather than state: nothing renders differently for it. Pressing Begin
+  // again builds a fresh plan object, which is what makes the next run audible.
+  const scheduledFor = useRef<TBreathePlan | null>(null);
+
   useFocusEffect(
     useCallback(() => {
-      if (!plan || !running) return;
+      if (!plan || !running) {
+        scheduledFor.current = null;
+        return;
+      }
+      if (scheduledFor.current === plan) return;
+      scheduledFor.current = plan;
 
       const context = new AudioContext();
       const startedAt = context.currentTime;
