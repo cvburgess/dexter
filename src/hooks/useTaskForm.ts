@@ -88,8 +88,9 @@ type TUseTaskFormOptions = {
 
 // The default can arrive from an untrusted route param (deep link), so normalize
 // it and fall back to today rather than letting a bad value throw downstream in
-// Temporal.PlainDate.from when the date chip renders.
-const resolveScheduledFor = (value?: string): string => {
+// Temporal.PlainDate.from when the date chip renders. Also takes a saved task's
+// `scheduledFor`, which is null when the task is unscheduled — same fallback.
+const resolveScheduledFor = (value?: string | null): string => {
   const today = Temporal.Now.plainDateISO().toString();
   if (!value) return today;
   try {
@@ -125,9 +126,7 @@ export const useTaskForm = (
   // later edit to `scheduledFor`, including clearing it. An unscheduled task
   // has no day of its own to anchor to, so it falls back to today.
   const [anchorDate] = useState(() =>
-    task
-      ? resolveScheduledFor(task.scheduledFor ?? undefined)
-      : resolveScheduledFor(defaultScheduledFor),
+    resolveScheduledFor(task ? task.scheduledFor : defaultScheduledFor),
   );
   const [alarmTime, setAlarmTime] = useState<string | null>(
     task?.alarmTime ?? null,

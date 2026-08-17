@@ -425,7 +425,8 @@ describe("NewTaskScreen", () => {
   });
 
   // Clearing the schedule doesn't forget which day the form was opened on, so
-  // adding it back returns to the viewed day rather than snapping to today.
+  // adding it back returns to the viewed day rather than snapping to today
+  // (DEX-165).
   it("restores the viewed day when the schedule is added back", () => {
     mockSearchParams.current = { scheduledFor: "2026-07-08" };
     const screen = render(<NewTaskScreen />);
