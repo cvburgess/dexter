@@ -25,6 +25,17 @@ export type TTaskForm = {
   setScheduledFor: (scheduledFor: string | null) => void;
   dueOn: string | null;
   setDueOn: (dueOn: string | null) => void;
+  /**
+   * The day this form is *about*: the viewed day when creating, the task's own
+   * schedule when editing, today when neither says otherwise. It is what an
+   * empty date row fills itself with, so adding a deadline on a day the user
+   * navigated to lands on that day rather than on today (DEX-165).
+   *
+   * Fixed at mount, deliberately: it anchors the form to the day it was opened
+   * on, so rescheduling — or clearing the schedule outright — doesn't drag the
+   * other row's default along with it.
+   */
+  anchorDate: string;
   /** Time-of-day the alarm fires (`"HH:MM"`), or null when no alarm is set. */
   alarmTime: string | null;
   setAlarmTime: (alarmTime: string | null) => void;
@@ -77,8 +88,9 @@ type TUseTaskFormOptions = {
 
 // The default can arrive from an untrusted route param (deep link), so normalize
 // it and fall back to today rather than letting a bad value throw downstream in
-// Temporal.PlainDate.from when the date chip renders.
-const resolveScheduledFor = (value?: string): string => {
+// Temporal.PlainDate.from when the date chip renders. Also takes a saved task's
+// `scheduledFor`, which is null when the task is unscheduled — same fallback.
+const resolveScheduledFor = (value?: string | null): string => {
   const today = Temporal.Now.plainDateISO().toString();
   if (!value) return today;
   try {
@@ -110,6 +122,12 @@ export const useTaskForm = (
   const [scheduledFor, setScheduledFor] = useState<string | null>(() =>
     task ? task.scheduledFor : resolveScheduledFor(defaultScheduledFor),
   );
+  // Read once and never updated: the day the form was opened on outlives every
+  // later edit to `scheduledFor`, including clearing it. An unscheduled task
+  // has no day of its own to anchor to, so it falls back to today.
+  const [anchorDate] = useState(() =>
+    resolveScheduledFor(task ? task.scheduledFor : defaultScheduledFor),
+  );
   const [alarmTime, setAlarmTime] = useState<string | null>(
     task?.alarmTime ?? null,
   );
@@ -140,8 +158,11 @@ export const useTaskForm = (
   );
 
   // Not merely ignored in edit mode — never run, so a saved title can't be
-  // rewritten by the parser on its way to the payload.
-  const parsed = isEditing ? undefined : parseTaskShorthand(title, lists);
+  // rewritten by the parser on its way to the payload. `due:N` counts from the
+  // anchor, so it lands the same day the Deadline row's "Add deadline" would.
+  const parsed = isEditing
+    ? undefined
+    : parseTaskShorthand(title, lists, anchorDate);
 
   const priority =
     priorityOverride ?? parsed?.priority ?? ETaskPriority.UNPRIORITIZED;
@@ -192,6 +213,7 @@ export const useTaskForm = (
     setScheduledFor,
     dueOn,
     setDueOn: setDueOnOverride,
+    anchorDate,
     alarmTime,
     setAlarmTime,
     url,

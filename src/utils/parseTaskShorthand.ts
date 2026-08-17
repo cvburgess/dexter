@@ -17,6 +17,12 @@ const normalizeListTitle = (title: string): string => {
 export const parseTaskShorthand = (
   input: string,
   availableLists: TList[] = [],
+  /**
+   * ISO date `due:N` counts forward from — the day the form is about, so
+   * `due:2` typed while viewing Friday means Sunday, not two days from now
+   * (DEX-165). Must already be a valid date; defaults to today when omitted.
+   */
+  anchorDate?: string,
 ): TaskShorthandResult => {
   let workingInput = input.trim();
   let priority: ETaskPriority | undefined;
@@ -62,10 +68,12 @@ export const parseTaskShorthand = (
 
   const dueDateMatch = workingInput.match(/due:(\d+)(?:\s|$)/);
   if (dueDateMatch) {
-    const daysFromNow = parseInt(dueDateMatch[1], 10);
-    const today = Temporal.Now.plainDateISO();
+    const daysFromAnchor = parseInt(dueDateMatch[1], 10);
+    const anchor = anchorDate
+      ? Temporal.PlainDate.from(anchorDate)
+      : Temporal.Now.plainDateISO();
 
-    dueOn = today.add({ days: daysFromNow }).toString();
+    dueOn = anchor.add({ days: daysFromAnchor }).toString();
     workingInput = workingInput.replace(dueDateMatch[0], "").trim();
   }
 
