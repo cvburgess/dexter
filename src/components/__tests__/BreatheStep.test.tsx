@@ -3,15 +3,32 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
 import { BreatheStep } from "@/components/BreatheStep";
 import { usePreferences } from "@/hooks/usePreferences";
+import {
+  pickerOptionsFor,
+  pickerPropsFor,
+  resetPicker,
+} from "@/testUtils/mockExpoUiPicker";
 import { techniqueForDay } from "@/utils/breathing";
 
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
+
+// The step's technique control is a `PickerField`; the global @expo/ui mock
+// renders Picker as null, so capture its props to inspect and drive it.
+jest.mock("@expo/ui", () =>
+  jest
+    .requireActual<typeof import("@/testUtils/mockExpoUiPicker")>(
+      "@/testUtils/mockExpoUiPicker",
+    )
+    .mockExpoUiPicker(),
+);
 
 const mockUsePreferences = usePreferences as jest.MockedFunction<
   typeof usePreferences
 >;
 
 const DATE = Temporal.PlainDate.from("2026-08-09");
+
+const mockUpdate = jest.fn();
 
 const withPreferences = (
   preferences: { breathCount?: number; breathingTechnique?: string } = {},
@@ -22,12 +39,14 @@ const withPreferences = (
       breathingTechnique: "shuffle",
       ...preferences,
     } as never,
-    { updatePreferences: jest.fn() },
+    { updatePreferences: mockUpdate },
   ]);
 
 const renderStep = (date = DATE) => render(<BreatheStep date={date} />);
 
 beforeEach(() => {
+  resetPicker();
+  mockUpdate.mockClear();
   withPreferences();
 });
 
@@ -66,37 +85,66 @@ describe("BreatheStep", () => {
     expect(screen.getByText("10 breaths")).toBeTruthy();
   });
 
+  // The three real techniques and not `shuffle`: choosing "whichever" for a
+  // session you are about to start is not a choice. Settings offers the fourth.
+  it("offers the three techniques without shuffle", () => {
+    renderStep();
+
+    expect(
+      pickerOptionsFor("breathe-technique-picker").map((o) => o.value),
+    ).toEqual(["simple", "relax", "box"]);
+  });
+
   it("seeds the technique from the stored preference", () => {
     withPreferences({ breathingTechnique: "box" });
     renderStep();
 
-    expect(
-      screen.getByTestId("breathe-technique-box").props.accessibilityState
-        .selected,
-    ).toBe(true);
+    expect(pickerPropsFor("breathe-technique-picker")?.selectedValue).toBe(
+      "box",
+    );
   });
 
   it("resolves a shuffled preference to the technique this day runs", () => {
     withPreferences({ breathingTechnique: "shuffle" });
     renderStep();
 
-    const today = techniqueForDay("shuffle", DATE);
-    expect(
-      screen.getByTestId(`breathe-technique-${today}`).props.accessibilityState
-        .selected,
-    ).toBe(true);
+    expect(pickerPropsFor("breathe-technique-picker")?.selectedValue).toBe(
+      techniqueForDay("shuffle", DATE),
+    );
   });
 
   it("changes the technique for this sitting", () => {
     withPreferences({ breathingTechnique: "simple" });
     renderStep();
 
-    fireEvent.press(screen.getByTestId("breathe-technique-relax"));
+    act(() => {
+      (
+        pickerPropsFor("breathe-technique-picker")?.onValueChange as (
+          value: string,
+        ) => void
+      )("relax");
+    });
 
-    expect(
-      screen.getByTestId("breathe-technique-relax").props.accessibilityState
-        .selected,
-    ).toBe(true);
+    expect(pickerPropsFor("breathe-technique-picker")?.selectedValue).toBe(
+      "relax",
+    );
+  });
+
+  // The preference seeds the step and nothing writes back to it — the slider
+  // changes this sitting only, which `SwipeablePage`'s remount resets.
+  it("changes the count for this sitting without storing it", () => {
+    renderStep();
+
+    act(() => {
+      fireEvent(
+        screen.getByTestId("breathe-count-slider"),
+        "accessibilityAction",
+        { nativeEvent: { actionName: "increment" } },
+      );
+    });
+
+    expect(screen.getByText("4 breaths")).toBeTruthy();
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it("takes the controls out of the way and offers a way out once a run starts", () => {

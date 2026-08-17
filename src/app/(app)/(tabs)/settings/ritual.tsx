@@ -6,20 +6,17 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
-import { FormRow } from "@/components/FormRow";
 import { HeaderAddButton } from "@/components/HeaderAddButton";
 import { PickerField } from "@/components/PickerField";
 import { RowDeleteButton, rowDeleteInset } from "@/components/RowDeleteButton";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { SettingsToggleCard } from "@/components/SettingsToggleCard";
-import { Slider } from "@/components/Slider";
 import { TextInput } from "@/components/TextInput";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
 import {
+  BREATH_COUNT_OPTIONS,
   BREATHING_TECHNIQUE_SETTING_OPTIONS,
-  MAX_BREATHS,
-  MIN_BREATHS,
   resolveBreathCount,
   resolveBreathingTechniqueSetting,
   type TBreathingTechniqueSetting,
@@ -50,16 +47,6 @@ export default function RitualScreen() {
   const navigation = useNavigation();
   const [preferences, { updatePreferences }] = usePreferences();
 
-  // The slider reports every step it crosses so the track can follow the
-  // finger, but only the value the drag *ends* on is written — a drag across
-  // the range would otherwise fire ten mutations, the same reason the prompts
-  // below commit on blur rather than per keystroke. Once dragged, the draft is
-  // authoritative for the rest of the screen's life: `updatePreferences` is
-  // optimistic and its cache write is deferred, so reading back through the
-  // preference would flick the thumb to the stale count for a frame.
-  const [breathDraft, setBreathDraft] = useState<number | null>(null);
-  const breathCount =
-    breathDraft ?? resolveBreathCount(preferences.breathCount);
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = useIsLargeDevice();
   const insets = useSafeAreaInsets();
@@ -271,28 +258,19 @@ export default function RitualScreen() {
                 updatePreferences({ breathingTechnique })
               }
             />
-            {/* The label and its value share a row, and the track spans the
-                card below them — `FormRow` right-aligns its control, which
-                leaves a full-width slider nowhere to go. */}
-            <FormRow label="Breaths">
-              <Text
-                style={{
-                  ...theme.fonts.control,
-                  color: theme.colors.textSecondary,
-                }}
-              >
-                {breathCount}
-              </Text>
-            </FormRow>
-            <Slider
-              accessibilityLabel="Number of breaths"
-              max={MAX_BREATHS}
-              min={MIN_BREATHS}
-              onSettle={(breathCount) => updatePreferences({ breathCount })}
-              onValueChange={setBreathDraft}
-              step={1}
-              testID="breath-count-slider"
-              value={breathCount}
+            <PickerField
+              label="Breaths"
+              options={BREATH_COUNT_OPTIONS}
+              // Narrowed on the way in like the technique above, and clamped
+              // rather than defaulted — `resolveBreathCount` lands a stored 12
+              // on 10, which is in the list, so the menu always has a selection.
+              selectedValue={String(
+                resolveBreathCount(preferences.breathCount),
+              )}
+              testID="breath-count-picker"
+              onValueChange={(value) =>
+                updatePreferences({ breathCount: Number(value) })
+              }
             />
           </View>
         </View>

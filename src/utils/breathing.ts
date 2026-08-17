@@ -101,7 +101,7 @@ export const MAX_BREATHS = 10;
 /**
  * The count and technique a user who has expressed no preference starts from.
  * Both match the column defaults in
- * `20260816_add_preferences_breathe.sql`; each pair must move together.
+ * `20260816210000_add_preferences_breathe.sql`; each pair must move together.
  */
 export const DEFAULT_BREATH_COUNT = 3;
 export const DEFAULT_BREATHING_TECHNIQUE: TBreathingTechniqueSetting =
@@ -126,6 +126,30 @@ export const BREATHING_TECHNIQUE_SETTING_OPTIONS: readonly {
   label: string;
   value: TBreathingTechniqueSetting;
 }[] = [...BREATHING_TECHNIQUE_OPTIONS, { label: "Shuffle", value: "shuffle" }];
+
+/** The count as the step says it, and as the Settings menu lists it. */
+export const describeBreathCount = (count: number): string =>
+  count === 1 ? "1 breath" : `${count} breaths`;
+
+/**
+ * Every count the step can run, for the Settings picker.
+ *
+ * Derived from the bounds above rather than spelled out the way
+ * `FOCUS_BLOCK_LENGTHS` is: those lengths are an irregular list picked by taste,
+ * where this is simply the range, and deriving it means the menu cannot drift
+ * from what `resolveBreathCount` clamps to.
+ *
+ * Values are strings because `PickerField<V extends string>` requires it; the
+ * call site reads them back through `Number`, the same round-trip the focus
+ * block lengths make. Labels carry the unit so a menu row reads on its own.
+ */
+export const BREATH_COUNT_OPTIONS: readonly {
+  label: string;
+  value: string;
+}[] = Array.from({ length: MAX_BREATHS - MIN_BREATHS + 1 }, (_, index) => {
+  const count = MIN_BREATHS + index;
+  return { label: describeBreathCount(count), value: String(count) };
+});
 
 /**
  * A stored breath count narrowed to one the step can run.
@@ -242,8 +266,9 @@ export const buildBreathePlan = (
   breaths: number,
 ): TBreathePlan => {
   const { cycle } = BREATHING_TECHNIQUES[technique];
+  const count = resolveBreathCount(breaths);
   const session: TBreathLeg[] = [];
-  for (let breath = 0; breath < resolveBreathCount(breaths); breath += 1) {
+  for (let breath = 0; breath < count; breath += 1) {
     session.push(...cycle);
   }
 

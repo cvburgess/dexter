@@ -32,6 +32,7 @@ type TBreatheWordsProps = {
   plan: TBreathePlan;
   progress: SharedValue<number>;
   color: string;
+  insetBottom: number;
 };
 
 /**
@@ -42,13 +43,19 @@ type TBreatheWordsProps = {
  * question `buildBreathePlan` has already answered by handing an unused phase a
  * flat zero table, so nothing here has to branch on the technique.
  */
-function BreatheWords({ plan, progress, color }: TBreatheWordsProps) {
+function BreatheWords({
+  plan,
+  progress,
+  color,
+  insetBottom,
+}: TBreatheWordsProps) {
   return (
     <>
       {PHASES.map((phase) => (
         <BreatheWord
           key={phase}
           color={color}
+          insetBottom={insetBottom}
           phase={phase}
           progress={progress}
           table={plan.words[phase]}
@@ -63,11 +70,13 @@ function BreatheWord({
   table,
   progress,
   color,
+  insetBottom,
 }: {
   phase: TBreathPhase;
   table: TBreathePlan["words"][TBreathPhase];
   progress: SharedValue<number>;
   color: string;
+  insetBottom: number;
 }) {
   const theme = useTheme();
   const { input, output } = table;
@@ -77,7 +86,17 @@ function BreatheWord({
   }));
 
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, styles.center, style]}>
+    // The inset goes on the centering box, not on the layer above it: both
+    // copies of the word come through here, so they stay on the same pixels
+    // without the clip having to know about it.
+    <Animated.View
+      style={[
+        StyleSheet.absoluteFill,
+        styles.center,
+        { paddingBottom: insetBottom },
+        style,
+      ]}
+    >
       <Text style={[theme.fonts.display, { color }]}>
         {BREATH_PHASE_LABELS[phase]}
       </Text>
@@ -104,6 +123,16 @@ type TBreatheFillProps = {
    * re-render of the step above.
    */
   onComplete: () => void;
+  /**
+   * What to keep clear at the bottom when centering the phase word — the tab
+   * bar's inset plus the step's top inset.
+   *
+   * Passed in rather than measured here: the word has to land on the same center
+   * as the controls it replaces, and the step is the one place that knows where
+   * that is. The *fill* ignores it and still paints the whole box, tab bar
+   * included — it is a wall of color, not a centered thing.
+   */
+  insetBottom: number;
 };
 
 /**
@@ -132,7 +161,12 @@ type TBreatheFillProps = {
  * here it *is* the exercise, and it only runs when the user has pressed Begin.
  * Stopping it would leave a blank step and a word with nothing to pace it.
  */
-export function BreatheFill({ plan, running, onComplete }: TBreatheFillProps) {
+export function BreatheFill({
+  plan,
+  running,
+  onComplete,
+  insetBottom,
+}: TBreatheFillProps) {
   const theme = useTheme();
   // How full the step is, 0 (empty) to 1.
   const level = useSharedValue(0);
@@ -180,6 +214,23 @@ export function BreatheFill({ plan, running, onComplete }: TBreatheFillProps) {
     });
     voice.value = withTiming(1, { duration: VOICE_FADE_MS });
 
+    // **Explicitly a worklet, and hoisted out of the `withTiming` call.**
+    // Reanimated resolves a `withSequence` on the UI runtime — including when
+    // the plain write in the branch above cancels one — and a callback that is
+    // not a worklet reaches that runtime as a *remote function* it refuses to
+    // call synchronously, throwing "Tried to synchronously call a Remote
+    // Function" and taking the screen with it. The babel plugin workletizes a
+    // callback written directly as `withTiming`'s third argument, but this one
+    // reached it through a ternary inside `.map`, which the plugin does not
+    // recognize — so the directive has to be written out. `runOnJS` is then the
+    // way back to `onComplete`, which is ordinary React state.
+    const reportEnd = (finished?: boolean) => {
+      "worklet";
+      // Guarded, or a cancelled run would report itself complete — the plain
+      // write above resolves the sequence with `finished: false`.
+      if (finished) runOnJS(onComplete)();
+    };
+
     const last = plan.session.length - 1;
     level.value = 0;
     level.value = withSequence(
@@ -194,14 +245,7 @@ export function BreatheFill({ plan, running, onComplete }: TBreatheFillProps) {
             // already at, so the easing costs it nothing.
             easing: Easing.inOut(Easing.sin),
           },
-          index === last
-            ? (finished) => {
-                // Guarded, or a cancelled run would report itself complete —
-                // the plain write above resolves the sequence with
-                // `finished: false`.
-                if (finished) runOnJS(onComplete)();
-              }
-            : undefined,
+          index === last ? reportEnd : undefined,
         ),
       ),
     );
@@ -231,6 +275,7 @@ export function BreatheFill({ plan, running, onComplete }: TBreatheFillProps) {
         <Animated.View style={[StyleSheet.absoluteFill, voiceStyle]}>
           <BreatheWords
             color={theme.colors.primary}
+            insetBottom={insetBottom}
             plan={plan}
             progress={progress}
           />
@@ -252,6 +297,7 @@ export function BreatheFill({ plan, running, onComplete }: TBreatheFillProps) {
               <Animated.View style={[StyleSheet.absoluteFill, voiceStyle]}>
                 <BreatheWords
                   color={theme.colors.primaryContent}
+                  insetBottom={insetBottom}
                   plan={plan}
                   progress={progress}
                 />

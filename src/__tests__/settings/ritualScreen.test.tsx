@@ -338,46 +338,54 @@ describe("RitualScreen", () => {
       expect(mockUpdate).toHaveBeenCalledWith({ breathingTechnique: "relax" });
     });
 
-    it("shows the stored breath count and its range", () => {
-      const screen = renderWith({ breathCount: 6 });
-
-      expect(screen.getByText("6")).toBeTruthy();
-      expect(
-        screen.getByTestId("breath-count-slider").props.accessibilityValue,
-      ).toEqual({ max: 10, min: 1, now: 6 });
-    });
-
-    it("narrows a stored count outside the range", () => {
-      const screen = renderWith({ breathCount: 0 });
+    it("offers every count the step can run", () => {
+      renderWith();
 
       expect(
-        screen.getByTestId("breath-count-slider").props.accessibilityValue.now,
-      ).toBe(1);
-    });
-
-    it("saves a changed breath count", () => {
-      const screen = renderWith({ breathCount: 3 });
-
-      fireEvent(
-        screen.getByTestId("breath-count-slider"),
-        "accessibilityAction",
-        {
-          nativeEvent: { actionName: "increment" },
-        },
+        pickerOptionsFor("breath-count-picker").map((o) => o.value),
+      ).toEqual(["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]);
+      // The unit rides on the label, and the singular reads as a sentence.
+      expect(pickerOptionsFor("breath-count-picker")[0].label).toBe("1 breath");
+      expect(pickerOptionsFor("breath-count-picker")[1].label).toBe(
+        "2 breaths",
       );
+    });
 
-      expect(mockUpdate).toHaveBeenCalledWith({ breathCount: 4 });
+    it("selects the stored breath count", () => {
+      renderWith({ breathCount: 6 });
+
+      expect(pickerPropsFor("breath-count-picker")?.selectedValue).toBe("6");
+    });
+
+    // Clamped rather than defaulted, so a count a later build stored still lands
+    // on an option this one lists.
+    it("narrows a stored count outside the range", () => {
+      renderWith({ breathCount: 0 });
+
+      expect(pickerPropsFor("breath-count-picker")?.selectedValue).toBe("1");
+    });
+
+    it("saves a chosen breath count as a number", () => {
+      renderWith({ breathCount: 3 });
+
+      (
+        pickerPropsFor("breath-count-picker")?.onValueChange as (
+          value: string,
+        ) => void
+      )("7");
+
+      expect(mockUpdate).toHaveBeenCalledWith({ breathCount: 7 });
     });
 
     // Breathe is unconditional, unlike the Horoscope and Journal steps — there
     // is no toggle above it and nothing hides it.
     it("stays visible with both other steps turned off", () => {
-      const screen = renderWith({
+      renderWith({
         enableHoroscope: false,
         enableJournal: false,
       });
 
-      expect(screen.getByTestId("breath-count-slider")).toBeTruthy();
+      expect(pickerPropsFor("breath-count-picker")).not.toBeNull();
       expect(pickerPropsFor("breathing-technique-picker")).not.toBeNull();
     });
   });

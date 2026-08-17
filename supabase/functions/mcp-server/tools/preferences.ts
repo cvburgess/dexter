@@ -17,6 +17,11 @@ export const updatePreferencesInputSchema = {
    * here where the column is not, for the reason `focusBlockMinutes` is: the
    * app clamps whatever it reads, but there is no reason to let an agent store
    * a zero the user would have to go and undo.
+   *
+   * The bounds restate `MIN_BREATHS`/`MAX_BREATHS` and must move with them.
+   * Not imported: `utils/breathing.ts` pulls in `Temporal`, so it is not one of
+   * the import-free modules Deno can read over `@src/` (see docs/backend.md,
+   * "Code shared with the app").
    */
   breathCount: z.number().int().min(1).max(10).optional(),
   /**

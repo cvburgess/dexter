@@ -23,7 +23,12 @@ export function valueAtPosition(
   if (trackWidth <= 0) return min;
   const ratio = Math.min(1, Math.max(0, x / trackWidth));
   const steps = Math.round((ratio * (max - min)) / step);
-  return min + steps * step;
+  // Clamped as well as snapped. A `step` that doesn't divide the range evenly
+  // rounds the last position *past* the end — min 1, max 10, step 2 lands on
+  // 11 — and an out-of-range value here would sail through `onValueChange` and
+  // out to a preference. Both current call sites step by 1, where the two
+  // agree; this is what keeps a coarser one from being a silent bug.
+  return Math.min(max, Math.max(min, min + steps * step));
 }
 
 type TSliderProps = {
@@ -32,16 +37,15 @@ type TSliderProps = {
   max: number;
   /** The granularity the thumb snaps to. */
   step: number;
-  /** Fired for every step the thumb crosses, so the track can follow the finger. */
-  onValueChange: (value: number) => void;
   /**
-   * Fired once when the interaction ends, with the value it ended on.
+   * Fired for every step the thumb crosses, so the track can follow the finger.
    *
-   * The seam a persisting call site needs: `onValueChange` fires for every step
-   * crossed, so a drag from one end of the range to the other would write ten
-   * times. Omit it where the value is only local state.
+   * Every step, with no settle-only counterpart: the one call site holds the
+   * value in local state for a single sitting. A call site that *persisted*
+   * would need one, since a drag across the range crosses ten steps — Settings'
+   * breath count started here and became a dropdown for exactly that reason.
    */
-  onSettle?: (value: number) => void;
+  onValueChange: (value: number) => void;
   /** Named for a screen reader, which reads the value from the role. */
   accessibilityLabel: string;
   /** The filled track and the thumb. Defaults to the theme's primary. */
@@ -75,7 +79,6 @@ export function Slider({
   max,
   step,
   onValueChange,
-  onSettle,
   accessibilityLabel,
   tint,
   trackTint,
@@ -100,15 +103,13 @@ export function Slider({
     return next;
   };
 
-  const settle = (x: number) => onSettle?.(at(x));
-
   // Two gestures rather than one pan that also accepts taps. A pan loose enough
   // to fire on a touch that never moves is a pan that fires on the first frame
   // of a *scroll* that happened to start on the track, which drags the thumb to
   // wherever the finger landed on the way past.
   const tap = Gesture.Tap()
     .onEnd((event, success) => {
-      if (success) settle(event.x);
+      if (success) at(event.x);
     })
     .runOnJS(true);
 
@@ -117,18 +118,18 @@ export function Slider({
     // claims a horizontal drag well before `SwipeablePage`'s page swipe would
     // at 20 — gesture handler cancels an ancestor once a descendant activates,
     // so this is what stops a scrub along the track from paging the ritual.
-    // Failing on vertical travel hands the other direction back, so the
-    // Settings list still scrolls when the drag starts on the slider.
+    // Failing on vertical travel means a mostly-vertical drag never activates
+    // this at all, so a scroller hosting the slider keeps its own gesture.
     .activeOffsetX([-5, 5])
     .failOffsetY([-10, 10])
     .onStart((event) => at(event.x))
     .onChange((event) => at(event.x))
-    // `onEnd`, not `onFinalize`: the latter also fires for a pan that *failed*,
-    // which here is every vertical scroll that happened to start on the track —
-    // and settling one of those would write the value under wherever the finger
-    // touched on its way past.
+    // `onEnd`, not `onFinalize`: the latter also fires for a pan that never
+    // activated, which would read a position the user only passed over. Only
+    // the exact position the drag ended on, in case the last `onChange` of a
+    // fast flick lands short of it.
     .onEnd((event, success) => {
-      if (success) settle(event.x);
+      if (success) at(event.x);
     })
     .runOnJS(true);
 
@@ -154,12 +155,9 @@ export function Slider({
         onAccessibilityAction={(event) => {
           const by =
             event.nativeEvent.actionName === "increment" ? step : -step;
-          const next = Math.min(max, Math.max(min, value + by));
-          if (next === value) return;
-          // One discrete step is a whole interaction, so it reports both — a
-          // screen reader user never produces the drag `onSettle` exists for.
-          commit(next);
-          onSettle?.(next);
+          // Clamped here rather than left to `valueAtPosition`, which reads a
+          // position: an action arrives with no position at all.
+          commit(Math.min(max, Math.max(min, value + by)));
         }}
         onLayout={onLayout}
         style={[styles.root, { height: theme.controls.md }]}

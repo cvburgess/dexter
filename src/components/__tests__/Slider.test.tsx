@@ -29,6 +29,12 @@ describe("valueAtPosition", () => {
     expect(valueAtPosition(60, 100, { min: 0, max: 60, step: 15 })).toBe(30);
   });
 
+  it("stays inside the range when the step does not divide it evenly", () => {
+    // Nine intervals stepped by two: rounding the far end lands on 11, which
+    // would leave the range through onValueChange.
+    expect(valueAtPosition(90, 90, { min: 1, max: 10, step: 2 })).toBe(10);
+  });
+
   it("returns the minimum before the track has been measured", () => {
     // Otherwise the division yields NaN, which would travel out through
     // onValueChange and into a stored preference.
@@ -39,13 +45,11 @@ describe("valueAtPosition", () => {
 describe("Slider", () => {
   const setup = (value = 3) => {
     const onValueChange = jest.fn();
-    const onSettle = jest.fn();
     render(
       <Slider
         accessibilityLabel="Breaths"
         max={10}
         min={1}
-        onSettle={onSettle}
         onValueChange={onValueChange}
         step={1}
         testID="breaths-slider"
@@ -53,7 +57,6 @@ describe("Slider", () => {
       />,
     );
     return {
-      onSettle,
       onValueChange,
       slider: screen.getByTestId("breaths-slider"),
     };
@@ -83,26 +86,12 @@ describe("Slider", () => {
     expect(onValueChange).toHaveBeenCalledWith(3);
   });
 
-  // A screen reader user never produces the drag that `onSettle` exists to
-  // batch, so one discrete step has to count as a whole interaction — otherwise
-  // a persisting call site never hears about it.
-  it("settles on each accessibility step", () => {
-    const { onSettle, slider } = setup(4);
-
-    fireEvent(slider, "accessibilityAction", {
-      nativeEvent: { actionName: "increment" },
-    });
-
-    expect(onSettle).toHaveBeenCalledWith(5);
-  });
-
   it("does not step past either end", () => {
-    const { onSettle, onValueChange, slider } = setup(10);
+    const { onValueChange, slider } = setup(10);
     fireEvent(slider, "accessibilityAction", {
       nativeEvent: { actionName: "increment" },
     });
     // Already at the maximum, so the value is unchanged and nothing is written.
     expect(onValueChange).not.toHaveBeenCalled();
-    expect(onSettle).not.toHaveBeenCalled();
   });
 });
