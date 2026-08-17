@@ -197,6 +197,53 @@ worklet the reanimated mock renders opaque, and a stage index off the end of the
 table produces `NaN` whose only symptom is a body that never fades in, on device
 only.
 
+### Breathe step (DEX-164)
+
+The evening's first step, and the counterpart to the morning's horoscope: a
+ritual whose job is to wind down was opening on its task list, which is the same
+jarring start the morning already avoids by leading with something that asks
+nothing. Unconditional — no preference hides it, so `STEP_TOGGLE` and
+`TOGGLE_KEYS` are untouched.
+
+Two preferences seed it and nothing else stores anything:
+`preferences.breath_count` (default 3) and `preferences.breathing_technique`
+(default `'shuffle'`). **They are the values the step opens with, not a
+binding** — its own slider and technique control change the sitting in front of
+you and write nothing back, which `SwipeablePage`'s remount resets on the next
+visit. `'shuffle'` is a stored value, not an absence: `techniqueForDay` resolves
+it from days since the epoch, so nothing is written when the day turns and two
+devices opening the same evening agree. Days since the epoch rather than
+`dayOfYear`, which stutters at a year boundary — 365 % 3 leaves Dec 31 and Jan 1
+on the same technique.
+
+**The whole timeline is built as plain arrays in `utils/breathing.ts`.**
+Everything downstream is a worklet, and `docs/testing.md`'s rule bites hardest
+here: a wrong number in an interpolation table has no symptom until it is on a
+device. So `buildBreathePlan` returns the leg list, the fill level each leg ends
+at, and one opacity table per phase word, and `BreatheFill` is left with nothing
+to decide. Every technique's cycle ends on an exhale or a post-exhale hold, so a
+run simply stops where it started with no settling animation — `breathePlanEndsEmpty`
+exists to pin that, because a fourth technique ending on an inhale would break it
+silently.
+
+**The phase word is drawn twice and inverts across the fill line.**
+`primaryContent` is legible on `primary` and invisible on the plain background,
+and the fill crosses the center of the step twice per breath, so one copy in
+either color disappears for half of every cycle. A `primary` copy sits on the
+neutral ground; a `primaryContent` copy sits inside the fill, which clips it.
+The fill translates down by its empty share and the inner copy translates *up*
+by the same amount, so it holds still while its clip window slides over it —
+both transforms, so it stays on the compositor. The fill's box is square, so the
+`overflow: hidden` doing the clipping avoids the offscreen-rendering cost the
+Horoscope panel documents for a rounded one.
+
+**This is the one animation in the app that ignores Reduce Motion.** Everywhere
+else the motion decorates something legible without it; here it *is* the
+exercise, and it only runs once the user has pressed Begin. Suppressing it
+would leave a blank step and a word with nothing pacing it. Tapping anywhere
+during a run stops it — ten Box breaths is 200 seconds, and cancelling and
+finishing take the same path, so there is one end state rather than two.
+
 ### Horoscope step (DEX-128, re-shaped in DEX-145)
 
 Read-only client of `public.horoscopes` (`["horoscopes", sunSign, date]`),
@@ -371,9 +418,10 @@ to the Today tab is the point of the step.
 
 ### Open tasks step (DEX-146)
 
-The evening ritual's first step: one `HeroLines` count over the day's still-open
-tasks, each row between a leading Unschedule button and a trailing move-to-the-
-next-day one. Load-bearing:
+The evening ritual's first *working* step — Breathe opens the walk ahead of it
+since DEX-164: one `HeroLines` count over the day's still-open tasks, each row
+between a leading Unschedule button and a trailing move-to-the-next-day one.
+Load-bearing:
 
 - **It is not the morning task-list step the Summary section records being
   removed**, and the difference is the axis that one failed on. That step copied

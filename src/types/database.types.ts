@@ -293,6 +293,8 @@ export type Database = {
       preferences: {
         Row: {
           alarm_sound: string;
+          breath_count: number;
+          breathing_technique: string;
           calendar_end_time: string;
           calendar_start_time: string;
           calendar_urls: string[];
@@ -312,6 +314,8 @@ export type Database = {
         };
         Insert: {
           alarm_sound?: string;
+          breath_count?: number;
+          breathing_technique?: string;
           calendar_end_time?: string;
           calendar_start_time?: string;
           calendar_urls?: string[];
@@ -331,6 +335,8 @@ export type Database = {
         };
         Update: {
           alarm_sound?: string;
+          breath_count?: number;
+          breathing_technique?: string;
           calendar_end_time?: string;
           calendar_start_time?: string;
           calendar_urls?: string[];

@@ -15,6 +15,22 @@ jest.mock("@/components/JournalView", () => ({
   },
 }));
 
+// And the breathe step: it reads the preferences (and so pulls in the auth
+// context) and owns a run of the fill animation.
+jest.mock("@/components/BreatheStep", () => {
+  const { Text: RNText } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+  return {
+    BreatheStep: function MockBreatheStep({
+      date,
+    }: {
+      date: Temporal.PlainDate;
+    }) {
+      return <RNText>{`breathe:${date.toString()}`}</RNText>;
+    },
+  };
+});
+
 // Likewise: the horoscope step owns a query, a preference and a breathing
 // animation, none of which this file is about.
 jest.mock("@/components/HoroscopeStep", () => {
@@ -138,6 +154,12 @@ beforeEach(() => {
 });
 
 describe("RitualStepView", () => {
+  it("renders the breathe step for the breathe id", () => {
+    renderStep({ id: "breathe", title: "Breathe" });
+
+    expect(screen.getByText("breathe:2026-08-09")).toBeTruthy();
+  });
+
   it("renders the horoscope for the horoscope id", () => {
     renderStep({ id: "horoscope", title: "Horoscope" });
 

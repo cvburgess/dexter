@@ -1,6 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 
 import { BacklogStep } from "@/components/BacklogStep";
+import { BreatheStep } from "@/components/BreatheStep";
 import { CalendarStep } from "@/components/CalendarStep";
 import { EmptyScreen } from "@/components/EmptyScreen";
 import { HoroscopeStep } from "@/components/HoroscopeStep";
@@ -32,11 +33,13 @@ type TRitualStepViewProps = {
  * The content of one ritual step.
  *
  * This is the seam each DEX-34 sub-issue fills in: a step branches on `step.id`
- * here and nothing else about the flow has to change. Eight are built —
+ * here and nothing else about the flow has to change. All nine are built now —
  * Horoscope (DEX-128), Journal (DEX-105), Calendar (DEX-140), Backlog
- * (DEX-141), Summary (DEX-144), Open tasks (DEX-146), Review (DEX-148) and
- * Preview tomorrow (DEX-149) — and the rest fall through to the default and
- * render their name centered.
+ * (DEX-141), Summary (DEX-144), Open tasks (DEX-146), Review (DEX-148),
+ * Preview tomorrow (DEX-149) and Breathe (DEX-164) — so the default below is
+ * no longer a placeholder for unbuilt steps but the landing spot for an id
+ * added to `RITUAL_STEP_IDS` without a branch here. `RitualStepView.test`
+ * walks every step in both rituals to make sure nothing reaches it.
  *
  * Carries no side gutter of its own — `SwipeablePage` supplies it at both
  * widths on this tab (see docs/design.md, "Who owns spacing").
@@ -47,6 +50,12 @@ export function RitualStepView({
   onEditingChange,
 }: TRitualStepViewProps) {
   switch (step.id) {
+    // DEX-164: the evening's first step, and the counterpart to the morning's
+    // horoscope — a step that asks nothing, so the wind-down doesn't open on
+    // administrative work. Takes the date only to resolve a `"shuffle"`
+    // technique preference to the one this day runs.
+    case "breathe":
+      return <BreatheStep date={date} />;
     case "horoscope":
       return <HoroscopeStep date={date} />;
     // DEX-105: the journal left the Today tab for the ritual, so this is the
@@ -66,7 +75,8 @@ export function RitualStepView({
     // drops the backlog, since every user has one.
     case "backlog":
       return <BacklogStep date={date} />;
-    // DEX-146: the evening ritual's first step, and unconditional like the
+    // DEX-146: the evening ritual's first *working* step — Breathe opens the
+    // flow ahead of it since DEX-164 — and unconditional like the
     // backlog. Not the morning task-list step DEX-144 removed — that one copied
     // the Today list without replacing it, where this one dispatches a day's
     // leftovers rather than offering a second place to read them.

@@ -15,6 +15,15 @@ export type TPreferences = {
    * Typed as `string` because the DB column is unconstrained text: an older
    * build must be able to read a sound it doesn't know about. */
   alarmSound: string;
+  /** How many breaths the Breathe ritual step opens with (DEX-164). A plain
+   * number, like `focusBlockMinutes` and for the same reason: the column is
+   * unconstrained, so an older build must be able to read a count it doesn't
+   * offer. `resolveBreathCount` narrows it at the read site. */
+  breathCount: number;
+  /** Which pattern the Breathe step opens with — a `TBreathingTechniqueSetting`
+   * value, which includes `"shuffle"` (see `utils/breathing.ts`). Typed as
+   * `string` for the reason `alarmSound` is. */
+  breathingTechnique: string;
   calendarEndTime: string;
   calendarStartTime: string;
   calendarUrls: string[];
@@ -57,6 +66,8 @@ export const getPreferences = async (supabase: SupabaseClient<Database>) => {
 
 export type TUpdatePreferences = {
   alarmSound?: string;
+  breathCount?: number;
+  breathingTechnique?: string;
   calendarEndTime?: string;
   calendarStartTime?: string;
   calendarUrls?: string[];

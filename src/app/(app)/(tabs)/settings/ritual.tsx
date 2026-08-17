@@ -15,6 +15,13 @@ import { TextInput } from "@/components/TextInput";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
 import {
+  BREATH_COUNT_OPTIONS,
+  BREATHING_TECHNIQUE_SETTING_OPTIONS,
+  resolveBreathCount,
+  resolveBreathingTechniqueSetting,
+  type TBreathingTechniqueSetting,
+} from "@/utils/breathing";
+import {
   NO_SUN_SIGN,
   SUN_SIGN_OPTIONS,
   TSunSignOption,
@@ -27,17 +34,19 @@ import { useTheme } from "@/utils/theme";
 
 /**
  * Settings for the guided Ritual flow (DEX-34): whether its Horoscope and
- * Journal steps appear at all, which sign the horoscope reads, and the prompts
- * the journal seeds each day from.
+ * Journal steps appear at all, which sign the horoscope reads, the prompts the
+ * journal seeds each day from, and what the evening's Breathe step opens with.
  *
  * Each step's sub-settings sit under its own toggle and hide with it — a sun
  * sign feeds nothing but the Horoscope step, so leaving the picker on screen
- * with the step turned off would offer a choice that changes nothing.
+ * with the step turned off would offer a choice that changes nothing. Breathe
+ * has no toggle to hide behind because the step is unconditional (DEX-164).
  */
 export default function RitualScreen() {
   const theme = useTheme();
   const navigation = useNavigation();
   const [preferences, { updatePreferences }] = usePreferences();
+
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = useIsLargeDevice();
   const insets = useSafeAreaInsets();
@@ -218,6 +227,53 @@ export default function RitualScreen() {
             )}
           </View>
         )}
+
+        {/* No toggle above this one: Breathe is unconditional, like Open tasks
+            and Review. Both values below are only what the step *opens* with —
+            its own slider and technique control change the sitting in front of
+            you and write nothing back. */}
+        <View style={{ gap: theme.space.sm }}>
+          <SettingsSectionTitle subtitle="The Breathe step opens the evening ritual. Shuffle runs a different technique each day.">
+            Breathe
+          </SettingsSectionTitle>
+          <View
+            style={{
+              backgroundColor: theme.colors.surfaceSunken,
+              borderRadius: theme.radii.md,
+              gap: theme.space.sm,
+              padding: theme.space.md,
+            }}
+          >
+            <PickerField<TBreathingTechniqueSetting>
+              label="Technique"
+              options={BREATHING_TECHNIQUE_SETTING_OPTIONS}
+              // Narrowed on the way in for the same reason the focus block
+              // length is: the column carries no CHECK, so a value a later
+              // build stored would leave the picker showing nothing selected.
+              selectedValue={resolveBreathingTechniqueSetting(
+                preferences.breathingTechnique,
+              )}
+              testID="breathing-technique-picker"
+              onValueChange={(breathingTechnique) =>
+                updatePreferences({ breathingTechnique })
+              }
+            />
+            <PickerField
+              label="Breaths"
+              options={BREATH_COUNT_OPTIONS}
+              // Narrowed on the way in like the technique above, and clamped
+              // rather than defaulted — `resolveBreathCount` lands a stored 12
+              // on 10, which is in the list, so the menu always has a selection.
+              selectedValue={String(
+                resolveBreathCount(preferences.breathCount),
+              )}
+              testID="breath-count-picker"
+              onValueChange={(value) =>
+                updatePreferences({ breathCount: Number(value) })
+              }
+            />
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

@@ -67,7 +67,7 @@ export const SETTINGS_ITEMS: TSettingsItem[] = [
   {
     slug: "ritual",
     title: "Ritual",
-    subtitle: "Horoscope and journaling preferences",
+    subtitle: "Horoscope, journaling and breathing preferences",
     icon: "moon-outline",
   },
   {

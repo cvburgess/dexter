@@ -21,6 +21,11 @@ import {
  * it to read.
  */
 export const STEP_ICONS: Record<TRitualStepId, TIconName> = {
+  // A plain circle on both platforms, echoing the step's own Begin button —
+  // the obvious `lungs` has no Ionicons counterpart, and the near misses
+  // (`wind` against `leaf-outline`) are exactly the per-platform drift the
+  // `preview-tomorrow` comment below warns about.
+  breathe: { sf: "circle.dotted", ionicon: "ellipse-outline" },
   horoscope: { sf: "sparkles", ionicon: "sparkles-outline" },
   journal: { sf: "book", ionicon: "book-outline" },
   calendar: VIEW_META.calendar.icon,

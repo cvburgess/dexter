@@ -45,6 +45,8 @@ describe("RITUAL_STEPS", () => {
   // the last question the evening actually has is about the day ahead.
   it("lists the evening steps in order, ending on the preview", () => {
     expect(RITUAL_STEPS.pm.map((step) => step.title)).toEqual([
+      // DEX-164: the evening opens on a breath rather than on its task list.
+      "Breathe",
       "Open tasks",
       "Review",
       "Journal",
@@ -284,11 +286,14 @@ describe("goToStep", () => {
     },
   );
 
-  // The evening ritual is a step shorter than the morning one, so the same
-  // index can be valid in one mode and out of range in the other.
+  // The bound is the *derived* list's length, not the mode's — the two rituals
+  // have been the same length since Breathe joined the evening (DEX-164), but a
+  // toggle still shrinks either one under a mounted screen.
   it("bounds against the active ritual's own length", () => {
-    expect(goToStep(state({ mode: "am" }), 4)).toMatchObject({ step: 4 });
-    expect(goToStep(state({ mode: "pm" }), 4)).toMatchObject({ step: 0 });
+    expect(goToStep(state({ mode: "pm" }), 4)).toMatchObject({ step: 4 });
+    expect(
+      goToStep(state({ mode: "pm", journalEnabled: false }), 4),
+    ).toMatchObject({ step: 0 });
   });
 });
 
@@ -384,20 +389,22 @@ describe("ritualPageKey", () => {
 describe("step position helpers", () => {
   it("reads the step the state points at", () => {
     expect(currentStep(state({ step: 2 })).title).toBe("Calendar");
-    expect(currentStep(state({ mode: "pm", step: 0 })).title).toBe(
-      "Open tasks",
-    );
+    expect(currentStep(state({ mode: "pm", step: 0 })).title).toBe("Breathe");
   });
 
-  // The last index differs per mode — five morning steps, four evening ones
-  // since DEX-149 dropped the summary from the evening — so the check has to
-  // read the active list rather than a single constant.
+  // The last index is whatever the *derived* list makes it, which a toggle can
+  // change under a mounted screen — so the check has to read the active list
+  // rather than a single constant.
   it("knows both ends of each ritual", () => {
     expect(isFirstStep(state())).toBe(true);
     expect(isLastStep(state())).toBe(false);
     expect(isLastStep(state({ step: 4 }))).toBe(true);
-    expect(isLastStep(state({ mode: "pm", step: 3 }))).toBe(true);
-    expect(isLastStep(state({ mode: "pm", step: 2 }))).toBe(false);
+    expect(isLastStep(state({ mode: "pm", step: 4 }))).toBe(true);
+    expect(isLastStep(state({ mode: "pm", step: 3 }))).toBe(false);
+    // Four evening steps with the journal off, so the end moves in a step.
+    expect(
+      isLastStep(state({ mode: "pm", journalEnabled: false, step: 3 })),
+    ).toBe(true);
   });
 });
 
@@ -449,13 +456,13 @@ describe("withJournalEnabled", () => {
   it("keeps the evening's last step by id when the journal is added back", () => {
     // Read backwards: the step that was last with the journal gone is no longer
     // last once it returns, so an index carried across would land short of it.
-    const before = state({ mode: "pm", journalEnabled: false, step: 2 });
+    const before = state({ mode: "pm", journalEnabled: false, step: 3 });
     expect(currentStep(before).title).toBe("Preview tomorrow");
 
     const next = withJournalEnabled(before, true);
 
     expect(currentStep(next).title).toBe("Preview tomorrow");
-    expect(next.step).toBe(3);
+    expect(next.step).toBe(4);
   });
 });
 
@@ -470,7 +477,7 @@ describe("withCalendarEnabled", () => {
   });
 
   it("updates the flag even when the step list doesn't change", () => {
-    const next = withCalendarEnabled(state({ mode: "pm", step: 2 }), false);
+    const next = withCalendarEnabled(state({ mode: "pm", step: 3 }), false);
 
     expect(next.calendarEnabled).toBe(false);
     expect(currentStep(next).title).toBe("Journal");
@@ -537,7 +544,7 @@ describe("withHoroscopeEnabled", () => {
     // The evening ritual has no horoscope step at all, so this is the whole
     // effect there — and the case that would hang the render loop if the flag
     // went unwritten.
-    const next = withHoroscopeEnabled(state({ mode: "pm", step: 2 }), false);
+    const next = withHoroscopeEnabled(state({ mode: "pm", step: 3 }), false);
 
     expect(next.horoscopeEnabled).toBe(false);
     expect(currentStep(next).title).toBe("Journal");

@@ -12,6 +12,26 @@ import {
 } from "./helpers.ts";
 
 export const updatePreferencesInputSchema = {
+  /**
+   * How many breaths the Ritual's Breathe step opens with (DEX-164). Bounded
+   * here where the column is not, for the reason `focusBlockMinutes` is: the
+   * app clamps whatever it reads, but there is no reason to let an agent store
+   * a zero the user would have to go and undo.
+   *
+   * The bounds restate `MIN_BREATHS`/`MAX_BREATHS` and must move with them.
+   * Not imported: `utils/breathing.ts` pulls in `Temporal`, so it is not one of
+   * the import-free modules Deno can read over `@src/` (see docs/backend.md,
+   * "Code shared with the app").
+   */
+  breathCount: z.number().int().min(1).max(10).optional(),
+  /**
+   * Which pattern that step opens with. `"shuffle"` is a real stored value, not
+   * an absence — it means a different technique each day, resolved from the
+   * ritual's date.
+   */
+  breathingTechnique: z
+    .enum(["simple", "relax", "box", "shuffle"])
+    .optional(),
   calendarEndTime: z.string().optional(),
   calendarStartTime: z.string().optional(),
   calendarUrls: z.array(z.string().url()).optional(),
@@ -78,6 +98,8 @@ export function registerPreferenceTools(
     },
     async (fields) => {
       const update = compactUpdate({
+        breath_count: fields.breathCount,
+        breathing_technique: fields.breathingTechnique,
         calendar_end_time: fields.calendarEndTime,
         calendar_start_time: fields.calendarStartTime,
         calendar_urls: fields.calendarUrls,

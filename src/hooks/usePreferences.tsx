@@ -14,12 +14,18 @@ import {
   updatePreferences,
 } from "@/api/preferences";
 import { DEFAULT_ALARM_SOUND } from "@/utils/alarms";
+import {
+  DEFAULT_BREATH_COUNT,
+  DEFAULT_BREATHING_TECHNIQUE,
+} from "@/utils/breathing";
 import { DEFAULT_FOCUS_BLOCK_MINUTES } from "@/utils/focusBlocks";
 
 import { supabase, useAuth } from "./useAuth";
 
 const defaultPreferences: TPreferences = {
   alarmSound: DEFAULT_ALARM_SOUND,
+  breathCount: DEFAULT_BREATH_COUNT,
+  breathingTechnique: DEFAULT_BREATHING_TECHNIQUE,
   calendarEndTime: "20:00:00",
   calendarStartTime: "06:00:00",
   calendarUrls: [],
