@@ -60,7 +60,8 @@ export function BreatheStep({ date }: TBreatheStepProps) {
   const [techniqueOverride, setTechniqueOverride] =
     useState<TBreathingTechnique | null>(null);
 
-  const breaths = breathsOverride ?? resolveBreathCount(preferences.breathCount);
+  const breaths =
+    breathsOverride ?? resolveBreathCount(preferences.breathCount);
   const technique =
     techniqueOverride ??
     techniqueForDay(
@@ -142,7 +143,9 @@ export function BreatheStep({ date }: TBreatheStepProps) {
         </Pressable>
 
         <View style={[styles.settings, { gap: theme.space.sm }]}>
-          <Text style={[theme.fonts.body, { color: theme.colors.textSecondary }]}>
+          <Text
+            style={[theme.fonts.body, { color: theme.colors.textSecondary }]}
+          >
             {breaths === 1 ? "1 breath" : `${breaths} breaths`}
           </Text>
           <Slider

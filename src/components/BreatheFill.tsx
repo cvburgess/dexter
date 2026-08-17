@@ -132,11 +132,7 @@ type TBreatheFillProps = {
  * here it *is* the exercise, and it only runs when the user has pressed Begin.
  * Stopping it would leave a blank step and a word with nothing to pace it.
  */
-export function BreatheFill({
-  plan,
-  running,
-  onComplete,
-}: TBreatheFillProps) {
+export function BreatheFill({ plan, running, onComplete }: TBreatheFillProps) {
   const theme = useTheme();
   // How full the step is, 0 (empty) to 1.
   const level = useSharedValue(0);

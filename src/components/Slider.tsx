@@ -147,15 +147,13 @@ export function Slider({
   return (
     <GestureDetector gesture={gesture}>
       <View
-        accessibilityActions={[
-          { name: "increment" },
-          { name: "decrement" },
-        ]}
+        accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
         accessibilityLabel={accessibilityLabel}
         accessibilityRole="adjustable"
         accessibilityValue={{ max, min, now: value }}
         onAccessibilityAction={(event) => {
-          const by = event.nativeEvent.actionName === "increment" ? step : -step;
+          const by =
+            event.nativeEvent.actionName === "increment" ? step : -step;
           const next = Math.min(max, Math.max(min, value + by));
           if (next === value) return;
           // One discrete step is a whole interaction, so it reports both — a

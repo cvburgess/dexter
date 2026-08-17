@@ -62,7 +62,11 @@ describe("Slider", () => {
   it("reports its range and current value to a screen reader", () => {
     const { slider } = setup(4);
     expect(slider.props.accessibilityRole).toBe("adjustable");
-    expect(slider.props.accessibilityValue).toEqual({ max: 10, min: 1, now: 4 });
+    expect(slider.props.accessibilityValue).toEqual({
+      max: 10,
+      min: 1,
+      now: 4,
+    });
   });
 
   it("steps up and down through the accessibility actions", () => {

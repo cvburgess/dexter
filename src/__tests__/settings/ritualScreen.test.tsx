@@ -116,7 +116,11 @@ describe("RitualScreen", () => {
     it("saves a chosen sign", () => {
       renderWith({ sunSign: null });
 
-      (pickerPropsFor("sun-sign-picker")?.onValueChange as (value: string) => void)("scorpio");
+      (
+        pickerPropsFor("sun-sign-picker")?.onValueChange as (
+          value: string,
+        ) => void
+      )("scorpio");
 
       expect(mockUpdate).toHaveBeenCalledWith({ sunSign: "scorpio" });
     });
@@ -126,7 +130,11 @@ describe("RitualScreen", () => {
     it("clears the sign back to null when the unset option is chosen", () => {
       renderWith({ sunSign: "leo" });
 
-      (pickerPropsFor("sun-sign-picker")?.onValueChange as (value: string) => void)("");
+      (
+        pickerPropsFor("sun-sign-picker")?.onValueChange as (
+          value: string,
+        ) => void
+      )("");
 
       expect(mockUpdate).toHaveBeenCalledWith({ sunSign: null });
     });
@@ -303,9 +311,9 @@ describe("RitualScreen", () => {
     it("selects the stored technique", () => {
       renderWith({ breathingTechnique: "box" });
 
-      expect(
-        pickerPropsFor("breathing-technique-picker")?.selectedValue,
-      ).toBe("box");
+      expect(pickerPropsFor("breathing-technique-picker")?.selectedValue).toBe(
+        "box",
+      );
     });
 
     // The column carries no CHECK, so a technique a later build stored would
@@ -313,17 +321,18 @@ describe("RitualScreen", () => {
     it("falls back to shuffle for a technique this build does not know", () => {
       renderWith({ breathingTechnique: "coherent" });
 
-      expect(
-        pickerPropsFor("breathing-technique-picker")?.selectedValue,
-      ).toBe("shuffle");
+      expect(pickerPropsFor("breathing-technique-picker")?.selectedValue).toBe(
+        "shuffle",
+      );
     });
 
     it("saves a chosen technique", () => {
       renderWith();
 
       (
-        pickerPropsFor("breathing-technique-picker")
-          ?.onValueChange as (value: string) => void
+        pickerPropsFor("breathing-technique-picker")?.onValueChange as (
+          value: string,
+        ) => void
       )("relax");
 
       expect(mockUpdate).toHaveBeenCalledWith({ breathingTechnique: "relax" });
@@ -349,9 +358,13 @@ describe("RitualScreen", () => {
     it("saves a changed breath count", () => {
       const screen = renderWith({ breathCount: 3 });
 
-      fireEvent(screen.getByTestId("breath-count-slider"), "accessibilityAction", {
-        nativeEvent: { actionName: "increment" },
-      });
+      fireEvent(
+        screen.getByTestId("breath-count-slider"),
+        "accessibilityAction",
+        {
+          nativeEvent: { actionName: "increment" },
+        },
+      );
 
       expect(mockUpdate).toHaveBeenCalledWith({ breathCount: 4 });
     });

@@ -58,7 +58,8 @@ export default function RitualScreen() {
   // optimistic and its cache write is deferred, so reading back through the
   // preference would flick the thumb to the stale count for a frame.
   const [breathDraft, setBreathDraft] = useState<number | null>(null);
-  const breathCount = breathDraft ?? resolveBreathCount(preferences.breathCount);
+  const breathCount =
+    breathDraft ?? resolveBreathCount(preferences.breathCount);
   // See account.tsx: the sidebar absorbs the left inset in two-pane mode.
   const twoPane = useIsLargeDevice();
   const insets = useSafeAreaInsets();

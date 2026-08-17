@@ -124,16 +124,21 @@ describe("techniqueForDay", () => {
 
   it("indexes in range for a date before the epoch", () => {
     const old = Temporal.PlainDate.from("1965-03-02");
-    expect(BREATHING_TECHNIQUE_ORDER).toContain(techniqueForDay("shuffle", old));
+    expect(BREATHING_TECHNIQUE_ORDER).toContain(
+      techniqueForDay("shuffle", old),
+    );
   });
 });
 
 describe("buildBreathePlan", () => {
-  const techniques = BREATHING_TECHNIQUE_ORDER as readonly TBreathingTechnique[];
+  const techniques =
+    BREATHING_TECHNIQUE_ORDER as readonly TBreathingTechnique[];
 
   it("repeats the technique's cycle once per breath", () => {
     const plan = buildBreathePlan("box", 3);
-    expect(plan.session).toHaveLength(BREATHING_TECHNIQUES.box.cycle.length * 3);
+    expect(plan.session).toHaveLength(
+      BREATHING_TECHNIQUES.box.cycle.length * 3,
+    );
     expect(plan.session.slice(0, 4)).toEqual(BREATHING_TECHNIQUES.box.cycle);
     expect(plan.totalMs).toBe(20000 * 3);
   });

@@ -125,10 +125,7 @@ export const BREATHING_TECHNIQUE_OPTIONS: readonly {
 export const BREATHING_TECHNIQUE_SETTING_OPTIONS: readonly {
   label: string;
   value: TBreathingTechniqueSetting;
-}[] = [
-  ...BREATHING_TECHNIQUE_OPTIONS,
-  { label: "Shuffle", value: "shuffle" },
-];
+}[] = [...BREATHING_TECHNIQUE_OPTIONS, { label: "Shuffle", value: "shuffle" }];
 
 /**
  * A stored breath count narrowed to one the step can run.
