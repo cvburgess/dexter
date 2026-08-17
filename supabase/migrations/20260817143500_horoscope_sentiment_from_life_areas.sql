@@ -107,8 +107,18 @@ $function$;
 comment on function public.horoscope_sentiment_from_ratings(smallint[]) is
   'DEX-166: the day''s sentiment as the most common life-area bucket (>= 4 positive, <= 2 negative, else mixed), with any tie for the top yielding mixed. Baked into the horoscopes.sentiment generated column — replacing this body does NOT recompute stored rows.';
 
+-- `if exists` on the drop per docs/backend.md's stand-alone rule, but
+-- deliberately **no `if not exists` on the add**, and the asymmetry is the
+-- point: a column that already exists here is one carrying the old
+-- `overall_rating` expression, and `if not exists` would skip past it silently,
+-- leaving the table generating values this migration exists to replace. Failing
+-- loudly is the correct outcome in the one case that clause would cover.
+--
+-- Table-level grants cover columns added later (`grant select on
+-- public.horoscopes to authenticated` in 20260811211500 — no column-level
+-- grants anywhere on this table), so the re-added column needs no re-grant.
 alter table public.horoscopes
-  drop column sentiment;
+  drop column if exists sentiment;
 
 alter table public.horoscopes
   add column sentiment public.horoscope_sentiment not null generated always as (
