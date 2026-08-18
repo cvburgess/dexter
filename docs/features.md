@@ -226,14 +226,6 @@ run simply stops where it started with no settling animation — `breathePlanEnd
 exists to pin that, because a fourth technique ending on an inhale would break it
 silently.
 
-**Each technique's shape is the technique**, and the durations are not interchangeable
-numbers. Relax exhales for longer than it inhales, which is the entire point — a
-trailing exhale is what engages the parasympathetic response, and inverted it is just
-a slower Simple that feels like work. It shipped inverted, and the test asserting the
-exact durations did not catch it because it asserted whatever the implementation said.
-The tests now pin the *relationships* — Relax's asymmetry, Simple's evenness, Box's
-four equal legs — which is the part a wrong number contradicts.
-
 **The phase word is drawn twice and inverts across the fill line.**
 `primaryContent` is legible on `primary` and invisible on the plain background,
 and the fill crosses the center of the step twice per breath, so one copy in
@@ -252,95 +244,11 @@ would leave a blank step and a word with nothing pacing it. Tapping anywhere
 during a run stops it — ten Box breaths is 200 seconds, and cancelling and
 finishing take the same path, so there is one end state rather than two.
 
-**The tones are synthesized, not played from files (DEX-167).** DEX-167 specified
-Tone.js, which cannot run here at all — it wraps the browser's Web Audio API, and
-React Native has none; `react-native-audio-api` is a native implementation of that
-same API, which is why `useBreathAudio` reads as ordinary Web Audio. Pre-rendering
-the tones into assets was planned and then dropped, and the reason is worth keeping:
-Calm's own implementation turns out to be *one sine oscillator and a gain ramp*
-rather than the issue's synth stack, so files would have bought a per-duration asset
-matrix and a JS timer to fire them, and cost the continuous oscillator the effect
-depends on — a tone that never restarts and only changes in loudness. Note this
-makes Breathe the one part of the ritual that needs a dev-client rebuild.
-`react-native-audio-api`'s config plugin is deliberately **not** installed, even
-though `expo install` prints an instruction to add it: its defaults turn on iOS
-background audio, an Android foreground service and two permissions, and this
-plays only while the step is on screen. Autolinking is all it needs.
-
-**The whole run is scheduled on the audio clock at Begin**, by `buildBreathAudioSchedule`
-in `utils/breathing.ts`, for the reason the timeline itself lives there: what can be
-wrong is *which ramp lands when*, and that is testable while a worklet is not. Nothing
-recomputes per leg, so no timer runs beside the animation and nothing has to escape
-`BreatheFill`'s `withSequence`. Every ramp is preceded by a `set` anchoring where it
-starts from — `linearRampToValueAtTime` glides from the previous scheduled *event*,
-not from when it was called, so an unanchored ramp slides across whatever came before.
-
-**A rise and a fall of one chord are the same sound run backwards**, which the screen
-makes obvious and the ear very nearly misses. So each phase *position* gets its own
-voice — the two holds included, told apart by the leg before them rather than by
-their own phase, since both are just `"hold"`. Each rises across its own leg and then
-releases over the opening third of the next (`RELEASE_RATIO`): some overlap keeps the
-run continuous, but releasing across the *whole* next leg left the exhale still
-half-audible halfway through the following inhale, blurring the turn the voices exist
-to mark. Registers step down through the cycle so the breath reads as one arch, and
-the schedule is therefore in time order **per voice** rather than across the whole
-list, since overlapping legs emit more than one.
-
-The chords and levels are tuned by ear and live in one labelled block in
-`useBreathAudio.ts`; the tests pin lifecycle and structure rather than the sound, so
-that tuning stays cheap. Three constraints on it are not taste. **Nothing is voiced
-far below E3** — a phone speaker reproduces almost nothing under ~300Hz, so a cue
-voiced there exists only on headphones. **Triangles and saws rather than sines**, for
-the same reason plus one more: a sine has no harmonics for the per-voice lowpass to
-shape, and none for a small speaker to infer a missing fundamental from. And **how
-dark a voice is separates it better than pitch does** — the exhale is told apart from
-the inhale mostly by its own much lower cutoff.
-
-**A single swept sine sounded like microphone feedback**, and both reasons are worth
-keeping. The first attempt took Calm's minimal snippet literally — one sine per voice,
-pitch swept 4% up across each inhale. Continuous pitch movement with no harmonics
-above it has no instrument to be mistaken for, so it read as equipment; and the hold
-was a fifth above the breath's *resting* pitch while only ever sounding after a full
-inhale, by which point the sweep had carried the breath sharp, so the one moment both
-voices sounded together was the one moment they were ~90 cents out. The sweep is gone
-entirely. What replaced it is a pad — a chord per voice, two oscillators per note
-detuned a few cents so they beat slowly against each other, a lowpass, and a
-convolution reverb over generated decaying noise, which does the most work of anything
-here.
-
-**Every envelope is a curve, drawn as twelve straight segments.** `setValueCurveAtTime`
-would express one exactly and in one call, but it throws if any other automation
-overlaps it — taking the feature down rather than sounding slightly wrong — and is far
-less travelled in a pre-1.0 library. **Which end is eased matters as much as that they
-are.** A raised cosine is flat at *both*, and zero slope at zero reads as a **delay**:
-every leg opened near-silent and seemed to arrive late. Attacks and releases are
-quarter sines instead, leaving at full slope and easing only into the finish.
-
-**How a run ends depends on who ended it**, the same split `useHoroscopeAudio` makes,
-and it differs in *shape* as well as length. Reaching the last leg settles over exactly
-as long as the reverb runs — both fades ride a master gain *after* the convolver, so
-anything shorter silences the room mid-decay and that cut is the last thing the breather
-hears — and decays like a room, most of the drop early with a long quiet tail. A quit
-gets out of the way faster, but front-loading it the same way put the steepest drop
-right where the breather had just tapped, so it eases both ends instead and never
-arrives anywhere suddenly.
-
-Both endings reach the hook as `running` turning false, so the step hands it a **ref**
-saying which — assigned inside the handler, before React re-renders, because the cleanup
-that reads it closes over the render *before* the one that ended the run and a plain
-prop would still say `false` at the only moment it matters. Asking the audio clock
-instead was the first attempt and silently never fired: a fresh `AudioContext` does not
-begin advancing `currentTime` when it is constructed, so at the end of a run the clock
-reads a little short of `totalMs` and every natural ending was mistaken for a quit.
-
-**Only the sound is focus-scoped, and that asymmetry is deliberate.** `useBreathAudio`
-hangs off `useFocusEffect` so the tones do not follow the breather to another tab,
-but `BreatheFill` animates from a plain `useEffect` and a run left behind keeps
-going. Re-scheduling on return would therefore open on the first inhale against a
-fill most of the way through its fourth, so a run that is returned to stays silent
-for the remainder — the hook keeps the plan it has already scheduled and skips it.
-Silence is the lesser wrong of the two, and the only one that cannot be mistaken
-for the exercise itself.
+**The tones are synthesized at runtime, and that is the whole design (DEX-167).**
+Tone.js cannot run here — it wraps a Web Audio API React Native does not have —
+and pre-rendering was rejected because files force a per-duration asset matrix and
+a JS timer to fire them. `buildBreathAudioSchedule` puts the entire run on the audio
+clock at Begin instead; `useBreathAudio` holds the tuning, and needs a dev-client rebuild.
 
 ### Horoscope step (DEX-128, re-shaped in DEX-145)
 

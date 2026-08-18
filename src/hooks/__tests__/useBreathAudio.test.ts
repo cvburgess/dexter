@@ -283,6 +283,26 @@ describe("useBreathAudio", () => {
     expect(masterGain().cancelAndHoldAtTime).toHaveBeenCalled();
   });
 
+  // A settle runs for seconds after the run ends, and nothing about `running`
+  // turning false leaves anything behind that could cut it — so leaving the step
+  // used to carry it onto the next one.
+  it("cuts a settle still in flight when the step is left", () => {
+    const plan = buildBreathePlan("simple", 1);
+    const finished = completedRef();
+    const { rerender, unmount } = renderHook<void, { running: boolean }>(
+      ({ running }) => useBreathAudio(plan, running, finished),
+      { initialProps: { running: true } },
+    );
+
+    // The run reaches its end: the settle starts, and the context is still open.
+    rerender({ running: false });
+    expect(mockClose).not.toHaveBeenCalled();
+
+    // Swiping to the next step, well inside the settle.
+    unmount();
+    expect(mockClose).toHaveBeenCalled();
+  });
+
   it("starts a fresh context when Begin is pressed again", () => {
     const { rerender } = renderHook<void, { plan: TBreathePlan }>(
       ({ plan }) => useBreathAudio(plan, true, quitRef()),
