@@ -155,6 +155,10 @@ export function useHoroscopeAudio(enabled: boolean) {
       let context: AudioContext | null = null;
       let source: AudioBufferSourceNode | null = null;
       let gain: GainNode | null = null;
+      // The track's end on the audio clock, for the exit ramp's anchor. Zero
+      // only before the decode settles — exactly when the cleanup would read
+      // it, and the guard below already covers that window.
+      let trackEndsAt = 0;
 
       void trackBuffer
         .then((buffer) => {
@@ -162,7 +166,7 @@ export function useHoroscopeAudio(enabled: boolean) {
 
           context = new AudioContext();
           const startedAt = context.currentTime;
-          const endsAt = startedAt + buffer.duration;
+          trackEndsAt = startedAt + buffer.duration;
 
           source = context.createBufferSource();
           source.buffer = buffer;
@@ -175,9 +179,9 @@ export function useHoroscopeAudio(enabled: boolean) {
           gain.gain.setValueAtTime(MAX_VOLUME, startedAt);
           gain.gain.setValueAtTime(
             MAX_VOLUME,
-            Math.max(startedAt, endsAt - TAIL_FADE_MS / 1000),
+            Math.max(startedAt, trackEndsAt - TAIL_FADE_MS / 1000),
           );
-          gain.gain.linearRampToValueAtTime(0, endsAt);
+          gain.gain.linearRampToValueAtTime(0, trackEndsAt);
 
           source.connect(gain);
           gain.connect(context.destination);
@@ -200,6 +204,20 @@ export function useHoroscopeAudio(enabled: boolean) {
         const now = ctx.currentTime;
         const endsAt = now + EXIT_FADE_MS / 1000;
         gain.gain.cancelAndHoldAtTime(now);
+        // The same anchor lesson as the tail, one level deeper: `cancelAndHold`
+        // leaves the t=0 ceiling set as the last event, and a ramp runs from
+        // the previous event — so an unanchored ramp would slope 0.1 → 0 over
+        // the *whole* track and be 70-90% gone the moment this cleanup runs,
+        // reading as a cut rather than a fade. Anchor at `now` at the exact
+        // value the tail automation has there (same formula, so no click).
+        gain.gain.setValueAtTime(
+          MAX_VOLUME *
+            Math.min(
+              1,
+              Math.max(0, (trackEndsAt - now) / (TAIL_FADE_MS / 1000)),
+            ),
+          now,
+        );
         gain.gain.linearRampToValueAtTime(0, endsAt);
         source.stop(endsAt);
 

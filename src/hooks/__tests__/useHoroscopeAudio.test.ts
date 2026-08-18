@@ -209,6 +209,11 @@ describe("useHoroscopeAudio", () => {
     // The tail ramp is still scheduled; the hold cancels it and the fade rides
     // from wherever the gain actually is.
     expect(gain.cancelAndHoldAtTime).toHaveBeenCalledWith(0);
+    // The anchor: with the tail events gone, the ramp must start at `now` at
+    // the tail's value there — unanchored it would slope from the t=0 set and
+    // be mostly gone the instant the cleanup runs.
+    expect(gain.setValueAtTime).toHaveBeenCalledTimes(3);
+    expect(gain.setValueAtTime).toHaveBeenLastCalledWith(MAX_VOLUME, 0);
     expect(gain.linearRampToValueAtTime).toHaveBeenCalledWith(
       0,
       EXIT_FADE_MS / 1000,
