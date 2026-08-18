@@ -303,9 +303,14 @@ reverb, or they would chop the tail off mid-ring.
 makes. Reaching the last leg is the exercise finishing on its own terms and gets a
 long settle — enough for the final tone to release and the reverb to bloom out,
 which is the last thing the breather hears. Being tapped away or swiped past is a
-response to someone who has already left, and gets a short one. The hook tells them
-apart by asking the audio clock whether the run got as far as `totalMs`, since both
-arrive as `running` turning false and there is nothing else to distinguish them by.
+response to someone who has already left, and gets a short one. Both arrive as
+`running` turning false, so the step hands the hook a **ref** saying which — set
+inside the handler, before React re-renders, because the cleanup that reads it closes
+over the render *before* the one that ended the run and a plain prop would still say
+`false` at the only moment it matters. Asking the audio clock instead was the first
+attempt and does not work: a fresh `AudioContext` does not begin advancing
+`currentTime` when it is constructed, so at the end of a run the clock reads a little
+short of `totalMs` and every natural ending was mistaken for a quit.
 
 Gain curves are quarter sines approximated by twelve straight segments per leg,
 rather than the single `setValueCurveAtTime` that would express one exactly: that

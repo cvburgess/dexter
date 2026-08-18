@@ -1,5 +1,5 @@
 import { useFocusEffect } from "expo-router";
-import { useCallback, useRef } from "react";
+import { type RefObject, useCallback, useRef } from "react";
 import {
   AudioContext,
   AudioManager,
@@ -227,7 +227,24 @@ type TVoice = {
  * Deliberately not gated on a preference, matching `useHoroscopeAudio`: there is
  * no "sounds" setting to hang it off yet.
  */
-export function useBreathAudio(plan: TBreathePlan | null, running: boolean) {
+export function useBreathAudio(
+  plan: TBreathePlan | null,
+  running: boolean,
+  /**
+   * Whether the run now ending reached its last breath.
+   *
+   * **A ref rather than a boolean, and it has to be.** The cleanup below is what
+   * reads it, and an effect cleanup closes over the render *before* the one that
+   * ended the run — a plain prop would still say `false` at the only moment it
+   * matters. The step assigns this inside the handler, before React re-renders.
+   *
+   * The audio clock cannot answer this instead, which was the first attempt: a
+   * fresh `AudioContext` does not begin advancing `currentTime` the instant it
+   * is constructed, so at the end of a run the clock reads a little short of
+   * `totalMs` and every natural ending was mistaken for a quit.
+   */
+  endedNaturally: RefObject<boolean>,
+) {
   // The plan whose sound has already been scheduled once.
   //
   // Blur fades the tones out, and coming back re-runs this effect — but only the
@@ -322,12 +339,7 @@ export function useBreathAudio(plan: TBreathePlan | null, running: boolean) {
 
       return () => {
         const now = context.currentTime;
-        // Which ending this is, asked of the audio clock rather than plumbed
-        // down from the step: a run that got as far as its last leg finished,
-        // and anything short of that was cut off. Both arrive here as `running`
-        // turning false, so there is nothing else to tell them apart by.
-        const finished = now - startedAt >= plan.totalMs / 1000;
-        const fadeMs = finished ? END_FADE_MS : EXIT_FADE_MS;
+        const fadeMs = endedNaturally.current ? END_FADE_MS : EXIT_FADE_MS;
         const endsAt = now + fadeMs / 1000;
 
         // One fade, after the reverb, so the tail goes down with the voices
@@ -346,7 +358,7 @@ export function useBreathAudio(plan: TBreathePlan | null, running: boolean) {
           void context.close();
         }, fadeMs);
       };
-    }, [plan, running]),
+    }, [endedNaturally, plan, running]),
   );
 }
 

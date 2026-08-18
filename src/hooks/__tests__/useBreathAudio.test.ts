@@ -121,6 +121,10 @@ const EXIT_FADE_MS = 600;
 const masterGain = () => mockGains[0].gain;
 const voiceGains = () => mockGains.slice(3);
 
+/** How the step reports an ending: a run that was cut off, or one that finished. */
+const quitRef = () => ({ current: false });
+const completedRef = () => ({ current: true });
+
 beforeEach(() => {
   jest.useFakeTimers();
   jest.clearAllMocks();
@@ -146,13 +150,15 @@ describe("useBreathAudio", () => {
   });
 
   it("makes no sound without a plan", () => {
-    renderHook(() => useBreathAudio(null, true));
+    renderHook(() => useBreathAudio(null, true, quitRef()));
 
     expect(mockAudioContext).not.toHaveBeenCalled();
   });
 
   it("makes no sound until the run starts", () => {
-    renderHook(() => useBreathAudio(buildBreathePlan("simple", 2), false));
+    renderHook(() =>
+      useBreathAudio(buildBreathePlan("simple", 2), false, quitRef()),
+    );
 
     expect(mockAudioContext).not.toHaveBeenCalled();
   });
@@ -161,7 +167,9 @@ describe("useBreathAudio", () => {
   // are still being tuned by ear, so anything pinning them would be rewritten
   // every pass. What is left is the lifecycle, which is not in flux.
   it("opens a voice per phase and leaves them all silent to start", () => {
-    renderHook(() => useBreathAudio(buildBreathePlan("box", 1), true));
+    renderHook(() =>
+      useBreathAudio(buildBreathePlan("box", 1), true, quitRef()),
+    );
 
     expect(mockOscillators.length).toBeGreaterThan(0);
     // One filter per voice, one reverb for all of them.
@@ -182,7 +190,9 @@ describe("useBreathAudio", () => {
   // nothing after this point can drift over a 200-second Box run.
   it("schedules against the context clock, wherever it already is", () => {
     mockContext.currentTime = 40;
-    renderHook(() => useBreathAudio(buildBreathePlan("simple", 1), true));
+    renderHook(() =>
+      useBreathAudio(buildBreathePlan("simple", 1), true, quitRef()),
+    );
 
     const times = voiceGains().flatMap((gain) =>
       (gain.gain.linearRampToValueAtTime.mock.calls as [number, number][]).map(
@@ -195,7 +205,7 @@ describe("useBreathAudio", () => {
 
   it("fades out through the master and releases the context on the way out", () => {
     const { unmount } = renderHook(() =>
-      useBreathAudio(buildBreathePlan("box", 1), true),
+      useBreathAudio(buildBreathePlan("box", 1), true, quitRef()),
     );
 
     unmount();
@@ -223,14 +233,15 @@ describe("useBreathAudio", () => {
   // cut off is a response to someone who already left.
   it("takes longer to fade a run that finished than one that was cut off", () => {
     const plan = buildBreathePlan("simple", 1);
-    const { unmount } = renderHook(() => useBreathAudio(plan, true));
+    const { unmount } = renderHook(() =>
+      useBreathAudio(plan, true, completedRef()),
+    );
 
-    mockContext.currentTime = plan.totalMs / 1000;
     unmount();
 
     expect(masterGain().linearRampToValueAtTime).toHaveBeenCalledWith(
       0,
-      plan.totalMs / 1000 + END_FADE_MS / 1000,
+      END_FADE_MS / 1000,
     );
     jest.advanceTimersByTime(EXIT_FADE_MS);
     expect(mockClose).not.toHaveBeenCalled();
@@ -241,7 +252,7 @@ describe("useBreathAudio", () => {
   it("silences a run that is tapped away rather than finished", () => {
     const plan = buildBreathePlan("simple", 3);
     const { rerender } = renderHook<void, { running: boolean }>(
-      ({ running }) => useBreathAudio(plan, running),
+      ({ running }) => useBreathAudio(plan, running, quitRef()),
       { initialProps: { running: true } },
     );
 
@@ -258,7 +269,7 @@ describe("useBreathAudio", () => {
   it("stays silent rather than restarting a run it comes back to", () => {
     const plan = buildBreathePlan("box", 4);
     const { rerender } = renderHook<void, object>(
-      () => useBreathAudio(plan, true),
+      () => useBreathAudio(plan, true, quitRef()),
       { initialProps: {} },
     );
     expect(mockAudioContext).toHaveBeenCalledTimes(1);
@@ -274,7 +285,7 @@ describe("useBreathAudio", () => {
 
   it("starts a fresh context when Begin is pressed again", () => {
     const { rerender } = renderHook<void, { plan: TBreathePlan }>(
-      ({ plan }) => useBreathAudio(plan, true),
+      ({ plan }) => useBreathAudio(plan, true, quitRef()),
       { initialProps: { plan: buildBreathePlan("simple", 1) } },
     );
 
