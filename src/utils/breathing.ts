@@ -54,6 +54,12 @@ export const BREATH_PHASE_LABELS: Record<TBreathPhase, string> = {
  * Durations are the ones in DEX-164 and are deliberately whole seconds: the
  * numbers are also what the step *says* it is doing, and "inhale for six" is a
  * count the breather can follow when they look away from the screen.
+ *
+ * **Relax exhales for longer than it inhales, and that is the entire technique.**
+ * A trailing exhale is what engages the parasympathetic response; inverted, it is
+ * just a slower Simple that happens to feel like work. It shipped inverted, which
+ * nothing caught because both numbers were individually plausible — hence the
+ * test asserting the relationship rather than the values.
  */
 export const BREATHING_TECHNIQUES: Record<
   TBreathingTechnique,
@@ -69,8 +75,8 @@ export const BREATHING_TECHNIQUES: Record<
   relax: {
     label: "Relax",
     cycle: [
-      { phase: "inhale", ms: 8000 },
-      { phase: "exhale", ms: 6000 },
+      { phase: "inhale", ms: 6000 },
+      { phase: "exhale", ms: 8000 },
     ],
   },
   box: {

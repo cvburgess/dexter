@@ -226,6 +226,14 @@ run simply stops where it started with no settling animation — `breathePlanEnd
 exists to pin that, because a fourth technique ending on an inhale would break it
 silently.
 
+**Each technique's shape is the technique**, and the durations are not interchangeable
+numbers. Relax exhales for longer than it inhales, which is the entire point — a
+trailing exhale is what engages the parasympathetic response, and inverted it is just
+a slower Simple that feels like work. It shipped inverted, and the test asserting the
+exact durations did not catch it because it asserted whatever the implementation said.
+The tests now pin the *relationships* — Relax's asymmetry, Simple's evenness, Box's
+four equal legs — which is the part a wrong number contradicts.
+
 **The phase word is drawn twice and inverts across the fill line.**
 `primaryContent` is legible on `primary` and invisible on the plain background,
 and the fill crosses the center of the step twice per breath, so one copy in
@@ -269,67 +277,61 @@ not from when it was called, so an unanchored ramp slides across whatever came b
 
 **A rise and a fall of one chord are the same sound run backwards**, which the screen
 makes obvious and the ear very nearly misses. So each phase *position* gets its own
-voice — the two holds included, told apart by the leg before them — and each rises
-across its own leg and then releases over the opening third of the next. Some overlap
-keeps the run continuous, but releasing across the *whole* next leg left the exhale
-still half-audible halfway through the following inhale, blurring the turn the voices
-exist to mark; `RELEASE_RATIO` is that dial.
-The registers step down through the cycle so the whole breath reads as one arch. The
-exact chords, registers and envelopes are being tuned by ear and will keep moving;
-`useBreathAudio.ts` holds them in one labelled block, and the tests deliberately pin
-the lifecycle rather than the sound. Two constraints on that tuning are not taste:
-nothing is voiced far below E3, because a phone speaker reproduces almost nothing
-under ~300Hz and a cue that only exists on headphones is missing where it is needed;
-and the schedule is in time order **per voice** rather than across the whole list,
-since overlapping legs emit more than one.
+voice — the two holds included, told apart by the leg before them rather than by
+their own phase, since both are just `"hold"`. Each rises across its own leg and then
+releases over the opening third of the next (`RELEASE_RATIO`): some overlap keeps the
+run continuous, but releasing across the *whole* next leg left the exhale still
+half-audible halfway through the following inhale, blurring the turn the voices exist
+to mark. Registers step down through the cycle so the breath reads as one arch, and
+the schedule is therefore in time order **per voice** rather than across the whole
+list, since overlapping legs emit more than one.
 
-**A single swept sine sounded like microphone feedback, and both reasons are worth
-keeping.** The first attempt took Calm's minimal snippet literally — one sine per
-voice, pitch swept 4% up across each inhale — and on a device it read as equipment
-rather than an instrument. Continuous pitch movement with no harmonics above it has
-no instrument to be mistaken for; and the hold's pitch was a fifth above the breath's
-*resting* pitch, while the hold voice only ever sounds after a full inhale, by which
-point the sweep had carried the breath sharp. The one moment both voices sounded
-together was the one moment they were ~90 cents out — roughness, not harmony. The
-sweep is gone entirely, and what replaced it is a pad: a chord per voice, two
-oscillators per note detuned a few cents so they beat slowly against each other,
-a lowpass, and a convolution reverb over generated decaying noise. **Triangles rather
-than sines, and the filter depends on that** — a sine has no harmonics for a lowpass
-to remove, and none for a phone speaker to infer a low fundamental from. Of everything
-there the reverb does the most work. Both fades ride a master gain *after* the
-reverb, or they would chop the tail off mid-ring.
+The chords and levels are tuned by ear and live in one labelled block in
+`useBreathAudio.ts`; the tests pin lifecycle and structure rather than the sound, so
+that tuning stays cheap. Three constraints on it are not taste. **Nothing is voiced
+far below E3** — a phone speaker reproduces almost nothing under ~300Hz, so a cue
+voiced there exists only on headphones. **Triangles and saws rather than sines**, for
+the same reason plus one more: a sine has no harmonics for the per-voice lowpass to
+shape, and none for a small speaker to infer a missing fundamental from. And **how
+dark a voice is separates it better than pitch does** — the exhale is told apart from
+the inhale mostly by its own much lower cutoff.
 
-**How a run ends depends on who ended it**, the same split `useHoroscopeAudio`
-makes. Reaching the last leg is the exercise finishing on its own terms and settles
-over exactly as long as the reverb runs — the fade sits after the convolver, so
-anything shorter silences the room mid-decay and that cut is the last thing the
-breather hears. Both fades are drawn as curves rather than one ramp, for the reason
-every other envelope here is: a straight line in linear amplitude holds up near full
-for most of its length and then drops out from under a logarithmic ear.
+**A single swept sine sounded like microphone feedback**, and both reasons are worth
+keeping. The first attempt took Calm's minimal snippet literally — one sine per voice,
+pitch swept 4% up across each inhale. Continuous pitch movement with no harmonics
+above it has no instrument to be mistaken for, so it read as equipment; and the hold
+was a fifth above the breath's *resting* pitch while only ever sounding after a full
+inhale, by which point the sweep had carried the breath sharp, so the one moment both
+voices sounded together was the one moment they were ~90 cents out. The sweep is gone
+entirely. What replaced it is a pad — a chord per voice, two oscillators per note
+detuned a few cents so they beat slowly against each other, a lowpass, and a
+convolution reverb over generated decaying noise, which does the most work of anything
+here.
 
-**The two fades take different shapes, and length was not the whole story.** A
-finished run decays like a room — most of the drop early, then a long quiet tail —
-which is right when the tail *is* the point. Front-loading a *quit* the same way put
-the steepest drop right where the breather had just tapped, so it read as a cut even
-once it was curved and even after it was lengthened. A quit eases both ends instead,
-barely moving for the first moment and never arriving anywhere suddenly. Being tapped away or swiped past is a
-response to someone who has already left, and gets a short one. Both arrive as
-`running` turning false, so the step hands the hook a **ref** saying which — set
-inside the handler, before React re-renders, because the cleanup that reads it closes
-over the render *before* the one that ended the run and a plain prop would still say
-`false` at the only moment it matters. Asking the audio clock instead was the first
-attempt and does not work: a fresh `AudioContext` does not begin advancing
-`currentTime` when it is constructed, so at the end of a run the clock reads a little
-short of `totalMs` and every natural ending was mistaken for a quit.
+**Every envelope is a curve, drawn as twelve straight segments.** `setValueCurveAtTime`
+would express one exactly and in one call, but it throws if any other automation
+overlaps it — taking the feature down rather than sounding slightly wrong — and is far
+less travelled in a pre-1.0 library. **Which end is eased matters as much as that they
+are.** A raised cosine is flat at *both*, and zero slope at zero reads as a **delay**:
+every leg opened near-silent and seemed to arrive late. Attacks and releases are
+quarter sines instead, leaving at full slope and easing only into the finish.
 
-Gain curves are quarter sines approximated by twelve straight segments per leg,
-rather than the single `setValueCurveAtTime` that would express one exactly: that
-call throws if any other automation overlaps it, which would take the feature down
-rather than sound slightly wrong, and it is far less travelled in a pre-1.0 library.
-**Eased at one end only, and which end matters.** A raised cosine is flat at both,
-and its zero slope at zero read as a *delay* — every leg opened near-silent and the
-tone seemed to arrive late. Leaving at full slope fixes that while still landing
-softly enough that no boundary clicks; only the far corner needs the easing.
+**How a run ends depends on who ended it**, the same split `useHoroscopeAudio` makes,
+and it differs in *shape* as well as length. Reaching the last leg settles over exactly
+as long as the reverb runs — both fades ride a master gain *after* the convolver, so
+anything shorter silences the room mid-decay and that cut is the last thing the breather
+hears — and decays like a room, most of the drop early with a long quiet tail. A quit
+gets out of the way faster, but front-loading it the same way put the steepest drop
+right where the breather had just tapped, so it eases both ends instead and never
+arrives anywhere suddenly.
+
+Both endings reach the hook as `running` turning false, so the step hands it a **ref**
+saying which — assigned inside the handler, before React re-renders, because the cleanup
+that reads it closes over the render *before* the one that ended the run and a plain
+prop would still say `false` at the only moment it matters. Asking the audio clock
+instead was the first attempt and silently never fired: a fresh `AudioContext` does not
+begin advancing `currentTime` when it is constructed, so at the end of a run the clock
+reads a little short of `totalMs` and every natural ending was mistaken for a quit.
 
 **Only the sound is focus-scoped, and that asymmetry is deliberate.** `useBreathAudio`
 hangs off `useFocusEffect` so the tones do not follow the breather to another tab,

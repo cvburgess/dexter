@@ -16,6 +16,7 @@ import {
   resolveBreathingTechniqueSetting,
   techniqueForDay,
   type TBreathAudioRamp,
+  type TBreathPhase,
   type TBreathAudioVoice,
   type TBreathingTechnique,
 } from "../breathing";
@@ -24,14 +25,20 @@ const isIncreasing = (values: readonly number[]): boolean =>
   values.every((value, index) => index === 0 || value > values[index - 1]);
 
 describe("BREATHING_TECHNIQUES", () => {
+  /** The total time one cycle spends in a phase. */
+  const msIn = (technique: TBreathingTechnique, phase: TBreathPhase) =>
+    BREATHING_TECHNIQUES[technique].cycle
+      .filter((leg) => leg.phase === phase)
+      .reduce((sum, leg) => sum + leg.ms, 0);
+
   it("matches the durations DEX-164 specifies", () => {
     expect(BREATHING_TECHNIQUES.simple.cycle).toEqual([
       { phase: "inhale", ms: 6000 },
       { phase: "exhale", ms: 6000 },
     ]);
     expect(BREATHING_TECHNIQUES.relax.cycle).toEqual([
-      { phase: "inhale", ms: 8000 },
-      { phase: "exhale", ms: 6000 },
+      { phase: "inhale", ms: 6000 },
+      { phase: "exhale", ms: 8000 },
     ]);
     expect(BREATHING_TECHNIQUES.box.cycle).toEqual([
       { phase: "inhale", ms: 5000 },
@@ -39,6 +46,37 @@ describe("BREATHING_TECHNIQUES", () => {
       { phase: "exhale", ms: 5000 },
       { phase: "hold", ms: 5000 },
     ]);
+  });
+
+  // The table above shipped with Relax inverted, and the exact-value test did
+  // not catch it — it asserted whatever the implementation said. These assert
+  // what each technique is *for*, which is the part a wrong number contradicts.
+  it("gives Relax a longer exhale than inhale, which is the whole technique", () => {
+    // A trailing exhale is what engages the parasympathetic response. Inverted,
+    // Relax is just a slower Simple that happens to feel like work.
+    expect(msIn("relax", "exhale")).toBeGreaterThan(msIn("relax", "inhale"));
+  });
+
+  it("keeps Simple even and Box square", () => {
+    expect(msIn("simple", "inhale")).toBe(msIn("simple", "exhale"));
+    // Box is four equal legs — that is what the name means, and an uneven one
+    // would still animate and still sound fine.
+    const box = BREATHING_TECHNIQUES.box.cycle;
+    expect(new Set(box.map((leg) => leg.ms)).size).toBe(1);
+    expect(box.map((leg) => leg.phase)).toEqual([
+      "inhale",
+      "hold",
+      "exhale",
+      "hold",
+    ]);
+  });
+
+  it("never opens a cycle on anything but an inhale", () => {
+    // A cycle starting mid-breath would leave the fill rising from wherever the
+    // last one left it, and the audio opening on a release.
+    for (const technique of BREATHING_TECHNIQUE_ORDER) {
+      expect(BREATHING_TECHNIQUES[technique].cycle[0].phase).toBe("inhale");
+    }
   });
 
   it("offers the three techniques in the step's control and those plus shuffle in settings", () => {
@@ -284,4 +322,69 @@ describe("buildBreathAudioSchedule", () => {
       expect(voice(schedule, "exhaleHold")).toEqual([]);
     }
   });
+
+  // Which hold is which is derived from `levels`, not from the leg's own phase —
+  // both are just `"hold"`. Swap the two and the cycle stops arching: the tone
+  // would drop after the inhale and climb after the exhale, which is legible on
+  // a device and invisible everywhere else.
+  it("puts the high hold after the inhale and the low one after the exhale", () => {
+    const box = buildBreathAudioSchedule(buildBreathePlan("box", 1));
+    // Box is inhale 0-5s, hold 5-10s, exhale 10-15s, hold 15-20s.
+    expect(voice(box, "inhaleHold")[0].atMs).toBe(5000);
+    expect(voice(box, "exhaleHold")[0].atMs).toBe(15000);
+  });
+
+  // Every leg has to actually get *loud* — an attack that never lands leaves the
+  // phase audible but never at full, which is exactly the kind of wrong that
+  // sounds merely "off" rather than broken.
+  it.each(BREATHING_TECHNIQUE_ORDER)(
+    "brings every leg to full inside its own leg (%s)",
+    (technique) => {
+      const plan = buildBreathePlan(technique, 2);
+      const schedule = buildBreathAudioSchedule(plan);
+
+      let elapsed = 0;
+      for (const leg of plan.session) {
+        const start = elapsed;
+        const end = start + leg.ms;
+        const withinLeg = schedule.filter(
+          (step) => step.atMs >= start && step.atMs <= end,
+        );
+        expect(withinLeg.some((step) => step.value === 1)).toBe(true);
+        elapsed = end;
+      }
+    },
+  );
+
+  // A release that outran the gap to the same voice's next rise would have the
+  // tone fighting its own next entry — silent in every test that does not look
+  // for it, and the reason RELEASE_RATIO is a fraction rather than a duration.
+  it.each(BREATHING_TECHNIQUE_ORDER)(
+    "finishes each release before that voice sounds again (%s)",
+    (technique) => {
+      const schedule = buildBreathAudioSchedule(buildBreathePlan(technique, 3));
+
+      for (const which of [
+        "inhale",
+        "inhaleHold",
+        "exhale",
+        "exhaleHold",
+      ] as const) {
+        const steps = voice(schedule, which);
+        // Each pass over this voice opens with the one `set` that anchors it.
+        const opens = steps
+          .map((step, index) => ({ step, index }))
+          .filter(({ step }) => step.kind === "set");
+
+        opens.forEach((_open, pass) => {
+          const next = opens[pass + 1];
+          if (!next) return;
+          // Everything this pass scheduled has to be done by the next opening.
+          const lastOfPass = steps[next.index - 1];
+          expect(lastOfPass.atMs).toBeLessThanOrEqual(steps[next.index].atMs);
+          expect(lastOfPass.value).toBe(0);
+        });
+      }
+    },
+  );
 });
