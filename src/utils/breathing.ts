@@ -54,6 +54,9 @@ export const BREATH_PHASE_LABELS: Record<TBreathPhase, string> = {
  * Durations are the ones in DEX-164 and are deliberately whole seconds: the
  * numbers are also what the step *says* it is doing, and "inhale for six" is a
  * count the breather can follow when they look away from the screen.
+ *
+ * Relax exhales longer than it inhales, which is the entire technique — it
+ * shipped inverted, hence tests asserting the relationships and not the values.
  */
 export const BREATHING_TECHNIQUES: Record<
   TBreathingTechnique,
@@ -69,8 +72,8 @@ export const BREATHING_TECHNIQUES: Record<
   relax: {
     label: "Relax",
     cycle: [
-      { phase: "inhale", ms: 8000 },
-      { phase: "exhale", ms: 6000 },
+      { phase: "inhale", ms: 6000 },
+      { phase: "exhale", ms: 8000 },
     ],
   },
   box: {
@@ -353,3 +356,107 @@ const flatIfEmpty = (table: {
  */
 export const breathePlanEndsEmpty = (plan: TBreathePlan): boolean =>
   plan.levels[plan.levels.length - 1] === 0;
+
+// Which tone a gain change belongs to (DEX-167). One per phase *position*, so
+// the two holds are told apart and each can follow the leg before it.
+export type TBreathAudioVoice =
+  "inhale" | "inhaleHold" | "exhale" | "exhaleHold";
+
+// `value` is normalized 0-1, not a gain — the hook multiplies by its own peak,
+// so nothing about how loud the exercise is leaks in here.
+export type TBreathAudioRamp = {
+  voice: TBreathAudioVoice;
+  /** Milliseconds from the start of the run. */
+  atMs: number;
+  value: number;
+  /**
+   * `set` anchors where a ramp starts from. `linearRampToValueAtTime` glides
+   * from the previous scheduled *event*, so an unanchored one slides across it.
+   */
+  kind: "set" | "ramp";
+};
+
+// `setValueCurveAtTime` would express a curve exactly, but it throws if any
+// automation overlaps it — a whole dead feature rather than a slightly wrong sound.
+const CURVE_STEPS = 12;
+
+// Steepest at the start, flattening into the finish. A curve eased at *both*
+// ends has zero slope at zero, which is audible as a delay.
+export const easeOut = (t: number): number => Math.sin((Math.PI / 2) * t);
+
+// Flat at both ends: wrong for an attack, right for a fade nobody should hear
+// the shape of.
+export const easeInOut = (t: number): number => (1 - Math.cos(Math.PI * t)) / 2;
+
+// Reaching full only as a leg ended made the clearest moment of every phase the
+// moment it was over.
+const ATTACK_RATIO = 8 / CURVE_STEPS;
+
+// How much of the *next* leg a finished tone releases over. Too high and the
+// phase you left is still sounding well into the one you are in.
+const RELEASE_RATIO = 1 / 3;
+
+/** The tone a leg sounds — a hold takes its identity from the leg before it. */
+const voiceFor = (
+  plan: TBreathePlan,
+  index: number,
+): TBreathAudioVoice | null => {
+  const phase = plan.session[index]?.phase;
+  if (phase === "inhale") return "inhale";
+  if (phase === "exhale") return "exhale";
+  if (phase !== "hold") return null;
+  // `levels` is already the answer: full means the inhale just ended.
+  return (plan.levels[index - 1] ?? 0) === 1 ? "inhaleHold" : "exhaleHold";
+};
+
+/**
+ * Every gain change of one run (DEX-167), scheduled on the audio clock the
+ * moment Begin is pressed — so nothing recomputes per leg and nothing drifts.
+ *
+ * Each leg's tone rises across its own leg and releases over the opening of the
+ * next, leaving two chords always crossfading. Entries are in time order **per
+ * voice**, which is the ordering `AudioParam` automation actually cares about.
+ */
+export const buildBreathAudioSchedule = (
+  plan: TBreathePlan,
+): readonly TBreathAudioRamp[] => {
+  const schedule: TBreathAudioRamp[] = [];
+  let start = 0;
+
+  plan.session.forEach((leg, index) => {
+    const end = start + leg.ms;
+    const voice = voiceFor(plan, index);
+    if (!voice) {
+      start = end;
+      return;
+    }
+    // The last leg has nothing after it, so it releases over a share of itself
+    // and the exit fade catches the rest.
+    const fallMs = (plan.session[index + 1]?.ms ?? leg.ms) * RELEASE_RATIO;
+
+    schedule.push({ voice, atMs: start, value: 0, kind: "set" });
+    for (let step = 1; step <= CURVE_STEPS; step += 1) {
+      const t = step / CURVE_STEPS;
+      schedule.push({
+        voice,
+        atMs: start + leg.ms * t,
+        // Full once the attack is done, and held there for the rest of the leg.
+        value: t >= ATTACK_RATIO ? 1 : easeOut(t / ATTACK_RATIO),
+        kind: "ramp",
+      });
+    }
+    for (let step = 1; step <= CURVE_STEPS; step += 1) {
+      const t = step / CURVE_STEPS;
+      schedule.push({
+        voice,
+        atMs: end + fallMs * t,
+        value: 1 - easeOut(t),
+        kind: "ramp",
+      });
+    }
+
+    start = end;
+  });
+
+  return schedule;
+};

@@ -1,5 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
@@ -11,6 +11,7 @@ import Animated, {
 import { BreatheFill } from "@/components/BreatheFill";
 import { PickerField } from "@/components/PickerField";
 import { Slider } from "@/components/Slider";
+import { useBreathAudio } from "@/hooks/useBreathAudio";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
 import {
@@ -86,18 +87,44 @@ export function BreatheStep({ date }: TBreatheStepProps) {
   } | null>(null);
   const running = session?.running ?? false;
 
-  const begin = () =>
+  // Whether the run now ending got all the way to its last breath.
+  //
+  // **A ref, and set inside the handlers rather than derived from state.** The
+  // only thing that reads it is `useBreathAudio`'s cleanup, which decides
+  // between a settle and a quick exit — and an effect cleanup closes over the
+  // *previous* render, so a piece of state would still say "running" by the time
+  // it was asked. Assigning here happens before React re-renders at all, so the
+  // cleanup reads the answer rather than the question.
+  const endedNaturally = useRef(false);
+
+  const begin = () => {
+    endedNaturally.current = false;
     setSession({ plan: buildBreathePlan(technique, breaths), running: true });
-  // One path out for both endings: a run that finished and a run that was
-  // tapped away land in the same place, which is also the place the step
-  // opened in.
-  const finish = useCallback(
+  };
+
+  // One path out for both endings — a run that finished and a run that was
+  // tapped away land in the same place, which is also the place the step opened
+  // in — and they differ only in what they leave behind for the sound.
+  const stop = useCallback(
     () =>
       setSession((current) =>
         current ? { ...current, running: false } : current,
       ),
     [],
   );
+  const complete = useCallback(() => {
+    endedNaturally.current = true;
+    stop();
+  }, [stop]);
+  const quit = useCallback(() => {
+    endedNaturally.current = false;
+    stop();
+  }, [stop]);
+
+  // Takes the plan rather than the technique and count, so the sound is built
+  // from the same object the fill is animating and the two cannot disagree
+  // about what this run is.
+  useBreathAudio(session?.plan ?? null, running, endedNaturally);
 
   const controls = useSharedValue(1);
   useEffect(() => {
@@ -125,7 +152,7 @@ export function BreatheStep({ date }: TBreatheStepProps) {
     <View style={styles.container} testID="breathe-step">
       <BreatheFill
         insetBottom={insetBottom}
-        onComplete={finish}
+        onComplete={complete}
         plan={session?.plan ?? null}
         running={running}
       />
@@ -229,7 +256,7 @@ export function BreatheStep({ date }: TBreatheStepProps) {
         <Pressable
           accessibilityLabel="Stop breathing"
           accessibilityRole="button"
-          onPress={finish}
+          onPress={quit}
           style={StyleSheet.absoluteFill}
           testID="breathe-stop"
         />

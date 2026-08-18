@@ -12,6 +12,20 @@ import { techniqueForDay } from "@/utils/breathing";
 
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 
+// `useBreathAudio` reaches `expo-router` for `useFocusEffect`, which is ESM and
+// untransformed here. Focus is the lifetime that matters to the tones, and this
+// stands mount/unmount in for it. Its own behaviour is asserted in
+// `hooks/__tests__/useBreathAudio.test.ts`; the audio graph is inert in this
+// file (see `jest.setup.js`), so nothing here makes a sound.
+jest.mock("expo-router", () => {
+  const { useEffect } = require("react");
+  return {
+    useFocusEffect: (effect: () => void | (() => void)) => {
+      useEffect(() => effect(), [effect]);
+    },
+  };
+});
+
 // The step's technique control is a `PickerField`; the global @expo/ui mock
 // renders Picker as null, so capture its props to inspect and drive it.
 jest.mock("@expo/ui", () =>

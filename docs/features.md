@@ -244,6 +244,12 @@ would leave a blank step and a word with nothing pacing it. Tapping anywhere
 during a run stops it — ten Box breaths is 200 seconds, and cancelling and
 finishing take the same path, so there is one end state rather than two.
 
+**The tones are synthesized at runtime, and that is the whole design (DEX-167).**
+Tone.js cannot run here — it wraps a Web Audio API React Native does not have —
+and pre-rendering was rejected because files force a per-duration asset matrix and
+a JS timer to fire them. `buildBreathAudioSchedule` puts the entire run on the audio
+clock at Begin instead; `useBreathAudio` holds the tuning, and needs a dev-client rebuild.
+
 ### Horoscope step (DEX-128, re-shaped in DEX-145)
 
 Read-only client of `public.horoscopes` (`["horoscopes", sunSign, date]`),

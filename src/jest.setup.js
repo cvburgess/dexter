@@ -111,6 +111,50 @@ jest.mock("expo-audio", () => ({
   }),
 }));
 
+// `react-native-audio-api` reaches for its native module at import time, and
+// `useBreathAudio` calls `AudioManager.disableSessionManagement()` at module
+// scope — so merely importing the Breathe step throws here without this. An
+// inert graph is enough for every component test; `hooks/__tests__/useBreathAudio.test.ts`
+// mocks the module for itself with a context it can inspect.
+jest.mock("react-native-audio-api", () => {
+  const param = () => ({
+    cancelAndHoldAtTime: jest.fn(),
+    linearRampToValueAtTime: jest.fn(),
+    setValueAtTime: jest.fn(),
+  });
+
+  return {
+    AudioContext: jest.fn().mockImplementation(() => ({
+      close: jest.fn().mockResolvedValue(undefined),
+      createBiquadFilter: () => ({
+        connect: jest.fn(),
+        frequency: param(),
+        type: "lowpass",
+      }),
+      createBuffer: (channels, length) => ({
+        getChannelData: () => new Float32Array(length),
+      }),
+      createConvolver: () => ({ buffer: null, connect: jest.fn() }),
+      createGain: () => ({ connect: jest.fn(), gain: param() }),
+      createOscillator: () => ({
+        connect: jest.fn(),
+        detune: param(),
+        frequency: param(),
+        start: jest.fn(),
+        stop: jest.fn(),
+        type: "sine",
+      }),
+      currentTime: 0,
+      destination: {},
+      // Small on purpose: the hook fills an impulse response of
+      // `sampleRate * seconds` samples, and every test that mounts the Breathe
+      // step would otherwise pay for 350k `Math.random()` calls.
+      sampleRate: 64,
+    })),
+    AudioManager: { disableSessionManagement: jest.fn() },
+  };
+});
+
 jest.mock("@react-native-async-storage/async-storage", () =>
   require("@react-native-async-storage/async-storage/jest/async-storage-mock"),
 );
