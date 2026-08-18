@@ -9,6 +9,7 @@ import {
 
 import {
   buildBreathAudioSchedule,
+  easeInOut,
   easeOut,
   type TBreathAudioVoice,
   type TBreathePlan,
@@ -179,13 +180,31 @@ const PEAK: Record<TBreathAudioVoice, number> = {
  * and that cut is the last thing the breather hears.
  *
  * A run that was **tapped away or swiped past** is a response to someone who has
- * already left, and anything slow follows them onto the next screen.
+ * already left, so it cannot take the same liberty — but it was overcorrected to
+ * 600ms, which is short enough to read as a cut rather than a fade. `useHoroscopeAudio`
+ * spends 2s on the same job; this sits a little under that, out of the way before
+ * the next step has settled without sounding like the audio failed.
  *
  * Either way it rides a master gain *after* the reverb rather than the voices
  * before it, so the tail goes down with everything else.
  */
 const END_FADE_MS = REVERB_SECONDS * 1000;
-const EXIT_FADE_MS = 600;
+const EXIT_FADE_MS = 1500;
+
+/**
+ * The shape each fade takes, which is not the same question as its length.
+ *
+ * A finished run decays like a room: most of the drop early, then a long quiet
+ * tail. Front-loading it that way is right when the tail *is* the point.
+ *
+ * A quit is the opposite problem. The same curve over a short fade puts a steep
+ * drop right where the breather just tapped, which is what made 600ms sound
+ * abrupt even once it was curved — it was not only short, it fell fastest at the
+ * very start. Easing both ends instead means the volume barely moves for the
+ * first moment and never arrives anywhere suddenly.
+ */
+const fadeShape = (finished: boolean) => (t: number) =>
+  finished ? 1 - easeOut(t) : 1 - easeInOut(t);
 
 /**
  * How many segments the fade is drawn in.
@@ -352,8 +371,10 @@ export function useBreathAudio(
 
       return () => {
         const now = context.currentTime;
-        const fadeMs = endedNaturally.current ? END_FADE_MS : EXIT_FADE_MS;
+        const finished = endedNaturally.current;
+        const fadeMs = finished ? END_FADE_MS : EXIT_FADE_MS;
         const endsAt = now + fadeMs / 1000;
+        const shape = fadeShape(finished);
 
         // One fade, after the reverb, so the tail goes down with the voices
         // instead of ringing on into a closed context. Drawn as a curve rather
@@ -363,7 +384,7 @@ export function useBreathAudio(
         for (let step = 1; step <= FADE_STEPS; step += 1) {
           const t = step / FADE_STEPS;
           master.gain.linearRampToValueAtTime(
-            1 - easeOut(t),
+            shape(t),
             now + (endsAt - now) * t,
           );
         }

@@ -415,6 +415,15 @@ const CURVE_STEPS = 12;
 export const easeOut = (t: number): number => Math.sin((Math.PI / 2) * t);
 
 /**
+ * A raised cosine over 0–1: flat at *both* ends, steepest in the middle.
+ *
+ * Wrong for a leg's attack, where flatness at zero reads as a delay — but right
+ * for a fade nobody asked to hear the shape of, since it neither lurches at the
+ * start nor arrives anywhere abruptly.
+ */
+export const easeInOut = (t: number): number => (1 - Math.cos(Math.PI * t)) / 2;
+
+/**
  * How much of its own leg a tone spends rising, as a fraction.
  *
  * Reaching full only as the leg ends meant the clearest moment of every phase

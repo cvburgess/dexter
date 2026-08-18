@@ -305,7 +305,14 @@ over exactly as long as the reverb runs — the fade sits after the convolver, s
 anything shorter silences the room mid-decay and that cut is the last thing the
 breather hears. Both fades are drawn as curves rather than one ramp, for the reason
 every other envelope here is: a straight line in linear amplitude holds up near full
-for most of its length and then drops out from under a logarithmic ear. Being tapped away or swiped past is a
+for most of its length and then drops out from under a logarithmic ear.
+
+**The two fades take different shapes, and length was not the whole story.** A
+finished run decays like a room — most of the drop early, then a long quiet tail —
+which is right when the tail *is* the point. Front-loading a *quit* the same way put
+the steepest drop right where the breather had just tapped, so it read as a cut even
+once it was curved and even after it was lengthened. A quit eases both ends instead,
+barely moving for the first moment and never arriving anywhere suddenly. Being tapped away or swiped past is a
 response to someone who has already left, and gets a short one. Both arrive as
 `running` turning false, so the step hands the hook a **ref** saying which — set
 inside the handler, before React re-renders, because the cleanup that reads it closes
