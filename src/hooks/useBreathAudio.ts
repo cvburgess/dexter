@@ -169,13 +169,21 @@ const PEAK: Record<TBreathAudioVoice, number> = {
 };
 
 /**
- * How long the tones take to disappear when a run ends or the step goes away.
+ * How long the tones take to disappear, and it depends on who ended the run —
+ * the same split `useHoroscopeAudio` makes, for the same reason.
  *
- * The same shape as `useHoroscopeAudio`'s exit fade and for the same reason: a
- * cut reads as the app having failed, a fade reads as leaving. This rides a
- * master gain *after* the reverb rather than the voices before it, so the tail
- * fades with everything else instead of being chopped off mid-ring.
+ * A run that **reached its end** is the exercise finishing on its own terms, so
+ * it can take its time: long enough for the last tone to release and for the
+ * reverb to bloom out rather than be chopped off a fifth of the way through its
+ * tail. That settle is the last thing the breather hears.
+ *
+ * A run that was **tapped away or swiped past** is a response to someone who has
+ * already left, and anything slow follows them onto the next screen.
+ *
+ * Either way it rides a master gain *after* the reverb rather than the voices
+ * before it, so the tail goes down with everything else.
  */
+const END_FADE_MS = 2500;
 const EXIT_FADE_MS = 600;
 
 /** A voice: its oscillators, the gain they share, and that gain's ceiling. */
@@ -314,7 +322,13 @@ export function useBreathAudio(plan: TBreathePlan | null, running: boolean) {
 
       return () => {
         const now = context.currentTime;
-        const endsAt = now + EXIT_FADE_MS / 1000;
+        // Which ending this is, asked of the audio clock rather than plumbed
+        // down from the step: a run that got as far as its last leg finished,
+        // and anything short of that was cut off. Both arrive here as `running`
+        // turning false, so there is nothing else to tell them apart by.
+        const finished = now - startedAt >= plan.totalMs / 1000;
+        const fadeMs = finished ? END_FADE_MS : EXIT_FADE_MS;
+        const endsAt = now + fadeMs / 1000;
 
         // One fade, after the reverb, so the tail goes down with the voices
         // instead of ringing on into a closed context.
@@ -330,7 +344,7 @@ export function useBreathAudio(plan: TBreathePlan | null, running: boolean) {
         // because `close()` has no scheduled form.
         setTimeout(() => {
           void context.close();
-        }, EXIT_FADE_MS);
+        }, fadeMs);
       };
     }, [plan, running]),
   );

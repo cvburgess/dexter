@@ -296,8 +296,16 @@ oscillators per note detuned a few cents so they beat slowly against each other,
 a lowpass, and a convolution reverb over generated decaying noise. **Triangles rather
 than sines, and the filter depends on that** — a sine has no harmonics for a lowpass
 to remove, and none for a phone speaker to infer a low fundamental from. Of everything
-there the reverb does the most work. The exit fade rides a master gain *after* the
-reverb, or it would chop the tail off mid-ring.
+there the reverb does the most work. Both fades ride a master gain *after* the
+reverb, or they would chop the tail off mid-ring.
+
+**How a run ends depends on who ended it**, the same split `useHoroscopeAudio`
+makes. Reaching the last leg is the exercise finishing on its own terms and gets a
+long settle — enough for the final tone to release and the reverb to bloom out,
+which is the last thing the breather hears. Being tapped away or swiped past is a
+response to someone who has already left, and gets a short one. The hook tells them
+apart by asking the audio clock whether the run got as far as `totalMs`, since both
+arrive as `running` turning false and there is nothing else to distinguish them by.
 
 Gain curves are quarter sines approximated by twelve straight segments per leg,
 rather than the single `setValueCurveAtTime` that would express one exactly: that

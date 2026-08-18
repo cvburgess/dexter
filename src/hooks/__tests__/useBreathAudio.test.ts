@@ -112,6 +112,7 @@ jest.mock("expo-router", () => {
   };
 });
 
+const END_FADE_MS = 2500;
 const EXIT_FADE_MS = 600;
 
 // Gains in the order the hook builds them: the master everything lands on, the
@@ -130,9 +131,10 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  // Drain the exit fade's `setTimeout` before handing the clock back, so a test
-  // that unmounts does not leave the close pending into the next one.
-  jest.advanceTimersByTime(EXIT_FADE_MS * 2);
+  // Drain whichever fade's `setTimeout` is pending before handing the clock
+  // back, so a test that unmounts does not leave the close running into the
+  // next one.
+  jest.advanceTimersByTime(END_FADE_MS * 2);
   jest.useRealTimers();
 });
 
@@ -213,6 +215,26 @@ describe("useBreathAudio", () => {
     // the fade rather than cut it short.
     expect(mockClose).not.toHaveBeenCalled();
     jest.advanceTimersByTime(EXIT_FADE_MS);
+    expect(mockClose).toHaveBeenCalled();
+  });
+
+  // A run that reached its end is the exercise finishing on its own terms, so
+  // it gets long enough for the last tone and the reverb to settle. One that was
+  // cut off is a response to someone who already left.
+  it("takes longer to fade a run that finished than one that was cut off", () => {
+    const plan = buildBreathePlan("simple", 1);
+    const { unmount } = renderHook(() => useBreathAudio(plan, true));
+
+    mockContext.currentTime = plan.totalMs / 1000;
+    unmount();
+
+    expect(masterGain().linearRampToValueAtTime).toHaveBeenCalledWith(
+      0,
+      plan.totalMs / 1000 + END_FADE_MS / 1000,
+    );
+    jest.advanceTimersByTime(EXIT_FADE_MS);
+    expect(mockClose).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(END_FADE_MS);
     expect(mockClose).toHaveBeenCalled();
   });
 
