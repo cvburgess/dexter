@@ -156,32 +156,39 @@ export function useHoroscopeAudio(enabled: boolean) {
       let source: AudioBufferSourceNode | null = null;
       let gain: GainNode | null = null;
 
-      void trackBuffer.then((buffer) => {
-        if (cancelled) return;
+      void trackBuffer
+        .then((buffer) => {
+          if (cancelled) return;
 
-        context = new AudioContext();
-        const startedAt = context.currentTime;
-        const endsAt = startedAt + buffer.duration;
+          context = new AudioContext();
+          const startedAt = context.currentTime;
+          const endsAt = startedAt + buffer.duration;
 
-        source = context.createBufferSource();
-        source.buffer = buffer;
+          source = context.createBufferSource();
+          source.buffer = buffer;
 
-        gain = context.createGain();
-        // Hold the ceiling from the start (a fresh gain defaults to 1), then
-        // anchor it again where the tail begins — a ramp runs from the
-        // previous event, so without the second set it would slope over the
-        // whole track instead of the last seconds.
-        gain.gain.setValueAtTime(MAX_VOLUME, startedAt);
-        gain.gain.setValueAtTime(
-          MAX_VOLUME,
-          Math.max(startedAt, endsAt - TAIL_FADE_MS / 1000),
-        );
-        gain.gain.linearRampToValueAtTime(0, endsAt);
+          gain = context.createGain();
+          // Hold the ceiling from the start (a fresh gain defaults to 1), then
+          // anchor it again where the tail begins — a ramp runs from the
+          // previous event, so without the second set it would slope over the
+          // whole track instead of the last seconds.
+          gain.gain.setValueAtTime(MAX_VOLUME, startedAt);
+          gain.gain.setValueAtTime(
+            MAX_VOLUME,
+            Math.max(startedAt, endsAt - TAIL_FADE_MS / 1000),
+          );
+          gain.gain.linearRampToValueAtTime(0, endsAt);
 
-        source.connect(gain);
-        gain.connect(context.destination);
-        source.start(startedAt);
-      });
+          source.connect(gain);
+          gain.connect(context.destination);
+          source.start(startedAt);
+        })
+        .catch((error) => {
+          // A failed decode degrades to silence — the step is ambience, not
+          // functionality — but an unhandled rejection would surface in every
+          // session that hits it, for nothing.
+          console.warn("Horoscope track failed to decode", error);
+        });
 
       return () => {
         cancelled = true;
