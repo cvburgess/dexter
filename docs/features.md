@@ -300,9 +300,12 @@ there the reverb does the most work. Both fades ride a master gain *after* the
 reverb, or they would chop the tail off mid-ring.
 
 **How a run ends depends on who ended it**, the same split `useHoroscopeAudio`
-makes. Reaching the last leg is the exercise finishing on its own terms and gets a
-long settle — enough for the final tone to release and the reverb to bloom out,
-which is the last thing the breather hears. Being tapped away or swiped past is a
+makes. Reaching the last leg is the exercise finishing on its own terms and settles
+over exactly as long as the reverb runs — the fade sits after the convolver, so
+anything shorter silences the room mid-decay and that cut is the last thing the
+breather hears. Both fades are drawn as curves rather than one ramp, for the reason
+every other envelope here is: a straight line in linear amplitude holds up near full
+for most of its length and then drops out from under a logarithmic ear. Being tapped away or swiped past is a
 response to someone who has already left, and gets a short one. Both arrive as
 `running` turning false, so the step hands the hook a **ref** saying which — set
 inside the handler, before React re-renders, because the cleanup that reads it closes

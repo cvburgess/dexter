@@ -9,6 +9,7 @@ import {
 
 import {
   buildBreathAudioSchedule,
+  easeOut,
   type TBreathAudioVoice,
   type TBreathePlan,
 } from "@/utils/breathing";
@@ -173,9 +174,9 @@ const PEAK: Record<TBreathAudioVoice, number> = {
  * the same split `useHoroscopeAudio` makes, for the same reason.
  *
  * A run that **reached its end** is the exercise finishing on its own terms, so
- * it can take its time: long enough for the last tone to release and for the
- * reverb to bloom out rather than be chopped off a fifth of the way through its
- * tail. That settle is the last thing the breather hears.
+ * it takes exactly as long as the reverb does. Anything shorter truncates the
+ * tail — the fade sits after the convolver, so it silences the room mid-decay,
+ * and that cut is the last thing the breather hears.
  *
  * A run that was **tapped away or swiped past** is a response to someone who has
  * already left, and anything slow follows them onto the next screen.
@@ -183,8 +184,20 @@ const PEAK: Record<TBreathAudioVoice, number> = {
  * Either way it rides a master gain *after* the reverb rather than the voices
  * before it, so the tail goes down with everything else.
  */
-const END_FADE_MS = 2500;
+const END_FADE_MS = REVERB_SECONDS * 1000;
 const EXIT_FADE_MS = 600;
+
+/**
+ * How many segments the fade is drawn in.
+ *
+ * A fade has to be a *curve* for the same reason every other envelope here is.
+ * One straight ramp to zero was the last audibly jarring thing left: gain is
+ * linear amplitude and hearing is roughly logarithmic, so a straight line holds
+ * up near full for most of its length and then drops out from under you at the
+ * end. Easing it puts most of the travel early and leaves a long quiet tail,
+ * which is what a room actually does.
+ */
+const FADE_STEPS = 12;
 
 /** A voice: its oscillators, the gain they share, and that gain's ceiling. */
 type TVoice = {
@@ -343,9 +356,17 @@ export function useBreathAudio(
         const endsAt = now + fadeMs / 1000;
 
         // One fade, after the reverb, so the tail goes down with the voices
-        // instead of ringing on into a closed context.
+        // instead of ringing on into a closed context. Drawn as a curve rather
+        // than a single ramp — see FADE_STEPS. Starting from 1 is safe because
+        // nothing else ever automates the master.
         master.gain.cancelAndHoldAtTime(now);
-        master.gain.linearRampToValueAtTime(0, endsAt);
+        for (let step = 1; step <= FADE_STEPS; step += 1) {
+          const t = step / FADE_STEPS;
+          master.gain.linearRampToValueAtTime(
+            1 - easeOut(t),
+            now + (endsAt - now) * t,
+          );
+        }
 
         for (const voice of Object.values(voices)) {
           for (const oscillator of voice.oscillators) oscillator.stop(endsAt);

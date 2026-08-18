@@ -412,7 +412,7 @@ const CURVE_STEPS = 12;
  *
  * Exact at both ends — `Math.sin(0)` is 0 and `Math.sin(Math.PI / 2)` is 1.
  */
-const easeOut = (t: number): number => Math.sin((Math.PI / 2) * t);
+export const easeOut = (t: number): number => Math.sin((Math.PI / 2) * t);
 
 /**
  * How much of its own leg a tone spends rising, as a fraction.

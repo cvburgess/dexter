@@ -112,7 +112,7 @@ jest.mock("expo-router", () => {
   };
 });
 
-const END_FADE_MS = 2500;
+const END_FADE_MS = 4000;
 const EXIT_FADE_MS = 600;
 
 // Gains in the order the hook builds them: the master everything lands on, the
