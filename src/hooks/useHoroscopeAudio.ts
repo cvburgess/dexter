@@ -1,6 +1,15 @@
-import { AudioPlayer, AudioSource, createAudioPlayer } from "expo-audio";
+import { Asset } from "expo-asset";
 import { useFocusEffect } from "expo-router";
 import { useCallback } from "react";
+import { Platform } from "react-native";
+import {
+  AudioContext,
+  type AudioBufferSourceNode,
+  type GainNode,
+  decodeAudioData,
+} from "react-native-audio-api";
+
+import "@/utils/audio";
 
 /**
  * The track. `require` rather than an `import`, and typed at the call site
@@ -9,7 +18,24 @@ import { useCallback } from "react";
  * for a specifier it could *not* resolve, so the wildcard never fires and the
  * import fails to parse the binary instead. See `global.d.ts`.
  */
-const TRACK = require<AudioSource>("@/assets/sounds/horoscope.m4a");
+const TRACK = require<number>("@/assets/sounds/horoscope.m4a");
+
+/**
+ * What the decoder is handed, per platform. The `require()` module id above is
+ * native-only: `react-native-web`'s `Image` does not export
+ * `resolveAssetSource`, so the web decoder throws a `TypeError` for a number.
+ * `expo-asset` resolves the id to a URL, which the web decoder can fetch.
+ */
+const DECODE_INPUT: number | string =
+  Platform.OS === "web" ? Asset.fromModule(TRACK).uri : TRACK;
+
+/**
+ * The track, decoded once at module scope so re-entering the step never
+ * re-decodes. `AudioBuffer` is not context-bound, so the cached buffer outlives
+ * the contexts that play it. It being a promise is the one thing the hook must
+ * defend against: focus can blur while it is still settling (see `cancelled`).
+ */
+const trackBuffer = decodeAudioData(DECODE_INPUT);
 
 /**
  * How long before the track's own end the volume starts falling away.
@@ -29,9 +55,6 @@ const TAIL_FADE_MS = 5000;
  */
 const EXIT_FADE_MS = 2000;
 
-/** How often either fade recomputes. 20fps — inaudible as steps, and cheap. */
-const TICK_MS = 50;
-
 /**
  * The loudest the track ever gets.
  *
@@ -50,58 +73,50 @@ const TICK_MS = 50;
  */
 const MAX_VOLUME = 0.1;
 
-const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
-
 /**
- * The player currently fading out, if one is.
+ * The context currently fading out, if one is.
  *
  * **Module scope rather than a ref, and it has to be.** The exit fade outlives
  * the thing that started it: come back inside those two seconds and the old
- * player is still going, so starting a new one lays the same track over itself
- * at two different positions — an echo, not ambience. A ref would catch the
- * blur-then-focus case, where the component instance is the same, but not the
- * swipe-away-and-back one, where `SwipeablePage` has remounted the step and the
- * new instance's ref is empty. Only one thing on screen ever plays this, so one
- * module-level slot is the whole state.
+ * context is still going, so starting a new one lays the same track over
+ * itself at two different positions — an echo, not ambience. A ref would catch
+ * the blur-then-focus case, where the component instance is the same, but not
+ * the swipe-away-and-back one, where `SwipeablePage` has remounted the step and
+ * the new instance's ref is empty. Only one thing on screen ever plays this, so
+ * one module-level slot is the whole state.
  */
 let fadingOut: {
-  player: AudioPlayer;
-  timer: ReturnType<typeof setInterval>;
+  context: AudioContext;
+  timer: ReturnType<typeof setTimeout>;
 } | null = null;
 
 /**
  * Ends any fade still in flight, at once.
  *
- * Cutting a player mid-fade is safe here precisely because it is mid-*fade*: it
- * is at `MAX_VOLUME` at the very loudest, and the track replacing it opens at
- * exactly that level, so the seam is covered rather than heard.
+ * Closing a context mid-fade is safe here precisely because it is mid-*fade*:
+ * it is at `MAX_VOLUME` at the very loudest, and the track replacing it opens
+ * at exactly that level, so the seam is covered rather than heard.
  */
 const stopFadingOut = () => {
   if (!fadingOut) return;
 
-  clearInterval(fadingOut.timer);
-  fadingOut.player.remove();
+  clearTimeout(fadingOut.timer);
+  void fadingOut.context.close();
   fadingOut = null;
 };
 
 /**
  * Plays the Horoscope step's track for as long as the step is on screen.
  *
- * **Built on `createAudioPlayer` rather than the `useAudioPlayer` hook, and the
- * difference is the whole point.** That hook releases its player the moment the
- * component unmounts, which cuts the audio dead mid-note — there is no window
- * left in which to fade anything. Owning the player means the cleanup can ride
- * the volume down over `EXIT_FADE_MS` and only then release it, so leaving the
- * step sounds like leaving rather than like a failure.
+ * **The graph is `AudioContext` → `AudioBufferSourceNode` → `GainNode` →
+ * destination**, the same shape as `useBreathAudio`, and both fades are
+ * scheduled ramps on the audio clock rather than `setInterval` writes: the
+ * tail lands on the end of the buffer, and the exit is a `cancelAndHoldAtTime`
+ * plus a ramp scheduled when the step goes away. Nothing ticks while the track
+ * plays, so nothing can drift off the audio.
  *
- * That also means **this hook, not React, owns the lifetime**: every path out
- * has to end in `remove()`, or the player outlives the screen and keeps
- * playing to nobody.
- *
- * The tail fade reads `currentTime` off the player each tick rather than
- * counting up from when playback started. It is self-correcting that way —
- * timer drift, a slow first frame, or the player taking a moment to actually
- * begin all leave the fade landing on the end of the audio rather than near it.
+ * **Decoded once at module scope**, so a re-entry starts immediately rather
+ * than re-decoding ~6MB of PCM.
  *
  * **`useFocusEffect`, not `useEffect`.** A tab navigator keeps its screens
  * mounted when you switch away, so an unmount-scoped effect never cleans up and
@@ -110,68 +125,86 @@ const stopFadingOut = () => {
  * fires the same cleanup on blur as on unmount, so leaving by tab fades exactly
  * like leaving by swipe.
  *
- * **None of the volume work happens in a browser on iOS.** Apple reserves
- * `HTMLMediaElement.volume` to the hardware buttons and ignores writes to it,
- * so on an iPhone or iPad browser the track plays at device volume and *cuts*
- * at the end rather than fading — `expo-audio` logs a one-time warning saying
- * so. There is no workaround short of routing through the Web Audio API and its
- * own gain node. Native and desktop browsers are unaffected; this is worth
- * knowing before anyone reads a report of "the fade does nothing" as a bug in
- * the arithmetic here.
+ * **The fades work in a browser on iOS, which the media player they replaced
+ * could not do.** Apple reserves `HTMLMediaElement.volume` for the hardware
+ * buttons and ignores writes to it, so the old player on iPhone or iPad web
+ * ran at device volume and *cut* rather than fading. A `GainNode` is not
+ * subject to that rule. Native and desktop browsers were unaffected before and
+ * still are.
  *
  * Deliberately **not** looping, and deliberately not gated on a preference:
  * there is no "sounds" setting to hang it off yet. iOS's default audio mode is
- * respected, so a phone on silent stays silent — `expo-audio` only overrides
- * that if `setAudioModeAsync` asks it to, and nothing here does.
+ * respected, so a phone on silent stays silent — `utils/audio.ts` turns off
+ * session management, and nothing here turns it back on.
  */
 export function useHoroscopeAudio(enabled: boolean) {
   useFocusEffect(
     useCallback(() => {
       if (!enabled) return;
 
-      // Before anything is created, so at most one player is ever audible.
+      // Before anything is created, so at most one track is ever audible.
       stopFadingOut();
 
-      const player = createAudioPlayer(TRACK);
-      player.loop = false;
-      player.volume = MAX_VOLUME;
-      player.play();
+      // Focus can blur while the decode is still settling — only the first
+      // entry pays for it, but that first entry is exactly when the step is
+      // most likely to be swiped away. `useFocusEffect`'s callback cannot
+      // await, so the cleanup below flags this instead, and the continuation
+      // checks it before creating anything — otherwise a blur during the
+      // first load leaves a source running with no cleanup registered.
+      let cancelled = false;
+      let context: AudioContext | null = null;
+      let source: AudioBufferSourceNode | null = null;
+      let gain: GainNode | null = null;
 
-      const tail = setInterval(() => {
-        // `duration` is 0 until the track has loaded; dividing by it early
-        // would silence the opening rather than leave it alone.
-        if (!player.duration) return;
-        const remainingMs = (player.duration - player.currentTime) * 1000;
-        player.volume = MAX_VOLUME * clamp01(remainingMs / TAIL_FADE_MS);
-      }, TICK_MS);
+      void trackBuffer.then((buffer) => {
+        if (cancelled) return;
+
+        context = new AudioContext();
+        const startedAt = context.currentTime;
+        const endsAt = startedAt + buffer.duration;
+
+        source = context.createBufferSource();
+        source.buffer = buffer;
+
+        gain = context.createGain();
+        // Hold the ceiling from the start (a fresh gain defaults to 1), then
+        // anchor it again where the tail begins — a ramp runs from the
+        // previous event, so without the second set it would slope over the
+        // whole track instead of the last seconds.
+        gain.gain.setValueAtTime(MAX_VOLUME, startedAt);
+        gain.gain.setValueAtTime(
+          MAX_VOLUME,
+          Math.max(startedAt, endsAt - TAIL_FADE_MS / 1000),
+        );
+        gain.gain.linearRampToValueAtTime(0, endsAt);
+
+        source.connect(gain);
+        gain.connect(context.destination);
+        source.start(startedAt);
+      });
 
       return () => {
-        clearInterval(tail);
+        cancelled = true;
+        if (!context || !source || !gain) return;
 
-        // Timestamped rather than accumulated: a 2s ramp built by adding up
-        // `TICK_MS` drifts as soon as a tick runs late, and this one runs while
-        // the app is busy tearing a screen down.
-        const startedAt = Date.now();
-        const from = player.volume;
+        // The track's own tail ramp is still scheduled; hold the gain where
+        // the fade finds it and ride it down over the exit fade instead.
+        const ctx = context;
+        const now = ctx.currentTime;
+        const endsAt = now + EXIT_FADE_MS / 1000;
+        gain.gain.cancelAndHoldAtTime(now);
+        gain.gain.linearRampToValueAtTime(0, endsAt);
+        source.stop(endsAt);
 
-        const exit = setInterval(() => {
-          const progress = (Date.now() - startedAt) / EXIT_FADE_MS;
+        // Closing tears the context down wherever it is, so it waits out the
+        // fade. A timer only because `close()` has no scheduled form.
+        const timer = setTimeout(() => {
+          void ctx.close();
+          // A new entry may already have claimed the slot.
+          if (fadingOut?.context === ctx) fadingOut = null;
+        }, EXIT_FADE_MS);
 
-          if (progress >= 1) {
-            // Cleared *before* `remove()`: touching `volume` on a released
-            // player is a use-after-free, and one more tick is already queued.
-            clearInterval(exit);
-            player.remove();
-            // Guarded: a re-entry may already have cleared this slot and put
-            // its own player in it, and blanking that would strand it.
-            if (fadingOut?.player === player) fadingOut = null;
-            return;
-          }
-
-          player.volume = from * (1 - progress);
-        }, TICK_MS);
-
-        fadingOut = { player, timer: exit };
+        fadingOut = { context: ctx, timer };
       };
     }, [enabled]),
   );
