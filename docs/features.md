@@ -250,6 +250,31 @@ and pre-rendering was rejected because files force a per-duration asset matrix a
 a JS timer to fire them. `buildBreathAudioSchedule` puts the entire run on the audio
 clock at Begin instead; `useBreathAudio` holds the tuning, and needs a dev-client rebuild.
 
+**Scheduling it all upfront caps what one `AudioParam` may carry.**
+`react-native-audio-api` bounds every param's automation queues at 64 events and
+drops the rest *silently* — no error, no warning, the param just stops changing
+and its chord drones on. A staircase of ramps overran that on the third breath
+and lost the leg's release (DEX-187), so each leg is **two `setValueCurveAtTime`
+calls** instead: a curve is one event however finely it is sampled. Browsers
+impose no such bound, so it only ever misbehaved on device.
+
+**A voice's filter may only feed one gain.** `GainNode` multiplies its input
+buffer in place, and the graph hands every consumer of a node the same buffer —
+so a filter fanned out to several gains has each of them scaling the output of
+the ones before it. The obvious fix for the overflow above was a gain per leg;
+it is unusable, and it sounds like scratchy, half-silent phases rather than
+anything that reads as a wiring mistake.
+
+**The peak of a run is the end of a leg, not the middle.** Every voice reaches
+full a third of the way in and holds there, so the loudest moment is the end of
+an exhale — the lowest chord, on the only sawtooth, with six oscillators whose
+detuning drifts into alignment every ten-odd seconds. That, against a reverb
+tail holding energy from every voice at once, was clipping — hence the master's
+headroom, and part of why the tail is a second rather than the four it started
+at. The settle after a finished run takes its length from that tail, but as a
+*floor*: it also has to stay longer than the fade a quit gets, or completing the
+exercise would end more abruptly than abandoning it.
+
 ### Horoscope step (DEX-128, re-shaped in DEX-145)
 
 Read-only client of `public.horoscopes` (`["horoscopes", sunSign, date]`),

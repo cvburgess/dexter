@@ -2,7 +2,12 @@ import { renderHook } from "@testing-library/react-native";
 import { AudioManager } from "react-native-audio-api";
 
 import { useBreathAudio } from "@/hooks/useBreathAudio";
-import { buildBreathePlan, type TBreathePlan } from "@/utils/breathing";
+import {
+  BREATH_AUDIO_MAX_EVENTS_PER_PARAM,
+  buildBreathePlan,
+  MAX_BREATHS,
+  type TBreathePlan,
+} from "@/utils/breathing";
 
 // An audio graph this file can read back. Everything the hook does is scheduled
 // against `currentTime` on gain and frequency params, so those calls are the
@@ -12,6 +17,7 @@ const mockParam = () => ({
   cancelAndHoldAtTime: jest.fn(),
   linearRampToValueAtTime: jest.fn(),
   setValueAtTime: jest.fn(),
+  setValueCurveAtTime: jest.fn(),
 });
 
 type TMockOscillator = {
@@ -112,8 +118,11 @@ jest.mock("expo-router", () => {
   };
 });
 
-const END_FADE_MS = 4000;
+const END_FADE_MS = 3000;
 const EXIT_FADE_MS = 1500;
+// Mirrors the hook's own lead-in: a run is scheduled a beat ahead of the
+// context clock so `setValueCurveAtTime` never clamps a start time forward.
+const LEAD_IN_SECONDS = 0.05;
 
 // Gains in the order the hook builds them: the master everything lands on, the
 // reverb's wet and dry sides, then one per voice. Counted from the end rather
@@ -179,7 +188,7 @@ describe("useBreathAudio", () => {
     expect(mockContext.createConvolver).toHaveBeenCalledTimes(1);
 
     for (const gain of voiceGains()) {
-      expect(gain.gain.setValueAtTime).toHaveBeenCalledWith(0, 0);
+      expect(gain.gain.setValueAtTime).toHaveBeenCalledWith(0, LEAD_IN_SECONDS);
     }
     expect(mockOscillators.every((o) => o.start.mock.calls.length === 1)).toBe(
       true,
@@ -195,12 +204,125 @@ describe("useBreathAudio", () => {
     );
 
     const times = voiceGains().flatMap((gain) =>
-      (gain.gain.linearRampToValueAtTime.mock.calls as [number, number][]).map(
-        ([, at]) => at,
-      ),
+      (
+        gain.gain.setValueCurveAtTime.mock.calls as [
+          Float32Array,
+          number,
+          number,
+        ][]
+      ).map(([, at]) => at),
     );
     expect(times.length).toBeGreaterThan(0);
     expect(Math.min(...times)).toBeGreaterThan(40);
+  });
+
+  // DEX-187: the library caps a param's queues and drops the overflow in
+  // silence, so a voice that overran simply stopped changing and droned under
+  // the rest of the run. Two curves a leg rather than a staircase of ramps is
+  // what keeps it clear. The longest run the slider offers is the worst case.
+  it("keeps every gain inside the library's automation budget", () => {
+    renderHook(() =>
+      useBreathAudio(buildBreathePlan("box", MAX_BREATHS), true, quitRef()),
+    );
+
+    for (const { gain } of mockGains) {
+      const events =
+        gain.setValueAtTime.mock.calls.length +
+        gain.linearRampToValueAtTime.mock.calls.length +
+        gain.setValueCurveAtTime.mock.calls.length;
+      expect(events).toBeLessThanOrEqual(BREATH_AUDIO_MAX_EVENTS_PER_PARAM);
+    }
+  });
+
+  // A filter feeding more than one gain would have each of them scaling its
+  // output buffer in turn — a gain multiplies its input in place, and the graph
+  // hands every consumer the same buffer. That is audible as scratchy,
+  // half-silent phases, so the voice count is what the graph is pinned to.
+  it("keeps one gain per voice however long the run is", () => {
+    renderHook(() =>
+      useBreathAudio(buildBreathePlan("box", MAX_BREATHS), true, quitRef()),
+    );
+
+    // The master, the reverb's wet and dry sides, and one gain per voice.
+    expect(mockGains.length).toBe(3 + 4);
+  });
+
+  // `setValueCurveAtTime` is not forgiving: the library refuses a curve whose
+  // window is not clear, and refusing means an exception out of Begin rather
+  // than a slightly wrong sound. This replays its own rule
+  // (`ParamControlQueue::checkCurveExclusion`) over the exact times the hook
+  // schedules — the only way to see this without a device.
+  //
+  // The clock is deliberately an ugly number: the curve times are reached by
+  // different arithmetic on the way in, so a schedule sitting on exact
+  // adjacency would be one float rounding away from throwing.
+  it.each(["simple", "relax", "box"] as const)(
+    "schedules curves the library will not reject (%s)",
+    (technique) => {
+      mockContext.currentTime = 40.0517;
+      renderHook(() =>
+        useBreathAudio(
+          buildBreathePlan(technique, MAX_BREATHS),
+          true,
+          quitRef(),
+        ),
+      );
+
+      for (const { gain } of mockGains) {
+        const curves = (
+          gain.setValueCurveAtTime.mock.calls as [
+            Float32Array,
+            number,
+            number,
+          ][]
+        ).map(([, at, duration]) => ({ at, end: at + duration }));
+        const instants = (
+          gain.setValueAtTime.mock.calls as [number, number][]
+        ).map(([, at]) => at);
+        const everyStart = [...instants, ...curves.map((c) => c.at)];
+
+        curves.forEach((curve, index) => {
+          // Rule one: nothing may start strictly inside this curve's window.
+          for (const start of everyStart) {
+            if (start > curve.at && start < curve.end) {
+              throw new Error(
+                `event at ${start} falls inside curve ${curve.at}..${curve.end}`,
+              );
+            }
+          }
+          // Rule two: a curve already under way at this one's start is a
+          // conflict — landing exactly on its close is what is allowed.
+          curves.forEach((other, otherIndex) => {
+            if (otherIndex === index || other.at > curve.at) return;
+            expect(curve.at).toBeGreaterThanOrEqual(other.end);
+          });
+        });
+      }
+    },
+  );
+
+  // The fade shape falls from 1 to 0 and has to be scaled by wherever the
+  // master sits, or its first ramp opens *above* the level the run was playing
+  // at — a step up in volume at the moment someone taps away.
+  it("never fades from louder than the run was playing", () => {
+    const { rerender } = renderHook<void, { running: boolean }>(
+      ({ running }) =>
+        useBreathAudio(buildBreathePlan("box", 2), running, quitRef()),
+      { initialProps: { running: true } },
+    );
+
+    const [[level]] = masterGain().setValueAtTime.mock.calls as [
+      number,
+      number,
+    ][];
+    rerender({ running: false });
+
+    for (const [value] of masterGain().linearRampToValueAtTime.mock.calls as [
+      number,
+      number,
+    ][]) {
+      expect(value).toBeLessThanOrEqual(level);
+    }
   });
 
   it("fades out through the master and releases the context on the way out", () => {
@@ -247,6 +369,14 @@ describe("useBreathAudio", () => {
     expect(mockClose).not.toHaveBeenCalled();
     jest.advanceTimersByTime(END_FADE_MS);
     expect(mockClose).toHaveBeenCalled();
+  });
+
+  // The name of the test above is the invariant, and it used to hold only by
+  // arithmetic accident: the settle was the reverb's length outright, so
+  // shortening the reverb past the exit fade would have had finishing the
+  // exercise cut off faster than walking away from it.
+  it("gives a finished run a longer ending than a quit, whatever the reverb", () => {
+    expect(END_FADE_MS).toBeGreaterThan(EXIT_FADE_MS);
   });
 
   it("silences a run that is tapped away rather than finished", () => {

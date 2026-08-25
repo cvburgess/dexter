@@ -362,23 +362,45 @@ export const breathePlanEndsEmpty = (plan: TBreathePlan): boolean =>
 export type TBreathAudioVoice =
   "inhale" | "inhaleHold" | "exhale" | "exhaleHold";
 
-// `value` is normalized 0-1, not a gain — the hook multiplies by its own peak,
-// so nothing about how loud the exercise is leaks in here.
-export type TBreathAudioRamp = {
+/**
+ * One envelope a voice's gain follows: a shape, when it starts, and how long it
+ * takes. Two per sounding leg — the rise across the leg, then the fall over the
+ * opening of the next.
+ *
+ * `values` is normalized 0-1, not a gain — the hook multiplies by its own peak,
+ * so nothing about how loud the exercise is leaks in here. Samples are evenly
+ * spaced across `durationMs`, which is what `setValueCurveAtTime` expects.
+ */
+export type TBreathAudioCurve = {
   voice: TBreathAudioVoice;
   /** Milliseconds from the start of the run. */
   atMs: number;
-  value: number;
-  /**
-   * `set` anchors where a ramp starts from. `linearRampToValueAtTime` glides
-   * from the previous scheduled *event*, so an unanchored one slides across it.
-   */
-  kind: "set" | "ramp";
+  durationMs: number;
+  values: readonly number[];
 };
 
-// `setValueCurveAtTime` would express a curve exactly, but it throws if any
-// automation overlaps it — a whole dead feature rather than a slightly wrong sound.
-const CURVE_STEPS = 12;
+/**
+ * How finely a curve is sampled.
+ *
+ * This costs nothing per point: the whole shape is **one** automation event
+ * however many samples describe it, which is the entire reason for using curves
+ * over a staircase of ramps. High enough that the slowest leg — eight seconds of
+ * Relax's exhale — still gets a breakpoint every ~60ms.
+ */
+const CURVE_POINTS = 128;
+
+/**
+ * The sliver of silence between a leg's rise and its own fall.
+ *
+ * Not cosmetic. A curve is rejected if anything starts *strictly inside* its
+ * window, so a fall beginning exactly where its rise ended is legal — but only
+ * if the two times are bit-identical doubles, and they are reached by different
+ * arithmetic (`at(start) + leg.ms/1000` against `at(start + leg.ms)`). One ULP
+ * of drift the wrong way and the whole run throws instead of sounding. A
+ * millisecond is many orders of magnitude clear of that, and the param simply
+ * holds its last value across it — the curve had already reached full.
+ */
+const CURVE_GAP_MS = 1;
 
 // Steepest at the start, flattening into the finish. A curve eased at *both*
 // ends has zero slope at zero, which is audible as a delay.
@@ -388,9 +410,24 @@ export const easeOut = (t: number): number => Math.sin((Math.PI / 2) * t);
 // the shape of.
 export const easeInOut = (t: number): number => (1 - Math.cos(Math.PI * t)) / 2;
 
+/**
+ * The most automation events one `AudioParam` will hold.
+ *
+ * `react-native-audio-api` bounds *both* of a param's queues at this
+ * (`AUDIO_PARAM_MAX_QUEUED_EVENTS`, `core/utils/Constants.h`) and past it
+ * `push` returns false and the event is **dropped silently** — no error, no
+ * warning, the param simply stops changing and holds its last value. The
+ * envelope used to be a staircase of 25 `linearRampToValueAtTime` calls per
+ * leg, which at three breaths — the app's default — overran the queue partway
+ * through the third leg and lost its release, so the chord never came back down
+ * and droned under the rest of the run. That was DEX-187. Two curves per leg
+ * puts a ten-breath run at 21 events, and browsers have no such bound anyway.
+ */
+export const BREATH_AUDIO_MAX_EVENTS_PER_PARAM = 64;
+
 // Reaching full only as a leg ended made the clearest moment of every phase the
 // moment it was over.
-const ATTACK_RATIO = 8 / CURVE_STEPS;
+const ATTACK_RATIO = 2 / 3;
 
 // How much of the *next* leg a finished tone releases over. Too high and the
 // phase you left is still sounding well into the one you are in.
@@ -409,18 +446,36 @@ const voiceFor = (
   return (plan.levels[index - 1] ?? 0) === 1 ? "inhaleHold" : "exhaleHold";
 };
 
+/** A shape sampled evenly from 0 to 1 inclusive, ready for a curve. */
+const sample = (shape: (t: number) => number): number[] =>
+  Array.from({ length: CURVE_POINTS }, (_, index) =>
+    shape(index / (CURVE_POINTS - 1)),
+  );
+
+// Full once the attack is done, and held there for the rest of the leg.
+const ATTACK = sample((t) =>
+  t >= ATTACK_RATIO ? 1 : easeOut(t / ATTACK_RATIO),
+);
+const RELEASE = sample((t) => 1 - easeOut(t));
+
 /**
- * Every gain change of one run (DEX-167), scheduled on the audio clock the
- * moment Begin is pressed — so nothing recomputes per leg and nothing drifts.
+ * Every envelope of one run (DEX-167), scheduled on the audio clock the moment
+ * Begin is pressed — so nothing recomputes per leg and nothing drifts.
  *
  * Each leg's tone rises across its own leg and releases over the opening of the
  * next, leaving two chords always crossfading. Entries are in time order **per
  * voice**, which is the ordering `AudioParam` automation actually cares about.
+ *
+ * **Two events per leg, not twenty-five.** A curve is one event however finely
+ * it is sampled, which is what keeps a ten-breath run inside
+ * `BREATH_AUDIO_MAX_EVENTS_PER_PARAM`. A leg's rise ends exactly where its fall
+ * begins, which the library allows: events strictly inside a curve's window
+ * collide with it, events landing on the boundary do not.
  */
 export const buildBreathAudioSchedule = (
   plan: TBreathePlan,
-): readonly TBreathAudioRamp[] => {
-  const schedule: TBreathAudioRamp[] = [];
+): readonly TBreathAudioCurve[] => {
+  const schedule: TBreathAudioCurve[] = [];
   let start = 0;
 
   plan.session.forEach((leg, index) => {
@@ -434,26 +489,13 @@ export const buildBreathAudioSchedule = (
     // and the exit fade catches the rest.
     const fallMs = (plan.session[index + 1]?.ms ?? leg.ms) * RELEASE_RATIO;
 
-    schedule.push({ voice, atMs: start, value: 0, kind: "set" });
-    for (let step = 1; step <= CURVE_STEPS; step += 1) {
-      const t = step / CURVE_STEPS;
-      schedule.push({
-        voice,
-        atMs: start + leg.ms * t,
-        // Full once the attack is done, and held there for the rest of the leg.
-        value: t >= ATTACK_RATIO ? 1 : easeOut(t / ATTACK_RATIO),
-        kind: "ramp",
-      });
-    }
-    for (let step = 1; step <= CURVE_STEPS; step += 1) {
-      const t = step / CURVE_STEPS;
-      schedule.push({
-        voice,
-        atMs: end + fallMs * t,
-        value: 1 - easeOut(t),
-        kind: "ramp",
-      });
-    }
+    schedule.push({
+      voice,
+      atMs: start,
+      durationMs: leg.ms - CURVE_GAP_MS,
+      values: ATTACK,
+    });
+    schedule.push({ voice, atMs: end, durationMs: fallMs, values: RELEASE });
 
     start = end;
   });
