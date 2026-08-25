@@ -121,11 +121,10 @@ const END_FADE_MS = 4000;
 const EXIT_FADE_MS = 1500;
 
 // Gains in the order the hook builds them: the master everything lands on, the
-// reverb's wet and dry sides, then one per sounding leg. Counted from the end
-// rather than named individually, so adding or dropping a voice does not touch
-// this.
+// reverb's wet and dry sides, then one per voice. Counted from the end rather
+// than named individually, so adding or dropping a voice does not touch this.
 const masterGain = () => mockGains[0].gain;
-const legGains = () => mockGains.slice(3);
+const voiceGains = () => mockGains.slice(3);
 
 /** How the step reports an ending: a run that was cut off, or one that finished. */
 const quitRef = () => ({ current: false });
@@ -178,13 +177,13 @@ describe("useBreathAudio", () => {
     );
 
     expect(mockOscillators.length).toBeGreaterThan(0);
-    // One filter per voice, one reverb for all of them. Four voices, not one
-    // per leg — a leg gain is created for every sounding leg, so tying the
-    // count to the gains would only hold while both happen to be four.
-    expect(mockContext.createBiquadFilter).toHaveBeenCalledTimes(4);
+    // One filter per voice, one reverb for all of them.
+    expect(mockContext.createBiquadFilter).toHaveBeenCalledTimes(
+      voiceGains().length,
+    );
     expect(mockContext.createConvolver).toHaveBeenCalledTimes(1);
 
-    for (const gain of legGains()) {
+    for (const gain of voiceGains()) {
       expect(gain.gain.setValueAtTime).toHaveBeenCalledWith(0, 0);
     }
     expect(mockOscillators.every((o) => o.start.mock.calls.length === 1)).toBe(
@@ -200,7 +199,7 @@ describe("useBreathAudio", () => {
       useBreathAudio(buildBreathePlan("simple", 1), true, quitRef()),
     );
 
-    const times = legGains().flatMap((gain) =>
+    const times = voiceGains().flatMap((gain) =>
       (gain.gain.linearRampToValueAtTime.mock.calls as [number, number][]).map(
         ([, at]) => at,
       ),
@@ -209,10 +208,12 @@ describe("useBreathAudio", () => {
     expect(Math.min(...times)).toBeGreaterThan(40);
   });
 
-  // The library caps one param's automation queue at 64 events and drops the
-  // rest, silently. One gain per *voice* would stack every leg it sounds onto
-  // one queue — a 3-breath run (the default) pushes 76 and loses the final
-  // inhale's release, the DEX-187 blur. Each leg gain stays at a fixed 26.
+  // The library caps one param's automation queue and drops the rest,
+  // silently — a voice gain stacks every leg it sounds onto one queue, so the
+  // longest allowed run has to stay within the budget the patch raises the
+  // native cap to (see BREATH_AUDIO_MAX_EVENTS_PER_PARAM). This is the guard
+  // that would have caught DEX-187: the default 3-breath run puts 76 events
+  // on a voice gain, past the stock 64.
   it("keeps every gain param within the library's event budget", () => {
     renderHook(() =>
       useBreathAudio(buildBreathePlan("box", MAX_BREATHS), true, quitRef()),
@@ -224,14 +225,6 @@ describe("useBreathAudio", () => {
         gain.linearRampToValueAtTime.mock.calls.length;
       expect(events).toBeLessThanOrEqual(BREATH_AUDIO_MAX_EVENTS_PER_PARAM);
     }
-  });
-
-  it("builds one gain per sounding leg, not one per voice", () => {
-    const plan = buildBreathePlan("simple", 2);
-    renderHook(() => useBreathAudio(plan, true, quitRef()));
-
-    // The master, the wet and dry sides, then one gain per leg of the run.
-    expect(mockGains.length).toBe(3 + plan.session.length);
   });
 
   it("fades out through the master and releases the context on the way out", () => {

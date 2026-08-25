@@ -2,7 +2,6 @@ import { useFocusEffect } from "expo-router";
 import { type RefObject, useCallback, useRef } from "react";
 import {
   AudioContext,
-  type BiquadFilterNode,
   type GainNode,
   type OscillatorNode,
 } from "react-native-audio-api";
@@ -12,7 +11,6 @@ import {
   buildBreathAudioSchedule,
   easeInOut,
   easeOut,
-  type TBreathAudioRamp,
   type TBreathAudioVoice,
   type TBreathePlan,
 } from "@/utils/breathing";
@@ -95,13 +93,10 @@ const stopFadingOut = () => {
   fadingOut = null;
 };
 
-/**
- * A voice: its oscillators, the lowpass they share, and the ceiling each leg's
- * gain is capped at. The gain is *not* here — it belongs to the leg, see below.
- */
+/** A voice: its oscillators, the gain they share, and that gain's ceiling. */
 type TVoice = {
   oscillators: OscillatorNode[];
-  lowpass: BiquadFilterNode;
+  gain: GainNode;
   peak: number;
 };
 
@@ -169,9 +164,16 @@ export function useBreathAudio(
       dry.connect(master);
 
       const createVoice = (which: TBreathAudioVoice): TVoice => {
+        const gain = context.createGain();
+        // Silent until the schedule opens it.
+        gain.gain.setValueAtTime(0, startedAt);
+        gain.connect(dry);
+        gain.connect(reverb);
+
         const lowpass = context.createBiquadFilter();
         lowpass.type = "lowpass";
         lowpass.frequency.setValueAtTime(LOWPASS_HZ[which], startedAt);
+        lowpass.connect(gain);
 
         const oscillators = CHORD[which].flatMap((hz) =>
           [-DETUNE_CENTS, DETUNE_CENTS].map((cents) => {
@@ -187,7 +189,7 @@ export function useBreathAudio(
 
         // Divided across the oscillators so a chord cannot sum past the ceiling
         // one note was set to.
-        return { oscillators, lowpass, peak: PEAK[which] / oscillators.length };
+        return { oscillators, gain, peak: PEAK[which] / oscillators.length };
       };
 
       const voices: Record<TBreathAudioVoice, TVoice> = {
@@ -197,37 +199,14 @@ export function useBreathAudio(
         exhaleHold: createVoice("exhaleHold"),
       };
 
-      // One gain per sounding leg, created on first sight of that leg's events.
-      // A gain per *voice* would stack every leg it sounds onto one param's
-      // queue, which `react-native-audio-api` caps at 64 events and then
-      // silently drops — a default 3-breath run overflows it (DEX-187). Each
-      // leg gain automates only its own 25 events, whatever the breath count.
-      const legGains = new Map<number, GainNode>();
-      const legGain = (step: TBreathAudioRamp): GainNode => {
-        let gain = legGains.get(step.legIndex);
-        if (!gain) {
-          gain = context.createGain();
-          // Silent until the schedule opens it.
-          gain.gain.setValueAtTime(0, startedAt);
-          voices[step.voice].lowpass.connect(gain);
-          gain.connect(dry);
-          gain.connect(reverb);
-          legGains.set(step.legIndex, gain);
-        }
-        return gain;
-      };
-
       for (const step of buildBreathAudioSchedule(plan)) {
-        const gain = legGain(step);
+        const { gain, peak } = voices[step.voice];
         const time = at(step.atMs);
 
         if (step.kind === "set") {
-          gain.gain.setValueAtTime(step.value * voices[step.voice].peak, time);
+          gain.gain.setValueAtTime(step.value * peak, time);
         } else {
-          gain.gain.linearRampToValueAtTime(
-            step.value * voices[step.voice].peak,
-            time,
-          );
+          gain.gain.linearRampToValueAtTime(step.value * peak, time);
         }
       }
 

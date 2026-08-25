@@ -366,8 +366,6 @@ export type TBreathAudioVoice =
 // so nothing about how loud the exercise is leaks in here.
 export type TBreathAudioRamp = {
   voice: TBreathAudioVoice;
-  /** The index into `plan.session` this event belongs to. */
-  legIndex: number;
   /** Milliseconds from the start of the run. */
   atMs: number;
   value: number;
@@ -383,18 +381,20 @@ export type TBreathAudioRamp = {
 const CURVE_STEPS = 12;
 
 /**
- * The most automation events one `AudioParam` will hold, and the reason the
- * hook builds a gain node per sounding leg instead of one per voice.
+ * The most automation events one `AudioParam` will hold, and the budget the
+ * whole-run schedule has to fit within.
  *
- * `react-native-audio-api` bounds every param's queue at this many events
+ * `react-native-audio-api` bounds every param's queue at 64 events
  * (`AUDIO_PARAM_MAX_QUEUED_EVENTS` in `core/utils/Constants.h`) and *drops*
- * anything past it, silently — no error, no warning. One gain per voice would
- * stack every leg it sounds onto that one queue: a default 3-breath run puts
- * 76 events on a voice's gain (the gate plus 25 per leg), overflowing it and
- * losing the final inhale's release, which is DEX-187. One gain per leg never
- * automates more than its own 25 plus the gate, whatever the breath count.
+ * anything past it, silently — no error, no warning. A gain per voice stacks
+ * every leg it sounds onto one queue: a default 3-breath run puts 76 events on
+ * a voice's gain (the gate plus 25 per leg), overflowing the stock cap and
+ * losing the final inhale's release — the DEX-187 blur. The patch in
+ * `patches/react-native-audio-api+0.13.3.patch` raises the cap to match this
+ * constant; the tests pin every allowed run under it, so the next retune that
+ * outgrows it fails in CI rather than blurring on a device.
  */
-export const BREATH_AUDIO_MAX_EVENTS_PER_PARAM = 64;
+export const BREATH_AUDIO_MAX_EVENTS_PER_PARAM = 512;
 
 // Steepest at the start, flattening into the finish. A curve eased at *both*
 // ends has zero slope at zero, which is audible as a delay.
@@ -431,8 +431,7 @@ const voiceFor = (
  *
  * Each leg's tone rises across its own leg and releases over the opening of the
  * next, leaving two chords always crossfading. Entries are in time order **per
- * leg** — which is also per voice — the ordering the hook's one-gain-per-leg
- * `AudioParam`s actually care about.
+ * voice**, which is the ordering `AudioParam` automation actually cares about.
  */
 export const buildBreathAudioSchedule = (
   plan: TBreathePlan,
@@ -451,18 +450,11 @@ export const buildBreathAudioSchedule = (
     // and the exit fade catches the rest.
     const fallMs = (plan.session[index + 1]?.ms ?? leg.ms) * RELEASE_RATIO;
 
-    schedule.push({
-      voice,
-      legIndex: index,
-      atMs: start,
-      value: 0,
-      kind: "set",
-    });
+    schedule.push({ voice, atMs: start, value: 0, kind: "set" });
     for (let step = 1; step <= CURVE_STEPS; step += 1) {
       const t = step / CURVE_STEPS;
       schedule.push({
         voice,
-        legIndex: index,
         atMs: start + leg.ms * t,
         // Full once the attack is done, and held there for the rest of the leg.
         value: t >= ATTACK_RATIO ? 1 : easeOut(t / ATTACK_RATIO),
@@ -473,7 +465,6 @@ export const buildBreathAudioSchedule = (
       const t = step / CURVE_STEPS;
       schedule.push({
         voice,
-        legIndex: index,
         atMs: end + fallMs * t,
         value: 1 - easeOut(t),
         kind: "ramp",

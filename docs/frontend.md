@@ -452,7 +452,7 @@ template change fails loudly — expect to re-anchor on SDK upgrades), and
 `6`, not `2`. `IS_TABLET` covers Catalyst (idiom `mac`); `isAlarmSupported`
 excludes it.
 
-Three native patches exist for this target (the first two compile-time-guarded and
+Four native patches exist for this target (the first two compile-time-guarded and
 inert on iOS):
 
 | Patch | Why |
@@ -460,6 +460,7 @@ inert on iOS):
 | `react-native+0.86.2.patch` | `UISwitch` resolves to an AppKit checkbox under the Mac idiom; sets sliding style and makes `RCTSwitchSize()` measure the same style. |
 | `@expo+ui+57.0.8.patch` | SwiftUI resolves `Menu` to an AppKit pull-down, replacing custom `IconMenu` labels. Upstream: expo/expo#48448. |
 | `expo-calendar+57.0.1.patch` | **Not Catalyst-specific** — `EKCalendarItem.calendar` is `null_unspecified` and a force-unwrap traps the JS thread. Upstream: expo/expo#48445. |
+| `react-native-audio-api+0.13.3.patch` | **Not Catalyst-specific** — `AUDIO_PARAM_MAX_QUEUED_EVENTS` 64→512: the automation queue silently drops events past the cap, so a default 3-breath Breathe run (76 events on a voice gain) lost its final inhale's release (DEX-187). Keep the constant in step with `BREATH_AUDIO_MAX_EVENTS_PER_PARAM`. |
 
 Not implemented: menu bar, multi-window, and any distribution path.
 
