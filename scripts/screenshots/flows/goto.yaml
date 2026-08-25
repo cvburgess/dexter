@@ -15,6 +15,17 @@ appId: com.dexterplanner
 ---
 - openLink: ${LINK}
 
+# iOS 26 confirms every custom-scheme link opened from outside the app with an
+# "Open in “Dexter”?" springboard alert, and `openLink` goes through
+# `simctl openurl`, so it always fires. Guarded on the alert's own title rather
+# than tapping a bare optional "Open" — that would be a regex free to match
+# anything in the app named Open once the alert is gone.
+- runFlow:
+    when:
+      visible: "Open in .Dexter.*"
+    commands:
+      - tapOn: "^Open$"
+
 - runFlow:
     when:
       true: ${ANCHOR_BY == "id"}

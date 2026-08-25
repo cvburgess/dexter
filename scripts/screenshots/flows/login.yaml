@@ -17,6 +17,16 @@ appId: com.dexterplanner
     permissions:
       all: allow
 
+# A springboard alert outlives `clearState` — the app relaunches *behind* it. So
+# a run that died mid-capture leaves its "Open in “Dexter”?" prompt sitting over
+# the login screen, and the next run cannot see `login-email-input` at all.
+# Cancel rather than Open: at this point the stale link is not one we want.
+- runFlow:
+    when:
+      visible: "Open in .Dexter.*"
+    commands:
+      - tapOn: "^Cancel$"
+
 # AlarmKit has no simctl privacy service, so its dialog is granted here rather
 # than pre-seeded — up front, where it cannot appear mid-capture.
 - tapOn:
