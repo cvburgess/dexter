@@ -1,0 +1,21 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "dexter": {
+      "type": "remote",
+      "url": "https://api.dexterplanner.com/functions/v1/mcp-server"
+    },
+    "supabase": {
+      "type": "remote",
+      "url": "https://mcp.supabase.com/mcp?project_ref=isreileykodwkyedcewv"
+    },
+    "expo": {
+      "type": "remote",
+      "url": "https://mcp.expo.dev/mcp"
+    },
+    "linear": {
+      "type": "remote",
+      "url": "https://mcp.linear.app/mcp"
+    }
+  }
+}
