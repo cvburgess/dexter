@@ -76,13 +76,18 @@ Stored in `www/src/assets/screenshots/{iphone,ipad}/` (auto-published by
 `www/_config.ts`'s `site.add("/assets")`), so one set powers both the marketing
 site and the App Store listing. Uploaded to App Store Connect manually.
 
-Required iPhone size: **6.9" — 1320 × 2868**, with **no alpha channel**. Apple
-downscales that set for smaller devices, so the optional 6.5" (1242 × 2688) set
-is deliberately not maintained. The listing also carries an **iPad 13" (2064 ×
-2752)** set, which is required because the app ships for iPad; the Mac listing
-reuses it rather than taking its own, because Mac support is the iPad build
-running on Apple Silicon (see `docs/frontend.md`) and not a separate Mac app.
-See Apple's current
+Required iPhone size: **6.9" — 1320 × 2868 portrait**, with **no alpha channel**.
+Apple downscales that set for smaller devices, so the optional 6.5" (1242 × 2688)
+set is deliberately not maintained. The listing also carries an **iPad 13" set,
+shot landscape at 2752 × 2064**, which is required because the app ships for
+iPad; the Mac listing reuses it rather than taking its own, because Mac support
+is the iPad build running on Apple Silicon (see `docs/frontend.md`) and not a
+separate Mac app.
+
+Apple accepts either orientation in either slot, but **the app only rotates on
+iPad** — its `UISupportedInterfaceOrientations` is portrait-only and just the
+`~ipad` variant carries landscape — so a landscape iPhone set is not capturable
+without changing the app's supported orientations. See Apple's current
 [screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications/).
 
 Two traps cause "wrong dimensions" rejections, and both have bitten this project:

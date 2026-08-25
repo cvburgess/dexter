@@ -40,6 +40,30 @@ sat over the header button in every shot cannot exist. The previous procedure
 needed three percentage-coordinate taps to clear those; none of them transferred
 to iPad, which is part of why the iPad set never got made.
 
+**iPad ships landscape, iPhone portrait.** That split is the app's, not a
+preference: the built `Info.plist` has a portrait-only
+`UISupportedInterfaceOrientations`, while `UISupportedInterfaceOrientations~ipad`
+carries both landscape orientations — rotate an iPhone simulator and the app
+keeps rendering portrait. Apple accepts either orientation for both slots
+(1320 × 2868 / 2868 × 1320 iPhone, 2064 × 2752 / 2752 × 2064 iPad). Landscape is
+also simply the better iPad shot: at 1366pt wide all four Today panes fit and
+the week grid shows six days, where portrait squeezes the notes pane to about
+one character wide and clips the week at Thursday.
+
+Two consequences worth knowing:
+
+- **`simctl` ignores orientation.** It always captures the native *portrait*
+  framebuffer, handing back a portrait canvas with the content turned 90°. So
+  `capture.sh` gates on the native size and publishes the swapped one, and
+  `flatten-screenshot.swift --rotate-ccw` straightens the image in the same
+  CoreGraphics pass that strips the alpha. Rotating with `sips -r` first would
+  re-add the alpha channel that pass exists to remove.
+- **Rotating needs Accessibility permission.** There is no `simctl` verb for
+  orientation — it lives only in the Simulator app's Device > Orientation menu —
+  so `set-orientation.applescript` drives that menu. Grant the terminal running
+  `capture.sh` access under System Settings > Privacy & Security > Accessibility,
+  or the rotate step fails with a clear message.
+
 **Navigation is by deep link, not by tapping.** `src/utils/todayRoute.ts`,
 `ritualRoute.ts`, and `newTaskRoute.ts` define the contract. A coordinate tap
 tuned for a 6.9" phone lands nowhere on a 13" iPad, and the `DayViewSwitcher`'s

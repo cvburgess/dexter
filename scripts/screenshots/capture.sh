@@ -18,7 +18,7 @@ OUT_ROOT="$REPO_ROOT/www/src/assets/screenshots"
 MAESTRO="${MAESTRO:-$HOME/.maestro/bin/maestro}"
 BUNDLE_ID="com.dexterplanner"
 
-# Device profiles: key | simulator name | SimDeviceType | expected WxH.
+# Device profiles: key | simulator name | SimDeviceType | native WxH | orientation.
 #
 # Only a Pro Max is an accepted iPhone size — App Store Connect validates
 # against a fixed list of reference resolutions, and an iPhone Air (1260x2736)
@@ -26,9 +26,22 @@ BUNDLE_ID="com.dexterplanner"
 # downscales the 6.9" set for smaller devices, so one iPhone entry is enough.
 # The iPad 13" set is required because the app ships for iPad, and the Mac
 # listing reuses it (Mac support is the iPad build on Apple Silicon).
+#
+# `native WxH` is what `simctl io screenshot` hands back, which is always the
+# portrait framebuffer — even in landscape, where the content simply arrives
+# turned 90°. The *published* size is that swapped when orientation is
+# landscape, and Apple accepts either (1320x2868 / 2868x1320 for the 6.9"
+# iPhone, 2064x2752 / 2752x2064 for the 13" iPad).
+#
+# iPad is landscape, iPhone is not, and that asymmetry is the app's, not a
+# preference: `UISupportedInterfaceOrientations` in the built Info.plist is
+# portrait-only, while `UISupportedInterfaceOrientations~ipad` carries both
+# landscape orientations. An iPhone rotated by the menu simply keeps rendering
+# portrait. Landscape also happens to be the better iPad shot — at 1366pt wide
+# all four panes fit, where portrait squeezes the notes pane to nothing.
 PROFILES=(
-  "iphone|iPhone 17 Pro Max|com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max|1320x2868"
-  "ipad|iPad Pro 13-inch (M5)|com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-12GB|2064x2752"
+  "iphone|iPhone 17 Pro Max|com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max|1320x2868|portrait"
+  "ipad|iPad Pro 13-inch (M5)|com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-12GB|2064x2752|landscape"
 )
 
 WANT_DEVICE="all"
@@ -124,6 +137,14 @@ run_flow() {
   "$MAESTRO" --device "$1" test "${@:2}" || { report_maestro_failure; exit 1; }
 }
 
+# The published size: the native framebuffer, swapped when we shoot landscape.
+published_size() {
+  case "$2" in
+    landscape) printf '%sx%s' "${1#*x}" "${1%x*}" ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
 # Resolve a simulator UDID by exact name, creating the device if it is absent.
 sim_udid() {
   local name="$1" type="$2" udid
@@ -151,21 +172,23 @@ for runtime, devices in sorted(data.items(), reverse=True):
 captured=0
 
 for profile in "${PROFILES[@]}"; do
-  IFS='|' read -r key name devtype expected <<<"$profile"
+  IFS='|' read -r key name devtype native orientation <<<"$profile"
   [ "$WANT_DEVICE" = "all" ] || [ "$WANT_DEVICE" = "$key" ] || continue
 
-  info "device: $name ($key, expecting $expected)"
+  published="$(published_size "$native" "$orientation")"
+  info "device: $name ($key, $orientation, publishing $published)"
   udid="$(sim_udid "$name" "$devtype")"
 
   xcrun simctl bootstatus "$udid" -b >/dev/null 2>&1 || true
 
   # Verify geometry *before* the expensive build: a capture from the wrong
-  # device is rejected no matter how good it looks.
+  # device is rejected no matter how good it looks. This checks the *native*
+  # framebuffer, which stays portrait in either orientation.
   geom_tmp="$(mktemp -t geom).png"
   xcrun simctl io "$udid" screenshot "$geom_tmp" >/dev/null 2>&1
   geom="$(sips -g pixelWidth -g pixelHeight "$geom_tmp" | awk '/pixelWidth/{w=$2} /pixelHeight/{h=$2} END{print w "x" h}')"
   rm -f "$geom_tmp"
-  [ "$geom" = "$expected" ] || die "'$name' renders at $geom, but App Store Connect requires $expected."
+  [ "$geom" = "$native" ] || die "'$name' renders at $geom, expected the $native native framebuffer."
 
   # "Is it installed?" is not the question — a stale *debug* build installed by
   # some earlier session passes that and then drops the dev-menu sheet over the
@@ -189,6 +212,16 @@ for profile in "${PROFILES[@]}"; do
     ( cd "$REPO_ROOT/src" \
       && SENTRY_DISABLE_AUTO_UPLOAD=true npx expo run:ios --configuration Release --device "$name" ) \
       || die "build failed for $name"
+  fi
+
+  # Rotate before login, so every capture in this profile shares one orientation
+  # and the app has settled into the layout by the time the first shot lands.
+  if [ "$orientation" = "landscape" ]; then
+    info "rotating '$name' to landscape"
+    osascript "$HERE/set-orientation.applescript" "$name" "Landscape Left" \
+      || die "could not rotate '$name'. The Simulator menu needs Accessibility permission for this terminal — System Settings > Privacy & Security > Accessibility."
+  else
+    osascript "$HERE/set-orientation.applescript" "$name" "Portrait" >/dev/null 2>&1 || true
   fi
 
   xcrun simctl status_bar "$udid" override \
@@ -218,8 +251,13 @@ for profile in "${PROFILES[@]}"; do
     # simctl rather than maestro's takeScreenshot: this is the native-resolution
     # capture. simctl always emits RGBA and App Store Connect rejects alpha —
     # sips cannot strip it (it re-adds alpha on every PNG export), hence the
-    # CoreGraphics redraw in flatten-screenshot.swift.
-    swift "$FLATTEN" "$raw" "$out_dir/$idx-$sname.png"
+    # CoreGraphics redraw in flatten-screenshot.swift. The same pass straightens
+    # a landscape capture, which arrives as a portrait canvas turned 90°.
+    if [ "$orientation" = "landscape" ]; then
+      swift "$FLATTEN" "$raw" "$out_dir/$idx-$sname.png" --rotate-ccw
+    else
+      swift "$FLATTEN" "$raw" "$out_dir/$idx-$sname.png"
+    fi
     rm -f "$raw"
     captured=$((captured + 1))
   done < "$MANIFEST"
@@ -235,8 +273,9 @@ done
 info "verifying $captured file(s)"
 failed=0
 for profile in "${PROFILES[@]}"; do
-  IFS='|' read -r key name devtype expected <<<"$profile"
+  IFS='|' read -r key name devtype native orientation <<<"$profile"
   [ -d "$OUT_ROOT/$key" ] || continue
+  expected="$(published_size "$native" "$orientation")"
   for f in "$OUT_ROOT/$key"/*.png; do
     [ -e "$f" ] || continue
     read -r w h a <<<"$(sips -g pixelWidth -g pixelHeight -g hasAlpha "$f" \
