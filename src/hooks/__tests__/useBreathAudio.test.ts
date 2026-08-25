@@ -118,7 +118,7 @@ jest.mock("expo-router", () => {
   };
 });
 
-const END_FADE_MS = 4000;
+const END_FADE_MS = 3000;
 const EXIT_FADE_MS = 1500;
 // Mirrors the hook's own lead-in: a run is scheduled a beat ahead of the
 // context clock so `setValueCurveAtTime` never clamps a start time forward.
@@ -369,6 +369,14 @@ describe("useBreathAudio", () => {
     expect(mockClose).not.toHaveBeenCalled();
     jest.advanceTimersByTime(END_FADE_MS);
     expect(mockClose).toHaveBeenCalled();
+  });
+
+  // The name of the test above is the invariant, and it used to hold only by
+  // arithmetic accident: the settle was the reverb's length outright, so
+  // shortening the reverb past the exit fade would have had finishing the
+  // exercise cut off faster than walking away from it.
+  it("gives a finished run a longer ending than a quit, whatever the reverb", () => {
+    expect(END_FADE_MS).toBeGreaterThan(EXIT_FADE_MS);
   });
 
   it("silences a run that is tapped away rather than finished", () => {

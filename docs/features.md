@@ -268,8 +268,12 @@ anything that reads as a wiring mistake.
 **The peak of a run is the end of a leg, not the middle.** Every voice reaches
 full a third of the way in and holds there, so the loudest moment is the end of
 an exhale — the lowest chord, on the only sawtooth, with six oscillators whose
-detuning drifts into alignment every ten-odd seconds. That plus four seconds of
-reverb tail was clipping, hence the master's headroom.
+detuning drifts into alignment every ten-odd seconds. That, against a reverb
+tail holding energy from every voice at once, was clipping — hence the master's
+headroom, and part of why the tail is a second rather than the four it started
+at. The settle after a finished run takes its length from that tail, but as a
+*floor*: it also has to stay longer than the fade a quit gets, or completing the
+exercise would end more abruptly than abandoning it.
 
 ### Horoscope step (DEX-128, re-shaped in DEX-145)
 

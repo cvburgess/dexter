@@ -50,7 +50,7 @@ const LOWPASS_HZ: Record<TBreathAudioVoice, number> = {
 
 // Generated on the JS thread at Begin, so shorter than DEX-167's ~6s. The first
 // number to raise if the result wants more air.
-const REVERB_SECONDS = 4;
+const REVERB_SECONDS = 1;
 const REVERB_DECAY = 2.5;
 const REVERB_WET = 0.6;
 
@@ -63,10 +63,14 @@ const PEAK: Record<TBreathAudioVoice, number> = {
   exhaleHold: 0.18,
 };
 
-// A finished run settles for exactly as long as the reverb runs — the fade sits
-// after the convolver, so anything shorter silences the room mid-decay.
-const END_FADE_MS = REVERB_SECONDS * 1000;
 const EXIT_FADE_MS = 1500;
+
+// A finished run has to outlast the reverb — the fade sits after the convolver,
+// so anything shorter silences the room mid-decay. That is a floor rather than
+// the answer, though: it also has to stay clearly longer than a quit, or
+// finishing the exercise would cut off faster than walking away from it, which
+// is what a short reverb would otherwise do.
+const END_FADE_MS = Math.max(REVERB_SECONDS * 1000, EXIT_FADE_MS * 2);
 
 /**
  * How far ahead of the context's own clock a run is scheduled.
