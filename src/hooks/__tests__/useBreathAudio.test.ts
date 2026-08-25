@@ -3,6 +3,7 @@ import { AudioManager } from "react-native-audio-api";
 
 import { useBreathAudio } from "@/hooks/useBreathAudio";
 import {
+  BREATH_AUDIO_MAX_EVENTS_PER_PARAM,
   buildBreathePlan,
   MAX_BREATHS,
   type TBreathePlan,
@@ -221,7 +222,7 @@ describe("useBreathAudio", () => {
       const events =
         gain.setValueAtTime.mock.calls.length +
         gain.linearRampToValueAtTime.mock.calls.length;
-      expect(events).toBeLessThanOrEqual(64);
+      expect(events).toBeLessThanOrEqual(BREATH_AUDIO_MAX_EVENTS_PER_PARAM);
     }
   });
 

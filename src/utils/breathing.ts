@@ -431,7 +431,8 @@ const voiceFor = (
  *
  * Each leg's tone rises across its own leg and releases over the opening of the
  * next, leaving two chords always crossfading. Entries are in time order **per
- * voice**, which is the ordering `AudioParam` automation actually cares about.
+ * leg** — which is also per voice — the ordering the hook's one-gain-per-leg
+ * `AudioParam`s actually care about.
  */
 export const buildBreathAudioSchedule = (
   plan: TBreathePlan,
