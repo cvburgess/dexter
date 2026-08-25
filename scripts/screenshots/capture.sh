@@ -167,7 +167,17 @@ for profile in "${PROFILES[@]}"; do
   rm -f "$geom_tmp"
   [ "$geom" = "$expected" ] || die "'$name' renders at $geom, but App Store Connect requires $expected."
 
-  if [ "$DO_BUILD" -eq 1 ] || ! xcrun simctl get_app_container "$udid" "$BUNDLE_ID" >/dev/null 2>&1; then
+  # "Is it installed?" is not the question — a stale *debug* build installed by
+  # some earlier session passes that and then drops the dev-menu sheet over the
+  # login screen, which is unrecoverable from inside a flow. Ask whether the
+  # installed app is a Release build instead: Release bundles the JS as
+  # `main.jsbundle`, while a dev-client build ships `EXDevLauncher.bundle` and
+  # `Dexter.debug.dylib` and loads its JS from Metro.
+  installed="$(xcrun simctl get_app_container "$udid" "$BUNDLE_ID" 2>/dev/null || true)"
+  if [ "$DO_BUILD" -eq 1 ] || [ -z "$installed" ] || [ ! -f "$installed/main.jsbundle" ]; then
+    if [ -n "$installed" ] && [ ! -f "$installed/main.jsbundle" ]; then
+      warn "installed app on '$name' is a dev-client build; rebuilding as Release."
+    fi
     info "building (Release) for $name — several minutes"
     # Release excludes expo-dev-client: no onboarding modal, no dev-menu sheet
     # over the login screen, no floating dev-tools gear over the header button,
