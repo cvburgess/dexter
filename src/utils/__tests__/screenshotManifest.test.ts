@@ -57,7 +57,7 @@ describe("screenshot manifest", () => {
 
   it.each(rows)(
     "$device $index-$name is a well-formed row",
-    ({ device, index, name, link, anchorBy, anchor }) => {
+    ({ device, index, name, anchorBy, anchor }) => {
       expect(device).toMatch(/^(iphone|ipad)$/);
       expect(index).toMatch(/^\d{2}$/);
       expect(name).toMatch(/^[a-z0-9-]+$/);
