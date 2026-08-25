@@ -2,6 +2,7 @@ import { Temporal } from "@js-temporal/polyfill";
 
 import {
   breathePlanEndsEmpty,
+  BREATH_AUDIO_MAX_EVENTS_PER_PARAM,
   buildBreathAudioSchedule,
   BREATHING_TECHNIQUE_ORDER,
   BREATHING_TECHNIQUE_OPTIONS,
@@ -387,4 +388,49 @@ describe("buildBreathAudioSchedule", () => {
       }
     },
   );
+
+  // The library bounds one param's automation queue (see the constant's
+  // comment), so a leg's events have to fit a single gain node. The `+ 1` is
+  // the gate the hook sets on every gain before the schedule's events land.
+  it.each(BREATHING_TECHNIQUE_ORDER)(
+    "keeps every sounding leg within the per-param event budget (%s)",
+    (technique) => {
+      const schedule = buildBreathAudioSchedule(
+        buildBreathePlan(technique, MAX_BREATHS),
+      );
+
+      const eventsPerLeg = new Map<number, number>();
+      for (const step of schedule) {
+        eventsPerLeg.set(
+          step.legIndex,
+          (eventsPerLeg.get(step.legIndex) ?? 0) + 1,
+        );
+      }
+
+      for (const count of eventsPerLeg.values()) {
+        expect(count + 1).toBeLessThanOrEqual(
+          BREATH_AUDIO_MAX_EVENTS_PER_PARAM,
+        );
+      }
+    },
+  );
+
+  // The hook keys a gain node off `legIndex`, so the tag has to be unambiguous:
+  // every leg of the run sounds exactly one voice, and nothing else's.
+  it("tags every event with its leg, one voice per leg", () => {
+    const plan = buildBreathePlan("box", 2);
+    const schedule = buildBreathAudioSchedule(plan);
+
+    const voicesPerLeg = new Map<number, Set<TBreathAudioVoice>>();
+    for (const step of schedule) {
+      const voices = voicesPerLeg.get(step.legIndex) ?? new Set();
+      voices.add(step.voice);
+      voicesPerLeg.set(step.legIndex, voices);
+    }
+
+    expect(voicesPerLeg.size).toBe(plan.session.length);
+    for (const voices of voicesPerLeg.values()) {
+      expect(voices.size).toBe(1);
+    }
+  });
 });
