@@ -2,11 +2,11 @@ import { useFocusEffect } from "expo-router";
 import { type RefObject, useCallback, useRef } from "react";
 import {
   AudioContext,
-  AudioManager,
   type GainNode,
   type OscillatorNode,
 } from "react-native-audio-api";
 
+import "@/utils/audio";
 import {
   buildBreathAudioSchedule,
   easeInOut,
@@ -14,10 +14,6 @@ import {
   type TBreathAudioVoice,
   type TBreathePlan,
 } from "@/utils/breathing";
-
-// Leaves iOS's own audio session alone, so a phone on silent stays silent and
-// this does not fight `expo-audio`. Must run before any context exists.
-AudioManager.disableSessionManagement();
 
 // All A major, so any two that overlap are consonant. Registers step down
 // through the cycle — hold, inhale, exhale, hold — so the breath reads as an arch.

@@ -93,29 +93,13 @@ jest.mock("react-native-reanimated", () => {
   return { ...mock, useReducedMotion: () => false };
 });
 
-// `expo-audio` ships no jest mock and reaches for its native module at import
-// time — `ExpoAudio.ts` reads a prototype off it, so merely importing anything
-// that imports it throws here, several files from the test that triggered it.
-// An inert player is enough for every component test: they assert on what is
-// rendered, and nothing is. `hooks/__tests__/useHoroscopeAudio.test.ts` mocks
-// this module for itself with a player it can inspect.
-jest.mock("expo-audio", () => ({
-  createAudioPlayer: () => ({
-    currentTime: 0,
-    duration: 0,
-    loop: false,
-    pause: jest.fn(),
-    play: jest.fn(),
-    remove: jest.fn(),
-    volume: 1,
-  }),
-}));
-
 // `react-native-audio-api` reaches for its native module at import time, and
-// `useBreathAudio` calls `AudioManager.disableSessionManagement()` at module
-// scope — so merely importing the Breathe step throws here without this. An
-// inert graph is enough for every component test; `hooks/__tests__/useBreathAudio.test.ts`
-// mocks the module for itself with a context it can inspect.
+// `utils/audio.ts` calls `AudioManager.disableSessionManagement()` at module
+// scope — so merely importing a step that plays sound throws here without
+// this. An inert graph is enough for every component test; the hooks' own
+// tests (`hooks/__tests__/useBreathAudio.test.ts`,
+// `hooks/__tests__/useHoroscopeAudio.test.ts`) mock the module for themselves
+// with a context they can inspect.
 jest.mock("react-native-audio-api", () => {
   const param = () => ({
     cancelAndHoldAtTime: jest.fn(),
@@ -124,6 +108,10 @@ jest.mock("react-native-audio-api", () => {
   });
 
   return {
+    // `useHoroscopeAudio` calls this at module scope. It never resolves, so a
+    // component test that mounts the Horoscope step never builds a playback
+    // graph — same reason the rest of this mock is inert.
+    decodeAudioData: jest.fn(() => new Promise(() => {})),
     AudioContext: jest.fn().mockImplementation(() => ({
       close: jest.fn().mockResolvedValue(undefined),
       createBiquadFilter: () => ({

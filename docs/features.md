@@ -288,17 +288,23 @@ are `docs/design.md`'s Sentiment section.
   so they never re-align into one pulse. Star count is the cheap dial, layer count
   is not. The panel carries no `overflow: hidden` — clipping to a radius makes it
   an offscreen-rendered layer re-composited every frame a child animates.
-- The audio (`hooks/useHoroscopeAudio.ts`) is built on `createAudioPlayer`,
-  **not** the `useAudioPlayer` hook — the hook releases its player at unmount,
-  which cuts audio dead with no window to fade; owning the player lets cleanup
-  ride the volume down and then release, at the price that every exit path must
-  end in `remove()`. `MAX_VOLUME` is linear amplitude against logarithmic hearing
-  (0.5 is only −6dB — reported as "no change"). **On iOS browsers none of the
-  volume work happens** — Apple reserves `HTMLMediaElement.volume` for the
-  hardware buttons, so mobile-web tracks play at device volume and cut instead of
-  fading; that's this, not the arithmetic. `expo-audio`'s config plugin is
-  deliberately not installed (it only adds microphone permissions; this is
-  playback-only).
+- The audio (`hooks/useHoroscopeAudio.ts`) is built on `react-native-audio-api`
+  (`useBreathAudio` does the same; `utils/audio.ts` gives the audio session back
+  to the system once, at import). The track is decoded once at module scope —
+  `decodeAudioData` with a `sampleRate` of 0 keeps the file's native rate — and
+  played through an `AudioContext` that lives for the step's focus. Fades are
+  Web-Audio automation scheduled on the audio clock (held ceiling plus a tail
+  ramp onto the track's end; an exit fade on blur), not a polled timer; the
+  context closes after the exit fade, and re-entering within the fade cuts the
+  fading one instead of layering the track over itself. On web the decode input
+  is an `Asset` URL (`expo-asset`; a bare `require()` id is fine on native but
+  throws a `TypeError` on web). `MAX_VOLUME` is linear amplitude against
+  logarithmic hearing (0.5 is only −6dB — reported as "no change"). **On iOS
+  browsers none of the volume work happens** — Apple reserves
+  `HTMLMediaElement.volume` for the hardware buttons, so mobile-web tracks play
+  at device volume and cut instead of fading; that's this, not the arithmetic.
+  `expo-audio`'s config plugin is deliberately not installed (it only adds
+  microphone permissions; this is playback-only).
 
 **The table.** `public.horoscopes` (DEX-84; rebuilt for astrology-api.io v3 in
 DEX-145) holds one sun-sign horoscope per day — a short prose `text`, an
