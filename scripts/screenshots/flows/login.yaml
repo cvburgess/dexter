@@ -1,0 +1,55 @@
+# Sign the demo account in on a freshly launched app.
+#
+# `DEMO_OTP` is supplied at runtime (`maestro test -e DEMO_OTP=...`), never
+# written here — it is a Supabase function secret. The demo email short-circuits
+# the magic-link send in `app/(auth)/login.tsx`, so the code field appears
+# immediately and no mailbox is involved.
+#
+# Selectors are `id:` throughout on purpose. Maestro compiles a `text:` selector
+# to a *regular expression*, which is how an earlier attempt at this spent ten
+# minutes failing to match a label containing a `+`. See ../README.md.
+appId: com.dexterplanner
+---
+# clearState so a rerun never inherits a half-finished login, and so the capture
+# set is identical whether or not the app was already installed.
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+
+# AlarmKit has no simctl privacy service, so its dialog is granted here rather
+# than pre-seeded — up front, where it cannot appear mid-capture.
+- tapOn:
+    text: "Allow"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "login-email-input"
+    timeout: 30000
+- tapOn:
+    id: "login-email-input"
+- inputText: "demo@dexterplanner.com"
+# `hideKeyboard` does not work against these inputs (the app's own TextInput,
+# not a system one). Tapping the static subtitle dismisses the keyboard instead.
+- tapOn:
+    text: "Sign up or log in to start planning"
+    optional: true
+- tapOn:
+    id: "login-email-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "login-code-input"
+    timeout: 30000
+- tapOn:
+    id: "login-code-input"
+- inputText: ${DEMO_OTP}
+- tapOn:
+    id: "login-verify-button"
+
+# The login screen unmounting is the signal that setSession landed.
+- extendedWaitUntil:
+    notVisible:
+      id: "login-verify-button"
+    timeout: 30000

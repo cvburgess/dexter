@@ -72,9 +72,9 @@ then tags the release and publishes GitHub release notes from `CHANGELOG.md`
 
 ## Screenshots
 
-Stored in `www/src/assets/screenshots/` (auto-published by `www/_config.ts`'s
-`site.add("/assets")`), so one set powers both the marketing site and the App
-Store listing. Uploaded to App Store Connect manually.
+Stored in `www/src/assets/screenshots/{iphone,ipad}/` (auto-published by
+`www/_config.ts`'s `site.add("/assets")`), so one set powers both the marketing
+site and the App Store listing. Uploaded to App Store Connect manually.
 
 Required iPhone size: **6.9" — 1320 × 2868**, with **no alpha channel**. Apple
 downscales that set for smaller devices, so the optional 6.5" (1242 × 2688) set
@@ -82,7 +82,7 @@ is deliberately not maintained. The listing also carries an **iPad 13" (2064 ×
 2752)** set, which is required because the app ships for iPad; the Mac listing
 reuses it rather than taking its own, because Mac support is the iPad build
 running on Apple Silicon (see `docs/frontend.md`) and not a separate Mac app.
-Only the iPhone set is scripted — see Apple's current
+See Apple's current
 [screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications/).
 
 Two traps cause "wrong dimensions" rejections, and both have bitten this project:
@@ -90,8 +90,8 @@ the iPhone Air (1260 × 2736) and iPhone 17 Pro (1206 × 2622) are **not accepte
 sizes** no matter how clean the capture, and `simctl` screenshots always carry an
 alpha channel that `sips` cannot strip.
 
-**To capture a new set, use the `/generate-screenshots` skill**
-(`.claude/skills/generate-screenshots/SKILL.md`) — it covers the simulator setup,
-demo-account reseeding, maestro login/navigation flows, and the required
-verification pass. Alpha stripping is handled by
-`scripts/flatten-screenshot.swift`.
+**To capture a new set, run `scripts/screenshots/capture.sh`** — it builds, signs
+in as the demo account, captures both device sets, strips the alpha channel via
+`scripts/flatten-screenshot.swift`, and refuses to exit clean if any file would
+be rejected. `scripts/screenshots/README.md` has the gotchas; the
+`/generate-screenshots` skill covers the demo-data judgment around a run.

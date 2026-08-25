@@ -1,0 +1,40 @@
+# Navigate to one screen and wait for it to settle, ready to be captured.
+#
+# Parameterised by `capture.sh` from a row of ../screens.tsv:
+#   LINK      a `dexter://` deep link (utils/todayRoute.ts, ritualRoute.ts, …)
+#   ANCHOR    the selector that proves the screen actually rendered
+#   ANCHOR_BY "id" or "text"
+#
+# Deep links rather than tapping the DayViewSwitcher: a percentage-coordinate
+# tap tuned for a 6.9" phone lands nowhere on a 13" iPad, and the switcher's
+# contents have already moved once (Journal left the Today tab in DEX-105).
+#
+# Prefer ANCHOR_BY=id. A `text:` anchor is compiled to a regular expression, so
+# any of `+ ( ) ? . * [ ]` in it must be escaped — see ../README.md.
+appId: com.dexterplanner
+---
+- openLink: ${LINK}
+
+- runFlow:
+    when:
+      true: ${ANCHOR_BY == "id"}
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: ${ANCHOR}
+          timeout: 30000
+
+- runFlow:
+    when:
+      true: ${ANCHOR_BY == "text"}
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: ${ANCHOR}
+          timeout: 30000
+
+# Let entrance animations and any lazy list work finish before the shell takes
+# the screenshot. Maestro's own settle heuristics cover taps, not the frame
+# after a cross-tab navigation.
+- waitForAnimationToEnd:
+    timeout: 5000
