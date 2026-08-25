@@ -199,15 +199,18 @@ export function useBreathAudio(
         exhaleHold: createVoice("exhaleHold"),
       };
 
-      for (const step of buildBreathAudioSchedule(plan)) {
-        const { gain, peak } = voices[step.voice];
-        const time = at(step.atMs);
-
-        if (step.kind === "set") {
-          gain.gain.setValueAtTime(step.value * peak, time);
-        } else {
-          gain.gain.linearRampToValueAtTime(step.value * peak, time);
-        }
+      for (const curve of buildBreathAudioSchedule(plan)) {
+        const { gain, peak } = voices[curve.voice];
+        const time = at(curve.atMs);
+        const duration = curve.durationMs / 1000;
+        // One curve event per pass instead of a ramp per step: the native
+        // queue silently drops automation past 64 events on a param, and a
+        // ramp schedule overran that by the third breath (DEX-187).
+        gain.gain.setValueCurveAtTime(
+          Float32Array.from(curve.values, (value) => value * peak),
+          time,
+          duration,
+        );
       }
 
       return () => {

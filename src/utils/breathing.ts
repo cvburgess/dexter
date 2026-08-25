@@ -364,37 +364,40 @@ export type TBreathAudioVoice =
 
 // `value` is normalized 0-1, not a gain — the hook multiplies by its own peak,
 // so nothing about how loud the exercise is leaks in here.
-export type TBreathAudioRamp = {
+export type TBreathAudioCurve = {
   voice: TBreathAudioVoice;
   /** Milliseconds from the start of the run. */
   atMs: number;
-  value: number;
-  /**
-   * `set` anchors where a ramp starts from. `linearRampToValueAtTime` glides
-   * from the previous scheduled *event*, so an unanchored one slides across it.
-   */
-  kind: "set" | "ramp";
+  /** The window the curve spans, in milliseconds. */
+  durationMs: number;
+  /** The curve's samples, normalized 0-1. */
+  values: readonly number[];
 };
 
-// `setValueCurveAtTime` would express a curve exactly, but it throws if any
-// automation overlaps it — a whole dead feature rather than a slightly wrong sound.
-const CURVE_STEPS = 12;
+// `setValueCurveAtTime` carries a whole envelope in one event, but the engine
+// throws if any other automation lands *strictly inside* its window — so the
+// schedule below obeys one rule: a voice's curves never overlap each other,
+// and the hook's initial gate sits exactly on the first curve's start, which
+// the engine allows. The ramp-based schedule made this impossible — every
+// leg's anchor `set` landed inside the release curve after it — which is why
+// the curves were originally mistaken for a dead feature (DEX-187).
+const CURVE_SAMPLES = 12;
 
 /**
- * The most automation events one `AudioParam` will hold, and the budget the
- * whole-run schedule has to fit within.
+ * The most automation events one `AudioParam` will hold before the library
+ * silently drops the rest — so the whole-run schedule has to stay under it.
  *
  * `react-native-audio-api` bounds every param's queue at 64 events
  * (`AUDIO_PARAM_MAX_QUEUED_EVENTS` in `core/utils/Constants.h`) and *drops*
- * anything past it, silently — no error, no warning. A gain per voice stacks
- * every leg it sounds onto one queue: a default 3-breath run puts 76 events on
- * a voice's gain (the gate plus 25 per leg), overflowing the stock cap and
- * losing the final inhale's release — the DEX-187 blur. The patch in
- * `patches/react-native-audio-api+0.13.3.patch` raises the cap to match this
- * constant; the tests pin every allowed run under it, so the next retune that
- * outgrows it fails in CI rather than blurring on a device.
+ * anything past it, silently — no error, no warning. A gain per voice with 25
+ * ramp events per leg put 76 events on a voice's gain by the default 3-breath
+ * run, overflowing the cap and losing the final inhale's release (DEX-187).
+ * One curve per pass costs 2 events a leg instead of 25 — 21 for a 10-breath
+ * run, and the cap is only reached at 31 breaths. The tests pin every allowed
+ * run under it, so the next change that outgrows it fails in CI rather than
+ * blurring on a device.
  */
-export const BREATH_AUDIO_MAX_EVENTS_PER_PARAM = 512;
+export const BREATH_AUDIO_MAX_EVENTS_PER_PARAM = 64;
 
 // Steepest at the start, flattening into the finish. A curve eased at *both*
 // ends has zero slope at zero, which is audible as a delay.
@@ -406,7 +409,7 @@ export const easeInOut = (t: number): number => (1 - Math.cos(Math.PI * t)) / 2;
 
 // Reaching full only as a leg ended made the clearest moment of every phase the
 // moment it was over.
-const ATTACK_RATIO = 8 / CURVE_STEPS;
+const ATTACK_RATIO = 8 / CURVE_SAMPLES;
 
 // How much of the *next* leg a finished tone releases over. Too high and the
 // phase you left is still sounding well into the one you are in.
@@ -426,17 +429,23 @@ const voiceFor = (
 };
 
 /**
- * Every gain change of one run (DEX-167), scheduled on the audio clock the
+ * Every envelope of one run (DEX-187), scheduled on the audio clock the
  * moment Begin is pressed — so nothing recomputes per leg and nothing drifts.
  *
  * Each leg's tone rises across its own leg and releases over the opening of the
- * next, leaving two chords always crossfading. Entries are in time order **per
- * voice**, which is the ordering `AudioParam` automation actually cares about.
+ * next, leaving two chords always crossfading. One curve per pass rather than
+ * twelve ramps: the engine's queue silently drops automation past 64 events on
+ * a param, and the ramp schedule overran that by the third breath.
+ *
+ * The curves are legal only because nothing else lands inside a curve's window
+ * — attack and release curves of one voice never overlap, and the gap between
+ * a release's end and the next attack's start is what lets the engine hold the
+ * tone silent between legs.
  */
 export const buildBreathAudioSchedule = (
   plan: TBreathePlan,
-): readonly TBreathAudioRamp[] => {
-  const schedule: TBreathAudioRamp[] = [];
+): readonly TBreathAudioCurve[] => {
+  const schedule: TBreathAudioCurve[] = [];
   let start = 0;
 
   plan.session.forEach((leg, index) => {
@@ -450,26 +459,29 @@ export const buildBreathAudioSchedule = (
     // and the exit fade catches the rest.
     const fallMs = (plan.session[index + 1]?.ms ?? leg.ms) * RELEASE_RATIO;
 
-    schedule.push({ voice, atMs: start, value: 0, kind: "set" });
-    for (let step = 1; step <= CURVE_STEPS; step += 1) {
-      const t = step / CURVE_STEPS;
-      schedule.push({
-        voice,
-        atMs: start + leg.ms * t,
-        // Full once the attack is done, and held there for the rest of the leg.
-        value: t >= ATTACK_RATIO ? 1 : easeOut(t / ATTACK_RATIO),
-        kind: "ramp",
-      });
-    }
-    for (let step = 1; step <= CURVE_STEPS; step += 1) {
-      const t = step / CURVE_STEPS;
-      schedule.push({
-        voice,
-        atMs: end + fallMs * t,
-        value: 1 - easeOut(t),
-        kind: "ramp",
-      });
-    }
+    const attackSpan = leg.ms * ATTACK_RATIO;
+    // Sampled over the whole 0-1 range so the last sample of each curve is the
+    // value it holds once the curve ends — full for the attack, silence for
+    // the release — which is what a curve's tail *is* in this engine.
+    const samples = Array.from(
+      { length: CURVE_SAMPLES },
+      (_, step) => step / (CURVE_SAMPLES - 1),
+    );
+
+    schedule.push({
+      voice,
+      atMs: start,
+      durationMs: attackSpan,
+      // Steepest at the start, flattening into the finish — the same eased
+      // shape the ramps approximated, sample for sample.
+      values: samples.map(easeOut),
+    });
+    schedule.push({
+      voice,
+      atMs: end,
+      durationMs: fallMs,
+      values: samples.map((t) => 1 - easeOut(t)),
+    });
 
     start = end;
   });

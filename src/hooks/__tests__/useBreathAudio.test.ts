@@ -17,6 +17,7 @@ const mockParam = () => ({
   cancelAndHoldAtTime: jest.fn(),
   linearRampToValueAtTime: jest.fn(),
   setValueAtTime: jest.fn(),
+  setValueCurveAtTime: jest.fn(),
 });
 
 type TMockOscillator = {
@@ -200,20 +201,22 @@ describe("useBreathAudio", () => {
     );
 
     const times = voiceGains().flatMap((gain) =>
-      (gain.gain.linearRampToValueAtTime.mock.calls as [number, number][]).map(
+      (gain.gain.setValueCurveAtTime.mock.calls as [unknown, number][]).map(
         ([, at]) => at,
       ),
     );
     expect(times.length).toBeGreaterThan(0);
-    expect(Math.min(...times)).toBeGreaterThan(40);
+    // The first attack curve sits at `startedAt` itself — the clock offset,
+    // not zero, is what the test is after.
+    expect(Math.min(...times)).toBeGreaterThanOrEqual(40);
   });
 
   // The library caps one param's automation queue and drops the rest,
   // silently — a voice gain stacks every leg it sounds onto one queue, so the
-  // longest allowed run has to stay within the budget the patch raises the
-  // native cap to (see BREATH_AUDIO_MAX_EVENTS_PER_PARAM). This is the guard
-  // that would have caught DEX-187: the default 3-breath run puts 76 events
-  // on a voice gain, past the stock 64.
+  // longest allowed run has to stay within the stock budget (see
+  // BREATH_AUDIO_MAX_EVENTS_PER_PARAM). This is the guard that would have
+  // caught DEX-187: the old ramp schedule put 76 events on a voice gain by
+  // the default 3-breath run, past the 64.
   it("keeps every gain param within the library's event budget", () => {
     renderHook(() =>
       useBreathAudio(buildBreathePlan("box", MAX_BREATHS), true, quitRef()),
@@ -222,7 +225,8 @@ describe("useBreathAudio", () => {
     for (const { gain } of mockGains) {
       const events =
         gain.setValueAtTime.mock.calls.length +
-        gain.linearRampToValueAtTime.mock.calls.length;
+        gain.linearRampToValueAtTime.mock.calls.length +
+        gain.setValueCurveAtTime.mock.calls.length;
       expect(events).toBeLessThanOrEqual(BREATH_AUDIO_MAX_EVENTS_PER_PARAM);
     }
   });

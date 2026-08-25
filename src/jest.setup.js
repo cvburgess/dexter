@@ -105,6 +105,7 @@ jest.mock("react-native-audio-api", () => {
     cancelAndHoldAtTime: jest.fn(),
     linearRampToValueAtTime: jest.fn(),
     setValueAtTime: jest.fn(),
+    setValueCurveAtTime: jest.fn(),
   });
 
   return {

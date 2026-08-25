@@ -16,7 +16,7 @@ import {
   resolveBreathCount,
   resolveBreathingTechniqueSetting,
   techniqueForDay,
-  type TBreathAudioRamp,
+  type TBreathAudioCurve,
   type TBreathPhase,
   type TBreathAudioVoice,
   type TBreathingTechnique,
@@ -280,9 +280,13 @@ describe("buildBreathePlan", () => {
 // pass. These are the structural facts that survive the tuning.
 describe("buildBreathAudioSchedule", () => {
   const voice = (
-    schedule: readonly TBreathAudioRamp[],
+    schedule: readonly TBreathAudioCurve[],
     which: TBreathAudioVoice,
   ) => schedule.filter((step) => step.voice === which);
+
+  /** The value a curve holds once its window ends — its last sample. */
+  const tailOf = (curve: TBreathAudioCurve): number =>
+    curve.values[curve.values.length - 1];
 
   it.each(BREATHING_TECHNIQUE_ORDER)(
     "keeps every voice in time order, opening and closing on silence (%s)",
@@ -304,8 +308,9 @@ describe("buildBreathAudioSchedule", () => {
         }
         // A voice that never returns to zero would sustain under the whole rest
         // of the run, which is the one failure here that is silent on a device.
-        expect(steps[0].value).toBe(0);
-        expect(steps[steps.length - 1].value).toBe(0);
+        // A curve's first and last samples are what it opens and holds at.
+        expect(steps[0].values[0]).toBe(0);
+        expect(tailOf(steps[steps.length - 1])).toBe(0);
       }
     },
   );
@@ -337,7 +342,8 @@ describe("buildBreathAudioSchedule", () => {
 
   // Every leg has to actually get *loud* — an attack that never lands leaves the
   // phase audible but never at full, which is exactly the kind of wrong that
-  // sounds merely "off" rather than broken.
+  // sounds merely "off" rather than broken. An attack curve peaks at its last
+  // sample, which the engine then holds.
   it.each(BREATHING_TECHNIQUE_ORDER)(
     "brings every leg to full inside its own leg (%s)",
     (technique) => {
@@ -349,9 +355,9 @@ describe("buildBreathAudioSchedule", () => {
         const start = elapsed;
         const end = start + leg.ms;
         const withinLeg = schedule.filter(
-          (step) => step.atMs >= start && step.atMs <= end,
+          (step) => step.atMs >= start && step.atMs < end,
         );
-        expect(withinLeg.some((step) => step.value === 1)).toBe(true);
+        expect(withinLeg.some((step) => tailOf(step) === 1)).toBe(true);
         elapsed = end;
       }
     },
@@ -372,19 +378,49 @@ describe("buildBreathAudioSchedule", () => {
         "exhaleHold",
       ] as const) {
         const steps = voice(schedule, which);
-        // Each pass over this voice opens with the one `set` that anchors it.
+        // Each pass over this voice opens with its attack curve, which is the
+        // only one that peaks at full.
         const opens = steps
           .map((step, index) => ({ step, index }))
-          .filter(({ step }) => step.kind === "set");
+          .filter(({ step }) => tailOf(step) === 1);
 
         opens.forEach((_open, pass) => {
           const next = opens[pass + 1];
           if (!next) return;
-          // Everything this pass scheduled has to be done by the next opening.
-          const lastOfPass = steps[next.index - 1];
-          expect(lastOfPass.atMs).toBeLessThanOrEqual(steps[next.index].atMs);
-          expect(lastOfPass.value).toBe(0);
+          // Everything this pass scheduled has to be done by the next opening:
+          // the release curve between the two must end by then, at silence.
+          const release = steps[next.index - 1];
+          expect(release.atMs + release.durationMs).toBeLessThanOrEqual(
+            steps[next.index].atMs,
+          );
+          expect(tailOf(release)).toBe(0);
         });
+      }
+    },
+  );
+
+  // `setValueCurveAtTime` throws if any other automation lands strictly inside
+  // its window, so this is the invariant that keeps the schedule legal — and
+  // the ramp schedule this replaced could never satisfy it.
+  it.each(BREATHING_TECHNIQUE_ORDER)(
+    "never overlaps a curve with the same voice's other curves (%s)",
+    (technique) => {
+      const schedule = buildBreathAudioSchedule(
+        buildBreathePlan(technique, MAX_BREATHS),
+      );
+
+      for (const which of [
+        "inhale",
+        "inhaleHold",
+        "exhale",
+        "exhaleHold",
+      ] as const) {
+        const steps = voice(schedule, which);
+        for (let i = 1; i < steps.length; i += 1) {
+          expect(steps[i].atMs).toBeGreaterThanOrEqual(
+            steps[i - 1].atMs + steps[i - 1].durationMs,
+          );
+        }
       }
     },
   );
