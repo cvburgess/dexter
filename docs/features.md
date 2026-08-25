@@ -251,12 +251,25 @@ a JS timer to fire them. `buildBreathAudioSchedule` puts the entire run on the a
 clock at Begin instead; `useBreathAudio` holds the tuning, and needs a dev-client rebuild.
 
 **Scheduling it all upfront caps what one `AudioParam` may carry.**
-`react-native-audio-api` bounds every param's automation queue at 64 events and
+`react-native-audio-api` bounds every param's automation queues at 64 events and
 drops the rest *silently* — no error, no warning, the param just stops changing
-and its chord drones on. That is why the hook opens a gain node per leg rather
-than per voice: shared, a voice's queue overflowed on the third breath and lost
-that leg's release (DEX-187). Browsers impose no such bound, so it only ever
-misbehaved on device.
+and its chord drones on. A staircase of ramps overran that on the third breath
+and lost the leg's release (DEX-187), so each leg is **two `setValueCurveAtTime`
+calls** instead: a curve is one event however finely it is sampled. Browsers
+impose no such bound, so it only ever misbehaved on device.
+
+**A voice's filter may only feed one gain.** `GainNode` multiplies its input
+buffer in place, and the graph hands every consumer of a node the same buffer —
+so a filter fanned out to several gains has each of them scaling the output of
+the ones before it. The obvious fix for the overflow above was a gain per leg;
+it is unusable, and it sounds like scratchy, half-silent phases rather than
+anything that reads as a wiring mistake.
+
+**The peak of a run is the end of a leg, not the middle.** Every voice reaches
+full a third of the way in and holds there, so the loudest moment is the end of
+an exhale — the lowest chord, on the only sawtooth, with six oscillators whose
+detuning drifts into alignment every ten-odd seconds. That plus four seconds of
+reverb tail was clipping, hence the master's headroom.
 
 ### Horoscope step (DEX-128, re-shaped in DEX-145)
 

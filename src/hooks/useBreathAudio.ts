@@ -2,7 +2,6 @@ import { useFocusEffect } from "expo-router";
 import { type RefObject, useCallback, useRef } from "react";
 import {
   AudioContext,
-  type BiquadFilterNode,
   type GainNode,
   type OscillatorNode,
 } from "react-native-audio-api";
@@ -12,7 +11,6 @@ import {
   buildBreathAudioSchedule,
   easeInOut,
   easeOut,
-  type TBreathAudioRamp,
   type TBreathAudioVoice,
   type TBreathePlan,
 } from "@/utils/breathing";
@@ -70,6 +68,33 @@ const PEAK: Record<TBreathAudioVoice, number> = {
 const END_FADE_MS = REVERB_SECONDS * 1000;
 const EXIT_FADE_MS = 1500;
 
+/**
+ * How far ahead of the context's own clock a run is scheduled.
+ *
+ * `setValueCurveAtTime` clamps a start time already in the past up to *now*,
+ * which would stretch that curve past its intended end and into the start of
+ * the release that follows it — and a curve overlapping the boundary of the
+ * next one throws rather than fudging it. Scheduling everything a beat ahead
+ * means nothing is ever clamped, so every curve lands exactly where the
+ * schedule computed it. Inaudible against the fill, which starts on the JS
+ * thread anyway.
+ */
+const LEAD_IN_SECONDS = 0.05;
+
+/**
+ * How much room the master leaves above the loudest thing the run can produce.
+ *
+ * Every voice plateaus at full for the last third of its leg (`ATTACK_RATIO`),
+ * so the peak of the whole exercise is the end of an exhale — the lowest chord,
+ * on the only sawtooth. Its six oscillators are detuned by a few cents each, and
+ * every ten-odd seconds their beating comes into alignment and they sum
+ * coherently rather than averaging out. Add four seconds of reverb tail holding
+ * energy from every voice at once and the peaks were clipping, audible as a
+ * crackle a couple of breaths apart. −6dB, which costs nothing a volume control
+ * cannot give back.
+ */
+const MASTER_HEADROOM = 0.5;
+
 // A finished run decays like a room, most of the drop early. A quit eases both
 // ends instead, or its steepest moment lands right where the breather tapped.
 const fadeShape = (finished: boolean) => (t: number) =>
@@ -95,13 +120,10 @@ const stopFadingOut = () => {
   fadingOut = null;
 };
 
-/**
- * A voice: its oscillators, the filter they share, and the ceiling every leg
- * sounding it is capped at. No gain — that belongs to the leg, not the voice.
- */
+/** A voice: its oscillators, the gain they share, and that gain's ceiling. */
 type TVoice = {
   oscillators: OscillatorNode[];
-  lowpass: BiquadFilterNode;
+  gain: GainNode;
   peak: number;
 };
 
@@ -149,12 +171,12 @@ export function useBreathAudio(
       stopFadingOut();
 
       const context = new AudioContext();
-      const startedAt = context.currentTime;
+      const startedAt = context.currentTime + LEAD_IN_SECONDS;
       const at = (ms: number) => startedAt + ms / 1000;
 
       // Everything lands here, so the fade takes the reverb tail with it.
       const master = context.createGain();
-      master.gain.setValueAtTime(1, startedAt);
+      master.gain.setValueAtTime(MASTER_HEADROOM, startedAt);
       master.connect(context.destination);
 
       const reverb = context.createConvolver();
@@ -169,9 +191,16 @@ export function useBreathAudio(
       dry.connect(master);
 
       const createVoice = (which: TBreathAudioVoice): TVoice => {
+        const gain = context.createGain();
+        // Silent until the schedule opens it.
+        gain.gain.setValueAtTime(0, startedAt);
+        gain.connect(dry);
+        gain.connect(reverb);
+
         const lowpass = context.createBiquadFilter();
         lowpass.type = "lowpass";
         lowpass.frequency.setValueAtTime(LOWPASS_HZ[which], startedAt);
+        lowpass.connect(gain);
 
         const oscillators = CHORD[which].flatMap((hz) =>
           [-DETUNE_CENTS, DETUNE_CENTS].map((cents) => {
@@ -187,7 +216,7 @@ export function useBreathAudio(
 
         // Divided across the oscillators so a chord cannot sum past the ceiling
         // one note was set to.
-        return { oscillators, lowpass, peak: PEAK[which] / oscillators.length };
+        return { oscillators, gain, peak: PEAK[which] / oscillators.length };
       };
 
       const voices: Record<TBreathAudioVoice, TVoice> = {
@@ -197,38 +226,20 @@ export function useBreathAudio(
         exhaleHold: createVoice("exhaleHold"),
       };
 
-      // One gain per leg, opened the first time that leg's events come past.
-      // Sharing one per voice would pile every leg it sounds onto a single
-      // param, and past `BREATH_AUDIO_MAX_EVENTS_PER_PARAM` the rest are thrown
-      // away without a word — which is how a run used to start droning on its
-      // third breath (DEX-187). A leg's own gain never fills.
-      const legGains = new Map<number, GainNode>();
-      const gainForLeg = ({ legIndex, voice }: TBreathAudioRamp): GainNode => {
-        const existing = legGains.get(legIndex);
-        if (existing) return existing;
-
-        const gain = context.createGain();
-        // Silent until the schedule opens it.
-        gain.gain.setValueAtTime(0, startedAt);
-        gain.connect(dry);
-        gain.connect(reverb);
-        // Every leg taps the same voice, so the chord itself is still built once.
-        voices[voice].lowpass.connect(gain);
-
-        legGains.set(legIndex, gain);
-        return gain;
-      };
-
-      for (const step of buildBreathAudioSchedule(plan)) {
-        const gain = gainForLeg(step);
-        const { peak } = voices[step.voice];
-        const time = at(step.atMs);
-
-        if (step.kind === "set") {
-          gain.gain.setValueAtTime(step.value * peak, time);
-        } else {
-          gain.gain.linearRampToValueAtTime(step.value * peak, time);
-        }
+      // Two curves per leg rather than a staircase of ramps, which is what
+      // keeps each param inside `BREATH_AUDIO_MAX_EVENTS_PER_PARAM` — past it
+      // the library drops automation without a word, and the voice sticks where
+      // it was left (DEX-187). One gain per voice: a filter feeding several
+      // gains would have them scaling its output buffer in turn, since a gain
+      // multiplies its input in place and the graph hands every consumer the
+      // same buffer.
+      for (const curve of buildBreathAudioSchedule(plan)) {
+        const { gain, peak } = voices[curve.voice];
+        gain.gain.setValueCurveAtTime(
+          Float32Array.from(curve.values, (value) => value * peak),
+          at(curve.atMs),
+          curve.durationMs / 1000,
+        );
       }
 
       return () => {
@@ -238,12 +249,15 @@ export function useBreathAudio(
         const endsAt = now + fadeMs / 1000;
         const shape = fadeShape(finished);
 
-        // Starting from 1 is safe because nothing else automates the master.
+        // The shape falls from 1 to 0, so it is scaled by wherever the master
+        // actually sits — otherwise the fade opens by jumping the run *louder*
+        // than it was playing. Safe to take that as a constant because nothing
+        // else automates the master.
         master.gain.cancelAndHoldAtTime(now);
         for (let step = 1; step <= FADE_STEPS; step += 1) {
           const t = step / FADE_STEPS;
           master.gain.linearRampToValueAtTime(
-            shape(t),
+            shape(t) * MASTER_HEADROOM,
             now + (endsAt - now) * t,
           );
         }

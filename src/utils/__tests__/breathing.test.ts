@@ -16,7 +16,7 @@ import {
   resolveBreathCount,
   resolveBreathingTechniqueSetting,
   techniqueForDay,
-  type TBreathAudioRamp,
+  type TBreathAudioCurve,
   type TBreathPhase,
   type TBreathAudioVoice,
   type TBreathingTechnique,
@@ -280,9 +280,11 @@ describe("buildBreathePlan", () => {
 // pass. These are the structural facts that survive the tuning.
 describe("buildBreathAudioSchedule", () => {
   const voice = (
-    schedule: readonly TBreathAudioRamp[],
+    schedule: readonly TBreathAudioCurve[],
     which: TBreathAudioVoice,
-  ) => schedule.filter((step) => step.voice === which);
+  ) => schedule.filter((curve) => curve.voice === which);
+
+  const endMs = (curve: TBreathAudioCurve) => curve.atMs + curve.durationMs;
 
   it.each(BREATHING_TECHNIQUE_ORDER)(
     "keeps every voice in time order, opening and closing on silence (%s)",
@@ -296,16 +298,65 @@ describe("buildBreathAudioSchedule", () => {
         "exhale",
         "exhaleHold",
       ] as const) {
-        const steps = voice(schedule, which);
-        if (steps.length === 0) continue;
+        const curves = voice(schedule, which);
+        if (curves.length === 0) continue;
 
-        for (let i = 1; i < steps.length; i += 1) {
-          expect(steps[i].atMs).toBeGreaterThanOrEqual(steps[i - 1].atMs);
+        // Each curve opens no earlier than the one before it closed. A curve is
+        // only legal if nothing lands *inside* its window, so a rise handing
+        // straight over to its own fall is the tightest this may ever get.
+        for (let i = 1; i < curves.length; i += 1) {
+          expect(curves[i].atMs).toBeGreaterThanOrEqual(endMs(curves[i - 1]));
         }
         // A voice that never returns to zero would sustain under the whole rest
         // of the run, which is the one failure here that is silent on a device.
-        expect(steps[0].value).toBe(0);
-        expect(steps[steps.length - 1].value).toBe(0);
+        expect(curves[0].values[0]).toBe(0);
+        const closing = curves[curves.length - 1].values;
+        expect(closing[closing.length - 1]).toBe(0);
+      }
+    },
+  );
+
+  // Every curve goes straight to `setValueCurveAtTime`, which rejects fewer
+  // than two points or a duration that is not strictly positive, and reads the
+  // samples as evenly spaced across that duration.
+  it.each(BREATHING_TECHNIQUE_ORDER)(
+    "hands out curves the audio API will accept (%s)",
+    (technique) => {
+      for (const curve of buildBreathAudioSchedule(
+        buildBreathePlan(technique, MAX_BREATHS),
+      )) {
+        expect(curve.values.length).toBeGreaterThanOrEqual(2);
+        expect(curve.durationMs).toBeGreaterThan(0);
+        for (const value of curve.values) {
+          expect(value).toBeGreaterThanOrEqual(0);
+          expect(value).toBeLessThanOrEqual(1);
+        }
+      }
+    },
+  );
+
+  // `setValueCurveAtTime` throws outright when a curve's window is not clear,
+  // so this is not a matter of taste: any curve of the same voice opening at or
+  // before another's close kills the whole run rather than sounding slightly
+  // off. Asserted with a strict `>` so the schedule can never drift back onto
+  // the knife-edge of exact adjacency, where a single ULP decides it.
+  it.each(BREATHING_TECHNIQUE_ORDER)(
+    "leaves daylight between one curve and the next on a voice (%s)",
+    (technique) => {
+      const schedule = buildBreathAudioSchedule(
+        buildBreathePlan(technique, MAX_BREATHS),
+      );
+
+      for (const which of [
+        "inhale",
+        "inhaleHold",
+        "exhale",
+        "exhaleHold",
+      ] as const) {
+        const curves = voice(schedule, which);
+        for (let i = 1; i < curves.length; i += 1) {
+          expect(curves[i].atMs).toBeGreaterThan(endMs(curves[i - 1]));
+        }
       }
     },
   );
@@ -348,10 +399,17 @@ describe("buildBreathAudioSchedule", () => {
       for (const leg of plan.session) {
         const start = elapsed;
         const end = start + leg.ms;
-        const withinLeg = schedule.filter(
-          (step) => step.atMs >= start && step.atMs <= end,
+        // Some curve opens with this leg, reaches full, and is done inside it.
+        // Two curves open here — the previous leg's fall lands on the same
+        // boundary — so this asserts one of them rises rather than assuming
+        // which comes first in the array.
+        const rises = schedule.filter(
+          (curve) =>
+            curve.atMs === start &&
+            curve.values[curve.values.length - 1] === 1 &&
+            endMs(curve) <= end,
         );
-        expect(withinLeg.some((step) => step.value === 1)).toBe(true);
+        expect(rises).toHaveLength(1);
         elapsed = end;
       }
     },
@@ -363,7 +421,9 @@ describe("buildBreathAudioSchedule", () => {
   it.each(BREATHING_TECHNIQUE_ORDER)(
     "finishes each release before that voice sounds again (%s)",
     (technique) => {
-      const schedule = buildBreathAudioSchedule(buildBreathePlan(technique, 3));
+      const schedule = buildBreathAudioSchedule(
+        buildBreathePlan(technique, MAX_BREATHS),
+      );
 
       for (const which of [
         "inhale",
@@ -371,61 +431,36 @@ describe("buildBreathAudioSchedule", () => {
         "exhale",
         "exhaleHold",
       ] as const) {
-        const steps = voice(schedule, which);
-        // Each pass over this voice opens with the one `set` that anchors it.
-        const opens = steps
-          .map((step, index) => ({ step, index }))
-          .filter(({ step }) => step.kind === "set");
-
-        opens.forEach((_open, pass) => {
-          const next = opens[pass + 1];
-          if (!next) return;
-          // Everything this pass scheduled has to be done by the next opening.
-          const lastOfPass = steps[next.index - 1];
-          expect(lastOfPass.atMs).toBeLessThanOrEqual(steps[next.index].atMs);
-          expect(lastOfPass.value).toBe(0);
-        });
+        const curves = voice(schedule, which);
+        // A voice alternates rise, fall, rise, fall — so every fall has to
+        // reach zero and be done before the rise after it opens.
+        for (let i = 1; i < curves.length; i += 2) {
+          const fall = curves[i];
+          expect(fall.values[fall.values.length - 1]).toBe(0);
+          const nextRise = curves[i + 1];
+          if (nextRise) expect(endMs(fall)).toBeLessThanOrEqual(nextRise.atMs);
+        }
       }
     },
   );
 
-  // The hook opens a gain node per leg and keys it off this tag, so a leg that
-  // sounded two voices would put two chords on one envelope.
-  it("tags every event with the leg it belongs to, one voice per leg", () => {
-    const plan = buildBreathePlan("box", 2);
-    const voicesByLeg = new Map<number, Set<TBreathAudioVoice>>();
-
-    for (const step of buildBreathAudioSchedule(plan)) {
-      expect(step.legIndex).toBeGreaterThanOrEqual(0);
-      expect(step.legIndex).toBeLessThan(plan.session.length);
-      const voices = voicesByLeg.get(step.legIndex) ?? new Set();
-      voices.add(step.voice);
-      voicesByLeg.set(step.legIndex, voices);
-    }
-
-    // Box sounds all four legs of every breath, so none is missing either.
-    expect(voicesByLeg.size).toBe(plan.session.length);
-    for (const voices of voicesByLeg.values()) expect(voices.size).toBe(1);
-  });
-
-  // A leg's events all land on that leg's one `AudioParam`, which the library
-  // bounds — see `BREATH_AUDIO_MAX_EVENTS_PER_PARAM`. The longest run the
-  // slider offers is the worst case, and the `+ 1` is the hook's own opening
-  // `setValueAtTime(0)` that gates each gain before the schedule reaches it.
+  // The library bounds a param's queues at this and drops the overflow in
+  // silence (see the constant's own comment). Two events a leg, plus the hook's
+  // opening `setValueAtTime(0)` that gates a voice before its first curve.
   it.each(BREATHING_TECHNIQUE_ORDER)(
-    "leaves every leg inside the per-param event budget (%s)",
+    "leaves every voice inside the per-param event budget (%s)",
     (technique) => {
       const schedule = buildBreathAudioSchedule(
         buildBreathePlan(technique, MAX_BREATHS),
       );
 
-      const perLeg = new Map<number, number>();
-      for (const step of schedule) {
-        perLeg.set(step.legIndex, (perLeg.get(step.legIndex) ?? 0) + 1);
+      const perVoice = new Map<TBreathAudioVoice, number>();
+      for (const curve of schedule) {
+        perVoice.set(curve.voice, (perVoice.get(curve.voice) ?? 0) + 1);
       }
 
-      expect(perLeg.size).toBeGreaterThan(0);
-      for (const events of perLeg.values()) {
+      expect(perVoice.size).toBeGreaterThan(0);
+      for (const events of perVoice.values()) {
         expect(events + 1).toBeLessThanOrEqual(
           BREATH_AUDIO_MAX_EVENTS_PER_PARAM,
         );
