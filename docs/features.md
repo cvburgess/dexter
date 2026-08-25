@@ -250,6 +250,15 @@ and pre-rendering was rejected because files force a per-duration asset matrix a
 a JS timer to fire them. `buildBreathAudioSchedule` puts the entire run on the audio
 clock at Begin instead; `useBreathAudio` holds the tuning, and needs a dev-client rebuild.
 
+**Scheduling it all upfront caps what one `AudioParam` may carry.**
+`react-native-audio-api` bounds every param's automation queue at 64 events and
+drops the rest *silently* — no error, no warning, the param just stops changing
+and its chord drones on. That is why the hook opens a gain node per leg rather
+than per voice: shared, a voice's queue overflowed on the third breath and lost
+that leg's release (DEX-187). Browsers impose no such bound, so it only ever
+misbehaved on device. Anything else that schedules a whole timeline in one pass
+owes the same arithmetic.
+
 ### Horoscope step (DEX-128, re-shaped in DEX-145)
 
 Read-only client of `public.horoscopes` (`["horoscopes", sunSign, date]`),
