@@ -2,6 +2,7 @@ import { useFocusEffect } from "expo-router";
 import { type RefObject, useCallback, useRef } from "react";
 import {
   AudioContext,
+  type BiquadFilterNode,
   type GainNode,
   type OscillatorNode,
 } from "react-native-audio-api";
@@ -11,6 +12,7 @@ import {
   buildBreathAudioSchedule,
   easeInOut,
   easeOut,
+  type TBreathAudioRamp,
   type TBreathAudioVoice,
   type TBreathePlan,
 } from "@/utils/breathing";
@@ -93,10 +95,13 @@ const stopFadingOut = () => {
   fadingOut = null;
 };
 
-/** A voice: its oscillators, the gain they share, and that gain's ceiling. */
+/**
+ * A voice: its oscillators, the filter they share, and the ceiling every leg
+ * sounding it is capped at. No gain — that belongs to the leg, not the voice.
+ */
 type TVoice = {
   oscillators: OscillatorNode[];
-  gain: GainNode;
+  lowpass: BiquadFilterNode;
   peak: number;
 };
 
@@ -164,16 +169,9 @@ export function useBreathAudio(
       dry.connect(master);
 
       const createVoice = (which: TBreathAudioVoice): TVoice => {
-        const gain = context.createGain();
-        // Silent until the schedule opens it.
-        gain.gain.setValueAtTime(0, startedAt);
-        gain.connect(dry);
-        gain.connect(reverb);
-
         const lowpass = context.createBiquadFilter();
         lowpass.type = "lowpass";
         lowpass.frequency.setValueAtTime(LOWPASS_HZ[which], startedAt);
-        lowpass.connect(gain);
 
         const oscillators = CHORD[which].flatMap((hz) =>
           [-DETUNE_CENTS, DETUNE_CENTS].map((cents) => {
@@ -189,7 +187,7 @@ export function useBreathAudio(
 
         // Divided across the oscillators so a chord cannot sum past the ceiling
         // one note was set to.
-        return { oscillators, gain, peak: PEAK[which] / oscillators.length };
+        return { oscillators, lowpass, peak: PEAK[which] / oscillators.length };
       };
 
       const voices: Record<TBreathAudioVoice, TVoice> = {
@@ -199,8 +197,31 @@ export function useBreathAudio(
         exhaleHold: createVoice("exhaleHold"),
       };
 
+      // One gain per leg, opened the first time that leg's events come past.
+      // Sharing one per voice would pile every leg it sounds onto a single
+      // param, and past `BREATH_AUDIO_MAX_EVENTS_PER_PARAM` the rest are thrown
+      // away without a word — which is how a run used to start droning on its
+      // third breath (DEX-187). A leg's own gain never fills.
+      const legGains = new Map<number, GainNode>();
+      const gainForLeg = ({ legIndex, voice }: TBreathAudioRamp): GainNode => {
+        const existing = legGains.get(legIndex);
+        if (existing) return existing;
+
+        const gain = context.createGain();
+        // Silent until the schedule opens it.
+        gain.gain.setValueAtTime(0, startedAt);
+        gain.connect(dry);
+        gain.connect(reverb);
+        // Every leg taps the same voice, so the chord itself is still built once.
+        voices[voice].lowpass.connect(gain);
+
+        legGains.set(legIndex, gain);
+        return gain;
+      };
+
       for (const step of buildBreathAudioSchedule(plan)) {
-        const { gain, peak } = voices[step.voice];
+        const gain = gainForLeg(step);
+        const { peak } = voices[step.voice];
         const time = at(step.atMs);
 
         if (step.kind === "set") {

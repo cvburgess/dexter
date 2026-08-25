@@ -1,6 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 
 import {
+  BREATH_AUDIO_MAX_EVENTS_PER_PARAM,
   breathePlanEndsEmpty,
   buildBreathAudioSchedule,
   BREATHING_TECHNIQUE_ORDER,
@@ -384,6 +385,50 @@ describe("buildBreathAudioSchedule", () => {
           expect(lastOfPass.atMs).toBeLessThanOrEqual(steps[next.index].atMs);
           expect(lastOfPass.value).toBe(0);
         });
+      }
+    },
+  );
+
+  // The hook opens a gain node per leg and keys it off this tag, so a leg that
+  // sounded two voices would put two chords on one envelope.
+  it("tags every event with the leg it belongs to, one voice per leg", () => {
+    const plan = buildBreathePlan("box", 2);
+    const voicesByLeg = new Map<number, Set<TBreathAudioVoice>>();
+
+    for (const step of buildBreathAudioSchedule(plan)) {
+      expect(step.legIndex).toBeGreaterThanOrEqual(0);
+      expect(step.legIndex).toBeLessThan(plan.session.length);
+      const voices = voicesByLeg.get(step.legIndex) ?? new Set();
+      voices.add(step.voice);
+      voicesByLeg.set(step.legIndex, voices);
+    }
+
+    // Box sounds all four legs of every breath, so none is missing either.
+    expect(voicesByLeg.size).toBe(plan.session.length);
+    for (const voices of voicesByLeg.values()) expect(voices.size).toBe(1);
+  });
+
+  // A leg's events all land on that leg's one `AudioParam`, which the library
+  // bounds — see `BREATH_AUDIO_MAX_EVENTS_PER_PARAM`. The longest run the
+  // slider offers is the worst case, and the `+ 1` is the hook's own opening
+  // `setValueAtTime(0)` that gates each gain before the schedule reaches it.
+  it.each(BREATHING_TECHNIQUE_ORDER)(
+    "leaves every leg inside the per-param event budget (%s)",
+    (technique) => {
+      const schedule = buildBreathAudioSchedule(
+        buildBreathePlan(technique, MAX_BREATHS),
+      );
+
+      const perLeg = new Map<number, number>();
+      for (const step of schedule) {
+        perLeg.set(step.legIndex, (perLeg.get(step.legIndex) ?? 0) + 1);
+      }
+
+      expect(perLeg.size).toBeGreaterThan(0);
+      for (const events of perLeg.values()) {
+        expect(events + 1).toBeLessThanOrEqual(
+          BREATH_AUDIO_MAX_EVENTS_PER_PARAM,
+        );
       }
     },
   );

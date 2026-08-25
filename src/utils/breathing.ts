@@ -366,6 +366,12 @@ export type TBreathAudioVoice =
 // so nothing about how loud the exercise is leaks in here.
 export type TBreathAudioRamp = {
   voice: TBreathAudioVoice;
+  /**
+   * Which leg of `plan.session` sounds this. The hook gives every leg its own
+   * gain node, so this is the identity it keys them off — see
+   * `BREATH_AUDIO_MAX_EVENTS_PER_PARAM` for why one per *voice* is not enough.
+   */
+  legIndex: number;
   /** Milliseconds from the start of the run. */
   atMs: number;
   value: number;
@@ -379,6 +385,24 @@ export type TBreathAudioRamp = {
 // `setValueCurveAtTime` would express a curve exactly, but it throws if any
 // automation overlaps it — a whole dead feature rather than a slightly wrong sound.
 const CURVE_STEPS = 12;
+
+/**
+ * The most automation events one `AudioParam` may carry — and the reason the
+ * hook opens a gain node per *leg* rather than per voice.
+ *
+ * `react-native-audio-api` bounds every param's event queue at this
+ * (`AUDIO_PARAM_MAX_QUEUED_EVENTS`, `core/utils/Constants.h`), and past it
+ * `push` returns false and the event is **dropped with no error and no
+ * warning** — the automation simply stops arriving and the param holds its last
+ * value. Sharing one gain across every leg a voice sounds stacks
+ * `CURVE_STEPS * 2 + 1` events per breath onto that one queue: at three breaths,
+ * the app's default, the third leg overflows part-way through and loses its
+ * release, so the chord never comes back down and drones under the rest of the
+ * run. That was DEX-187. Per leg, a param carries a fixed 26 whatever the count.
+ *
+ * Browsers impose no such bound, so this only ever misbehaved on device.
+ */
+export const BREATH_AUDIO_MAX_EVENTS_PER_PARAM = 64;
 
 // Steepest at the start, flattening into the finish. A curve eased at *both*
 // ends has zero slope at zero, which is audible as a delay.
@@ -415,7 +439,8 @@ const voiceFor = (
  *
  * Each leg's tone rises across its own leg and releases over the opening of the
  * next, leaving two chords always crossfading. Entries are in time order **per
- * voice**, which is the ordering `AudioParam` automation actually cares about.
+ * leg**, which is the ordering `AudioParam` automation actually cares about —
+ * a leg is what owns a gain node, and each sounds one voice.
  */
 export const buildBreathAudioSchedule = (
   plan: TBreathePlan,
@@ -434,11 +459,18 @@ export const buildBreathAudioSchedule = (
     // and the exit fade catches the rest.
     const fallMs = (plan.session[index + 1]?.ms ?? leg.ms) * RELEASE_RATIO;
 
-    schedule.push({ voice, atMs: start, value: 0, kind: "set" });
+    schedule.push({
+      voice,
+      legIndex: index,
+      atMs: start,
+      value: 0,
+      kind: "set",
+    });
     for (let step = 1; step <= CURVE_STEPS; step += 1) {
       const t = step / CURVE_STEPS;
       schedule.push({
         voice,
+        legIndex: index,
         atMs: start + leg.ms * t,
         // Full once the attack is done, and held there for the rest of the leg.
         value: t >= ATTACK_RATIO ? 1 : easeOut(t / ATTACK_RATIO),
@@ -449,6 +481,7 @@ export const buildBreathAudioSchedule = (
       const t = step / CURVE_STEPS;
       schedule.push({
         voice,
+        legIndex: index,
         atMs: end + fallMs * t,
         value: 1 - easeOut(t),
         kind: "ramp",
