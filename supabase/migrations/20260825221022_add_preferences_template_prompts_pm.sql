@@ -1,0 +1,42 @@
+-- DEX-151: The evening half of the journal's prompt template.
+--
+-- Journal prompts were one list shown by both rituals, so the same questions
+-- opened and closed the day. This column splits them: `template_prompts` is now
+-- the **morning** list and `template_prompts_pm` the evening one. A prompt lives
+-- in exactly one of them — there is no "both", by design, so a prompt's period
+-- is a property of which array holds it rather than a value stored beside it.
+--
+-- **`template_prompts` is deliberately untouched, and that is the whole reason
+-- for a second array rather than a reshaped column.** Reshaping it into a jsonb
+-- array of `{prompt, period}` would model the same thing more directly, but the
+-- legacy `dexter-app` still runs against this project (deprecated in DEX-71, but
+-- shipped DEX-89 to keep reading the notes/journals tables) and reads
+-- `template_prompts` as a `string[]` in three places, including its own settings
+-- editor. Leaving the column alone keeps that app working and makes the issue's
+-- "default every existing prompt to AM" a no-op: they are already in the array
+-- that now means morning, so this migration backfills nothing and rewrites no
+-- rows.
+--
+-- NOT NULL for the reason every `enable_*` column here is: the read paths treat
+-- it as a plain array without null-guarding, and "unset" is not a meaningful
+-- third state. Defaulting to empty rather than to a starter set is the point of
+-- the feature — an upgrading user keeps exactly the morning journal they had and
+-- has no evening step until they ask for one.
+--
+-- No CHECK, the same call `alarm_sound` and `breathing_technique` make: the
+-- content is app-owned prose, and nothing bounds a journal prompt anywhere (see
+-- the header on `functions/mcp-server/tools/journals.ts`).
+--
+-- `text[]` rather than the sibling's `character varying[]`: the two are
+-- interchangeable to PostgREST and both generate `string[]`, and `text` is what
+-- the rest of the schema reaches for. Bound `template_prompts` first if either
+-- ever needs a limit.
+--
+-- No RLS changes are needed — the existing `user_id` policies on `preferences`
+-- already cover the new column, as do the table-level grants.
+--
+-- Rollback:
+--   alter table public.preferences drop column if exists template_prompts_pm;
+
+alter table public.preferences
+  add column if not exists template_prompts_pm text[] not null default '{}';

@@ -90,7 +90,7 @@ export interface DemoNote {
 
 export interface DemoJournal {
   dateOffset: number;
-  prompts: { prompt: string; response: string }[];
+  prompts: { prompt: string; response: string; period: "am" | "pm" }[];
 }
 
 export interface DemoPreferences {
@@ -103,7 +103,12 @@ export interface DemoPreferences {
   enableHoroscope: boolean;
   /** A `public.sun_sign` enum value — see 20260804005118_add_horoscopes.sql. */
   sunSign: string;
+  /** The morning ritual's journal prompts. */
   templatePrompts: string[];
+  /** The evening ritual's (DEX-151). Both are seeded so the demo account has a
+   * Journal step in each half of the day — an empty list would drop the step
+   * from that ritual entirely, and the screenshots walk both. */
+  templatePromptsPm: string[];
 }
 
 export interface DemoDataset {
@@ -118,12 +123,18 @@ export interface DemoDataset {
   preferences: DemoPreferences;
 }
 
-const PROMPTS = [
+// Split by ritual since DEX-151. The morning set is the app's own default,
+// unchanged; the evening set is new, and deliberately short — an evening
+// journal that asks four questions of someone winding down is a chore, and two
+// is enough to show the step is not a copy of the morning's.
+const AM_PROMPTS = [
   "Yesterday's highlight",
   "Today I am grateful for",
   "Today I am excited for",
   "What matters most today",
 ];
+
+const PM_PROMPTS = ["What went well today", "What I would do differently"];
 
 /**
  * Build the curated demo dataset. Deterministic and self-consistent: every
@@ -418,19 +429,61 @@ export function buildDemoData(): DemoDataset {
     {
       dateOffset: -1,
       prompts: [
-        { prompt: PROMPTS[0], response: "Finished the calendar view redesign" },
-        { prompt: PROMPTS[1], response: "A quiet morning to focus" },
-        { prompt: PROMPTS[2], response: "Shipping 2.0" },
-        { prompt: PROMPTS[3], response: "Polishing the App Store listing" },
+        {
+          prompt: AM_PROMPTS[0],
+          response: "Finished the calendar view redesign",
+          period: "am",
+        },
+        {
+          prompt: AM_PROMPTS[1],
+          response: "A quiet morning to focus",
+          period: "am",
+        },
+        { prompt: AM_PROMPTS[2], response: "Shipping 2.0", period: "am" },
+        {
+          prompt: AM_PROMPTS[3],
+          response: "Polishing the App Store listing",
+          period: "am",
+        },
+        {
+          prompt: PM_PROMPTS[0],
+          response: "The redesign landed without a single rollback",
+          period: "pm",
+        },
+        {
+          prompt: PM_PROMPTS[1],
+          response: "Started the day in my inbox instead of on the plan",
+          period: "pm",
+        },
       ],
     },
     {
       dateOffset: 0,
       prompts: [
-        { prompt: PROMPTS[0], response: "A great run this morning" },
-        { prompt: PROMPTS[1], response: "This planner, honestly" },
-        { prompt: PROMPTS[2], response: "Submitting to the App Store" },
-        { prompt: PROMPTS[3], response: "Getting the demo account just right" },
+        {
+          prompt: AM_PROMPTS[0],
+          response: "A great run this morning",
+          period: "am",
+        },
+        {
+          prompt: AM_PROMPTS[1],
+          response: "This planner, honestly",
+          period: "am",
+        },
+        {
+          prompt: AM_PROMPTS[2],
+          response: "Submitting to the App Store",
+          period: "am",
+        },
+        {
+          prompt: AM_PROMPTS[3],
+          response: "Getting the demo account just right",
+          period: "am",
+        },
+        // Left blank: today's evening ritual has not happened yet, so an
+        // answered PM prompt would read as a day journalled out of order.
+        { prompt: PM_PROMPTS[0], response: "", period: "pm" },
+        { prompt: PM_PROMPTS[1], response: "", period: "pm" },
       ],
     },
   ];
@@ -447,7 +500,8 @@ export function buildDemoData(): DemoDataset {
     // renders the "Choose your sign" prompt instead, which is not what the demo
     // account or an App Store screenshot should show.
     sunSign: "libra",
-    templatePrompts: [...PROMPTS],
+    templatePrompts: [...AM_PROMPTS],
+    templatePromptsPm: [...PM_PROMPTS],
   };
 
   return {

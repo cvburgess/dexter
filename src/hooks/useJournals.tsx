@@ -7,6 +7,7 @@ import {
   TUpsertJournal,
   upsertJournal,
 } from "@/api/journals";
+import { mergeTemplatePrompts } from "@/utils/journalPrompts";
 
 import { supabase } from "./useAuth";
 import { usePreferences } from "./usePreferences";
@@ -45,12 +46,19 @@ export const useJournals = (date: string): TUseJournals => {
       // Unlike notes (which offer a template chooser), prompts auto-seed from
       // the template so a blank day is immediately answerable. Nothing persists
       // until the user types a response (DEX-37).
-      prompts: preferences.templatePrompts.map((prompt) => ({
-        prompt,
-        response: "",
-      })),
+      //
+      // Seeds **both** rituals' prompts, morning first, each stamped with its
+      // period (DEX-151) — the day holds every question it will be asked, and
+      // `JournalView` renders the subset belonging to the ritual on screen.
+      // Seeding only the current mode's would mean the evening's first save
+      // wrote a row the morning was missing from, and the day's other half
+      // would be gone for good.
+      prompts: mergeTemplatePrompts(
+        preferences.templatePrompts,
+        preferences.templatePromptsPm,
+      ).map(({ prompt, period }) => ({ prompt, period, response: "" })),
     }),
-    [date, preferences.templatePrompts],
+    [date, preferences.templatePrompts, preferences.templatePromptsPm],
   );
 
   const { data, isLoading } = useQuery({

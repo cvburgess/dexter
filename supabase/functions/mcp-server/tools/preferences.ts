@@ -57,6 +57,11 @@ export const updatePreferencesInputSchema = {
   sunSign: sunSignSchema.nullable().optional(),
   templateNote: z.string().optional(),
   templatePrompts: z.array(z.string()).optional(),
+  // The evening half of the same template (DEX-151). Sending one without the
+  // other is legitimate — `compactUpdate` drops what is absent — but an agent
+  // *moving* a prompt between rituals must send both, or the prompt ends up in
+  // neither list or in both.
+  templatePromptsPm: z.array(z.string()).optional(),
   themeMode: themeModeSchema.optional(),
 };
 
@@ -114,6 +119,7 @@ export function registerPreferenceTools(
         sun_sign: fields.sunSign,
         template_note: fields.templateNote,
         template_prompts: fields.templatePrompts,
+        template_prompts_pm: fields.templatePromptsPm,
         theme_mode: fields.themeMode,
       });
 

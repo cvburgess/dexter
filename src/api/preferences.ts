@@ -49,7 +49,14 @@ export type TPreferences = {
    * than coalescing it to a sign. */
   sunSign: TSunSign | null;
   templateNote: string;
+  /** The **morning** ritual's journal prompts (DEX-151). Named without a period
+   * because it predates the split: reshaping it would have broken the legacy
+   * dexter-app, which still reads this column as a `string[]`. */
   templatePrompts: string[];
+  /** The **evening** ritual's journal prompts. A prompt lives in exactly one of
+   * the two lists — there is no "both". `utils/journalPrompts.ts` owns the
+   * merge/split between these columns and the list the settings editor edits. */
+  templatePromptsPm: string[];
   themeMode: EThemeMode;
 };
 
@@ -83,7 +90,10 @@ export type TUpdatePreferences = {
    * rather than merely optional — omitting it leaves the stored sign alone. */
   sunSign?: TSunSign | null;
   templateNote?: string;
+  /** Sent together with `templatePromptsPm` whenever a prompt changes period —
+   * see `splitTemplatePrompts`, which always returns both. */
   templatePrompts?: string[];
+  templatePromptsPm?: string[];
   themeMode?: EThemeMode;
   userId: string;
 };
