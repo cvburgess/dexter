@@ -114,10 +114,16 @@ fi
 # rather than inside the device lookup.
 [ -x /usr/bin/python3 ] || die "/usr/bin/python3 is missing — install the Xcode command line tools (xcode-select --install)."
 
+# One scratch directory for the whole run, removed on exit. `$(mktemp -t x).png`
+# would write to a path mktemp never created, leaking an empty temp file behind
+# every screenshot.
+WORK_DIR="$(mktemp -d -t capture)"
+trap 'rm -rf "$WORK_DIR"' EXIT
+
 # Marks the start of this run, so a failure report can tell this run's Maestro
 # screenshots from every earlier one still sitting in ~/.maestro/tests.
-RUN_MARKER="$(mktemp -t capture-run)"
-trap 'rm -f "$RUN_MARKER"' EXIT
+RUN_MARKER="$WORK_DIR/started"
+: > "$RUN_MARKER"
 
 # Maestro reads shell variables prefixed with MAESTRO_ and exposes them to flows
 # under the same name. Exporting the OTP that way keeps it out of the process
@@ -149,7 +155,11 @@ report_maestro_failure() {
 }
 
 run_flow() {
-  "$MAESTRO" --device "$1" test "${@:2}" || { report_maestro_failure; exit 1; }
+  # </dev/null because callers sit inside a `while read` loop fed by the
+  # manifest: a subprocess that touched stdin would swallow rows, and screens
+  # would silently go missing rather than fail.
+  "$MAESTRO" --device "$1" test "${@:2}" </dev/null \
+    || { report_maestro_failure; exit 1; }
 }
 
 # The published size: the native framebuffer, swapped when we shoot landscape.
@@ -199,7 +209,7 @@ for profile in "${PROFILES[@]}"; do
   # Verify geometry *before* the expensive build: a capture from the wrong
   # device is rejected no matter how good it looks. This checks the *native*
   # framebuffer, which stays portrait in either orientation.
-  geom_tmp="$(mktemp -t geom).png"
+  geom_tmp="$WORK_DIR/geom.png"
   xcrun simctl io "$udid" screenshot "$geom_tmp" >/dev/null 2>&1
   geom="$(sips -g pixelWidth -g pixelHeight "$geom_tmp" | awk '/pixelWidth/{w=$2} /pixelHeight/{h=$2} END{print w "x" h}')"
   rm -f "$geom_tmp"
@@ -291,7 +301,7 @@ for profile in "${PROFILES[@]}"; do
       -e DRAWER="$drawer" \
       "$HERE/flows/goto.yaml"
 
-    raw="$(mktemp -t shot).png"
+    raw="$WORK_DIR/raw.png"
     xcrun simctl io "$udid" screenshot "$raw" >/dev/null 2>&1
     # simctl rather than maestro's takeScreenshot: this is the native-resolution
     # capture. simctl always emits RGBA and App Store Connect rejects alpha —
