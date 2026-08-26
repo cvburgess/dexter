@@ -1,9 +1,11 @@
-import { fireEvent, render } from "@testing-library/react-native";
+import { act, fireEvent, render } from "@testing-library/react-native";
 import { ScrollView } from "react-native";
 
 import RitualScreen from "@/app/(app)/(tabs)/settings/ritual";
+import { JournalPeriodMenu } from "@/components/JournalPeriodMenu";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
+import type { TRitualMode } from "@/utils/ritualSteps";
 import {
   pickerOptionsFor,
   pickerPropsFor,
@@ -45,6 +47,7 @@ const renderWith = (
     enableJournal?: boolean;
     enableHoroscope?: boolean;
     templatePrompts?: string[];
+    templatePromptsPm?: string[];
     sunSign?: string | null;
     breathCount?: number;
     breathingTechnique?: string;
@@ -55,6 +58,7 @@ const renderWith = (
       enableJournal: true,
       enableHoroscope: true,
       templatePrompts: [],
+      templatePromptsPm: [],
       sunSign: null,
       breathCount: 3,
       breathingTechnique: "shuffle",
@@ -239,6 +243,7 @@ describe("RitualScreen", () => {
 
     expect(mockUpdate).toHaveBeenCalledWith({
       templatePrompts: ["What went well?", "Grateful for"],
+      templatePromptsPm: [],
     });
   });
 
@@ -263,6 +268,7 @@ describe("RitualScreen", () => {
 
     expect(mockUpdate).toHaveBeenCalledWith({
       templatePrompts: ["Highlight", ""],
+      templatePromptsPm: [],
     });
   });
 
@@ -283,6 +289,7 @@ describe("RitualScreen", () => {
 
     expect(mockUpdate).toHaveBeenCalledWith({
       templatePrompts: ["What went well?", ""],
+      templatePromptsPm: [],
     });
   });
 
@@ -296,6 +303,115 @@ describe("RitualScreen", () => {
 
     expect(mockUpdate).toHaveBeenCalledWith({
       templatePrompts: ["Grateful for"],
+      templatePromptsPm: [],
+    });
+  });
+
+  describe("a prompt's ritual", () => {
+    // The `MenuView` double renders only its trigger (see jest.setup.js), so
+    // the screen's write is driven through the control's own prop — the same
+    // seam every other icon menu in the app is covered through.
+    const changePeriod = (
+      screen: ReturnType<typeof renderWith>,
+      row: number,
+      period: TRitualMode,
+    ) =>
+      // A block body, not an expression one: the props of an UNSAFE-queried
+      // node are `any`, so returning the call would pick `act`'s async
+      // overload and leave a floating promise.
+      act(() => {
+        screen.UNSAFE_getAllByType(JournalPeriodMenu)[row].props.onChange(
+          period,
+        );
+      });
+
+    it("offers one control per prompt, showing its current ritual", () => {
+      const screen = renderWith({
+        templatePrompts: ["Highlight"],
+        templatePromptsPm: ["What went well?"],
+      });
+
+      const menus = screen.UNSAFE_getAllByType(JournalPeriodMenu);
+      expect(menus).toHaveLength(2);
+      expect(menus[0].props.period).toBe("am");
+      expect(menus[1].props.period).toBe("pm");
+    });
+
+    // Both arrays go in one update: the prompt's departure from one and its
+    // arrival in the other are the same edit.
+    it("moves a prompt to the evening by writing both columns at once", () => {
+      const screen = renderWith({
+        templatePrompts: ["Highlight", "Grateful for"],
+      });
+
+      changePeriod(screen, 0, "pm");
+
+      expect(mockUpdate).toHaveBeenCalledWith({
+        templatePrompts: ["Grateful for"],
+        templatePromptsPm: ["Highlight"],
+      });
+    });
+
+    it("moves a prompt back to the morning", () => {
+      const screen = renderWith({
+        templatePrompts: ["Highlight"],
+        templatePromptsPm: ["What went well?"],
+      });
+
+      changePeriod(screen, 1, "am");
+
+      expect(mockUpdate).toHaveBeenCalledWith({
+        templatePrompts: ["Highlight", "What went well?"],
+        templatePromptsPm: [],
+      });
+    });
+
+    // The list is grouped morning-then-evening, so a moved row travels on the
+    // tap rather than sitting still until the optimistic write echoes back.
+    it("regroups the list immediately, without waiting for the write", () => {
+      const screen = renderWith({
+        templatePrompts: ["Highlight", "Grateful for"],
+      });
+
+      changePeriod(screen, 0, "pm");
+
+      const menus = screen.UNSAFE_getAllByType(JournalPeriodMenu);
+      expect(menus.map((menu) => menu.props.period)).toEqual(["am", "pm"]);
+      expect(screen.getByLabelText("Journal prompt 1").props.value).toBe(
+        "Grateful for",
+      );
+      expect(screen.getByLabelText("Journal prompt 2").props.value).toBe(
+        "Highlight",
+      );
+    });
+
+    // Nothing about the evening list should change by adding to the morning's.
+    it("adds new prompts to the morning, leaving the evening alone", () => {
+      renderWith({
+        templatePrompts: ["Highlight"],
+        templatePromptsPm: ["What went well?"],
+      });
+
+      fireEvent.press(renderHeader().getByLabelText("Add prompt"));
+
+      expect(mockUpdate).toHaveBeenCalledWith({
+        templatePrompts: ["Highlight", ""],
+        templatePromptsPm: ["What went well?"],
+      });
+    });
+
+    it("deletes an evening prompt without disturbing the morning's", () => {
+      const screen = renderWith({
+        templatePrompts: ["Highlight"],
+        templatePromptsPm: ["What went well?"],
+      });
+
+      fireEvent.press(screen.getByTestId("delete-prompt-1"));
+
+      expect(mockUpdate).toHaveBeenCalledWith({
+        templatePrompts: ["Highlight"],
+        templatePromptsPm: [],
+      });
     });
   });
 

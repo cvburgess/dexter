@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, type ViewStyle } from "react-native";
 
 import { TJournalPrompt } from "@/api/journals";
 import { useJournals } from "@/hooks/useJournals";
+import type { TRitualMode } from "@/utils/ritualSteps";
 
 import { JournalView } from "../JournalView";
 
@@ -13,26 +14,37 @@ const mockUseJournals = useJournals as jest.MockedFunction<typeof useJournals>;
 const mockUpsertJournal = jest.fn();
 const mockUpsertJournalAsync = jest.fn().mockResolvedValue(undefined);
 
+// `mode` defaults to the morning, and prompts written without a `period` read
+// as morning too (`promptPeriod`), so a case that says nothing about periods
+// exercises exactly what it did before DEX-151.
 const setup = ({
   prompts = [],
   isLoading = false,
+  mode = "am",
+  exists,
   onEditingChange,
 }: {
   prompts?: TJournalPrompt[];
   isLoading?: boolean;
+  mode?: TRitualMode;
+  exists?: boolean;
   onEditingChange?: (editing: boolean) => void;
 } = {}) => {
   mockUseJournals.mockReturnValue([
     { date: "2026-07-12", prompts },
     {
       isLoading,
-      exists: prompts.length > 0,
+      exists: exists ?? prompts.length > 0,
       upsertJournal: mockUpsertJournal,
       upsertJournalAsync: mockUpsertJournalAsync,
     },
   ]);
   return render(
-    <JournalView date="2026-07-12" onEditingChange={onEditingChange} />,
+    <JournalView
+      date="2026-07-12"
+      mode={mode}
+      onEditingChange={onEditingChange}
+    />,
   );
 };
 
@@ -107,7 +119,7 @@ describe("JournalView", () => {
 
     expect(screen.queryByTestId("journal-response-0")).toBeNull();
     expect(
-      screen.queryByText("Add journal prompts in Settings → Journal"),
+      screen.queryByText("Add a morning prompt in Settings → Ritual"),
     ).toBeNull();
   });
 
@@ -144,9 +156,84 @@ describe("JournalView", () => {
     const screen = setup({ prompts: [] });
 
     expect(
-      screen.getByText("Add journal prompts in Settings → Journal"),
+      screen.getByText("Add a morning prompt in Settings → Ritual"),
     ).toBeTruthy();
     expect(screen.queryByTestId("journal-response-0")).toBeNull();
+  });
+
+  describe("with prompts split across the two rituals", () => {
+    const DAY: TJournalPrompt[] = [
+      { prompt: "Highlight", response: "shipped it", period: "am" },
+      { prompt: "Grateful for", response: "family", period: "am" },
+      { prompt: "What went well?", response: "", period: "pm" },
+    ];
+
+    it("renders only the prompts belonging to the ritual on screen", () => {
+      const screen = setup({ prompts: DAY, mode: "pm" });
+
+      expect(screen.getByText("What went well?")).toBeTruthy();
+      expect(screen.queryByText("Highlight")).toBeNull();
+      expect(screen.queryByText("Grateful for")).toBeNull();
+    });
+
+    // The testID is the entry's position in the **stored** day, not the field's
+    // position on screen — the same index the save rebuilds from.
+    it("names each field by its index in the stored day, not on screen", () => {
+      const screen = setup({ prompts: DAY, mode: "pm" });
+
+      expect(screen.getByTestId("journal-response-2")).toBeTruthy();
+      expect(screen.queryByTestId("journal-response-0")).toBeNull();
+    });
+
+    // The regression this whole design is arranged around. `upsertJournal`
+    // replaces the entire jsonb column, so an evening save rebuilt from the
+    // fields the evening renders would write a one-entry array over the row and
+    // delete the morning's answers for that day.
+    it("keeps the other ritual's answers when this one saves", () => {
+      jest.useFakeTimers();
+      try {
+        const screen = setup({ prompts: DAY, mode: "pm" });
+
+        fireEvent.changeText(
+          screen.getByTestId("journal-response-2"),
+          "the redesign landed",
+        );
+        act(() => jest.advanceTimersByTime(800));
+
+        expect(mockUpsertJournalAsync).toHaveBeenCalledWith({
+          prompts: [
+            { prompt: "Highlight", response: "shipped it", period: "am" },
+            { prompt: "Grateful for", response: "family", period: "am" },
+            {
+              prompt: "What went well?",
+              response: "the redesign landed",
+              period: "pm",
+            },
+          ],
+        });
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    // Reachable whenever a day was started before this period had any prompts:
+    // the template only seeds days with a blank journal, so the step is in the
+    // ritual (the template has prompts) while this particular day has none.
+    it("explains an already-started day with none of this ritual's prompts", () => {
+      const screen = setup({
+        prompts: [
+          { prompt: "Highlight", response: "shipped it", period: "am" },
+        ],
+        mode: "pm",
+      });
+
+      expect(
+        screen.getByText(
+          "This day was started before you had any evening prompts.",
+        ),
+      ).toBeTruthy();
+      expect(screen.queryByTestId("journal-response-0")).toBeNull();
+    });
   });
 
   it("flushes a pending edit immediately on unmount", () => {

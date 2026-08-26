@@ -288,7 +288,7 @@ describe("useRealtimeInvalidation", () => {
         }),
       );
       mockUsePreferences.mockReturnValue([
-        { templatePrompts: [] } as never,
+        { templatePrompts: [], templatePromptsPm: [] } as never,
         { updatePreferences: jest.fn() },
       ]);
 

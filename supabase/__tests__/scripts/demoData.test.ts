@@ -207,9 +207,46 @@ Deno.test("journal prompts pair a prompt with a response", () => {
       journal.prompts.length > 0,
       `journal ${journal.dateOffset} has no prompts`,
     );
-    for (const { prompt, response } of journal.prompts) {
-      assert(prompt.length > 0 && response.length > 0);
+    for (const { prompt, response, period } of journal.prompts) {
+      assert(
+        prompt.length > 0,
+        `journal ${journal.dateOffset} has a nameless prompt`,
+      );
+      // Today's evening prompts are the one deliberate blank: the evening
+      // ritual has not happened yet at the hour a screenshot is taken, and
+      // answering them would photograph a day journalled out of order. It also
+      // gives the demo one unanswered field, which is what the step looks like
+      // when you actually arrive at it.
+      const blankByDesign = journal.dateOffset === 0 && period === "pm";
+      assert(
+        blankByDesign ? response.length === 0 : response.length > 0,
+        `journal ${journal.dateOffset} prompt "${prompt}" (${period}) has the wrong answered state`,
+      );
     }
+  }
+});
+
+// Both rituals need prompts of their own or the Journal step drops out of one
+// of them entirely (DEX-151) — and the screenshots walk both.
+Deno.test("journal prompts are seeded for both rituals", () => {
+  assert(
+    data.preferences.templatePrompts.length > 0,
+    "expected morning journal prompts",
+  );
+  assert(
+    data.preferences.templatePromptsPm.length > 0,
+    "expected evening journal prompts",
+  );
+
+  // Each day's entries carry the period they were seeded with, so the two
+  // rituals can each render their own half of a day the demo already answered.
+  for (const journal of data.journals) {
+    const periods = new Set(journal.prompts.map((entry) => entry.period));
+    assertEquals(
+      periods,
+      new Set(["am", "pm"]),
+      `journal ${journal.dateOffset} should hold both rituals' prompts`,
+    );
   }
 });
 

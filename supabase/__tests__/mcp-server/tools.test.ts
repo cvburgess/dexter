@@ -299,6 +299,32 @@ Deno.test("update_preferences writes the horoscope toggle through", async () => 
   assertEquals(supabase.lastBuilder?.payload, { enable_horoscope: false });
 });
 
+// The same two-places hazard as the test above, for DEX-151's evening column.
+// Both arrays go in one call because a prompt's period *is* which array holds
+// it: an agent that sent only one would leave the prompt in neither list or in
+// both.
+Deno.test("update_preferences writes both journal prompt columns through", async () => {
+  const registry = new ToolRegistry();
+  const supabase = new FakeSupabase();
+
+  assertEquals("templatePromptsPm" in updatePreferencesInputSchema, true);
+
+  registerPreferenceTools(
+    registry as unknown as McpServer,
+    makeToolContext(supabase, "00000000-0000-4000-8000-0000000000aa"),
+  );
+
+  await registry.run("update_preferences", {
+    templatePrompts: ["Highlight"],
+    templatePromptsPm: ["What went well?"],
+  });
+
+  assertEquals(supabase.lastBuilder?.payload, {
+    template_prompts: ["Highlight"],
+    template_prompts_pm: ["What went well?"],
+  });
+});
+
 Deno.test("create_task derives user_id from authenticated context", async () => {
   const registry = new ToolRegistry();
   const supabase = new FakeSupabase();
@@ -1510,6 +1536,45 @@ Deno.test("upsert_journal accepts any prompt set the app can legitimately store"
   // {prompt, response}.
   assertEquals(prompts.safeParse([{ prompt: "Highlight" }]).success, false);
   assertEquals(prompts.safeParse("not an array").success, false);
+});
+
+// DEX-151: `z.object` strips keys it does not declare, so a schema that had not
+// learned about `period` would let the documented get_journal → upsert_journal
+// round trip quietly write the day back with every period erased — the app would
+// then show the whole day in the morning ritual and nothing in the evening one.
+Deno.test("upsert_journal keeps a prompt's ritual through the round trip", () => {
+  const registry = journalTools(new FakeSupabase());
+  const prompts = registry.tools.get("upsert_journal")!.inputSchema!
+    .prompts as {
+      safeParse: (
+        value: unknown,
+      ) => { success: boolean; data?: unknown };
+    };
+
+  const parsed = prompts.safeParse([
+    { prompt: "Highlight", response: "shipped it", period: "am" },
+    { prompt: "What went well?", response: "the redesign", period: "pm" },
+  ]);
+
+  assertEquals(parsed.success, true);
+  assertEquals(parsed.data, [
+    { prompt: "Highlight", response: "shipped it", period: "am" },
+    { prompt: "What went well?", response: "the redesign", period: "pm" },
+  ]);
+
+  // Optional, because the stored rows are: every entry written before the split
+  // carries none, and the app reads a missing one as morning.
+  assertEquals(
+    prompts.safeParse([{ prompt: "Highlight", response: "" }]).success,
+    true,
+  );
+  // Only the two rituals exist, so a third value is a mistake worth rejecting
+  // rather than storing for a later build to trip over.
+  assertEquals(
+    prompts.safeParse([{ prompt: "Highlight", response: "", period: "noon" }])
+      .success,
+    false,
+  );
 });
 
 Deno.test("upsert_note derives user_id from context and targets (user_id, date)", async () => {

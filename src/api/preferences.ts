@@ -68,7 +68,18 @@ export const getPreferences = async (supabase: SupabaseClient<Database>) => {
     .single();
 
   if (error) throw error;
-  return camelCase(data) as TPreferences;
+  // `template_prompts_pm` is coerced rather than trusted, the same guard
+  // `rowToJournal` puts on `prompts` and for the same reason: the cast below is
+  // blind, callers `.map()` this array, and a build running against a database
+  // that has not applied DEX-151's migration yet — a stale preview branch, a
+  // rollback — would otherwise crash the Ritual tab rather than degrade to the
+  // morning-only journal it had before. Every other field of the row degrades
+  // quietly; an array that gets mapped does not.
+  const preferences = camelCase(data) as TPreferences;
+  return {
+    ...preferences,
+    templatePromptsPm: preferences.templatePromptsPm ?? [],
+  };
 };
 
 export type TUpdatePreferences = {

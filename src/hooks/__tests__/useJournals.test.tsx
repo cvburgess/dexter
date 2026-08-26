@@ -41,9 +41,12 @@ const createWrapper = () => {
   return { client, wrapper };
 };
 
-const setTemplatePrompts = (templatePrompts: string[]) =>
+const setTemplatePrompts = (
+  templatePrompts: string[],
+  templatePromptsPm: string[] = [],
+) =>
   mockUsePreferences.mockReturnValue([
-    { templatePrompts } as never,
+    { templatePrompts, templatePromptsPm } as never,
     { updatePreferences: jest.fn() },
   ]);
 
@@ -65,10 +68,28 @@ describe("useJournals", () => {
     // Unlike notes, prompts auto-seed so a blank day is immediately answerable;
     // nothing is persisted until the user types.
     expect(result.current[0].prompts).toEqual([
-      { prompt: "Highlight", response: "" },
-      { prompt: "Grateful for", response: "" },
+      { prompt: "Highlight", response: "", period: "am" },
+      { prompt: "Grateful for", response: "", period: "am" },
     ]);
     expect(result.current[1].exists).toBe(false);
+  });
+
+  // The whole day, not just the ritual the user happens to open first: a seed
+  // holding only one period's prompts would mean the evening's first save wrote
+  // a row the morning was missing from, losing that half of the day for good.
+  it("seeds both rituals' prompts, morning first, each stamped with its period", async () => {
+    setTemplatePrompts(["Highlight"], ["What went well?"]);
+    mockGetJournal.mockResolvedValue(null);
+
+    const { result } = renderHook(() => useJournals("2026-07-12"), {
+      wrapper: createWrapper().wrapper,
+    });
+
+    await waitFor(() => expect(result.current[1].isLoading).toBe(false));
+    expect(result.current[0].prompts).toEqual([
+      { prompt: "Highlight", response: "", period: "am" },
+      { prompt: "What went well?", response: "", period: "pm" },
+    ]);
   });
 
   it("reports exists=true and the stored prompts when a row is present", async () => {
@@ -153,7 +174,7 @@ describe("useJournals", () => {
     // it falls back to the template-seeded default.
     await waitFor(() =>
       expect(result.current[0].prompts).toEqual([
-        { prompt: "Highlight", response: "" },
+        { prompt: "Highlight", response: "", period: "am" },
       ]),
     );
     expect(result.current[1].exists).toBe(false);

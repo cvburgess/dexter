@@ -125,13 +125,27 @@ const preferences = ({
   enableJournal = true,
   enableCalendar = true,
   enableHoroscope = true,
+  // Both rituals have a prompt by default, so the journal step exists in each
+  // and the step counts below are the full lists. Since DEX-151 the preference
+  // alone no longer decides that: emptying one period's array drops the step
+  // from that ritual and leaves the other untouched.
+  templatePrompts = ["Highlight"],
+  templatePromptsPm = ["What went well?"],
 }: {
   enableJournal?: boolean;
   enableCalendar?: boolean;
   enableHoroscope?: boolean;
+  templatePrompts?: string[];
+  templatePromptsPm?: string[];
 } = {}) =>
   [
-    { enableJournal, enableCalendar, enableHoroscope },
+    {
+      enableJournal,
+      enableCalendar,
+      enableHoroscope,
+      templatePrompts,
+      templatePromptsPm,
+    },
     {},
   ] as unknown as ReturnType<typeof usePreferences>;
 
@@ -345,6 +359,78 @@ describe("RitualScreen", () => {
 
       // The day it named still applies — only the step is dropped.
       expect(screen.getByText("small:2026-07-12:am:0:-1")).toBeTruthy();
+    });
+  });
+
+  // DEX-151: the journal is per-ritual now. A user who journals only in the
+  // morning should not be walked past a question the evening cannot ask.
+  describe("with prompts in only one ritual", () => {
+    it("drops the journal from the evening when it has no prompts of its own", () => {
+      mockUsePreferences.mockReturnValue(
+        preferences({ templatePromptsPm: [] }),
+      );
+      // Noon or later, so the screen seeds the evening ritual.
+      jest.setSystemTime(localTime(13));
+
+      const screen = render(<RitualScreen />);
+
+      // Evening: breathe, open-tasks, review, [journal], preview-tomorrow.
+      // Without the journal the fourth step is Preview tomorrow and there is
+      // no fifth, so three presses reach the end of the list.
+      for (let press = 0; press < 4; press++) {
+        fireEvent.press(screen.getByLabelText("swipe-forward"));
+      }
+
+      expect(screen.getByText(`small:${TODAY}:pm:3:1`)).toBeTruthy();
+    });
+
+    it("keeps the journal in the morning when only the evening is empty", () => {
+      mockUsePreferences.mockReturnValue(
+        preferences({ templatePromptsPm: [] }),
+      );
+
+      const screen = render(<RitualScreen />);
+
+      // Morning: horoscope, journal, calendar, backlog, summary — unchanged, so
+      // the fifth step is still reachable.
+      for (let press = 0; press < 4; press++) {
+        fireEvent.press(screen.getByLabelText("swipe-forward"));
+      }
+
+      expect(screen.getByText(`small:${TODAY}:am:4:1`)).toBeTruthy();
+    });
+
+    it("drops the journal from the morning when it has no prompts of its own", () => {
+      mockUsePreferences.mockReturnValue(preferences({ templatePrompts: [] }));
+
+      const screen = render(<RitualScreen />);
+
+      // Same shape as turning the preference off: the second step is Calendar.
+      fireEvent.press(screen.getByLabelText("swipe-forward"));
+
+      expect(screen.getByText(`small:${TODAY}:am:1:1`)).toBeTruthy();
+    });
+
+    // Switching rituals re-asks the question, which is the whole point of
+    // deriving the flag from the mode rather than the preference alone.
+    it("adds the step back when the user switches to the ritual that has prompts", () => {
+      mockUsePreferences.mockReturnValue(preferences({ templatePrompts: [] }));
+
+      const screen = render(<RitualScreen />);
+
+      // Morning has no journal: four steps, so the fourth press does nothing.
+      for (let press = 0; press < 4; press++) {
+        fireEvent.press(screen.getByLabelText("swipe-forward"));
+      }
+      expect(screen.getByText(`small:${TODAY}:am:3:1`)).toBeTruthy();
+
+      fireEvent.press(screen.getByLabelText("toggle-mode"));
+
+      // The evening still has its journal, so its list is the full five.
+      for (let press = 0; press < 4; press++) {
+        fireEvent.press(screen.getByLabelText("swipe-forward"));
+      }
+      expect(screen.getByText(`small:${TODAY}:pm:4:1`)).toBeTruthy();
     });
   });
 

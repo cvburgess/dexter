@@ -7,10 +7,8 @@ import {
 } from "react-native-safe-area-context";
 
 import { HeaderAddButton } from "@/components/HeaderAddButton";
-import { Icon } from "@/components/Icon";
-import { IconMenu, TIconMenuSection } from "@/components/IconMenu";
+import { JournalPeriodMenu } from "@/components/JournalPeriodMenu";
 import { PickerField } from "@/components/PickerField";
-import { MODE_META } from "@/components/RitualModeButton";
 import { RowDeleteButton, rowDeleteInset } from "@/components/RowDeleteButton";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { SettingsToggleCard } from "@/components/SettingsToggleCard";
@@ -134,26 +132,6 @@ export default function RitualScreen() {
     updatePreferences(next);
   };
 
-  const periodSections = (
-    index: number,
-    period: TRitualMode,
-  ): TIconMenuSection[] => [
-    {
-      options: (["am", "pm"] as const).map((option) => ({
-        id: option,
-        // `MODE_META`'s labels are mid-sentence fragments ("Switch to the
-        // morning ritual"), so capitalize rather than spelling the two words
-        // out again here and letting them drift from the ritual's own button.
-        title:
-          MODE_META[option].label.charAt(0).toUpperCase() +
-          MODE_META[option].label.slice(1),
-        icon: MODE_META[option].icon,
-        isSelected: option === period,
-        onSelect: () => setPromptPeriod(index, option),
-      })),
-    },
-  ];
-
   // A "+" in the header adds a prompt (mirrors Habits), but only when the
   // Journal is on. Re-wired on every render so the handler closes over the
   // latest drafts and the `enableJournal` gate stays current.
@@ -272,37 +250,11 @@ export default function RitualScreen() {
                     key={index}
                     style={[styles.promptRow, { gap: theme.space.sm }]}
                   >
-                    {/* The leading tile is the Lists/Habits row shape — a
-                        tap target in front of a flexed field — with the
-                        emoji sheet swapped for a menu, since this picks
-                        between two known values rather than anything. It
-                        borrows the field's own surface and radius so the
-                        two read as one control, and the menu host is
-                        pinned to the tile's exact size: left to flex it
-                        reports zero height while sizing and collapses the
-                        row (see `StatusButton`). */}
-                    <IconMenu
-                      accessibilityLabel={`Journal prompt ${index + 1} ritual: ${MODE_META[period].label}`}
-                      menuTitle="Ritual"
-                      sections={periodSections(index, period)}
-                      style={promptPeriodTile(theme)}
-                    >
-                      <View
-                        style={[
-                          styles.periodTile,
-                          promptPeriodTile(theme),
-                          {
-                            backgroundColor: theme.colors.surfaceSunken,
-                            borderRadius: theme.radii.md,
-                          },
-                        ]}
-                      >
-                        <Icon
-                          {...MODE_META[period].icon}
-                          color={theme.colors.textSecondary}
-                        />
-                      </View>
-                    </IconMenu>
+                    <JournalPeriodMenu
+                      period={period}
+                      promptNumber={index + 1}
+                      onChange={(next) => setPromptPeriod(index, next)}
+                    />
                     {/* The delete button parks *inside* the field, so the
                         anchor wraps the input alone rather than the whole
                         row — otherwise it would sit over the menu tile. */}
@@ -386,26 +338,12 @@ export default function RitualScreen() {
   );
 }
 
-/**
- * The period menu's trigger, sized like the Lists/Habits emoji tile it copies —
- * a hair taller than `controls.md` so it matches the field beside it, whose
- * height comes from `fonts.body` inside `space.md` of padding.
- */
-const promptPeriodTile = (theme: ReturnType<typeof useTheme>) => ({
-  height: theme.controls.md + theme.space.sm,
-  width: theme.controls.md + theme.space.sm,
-});
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   content: {
     flexGrow: 1,
-  },
-  periodTile: {
-    alignItems: "center",
-    justifyContent: "center",
   },
   // The anchor `RowDeleteButton` parks against; the field fills it.
   promptField: {
