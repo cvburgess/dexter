@@ -13,7 +13,7 @@ const EYE_OFFSET = 14;
 type TMoodFaceProps = {
   rating: TMoodRating;
   size: number;
-  /** Overrides the ramp color — used to mute an unselected face. */
+  /** Overrides the ramp color — `MoodScale` passes `text` for an unselected face. */
   color?: string;
 };
 

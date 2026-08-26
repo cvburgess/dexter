@@ -12,10 +12,9 @@ import { MoodFace } from "./MoodFace";
 // Five of these plus four `lg` gaps is 296pt — it still fits the 360dp Android
 // floor once `SwipeablePage`'s gutter is taken off, where 44 would not.
 const FACE_SIZE = 40;
-// Unselected faces recede without vanishing — five greyed-out circles read as
-// disabled, and the row has to look answerable before it has been answered.
-// Opacity rather than a muted color, so the ramp still reads as a ramp.
-const UNSELECTED_OPACITY = 0.4;
+// Unselected faces draw in `text` rather than a dimmed ramp color: at 40pt the
+// ramp's yellows were the faintest thing on the page, and a faded row read as
+// disabled. Color is the selection, so only the chosen face carries its own.
 
 type TMoodScaleProps = {
   /** The day's saved score, or `null` when unanswered. */
@@ -50,10 +49,13 @@ export function MoodScale({ value, onChange }: TMoodScaleProps) {
             accessibilityLabel={moodAccessibilityLabel(rating)}
             hitSlop={theme.space.sm}
             onPress={() => onChange(rating)}
-            style={{ opacity: isSelected ? 1 : UNSELECTED_OPACITY }}
             testID={`mood-face-${rating}`}
           >
-            <MoodFace rating={rating} size={FACE_SIZE} />
+            <MoodFace
+              rating={rating}
+              size={FACE_SIZE}
+              color={isSelected ? undefined : theme.colors.text}
+            />
           </Pressable>
         );
       })}
