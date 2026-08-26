@@ -101,6 +101,11 @@ of it (DEX-151).
 `template_prompts` is jsonb `{id, prompt, period}`, read only via
 `parseTemplatePrompts`; **a subset renders but the whole array is written**.
 
+`journals.mood` (DEX-191) is a 1-5 score above the prompts. **A write that
+creates the day's row must carry the seeded prompts** — `prompts` defaults to
+`[]` and `useJournals` seeds only while the row is absent, so scoring an
+untouched day would otherwise strand it on an empty journal.
+
 ## Week
 
 Seven Monday-first columns (DEX-96), each reusing `components/DayTaskList.tsx`

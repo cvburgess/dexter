@@ -30,7 +30,7 @@ const rowToJournal = (data: Tables<"journals">): TJournal => {
   return {
     ...row,
     prompts: (data.prompts ?? []) as TJournalPrompt[],
-    mood: data.mood,
+    mood: data.mood ?? null,
   };
 };
 

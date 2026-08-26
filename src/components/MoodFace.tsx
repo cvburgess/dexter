@@ -9,6 +9,11 @@ import {
 // Stroke-only, so one `color` carries both the selected and unselected state.
 const STROKE = 6;
 const EYE_RADIUS = 5;
+// Derived, not another literal 50 — the mouth's own coordinates already assume
+// this viewBox, and two places guessing it is how a face goes off-center.
+const CENTER = MOOD_FACE_VIEWBOX / 2;
+const EYE_Y = 38;
+const EYE_OFFSET = 16;
 
 type TMoodFaceProps = {
   rating: TMoodRating;
@@ -28,15 +33,15 @@ export function MoodFace({ rating, size, color }: TMoodFaceProps) {
       viewBox={`0 0 ${MOOD_FACE_VIEWBOX} ${MOOD_FACE_VIEWBOX}`}
     >
       <Circle
-        cx={50}
-        cy={50}
-        r={50 - STROKE / 2}
+        cx={CENTER}
+        cy={CENTER}
+        r={CENTER - STROKE / 2}
         fill="none"
         stroke={color}
         strokeWidth={STROKE}
       />
-      <Circle cx={34} cy={38} r={EYE_RADIUS} fill={color} />
-      <Circle cx={66} cy={38} r={EYE_RADIUS} fill={color} />
+      <Circle cx={CENTER - EYE_OFFSET} cy={EYE_Y} r={EYE_RADIUS} fill={color} />
+      <Circle cx={CENTER + EYE_OFFSET} cy={EYE_Y} r={EYE_RADIUS} fill={color} />
       <Path
         d={moodMouthPath(rating)}
         fill="none"
