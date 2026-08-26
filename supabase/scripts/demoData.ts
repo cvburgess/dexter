@@ -93,6 +93,15 @@ export interface DemoJournal {
   prompts: { prompt: string; response: string; period: "am" | "pm" }[];
 }
 
+export interface DemoTemplatePrompt {
+  /** Readable rather than a uuid: this is a fixture, and a stable id makes a
+   * reseed diff and a failing assertion legible. Only has to be unique within
+   * this list. */
+  id: string;
+  prompt: string;
+  period: "am" | "pm";
+}
+
 export interface DemoPreferences {
   lightTheme: string;
   darkTheme: string;
@@ -103,12 +112,11 @@ export interface DemoPreferences {
   enableHoroscope: boolean;
   /** A `public.sun_sign` enum value — see 20260804005118_add_horoscopes.sql. */
   sunSign: string;
-  /** The morning ritual's journal prompts. */
-  templatePrompts: string[];
-  /** The evening ritual's (DEX-151). Both are seeded so the demo account has a
-   * Journal step in each half of the day — an empty list would drop the step
-   * from that ritual entirely, and the screenshots walk both. */
-  templatePromptsPm: string[];
+  /** Both rituals' journal prompts, each carrying its own period (DEX-151).
+   * Both halves are represented so the demo account has a Journal step in each
+   * — a ritual with none loses the step entirely, and the screenshots walk
+   * both. */
+  templatePrompts: DemoTemplatePrompt[];
 }
 
 export interface DemoDataset {
@@ -123,17 +131,20 @@ export interface DemoDataset {
   preferences: DemoPreferences;
 }
 
-// Split by ritual since DEX-151. The morning set is the app's own default,
-// unchanged; the evening set is new, and deliberately short — an evening
-// journal that asks four questions of someone winding down is a chore, and two
-// is enough to show the step is not a copy of the morning's.
-const AM_PROMPTS = [
-  "Today I am grateful for",
-  "Today I am excited for",
-  "What would make today great",
+// The app's own starter set (see the DEX-151 migration), in one list ordered
+// the way the day runs. The evening half is deliberately shorter — a journal
+// that asks four questions of someone winding down is a chore, and two is
+// enough to show the step is not a copy of the morning's.
+const PROMPTS: DemoTemplatePrompt[] = [
+  { id: "grateful", prompt: "Today I am grateful for", period: "am" },
+  { id: "excited", prompt: "Today I am excited for", period: "am" },
+  { id: "great", prompt: "What would make today great", period: "am" },
+  { id: "highlight", prompt: "Today's highlight", period: "pm" },
+  { id: "learned", prompt: "Today I learned", period: "pm" },
 ];
 
-const PM_PROMPTS = ["Today's highlight", "Today I learned"];
+const promptText = (id: string): string =>
+  PROMPTS.find((entry) => entry.id === id)!.prompt;
 
 /**
  * Build the curated demo dataset. Deterministic and self-consistent: every
@@ -429,23 +440,27 @@ export function buildDemoData(): DemoDataset {
       dateOffset: -1,
       prompts: [
         {
-          prompt: AM_PROMPTS[0],
+          prompt: promptText("grateful"),
           response: "A quiet morning to focus",
           period: "am",
         },
-        { prompt: AM_PROMPTS[1], response: "Shipping 2.0", period: "am" },
         {
-          prompt: AM_PROMPTS[2],
+          prompt: promptText("excited"),
+          response: "Shipping 2.0",
+          period: "am",
+        },
+        {
+          prompt: promptText("great"),
           response: "Polishing the App Store listing",
           period: "am",
         },
         {
-          prompt: PM_PROMPTS[0],
+          prompt: promptText("highlight"),
           response: "The redesign landed without a single rollback",
           period: "pm",
         },
         {
-          prompt: PM_PROMPTS[1],
+          prompt: promptText("learned"),
           response:
             "To check the plan before the inbox — the morning goes further",
           period: "pm",
@@ -456,24 +471,24 @@ export function buildDemoData(): DemoDataset {
       dateOffset: 0,
       prompts: [
         {
-          prompt: AM_PROMPTS[0],
+          prompt: promptText("grateful"),
           response: "This planner, honestly",
           period: "am",
         },
         {
-          prompt: AM_PROMPTS[1],
+          prompt: promptText("excited"),
           response: "Submitting to the App Store",
           period: "am",
         },
         {
-          prompt: AM_PROMPTS[2],
+          prompt: promptText("great"),
           response: "Getting the demo account just right",
           period: "am",
         },
         // Left blank: today's evening ritual has not happened yet, so an
         // answered PM prompt would read as a day journalled out of order.
-        { prompt: PM_PROMPTS[0], response: "", period: "pm" },
-        { prompt: PM_PROMPTS[1], response: "", period: "pm" },
+        { prompt: promptText("highlight"), response: "", period: "pm" },
+        { prompt: promptText("learned"), response: "", period: "pm" },
       ],
     },
   ];
@@ -490,8 +505,7 @@ export function buildDemoData(): DemoDataset {
     // renders the "Choose your sign" prompt instead, which is not what the demo
     // account or an App Store screenshot should show.
     sunSign: "libra",
-    templatePrompts: [...AM_PROMPTS],
-    templatePromptsPm: [...PM_PROMPTS],
+    templatePrompts: [...PROMPTS],
   };
 
   return {

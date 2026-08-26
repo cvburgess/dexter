@@ -41,7 +41,6 @@ const defaultPreferences: TPreferences = {
   sunSign: null,
   templateNote: "",
   templatePrompts: [],
-  templatePromptsPm: [],
   themeMode: EThemeMode.SYSTEM,
 };
 

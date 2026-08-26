@@ -31,8 +31,10 @@ jest.mock("@/hooks/usePreferences", () => ({
       enableJournal: mockEnableJournal.value,
       // A prompt in each ritual, so a journal hit has a step to open in
       // whichever one the link names (DEX-151).
-      templatePrompts: ["Highlight"],
-      templatePromptsPm: ["What went well?"],
+      templatePrompts: [
+        { id: "a", prompt: "Highlight", period: "am" },
+        { id: "b", prompt: "What went well?", period: "pm" },
+      ],
     },
     {},
   ],

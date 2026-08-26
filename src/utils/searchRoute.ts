@@ -1,7 +1,10 @@
 import type { Href } from "expo-router";
 
 import { TSearchResult } from "@/api/search";
-import { hasPromptsFor } from "@/utils/journalPrompts";
+import {
+  hasPromptsFor,
+  type TTemplatePrompt,
+} from "@/utils/journalPrompts";
 import { ritualRoute } from "@/utils/ritualRoute";
 import type { TRitualMode } from "@/utils/ritualSteps";
 // From the import-free leaf module rather than `utils/taskFilters`, which pulls
@@ -24,10 +27,9 @@ import { todayRoute } from "@/utils/todayRoute";
 type TSearchRouteOptions = {
   /** `preferences.enableJournal`; see `canOpenSearchResult`. */
   enableJournal: boolean;
-  /** The morning ritual's prompts (`preferences.templatePrompts`). */
-  templatePrompts: string[];
-  /** The evening ritual's (`preferences.templatePromptsPm`). */
-  templatePromptsPm: string[];
+  /** `preferences.templatePrompts` — which ritual asks each question, and
+   * whether either has any at all. */
+  templatePrompts: TTemplatePrompt[];
 };
 
 /**
@@ -45,10 +47,10 @@ type TSearchRouteOptions = {
  * would switch tabs and land on whatever step happens to be first. Old entries
  * stay searchable and readable either way — only the tap target goes.
  *
- * Since DEX-151 the preference is not the whole of it: a journal with prompts in
- * *neither* ritual has no step in either, so it is the same dead end. Prompts in
- * only one is fine — the link names that ritual rather than letting the clock
- * choose (see `searchResultRoute`).
+ * Since DEX-151 the preference is not the whole of it: a journal with no
+ * prompts has no step in either ritual, so it is the same dead end. Prompts in
+ * only one ritual is fine — the link names that ritual rather than letting the
+ * clock choose (see `searchResultRoute`).
  *
  * Nothing is lost by not linking either: the result card in Search *is* the
  * useful surface, and `TaskCard` renders its `StatusButton` above the
@@ -60,10 +62,7 @@ export const canOpenSearchResult = (
 ): boolean => {
   const { enableJournal } = options;
   if (result.kind === "journal") {
-    return (
-      enableJournal &&
-      (hasPromptsFor(options, "am") || hasPromptsFor(options, "pm"))
-    );
+    return enableJournal && options.templatePrompts.length > 0;
   }
   return (
     result.kind !== "task" ||
@@ -95,11 +94,11 @@ export const canOpenSearchResult = (
  */
 const journalResultMode = (
   prompt: string,
-  { templatePrompts, templatePromptsPm }: TSearchRouteOptions,
+  { templatePrompts }: TSearchRouteOptions,
 ): TRitualMode => {
-  if (templatePrompts.includes(prompt)) return "am";
-  if (templatePromptsPm.includes(prompt)) return "pm";
-  return templatePrompts.length > 0 ? "am" : "pm";
+  const asked = templatePrompts.find((entry) => entry.prompt === prompt);
+  if (asked) return asked.period;
+  return hasPromptsFor(templatePrompts, "am") ? "am" : "pm";
 };
 
 /**

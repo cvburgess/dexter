@@ -2,7 +2,11 @@ import { SupabaseClient } from "@supabase/supabase-js";
 
 import { TSunSign } from "@/api/horoscopes";
 import { camelCase, snakeCase } from "@/utils/changeCase";
-import { Database, TablesUpdate } from "@/types/database.types";
+import {
+  parseTemplatePrompts,
+  type TTemplatePrompt,
+} from "@/utils/journalPrompts";
+import { Database, Tables, TablesUpdate } from "@/types/database.types";
 
 export enum EThemeMode {
   SYSTEM,
@@ -49,14 +53,10 @@ export type TPreferences = {
    * than coalescing it to a sign. */
   sunSign: TSunSign | null;
   templateNote: string;
-  /** The **morning** ritual's journal prompts (DEX-151). Named without a period
-   * because it predates the split: reshaping it would have broken the legacy
-   * dexter-app, which still reads this column as a `string[]`. */
-  templatePrompts: string[];
-  /** The **evening** ritual's journal prompts. A prompt lives in exactly one of
-   * the two lists — there is no "both". `utils/journalPrompts.ts` owns the
-   * merge/split between these columns and the list the settings editor edits. */
-  templatePromptsPm: string[];
+  /** The journal's prompts, each carrying the ritual that asks it (DEX-151).
+   * Stored as jsonb, so it arrives untyped and goes through
+   * `parseTemplatePrompts` — never cast straight off the row. */
+  templatePrompts: TTemplatePrompt[];
   themeMode: EThemeMode;
 };
 
@@ -68,19 +68,23 @@ export const getPreferences = async (supabase: SupabaseClient<Database>) => {
     .single();
 
   if (error) throw error;
-  // `template_prompts_pm` is coerced rather than trusted, the same guard
-  // `rowToJournal` puts on `prompts` and for the same reason: the cast below is
-  // blind, callers `.map()` this array, and a build running against a database
-  // that has not applied DEX-151's migration yet — a stale preview branch, a
-  // rollback — would otherwise crash the Ritual tab rather than degrade to the
-  // morning-only journal it had before. Every other field of the row degrades
-  // quietly; an array that gets mapped does not.
-  const preferences = camelCase(data) as TPreferences;
-  return {
-    ...preferences,
-    templatePromptsPm: preferences.templatePromptsPm ?? [],
-  };
+  return rowToPreferences(data);
 };
+
+/**
+ * Normalizes a raw `preferences` row.
+ *
+ * `template_prompts` is jsonb, so the generated type is `Json` and the blind
+ * `camelCase(...) as TPreferences` cast every other field rides on would be a
+ * lie for this one — the column's CHECK tests array-ness and nothing about the
+ * elements. `parseTemplatePrompts` is the coercion, and it runs on both the
+ * fetch and the write below so neither can put an unparsed value in the cache.
+ * The same arrangement `rowToJournal` uses for the sibling column.
+ */
+const rowToPreferences = (data: Tables<"preferences">): TPreferences => ({
+  ...(camelCase(data) as TPreferences),
+  templatePrompts: parseTemplatePrompts(data.template_prompts),
+});
 
 export type TUpdatePreferences = {
   alarmSound?: string;
@@ -101,10 +105,9 @@ export type TUpdatePreferences = {
    * rather than merely optional — omitting it leaves the stored sign alone. */
   sunSign?: TSunSign | null;
   templateNote?: string;
-  /** Sent together with `templatePromptsPm` whenever a prompt changes period —
-   * see `splitTemplatePrompts`, which always returns both. */
-  templatePrompts?: string[];
-  templatePromptsPm?: string[];
+  /** The whole list, every time — a period change is one element's field, so
+   * there is no partial write to get wrong. */
+  templatePrompts?: TTemplatePrompt[];
   themeMode?: EThemeMode;
   userId: string;
 };
@@ -121,5 +124,5 @@ export const updatePreferences = async (
     .single();
 
   if (error) throw error;
-  return camelCase(data) as TPreferences;
+  return rowToPreferences(data);
 };

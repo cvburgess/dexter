@@ -1,17 +1,17 @@
 import type { TRitualMode } from "@/utils/ritualSteps";
 
 /**
- * The journal's prompt template, split across the two rituals (DEX-151).
+ * The journal's prompt template: which ritual asks each question (DEX-151).
  *
- * Prompts used to be one list that both rituals showed, so the same questions
- * opened and closed the day. They are now two: `preferences.templatePrompts` is
- * the morning list and `preferences.templatePromptsPm` the evening one.
+ * `preferences.templatePrompts` is a jsonb array of `{id, prompt, period}`. A
+ * prompt belongs to the morning **or** the evening, never both, and the period
+ * is a field on the prompt rather than "which of two columns holds it" — so
+ * moving one is a single edit that cannot half-apply, the list keeps one order
+ * across both rituals, and there is somewhere to put an id.
  *
- * **A prompt belongs to exactly one of them — there is no "both".** That is
- * what lets the period be a property of *which array holds the prompt* rather
- * than a value stored beside it, and it is why the migration backfills nothing:
- * every prompt that existed before this feature is already in the array that
- * now means morning.
+ * The same shape `journals.prompts` already had, which is the point: a day's
+ * answers and the template they seed from now differ only in that a day's entry
+ * carries a `response`.
  *
  * React-free and Supabase-free, the discipline `utils/ritualSteps.ts` spells
  * out — `ritual/index.tsx` reads `hasPromptsFor` to decide whether the Journal
@@ -24,61 +24,84 @@ import type { TRitualMode } from "@/utils/ritualSteps";
  * question", and a second type would only give the two a way to drift.
  */
 export type TTemplatePrompt = {
+  /**
+   * Unique within one user's list, not across users — an array key, the same
+   * contract `tasks.subtasks` states. Stable across edits, so renaming a prompt
+   * stays a rename rather than reading as delete-plus-add.
+   */
+  id: string;
   prompt: string;
   period: TRitualMode;
 };
 
+let counter = 0;
+
 /**
- * The pair of stored columns, as an object rather than two arguments.
+ * Mints a prompt id.
  *
- * Both are `string[]`, so positional parameters would let a transposed pair
- * through as a silent bug rather than a compile error — the same call
- * `createRitualState` makes about its toggles. It also means `TPreferences`
- * satisfies this structurally, so every call site passes `preferences` itself
- * and there is nothing to transpose.
+ * **A deliberate copy of `makeSubtaskId`, not a shared helper.** The obvious
+ * move is to lift the generator into a leaf both import, and it does not work:
+ * `utils/subtasks.ts` is loaded by the Deno MCP server through `@src/`, and
+ * Deno requires a `.ts` extension on an import that Metro and tsc forbid — the
+ * same reason that file cannot import `utils/taskStatus.ts` either, spelled out
+ * in its own docstring. Sharing this would break `deno check`. Eight lines is
+ * the cheaper price.
  */
-export type TTemplatePromptColumns = {
-  templatePrompts: readonly string[];
-  templatePromptsPm: readonly string[];
+const makeTemplatePromptId = (): string => {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  if (uuid) return uuid;
+
+  counter += 1;
+  const random = Math.random().toString(36).slice(2, 10);
+  return `jp_${Date.now().toString(36)}_${counter.toString(36)}_${random}`;
 };
 
 /**
- * The two stored arrays as the one list the settings editor edits, morning
- * first.
+ * A blank prompt for the settings editor's "+".
  *
- * Order within a period is the stored order; there is no order *across* them to
- * preserve, which is the one thing two columns cannot carry and a single
- * `{prompt, period}` column could. The visible consequence is that changing a
- * row's period moves it into that period's group — the row travelling to where
- * it now belongs, rather than a list that silently reorders.
+ * Morning by default — the period every prompt that predates this feature has,
+ * and adding a question shouldn't quietly open a second journal in a ritual the
+ * user may not journal in.
  */
-export const mergeTemplatePrompts = ({
-  templatePrompts,
-  templatePromptsPm,
-}: TTemplatePromptColumns): TTemplatePrompt[] => [
-  ...templatePrompts.map((prompt) => ({ prompt, period: "am" as const })),
-  ...templatePromptsPm.map((prompt) => ({ prompt, period: "pm" as const })),
-];
+export const newTemplatePrompt = (
+  period: TRitualMode = "am",
+): TTemplatePrompt => ({ id: makeTemplatePromptId(), prompt: "", period });
 
 /**
- * `mergeTemplatePrompts` inverted: the editor's list back into the two columns,
- * shaped to spread straight into `updatePreferences`.
+ * Reads the stored column into the shape the app uses.
  *
- * Both arrays are always returned, so a period change writes the prompt's
- * departure and its arrival in **one** update. Writing only the array that
- * gained it would leave the prompt in both, which is the one state this model
- * has no way to mean.
+ * **jsonb guarantees an array and nothing else** — the CHECK constraint tests
+ * `jsonb_typeof`, not the shape of the elements, exactly as `journals.prompts`
+ * does. So every field is coerced rather than trusted: this is the one place
+ * that has to hold, since callers `.map()` the result and read `.period` off
+ * each entry. The same job `rowToJournal` does for the sibling column.
+ *
+ * A missing id falls back to the element's position rather than a fresh mint:
+ * an id that changed on every read would re-key the settings list on every
+ * render. Post-migration every stored prompt has one, so this only catches a
+ * row written by something that skipped the app.
  */
-export const splitTemplatePrompts = (
+export const parseTemplatePrompts = (value: unknown): TTemplatePrompt[] => {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((entry, index) => {
+    if (typeof entry !== "object" || entry === null) return [];
+    const { id, prompt, period } = entry as Record<string, unknown>;
+    return [
+      {
+        id: typeof id === "string" && id ? id : `i${index}`,
+        prompt: typeof prompt === "string" ? prompt : "",
+        period: period === "pm" ? "pm" : "am",
+      },
+    ];
+  });
+};
+
+/** The prompts one ritual asks, in the order the user arranged them. */
+export const promptsFor = (
   prompts: readonly TTemplatePrompt[],
-): { templatePrompts: string[]; templatePromptsPm: string[] } => ({
-  templatePrompts: prompts
-    .filter((entry) => entry.period === "am")
-    .map((entry) => entry.prompt),
-  templatePromptsPm: prompts
-    .filter((entry) => entry.period === "pm")
-    .map((entry) => entry.prompt),
-});
+  mode: TRitualMode,
+): TTemplatePrompt[] => prompts.filter((entry) => entry.period === mode);
 
 /**
  * Whether a ritual has any journal prompts of its own — the input that decides
@@ -90,19 +113,19 @@ export const splitTemplatePrompts = (
  * ritual between the tap that adds it and the first keystroke.
  */
 export const hasPromptsFor = (
-  { templatePrompts, templatePromptsPm }: TTemplatePromptColumns,
+  prompts: readonly TTemplatePrompt[],
   mode: TRitualMode,
-): boolean => (mode === "pm" ? templatePromptsPm : templatePrompts).length > 0;
+): boolean => prompts.some((entry) => entry.period === mode);
 
 /**
- * The period of a stored journal entry, defaulting to morning.
+ * The period of a stored **journal entry**, defaulting to morning.
  *
- * The single place the legacy-row fallback lives. Every `journals.prompts` entry
- * written before DEX-151 carries no `period`, and so does anything an older
- * build of the app writes today — both must read as morning, matching the
- * migration's treatment of the prompts they were seeded from. Anything that is
- * not the literal `"pm"` falls back rather than being trusted, since the column
- * is jsonb and carries no CHECK.
+ * The single place the legacy-row fallback lives. Every `journals.prompts`
+ * entry written before DEX-151 carries no `period`, and so does anything an
+ * older build writes today — both must read as morning, matching what the
+ * migration does to the prompts they were seeded from. Anything that is not the
+ * literal `"pm"` falls back rather than being trusted, since that column is
+ * jsonb and carries no shape check either.
  */
 export const promptPeriod = (entry: {
   period?: TRitualMode | null;

@@ -108,17 +108,35 @@ also why its Zod schema has to *declare* `period`: `z.object` strips undeclared
 keys, so a round trip through a schema that hadn't heard of it would erase every
 period in the day.
 
-A prompt is asked by one ritual, never both. Which one is not stored beside the
-prompt but is **which of two columns holds it** — `preferences.template_prompts`
-is the morning list and `template_prompts_pm` the evening one, translated in both
-directions by `utils/journalPrompts.ts`. A second array rather than reshaping the
-first into `{prompt, period}`, because the legacy `dexter-app` still reads
-`template_prompts` as a `string[]`; the happy consequence is that "default every
-existing prompt to AM" needed no backfill at all, since they were already in the
-array that now means morning. Each *day's* entries carry a `period` of their own,
-stamped when they seed, so renaming or deleting a template prompt cannot change
-which ritual an already-written day belongs to; an entry without one reads as
-morning (`promptPeriod`).
+A prompt is asked by one ritual, never both. `preferences.template_prompts` is a
+jsonb array of `{id, prompt, period}` — the same shape `journals.prompts` already
+had, so the template and the days it seeds differ only in that a day's entry
+carries a `response`.
+
+**Two `text[]` columns were the other candidate and lost on three counts**, all
+of which the blob gets for free: a period change is one field on one element
+rather than two writes that must land together (leaving a prompt in both lists or
+neither); the list keeps a single order across both rituals, so moving a prompt
+leaves the row where its owner put it instead of jumping it to the other group;
+and there is somewhere to put an `id`, without which the prompt *text* is the
+identity and a rename is indistinguishable from delete-plus-add. The cost is that
+jsonb validates nothing past `jsonb_typeof` — hence `parseTemplatePrompts`, which
+coerces every field on the way in exactly as `rowToJournal` does for the sibling
+column, and is the only place the row may be read through.
+
+`id` is unique within one user's list, not globally — an array key, the contract
+`tasks.subtasks` states. Its minter is a **deliberate copy** of `makeSubtaskId`:
+`utils/subtasks.ts` is loaded by the Deno MCP server through `@src/`, and Deno
+requires a `.ts` extension on an import that Metro and tsc forbid, so that file
+cannot import a shared leaf at all (the same reason it cannot import
+`utils/taskStatus.ts`).
+
+Each *day's* entries carry a `period` of their own, stamped when they seed, so
+renaming or deleting a template prompt cannot change which ritual an
+already-written day belongs to; an entry without one reads as morning
+(`promptPeriod`). The migration converts every existing prompt to a morning one
+and **no account gains an evening prompt** — that is the conversion, not the
+column default, which only a fresh signup ever reads.
 
 **A ritual with no prompts of its own has no Journal step.** `ritual/index.tsx`
 feeds `ritualSteps`' existing `journalEnabled` toggle `enableJournal && hasPromptsFor(mode)`

@@ -1,109 +1,105 @@
 import {
   hasPromptsFor,
-  mergeTemplatePrompts,
+  newTemplatePrompt,
+  parseTemplatePrompts,
   promptPeriod,
-  splitTemplatePrompts,
+  promptsFor,
+  type TTemplatePrompt,
 } from "@/utils/journalPrompts";
 
-describe("mergeTemplatePrompts", () => {
-  it("reads the two columns as one list, morning first", () => {
+const PROMPTS: TTemplatePrompt[] = [
+  { id: "a", prompt: "Grateful for", period: "am" },
+  { id: "b", prompt: "Today's highlight", period: "pm" },
+  { id: "c", prompt: "What would make today great", period: "am" },
+];
+
+describe("parseTemplatePrompts", () => {
+  it("reads a stored list", () => {
     expect(
-      mergeTemplatePrompts({
-        templatePrompts: ["Highlight", "Grateful for"],
-        templatePromptsPm: ["What went well?"],
-      }),
+      parseTemplatePrompts([
+        { id: "a", prompt: "Grateful for", period: "am" },
+        { id: "b", prompt: "Today's highlight", period: "pm" },
+      ]),
     ).toEqual([
-      { prompt: "Highlight", period: "am" },
-      { prompt: "Grateful for", period: "am" },
-      { prompt: "What went well?", period: "pm" },
+      { id: "a", prompt: "Grateful for", period: "am" },
+      { id: "b", prompt: "Today's highlight", period: "pm" },
     ]);
   });
 
-  // Every prompt that predates DEX-151 is in `template_prompts`, which is the
-  // morning list — so an unmigrated account reads as morning-only with no
-  // backfill, which is exactly what the migration relies on.
-  it("reads an account with no evening prompts as morning-only", () => {
+  // The column's CHECK tests `jsonb_typeof`, not the shape of the elements, so
+  // every field here is coerced rather than trusted — callers `.map()` the
+  // result and read `.period` off each entry.
+  it("survives a column that is not an array at all", () => {
+    expect(parseTemplatePrompts(null)).toEqual([]);
+    expect(parseTemplatePrompts(undefined)).toEqual([]);
+    expect(parseTemplatePrompts("Grateful for")).toEqual([]);
+    expect(parseTemplatePrompts({ prompt: "Grateful for" })).toEqual([]);
+  });
+
+  it("drops elements that are not objects", () => {
     expect(
-      mergeTemplatePrompts({
-        templatePrompts: ["Highlight"],
-        templatePromptsPm: [],
-      }),
+      parseTemplatePrompts(["Grateful for", null, { prompt: "Kept" }]),
+    ).toEqual([{ id: "i2", prompt: "Kept", period: "am" }]);
+  });
+
+  it("reads an unknown or missing period as morning", () => {
+    expect(
+      parseTemplatePrompts([
+        { id: "a", prompt: "No period" },
+        { id: "b", prompt: "Nonsense", period: "noon" },
+      ]),
     ).toEqual([
-      { prompt: "Highlight", period: "am" },
+      { id: "a", prompt: "No period", period: "am" },
+      { id: "b", prompt: "Nonsense", period: "am" },
     ]);
   });
 
-  it("handles a journal that runs only in the evening", () => {
-    expect(
-      mergeTemplatePrompts({
-        templatePrompts: [],
-        templatePromptsPm: ["What went well?"],
-      }),
-    ).toEqual([
-      { prompt: "What went well?", period: "pm" },
+  // Position, not a fresh mint: an id that changed on every read would re-key
+  // the settings list on every render.
+  it("falls back to a stable position id, the same one every read", () => {
+    const stored = [{ prompt: "Grateful for", period: "am" }];
+
+    expect(parseTemplatePrompts(stored)).toEqual([
+      { id: "i0", prompt: "Grateful for", period: "am" },
     ]);
+    expect(parseTemplatePrompts(stored)).toEqual(parseTemplatePrompts(stored));
   });
 });
 
-describe("splitTemplatePrompts", () => {
-  it("partitions the list back into the two columns", () => {
-    expect(
-      splitTemplatePrompts([
-        { prompt: "Highlight", period: "am" },
-        { prompt: "What went well?", period: "pm" },
-        { prompt: "Grateful for", period: "am" },
-      ]),
-    ).toEqual({
-      templatePrompts: ["Highlight", "Grateful for"],
-      templatePromptsPm: ["What went well?"],
-    });
+describe("newTemplatePrompt", () => {
+  it("starts blank and in the morning", () => {
+    expect(newTemplatePrompt()).toMatchObject({ prompt: "", period: "am" });
   });
 
-  // Both arrays every time: a period change is one prompt leaving one column
-  // and joining the other, and writing only the column it joined would leave it
-  // in both — the one state this model has no way to mean.
-  it("returns both columns even when one of them is empty", () => {
-    expect(
-      splitTemplatePrompts([{ prompt: "Highlight", period: "am" }]),
-    ).toEqual({ templatePrompts: ["Highlight"], templatePromptsPm: [] });
+  it("mints a distinct id each time", () => {
+    expect(newTemplatePrompt().id).not.toBe(newTemplatePrompt().id);
   });
+});
 
-  it("round-trips a merge without reordering within a period", () => {
-    const columns = {
-      templatePrompts: ["Highlight", "Grateful for"],
-      templatePromptsPm: ["What went well?", "What I would change"],
-    };
-
-    expect(
-      splitTemplatePrompts(mergeTemplatePrompts(columns)),
-    ).toEqual(columns);
+describe("promptsFor", () => {
+  it("keeps only the ritual's own prompts, in the stored order", () => {
+    expect(promptsFor(PROMPTS, "am")).toEqual([PROMPTS[0], PROMPTS[2]]);
+    expect(promptsFor(PROMPTS, "pm")).toEqual([PROMPTS[1]]);
   });
 });
 
 describe("hasPromptsFor", () => {
   it("answers per ritual, not for the journal as a whole", () => {
-    const morningOnly = {
-      templatePrompts: ["Highlight"],
-      templatePromptsPm: [],
-    };
-    const eveningOnly = {
-      templatePrompts: [],
-      templatePromptsPm: ["What went well?"],
-    };
+    const morningOnly = [PROMPTS[0]];
+    const eveningOnly = [PROMPTS[1]];
 
     expect(hasPromptsFor(morningOnly, "am")).toBe(true);
     expect(hasPromptsFor(morningOnly, "pm")).toBe(false);
     expect(hasPromptsFor(eveningOnly, "am")).toBe(false);
     expect(hasPromptsFor(eveningOnly, "pm")).toBe(true);
+    expect(hasPromptsFor([], "am")).toBe(false);
   });
 
   // A prompt tapped into existence but not yet typed still counts: the morning
   // list has always rendered one as an unlabelled field, and excluding it would
   // make the step flicker out of the ritual until the first keystroke.
   it("counts a blank prompt", () => {
-    expect(
-      hasPromptsFor({ templatePrompts: [], templatePromptsPm: [""] }, "pm"),
-    ).toBe(true);
+    expect(hasPromptsFor([newTemplatePrompt("pm")], "pm")).toBe(true);
   });
 });
 
@@ -121,7 +117,7 @@ describe("promptPeriod", () => {
     expect(promptPeriod({ period: null })).toBe("am");
   });
 
-  // The column is jsonb with no CHECK, so anything at all can be in there.
+  // That column is jsonb with no shape check, so anything can be in there.
   it("falls back rather than trusting a value it does not know", () => {
     expect(promptPeriod({ period: "evening" as never })).toBe("am");
   });

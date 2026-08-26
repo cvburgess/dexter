@@ -308,8 +308,7 @@ export type Database = {
           light_theme: string;
           sun_sign: Database["public"]["Enums"]["sun_sign"] | null;
           template_note: string;
-          template_prompts: string[];
-          template_prompts_pm: string[];
+          template_prompts: Json;
           theme_mode: number;
           user_id: string;
         };
@@ -330,8 +329,7 @@ export type Database = {
           light_theme?: string;
           sun_sign?: Database["public"]["Enums"]["sun_sign"] | null;
           template_note?: string;
-          template_prompts?: string[];
-          template_prompts_pm?: string[];
+          template_prompts?: Json;
           theme_mode?: number;
           user_id?: string;
         };
@@ -352,8 +350,7 @@ export type Database = {
           light_theme?: string;
           sun_sign?: Database["public"]["Enums"]["sun_sign"] | null;
           template_note?: string;
-          template_prompts?: string[];
-          template_prompts_pm?: string[];
+          template_prompts?: Json;
           theme_mode?: number;
           user_id?: string;
         };

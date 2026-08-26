@@ -5,6 +5,7 @@ import RitualScreen from "@/app/(app)/(tabs)/settings/ritual";
 import { JournalPeriodMenu } from "@/components/JournalPeriodMenu";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
+import type { TTemplatePrompt } from "@/utils/journalPrompts";
 import type { TRitualMode } from "@/utils/ritualSteps";
 import {
   pickerOptionsFor,
@@ -42,12 +43,24 @@ const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
 >;
 const mockUpdate = jest.fn();
 
+// The stored shape, spelled out once. `id` is what the editor keys rows by, so
+// it has to be distinct per prompt but is otherwise opaque.
+const am = (prompt: string): TTemplatePrompt => ({
+  id: `am-${prompt}`,
+  prompt,
+  period: "am",
+});
+const pm = (prompt: string): TTemplatePrompt => ({
+  id: `pm-${prompt}`,
+  prompt,
+  period: "pm",
+});
+
 const renderWith = (
   overrides: {
     enableJournal?: boolean;
     enableHoroscope?: boolean;
-    templatePrompts?: string[];
-    templatePromptsPm?: string[];
+    templatePrompts?: TTemplatePrompt[];
     sunSign?: string | null;
     breathCount?: number;
     breathingTechnique?: string;
@@ -58,7 +71,6 @@ const renderWith = (
       enableJournal: true,
       enableHoroscope: true,
       templatePrompts: [],
-      templatePromptsPm: [],
       sunSign: null,
       breathCount: 3,
       breathingTechnique: "shuffle",
@@ -186,7 +198,7 @@ describe("RitualScreen", () => {
   it("keeps the Journal prompts when the Horoscope is disabled", () => {
     const screen = renderWith({
       enableHoroscope: false,
-      templatePrompts: ["Highlight"],
+      templatePrompts: [am("Highlight")],
     });
 
     expect(screen.getByLabelText("Journal prompt 1")).toBeTruthy();
@@ -218,7 +230,7 @@ describe("RitualScreen", () => {
   it("hides the prompts editor and header add button when Journal is disabled", () => {
     const screen = renderWith({
       enableJournal: false,
-      templatePrompts: ["Highlight"],
+      templatePrompts: [am("Highlight")],
     });
 
     expect(screen.queryByLabelText("Journal prompt 1")).toBeNull();
@@ -234,7 +246,7 @@ describe("RitualScreen", () => {
   it("commits an edited prompt on blur, replacing it by index", () => {
     const screen = renderWith({
       enableJournal: true,
-      templatePrompts: ["Highlight", "Grateful for"],
+      templatePrompts: [am("Highlight"), am("Grateful for")],
     });
 
     const input = screen.getByLabelText("Journal prompt 1");
@@ -242,15 +254,17 @@ describe("RitualScreen", () => {
     fireEvent(input, "blur");
 
     expect(mockUpdate).toHaveBeenCalledWith({
-      templatePrompts: ["What went well?", "Grateful for"],
-      templatePromptsPm: [],
+      templatePrompts: [
+        { ...am("Highlight"), prompt: "What went well?" },
+        am("Grateful for"),
+      ],
     });
   });
 
   it("does not write a prompt on blur when it is unchanged", () => {
     const screen = renderWith({
       enableJournal: true,
-      templatePrompts: ["Highlight"],
+      templatePrompts: [am("Highlight")],
     });
 
     fireEvent(screen.getByLabelText("Journal prompt 1"), "blur");
@@ -261,14 +275,17 @@ describe("RitualScreen", () => {
   it("appends an empty prompt when the header add button is pressed", () => {
     renderWith({
       enableJournal: true,
-      templatePrompts: ["Highlight"],
+      templatePrompts: [am("Highlight")],
     });
 
     fireEvent.press(renderHeader().getByLabelText("Add prompt"));
 
     expect(mockUpdate).toHaveBeenCalledWith({
-      templatePrompts: ["Highlight", ""],
-      templatePromptsPm: [],
+      // The new prompt's id is minted, so it is matched by shape.
+      templatePrompts: [
+        am("Highlight"),
+        expect.objectContaining({ prompt: "", period: "am" }),
+      ],
     });
   });
 
@@ -277,7 +294,7 @@ describe("RitualScreen", () => {
     // lagging) stored preference — so a typed-but-not-yet-blurred edit survives.
     const screen = renderWith({
       enableJournal: true,
-      templatePrompts: ["Highlight"],
+      templatePrompts: [am("Highlight")],
     });
 
     fireEvent.changeText(
@@ -288,22 +305,23 @@ describe("RitualScreen", () => {
     fireEvent.press(renderHeader().getByLabelText("Add prompt"));
 
     expect(mockUpdate).toHaveBeenCalledWith({
-      templatePrompts: ["What went well?", ""],
-      templatePromptsPm: [],
+      templatePrompts: [
+        { ...am("Highlight"), prompt: "What went well?" },
+        expect.objectContaining({ prompt: "", period: "am" }),
+      ],
     });
   });
 
   it("removes a prompt by index when its delete control is pressed", () => {
     const screen = renderWith({
       enableJournal: true,
-      templatePrompts: ["Highlight", "Grateful for"],
+      templatePrompts: [am("Highlight"), am("Grateful for")],
     });
 
     fireEvent.press(screen.getByTestId("delete-prompt-0"));
 
     expect(mockUpdate).toHaveBeenCalledWith({
-      templatePrompts: ["Grateful for"],
-      templatePromptsPm: [],
+      templatePrompts: [am("Grateful for")],
     });
   });
 
@@ -327,8 +345,7 @@ describe("RitualScreen", () => {
 
     it("offers one control per prompt, showing its current ritual", () => {
       const screen = renderWith({
-        templatePrompts: ["Highlight"],
-        templatePromptsPm: ["What went well?"],
+        templatePrompts: [am("Highlight"), pm("What went well?")],
       });
 
       const menus = screen.UNSAFE_getAllByType(JournalPeriodMenu);
@@ -337,80 +354,97 @@ describe("RitualScreen", () => {
       expect(menus[1].props.period).toBe("pm");
     });
 
-    // Both arrays go in one update: the prompt's departure from one and its
-    // arrival in the other are the same edit.
-    it("moves a prompt to the evening by writing both columns at once", () => {
+    // One field on one element — the rest of the list is copied through
+    // untouched, and there is no second column to keep in step.
+    it("moves a prompt to the evening, leaving every other prompt alone", () => {
       const screen = renderWith({
-        templatePrompts: ["Highlight", "Grateful for"],
+        templatePrompts: [am("Highlight"), am("Grateful for")],
       });
 
       changePeriod(screen, 0, "pm");
 
       expect(mockUpdate).toHaveBeenCalledWith({
-        templatePrompts: ["Grateful for"],
-        templatePromptsPm: ["Highlight"],
+        templatePrompts: [
+          { ...am("Highlight"), period: "pm" },
+          am("Grateful for"),
+        ],
       });
     });
 
     it("moves a prompt back to the morning", () => {
       const screen = renderWith({
-        templatePrompts: ["Highlight"],
-        templatePromptsPm: ["What went well?"],
+        templatePrompts: [am("Highlight"), pm("What went well?")],
       });
 
       changePeriod(screen, 1, "am");
 
       expect(mockUpdate).toHaveBeenCalledWith({
-        templatePrompts: ["Highlight", "What went well?"],
-        templatePromptsPm: [],
+        templatePrompts: [
+          am("Highlight"),
+          { ...pm("What went well?"), period: "am" },
+        ],
       });
     });
 
-    // The list is grouped morning-then-evening, so a moved row travels on the
-    // tap rather than sitting still until the optimistic write echoes back.
-    it("regroups the list immediately, without waiting for the write", () => {
+    // The list holds one order across both rituals, so a prompt that changes
+    // ritual stays exactly where its owner put it. Two columns could not have
+    // expressed this — the row would have had to jump to the other group.
+    it("leaves the moved prompt in its place in the list", () => {
       const screen = renderWith({
-        templatePrompts: ["Highlight", "Grateful for"],
+        templatePrompts: [am("Highlight"), am("Grateful for")],
       });
 
       changePeriod(screen, 0, "pm");
 
       const menus = screen.UNSAFE_getAllByType(JournalPeriodMenu);
-      expect(menus.map((menu) => menu.props.period)).toEqual(["am", "pm"]);
+      expect(menus.map((menu) => menu.props.period)).toEqual(["pm", "am"]);
       expect(screen.getByLabelText("Journal prompt 1").props.value).toBe(
-        "Grateful for",
+        "Highlight",
       );
       expect(screen.getByLabelText("Journal prompt 2").props.value).toBe(
-        "Highlight",
+        "Grateful for",
       );
     });
 
-    // Nothing about the evening list should change by adding to the morning's.
-    it("adds new prompts to the morning, leaving the evening alone", () => {
+    it("appends new prompts to the morning without touching the rest", () => {
       renderWith({
-        templatePrompts: ["Highlight"],
-        templatePromptsPm: ["What went well?"],
+        templatePrompts: [am("Highlight"), pm("What went well?")],
       });
 
       fireEvent.press(renderHeader().getByLabelText("Add prompt"));
 
       expect(mockUpdate).toHaveBeenCalledWith({
-        templatePrompts: ["Highlight", ""],
-        templatePromptsPm: ["What went well?"],
+        templatePrompts: [
+          am("Highlight"),
+          pm("What went well?"),
+          expect.objectContaining({ prompt: "", period: "am" }),
+        ],
       });
+    });
+
+    // Every new prompt needs its own id, or the editor would key two rows the
+    // same and hand one row's input state to the other.
+    it("gives each added prompt a distinct id", () => {
+      renderWith({ templatePrompts: [] });
+
+      fireEvent.press(renderHeader().getByLabelText("Add prompt"));
+      fireEvent.press(renderHeader().getByLabelText("Add prompt"));
+
+      const [first] = mockUpdate.mock.calls[0][0].templatePrompts;
+      const added = mockUpdate.mock.calls[1][0].templatePrompts;
+      expect(added).toHaveLength(2);
+      expect(added[1].id).not.toBe(first.id);
     });
 
     it("deletes an evening prompt without disturbing the morning's", () => {
       const screen = renderWith({
-        templatePrompts: ["Highlight"],
-        templatePromptsPm: ["What went well?"],
+        templatePrompts: [am("Highlight"), pm("What went well?")],
       });
 
       fireEvent.press(screen.getByTestId("delete-prompt-1"));
 
       expect(mockUpdate).toHaveBeenCalledWith({
-        templatePrompts: ["Highlight"],
-        templatePromptsPm: [],
+        templatePrompts: [am("Highlight")],
       });
     });
   });

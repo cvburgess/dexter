@@ -299,15 +299,14 @@ Deno.test("update_preferences writes the horoscope toggle through", async () => 
   assertEquals(supabase.lastBuilder?.payload, { enable_horoscope: false });
 });
 
-// The same two-places hazard as the test above, for DEX-151's evening column.
-// Both arrays go in one call because a prompt's period *is* which array holds
-// it: an agent that sent only one would leave the prompt in neither list or in
-// both.
-Deno.test("update_preferences writes both journal prompt columns through", async () => {
+// The same two-places hazard as the test above, for DEX-151's per-prompt
+// period. The whole list goes in one call because the period is a field on an
+// element, not a choice of column — there is no partial write to get wrong.
+Deno.test("update_preferences writes journal prompts through with their rituals", async () => {
   const registry = new ToolRegistry();
   const supabase = new FakeSupabase();
 
-  assertEquals("templatePromptsPm" in updatePreferencesInputSchema, true);
+  assertEquals("templatePrompts" in updatePreferencesInputSchema, true);
 
   registerPreferenceTools(
     registry as unknown as McpServer,
@@ -315,14 +314,68 @@ Deno.test("update_preferences writes both journal prompt columns through", async
   );
 
   await registry.run("update_preferences", {
-    templatePrompts: ["Highlight"],
-    templatePromptsPm: ["What went well?"],
+    templatePrompts: [
+      { id: "a", prompt: "Highlight", period: "am" },
+      { id: "b", prompt: "What went well?", period: "pm" },
+    ],
   });
 
   assertEquals(supabase.lastBuilder?.payload, {
-    template_prompts: ["Highlight"],
-    template_prompts_pm: ["What went well?"],
+    template_prompts: [
+      { id: "a", prompt: "Highlight", period: "am" },
+      { id: "b", prompt: "What went well?", period: "pm" },
+    ],
   });
+});
+
+// Minting an id is the app's job, not an agent's — an agent that had to invent
+// one would either omit it (leaving the editor keying rows by position) or
+// reuse one. The handler fills the gap instead.
+Deno.test("update_preferences mints an id for a prompt that arrives without one", async () => {
+  const registry = new ToolRegistry();
+  const supabase = new FakeSupabase();
+
+  registerPreferenceTools(
+    registry as unknown as McpServer,
+    makeToolContext(supabase, "00000000-0000-4000-8000-0000000000aa"),
+  );
+
+  await registry.run("update_preferences", {
+    templatePrompts: [
+      { prompt: "Highlight", period: "am" },
+      { prompt: "What went well?", period: "pm" },
+    ],
+  });
+
+  const written = (supabase.lastBuilder?.payload as {
+    template_prompts: { id: string; prompt: string }[];
+  }).template_prompts;
+
+  assertEquals(written.length, 2);
+  assert(written[0].id.length > 0, "expected a minted id");
+  assert(
+    written[0].id !== written[1].id,
+    "expected each minted id to be distinct",
+  );
+});
+
+// Only the two rituals exist, so a third period is a mistake worth rejecting
+// rather than storing for a later build to trip over. Asserted on the schema
+// itself: `ToolRegistry` hands the handler its arguments directly, so a tool
+// driven through it never sees Zod.
+Deno.test("update_preferences accepts only the two rituals", () => {
+  const period = updatePreferencesInputSchema.templatePrompts;
+
+  assertEquals(
+    period.safeParse([{ prompt: "Highlight", period: "am" }]).success,
+    true,
+  );
+  assertEquals(
+    period.safeParse([{ prompt: "Highlight", period: "noon" }]).success,
+    false,
+  );
+  // `prompt` is still required — a periodless string is not a prompt.
+  assertEquals(period.safeParse(["Highlight"]).success, false);
 });
 
 Deno.test("create_task derives user_id from authenticated context", async () => {

@@ -1,5 +1,5 @@
 import { useNavigation } from "expo-router";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import {
   SafeAreaView,
@@ -28,8 +28,7 @@ import {
   TSunSignOption,
 } from "@/utils/horoscope";
 import {
-  mergeTemplatePrompts,
-  splitTemplatePrompts,
+  newTemplatePrompt,
   type TTemplatePrompt,
 } from "@/utils/journalPrompts";
 import type { TRitualMode } from "@/utils/ritualSteps";
@@ -64,25 +63,13 @@ export default function RitualScreen() {
   // would clobber in-progress typing. A single flag suffices since only one
   // field is focused at a time. Mirrors notes.tsx.
   //
-  // The two stored columns are edited as one list (DEX-151): `templatePrompts`
-  // is the morning's and `templatePromptsPm` the evening's, and a prompt's
-  // period is which of them holds it. `utils/journalPrompts.ts` owns both
-  // directions of that translation, so this screen never touches either column
-  // by name except through `splitTemplatePrompts`.
-  const { templatePrompts, templatePromptsPm } = preferences;
-  const storedPrompts = useMemo(
-    // The two arrays, not `preferences` — a new identity here re-runs the
-    // resync effect below, and an unrelated preference edit must not reach into
-    // this editor's drafts.
-    () => mergeTemplatePrompts({ templatePrompts, templatePromptsPm }),
-    [templatePrompts, templatePromptsPm],
-  );
-
-  const [drafts, setDrafts] = useState(storedPrompts);
+  // Drafts are the stored shape (DEX-151) — `{id, prompt, period}` — so there
+  // is no translation layer between what is edited here and what is written.
+  const [drafts, setDrafts] = useState(preferences.templatePrompts);
   const focusedRef = useRef(false);
   useEffect(() => {
-    if (!focusedRef.current) setDrafts(storedPrompts);
-  }, [storedPrompts]);
+    if (!focusedRef.current) setDrafts(preferences.templatePrompts);
+  }, [preferences.templatePrompts]);
 
   // `drafts` is the authoritative current array: every structural write derives
   // from it, never from `preferences.templatePrompts`. Because `updatePreferences`
@@ -91,14 +78,14 @@ export default function RitualScreen() {
   // compute on the stale array and clobber the pending edit (last-write-wins).
   const commitPrompt = () => {
     focusedRef.current = false;
+    const stored = preferences.templatePrompts;
     const changed =
-      drafts.length !== storedPrompts.length ||
+      drafts.length !== stored.length ||
       drafts.some(
         (draft, i) =>
-          draft.prompt !== storedPrompts[i].prompt ||
-          draft.period !== storedPrompts[i].period,
+          draft.prompt !== stored[i].prompt || draft.period !== stored[i].period,
       );
-    if (changed) updatePreferences(splitTemplatePrompts(drafts));
+    if (changed) updatePreferences({ templatePrompts: drafts });
   };
 
   // Structural edits write the local drafts straight through (and mirror them to
@@ -106,29 +93,21 @@ export default function RitualScreen() {
   // the current array, not the optimistically-lagging preference.
   const writePrompts = (next: TTemplatePrompt[]) => {
     setDrafts(next);
-    updatePreferences(splitTemplatePrompts(next));
+    updatePreferences({ templatePrompts: next });
   };
 
-  // New prompts start in the morning, the period every prompt that predates
-  // this feature already has — adding one shouldn't quietly open a second
-  // journal in a ritual the user may not journal in.
-  const addPrompt = () =>
-    writePrompts([...drafts, { prompt: "", period: "am" }]);
+  const addPrompt = () => writePrompts([...drafts, newTemplatePrompt()]);
 
   const deletePrompt = (index: number) =>
     writePrompts(drafts.filter((_, i) => i !== index));
 
-  // Moving a prompt between rituals moves it between the two stored columns, so
-  // the list regroups. Regrouped here, on the tap, rather than being left to the
-  // resync above: the row travels once, when the user asks it to, instead of
-  // sitting still and then jumping when the write echoes back.
-  const setPromptPeriod = (index: number, period: TRitualMode) => {
-    const next = splitTemplatePrompts(
+  // One field on one element, so the row stays exactly where it is — the list
+  // holds a single order across both rituals rather than a morning group and an
+  // evening one. Nothing here can half-apply the way writing two columns could.
+  const setPromptPeriod = (index: number, period: TRitualMode) =>
+    writePrompts(
       drafts.map((entry, i) => (i === index ? { ...entry, period } : entry)),
     );
-    setDrafts(mergeTemplatePrompts(next));
-    updatePreferences(next);
-  };
 
   // A "+" in the header adds a prompt (mirrors Habits), but only when the
   // Journal is on. Re-wired on every render so the handler closes over the
@@ -243,9 +222,12 @@ export default function RitualScreen() {
               </Text>
             ) : (
               <View style={{ gap: theme.space.sm }}>
-                {drafts.map(({ prompt, period }, index) => (
+                {drafts.map(({ id, prompt, period }, index) => (
+                  // Keyed by the prompt's own id, not its position: a delete
+                  // shifts every later index, and an index key would hand the
+                  // removed row's input state to its neighbour.
                   <View
-                    key={index}
+                    key={id}
                     style={[styles.promptRow, { gap: theme.space.sm }]}
                   >
                     <JournalPeriodMenu

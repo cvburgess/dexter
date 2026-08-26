@@ -70,7 +70,8 @@ export default function RitualScreen() {
   // flags there would have doubled `TOGGLE_KEYS` to sixteen to express
   // something only this call site knows.
   const journalStepEnabled = (mode: TRitualMode) =>
-    preferences.enableJournal && hasPromptsFor(preferences, mode);
+    preferences.enableJournal &&
+    hasPromptsFor(preferences.templatePrompts, mode);
 
   // Seeded inside the initializer so the clock is read on mount rather than at
   // module load — an app launched in the morning and left open must not still

@@ -127,25 +127,20 @@ const preferences = ({
   enableHoroscope = true,
   // Both rituals have a prompt by default, so the journal step exists in each
   // and the step counts below are the full lists. Since DEX-151 the preference
-  // alone no longer decides that: emptying one period's array drops the step
-  // from that ritual and leaves the other untouched.
-  templatePrompts = ["Highlight"],
-  templatePromptsPm = ["What went well?"],
+  // alone no longer decides that: a list with nothing for one ritual drops the
+  // step from that ritual and leaves the other untouched.
+  templatePrompts = [
+    { id: "a", prompt: "Highlight", period: "am" },
+    { id: "b", prompt: "What went well?", period: "pm" },
+  ],
 }: {
   enableJournal?: boolean;
   enableCalendar?: boolean;
   enableHoroscope?: boolean;
-  templatePrompts?: string[];
-  templatePromptsPm?: string[];
+  templatePrompts?: { id: string; prompt: string; period: "am" | "pm" }[];
 } = {}) =>
   [
-    {
-      enableJournal,
-      enableCalendar,
-      enableHoroscope,
-      templatePrompts,
-      templatePromptsPm,
-    },
+    { enableJournal, enableCalendar, enableHoroscope, templatePrompts },
     {},
   ] as unknown as ReturnType<typeof usePreferences>;
 
@@ -365,10 +360,15 @@ describe("RitualScreen", () => {
   // DEX-151: the journal is per-ritual now. A user who journals only in the
   // morning should not be walked past a question the evening cannot ask.
   describe("with prompts in only one ritual", () => {
+    const MORNING_ONLY = [
+      { id: "a", prompt: "Highlight", period: "am" as const },
+    ];
+    const EVENING_ONLY = [
+      { id: "b", prompt: "What went well?", period: "pm" as const },
+    ];
+
     it("drops the journal from the evening when it has no prompts of its own", () => {
-      mockUsePreferences.mockReturnValue(
-        preferences({ templatePromptsPm: [] }),
-      );
+      mockUsePreferences.mockReturnValue(preferences({ templatePrompts: MORNING_ONLY }));
       // Noon or later, so the screen seeds the evening ritual.
       jest.setSystemTime(localTime(13));
 
@@ -385,9 +385,7 @@ describe("RitualScreen", () => {
     });
 
     it("keeps the journal in the morning when only the evening is empty", () => {
-      mockUsePreferences.mockReturnValue(
-        preferences({ templatePromptsPm: [] }),
-      );
+      mockUsePreferences.mockReturnValue(preferences({ templatePrompts: MORNING_ONLY }));
 
       const screen = render(<RitualScreen />);
 
@@ -401,7 +399,7 @@ describe("RitualScreen", () => {
     });
 
     it("drops the journal from the morning when it has no prompts of its own", () => {
-      mockUsePreferences.mockReturnValue(preferences({ templatePrompts: [] }));
+      mockUsePreferences.mockReturnValue(preferences({ templatePrompts: EVENING_ONLY }));
 
       const screen = render(<RitualScreen />);
 
@@ -414,7 +412,7 @@ describe("RitualScreen", () => {
     // Switching rituals re-asks the question, which is the whole point of
     // deriving the flag from the mode rather than the preference alone.
     it("adds the step back when the user switches to the ritual that has prompts", () => {
-      mockUsePreferences.mockReturnValue(preferences({ templatePrompts: [] }));
+      mockUsePreferences.mockReturnValue(preferences({ templatePrompts: EVENING_ONLY }));
 
       const screen = render(<RitualScreen />);
 

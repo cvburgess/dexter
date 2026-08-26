@@ -22,8 +22,10 @@ const makeTask = (overrides: Partial<TTask> = {}): TTask => ({
 // say nothing about which one a link picks (DEX-151 covers that below).
 const JOURNAL_ON = {
   enableJournal: true,
-  templatePrompts: ["Highlight"],
-  templatePromptsPm: ["What went well?"],
+  templatePrompts: [
+    { id: "a", prompt: "Highlight", period: "am" as const },
+    { id: "b", prompt: "What went well?", period: "pm" as const },
+  ],
 };
 const JOURNAL_OFF = {
   ...JOURNAL_ON,
@@ -125,8 +127,10 @@ describe("searchResultRoute", () => {
   it("sends it to the morning when that is where the prompt lives", () => {
     const options = {
       ...JOURNAL_ON,
-      templatePrompts: ["What went well?"],
-      templatePromptsPm: ["Anything else?"],
+      templatePrompts: [
+        { id: "a", prompt: "What went well?", period: "am" as const },
+        { id: "b", prompt: "Anything else?", period: "pm" as const },
+      ],
     };
 
     expect(searchResultRoute(journalResult, "milk", "1", options)).toEqual({
@@ -141,8 +145,9 @@ describe("searchResultRoute", () => {
   it("falls back to the only ritual with prompts when the prompt is gone", () => {
     const eveningOnly = {
       ...JOURNAL_ON,
-      templatePrompts: [],
-      templatePromptsPm: ["Something else entirely"],
+      templatePrompts: [
+        { id: "a", prompt: "Something else entirely", period: "pm" as const },
+      ],
     };
 
     expect(searchResultRoute(journalResult, "milk", "1", eveningOnly)).toEqual({
@@ -154,8 +159,10 @@ describe("searchResultRoute", () => {
   it("prefers the morning when the prompt is in neither list", () => {
     const both = {
       ...JOURNAL_ON,
-      templatePrompts: ["Something else"],
-      templatePromptsPm: ["Something else again"],
+      templatePrompts: [
+        { id: "a", prompt: "Something else", period: "am" as const },
+        { id: "b", prompt: "Something else again", period: "pm" as const },
+      ],
     };
 
     expect(searchResultRoute(journalResult, "milk", "1", both)).toMatchObject({
@@ -176,11 +183,7 @@ describe("searchResultRoute", () => {
   // Neither ritual has a Journal step, so this is the same dead end as the
   // preference being off — the tap would land on whatever step comes first.
   it("refuses to route a journal entry when no ritual has prompts", () => {
-    const noPrompts = {
-      ...JOURNAL_ON,
-      templatePrompts: [],
-      templatePromptsPm: [],
-    };
+    const noPrompts = { ...JOURNAL_ON, templatePrompts: [] };
 
     expect(canOpenSearchResult(journalResult, noPrompts)).toBe(false);
     expect(searchResultRoute(journalResult, "milk", "1", noPrompts)).toBeNull();

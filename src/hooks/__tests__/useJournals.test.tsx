@@ -41,14 +41,17 @@ const createWrapper = () => {
   return { client, wrapper };
 };
 
+// Takes the stored shape: a flat list where each prompt names its own ritual.
 const setTemplatePrompts = (
-  templatePrompts: string[],
-  templatePromptsPm: string[] = [],
+  templatePrompts: { id: string; prompt: string; period: "am" | "pm" }[],
 ) =>
   mockUsePreferences.mockReturnValue([
-    { templatePrompts, templatePromptsPm } as never,
+    { templatePrompts } as never,
     { updatePreferences: jest.fn() },
   ]);
+
+const amPrompt = (prompt: string) =>
+  ({ id: prompt, prompt, period: "am" }) as const;
 
 describe("useJournals", () => {
   beforeEach(() => {
@@ -57,7 +60,7 @@ describe("useJournals", () => {
   });
 
   it("seeds a day with no row from the prompt template", async () => {
-    setTemplatePrompts(["Highlight", "Grateful for"]);
+    setTemplatePrompts([amPrompt("Highlight"), amPrompt("Grateful for")]);
     mockGetJournal.mockResolvedValue(null);
 
     const { result } = renderHook(() => useJournals("2026-07-12"), {
@@ -77,8 +80,11 @@ describe("useJournals", () => {
   // The whole day, not just the ritual the user happens to open first: a seed
   // holding only one period's prompts would mean the evening's first save wrote
   // a row the morning was missing from, losing that half of the day for good.
-  it("seeds both rituals' prompts, morning first, each stamped with its period", async () => {
-    setTemplatePrompts(["Highlight"], ["What went well?"]);
+  it("seeds every ritual's prompts, in order, each stamped with its period", async () => {
+    setTemplatePrompts([
+      amPrompt("Highlight"),
+      { id: "pm", prompt: "What went well?", period: "pm" },
+    ]);
     mockGetJournal.mockResolvedValue(null);
 
     const { result } = renderHook(() => useJournals("2026-07-12"), {
@@ -93,7 +99,7 @@ describe("useJournals", () => {
   });
 
   it("reports exists=true and the stored prompts when a row is present", async () => {
-    setTemplatePrompts(["Highlight"]);
+    setTemplatePrompts([amPrompt("Highlight")]);
     mockGetJournal.mockResolvedValue({
       date: "2026-07-12",
       prompts: [{ prompt: "Highlight", response: "kept" }],
@@ -154,7 +160,7 @@ describe("useJournals", () => {
   });
 
   it("rolls back the optimistic responses when the first save fails", async () => {
-    setTemplatePrompts(["Highlight"]);
+    setTemplatePrompts([amPrompt("Highlight")]);
     mockGetJournal.mockResolvedValue(null);
     mockUpsertJournal.mockRejectedValue(new Error("save failed"));
 

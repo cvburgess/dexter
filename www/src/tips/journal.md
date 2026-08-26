@@ -42,8 +42,8 @@ Any new journal prompts will appear on days with a blank journal.
 ### Choosing when a prompt is asked
 
 Each prompt has a sun or moon beside it. Tap it to move the prompt between the
-**morning** and **evening** ritual — the prompt moves down the list to join the
-others in that half of the day.
+**morning** and **evening** ritual. The prompt stays where it is in the list, so
+you can order your questions however you like and mix the two freely.
 
 Because prompts only appear on days with a blank journal, moving one won't change
 a day you've already started; it takes effect from your next blank journal.

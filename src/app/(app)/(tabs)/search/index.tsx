@@ -94,13 +94,8 @@ export default function SearchScreen() {
       // Which ritual a journal hit opens in, and whether it opens at all: since
       // DEX-151 a ritual only has a Journal step if it has prompts of its own.
       templatePrompts: preferences.templatePrompts,
-      templatePromptsPm: preferences.templatePromptsPm,
     }),
-    [
-      preferences.enableJournal,
-      preferences.templatePrompts,
-      preferences.templatePromptsPm,
-    ],
+    [preferences.enableJournal, preferences.templatePrompts],
   );
 
   // Whether the *field* holds a searchable query, as opposed to `enabled`, which

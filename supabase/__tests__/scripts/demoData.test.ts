@@ -229,13 +229,22 @@ Deno.test("journal prompts pair a prompt with a response", () => {
 // Both rituals need prompts of their own or the Journal step drops out of one
 // of them entirely (DEX-151) — and the screenshots walk both.
 Deno.test("journal prompts are seeded for both rituals", () => {
-  assert(
-    data.preferences.templatePrompts.length > 0,
-    "expected morning journal prompts",
+  const periodsAsked = new Set(
+    data.preferences.templatePrompts.map((entry) => entry.period),
   );
-  assert(
-    data.preferences.templatePromptsPm.length > 0,
-    "expected evening journal prompts",
+  assertEquals(
+    periodsAsked,
+    new Set(["am", "pm"]),
+    "expected the template to ask something in each ritual",
+  );
+
+  // Ids key the settings editor's rows, so a repeat would hand one row's input
+  // state to another.
+  const ids = data.preferences.templatePrompts.map((entry) => entry.id);
+  assertEquals(
+    new Set(ids).size,
+    ids.length,
+    "expected every template prompt to have a distinct id",
   );
 
   // Each day's entries carry the period they were seeded with, so the two
