@@ -31,6 +31,10 @@ const journalPromptSchema = z.object({
 
 const journalPromptsSchema = z.array(journalPromptSchema);
 
+// Bounded where the prompt strings are not: `journals_mood_range` enforces the
+// same 1-5, so a wider schema would only trade a clear error for a 400.
+const moodSchema = z.number().int().min(1).max(5).nullable().optional();
+
 export function registerJournalTools(
   server: McpServer,
   ctx: ToolContext,
@@ -54,7 +58,9 @@ export function registerJournalTools(
       if (error) return toolError(error.message);
       // A date with no row is the ordinary case, not a failure — see the
       // matching comment in get_note.
-      if (!data) return toolJson({ date, prompts: [], user_id: ctx.userId });
+      if (!data) {
+        return toolJson({ date, prompts: [], mood: null, user_id: ctx.userId });
+      }
       return toolJson(data);
     },
   );
@@ -64,12 +70,15 @@ export function registerJournalTools(
     {
       title: "Upsert Journal",
       description:
-        "Create or update the authenticated user's journal prompts for a date. Replaces the entire prompt array — read it with get_journal first and send every entry back, or the omitted ones are lost. Pass an empty array to clear it.",
+        "Create or update the authenticated user's journal prompts and mood for a date. Replaces the entire prompt array — read it with get_journal first and send every entry back, or the omitted ones are lost. Pass an empty array to clear it. `mood` is a standalone 1-5 score; omit it to leave it untouched, or pass null to clear it.",
       inputSchema: {
         date: dateSchema,
         // Not nullable: `journals.prompts` is NOT NULL (and constrained to a
         // jsonb array), so clearing the journal is an empty array, not a null.
         prompts: journalPromptsSchema.optional(),
+        // Nullable where `prompts` is not: the column is, and `compactUpdate`
+        // keeps a null, so clearing a mood needs one.
+        mood: moodSchema,
       },
       annotations: {
         readOnlyHint: false,
@@ -77,8 +86,8 @@ export function registerJournalTools(
         idempotentHint: true,
       },
     },
-    async ({ date, prompts }) => {
-      const updates = compactUpdate({ prompts });
+    async ({ date, prompts, mood }) => {
+      const updates = compactUpdate({ prompts, mood });
 
       if (!hasUpdates(updates)) {
         return toolError("No fields provided to upsert.");

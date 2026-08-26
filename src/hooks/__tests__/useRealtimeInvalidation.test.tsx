@@ -284,7 +284,8 @@ describe("useRealtimeInvalidation", () => {
       mockGetJournal.mockResolvedValue(null);
       mockUpsertJournal.mockReturnValue(
         new Promise((resolve) => {
-          resolveUpsert = () => resolve({ date: "2026-07-12", prompts: [] });
+          resolveUpsert = () =>
+            resolve({ date: "2026-07-12", prompts: [], mood: null });
         }),
       );
       mockUsePreferences.mockReturnValue([

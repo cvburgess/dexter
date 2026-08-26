@@ -14,7 +14,12 @@ export type TJournalPrompt = {
   period?: TRitualMode;
 };
 
-export type TJournal = { date: string; prompts: TJournalPrompt[] };
+/** `mood` (DEX-191) is 1-5 or `null` for unanswered — never coerced to a number. */
+export type TJournal = {
+  date: string;
+  prompts: TJournalPrompt[];
+  mood: number | null;
+};
 
 // Normalize a raw `journals` row into `TJournal`, coercing a null `prompts` to
 // `[]`. The column is NOT NULL, but `TJournal.prompts` is `TJournalPrompt[]` and
@@ -22,7 +27,11 @@ export type TJournal = { date: string; prompts: TJournalPrompt[] };
 // the write (`upsertJournal`) may leak a null into the React Query cache.
 const rowToJournal = (data: Tables<"journals">): TJournal => {
   const row = camelCase(data) as TJournal;
-  return { ...row, prompts: (data.prompts ?? []) as TJournalPrompt[] };
+  return {
+    ...row,
+    prompts: (data.prompts ?? []) as TJournalPrompt[],
+    mood: data.mood,
+  };
 };
 
 export const getJournal = async (
@@ -47,6 +56,7 @@ export const getJournal = async (
 export type TUpsertJournal = {
   date: string;
   prompts?: TJournalPrompt[];
+  mood?: number | null;
 };
 
 export const upsertJournal = async (

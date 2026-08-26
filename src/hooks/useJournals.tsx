@@ -49,6 +49,7 @@ export const useJournals = (date: string): TUseJournals => {
         period,
         response: "",
       })),
+      mood: null,
     }),
     // Just the prompts — the whole row would rebuild this on an unrelated edit.
     [date, templatePrompts],
@@ -67,13 +68,20 @@ export const useJournals = (date: string): TUseJournals => {
   const journal = data ?? defaultJournal;
   const exists = data != null;
 
+  // A mood-only write on a day with no row would insert `prompts` at its column
+  // default of `[]`, stranding the day on the template it never got seeded with.
+  const withSeed = (diff: Omit<TUpsertJournal, "date">) =>
+    exists || diff.prompts
+      ? diff
+      : { ...diff, prompts: defaultJournal.prompts };
+
   const { mutate: upsert, mutateAsync: upsertAsync } = useMutation<
     TJournal,
     Error,
     Omit<TUpsertJournal, "date">,
     { previous: TJournal | null | undefined }
   >({
-    mutationFn: (diff) => upsertJournal(supabase, { ...diff, date }),
+    mutationFn: (diff) => upsertJournal(supabase, { ...withSeed(diff), date }),
     mutationKey: journalsMutationKey(date),
     // Retry a failed save at the QueryClient level (upsert is idempotent). This
     // survives the component unmounting — an unmount flush (date change / tab
