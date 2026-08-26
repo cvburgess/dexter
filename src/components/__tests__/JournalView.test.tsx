@@ -14,9 +14,8 @@ const mockUseJournals = useJournals as jest.MockedFunction<typeof useJournals>;
 const mockUpsertJournal = jest.fn();
 const mockUpsertJournalAsync = jest.fn().mockResolvedValue(undefined);
 
-// `mode` defaults to the morning, and prompts written without a `period` read
-// as morning too (`promptPeriod`), so a case that says nothing about periods
-// exercises exactly what it did before DEX-151.
+// `mode` and a missing `period` both default to morning, so a case that says
+// nothing about periods exercises exactly what it did before DEX-151.
 const setup = ({
   prompts = [],
   isLoading = false,
@@ -185,10 +184,8 @@ describe("JournalView", () => {
       expect(screen.queryByTestId("journal-response-0")).toBeNull();
     });
 
-    // The regression this whole design is arranged around. `upsertJournal`
-    // replaces the entire jsonb column, so an evening save rebuilt from the
-    // fields the evening renders would write a one-entry array over the row and
-    // delete the morning's answers for that day.
+    // The regression this design is arranged around: `upsertJournal` replaces
+    // the whole column, so a subset rebuild would delete the morning's answers.
     it("keeps the other ritual's answers when this one saves", () => {
       jest.useFakeTimers();
       try {
@@ -216,9 +213,8 @@ describe("JournalView", () => {
       }
     });
 
-    // Reachable whenever a day was started before this period had any prompts:
-    // the template only seeds days with a blank journal, so the step is in the
-    // ritual (the template has prompts) while this particular day has none.
+    // Reachable when a day was started before this ritual had prompts: the
+    // template only seeds blank journals, so the step exists but the day is bare.
     it("explains an already-started day with none of this ritual's prompts", () => {
       const screen = setup({
         prompts: [

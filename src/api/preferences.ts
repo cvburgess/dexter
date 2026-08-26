@@ -54,8 +54,7 @@ export type TPreferences = {
   sunSign: TSunSign | null;
   templateNote: string;
   /** The journal's prompts, each carrying the ritual that asks it (DEX-151).
-   * Stored as jsonb, so it arrives untyped and goes through
-   * `parseTemplatePrompts` — never cast straight off the row. */
+   * jsonb, so it arrives untyped — read only via `parseTemplatePrompts`. */
   templatePrompts: TTemplatePrompt[];
   themeMode: EThemeMode;
 };
@@ -72,14 +71,8 @@ export const getPreferences = async (supabase: SupabaseClient<Database>) => {
 };
 
 /**
- * Normalizes a raw `preferences` row.
- *
- * `template_prompts` is jsonb, so the generated type is `Json` and the blind
- * `camelCase(...) as TPreferences` cast every other field rides on would be a
- * lie for this one — the column's CHECK tests array-ness and nothing about the
- * elements. `parseTemplatePrompts` is the coercion, and it runs on both the
- * fetch and the write below so neither can put an unparsed value in the cache.
- * The same arrangement `rowToJournal` uses for the sibling column.
+ * `template_prompts` is jsonb, so the blind cast every other field rides on would
+ * be a lie for it. Runs on the fetch and the write, like `rowToJournal`.
  */
 const rowToPreferences = (data: Tables<"preferences">): TPreferences => ({
   ...(camelCase(data) as TPreferences),
@@ -105,8 +98,7 @@ export type TUpdatePreferences = {
    * rather than merely optional — omitting it leaves the stored sign alone. */
   sunSign?: TSunSign | null;
   templateNote?: string;
-  /** The whole list, every time — a period change is one element's field, so
-   * there is no partial write to get wrong. */
+  /** The whole list, every time. */
   templatePrompts?: TTemplatePrompt[];
   themeMode?: EThemeMode;
   userId: string;

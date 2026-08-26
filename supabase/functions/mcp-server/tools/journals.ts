@@ -21,15 +21,8 @@ import {
 // would be locked out of that user's journal for good. It would also buy little,
 // since `response` here and `content` on notes are both unbounded prose. Bound
 // `template_prompts` first if this ever needs a limit.
-// `period` says which ritual asks the prompt (DEX-151). It **must** be listed
-// here even though nothing on this side reads it: `z.object` strips keys it
-// does not declare, so an agent doing the documented get_journal →
-// upsert_journal round trip would silently write the day back with every period
-// erased, and the app would show the whole day in the morning ritual and
-// nothing in the evening one.
-//
-// Optional because the stored rows are: entries written before the split carry
-// no period, and `promptPeriod` in the app reads a missing one as morning.
+// `period` must be declared even though nothing here reads it: `z.object` strips
+// undeclared keys, so a get_journal → upsert_journal round trip would erase it.
 const journalPromptSchema = z.object({
   prompt: z.string(),
   response: z.string(),

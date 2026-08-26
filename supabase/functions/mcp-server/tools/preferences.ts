@@ -56,13 +56,8 @@ export const updatePreferencesInputSchema = {
    */
   sunSign: sunSignSchema.nullable().optional(),
   templateNote: z.string().optional(),
-  // Each prompt carries the ritual that asks it (DEX-151). Sent as a whole
-  // list, like the column stores it — moving a prompt between rituals is one
-  // element's `period`, so there is no partial update to get wrong.
-  //
-  // `id` is optional because minting one is the app's job, not an agent's: the
-  // handler fills any that are missing below. Ids only have to be unique within
-  // this one list.
+  // The whole list, like the column stores it. `id` is optional — the handler
+  // mints any that are missing, since that is the app's job, not an agent's.
   templatePrompts: z
     .array(
       z.object({

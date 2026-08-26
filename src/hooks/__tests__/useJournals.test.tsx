@@ -77,9 +77,8 @@ describe("useJournals", () => {
     expect(result.current[1].exists).toBe(false);
   });
 
-  // The whole day, not just the ritual the user happens to open first: a seed
-  // holding only one period's prompts would mean the evening's first save wrote
-  // a row the morning was missing from, losing that half of the day for good.
+  // The whole day, not the ritual opened first: a one-period seed would let the
+  // evening's first save write a row the morning was missing from.
   it("seeds every ritual's prompts, in order, each stamped with its period", async () => {
     setTemplatePrompts([
       amPrompt("Highlight"),

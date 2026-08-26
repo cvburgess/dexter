@@ -44,10 +44,8 @@ type TSearchRouteOptions = {
  * would switch tabs and land on whatever step happens to be first. Old entries
  * stay searchable and readable either way — only the tap target goes.
  *
- * Since DEX-151 the preference is not the whole of it: a journal with no
- * prompts has no step in either ritual, so it is the same dead end. Prompts in
- * only one ritual is fine — the link names that ritual rather than letting the
- * clock choose (see `searchResultRoute`).
+ * Since DEX-151 a journal with no prompts has no step in either ritual, which is
+ * the same dead end; prompts in only one is fine, since the link names it.
  *
  * Nothing is lost by not linking either: the result card in Search *is* the
  * useful surface, and `TaskCard` renders its `StatusButton` above the
@@ -69,25 +67,8 @@ export const canOpenSearchResult = (
 };
 
 /**
- * The ritual to open a journal hit in: the one that still asks that question.
- *
- * Falls back to whichever ritual has prompts at all — the prompt may have been
- * renamed or deleted since the day was written, and the entry is still worth
- * opening. The morning wins a tie, matching the order the day runs and the
- * period every prompt predating the split has.
- *
- * `canOpenSearchResult` has already refused the case where neither has any, so
- * the fallback is never a ritual without a Journal step.
- *
- * **Read from the template, where `JournalView` filters the day by the period
- * stored on the entry itself.** The two agree for every day seeded since the
- * prompt last moved, and disagree for older ones: move a prompt to the evening
- * and a morning entry written before that still belongs to the morning, so this
- * link opens the evening ritual and the entry is not among its fields. The
- * empty state names that case, and the entry is one AM/PM tap away. Closing the
- * gap properly means `search_entries` returning each entry's `period`, which is
- * an RPC change this doesn't need — the alternative, letting the clock choose,
- * is wrong far more often.
+ * The ritual that still asks this question, else whichever has prompts. Read from
+ * the template, so a prompt moved since the day was written opens the wrong one.
  */
 const journalResultMode = (
   prompt: string,
@@ -104,11 +85,8 @@ const journalResultMode = (
  *
  * An *incomplete* task with no scheduled date goes to the backlog with the query
  * carried along — the drawer seeds its own search box from it, so the task is on
- * screen immediately instead of somewhere in the backlog. A journal entry goes
- * to its day's journal step in the Ritual tab, **naming the ritual** rather than
- * letting the clock pick it (DEX-151): now that each ritual asks only its own
- * prompts, the flow the clock lands on may have no journal step at all, and the
- * tap would arrive at whatever step happens to be first.
+ * screen immediately instead of somewhere in the backlog. A journal entry goes to
+ * its day's journal step, **naming the ritual** — the clock's may not have one.
  *
  * `nonce` should differ per tap; see `TTodayRouteParams["n"]`.
  */

@@ -326,17 +326,15 @@ describe("RitualScreen", () => {
   });
 
   describe("a prompt's ritual", () => {
-    // The `MenuView` double renders only its trigger (see jest.setup.js), so
-    // the screen's write is driven through the control's own prop — the same
-    // seam every other icon menu in the app is covered through.
+    // The `MenuView` double renders only its trigger, so the write is driven
+    // through the control's prop — the seam every icon menu here is tested at.
     const changePeriod = (
       screen: ReturnType<typeof renderWith>,
       row: number,
       period: TRitualMode,
     ) =>
-      // A block body, not an expression one: the props of an UNSAFE-queried
-      // node are `any`, so returning the call would pick `act`'s async
-      // overload and leave a floating promise.
+      // A block body: UNSAFE-queried props are `any`, so returning the call
+      // picks `act`'s async overload and leaves a floating promise.
       act(() => {
         screen
           .UNSAFE_getAllByType(JournalPeriodMenu)
@@ -386,9 +384,8 @@ describe("RitualScreen", () => {
       });
     });
 
-    // The list holds one order across both rituals, so a prompt that changes
-    // ritual stays exactly where its owner put it. Two columns could not have
-    // expressed this — the row would have had to jump to the other group.
+    // One order across both rituals, so a prompt that changes ritual stays put.
+    // Two columns could not have expressed this.
     it("leaves the moved prompt in its place in the list", () => {
       const screen = renderWith({
         templatePrompts: [am("Highlight"), am("Grateful for")],

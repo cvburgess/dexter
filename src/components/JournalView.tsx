@@ -15,8 +15,7 @@ import { TextInput } from "./TextInput";
 type TJournalViewProps = {
   /** ISO date (YYYY-MM-DD) of the day whose journal is shown. */
   date: string;
-  /** Which ritual is asking (DEX-151). Only this period's prompts render; the
-   * other half of the day's entries stay loaded and are written back untouched. */
+  /** Which ritual is asking (DEX-151). Only this period's prompts render. */
   mode: TRitualMode;
   /** Fired as a response field gains/loses focus, so the host can disable
    * day-swipe while editing. */
@@ -64,22 +63,15 @@ export function JournalView({
 
   if (isLoading) return <LoadingScreen />;
 
-  // Positions into the **stored** array, not a filtered copy of it. Everything
-  // downstream indexes the whole day; only the render loop walks this list.
+  // Positions into the **stored** array — everything downstream indexes the
+  // whole day, and only the render loop walks this list.
   const visible = journal.prompts.flatMap((entry, index) =>
     promptPeriod(entry) === mode ? [index] : [],
   );
 
   if (visible.length === 0) {
-    // Two different nothings, and telling them apart is the difference between
-    // an instruction and a bug report. A day that was never written has no
-    // prompts because the template has none for this ritual — normally
-    // unreachable, since `stepsFor` drops the step entirely in that case, but
-    // `usePreferences` serves empty defaults for a round trip on a cold launch.
-    // A day that *does* exist and still has none was seeded before this period
-    // had any prompts: the template only seeds days with a blank journal, so
-    // this day keeps the questions it was started with and tomorrow reads
-    // correctly.
+    // Two different nothings: an existing day predates this ritual's prompts,
+    // a missing one means the template has none (rare — `stepsFor` drops it).
     return (
       <EmptyScreen
         message={
@@ -91,19 +83,8 @@ export function JournalView({
     );
   }
 
-  // Mount the editor only once the day has loaded so its refs/inputs seed from
-  // the real prompts rather than the loading-time default (empty responses).
-  // Key it on the prompt labels so a template change (add/edit/delete a prompt
-  // in Settings) re-seeds a still-mounted editor — the Today screen stays
-  // mounted across tab switches, so without this the frozen refs would diverge
-  // from the rendered inputs and a save would drop the new/renamed prompt.
-  // Response-only edits keep the labels, so autosaves don't remount.
-  //
-  // Each label's **period** joins the key (DEX-151): moving a prompt between
-  // rituals in Settings changes which fields this mount renders without
-  // touching a single label, and the frozen refs would diverge exactly as they
-  // would for a rename. The mode itself is not in the key — a mode switch
-  // remounts the whole step through `ritualPageKey`.
+  // Keyed on each label and its period so a template change re-seeds a
+  // still-mounted editor; response-only edits keep both, so autosaves don't remount.
   return (
     <JournalEditor
       key={JSON.stringify(
@@ -118,11 +99,9 @@ export function JournalView({
 }
 
 type TJournalEditorProps = {
-  /** **The whole day**, both rituals' prompts — never the rendered subset. See
-   * `handleChangeResponse`. */
+  /** **The whole day**, never the rendered subset. See `handleChangeResponse`. */
   prompts: TJournalPrompt[];
-  /** Indices into `prompts` to render, in order: the ones belonging to the
-   * ritual on screen. */
+  /** Indices into `prompts` to render: the ritual on screen's own. */
   visible: number[];
   upsertJournalAsync: (diff: {
     prompts: TJournalPrompt[];
@@ -188,19 +167,8 @@ function JournalEditor({
   const handleChangeResponse = useCallback(
     (index: number, text: string) => {
       responsesRef.current[index] = text;
-      // Rebuild the full array on every edit: `upsertJournal({ prompts })`
-      // replaces the whole jsonb column, so a partial array would drop the other
-      // responses. Labels are invariant for this mount (the editor is keyed on
-      // them), so reading them off the prop is safe.
-      //
-      // **`prompts` is the whole day, not the fields on screen, and that is the
-      // load-bearing part of the AM/PM split (DEX-151).** The evening ritual
-      // renders three of eight prompts; rebuilding from those three would write
-      // a three-entry array over the row and delete the morning's answers. The
-      // index arriving here is a position in this full array — `visible` maps a
-      // rendered field back to it — so the other period's responses are copied
-      // through untouched, as is each entry's `period` (left `undefined` on
-      // rows written before the split, which `promptPeriod` reads as morning).
+      // `upsertJournal` replaces the whole jsonb column, so rebuild from `prompts`
+      // — the whole day, not the rendered subset, or the other ritual's answers go.
       pendingRef.current = prompts.map((prompt, i) => ({
         prompt: prompt.prompt,
         period: prompt.period,
@@ -246,11 +214,8 @@ function JournalEditor({
       }}
       keyboardShouldPersistTaps="handled"
     >
-      {/* Walks `visible`, so `index` stays a position in the **stored** array:
-          the same number `handleChangeResponse` and `responsesRef` use, and the
-          one the testID names. It is deliberately not the field's position on
-          screen — the evening's first field is index 3 of a day whose first
-          three prompts are the morning's. */}
+      {/* `index` is a position in the **stored** array, not on screen — the same
+          number `handleChangeResponse`, `responsesRef` and the testID use. */}
       {visible.map((index) => (
         <JournalResponseField
           key={index}

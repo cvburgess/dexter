@@ -139,9 +139,8 @@ describe("searchResultRoute", () => {
     });
   });
 
-  // The prompt may have been renamed or deleted since the day was written; the
-  // entry is still worth opening, so it lands in whichever ritual has a Journal
-  // step to land on.
+  // The prompt may have been renamed or deleted since the day was written, so
+  // the entry lands in whichever ritual still has a Journal step.
   it("falls back to the only ritual with prompts when the prompt is gone", () => {
     const eveningOnly = {
       ...JOURNAL_ON,

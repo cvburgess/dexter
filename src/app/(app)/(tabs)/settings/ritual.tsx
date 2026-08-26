@@ -62,9 +62,7 @@ export default function RitualScreen() {
   // (add/delete, or another device), but never while a field is focused — that
   // would clobber in-progress typing. A single flag suffices since only one
   // field is focused at a time. Mirrors notes.tsx.
-  //
-  // Drafts are the stored shape (DEX-151) — `{id, prompt, period}` — so there
-  // is no translation layer between what is edited here and what is written.
+  // Drafts are the stored shape, so nothing translates between edit and write.
   const [drafts, setDrafts] = useState(preferences.templatePrompts);
   const focusedRef = useRef(false);
   useEffect(() => {
@@ -102,9 +100,8 @@ export default function RitualScreen() {
   const deletePrompt = (index: number) =>
     writePrompts(drafts.filter((_, i) => i !== index));
 
-  // One field on one element, so the row stays exactly where it is — the list
-  // holds a single order across both rituals rather than a morning group and an
-  // evening one. Nothing here can half-apply the way writing two columns could.
+  // One field on one element, so the row stays where it is and nothing can
+  // half-apply.
   const setPromptPeriod = (index: number, period: TRitualMode) =>
     writePrompts(
       drafts.map((entry, i) => (i === index ? { ...entry, period } : entry)),
@@ -224,9 +221,8 @@ export default function RitualScreen() {
             ) : (
               <View style={{ gap: theme.space.sm }}>
                 {drafts.map(({ id, prompt, period }, index) => (
-                  // Keyed by the prompt's own id, not its position: a delete
-                  // shifts every later index, and an index key would hand the
-                  // removed row's input state to its neighbour.
+                  // Keyed by id: a delete shifts every later index, and an index
+                  // key would hand the removed row's input state to its neighbour.
                   <View
                     key={id}
                     style={[styles.promptRow, { gap: theme.space.sm }]}
@@ -236,9 +232,8 @@ export default function RitualScreen() {
                       promptNumber={index + 1}
                       onChange={(next) => setPromptPeriod(index, next)}
                     />
-                    {/* The delete button parks *inside* the field, so the
-                        anchor wraps the input alone rather than the whole
-                        row — otherwise it would sit over the menu tile. */}
+                    {/* The delete button parks inside the field, so the anchor
+                        wraps the input alone or it would cover the menu tile. */}
                     <View style={styles.promptField}>
                       <TextInput
                         accessibilityLabel={`Journal prompt ${index + 1}`}

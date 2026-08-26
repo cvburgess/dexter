@@ -16,9 +16,8 @@ describe("journalPeriodSections", () => {
     ]);
   });
 
-  // Named from `MODE_META` rather than spelled out again, so the menu and the
-  // ritual's own AM/PM button can't come to call the halves of the day
-  // different things.
+  // Named from `MODE_META` rather than spelled out again, so this and the
+  // ritual's AM/PM button can't drift apart.
   it("takes its icons from the ritual mode button's table", () => {
     const options = journalPeriodSections("am", jest.fn())[0].options;
 
@@ -42,9 +41,8 @@ describe("journalPeriodSections", () => {
     expect(onChange).toHaveBeenCalledWith("pm");
   });
 
-  // Choosing the ritual it is already in is a no-op to the caller, not a
-  // suppressed one here: the screen's write is idempotent, and swallowing it
-  // would make the menu's two rows behave differently for no visible reason.
+  // Re-choosing the current ritual still reports: the write is idempotent, and
+  // swallowing it would make the two rows behave differently for no reason.
   it("still reports a ritual the prompt is already in", () => {
     const onChange = jest.fn();
 
@@ -55,9 +53,8 @@ describe("journalPeriodSections", () => {
 });
 
 describe("JournalPeriodMenu", () => {
-  // The `MenuView` double renders only the trigger and drops every prop, so
-  // the menu's own props are the seam. This is what a screen reader has to go
-  // on: which prompt, and which ritual it is in today.
+  // The `MenuView` double drops every prop, so the menu's own props are the
+  // seam. This is all a screen reader gets: which prompt, and which ritual.
   it("names the prompt and its current ritual", () => {
     const screen = render(
       <JournalPeriodMenu period="pm" promptNumber={2} onChange={jest.fn()} />,
@@ -68,9 +65,8 @@ describe("JournalPeriodMenu", () => {
     );
   });
 
-  // Left to flex, the native menu host reports zero height while sizing and
-  // collapses the row it sits in — the note `StatusButton` and `ListButton`
-  // both carry.
+  // Left to flex, the native menu host reports zero height and collapses the
+  // row — the note `StatusButton` and `ListButton` both carry.
   it("pins the menu host to the trigger's exact size", () => {
     const screen = render(
       <JournalPeriodMenu period="am" promptNumber={1} onChange={jest.fn()} />,

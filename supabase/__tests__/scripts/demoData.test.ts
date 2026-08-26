@@ -212,11 +212,8 @@ Deno.test("journal prompts pair a prompt with a response", () => {
         prompt.length > 0,
         `journal ${journal.dateOffset} has a nameless prompt`,
       );
-      // Today's evening prompts are the one deliberate blank: the evening
-      // ritual has not happened yet at the hour a screenshot is taken, and
-      // answering them would photograph a day journalled out of order. It also
-      // gives the demo one unanswered field, which is what the step looks like
-      // when you actually arrive at it.
+      // Today's evening prompts are the one deliberate blank — that ritual has
+      // not happened yet, and it shows the step with a field still to fill.
       const blankByDesign = journal.dateOffset === 0 && period === "pm";
       assert(
         blankByDesign ? response.length === 0 : response.length > 0,

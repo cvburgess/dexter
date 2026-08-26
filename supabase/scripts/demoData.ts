@@ -94,9 +94,7 @@ export interface DemoJournal {
 }
 
 export interface DemoTemplatePrompt {
-  /** Readable rather than a uuid: this is a fixture, and a stable id makes a
-   * reseed diff and a failing assertion legible. Only has to be unique within
-   * this list. */
+  /** Readable rather than a uuid: a fixture reads better with stable ids. */
   id: string;
   prompt: string;
   period: "am" | "pm";
@@ -112,10 +110,8 @@ export interface DemoPreferences {
   enableHoroscope: boolean;
   /** A `public.sun_sign` enum value — see 20260804005118_add_horoscopes.sql. */
   sunSign: string;
-  /** Both rituals' journal prompts, each carrying its own period (DEX-151).
-   * Both halves are represented so the demo account has a Journal step in each
-   * — a ritual with none loses the step entirely, and the screenshots walk
-   * both. */
+  /** Both rituals are represented, or one loses its Journal step and the
+   * screenshots with it. */
   templatePrompts: DemoTemplatePrompt[];
 }
 
@@ -131,10 +127,8 @@ export interface DemoDataset {
   preferences: DemoPreferences;
 }
 
-// The app's own starter set (see the DEX-151 migration), in one list ordered
-// the way the day runs. The evening half is deliberately shorter — a journal
-// that asks four questions of someone winding down is a chore, and two is
-// enough to show the step is not a copy of the morning's.
+// The app's own starter set (see the DEX-151 migration), ordered the way the day
+// runs. The evening half is shorter on purpose — four is a chore at bedtime.
 const PROMPTS: DemoTemplatePrompt[] = [
   { id: "grateful", prompt: "Today I am grateful for", period: "am" },
   { id: "excited", prompt: "Today I am excited for", period: "am" },
@@ -485,8 +479,7 @@ export function buildDemoData(): DemoDataset {
           response: "Getting the demo account just right",
           period: "am",
         },
-        // Left blank: today's evening ritual has not happened yet, so an
-        // answered PM prompt would read as a day journalled out of order.
+        // Blank: today's evening ritual hasn't happened yet.
         { prompt: promptText("highlight"), response: "", period: "pm" },
         { prompt: promptText("learned"), response: "", period: "pm" },
       ],

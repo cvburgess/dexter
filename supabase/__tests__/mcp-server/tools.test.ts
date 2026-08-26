@@ -299,9 +299,8 @@ Deno.test("update_preferences writes the horoscope toggle through", async () => 
   assertEquals(supabase.lastBuilder?.payload, { enable_horoscope: false });
 });
 
-// The same two-places hazard as the test above, for DEX-151's per-prompt
-// period. The whole list goes in one call because the period is a field on an
-// element, not a choice of column — there is no partial write to get wrong.
+// The same two-places hazard as the test above. The whole list goes in one call
+// because the period is a field on an element, not a choice of column.
 Deno.test("update_preferences writes journal prompts through with their rituals", async () => {
   const registry = new ToolRegistry();
   const supabase = new FakeSupabase();
@@ -328,9 +327,8 @@ Deno.test("update_preferences writes journal prompts through with their rituals"
   });
 });
 
-// Minting an id is the app's job, not an agent's — an agent that had to invent
-// one would either omit it (leaving the editor keying rows by position) or
-// reuse one. The handler fills the gap instead.
+// Minting an id is the app's job, not an agent's, so the handler fills any
+// that are missing.
 Deno.test("update_preferences mints an id for a prompt that arrives without one", async () => {
   const registry = new ToolRegistry();
   const supabase = new FakeSupabase();
@@ -359,10 +357,8 @@ Deno.test("update_preferences mints an id for a prompt that arrives without one"
   );
 });
 
-// Only the two rituals exist, so a third period is a mistake worth rejecting
-// rather than storing for a later build to trip over. Asserted on the schema
-// itself: `ToolRegistry` hands the handler its arguments directly, so a tool
-// driven through it never sees Zod.
+// Asserted on the schema itself: `ToolRegistry` hands the handler its arguments
+// directly, so a tool driven through it never sees Zod.
 Deno.test("update_preferences accepts only the two rituals", () => {
   const period = updatePreferencesInputSchema.templatePrompts;
 
@@ -1591,10 +1587,8 @@ Deno.test("upsert_journal accepts any prompt set the app can legitimately store"
   assertEquals(prompts.safeParse("not an array").success, false);
 });
 
-// DEX-151: `z.object` strips keys it does not declare, so a schema that had not
-// learned about `period` would let the documented get_journal → upsert_journal
-// round trip quietly write the day back with every period erased — the app would
-// then show the whole day in the morning ritual and nothing in the evening one.
+// DEX-151: `z.object` strips undeclared keys, so a schema without `period` would
+// let a get_journal → upsert_journal round trip erase every one.
 Deno.test("upsert_journal keeps a prompt's ritual through the round trip", () => {
   const registry = journalTools(new FakeSupabase());
   const prompts = registry.tools.get("upsert_journal")!.inputSchema!

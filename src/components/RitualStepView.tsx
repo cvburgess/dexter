@@ -16,11 +16,8 @@ type TRitualStepViewProps = {
   step: TRitualStep;
   /** The day the ritual is running for; steps that show a day's data need it. */
   date: Temporal.PlainDate;
-  /**
-   * Which ritual is running. Only the Journal reads it (DEX-151) — the same
-   * step id appears in both flows and asks a different set of questions in
-   * each, which no other step does.
-   */
+  /** Which ritual is running. Only the Journal reads it (DEX-151): it is the one
+   * step id in both flows that asks a different set of questions in each. */
   mode: TRitualMode;
   /**
    * Fired as a step's text field gains/loses focus, so the layout can suspend

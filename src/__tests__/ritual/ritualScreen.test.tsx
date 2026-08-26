@@ -125,10 +125,8 @@ const preferences = ({
   enableJournal = true,
   enableCalendar = true,
   enableHoroscope = true,
-  // Both rituals have a prompt by default, so the journal step exists in each
-  // and the step counts below are the full lists. Since DEX-151 the preference
-  // alone no longer decides that: a list with nothing for one ritual drops the
-  // step from that ritual and leaves the other untouched.
+  // Both rituals have a prompt by default, so the step counts below are the
+  // full lists. A list with nothing for one ritual drops only that step.
   templatePrompts = [
     { id: "a", prompt: "Highlight", period: "am" },
     { id: "b", prompt: "What went well?", period: "pm" },
@@ -376,9 +374,8 @@ describe("RitualScreen", () => {
 
       const screen = render(<RitualScreen />);
 
-      // Evening: breathe, open-tasks, review, [journal], preview-tomorrow.
-      // Without the journal the fourth step is Preview tomorrow and there is
-      // no fifth, so three presses reach the end of the list.
+      // Evening: breathe, open-tasks, review, [journal], preview-tomorrow — so
+      // without the journal the fourth step is the last.
       for (let press = 0; press < 4; press++) {
         fireEvent.press(screen.getByLabelText("swipe-forward"));
       }

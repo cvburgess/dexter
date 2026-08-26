@@ -98,64 +98,8 @@ only since DEX-105) autosaves `journals.prompts` wholesale; responses are plain
 text; both rituals edit the same per-date entry, each rendering **its own half**
 of it (DEX-151).
 
-**That pairing — a subset on screen, the whole array on every write — is the one
-rule this surface cannot bend.** `upsertJournal` replaces the entire jsonb
-column, so `JournalEditor` takes the full day plus the indices to draw and
-rebuilds from the former; an evening save assembled from the three fields the
-evening shows would write a three-entry array over the row and delete the
-morning's answers. `upsert_journal` has the same property for agents, which is
-also why its Zod schema has to *declare* `period`: `z.object` strips undeclared
-keys, so a round trip through a schema that hadn't heard of it would erase every
-period in the day.
-
-A prompt is asked by one ritual, never both. `preferences.template_prompts` is a
-jsonb array of `{id, prompt, period}` — the same shape `journals.prompts` already
-had, so the template and the days it seeds differ only in that a day's entry
-carries a `response`.
-
-**Two `text[]` columns were the other candidate and lost on three counts**, all
-of which the blob gets for free: a period change is one field on one element
-rather than two writes that must land together (leaving a prompt in both lists or
-neither); the list keeps a single order across both rituals, so moving a prompt
-leaves the row where its owner put it instead of jumping it to the other group;
-and there is somewhere to put an `id`, without which the prompt *text* is the
-identity and a rename is indistinguishable from delete-plus-add. The cost is that
-jsonb validates nothing past `jsonb_typeof` — hence `parseTemplatePrompts`, which
-coerces every field on the way in exactly as `rowToJournal` does for the sibling
-column, and is the only place the row may be read through.
-
-`id` is unique within one user's list, not globally — an array key, the contract
-`tasks.subtasks` states. Its minter is a **deliberate copy** of `makeSubtaskId`:
-`utils/subtasks.ts` is loaded by the Deno MCP server through `@src/`, and Deno
-requires a `.ts` extension on an import that Metro and tsc forbid, so that file
-cannot import a shared leaf at all (the same reason it cannot import
-`utils/taskStatus.ts`).
-
-Each *day's* entries carry a `period` of their own, stamped when they seed, so
-renaming or deleting a template prompt cannot change which ritual an
-already-written day belongs to; an entry without one reads as morning
-(`promptPeriod`). The migration converts every existing prompt to a morning one
-and **no account gains an evening prompt** — that is the conversion, not the
-column default, which only a fresh signup ever reads.
-
-**A ritual with no prompts of its own has no Journal step.** `ritual/index.tsx`
-feeds `ritualSteps`' existing `journalEnabled` toggle `enableJournal && hasPromptsFor(mode)`
-rather than the preference alone — deliberately *not* a second toggle in
-`ritualSteps`, which would have doubled its `TOGGLE_KEYS` to sixteen to express
-something only the screen knows. The step therefore comes and goes with the AM/PM
-switch, which is exactly what `withJournalEnabled` already handles.
-
-`public.notes` (`content text`) and `public.journals` (`prompts jsonb`, checked to
-be an array) are each keyed `(user_id, date)` — one row per user per date, no
-`id`, no `updated_at`. They replaced a shared `days` row (DEX-51; `days` dropped
-in DEX-90 once the legacy `dexter-app`, which shares this production project, had
-shipped a release reading the new tables).
-
-**"No row" means "never written", and the app depends on that** — the template
-chooser keys off `exists`. The split's backfill preserved the distinction
-deliberately: for journals, only days with at least one non-empty *response* were
-copied, because the old shared row seeded template prompts on the first note
-write, so most rows carried scaffolding the user never answered.
+`template_prompts` is jsonb `{id, prompt, period}`, read only via
+`parseTemplatePrompts`; **a subset renders but the whole array is written**.
 
 ## Week
 
@@ -205,10 +149,6 @@ contracts:
   (`usePreferences` serves defaults until the row loads, so a cold launch corrects
   a round trip later — the correction has to be unremarkable, and it runs in both
   directions since journal/horoscope default on but calendar defaults off.)
-  **`journalEnabled` is not a mirrored preference** — since DEX-151 it is
-  `enableJournal && hasPromptsFor(state.mode)`, so it also moves when the *mode*
-  does, and both sides of that comparison read `current.mode` inside the updater
-  so the stale-state render pass stays self-consistent.
 - The "unchanged" guard stays on each exported transition because
   `ritual/index.tsx` compares each flag against preferences **during render** and
   sets state on disagreement — a transition that returned a state without updating

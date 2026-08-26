@@ -5,18 +5,8 @@ import type { TRitualMode } from "@/utils/ritualSteps";
 import { Database, Tables, TablesInsert } from "@/types/database.types";
 
 /**
- * One question in a day's journal, and the answer to it.
- *
- * `period` (DEX-151) says which ritual asks it, and is **optional because the
- * stored rows are**: every entry written before the AM/PM split carries none,
- * as does anything an older build writes today. Never read it directly — go
- * through `promptPeriod` in `utils/journalPrompts.ts`, which is the one place
- * that fallback to morning lives.
- *
- * The period is stamped onto the day's entries when they seed from the template
- * (`useJournals`) rather than looked up from the template at read time: a prompt
- * renamed or deleted in Settings must not change which ritual an already-written
- * day belongs to.
+ * `period` (DEX-151) is optional because the stored rows are — read it through
+ * `promptPeriod`. Stamped at seed time so a renamed prompt can't move an old day.
  */
 export type TJournalPrompt = {
   prompt: string;

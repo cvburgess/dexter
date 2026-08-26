@@ -42,24 +42,15 @@ export const useJournals = (date: string): TUseJournals => {
   const defaultJournal: TJournal = useMemo(
     () => ({
       date,
-      // Unlike notes (which offer a template chooser), prompts auto-seed from
-      // the template so a blank day is immediately answerable. Nothing persists
-      // until the user types a response (DEX-37).
-      //
-      // Seeds **both** rituals' prompts, morning first, each stamped with its
-      // period (DEX-151) — the day holds every question it will be asked, and
-      // `JournalView` renders the subset belonging to the ritual on screen.
-      // Seeding only the current mode's would mean the evening's first save
-      // wrote a row the morning was missing from, and the day's other half
-      // would be gone for good.
+      // Auto-seeds so a blank day is answerable; nothing persists until the user
+      // types (DEX-37). Every ritual's prompts, or a save drops the other's half.
       prompts: templatePrompts.map(({ prompt, period }) => ({
         prompt,
         period,
         response: "",
       })),
     }),
-    // Just the prompts, not `preferences` — the seed depends on nothing else,
-    // and depending on the whole row would rebuild it on an unrelated edit.
+    // Just the prompts — the whole row would rebuild this on an unrelated edit.
     [date, templatePrompts],
   );
 

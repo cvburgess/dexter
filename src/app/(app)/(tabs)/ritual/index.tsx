@@ -57,18 +57,8 @@ export default function RitualScreen() {
   const link = parseRitualLink(params);
   const today = useToday();
 
-  // Whether `mode`'s ritual has a Journal step at all.
-  //
-  // The preference still turns the journal off outright; on top of that, since
-  // DEX-151 a ritual only has the step if it has prompts of its own — someone
-  // who journals only in the morning should not be walked past an empty
-  // question in the evening.
-  //
-  // **`utils/ritualSteps` is unchanged by this.** It still carries a single
-  // `journalEnabled` toggle and its eight precomputed step lists; this is
-  // merely a narrower value to put in that toggle. Splitting it into per-mode
-  // flags there would have doubled `TOGGLE_KEYS` to sixteen to express
-  // something only this call site knows.
+  // Whether `mode`'s ritual has a Journal step: the preference, and prompts of
+  // its own (DEX-151). A narrower value for `ritualSteps`' existing toggle.
   const journalStepEnabled = (mode: TRitualMode) =>
     preferences.enableJournal &&
     hasPromptsFor(preferences.templatePrompts, mode);
@@ -83,14 +73,8 @@ export default function RitualScreen() {
   // fires on a change would never run. It would then work on every later tap,
   // which is the worst possible shape for the bug.
   const [state, setState] = useState(() => {
-    // The mode is resolved here rather than left to `createRitualState`'s own
-    // default so `journalStepEnabled` can be asked about the very ritual being
-    // seeded — since DEX-151 the answer differs between the two.
-    //
-    // A link naming a mode (DEX-190) wins over the clock, and has to: seeding
-    // the journal flag for the wrong ritual would let `withLink` land on a
-    // Journal step that ritual doesn't have, and the correction below would then
-    // pull it out from under the reader on the very first render.
+    // Resolved here so the journal flag is seeded for the ritual actually being
+    // shown; a link's mode wins, or `withLink` lands on a step it hasn't got.
     const mode = link?.mode ?? currentRitualMode();
     return withLink(
       createRitualState(undefined, mode, {
@@ -134,10 +118,8 @@ export default function RitualScreen() {
       setState((current) => {
         const mode = currentRitualMode();
         return createRitualState(today, mode, {
-          // Re-derived rather than carried like the other two: the journal's
-          // flag is per-ritual since DEX-151, and a rollover that crosses into
-          // the morning would otherwise seed the new walk with the evening's
-          // answer and rely on the correction below to undo it.
+          // Re-derived, not carried: the flag is per-ritual, and a rollover can
+          // cross into the other one.
           journalEnabled: journalStepEnabled(mode),
           calendarEnabled: current.calendarEnabled,
           horoscopeEnabled: current.horoscopeEnabled,
@@ -169,11 +151,8 @@ export default function RitualScreen() {
   // unremarkable. One `if` per preference, and deliberately not merged: they
   // change independently, and each transition already returns its input when
   // its own flag hasn't moved.
-  // The journal's comparison also follows the ritual's own **mode**, not just
-  // its preference (DEX-151): switching AM↔PM can add or drop the step, since
-  // each ritual only has one if it has prompts of its own. Both sides read
-  // `current.mode` inside the updater rather than closing over `state.mode`, so
-  // the pass React runs with a stale state stays self-consistent.
+  // The journal's also follows the **mode**, so AM↔PM can add or drop the step.
+  // Read `current.mode` inside the updater to survive the stale-state pass.
   if (state.journalEnabled !== journalStepEnabled(state.mode)) {
     setState((current) =>
       withJournalEnabled(current, journalStepEnabled(current.mode)),

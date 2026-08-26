@@ -3,7 +3,6 @@ import {
   newTemplatePrompt,
   parseTemplatePrompts,
   promptPeriod,
-  promptsFor,
   type TTemplatePrompt,
 } from "@/utils/journalPrompts";
 
@@ -26,9 +25,8 @@ describe("parseTemplatePrompts", () => {
     ]);
   });
 
-  // The column's CHECK tests `jsonb_typeof`, not the shape of the elements, so
-  // every field here is coerced rather than trusted — callers `.map()` the
-  // result and read `.period` off each entry.
+  // The CHECK tests `jsonb_typeof`, not the elements, so every field is coerced
+  // — callers `.map()` the result and read `.period` off each entry.
   it("survives a column that is not an array at all", () => {
     expect(parseTemplatePrompts(null)).toEqual([]);
     expect(parseTemplatePrompts(undefined)).toEqual([]);
@@ -76,13 +74,6 @@ describe("newTemplatePrompt", () => {
   });
 });
 
-describe("promptsFor", () => {
-  it("keeps only the ritual's own prompts, in the stored order", () => {
-    expect(promptsFor(PROMPTS, "am")).toEqual([PROMPTS[0], PROMPTS[2]]);
-    expect(promptsFor(PROMPTS, "pm")).toEqual([PROMPTS[1]]);
-  });
-});
-
 describe("hasPromptsFor", () => {
   it("answers per ritual, not for the journal as a whole", () => {
     const morningOnly = [PROMPTS[0]];
@@ -95,9 +86,8 @@ describe("hasPromptsFor", () => {
     expect(hasPromptsFor([], "am")).toBe(false);
   });
 
-  // A prompt tapped into existence but not yet typed still counts: the morning
-  // list has always rendered one as an unlabelled field, and excluding it would
-  // make the step flicker out of the ritual until the first keystroke.
+  // A prompt added but not yet typed still counts, or the step would flicker
+  // out of the ritual until the first keystroke.
   it("counts a blank prompt", () => {
     expect(hasPromptsFor([newTemplatePrompt("pm")], "pm")).toBe(true);
   });
@@ -109,9 +99,8 @@ describe("promptPeriod", () => {
     expect(promptPeriod({ period: "am" })).toBe("am");
   });
 
-  // Every journal entry written before the split carries no period, as does
-  // anything an older build writes today. Both must read as morning, matching
-  // how the migration treats the prompts they were seeded from.
+  // Entries written before the split carry no period, as does anything an older
+  // build writes — both read as morning, like the migration's conversion.
   it("falls back to the morning for an entry written before the split", () => {
     expect(promptPeriod({})).toBe("am");
     expect(promptPeriod({ period: null })).toBe("am");

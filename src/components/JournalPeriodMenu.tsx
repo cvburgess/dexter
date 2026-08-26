@@ -9,23 +9,14 @@ import { useTheme } from "@/utils/theme";
 type TJournalPeriodMenuProps = {
   /** The ritual this prompt currently belongs to. */
   period: TRitualMode;
-  /** Named in the trigger's accessibility label, so a screen reader can tell
-   * one row's control from the next. 1-based, matching the field beside it. */
+  /** 1-based, matching the field beside it; names the trigger for a screen reader. */
   promptNumber: number;
   onChange: (period: TRitualMode) => void;
 };
 
 /**
- * Which ritual asks a journal prompt (DEX-151), as the leading control on its
- * row in Settings → Ritual.
- *
- * The row shape is the one Lists and Habits already use — a square tap target
- * in front of a flexed field — with the emoji sheet swapped for a menu, since
- * this picks between two known values rather than anything at all. The tile
- * borrows the field's own surface and radius so the pair reads as one control.
- *
- * Icons and words come from `MODE_META`, the ritual mode button's own table, so
- * the two surfaces cannot come to name the halves of the day differently.
+ * Which ritual asks a journal prompt (DEX-151), as the leading control on its row.
+ * Icons and words come from `MODE_META`, so this and the mode button can't drift.
  */
 export function JournalPeriodMenu({
   period,
@@ -34,11 +25,8 @@ export function JournalPeriodMenu({
 }: TJournalPeriodMenuProps) {
   const theme = useTheme();
 
-  // The native menu host must be pinned to the trigger's exact size — left to
-  // flex it reports zero height while sizing and collapses the row (the same
-  // note `StatusButton` and `ListButton` carry). A hair taller than
-  // `controls.md`, matching the Lists/Habits tile, so it stands level with the
-  // field beside it, whose height is `fonts.body` inside `space.md` of padding.
+  // Pinned to the trigger's exact size: left to flex, the native menu host reports
+  // zero height and collapses the row (see `StatusButton`). Matches the field.
   const box = {
     height: theme.controls.md + theme.space.sm,
     width: theme.controls.md + theme.space.sm,
@@ -68,10 +56,8 @@ export function JournalPeriodMenu({
 }
 
 /**
- * The menu's two rows, exported so the selection logic is testable: the
- * `MenuView` test double renders only its trigger, so a section builder is the
- * seam every icon menu in this app is covered through (see `jest.setup.js` and
- * `getListSections`).
+ * Exported so the selection logic is testable: the `MenuView` double renders only
+ * the trigger, so a section builder is how every icon menu here is covered.
  */
 export const journalPeriodSections = (
   period: TRitualMode,
@@ -80,9 +66,8 @@ export const journalPeriodSections = (
   {
     options: (["am", "pm"] as const).map((option) => ({
       id: option,
-      // `MODE_META`'s labels are mid-sentence fragments ("Switch to the morning
-      // ritual"), so capitalize rather than spelling the two words out again
-      // here and letting them drift from the ritual's own button.
+      // `MODE_META`'s labels are mid-sentence fragments, so capitalize rather than
+      // spelling the words out again and letting them drift.
       title:
         MODE_META[option].label.charAt(0).toUpperCase() +
         MODE_META[option].label.slice(1),
