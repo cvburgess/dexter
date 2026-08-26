@@ -5,16 +5,17 @@ import {
   moodAccessibilityLabel,
   type TMoodRating,
 } from "@/utils/mood";
-import { useTheme } from "@/utils/theme";
+import { useTheme, withOpacity } from "@/utils/theme";
 
 import { MoodFace } from "./MoodFace";
 
 // Five of these plus four `lg` gaps is 296pt — it still fits the 360dp Android
 // floor once `SwipeablePage`'s gutter is taken off, where 44 would not.
 const FACE_SIZE = 40;
-// Unselected faces draw in `text` rather than a dimmed ramp color: at 40pt the
-// ramp's yellows were the faintest thing on the page, and a faded row read as
-// disabled. Color is the selection, so only the chosen face carries its own.
+// Only the answer is filled — every other face stays an outline, so the choice
+// reads as weight rather than hue alone. Outlines draw at full `text` until a
+// face is picked, then fade, making the fade itself part of the answer.
+const FADED_ALPHA = 0.5;
 
 type TMoodScaleProps = {
   /** The day's saved score, or `null` when unanswered. */
@@ -28,6 +29,11 @@ type TMoodScaleProps = {
  */
 export function MoodScale({ value, onChange }: TMoodScaleProps) {
   const theme = useTheme();
+
+  const unselected =
+    value === null
+      ? theme.colors.text
+      : withOpacity(theme.colors.text, FADED_ALPHA);
 
   return (
     <View
@@ -54,7 +60,8 @@ export function MoodScale({ value, onChange }: TMoodScaleProps) {
             <MoodFace
               rating={rating}
               size={FACE_SIZE}
-              color={isSelected ? undefined : theme.colors.text}
+              color={isSelected ? undefined : unselected}
+              knockout={isSelected ? theme.colors.background : undefined}
             />
           </Pressable>
         );

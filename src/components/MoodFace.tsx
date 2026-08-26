@@ -15,15 +15,24 @@ type TMoodFaceProps = {
   size: number;
   /** Overrides the ramp color — `MoodScale` passes `text` for an unselected face. */
   color?: string;
+  /**
+   * Fills the disc and knocks the features out in this color instead of drawing
+   * them. Pass the color actually behind the glyph — this paints, it doesn't
+   * cut a hole, so a wrong value shows as a halo rather than nothing.
+   */
+  knockout?: string;
 };
 
 /**
  * One face of the 1-5 scale. Drawn rather than picked from SF Symbols/Ionicons:
  * neither set has a five-step ramp, and half-matching glyphs drift per platform.
  */
-export function MoodFace({ rating, size, color }: TMoodFaceProps) {
+export function MoodFace({ rating, size, color, knockout }: TMoodFaceProps) {
   const face = MOOD_FACES[rating];
-  const stroke = color ?? face.color;
+  const disc = color ?? face.color;
+  // Filled and outlined share an outer edge: the ring's stroke straddles r=47,
+  // so it reaches the same 50 the solid disc does and the row never shifts.
+  const ink = knockout ?? disc;
 
   return (
     <Svg
@@ -34,18 +43,18 @@ export function MoodFace({ rating, size, color }: TMoodFaceProps) {
       <Circle
         cx={CENTER}
         cy={CENTER}
-        r={CENTER - STROKE / 2}
-        fill="none"
-        stroke={stroke}
+        r={knockout ? CENTER : CENTER - STROKE / 2}
+        fill={knockout ? disc : "none"}
+        stroke={knockout ? "none" : disc}
         strokeWidth={STROKE}
       />
       {[CENTER - EYE_OFFSET, CENTER + EYE_OFFSET].map((cx) => (
-        <Circle key={cx} cx={cx} cy={EYE_Y} r={EYE_RADIUS} fill={stroke} />
+        <Circle key={cx} cx={cx} cy={EYE_Y} r={EYE_RADIUS} fill={ink} />
       ))}
       <Path
         d={face.mouth}
-        fill={face.mouthFilled ? stroke : "none"}
-        stroke={stroke}
+        fill={face.mouthFilled ? ink : "none"}
+        stroke={ink}
         strokeWidth={face.mouthFilled ? 0 : STROKE}
         strokeLinecap="round"
       />
