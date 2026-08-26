@@ -64,9 +64,6 @@ export const MOOD_FACES: Record<TMoodRating, TMoodFace> = {
   },
 };
 
-export const isMoodRating = (value: unknown): value is TMoodRating =>
-  MOOD_RATINGS.includes(value as TMoodRating);
-
 /** What a screen reader announces for one face. */
 export const moodAccessibilityLabel = (rating: TMoodRating): string =>
   `${MOOD_LABELS[rating]}, ${rating} of 5`;

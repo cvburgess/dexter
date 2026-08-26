@@ -1,5 +1,4 @@
 import {
-  isMoodRating,
   MOOD_FACES,
   MOOD_LABELS,
   MOOD_RATINGS,
@@ -46,15 +45,6 @@ describe("MOOD_FACES", () => {
         expect(Number(coord)).toBeLessThanOrEqual(100);
       });
     });
-  });
-});
-
-describe("isMoodRating", () => {
-  it("accepts the five ratings and nothing else", () => {
-    MOOD_RATINGS.forEach((rating) => expect(isMoodRating(rating)).toBe(true));
-    [0, 6, 2.5, null, undefined, "3"].forEach((value) =>
-      expect(isMoodRating(value)).toBe(false),
-    );
   });
 });
 
