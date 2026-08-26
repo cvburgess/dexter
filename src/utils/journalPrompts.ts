@@ -29,6 +29,20 @@ export type TTemplatePrompt = {
 };
 
 /**
+ * The pair of stored columns, as an object rather than two arguments.
+ *
+ * Both are `string[]`, so positional parameters would let a transposed pair
+ * through as a silent bug rather than a compile error — the same call
+ * `createRitualState` makes about its toggles. It also means `TPreferences`
+ * satisfies this structurally, so every call site passes `preferences` itself
+ * and there is nothing to transpose.
+ */
+export type TTemplatePromptColumns = {
+  templatePrompts: readonly string[];
+  templatePromptsPm: readonly string[];
+};
+
+/**
  * The two stored arrays as the one list the settings editor edits, morning
  * first.
  *
@@ -38,10 +52,10 @@ export type TTemplatePrompt = {
  * row's period moves it into that period's group — the row travelling to where
  * it now belongs, rather than a list that silently reorders.
  */
-export const mergeTemplatePrompts = (
-  templatePrompts: readonly string[],
-  templatePromptsPm: readonly string[],
-): TTemplatePrompt[] => [
+export const mergeTemplatePrompts = ({
+  templatePrompts,
+  templatePromptsPm,
+}: TTemplatePromptColumns): TTemplatePrompt[] => [
   ...templatePrompts.map((prompt) => ({ prompt, period: "am" as const })),
   ...templatePromptsPm.map((prompt) => ({ prompt, period: "pm" as const })),
 ];
@@ -76,8 +90,7 @@ export const splitTemplatePrompts = (
  * ritual between the tap that adds it and the first keystroke.
  */
 export const hasPromptsFor = (
-  templatePrompts: readonly string[],
-  templatePromptsPm: readonly string[],
+  { templatePrompts, templatePromptsPm }: TTemplatePromptColumns,
   mode: TRitualMode,
 ): boolean => (mode === "pm" ? templatePromptsPm : templatePrompts).length > 0;
 

@@ -8,7 +8,10 @@ import {
 describe("mergeTemplatePrompts", () => {
   it("reads the two columns as one list, morning first", () => {
     expect(
-      mergeTemplatePrompts(["Highlight", "Grateful for"], ["What went well?"]),
+      mergeTemplatePrompts({
+        templatePrompts: ["Highlight", "Grateful for"],
+        templatePromptsPm: ["What went well?"],
+      }),
     ).toEqual([
       { prompt: "Highlight", period: "am" },
       { prompt: "Grateful for", period: "am" },
@@ -20,13 +23,23 @@ describe("mergeTemplatePrompts", () => {
   // morning list — so an unmigrated account reads as morning-only with no
   // backfill, which is exactly what the migration relies on.
   it("reads an account with no evening prompts as morning-only", () => {
-    expect(mergeTemplatePrompts(["Highlight"], [])).toEqual([
+    expect(
+      mergeTemplatePrompts({
+        templatePrompts: ["Highlight"],
+        templatePromptsPm: [],
+      }),
+    ).toEqual([
       { prompt: "Highlight", period: "am" },
     ]);
   });
 
   it("handles a journal that runs only in the evening", () => {
-    expect(mergeTemplatePrompts([], ["What went well?"])).toEqual([
+    expect(
+      mergeTemplatePrompts({
+        templatePrompts: [],
+        templatePromptsPm: ["What went well?"],
+      }),
+    ).toEqual([
       { prompt: "What went well?", period: "pm" },
     ]);
   });
@@ -62,29 +75,35 @@ describe("splitTemplatePrompts", () => {
     };
 
     expect(
-      splitTemplatePrompts(
-        mergeTemplatePrompts(
-          columns.templatePrompts,
-          columns.templatePromptsPm,
-        ),
-      ),
+      splitTemplatePrompts(mergeTemplatePrompts(columns)),
     ).toEqual(columns);
   });
 });
 
 describe("hasPromptsFor", () => {
   it("answers per ritual, not for the journal as a whole", () => {
-    expect(hasPromptsFor(["Highlight"], [], "am")).toBe(true);
-    expect(hasPromptsFor(["Highlight"], [], "pm")).toBe(false);
-    expect(hasPromptsFor([], ["What went well?"], "am")).toBe(false);
-    expect(hasPromptsFor([], ["What went well?"], "pm")).toBe(true);
+    const morningOnly = {
+      templatePrompts: ["Highlight"],
+      templatePromptsPm: [],
+    };
+    const eveningOnly = {
+      templatePrompts: [],
+      templatePromptsPm: ["What went well?"],
+    };
+
+    expect(hasPromptsFor(morningOnly, "am")).toBe(true);
+    expect(hasPromptsFor(morningOnly, "pm")).toBe(false);
+    expect(hasPromptsFor(eveningOnly, "am")).toBe(false);
+    expect(hasPromptsFor(eveningOnly, "pm")).toBe(true);
   });
 
   // A prompt tapped into existence but not yet typed still counts: the morning
   // list has always rendered one as an unlabelled field, and excluding it would
   // make the step flicker out of the ritual until the first keystroke.
   it("counts a blank prompt", () => {
-    expect(hasPromptsFor([], [""], "pm")).toBe(true);
+    expect(
+      hasPromptsFor({ templatePrompts: [], templatePromptsPm: [""] }, "pm"),
+    ).toBe(true);
   });
 });
 

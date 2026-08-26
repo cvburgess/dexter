@@ -69,13 +69,13 @@ export default function RitualScreen() {
   // period is which of them holds it. `utils/journalPrompts.ts` owns both
   // directions of that translation, so this screen never touches either column
   // by name except through `splitTemplatePrompts`.
+  const { templatePrompts, templatePromptsPm } = preferences;
   const storedPrompts = useMemo(
-    () =>
-      mergeTemplatePrompts(
-        preferences.templatePrompts,
-        preferences.templatePromptsPm,
-      ),
-    [preferences.templatePrompts, preferences.templatePromptsPm],
+    // The two arrays, not `preferences` — a new identity here re-runs the
+    // resync effect below, and an unrelated preference edit must not reach into
+    // this editor's drafts.
+    () => mergeTemplatePrompts({ templatePrompts, templatePromptsPm }),
+    [templatePrompts, templatePromptsPm],
   );
 
   const [drafts, setDrafts] = useState(storedPrompts);
@@ -126,9 +126,7 @@ export default function RitualScreen() {
     const next = splitTemplatePrompts(
       drafts.map((entry, i) => (i === index ? { ...entry, period } : entry)),
     );
-    setDrafts(
-      mergeTemplatePrompts(next.templatePrompts, next.templatePromptsPm),
-    );
+    setDrafts(mergeTemplatePrompts(next));
     updatePreferences(next);
   };
 

@@ -1,6 +1,7 @@
 import type { Href } from "expo-router";
 
 import { TSearchResult } from "@/api/search";
+import { hasPromptsFor } from "@/utils/journalPrompts";
 import { ritualRoute } from "@/utils/ritualRoute";
 import type { TRitualMode } from "@/utils/ritualSteps";
 // From the import-free leaf module rather than `utils/taskFilters`, which pulls
@@ -55,12 +56,13 @@ type TSearchRouteOptions = {
  */
 export const canOpenSearchResult = (
   result: TSearchResult,
-  { enableJournal, templatePrompts, templatePromptsPm }: TSearchRouteOptions,
+  options: TSearchRouteOptions,
 ): boolean => {
+  const { enableJournal } = options;
   if (result.kind === "journal") {
     return (
       enableJournal &&
-      (templatePrompts.length > 0 || templatePromptsPm.length > 0)
+      (hasPromptsFor(options, "am") || hasPromptsFor(options, "pm"))
     );
   }
   return (
@@ -80,6 +82,16 @@ export const canOpenSearchResult = (
  *
  * `canOpenSearchResult` has already refused the case where neither has any, so
  * the fallback is never a ritual without a Journal step.
+ *
+ * **Read from the template, where `JournalView` filters the day by the period
+ * stored on the entry itself.** The two agree for every day seeded since the
+ * prompt last moved, and disagree for older ones: move a prompt to the evening
+ * and a morning entry written before that still belongs to the morning, so this
+ * link opens the evening ritual and the entry is not among its fields. The
+ * empty state names that case, and the entry is one AM/PM tap away. Closing the
+ * gap properly means `search_entries` returning each entry's `period`, which is
+ * an RPC change this doesn't need — the alternative, letting the clock choose,
+ * is wrong far more often.
  */
 const journalResultMode = (
   prompt: string,

@@ -38,7 +38,7 @@ export const journalsMutationKey = (date: string) => ["journals", date];
 
 export const useJournals = (date: string): TUseJournals => {
   const queryClient = useQueryClient();
-  const [preferences] = usePreferences();
+  const [{ templatePrompts, templatePromptsPm }] = usePreferences();
 
   const defaultJournal: TJournal = useMemo(
     () => ({
@@ -53,12 +53,14 @@ export const useJournals = (date: string): TUseJournals => {
       // Seeding only the current mode's would mean the evening's first save
       // wrote a row the morning was missing from, and the day's other half
       // would be gone for good.
-      prompts: mergeTemplatePrompts(
-        preferences.templatePrompts,
-        preferences.templatePromptsPm,
-      ).map(({ prompt, period }) => ({ prompt, period, response: "" })),
+      prompts: mergeTemplatePrompts({
+        templatePrompts,
+        templatePromptsPm,
+      }).map(({ prompt, period }) => ({ prompt, period, response: "" })),
     }),
-    [date, preferences.templatePrompts, preferences.templatePromptsPm],
+    // The two arrays, not `preferences` — the seed depends on nothing else, and
+    // depending on the whole row would rebuild it on an unrelated edit.
+    [date, templatePrompts, templatePromptsPm],
   );
 
   const { data, isLoading } = useQuery({
