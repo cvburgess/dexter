@@ -229,7 +229,10 @@ function JournalEditor({
       }}
       keyboardShouldPersistTaps="handled"
     >
-      <MoodScale value={mood} onChange={onChangeMood} />
+      {/* The extra margin sets the scale apart from the prompts it scores. */}
+      <View style={{ marginBottom: theme.space.md }}>
+        <MoodScale value={mood} onChange={onChangeMood} />
+      </View>
       {/* `index` is a position in the **stored** array, not on screen — the same
           number `handleChangeResponse`, `responsesRef` and the testID use. */}
       {visible.map((index) => (

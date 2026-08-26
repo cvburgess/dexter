@@ -238,6 +238,7 @@ async function seed(
       data.journals.map((journal) => ({
         user_id: userId,
         date: addDaysIso(today, journal.dateOffset),
+        mood: journal.mood,
         prompts: journal.prompts,
       })),
     ),

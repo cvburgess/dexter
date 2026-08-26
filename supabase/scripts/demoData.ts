@@ -90,6 +90,8 @@ export interface DemoNote {
 
 export interface DemoJournal {
   dateOffset: number;
+  /** 1-5 (DEX-191); seeded so the ritual's mood row never captures unanswered. */
+  mood: number;
   prompts: { prompt: string; response: string; period: "am" | "pm" }[];
 }
 
@@ -432,6 +434,7 @@ export function buildDemoData(): DemoDataset {
   const journals: DemoJournal[] = [
     {
       dateOffset: -1,
+      mood: 4,
       prompts: [
         {
           prompt: promptText("grateful"),
@@ -463,6 +466,7 @@ export function buildDemoData(): DemoDataset {
     },
     {
       dateOffset: 0,
+      mood: 4,
       prompts: [
         {
           prompt: promptText("grateful"),

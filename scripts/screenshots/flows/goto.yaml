@@ -49,6 +49,13 @@ appId: com.dexterplanner
     commands:
       - tapOn: "^Open$"
 
+# Safety net: the AlarmKit prompt (see login.yaml) can trail in on slow loads.
+- runFlow:
+    when:
+      visible: ".*schedule alarms and timers.*"
+    commands:
+      - tapOn: "^Allow$"
+
 - runFlow:
     when:
       true: ${ANCHOR_BY == "id"}

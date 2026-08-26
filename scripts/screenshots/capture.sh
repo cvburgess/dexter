@@ -260,8 +260,10 @@ for profile in "${PROFILES[@]}"; do
     #
     # SENTRY_DISABLE_AUTO_UPLOAD keeps the @sentry/react-native Release
     # debug-symbol phase from needing a SENTRY_AUTH_TOKEN that only EAS has.
+    # --no-bundler because expo otherwise starts Metro and streams app logs
+    # forever after launch — the Release binary carries its own main.jsbundle.
     ( cd "$REPO_ROOT/src" \
-      && SENTRY_DISABLE_AUTO_UPLOAD=true npx expo run:ios --configuration Release --device "$name" ) \
+      && SENTRY_DISABLE_AUTO_UPLOAD=true npx expo run:ios --no-bundler --configuration Release --device "$name" ) \
       || die "build failed for $name"
     # Only after the build succeeds — a failed build must stay stale, or the
     # next run would happily capture the previous binary.

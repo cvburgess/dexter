@@ -30,11 +30,17 @@ appId: com.dexterplanner
     commands:
       - tapOn: "^Cancel$"
 
-# AlarmKit has no simctl privacy service, so its dialog is granted here rather
-# than pre-seeded — up front, where it cannot appear mid-capture.
-- tapOn:
-    text: "Allow"
+# AlarmKit has no simctl privacy service, so its dialog must be tapped away.
+# It can land at launch (iPad) or a beat after login (iPhone) — wait, not poll.
+- extendedWaitUntil:
+    visible: ".*schedule alarms and timers.*"
+    timeout: 10000
     optional: true
+- runFlow:
+    when:
+      visible: ".*schedule alarms and timers.*"
+    commands:
+      - tapOn: "^Allow$"
 
 - extendedWaitUntil:
     visible:
@@ -66,3 +72,15 @@ appId: com.dexterplanner
     notVisible:
       id: "login-verify-button"
     timeout: 30000
+
+# The AlarmKit prompt fires a beat after login, when the first alarm-bearing
+# task loads — wait it out here or it sits over a capture and fails the anchor.
+- extendedWaitUntil:
+    visible: ".*schedule alarms and timers.*"
+    timeout: 15000
+    optional: true
+- runFlow:
+    when:
+      visible: ".*schedule alarms and timers.*"
+    commands:
+      - tapOn: "^Allow$"
