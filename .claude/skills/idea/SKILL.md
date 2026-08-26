@@ -150,7 +150,7 @@ Skip documentation updates here — `/open-pr` walks the doc mapping table in St
 
 ### Step 10: Review the work, create the Linear issue, and rename the branch
 
-Do all three in the same turn, in this order.
+Do all four in the same turn, in this order.
 
 **Review the work.** Invoke the `/quick-code-review` skill:
 
@@ -159,6 +159,14 @@ Do all three in the same turn, in this order.
 ```
 
 It sizes the review to the change and applies the fixes to the working tree. A formalized idea has usually grown past a hunk-level pass, so expect it to pick heavy mode — let it, and don't force a mode unless the diff really is a few contained lines.
+
+**Then strip the bloat.** Invoke the `/optimize-for-readability` skill in its default diff mode:
+
+```
+/optimize-for-readability
+```
+
+It compresses oversized comment blocks, tightens doc prose, and deletes low-value tests the formalization added — applied directly to the working tree, so its edits land in the same diff the user reviews before Step 11.
 
 **Then create the Linear issue.** Call `save_issue` with `team: "DEX"`, `state: "In Progress"`, and a label mapped from the work type (`Enhancement`, `Bug`, or `Chore`). Use `list_issue_labels` / `list_issue_statuses` if either name doesn't resolve.
 
@@ -191,7 +199,7 @@ git branch -m <gitBranchName>
 
 This is worth doing: the name carries the issue number, and `/open-pr` can recover the Linear identifier from a branch matching `^([a-z]+)-(\d+)-` without being told. An `idea-<slug>` branch never matches, so the ID has to be passed by hand.
 
-Report what the review found and fixed, give the issue URL and the new branch name, then **stop and wait.** The review edited the working tree, so the user needs to look at those changes before a PR exists. Only go to Step 11 once they've seen them and said to proceed.
+Report what the review and readability pass found and changed, give the issue URL and the new branch name, then **stop and wait.** Both passes edited the working tree, so the user needs to look at those changes before a PR exists. Only go to Step 11 once they've seen them and said to proceed.
 
 ### Step 11: Open the PR
 
