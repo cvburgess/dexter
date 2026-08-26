@@ -184,7 +184,17 @@ It sizes the review to the change: a fast hunk-level pass for small contained di
 
 Read the applied fixes before committing them. If the review flagged something it deliberately skipped, decide whether it needs handling now or is a follow-up. If the review came back clean with nothing to apply, move on.
 
-### Step 10: Open a Pull Request
+### Step 10: Readability pass
+
+After the review fixes land, run the `/optimize-for-readability` skill in its default diff mode to strip the bloat this implementation added — low-value tests, oversized comment blocks, doc prose that restates the code:
+
+```
+/optimize-for-readability
+```
+
+It applies changes directly, including test deletions, so review the result with `git diff HEAD` before committing. A deleted test that cites one of `docs/testing.md`'s not-worth-writing categories is the pass working as intended, not a conflict with the tests-are-required rule below — restore anything you actually disagree with rather than skipping the pass.
+
+### Step 11: Open a Pull Request
 
 Use the `/open-pr` skill, passing the Linear identifier so the PR body links to Linear:
 
