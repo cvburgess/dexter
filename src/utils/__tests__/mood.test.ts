@@ -1,47 +1,58 @@
 import {
   isMoodRating,
+  MOOD_FACES,
+  MOOD_LABELS,
   MOOD_RATINGS,
   moodAccessibilityLabel,
-  moodMouthCurve,
-  moodMouthPath,
 } from "../mood";
 
-describe("moodMouthCurve", () => {
-  it("is flat at the neutral rating", () => {
-    expect(moodMouthCurve(3)).toBe(0);
-  });
-
-  it("rises monotonically from frown to smile", () => {
-    const curves = MOOD_RATINGS.map(moodMouthCurve);
-    expect(curves).toEqual([...curves].sort((a, b) => a - b));
-    expect(new Set(curves).size).toBe(MOOD_RATINGS.length);
-  });
-
-  it("deflects 1 and 5 equally, in opposite directions", () => {
-    expect(moodMouthCurve(1)).toBe(-moodMouthCurve(5));
-    expect(moodMouthCurve(2)).toBe(-moodMouthCurve(4));
-  });
-
-  it("frowns below neutral and smiles above it", () => {
-    // Positive bulges downward — SVG's y axis grows down — so a smile is > 0.
-    expect(moodMouthCurve(1)).toBeLessThan(0);
-    expect(moodMouthCurve(5)).toBeGreaterThan(0);
-  });
-
-  it("clamps out-of-range values rather than drawing off the face", () => {
-    expect(moodMouthCurve(0)).toBe(moodMouthCurve(1));
-    expect(moodMouthCurve(9)).toBe(moodMouthCurve(5));
-  });
-});
-
-describe("moodMouthPath", () => {
-  it("keeps the corners fixed so only curvature reads as the mood", () => {
-    const paths = MOOD_RATINGS.map(moodMouthPath);
-    paths.forEach((path) => {
-      expect(path.startsWith("M 32 62 Q 50 ")).toBe(true);
-      expect(path.endsWith(" 68 62")).toBe(true);
+describe("MOOD_FACES", () => {
+  it("defines a face and a label for every rating", () => {
+    MOOD_RATINGS.forEach((rating) => {
+      expect(MOOD_FACES[rating]).toBeDefined();
+      expect(MOOD_LABELS[rating]).toBeTruthy();
     });
-    expect(new Set(paths).size).toBe(MOOD_RATINGS.length);
+  });
+
+  it("gives each rating its own color and its own mouth", () => {
+    const colors = MOOD_RATINGS.map((rating) => MOOD_FACES[rating].color);
+    const mouths = MOOD_RATINGS.map((rating) => MOOD_FACES[rating].mouth);
+
+    expect(new Set(colors).size).toBe(MOOD_RATINGS.length);
+    expect(new Set(mouths).size).toBe(MOOD_RATINGS.length);
+  });
+
+  it("crosses out the eyes on the worst rating alone", () => {
+    expect(MOOD_FACES[1].eyes).toBe("cross");
+    [2, 3, 4, 5].forEach((rating) =>
+      expect(MOOD_FACES[rating as 2].eyes).toBe("dots"),
+    );
+  });
+
+  // Filled mouths are the open ones at either end; the middle three are
+  // stroked curves, and filling one of those would blot out the whole face.
+  it("fills only the two open mouths", () => {
+    expect(MOOD_FACES[1].mouthFilled).toBe(true);
+    expect(MOOD_FACES[5].mouthFilled).toBe(true);
+    [2, 3, 4].forEach((rating) =>
+      expect(MOOD_FACES[rating as 2].mouthFilled).toBe(false),
+    );
+  });
+
+  it("closes every filled mouth so it renders as a shape, not a hairline", () => {
+    MOOD_RATINGS.filter((rating) => MOOD_FACES[rating].mouthFilled).forEach(
+      (rating) => expect(MOOD_FACES[rating].mouth.trimEnd()).toMatch(/Z$/),
+    );
+  });
+
+  it("keeps every mouth inside the viewBox", () => {
+    MOOD_RATINGS.forEach((rating) => {
+      const coords = MOOD_FACES[rating].mouth.match(/\d+(\.\d+)?/g) ?? [];
+      coords.forEach((coord) => {
+        expect(Number(coord)).toBeGreaterThanOrEqual(0);
+        expect(Number(coord)).toBeLessThanOrEqual(100);
+      });
+    });
   });
 });
 

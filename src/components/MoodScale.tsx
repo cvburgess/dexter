@@ -12,7 +12,8 @@ import { MoodFace } from "./MoodFace";
 const FACE_SIZE = 36;
 // Unselected faces recede without vanishing — five greyed-out circles read as
 // disabled, and the row has to look answerable before it has been answered.
-const UNSELECTED_OPACITY = 0.45;
+// Opacity rather than a muted color, so the ramp still reads as a ramp.
+const UNSELECTED_OPACITY = 0.4;
 
 type TMoodScaleProps = {
   /** The day's saved score, or `null` when unanswered. */
@@ -33,8 +34,8 @@ export function MoodScale({ value, onChange }: TMoodScaleProps) {
       accessibilityLabel="How was your day?"
       style={{
         flexDirection: "row",
-        justifyContent: "space-between",
-        gap: theme.space.sm,
+        justifyContent: "center",
+        gap: theme.space.lg,
       }}
     >
       {MOOD_RATINGS.map((rating) => {
@@ -50,11 +51,7 @@ export function MoodScale({ value, onChange }: TMoodScaleProps) {
             style={{ opacity: isSelected ? 1 : UNSELECTED_OPACITY }}
             testID={`mood-face-${rating}`}
           >
-            <MoodFace
-              rating={rating}
-              size={FACE_SIZE}
-              color={isSelected ? theme.colors.primary : theme.colors.text}
-            />
+            <MoodFace rating={rating} size={FACE_SIZE} />
           </Pressable>
         );
       })}
