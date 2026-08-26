@@ -1,14 +1,16 @@
-import Svg, { Circle, Line, Path } from "react-native-svg";
+import Svg, { Circle, Path } from "react-native-svg";
 
 import { MOOD_FACES, MOOD_FACE_VIEWBOX, type TMoodRating } from "@/utils/mood";
 
 const STROKE = 6;
 const CENTER = MOOD_FACE_VIEWBOX / 2;
-const EYE_RADIUS = 6;
-const EYE_Y = 40;
-const EYE_OFFSET = 15;
-// Half an arm of the crossed eyes, measured from the dot they replace.
-const CROSS_ARM = 7;
+// Features sit well inside the perimeter deliberately: the ring is the loudest
+// thing at this size, and a crowded interior turns to mush at 40pt.
+const EYE_RADIUS = 5;
+const EYE_Y = 38;
+const EYE_OFFSET = 14;
+// Half a chevron of the squeezed eyes, measured from the dot they replace.
+const EYE_ARM = 6;
 
 type TMoodFaceProps = {
   rating: TMoodRating;
@@ -39,9 +41,14 @@ export function MoodFace({ rating, size, color }: TMoodFaceProps) {
         stroke={stroke}
         strokeWidth={STROKE}
       />
-      {[CENTER - EYE_OFFSET, CENTER + EYE_OFFSET].map((cx) =>
-        face.eyes === "cross" ? (
-          <CrossEye key={cx} cx={cx} color={stroke} />
+      {[CENTER - EYE_OFFSET, CENTER + EYE_OFFSET].map((cx, index) =>
+        face.eyes === "squeeze" ? (
+          <SqueezeEye
+            key={cx}
+            cx={cx}
+            pointsRight={index === 0}
+            color={stroke}
+          />
         ) : (
           <Circle key={cx} cx={cx} cy={EYE_Y} r={EYE_RADIUS} fill={stroke} />
         ),
@@ -57,27 +64,27 @@ export function MoodFace({ rating, size, color }: TMoodFaceProps) {
   );
 }
 
-function CrossEye({ cx, color }: { cx: number; color: string }) {
+/** A `>` or `<` chevron: both eyes point inward, so the pair reads as `> <`. */
+function SqueezeEye({
+  cx,
+  pointsRight,
+  color,
+}: {
+  cx: number;
+  pointsRight: boolean;
+  color: string;
+}) {
+  const tip = pointsRight ? cx + EYE_ARM : cx - EYE_ARM;
+  const tail = pointsRight ? cx - EYE_ARM : cx + EYE_ARM;
+
   return (
-    <>
-      <Line
-        x1={cx - CROSS_ARM}
-        y1={EYE_Y - CROSS_ARM}
-        x2={cx + CROSS_ARM}
-        y2={EYE_Y + CROSS_ARM}
-        stroke={color}
-        strokeWidth={STROKE}
-        strokeLinecap="round"
-      />
-      <Line
-        x1={cx + CROSS_ARM}
-        y1={EYE_Y - CROSS_ARM}
-        x2={cx - CROSS_ARM}
-        y2={EYE_Y + CROSS_ARM}
-        stroke={color}
-        strokeWidth={STROKE}
-        strokeLinecap="round"
-      />
-    </>
+    <Path
+      d={`M ${tail} ${EYE_Y - EYE_ARM} L ${tip} ${EYE_Y} L ${tail} ${EYE_Y + EYE_ARM}`}
+      fill="none"
+      stroke={color}
+      strokeWidth={STROKE}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   );
 }

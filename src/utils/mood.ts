@@ -11,8 +11,8 @@ export type TMoodRating = (typeof MOOD_RATINGS)[number];
 /** Drawn on a 100x100 viewBox, so every consumer scales by one `size` prop. */
 export const MOOD_FACE_VIEWBOX = 100;
 
-/** Crossed eyes belong to the worst rating alone — everything else gets dots. */
-export type TMoodEyes = "dots" | "cross";
+/** Squeezed-shut `> <` eyes belong to the two open-mouthed ends of the ramp. */
+export type TMoodEyes = "dots" | "squeeze";
 
 export type TMoodFace = {
   /**
@@ -43,33 +43,33 @@ export const MOOD_LABELS: Record<TMoodRating, string> = {
 export const MOOD_FACES: Record<TMoodRating, TMoodFace> = {
   1: {
     color: "#D6312B",
-    mouth: "M 32 72 A 18 18 0 0 1 68 72 Z",
+    mouth: "M 35 69 A 15 15 0 0 1 65 69 Z",
     mouthFilled: true,
-    eyes: "cross",
+    eyes: "squeeze",
   },
   2: {
     color: "#EC8B2E",
-    mouth: "M 32 70 Q 50 56 68 70",
+    mouth: "M 35 67 Q 50 56 65 67",
     mouthFilled: false,
     eyes: "dots",
   },
   3: {
     color: "#F3C32C",
-    mouth: "M 33 63 L 67 63",
+    mouth: "M 36 63 L 64 63",
     mouthFilled: false,
     eyes: "dots",
   },
   4: {
     color: "#A2C93C",
-    mouth: "M 32 60 Q 50 74 68 60",
+    mouth: "M 35 60 Q 50 71 65 60",
     mouthFilled: false,
     eyes: "dots",
   },
   5: {
     color: "#34A36B",
-    mouth: "M 30 56 A 20 20 0 0 0 70 56 Z",
+    mouth: "M 35 57 A 15 15 0 0 0 65 57 Z",
     mouthFilled: true,
-    eyes: "dots",
+    eyes: "squeeze",
   },
 };
 

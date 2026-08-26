@@ -22,9 +22,17 @@ describe("MOOD_FACES", () => {
     expect(new Set(mouths).size).toBe(MOOD_RATINGS.length);
   });
 
-  it("crosses out the eyes on the worst rating alone", () => {
-    expect(MOOD_FACES[1].eyes).toBe("cross");
-    [2, 3, 4, 5].forEach((rating) =>
+  // The squeeze and the open mouth are one expression, so the two travel
+  // together — a squeezed face with a stroked curve reads as neither.
+  it("squeezes the eyes shut on exactly the open-mouthed ratings", () => {
+    MOOD_RATINGS.forEach((rating) =>
+      expect(MOOD_FACES[rating].eyes === "squeeze").toBe(
+        MOOD_FACES[rating].mouthFilled,
+      ),
+    );
+    expect(MOOD_FACES[1].eyes).toBe("squeeze");
+    expect(MOOD_FACES[5].eyes).toBe("squeeze");
+    [2, 3, 4].forEach((rating) =>
       expect(MOOD_FACES[rating as 2].eyes).toBe("dots"),
     );
   });

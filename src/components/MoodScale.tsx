@@ -9,7 +9,9 @@ import { useTheme } from "@/utils/theme";
 
 import { MoodFace } from "./MoodFace";
 
-const FACE_SIZE = 36;
+// Five of these plus four `lg` gaps is 296pt — it still fits the 360dp Android
+// floor once `SwipeablePage`'s gutter is taken off, where 44 would not.
+const FACE_SIZE = 40;
 // Unselected faces recede without vanishing — five greyed-out circles read as
 // disabled, and the row has to look answerable before it has been answered.
 // Opacity rather than a muted color, so the ramp still reads as a ramp.
