@@ -1,5 +1,5 @@
 import { useNavigation } from "expo-router";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import {
   SafeAreaView,
@@ -7,7 +7,10 @@ import {
 } from "react-native-safe-area-context";
 
 import { HeaderAddButton } from "@/components/HeaderAddButton";
+import { Icon } from "@/components/Icon";
+import { IconMenu, TIconMenuSection } from "@/components/IconMenu";
 import { PickerField } from "@/components/PickerField";
+import { MODE_META } from "@/components/RitualModeButton";
 import { RowDeleteButton, rowDeleteInset } from "@/components/RowDeleteButton";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
 import { SettingsToggleCard } from "@/components/SettingsToggleCard";
@@ -26,6 +29,12 @@ import {
   SUN_SIGN_OPTIONS,
   TSunSignOption,
 } from "@/utils/horoscope";
+import {
+  mergeTemplatePrompts,
+  splitTemplatePrompts,
+  type TTemplatePrompt,
+} from "@/utils/journalPrompts";
+import type { TRitualMode } from "@/utils/ritualSteps";
 import {
   EDGES_SINGLE_PANE,
   EDGES_TWO_PANE,
@@ -56,11 +65,26 @@ export default function RitualScreen() {
   // (add/delete, or another device), but never while a field is focused — that
   // would clobber in-progress typing. A single flag suffices since only one
   // field is focused at a time. Mirrors notes.tsx.
-  const [drafts, setDrafts] = useState(preferences.templatePrompts);
+  //
+  // The two stored columns are edited as one list (DEX-151): `templatePrompts`
+  // is the morning's and `templatePromptsPm` the evening's, and a prompt's
+  // period is which of them holds it. `utils/journalPrompts.ts` owns both
+  // directions of that translation, so this screen never touches either column
+  // by name except through `splitTemplatePrompts`.
+  const storedPrompts = useMemo(
+    () =>
+      mergeTemplatePrompts(
+        preferences.templatePrompts,
+        preferences.templatePromptsPm,
+      ),
+    [preferences.templatePrompts, preferences.templatePromptsPm],
+  );
+
+  const [drafts, setDrafts] = useState(storedPrompts);
   const focusedRef = useRef(false);
   useEffect(() => {
-    if (!focusedRef.current) setDrafts(preferences.templatePrompts);
-  }, [preferences.templatePrompts]);
+    if (!focusedRef.current) setDrafts(storedPrompts);
+  }, [storedPrompts]);
 
   // `drafts` is the authoritative current array: every structural write derives
   // from it, never from `preferences.templatePrompts`. Because `updatePreferences`
@@ -70,23 +94,65 @@ export default function RitualScreen() {
   const commitPrompt = () => {
     focusedRef.current = false;
     const changed =
-      drafts.length !== preferences.templatePrompts.length ||
-      drafts.some((draft, i) => draft !== preferences.templatePrompts[i]);
-    if (changed) updatePreferences({ templatePrompts: drafts });
+      drafts.length !== storedPrompts.length ||
+      drafts.some(
+        (draft, i) =>
+          draft.prompt !== storedPrompts[i].prompt ||
+          draft.period !== storedPrompts[i].period,
+      );
+    if (changed) updatePreferences(splitTemplatePrompts(drafts));
   };
 
   // Structural edits write the local drafts straight through (and mirror them to
   // the store) so the list re-renders immediately and the next edit builds on
   // the current array, not the optimistically-lagging preference.
-  const writePrompts = (next: string[]) => {
+  const writePrompts = (next: TTemplatePrompt[]) => {
     setDrafts(next);
-    updatePreferences({ templatePrompts: next });
+    updatePreferences(splitTemplatePrompts(next));
   };
 
-  const addPrompt = () => writePrompts([...drafts, ""]);
+  // New prompts start in the morning, the period every prompt that predates
+  // this feature already has — adding one shouldn't quietly open a second
+  // journal in a ritual the user may not journal in.
+  const addPrompt = () =>
+    writePrompts([...drafts, { prompt: "", period: "am" }]);
 
   const deletePrompt = (index: number) =>
     writePrompts(drafts.filter((_, i) => i !== index));
+
+  // Moving a prompt between rituals moves it between the two stored columns, so
+  // the list regroups. Regrouped here, on the tap, rather than being left to the
+  // resync above: the row travels once, when the user asks it to, instead of
+  // sitting still and then jumping when the write echoes back.
+  const setPromptPeriod = (index: number, period: TRitualMode) => {
+    const next = splitTemplatePrompts(
+      drafts.map((entry, i) => (i === index ? { ...entry, period } : entry)),
+    );
+    setDrafts(
+      mergeTemplatePrompts(next.templatePrompts, next.templatePromptsPm),
+    );
+    updatePreferences(next);
+  };
+
+  const periodSections = (
+    index: number,
+    period: TRitualMode,
+  ): TIconMenuSection[] => [
+    {
+      options: (["am", "pm"] as const).map((option) => ({
+        id: option,
+        // `MODE_META`'s labels are mid-sentence fragments ("Switch to the
+        // morning ritual"), so capitalize rather than spelling the two words
+        // out again here and letting them drift from the ritual's own button.
+        title:
+          MODE_META[option].label.charAt(0).toUpperCase() +
+          MODE_META[option].label.slice(1),
+        icon: MODE_META[option].icon,
+        isSelected: option === period,
+        onSelect: () => setPromptPeriod(index, option),
+      })),
+    },
+  ];
 
   // A "+" in the header adds a prompt (mirrors Habits), but only when the
   // Journal is on. Re-wired on every render so the handler closes over the
@@ -186,7 +252,7 @@ export default function RitualScreen() {
 
         {preferences.enableJournal && (
           <View style={{ gap: theme.space.sm }}>
-            <SettingsSectionTitle subtitle="These prompts seed each new day's Journal. Editing them doesn't change days you've already answered.">
+            <SettingsSectionTitle subtitle="Each prompt is asked by one ritual — tap the sun or moon to move it. These seed each new day's Journal; editing them doesn't change days you've already answered.">
               Journal prompts
             </SettingsSectionTitle>
             {drafts.length === 0 ? (
@@ -201,26 +267,67 @@ export default function RitualScreen() {
               </Text>
             ) : (
               <View style={{ gap: theme.space.sm }}>
-                {drafts.map((prompt, index) => (
-                  <View key={index} style={styles.promptRow}>
-                    <TextInput
-                      accessibilityLabel={`Journal prompt ${index + 1}`}
-                      onBlur={commitPrompt}
-                      onChangeText={(text) =>
-                        setDrafts((current) =>
-                          current.map((p, i) => (i === index ? text : p)),
-                        )
-                      }
-                      onFocus={() => (focusedRef.current = true)}
-                      placeholder="e.g. What went well today?"
-                      style={{ paddingRight: rowDeleteInset(theme) }}
-                      value={prompt}
-                    />
-                    <RowDeleteButton
-                      accessibilityLabel={`Delete prompt ${index + 1}`}
-                      onPress={() => deletePrompt(index)}
-                      testID={`delete-prompt-${index}`}
-                    />
+                {drafts.map(({ prompt, period }, index) => (
+                  <View
+                    key={index}
+                    style={[styles.promptRow, { gap: theme.space.sm }]}
+                  >
+                    {/* The leading tile is the Lists/Habits row shape — a
+                        tap target in front of a flexed field — with the
+                        emoji sheet swapped for a menu, since this picks
+                        between two known values rather than anything. It
+                        borrows the field's own surface and radius so the
+                        two read as one control, and the menu host is
+                        pinned to the tile's exact size: left to flex it
+                        reports zero height while sizing and collapses the
+                        row (see `StatusButton`). */}
+                    <IconMenu
+                      accessibilityLabel={`Journal prompt ${index + 1} ritual: ${MODE_META[period].label}`}
+                      menuTitle="Ritual"
+                      sections={periodSections(index, period)}
+                      style={promptPeriodTile(theme)}
+                    >
+                      <View
+                        style={[
+                          styles.periodTile,
+                          promptPeriodTile(theme),
+                          {
+                            backgroundColor: theme.colors.surfaceSunken,
+                            borderRadius: theme.radii.md,
+                          },
+                        ]}
+                      >
+                        <Icon
+                          {...MODE_META[period].icon}
+                          color={theme.colors.textSecondary}
+                        />
+                      </View>
+                    </IconMenu>
+                    {/* The delete button parks *inside* the field, so the
+                        anchor wraps the input alone rather than the whole
+                        row — otherwise it would sit over the menu tile. */}
+                    <View style={styles.promptField}>
+                      <TextInput
+                        accessibilityLabel={`Journal prompt ${index + 1}`}
+                        onBlur={commitPrompt}
+                        onChangeText={(text) =>
+                          setDrafts((current) =>
+                            current.map((entry, i) =>
+                              i === index ? { ...entry, prompt: text } : entry,
+                            ),
+                          )
+                        }
+                        onFocus={() => (focusedRef.current = true)}
+                        placeholder="e.g. What went well today?"
+                        style={{ paddingRight: rowDeleteInset(theme) }}
+                        value={prompt}
+                      />
+                      <RowDeleteButton
+                        accessibilityLabel={`Delete prompt ${index + 1}`}
+                        onPress={() => deletePrompt(index)}
+                        testID={`delete-prompt-${index}`}
+                      />
+                    </View>
                   </View>
                 ))}
               </View>
@@ -279,6 +386,16 @@ export default function RitualScreen() {
   );
 }
 
+/**
+ * The period menu's trigger, sized like the Lists/Habits emoji tile it copies —
+ * a hair taller than `controls.md` so it matches the field beside it, whose
+ * height comes from `fonts.body` inside `space.md` of padding.
+ */
+const promptPeriodTile = (theme: ReturnType<typeof useTheme>) => ({
+  height: theme.controls.md + theme.space.sm,
+  width: theme.controls.md + theme.space.sm,
+});
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -286,9 +403,18 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
   },
+  periodTile: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
   // The anchor `RowDeleteButton` parks against; the field fills it.
-  promptRow: {
+  promptField: {
+    flex: 1,
     justifyContent: "center",
     position: "relative",
+  },
+  promptRow: {
+    alignItems: "center",
+    flexDirection: "row",
   },
 });

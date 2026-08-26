@@ -9,6 +9,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { useExpandTaskReach } from "@/hooks/useTaskReach";
 import { useToday } from "@/hooks/useToday";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
+import { hasPromptsFor } from "@/utils/journalPrompts";
 import { parseRitualLink } from "@/utils/ritualRoute";
 import { oldestDayRead } from "@/utils/tomorrowPreview";
 import {
@@ -24,6 +25,7 @@ import {
   withLink,
   withMode,
 } from "@/utils/ritualSteps";
+import type { TRitualMode } from "@/utils/ritualSteps";
 
 /**
  * The Ritual tab (DEX-127, part of DEX-34) — a guided walk through the start or
@@ -55,6 +57,26 @@ export default function RitualScreen() {
   const link = parseRitualLink(params);
   const today = useToday();
 
+  // Whether `mode`'s ritual has a Journal step at all.
+  //
+  // The preference still turns the journal off outright; on top of that, since
+  // DEX-151 a ritual only has the step if it has prompts of its own — someone
+  // who journals only in the morning should not be walked past an empty
+  // question in the evening.
+  //
+  // **`utils/ritualSteps` is unchanged by this.** It still carries a single
+  // `journalEnabled` toggle and its eight precomputed step lists; this is
+  // merely a narrower value to put in that toggle. Splitting it into per-mode
+  // flags there would have doubled `TOGGLE_KEYS` to sixteen to express
+  // something only this call site knows.
+  const journalStepEnabled = (mode: TRitualMode) =>
+    preferences.enableJournal &&
+    hasPromptsFor(
+      preferences.templatePrompts,
+      preferences.templatePromptsPm,
+      mode,
+    );
+
   // Seeded inside the initializer so the clock is read on mount rather than at
   // module load — an app launched in the morning and left open must not still
   // be offering the morning ritual after noon has passed on a fresh open.
@@ -64,16 +86,25 @@ export default function RitualScreen() {
   // this screen with its params already present, and an adjustment that only
   // fires on a change would never run. It would then work on every later tap,
   // which is the worst possible shape for the bug.
-  const [state, setState] = useState(() =>
-    withLink(
-      createRitualState(undefined, undefined, {
-        journalEnabled: preferences.enableJournal,
+  const [state, setState] = useState(() => {
+    // The mode is resolved here rather than left to `createRitualState`'s own
+    // default so `journalStepEnabled` can be asked about the very ritual being
+    // seeded — since DEX-151 the answer differs between the two.
+    //
+    // A link naming a mode (DEX-190) wins over the clock, and has to: seeding
+    // the journal flag for the wrong ritual would let `withLink` land on a
+    // Journal step that ritual doesn't have, and the correction below would then
+    // pull it out from under the reader on the very first render.
+    const mode = link?.mode ?? currentRitualMode();
+    return withLink(
+      createRitualState(undefined, mode, {
+        journalEnabled: journalStepEnabled(mode),
         calendarEnabled: preferences.enableCalendar,
         horoscopeEnabled: preferences.enableHoroscope,
       }),
       link ?? { date: null, mode: null, step: null },
-    ),
-  );
+    );
+  });
 
   // So "New Task" opened from this tab defaults its schedule to the viewed day,
   // the same contract Today and Week publish. Following a link to an old
@@ -104,13 +135,18 @@ export default function RitualScreen() {
   if (!today.equals(lastToday)) {
     setLastToday(today);
     if (state.date.equals(lastToday)) {
-      setState((current) =>
-        createRitualState(today, currentRitualMode(), {
-          journalEnabled: current.journalEnabled,
+      setState((current) => {
+        const mode = currentRitualMode();
+        return createRitualState(today, mode, {
+          // Re-derived rather than carried like the other two: the journal's
+          // flag is per-ritual since DEX-151, and a rollover that crosses into
+          // the morning would otherwise seed the new walk with the evening's
+          // answer and rely on the correction below to undo it.
+          journalEnabled: journalStepEnabled(mode),
           calendarEnabled: current.calendarEnabled,
           horoscopeEnabled: current.horoscopeEnabled,
-        }),
-      );
+        });
+      });
     }
   }
 
@@ -137,9 +173,14 @@ export default function RitualScreen() {
   // unremarkable. One `if` per preference, and deliberately not merged: they
   // change independently, and each transition already returns its input when
   // its own flag hasn't moved.
-  if (state.journalEnabled !== preferences.enableJournal) {
+  // The journal's comparison also follows the ritual's own **mode**, not just
+  // its preference (DEX-151): switching AM↔PM can add or drop the step, since
+  // each ritual only has one if it has prompts of its own. Both sides read
+  // `current.mode` inside the updater rather than closing over `state.mode`, so
+  // the pass React runs with a stale state stays self-consistent.
+  if (state.journalEnabled !== journalStepEnabled(state.mode)) {
     setState((current) =>
-      withJournalEnabled(current, preferences.enableJournal),
+      withJournalEnabled(current, journalStepEnabled(current.mode)),
     );
   }
   if (state.calendarEnabled !== preferences.enableCalendar) {

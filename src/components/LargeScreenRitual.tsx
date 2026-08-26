@@ -113,6 +113,7 @@ export function LargeScreenRitual({
               `onEditingChange`. */}
           <RitualStepView
             date={state.date}
+            mode={state.mode}
             onEditingChange={setEditing}
             step={step}
           />
