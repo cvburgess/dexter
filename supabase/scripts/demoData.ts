@@ -128,13 +128,12 @@ export interface DemoDataset {
 // journal that asks four questions of someone winding down is a chore, and two
 // is enough to show the step is not a copy of the morning's.
 const AM_PROMPTS = [
-  "Yesterday's highlight",
   "Today I am grateful for",
   "Today I am excited for",
-  "What matters most today",
+  "What would make today great",
 ];
 
-const PM_PROMPTS = ["What went well today", "What I would do differently"];
+const PM_PROMPTS = ["Today's highlight", "Today I learned"];
 
 /**
  * Build the curated demo dataset. Deterministic and self-consistent: every
@@ -431,17 +430,12 @@ export function buildDemoData(): DemoDataset {
       prompts: [
         {
           prompt: AM_PROMPTS[0],
-          response: "Finished the calendar view redesign",
-          period: "am",
-        },
-        {
-          prompt: AM_PROMPTS[1],
           response: "A quiet morning to focus",
           period: "am",
         },
-        { prompt: AM_PROMPTS[2], response: "Shipping 2.0", period: "am" },
+        { prompt: AM_PROMPTS[1], response: "Shipping 2.0", period: "am" },
         {
-          prompt: AM_PROMPTS[3],
+          prompt: AM_PROMPTS[2],
           response: "Polishing the App Store listing",
           period: "am",
         },
@@ -452,7 +446,8 @@ export function buildDemoData(): DemoDataset {
         },
         {
           prompt: PM_PROMPTS[1],
-          response: "Started the day in my inbox instead of on the plan",
+          response:
+            "To check the plan before the inbox — the morning goes further",
           period: "pm",
         },
       ],
@@ -462,21 +457,16 @@ export function buildDemoData(): DemoDataset {
       prompts: [
         {
           prompt: AM_PROMPTS[0],
-          response: "A great run this morning",
-          period: "am",
-        },
-        {
-          prompt: AM_PROMPTS[1],
           response: "This planner, honestly",
           period: "am",
         },
         {
-          prompt: AM_PROMPTS[2],
+          prompt: AM_PROMPTS[1],
           response: "Submitting to the App Store",
           period: "am",
         },
         {
-          prompt: AM_PROMPTS[3],
+          prompt: AM_PROMPTS[2],
           response: "Getting the demo account just right",
           period: "am",
         },

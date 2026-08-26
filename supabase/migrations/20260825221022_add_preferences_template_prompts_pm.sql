@@ -6,6 +6,9 @@
 -- in exactly one of them — there is no "both", by design, so a prompt's period
 -- is a property of which array holds it rather than a value stored beside it.
 --
+-- It also reshapes the *starter* set both columns hand a new account; see the
+-- second half of this file. No stored list changes either way.
+--
 -- **`template_prompts` is deliberately untouched, and that is the whole reason
 -- for a second array rather than a reshaped column.** Reshaping it into a jsonb
 -- array of `{prompt, period}` would model the same thing more directly, but the
@@ -37,6 +40,43 @@
 --
 -- Rollback:
 --   alter table public.preferences drop column if exists template_prompts_pm;
+--   alter table public.preferences alter column template_prompts set default
+--     ARRAY['Yesterday''s highlight','Today I am grateful for',
+--           'Today I am excited for','What matters most today']::character varying[];
 
 alter table public.preferences
   add column if not exists template_prompts_pm text[] not null default '{}';
+
+-- The starter set, reshaped now that a prompt belongs to one half of the day.
+--
+-- The morning loses "Yesterday's highlight" and the evening gains "Today's
+-- highlight": asking for a highlight the next morning was the old list working
+-- around having only one journal, and an evening that ends on the day's best
+-- moment is the better version of the same question. "What matters most today"
+-- becomes "What would make today great" for the same reason the evening asks
+-- what was learned rather than what went wrong — the morning sets an intention
+-- it can meet, and the evening reflects without grading.
+--
+-- **`SET DEFAULT` as a separate statement, and the `ADD COLUMN` above keeps its
+-- empty default — that ordering is the whole point.** `ADD COLUMN` backfills
+-- every existing row with the default in force *at that moment*, so writing the
+-- evening prompts into the `ADD COLUMN` would hand two of them to every account
+-- that already exists and hang an evening Journal step on people who never
+-- asked for one. Existing rows take `'{}'` and stay morning-only until their
+-- owner moves a prompt; only rows inserted from here on get the pair.
+--
+-- The morning's default is safe to change outright: a default is read only when
+-- a row is inserted without a value, and `create_user_preferences()` inserts
+-- `(user_id)` alone, so this reaches new signups and touches no stored list.
+alter table public.preferences
+  alter column template_prompts set default ARRAY[
+    'Today I am grateful for',
+    'Today I am excited for',
+    'What would make today great'
+  ]::character varying[];
+
+alter table public.preferences
+  alter column template_prompts_pm set default ARRAY[
+    'Today''s highlight',
+    'Today I learned'
+  ]::text[];
