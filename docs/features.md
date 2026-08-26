@@ -95,7 +95,37 @@ auto-scrolls once on first layout (`scrollOffsetForTarget`), covered for both
 row offers template/blank (both write a row, so the choice persists — `useNotes`
 exposes `exists` and never auto-seeds). `components/JournalView.tsx` (Ritual tab
 only since DEX-105) autosaves `journals.prompts` wholesale; responses are plain
-text; both rituals edit the same per-date entry.
+text; both rituals edit the same per-date entry, each rendering **its own half**
+of it (DEX-151).
+
+**That pairing — a subset on screen, the whole array on every write — is the one
+rule this surface cannot bend.** `upsertJournal` replaces the entire jsonb
+column, so `JournalEditor` takes the full day plus the indices to draw and
+rebuilds from the former; an evening save assembled from the three fields the
+evening shows would write a three-entry array over the row and delete the
+morning's answers. `upsert_journal` has the same property for agents, which is
+also why its Zod schema has to *declare* `period`: `z.object` strips undeclared
+keys, so a round trip through a schema that hadn't heard of it would erase every
+period in the day.
+
+A prompt is asked by one ritual, never both. Which one is not stored beside the
+prompt but is **which of two columns holds it** — `preferences.template_prompts`
+is the morning list and `template_prompts_pm` the evening one, translated in both
+directions by `utils/journalPrompts.ts`. A second array rather than reshaping the
+first into `{prompt, period}`, because the legacy `dexter-app` still reads
+`template_prompts` as a `string[]`; the happy consequence is that "default every
+existing prompt to AM" needed no backfill at all, since they were already in the
+array that now means morning. Each *day's* entries carry a `period` of their own,
+stamped when they seed, so renaming or deleting a template prompt cannot change
+which ritual an already-written day belongs to; an entry without one reads as
+morning (`promptPeriod`).
+
+**A ritual with no prompts of its own has no Journal step.** `ritual/index.tsx`
+feeds `ritualSteps`' existing `journalEnabled` toggle `enableJournal && hasPromptsFor(mode)`
+rather than the preference alone — deliberately *not* a second toggle in
+`ritualSteps`, which would have doubled its `TOGGLE_KEYS` to sixteen to express
+something only the screen knows. The step therefore comes and goes with the AM/PM
+switch, which is exactly what `withJournalEnabled` already handles.
 
 `public.notes` (`content text`) and `public.journals` (`prompts jsonb`, checked to
 be an array) are each keyed `(user_id, date)` — one row per user per date, no
@@ -157,6 +187,10 @@ contracts:
   (`usePreferences` serves defaults until the row loads, so a cold launch corrects
   a round trip later — the correction has to be unremarkable, and it runs in both
   directions since journal/horoscope default on but calendar defaults off.)
+  **`journalEnabled` is not a mirrored preference** — since DEX-151 it is
+  `enableJournal && hasPromptsFor(state.mode)`, so it also moves when the *mode*
+  does, and both sides of that comparison read `current.mode` inside the updater
+  so the stale-state render pass stays self-consistent.
 - The "unchanged" guard stays on each exported transition because
   `ritual/index.tsx` compares each flag against preferences **during render** and
   sets state on disagreement — a transition that returned a state without updating
