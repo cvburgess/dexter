@@ -1,7 +1,9 @@
 import type { Href } from "expo-router";
 
 import { TSearchResult } from "@/api/search";
+import { hasPromptsFor, type TTemplatePrompt } from "@/utils/journalPrompts";
 import { ritualRoute } from "@/utils/ritualRoute";
+import type { TRitualMode } from "@/utils/ritualSteps";
 // From the import-free leaf module rather than `utils/taskFilters`, which pulls
 // in the whole task-filtering surface for one predicate.
 import { isCompletionStatus } from "@/utils/taskStatus";
@@ -22,6 +24,9 @@ import { todayRoute } from "@/utils/todayRoute";
 type TSearchRouteOptions = {
   /** `preferences.enableJournal`; see `canOpenSearchResult`. */
   enableJournal: boolean;
+  /** `preferences.templatePrompts` — which ritual asks each question, and
+   * whether either has any at all. */
+  templatePrompts: TTemplatePrompt[];
 };
 
 /**
@@ -39,15 +44,21 @@ type TSearchRouteOptions = {
  * would switch tabs and land on whatever step happens to be first. Old entries
  * stay searchable and readable either way — only the tap target goes.
  *
+ * Since DEX-151 a journal with no prompts has no step in either ritual, which is
+ * the same dead end; prompts in only one is fine, since the link names it.
+ *
  * Nothing is lost by not linking either: the result card in Search *is* the
  * useful surface, and `TaskCard` renders its `StatusButton` above the
  * `isComplete` guard, so a task can still be reopened from the results.
  */
 export const canOpenSearchResult = (
   result: TSearchResult,
-  { enableJournal }: TSearchRouteOptions,
+  options: TSearchRouteOptions,
 ): boolean => {
-  if (result.kind === "journal") return enableJournal;
+  const { enableJournal } = options;
+  if (result.kind === "journal") {
+    return enableJournal && options.templatePrompts.length > 0;
+  }
   return (
     result.kind !== "task" ||
     result.task.scheduledFor !== null ||
@@ -56,14 +67,26 @@ export const canOpenSearchResult = (
 };
 
 /**
+ * The ritual that still asks this question, else whichever has prompts. Read from
+ * the template, so a prompt moved since the day was written opens the wrong one.
+ */
+const journalResultMode = (
+  prompt: string,
+  { templatePrompts }: TSearchRouteOptions,
+): TRitualMode => {
+  const asked = templatePrompts.find((entry) => entry.prompt === prompt);
+  if (asked) return asked.period;
+  return hasPromptsFor(templatePrompts, "am") ? "am" : "pm";
+};
+
+/**
  * Where tapping a search result should land, or null when it has nowhere to go
  * (see `canOpenSearchResult`).
  *
  * An *incomplete* task with no scheduled date goes to the backlog with the query
  * carried along — the drawer seeds its own search box from it, so the task is on
- * screen immediately instead of somewhere in the backlog. A journal entry goes
- * to its day's journal step in the Ritual tab, which picks the morning or
- * evening flow by the clock (see `utils/ritualRoute.ts`).
+ * screen immediately instead of somewhere in the backlog. A journal entry goes to
+ * its day's journal step, **naming the ritual** — the clock's may not have one.
  *
  * `nonce` should differ per tap; see `TTodayRouteParams["n"]`.
  */
@@ -82,7 +105,12 @@ export const searchResultRoute = (
   }
 
   if (result.kind === "journal") {
-    return ritualRoute({ date: result.date, step: "journal", n: nonce });
+    return ritualRoute({
+      date: result.date,
+      mode: journalResultMode(result.prompt, options),
+      step: "journal",
+      n: nonce,
+    });
   }
 
   return todayRoute({ date: result.date, mode: "notes", n: nonce });

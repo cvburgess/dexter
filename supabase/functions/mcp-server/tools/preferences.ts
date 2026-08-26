@@ -56,7 +56,17 @@ export const updatePreferencesInputSchema = {
    */
   sunSign: sunSignSchema.nullable().optional(),
   templateNote: z.string().optional(),
-  templatePrompts: z.array(z.string()).optional(),
+  // The whole list, like the column stores it. `id` is optional — the handler
+  // mints any that are missing, since that is the app's job, not an agent's.
+  templatePrompts: z
+    .array(
+      z.object({
+        id: z.string().optional(),
+        prompt: z.string(),
+        period: z.enum(["am", "pm"]),
+      }),
+    )
+    .optional(),
   themeMode: themeModeSchema.optional(),
 };
 
@@ -113,7 +123,10 @@ export function registerPreferenceTools(
         light_theme: fields.lightTheme,
         sun_sign: fields.sunSign,
         template_note: fields.templateNote,
-        template_prompts: fields.templatePrompts,
+        template_prompts: fields.templatePrompts?.map((entry) => ({
+          ...entry,
+          id: entry.id ?? crypto.randomUUID(),
+        })),
         theme_mode: fields.themeMode,
       });
 

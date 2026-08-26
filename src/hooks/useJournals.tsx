@@ -37,20 +37,21 @@ export const journalsMutationKey = (date: string) => ["journals", date];
 
 export const useJournals = (date: string): TUseJournals => {
   const queryClient = useQueryClient();
-  const [preferences] = usePreferences();
+  const [{ templatePrompts }] = usePreferences();
 
   const defaultJournal: TJournal = useMemo(
     () => ({
       date,
-      // Unlike notes (which offer a template chooser), prompts auto-seed from
-      // the template so a blank day is immediately answerable. Nothing persists
-      // until the user types a response (DEX-37).
-      prompts: preferences.templatePrompts.map((prompt) => ({
+      // Auto-seeds so a blank day is answerable; nothing persists until the user
+      // types (DEX-37). Every ritual's prompts, or a save drops the other's half.
+      prompts: templatePrompts.map(({ prompt, period }) => ({
         prompt,
+        period,
         response: "",
       })),
     }),
-    [date, preferences.templatePrompts],
+    // Just the prompts — the whole row would rebuild this on an unrelated edit.
+    [date, templatePrompts],
   );
 
   const { data, isLoading } = useQuery({

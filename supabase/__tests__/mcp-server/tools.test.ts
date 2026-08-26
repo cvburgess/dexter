@@ -299,6 +299,81 @@ Deno.test("update_preferences writes the horoscope toggle through", async () => 
   assertEquals(supabase.lastBuilder?.payload, { enable_horoscope: false });
 });
 
+// The same two-places hazard as the test above. The whole list goes in one call
+// because the period is a field on an element, not a choice of column.
+Deno.test("update_preferences writes journal prompts through with their rituals", async () => {
+  const registry = new ToolRegistry();
+  const supabase = new FakeSupabase();
+
+  assertEquals("templatePrompts" in updatePreferencesInputSchema, true);
+
+  registerPreferenceTools(
+    registry as unknown as McpServer,
+    makeToolContext(supabase, "00000000-0000-4000-8000-0000000000aa"),
+  );
+
+  await registry.run("update_preferences", {
+    templatePrompts: [
+      { id: "a", prompt: "Highlight", period: "am" },
+      { id: "b", prompt: "What went well?", period: "pm" },
+    ],
+  });
+
+  assertEquals(supabase.lastBuilder?.payload, {
+    template_prompts: [
+      { id: "a", prompt: "Highlight", period: "am" },
+      { id: "b", prompt: "What went well?", period: "pm" },
+    ],
+  });
+});
+
+// Minting an id is the app's job, not an agent's, so the handler fills any
+// that are missing.
+Deno.test("update_preferences mints an id for a prompt that arrives without one", async () => {
+  const registry = new ToolRegistry();
+  const supabase = new FakeSupabase();
+
+  registerPreferenceTools(
+    registry as unknown as McpServer,
+    makeToolContext(supabase, "00000000-0000-4000-8000-0000000000aa"),
+  );
+
+  await registry.run("update_preferences", {
+    templatePrompts: [
+      { prompt: "Highlight", period: "am" },
+      { prompt: "What went well?", period: "pm" },
+    ],
+  });
+
+  const written = (supabase.lastBuilder?.payload as {
+    template_prompts: { id: string; prompt: string }[];
+  }).template_prompts;
+
+  assertEquals(written.length, 2);
+  assert(written[0].id.length > 0, "expected a minted id");
+  assert(
+    written[0].id !== written[1].id,
+    "expected each minted id to be distinct",
+  );
+});
+
+// Asserted on the schema itself: `ToolRegistry` hands the handler its arguments
+// directly, so a tool driven through it never sees Zod.
+Deno.test("update_preferences accepts only the two rituals", () => {
+  const period = updatePreferencesInputSchema.templatePrompts;
+
+  assertEquals(
+    period.safeParse([{ prompt: "Highlight", period: "am" }]).success,
+    true,
+  );
+  assertEquals(
+    period.safeParse([{ prompt: "Highlight", period: "noon" }]).success,
+    false,
+  );
+  // `prompt` is still required — a periodless string is not a prompt.
+  assertEquals(period.safeParse(["Highlight"]).success, false);
+});
+
 Deno.test("create_task derives user_id from authenticated context", async () => {
   const registry = new ToolRegistry();
   const supabase = new FakeSupabase();
@@ -1510,6 +1585,43 @@ Deno.test("upsert_journal accepts any prompt set the app can legitimately store"
   // {prompt, response}.
   assertEquals(prompts.safeParse([{ prompt: "Highlight" }]).success, false);
   assertEquals(prompts.safeParse("not an array").success, false);
+});
+
+// DEX-151: `z.object` strips undeclared keys, so a schema without `period` would
+// let a get_journal → upsert_journal round trip erase every one.
+Deno.test("upsert_journal keeps a prompt's ritual through the round trip", () => {
+  const registry = journalTools(new FakeSupabase());
+  const prompts = registry.tools.get("upsert_journal")!.inputSchema!
+    .prompts as {
+      safeParse: (
+        value: unknown,
+      ) => { success: boolean; data?: unknown };
+    };
+
+  const parsed = prompts.safeParse([
+    { prompt: "Highlight", response: "shipped it", period: "am" },
+    { prompt: "What went well?", response: "the redesign", period: "pm" },
+  ]);
+
+  assertEquals(parsed.success, true);
+  assertEquals(parsed.data, [
+    { prompt: "Highlight", response: "shipped it", period: "am" },
+    { prompt: "What went well?", response: "the redesign", period: "pm" },
+  ]);
+
+  // Optional, because the stored rows are: every entry written before the split
+  // carries none, and the app reads a missing one as morning.
+  assertEquals(
+    prompts.safeParse([{ prompt: "Highlight", response: "" }]).success,
+    true,
+  );
+  // Only the two rituals exist, so a third value is a mistake worth rejecting
+  // rather than storing for a later build to trip over.
+  assertEquals(
+    prompts.safeParse([{ prompt: "Highlight", response: "", period: "noon" }])
+      .success,
+    false,
+  );
 });
 
 Deno.test("upsert_note derives user_id from context and targets (user_id, date)", async () => {

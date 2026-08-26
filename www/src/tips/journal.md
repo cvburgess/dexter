@@ -14,8 +14,9 @@ whatever matters most to you.
 ## Using the journal
 
 The journal is a step of your daily ritual. Open the **Ritual** tab and move to
-the **Journal** step — it's there in both the morning and the evening ritual,
-and both write to the same entry for that day.
+the **Journal** step. Each ritual asks only its own prompts, and both write to
+the same entry — a morning answer is still there in the evening. A ritual with no
+prompts of its own has no Journal step at all.
 
 ## Settings
 
@@ -29,9 +30,15 @@ and both write to the same entry for that day.
 ### Adding journal prompts
 
 Use **Add prompt** to append a new prompt, then type your question — it saves
-automatically.
+automatically. New prompts start in the morning ritual.
 
 Any new journal prompts will appear on days with a blank journal.
+
+### Choosing when a prompt is asked
+
+Tap the sun or moon beside a prompt to move it between the **morning** and
+**evening** ritual. It stays where it is in the list, so you can order and mix
+your questions freely.
 
 ### Deleting journal prompts
 

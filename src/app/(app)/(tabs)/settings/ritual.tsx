@@ -7,6 +7,7 @@ import {
 } from "react-native-safe-area-context";
 
 import { HeaderAddButton } from "@/components/HeaderAddButton";
+import { JournalPeriodMenu } from "@/components/JournalPeriodMenu";
 import { PickerField } from "@/components/PickerField";
 import { RowDeleteButton, rowDeleteInset } from "@/components/RowDeleteButton";
 import { SettingsSectionTitle } from "@/components/SettingsSectionTitle";
@@ -26,6 +27,11 @@ import {
   SUN_SIGN_OPTIONS,
   TSunSignOption,
 } from "@/utils/horoscope";
+import {
+  newTemplatePrompt,
+  type TTemplatePrompt,
+} from "@/utils/journalPrompts";
+import type { TRitualMode } from "@/utils/ritualSteps";
 import {
   EDGES_SINGLE_PANE,
   EDGES_TWO_PANE,
@@ -56,6 +62,7 @@ export default function RitualScreen() {
   // (add/delete, or another device), but never while a field is focused — that
   // would clobber in-progress typing. A single flag suffices since only one
   // field is focused at a time. Mirrors notes.tsx.
+  // Drafts are the stored shape, so nothing translates between edit and write.
   const [drafts, setDrafts] = useState(preferences.templatePrompts);
   const focusedRef = useRef(false);
   useEffect(() => {
@@ -69,24 +76,36 @@ export default function RitualScreen() {
   // compute on the stale array and clobber the pending edit (last-write-wins).
   const commitPrompt = () => {
     focusedRef.current = false;
+    const stored = preferences.templatePrompts;
     const changed =
-      drafts.length !== preferences.templatePrompts.length ||
-      drafts.some((draft, i) => draft !== preferences.templatePrompts[i]);
+      drafts.length !== stored.length ||
+      drafts.some(
+        (draft, i) =>
+          draft.prompt !== stored[i].prompt ||
+          draft.period !== stored[i].period,
+      );
     if (changed) updatePreferences({ templatePrompts: drafts });
   };
 
   // Structural edits write the local drafts straight through (and mirror them to
   // the store) so the list re-renders immediately and the next edit builds on
   // the current array, not the optimistically-lagging preference.
-  const writePrompts = (next: string[]) => {
+  const writePrompts = (next: TTemplatePrompt[]) => {
     setDrafts(next);
     updatePreferences({ templatePrompts: next });
   };
 
-  const addPrompt = () => writePrompts([...drafts, ""]);
+  const addPrompt = () => writePrompts([...drafts, newTemplatePrompt()]);
 
   const deletePrompt = (index: number) =>
     writePrompts(drafts.filter((_, i) => i !== index));
+
+  // One field on one element, so the row stays where it is and nothing can
+  // half-apply.
+  const setPromptPeriod = (index: number, period: TRitualMode) =>
+    writePrompts(
+      drafts.map((entry, i) => (i === index ? { ...entry, period } : entry)),
+    );
 
   // A "+" in the header adds a prompt (mirrors Habits), but only when the
   // Journal is on. Re-wired on every render so the handler closes over the
@@ -186,7 +205,7 @@ export default function RitualScreen() {
 
         {preferences.enableJournal && (
           <View style={{ gap: theme.space.sm }}>
-            <SettingsSectionTitle subtitle="These prompts seed each new day's Journal. Editing them doesn't change days you've already answered.">
+            <SettingsSectionTitle subtitle="Each prompt is asked by one ritual — tap the sun or moon to move it. These seed each new day's Journal; editing them doesn't change days you've already answered.">
               Journal prompts
             </SettingsSectionTitle>
             {drafts.length === 0 ? (
@@ -201,26 +220,42 @@ export default function RitualScreen() {
               </Text>
             ) : (
               <View style={{ gap: theme.space.sm }}>
-                {drafts.map((prompt, index) => (
-                  <View key={index} style={styles.promptRow}>
-                    <TextInput
-                      accessibilityLabel={`Journal prompt ${index + 1}`}
-                      onBlur={commitPrompt}
-                      onChangeText={(text) =>
-                        setDrafts((current) =>
-                          current.map((p, i) => (i === index ? text : p)),
-                        )
-                      }
-                      onFocus={() => (focusedRef.current = true)}
-                      placeholder="e.g. What went well today?"
-                      style={{ paddingRight: rowDeleteInset(theme) }}
-                      value={prompt}
+                {drafts.map(({ id, prompt, period }, index) => (
+                  // Keyed by id: a delete shifts every later index, and an index
+                  // key would hand the removed row's input state to its neighbour.
+                  <View
+                    key={id}
+                    style={[styles.promptRow, { gap: theme.space.sm }]}
+                  >
+                    <JournalPeriodMenu
+                      period={period}
+                      promptNumber={index + 1}
+                      onChange={(next) => setPromptPeriod(index, next)}
                     />
-                    <RowDeleteButton
-                      accessibilityLabel={`Delete prompt ${index + 1}`}
-                      onPress={() => deletePrompt(index)}
-                      testID={`delete-prompt-${index}`}
-                    />
+                    {/* The delete button parks inside the field, so the anchor
+                        wraps the input alone or it would cover the menu tile. */}
+                    <View style={styles.promptField}>
+                      <TextInput
+                        accessibilityLabel={`Journal prompt ${index + 1}`}
+                        onBlur={commitPrompt}
+                        onChangeText={(text) =>
+                          setDrafts((current) =>
+                            current.map((entry, i) =>
+                              i === index ? { ...entry, prompt: text } : entry,
+                            ),
+                          )
+                        }
+                        onFocus={() => (focusedRef.current = true)}
+                        placeholder="e.g. What went well today?"
+                        style={{ paddingRight: rowDeleteInset(theme) }}
+                        value={prompt}
+                      />
+                      <RowDeleteButton
+                        accessibilityLabel={`Delete prompt ${index + 1}`}
+                        onPress={() => deletePrompt(index)}
+                        testID={`delete-prompt-${index}`}
+                      />
+                    </View>
                   </View>
                 ))}
               </View>
@@ -287,8 +322,13 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   // The anchor `RowDeleteButton` parks against; the field fills it.
-  promptRow: {
+  promptField: {
+    flex: 1,
     justifyContent: "center",
     position: "relative",
+  },
+  promptRow: {
+    alignItems: "center",
+    flexDirection: "row",
   },
 });

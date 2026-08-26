@@ -21,6 +21,7 @@ Dexter is a planner product delivered as an Expo (React Native) app with iOS, An
 - **No script gymnastics:** don't write complex Python/bash to parse data or transcripts — use simple, direct tool calls.
 - **Hardcode known values:** use `cvburgess/dexter` directly in skills, scripts, and `gh` commands — never dynamic resolution like `gh repo view`.
 - **Interactive skills use `AskUserQuestion`**, not plain-text questions; when integrating `/grill-me` into another skill, name the step "Collaborate on the plan".
+- **Comments max out at 2 lines per block; doc updates at 4 lines per PR.** Write the one thing the code cannot say — a gotcha, a constraint, why the obvious alternative failed — and stop. Rationale essays belong in the PR description, not the source.
 
 ## Key constraints
 

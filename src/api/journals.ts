@@ -1,9 +1,18 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
 import { camelCase, snakeCase } from "@/utils/changeCase";
+import type { TRitualMode } from "@/utils/ritualSteps";
 import { Database, Tables, TablesInsert } from "@/types/database.types";
 
-export type TJournalPrompt = { prompt: string; response: string };
+/**
+ * `period` (DEX-151) is optional because the stored rows are — read it through
+ * `promptPeriod`. Stamped at seed time so a renamed prompt can't move an old day.
+ */
+export type TJournalPrompt = {
+  prompt: string;
+  response: string;
+  period?: TRitualMode;
+};
 
 export type TJournal = { date: string; prompts: TJournalPrompt[] };
 

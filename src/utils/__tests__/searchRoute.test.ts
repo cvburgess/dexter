@@ -18,8 +18,19 @@ const makeTask = (overrides: Partial<TTask> = {}): TTask => ({
   ...overrides,
 });
 
-const JOURNAL_ON = { enableJournal: true };
-const JOURNAL_OFF = { enableJournal: false };
+// Prompts in both rituals, so the journal has a step in each and these cases
+// say nothing about which one a link picks (DEX-151 covers that below).
+const JOURNAL_ON = {
+  enableJournal: true,
+  templatePrompts: [
+    { id: "a", prompt: "Highlight", period: "am" as const },
+    { id: "b", prompt: "What went well?", period: "pm" as const },
+  ],
+};
+const JOURNAL_OFF = {
+  ...JOURNAL_ON,
+  enableJournal: false,
+};
 
 describe("searchResultRoute", () => {
   it("sends a scheduled task to its day's task list", () => {
@@ -103,12 +114,58 @@ describe("searchResultRoute", () => {
   };
 
   // DEX-105: the journal left the Today tab, so this is the one result that
-  // opens a different tab entirely.
-  it("sends a journal entry to its day's ritual journal step", () => {
+  // opens a different tab entirely. DEX-151: it also names the ritual, rather
+  // than leaving the clock to pick one that may have no journal step.
+  it("sends a journal entry to the ritual that still asks that question", () => {
     expect(canOpenSearchResult(journalResult, JOURNAL_ON)).toBe(true);
     expect(searchResultRoute(journalResult, "milk", "1", JOURNAL_ON)).toEqual({
       pathname: "/ritual",
-      params: { date: "2026-07-12", step: "journal", n: "1" },
+      params: { date: "2026-07-12", mode: "pm", step: "journal", n: "1" },
+    });
+  });
+
+  it("sends it to the morning when that is where the prompt lives", () => {
+    const options = {
+      ...JOURNAL_ON,
+      templatePrompts: [
+        { id: "a", prompt: "What went well?", period: "am" as const },
+        { id: "b", prompt: "Anything else?", period: "pm" as const },
+      ],
+    };
+
+    expect(searchResultRoute(journalResult, "milk", "1", options)).toEqual({
+      pathname: "/ritual",
+      params: { date: "2026-07-12", mode: "am", step: "journal", n: "1" },
+    });
+  });
+
+  // The prompt may have been renamed or deleted since the day was written, so
+  // the entry lands in whichever ritual still has a Journal step.
+  it("falls back to the only ritual with prompts when the prompt is gone", () => {
+    const eveningOnly = {
+      ...JOURNAL_ON,
+      templatePrompts: [
+        { id: "a", prompt: "Something else entirely", period: "pm" as const },
+      ],
+    };
+
+    expect(searchResultRoute(journalResult, "milk", "1", eveningOnly)).toEqual({
+      pathname: "/ritual",
+      params: { date: "2026-07-12", mode: "pm", step: "journal", n: "1" },
+    });
+  });
+
+  it("prefers the morning when the prompt is in neither list", () => {
+    const both = {
+      ...JOURNAL_ON,
+      templatePrompts: [
+        { id: "a", prompt: "Something else", period: "am" as const },
+        { id: "b", prompt: "Something else again", period: "pm" as const },
+      ],
+    };
+
+    expect(searchResultRoute(journalResult, "milk", "1", both)).toMatchObject({
+      params: expect.objectContaining({ mode: "am" }),
     });
   });
 
@@ -120,5 +177,14 @@ describe("searchResultRoute", () => {
     expect(
       searchResultRoute(journalResult, "milk", "1", JOURNAL_OFF),
     ).toBeNull();
+  });
+
+  // Neither ritual has a Journal step, so this is the same dead end as the
+  // preference being off — the tap would land on whatever step comes first.
+  it("refuses to route a journal entry when no ritual has prompts", () => {
+    const noPrompts = { ...JOURNAL_ON, templatePrompts: [] };
+
+    expect(canOpenSearchResult(journalResult, noPrompts)).toBe(false);
+    expect(searchResultRoute(journalResult, "milk", "1", noPrompts)).toBeNull();
   });
 });

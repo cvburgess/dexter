@@ -90,7 +90,14 @@ export interface DemoNote {
 
 export interface DemoJournal {
   dateOffset: number;
-  prompts: { prompt: string; response: string }[];
+  prompts: { prompt: string; response: string; period: "am" | "pm" }[];
+}
+
+export interface DemoTemplatePrompt {
+  /** Readable rather than a uuid: a fixture reads better with stable ids. */
+  id: string;
+  prompt: string;
+  period: "am" | "pm";
 }
 
 export interface DemoPreferences {
@@ -103,7 +110,9 @@ export interface DemoPreferences {
   enableHoroscope: boolean;
   /** A `public.sun_sign` enum value — see 20260804005118_add_horoscopes.sql. */
   sunSign: string;
-  templatePrompts: string[];
+  /** Both rituals are represented, or one loses its Journal step and the
+   * screenshots with it. */
+  templatePrompts: DemoTemplatePrompt[];
 }
 
 export interface DemoDataset {
@@ -118,12 +127,18 @@ export interface DemoDataset {
   preferences: DemoPreferences;
 }
 
-const PROMPTS = [
-  "Yesterday's highlight",
-  "Today I am grateful for",
-  "Today I am excited for",
-  "What matters most today",
+// The app's own starter set (see the DEX-151 migration), ordered the way the day
+// runs. The evening half is shorter on purpose — four is a chore at bedtime.
+const PROMPTS: DemoTemplatePrompt[] = [
+  { id: "grateful", prompt: "Today I am grateful for", period: "am" },
+  { id: "excited", prompt: "Today I am excited for", period: "am" },
+  { id: "great", prompt: "What would make today great", period: "am" },
+  { id: "highlight", prompt: "Today's highlight", period: "pm" },
+  { id: "learned", prompt: "Today I learned", period: "pm" },
 ];
+
+const promptText = (id: string): string =>
+  PROMPTS.find((entry) => entry.id === id)!.prompt;
 
 /**
  * Build the curated demo dataset. Deterministic and self-consistent: every
@@ -418,19 +433,55 @@ export function buildDemoData(): DemoDataset {
     {
       dateOffset: -1,
       prompts: [
-        { prompt: PROMPTS[0], response: "Finished the calendar view redesign" },
-        { prompt: PROMPTS[1], response: "A quiet morning to focus" },
-        { prompt: PROMPTS[2], response: "Shipping 2.0" },
-        { prompt: PROMPTS[3], response: "Polishing the App Store listing" },
+        {
+          prompt: promptText("grateful"),
+          response: "A quiet morning to focus",
+          period: "am",
+        },
+        {
+          prompt: promptText("excited"),
+          response: "Shipping 2.0",
+          period: "am",
+        },
+        {
+          prompt: promptText("great"),
+          response: "Polishing the App Store listing",
+          period: "am",
+        },
+        {
+          prompt: promptText("highlight"),
+          response: "The redesign landed without a single rollback",
+          period: "pm",
+        },
+        {
+          prompt: promptText("learned"),
+          response:
+            "To check the plan before the inbox — the morning goes further",
+          period: "pm",
+        },
       ],
     },
     {
       dateOffset: 0,
       prompts: [
-        { prompt: PROMPTS[0], response: "A great run this morning" },
-        { prompt: PROMPTS[1], response: "This planner, honestly" },
-        { prompt: PROMPTS[2], response: "Submitting to the App Store" },
-        { prompt: PROMPTS[3], response: "Getting the demo account just right" },
+        {
+          prompt: promptText("grateful"),
+          response: "This planner, honestly",
+          period: "am",
+        },
+        {
+          prompt: promptText("excited"),
+          response: "Submitting to the App Store",
+          period: "am",
+        },
+        {
+          prompt: promptText("great"),
+          response: "Getting the demo account just right",
+          period: "am",
+        },
+        // Blank: today's evening ritual hasn't happened yet.
+        { prompt: promptText("highlight"), response: "", period: "pm" },
+        { prompt: promptText("learned"), response: "", period: "pm" },
       ],
     },
   ];

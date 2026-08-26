@@ -95,19 +95,11 @@ auto-scrolls once on first layout (`scrollOffsetForTarget`), covered for both
 row offers template/blank (both write a row, so the choice persists — `useNotes`
 exposes `exists` and never auto-seeds). `components/JournalView.tsx` (Ritual tab
 only since DEX-105) autosaves `journals.prompts` wholesale; responses are plain
-text; both rituals edit the same per-date entry.
+text; both rituals edit the same per-date entry, each rendering **its own half**
+of it (DEX-151).
 
-`public.notes` (`content text`) and `public.journals` (`prompts jsonb`, checked to
-be an array) are each keyed `(user_id, date)` — one row per user per date, no
-`id`, no `updated_at`. They replaced a shared `days` row (DEX-51; `days` dropped
-in DEX-90 once the legacy `dexter-app`, which shares this production project, had
-shipped a release reading the new tables).
-
-**"No row" means "never written", and the app depends on that** — the template
-chooser keys off `exists`. The split's backfill preserved the distinction
-deliberately: for journals, only days with at least one non-empty *response* were
-copied, because the old shared row seeded template prompts on the first note
-write, so most rows carried scaffolding the user never answered.
+`template_prompts` is jsonb `{id, prompt, period}`, read only via
+`parseTemplatePrompts`; **a subset renders but the whole array is written**.
 
 ## Week
 

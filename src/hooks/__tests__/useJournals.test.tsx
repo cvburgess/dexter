@@ -41,11 +41,17 @@ const createWrapper = () => {
   return { client, wrapper };
 };
 
-const setTemplatePrompts = (templatePrompts: string[]) =>
+// Takes the stored shape: a flat list where each prompt names its own ritual.
+const setTemplatePrompts = (
+  templatePrompts: { id: string; prompt: string; period: "am" | "pm" }[],
+) =>
   mockUsePreferences.mockReturnValue([
     { templatePrompts } as never,
     { updatePreferences: jest.fn() },
   ]);
+
+const amPrompt = (prompt: string) =>
+  ({ id: prompt, prompt, period: "am" }) as const;
 
 describe("useJournals", () => {
   beforeEach(() => {
@@ -54,7 +60,7 @@ describe("useJournals", () => {
   });
 
   it("seeds a day with no row from the prompt template", async () => {
-    setTemplatePrompts(["Highlight", "Grateful for"]);
+    setTemplatePrompts([amPrompt("Highlight"), amPrompt("Grateful for")]);
     mockGetJournal.mockResolvedValue(null);
 
     const { result } = renderHook(() => useJournals("2026-07-12"), {
@@ -65,14 +71,34 @@ describe("useJournals", () => {
     // Unlike notes, prompts auto-seed so a blank day is immediately answerable;
     // nothing is persisted until the user types.
     expect(result.current[0].prompts).toEqual([
-      { prompt: "Highlight", response: "" },
-      { prompt: "Grateful for", response: "" },
+      { prompt: "Highlight", response: "", period: "am" },
+      { prompt: "Grateful for", response: "", period: "am" },
     ]);
     expect(result.current[1].exists).toBe(false);
   });
 
+  // The whole day, not the ritual opened first: a one-period seed would let the
+  // evening's first save write a row the morning was missing from.
+  it("seeds every ritual's prompts, in order, each stamped with its period", async () => {
+    setTemplatePrompts([
+      amPrompt("Highlight"),
+      { id: "pm", prompt: "What went well?", period: "pm" },
+    ]);
+    mockGetJournal.mockResolvedValue(null);
+
+    const { result } = renderHook(() => useJournals("2026-07-12"), {
+      wrapper: createWrapper().wrapper,
+    });
+
+    await waitFor(() => expect(result.current[1].isLoading).toBe(false));
+    expect(result.current[0].prompts).toEqual([
+      { prompt: "Highlight", response: "", period: "am" },
+      { prompt: "What went well?", response: "", period: "pm" },
+    ]);
+  });
+
   it("reports exists=true and the stored prompts when a row is present", async () => {
-    setTemplatePrompts(["Highlight"]);
+    setTemplatePrompts([amPrompt("Highlight")]);
     mockGetJournal.mockResolvedValue({
       date: "2026-07-12",
       prompts: [{ prompt: "Highlight", response: "kept" }],
@@ -133,7 +159,7 @@ describe("useJournals", () => {
   });
 
   it("rolls back the optimistic responses when the first save fails", async () => {
-    setTemplatePrompts(["Highlight"]);
+    setTemplatePrompts([amPrompt("Highlight")]);
     mockGetJournal.mockResolvedValue(null);
     mockUpsertJournal.mockRejectedValue(new Error("save failed"));
 
@@ -153,7 +179,7 @@ describe("useJournals", () => {
     // it falls back to the template-seeded default.
     await waitFor(() =>
       expect(result.current[0].prompts).toEqual([
-        { prompt: "Highlight", response: "" },
+        { prompt: "Highlight", response: "", period: "am" },
       ]),
     );
     expect(result.current[1].exists).toBe(false);

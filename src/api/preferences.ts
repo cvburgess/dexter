@@ -2,7 +2,11 @@ import { SupabaseClient } from "@supabase/supabase-js";
 
 import { TSunSign } from "@/api/horoscopes";
 import { camelCase, snakeCase } from "@/utils/changeCase";
-import { Database, TablesUpdate } from "@/types/database.types";
+import {
+  parseTemplatePrompts,
+  type TTemplatePrompt,
+} from "@/utils/journalPrompts";
+import { Database, Tables, TablesUpdate } from "@/types/database.types";
 
 export enum EThemeMode {
   SYSTEM,
@@ -49,7 +53,9 @@ export type TPreferences = {
    * than coalescing it to a sign. */
   sunSign: TSunSign | null;
   templateNote: string;
-  templatePrompts: string[];
+  /** The journal's prompts, each carrying the ritual that asks it (DEX-151).
+   * jsonb, so it arrives untyped — read only via `parseTemplatePrompts`. */
+  templatePrompts: TTemplatePrompt[];
   themeMode: EThemeMode;
 };
 
@@ -61,8 +67,17 @@ export const getPreferences = async (supabase: SupabaseClient<Database>) => {
     .single();
 
   if (error) throw error;
-  return camelCase(data) as TPreferences;
+  return rowToPreferences(data);
 };
+
+/**
+ * `template_prompts` is jsonb, so the blind cast every other field rides on would
+ * be a lie for it. Runs on the fetch and the write, like `rowToJournal`.
+ */
+const rowToPreferences = (data: Tables<"preferences">): TPreferences => ({
+  ...(camelCase(data) as TPreferences),
+  templatePrompts: parseTemplatePrompts(data.template_prompts),
+});
 
 export type TUpdatePreferences = {
   alarmSound?: string;
@@ -83,7 +98,8 @@ export type TUpdatePreferences = {
    * rather than merely optional — omitting it leaves the stored sign alone. */
   sunSign?: TSunSign | null;
   templateNote?: string;
-  templatePrompts?: string[];
+  /** The whole list, every time. */
+  templatePrompts?: TTemplatePrompt[];
   themeMode?: EThemeMode;
   userId: string;
 };
@@ -100,5 +116,5 @@ export const updatePreferences = async (
     .single();
 
   if (error) throw error;
-  return camelCase(data) as TPreferences;
+  return rowToPreferences(data);
 };

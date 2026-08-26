@@ -21,9 +21,12 @@ import {
 // would be locked out of that user's journal for good. It would also buy little,
 // since `response` here and `content` on notes are both unbounded prose. Bound
 // `template_prompts` first if this ever needs a limit.
+// `period` must be declared even though nothing here reads it: `z.object` strips
+// undeclared keys, so a get_journal → upsert_journal round trip would erase it.
 const journalPromptSchema = z.object({
   prompt: z.string(),
   response: z.string(),
+  period: z.enum(["am", "pm"]).optional(),
 });
 
 const journalPromptsSchema = z.array(journalPromptSchema);

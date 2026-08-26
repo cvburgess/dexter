@@ -10,12 +10,15 @@ import { OpenTasksStep } from "@/components/OpenTasksStep";
 import { PreviewTomorrowStep } from "@/components/PreviewTomorrowStep";
 import { ReviewStep } from "@/components/ReviewStep";
 import { SummaryStep } from "@/components/SummaryStep";
-import type { TRitualStep } from "@/utils/ritualSteps";
+import type { TRitualMode, TRitualStep } from "@/utils/ritualSteps";
 
 type TRitualStepViewProps = {
   step: TRitualStep;
   /** The day the ritual is running for; steps that show a day's data need it. */
   date: Temporal.PlainDate;
+  /** Which ritual is running. Only the Journal reads it (DEX-151): it is the one
+   * step id in both flows that asks a different set of questions in each. */
+  mode: TRitualMode;
   /**
    * Fired as a step's text field gains/loses focus, so the layout can suspend
    * the step swipe while the caret is being positioned.
@@ -47,6 +50,7 @@ type TRitualStepViewProps = {
 export function RitualStepView({
   step,
   date,
+  mode,
   onEditingChange,
 }: TRitualStepViewProps) {
   switch (step.id) {
@@ -64,7 +68,11 @@ export function RitualStepView({
     // the uncontrolled inputs.
     case "journal":
       return (
-        <JournalView date={date.toString()} onEditingChange={onEditingChange} />
+        <JournalView
+          date={date.toString()}
+          mode={mode}
+          onEditingChange={onEditingChange}
+        />
       );
     // DEX-140: only reachable while `preferences.enableCalendar` is on —
     // `stepsFor` drops the step entirely otherwise, so this branch never has to

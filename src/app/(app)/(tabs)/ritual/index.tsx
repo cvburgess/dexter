@@ -9,6 +9,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { useExpandTaskReach } from "@/hooks/useTaskReach";
 import { useToday } from "@/hooks/useToday";
 import { usePublishViewedDay } from "@/hooks/useViewedDay";
+import { hasPromptsFor } from "@/utils/journalPrompts";
 import { parseRitualLink } from "@/utils/ritualRoute";
 import { oldestDayRead } from "@/utils/tomorrowPreview";
 import {
@@ -24,6 +25,7 @@ import {
   withLink,
   withMode,
 } from "@/utils/ritualSteps";
+import type { TRitualMode } from "@/utils/ritualSteps";
 
 /**
  * The Ritual tab (DEX-127, part of DEX-34) — a guided walk through the start or
@@ -55,6 +57,12 @@ export default function RitualScreen() {
   const link = parseRitualLink(params);
   const today = useToday();
 
+  // Whether `mode`'s ritual has a Journal step: the preference, and prompts of
+  // its own (DEX-151). A narrower value for `ritualSteps`' existing toggle.
+  const journalStepEnabled = (mode: TRitualMode) =>
+    preferences.enableJournal &&
+    hasPromptsFor(preferences.templatePrompts, mode);
+
   // Seeded inside the initializer so the clock is read on mount rather than at
   // module load — an app launched in the morning and left open must not still
   // be offering the morning ritual after noon has passed on a fresh open.
@@ -64,16 +72,19 @@ export default function RitualScreen() {
   // this screen with its params already present, and an adjustment that only
   // fires on a change would never run. It would then work on every later tap,
   // which is the worst possible shape for the bug.
-  const [state, setState] = useState(() =>
-    withLink(
-      createRitualState(undefined, undefined, {
-        journalEnabled: preferences.enableJournal,
+  const [state, setState] = useState(() => {
+    // Resolved here so the journal flag is seeded for the ritual actually being
+    // shown; a link's mode wins, or `withLink` lands on a step it hasn't got.
+    const mode = link?.mode ?? currentRitualMode();
+    return withLink(
+      createRitualState(undefined, mode, {
+        journalEnabled: journalStepEnabled(mode),
         calendarEnabled: preferences.enableCalendar,
         horoscopeEnabled: preferences.enableHoroscope,
       }),
       link ?? { date: null, mode: null, step: null },
-    ),
-  );
+    );
+  });
 
   // So "New Task" opened from this tab defaults its schedule to the viewed day,
   // the same contract Today and Week publish. Following a link to an old
@@ -104,13 +115,16 @@ export default function RitualScreen() {
   if (!today.equals(lastToday)) {
     setLastToday(today);
     if (state.date.equals(lastToday)) {
-      setState((current) =>
-        createRitualState(today, currentRitualMode(), {
-          journalEnabled: current.journalEnabled,
+      setState((current) => {
+        const mode = currentRitualMode();
+        return createRitualState(today, mode, {
+          // Re-derived, not carried: the flag is per-ritual, and a rollover can
+          // cross into the other one.
+          journalEnabled: journalStepEnabled(mode),
           calendarEnabled: current.calendarEnabled,
           horoscopeEnabled: current.horoscopeEnabled,
-        }),
-      );
+        });
+      });
     }
   }
 
@@ -137,9 +151,11 @@ export default function RitualScreen() {
   // unremarkable. One `if` per preference, and deliberately not merged: they
   // change independently, and each transition already returns its input when
   // its own flag hasn't moved.
-  if (state.journalEnabled !== preferences.enableJournal) {
+  // The journal's also follows the **mode**, so AM↔PM can add or drop the step.
+  // Read `current.mode` inside the updater to survive the stale-state pass.
+  if (state.journalEnabled !== journalStepEnabled(state.mode)) {
     setState((current) =>
-      withJournalEnabled(current, preferences.enableJournal),
+      withJournalEnabled(current, journalStepEnabled(current.mode)),
     );
   }
   if (state.calendarEnabled !== preferences.enableCalendar) {

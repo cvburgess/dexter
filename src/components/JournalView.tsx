@@ -4,6 +4,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { TJournal, TJournalPrompt } from "@/api/journals";
 import { useJournals } from "@/hooks/useJournals";
+import { promptPeriod } from "@/utils/journalPrompts";
+import type { TRitualMode } from "@/utils/ritualSteps";
 import { useTheme } from "@/utils/theme";
 
 import { EmptyScreen } from "./EmptyScreen";
@@ -13,6 +15,8 @@ import { TextInput } from "./TextInput";
 type TJournalViewProps = {
   /** ISO date (YYYY-MM-DD) of the day whose journal is shown. */
   date: string;
+  /** Which ritual is asking (DEX-151). Only this period's prompts render. */
+  mode: TRitualMode;
   /** Fired as a response field gains/loses focus, so the host can disable
    * day-swipe while editing. */
   onEditingChange?: (editing: boolean) => void;
@@ -49,26 +53,45 @@ const responseHeight = (lines: number, spacing: number) =>
  * persists until the user answers. Remounted per date by `SwipeablePage` (keyed
  * on the day), which re-seeds the uncontrolled inputs when the day changes.
  */
-export function JournalView({ date, onEditingChange }: TJournalViewProps) {
-  const [journal, { isLoading, upsertJournalAsync }] = useJournals(date);
+export function JournalView({
+  date,
+  mode,
+  onEditingChange,
+}: TJournalViewProps) {
+  const [journal, { isLoading, exists, upsertJournalAsync }] =
+    useJournals(date);
 
   if (isLoading) return <LoadingScreen />;
 
-  if (journal.prompts.length === 0) {
-    return <EmptyScreen message="Add journal prompts in Settings → Journal" />;
+  // Positions into the **stored** array — everything downstream indexes the
+  // whole day, and only the render loop walks this list.
+  const visible = journal.prompts.flatMap((entry, index) =>
+    promptPeriod(entry) === mode ? [index] : [],
+  );
+
+  if (visible.length === 0) {
+    // Two different nothings: an existing day predates this ritual's prompts,
+    // a missing one means the template has none (rare — `stepsFor` drops it).
+    return (
+      <EmptyScreen
+        message={
+          exists
+            ? `This day was started before you had any ${mode === "pm" ? "evening" : "morning"} prompts.`
+            : `Add ${mode === "pm" ? "an evening" : "a morning"} prompt in Settings → Ritual`
+        }
+      />
+    );
   }
 
-  // Mount the editor only once the day has loaded so its refs/inputs seed from
-  // the real prompts rather than the loading-time default (empty responses).
-  // Key it on the prompt labels so a template change (add/edit/delete a prompt
-  // in Settings) re-seeds a still-mounted editor — the Today screen stays
-  // mounted across tab switches, so without this the frozen refs would diverge
-  // from the rendered inputs and a save would drop the new/renamed prompt.
-  // Response-only edits keep the labels, so autosaves don't remount.
+  // Keyed on each label and its period so a template change re-seeds a
+  // still-mounted editor; response-only edits keep both, so autosaves don't remount.
   return (
     <JournalEditor
-      key={JSON.stringify(journal.prompts.map((p) => p.prompt))}
+      key={JSON.stringify(
+        journal.prompts.map((p) => [p.prompt, promptPeriod(p)]),
+      )}
       prompts={journal.prompts}
+      visible={visible}
       upsertJournalAsync={upsertJournalAsync}
       onEditingChange={onEditingChange}
     />
@@ -76,7 +99,10 @@ export function JournalView({ date, onEditingChange }: TJournalViewProps) {
 }
 
 type TJournalEditorProps = {
+  /** **The whole day**, never the rendered subset. See `handleChangeResponse`. */
   prompts: TJournalPrompt[];
+  /** Indices into `prompts` to render: the ritual on screen's own. */
+  visible: number[];
   upsertJournalAsync: (diff: {
     prompts: TJournalPrompt[];
   }) => Promise<TJournal>;
@@ -85,6 +111,7 @@ type TJournalEditorProps = {
 
 function JournalEditor({
   prompts,
+  visible,
   upsertJournalAsync,
   onEditingChange,
 }: TJournalEditorProps) {
@@ -140,12 +167,11 @@ function JournalEditor({
   const handleChangeResponse = useCallback(
     (index: number, text: string) => {
       responsesRef.current[index] = text;
-      // Rebuild the full array on every edit: `upsertJournal({ prompts })`
-      // replaces the whole jsonb column, so a partial array would drop the other
-      // responses. Labels are invariant for this mount (the editor is keyed on
-      // them), so reading them off the prop is safe.
+      // `upsertJournal` replaces the whole jsonb column, so rebuild from `prompts`
+      // — the whole day, not the rendered subset, or the other ritual's answers go.
       pendingRef.current = prompts.map((prompt, i) => ({
         prompt: prompt.prompt,
+        period: prompt.period,
         response: responsesRef.current[i],
       }));
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -188,11 +214,13 @@ function JournalEditor({
       }}
       keyboardShouldPersistTaps="handled"
     >
-      {prompts.map(({ prompt, response }, index) => (
+      {/* `index` is a position in the **stored** array, not on screen — the same
+          number `handleChangeResponse`, `responsesRef` and the testID use. */}
+      {visible.map((index) => (
         <JournalResponseField
           key={index}
-          prompt={prompt}
-          response={response}
+          prompt={prompts[index].prompt}
+          response={prompts[index].response}
           onBlur={() => {
             flush();
             onEditingChange?.(false);

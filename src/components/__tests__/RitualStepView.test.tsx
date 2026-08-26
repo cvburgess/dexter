@@ -2,7 +2,11 @@ import { Temporal } from "@js-temporal/polyfill";
 import { render, screen } from "@testing-library/react-native";
 
 import { RitualStepView } from "@/components/RitualStepView";
-import { RITUAL_STEPS, type TRitualStep } from "@/utils/ritualSteps";
+import {
+  RITUAL_STEPS,
+  type TRitualMode,
+  type TRitualStep,
+} from "@/utils/ritualSteps";
 
 // The real view needs `useJournals` (and so a query client and a session); this
 // test is about which branch the seam picks, not what the journal renders.
@@ -144,9 +148,14 @@ jest.mock("@/components/PreviewTomorrowStep", () => {
 
 const DATE = Temporal.PlainDate.from("2026-08-09");
 
-const renderStep = (step: TRitualStep) =>
+const renderStep = (step: TRitualStep, mode: TRitualMode = "am") =>
   render(
-    <RitualStepView date={DATE} onEditingChange={jest.fn()} step={step} />,
+    <RitualStepView
+      date={DATE}
+      mode={mode}
+      onEditingChange={jest.fn()}
+      step={step}
+    />,
   );
 
 beforeEach(() => {
@@ -180,6 +189,7 @@ describe("RitualStepView", () => {
     render(
       <RitualStepView
         date={DATE}
+        mode="am"
         onEditingChange={onEditingChange}
         step={{ id: "journal", title: "Journal" }}
       />,
@@ -235,11 +245,22 @@ describe("RitualStepView", () => {
   // Unlike `review` two steps back, this one lists *open* tasks, so its cards
   // rename and the swipe has to be suspendable — passed unwrapped for the same
   // reason the journal's is.
+  // The journal is the one step whose content depends on which ritual is
+  // running — the same id asks a different set of questions in each (DEX-151).
+  it("tells the journal which ritual is asking", () => {
+    renderStep({ id: "journal", title: "Journal" }, "pm");
+
+    expect(mockJournalView).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: "pm" }),
+    );
+  });
+
   it("hands the preview tomorrow step the editing callback, unwrapped", () => {
     const onEditingChange = jest.fn();
     render(
       <RitualStepView
         date={DATE}
+        mode="am"
         onEditingChange={onEditingChange}
         step={{ id: "preview-tomorrow", title: "Preview tomorrow" }}
       />,
@@ -263,6 +284,7 @@ describe("RitualStepView", () => {
     render(
       <RitualStepView
         date={other}
+        mode="am"
         onEditingChange={jest.fn()}
         step={{ id: "horoscope", title: "Horoscope" }}
       />,
