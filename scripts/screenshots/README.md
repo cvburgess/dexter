@@ -113,10 +113,9 @@ neither `date` nor `mode` is present, so the link reads as an ordinary tab press
 and will not close a backlog drawer the previous shot left open. Every Today row
 in `screens.tsv` carries an explicit `mode=` and a distinct `n=` nonce.
 
-**Ritual screenshots must be captured before noon.** The tab picks morning vs
-evening from the wall clock (`modeForHour`), and `simctl status_bar` fakes only
-the *displayed* time, not `Date.now()`. `capture.sh` refuses rather than silently
-shooting the evening flow.
+**Time of day does not matter.** The Ritual tab picks morning vs evening from
+the wall clock, but a deep link's `?mode=` wins over it — every ritual row in
+`screens.tsv` pins `mode=am`, so an afternoon run still shoots the morning flow.
 
 **`hideKeyboard` does not work on the login inputs** — they are the app's own
 `TextInput`. `flows/login.yaml` taps static text to dismiss instead.

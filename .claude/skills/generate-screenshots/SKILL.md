@@ -35,10 +35,6 @@ Maestro at runtime.
 
 The script checks this and refuses otherwise, but doing it first saves a cycle.
 
-**Run before noon.** The Ritual tab picks morning vs evening from the wall clock,
-and no simulator setting can fake `Date.now()`. The script refuses after 12:00
-local rather than silently capturing the evening flow.
-
 ## Reconciling the demo data
 
 This is the part worth thinking about, and the reason this skill still exists.
