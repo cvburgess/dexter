@@ -15,7 +15,7 @@ Bump the app version in all required files and write release notes to `CHANGELOG
 
 1. **Parse the version** from `$ARGUMENTS`. It should be a valid semver string (e.g., `1.2.0`). If no version is provided, ask the user for one.
 
-2. **Check if this is a resubmission.** Read `src/app.config.ts` — if the version already matches, ask: "Version is already X.Y.Z. Is this a resubmission after an App Store rejection?" If yes, skip to Part 2.
+2. **Check if this is a resubmission.** Read `src/app.json` — if the version already matches, ask: "Version is already X.Y.Z. Is this a resubmission after an App Store rejection?" If yes, skip to Part 2.
 
 3. **Run npm version** to update `package.json` and `package-lock.json`:
 
@@ -23,9 +23,9 @@ Bump the app version in all required files and write release notes to `CHANGELOG
    cd src && npm version <new-version> --no-git-tag-version
    ```
 
-4. **Update app.config.ts** — change the `"version"` field to the new version.
+4. **Update `src/app.json`** — change `expo.version` to the new version. (`src/app.config.ts` has no version field; it returns the `expo` object from `app.json`.)
 
-5. **Verify** by reading `src/package.json` and `src/app.config.ts` to confirm all files show the new version.
+5. **Verify** by reading all three files — `src/package.json`, `src/package-lock.json`, and `src/app.json`. Every one must show the new version. If any still shows the old one, fix it and re-read before moving on to Part 2.
 
 ### Part 2: Generate release notes
 
@@ -79,7 +79,7 @@ Bump the app version in all required files and write release notes to `CHANGELOG
 
 ## Important
 
-- Three files must be updated: `src/package.json`, `src/package-lock.json`, and `src/app.config.ts`
+- Three files must be updated: `src/package.json`, `src/package-lock.json`, and `src/app.json`
 - Do not create a git commit or git tag as part of this skill
 - Do not fabricate features — every bullet must trace to a real PR or commit
 - Bullet points are also used for iOS/Android app store release notes — keep them concise
