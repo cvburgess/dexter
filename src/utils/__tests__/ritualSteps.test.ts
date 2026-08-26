@@ -654,4 +654,61 @@ describe("withLink", () => {
     expect(withLink(before, { date: null, step: "journal" })).toBe(before);
     expect(withLink(before, { date: null, step: "review" })).toBe(before);
   });
+
+  it("switches ritual when the link names a mode", () => {
+    const next = withLink(state(), { date: null, mode: "pm", step: null });
+
+    expect(next.mode).toBe("pm");
+  });
+
+  // The ordering rule this function exists to hold: `withMode` restarts the
+  // ritual at step 0, so applying the mode after the step would silently
+  // discard the step. `review` is evening-only, which is what makes this fail
+  // loudly if the order is ever flipped.
+  it("applies the mode before the step, not after", () => {
+    const next = withLink(state(), {
+      date: null,
+      mode: "pm",
+      step: "review",
+    });
+
+    expect(next.mode).toBe("pm");
+    expect(currentStep(next).title).toBe("Review");
+    expect(next.step).not.toBe(0);
+  });
+
+  // The screenshot run's case: horoscope exists only in the morning, so a link
+  // naming it has to be able to reach it from an evening state.
+  it("reaches a morning-only step from the evening ritual", () => {
+    const evening = state({ mode: "pm", step: 2 });
+
+    const next = withLink(evening, {
+      date: null,
+      mode: "am",
+      step: "horoscope",
+    });
+
+    expect(next.mode).toBe("am");
+    expect(currentStep(next).title).toBe("Horoscope");
+  });
+
+  it("still applies the date alongside a mode", () => {
+    const next = withLink(state(), {
+      date: DATE.add({ days: 1 }),
+      mode: "pm",
+      step: "review",
+    });
+
+    expect(next.date.toString()).toBe("2026-08-10");
+    expect(next.mode).toBe("pm");
+    expect(currentStep(next).title).toBe("Review");
+  });
+
+  it("returns the same state when the named mode is already current", () => {
+    const before = state({ step: 2 });
+
+    expect(withLink(before, { date: null, mode: "am", step: null })).toBe(
+      before,
+    );
+  });
 });

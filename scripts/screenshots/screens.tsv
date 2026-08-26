@@ -1,0 +1,28 @@
+# The App Store screenshot set, one row per capture.
+#
+# Columns (tab-separated): device  index  name  link  anchor_by  anchor
+#
+#   device     matches a profile in capture.sh (iphone | ipad)
+#   index      filename prefix; also the `n=` nonce on the deep link
+#   name       filename stem — output is www/src/assets/screenshots/<device>/<index>-<name>.png
+#   link       a dexter:// deep link; see src/utils/todayRoute.ts and ritualRoute.ts
+#   anchor_by  id | text  — prefer id; a text anchor is compiled to a regex
+#   anchor     the selector proving the screen rendered before we shoot it
+#
+# Every Today link carries an explicit `mode=` and a distinct `n=`. A bare
+# `dexter://today` parses to a null link (parseDayLink) and reads as an ordinary
+# tab press, which would leave the previous shot's backlog drawer open.
+#
+# Adding a screenshot is a row here, not a new flow file. Order is capture order.
+# src/__tests__/screenshots/screensManifest.test.ts checks every link still parses.
+
+iphone	01	today	dexter://today?mode=tasks&n=1	text	Reply to beta tester feedback
+iphone	02	backlog	dexter://today?mode=backlog&n=2	id	drawer-controls
+iphone	03	ritual-journal	dexter://ritual?mode=am&step=journal&n=3	text	Today I am grateful for
+iphone	04	ritual-horoscope	dexter://ritual?mode=am&step=horoscope&n=4	id	horoscope-panel
+iphone	05	new-task	dexter://new-task	id	new-task-title
+
+ipad	01	today	dexter://today?mode=tasks&n=1	text	Reply to beta tester feedback
+ipad	02	week	dexter://week	id	week-column-.*
+ipad	03	backlog	dexter://today?mode=backlog&n=3	id	drawer-controls
+ipad	04	ritual-journal	dexter://ritual?mode=am&step=journal&n=4	text	Today I am grateful for

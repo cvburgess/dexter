@@ -2,6 +2,7 @@ import { Temporal } from "@js-temporal/polyfill";
 
 import {
   parseRitualLink,
+  parseRitualMode,
   parseRitualStep,
   ritualRoute,
 } from "@/utils/ritualRoute";
@@ -20,13 +21,37 @@ describe("ritualRoute", () => {
     );
   });
 
-  // Deliberate: the journal is a step of both rituals, so the tab picks the
-  // morning or evening flow by the clock rather than the link pinning one.
-  it("names a step but never a mode", () => {
+  // The journal is a step of both rituals, and a link that says nothing about
+  // which one lets the clock decide — what a search result wants.
+  it("leaves the ritual to the clock when no mode is named", () => {
     expect(ritualRoute({ step: "journal" })).toEqual({
       pathname: "/ritual",
       params: { step: "journal" },
     });
+  });
+
+  it("pins the ritual when a mode is named", () => {
+    expect(ritualRoute({ mode: "am", step: "horoscope" })).toEqual({
+      pathname: "/ritual",
+      params: { mode: "am", step: "horoscope" },
+    });
+  });
+});
+
+describe("parseRitualMode", () => {
+  it.each(["am", "pm"] as const)("accepts %s", (mode) => {
+    expect(parseRitualMode(mode)).toBe(mode);
+  });
+
+  it("rejects anything else rather than passing it through", () => {
+    expect(parseRitualMode("morning")).toBeNull();
+    expect(parseRitualMode("AM")).toBeNull();
+    expect(parseRitualMode("")).toBeNull();
+    expect(parseRitualMode(undefined)).toBeNull();
+  });
+
+  it("takes the first value when a param is repeated in the URL", () => {
+    expect(parseRitualMode(["pm", "am"])).toBe("pm");
   });
 });
 
@@ -108,5 +133,24 @@ describe("parseRitualLink", () => {
     // Nothing to apply, so it reads as an ordinary tab press rather than
     // producing a link the screen would try (and fail) to honor.
     expect(parseRitualLink({ step: "not-a-step", n: "1" })).toBeNull();
+  });
+
+  it("reads a mode, and treats one on its own as a link worth applying", () => {
+    const link = parseRitualLink({ mode: "am", n: "1" });
+
+    expect(link?.mode).toBe("am");
+    expect(link?.step).toBeNull();
+  });
+
+  it("gives links that differ only by mode different ids", () => {
+    // Both name the same step on the same nonce, so a mode left out of the id
+    // would make the second link look like the first and never be applied.
+    expect(
+      parseRitualLink({ mode: "am", step: "journal", n: "1" })?.id,
+    ).not.toBe(parseRitualLink({ mode: "pm", step: "journal", n: "1" })?.id);
+  });
+
+  it("drops an unrecognized mode rather than passing it through", () => {
+    expect(parseRitualLink({ mode: "morning", n: "1" })).toBeNull();
   });
 });

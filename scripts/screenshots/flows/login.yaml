@@ -1,0 +1,68 @@
+# Sign the demo account in on a freshly launched app.
+#
+# The OTP is never written here — it is a Supabase function secret. It arrives
+# as `MAESTRO_DEMO_OTP` in the environment: Maestro exposes shell variables with
+# that prefix to flows automatically, which keeps the secret out of the process
+# arguments where `-e DEMO_OTP=…` would leave it visible in `ps` for the whole
+# run. The demo email short-circuits the magic-link send in
+# `app/(auth)/login.tsx`, so the code field appears immediately and no mailbox
+# is involved.
+#
+# Selectors are `id:` throughout on purpose. Maestro compiles a `text:` selector
+# to a *regular expression*, which is how an earlier attempt at this spent ten
+# minutes failing to match a label containing a `+`. See ../README.md.
+appId: com.dexterplanner
+---
+# clearState so a rerun never inherits a half-finished login, and so the capture
+# set is identical whether or not the app was already installed.
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+
+# A springboard alert outlives `clearState` — the app relaunches *behind* it. So
+# a run that died mid-capture leaves its "Open in “Dexter”?" prompt sitting over
+# the login screen, and the next run cannot see `login-email-input` at all.
+# Cancel rather than Open: at this point the stale link is not one we want.
+- runFlow:
+    when:
+      visible: "Open in .Dexter.*"
+    commands:
+      - tapOn: "^Cancel$"
+
+# AlarmKit has no simctl privacy service, so its dialog is granted here rather
+# than pre-seeded — up front, where it cannot appear mid-capture.
+- tapOn:
+    text: "Allow"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "login-email-input"
+    timeout: 30000
+- tapOn:
+    id: "login-email-input"
+- inputText: "demo@dexterplanner.com"
+# `hideKeyboard` does not work against these inputs (the app's own TextInput,
+# not a system one). Tapping the static subtitle dismisses the keyboard instead.
+- tapOn:
+    text: "Sign up or log in to start planning"
+    optional: true
+- tapOn:
+    id: "login-email-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "login-code-input"
+    timeout: 30000
+- tapOn:
+    id: "login-code-input"
+- inputText: ${MAESTRO_DEMO_OTP}
+- tapOn:
+    id: "login-verify-button"
+
+# The login screen unmounting is the signal that setSession landed.
+- extendedWaitUntil:
+    notVisible:
+      id: "login-verify-button"
+    timeout: 30000

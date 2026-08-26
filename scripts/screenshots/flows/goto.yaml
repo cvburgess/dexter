@@ -1,0 +1,74 @@
+# Navigate to one screen and wait for it to settle, ready to be captured.
+#
+# Parameterised by `capture.sh` from a row of ../screens.tsv:
+#   LINK      a `dexter://` deep link (utils/todayRoute.ts, ritualRoute.ts, …)
+#   ANCHOR    the selector that proves the screen actually rendered
+#   ANCHOR_BY "id" or "text"
+#
+# Deep links rather than tapping the DayViewSwitcher: a percentage-coordinate
+# tap tuned for a 6.9" phone lands nowhere on a 13" iPad, and the switcher's
+# contents have already moved once (Journal left the Today tab in DEX-105).
+#
+# Prefer ANCHOR_BY=id. A `text:` anchor is compiled to a regular expression, so
+# any of `+ ( ) ? . * [ ]` in it must be escaped — see ../README.md.
+appId: com.dexterplanner
+---
+# The task drawer is presented imperatively (`taskDrawerRef.current.present()`
+# in SmallScreenToday) and nothing ever dismisses it — not a `?mode=tasks` link,
+# not navigating to another tab. So on a phone it stays up over whatever the
+# next link opens, and because iOS marks everything behind a presented sheet
+# inaccessible, the next anchor reads as invisible even when it is plainly on
+# screen. Swipe it away before navigating.
+#
+# Only where the drawer is a sheet. On a tablet it is a docked pane, and the
+# same swipe would land in the middle of the notes pane and scroll it.
+- runFlow:
+    when:
+      true: ${DRAWER == "sheet"}
+      visible:
+        id: "drawer-controls"
+    commands:
+      - swipe:
+          start: "50%,35%"
+          end: "50%,95%"
+      - extendedWaitUntil:
+          notVisible:
+            id: "drawer-controls"
+          timeout: 10000
+
+- openLink: ${LINK}
+
+# iOS 26 confirms every custom-scheme link opened from outside the app with an
+# "Open in “Dexter”?" springboard alert, and `openLink` goes through
+# `simctl openurl`, so it always fires. Guarded on the alert's own title rather
+# than tapping a bare optional "Open" — that would be a regex free to match
+# anything in the app named Open once the alert is gone.
+- runFlow:
+    when:
+      visible: "Open in .Dexter.*"
+    commands:
+      - tapOn: "^Open$"
+
+- runFlow:
+    when:
+      true: ${ANCHOR_BY == "id"}
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: ${ANCHOR}
+          timeout: 30000
+
+- runFlow:
+    when:
+      true: ${ANCHOR_BY == "text"}
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: ${ANCHOR}
+          timeout: 30000
+
+# Let entrance animations and any lazy list work finish before the shell takes
+# the screenshot. Maestro's own settle heuristics cover taps, not the frame
+# after a cross-tab navigation.
+- waitForAnimationToEnd:
+    timeout: 5000

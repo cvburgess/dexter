@@ -42,12 +42,13 @@ import {
 export default function RitualScreen() {
   const multiPane = useIsLargeDevice();
   const [preferences] = usePreferences();
-  // `?date=&step=&n=` — the deep-link contract a journal search result builds
-  // (`utils/ritualRoute.ts`, DEX-105). Null for an ordinary tab press. Typed
-  // loosely on purpose: `useLocalSearchParams` hands back a `string[]` for a
-  // repeated key, so `parseRitualLink` narrows rather than trusting the shape.
+  // `?date=&mode=&step=&n=` — the deep-link contract a journal search result
+  // builds (`utils/ritualRoute.ts`, DEX-105). Null for an ordinary tab press.
+  // Typed loosely on purpose: `useLocalSearchParams` hands back a `string[]` for
+  // a repeated key, so `parseRitualLink` narrows rather than trusting the shape.
   const params = useLocalSearchParams<{
     date?: string | string[];
+    mode?: string | string[];
     step?: string | string[];
     n?: string | string[];
   }>();
@@ -70,7 +71,7 @@ export default function RitualScreen() {
         calendarEnabled: preferences.enableCalendar,
         horoscopeEnabled: preferences.enableHoroscope,
       }),
-      link ?? { date: null, step: null },
+      link ?? { date: null, mode: null, step: null },
     ),
   );
 
