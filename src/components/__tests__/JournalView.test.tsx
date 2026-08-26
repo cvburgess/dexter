@@ -20,17 +20,19 @@ const setup = ({
   prompts = [],
   isLoading = false,
   mode = "am",
+  mood = null,
   exists,
   onEditingChange,
 }: {
   prompts?: TJournalPrompt[];
   isLoading?: boolean;
   mode?: TRitualMode;
+  mood?: number | null;
   exists?: boolean;
   onEditingChange?: (editing: boolean) => void;
 } = {}) => {
   mockUseJournals.mockReturnValue([
-    { date: "2026-07-12", prompts },
+    { date: "2026-07-12", prompts, mood },
     {
       isLoading,
       exists: exists ?? prompts.length > 0,
@@ -354,6 +356,59 @@ describe("JournalView", () => {
 
       const measured = heightOf(screen.getByTestId("journal-response-0"));
       expect(measured).toBeLessThan(seeded as number);
+    });
+  });
+
+  describe("mood (DEX-191)", () => {
+    it("offers all five faces above the prompts", () => {
+      const screen = setup({
+        prompts: [{ prompt: "How was today?", response: "" }],
+      });
+
+      [1, 2, 3, 4, 5].forEach((rating) =>
+        expect(screen.getByTestId(`mood-face-${rating}`)).toBeTruthy(),
+      );
+    });
+
+    it("saves a tapped face immediately, without the response debounce", () => {
+      const screen = setup({
+        prompts: [{ prompt: "How was today?", response: "" }],
+      });
+
+      fireEvent.press(screen.getByTestId("mood-face-4"));
+
+      expect(mockUpsertJournal).toHaveBeenCalledWith({ mood: 4 });
+    });
+
+    it("marks the saved face selected and leaves every face tappable", () => {
+      const screen = setup({
+        prompts: [{ prompt: "How was today?", response: "" }],
+        mood: 2,
+      });
+
+      expect(
+        screen.getByTestId("mood-face-2").props.accessibilityState.selected,
+      ).toBe(true);
+      expect(
+        screen.getByTestId("mood-face-5").props.accessibilityState.selected,
+      ).toBe(false);
+
+      fireEvent.press(screen.getByTestId("mood-face-5"));
+      expect(mockUpsertJournal).toHaveBeenCalledWith({ mood: 5 });
+    });
+
+    // A day whose stored prompts predate this ritual's is the one place the
+    // step renders with nothing to write in — a mood is still recordable.
+    it("still offers the scale when this ritual has no prompts on the day", () => {
+      const screen = setup({
+        prompts: [{ prompt: "Morning only", response: "", period: "am" }],
+        mode: "pm",
+        exists: true,
+      });
+
+      expect(screen.queryByTestId("journal-response-0")).toBeNull();
+      fireEvent.press(screen.getByTestId("mood-face-3"));
+      expect(mockUpsertJournal).toHaveBeenCalledWith({ mood: 3 });
     });
   });
 });

@@ -44,6 +44,7 @@ const prompts = [{ prompt: "Highlight", response: "shipped it" }];
 const row = {
   date: "2026-07-12",
   prompts,
+  mood: null,
   user_id: "user-1",
   created_at: "2026-07-12T00:00:00Z",
 };
@@ -67,6 +68,19 @@ describe("getJournal", () => {
     const journal = await getJournal(supabase, "2026-07-12");
 
     expect(journal?.prompts).toEqual([]);
+  });
+
+  it("passes a stored mood through, and keeps an unanswered one null", async () => {
+    const scored = makeSelectClient({ ...row, mood: 4 });
+    await expect(getJournal(scored.supabase, "2026-07-12")).resolves.toEqual(
+      expect.objectContaining({ mood: 4 }),
+    );
+
+    // Unanswered is a real state, so `mood` is the one field never coerced.
+    const blank = makeSelectClient(row);
+    await expect(getJournal(blank.supabase, "2026-07-12")).resolves.toEqual(
+      expect.objectContaining({ mood: null }),
+    );
   });
 
   it("returns null when the day has no row", async () => {
@@ -100,6 +114,19 @@ describe("upsertJournal", () => {
     );
     expect(journal).toEqual(
       expect.objectContaining({ date: "2026-07-12", prompts }),
+    );
+  });
+
+  it("sends a mood-only diff without touching the prompts column", async () => {
+    const { upsert, supabase } = makeUpsertClient({ ...row, mood: 5 });
+
+    await upsertJournal(supabase, { date: "2026-07-12", mood: 5 });
+
+    // Columns absent from the payload keep their stored value on conflict, so
+    // scoring a day can never clear what was written in it.
+    expect(upsert).toHaveBeenCalledWith(
+      { date: "2026-07-12", mood: 5 },
+      { onConflict: "user_id,date" },
     );
   });
 

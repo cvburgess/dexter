@@ -1561,8 +1561,58 @@ Deno.test("get_journal returns an empty prompt array for a date with no row", as
   assertEquals(JSON.parse(result.content[0].text), {
     date: "2026-07-12",
     prompts: [],
+    mood: null,
     user_id: NOTE_USER,
   });
+});
+
+Deno.test("upsert_journal writes a mood on its own", async () => {
+  const supabase = new FakeSupabase();
+
+  await journalTools(supabase).run("upsert_journal", {
+    date: "2026-07-12",
+    mood: 4,
+  });
+
+  // No `prompts` key: columns absent from the payload keep their stored value
+  // on conflict, so scoring a day never clears what was written in it.
+  assertEquals(supabase.lastBuilder?.payload, {
+    date: "2026-07-12",
+    user_id: NOTE_USER,
+    mood: 4,
+  });
+});
+
+// `compactUpdate` drops only `undefined`, which is what makes an explicit null
+// the way to clear a score rather than a no-op.
+Deno.test("upsert_journal clears a mood with an explicit null", async () => {
+  const supabase = new FakeSupabase();
+
+  await journalTools(supabase).run("upsert_journal", {
+    date: "2026-07-12",
+    mood: null,
+  });
+
+  assertEquals(supabase.lastBuilder?.payload, {
+    date: "2026-07-12",
+    user_id: NOTE_USER,
+    mood: null,
+  });
+});
+
+Deno.test("upsert_journal rejects a mood outside 1-5", () => {
+  const registry = journalTools(new FakeSupabase());
+  const mood = registry.tools.get("upsert_journal")!.inputSchema!.mood as {
+    safeParse: (value: unknown) => { success: boolean };
+  };
+
+  // `journals_mood_range` enforces the same bounds, so a wider schema would
+  // only trade a clear error for a 400.
+  assertEquals(mood.safeParse(0).success, false);
+  assertEquals(mood.safeParse(6).success, false);
+  assertEquals(mood.safeParse(2.5).success, false);
+  assertEquals(mood.safeParse(3).success, true);
+  assertEquals(mood.safeParse(null).success, true);
 });
 
 Deno.test("upsert_journal accepts any prompt set the app can legitimately store", () => {

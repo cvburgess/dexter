@@ -102,6 +102,7 @@ describe("useJournals", () => {
     mockGetJournal.mockResolvedValue({
       date: "2026-07-12",
       prompts: [{ prompt: "Highlight", response: "kept" }],
+      mood: null,
     });
 
     const { result } = renderHook(() => useJournals("2026-07-12"), {
@@ -116,10 +117,83 @@ describe("useJournals", () => {
     ]);
   });
 
+  // `journals.prompts` defaults to `[]`, and the template only fills in while
+  // the day has no row — so a mood that inserted the row alone would strand the
+  // day on an empty journal it never got seeded with.
+  describe("mood (DEX-191)", () => {
+    it("carries the seeded prompts when a mood creates the day's row", async () => {
+      setTemplatePrompts([amPrompt("Highlight")]);
+      mockGetJournal.mockResolvedValue(null);
+      mockUpsertJournal.mockResolvedValue({
+        date: "2026-07-12",
+        prompts: [{ prompt: "Highlight", response: "", period: "am" }],
+        mood: 4,
+      });
+
+      const { result } = renderHook(() => useJournals("2026-07-12"), {
+        wrapper: createWrapper().wrapper,
+      });
+      await waitFor(() => expect(result.current[1].isLoading).toBe(false));
+
+      act(() => result.current[1].upsertJournal({ mood: 4 }));
+
+      await waitFor(() =>
+        expect(mockUpsertJournal).toHaveBeenCalledWith(expect.anything(), {
+          date: "2026-07-12",
+          mood: 4,
+          prompts: [{ prompt: "Highlight", response: "", period: "am" }],
+        }),
+      );
+    });
+
+    it("leaves the stored prompts alone once the day has a row", async () => {
+      setTemplatePrompts([amPrompt("Highlight")]);
+      mockGetJournal.mockResolvedValue({
+        date: "2026-07-12",
+        prompts: [{ prompt: "Highlight", response: "kept" }],
+        mood: null,
+      });
+      mockUpsertJournal.mockResolvedValue({
+        date: "2026-07-12",
+        prompts: [{ prompt: "Highlight", response: "kept" }],
+        mood: 2,
+      });
+
+      const { result } = renderHook(() => useJournals("2026-07-12"), {
+        wrapper: createWrapper().wrapper,
+      });
+      await waitFor(() => expect(result.current[1].exists).toBe(true));
+
+      act(() => result.current[1].upsertJournal({ mood: 2 }));
+
+      await waitFor(() =>
+        expect(mockUpsertJournal).toHaveBeenCalledWith(expect.anything(), {
+          date: "2026-07-12",
+          mood: 2,
+        }),
+      );
+    });
+
+    it("defaults an unwritten day's mood to null", async () => {
+      mockGetJournal.mockResolvedValue(null);
+
+      const { result } = renderHook(() => useJournals("2026-07-12"), {
+        wrapper: createWrapper().wrapper,
+      });
+
+      await waitFor(() => expect(result.current[1].isLoading).toBe(false));
+      expect(result.current[0].mood).toBeNull();
+    });
+  });
+
   it("upserts the diff together with the day's date", async () => {
     mockGetJournal.mockResolvedValue(null);
     const prompts = [{ prompt: "Highlight", response: "shipped it" }];
-    mockUpsertJournal.mockResolvedValue({ date: "2026-07-12", prompts });
+    mockUpsertJournal.mockResolvedValue({
+      date: "2026-07-12",
+      prompts,
+      mood: null,
+    });
 
     const { result } = renderHook(() => useJournals("2026-07-12"), {
       wrapper: createWrapper().wrapper,
@@ -143,7 +217,7 @@ describe("useJournals", () => {
     const prompts = [{ prompt: "Highlight", response: "typed" }];
     mockUpsertJournal
       .mockRejectedValueOnce(new Error("blip"))
-      .mockResolvedValueOnce({ date: "2026-07-12", prompts });
+      .mockResolvedValueOnce({ date: "2026-07-12", prompts, mood: null });
 
     const { result } = renderHook(() => useJournals("2026-07-12"), {
       wrapper: createWrapper().wrapper,
@@ -209,7 +283,7 @@ describe("useJournals", () => {
       ).toBe(1),
     );
 
-    resolveUpsert({ date: "2026-07-12", prompts: [] });
+    resolveUpsert({ date: "2026-07-12", prompts: [], mood: null });
     await waitFor(() =>
       expect(
         client.isMutating({ mutationKey: journalsMutationKey("2026-07-12") }),

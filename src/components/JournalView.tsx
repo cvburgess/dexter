@@ -5,11 +5,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TJournal, TJournalPrompt } from "@/api/journals";
 import { useJournals } from "@/hooks/useJournals";
 import { promptPeriod } from "@/utils/journalPrompts";
+import type { TMoodRating } from "@/utils/mood";
 import type { TRitualMode } from "@/utils/ritualSteps";
 import { useTheme } from "@/utils/theme";
 
 import { EmptyScreen } from "./EmptyScreen";
 import { LoadingScreen } from "./LoadingScreen";
+import { MoodScale } from "./MoodScale";
 import { TextInput } from "./TextInput";
 
 type TJournalViewProps = {
@@ -58,10 +60,14 @@ export function JournalView({
   mode,
   onEditingChange,
 }: TJournalViewProps) {
-  const [journal, { isLoading, exists, upsertJournalAsync }] =
+  const [journal, { isLoading, exists, upsertJournal, upsertJournalAsync }] =
     useJournals(date);
 
   if (isLoading) return <LoadingScreen />;
+
+  // A discrete choice has nothing to debounce, and it writes only its own
+  // column — so it never races the editor's whole-array `prompts` save.
+  const changeMood = (mood: TMoodRating) => upsertJournal({ mood });
 
   // Positions into the **stored** array — everything downstream indexes the
   // whole day, and only the render loop walks this list.
@@ -72,6 +78,7 @@ export function JournalView({
   if (visible.length === 0) {
     // Two different nothings: an existing day predates this ritual's prompts,
     // a missing one means the template has none (rare — `stepsFor` drops it).
+    // The scale still renders: a mood is the one thing this day can record.
     return (
       <EmptyScreen
         message={
@@ -79,7 +86,9 @@ export function JournalView({
             ? `This day was started before you had any ${mode === "pm" ? "evening" : "morning"} prompts.`
             : `Add ${mode === "pm" ? "an evening" : "a morning"} prompt in Settings → Ritual`
         }
-      />
+      >
+        <MoodScale value={journal.mood} onChange={changeMood} />
+      </EmptyScreen>
     );
   }
 
@@ -92,6 +101,8 @@ export function JournalView({
       )}
       prompts={journal.prompts}
       visible={visible}
+      mood={journal.mood}
+      onChangeMood={changeMood}
       upsertJournalAsync={upsertJournalAsync}
       onEditingChange={onEditingChange}
     />
@@ -103,6 +114,8 @@ type TJournalEditorProps = {
   prompts: TJournalPrompt[];
   /** Indices into `prompts` to render: the ritual on screen's own. */
   visible: number[];
+  mood: number | null;
+  onChangeMood: (mood: TMoodRating) => void;
   upsertJournalAsync: (diff: {
     prompts: TJournalPrompt[];
   }) => Promise<TJournal>;
@@ -112,6 +125,8 @@ type TJournalEditorProps = {
 function JournalEditor({
   prompts,
   visible,
+  mood,
+  onChangeMood,
   upsertJournalAsync,
   onEditingChange,
 }: TJournalEditorProps) {
@@ -214,6 +229,7 @@ function JournalEditor({
       }}
       keyboardShouldPersistTaps="handled"
     >
+      <MoodScale value={mood} onChange={onChangeMood} />
       {/* `index` is a position in the **stored** array, not on screen — the same
           number `handleChangeResponse`, `responsesRef` and the testID use. */}
       {visible.map((index) => (
