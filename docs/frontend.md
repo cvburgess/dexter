@@ -427,6 +427,11 @@ lives on the palette (not just `THEMES`) for exactly this.
   — re-run all four checks afterward, and re-run `npx patch-package` for each patch
   in the same pass (a patch whose fix landed upstream stops applying: a warning
   locally, a hard failure in `npm ci`).
+- **The shipped version lives in `src/package.json`, not `app.json`** — `app.config.ts`
+  injects it, so `npm version` is the entire bump. `app.json` carried a second
+  copy until DEX-169, and the two drifted the moment anything bumped one and not
+  the other; don't add a `version` key back to it. (Build numbers are separate —
+  EAS owns those via `appVersionSource: "remote"`.)
 - Env: `.env.local` with `EXPO_PUBLIC_SUPABASE_URL` /
   `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` / `EXPO_PUBLIC_SENTRY_DSN` (see
   `src/README.md`). Regenerate DB types with `npm run supabase:types`.

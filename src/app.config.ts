@@ -1,9 +1,10 @@
 // DEX-85: opt-in Mac Catalyst build, gated behind `EXPO_MAC_CATALYST=1`.
 //
-// `app.json` remains the single source of truth — Expo passes its `expo` object
-// in as `config`, and when the flag is unset this file returns that object by
-// identity. Normal `expo prebuild` / `expo run:ios` / `eas build --platform ios`
-// are therefore bit-for-bit unaffected (no EAS profile sets this var).
+// `app.json` remains the source of truth for every field but one — Expo passes
+// its `expo` object in as `config`, and when the flag is unset this file returns
+// that object with only `version` layered on (see below). Normal
+// `expo prebuild` / `expo run:ios` / `eas build --platform ios` are therefore
+// unaffected by the Catalyst plumbing (no EAS profile sets this var).
 //
 // The flag is read *here and nowhere else*. A plugin that loads and then no-ops
 // still perturbs mod registration order, and mod order is load-bearing for the
@@ -12,6 +13,8 @@
 // Deliberately not named `EXPO_PUBLIC_*`: that prefix inlines the value into the
 // JS bundle, and this is a build-time-only switch.
 import type { ConfigContext, ExpoConfig } from "expo/config";
+
+import { version } from "./package.json";
 
 type TPluginEntry = NonNullable<ExpoConfig["plugins"]>[number];
 
@@ -81,10 +84,19 @@ const rewriteBuildProperties = (plugins: TPluginEntry[]): TPluginEntry[] => {
 };
 
 export default ({ config }: ConfigContext): ExpoConfig => {
-  if (process.env.EXPO_MAC_CATALYST !== "1") return config as ExpoConfig;
+  // The marketing version comes from `package.json`, so `npm version` is the
+  // only place a release bumps it. `app.json` used to carry its own copy, and
+  // the two drifted: `/bump-version` was editing a `version` field in *this*
+  // file that has never existed, so the step no-opped and whatever `app.json`
+  // already said is what shipped (DEX-169). Deliberately not the reverse
+  // direction — `npm version` writes `package.json` and `package-lock.json`
+  // together, and nothing keeps a hand-edited `app.json` in step with the lock.
+  const base: ExpoConfig = { ...(config as ExpoConfig), version };
+
+  if (process.env.EXPO_MAC_CATALYST !== "1") return base;
 
   return {
-    ...(config as ExpoConfig),
+    ...base,
     plugins: [
       // Drop the widget target. `@bacons/apple-targets` hardcodes
       // `TARGETED_DEVICE_FAMILY: "1,2"` on widget targets and never sets

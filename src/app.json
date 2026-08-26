@@ -2,7 +2,6 @@
   "expo": {
     "name": "Dexter",
     "slug": "dexter",
-    "version": "2.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "dexter",
