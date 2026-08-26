@@ -1,10 +1,7 @@
 import type { Href } from "expo-router";
 
 import { TSearchResult } from "@/api/search";
-import {
-  hasPromptsFor,
-  type TTemplatePrompt,
-} from "@/utils/journalPrompts";
+import { hasPromptsFor, type TTemplatePrompt } from "@/utils/journalPrompts";
 import { ritualRoute } from "@/utils/ritualRoute";
 import type { TRitualMode } from "@/utils/ritualSteps";
 // From the import-free leaf module rather than `utils/taskFilters`, which pulls

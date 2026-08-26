@@ -83,7 +83,8 @@ export default function RitualScreen() {
       drafts.length !== stored.length ||
       drafts.some(
         (draft, i) =>
-          draft.prompt !== stored[i].prompt || draft.period !== stored[i].period,
+          draft.prompt !== stored[i].prompt ||
+          draft.period !== stored[i].period,
       );
     if (changed) updatePreferences({ templatePrompts: drafts });
   };

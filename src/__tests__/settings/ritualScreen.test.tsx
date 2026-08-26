@@ -338,9 +338,9 @@ describe("RitualScreen", () => {
       // node are `any`, so returning the call would pick `act`'s async
       // overload and leave a floating promise.
       act(() => {
-        screen.UNSAFE_getAllByType(JournalPeriodMenu)[row].props.onChange(
-          period,
-        );
+        screen
+          .UNSAFE_getAllByType(JournalPeriodMenu)
+          [row].props.onChange(period);
       });
 
     it("offers one control per prompt, showing its current ritual", () => {
