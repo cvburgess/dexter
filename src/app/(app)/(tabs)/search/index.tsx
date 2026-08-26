@@ -89,8 +89,18 @@ export default function SearchScreen() {
   // still searchable but have no ritual step to land on (DEX-105).
   const [preferences] = usePreferences();
   const routeOptions = useMemo(
-    () => ({ enableJournal: preferences.enableJournal }),
-    [preferences.enableJournal],
+    () => ({
+      enableJournal: preferences.enableJournal,
+      // Which ritual a journal hit opens in, and whether it opens at all: since
+      // DEX-151 a ritual only has a Journal step if it has prompts of its own.
+      templatePrompts: preferences.templatePrompts,
+      templatePromptsPm: preferences.templatePromptsPm,
+    }),
+    [
+      preferences.enableJournal,
+      preferences.templatePrompts,
+      preferences.templatePromptsPm,
+    ],
   );
 
   // Whether the *field* holds a searchable query, as opposed to `enabled`, which

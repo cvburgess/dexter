@@ -26,7 +26,16 @@ jest.mock("@/hooks/useTemplates", () => ({ useTemplates: jest.fn() }));
 // (DEX-105). Unmocked it needs a query client this file doesn't build.
 const mockEnableJournal = { value: true };
 jest.mock("@/hooks/usePreferences", () => ({
-  usePreferences: () => [{ enableJournal: mockEnableJournal.value }, {}],
+  usePreferences: () => [
+    {
+      enableJournal: mockEnableJournal.value,
+      // A prompt in each ritual, so a journal hit has a step to open in
+      // whichever one the link names (DEX-151).
+      templatePrompts: ["Highlight"],
+      templatePromptsPm: ["What went well?"],
+    },
+    {},
+  ],
 }));
 // Both halves of this screen's safe-area handling are stubbed: the context (for
 // `useSafeAreaInsets`, which reserves the tab bar in the list's own content) and
@@ -403,7 +412,9 @@ describe("SearchScreen", () => {
   });
 
   // The journal moved to the Ritual tab (DEX-105), so this is the one result
-  // that opens a tab other than Today.
+  // that opens a tab other than Today. The link names the ritual too (DEX-151):
+  // "What went well?" is an evening prompt in the preferences mocked above, and
+  // the clock must not be allowed to land the tap in a flow without the step.
   it("opens a journal result on its day's ritual journal step", () => {
     mockUseSearch.mockReturnValue(searchResult([journalResult]));
     render(<SearchScreen />);
@@ -413,7 +424,7 @@ describe("SearchScreen", () => {
 
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/ritual",
-      params: { date: "2026-07-12", step: "journal", n: "1" },
+      params: { date: "2026-07-12", mode: "pm", step: "journal", n: "1" },
     });
   });
 

@@ -2,6 +2,7 @@ import type { Href } from "expo-router";
 
 import { TSearchResult } from "@/api/search";
 import { ritualRoute } from "@/utils/ritualRoute";
+import type { TRitualMode } from "@/utils/ritualSteps";
 // From the import-free leaf module rather than `utils/taskFilters`, which pulls
 // in the whole task-filtering surface for one predicate.
 import { isCompletionStatus } from "@/utils/taskStatus";
@@ -22,6 +23,10 @@ import { todayRoute } from "@/utils/todayRoute";
 type TSearchRouteOptions = {
   /** `preferences.enableJournal`; see `canOpenSearchResult`. */
   enableJournal: boolean;
+  /** The morning ritual's prompts (`preferences.templatePrompts`). */
+  templatePrompts: string[];
+  /** The evening ritual's (`preferences.templatePromptsPm`). */
+  templatePromptsPm: string[];
 };
 
 /**
@@ -39,20 +44,50 @@ type TSearchRouteOptions = {
  * would switch tabs and land on whatever step happens to be first. Old entries
  * stay searchable and readable either way — only the tap target goes.
  *
+ * Since DEX-151 the preference is not the whole of it: a journal with prompts in
+ * *neither* ritual has no step in either, so it is the same dead end. Prompts in
+ * only one is fine — the link names that ritual rather than letting the clock
+ * choose (see `searchResultRoute`).
+ *
  * Nothing is lost by not linking either: the result card in Search *is* the
  * useful surface, and `TaskCard` renders its `StatusButton` above the
  * `isComplete` guard, so a task can still be reopened from the results.
  */
 export const canOpenSearchResult = (
   result: TSearchResult,
-  { enableJournal }: TSearchRouteOptions,
+  { enableJournal, templatePrompts, templatePromptsPm }: TSearchRouteOptions,
 ): boolean => {
-  if (result.kind === "journal") return enableJournal;
+  if (result.kind === "journal") {
+    return (
+      enableJournal &&
+      (templatePrompts.length > 0 || templatePromptsPm.length > 0)
+    );
+  }
   return (
     result.kind !== "task" ||
     result.task.scheduledFor !== null ||
     !isCompletionStatus(result.task.status)
   );
+};
+
+/**
+ * The ritual to open a journal hit in: the one that still asks that question.
+ *
+ * Falls back to whichever ritual has prompts at all — the prompt may have been
+ * renamed or deleted since the day was written, and the entry is still worth
+ * opening. The morning wins a tie, matching the order the day runs and the
+ * period every prompt predating the split has.
+ *
+ * `canOpenSearchResult` has already refused the case where neither has any, so
+ * the fallback is never a ritual without a Journal step.
+ */
+const journalResultMode = (
+  prompt: string,
+  { templatePrompts, templatePromptsPm }: TSearchRouteOptions,
+): TRitualMode => {
+  if (templatePrompts.includes(prompt)) return "am";
+  if (templatePromptsPm.includes(prompt)) return "pm";
+  return templatePrompts.length > 0 ? "am" : "pm";
 };
 
 /**
@@ -62,8 +97,10 @@ export const canOpenSearchResult = (
  * An *incomplete* task with no scheduled date goes to the backlog with the query
  * carried along — the drawer seeds its own search box from it, so the task is on
  * screen immediately instead of somewhere in the backlog. A journal entry goes
- * to its day's journal step in the Ritual tab, which picks the morning or
- * evening flow by the clock (see `utils/ritualRoute.ts`).
+ * to its day's journal step in the Ritual tab, **naming the ritual** rather than
+ * letting the clock pick it (DEX-151): now that each ritual asks only its own
+ * prompts, the flow the clock lands on may have no journal step at all, and the
+ * tap would arrive at whatever step happens to be first.
  *
  * `nonce` should differ per tap; see `TTodayRouteParams["n"]`.
  */
@@ -82,7 +119,12 @@ export const searchResultRoute = (
   }
 
   if (result.kind === "journal") {
-    return ritualRoute({ date: result.date, step: "journal", n: nonce });
+    return ritualRoute({
+      date: result.date,
+      mode: journalResultMode(result.prompt, options),
+      step: "journal",
+      n: nonce,
+    });
   }
 
   return todayRoute({ date: result.date, mode: "notes", n: nonce });
