@@ -270,15 +270,9 @@ for profile in "${PROFILES[@]}"; do
     mkdir -p "$BUILD_STAMPS" && : > "$stamp"
   fi
 
-  # Rotate before login, so every capture in this profile shares one orientation
-  # and the app has settled into the layout by the time the first shot lands.
-  if [ "$orientation" = "landscape" ]; then
-    info "rotating '$name' to landscape"
-    osascript "$HERE/set-orientation.applescript" "$name" "Landscape Left" \
-      || die "could not rotate '$name'. The Simulator menu needs Accessibility permission for this terminal — System Settings > Privacy & Security > Accessibility."
-  else
-    osascript "$HERE/set-orientation.applescript" "$name" "Portrait" >/dev/null 2>&1 || true
-  fi
+  # Login runs in portrait on every profile: Maestro's tap on a system alert
+  # misses on a rotated device, and the AlarmKit prompt lands around login.
+  osascript "$HERE/set-orientation.applescript" "$name" "Portrait" >/dev/null 2>&1 || true
 
   xcrun simctl status_bar "$udid" override \
     --time "9:41" --batteryState charged --batteryLevel 100 \
@@ -286,6 +280,13 @@ for profile in "${PROFILES[@]}"; do
 
   info "signing in as the demo account"
   run_flow "$udid" "$HERE/flows/login.yaml"
+
+  # Only after login, so every capture still shares one settled orientation.
+  if [ "$orientation" = "landscape" ]; then
+    info "rotating '$name' to landscape"
+    osascript "$HERE/set-orientation.applescript" "$name" "Landscape Left" \
+      || die "could not rotate '$name'. The Simulator menu needs Accessibility permission for this terminal — System Settings > Privacy & Security > Accessibility."
+  fi
 
   out_dir="$OUT_ROOT/$key"
   mkdir -p "$out_dir"

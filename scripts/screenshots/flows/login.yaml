@@ -42,6 +42,18 @@ appId: com.dexterplanner
     commands:
       - tapOn: "^Allow$"
 
+# Bracketed like goto.yaml's anchor wait: the AlarmKit prompt can land over
+# the login screen after the guard above has already given up on it.
+- extendedWaitUntil:
+    visible:
+      id: "login-email-input"
+    timeout: 15000
+    optional: true
+- runFlow:
+    when:
+      visible: ".*schedule alarms and timers.*"
+    commands:
+      - tapOn: "^Allow$"
 - extendedWaitUntil:
     visible:
       id: "login-email-input"
