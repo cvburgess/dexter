@@ -13,6 +13,29 @@
 # any of `+ ( ) ? . * [ ]` in it must be escaped — see ../README.md.
 appId: com.dexterplanner
 ---
+# The task drawer is presented imperatively (`taskDrawerRef.current.present()`
+# in SmallScreenToday) and nothing ever dismisses it — not a `?mode=tasks` link,
+# not navigating to another tab. So on a phone it stays up over whatever the
+# next link opens, and because iOS marks everything behind a presented sheet
+# inaccessible, the next anchor reads as invisible even when it is plainly on
+# screen. Swipe it away before navigating.
+#
+# Only where the drawer is a sheet. On a tablet it is a docked pane, and the
+# same swipe would land in the middle of the notes pane and scroll it.
+- runFlow:
+    when:
+      true: ${DRAWER == "sheet"}
+      visible:
+        id: "drawer-controls"
+    commands:
+      - swipe:
+          start: "50%,35%"
+          end: "50%,95%"
+      - extendedWaitUntil:
+          notVisible:
+            id: "drawer-controls"
+          timeout: 10000
+
 - openLink: ${LINK}
 
 # iOS 26 confirms every custom-scheme link opened from outside the app with an

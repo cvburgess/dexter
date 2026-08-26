@@ -17,8 +17,11 @@ FLATTEN="$REPO_ROOT/scripts/flatten-screenshot.swift"
 OUT_ROOT="$REPO_ROOT/www/src/assets/screenshots"
 MAESTRO="${MAESTRO:-$HOME/.maestro/bin/maestro}"
 BUNDLE_ID="com.dexterplanner"
+# One file per simulator, touched after each successful build — see the
+# staleness check below for why the installed bundle can't answer this.
+BUILD_STAMPS="$HOME/.cache/dexter-screenshots"
 
-# Device profiles: key | simulator name | SimDeviceType | native WxH | orientation.
+# Device profiles: key | name | SimDeviceType | native WxH | orientation | drawer.
 #
 # Only a Pro Max is an accepted iPhone size — App Store Connect validates
 # against a fixed list of reference resolutions, and an iPhone Air (1260x2736)
@@ -40,8 +43,8 @@ BUNDLE_ID="com.dexterplanner"
 # portrait. Landscape also happens to be the better iPad shot — at 1366pt wide
 # all four panes fit, where portrait squeezes the notes pane to nothing.
 PROFILES=(
-  "iphone|iPhone 17 Pro Max|com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max|1320x2868|portrait"
-  "ipad|iPad Pro 13-inch (M5)|com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-12GB|2064x2752|landscape"
+  "iphone|iPhone 17 Pro Max|com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max|1320x2868|portrait|sheet"
+  "ipad|iPad Pro 13-inch (M5)|com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-12GB|2064x2752|landscape|pane"
 )
 
 WANT_DEVICE="all"
@@ -101,7 +104,7 @@ xcrun simctl list runtimes 2>/dev/null | grep -qE 'iOS 2[6-9]' \
 # via AppleScript, which needs Accessibility permission. Checked here because
 # the failure is otherwise a silent no-op: the menu click "succeeds", the device
 # never turns, and the capture is quietly portrait.
-if printf '%s\n' "${PROFILES[@]}" | grep -q '|landscape$'; then
+if printf '%s\n' "${PROFILES[@]}" | grep -q '|landscape|'; then
   osascript -e 'tell application "System Events" to name of first process' >/dev/null 2>&1 \
     || die "this terminal lacks Accessibility permission, which the orientation menu needs. Grant it under System Settings > Privacy & Security > Accessibility."
 fi
@@ -184,7 +187,7 @@ for runtime, devices in sorted(data.items(), reverse=True):
 captured=0
 
 for profile in "${PROFILES[@]}"; do
-  IFS='|' read -r key name devtype native orientation <<<"$profile"
+  IFS='|' read -r key name devtype native orientation drawer <<<"$profile"
   [ "$WANT_DEVICE" = "all" ] || [ "$WANT_DEVICE" = "$key" ] || continue
 
   published="$(published_size "$native" "$orientation")"
@@ -209,9 +212,35 @@ for profile in "${PROFILES[@]}"; do
   # `main.jsbundle`, while a dev-client build ships `EXDevLauncher.bundle` and
   # `Dexter.debug.dylib` and loads its JS from Metro.
   installed="$(xcrun simctl get_app_container "$udid" "$BUNDLE_ID" 2>/dev/null || true)"
-  if [ "$DO_BUILD" -eq 1 ] || [ -z "$installed" ] || [ ! -f "$installed/main.jsbundle" ]; then
+
+  # Staleness, not just presence. A Release build whose bundle predates the app
+  # source is the worst kind of wrong: it launches, logs in, and captures real
+  # screens — of the *old* app. A deep-link parameter added since the build is
+  # simply ignored, and the run looks like an app bug rather than a stale
+  # binary. (It cost exactly that once: a partial `--device all` run rebuilt one
+  # simulator and left the other behind.)
+  # Compared against a stamp this script writes after each successful build,
+  # never against the installed bundle's own mtime. Reinstalling the *same* old
+  # build product refreshes that mtime — `launchApp: clearState` does exactly
+  # that — so the bundle can look newer than the source while its contents are
+  # weeks behind. The stamp only moves when a build actually runs.
+  stamp="$BUILD_STAMPS/$udid.built"
+  stale=0
+  if [ ! -f "$stamp" ]; then
+    stale=1
+  elif [ -n "$(find "$REPO_ROOT/src/app" "$REPO_ROOT/src/components" \
+                    "$REPO_ROOT/src/utils" "$REPO_ROOT/src/hooks" "$REPO_ROOT/src/api" \
+                    -path '*__tests__*' -prune -o \
+                    \( -name '*.ts' -o -name '*.tsx' \) -newer "$stamp" -print -quit \
+                    2>/dev/null)" ]; then
+    stale=1
+  fi
+
+  if [ "$DO_BUILD" -eq 1 ] || [ -z "$installed" ] || [ ! -f "$installed/main.jsbundle" ] || [ "$stale" -eq 1 ]; then
     if [ -n "$installed" ] && [ ! -f "$installed/main.jsbundle" ]; then
       warn "installed app on '$name' is a dev-client build; rebuilding as Release."
+    elif [ "$stale" -eq 1 ]; then
+      warn "installed app on '$name' predates the current app source; rebuilding."
     fi
     info "building (Release) for $name — several minutes"
     # Release excludes expo-dev-client: no onboarding modal, no dev-menu sheet
@@ -224,6 +253,9 @@ for profile in "${PROFILES[@]}"; do
     ( cd "$REPO_ROOT/src" \
       && SENTRY_DISABLE_AUTO_UPLOAD=true npx expo run:ios --configuration Release --device "$name" ) \
       || die "build failed for $name"
+    # Only after the build succeeds — a failed build must stay stale, or the
+    # next run would happily capture the previous binary.
+    mkdir -p "$BUILD_STAMPS" && : > "$stamp"
   fi
 
   # Rotate before login, so every capture in this profile shares one orientation
@@ -256,6 +288,7 @@ for profile in "${PROFILES[@]}"; do
     info "  $idx-$sname  ($link)"
     run_flow "$udid" \
       -e LINK="$link" -e ANCHOR="$anchor" -e ANCHOR_BY="$anchor_by" \
+      -e DRAWER="$drawer" \
       "$HERE/flows/goto.yaml"
 
     raw="$(mktemp -t shot).png"
@@ -285,7 +318,7 @@ done
 info "verifying $captured file(s)"
 failed=0
 for profile in "${PROFILES[@]}"; do
-  IFS='|' read -r key name devtype native orientation <<<"$profile"
+  IFS='|' read -r key name devtype native orientation drawer <<<"$profile"
   [ -d "$OUT_ROOT/$key" ] || continue
   expected="$(published_size "$native" "$orientation")"
   for f in "$OUT_ROOT/$key"/*.png; do

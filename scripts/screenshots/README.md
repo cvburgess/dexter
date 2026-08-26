@@ -64,6 +64,27 @@ Two consequences worth knowing:
   `capture.sh` access under System Settings > Privacy & Security > Accessibility,
   or the rotate step fails with a clear message.
 
+**A stale build is the nastiest failure here, so the script checks for one.**
+It rebuilds unless the installed app is a Release build (`main.jsbundle`
+present, no `EXDevLauncher.bundle`) *and* no `.ts`/`.tsx` under `src/` is newer
+than this device's build stamp.
+
+Both halves are load-bearing. A dev-client build drops the dev-menu sheet over
+the login screen, which at least fails loudly. A merely *old* Release build is
+worse: it launches, logs in, and captures real screens — of the previous app. A
+deep-link parameter added since that build is silently ignored, so the run reads
+as an app bug rather than a stale binary. That is exactly what a partial
+`--device all` run caused once, rebuilding one simulator and leaving the other
+behind.
+
+**The stamp is `~/.cache/dexter-screenshots/<udid>.built`, and it is compared
+against instead of the installed bundle's own mtime for a reason.** Reinstalling
+the same old build product refreshes that mtime — `launchApp: clearState` does
+exactly that — so the installed bundle can look newer than the source while its
+contents are weeks behind. Timestamps on installed files describe when they were
+copied, not what is in them. The stamp only moves when a build actually
+succeeds, so a failed build correctly stays stale.
+
 **Navigation is by deep link, not by tapping.** `src/utils/todayRoute.ts`,
 `ritualRoute.ts`, and `newTaskRoute.ts` define the contract. A coordinate tap
 tuned for a 6.9" phone lands nowhere on a 13" iPad, and the `DayViewSwitcher`'s
