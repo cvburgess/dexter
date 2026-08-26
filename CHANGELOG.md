@@ -2,8 +2,7 @@
 
 ## v2.1.0
 
-- Start and end your day with the new Ritual tab — guided morning and evening flows with journaling, a mood check-in, a breathing exercise, and a look at the day ahead
-- Read a fresh daily horoscope as part of your morning ritual
+- Start and end your day with the new Ritual tab — guided morning and evening flows with journaling, a mood check-in, a daily horoscope, a breathing exercise, and a look at the day ahead
 - Stay on task with the new focus timer — it even rings on your lock screen
 - Keep tasks and habits on your home screen and lock screen with widgets — tap a habit to log it
 - Search everything: tasks, notes, and journal entries
