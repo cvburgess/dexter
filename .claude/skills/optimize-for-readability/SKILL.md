@@ -3,7 +3,7 @@ name: optimize-for-readability
 description: Remove low-value tests, re-author bloated docs sections, and compress oversized comment blocks so the codebase stays accurate, valuable, and human-readable. Use when the user wants to strip AI-generated bloat from a branch, a path, or the whole repo.
 argument-hint: [optional path (e.g. src/components, docs/) or "all" for a whole-repo pass; default is the current branch diff]
 disable-model-invocation: true
-allowed-tools: Bash(git *), Bash(grep *), Bash(rg *), Bash(cd src && npm *), Bash(cd supabase && deno *), Bash(npx prettier *), Read, Edit, Write, Glob, Grep
+allowed-tools: Bash(git *), Bash(grep *), Bash(rg *), Bash(cd src && npm *), Bash(cd src && npx prettier *), Bash(cd supabase && deno *), Read, Edit, Write, Glob, Grep
 ---
 
 # Optimize for Readability
@@ -20,7 +20,7 @@ Three modes, decided by `$ARGUMENTS`:
 
 - **No arguments — diff mode.** Scope is the current branch against `main` plus uncommitted work. Run `git diff main...HEAD --name-only` and `git diff HEAD --name-only` in one parallel batch and take the union. If both are empty, tell the user there is nothing to optimize and stop.
 - **A path (e.g. `src/components`, `docs/`) — path mode.** Scope is `git ls-files <path>`.
-- **`all` — whole-repo mode.** Work area by area, running Steps 3–7 to completion (including verification and the commit) for one area before starting the next: `src/utils`, `src/hooks`, `src/api`, `src/providers`, `src/components`, `src/app`, `src/__tests__`, `supabase/functions`, `supabase/__tests__`, `docs/`, `www/`, `scripts/`. Per-area commits keep one bad area revertible without losing the other ten.
+- **`all` — whole-repo mode.** Work area by area, running Steps 3–7 to completion (including verification and the commit) for one area before starting the next: `src/utils`, `src/hooks`, `src/api`, `src/providers`, `src/components`, `src/app`, `src/__tests__`, `supabase/functions`, `supabase/__tests__`, `docs/`, `www/`, `scripts/`, then every remaining top-level directory `git ls-files` reveals — the list above orders the pass, it does not bound it. Per-area commits keep one bad area revertible without losing the rest.
 
 Announce the mode and scope in one line before touching anything, e.g. `Diff mode — 6 files on dex-201-foo.` or `Whole-repo pass — starting with src/utils.`
 
@@ -38,7 +38,7 @@ The definitions live there on purpose: this skill names the categories but never
 For each test file in scope, read it and delete every test that falls into one of `docs/testing.md`'s five "not worth writing" categories, plus table-completeness tests that re-enumerate a data structure and assert its entries exist. Cite the category for each deletion in the report.
 
 - **Delete outright.** Never `.skip`, never `xit`, never comment out — a skipped test is bloat plus a false promise.
-- If a file empties, delete the file, and delete any mock, fixture, or `testUtils` helper that only it used.
+- If a file empties, delete the file with `git rm`, along with any mock, fixture, or `testUtils` helper that only it used. `git rm` stages the deletion — which is why review commands below use `git diff HEAD`, not bare `git diff`.
 - **Never delete**: pure-logic tests, security-property tests, API-contract tests, or any test annotated with a `DEX-xxx` id — a cheap-looking test pinning a regression stays; that is what the annotation is for. When genuinely unsure whether a test is a regression pin, keep it: the cost of a stale test is tokens, the cost of an unpinned regression is a shipped bug.
 
 ### Step 4: Pass 2 — re-author docs sections
@@ -58,7 +58,7 @@ For each source file in scope, find comment blocks over 2 lines: runs of 3+ cons
 
 - If any `src` test file changed: `cd src && npm test` **and** `cd src && npm run typecheck` — jest strips types, so a deletion that orphans a helper passes tests and fails only typecheck.
 - If any `supabase` test file changed: `cd supabase && deno test --allow-all --config __tests__/deno.json __tests__/`.
-- Format only the files you touched: `npx prettier --write <file>` for app files, `cd supabase && deno fmt <file>` for Deno files. Never pass a path through `npm run format` — its script carries its own `.` target and would rewrite the whole tree.
+- Format only the files you touched: `cd src && npx prettier --write <file>` for app files, `cd supabase && deno fmt <file>` for Deno files. Never pass a path through `npm run format` — its script carries its own `.` target and would rewrite the whole tree.
 - Skip lint unless a deletion plausibly left unused imports behind; if you run anything, report the actual result.
 
 ### Step 7: Commit or leave in tree
@@ -77,11 +77,11 @@ Readability pass complete (<scope>):
 - Verification: <suites and typecheck run, with actual results>
 ```
 
-In diff and path modes, end with: `Review with git diff before committing.` A pass that finds nothing to trim is a valid outcome — say so plainly rather than manufacturing edits.
+In diff and path modes, end with: `Review with git diff HEAD before committing.` A pass that finds nothing to trim is a valid outcome — say so plainly rather than manufacturing edits.
 
 ## Important
 
-- **This skill applies changes directly, including test deletions.** Review the result with `git diff` before committing.
+- **This skill applies changes directly, including test deletions.** Review the result with `git diff HEAD` before committing.
 - **No behavior changes, ever.** A bug, a rename, or a refactor you notice along the way is out of scope — note it in the report and move on.
 - **Never `.skip` a test** — delete it or keep it.
 - **When unsure whether a test earns its keep, keep it.** Deletions here should be confident, category-cited calls, not judgment coin-flips.
