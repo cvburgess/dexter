@@ -18,11 +18,11 @@
 
 iphone	01	today	dexter://today?mode=tasks&n=1	text	Reply to beta tester feedback
 iphone	02	backlog	dexter://today?mode=backlog&n=2	id	drawer-controls
-iphone	03	ritual-journal	dexter://ritual?step=journal&n=3	text	Today I am grateful for
-iphone	04	ritual-horoscope	dexter://ritual?step=horoscope&n=4	id	horoscope-panel
+iphone	03	ritual-journal	dexter://ritual?mode=am&step=journal&n=3	text	Today I am grateful for
+iphone	04	ritual-horoscope	dexter://ritual?mode=am&step=horoscope&n=4	id	horoscope-panel
 iphone	05	new-task	dexter://new-task	id	new-task-title
 
 ipad	01	today	dexter://today?mode=tasks&n=1	text	Reply to beta tester feedback
 ipad	02	week	dexter://week	id	week-column-.*
 ipad	03	backlog	dexter://today?mode=backlog&n=3	id	drawer-controls
-ipad	04	ritual-journal	dexter://ritual?step=journal&n=4	text	Today I am grateful for
+ipad	04	ritual-journal	dexter://ritual?mode=am&step=journal&n=4	text	Today I am grateful for

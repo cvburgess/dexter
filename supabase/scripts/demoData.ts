@@ -334,6 +334,12 @@ export function buildDemoData(): DemoDataset {
       dueOnOffset: null,
       listKey: "personal",
     },
+    // The unscheduled tail — everything below here has `scheduledForOffset:
+    // null` and so lands in the task drawer's Unscheduled filter. There are
+    // several on purpose: the drawer is one of the App Store screenshots, and a
+    // backlog holding a single task reads as an empty feature rather than a
+    // place work waits. Spread across lists and priorities so the drawer shows
+    // its grouping and colour rather than one flat run.
     {
       title: "Research a standing desk",
       priority: DEMO_PRIORITY.UNPRIORITIZED,
@@ -341,6 +347,46 @@ export function buildDemoData(): DemoDataset {
       scheduledForOffset: null,
       dueOnOffset: null,
       listKey: "personal",
+    },
+    {
+      title: "Write the Q3 roadmap",
+      priority: DEMO_PRIORITY.IMPORTANT,
+      status: DEMO_STATUS.TODO,
+      scheduledForOffset: null,
+      dueOnOffset: null,
+      listKey: "work",
+    },
+    {
+      title: "Replace the smoke alarm batteries",
+      priority: DEMO_PRIORITY.URGENT,
+      status: DEMO_STATUS.TODO,
+      scheduledForOffset: null,
+      dueOnOffset: null,
+      listKey: "errands",
+    },
+    {
+      title: "Book the dentist follow-up",
+      priority: DEMO_PRIORITY.NEITHER,
+      status: DEMO_STATUS.TODO,
+      scheduledForOffset: null,
+      dueOnOffset: null,
+      listKey: "health",
+    },
+    {
+      title: "Sketch the onboarding flow",
+      priority: DEMO_PRIORITY.IMPORTANT,
+      status: DEMO_STATUS.TODO,
+      scheduledForOffset: null,
+      dueOnOffset: null,
+      listKey: "work",
+    },
+    {
+      title: "Find a running club",
+      priority: DEMO_PRIORITY.UNPRIORITIZED,
+      status: DEMO_STATUS.TODO,
+      scheduledForOffset: null,
+      dueOnOffset: null,
+      listKey: "health",
     },
   ];
 

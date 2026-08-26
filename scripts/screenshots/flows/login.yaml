@@ -1,9 +1,12 @@
 # Sign the demo account in on a freshly launched app.
 #
-# `DEMO_OTP` is supplied at runtime (`maestro test -e DEMO_OTP=...`), never
-# written here — it is a Supabase function secret. The demo email short-circuits
-# the magic-link send in `app/(auth)/login.tsx`, so the code field appears
-# immediately and no mailbox is involved.
+# The OTP is never written here — it is a Supabase function secret. It arrives
+# as `MAESTRO_DEMO_OTP` in the environment: Maestro exposes shell variables with
+# that prefix to flows automatically, which keeps the secret out of the process
+# arguments where `-e DEMO_OTP=…` would leave it visible in `ps` for the whole
+# run. The demo email short-circuits the magic-link send in
+# `app/(auth)/login.tsx`, so the code field appears immediately and no mailbox
+# is involved.
 #
 # Selectors are `id:` throughout on purpose. Maestro compiles a `text:` selector
 # to a *regular expression*, which is how an earlier attempt at this spent ten
@@ -54,7 +57,7 @@ appId: com.dexterplanner
     timeout: 30000
 - tapOn:
     id: "login-code-input"
-- inputText: ${DEMO_OTP}
+- inputText: ${MAESTRO_DEMO_OTP}
 - tapOn:
     id: "login-verify-button"
 

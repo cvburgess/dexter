@@ -96,26 +96,31 @@ grep -qE '^EXPO_PUBLIC_SUPABASE_URL=.*(api\.dexterplanner\.com|isreileykodwkyedc
 xcrun simctl list runtimes 2>/dev/null | grep -qE 'iOS 2[6-9]' \
   || die "no iOS 26+ runtime installed — AlarmKit rows are hidden below iOS 26."
 
-# Rows this invocation will actually capture, after --device and --screens.
-selected_rows() {
-  while IFS=$'\t' read -r d idx sname link anchor_by anchor; do
-    case "$d" in ''|\#*) continue ;; esac
-    [ "$WANT_DEVICE" = "all" ] || [ "$WANT_DEVICE" = "$d" ] || continue
-    if [ -n "$ONLY_SCREENS" ] && ! printf '%s' ",$ONLY_SCREENS," | grep -q ",$idx,"; then
-      continue
-    fi
-    printf '%s\t%s\t%s\n' "$d" "$idx" "$sname"
-  done < "$MANIFEST"
-}
-
-# The Ritual tab picks morning vs evening from the wall clock (`modeForHour`,
-# src/utils/ritualSteps.ts — noon is the boundary). `simctl status_bar` fakes the
-# *displayed* time only, not Date.now(), so there is no way to pin this from
-# outside the app: an afternoon run silently captures the evening flow, where
-# `horoscope` does not exist at all and `journal` renders differently.
-if [ "$(date +%-H)" -ge 12 ] && selected_rows | cut -f3 | grep -q '^ritual-'; then
-  die "it is $(date +%H:%M): the Ritual tab would capture the evening flow. Re-run before 12:00 local, or exclude the ritual-* rows with --screens."
+# Rotating the simulator has no `simctl` verb — it lives only in the Simulator
+# app's Device > Orientation menu — so the landscape profiles drive that menu
+# via AppleScript, which needs Accessibility permission. Checked here because
+# the failure is otherwise a silent no-op: the menu click "succeeds", the device
+# never turns, and the capture is quietly portrait.
+if printf '%s\n' "${PROFILES[@]}" | grep -q '|landscape$'; then
+  osascript -e 'tell application "System Events" to name of first process' >/dev/null 2>&1 \
+    || die "this terminal lacks Accessibility permission, which the orientation menu needs. Grant it under System Settings > Privacy & Security > Accessibility."
 fi
+
+# Used to read simctl's JSON. Present with the Xcode command line tools, which
+# are already required, but named here so a broken install fails in a second
+# rather than inside the device lookup.
+[ -x /usr/bin/python3 ] || die "/usr/bin/python3 is missing — install the Xcode command line tools (xcode-select --install)."
+
+# Marks the start of this run, so a failure report can tell this run's Maestro
+# screenshots from every earlier one still sitting in ~/.maestro/tests.
+RUN_MARKER="$(mktemp -t capture-run)"
+trap 'rm -f "$RUN_MARKER"' EXIT
+
+# Maestro reads shell variables prefixed with MAESTRO_ and exposes them to flows
+# under the same name. Exporting the OTP that way keeps it out of the process
+# arguments, where `-e DEMO_OTP=…` would leave a function secret readable in
+# `ps` output for the whole run.
+export MAESTRO_DEMO_OTP="$DEMO_OTP"
 
 # --- helpers -----------------------------------------------------------------
 
@@ -125,10 +130,17 @@ fi
 # state, and Maestro saves a screenshot of the actual screen. Point at it.
 report_maestro_failure() {
   local shot
-  shot="$(ls -t "$HOME"/.maestro/tests/*/screenshot-*-*.png 2>/dev/null | head -1 || true)"
+  # Newer than this run only. The newest failure screenshot overall could easily
+  # belong to some unrelated Maestro run from last week, and pointing at that
+  # would send the reader off debugging a screen this run never displayed.
+  # -print0/-0 because Maestro names these with a ❌ and bracketed flow name.
+  shot="$(find "$HOME/.maestro/tests" -name 'screenshot-*.png' -newer "$RUN_MARKER" -print0 2>/dev/null \
+    | xargs -0 ls -t 2>/dev/null | head -1 || true)"
   warn "maestro flow failed."
   if [ -n "$shot" ]; then
     warn "the screen at the moment of failure: $shot"
+  else
+    warn "no failure screenshot from this run — check ~/.maestro/tests/ for the newest directory."
   fi
   warn "'Failed to connect to 127.0.0.1' lines are normal startup polling — ignore them unless '[Done]' never appears."
 }
@@ -229,7 +241,7 @@ for profile in "${PROFILES[@]}"; do
     --cellularBars 4 --wifiBars 3
 
   info "signing in as the demo account"
-  run_flow "$udid" -e DEMO_OTP="$DEMO_OTP" "$HERE/flows/login.yaml"
+  run_flow "$udid" "$HERE/flows/login.yaml"
 
   out_dir="$OUT_ROOT/$key"
   mkdir -p "$out_dir"

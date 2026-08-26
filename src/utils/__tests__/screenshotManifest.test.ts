@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { parseRitualStep } from "@/utils/ritualRoute";
+import { parseRitualMode, parseRitualStep } from "@/utils/ritualRoute";
 import { parseDayMode } from "@/utils/todayRoute";
 
 /**
@@ -45,6 +45,11 @@ const ROUTES: Record<string, (params: URLSearchParams) => void> = {
   },
   ritual: (params) => {
     expect(parseRitualStep(params.get("step") ?? undefined)).not.toBeNull();
+    // Pinning the mode is what makes a ritual capture reproducible at any hour:
+    // `horoscope` exists only in the morning, and `journal` renders a different
+    // flow either side of noon. Without it the run's output depends on when it
+    // happened to be started.
+    expect(parseRitualMode(params.get("mode") ?? undefined)).not.toBeNull();
   },
   week: () => {},
   "new-task": () => {},

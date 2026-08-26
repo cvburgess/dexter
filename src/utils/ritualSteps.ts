@@ -467,13 +467,23 @@ export const withHoroscopeEnabled = (
  */
 export const withLink = (
   state: TRitualState,
-  link: { date: Temporal.PlainDate | null; step: TRitualStepId | null },
+  link: {
+    date: Temporal.PlainDate | null;
+    /** Optional, and usually absent — see `utils/ritualRoute.ts`. */
+    mode?: TRitualMode | null;
+    step: TRitualStepId | null;
+  },
 ): TRitualState => {
   const dated = link.date ? withDate(state, link.date) : state;
-  if (!link.step) return dated;
+  // The mode is applied *before* the step and never after: `withMode` restarts
+  // the ritual at step 0, so switching afterwards would throw away the step the
+  // link just asked for. Handled here rather than at the call sites so that
+  // ordering is stated once.
+  const moded = link.mode ? withMode(dated, link.mode) : dated;
+  if (!link.step) return moded;
   return goToStep(
-    dated,
-    stepsFor(dated).findIndex((step) => step.id === link.step),
+    moded,
+    stepsFor(moded).findIndex((step) => step.id === link.step),
   );
 };
 

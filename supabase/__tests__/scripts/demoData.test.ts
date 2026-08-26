@@ -176,6 +176,19 @@ Deno.test("demo showcases the states screenshots depend on", () => {
   assert(hasOverdue, "expected an overdue task");
   assert(hasLeftBehind, "expected a left-behind task");
   assert(hasUnscheduled, "expected an unscheduled backlog task");
+
+  // The task drawer is one of the App Store screenshots, and a backlog holding
+  // one or two rows photographs as an empty feature rather than a place work
+  // waits. Spread across lists, so the drawer's grouping has something to show.
+  const unscheduled = data.tasks.filter((t) => t.scheduledForOffset === null);
+  assert(
+    unscheduled.length >= 5,
+    `expected at least 5 unscheduled tasks so the backlog screenshot reads as full, got ${unscheduled.length}`,
+  );
+  assert(
+    new Set(unscheduled.map((t) => t.listKey)).size >= 3,
+    "expected the unscheduled tasks to span at least 3 lists",
+  );
   assert(hasDone, "expected a completed task");
   assert(hasWontDo, "expected a won't-do task");
   assert(hasAlarm, "expected a task with an alarm");
