@@ -11,9 +11,6 @@ export type TMoodRating = (typeof MOOD_RATINGS)[number];
 /** Drawn on a 100x100 viewBox, so every consumer scales by one `size` prop. */
 export const MOOD_FACE_VIEWBOX = 100;
 
-/** Squeezed-shut `> <` eyes belong to the two open-mouthed ends of the ramp. */
-export type TMoodEyes = "dots" | "squeeze";
-
 export type TMoodFace = {
   /**
    * Deliberately literal, not `theme.colors`: the ramp only means anything as a
@@ -24,7 +21,6 @@ export type TMoodFace = {
   mouth: string;
   /** Filled mouths read as open ones — the grin and the distressed shout. */
   mouthFilled: boolean;
-  eyes: TMoodEyes;
 };
 
 export const MOOD_LABELS: Record<TMoodRating, string> = {
@@ -45,31 +41,26 @@ export const MOOD_FACES: Record<TMoodRating, TMoodFace> = {
     color: "#D6312B",
     mouth: "M 35 69 A 15 15 0 0 1 65 69 Z",
     mouthFilled: true,
-    eyes: "squeeze",
   },
   2: {
     color: "#EC8B2E",
     mouth: "M 35 67 Q 50 56 65 67",
     mouthFilled: false,
-    eyes: "dots",
   },
   3: {
     color: "#F3C32C",
     mouth: "M 36 63 L 64 63",
     mouthFilled: false,
-    eyes: "dots",
   },
   4: {
     color: "#A2C93C",
     mouth: "M 35 60 Q 50 71 65 60",
     mouthFilled: false,
-    eyes: "dots",
   },
   5: {
     color: "#34A36B",
     mouth: "M 35 57 A 15 15 0 0 0 65 57 Z",
     mouthFilled: true,
-    eyes: "squeeze",
   },
 };
 

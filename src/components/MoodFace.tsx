@@ -9,8 +9,6 @@ const CENTER = MOOD_FACE_VIEWBOX / 2;
 const EYE_RADIUS = 5;
 const EYE_Y = 38;
 const EYE_OFFSET = 14;
-// Half a chevron of the squeezed eyes, measured from the dot they replace.
-const EYE_ARM = 6;
 
 type TMoodFaceProps = {
   rating: TMoodRating;
@@ -41,18 +39,9 @@ export function MoodFace({ rating, size, color }: TMoodFaceProps) {
         stroke={stroke}
         strokeWidth={STROKE}
       />
-      {[CENTER - EYE_OFFSET, CENTER + EYE_OFFSET].map((cx, index) =>
-        face.eyes === "squeeze" ? (
-          <SqueezeEye
-            key={cx}
-            cx={cx}
-            pointsRight={index === 0}
-            color={stroke}
-          />
-        ) : (
-          <Circle key={cx} cx={cx} cy={EYE_Y} r={EYE_RADIUS} fill={stroke} />
-        ),
-      )}
+      {[CENTER - EYE_OFFSET, CENTER + EYE_OFFSET].map((cx) => (
+        <Circle key={cx} cx={cx} cy={EYE_Y} r={EYE_RADIUS} fill={stroke} />
+      ))}
       <Path
         d={face.mouth}
         fill={face.mouthFilled ? stroke : "none"}
@@ -61,30 +50,5 @@ export function MoodFace({ rating, size, color }: TMoodFaceProps) {
         strokeLinecap="round"
       />
     </Svg>
-  );
-}
-
-/** A `>` or `<` chevron: both eyes point inward, so the pair reads as `> <`. */
-function SqueezeEye({
-  cx,
-  pointsRight,
-  color,
-}: {
-  cx: number;
-  pointsRight: boolean;
-  color: string;
-}) {
-  const tip = pointsRight ? cx + EYE_ARM : cx - EYE_ARM;
-  const tail = pointsRight ? cx - EYE_ARM : cx + EYE_ARM;
-
-  return (
-    <Path
-      d={`M ${tail} ${EYE_Y - EYE_ARM} L ${tip} ${EYE_Y} L ${tail} ${EYE_Y + EYE_ARM}`}
-      fill="none"
-      stroke={color}
-      strokeWidth={STROKE}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
   );
 }
