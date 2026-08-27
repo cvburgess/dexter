@@ -14,10 +14,6 @@ read `docs/design.md` before touching any style value.
 
 ## Navigation and shell
 
-Routes live under `app/`: `(auth)/login` behind an auth boundary,
-`(app)/(tabs)/` holding the five tabs (`today`, `ritual`, `week`, `settings`,
-`search`), plus the `new-task` / `edit-task/[id]` modals and `oauth/consent`.
-
 **Navigation is chosen by form factor, not by width (DEX-104).** Phones get
 `NativeTabs` (platform tab bar); tablets and web get the JS `Tabs` with its bar
 hidden inside `components/AppShell.tsx` — web because `NativeTabs` renders a
@@ -266,9 +262,7 @@ is why it is tied to the same constant.
 
 ## Data Layer
 
-`api/` holds typed Supabase query modules; `hooks/` the React Query hooks;
-`providers/QueryProvider.tsx` the query client. Freshness is three layers, no
-interval polling (DEX-36):
+Freshness is three layers, no interval polling (DEX-36):
 
 - Shared 60s `staleTime` (`DEFAULT_STALE_TIME_MS`); device-backed hooks override
   it (AsyncStorage: `Infinity`; calendar sources: 10 min +

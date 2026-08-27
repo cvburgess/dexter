@@ -120,11 +120,6 @@ that aren't visible from the YAML alone:
   concurrency group — sharing `deploy.yml`'s would let a deploy evict the queued
   reseed and silently skip a day.
 
-**Required GitHub repo secrets:** `SUPABASE_PROJECT_ID`, `SUPABASE_DB_PASSWORD`,
-`SUPABASE_ACCESS_TOKEN`, `DOTENV_PRIVATE_KEY_PREVIEW` (backend); `EXPO_TOKEN`,
-`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
-`EXPO_PUBLIC_SENTRY_DSN` (app/EAS).
-
 ## Secrets
 
 Function secrets, referenced with `Deno.env.get(...)`:
