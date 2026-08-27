@@ -16,24 +16,14 @@ type TEditableTextProps = {
   editing: boolean;
   /** Tapped while not editing — the parent should make this row the editing one. */
   onStartEdit: () => void;
-  /**
-   * The committed, trimmed title. Fires on blur, on return, and on unmount
-   * while focused. An **empty string is a real commit** — the caller decides
-   * what it means (revert an existing title, delete a just-added row).
-   */
+  /** Committed, trimmed title on blur/return/unmount. **Empty is a real
+   * commit** — the caller decides what it means. */
   onCommit: (title: string) => void;
-  /**
-   * Return key pressed, called after `onCommit` with the same committed title.
-   * Receiving the title is what lets the caller end a chain on an empty row
-   * rather than appending another empty one forever.
-   */
+  /** Return key, after `onCommit` with the same title — lets the caller end
+   * a chain on an empty row rather than appending forever. */
   onSubmit?: (title: string) => void;
-  /**
-   * Fires on every keystroke with the raw text. For callers whose "commit" is
-   * just local form state: without it, saving a form while an input still has
-   * focus loses the text, because on native a header button press does not
-   * blur the field first.
-   */
+  /** Every keystroke's raw text — without it, saving a form mid-focus loses
+   * text, since a native header press doesn't blur first. */
   onChangeDraft?: (text: string) => void;
   editable?: boolean;
   /**
@@ -50,11 +40,8 @@ type TEditableTextProps = {
   testID?: string;
 };
 
-/**
- * A title that swaps to an inline input when tapped (DEX-70). Used for task
- * titles — which had no rename affordance at all before this — and for subtask
- * rows, so both share one editing vocabulary.
- */
+/** A title that swaps to an inline input when tapped (DEX-70) — shared by
+ * task titles and subtask rows as one editing vocabulary. */
 export function EditableText({
   value,
   editing,
@@ -73,11 +60,8 @@ export function EditableText({
   if (editing && editable && !onPress) {
     return (
       <InlineInput
-        // Deliberately not keyed on `value`: the input already mounts fresh
-        // each time editing begins, so a key would only remount mid-edit — and
-        // the unmount cleanup would commit the half-typed draft, discarding the
-        // very keystrokes the remount was meant to preserve. `InlineInput`
-        // re-seeds itself from a changed `value` while untouched instead.
+        // Not keyed on `value` — a remount mid-edit would commit the
+        // half-typed draft via unmount cleanup; it re-seeds instead.
         initialValue={value}
         onCommit={onCommit}
         onChangeDraft={onChangeDraft}
@@ -116,20 +100,8 @@ type TInlineInputProps = {
   testID?: string;
 };
 
-/**
- * The input half, mounted only while editing. Living in its own component is
- * what makes the draft correct without a sync effect: it is seeded once at
- * mount, and its unmount *is* the end of the edit.
- *
- * Commit rules live here so every caller gets them — the draft is committed on
- * blur, on return, and on unmount-while-editing. That last case is not
- * hypothetical: FlashList recycles rows as they scroll out, and without it a
- * half-typed title would vanish silently.
- *
- * Editing always ends via `blur()`, never `Keyboard.dismiss()` — dismissing the
- * keyboard leaves the input focused, so the next tap elsewhere never fires the
- * blur that commits.
- */
+/** Mounted only while editing — its unmount *is* the end of the edit. Ends
+ * via `blur()`, never `Keyboard.dismiss()`, which leaves the field focused. */
 function InlineInput({
   initialValue,
   onCommit,
@@ -148,9 +120,8 @@ function InlineInput({
   const [seeded, setSeeded] = useState(initialValue);
   const inputRef = useRef<TextInput>(null);
 
-  // Re-seed from a value that changed while this input was open but untouched —
-  // a rename landing from another device, or a realtime refetch. Adjusting
-  // state during render is React's own recommendation for deriving from props.
+  // Re-seed from a value changed elsewhere while untouched (another device,
+  // a realtime refetch) — render-phase state adjustment, React's own pattern.
   if (!dirty && initialValue !== seeded) {
     setSeeded(initialValue);
     setDraft(initialValue);
@@ -203,9 +174,8 @@ function InlineInput({
       onBlur={commit}
       onSubmitEditing={() => {
         const title = commit();
-        // Always blur here rather than letting `blurOnSubmit` do it — one
-        // mechanism, and it keeps the ordering explicit: commit, then blur,
-        // then let the caller chain.
+        // Always blur here, not via `blurOnSubmit` — keeps the order
+        // explicit: commit, then blur, then the caller chains.
         inputRef.current?.blur();
         onSubmit?.(title);
       }}
@@ -219,20 +189,16 @@ function InlineInput({
 }
 
 const styles = StyleSheet.create({
-  // Owns the row's `flex: 1` — callers must not repeat it in `style`, which
-  // lands on the inner Text/TextInput. There it reads as a *vertical* grow from
-  // a zero basis, which stops the title from being an intrinsic line box the
-  // row can center, and it renders off-center against the row's buttons.
+  // Owns the row's `flex: 1` — repeating it in `style` lands on the inner
+  // Text/TextInput as a vertical grow and renders it off-center.
   pressable: {
     flex: 1,
     justifyContent: "center",
   },
   input: {
     flex: 1,
-    // Strip the platform input chrome so the field sits exactly where the Text
-    // did — an inline edit should feel like typing over the title, not like a
-    // form field appearing inside the card. The browser's focus ring is part of
-    // that chrome.
+    // Strip input chrome so editing feels like typing over the title, not a
+    // form field appearing inside the card.
     margin: 0,
     padding: 0,
     ...NO_FOCUS_RING,

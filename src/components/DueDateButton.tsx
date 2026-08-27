@@ -7,23 +7,13 @@ type TDueDateButtonProps = {
   dueOn: string | null;
   priorityColor: string;
   contentColor: string;
-  /**
-   * Where the caller is placing this badge — the gap between it and whatever
-   * precedes it. The badge carries no spacing of its own (see docs/design.md,
-   * "Who owns spacing"), and taking it as a style rather than a wrapper matters
-   * here: this renders nothing at all without a `dueOn`, and a wrapper would go
-   * on applying its margin to a badge that isn't there.
-   */
+  /** Placement gap, taken as a style not a wrapper — this renders nothing
+   * without a `dueOn`, and a wrapper would still apply margin to nothing. */
   style?: StyleProp<ViewStyle>;
 };
 
-/**
- * Display-only day countdown; hidden when `dueOn` is unset. Setting/changing
- * the due date is not supported here. Normally the badge sits on the priority
- * color with priority-content text/outline (matching the card); once overdue
- * (due today or earlier) it inverts — a solid priority-content fill with
- * priority-color text/outline — for emphasis.
- */
+/** Display-only day countdown, hidden when `dueOn` is unset; inverts from
+ * priority-color to priority-content fill once overdue, for emphasis. */
 export function DueDateButton({
   dueOn,
   priorityColor,

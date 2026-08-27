@@ -27,15 +27,8 @@ export function SettingsRow({
       style={[
         styles.container,
         {
-          // `md` throughout, never the in-group `sm`. For `gap`: the leading
-          // icon and the title/subtitle pair are two different things sharing a
-          // row, not two controls in a cluster, and at `sm` the glyph crowded
-          // the title. For the padding: a menu item is a destination you press,
-          // not a dense list of data, so it gets the same inset on all four
-          // sides — which is also what `SettingsSidebar` already gives its rows,
-          // so the phone and two-pane paths stay the same shape. This row is
-          // small-screen only — wide screens redirect the list to a detail and
-          // `SettingsSidebar` takes over (see settings/index.tsx).
+          // `md` throughout — a destination row, not a dense data list, gets
+          // the same inset SettingsSidebar gives its rows on wide screens.
           gap: theme.space.md,
           paddingHorizontal: theme.space.md,
           paddingVertical: theme.space.md,

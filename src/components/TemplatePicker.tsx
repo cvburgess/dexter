@@ -25,9 +25,8 @@ export function TemplatePicker({
 }: TTemplatePickerProps) {
   const theme = useTheme();
 
-  // "You have none" is a different claim from "these haven't arrived yet", and
-  // the empty copy tells the user to go and make one — bad advice to give
-  // someone whose templates are still loading.
+  // "You have none" is a different claim from "these haven't arrived yet" —
+  // bad advice to someone whose templates are still loading.
   if (isLoading) return null;
 
   if (templates.length === 0) {

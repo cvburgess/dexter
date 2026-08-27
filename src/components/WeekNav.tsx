@@ -22,9 +22,8 @@ type TWeekNavProps = {
  * show.
  */
 export function WeekNav({ monday, onChangeWeek }: TWeekNavProps) {
-  // `yearOfWeek`, not `year`: an ISO week can belong to the neighbouring
-  // calendar year (Dec 30 2024 is week 1 of 2025; Jan 1 2027 is week 53 of
-  // 2026), which the legacy app got wrong by labelling with `.year`.
+  // `yearOfWeek`, not `year` — an ISO week can belong to the neighbouring
+  // calendar year, which the legacy app got wrong.
   const label = `Week ${monday.weekOfYear}, ${monday.yearOfWeek}`;
 
   return (

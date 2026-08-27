@@ -23,11 +23,8 @@ export function ShareIntentRedirect() {
   const { hasShareIntent, shareIntent, resetShareIntent } =
     useShareIntentContext();
   const { text, webUrl } = shareIntent;
-  // This sits beside the root Stack rather than inside it, so on a cold start
-  // the payload can land before there is anything to navigate — and a `push`
-  // then is dropped, losing the share outright. The root navigation state has
-  // no `key` until the navigator has mounted, so waiting on it defers exactly
-  // that case and nothing else.
+  // A cold-start payload can land before there's anything to navigate, and a
+  // push then is dropped — waiting for the root nav state's `key` defers exactly that.
   const isNavigatorReady = useRootNavigationState()?.key !== undefined;
 
   useEffect(() => {
@@ -40,9 +37,8 @@ export function ShareIntentRedirect() {
     // `push`, not `replace` — the modal opens *over* wherever the app was, and
     // ✕ has to land back there.
     router.push(url ? { pathname: "/new-task", params: { url } } : "/new-task");
-    // `resetShareIntent` is deliberately omitted: the provider rebuilds it on
-    // every render, so depending on it would re-run this effect continuously
-    // for as long as a share is pending.
+    // resetShareIntent omitted — the provider rebuilds it every render, which
+    // would re-run this effect continuously while a share is pending.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasShareIntent, isNavigatorReady, webUrl, text]);
 

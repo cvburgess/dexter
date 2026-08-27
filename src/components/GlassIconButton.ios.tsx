@@ -50,9 +50,8 @@ export function GlassIconButton({
   // The trigger anchor doesn't take the a11y label when a Pressable wraps it.
   const anchorLabel = onPress ? undefined : label;
 
-  // `solid` takes the same branch the pre-26 fallback does, rather than a third
-  // rendering: a caller opting out of glass wants the circle this app already
-  // draws everywhere glass is unavailable, not a new one.
+  // `solid` reuses the pre-26 fallback branch rather than a third rendering
+  // — opting out of glass wants the circle already drawn everywhere else.
   const content: ReactNode =
     !solid && isLiquidGlassAvailable() ? (
       <GlassView

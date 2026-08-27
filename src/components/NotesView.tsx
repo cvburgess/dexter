@@ -17,15 +17,8 @@ type TNotesViewProps = {
   /** Fired as the editor gains/loses focus, so the host can disable day-swipe
    * while editing. */
   onEditingChange?: (editing: boolean) => void;
-  /**
-   * Whether the note draws as a floating card — its own border, the `NEITHER`
-   * task fill, and the gap above it — or fills its container flush and
-   * transparent. Appearance, not layout: the side gutter is the caller's either
-   * way (see docs/design.md, "Who owns spacing").
-   *
-   * `NotesJournalTabs` passes `false`, since the tabbed pane already draws a
-   * border around the whole column and a second one inside it would double up.
-   */
+  /** Floating card (own border/fill/gap) or flush transparent fill. Appearance
+   * only — the side gutter is the caller's either way. */
   card?: boolean;
 };
 
@@ -33,20 +26,12 @@ type TNotesViewProps = {
 // write, short enough that a note is safe within a second of pausing.
 const SAVE_DEBOUNCE_MS = 800;
 
-// How far the note card's background/border overhang the bottom screen edge for
-// the "trails off" look. Applied as both a negative margin (visual overhang) and
-// a matching bottom padding (keeps the editor content on-screen).
+// Bottom overhang for the "trails off" look — a negative margin plus a
+// matching padding that keeps editor content on-screen.
 const CARD_TRAIL_OFF = 24;
 
-/**
- * The Notes surface for a single day. Reads/writes the day's markdown note via
- * `useNotes`, autosaving edits (debounced). When the day has no note row yet and
- * a daily-note template is configured, it first offers the user a choice
- * between seeding the template and starting blank; both choices write a row, so
- * the choice persists across remounts/tab switches instead of re-prompting
- * (DEX-37). Remount this per-date (via `key`) so the editor re-seeds when the
- * day changes.
- */
+// Autosaving markdown note surface for a day. With no note row and a
+// template configured, offers template-vs-blank; both write a row (DEX-37).
 export function NotesView({
   date,
   onEditingChange,
@@ -56,21 +41,16 @@ export function NotesView({
   const [note, { isLoading, exists, upsertNote, upsertNoteAsync }] =
     useNotes(date);
   const [preferences] = usePreferences();
-  // Latches once the user commits to the editor (picks a choice or types).
-  // `exists` persists the choice across remounts, but rolls back to false if a
-  // save fails; this local latch keeps the editor mounted through a transient
-  // failure so in-progress text isn't discarded back to the chooser.
+  // Keeps the editor mounted through a failed save, which rolls exists back
+  // to false — without this the chooser would reappear over in-progress text.
   const [committed, setCommitted] = useState(false);
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRef = useRef<string | null>(null);
   const savingRef = useRef(false);
 
-  // Drain pending edits one save at a time, always sending the latest text.
-  // Serializing (never two saves in flight) keeps overlapping debounced/retrying
-  // saves from writing an older note over a newer one — both the server and the
-  // React Query cache stay last-edit-wins. React Query's mutate is referentially
-  // stable, so closing over `upsertNoteAsync` keeps this stable.
+  // Serializing (never two saves in flight) keeps overlapping saves from
+  // writing an older note over a newer one.
   const drainSaves = useCallback(async () => {
     if (savingRef.current) return;
     savingRef.current = true;
@@ -81,9 +61,7 @@ export function NotesView({
         try {
           await upsertNoteAsync({ content: pending });
         } catch {
-          // Retries (in useNotes) are exhausted. Requeue unless newer text
-          // already arrived, then stop so we don't hot-loop a persistent
-          // failure — the next edit/unmount flush retries.
+          // Requeue unless newer text arrived, then stop to avoid a hot loop.
           if (pendingRef.current === null) pendingRef.current = pending;
           break;
         }
@@ -118,9 +96,8 @@ export function NotesView({
 
   const hasTemplate = preferences.templateNote.trim().length > 0;
 
-  // Prompt only before the user has engaged this day's note: `exists` covers a
-  // persisted row (survives remounts), `committed` covers the current session
-  // (survives a failed save that rolled `exists` back).
+  // exists covers a persisted row; committed covers the current session
+  // (survives a failed save that rolled exists back).
   if (!exists && !committed && hasTemplate) {
     return (
       <EmptyScreen message="Start this day's note">
@@ -148,13 +125,8 @@ export function NotesView({
     );
   }
 
-  // Experiment: sit the note on a card styled like an incomplete "Neither"
-  // task (`priorityMuted`, the same solid fill TaskCard draws).
-
-  // `card` bundles the chrome decisions that only ever change together —
-  // derive them here once rather than three scattered ternaries in the JSX.
-  // A floating card needs the gap above it; a flush fill doesn't. The *side*
-  // gutter is in neither branch — that one is the caller's.
+  // Bundles the chrome decisions that only ever change together, rather than
+  // three scattered ternaries in the JSX. Side gutter is the caller's either way.
   const chrome = card
     ? {
         wrapper: [styles.cardWrapper, { paddingTop: theme.space.md }],
@@ -192,17 +164,11 @@ export function NotesView({
 }
 
 const styles = StyleSheet.create({
-  // No bottom gutter, so the card runs to the bottom edge and trails off (see
-  // `card` below). The top gap is applied inline; see `chrome` above.
   cardWrapper: {
     flex: 1,
   },
-  // Matches TaskCard's container: theme radius, 1pt border, clipped corners.
-  // The editor's own padding supplies the inner padding, on the same token.
-  // The negative bottom margin pushes the rounded bottom corners past the screen
-  // edge so the card looks like it trails off rather than ending in the viewport;
-  // the matching paddingBottom keeps the editor *content* on-screen (only the
-  // bg/border overhang) so the editor can still scroll its last lines into view.
+  // Negative bottom margin pushes rounded corners past the screen edge for
+  // the trail-off look; matching paddingBottom keeps content on-screen.
   card: {
     borderWidth: 1,
     flex: 1,

@@ -101,9 +101,8 @@ beforeEach(() => {
 });
 
 describe("CalendarStep", () => {
-  // Loading is checked first because an unresolved read looks exactly like a
-  // user with no calendars — the wrong order flashes the setup prompt at a
-  // configured user on every cold open.
+  // Loading checked first — an unresolved read looks like "no calendars",
+  // and the wrong order flashes the setup prompt at a configured user.
   it("renders nothing at all while the day is still loading", () => {
     const screen = renderStep({
       meta: { isLoading: true, notConfigured: true },
@@ -130,9 +129,8 @@ describe("CalendarStep", () => {
       expect(mockPush).toHaveBeenCalledWith("/settings/calendars");
     });
 
-    // A denied grant is the same dead end from the user's side, so it lands on
-    // the same screen — with copy that doesn't blame them for a list they never
-    // got to see.
+    // Same dead end from the user's side, so the same screen — with copy
+    // that doesn't blame them for a list they never saw.
     it("treats a denied permission the same way, with its own copy", () => {
       const screen = renderStep({
         meta: { notConfigured: true, permissionDenied: true },
@@ -169,9 +167,8 @@ describe("CalendarStep", () => {
     });
   });
 
-  // Three lines in a column, the figures right-aligned against a shared width —
-  // the same hero the Backlog step uses (`HeroLines`), which is where the
-  // layout and the stagger are covered. These are about the copy and the ink.
+  // Same hero as Backlog (`HeroLines`), which covers layout/stagger — these
+  // are about the copy and the ink.
   describe("with a day that has events", () => {
     it("counts the events and splits the window", () => {
       const screen = renderStep({
@@ -184,9 +181,8 @@ describe("CalendarStep", () => {
       expect(screen.getByText(`calendar:${DATE.toString()}`)).toBeTruthy();
     });
 
-    // "1 hours planned" would be the visible cost of pluralizing on whether
-    // the figure is whole rather than on the value, so exactly sixty minutes is
-    // the one span that takes the singular.
+    // Pluralizing on wholeness would print "1 hours planned"; exactly sixty
+    // minutes is the one span that takes the singular.
     it("writes the singular for one event and one hour", () => {
       const screen = renderStep({ events: [timed("a", 9, 10)] });
 
@@ -195,10 +191,8 @@ describe("CalendarStep", () => {
       expect(screen.getByLabelText("13 hours free")).toBeTruthy();
     });
 
-    // Time booked reads as spent, time left as available — the figures carry
-    // that, and the words beside them stay in ink. The count takes the same
-    // warning token the backlog step's "due soon" figure does: a day's events
-    // are a heads-up, neither the failure `error` marks nor an all-clear.
+    // Figures carry the color, words stay ink; events take the same warning
+    // token as backlog's due-soon — a heads-up, not `error` or an all-clear.
     it("colors the figures rather than the words", () => {
       const screen = renderStep({ events: [timed("a", 9, 10, 30)] });
 

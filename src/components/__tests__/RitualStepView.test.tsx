@@ -182,9 +182,8 @@ describe("RitualStepView", () => {
   });
 
   it("hands the journal the editing callback, unwrapped", () => {
-    // `JournalView`'s reset-on-unmount effect keys on this callback's identity,
-    // so wrapping it anywhere in the chain would clear the editing flag on
-    // every render and leave the step swipe fighting the caret.
+    // JournalView's reset-on-unmount effect keys on this callback's identity —
+    // wrapping it would clear the editing flag every render.
     const onEditingChange = jest.fn();
     render(
       <RitualStepView
@@ -224,29 +223,22 @@ describe("RitualStepView", () => {
     expect(screen.getByText("open-tasks:2026-08-09")).toBeTruthy();
   });
 
-  // The other half of the evening's task pass. It takes no `onEditingChange` —
-  // a completed card renames nothing — which is why this branch passes only the
-  // date.
+  // No onEditingChange — a completed card renames nothing.
   it("renders the review step for the ritual's day", () => {
     renderStep({ id: "review", title: "Review" });
 
     expect(screen.getByText("review:2026-08-09")).toBeTruthy();
   });
 
-  // The one step that renders a day other than the ritual's own — it takes the
-  // ritual's date here and adds the day itself, so this branch looks like every
-  // other one.
+  // The one step reading a day other than the ritual's own (date + 1 inside).
   it("renders the preview tomorrow step with the ritual's own day", () => {
     renderStep({ id: "preview-tomorrow", title: "Preview tomorrow" });
 
     expect(screen.getByText("preview-tomorrow:2026-08-09")).toBeTruthy();
   });
 
-  // Unlike `review` two steps back, this one lists *open* tasks, so its cards
-  // rename and the swipe has to be suspendable — passed unwrapped for the same
-  // reason the journal's is.
-  // The journal is the one step whose content depends on which ritual is
-  // running — the same id asks a different set of questions in each (DEX-151).
+  // Unlike review, this lists open tasks that rename — unwrapped for the
+  // same reason the journal's callback is (DEX-151: journal asks differently per ritual).
   it("tells the journal which ritual is asking", () => {
     renderStep({ id: "journal", title: "Journal" }, "pm");
 
@@ -293,12 +285,8 @@ describe("RitualStepView", () => {
     expect(screen.getByText("horoscope:2026-01-02")).toBeTruthy();
   });
 
-  // DEX-149 filled the last of them, so the placeholder branch is no longer
-  // reachable from either flow — which is exactly what this now guards. The
-  // default still exists, and an id added to `RITUAL_STEPS` without a branch
-  // here would quietly render its own bare title in the ritual rather than
-  // failing anywhere; a step showing nothing but its name reads as an empty
-  // screen, not as unfinished work.
+  // DEX-149 filled the last step, so this default is now unreachable but
+  // stays as a guard — an unbranched id would render its bare title silently.
   it.each([...RITUAL_STEPS.am, ...RITUAL_STEPS.pm])(
     "renders $title as a built step rather than its own name",
     (step) => {

@@ -7,8 +7,7 @@ import { themes } from "@/utils/theme";
 import { DayViewSwitcher, dayViewOptions, TDayView } from "../DayViewSwitcher";
 import type { TIconMenuOption, TIconMenuSection } from "../IconMenu.types";
 
-// The circular button wraps native glass/SF-symbol views; stub it so the
-// switcher's trigger renders the current view's SF Symbol name as text.
+// Stub the native glass button so the trigger renders its SF Symbol name.
 const mockGlassIconButton = jest.fn(({ sfSymbol }: { sfSymbol: string }) => (
   <Text>{sfSymbol}</Text>
 ));
@@ -16,8 +15,8 @@ jest.mock("../GlassIconButton", () => ({
   GlassIconButton: (props: { sfSymbol: string }) => mockGlassIconButton(props),
 }));
 
-// Capture the sections handed to IconMenu (the native host isn't driveable in a
-// unit test) so we can assert the Backlog option's tint.
+// Capture IconMenu's sections (its native host isn't driveable here) to
+// assert the Backlog option's tint.
 const mockIconMenu = jest.fn(
   (props: { sections: TIconMenuSection[]; children: ReactNode }) => (
     <>{props.children}</>

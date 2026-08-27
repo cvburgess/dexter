@@ -65,11 +65,8 @@ export function SettingsSectionTitle({
       </Text>
 
       {subtitle ? (
-        // `subtitle` carries the 400 weight itself, so there is no override
-        // here: this is running prose, and at the 600 a label wants, a whole
-        // sentence of it read as emphasis rather than explanation. Weight is
-        // what separates it from the title — dimming further doesn't work,
-        // because past `textSecondary` the text starts looking disabled.
+        // No weight override — at 600 a whole sentence reads as emphasis, not
+        // explanation. Dimming past textSecondary starts looking disabled.
         <Text
           style={[theme.fonts.subtitle, { color: theme.colors.textSecondary }]}
         >

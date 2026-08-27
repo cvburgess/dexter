@@ -10,32 +10,15 @@ import {
 } from "./ConfirmationModal.types";
 import { WebOverlay } from "./WebOverlay.web";
 
-/**
- * Web confirmation prompt rendered as a themed overlay, mirroring the look of
- * the app's other modals. Fully controlled via `visible`.
- *
- * Rendered through `components/WebOverlay.web.tsx` rather than React Native's
- * `Modal`, whose body portal inherits the `pointer-events: none` a Radix
- * dismissable layer puts on the body — that is what left these buttons visible
- * but dead in the three settings editors. `WebOverlay` portals to the body too,
- * but declares `pointer-events: auto` on its root, so the prompt works whether
- * it is owned by a modal screen or by the page underneath an open drawer (a
- * `TaskCard` prompt with the small-screen Backlog drawer up).
- *
- * The prompt used to render in-tree for the same reason, which scoped its
- * `position: fixed` backdrop to `.modal`'s transformed box — a prompt opened
- * from a modal screen dimmed the modal alone. Now that it is portalled, the
- * backdrop always covers the viewport, which is the right scope for a prompt
- * that can be owned by either.
- */
+/** Goes through `WebOverlay.web.tsx`, not RN's `Modal` — a Radix dismissable
+ * layer's `pointer-events: none` on the body left these buttons dead. */
 export function ConfirmationModal(props: ConfirmationModalProps) {
   const { visible, title, message, onClose } = props;
   const theme = useTheme();
   const actions = resolveActions(props);
 
-  // `Modal` used to give Escape-to-dismiss for free; keep it. Guarded because
-  // this file is also imported directly by its unit test, which runs under the
-  // React Native environment where `window` is a stub with no DOM events.
+  // `Modal` used to give Escape-to-dismiss for free; keep it. Guarded since
+  // this file's unit test runs under RN, where `window` has no DOM events.
   useEffect(() => {
     if (!visible || typeof window?.addEventListener !== "function") return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -135,12 +118,8 @@ export function ConfirmationModal(props: ConfirmationModalProps) {
   );
 }
 
-/**
- * Dims the page with the app's *own* background rather than a fixed black wash:
- * a black scrim all but disappears over a dark theme's surface, while the
- * background color always pushes the page back a step on either scheme
- * (DEX-61).
- */
+// Dims with the app's own background, not black — black disappears over a
+// dark surface (DEX-61).
 const backdropStyle = (theme: Theme) =>
   ({
     position: "fixed",

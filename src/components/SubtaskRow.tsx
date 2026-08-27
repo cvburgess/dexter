@@ -10,9 +10,8 @@ import type { TIconMenuSection } from "./IconMenu.types";
 import { SubtaskCheck } from "./SubtaskCheck";
 import { subtaskGeometry } from "./SubtaskConnector";
 
-// The icons are hoisted; the sections themselves close over the row's callbacks
-// and so are rebuilt per render. That allocation is trivial next to the native
-// menu host each row mounts, which is the cost that actually scales.
+// Icons hoisted; sections rebuild per render (closes over callbacks) — trivial
+// next to the native menu host each row mounts.
 const PROMOTE_ICON = {
   sf: "arrow.up.forward.square",
   ionicon: "open-outline",
@@ -52,23 +51,12 @@ type TSubtaskRowProps = {
   onToggleDone: (done: boolean) => void;
   onPromote: () => void;
   onDelete: () => void;
-  /**
-   * Whether the row's controls respond. False for a completed parent, whose
-   * checklist is frozen — and which also drops the native menu host this row
-   * mounts, from a card that can no longer act on it.
-   */
+  /** False for a completed parent — frozen checklist, no menu host mounted. */
   interactive?: boolean;
 };
 
-/**
- * One checklist item inside its parent's card. A subtask is not a task and is
- * deliberately not rendered as one — a checkbox, a title, and nothing else.
- *
- * Actions hang off an explicit `⋯` button rather than a long-press. The card is
- * already wrapped in a long-press menu host (`MoreMenu`), and nesting a second
- * long-press host inside it is the fragile arrangement; a *tap*-triggered menu
- * nested inside the card is the pattern `StatusButton` already proves works.
- */
+// Not rendered as a task. Tap-triggered `⋯`, not long-press — the card is
+// already wrapped in MoreMenu's long-press host.
 export function SubtaskRow({
   subtask,
   contentColor,
@@ -91,11 +79,9 @@ export function SubtaskRow({
     <View
       style={[
         styles.row,
+        // Wider than the parent row's `sm` — the checklist inset shifts the
+        // circles, and this gap gives subtask titles back the parent's edge.
         {
-          // Wider than the parent row's `sm`: the checklist is inset so the
-          // subtask circles center under the parent's larger ones, and the extra
-          // gap gives that back, so subtask titles start on the parent title's
-          // left edge.
           gap: theme.space.md,
           minHeight: rowHeight,
         },
@@ -136,10 +122,9 @@ export function SubtaskRow({
             style={[
               styles.menuTrigger,
               box,
+              // Circled like StatusButton at the same diameter, so the two
+              // controls read as a pair.
               {
-                // Circled like StatusButton, at the same diameter, so the row's
-                // two controls read as a pair and both sit subordinate to the
-                // parent's.
                 borderColor: withOpacity(contentColor, 0.25),
                 borderRadius: theme.radii.full,
               },

@@ -12,27 +12,15 @@ import Animated, {
 
 import { buildStarField, TStar } from "@/utils/starField";
 
-/**
- * Cheap to raise: the circles are drawn once per layer and never again, since
- * only the *layer's* opacity animates and that is a compositor property. The
- * cost is a one-off rasterization, not per-frame work, so this scales with
- * taste rather than with the frame budget. `STAR_LAYERS` is the number that
- * costs something, and it stays put.
- */
+// Cheap to raise — one-off rasterization, since only layer opacity animates.
+// STAR_LAYERS is the number that costs something and stays put.
 const STAR_COUNT = 320;
 const STAR_LAYERS = 4;
 /** Any fixed value; it exists only to make the sky the same one every launch. */
 const STAR_SEED = 128;
 
-/**
- * How long one layer takes to fade to its dimmest and back.
- *
- * Deliberately not multiples of each other. Layers on 2s/4s/6s re-align every
- * few seconds and the whole sky pulses in unison, which reads as the panel
- * flickering rather than as stars twinkling. These share no common factor, so
- * the layers drift permanently out of phase and no two are ever bright
- * together twice.
- */
+// Deliberately not multiples of each other — layers on 2s/4s/6s re-align and
+// the sky pulses in unison; these share no common factor.
 const TWINKLE_MS = [2300, 3100, 4300, 5900];
 
 /** How far a layer dims at the bottom of its cycle. */
@@ -45,17 +33,8 @@ type TStarFieldProps = {
   color: string;
 };
 
-/**
- * The drawn night sky behind the Horoscope step (DEX-128).
- *
- * Replaced a photograph, because stars that are real elements can twinkle
- * individually where a photo could only be cross-faded whole.
- *
- * Rendered as one absolutely-filled layer per group rather than one per star:
- * 72 shared values would each drive their own worklet every frame, where four
- * do the same job for the eye. See `utils/starField.ts` for why they are
- * grouped and why the field is seeded rather than random.
- */
+// One layer per group, not per star — 72 shared values would each drive a
+// worklet where four do the same job. See starField.ts for grouping/seeding.
 export function StarField({ color }: TStarFieldProps) {
   return (
     <>
@@ -64,9 +43,7 @@ export function StarField({ color }: TStarFieldProps) {
           color={color}
           durationMs={TWINKLE_MS[layer]}
           key={layer}
-          // Staggered so the layers do not all start at full brightness on the
-          // same frame, which would flash once on entry before the differing
-          // periods pulled them apart.
+          // Staggered so layers don't all start at full brightness and flash once.
           startOpacity={1 - layer * 0.12}
           stars={stars}
         />
@@ -91,9 +68,8 @@ function TwinkleLayer({
 
   useEffect(() => {
     if (reduceMotion) {
-      // A plain write cancels the running animation, which is what stops the
-      // sky when the setting is turned on while the step is on screen. Full
-      // brightness, so the field reads as a still sky rather than a dim one.
+      // Plain write cancels the running animation; full brightness reads as a
+      // still sky rather than a dim one.
       twinkle.value = 1;
       return;
     }
@@ -107,10 +83,8 @@ function TwinkleLayer({
     );
   }, [durationMs, reduceMotion, twinkle]);
 
-  // The layer's opacity animates on the *View*, not on the SVG nodes. An
-  // animated prop on a `Circle` needs `createAnimatedComponent` and a
-  // `useAnimatedProps` per node; one plain style on the wrapper does the same
-  // thing for the whole group and stays on the platform's own fast path.
+  // Opacity animates on the View, not per-Circle — one style on the wrapper
+  // covers the whole group and stays on the platform's fast path.
   const style = useAnimatedStyle(() => ({ opacity: twinkle.value }));
 
   return (
@@ -121,8 +95,7 @@ function TwinkleLayer({
       <Svg height="100%" width="100%">
         {stars.map((star, i) => (
           <Circle
-            // Percentages, so the field spreads across whatever size the panel
-            // is, while `r` stays absolute and the stars stay round.
+            // Percentages so the field spreads to any panel size; r stays absolute.
             cx={`${star.x}%`}
             cy={`${star.y}%`}
             fill={color}

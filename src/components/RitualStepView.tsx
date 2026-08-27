@@ -19,34 +19,13 @@ type TRitualStepViewProps = {
   /** Which ritual is running. Only the Journal reads it (DEX-151): it is the one
    * step id in both flows that asks a different set of questions in each. */
   mode: TRitualMode;
-  /**
-   * Fired as a step's text field gains/loses focus, so the layout can suspend
-   * the step swipe while the caret is being positioned.
-   *
-   * **Must be referentially stable** — pass a `useState` setter, not an inline
-   * arrow. `JournalView`'s reset-on-unmount effect depends on this callback's
-   * identity, so a new function each render would re-run its cleanup and clear
-   * the flag the moment a field was focused, leaving the swipe fighting the
-   * editor.
-   */
+  /** Must be a stable `useState` setter — JournalView's reset-on-unmount
+   * effect keys on its identity; an inline arrow re-fires its cleanup. */
   onEditingChange: (editing: boolean) => void;
 };
 
-/**
- * The content of one ritual step.
- *
- * This is the seam each DEX-34 sub-issue fills in: a step branches on `step.id`
- * here and nothing else about the flow has to change. All nine are built now —
- * Horoscope (DEX-128), Journal (DEX-105), Calendar (DEX-140), Backlog
- * (DEX-141), Summary (DEX-144), Open tasks (DEX-146), Review (DEX-148),
- * Preview tomorrow (DEX-149) and Breathe (DEX-164) — so the default below is
- * no longer a placeholder for unbuilt steps but the landing spot for an id
- * added to `RITUAL_STEP_IDS` without a branch here. `RitualStepView.test`
- * walks every step in both rituals to make sure nothing reaches it.
- *
- * Carries no side gutter of its own — `SwipeablePage` supplies it at both
- * widths on this tab (see docs/design.md, "Who owns spacing").
- */
+// The DEX-34 seam: branches on step.id, nothing else about the flow changes.
+// The default is the landing spot for an unbranched id — RitualStepView.test walks every step.
 export function RitualStepView({
   step,
   date,
@@ -54,18 +33,14 @@ export function RitualStepView({
   onEditingChange,
 }: TRitualStepViewProps) {
   switch (step.id) {
-    // DEX-164: the evening's first step, and the counterpart to the morning's
-    // horoscope — a step that asks nothing, so the wind-down doesn't open on
-    // administrative work. Takes the date only to resolve a `"shuffle"`
-    // technique preference to the one this day runs.
+    // DEX-164: the evening's counterpart to the morning horoscope — asks
+    // nothing, so wind-down doesn't open on administrative work.
     case "breathe":
       return <BreatheStep date={date} />;
     case "horoscope":
       return <HoroscopeStep date={date} />;
-    // DEX-105: the journal left the Today tab for the ritual, so this is the
-    // only place it renders. Not keyed on the date — `SwipeablePage` remounts
-    // the whole step on a day change (`ritualPageKey`), which is what re-seeds
-    // the uncontrolled inputs.
+    // DEX-105: not keyed on date — SwipeablePage remounts on day change
+    // (ritualPageKey), which re-seeds the uncontrolled inputs.
     case "journal":
       return (
         <JournalView
@@ -74,46 +49,27 @@ export function RitualStepView({
           onEditingChange={onEditingChange}
         />
       );
-    // DEX-140: only reachable while `preferences.enableCalendar` is on —
-    // `stepsFor` drops the step entirely otherwise, so this branch never has to
-    // stand in for a user who has no calendar.
+    // DEX-140: reachable only while enableCalendar is on — stepsFor drops it.
     case "calendar":
       return <CalendarStep date={date} />;
-    // DEX-141: unconditional, unlike all three steps above it — no preference
-    // drops the backlog, since every user has one.
+    // DEX-141: unconditional — no preference drops the backlog.
     case "backlog":
       return <BacklogStep date={date} />;
-    // DEX-146: the evening ritual's first *working* step — Breathe opens the
-    // flow ahead of it since DEX-164 — and unconditional like the
-    // backlog. Not the morning task-list step DEX-144 removed — that one copied
-    // the Today list without replacing it, where this one dispatches a day's
-    // leftovers rather than offering a second place to read them.
+    // DEX-146: unconditional like the backlog. Not the DEX-144 task-list step
+    // — this dispatches a day's leftovers rather than re-listing them.
     case "open-tasks":
       return <OpenTasksStep date={date} onEditingChange={onEditingChange} />;
-    // DEX-148: the other half of the evening's task pass — what got closed out,
-    // where `open-tasks` two swipes back is what didn't. Takes no
-    // `onEditingChange`: a completed card renames nothing, so this step has no
-    // field to suspend the swipe for.
+    // DEX-148: complements open-tasks. No onEditingChange — completed cards
+    // render no field to suspend the swipe for.
     case "review":
       return <ReviewStep date={date} />;
-    // DEX-149: the one step that reads a day other than the ritual's own — it
-    // previews `date + 1`, computed there rather than here so every other
-    // branch keeps meaning "the day being walked through". Unconditional even
-    // for a reader with no calendar: the agenda is what the preference gates,
-    // not the step, since tomorrow's tasks are worth seeing either way. It is
-    // also the evening's *last* step now, having replaced the summary there.
-    //
-    // Takes `onEditingChange` where `review` does not: its cards are tomorrow's
-    // open tasks, so they rename, and a caret drag across a live field would
-    // otherwise page the ritual.
+    // DEX-149: the one step reading a day other than the ritual's own
+    // (date + 1). Unconditional — the agenda, not the step, gates on calendar.
     case "preview-tomorrow":
       return (
         <PreviewTomorrowStep date={date} onEditingChange={onEditingChange} />
       );
-    // DEX-144: the morning's last step — it counts the day and hands the reader
-    // over to their real task list rather than drawing a second copy of it here.
-    // The morning's alone since DEX-149; see `ritualSteps` for why the evening
-    // stopped closing on a count of a day it had just reviewed.
+    // DEX-144: counts the day and hands off, rather than re-listing it.
     case "summary":
       return <SummaryStep date={date} />;
     default:

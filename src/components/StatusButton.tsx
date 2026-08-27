@@ -32,9 +32,8 @@ export function StatusButton({
       style={[
         styles.button,
         {
-          // Derived from the card's content color, not `colors.border`: this
-          // outline sits on the priority fill, where a neutral hairline would
-          // wash out.
+          // From the card's content color, not colors.border — a neutral
+          // hairline washes out on the priority fill.
           borderColor: withOpacity(contentColor, 0.25),
           borderRadius: theme.radii.full,
           height: diameter,

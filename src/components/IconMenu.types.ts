@@ -9,41 +9,24 @@ export type TIconMenuOption = {
   title: string;
   /** Icon rendered beside the label. */
   icon?: TIconName;
-  /**
-   * Tint for the icon. Applied on all platforms — on iOS the SF Symbol is
-   * tinted through SwiftUI's `.tint`, which colors the icon but not the label.
-   * Needs `@expo/ui` >= 57.0.8, where leaf action buttons stopped using an
-   * ineffective `.foregroundColor`. Set `titleColor` too for the label on
-   * Android/web.
-   */
+  /** Icon tint, all platforms — needs @expo/ui >= 57.0.8 on iOS. */
   iconColor?: string;
-  /**
-   * Tint for the label text. Applied on Android and web. iOS menu labels can't
-   * be recolored independently (only the icon tints, via `iconColor`), so this
-   * is a no-op there.
-   */
+  /** Label tint, Android/web only — iOS labels can't be recolored independently. */
   titleColor?: string;
   isSelected?: boolean;
   isDestructive?: boolean;
   onSelect: () => void;
 };
 
-/**
- * A titled group of options. By default, rendered as an inline section
- * (native) / a divided group (web) — always visible. With `isSubmenu: true`,
- * rendered as a collapsed submenu that expands on tap.
- */
+// Default: an inline section (native) / divided group (web), always visible.
+// isSubmenu: true renders a collapsed submenu that expands on tap.
 export type TIconMenuSection = {
   title?: string;
   /** Icon rendered beside the section title. */
   icon?: TIconName;
   isSubmenu?: boolean;
-  /**
-   * Drops the rule above this section, so it reads as a continuation of the one
-   * before it rather than a group of its own. On native this also flattens a
-   * plain section into bare top-level actions, since the system draws a
-   * separator around every inline group.
-   */
+  /** Continues the section above instead of a group of its own; on native
+   * also flattens a plain section into bare top-level actions. */
   hideDivider?: boolean;
   options: TIconMenuOption[];
 };

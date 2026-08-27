@@ -116,16 +116,8 @@ export function NoteEditor({
     transform: [{ translateY: -keyboard.height.value }],
   }));
 
-  // Shrink the input's frame to the on-screen viewport so its built-in
-  // caret-scroll targets the real visible area: end above the keyboard + bar
-  // while editing, above the tab-bar safe area while reading. (The library
-  // scrolls the caret within the input's own frame, and ignores the input's own
-  // `padding` as a scroll inset — so this has to constrain the frame itself.)
-  //
-  // This is deliberately NOT the `automaticallyAdjustKeyboardInsets` pattern
-  // the journal surfaces moved to in DEX-92: that's a ScrollView prop, and
-  // there's no ScrollView here — the editor is a single rich-text input that
-  // does its own caret scrolling. Frame-shrinking is what that input needs.
+  // Shrinks the frame, not padding (the library ignores it as a scroll
+  // inset) — not automaticallyAdjustKeyboardInsets (DEX-92), which needs a ScrollView.
   const editorInsetStyle = useAnimatedStyle(() => ({
     paddingBottom: Math.max(
       keyboard.height.value + (focused ? BAR_HEIGHT : 0),
@@ -133,10 +125,8 @@ export function NoteEditor({
     ),
   }));
 
-  // Report "no longer editing" when the editor unmounts without a blur event —
-  // e.g. the day changes via DayNav or the tab switches while focused (React
-  // fires no blur on unmount), which would otherwise leave the host's swipe
-  // gesture disabled on the next day.
+  // React fires no blur on unmount, which would otherwise leave the host's
+  // swipe gesture disabled on the next day.
   useEffect(() => () => onFocusChange?.(false), [onFocusChange]);
 
   return (

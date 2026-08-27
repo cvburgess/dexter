@@ -46,13 +46,8 @@ export function TaskCardPreview({ task, width }: TTaskCardPreviewProps) {
           borderRadius: theme.radii.md,
           minHeight: theme.space.md * 2 + theme.controls.sm,
           padding: theme.space.md,
-          // Drax's hover wrapper is `alignSelf: "flex-start"`, so it shrink-wraps
-          // its content. A `stretch` child of a shrink-wrapped Yoga parent with
-          // no resolved width collapses to zero on native — web sized it from the
-          // intrinsic text width, so this only ever broke on device. The measured
-          // width is the real fix; the floor is what keeps the preview a card
-          // rather than a sliver if the measurement hasn't landed yet, and
-          // `WEEK_COLUMN_MIN_WIDTH` is exactly "the narrowest a card is drawn".
+          // Drax's shrink-wrapped hover wrapper collapses a stretch child to
+          // zero on native; floors this as a card until the real width lands.
           width: width ?? WEEK_COLUMN_MIN_WIDTH,
         },
       ]}

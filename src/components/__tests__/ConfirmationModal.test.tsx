@@ -5,9 +5,8 @@ import { ConfirmationModal as ConfirmationModalNative } from "../ConfirmationMod
 import { ConfirmationModal as ConfirmationModalWeb } from "../ConfirmationModal.web";
 import { WebOverlay } from "../WebOverlay.web";
 
-// The web prompt reaches the screen through `WebOverlay`, which portals it to
-// `document.body` at runtime; render it inline here so react-test-renderer
-// keeps it in the tree for RNTL queries.
+// WebOverlay portals to document.body at runtime; render inline so
+// react-test-renderer keeps it in the tree for RNTL queries.
 jest.mock("react-dom", () =>
   require("@/testUtils/mockReactDomPortal").mockReactDomPortal(),
 );
@@ -42,10 +41,8 @@ describe("ConfirmationModal", () => {
       expect(getByText("Cancel")).toBeTruthy();
     });
 
-    // The prompt used to render in-tree, which kept it clickable inside a modal
-    // screen but not when the page tree owns it under an open drawer — a
-    // `TaskCard` prompt with the small-screen Backlog up inherited the body's
-    // `pointer-events: none` all the same (DEX-134).
+    // In-tree used to leave it dead under an open drawer, inheriting the
+    // body's `pointer-events: none` (DEX-134).
     test("renders through WebOverlay only while visible", () => {
       const props = {
         title: "Delete task",

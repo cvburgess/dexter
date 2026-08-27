@@ -12,11 +12,8 @@ import { techniqueForDay } from "@/utils/breathing";
 
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 
-// `useBreathAudio` reaches `expo-router` for `useFocusEffect`, which is ESM and
-// untransformed here. Focus is the lifetime that matters to the tones, and this
-// stands mount/unmount in for it. Its own behaviour is asserted in
-// `hooks/__tests__/useBreathAudio.test.ts`; the audio graph is inert in this
-// file (see `jest.setup.js`), so nothing here makes a sound.
+// useFocusEffect (ESM, untransformed here) stands in for mount/unmount; its
+// own behavior lives in useBreathAudio.test.ts and the audio graph is inert.
 jest.mock("expo-router", () => {
   const { useEffect } = require("react");
   return {

@@ -27,19 +27,12 @@ type TSmallScreenTodayProps = {
   // The Filter preset to pre-apply when opening Backlog (Overdue/left-behind),
   // or null when there's nothing needing attention. Drives the switcher's dot.
   attentionFilter: TFilterId | null;
-  /**
-   * The deep link this screen was opened with (DEX-47), or null for an ordinary
-   * tab press. `mode` selects the view — except `backlog`, which opens the
-   * drawer sheet instead of changing the view at all — and `query` seeds the
-   * drawer's search box. Keyed on `id` so re-following the same link works.
-   */
+  /** DEX-47 deep link, or null. `backlog` opens the drawer instead of a view. */
   link: TDayLink | null;
 };
 
-// The single-view (small-screen) Today layout: one full-width view at a time
-// with a switcher, day navigation, and a swipe-to-change-day gesture. Owns the
-// state that only this layout needs (`view`/editing flags/the drawer sheet);
-// the large-screen multi-pane layout lives in `LargeScreenToday`.
+// Single-view (small-screen) Today layout — owns state only this layout
+// needs; the multi-pane layout lives in LargeScreenToday.
 export function SmallScreenToday({
   date,
   direction,
@@ -52,10 +45,8 @@ export function SmallScreenToday({
   const theme = useTheme();
   const backlogAttention = attentionFilter !== null;
   const mode = link?.mode ?? null;
-  // Seeded from the route so a deep link is already right on the first render —
-  // the `appliedLinkId` adjustment below only fires on a *change*, so arriving
-  // with `?mode=` set would otherwise land on Tasks. `backlog` isn't a view
-  // (the sheet handles it), so it seeds Tasks like an ordinary tab press.
+  // Seeded from the route so a first-render deep link is already right — the
+  // appliedLinkId adjustment below only fires on a change.
   const [view, setView] = useState<TDayView>(
     mode && mode !== "backlog" ? mode : "tasks",
   );
@@ -64,11 +55,8 @@ export function SmallScreenToday({
   const [notesEditing, setNotesEditing] = useState(false);
   const taskDrawerRef = useRef<TTaskDrawerSheetHandle>(null);
 
-  // Select the view a `?mode=` deep link asked for (DEX-47). Adjusted during
-  // render, the same way the `viewDisabled` reset below is and for the same
-  // reason — no wrong-view frame, no effect. Keyed on `link.id`, which changes
-  // per navigation, so the user can switch views afterwards without this
-  // snapping them back *and* re-following the same link still works.
+  // Adjusted during render, like viewDisabled below — no wrong-view frame, no
+  // effect. Keyed on link.id so switching views afterward doesn't snap back.
   const linkId = link?.id ?? null;
   const [appliedLinkId, setAppliedLinkId] = useState(linkId);
   if (linkId !== appliedLinkId) {
@@ -77,15 +65,8 @@ export function SmallScreenToday({
     if (mode && mode !== "backlog") setView(mode);
   }
 
-  // The sheet is an imperative native API rather than React state, so poking it
-  // is exactly what an effect is for. Pre-filtered to Unscheduled (where a task
-  // with no date lives) and pre-searched, so the result the user tapped is on
-  // screen straight away instead of somewhere in the backlog. Keyed on `linkId`
-  // for the same reason as above — tapping the same result again after
-  // dismissing the sheet has to re-present it.
-  // Depends on primitives rather than `link`, which is a fresh object every
-  // render. `mode` and `linkQuery` are both encoded in `linkId`, so listing them
-  // costs no extra firings and keeps the dependency list honest.
+  // Imperative sheet API, so an effect is the right tool. Pre-filtered to
+  // Unscheduled and pre-searched so the tapped result is on screen immediately.
   const linkQuery = link?.query;
   useEffect(() => {
     if (mode === "backlog") {
@@ -98,16 +79,13 @@ export function SmallScreenToday({
   const viewDisabled =
     (view === "notes" && !preferences.enableNotes) ||
     (view === "calendar" && !preferences.enableCalendar);
-  // Reset the stored `view` when its feature is disabled, so re-enabling later
-  // doesn't jump back into a view the user hasn't been looking at. Adjusting
-  // state during render (React's supported pattern) corrects it before paint —
-  // no flash and no effect. `activeView` guards the pre-reset render pass.
+  // Adjusted during render (React's supported pattern) so re-enabling later
+  // doesn't jump back into a view the user wasn't looking at — no flash, no effect.
   if (viewDisabled) setView("tasks");
   const activeView: TDayView = viewDisabled ? "tasks" : view;
 
-  // Suspended while the note editor is focused — it owns horizontal drags for
-  // caret/selection until the user taps Done. Calendar and Tasks have no such
-  // conflict (Calendar's timeline scrolls vertically) and always allow swiping.
+  // Suspended while notes is focused — it owns horizontal drags for caret/
+  // selection; Calendar and Tasks have no such conflict.
   const swipeEnabled = activeView === "notes" ? !notesEditing : undefined;
 
   return (
@@ -115,20 +93,9 @@ export function SmallScreenToday({
       edges={["top", "left", "right"]}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      {/* Laid out bottom-up so the day's content — and the vertical scroll view
-          inside it — is the *first* child in the view tree while the header
-          still renders above it (DEX-136). UIKit resolves a tab screen's
-          content scroll view once at mount by walking first subviews, and a
-          header at the front of that order ends the walk on a subtree with no
-          scroll view in it, leaving `minimizeBehavior="onScrollDown"` nothing
-          to track. Reversing the column costs no pixels: React Native mounts
-          native subviews in JSX order whatever the flex direction is. See
-          docs/frontend.md, "Safe areas and keyboard".
-
-          `TaskDrawerSheet` deliberately stays outside this wrapper. It is a
-          `BottomSheetModal`, and whether it contributes to layout at all is
-          not something the fix should quietly depend on — as a later sibling
-          it is child 1 of the screen, which the walk never visits. */}
+      {/* column-reverse puts the scroll view first in the tree (DEX-136) while
+          the header still renders above it — see docs/frontend.md. TaskDrawerSheet
+          stays outside this wrapper since its layout contribution is a modal's. */}
       <View style={styles.reversed}>
         <DayViewContent
           view={activeView}
@@ -142,23 +109,14 @@ export function SmallScreenToday({
           date={date}
           onChangeDate={changeDate}
           trailing={
-            /* The task-drawer trigger lives inside this menu (via onOpenDrawer)
-             rather than as a second header button — a standalone button here
-             crowded DayNav's next-day arrow. */
+            /* Drawer trigger lives in this menu, not a second header button —
+             a standalone one crowded DayNav's next-day arrow. */
             <DayViewSwitcher
               view={activeView}
               onChangeView={setView}
               onOpenDrawer={() =>
-                // Resets *both* the filter and the search a `mode=backlog` deep
-                // link left seeded: this entry point means "show me my backlog",
-                // not "show it still narrowed to Unscheduled by a link I followed
-                // three screens ago" (DEX-47).
-                //
-                // `"none"` rather than `undefined` when nothing needs attention —
-                // `undefined` leaves the previous filter in place, which is how
-                // the seeded Unscheduled used to survive. Little is lost: opening
-                // with an attention filter already overrode whatever the user had
-                // selected, so the filter never reliably persisted between opens.
+                // Resets both filter and search a mode=backlog link left
+                // seeded (DEX-47); "none", not undefined, or the old filter survives.
                 taskDrawerRef.current?.present(attentionFilter ?? "none", "")
               }
               attention={backlogAttention}
@@ -182,9 +140,8 @@ type TDayViewContentProps = {
   onSwipe: (days: 1 | -1) => void;
 };
 
-// SwipeablePage remounts its content per date, re-seeding editors/inputs and
-// re-fetching calendar events. Days are unbounded, so it takes neither
-// `canPrev` nor `canNext` — every swipe commits.
+// Remounts content per date; days are unbounded, so no canPrev/canNext —
+// every swipe commits.
 function DayViewContent({
   view,
   date,

@@ -46,9 +46,8 @@ describe("CalendarSourceList (web / .ics feeds)", () => {
 
   beforeEach(() => jest.clearAllMocks());
 
-  // The "Add feed" affordance lives in the navigation header (set via
-  // setOptions), so it isn't in the list's own tree. Render the latest
-  // headerRight to press it.
+  // "Add feed" lives in the nav header (setOptions), not the list's tree —
+  // render the latest headerRight to press it.
   const renderHeader = () =>
     render(mockSetOptions.mock.calls.at(-1)?.[0].headerRight());
 

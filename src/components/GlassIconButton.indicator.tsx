@@ -75,9 +75,8 @@ export function finishButton(
   );
 }
 
-// The dot's own geometry is decorative rather than part of the control scale —
-// it is sized to read as a badge on any button diameter, so it stays literal
-// (see the exceptions list in `docs/design.md`).
+// Decorative, not part of the control scale — sized to read as a badge on
+// any diameter (docs/design.md exceptions list).
 const styles = StyleSheet.create({
   dot: {
     borderWidth: 1.5,

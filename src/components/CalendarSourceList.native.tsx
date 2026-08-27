@@ -24,12 +24,9 @@ const fetchCalendars = async (): Promise<TCalendarsResult> => {
   return { calendars, permissionDenied: false };
 };
 
-/**
- * Native calendar sources: the device's own calendars, each with a toggle. The
- * selection is device-local (`useEnabledDeviceCalendars`); `null` means "not yet
- * customized", which shows everything. Toggling materializes the current set
- * before flipping one entry so "all enabled" becomes an explicit list.
- */
+/** Native calendar sources: device-local toggles (`useEnabledDeviceCalendars`);
+ * `null` means "not customized" and shows everything until a toggle
+ * materializes the current set into an explicit list. */
 export function CalendarSourceList() {
   const theme = useTheme();
   const [enabledIds, { setEnabledIds }] = useEnabledDeviceCalendars();

@@ -11,9 +11,8 @@ import { themes } from "@/utils/theme";
 
 jest.mock("@/hooks/useTasks", () => ({ useTasks: jest.fn() }));
 
-// The drawer has its own suite (`TaskDrawer.test.tsx`) and a native menu host
-// that can't be driven from a unit test; standing it in as a marker keeps this
-// file about the hero and the filter it seeds.
+// The drawer has its own suite and a native menu host a unit test can't
+// drive; a marker keeps this file about the hero and the filter it seeds.
 const mockTaskDrawer = jest.fn();
 jest.mock("@/components/TaskDrawer", () => {
   const { Text: RNText } =
@@ -108,9 +107,8 @@ beforeEach(() => {
 
 describe("BacklogStep", () => {
   describe("while the tasks are loading", () => {
-    // `useTasks` hands back an empty placeholder array until the query
-    // resolves, so every count is zero — showing the all-clear hero here would
-    // congratulate someone whose backlog is full.
+    // Placeholder array makes every count zero — the all-clear hero here
+    // would congratulate someone whose backlog is full.
     it("renders nothing rather than a premature all-clear", () => {
       const screen = renderStep([], true);
 
@@ -139,9 +137,8 @@ describe("BacklogStep", () => {
       }
     });
 
-    // A backlog can be full of undated, unscheduled tasks and still have
-    // nothing slipping. The step is about what is slipping (DEX-141); the
-    // Today tab's drawer covers browsing the rest.
+    // A backlog full of undated tasks can still have nothing slipping — the
+    // step is about what's slipping (DEX-141), not browsing the rest.
     it("stays clear for a backlog of undated, unscheduled tasks", () => {
       const screen = renderStep([task({ id: "1" }), task({ id: "2" })]);
 
@@ -165,10 +162,8 @@ describe("BacklogStep", () => {
       expect(screen.getByText(`drawer:${TODAY.toString()}`)).toBeTruthy();
     });
 
-    // The figure carries the color and the words stay in ink, per
-    // `CalendarStep`'s convention. Due soon is a heads-up rather than a
-    // failure, so it takes the warning token the urgent+important priority
-    // uses instead of `error`.
+    // Figures carry color, words stay ink (CalendarStep's convention); due
+    // soon takes the warning token, not `error` — it's a heads-up, not a failure.
     it("colors the figures by what they mean", () => {
       const screen = renderStep([leftBehind("1"), overdue("2"), dueSoon("3")]);
 
@@ -202,10 +197,8 @@ describe("BacklogStep", () => {
       expect(drawerProps().showSearch).toBe(false);
     });
 
-    // The drawer sits under this step's fade and `SwipeablePage`'s, which
-    // liquid glass cannot sample through — each row's "+" would be a bare
-    // glyph on iOS (DEX-150). The rendering is device-only; this is cover for
-    // the step still declaring it.
+    // The drawer sits under two fades glass can't sample through (DEX-150);
+    // the rendering is device-only, this just covers the step declaring it.
     it("tells the drawer it is under an animated opacity", () => {
       renderStep([leftBehind("1")]);
 
@@ -277,9 +270,8 @@ describe("BacklogStep", () => {
       expect(drawerProps().filterId).toBe("overdue");
     });
 
-    // The emptiness is what licenses the move. Derived from the counts alone,
-    // the filter would jump the moment a *different* bucket changed and the
-    // reader would lose their place mid-list.
+    // Emptiness licenses the move — derived from counts alone, the filter
+    // would jump the moment a different bucket changed.
     it("stays put while the reader's bucket still has tasks", () => {
       const screen = renderStep([
         leftBehind("1"),
@@ -294,10 +286,8 @@ describe("BacklogStep", () => {
       expect(drawerProps().filterId).toBe("leftBehind");
     });
 
-    // The advance has to be *recorded*, not only derived: left in state, the
-    // emptied bucket is still the one `nextBacklogFilter` reads, so refilling it
-    // — un-completing a task from the drawer, or a change from another device —
-    // would yank the list back off whatever the reader had moved on to.
+    // Must be recorded, not just derived — left alone, refilling the emptied
+    // bucket would yank the list back off whatever the reader moved on to.
     it("does not snap back when a cleared bucket refills", () => {
       const screen = renderStep([leftBehind("1"), overdue("2")]);
       expect(drawerProps().filterId).toBe("leftBehind");

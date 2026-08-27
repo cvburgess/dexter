@@ -98,9 +98,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  // The default `alignItems: "stretch"` is load-bearing: it hands the full slot
-  // width to whatever the caller puts here, so a tappable label's hit area is
-  // the whole 160 rather than just its text.
+  // Default alignItems: "stretch" is load-bearing — hands the full slot width
+  // to the label, so its hit area is the whole 160, not just its text.
   center: {
     minWidth: 160,
   },

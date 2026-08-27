@@ -12,29 +12,8 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-/**
- * The bands, outermost first — drawn in this order so each paints over the one
- * behind it and only its top arc shows, which is what makes a stack of circles
- * read as a sunrise rather than as a target.
- *
- * **They arrive in the opposite order**, innermost first (see the `stage` the
- * map below hands each one). A larger band's arc sits higher on screen, so
- * lighting them inside-out sweeps the glow up the step — the sun clears the
- * horizon and the sky catches after it. Outermost-first was tried and reads
- * backwards: the whole sky lights and the sun then appears inside a scene that
- * has already happened.
- *
- * **Fixed warm colors, not theme tokens**, for the reason `sentimentTints`
- * gives in docs/design.md: a sunrise that took the user's palette would be a
- * green one on this theme and a blue one on another, which is not a sunrise.
- * Kept at low alpha so it reads as light *behind* the step rather than as a
- * second background — every theme's own surface still shows through, so the
- * figures and the button keep their contrast without needing an ink of their
- * own the way the horoscope panel does.
- *
- * `radius` is a fraction of the larger of the two axes, so the arcs keep their
- * shape from a phone to a capped-width desktop column.
- */
+// Outermost first (paint order), but arrive innermost-first (see `stage`) so
+// the glow sweeps up. Fixed warm colors — a sunrise must not take the user's palette.
 const BANDS = [
   { key: "outer", radius: 1.0, color: "#F97316", opacity: 0.1 },
   { key: "mid", radius: 0.82, color: "#FB923C", opacity: 0.12 },
@@ -43,35 +22,8 @@ const BANDS = [
   { key: "sun", radius: 0.3, color: "#FDE68A", opacity: 0.2 },
 ] as const;
 
-/**
- * One 0→1 driver with a window per band, the same structure `HeroLines` and
- * `HoroscopeStep` use — a stagger built from one value cannot drift out of
- * order however the timings are retuned.
- *
- * A `[from, to]` per band rather than shared starts and one fade, because the
- * windows are **not** all the same length: in **arrival** order (sun outward),
- * the sun takes ~480ms and the bands behind it run ~730ms. The sun is a single
- * small shape that has either risen or not, where a band is a wash across the
- * whole step and snapping it in reads as a flash. Even windows were tried first
- * and made the whole thing feel slow, because the one shape the eye is waiting
- * on moved at the pace of the largest.
- *
- * **The bands start ~310ms apart**, which is well inside each other's fades —
- * they overlap by roughly two thirds. Successive passes have pulled this in
- * from 900ms to 540 to here; what the tightening buys is one continuous
- * brightening rather than a countable sequence, and the thing it spends is the
- * legibility of the order, which is why the sun's own head start is what keeps
- * the direction readable.
- *
- * Two invariants, both easy to break while retuning: the last `to` must be 1,
- * or the tail is dead time; and each band must start before the one ahead of it
- * finishes, or the sky arrives in five separate switch-flips rather than as one
- * brightening.
- */
-/**
- * Exported so the step can bring its content in *after* the sky has settled
- * without copying the number — see `SummaryStep`.
- */
+// One driver, [from, to] window per band, uneven and overlapping ~2/3.
+// Exported so the step can wait for the sky to settle — see SummaryStep.
 export const SUNRISE_MS = 2200;
 const BAND_WINDOWS = [
   [0, 0.22],
@@ -96,21 +48,13 @@ type TSunriseBandProps = {
   height: number;
 };
 
-/**
- * One band, on its own absolutely-filled layer.
- *
- * A layer each rather than one `Svg` for all five, because each has to move
- * independently — and moving a layer is `opacity` + `transform`, both
- * compositor properties, where animating the circles' own `r`/`cy` would
- * re-rasterize a screen-sized SVG every frame. The same trade `StarField`
- * makes for its four star layers.
- */
+// One layer per band, not one shared Svg — opacity/transform stay compositor
+// properties where animating r/cy would re-rasterize every frame (see StarField).
 function SunriseBand({ band, stage, rise, width, height }: TSunriseBandProps) {
   const [from, to] = BAND_WINDOWS[stage];
 
   const style = useAnimatedStyle(() => {
-    // The band's own 0→1, resolved once and used for both properties so the
-    // fade and the travel cannot come apart.
+    // Resolved once, used for both properties, so fade and travel can't split.
     const arrived = interpolate(
       rise.value,
       [from, to],
@@ -143,34 +87,18 @@ function SunriseBand({ band, stage, rise, width, height }: TSunriseBandProps) {
 }
 
 type TSunriseBackgroundProps = {
-  /**
-   * Replays the rise when it changes — the day, the same key `useHeroReveal`
-   * takes. Not nullable: the step returns `null` while its counts are loading,
-   * so this never mounts against data that isn't there yet.
-   */
+  /** Same key useHeroReveal takes — the day. Not nullable: the step is null
+   * while loading, so this never mounts against data that isn't there yet. */
   revealKey: string;
 };
 
-/**
- * The sunrise behind the ritual's Summary step: concentric arcs rising from
- * below it, one band at a time.
- *
- * It starts as soon as the step has a measured box, and **the step's own
- * content waits for it** (`SUNRISE_MS`, exported for that). Running the two
- * together was tried first: the figures counting themselves off competed with
- * the bands for the same stretch of time, and neither read. Sequenced, the step
- * is a sky coming up and then the day being handed over.
- *
- * Deliberately not a gradient image — vector circles at a handful of fixed
- * radii stay crisp at every width, weigh nothing in the bundle, and can be
- * retuned by editing `BANDS` rather than by re-exporting art.
- */
+// Concentric arcs behind Summary's figures. Starts on measure; the step's
+// content waits for SUNRISE_MS so the two don't compete for the same time.
 export function SunriseBackground({ revealKey }: TSunriseBackgroundProps) {
   const reduceMotion = useReducedMotion();
   const rise = useSharedValue(0);
-  // Measured rather than taken from `useWindowDimensions`: on a large screen
-  // `SwipeablePage` caps the step's column at `SWIPEABLE_PAGE_MAX_WIDTH`, so the
-  // window is wider than the box this fills and the sun would sit off-center.
+  // Measured, not useWindowDimensions — SwipeablePage caps the column width on
+  // large screens, so the window is wider than the box this fills.
   const [size, setSize] = useState({ width: 0, height: 0 });
 
   const onLayout = (event: LayoutChangeEvent) => {
@@ -182,15 +110,10 @@ export function SunriseBackground({ revealKey }: TSunriseBackgroundProps) {
     );
   };
 
-  // Nothing to animate until the box has been measured — the bands' travel is
-  // a fraction of its height.
   const ready = size.height > 0;
 
-  // The same shape `useHeroReveal` uses, for the same reasons: keyed on the day
-  // so the rise replays when it changes, held at 0 until the box is measured,
-  // and **assigned** rather than skipped under reduced motion —
-  // a plain write cancels whatever is running on the value, which is what stops
-  // a rise mid-flight when the setting is turned on while the step is open.
+  // Same shape useHeroReveal uses — assigned, not skipped, under reduced
+  // motion, so a mid-flight rise cancels if the setting flips mid-step.
   useEffect(() => {
     if (!ready) {
       rise.value = 0;
@@ -203,9 +126,8 @@ export function SunriseBackground({ revealKey }: TSunriseBackgroundProps) {
     rise.value = 0;
     rise.value = withTiming(1, {
       duration: SUNRISE_MS,
-      // Linear, because the curve the eye reads is the overlap of the bands'
-      // windows rather than the easing of the driver behind them. Easing this
-      // would bend all five arrivals at once and bunch the stagger.
+      // Linear — the eye reads the bands' window overlap, not the driver's
+      // curve; easing this would bunch all five arrivals together.
       easing: Easing.linear,
     });
   }, [ready, reduceMotion, rise, revealKey]);
@@ -225,9 +147,8 @@ export function SunriseBackground({ revealKey }: TSunriseBackgroundProps) {
               band={band}
               height={size.height}
               rise={rise}
-              // Mirrored, not `index`: the array is in paint order (outermost
-              // first, so each covers the last) while the light travels the
-              // other way, from the sun outward and so up the step.
+              // Mirrored, not index — paint order is outermost-first, but
+              // light travels the other way, sun outward.
               stage={BANDS.length - 1 - index}
               width={size.width}
             />

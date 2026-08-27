@@ -14,9 +14,8 @@ import { WeekView } from "../WeekView";
 jest.mock("@/hooks/useAuth", () => ({ supabase: {} }));
 jest.mock("@/hooks/useTasks", () => ({ useTasks: jest.fn() }));
 
-// The column's own rendering (chip, habits, task list) has its own test; here it
-// only needs to be something the drop target can wrap. Typed off the real
-// component so a prop rename fails here rather than drifting silently.
+// The column's own rendering has its own test; typed off the real component
+// so a prop rename fails here rather than drifting silently.
 const mockWeekDayColumn = ({ date }: ComponentProps<typeof WeekDayColumn>) => (
   <Text>{`column:${date.toString()}`}</Text>
 );
@@ -120,9 +119,8 @@ describe("WeekView drag-to-schedule", () => {
     ).toBe(false);
   });
 
-  // The drawer is docked outside the horizontal scroller, so it stays put while
-  // the week scrolls under it — which is what makes it a reachable target for a
-  // card being dragged out of a day.
+  // The drawer is docked outside the horizontal scroller, so it stays put and
+  // reachable while the week scrolls under it.
   it("unschedules a task dropped on the docked backlog", () => {
     const screen = renderWeek();
     fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));

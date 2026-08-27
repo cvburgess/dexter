@@ -11,11 +11,8 @@ import Svg, { Circle, type CircleProps } from "react-native-svg";
 
 import { useTheme, withOpacity } from "@/utils/theme";
 
-// Animated.createAnimatedComponent injects a `collapsable` prop, an RN View
-// hint with no web meaning. react-native-svg's web renderer forwards unknown
-// props straight to the DOM <circle>, so React DOM warns about it there.
-// Stripping it here (rather than on the raw Circle) keeps the drop scoped to
-// the animated instance.
+// Animated.createAnimatedComponent injects collapsable, which react-native-svg's
+// web renderer forwards straight to the DOM <circle> and React DOM warns about.
 const BareCircle = forwardRef<Circle, CircleProps & { collapsable?: boolean }>(
   ({ collapsable, ...rest }, ref) => <Circle ref={ref} {...rest} />,
 );
@@ -44,11 +41,8 @@ type THabitRingProps = {
   onPress?: () => void;
 };
 
-/**
- * A 32×32 emoji inside a radial-progress ring. The track is a faint full
- * circle; the arc fills clockwise from the top as `percentComplete` grows.
- * Pinned to a fixed size (like StatusButton) so it never shifts the day layout.
- */
+// Emoji inside a radial-progress ring, pinned to a fixed size (like
+// StatusButton) so it never shifts the day layout.
 export function HabitRing({
   emoji,
   percentComplete,
@@ -62,9 +56,8 @@ export function HabitRing({
   const dashoffset = CIRCUMFERENCE * (1 - clamped / 100);
   const isComplete = !faded && clamped >= 100;
 
-  // Animate the arc toward its new length on each change so a tap glides to the
-  // next step instead of jumping. Seeded at the current offset so a ring that
-  // mounts already-partway-done doesn't sweep in on first render.
+  // Seeded at the current offset so an already-partway-done ring doesn't
+  // sweep in on first render.
   const [arc] = useState(() => new Animated.Value(dashoffset));
   useEffect(() => {
     Animated.timing(arc, {

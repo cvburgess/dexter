@@ -12,9 +12,8 @@ import { MoodFace } from "./MoodFace";
 // Five of these plus four `lg` gaps is 296pt — it still fits the 360dp Android
 // floor once `SwipeablePage`'s gutter is taken off, where 44 would not.
 const FACE_SIZE = 40;
-// Only the answer is filled — every other face stays an outline, so the choice
-// reads as weight rather than hue alone. Outlines draw at full `text` until a
-// face is picked, then fade, making the fade itself part of the answer.
+// Only the answer is filled; other faces stay outlined at full text until
+// picked, then fade — the fade itself becomes part of the answer.
 const FADED_ALPHA = 0.5;
 
 type TMoodScaleProps = {

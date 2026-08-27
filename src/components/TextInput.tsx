@@ -16,11 +16,8 @@ export function TextInput({ style, ...props }: TextInputProps) {
       style={[
         styles.input,
         {
-          // `body`, not `control`: what a field holds is the user's own
-          // content — a calendar URL, a journal prompt, a note template — and
-          // at `control`'s 600 it read as a label shouting its own value back.
-          // Buttons keep `control`; see `docs/design.md` for what this costs on
-          // mobile web.
+          // `body`, not `control`: at 600 weight a field read as a label
+          // shouting its own value back. Buttons keep `control` (docs/design.md).
           ...theme.fonts.body,
           color: theme.colors.text,
           backgroundColor: theme.colors.surfaceSunken,

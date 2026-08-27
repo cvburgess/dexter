@@ -126,9 +126,7 @@ describe("SummaryStep", () => {
     });
   });
 
-  // A line about calendars for someone with no calendar is noise, not a
-  // reading. The features the reader has decide which lines exist; the counts
-  // only decide what they say.
+  // Features the reader has decide which lines exist; counts decide what they say.
   it("omits the lines for features the user has turned off", () => {
     mockUsePreferences.mockReturnValue(
       preferences({ enableHabits: false, enableCalendar: false }),
@@ -155,11 +153,8 @@ describe("SummaryStep", () => {
       expect(screen.getByText("Start Your Day")).toBeTruthy();
     });
 
-    // A disabled query keeps serving whatever it last cached, so turning habits
-    // off does not empty `habits` for someone who had them. A total summed from
-    // the hooks rather than from the visible lines counted those hidden rows and
-    // held this day out of the blank state, leaving a lone "0 tasks" where the
-    // canvas line belongs.
+    // A disabled query keeps serving its last cache, so summing raw hooks
+    // would count hidden rows and block the blank-canvas state from showing.
     it("ignores rows cached behind a feature the user turned off", () => {
       mockUsePreferences.mockReturnValue(preferences({ enableHabits: false }));
       setDay({ habits: [{}, {}] });
@@ -170,9 +165,8 @@ describe("SummaryStep", () => {
     });
   });
 
-  // Every source hands back an empty placeholder while it resolves, so a cold
-  // open looks exactly like a blank day — testing that state first would tell
-  // someone with a full morning that they have nothing on.
+  // Every source serves an empty placeholder while resolving — a cold open
+  // otherwise looks like a genuinely blank day.
   it("renders nothing at all while the counts are still loading", () => {
     setDay({ isLoading: true });
     const { toJSON } = render(<SummaryStep date={DATE} />);
@@ -198,10 +192,8 @@ describe("SummaryStep", () => {
       );
     });
 
-    // Cross-tab navigation reuses the mounted Today screen and only swaps its
-    // params, so without a nonce that changes per press the second visit is
-    // identical and Today — having already applied it — switches tabs and does
-    // nothing else.
+    // Cross-tab nav reuses the mounted Today screen — without a changing
+    // nonce, the second press is identical and Today just switches tabs.
     it("varies the link on every press", () => {
       setDay({ tasks: [task("a")] });
       render(<SummaryStep date={DATE} />);

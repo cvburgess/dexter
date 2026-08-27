@@ -60,9 +60,8 @@ export function RowDeleteButton({
 }
 
 const styles = StyleSheet.create({
-  // Full height rather than centred on a fixed size: the field's own padding
-  // sets how tall the row is, and matching it keeps the glyph on the text's
-  // center line without either one knowing the other's numbers.
+  // Full height, not a fixed size — keeps the glyph on the text's center line
+  // without either side knowing the other's numbers.
   button: {
     alignItems: "center",
     bottom: 0,

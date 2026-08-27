@@ -93,10 +93,8 @@ export function TemplateRow({
     />
   ) : null;
 
-  // With an action the card hosts two separate tap targets, so its root has to
-  // be a plain View: nesting one Touchable inside another renders as a <button>
-  // inside a <button> on web, which is invalid DOM. Same arrangement as
-  // `HabitRow`.
+  // Two tap targets need a plain View root — nesting Touchables renders a
+  // <button> inside a <button> on web. Same as HabitRow.
   if (action) {
     return (
       <View style={cardStyle} testID={testID}>

@@ -66,9 +66,8 @@ export function SegmentedControl<T extends string | number>({
         return (
           <TouchableOpacity
             key={option.value}
-            // Only meaningful on an icon segment, where there is no text for a
-            // screen reader to fall back to; harmless (and identical to the
-            // rendered text) on a labelled one.
+            // Only meaningful on an icon segment with no text fallback;
+            // harmless (identical to rendered text) on a labelled one.
             accessibilityLabel={option.label}
             accessibilityRole="button"
             accessibilityState={{ selected }}

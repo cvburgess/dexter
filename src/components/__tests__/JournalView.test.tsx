@@ -66,9 +66,8 @@ describe("JournalView", () => {
     expect(screen.getByTestId("journal-response-1")).toBeTruthy();
   });
 
-  // Without this, a focused response field low on the screen stays under the
-  // keyboard: the wrapper this replaced padded the scroller's frame, which gave
-  // scroll room but never moved content to the field (DEX-92).
+  // Without this a focused field low on screen stays under the keyboard —
+  // the wrapper it replaced padded the frame but never moved content (DEX-92).
   it("lets iOS inset the scroll content by the keyboard", () => {
     const screen = setup({
       prompts: [{ prompt: "How was today?", response: "" }],
@@ -256,20 +255,15 @@ describe("JournalView", () => {
     }
   });
 
-  // The field is prose the user is writing, so it grows instead of hiding the
-  // top of its own content behind a scrollbar; the surrounding ScrollView is
-  // what scrolls.
+  // The field grows instead of hiding its own content behind a scrollbar;
+  // the surrounding ScrollView is what scrolls.
   describe("growing to fit the response", () => {
     const styleOf = (element: ReactTestInstance): ViewStyle =>
       StyleSheet.flatten(element.props.style as ViewStyle);
     const heightOf = (element: ReactTestInstance) => styleOf(element).minHeight;
 
-    // Regression guard, not a style preference. Disabling the input's own
-    // scrolling to "enforce" that it never scrolls makes iOS report a content
-    // size clamped to the view's bounds, so the measurement below only echoes
-    // back the height already set and the field can never grow past its first
-    // line — with `overflow: hidden` on top, that silently clips what is being
-    // typed. Growth is what removes the scrollbar; see `JournalResponseField`.
+    // Regression guard: disabling scrollEnabled clamps iOS content size to
+    // the view's bounds and silently clips typing (JournalResponseField).
     it("leaves its own scrolling alone so the content can be measured", () => {
       const screen = setup({
         prompts: [{ prompt: "How was today?", response: "" }],
@@ -280,10 +274,8 @@ describe("JournalView", () => {
       expect(styleOf(input).overflow).toBeUndefined();
     });
 
-    // The other half of the same rule: an explicit `height` beats the intrinsic
-    // size a multiline TextInput derives from its own text, which pinned the
-    // field to its mount-time measurement and left everything typed afterwards
-    // scrolling inside it.
+    // An explicit height beats intrinsic sizing, pinning the field to its
+    // mount-time measurement and scrolling everything typed afterward.
     it("floors its size without pinning it, so typing can still grow it", () => {
       const screen = setup({
         prompts: [{ prompt: "How was today?", response: "" }],
@@ -294,10 +286,8 @@ describe("JournalView", () => {
       ).toBeUndefined();
     });
 
-    // Two bugs this pins at once: height came from counting "\n", so a
-    // paragraph typed without a single Enter stayed one line tall; and it was
-    // applied as `height`, which overrode the intrinsic sizing that grows the
-    // field as you type and froze it at the mount-time measurement.
+    // Two bugs at once: newline-counted height stayed one line tall for a
+    // wrapped paragraph, and applying it as `height` froze mount-time sizing.
     it("floors its height at the measured content, not the newline count", () => {
       const screen = setup({
         prompts: [{ prompt: "How was today?", response: "" }],
@@ -334,11 +324,8 @@ describe("JournalView", () => {
       expect(floor).toBeGreaterThan(0);
     });
 
-    // The seed is only good until the field measures itself. `response` is the
-    // saved answer at mount and never changes after it (the input is
-    // uncontrolled, and typing writes refs rather than state), so holding its
-    // newline count as the floor would leave a cleared five-line answer's box
-    // five lines tall.
+    // Uncontrolled input — response never updates after mount, so holding its
+    // newline count as a permanent floor would keep a cleared answer's box tall.
     it("drops the seeded floor once a shorter measurement arrives", () => {
       const screen = setup({
         prompts: [{ prompt: "How was today?", response: "one\ntwo\nthree" }],

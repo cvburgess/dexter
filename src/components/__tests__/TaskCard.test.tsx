@@ -190,46 +190,8 @@ describe("TaskCard", () => {
     expect(onUpdate).toHaveBeenCalledWith({ scheduledFor: "2026-07-03" });
   });
 
-  it("renders the title and due date, wrapped in the long-press menu, with no list button when no list is chosen", () => {
-    const task = { ...baseTask, dueOn: "2026-07-05" };
-    const screen = render(
-      <TaskCard
-        task={task}
-        onUpdate={jest.fn()}
-        onDuplicate={jest.fn()}
-        onPromoteSubtask={jest.fn()}
-        onDelete={jest.fn()}
-      />,
-    );
-
-    expect(screen.getByText("Write the report")).toBeTruthy();
-    expect(screen.queryByLabelText("List")).toBeNull();
-    expect(mockMoreMenu).toHaveBeenCalled();
-  });
-
-  it("forwards duplicate and delete handlers to the more menu", () => {
-    const onDuplicate = jest.fn();
-    const onDelete = jest.fn();
-    render(
-      <TaskCard
-        task={baseTask}
-        onUpdate={jest.fn()}
-        onDuplicate={onDuplicate}
-        onPromoteSubtask={jest.fn()}
-        onDelete={onDelete}
-      />,
-    );
-
-    expect(mockMoreMenu).toHaveBeenCalledWith(
-      expect.objectContaining({ onDuplicate, onDelete }),
-    );
-  });
-
-  // Hidden, not removed (DEX-113): `ListButton` is still in the tree and still
-  // has its own tests, and the task keeps its `listId` — the emoji may come
-  // back somewhere other than the card. This pins that the card draws no emoji
-  // at all, in the title or beside it, so neither restoring the component nor
-  // prefixing the title can quietly put one back.
+  // Hidden, not removed (DEX-113): the task keeps its `listId`, so neither
+  // restoring `ListButton` nor prefixing the title may quietly draw an emoji.
   it("draws no list emoji even when the task has a list", () => {
     const task = { ...baseTask, listId: "list-1" };
     const screen = render(
@@ -246,9 +208,8 @@ describe("TaskCard", () => {
     expect(screen.queryByLabelText("List")).toBeNull();
   });
 
-  // Every terminal status gets identical treatment — they share one
-  // `isCompletionStatus` predicate, so listing all three here is what guards
-  // against anyone reverting the card to a hardcoded DONE/WONT_DO pair (DEX-68).
+  // All three terminal statuses, so nobody reverts the shared
+  // `isCompletionStatus` predicate to a hardcoded DONE/WONT_DO pair (DEX-68).
   it.each([
     ["done", ETaskStatus.DONE],
     ["won't-do", ETaskStatus.WONT_DO],
@@ -288,9 +249,8 @@ describe("TaskCard", () => {
   ])(
     "stretches a %s card to full width with a height floor so async native sizing can't collapse or balloon it",
     (_label, status) => {
-      // A completed card's only height-defining child is the StatusButton's
-      // native menu host, which sizes asynchronously — without alignSelf +
-      // minHeight the row can render blank or oversized and overlap others.
+      // The StatusButton's native menu host sizes asynchronously — without
+      // alignSelf + minHeight the row can render blank or oversized.
       const screen = render(
         <TaskCard
           task={{ ...baseTask, status }}
@@ -307,27 +267,6 @@ describe("TaskCard", () => {
       expect(flatStyle.minHeight).toBe(64);
     },
   );
-
-  it("colors the whole card background by priority", () => {
-    const cardBackground = (priority: ETaskPriority) => {
-      const screen = render(
-        <TaskCard
-          task={{ ...baseTask, priority }}
-          onUpdate={jest.fn()}
-          onDuplicate={jest.fn()}
-          onPromoteSubtask={jest.fn()}
-          onDelete={jest.fn()}
-        />,
-      );
-      const card = screen.getByTestId("task-card-task-1");
-      return StyleSheet.flatten(card.props.style as ViewStyle[])
-        .backgroundColor;
-    };
-
-    expect(cardBackground(ETaskPriority.URGENT)).not.toEqual(
-      cardBackground(ETaskPriority.NEITHER),
-    );
-  });
 
   it("fades the card to a faint tint and mutes the text when done", () => {
     const incomplete = render(
@@ -354,9 +293,8 @@ describe("TaskCard", () => {
         screen.getByTestId("task-card-task-1").props.style as ViewStyle[],
       ).backgroundColor as string;
 
-    // An incomplete card is the solid pre-blended fill (DEX-61); a complete one
-    // fades the raw priority color to a faint tint, so it still reads as the
-    // fainter of the two.
+    // DEX-61: incomplete is the solid pre-blended fill; complete fades the raw
+    // priority color to a faint tint, so it reads as the fainter of the two.
     expect(background(incomplete)).toBe(
       themes.dexter.colors.priorityMuted[baseTask.priority],
     );

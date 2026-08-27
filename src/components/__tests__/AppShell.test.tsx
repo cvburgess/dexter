@@ -18,9 +18,8 @@ jest.mock("@/components/AppNav", () => {
   };
 });
 
-// The timer bar is a live query away from Supabase and draws nothing without a
-// running block; stub it to a marker so the shell's composition is what's under
-// test (DEX-49).
+// Stubbed to a marker since it's a live query with nothing to render without
+// a running block (DEX-49).
 jest.mock("@/components/FocusTimerBar", () => {
   const { Text } =
     jest.requireActual<typeof import("react-native")>("react-native");
@@ -31,10 +30,8 @@ jest.mock("@/components/FocusTimerBar", () => {
   };
 });
 
-// The real Tabs/Tabs.Screen require a navigation container this unit test
-// doesn't mount; render children through a passthrough so the wrapping View
-// structure around the nav is still exercised. Tabs.Screen echoes its `name`
-// so which destinations are registered is assertable.
+// Real Tabs needs a navigation container this test doesn't mount; a
+// passthrough exercises the wrapping View, and Tabs.Screen echoes its name.
 jest.mock("expo-router", () => {
   const { Text } =
     jest.requireActual<typeof import("react-native")>("react-native");
@@ -60,10 +57,8 @@ describe("AppShell", () => {
     expect(screen.queryByText("nav-rail")).toBeNull();
   });
 
-  // The Week *nav item* is gated on width (AppNav.test covers that), but the
-  // route must resolve either way or a `/week` URL — typed in a narrow browser
-  // window, or deep-linked on a tablet below the breakpoint — would be a
-  // navigation error rather than the screen's own explanation (DEX-96).
+  // The nav item is width-gated (AppNav.test), but the route must resolve
+  // either way or a `/week` URL below the breakpoint is a nav error (DEX-96).
   it.each([
     ["rail", true],
     ["dock", false],

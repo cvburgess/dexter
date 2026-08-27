@@ -36,12 +36,9 @@ type TBreatheWordsProps = {
 };
 
 /**
- * The three phase words stacked on one another, each fading in for the legs it
- * belongs to.
- *
- * All three always render — which of them a technique actually uses is a
- * question `buildBreathePlan` has already answered by handing an unused phase a
- * flat zero table, so nothing here has to branch on the technique.
+ * The three phase words stacked on one another. All three always render —
+ * `buildBreathePlan` hands an unused phase a flat zero table, so nothing here
+ * branches on the technique.
  */
 function BreatheWords({
   plan,
@@ -86,9 +83,8 @@ function BreatheWord({
   }));
 
   return (
-    // The inset goes on the centering box, not on the layer above it: both
-    // copies of the word come through here, so they stay on the same pixels
-    // without the clip having to know about it.
+    // On the centering box, not the layer above: both word copies come
+    // through here and stay on the same pixels without the clip knowing.
     <Animated.View
       style={[
         StyleSheet.absoluteFill,
@@ -105,62 +101,22 @@ function BreatheWord({
 }
 
 type TBreatheFillProps = {
-  /**
-   * The plan being run, or the one that just finished — `null` only before the
-   * first press of Begin.
-   *
-   * Outliving its own run is the point: `running` goes false the moment a run
-   * ends, and dropping the plan on that render would unmount the words while
-   * `voice` was still fading them out.
-   */
+  /** The plan running or just finished — outlives `running` going false so
+   * `voice` can finish fading the words out. Null only before first Begin. */
   plan: TBreathePlan | null;
   /** Whether that plan is in flight. */
   running: boolean;
-  /**
-   * Fired when a run reaches its end under its own steam. **Must be
-   * referentially stable** — it is a dependency of the effect that starts the
-   * animation, so a fresh function each render would restart the run on every
-   * re-render of the step above.
-   */
+  /** Fired at a run's natural end. Must be referentially stable — it's an
+   * animation-effect dependency; a fresh fn each render restarts the run. */
   onComplete: () => void;
-  /**
-   * What to keep clear at the bottom when centering the phase word — the tab
-   * bar's inset plus the step's top inset.
-   *
-   * Passed in rather than measured here: the word has to land on the same center
-   * as the controls it replaces, and the step is the one place that knows where
-   * that is. The *fill* ignores it and still paints the whole box, tab bar
-   * included — it is a wall of color, not a centered thing.
-   */
+  /** Bottom clearance for the centered phase word, passed in rather than
+   * measured — the fill itself ignores it and paints the whole box. */
   insetBottom: number;
 };
 
-/**
- * The Breathe step's background: a wall of the theme's primary that rises on
- * the inhale and falls on the exhale, with the phase word held at the center.
- *
- * Modeled on `SunriseBackground` — an `absoluteFill` layer that measures its
- * own box rather than reading the window, since `SwipeablePage` caps the step's
- * column on a large screen. Like the sunrise it fills the *step*, not the
- * screen: the ritual's gutter and toolbar stay where they are.
- *
- * **The word is drawn twice and inverts across the fill line.** `primaryContent`
- * is legible on `primary` and invisible on the plain background, and the fill
- * crosses the center of the step twice per breath, so a single copy in either
- * color would disappear for half of every cycle. Instead a `primary` copy sits
- * on the neutral ground and a `primaryContent` copy sits inside the fill, which
- * clips it: the fill translates down by the empty share of its height and the
- * inner copy translates *up* by the same amount, so it holds still on screen
- * while its clip window slides over it. Both are transforms, so the whole thing
- * stays on the compositor. The fill's box is square, so the `overflow: hidden`
- * doing the clipping costs nothing — the offscreen-rendering trap
- * `HoroscopeStep` documents needs a rounded one.
- *
- * **This is the one animation in the app that ignores Reduce Motion** (DEX-164).
- * Everywhere else the motion decorates something that is legible without it;
- * here it *is* the exercise, and it only runs when the user has pressed Begin.
- * Stopping it would leave a blank step and a word with nothing to pace it.
- */
+/** Rises on inhale, falls on exhale. **Drawn twice and inverted across the
+ * fill line** so the word stays legible on both halves; ignores Reduce Motion
+ * (DEX-164) — here the motion *is* the exercise. */
 export function BreatheFill({
   plan,
   running,
@@ -170,10 +126,8 @@ export function BreatheFill({
   const theme = useTheme();
   // How full the step is, 0 (empty) to 1.
   const level = useSharedValue(0);
-  // The run's own 0→1, linear across its whole length; the word tables are
-  // windows onto it. Separate from `level` because `level` is ambiguous — 0.5
-  // means one thing rising and another falling — where this only ever
-  // increases.
+  // The run's own 0→1, linear; word tables window onto it. Separate from
+  // `level`, which is ambiguous (0.5 rising vs falling) where this only grows.
   const progress = useSharedValue(0);
   // Fades the word in with the run and out at its end.
   const voice = useSharedValue(0);
@@ -184,23 +138,16 @@ export function BreatheFill({
   const onLayout = (event: LayoutChangeEvent) =>
     setHeight(event.nativeEvent.layout.height);
 
-  // Nothing can be drawn before the box is measured: the fill's travel is its
-  // height, so an unmeasured one would translate by zero and cover the step.
+  // The fill's travel is its own height — unmeasured, it translates by zero
+  // and covers the step.
   const ready = height > 0;
 
   useEffect(() => {
     if (!plan || !running || !ready) {
-      // A plain write cancels whatever is running on the value, which is what
-      // makes tapping to stop a run settle it rather than fight it. The end of
-      // a *finished* run is the same call and a no-op — every technique already
-      // leaves the fill empty (see `BREATHING_TECHNIQUES`), so there is no
-      // special completion state to unwind.
+      // A plain write settles a stop rather than fighting it; progress is
+      // frozen, not left to finish, or a cut-off word would pulse again.
       level.value = withTiming(0, { duration: SETTLE_MS });
       voice.value = withTiming(0, { duration: VOICE_FADE_MS });
-      // Frozen rather than left to finish. A run cut off partway has a word
-      // table mid-pulse, and a `progress` still travelling to 1 underneath the
-      // fade would pulse the next word in and back out while the whole layer
-      // was on its way out.
       cancelAnimation(progress);
       return;
     }
@@ -208,26 +155,15 @@ export function BreatheFill({
     progress.value = 0;
     progress.value = withTiming(1, {
       duration: plan.totalMs,
-      // Linear, because the curve the eye reads belongs to the legs below and
-      // to the word windows this drives; bending it here would bend both.
+      // Linear — bending it here would bend the legs and word windows too.
       easing: Easing.linear,
     });
     voice.value = withTiming(1, { duration: VOICE_FADE_MS });
 
-    // **Explicitly a worklet, and hoisted out of the `withTiming` call.**
-    // Reanimated resolves a `withSequence` on the UI runtime — including when
-    // the plain write in the branch above cancels one — and a callback that is
-    // not a worklet reaches that runtime as a *remote function* it refuses to
-    // call synchronously, throwing "Tried to synchronously call a Remote
-    // Function" and taking the screen with it. The babel plugin workletizes a
-    // callback written directly as `withTiming`'s third argument, but this one
-    // reached it through a ternary inside `.map`, which the plugin does not
-    // recognize — so the directive has to be written out. `runOnJS` is then the
-    // way back to `onComplete`, which is ordinary React state.
+    // Explicit worklet — reached via a ternary inside .map, which the babel
+    // plugin doesn't auto-workletize, and an unworkletized fn on the UI thread throws.
     const reportEnd = (finished?: boolean) => {
       "worklet";
-      // Guarded, or a cancelled run would report itself complete — the plain
-      // write above resolves the sequence with `finished: false`.
       if (finished) runOnJS(onComplete)();
     };
 
@@ -239,10 +175,8 @@ export function BreatheFill({
           plan.levels[index],
           {
             duration: leg.ms,
-            // Eased where the horoscope's breathing color is deliberately
-            // linear: this one is a moving surface, and a lung has momentum
-            // where a color has none. A hold is a timing to the level it is
-            // already at, so the easing costs it nothing.
+            // Eased, unlike the horoscope's linear color breath — a lung has
+            // momentum a color doesn't; a hold times to its own level for free.
             easing: Easing.inOut(Easing.sin),
           },
           index === last ? reportEnd : undefined,
@@ -315,8 +249,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  // Clips the inner copy of the word to the filled part of the step, which is
-  // what makes the two copies read as one word changing color at the water line.
+  // Clips the inner word copy to the filled part, so the two read as one word
+  // changing color at the water line.
   fill: {
     overflow: "hidden",
   },

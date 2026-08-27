@@ -13,14 +13,9 @@ function alertStyle(
   return role ?? "default";
 }
 
-/**
- * Native (iOS + Android) confirmation prompt backed by the imperative
- * `Alert.alert`, which supports any button count and presents reliably from
- * any context (header menus, profile rows, etc.). The declarative `visible`
- * prop is bridged via an effect that fires once per `visible` -> true
- * transition; `onClose` resets the parent's state on any button press or
- * dismissal.
- */
+/** Native prompt backed by imperative `Alert.alert` (any button count, any
+ * context); the declarative `visible` prop bridges via an effect firing once
+ * per false→true transition. */
 export function ConfirmationModal(props: ConfirmationModalProps) {
   const { visible, title, message, onClose } = props;
   const actions = resolveActions(props);

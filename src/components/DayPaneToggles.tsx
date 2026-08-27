@@ -6,9 +6,8 @@ import type { TIconName } from "@/components/Icon.types";
 import { TTodayPane, TTodayPanes } from "@/hooks/useTodayPanes";
 import { useTheme } from "@/utils/theme";
 
-// This component only ever toggles Notes/Calendar — the task drawer
-// (DEX-33) is a standalone header button, not one of these toggles — even
-// though it shares `TTodayPanes`' persisted store via `onTogglePane`.
+// Only ever toggles Notes/Calendar — the task drawer (DEX-33) is a standalone
+// header button, even though it shares TTodayPanes' store.
 type TDisplayPane = Exclude<TTodayPane, "drawer">;
 
 type TDayPaneTogglesProps = {
@@ -28,12 +27,8 @@ type TPaneToggleOption = {
   onToggle: () => void;
 };
 
-/**
- * Builds the toggle button descriptors: Notes/Calendar, each only when
- * enabled, with the pane's current on/off state. Exported so the
- * gating/selection logic is unit-testable without rendering native buttons.
- * Mirrors `dayViewOptions`' shape (collect the enabled panes, then map).
- */
+/** Toggle descriptors for enabled panes; exported for testing without
+ * rendering native buttons. Mirrors `dayViewOptions`' shape. */
 export function paneToggleOptions(
   panes: TTodayPanes,
   onTogglePane: (pane: TTodayPane) => void,
@@ -53,12 +48,8 @@ export function paneToggleOptions(
   }));
 }
 
-/**
- * The large-screen Today header's pane toggles: one round glassy button per
- * optional pane (Notes/Calendar), tinted primary when the pane is
- * showing and text-colored when it's hidden. Tasks has no toggle — it's
- * always visible. See `DayViewSwitcher` for the small-screen equivalent.
- */
+/** Large-screen Today header pane toggles (Notes/Calendar); Tasks has none,
+ * it's always visible. See `DayViewSwitcher` for the small-screen version. */
 export function DayPaneToggles({
   panes,
   onTogglePane,

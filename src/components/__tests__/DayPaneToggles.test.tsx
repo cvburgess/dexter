@@ -5,8 +5,7 @@ import { TTodayPanes } from "@/hooks/useTodayPanes";
 
 import { DayPaneToggles, paneToggleOptions } from "../DayPaneToggles";
 
-// The circular buttons wrap native glass/SF-symbol views; stub them so each
-// toggle renders its SF Symbol name as text and exposes its a11y label/press.
+// Stub native glass buttons to render their SF Symbol name plus a11y/press.
 const mockGlassIconButton = jest.fn(
   ({
     sfSymbol,

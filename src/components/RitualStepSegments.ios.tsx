@@ -65,9 +65,8 @@ export function RitualStepSegments({
         ]}
         selection={state.step}
         testID="ritual-step-segments"
-        // Coerced rather than trusted: the selection comes back as the raw
-        // `tag` value, and `PickerField` already documents it arriving as a
-        // plain string from the universal picker.
+        // Coerced — the raw `tag` value arrives as a plain string, per
+        // PickerField's own note on the universal picker.
         onSelectionChange={(selection) => onSelectStep(Number(selection))}
       >
         {options.map((option) => (

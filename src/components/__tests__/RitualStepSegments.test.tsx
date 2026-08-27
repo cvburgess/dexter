@@ -6,11 +6,8 @@ import { createRitualState, type TRitualState } from "@/utils/ritualSteps";
 import { RitualStepSegments } from "../RitualStepSegments";
 import { STEP_ICONS } from "../RitualStepSwitcher.shared";
 
-// jest-expo resolves the `.ios` variant, which hosts a real SwiftUI Picker.
-// The global mock in jest.setup renders those as null; capture them here
-// instead so the segments and their modifiers can be asserted. The captured
-// props live at module scope because a `jest.mock` factory is hoisted above the
-// test file's own `const`s (the same reason `testUtils/mockExpoUiPicker` does).
+// jest.setup's global mock renders SwiftUI Picker as null; captured here
+// instead so segments/modifiers can be asserted. Module scope — jest.mock hoists above consts.
 let pickerProps: Record<string, unknown> | null = null;
 jest.mock("@expo/ui/swift-ui", () => ({
   Host: ({ children }: { children: ReactNode }) => children,
@@ -112,9 +109,8 @@ describe("RitualStepSegments on iOS", () => {
     expect(onSelectStep).toHaveBeenCalledWith(2);
   });
 
-  // The tag comes back raw, and the universal picker is already documented as
-  // handing its value over as a string (`PickerField`). `goToStep` compares it
-  // against a numeric index, so a string would never match a step.
+  // The tag comes back as a string (PickerField), but goToStep compares
+  // against a numeric index — a string would never match.
   it("coerces a string selection back to an index", () => {
     const onSelectStep = jest.fn();
     renderSegments({ onSelectStep });

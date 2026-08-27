@@ -41,9 +41,8 @@ export function RitualStepSwitcher({
   );
 
   return (
-    // Pin the IconMenu host to the button's size: the native @expo/ui MenuView
-    // sizes asynchronously and a content-sized trigger renders untappable on
-    // device (the same reason DayViewSwitcher/StatusButton pin theirs).
+    // Pinned to the button's size — @expo/ui's MenuView sizes async and a
+    // content-sized trigger renders untappable on device.
     <IconMenu
       accessibilityLabel="Switch ritual step"
       sections={[{ options }]}

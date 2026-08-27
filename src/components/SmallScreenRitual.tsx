@@ -52,11 +52,8 @@ export function SmallScreenRitual({
   const theme = useTheme();
   const step = currentStep(state);
   const lastStep = isLastStep(state);
-  // Suspends the step swipe while a step's text field is focused, so a
-  // horizontal drag positions the caret instead of paging — the same trade the
-  // Today tab makes for Notes and Journal. Held per layout rather than in the
-  // route's `TRitualState`: crossing the breakpoint remounts this and resets the
-  // flag to `false`, which is the safe direction.
+  // Suspends the step swipe on focus, same trade Today makes for Notes/Journal.
+  // Held per layout, not in TRitualState — a breakpoint crossing safely resets it.
   const [editing, setEditing] = useState(false);
 
   return (

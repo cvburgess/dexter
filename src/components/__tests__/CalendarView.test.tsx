@@ -54,8 +54,8 @@ let scrollToSpy: jest.SpyInstance;
 beforeEach(() => {
   jest.clearAllMocks();
   scrollToSpy = jest.spyOn(ScrollView.prototype, "scrollTo");
-  // Full-day window (00:00 → 24:00) so "now" is always inside it regardless of
-  // the wall-clock time the suite runs at — keeps the now line deterministic.
+  // Full-day window so "now" is always inside it regardless of wall-clock
+  // time — keeps the now line deterministic.
   mockUsePreferences.mockReturnValue([
     {
       enableCalendar: true,
@@ -103,9 +103,8 @@ describe("CalendarView auto-scroll to now", () => {
 });
 
 describe("CalendarView empty states", () => {
-  // Ordered most specific first — a user with no calendar source at all was
-  // being told their day was clear, which is a claim about a calendar this view
-  // never read.
+  // Most specific first — no-source was reading as "day is clear", a claim
+  // about a calendar this view never read.
   it.each([
     [
       "no source configured",

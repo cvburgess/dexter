@@ -33,48 +33,25 @@ type TReviewStepProps = {
 };
 
 /**
- * The evening ritual's Review step (DEX-148): what the day added up to, counted,
- * over the rings and the cards that back the figures.
- *
- * **The counterpart of the Open tasks step two swipes back, not a second copy of
- * it.** That step lists what is still open so it can be dispatched; this one
- * lists what was closed so it can be read. The two selectors partition the day
- * (`selectOpenTasksForDate` / `selectCompletedTasksForDate`), so no task appears
- * in both and neither list is the other's leftovers.
- *
- * It is also not the morning task-list step DEX-144 removed — see `SummaryStep`
- * for that history. The axis is the same one the Open tasks step differs on: a
- * finished day has no other surface listing it, and the Today tab's list mixes
- * the closed rows in with the open ones rather than answering "what did I get
- * done".
- *
- * Carries no side gutter and no top inset of its own; `SwipeablePage` and the
- * ritual layouts own those (see docs/design.md, "Who owns spacing").
+ * Evening Review step (DEX-148): the day's rings and cards, counted.
+ * Complements Open tasks — `selectOpenTasksForDate`/`selectCompletedTasksForDate`
+ * partition the day, so no task appears in both.
  */
 export function ReviewStep({ date }: TReviewStepProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [preferences] = usePreferences();
 
-  // Progress, not membership — the one count on this step that `useHabits`
-  // cannot answer. `SummaryStep` deliberately reads the other hook because it
-  // is asking how many habits the day *has*; a review is asking how many of
-  // them got done, which only the daily rows know. Skipped outright when habits
-  // are off, so a user who turned the feature off adds no observer for it.
+  // How many got *done*, not how many exist — `useDailyHabits`, not `useHabits`.
   const [dailyHabits, { isLoading: habitsLoading }] = useDailyHabits(
     date.toString(),
     { skipQuery: !preferences.enableHabits },
   );
-  // Safe to call unconditionally: the hook reads `enableCalendar` itself and
-  // disables its query, so a user with no calendar touches no device API here.
   const [events, { isLoading: eventsLoading }] = useCalendarEvents(date);
   const [allTasks, { isLoading: tasksLoading, updateTask, createTask }] =
     useTasks();
-  // The repeat-aware delete the open tasks step and `DayTaskList` share, rather
-  // than `useTasks`' raw `deleteTask`. Unreachable from a completed card (see
-  // the wiring below), but a second, simpler delete path is precisely the drift
-  // this hook exists to prevent, and an unreachable one would be the easiest
-  // kind to leave wrong.
+  // The shared repeat-aware delete, not useTasks' raw deleteTask — unreachable
+  // here, but a second delete path is the drift this hook prevents.
   const { confirmDelete, confirmationProps } = useTaskDelete();
 
   const [focusBlocks, { isLoading: focusBlocksLoading }] = useFocusBlocks(
@@ -90,11 +67,8 @@ export function ReviewStep({ date }: TReviewStepProps) {
     (block) => block.status === "complete",
   ).length;
 
-  // Drop rings for habits since paused or archived, the same defensive filter
-  // `HabitTracker` applies to the rows it draws: the DB trigger removes the
-  // day's row on pause/archive, but a habit edit doesn't invalidate the
-  // dailyHabits cache. Without it the hero could count a habit the row below it
-  // no longer shows.
+  // Same paused/archived filter as HabitTracker — a habit edit doesn't
+  // invalidate the dailyHabits cache, so the hero could count a stale row.
   const completedHabits = dailyHabits.filter(
     (dailyHabit) =>
       !dailyHabit.habits.isPaused &&
@@ -102,10 +76,8 @@ export function ReviewStep({ date }: TReviewStepProps) {
       dailyHabit.stepsComplete >= dailyHabit.steps,
   ).length;
 
-  // A line per *feature the reader has*, not per non-zero count — the rule the
-  // summary step set. A zero is a reading worth stating (it is most of what a
-  // quiet day says), but a calendar line for someone with no calendar is noise.
-  // `HeroLines` maps lines onto stages by index, so a shorter list uses fewer.
+  // One line per feature the reader has, not per non-zero count — a calendar
+  // line with no calendar is noise, but a zero elsewhere is worth stating.
   const counts = [
     {
       key: "habits",
@@ -122,27 +94,17 @@ export function ReviewStep({ date }: TReviewStepProps) {
     {
       key: "events",
       figure: String(events.length),
-      // **Every event the day held, not the ones whose end time has passed.**
-      // The same figure `calendarStats.eventCount` and the summary step report,
-      // and the only one that survives `DayNav`: a wall-clock comparison would
-      // read zero on a ritual paged to tomorrow and everything on one paged to
-      // last week, so the number would mean something different depending on
-      // when you looked at it. An event you were at is an event you attended.
+      // Every event the day held, not just ones whose end time has passed —
+      // a wall-clock comparison reads wrong once DayNav pages away from today.
       words: plural(events.length, "event"),
       shown: preferences.enableCalendar,
     },
     {
       key: "focus",
-      // **`complete` only.** A block stopped early is recorded as `cancelled`
-      // and deliberately doesn't count: the whole reason that is its own status
-      // rather than a deletion is so abandoning a block is honest without
-      // inflating the evening's figure. A block still running at the moment the
-      // ritual is read doesn't count either — it hasn't happened yet.
+      // `complete` only — cancelled and still-running blocks don't count.
       figure: String(completedFocusBlocks),
       words: plural(completedFocusBlocks, "focus block"),
-      // No preference gate, unlike habits and the calendar: there is nothing to
-      // turn focus blocks off, so every reader has this line.
-      shown: true,
+      shown: true, // no preference gate — nothing turns focus blocks off
     },
   ].filter((line) => line.shown);
 
@@ -150,11 +112,8 @@ export function ReviewStep({ date }: TReviewStepProps) {
     key,
     figure,
     words,
-    // Every figure in `primary`, the reading the summary step takes rather than
-    // the sentiment colors of the two morning reporting steps. Those are
-    // flagging something that might still be wrong; this is a day already
-    // lived, and marking a low count in `error` would turn a report into a
-    // verdict on it.
+    // Always `primary`, not sentiment colors — a low count here is a reading
+    // of a day already lived, not a warning.
     color: theme.colors.primary,
   }));
 
@@ -163,44 +122,28 @@ export function ReviewStep({ date }: TReviewStepProps) {
   const isLoading =
     habitsLoading || eventsLoading || tasksLoading || focusBlocksLoading;
   const reveal = useHeroReveal(isLoading ? null : date.toString());
-  // **Staged at `heroLines.length`, not `BODY_STAGE`.** That constant means
-  // "after all three hero lines" and is right for the two steps that always
-  // draw three; this hero runs from two lines to four depending on which
-  // features the reader has, so the body has to follow the list it was given.
+  // Staged at heroLines.length, not BODY_STAGE — this hero runs 2-4 lines.
   const bodyStyle = useStageOpacity(reveal, heroLines.length);
 
-  // Checked *first*, and the order is load-bearing: every hook above hands back
-  // an empty placeholder while its query resolves, so a cold open looks like a
-  // day where nothing happened — showing the quiet-day branch ahead of this
-  // would tell someone who cleared their list that they did nothing. Nothing
-  // rather than a spinner, the same choice every other reporting step makes.
+  // Checked first: every hook above serves an empty placeholder while
+  // resolving, which would otherwise read as a genuinely empty day.
   if (isLoading) return null;
 
-  // The rings are worth drawing whether or not any of them is filled: they are
-  // the one interactive thing on the step, and a habit you finished after
-  // dinner is exactly the kind of thing an evening review is for.
+  // Rings stay worth drawing even with nothing checked off — a habit ticked
+  // after dinner is exactly what an evening review is for.
   const habitRow = preferences.enableHabits ? (
-    // `showCreateNudge={false}` — a review reports on the day that happened;
-    // an invitation to set up a first habit belongs on the Today tab, where
-    // acting on it doesn't mean leaving a sequence half-walked.
     <HabitTracker date={date} showCreateNudge={false} />
   ) : null;
 
-  // Nothing to list *and* no rings to tap leaves an empty box under the hero,
-  // so the figures center in the step instead — the shape the backlog and open
-  // tasks steps use for their own all-clear. No celebration: a day with nothing
-  // closed out is a reading, not a win, and confetti would read as sarcasm.
+  // No celebration here — a day with nothing closed out is a reading, not a
+  // win, so this centers the figures rather than throwing confetti.
   if (tasks.length === 0 && !habitRow) {
     return (
       <View
         style={[
           styles.quiet,
-          {
-            // The host SafeAreaView omits the bottom edge (the tab bar owns
-            // it), so centering in the full box would sit this visibly low.
-            // `HeroLines` brings the padding itself.
-            paddingBottom: insets.bottom,
-          },
+          // The host SafeAreaView omits the bottom edge, so this is paid here.
+          { paddingBottom: insets.bottom },
         ]}
         testID="review-step-quiet"
       >
@@ -211,56 +154,33 @@ export function ReviewStep({ date }: TReviewStepProps) {
 
   return (
     <View style={styles.container}>
-      {/* The body pads itself by `md` at the top, which lands under the hero —
-          handed over so the block can take it back off its own bottom padding
-          rather than the two stacking into a gap wider than the space above. */}
+      {/* bodyInsetTop hands the top `md` to the body wrapper below, which pays
+          it back as its own top padding rather than stacking a second gap. */}
       <HeroLines
         bodyInsetTop={theme.space.md}
         lines={heroLines}
         reveal={reveal}
       />
-      {/* Rings and cards under one opacity: they are two readings of the same
-          finished day rather than two stages of the report, and the hero has
-          already counted them off one at a time. `flex: 1` belongs to this
-          wrapper so the scroll view has something to fill. Opacity only, no
-          translate — `SwipeablePage`'s intro already slides the page, and a
-          second axis compounds into a diagonal drift.
-
-          **The `md` handed to `bodyInsetTop` above is paid here, not on the
-          scroll view.** This step is the first with two things under its hero,
-          and `HabitTracker` brings no padding of its own (see docs/design.md,
-          "Who owns spacing") — left on the list, the inset would sit below the
-          rings and leave them tight against the figures while the hero had
-          already given the space back. */}
+      {/* Rings + cards under one opacity, no translate — SwipeablePage's intro
+          already slides, and a second axis would compound into a drift. */}
       <Animated.View
         style={[styles.body, bodyStyle, { paddingTop: theme.space.md }]}
       >
         {habitRow}
-        {/* A plain ScrollView, not a FlashList: one day's completed tasks is a
-            short list, so virtualization buys nothing. Same call `DayTaskList`
-            and the open tasks step both make. */}
+        {/* Plain ScrollView, not FlashList — one day's list is too short to
+            virtualize (same call DayTaskList and Open tasks make). */}
         <ScrollView
           contentContainerStyle={{
             gap: theme.space.sm,
-            // Only the rings-to-cards gap; the space above the body is the
-            // wrapper's. Zero without rings, or the first card would sit twice
-            // as far down as it does on every other step.
+            // Zero without rings, or the first card sits twice as far down.
             paddingTop: habitRow ? theme.space.md : 0,
-            // The host SafeAreaView omits the bottom edge, so the inset goes on
-            // the scrolling content — which also lets the last card clear the
-            // translucent tab bar instead of hiding behind it.
             paddingBottom: theme.space.md + insets.bottom,
           }}
           style={styles.scroll}
         >
           {tasks.map((task) => (
-            // A completed `TaskCard` is already a record rather than a handle:
-            // it renders no `MoreMenu`, no rename, no due-date badge and a
-            // frozen checklist (see the `isComplete` branches there), which is
-            // what makes "same as today, non-interactive" one component rather
-            // than a read-only variant of it. The mutations below are wired to
-            // the real ones anyway — every path to them is closed on this card,
-            // and stubs would rot silently if one ever opened.
+            // A completed TaskCard is a record, not a handle (no menu, rename,
+            // badge); mutations stay wired since every path to them is closed.
             <TaskCard
               key={task.id}
               onDelete={() => void confirmDelete(task)}
@@ -272,16 +192,13 @@ export function ReviewStep({ date }: TReviewStepProps) {
           ))}
         </ScrollView>
       </Animated.View>
-      {/* The repeat-aware delete's prompt. Each card carries its own modal for
-          its own menu's reschedules, which is unrelated to this one. */}
+      {/* The repeat-aware delete's prompt; unrelated to each card's own menu. */}
       <ConfirmationModal {...confirmationProps} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // No gap: `HeroLines` owns the space under the hero, and the body wrapper the
-  // `md` it handed back.
   container: { flex: 1 },
   body: { flex: 1 },
   scroll: { flex: 1 },

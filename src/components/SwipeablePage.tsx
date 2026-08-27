@@ -28,9 +28,8 @@ export function getSwipeCommitDirection(
   if (!passesDistance && !passesVelocity) {
     return 0;
   }
-  // A fast flick can commit on velocity alone with a tiny (or even
-  // opposite-signed) net translation, so prefer velocity's sign whenever
-  // it's the signal that crossed its threshold.
+  // A fast flick can commit on velocity alone with a tiny net translation,
+  // so prefer velocity's sign when it's the one that crossed threshold.
   const sign = passesVelocity ? velocityX : translationX;
   return sign < 0 ? 1 : -1;
 }
@@ -40,13 +39,8 @@ type TSwipeablePageProps = {
   pageKey: string;
   direction: -1 | 0 | 1;
   onSwipe: (direction: 1 | -1) => void;
-  /**
-   * Whether there is a next/previous page to move to. A declined direction
-   * springs back instead of committing — the host wouldn't change `pageKey`,
-   * so nothing would remount to reset the drag and the content would stay
-   * parked wherever the finger left it. Default true, which is what an
-   * unbounded pager (the Today tab's days) wants.
-   */
+  /** Whether there's a next/previous page. A declined direction springs back
+   * instead of committing, since `pageKey` wouldn't change to reset the drag. */
   canNext?: boolean;
   canPrev?: boolean;
   /** Disable the swipe gesture (e.g. while a note is being edited, so it
@@ -55,23 +49,8 @@ type TSwipeablePageProps = {
   children: ReactNode;
 };
 
-/**
- * A horizontally swipeable surface that pages between whatever its host counts
- * as a page: days on the Today tab (`SmallScreenToday`), steps in the Ritual
- * flow (`SmallScreenRitual`). The gesture, the intro animation and the phone's
- * side gutter are identical in both cases, so they live here once (DEX-127) —
- * only the arithmetic behind `pageKey` differs, and that belongs to the host.
- *
- * The page is also capped at `SWIPEABLE_PAGE_MAX_WIDTH` and centered (DEX-138),
- * which only shows up on the Ritual tab — it is the one host that renders a
- * swipeable page above the large-screen breakpoint.
- */
-// Remount the swipeable surface whenever the page changes. A fresh mount starts
-// with translateX back at 0, so the just-swiped-away page is never snapped back
-// to center — which is what caused the old content to flash before the new page
-// faded in. Resetting the drag offset by remounting (rather than mutating the
-// shared value from a React hook) also keeps the reset off the render path and
-// avoids the React Compiler flagging shared-value writes as immutable mutations.
+// Pages between whatever the host counts as a page — lives here once (DEX-127).
+// Remounts on pageKey change so translateX resets without a render-path write.
 export function SwipeablePage(props: TSwipeablePageProps) {
   return <SwipeablePageContent key={props.pageKey} {...props} />;
 }
@@ -86,17 +65,13 @@ function SwipeablePageContent({
 }: Omit<TSwipeablePageProps, "pageKey">) {
   const theme = useTheme();
   const translateX = useSharedValue(0);
-  // Only a seed until the first `onLayout`, but clamped so it agrees with the
-  // capped page rather than the window it sits in — otherwise a gesture landing
-  // before layout would measure against a threshold the page never has.
+  // A seed until the first onLayout, clamped to the capped page rather than
+  // the window — else a pre-layout gesture measures against a threshold it never has.
   const width = useSharedValue(
     Math.min(Dimensions.get("window").width, SWIPEABLE_PAGE_MAX_WIDTH),
   );
-  // Page-intro progress, 0 → 1: fades/slides the freshly mounted page in from
-  // the direction of travel. Driven by a plain shared value rather than an
-  // `entering` layout animation — on the new architecture, entering animations
-  // intermittently leave the mounted subtree blank or mis-measured (worse here
-  // because the task cards contain async-sizing @expo/ui menu hosts).
+  // A plain shared value, not an `entering` layout animation — those
+  // intermittently leave the subtree blank/mis-measured on the new architecture.
   const intro = useSharedValue(direction === 0 ? 1 : 0);
 
   useEffect(() => {
@@ -121,10 +96,8 @@ function SwipeablePageContent({
         e.velocityX,
         width.value,
       );
-      // Snap back for a swipe that didn't cross the threshold *and* for one
-      // that did but has nowhere to go — a page at either end of a bounded
-      // range. Both cases leave `pageKey` unchanged, so the spring is the only
-      // thing that returns the content to center.
+      // Snap back below threshold, or past it with nowhere to go — both leave
+      // pageKey unchanged, so the spring is the only return to center.
       if (
         commit === 0 ||
         (commit === 1 && !canNext) ||
@@ -133,11 +106,8 @@ function SwipeablePageContent({
         translateX.value = withSpring(0);
         return;
       }
-      // Don't reset translateX here. Doing so on the UI thread snaps the old
-      // page's content back to center before React swaps in the new page a few
-      // frames later, which is the flash we're fixing. Instead the drag offset
-      // resets naturally when SwipeablePage remounts this content on the new
-      // page.
+      // Don't reset translateX here — on the UI thread it snaps back before
+      // React swaps pages, the flash this remount design fixes.
       runOnJS(onSwipe)(commit);
     });
 
@@ -151,9 +121,8 @@ function SwipeablePageContent({
     ),
   }));
 
-  // Matches the old FadeInRight/FadeInLeft look: slide in 25px from the
-  // travel direction while fading up. Purely a style animation — it never
-  // touches the subtree's layout.
+  // Matches the old FadeInRight/FadeInLeft look — a style animation only,
+  // never touches layout.
   const introStyle = useAnimatedStyle(() => ({
     opacity: intro.value,
     transform: [{ translateX: (1 - intro.value) * 25 * direction }],
@@ -161,27 +130,14 @@ function SwipeablePageContent({
 
   return (
     <GestureDetector gesture={pan}>
-      {/* The stage is deliberately full-bleed while the page inside it is
-          capped: the gesture stays live all the way to the window's edges, so a
-          drag that starts in the empty margin of a wide window still pages
-          rather than landing in a dead zone. It is also the gesture host, hence
-          `collapsable={false}` — the page below is free to be laid out away
-          from it. */}
+      {/* Full-bleed stage under the capped page — the gesture stays live to
+          the window edge; collapsable={false} since it's the gesture host. */}
       <View style={styles.stage} collapsable={false}>
         <Animated.View
           onLayout={onLayout}
           testID="swipeable-page"
-          // The phone's side gutter, supplied once here for whichever page is
-          // on screen — none of Tasks/Notes/Journal/Calendar (or a ritual step)
-          // carries a gutter of its own (see docs/design.md, "Who owns
-          // spacing").
-          //
-          // `onLayout` measures *this* box rather than the stage on purpose:
-          // `getSwipeCommitDirection` takes a fraction of the width it is
-          // given, so measuring the capped column keeps a commit the same share
-          // of the visible page that it is on a phone. Measuring the window
-          // instead would make a desktop user drag half a screen to advance a
-          // 768dp page.
+          // The phone's side gutter (docs/design.md). Measures this capped
+          // box, not the stage, or a desktop commit needs half a screen.
           style={[
             styles.page,
             { paddingHorizontal: theme.space.md },
@@ -205,9 +161,8 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
   },
-  // A page is a reading-and-writing surface, not a pane that flexes to fill a
-  // multi-column layout, so it holds a column no wider than a tablet in
-  // portrait however much window it is handed (DEX-138).
+  // A page holds a column no wider than a tablet in portrait, not a pane
+  // that flexes to fill the window (DEX-138).
   page: {
     flex: 1,
     width: "100%",

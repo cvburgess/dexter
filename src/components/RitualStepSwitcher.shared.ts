@@ -6,25 +6,11 @@ import {
   type TRitualStepId,
 } from "@/utils/ritualSteps";
 
-/**
- * One icon per step, shared by both switcher variants so the menu row and the
- * web icon it corresponds to can never drift — the same job `VIEW_META` does
- * for `DayViewSwitcher`/`DayPaneToggles`.
- *
- * A `Record` over `TRitualStepId`, so adding a step without an icon is a
- * compile error rather than a blank button. Two steps reuse the Today tab's
- * icons outright: they open the very surfaces those icons already stand for, so
- * inventing second glyphs for them would be the drift this table exists to
- * prevent. `open-tasks` is the evening's look at the same task list, so it
- * borrows Tasks' icon too. The journal's is spelled out rather than borrowed —
- * it is no longer a day view at all (DEX-105), so `VIEW_META` has no entry for
- * it to read.
- */
+// Same job VIEW_META does for DayViewSwitcher/DayPaneToggles. calendar/
+// open-tasks borrow Today's icons; journal's is spelled out (DEX-105, no VIEW_META entry).
 export const STEP_ICONS: Record<TRitualStepId, TIconName> = {
-  // A plain circle on both platforms, echoing the step's own Begin button —
-  // the obvious `lungs` has no Ionicons counterpart, and the near misses
-  // (`wind` against `leaf-outline`) are exactly the per-platform drift the
-  // `preview-tomorrow` comment below warns about.
+  // Plain circle, echoing Begin — `lungs` has no Ionicons counterpart, and
+  // near misses like wind/leaf-outline are exactly the drift below warns of.
   breathe: { sf: "circle.dotted", ionicon: "ellipse-outline" },
   horoscope: { sf: "sparkles", ionicon: "sparkles-outline" },
   journal: { sf: "book", ionicon: "book-outline" },
@@ -33,18 +19,12 @@ export const STEP_ICONS: Record<TRitualStepId, TIconName> = {
   summary: { sf: "checkmark.circle", ionicon: "checkmark-circle-outline" },
   "open-tasks": VIEW_META.tasks.icon,
   review: { sf: "eyeglasses", ionicon: "glasses-outline" },
-  // `cloud.sun` rather than `sunrise`: the two platforms draw the same step, and
-  // a sunrise beside `partly-sunny-outline` read as a different one depending on
-  // which device you opened.
+  // `cloud.sun`, not `sunrise` — beside partly-sunny-outline it read as a
+  // different step depending on which device you opened.
   "preview-tomorrow": { sf: "cloud.sun", ionicon: "partly-sunny-outline" },
 };
 
-/**
- * What both step controls take — the menu (`RitualStepSwitcher`) and the
- * segmented control (`RitualStepSegments`, itself platform-split). Declared
- * once here so the two can't drift into taking different shapes for the same
- * job.
- */
+// What both step controls take, declared once so they can't drift.
 export type TRitualStepControlProps = {
   state: TRitualState;
   /** Jump to a step by index; the route hands this to `goToStep`. */
@@ -62,13 +42,8 @@ export type TRitualStepOption = {
   onSelect: () => void;
 };
 
-/**
- * Builds the switcher's options for the ritual on screen: every step of the
- * active mode the user has turned on, in order, with the current one marked.
- *
- * Exported and pure so the wiring is unit-testable without a platform menu host
- * — the `dayViewOptions` / `paneToggleOptions` precedent.
- */
+// Exported and pure, testable without a platform menu host — the
+// dayViewOptions/paneToggleOptions precedent.
 export function ritualStepOptions(
   state: TRitualState,
   onSelectStep: (index: number) => void,

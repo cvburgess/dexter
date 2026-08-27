@@ -16,9 +16,8 @@ export function NewTaskButton() {
   const theme = useTheme();
   const placement = NativeTabs.BottomAccessory.usePlacement();
 
-  // Resolved at press time, not render time (see `newTaskRoute`). This button
-  // reads the day from a module store rather than context because it renders in
-  // the bottom accessory, outside the React tree a context value would reach.
+  // Reads the day from a module store, not context — this renders in the
+  // bottom accessory, outside the tree a context value would reach.
   const openNewTask = () => router.push(newTaskRoute());
 
   return (

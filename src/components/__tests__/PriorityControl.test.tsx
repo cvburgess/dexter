@@ -52,9 +52,8 @@ describe("PriorityControl", () => {
     expect(screen.getByLabelText("Urgent")).not.toBeSelected();
   });
 
-  // NEITHER's priority color is the card color and its content color is the
-  // text color the icon already carries unselected, so drawing it like the
-  // other three leaves the option looking untouched. It inverts instead.
+  // NEITHER's priority color matches the card's unselected icon color, so
+  // drawing it like the other three would look untouched — it inverts instead.
   it("fills the selected Neither option with a color that isn't the card", () => {
     const screen = render(
       <PriorityControl

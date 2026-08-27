@@ -27,16 +27,8 @@ type TMoreMenuProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-/**
- * Wraps `children` (the whole task card) with a long-press menu.
- *
- * Deliberately short. Everything that needs a picker to change — the list, the
- * deadline, the alarm, an arbitrary date — lives in the edit modal, which this
- * menu's first item opens; a menu row whose only job was to launch a sheet was
- * a detour, not a shortcut (DEX-98). What stays is what a single tap can
- * finish: the task's link if it has one, priority, the schedule presets, and
- * the task-level actions.
- */
+// Deliberately short (DEX-98): a menu row whose only job is opening a picker
+// is a detour, not a shortcut — anything needing one lives in the edit modal.
 export function MoreMenu({
   task,
   onChangePriority,
@@ -50,24 +42,12 @@ export function MoreMenu({
   const theme = useTheme();
   const router = useRouter();
   const [, { getTemplateById }] = useTemplates();
-  // The module store, not `useLiveFocusBlock`: this component renders once per
-  // task card, and a query observer plus two mutation observers on every row of
-  // a long list is a lot of machinery to read one shared value.
+  // Module store, not useLiveFocusBlock — this renders once per card, and a
+  // query plus two mutation observers per row is too much for one shared value.
   const { actions: focusActions, block: liveFocusBlock } = useFocusTimer();
 
-  /**
-   * The focus block row, or nothing (DEX-49).
-   *
-   * Three states, and the third is the one worth defending: while *another*
-   * task's block is running, this row is simply absent. Offering "Start" there
-   * would have to silently cancel a block the user may be twenty minutes into —
-   * data loss from a menu tap — and `docs/frontend.md` requires an
-   * immediate-write menu action to keep a confirmation, which this menu has no
-   * way to render. The running block's own bar is the obvious place to stop it.
-   *
-   * Both offered rows are a single tap that finishes, which is what clears the
-   * DEX-98 bar. The length is a preference precisely so this stays true.
-   */
+  // DEX-49: while another task's block runs, this row is simply absent —
+  // "Start" there would silently cancel a block with no confirmation to render.
   const focusAction = (() => {
     if (isCompletionStatus(task.status)) return undefined;
     if (!liveFocusBlock) {
@@ -85,27 +65,16 @@ export function MoreMenu({
     return undefined;
   })();
 
-  // One editor for all three entry points: it shows a repeat schedule, a saved
-  // template, or an unsaved draft depending on the route it is opened at.
-  //
-  // `withAnchor` carries the tasks stack's anchor — its list — along when this
-  // push enters that navigator for the first time, so the modal always has the
-  // list beneath it to render over and close back to (see `tasks/_layout.tsx`).
+  // withAnchor carries the tasks stack's list along on first entry, so the
+  // modal always has it beneath to render over and close back to.
   const openTemplateEditor = (params: { id: string; [key: string]: string }) =>
     router.push(
       { pathname: "/settings/tasks/[id]", params },
       { withAnchor: true },
     );
 
-  /**
-   * Both menu items open an unsaved draft seeded from this task rather than
-   * writing a row and then editing it, so nothing is stored until ✓ and ✕
-   * leaves nothing behind. They differ only in the cadence the draft opens on.
-   *
-   * Navigating synchronously matters too: when these wrote first and pushed
-   * from the mutation's callback, doing two in a row let the first one's late
-   * callback push its editor over the second's.
-   */
+  // Opens an unsaved draft seeded from the task, not a written-then-edited
+  // row, so ✕ leaves nothing behind; navigates synchronously to avoid a race.
   const openDraftFromTask = (repeats: boolean) =>
     openTemplateEditor({
       id: NEW_TEMPLATE,
@@ -113,23 +82,13 @@ export function MoreMenu({
       ...(repeats && { repeats: "1" }),
     });
 
-  // No `withAnchor`: this route is declared on the root `(app)` stack (like
-  // `new-task`), which the tab navigator already sits inside, so the push has
-  // the app beneath it to render over and close back to.
+  // No withAnchor — this route is on the root (app) stack, already inside
+  // the tab navigator, so the push has the app beneath it.
   const openTaskEditor = () =>
     router.push({ pathname: "/edit-task/[id]", params: { id: task.id } });
 
-  // `tasks.template_id` has one meaning — this task came from that template —
-  // so it, and not the lookup, decides whether there is anything to make: a
-  // task that already belongs to a template offers only the edit for it, and
-  // never a second, orphaned copy. Bound to a local const so TS keeps the
-  // narrowing inside the `onEdit` closure.
-  //
-  // The resolved row picks only the noun. An unresolved lookup means the
-  // templates query hasn't landed yet, not that the row is scheduleless:
-  // falling back to the template wording would relabel an established repeat
-  // until the fetch settles. Both linked kinds open the same editor, so only
-  // the noun is ever at stake, and nothing here is written.
+  // templateId, not the lookup, decides whether there's anything to make — an
+  // unresolved lookup means the query hasn't landed, not that it's scheduleless.
   const templateId = task.templateId;
   const linkedTemplate = getTemplateById(templateId);
   const templateAction: TTemplateMenuAction = templateId
@@ -146,19 +105,12 @@ export function MoreMenu({
         onSaveAsTemplate: () => openDraftFromTask(false),
       };
 
-  // Everything that edits the task: the two changes quick enough to be worth a
-  // tap of their own, then the checklist, then the full form. One unruled
-  // group, however many sections it takes to build — only the actions below it
-  // are set apart.
   const editSections = [
     ...getPrioritySections(task.priority, onChangePriority, theme),
     ...getScheduleSections(task.scheduledFor, onChangeSchedule, openTaskEditor),
     ...getTaskActionSections(onAddSubtask, focusAction),
-    // The way into every field at once, last in the group: the rows above are
-    // the shortcuts worth reaching for by name, and this is the general case
-    // they fall back to. Note it is the only one of them that always renders —
-    // the checklist section drops out when a task can't take subtasks — so it
-    // is also what keeps this group from ever being empty.
+    // Always renders (unlike the optional checklist section above), so this
+    // group can never be empty.
     {
       options: [
         {
@@ -171,9 +123,8 @@ export function MoreMenu({
     },
   ];
 
-  // The task's own link, above everything that edits it: following it is the
-  // one action that leaves the app, so it is set apart rather than filed among
-  // the shortcuts (DEX-66). Absent entirely when the task has no link.
+  // Set apart from the edit shortcuts (DEX-66) — it's the one action that
+  // leaves the app. Absent when the task has no link.
   const url = task.url;
   const linkSections: TIconMenuSection[] = url
     ? [
@@ -192,18 +143,8 @@ export function MoreMenu({
 
   const sections = [
     ...linkSections,
-    // Every one of them but the first, the Edit task row included:
-    // `IconMenu.native` emits a plain section *without* `hideDivider` as its
-    // own `displayInline` group, which the system menu draws with separators —
-    // so leaving that row unmarked ruled it off from the shortcuts beside it on
-    // iOS/Android while web (which only draws a divider above section > 0)
-    // showed no such rule.
-    //
-    // The first is exempt because `hideDivider` means "continue the section
-    // above", and this group never wants to: with a link above it, the rule is
-    // exactly what sets the link apart, and with nothing above it there is no
-    // rule to suppress. So the flag doesn't depend on whether a link is
-    // present — one less thing to keep in step.
+    // Every section but the first gets hideDivider — otherwise IconMenu.native
+    // draws each as its own separated group instead of one continuous list.
     ...editSections.map((section, index) => ({
       ...section,
       hideDivider: index !== 0,
@@ -263,15 +204,8 @@ const SCHEDULE_ICON = {
   ionicon: "calendar-outline",
 } as const;
 
-/**
- * The schedule submenu: the days worth a single tap, plus the two rows that
- * hand off to the edit modal for anything else.
- *
- * Option ids stay namespaced even though schedule is now the only date field
- * here — `IconMenu.native` flattens every section into one id -> option map
- * before handing the tree to the system menu, so an un-namespaced date id would
- * collide with any future section offering the same days.
- */
+// Ids stay namespaced — IconMenu.native flattens every section into one id
+// map, so an un-namespaced date id would collide with a future section's.
 export const getScheduleSections = (
   scheduledFor: string | null,
   onChangeSchedule: (scheduledFor: string | null) => void,
@@ -316,9 +250,8 @@ export const getScheduleSections = (
     });
   }
 
-  // The date already set, when it isn't one of the presets above. Selecting it
-  // opens the editor seeded to the task — a way *into* the date field rather
-  // than the no-op row it used to be (DEX-87).
+  // Selecting the already-set date opens the editor (DEX-87), not the no-op
+  // row it used to be.
   if (currentDate && scheduledFor !== today && scheduledFor !== tomorrow) {
     options.push({
       id: optionId(currentDate.toString()),
@@ -328,9 +261,7 @@ export const getScheduleSections = (
     });
   }
 
-  // Any other day is a form field, not a menu row: the edit modal owns the
-  // calendar, and opening it from here costs the same one tap the sheet did
-  // while also putting every other field within reach (DEX-98).
+  // Any other day is a form field, not a menu row (DEX-98).
   options.push({
     id: optionId("pick-date"),
     title: "Pick a date…",
@@ -357,13 +288,8 @@ export const getScheduleSections = (
   ];
 };
 
-/**
- * The one edit that acts on the task's contents rather than on the task as a
- * whole the way the actions below it do.
- *
- * Optional — subtasks are only offered where a checklist can be added — so the
- * section drops out entirely when it isn't.
- */
+// Acts on the task's contents, not the task as a whole; optional, so the
+// section drops out where a checklist can't be added.
 export const getTaskActionSections = (
   onAddSubtask?: () => void,
   focus?: { title: string; onSelect: () => void },
@@ -391,14 +317,8 @@ export const getTaskActionSections = (
   return options.length ? [{ options }] : [];
 };
 
-/**
- * What the menu offers for the template side of a task. A repeat task is just a
- * template that re-occurs automatically, and `tasks.template_id` says only
- * "this task came from that template" — so a task that already belongs to one
- * has nothing to choose between and gets exactly one item: edit the thing that
- * exists. Only a task belonging to no template can make one, in either kind
- * (DEX-65).
- */
+// A task already belonging to a template gets exactly one item — edit it;
+// only an unlinked task can make one, in either kind (DEX-65).
 export type TTemplateMenuAction =
   | { kind: "unlinked"; onRepeat: () => void; onSaveAsTemplate: () => void }
   | { kind: "repeat"; onEdit: () => void }
@@ -409,9 +329,8 @@ const REPEAT_ICON = {
   ionicon: "repeat",
 } as const;
 
-// `square.on.square.dashed` for both template rows, so saving one and later
-// editing it read as the same object. Material has no single equivalent, so the
-// two states split across its bookmark pair.
+// Same SF Symbol for both template rows, so saving and editing read as the
+// same object; Material has no equivalent, so it splits across a bookmark pair.
 const SAVE_TEMPLATE_ICON = {
   sf: "square.on.square.dashed",
   ionicon: "bookmark-outline",
@@ -422,13 +341,8 @@ const EDIT_TEMPLATE_ICON = {
   ionicon: "bookmark",
 } as const;
 
-/**
- * The template rows, spliced between Duplicate and Delete. Ids stay distinct
- * per kind even though only one kind ever renders at a time — `IconMenu.native`
- * flattens every section into one id -> option map and dispatches by id, so a
- * shared id would make the tests (and any future consumer) unable to tell which
- * row it pressed.
- */
+// Ids stay distinct per kind even though only one renders at a time —
+// IconMenu.native dispatches by id, so a shared id is ambiguous to tests.
 const getTemplateOptions = (action: TTemplateMenuAction): TIconMenuOption[] => {
   switch (action.kind) {
     case "unlinked":
@@ -467,11 +381,7 @@ const getTemplateOptions = (action: TTemplateMenuAction): TIconMenuOption[] => {
   }
 };
 
-/**
- * Duplicate / the template rows / Delete: untitled, because the icons and
- * labels say it. Delete is marked destructive so `IconMenu` styles it
- * accordingly.
- */
+// Untitled — the icons and labels say it. Delete is marked destructive.
 export const getOtherSections = ({
   onDuplicate,
   template,

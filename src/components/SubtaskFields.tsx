@@ -9,19 +9,12 @@ import { FormRow } from "./FormRow";
 import { SubtaskCheck } from "./SubtaskCheck";
 import { subtaskGeometry, SubtaskConnectors } from "./SubtaskConnector";
 
-/**
- * The minimum a row needs to be edited here. Generic over the rest so this
- * serves both a task's `TSubtask` (which carries a `done`) and a template's
- * `TTemplateSubtask` (which doesn't) without either widening to the other.
- */
+// Generic over the rest so this serves both TSubtask (has `done`) and
+// TTemplateSubtask (doesn't) without either widening to the other.
 type TEditableRow = { id: string; title: string };
 
-/**
- * Drops rows with no title, for the moment a form is saved. Still needed even
- * though keystrokes are mirrored live: "Add subtask" can be tapped and the form
- * saved without a single character being typed. Exported so both form screens
- * apply one rule rather than each carrying its own copy.
- */
+// Still needed despite live mirroring — "Add subtask" then Save with no
+// keystrokes needs this drop. Exported so both form screens share one rule.
 export const withTitledRows = <S extends TEditableRow>(rows: S[]): S[] =>
   rows.filter(({ title }) => title.trim().length > 0);
 
@@ -30,25 +23,13 @@ type TSubtaskFieldsProps<S extends TEditableRow> = {
   onChange: (subtasks: S[]) => void;
   /** Builds a new empty row; supplies whatever fields the caller's shape adds. */
   makeRow: (id: string) => S;
-  /**
-   * A row was appended (by the button or the return-key chain) and is about to
-   * autofocus. Optional because it exists for forms that must scroll it into
-   * view, and only a form whose checklist is its last field can do that simply.
-   */
+  /** Fired on append, before autofocus — for forms that must scroll it into view. */
   onAddRow?: () => void;
   testIDPrefix: string;
 };
 
-/**
- * The "Add subtask" affordance plus the checklist rows, for the two *form*
- * surfaces — creating a task and editing a repeat template. Both previously
- * carried an identical copy of this and had already drifted apart.
- *
- * Distinct from `SubtaskRow`, which is the in-card presentation: the checkbox
- * here is inert, because a form row is a value being composed rather than stored
- * state. Rows do have an explicit ×, since the template form seeds this from
- * saved rows and emptying a title reverts rather than deletes.
- */
+// Shared by the two form surfaces that had already drifted apart. Unlike
+// SubtaskRow, the checkbox here is inert — a value being composed, not stored state.
 export function SubtaskFields<S extends TEditableRow>({
   value,
   onChange,
@@ -59,15 +40,11 @@ export function SubtaskFields<S extends TEditableRow>({
   const theme = useTheme();
   const checklist = subtaskGeometry(theme);
   const [editingId, setEditingId] = useState<string | null>(null);
-  // The title a row had when its edit began. Keystrokes are mirrored into form
-  // state live (so Save never loses them), which overwrites the stored title —
-  // this is what an emptied row reverts to.
+  // What the row's title was before this edit — what an emptied row reverts to.
   const [titleBeforeEdit, setTitleBeforeEdit] = useState("");
 
-  // Return-to-chain commits a title and appends the next row in the *same*
-  // event, so the second change would otherwise read the pre-commit `value`
-  // prop and drop the title just typed. This tracks the latest array across
-  // both writes.
+  // Return-to-chain commits a title and appends a row in the same event, so
+  // the second write would read the stale pre-commit `value` prop without this.
   const latest = useRef(value);
   useEffect(() => {
     latest.current = value;
@@ -101,9 +78,8 @@ export function SubtaskFields<S extends TEditableRow>({
   };
 
   const commitTitle = (id: string, title: string) => {
-    // Guarded, not unconditional: React runs the outgoing row's unmount cleanup
-    // *after* `editingId` has already moved to the row the user just tapped, so
-    // clearing blindly would cancel the edit they are starting.
+    // Guarded — unmount cleanup fires after editingId already moved to the
+    // next row the user tapped, so an unconditional clear would cancel that edit.
     setEditingId((current) => (current === id ? null : current));
 
     if (title !== "") {
@@ -111,9 +87,8 @@ export function SubtaskFields<S extends TEditableRow>({
       return;
     }
 
-    // A row that never had a title is discarded; one that did reverts to it.
-    // Clearing the text to retype must not silently delete a template's
-    // checklist item — the × is the deliberate way to do that.
+    // Never-titled rows discard; titled ones revert — clearing text to retype
+    // must not silently delete a saved checklist item.
     if (titleBeforeEdit === "") removeRow(id);
     else setTitle(id, titleBeforeEdit);
   };
@@ -164,9 +139,8 @@ export function SubtaskFields<S extends TEditableRow>({
                 editing={editingId === row.id}
                 onStartEdit={() => startEditing(row.id, row.title)}
                 onCommit={(title) => commitTitle(row.id, title)}
-                // Mirror keystrokes into form state: on native, tapping Save
-                // does not blur the focused input first, so without this the
-                // row being typed would be dropped from the payload.
+                // On native, Save doesn't blur first, so without this the
+                // row being typed drops from the payload.
                 onChangeDraft={(text) => setTitle(row.id, text)}
                 // Return chains the next row; an empty commit ends the chain.
                 onSubmit={(title) => {
@@ -203,10 +177,8 @@ export function SubtaskFields<S extends TEditableRow>({
   );
 }
 
-// Rows are not indented, and sit on the card checklist's exact geometry
-// (`subtaskGeometry`, which the rail is positioned from too): a form row should
-// look like the subtask it is about to become, not like a sub-field of the row
-// above it.
+// Not indented — a form row should look like the subtask it will become,
+// not a sub-field of the row above it.
 const styles = StyleSheet.create({
   row: {
     alignItems: "center",

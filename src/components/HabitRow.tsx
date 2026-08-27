@@ -22,8 +22,7 @@ export function HabitRow({ habit, updateHabit }: THabitRowProps) {
   const subtitle = `${habit.steps}× daily · ${habit.daysActive.length}× weekly`;
 
   return (
-    // A plain View, not a Touchable: the row hosts two separate tap targets
-    // (edit + pause). Nesting one Touchable inside another renders as a
+    // Plain View, not a Touchable — two nested Touchables render as a
     // <button> inside a <button> on web, which is invalid DOM.
     <View
       style={[
@@ -44,23 +43,16 @@ export function HabitRow({ habit, updateHabit }: THabitRowProps) {
             params: { id: habit.id },
           })
         }
-        // `md` between the emoji and its labels, not the row's `sm`: with the
-        // tile's fill gone the glyph has no edge of its own, so it needs the
-        // wider step to read as separate from the title beside it.
+        // md, not the row's sm — the glyph needs the wider step to read as
+        // separate (matches ListRow).
         style={[styles.main, { gap: theme.space.md }]}
       >
         <View
           style={[
             styles.tile,
             {
-              // No fill behind the emoji: the glyph is the icon, and a tinted
-              // square under it read as a second, competing shape in the row.
-              //
-              // Height is a control size so the row keeps its height and the
-              // pause toggle beside it stays centered on the row rather than on
-              // the label block. Width is the *icon* scale, matching
-              // `SettingsRow`'s leading glyph — see `ListRow`, which carries the
-              // same pair for the same reason (DEX-61).
+              // No fill — a tinted square read as a competing shape.
+              // Width is the icon scale, matching SettingsRow (see ListRow, DEX-61).
               height: theme.controls.md,
               width: theme.icons.md,
             },

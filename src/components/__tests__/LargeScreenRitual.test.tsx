@@ -11,8 +11,7 @@ import { createRitualState, type TRitualState } from "@/utils/ritualSteps";
 import type { TDateFieldProps } from "../DateField.types";
 import { LargeScreenRitual } from "../LargeScreenRitual";
 
-// `DayNav` renders `DateField` — a native picker with no test double — whenever
-// the viewed day is today. The `mock` prefix satisfies Jest's hoisting rule.
+// DateField is a native picker with no test double.
 const mockDateField = (props: TDateFieldProps) => (
   <TouchableOpacity accessibilityLabel="Pick a date" onPress={jest.fn()}>
     <Text>{props.value.toISOString()}</Text>
@@ -46,9 +45,8 @@ jest.mock("../RitualStepSegments", () => ({
     mockStepSegments(props),
 }));
 
-// The step content has its own test and (for the journal) needs a query client
-// and a session; stand it in with the step's title, the date it was handed, and
-// a pressable that reports focus so this file can assert the swipe suspends.
+// Stands in for the step's title, date, and a pressable that reports focus
+// so this file can assert the swipe suspends.
 const mockStepView = ({
   step,
   date,
@@ -74,10 +72,8 @@ jest.mock("../RitualStepView", () => ({
     mockStepView(props),
 }));
 
-// Records what the layout hands the pager while still rendering the real one,
-// so the swipe tests below stay end-to-end. `fireGestureHandler` binds the
-// handler at mount, so an `enabled` that flips *after* mount can only be
-// observed as a prop.
+// Records the pager's props while rendering the real one, so swipe tests
+// stay end-to-end — fireGestureHandler binds at mount.
 const mockSwipeablePage = jest.fn();
 jest.mock("../SwipeablePage", () => {
   const actual = jest.requireActual("../SwipeablePage");
@@ -161,9 +157,8 @@ describe("LargeScreenRitual", () => {
     expect(onToggleMode).toHaveBeenCalledTimes(1);
   });
 
-  // Unlike the large-screen Today tab, which deliberately has none: a ritual is
-  // a sequence you move through, so the gesture is offered alongside the
-  // segments rather than instead of them.
+  // Unlike large-screen Today, which has none — a ritual is a sequence to
+  // move through, so the gesture is offered alongside the segments.
   describe("the swipe", () => {
     it("pages forward", () => {
       const onSwipe = jest.fn();

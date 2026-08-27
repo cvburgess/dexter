@@ -63,9 +63,7 @@ export function LargeScreenRitual({
   const theme = useTheme();
   const step = currentStep(state);
   const lastStep = isLastStep(state);
-  // The swipe is not a small-screen affordance on this tab (see above), so the
-  // caret conflict it creates isn't either: a focused text field suspends it
-  // here exactly as it does on the phone.
+  // A focused text field suspends the swipe here exactly as on the phone.
   const [editing, setEditing] = useState(false);
 
   return (

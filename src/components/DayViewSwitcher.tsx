@@ -34,19 +34,11 @@ type TDayViewSwitcherProps = {
   enableNotes: boolean;
   /** Calendar is hidden when disabled in settings. */
   enableCalendar: boolean;
-  /**
-   * When provided, a "Backlog" action is appended below the view options
-   * (in its own divided section) that opens the drawer. Kept in this menu
-   * rather than a standalone header button so it doesn't crowd `DayNav`'s
-   * next-day arrow.
-   */
+  /** When provided, adds a "Backlog" action in its own section — kept in this
+   * menu rather than a header button so it doesn't crowd DayNav's arrow. */
   onOpenDrawer?: () => void;
-  /**
-   * Shows the warning-yellow attention dot on the trigger button when the
-   * Backlog holds overdue or left-behind tasks (DEX-58). The dot lives here
-   * (rather than a dedicated Backlog button) because the small-screen Backlog
-   * action is inside this menu.
-   */
+  /** Warning-yellow attention dot when Backlog holds overdue/left-behind
+   * tasks (DEX-58); lives here since the Backlog action lives in this menu. */
   attention?: boolean;
 };
 
@@ -74,16 +66,8 @@ export function dayViewOptions(
   }));
 }
 
-/**
- * The Today-tab view switcher: a circular icon-only button (liquid glass on
- * iOS, a plain circle elsewhere — see `GlassIconButton`) that opens an
- * `IconMenu` for moving between Tasks, Notes, and Calendar. Its icon reflects
- * the active view. All views share the Today screen's single date, so switching
- * never changes the selected day. Notes/Calendar entries appear only when
- * enabled in settings (DEX-37, DEX-39). The journal is not among them — it
- * moved to the Ritual tab (DEX-105). When `onOpenDrawer` is given, a
- * "Backlog" action is added below the view options (DEX-33).
- */
+/** Today-tab view switcher between Tasks/Notes/Calendar, icon per active
+ * view; Notes/Calendar gated by settings (DEX-37, DEX-39). */
 export function DayViewSwitcher({
   view,
   onChangeView,
@@ -102,10 +86,8 @@ export function DayViewSwitcher({
 
   const sections: TIconMenuSection[] = [{ options }];
   if (onOpenDrawer) {
-    // When the attention dot is showing, tint the Backlog row the same
-    // warning-yellow (`priority[0]`) as the dot so it's clear what the dot
-    // refers to (DEX-58). `iconColor` also recolors the label on iOS; on
-    // Android/web `titleColor` carries the label.
+    // Tints the Backlog row to match the attention dot (DEX-58); iconColor
+    // recolors the iOS label, titleColor the Android/web one.
     const attentionColor = attention ? theme.colors.priority[0] : undefined;
     sections.push({
       options: [
@@ -122,9 +104,8 @@ export function DayViewSwitcher({
   }
 
   return (
-    // Pin the IconMenu host to the button's size: the native @expo/ui MenuView
-    // sizes asynchronously and a content-sized trigger renders untappable on
-    // device (same reason StatusButton/ListButton pin theirs).
+    // Pinned to the button's size — @expo/ui MenuView sizes asynchronously
+    // and a content-sized trigger renders untappable (StatusButton/ListButton).
     <IconMenu
       accessibilityLabel="Switch view"
       sections={sections}
