@@ -24,9 +24,8 @@ type TSearchRouteOptions = {
 };
 
 /**
- * False when no surface can show the result: a completed, unscheduled task (the
- * backlog filters those out), or a journal with no step (off, or no prompts —
- * DEX-151). The result card itself stays useful either way.
+ * False when no surface can show the result: a completed, unscheduled task, or
+ * a journal with no step (off, or no prompts — DEX-151).
  */
 export const canOpenSearchResult = (
   result: TSearchResult,

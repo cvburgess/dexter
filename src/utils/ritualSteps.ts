@@ -1,9 +1,8 @@
 import { Temporal } from "@js-temporal/polyfill";
 
 /**
- * The Ritual flow's model (DEX-127), React- and import-free so it tests without
- * a native host. `state.step` indexes the *derived* `stepsFor` list — only the
- * transitions here may write it; the list can shrink under a mounted screen.
+ * The Ritual flow's model (DEX-127), React-free so it tests without a host.
+ * `state.step` indexes the *derived* `stepsFor` list — only transitions here may write it.
  */
 
 /** Morning or evening ritual. */
@@ -39,9 +38,8 @@ export type TRitualStep = {
 };
 
 /**
- * Read through `stepsFor`, never directly. The morning has no task-list step
- * (DEX-144 built one and removed it), `summary` is the morning's alone
- * (DEX-149), and the evening opens on `breathe` rather than a list (DEX-164).
+ * Read through `stepsFor`, never directly. `summary` is the morning's alone
+ * (DEX-149); the evening opens on `breathe` rather than a list (DEX-164).
  */
 export const RITUAL_STEPS: Record<TRitualMode, readonly TRitualStep[]> = {
   am: [
@@ -82,8 +80,7 @@ const STEP_TOGGLE: Partial<Record<TRitualStepId, keyof TRitualStepToggles>> = {
 
 /**
  * Literal keys keep `STEP_LISTS` an exhaustive `Record` (`Object.fromEntries`
- * widens to `string`). One char per toggle, `j`/`c`/`h` order, `-` = off;
- * every added toggle doubles this list.
+ * widens to `string`); `-` = off. Every added toggle doubles this list.
  */
 const TOGGLE_KEYS = [
   "jch",
@@ -126,8 +123,7 @@ const listsForMode = (
 
 /**
  * Precomputed so `stepsFor` returns stable references — a fresh array per call
- * would defeat the identity comparisons downstream. Distinct entries can hold
- * equal content (pm ignores two toggles), so identity ≠ content-equality.
+ * would defeat identity comparisons downstream (distinct entries can hold equal content).
  */
 const STEP_LISTS: Record<
   TRitualMode,
@@ -153,9 +149,8 @@ export const otherMode = (mode: TRitualMode): TRitualMode =>
   mode === "am" ? "pm" : "am";
 
 /**
- * The toggles are mirrored into the state, not read beside it: React's stale
- * render pass after a set-state-during-render must stay self-consistent — a
- * `currentStep(state, prefs)` split would over-index the list and throw.
+ * Toggles are mirrored into the state, not read beside it: a set-state-during-
+ * render pass must stay self-consistent, or a `(state, prefs)` split could over-index and throw.
  */
 export type TRitualState = TRitualStepToggles & {
   date: Temporal.PlainDate;
@@ -197,10 +192,7 @@ export const isFirstStep = (state: TRitualState): boolean => state.step === 0;
 export const isLastStep = (state: TRitualState): boolean =>
   state.step === stepsFor(state).length - 1;
 
-/**
- * `SwipeablePage`'s remount key — all three parts matter. Derived once so the
- * phone and large-screen layouts can't disagree about what counts as a page.
- */
+/** `SwipeablePage`'s remount key — all three parts matter, derived once so layouts can't disagree on what counts as a page. */
 export const ritualPageKey = (state: TRitualState): string =>
   `${state.date.toString()}-${state.mode}-${currentStep(state).id}`;
 
@@ -226,9 +218,8 @@ export const goToStep = (state: TRitualState, step: number): TRitualState => {
 };
 
 /**
- * Change the day, **staying on the current step** (DEX-138) — the Today tab's
- * contract. Carrying the index is safe only because a date change cannot alter
- * `stepsFor`'s list; the date is in `ritualPageKey`, so the page still remounts.
+ * Change the day, **staying on the current step** (DEX-138). Carrying the
+ * index is safe because a date change can't alter `stepsFor`'s list.
  */
 export const withDate = (
   state: TRitualState,
@@ -254,9 +245,8 @@ export const withMode = (
 };
 
 /**
- * Re-points by **id**, not index: removing a step shifts later ones down, and
- * a clamp never fires for in-range indexes — it would silently move someone
- * from Calendar to Backlog. The clamp is only for the step the toggle removed.
+ * Re-points by **id**, not index: a clamp never fires for in-range indexes —
+ * it would silently move someone from Calendar to Backlog when a step is removed.
  */
 const keepingStep = (state: TRitualState, next: TRitualState): TRitualState => {
   const id = currentStep(state).id;
@@ -270,8 +260,7 @@ const keepingStep = (state: TRitualState, next: TRitualState): TRitualState => {
 
 /**
  * Follows `preferences.enableJournal` under a mounted screen. The flag must
- * always be written: `ritual/index.tsx` sets state during render whenever it
- * disagrees with preferences, and an un-updated flag would spin that loop.
+ * always be written, or `ritual/index.tsx`'s render-time sync loops forever.
  */
 export const withJournalEnabled = (
   state: TRitualState,
@@ -307,8 +296,7 @@ export const withHoroscopeEnabled = (
 
 /**
  * Applies a deep link as **one** transition, so the screen never renders the
- * link's date against the pre-link step. An unknown or disabled step id leaves
- * the step alone; a date-only link moves the day and stays put (DEX-138).
+ * link's date against the pre-link step. Unknown/disabled step ids leave the step alone.
  */
 export const withLink = (
   state: TRitualState,
@@ -331,9 +319,8 @@ export const withLink = (
 };
 
 /**
- * The inset above a step, doubled on large screens (DEX-138). Stated once
- * because `HeroLines` must match it below the hero; takes bare numbers to
- * keep this module import-free.
+ * The inset above a step, doubled on large screens (DEX-138) — stated once
+ * since `HeroLines` must match it. Bare numbers keep this module import-free.
  */
 export const ritualStepInsetTop = (
   space: { md: number },

@@ -57,8 +57,7 @@ export default function WeekScreen() {
         style={[styles.narrow, { backgroundColor: theme.colors.background }]}
       >
         {/* Doesn't name a device — a tablet in a narrow Split View slice
-            reaches this branch too (DEX-104), where "use a tablet" would be
-            advice already taken. */}
+            reaches this branch too (DEX-104). */}
         <EmptyScreen message="The Week view needs a wider screen. Use the Today tab here, or open Dexter on a larger one." />
       </SafeAreaView>
     );

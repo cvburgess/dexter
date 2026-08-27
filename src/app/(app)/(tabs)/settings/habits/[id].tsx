@@ -235,10 +235,8 @@ function HabitForm({ existing }: { existing?: THabit }) {
           />
         </FormRow>
 
-        {/* Archive only, no delete (DEX-108) — the app archives things, it
-            doesn't destroy them, and a habit's history is the point of tracking
-            it. `deleteHabit` still exists on the hook for the API layer; nothing
-            in the UI reaches it. Lists have worked this way all along. */}
+        {/* Archive only, no delete (DEX-108) — a habit's history is the point
+            of tracking it. `deleteHabit` still exists on the hook; nothing in the UI reaches it. */}
         {isEditing && (
           <View style={{ marginTop: theme.space.sm }}>
             <Button variant="dangerous" onPress={handleArchive}>

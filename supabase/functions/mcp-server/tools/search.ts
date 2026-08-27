@@ -11,10 +11,8 @@ const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 
 /**
- * Declared separately from the registration below so tests can apply its
- * defaults before invoking the handler, the same way `listTasksInputSchema`
- * does — a handler called directly would otherwise see `limit: undefined`,
- * which the real MCP server never passes.
+ * Declared separately so tests can apply its defaults before invoking the
+ * handler directly, which would otherwise see `limit: undefined`.
  */
 export const searchInputSchema = {
   query: z.string().min(1),

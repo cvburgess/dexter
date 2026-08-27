@@ -25,8 +25,7 @@ export const STATUS_VALUES =
 
 /**
  * Input-only, derived from the app's enums — the columns are unconstrained
- * smallints, so these schemas are the only rejection; descriptions are the
- * DEX-137 fix, not decoration.
+ * smallints, so descriptions here are the DEX-137 fix, not decoration.
  */
 export const taskPrioritySchema = z.nativeEnum(ETaskPriority).describe(
   `Eisenhower-matrix priority. ${PRIORITY_VALUES}. 4 is the default for a new ` +
@@ -72,9 +71,8 @@ export const subtaskSchema = z.object({
 export const subtasksSchema = z.array(subtaskSchema).max(MAX_SUBTASKS);
 
 /**
- * Read-side: deliberately unbounded, and coerces legacy `status` (which outranks
- * a stale `done` beside it) — a failed parse means "no subtasks" and silently
- * skips the completion sweep (DEX-153).
+ * Read-side: deliberately unbounded, and coerces legacy `status` — a failed
+ * parse means "no subtasks" and silently skips the sweep (DEX-153).
  */
 export const storedSubtasksSchema = z.array(
   z.object({

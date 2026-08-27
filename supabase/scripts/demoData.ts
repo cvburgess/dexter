@@ -134,9 +134,8 @@ const promptText = (id: string): string =>
   PROMPTS.find((entry) => entry.id === id)!.prompt;
 
 /**
- * Build the curated demo dataset. Deterministic and self-consistent: every
- * `*Key` reference on a task/template/daily-habit points at an entity defined
- * here, so `seed-demo.ts` can resolve them and the unit test can assert it.
+ * Deterministic and self-consistent: every `*Key` reference resolves to an
+ * entity defined here, so `seed-demo.ts` and the unit test can both use it.
  */
 export function buildDemoData(): DemoDataset {
   const lists: DemoList[] = [

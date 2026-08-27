@@ -129,9 +129,9 @@ export const alarmFireDate = (
 /**
  * Diff the alarms that *should* exist against the ones already scheduled, so
  * the caller touches only new/changed/stale alarms instead of rebuilding all.
- * @param existingIds  ids AlarmKit currently has scheduled (`getAllAlarms()`)
- * @param scheduled    {@link alarmSignature} last scheduled per id — spots edits
- * @param soundName    one preference for all alarms; `undefined` = AlarmKit's own
+ * @param existingIds ids AlarmKit currently has scheduled (`getAllAlarms()`)
+ * @param scheduled {@link alarmSignature} last scheduled per id — spots edits
+ * @param soundName one preference for all alarms; `undefined` = AlarmKit's own
  * @param protectedIds ids this reconcile does not own — see `toCancel` below
  */
 export const reconcileAlarms = (

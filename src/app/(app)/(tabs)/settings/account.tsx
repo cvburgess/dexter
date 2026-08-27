@@ -92,9 +92,8 @@ export default function AccountScreen() {
     >
       {session ? <UserProfile session={session} /> : null}
 
-      {/* Both were full-width dangerous buttons (DEX-108) — log out ending a
-          session looked identical to deleting the account. Now weight
-          carries the warning: log out is wide and neutral, delete is small. */}
+      {/* Both were full-width dangerous buttons (DEX-108); now weight carries
+          the warning: log out is wide and neutral, delete is small. */}
       <View style={[styles.actions, { gap: theme.space.sm }]}>
         <Button
           variant="default"

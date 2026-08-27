@@ -12,8 +12,7 @@ export type THoroscopeSentiment =
 
 /**
  * Global reference data — no `user_id`; `preferences.sun_sign` picks yours
- * (DEX-84, DEX-145). `text` is stored but never rendered; `sentiment` is
- * derived in the DB from `overallRating`, so the two can never disagree.
+ * (DEX-84, DEX-145). `sentiment` derives from `overallRating` in the DB.
  */
 export type THoroscope = {
   sunSign: TSunSign;

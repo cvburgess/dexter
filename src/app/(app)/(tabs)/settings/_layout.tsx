@@ -29,9 +29,8 @@ export default function SettingsLayout() {
       <Stack.Screen name="index" options={listOptions("Settings")} />
       <Stack.Screen name="account" options={listOptions("Account")} />
       <Stack.Screen name="appearance" options={listOptions("Appearance")} />
-      {/* Header stays here rather than moving into tasks/_layout.tsx's nested
-          stack: a stack's root screen gets no native back button, so the
-          parent has to own the header to give Tasks one (DEX-93). */}
+      {/* Header stays here, not in tasks/_layout.tsx's nested stack: a stack's
+          root screen gets no native back button (DEX-93). */}
       <Stack.Screen name="tasks" options={listOptions("Tasks")} />
       <Stack.Screen name="lists/index" options={listOptions("Lists")} />
       <Stack.Screen
