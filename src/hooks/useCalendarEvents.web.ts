@@ -55,10 +55,8 @@ const fetchIcsEvents = async (
     .flatMap((r) => r.value);
 };
 
-/**
- * Web calendar source: proxied `.ics` feeds parsed into events for the viewed
- * day. Feed URLs come from `preferences.calendarUrls` (Supabase-synced).
- */
+// Web calendar source: proxied .ics feeds parsed into events for the viewed
+// day. Feed URLs come from preferences.calendarUrls (Supabase-synced).
 export const useCalendarEvents = (
   date: Temporal.PlainDate,
 ): TUseCalendarEvents => {

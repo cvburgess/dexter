@@ -45,8 +45,7 @@ const PER_DATE_MUTATION_KEYS: Partial<
 const FLUSH_DEBOUNCE_MS = 250;
 
 /** Subscribes to realtime changes and invalidates matching cache entries —
- * signal only, payloads never written to cache (see docs/backend.md). Realtime
- * doesn't replay missed events, so a rejoin invalidates everything once. */
+ * signal only, payloads never cached. A rejoin invalidates everything once. */
 export const useRealtimeInvalidation = (userId: string | undefined) => {
   const queryClient = useQueryClient();
 

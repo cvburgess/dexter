@@ -17,26 +17,20 @@ export type TTaskForm = {
   setPriority: (priority: ETaskPriority) => void;
   listId: string | null;
   setListId: (listId: string | null) => void;
-  /**
-   * ISO date the task is scheduled for, or null when the task is unscheduled.
-   * Control-only (no shorthand token).
-   */
+  /** ISO date the task is scheduled for, or null when unscheduled.
+   * Control-only (no shorthand token). */
   scheduledFor: string | null;
   setScheduledFor: (scheduledFor: string | null) => void;
   dueOn: string | null;
   setDueOn: (dueOn: string | null) => void;
-  /**
-   * The day the form is *about* (viewed day / task's schedule / today), fixed
-   * at mount — what an empty date row fills itself with (DEX-165).
-   */
+  /** The day the form is about, fixed at mount — what an empty date row
+   * fills itself with (DEX-165). */
   anchorDate: string;
   /** Time-of-day the alarm fires (`"HH:MM"`), or null when no alarm is set. */
   alarmTime: string | null;
   setAlarmTime: (alarmTime: string | null) => void;
-  /**
-   * Raw link input, held verbatim while typing — `normalizeTaskUrl` runs on
-   * the way into the payload, never under the user mid-keystroke.
-   */
+  /** Raw link input, held verbatim while typing — normalizeTaskUrl runs on
+   * the way into the payload, never under the user mid-keystroke. */
   url: string;
   setUrl: (url: string) => void;
   /** Checklist items to save alongside the task, in insertion order. */
@@ -44,29 +38,21 @@ export type TTaskForm = {
   setSubtasks: (subtasks: TSubtask[]) => void;
   /** Fills the form from a task template, leaving its dates alone (DEX-65). */
   applyTemplate: (template: TTemplate) => void;
-  /**
-   * The template the form was seeded from (or the task's own), else null. The
-   * picker's selection and the saved `template_id` both read it.
-   */
+  /** The template the form was seeded from (or the task's own), else null.
+   * The picker's selection and the saved template_id both read it. */
   templateId: string | null;
-  /**
-   * The resolved payload — tokens stripped in create mode, verbatim in edit.
-   * `goalId`/`status` are absent: the form doesn't own them.
-   */
+  /** The resolved payload — tokens stripped in create mode, verbatim in
+   * edit. goalId/status are absent: the form doesn't own them. */
   task: TCreateTask;
   canSave: boolean;
 };
 
 type TUseTaskFormOptions = {
-  /**
-   * Create mode: the ISO date to schedule the new task for; defaults to today.
-   * Ignored when `task` is set — an existing task brings its own schedule.
-   */
+  /** Create mode: ISO date to schedule the new task for, defaulting to
+   * today. Ignored when `task` is set — it brings its own schedule. */
   defaultScheduledFor?: string;
-  /**
-   * Create mode: a link shared in from another app's share sheet (DEX-66).
-   * Ignored when `task` is set, which brings its own link.
-   */
+  /** Create mode: a link shared in from another app's share sheet
+   * (DEX-66). Ignored when `task` is set, which brings its own link. */
   defaultUrl?: string;
   /** Edit mode: the task to seed from; its presence leaves create mode. */
   task?: TTask;
@@ -84,10 +70,8 @@ const resolveScheduledFor = (value?: string | null): string => {
   }
 };
 
-/**
- * Task form state shared by the create and edit modals. Shorthand tokens are
- * create-only: a saved title may hold literal `!`/`#` tokens (DEX-98).
- */
+// Task form state shared by the create and edit modals. Shorthand tokens
+// are create-only: a saved title may hold literal !/# tokens (DEX-98).
 export const useTaskForm = (
   lists: TList[],
   { defaultScheduledFor, defaultUrl, task }: TUseTaskFormOptions = {},

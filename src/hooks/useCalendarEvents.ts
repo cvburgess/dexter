@@ -44,10 +44,8 @@ type TDeviceAttendee = {
   status?: Calendar.AttendeeStatus;
 };
 
-/**
- * RSVP → app response. Declined/unknown fall to `undefined` (normal styling);
- * only invited and tentative are visually distinguished.
- */
+// RSVP → app response. Declined/unknown fall to undefined (normal styling);
+// only invited and tentative are visually distinguished.
 const statusToResponse = (
   status: Calendar.AttendeeStatus | undefined,
 ): TEventResponse | undefined => {
@@ -64,10 +62,8 @@ const statusToResponse = (
   }
 };
 
-/**
- * Prefers the OS `isCurrentUser` flag (iOS); Android matches signed-in email.
- * A failed lookup yields `undefined` so the event still renders.
- */
+// Prefers the OS isCurrentUser flag (iOS); Android matches signed-in email.
+// A failed lookup yields undefined so the event still renders.
 const fetchEventResponse = async (
   eventId: string,
   userEmail: string | undefined,
@@ -123,10 +119,8 @@ const nativeToEvent = (
   };
 };
 
-/**
- * `enabledIds === null` means never customized → all calendars. `notConfigured`
- * falls out of the early returns to avoid a second call/permission prompt.
- */
+// enabledIds === null means never customized → all calendars. notConfigured
+// falls out of the early returns to avoid a second call/permission prompt.
 const fetchDeviceEvents = async (
   dateIso: string,
   enabledIds: string[] | null,
@@ -168,10 +162,8 @@ const fetchDeviceEvents = async (
   return { events, permissionDenied: false, notConfigured: false };
 };
 
-/**
- * Native calendar source: events from the device's enabled calendars for the
- * viewed day.
- */
+// Native calendar source: events from the device's enabled calendars for
+// the viewed day.
 export const useCalendarEvents = (
   date: Temporal.PlainDate,
 ): TUseCalendarEvents => {

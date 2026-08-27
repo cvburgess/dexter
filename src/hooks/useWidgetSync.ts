@@ -19,10 +19,8 @@ import {
 import { useTasks } from "./useTasks";
 import { useToday } from "./useToday";
 
-/**
- * Publishes the iOS widget snapshots (tasks DEX-83, habits DEX-160) on separate
- * keys, sharing one "safe to publish yet" gate so the two answers can't drift.
- */
+// Publishes the iOS widget snapshots (tasks DEX-83, habits DEX-160) on
+// separate keys, sharing one "safe to publish yet" gate so they can't drift.
 export const useWidgetSync = (): void => {
   const [tasks, { isLoading }] = useTasks();
   const { initializing, session } = useAuth();

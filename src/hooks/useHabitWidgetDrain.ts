@@ -12,10 +12,8 @@ import {
 import { supabase, useAuth } from "./useAuth";
 import { useHabits } from "./useHabits";
 
-/**
- * Drains widget-queued habit steps into Supabase on foreground (DEX-160): the
- * extension holds no session (see utils/widgets.shared.ts header). Mount once.
- */
+// Drains widget-queued habit steps into Supabase on foreground (DEX-160):
+// the extension holds no session (see utils/widgets.shared.ts). Mount once.
 export const useHabitWidgetDrain = (): void => {
   const queryClient = useQueryClient();
   const { session } = useAuth();

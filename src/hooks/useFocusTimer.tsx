@@ -59,17 +59,13 @@ const publish = (next: TFocusTimerSnapshot) => {
   listeners.forEach((listener) => listener());
 };
 
-/**
- * The live block for surfaces that must not hold query observers: the twice-
- * rendered accessory and per-card MoreMenu. Owners use `useLiveFocusBlock`.
- */
+// The live block for surfaces that must not hold query observers: the
+// twice-rendered accessory and per-card MoreMenu. Owners use useLiveFocusBlock.
 export const useFocusTimer = (): TFocusTimerSnapshot =>
   useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
-/**
- * Whole seconds left, recomputed from `Date.now()` each tick — a decremented
- * counter drifts and lags after suspension. Keep behind `FocusCountdown`.
- */
+// Whole seconds left, recomputed from Date.now() each tick — a decremented
+// counter drifts and lags after suspension. Keep behind FocusCountdown.
 export const useFocusCountdown = (block: TFocusBlock | null): number => {
   // The clock is the state; seconds are derived in render. Storing seconds
   // needs a sync setState in effects (react-hooks/set-state-in-effect).
@@ -89,10 +85,8 @@ export const useFocusCountdown = (block: TFocusBlock | null): number => {
   return block ? Math.ceil(liveRemainingSeconds(block, now)) : 0;
 };
 
-/**
- * Publishes the live block and owns the completion write. Call exactly once,
- * from `FocusTimerHost` — alive on every tab, outside any single screen.
- */
+// Publishes the live block and owns the completion write. Call exactly
+// once, from FocusTimerHost — alive on every tab, outside any single screen.
 export const usePublishFocusTimer = (
   confirm: (options: ConfirmOptions) => Promise<boolean>,
 ): void => {

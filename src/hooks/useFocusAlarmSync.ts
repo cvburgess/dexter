@@ -14,10 +14,8 @@ import { useTheme } from "@/utils/theme";
 
 import { useAlarmSoundPreference } from "./usePreferences";
 
-/**
- * One-way sync of the live block's AlarmKit countdown (DEX-156); the lock
- * screen is read-only by design (see `scheduleFocusAlarm`). Call once.
- */
+// One-way sync of the live block's AlarmKit countdown (DEX-156); the lock
+// screen is read-only by design (see scheduleFocusAlarm). Call once.
 export const useFocusAlarmSync = (block: TFocusBlock | null): void => {
   const { alarmSound, isLoading: preferencesLoading } =
     useAlarmSoundPreference();

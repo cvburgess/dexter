@@ -40,15 +40,11 @@ type TUseTasks = [
   {
     createTask: (task: TCreateTask, callbacks?: TMutateCallbacks) => void;
     deleteTask: (id: string) => void;
-    /**
-     * The canonical fetch failed. Distinct from empty: on error `tasks` is `[]`
-     * and `isLoading` false, which reads as "you have no tasks" (DEX-100).
-     */
+    /** The canonical fetch failed. Distinct from empty: on error tasks is
+     * [] and isLoading false, which reads as "you have no tasks" (DEX-100). */
     isError: boolean;
-    /**
-     * No settled rows for the current reach — first load, or a reach widening
-     * (DEX-162). Reconcilers (alarm/widget sync) wait it out.
-     */
+    /** No settled rows for the current reach — first load, or a reach
+     * widening (DEX-162). Reconcilers (alarm/widget sync) wait it out. */
     isLoading: boolean;
     /** Re-runs the canonical fetch; the retry behind a failed load. */
     refetch: () => void;
@@ -63,10 +59,8 @@ type TSupabaseHookOptions = {
 
 const getToday = () => Temporal.Now.plainDateISO();
 
-/**
- * Cache key carries the reach (DEX-162) so widening reads as `isLoading`.
- * Invalidation stays on the bare `["tasks"]` prefix to match any reach.
- */
+// Cache key carries the reach (DEX-162) so widening reads as isLoading.
+// Invalidation stays on the bare ["tasks"] prefix to match any reach.
 export const tasksQueryKey = (reach: Temporal.PlainDate) => [
   "tasks",
   reach.toString(),
@@ -84,10 +78,8 @@ const findCachedTask = (
 const findTask = (tasks: TTask[] | undefined, id: string): TTask | undefined =>
   tasks?.find((task) => task.id === id);
 
-/**
- * Applies an update diff to a cached task. Only keys the caller set are copied
- * — spreading the raw diff would write `undefined` over real values.
- */
+// Applies an update diff to a cached task. Only keys the caller set are
+// copied — spreading the raw diff would write undefined over real values.
 const applyDiff = (task: TTask, { id: _id, ...diff }: TUpdateTask): TTask => {
   const provided = Object.fromEntries(
     Object.entries(diff).filter(([, value]) => value !== undefined),
@@ -95,10 +87,8 @@ const applyDiff = (task: TTask, { id: _id, ...diff }: TUpdateTask): TTask => {
   return { ...task, ...provided };
 };
 
-/**
- * Folds the subtask sweep into a completing update so parent and checklist
- * close in one row write. Any terminal status sweeps; explicit `subtasks` wins.
- */
+// Folds the subtask sweep into a completing update so parent and checklist
+// close in one row write. Any terminal status sweeps; explicit subtasks wins.
 const withSubtaskSweep = (
   queryClient: QueryClient,
   queryKey: readonly unknown[],
@@ -119,10 +109,8 @@ const withSubtaskSweep = (
   return unchanged ? diff : { ...diff, subtasks };
 };
 
-/**
- * Pads every row in a bulk upsert to one key set (PostgREST rejects mixed
- * shapes, PGRST102) from *cached* values — a `null` pad would really clear.
- */
+// Pads every row in a bulk upsert to one key set (PostgREST rejects mixed
+// shapes, PGRST102) from cached values — a null pad would really clear.
 const normalizeBulkKeys = (
   queryClient: QueryClient,
   queryKey: readonly unknown[],
@@ -149,11 +137,8 @@ const normalizeBulkKeys = (
   });
 };
 
-/**
- * Completing a repeat schedules its next occurrence (replaces the DEX-21
- * trigger). Reads the pre-optimistic snapshot — the live cache already looks
- * complete by the time this runs, which would skip every recurrence.
- */
+// Completing a repeat schedules its next occurrence (replaces the DEX-21
+// trigger); reads the pre-optimistic snapshot, or recurrence gets skipped.
 const maybeCreateNextRecurringTask = async (
   queryClient: QueryClient,
   diff: TUpdateTask,
@@ -201,10 +186,8 @@ const maybeCreateNextRecurringTask = async (
   });
 };
 
-/**
- * The one fetch every view filters client-side (DEX-57): open tasks plus any
- * task scheduled on/after `reach`, which widens as older days open (DEX-162).
- */
+// The one fetch every view filters client-side (DEX-57): open tasks plus
+// any task scheduled on/after reach, which widens as older days open (DEX-162).
 export const canonicalTaskFilters = (
   reach: Temporal.PlainDate = getToday().subtract({
     days: DEFAULT_TASK_REACH_DAYS,
@@ -249,10 +232,8 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
     },
   });
 
-  /**
-   * Optimistic write + rollback (mirrors usePreferences/useNotes/useHabits).
-   * Consumers building the next `subtasks` array must see post-write state.
-   */
+  // Optimistic write + rollback (mirrors usePreferences/useNotes/useHabits).
+  // Consumers building the next subtasks array must see post-write state.
   const optimisticUpdate = {
     onMutate: async (diff: TUpdateTask) => {
       await queryClient.cancelQueries({ queryKey: ["tasks"] });
@@ -296,10 +277,8 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
     },
   });
 
-  /**
-   * Sweep folded here, not in `mutationFn`, to read the cache before this
-   * write's optimistic land. `callbacks` forward per-call options (DEX-98).
-   */
+  // Sweep folded here, not in mutationFn, to read the cache before this
+  // write's optimistic land. callbacks forward per-call options (DEX-98).
   const updateWithSweep = (diff: TUpdateTask, callbacks?: TMutateCallbacks) =>
     update(withSubtaskSweep(queryClient, queryKey, diff), callbacks);
 

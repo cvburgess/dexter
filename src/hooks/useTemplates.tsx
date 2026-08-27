@@ -58,8 +58,7 @@ type TUseTemplates = [
 ];
 
 /** Gives a repeat its one open task, unless it already has one — a schedule
- * alone generates nothing since recurrence spawns from completion. Counts
- * today, so a cadence matching today produces a task now. */
+ * alone generates nothing since recurrence spawns from completion. */
 const seedNextOccurrence = async (template: TTemplate): Promise<void> => {
   if (!template.schedule) return;
   if (await hasOpenTaskForTemplate(supabase, template.id)) return;
@@ -83,9 +82,8 @@ const seedNextOccurrence = async (template: TTemplate): Promise<void> => {
   });
 };
 
-/** Best-effort: a repair, not part of the save — letting it reject would report
- * a successful save as a failure, and for createTemplate the retry writes a
- * second row. */
+/** Best-effort: a repair, not part of the save — letting it reject would
+ * report a successful save as a failure. */
 const trySeedNextOccurrence = async (template: TTemplate): Promise<void> => {
   try {
     await seedNextOccurrence(template);

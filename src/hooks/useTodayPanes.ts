@@ -57,11 +57,8 @@ type TUseTodayPanes = [
   },
 ];
 
-/**
- * Which optional Today-tab panes (notes/calendar) are shown in the
- * large-screen multi-column layout, persisted to the device. Shared through
- * React Query so a toggle re-renders immediately.
- */
+/** Which optional Today-tab panes (notes/calendar) are shown in the
+ * large-screen layout, persisted to the device via React Query. */
 export const useTodayPanes = (): TUseTodayPanes => {
   const queryClient = useQueryClient();
 
@@ -71,9 +68,8 @@ export const useTodayPanes = (): TUseTodayPanes => {
     staleTime: Infinity,
   });
 
-  /** The one write path. Derives the next value via `setQueryData`'s updater
-   * form (synchronous), not the closed-over `data`, so two rapid changes each
-   * see the other's update instead of clobbering it. */
+  /** Derives the next value via setQueryData's updater form (synchronous),
+   * not closed-over `data`, so rapid changes don't clobber each other. */
   const updatePanes = useCallback(
     async (update: (panes: TTodayPanes) => TTodayPanes) => {
       let previous: TTodayPanes | undefined;

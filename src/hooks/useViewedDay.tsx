@@ -13,13 +13,8 @@ const setViewedDay = (day: Temporal.PlainDate | null) => {
   viewedDay = day;
 };
 
-/**
- * Publishes `date` as the viewed day while the calling screen is focused, and
- * clears it on blur. A screen showing a specific day (Today) passes that day;
- * switching to another tab blurs it, so "New Task" from elsewhere falls back to
- * today (focus-based, not last-viewed). NewTaskButton reads the value at press
- * time, before pushing the modal blurs the tab and clears it.
- */
+// Publishes `date` as the viewed day while the screen is focused, clearing
+// on blur — so switching tabs falls "New Task" back to today, not last-viewed.
 export const usePublishViewedDay = (date: Temporal.PlainDate) => {
   useFocusEffect(
     useCallback(() => {

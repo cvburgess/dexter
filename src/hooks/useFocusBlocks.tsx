@@ -26,17 +26,15 @@ import { preferencesQueryOptions } from "./usePreferences";
 /** The running-or-held block, if any. One row, one key. */
 const LIVE_FOCUS_BLOCK_KEY = ["focusBlocks", "live"];
 
-/** Shared by the full hook and `useLiveFocusBlockId`, so the two observe one
- * query rather than two hand-copied definitions. */
+/** Shared with useLiveFocusBlockId, so the two observe one query rather
+ * than two hand-copied definitions. */
 const liveFocusBlockQueryOptions = queryOptions({
   queryKey: LIVE_FOCUS_BLOCK_KEY,
   queryFn: () => getLiveFocusBlock(supabase),
 });
 
-/**
- * Shared with `useRealtimeInvalidation`. The bare prefix covers the live row
- * and every per-date list, so a remote end refreshes bar and Review together.
- */
+// Shared with useRealtimeInvalidation. The bare prefix covers the live row
+// and every per-date list, so a remote edit refreshes bar and Review together.
 export const FOCUS_BLOCKS_INVALIDATION_KEYS = [["focusBlocks"]];
 
 type TMutateCallbacks = {
@@ -59,10 +57,8 @@ type TUseLiveFocusBlock = [
   },
 ];
 
-/**
- * The live block and its five transitions (DEX-49). Each writes the whole
- * anchor — `resumed_at_iff_active` rejects a partial one. No per-second writes.
- */
+// The live block and its five transitions (DEX-49). Each writes the whole
+// anchor — resumed_at_iff_active rejects a partial one. No per-second writes.
 export const useLiveFocusBlock = (): TUseLiveFocusBlock => {
   const { userId } = useAuth();
   const queryClient = useQueryClient();
@@ -196,10 +192,8 @@ export const useLiveFocusBlock = (): TUseLiveFocusBlock => {
   ];
 };
 
-/**
- * The live block's id without `useLiveFocusBlock`'s mutation observers, for
- * `useAlarmSync`'s sweep guard (DEX-156). `select` narrows to id changes.
- */
+// The live block's id without useLiveFocusBlock's mutation observers, for
+// useAlarmSync's sweep guard (DEX-156).
 export const useLiveFocusBlockId = (): {
   id: string | null;
   isLoading: boolean;
@@ -217,10 +211,8 @@ export const useLiveFocusBlockId = (): {
 
 type TUseFocusBlocks = [TFocusBlock[], { isLoading: boolean }];
 
-/**
- * One local day's blocks, for the Review figure. Read-only — a past day's
- * blocks are a record; only the live timer above writes one.
- */
+// One local day's blocks, for the Review figure. Read-only — a past day's
+// blocks are a record; only the live timer above writes one.
 export const useFocusBlocks = (
   date: string,
   options?: { skipQuery?: boolean },

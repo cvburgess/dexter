@@ -16,10 +16,8 @@ import { useLiveFocusBlockId } from "./useFocusBlocks";
 import { useAlarmSoundPreference } from "./usePreferences";
 import { useTasks } from "./useTasks";
 
-/**
- * Reconciles AlarmKit against what tasks say should ring, so complete / delete
- * / reschedule / repeat occurrences all self-heal on every launch (DEX-48).
- */
+// Reconciles AlarmKit against what tasks say should ring, so complete/delete/
+// reschedule/repeat occurrences all self-heal on every launch (DEX-48).
 export const useAlarmSync = (): void => {
   const [tasks, { isLoading }] = useTasks();
   const { alarmSound, isLoading: preferencesLoading } =
