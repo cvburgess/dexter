@@ -38,10 +38,8 @@ export function ConfirmationModal(props: ConfirmationModalProps) {
 
   return (
     <WebOverlay>
-      {/*
-        A plain div for the backdrop: `position: fixed` is web-only and outside
-        React Native's style types (same approach as DateField.web's popover).
-      */}
+      {/* A plain div: position: fixed is web-only, outside RN's style types
+          (same approach as DateField.web's popover). */}
       <div style={backdropStyle(theme)} onClick={onClose}>
         <div
           style={CARD_WRAPPER_STYLE}

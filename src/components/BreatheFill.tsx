@@ -35,11 +35,8 @@ type TBreatheWordsProps = {
   insetBottom: number;
 };
 
-/**
- * The three phase words stacked on one another. All three always render —
- * `buildBreathePlan` hands an unused phase a flat zero table, so nothing here
- * branches on the technique.
- */
+// The three phase words stacked on one another — always all rendered, since
+// buildBreathePlan hands an unused phase a flat zero table.
 function BreatheWords({
   plan,
   progress,
@@ -114,9 +111,8 @@ type TBreatheFillProps = {
   insetBottom: number;
 };
 
-/** Rises on inhale, falls on exhale. **Drawn twice and inverted across the
- * fill line** so the word stays legible on both halves; ignores Reduce Motion
- * (DEX-164) — here the motion *is* the exercise. */
+/** Rises on inhale, falls on exhale, drawn twice and inverted across the fill
+ * line so the word stays legible on both halves; ignores Reduce Motion (DEX-164) — here the motion *is* the exercise. */
 export function BreatheFill({
   plan,
   running,

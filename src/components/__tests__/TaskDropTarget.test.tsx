@@ -46,11 +46,8 @@ const mockTasks = (tasks: TTask[]) => {
   ]);
 };
 
-/**
- * The props the drax stub passed to the drop target. Drax itself calls these
- * off its own registry rather than off the rendered element, which is why the
- * tests below invoke them directly instead of simulating a pointer path.
- */
+// The props the drax stub passed to the drop target — real drax calls these
+// off its own registry, which is why tests invoke them directly.
 const targetProps = (screen: ReturnType<typeof render>, testID: string) =>
   screen.getByTestId(testID).props as {
     acceptsDrag: (payload: unknown) => boolean;

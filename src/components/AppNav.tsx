@@ -39,17 +39,13 @@ type TNavItem = {
   icon: TSettingsIconName;
   /** Floats this item (and everything after it) to the far end of the rail. */
   pinnedToBottom?: boolean;
-  /**
-   * Hides the destination below `LARGE_DEVICE_MIN_WIDTH` (DEX-96); the route
-   * stays registered either way — only the nav affordance goes.
-   */
+  /** Hides the destination below LARGE_DEVICE_MIN_WIDTH (DEX-96); the route
+   * stays registered either way — only the nav affordance goes. */
   largeScreenOnly?: boolean;
 };
 
-/**
- * Nav destinations in rail/dock order. Nothing syncs this with the phone tab
- * triggers in `app/(app)/(tabs)/_layout.tsx` — keep the two aligned by hand.
- */
+// Nav destinations in rail/dock order. Nothing syncs this with the phone tab
+// triggers in app/(app)/(tabs)/_layout.tsx — keep the two aligned by hand.
 export const NAV_ITEMS: TNavItem[] = [
   { key: "today", href: "/today", label: "Today", icon: "sunny-outline" },
   // One route at every width (DEX-127), and one fixed glyph: an icon that
@@ -79,10 +75,8 @@ export const NAV_ITEMS: TNavItem[] = [
 const isActive = (pathname: string, href: TNavHref) =>
   pathname === href || pathname.startsWith(`${href}/`);
 
-/**
- * Shared behavior for both nav variants; destinations are `Link`s rather than
- * handlers — see `navItemProps`.
- */
+// Shared behavior for both nav variants; destinations are Links rather than
+// handlers — see navItemProps.
 function useAppNav() {
   const router = useRouter();
   const pathname = usePathname();
@@ -109,10 +103,8 @@ const navItemProps = (item: TNavItem, selected: boolean) => ({
   testID: `nav-${item.key}`,
 });
 
-/**
- * The rail: every tablet at every width, web above `RAIL_MIN_WIDTH`. Its "+" is
- * the create-task entry point wherever it renders (DEX-74, DEX-104).
- */
+// The rail: every tablet at every width, web above RAIL_MIN_WIDTH. Its "+"
+// is the create-task entry point wherever it renders (DEX-74, DEX-104).
 export function NavRail() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -169,10 +161,8 @@ export function NavRail() {
   );
 }
 
-/**
- * One rail destination. Hover state lives in React because the flattened style
- * below rules out `Pressable`'s style-function form.
- */
+// One rail destination. Hover state lives in React because the flattened
+// style below rules out Pressable's style-function form.
 function NavRailTile({
   item,
   selected,
@@ -214,10 +204,8 @@ function NavRailTile({
   );
 }
 
-/**
- * The dock for narrow web viewports — web-only in practice (phones get native
- * tabs, tablets the rail at every width, DEX-104), kept platform-neutral.
- */
+// The dock for narrow web viewports — web-only in practice (phones get
+// native tabs, tablets the rail at every width, DEX-104).
 export function NavDock() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -323,10 +311,8 @@ const tileStyle = (theme: Theme, hovered = false) => ({
   width: NAV_TILE_SIZE,
 });
 
-/**
- * A fixed-height icon band so every dock label sits on the same baseline,
- * whether the item is a bare icon or the "+" chip beside it.
- */
+// A fixed-height icon band so every dock label sits on the same baseline,
+// whether the item is a bare icon or the "+" chip beside it.
 const iconSlotStyle = (theme: Theme) => ({
   height: theme.icons.md + theme.space.xs,
 });

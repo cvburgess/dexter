@@ -5,10 +5,8 @@ import { SubtaskFields } from "../SubtaskFields";
 
 type Row = { id: string; title: string };
 
-/**
- * The component is controlled, so drive it through a stateful host — asserting
- * against a static `value` would only ever test the first change.
- */
+// Controlled component, driven through a stateful host — asserting against
+// a static `value` would only ever test the first change.
 function Host({
   initial = [] as Row[],
   onAddRow,

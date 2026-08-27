@@ -23,12 +23,8 @@ jest.mock("@/components/SettingsIcon", () => ({
   },
 }));
 
-/**
- * The palette the component itself resolves. Read through the hook rather than
- * indexing `themes` directly, because with no ThemeProvider mounted `useTheme`
- * falls back on the *system* color scheme — so naming a theme here would pin
- * the test to whichever one Jest's scheme happens to select.
- */
+// Read via the hook, not themes[name] — with no ThemeProvider, useTheme
+// falls back to Jest's system scheme.
 const themeColors = () => renderHook(() => useTheme()).result.current.colors;
 
 /** A row's own style, flattened — `styles.row` plus the inline themed half. */

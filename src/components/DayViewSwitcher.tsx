@@ -8,10 +8,8 @@ import { TIconMenuOption, TIconMenuSection } from "./IconMenu.types";
 /** The day views selectable from the Today tab. */
 export type TDayView = "tasks" | "notes" | "calendar";
 
-/**
- * Icon metadata for each day view, shared with `DayPaneToggles` (the
- * large-screen equivalent) so both surfaces use the same icons/labels.
- */
+// Icon metadata for each day view, shared with DayPaneToggles (the
+// large-screen equivalent) so both surfaces use the same icons/labels.
 export const VIEW_META: Record<TDayView, { label: string; icon: TIconName }> = {
   tasks: {
     label: "Tasks",
@@ -42,11 +40,8 @@ type TDayViewSwitcherProps = {
   attention?: boolean;
 };
 
-/**
- * Builds the menu options for the switcher: Tasks always, Notes/Calendar only
- * when enabled, with the active view checked. Exported so the selection
- * wiring is unit-testable without the platform menu host.
- */
+// Builds the switcher's menu options. Exported so the selection wiring is
+// unit-testable without the platform menu host.
 export function dayViewOptions(
   view: TDayView,
   onChangeView: (view: TDayView) => void,

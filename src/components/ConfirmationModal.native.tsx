@@ -13,9 +13,8 @@ function alertStyle(
   return role ?? "default";
 }
 
-/** Native prompt backed by imperative `Alert.alert` (any button count, any
- * context); the declarative `visible` prop bridges via an effect firing once
- * per false→true transition. */
+/** Native prompt backed by imperative `Alert.alert`; the declarative `visible`
+ * prop bridges via an effect firing once per false→true transition. */
 export function ConfirmationModal(props: ConfirmationModalProps) {
   const { visible, title, message, onClose } = props;
   const actions = resolveActions(props);

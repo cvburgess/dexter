@@ -189,9 +189,8 @@ export function BreatheStep({ date }: TBreatheStepProps) {
             testID="breathe-count-slider"
             value={breaths}
           />
-          {/* Settings' own dropdown, not a segmented row — a fourth technique
-              wouldn't fit, and PickerField's FormRow height keeps the
-              @expo/ui Host from collapsing. */}
+          {/* Not a segmented row — a fourth technique wouldn't fit; PickerField's
+              FormRow height keeps the @expo/ui Host from collapsing. */}
           <PickerField
             label="Technique"
             options={BREATHING_TECHNIQUE_OPTIONS}

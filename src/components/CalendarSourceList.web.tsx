@@ -9,9 +9,8 @@ import { TextInput } from "@/components/TextInput";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTheme } from "@/utils/theme";
 
-/** Web calendar sources: public `.ics` feed URLs in `preferences.calendarUrls`.
- * Mirrors the Journal-prompts editor — `drafts` is authoritative so a
- * structural edit never builds on the optimistically-lagging preference. */
+/** Web calendar sources: `.ics` feed URLs in `preferences.calendarUrls`.
+ * `drafts` is authoritative so a structural edit never builds on a lagging preference. */
 export function CalendarSourceList() {
   const theme = useTheme();
   const navigation = useNavigation();

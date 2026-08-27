@@ -19,11 +19,8 @@ type TDayTaskListProps = {
   emptyMessage?: string | null;
 };
 
-/**
- * One day's task list plus the repeat-aware delete confirmation, no habit row
- * or header. Extracted from `TasksView` (now this + `HabitTracker`) so Week's
- * day columns (DEX-96) share the delete flow's template/repeat distinction.
- */
+// One day's task list plus the repeat-aware delete confirmation, no habit
+// row or header — extracted so Week's day columns (DEX-96) share it.
 export function DayTaskList({
   date,
   emptyMessage = "No tasks scheduled for this day.",
@@ -41,11 +38,8 @@ export function DayTaskList({
 
   return (
     <>
-      {/* Plain ScrollView, not FlatList: a day's list is small, and cards'
-          @expo/ui menu hosts size async, which virtualization worsens
-          (expo/expo#42576). Rendered unconditionally with the empty state
-          inside it (DEX-136) — see docs/frontend.md, "Safe areas and
-          keyboard". */}
+      {/* Plain ScrollView: cards' @expo/ui menu hosts size async, which
+          virtualization worsens (expo/expo#42576). Empty state renders inside it (DEX-136). */}
       <ScrollView
         style={styles.scroll}
         // Vertical only — the gutter belongs to whoever placed this list

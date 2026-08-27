@@ -63,11 +63,8 @@ type TConfettiPieceProps = {
   height: number;
 };
 
-/**
- * One piece, on its own layer — unlike `StarField`'s shared-layer stars: this
- * runs once, and sharing a driver would land pieces in lockstep, the one thing
- * a burst must not do.
- */
+// One piece, on its own layer — unlike StarField's shared-layer stars, since
+// a shared driver would land every piece in lockstep.
 function ConfettiPiece({
   piece,
   color,
@@ -125,11 +122,8 @@ type TConfettiProps = {
   revealKey: string;
 };
 
-/**
- * A one-shot burst, filling whatever it is placed in. **Renders nothing under
- * reduced motion** rather than settling — its end state is paper hanging in
- * mid-air, which reads as a bug, not a celebration.
- */
+// A one-shot burst. Renders nothing under reduced motion rather than
+// settling — its end state is paper hanging mid-air, which reads as a bug.
 export function Confetti({ revealKey }: TConfettiProps) {
   const theme = useTheme();
   const reduceMotion = useReducedMotion();

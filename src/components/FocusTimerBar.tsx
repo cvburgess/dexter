@@ -8,9 +8,7 @@ import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { FOCUS_TIMER_MAX_WIDTH } from "@/utils/breakpoints";
 import { SHADOW_LG, useTheme, withOpacity } from "@/utils/theme";
 
-/** Floating capsule (DEX-49), every surface but the iOS phone accessory.
- * Reads the module store, not query hooks, so Stop goes through the host's
- * confirmation; renders nothing with no live block. */
+/** Floating capsule (DEX-49) for every surface but the iOS phone accessory. */
 export function FocusTimerBar() {
   const theme = useTheme();
   const isLargeScreen = useIsLargeDevice();

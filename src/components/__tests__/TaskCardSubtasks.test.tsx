@@ -112,10 +112,8 @@ function LiveCard({
   );
 }
 
-/**
- * The options of the `index`-th menu carrying `label`, in render order — so
- * index 0 is the first subtask's menu, index 1 the second's.
- */
+// The options of the index-th menu carrying `label`, in render order — so
+// index 0 is the first subtask's menu, index 1 the second's.
 const menuOptions = (label: string, index: number): TIconMenuOption[] =>
   mockIconMenu.mock.calls
     .map(([props]) => props)

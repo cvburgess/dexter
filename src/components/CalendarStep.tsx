@@ -32,11 +32,8 @@ type TCalendarStepProps = {
 const hoursLabel = (minutes: number): string =>
   Math.round(Math.max(0, minutes)) === 60 ? "hour" : "hours";
 
-/**
- * The morning Calendar step (DEX-140), over the Today tab's own timeline.
- * `utils/ritualSteps` drops it entirely when `enableCalendar` is off, so this
- * only handles: a calendar with no source, and a calendar with a day in it.
- */
+// The morning Calendar step (DEX-140), over the Today tab's own timeline —
+// ritualSteps drops it entirely when enableCalendar is off.
 export function CalendarStep({ date }: TCalendarStepProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -168,9 +165,8 @@ export function CalendarStep({ date }: TCalendarStepProps) {
   return (
     <View style={styles.container}>
       <HeroLines lines={heroLines} reveal={reveal} />
-      {/* flex: 1 gives CalendarView something to fill. Opacity only — a second
-          translate axis would drift diagonally and read as a scroll the user
-          never made against the fixed hour gutter. */}
+      {/* Opacity only — a translate axis would drift diagonally, reading as a
+          scroll the user never made against the fixed hour gutter. */}
       <Animated.View style={[styles.calendar, calendarStyle]}>
         <CalendarView date={date} />
       </Animated.View>

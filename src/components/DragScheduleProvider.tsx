@@ -34,10 +34,8 @@ type TDragScheduleProviderProps = {
   children: ReactNode;
 };
 
-/** Hosts drag-to-schedule per large-screen layout (DEX-77), not the app root —
- * `DraxProvider` measures its hover layer from a real view, so `WeekView` and
- * `LargeScreenToday` each need their own; one `useTasks()` here avoids
- * seven subscriptions on Week's columns. */
+/** Hosts drag-to-schedule per large-screen layout, not the app root (DEX-77) —
+ * `DraxProvider` needs a real view per layout; one `useTasks()` avoids seven subscriptions on Week. */
 export function DragScheduleProvider({ children }: TDragScheduleProviderProps) {
   const [tasks, { updateTask }] = useTasks();
   const { changeSchedule, confirmationProps } = useScheduleChange(updateTask);

@@ -44,11 +44,8 @@ const STACKED_MIN_HEIGHT = HOUR_HEIGHT / 2;
 const TWO_LINE_TITLE_MIN_HEIGHT = 50;
 /** Floor for very short blocks so a single inline line stays legible. */
 const MIN_EVENT_HEIGHT = 20;
-/**
- * Hairline gap shaved off each block's bottom so back-to-back events (e.g. 1–2
- * and 2–3) render with a sliver between them instead of touching edge-to-edge,
- * where their rounded corners read as one event overlapping the next.
- */
+/** Hairline gap shaved off each block's bottom so back-to-back events get a
+ * sliver between them, not touching edge-to-edge. */
 const EVENT_GAP = 2;
 /** Accent-fill opacity by RSVP: tentative reads faint, invited is outline-only
  * (transparent), so neither is mistaken for an accepted commitment. */
@@ -94,9 +91,8 @@ const SCROLL_TOP_PADDING = 12;
 /** Padding below the last hour (plus the bottom safe-area inset at runtime). */
 const SCROLL_BOTTOM_PADDING = 24;
 
-/** Minutes from `date`'s midnight to now — in `[0, 1440]` today, `>1440` on
- * a past day, negative on a future one — driving both the now-line and the
- * past-event flag from one value. */
+/** Minutes from `date`'s midnight to now — in `[0, 1440]` today, `>1440` on a
+ * past day, negative on a future one — drives the now-line and past-event flag together. */
 const nowMinutesFromDayStart = (date: Temporal.PlainDate): number =>
   Temporal.Now.plainDateTimeISO()
     .since(date.toPlainDateTime(), { largestUnit: "minute" })

@@ -25,10 +25,8 @@ import {
 } from "@/utils/taskFilters";
 import { useTheme } from "@/utils/theme";
 
-/**
- * Words beside each figure; the reading order is `BACKLOG_COUNT_ORDER`, stated
- * once so it can't disagree with `defaultBacklogFilter`.
- */
+// Words beside each figure; the reading order is BACKLOG_COUNT_ORDER, stated
+// once so it can't disagree with defaultBacklogFilter.
 const HERO_LABELS: Record<keyof TBacklogCounts, string> = {
   leftBehind: "left behind",
   overdue: "overdue",
@@ -42,10 +40,8 @@ type TBacklogListProps = {
   counts: TBacklogCounts;
 };
 
-/**
- * Split out for the seeding: the parent renders this only once tasks resolve,
- * so the lazy initializer never sees `useTasks`'s empty placeholder array.
- */
+// Split out for the seeding: the parent renders this only once tasks resolve,
+// so the lazy initializer never sees useTasks's empty placeholder array.
 function BacklogList({ date, counts }: TBacklogListProps) {
   const [chosenFilter, setChosenFilter] = useState(() =>
     defaultBacklogFilter(counts),
@@ -76,10 +72,8 @@ type TBacklogStepProps = {
   date: Temporal.PlainDate;
 };
 
-/**
- * The morning Backlog step (DEX-141): counts and drawer read the one
- * `useTasks()` query, so clearing a task drops both in the same render.
- */
+// The morning Backlog step (DEX-141): counts and drawer read the one
+// useTasks() query, so clearing a task drops both in the same render.
 export function BacklogStep({ date }: TBacklogStepProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();

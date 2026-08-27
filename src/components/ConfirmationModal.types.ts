@@ -22,10 +22,8 @@ export interface ConfirmationModalProps {
   actions?: ConfirmationAction[];
 }
 
-/**
- * Builds the button list shared by every platform variant. When `actions` is
- * provided it wins; otherwise a Cancel + confirm pair is synthesized.
- */
+// Builds the button list shared by every platform variant. When `actions`
+// is provided it wins; otherwise a Cancel + confirm pair is synthesized.
 export function resolveActions(
   props: ConfirmationModalProps,
 ): ConfirmationAction[] {

@@ -26,11 +26,8 @@ type TEditableTextProps = {
    * text, since a native header press doesn't blur first. */
   onChangeDraft?: (text: string) => void;
   editable?: boolean;
-  /**
-   * Replaces tap-to-edit: the value renders as a plain label that calls this
-   * instead. Used by the Search tab, where a result's primary action is to open
-   * it, not to rename it (DEX-47). Takes precedence over `editable`.
-   */
+  /** Replaces tap-to-edit with a plain label calling this instead — Search
+   * results open on tap rather than renaming (DEX-47). Wins over `editable`. */
   onPress?: () => void;
   /** Caps input length. Subtask titles use 100 to match the MCP server's schema. */
   maxLength?: number;
