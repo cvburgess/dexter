@@ -5,12 +5,8 @@ import { StyleSheet, Text, TouchableOpacity } from "react-native";
 import { newTaskRoute } from "@/utils/newTaskRoute";
 import { useTheme } from "@/utils/theme";
 
-/**
- * The "+ New Task" button rendered inside the tab bar's bottom accessory
- * (iOS 26+), filling it as a primary-colored capsule. Opens the create-task
- * modal. The system moves the accessory into the inline slot beside the
- * minimized tab bar on scroll, where the label renders more compactly.
- */
+// The "+ New Task" bottom-accessory button (iOS 26+); the system moves it
+// into the inline slot beside the minimized tab bar on scroll.
 export function NewTaskButton() {
   const router = useRouter();
   const theme = useTheme();

@@ -51,12 +51,8 @@ export function SettingsRow({
           {subtitle}
         </Text>
       </View>
-      {/*
-        `icons.md`, matching the leading glyph rather than taking `icons.sm`
-        like an inline affordance would. This chevron terminates the row it
-        belongs to, so it reads as that glyph's counterweight across the row;
-        at `sm` it was small enough to disappear against the subtitle.
-      */}
+      {/* icons.md matches the leading glyph rather than icons.sm — at sm the
+          chevron disappeared against the subtitle. */}
       <SettingsIcon
         name="chevron-forward-outline"
         size={theme.icons.md}

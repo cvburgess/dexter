@@ -7,11 +7,8 @@ import { useTheme } from "@/utils/theme";
 export type TSegmentedControlOption<T extends string | number> = {
   label: string;
   value: T;
-  /**
-   * Drawn in place of the label, with the label becoming the segment's
-   * accessibility name. For a control that has to sit in a toolbar rather than
-   * span a form, where six words would not fit but six glyphs do (DEX-127).
-   */
+  /** Drawn in place of the label (which becomes the a11y name) — for a
+   * toolbar where six words won't fit but six glyphs do (DEX-127). */
   icon?: TIconName;
 };
 
@@ -21,21 +18,14 @@ type TSegmentedControlProps<T extends string | number> = {
   onChange: (value: T) => void;
   /** Each segment gets `${testIDPrefix}-${lowercased label}`. */
   testIDPrefix?: string;
-  /**
-   * Whether the segments divide the full width of their container (the
-   * default, which is what a form row wants) or size to their own content —
-   * required in a toolbar, where the row has no width of its own for `flex: 1`
-   * segments to divide and they would collapse to nothing.
-   */
+  /** Default divides the container's full width (a form row); a toolbar row
+   * has no width of its own for flex:1 segments, so set false there. */
   stretch?: boolean;
 };
 
-/**
- * A row of mutually exclusive options, the selected one filled with the theme's
- * primary. Used for the appearance screen's light/dark mode, the create-task
- * modal's New/Template/AI switch (DEX-65), and the Ritual toolbar's step picker
- * (DEX-127, the icon form).
- */
+// A row of mutually exclusive options, selected one filled with primary.
+// Used by appearance mode, the create-task switch (DEX-65), and Ritual's
+// step picker (DEX-127).
 export function SegmentedControl<T extends string | number>({
   options,
   value,

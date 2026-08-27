@@ -47,12 +47,8 @@ type TPreviewTomorrowStepProps = {
   onEditingChange: (editing: boolean) => void;
 };
 
-/**
- * Evening ritual's Preview tomorrow step (DEX-149): a sentence on the day
- * ahead, then its events and tasks below the fold. "Tomorrow" is the ritual's
- * date plus one, not the wall clock's — an exception to naming the day, since
- * the step title and weekday name already disambiguate a paged-back ritual.
- */
+// Evening Preview tomorrow step (DEX-149): "Tomorrow" is the ritual's date
+// plus one, not the wall clock's — the title/weekday already disambiguate.
 export function PreviewTomorrowStep({
   date,
   onEditingChange,
@@ -209,9 +205,8 @@ export function PreviewTomorrowStep({
         showsVerticalScrollIndicator={false}
         testID="preview-tomorrow-scroll"
       >
-        {/* One screenful minus the bottom inset, so the sentence centers in
-            what's visible. minHeight not height, so an unmeasured first
-            render collapses to natural size instead of to zero. */}
+        {/* One screenful minus the bottom inset; minHeight not height, so an
+            unmeasured first render collapses to natural size, not zero. */}
         <View
           style={[
             styles.hero,

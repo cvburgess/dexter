@@ -32,11 +32,8 @@ type TReviewStepProps = {
   date: Temporal.PlainDate;
 };
 
-/**
- * Evening Review step (DEX-148): the day's rings and cards, counted.
- * Complements Open tasks — `selectOpenTasksForDate`/`selectCompletedTasksForDate`
- * partition the day, so no task appears in both.
- */
+// Evening Review step (DEX-148): complements Open tasks —
+// selectOpenTasksForDate/selectCompletedTasksForDate partition the day.
 export function ReviewStep({ date }: TReviewStepProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();

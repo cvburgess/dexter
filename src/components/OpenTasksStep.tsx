@@ -90,11 +90,8 @@ type TOpenTasksStepProps = {
   onEditingChange: (editing: boolean) => void;
 };
 
-/**
- * Evening ritual's opening step (DEX-146): what's still open, and the two ways
- * to put it down. Unlike the DEX-144 task-list step, every row here is meant
- * to be dispatched, not browsed — the list empties as you work it.
- */
+// Evening ritual's opening step (DEX-146): every row is meant to be
+// dispatched, not browsed — the list empties as you work it.
 export function OpenTasksStep({ date, onEditingChange }: TOpenTasksStepProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();

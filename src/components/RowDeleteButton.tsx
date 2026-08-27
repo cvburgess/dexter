@@ -3,11 +3,8 @@ import { StyleSheet, TouchableOpacity } from "react-native";
 import { Icon } from "@/components/Icon";
 import { useTheme } from "@/utils/theme";
 
-/**
- * The space a field must reserve on its trailing edge to clear the button:
- * the glyph, plus the field's own `md` inset on either side of it. Exported so
- * a call site's `paddingRight` can't drift from the button parked over it.
- */
+// The trailing space a field must reserve to clear the button; exported so a
+// call site's paddingRight can't drift from the button parked over it.
 export const rowDeleteInset = (theme: ReturnType<typeof useTheme>) =>
   theme.icons.md + theme.space.md * 2;
 
@@ -17,23 +14,9 @@ type TRowDeleteButtonProps = {
   testID?: string;
 };
 
-/**
- * Removes the row it sits in — a journal prompt, a calendar feed. One component
- * for both, which is also what keeps them on one glyph: they had each drawn
- * their own `Ionicons` directly (one at a literal 22, one at `icons.md`), which
- * bypassed `components/Icon.tsx` and so rendered an Ionicon on iOS where the
- * rest of the app draws an SF Symbol.
- *
- * An **X**, not a trash can: the row is a line in a list the user is editing,
- * and removing it is undone by typing it again. The trash stays in `MoreMenu`
- * and `SubtaskRow`, where deleting destroys a stored record.
- *
- * **Positioned inside the field, not beside it.** The button absolutely
- * occupies the field's trailing edge, so the input keeps the row's full width;
- * the field reserves `rowDeleteInset` on the right so its text scrolls under
- * nothing. Render it *after* the input so it wins the touch rather than
- * focusing the field beneath it.
- */
+// An X, not a trash can — removing a row here is undone by retyping it; the
+// trash stays in MoreMenu/SubtaskRow, which destroy a stored record. Absolute
+// inside the field's trailing edge; render after the input to win the touch.
 export function RowDeleteButton({
   accessibilityLabel,
   onPress,

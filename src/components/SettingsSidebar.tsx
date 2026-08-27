@@ -13,11 +13,8 @@ import { SettingsIcon } from "@/components/SettingsIcon";
 import { SETTINGS_ITEMS } from "@/utils/settingsItems";
 import { useTheme } from "@/utils/theme";
 
-/**
- * The persistent master list shown alongside the detail pane on large screens
- * (see settings/_layout.tsx). Mirrors the settings list, highlighting whichever
- * subview is currently routed and swapping the detail in place on tap.
- */
+// Persistent master list beside the detail pane on large screens; highlights
+// whichever subview is currently routed.
 export function SettingsSidebar() {
   const theme = useTheme();
   const router = useRouter();

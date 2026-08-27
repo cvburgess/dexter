@@ -16,26 +16,10 @@ import { useTheme } from "@/utils/theme";
 
 import { TNoteEditorProps } from "./NoteEditor.types";
 
-/**
- * Native markdown editor backed by `react-native-enriched-markdown`'s
- * `EnrichedMarkdownTextInput` (a Fabric/New-Architecture native view). The
- * editor is uncontrolled — seeded once via `defaultValue` and reporting edits
- * through `onChangeMarkdown` — so we never feed React state back per keystroke
- * (which would fight the caret). Re-seeding on a date change is handled by the
- * consumer remounting this component with a new `key`.
- *
- * While editing, a keyboard accessory bar rides the top edge of the keyboard. It
- * carries inline-format toggles (bold / italic / underline / strikethrough) and
- * a "Done" button. The native input isn't RN's `TextInput`, so it can't drive an
- * `InputAccessoryView` (no `inputAccessoryViewID`) and `Keyboard.dismiss()` is a
- * no-op on it — both formatting and dismissal go through the component's ref
- * (`toggleBold()` etc., `blur()`). Toggles apply to the current selection, or arm
- * the style for the next characters typed when there's just a caret. Button
- * highlight state comes from the input's `onChangeState` callback. The bar is
- * positioned via reanimated's `useAnimatedKeyboard`. Only inline styles are
- * supported by the input — block elements (headings, lists, quotes, code) are a
- * library limitation, so there are no controls for them.
- */
+// Uncontrolled (defaultValue + onChangeMarkdown) so React never fights the
+// caret. The accessory bar's toggles/Done go through the ref (blur(),
+// toggleBold() etc) since this isn't RN's TextInput — no InputAccessoryView,
+// and Keyboard.dismiss() is a no-op on it.
 
 /** Height of the accessory bar; also the bottom inset reserved for it. */
 const BAR_HEIGHT = 44;
@@ -43,16 +27,8 @@ const BAR_HEIGHT = 44;
 type TFormatControl = {
   /** `StyleState` key whose `isActive` drives this button's highlight. */
   key: keyof StyleState;
-  /**
-   * SF Symbol (iOS) + Material Symbol (Android) — needs both so the icon renders
-   * off iOS: `expo-symbols` yields nothing for a bare string name.
-   *
-   * The one place in the app that still names a Material Symbol rather than
-   * going through `Icon` (DEX-61): Ionicons has no bold/italic/underline/
-   * strikethrough glyph, so there is nothing to convert these four to. This file
-   * is `.native.tsx`, so the web half of the fallback is unreachable and only
-   * Android draws them. See `docs/design.md`.
-   */
+  /** Names a Material Symbol directly, not via Icon (DEX-61) — Ionicons
+   * has no bold/italic/underline/strikethrough glyph to convert to. */
   symbol: SymbolViewProps["name"];
   label: string;
   /** Instance method toggled on press. */
