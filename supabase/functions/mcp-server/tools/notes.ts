@@ -28,11 +28,8 @@ export function registerNoteTools(server: McpServer, ctx: ToolContext): void {
         .maybeSingle();
 
       if (error) return toolError(error.message);
-      // A date with no row is the ordinary case, not a failure — unlike the
-      // id-keyed getters (get_task/get_goal), where a miss really is a bad
-      // reference. Reporting it as an error would hand the agent `isError` for
-      // "you haven't written today's note yet" and, since `toolError` reports to
-      // Sentry, page us once per empty day an agent looks at.
+      // No row is ordinary, unlike id-keyed getters where a miss is a bad
+      // reference — an error here would page us via toolError's Sentry report.
       if (!data) return toolJson({ date, content: "", user_id: ctx.userId });
       return toolJson(data);
     },

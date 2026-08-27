@@ -1,22 +1,13 @@
 import { assert, assertEquals } from "@std/assert";
 
-// DEX-86: static guards over the dotenvx preview-secrets wiring.
-//
-// Preview branches get their Edge Function secrets from the committed,
-// encrypted `.env.preview`, applied by the `[edge_runtime.secrets]` table in
-// `config.toml`. Those two files have to agree: a secret encrypted but never
-// mapped is silently absent from every preview (the DEX-86 incident — a
-// missing DEMO_OTP made `verify-demo-otp` 500), and a secret mapped but never
-// encrypted resolves to empty the same way. Backend CI has no Supabase
-// project, so these assert over the committed text.
+// DEX-86: `.env.preview` and config.toml's `[edge_runtime.secrets]` must
+// agree, or a secret is silently absent from every preview branch.
 
 const envPreview = await Deno.readTextFile(
   new URL("../../.env.preview", import.meta.url),
 ).catch((error: unknown) => {
-  // Deleting this file while config.toml still maps secrets is the silent
-  // failure mode these tests exist to prevent, so say what to do about it.
-  // Anything else (a permission error, a directory in its place) is surfaced
-  // as-is rather than mislabelled as "missing".
+  // Say what to do about the exact failure this suite exists to prevent;
+  // anything else surfaces as-is rather than mislabelled as "missing".
   if (!(error instanceof Deno.errors.NotFound)) throw error;
   throw new Error(
     'supabase/.env.preview is missing. Recreate it with `npx @dotenvx/dotenvx set DEMO_OTP "<value>" -f supabase/.env.preview` — without it, preview branches receive empty Edge Function secrets.',
@@ -26,10 +17,8 @@ const configToml = await Deno.readTextFile(
   new URL("../../config.toml", import.meta.url),
 );
 
-// `KEY="value"`, `KEY='value'`, or bare `KEY=value`, in each case ignoring a
-// trailing `# comment` — dotenvx writes one after the public key line, and a
-// hand-added comment on a secret line must not make the value unreadable (an
-// unparsed line would silently drop the key from these checks).
+// Ignores a trailing `# comment` (dotenvx writes one after the public key
+// line) — an unparsed line would silently drop the key from these checks.
 const ASSIGNMENT = /^([A-Z0-9_]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^#\s]*))/;
 
 /** Every `KEY="value"` assignment in `.env.preview`, comments stripped. */
@@ -105,10 +94,7 @@ Deno.test("every [edge_runtime.secrets] entry has a .env.preview value", () => {
 });
 
 Deno.test("DEMO_OTP is present", () => {
-  // The demo login this whole mechanism exists for: verify-demo-otp reads
-  // DEMO_OTP, and seed-demo derives the demo user's password from the same
-  // value (see functions/_shared/demoAuth.ts). The generic tests above already
-  // assert its encryption and its config.toml mapping; this only pins that the
-  // key itself never quietly disappears.
+  // verify-demo-otp and seed-demo both derive from this value (see
+  // functions/_shared/demoAuth.ts); this pins that the key never disappears.
   assert(secretKeys.includes("DEMO_OTP"), "DEMO_OTP must be in .env.preview");
 });

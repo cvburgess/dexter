@@ -5,10 +5,8 @@ import {
   isAuthorizedCronRequest,
 } from "../../functions/generate-horoscopes/auth.ts";
 
-// DEX-84. The function gateway's verify_jwt is off because it only proves a
-// bearer was signed by this project — which any signed-in user's access token
-// satisfies, as does the publishable key shipped in the app bundle. This shared
-// secret is the actual gate, so it gets the tests.
+// DEX-84: verify_jwt is off (see auth.ts), so this shared secret is the
+// actual gate and gets the tests.
 
 const SECRET = "a-long-random-cron-secret";
 
@@ -50,9 +48,8 @@ Deno.test("a wrong secret is rejected", () => {
 });
 
 Deno.test("an empty header is rejected even against an empty expected secret", () => {
-  // index.ts refuses to run at all when HOROSCOPE_CRON_SECRET is unset, but if
-  // that guard ever moved, an empty-equals-empty pass would make the endpoint
-  // world-callable.
+  // index.ts refuses to run when HOROSCOPE_CRON_SECRET is unset, but if that
+  // guard moved, empty-equals-empty would make the endpoint world-callable.
   assertFalse(
     isAuthorizedCronRequest(request({ [CRON_SECRET_HEADER]: "" }), ""),
   );

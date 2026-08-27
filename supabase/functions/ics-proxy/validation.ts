@@ -1,9 +1,5 @@
-// URL validation and outbound-request hardening for the ics-proxy function.
-//
 // The proxy is public (verify_jwt = false), so these checks are the only thing
-// standing between an anonymous caller and an SSRF/open-proxy vector. Keep the
-// logic pure and exported so it can be unit-tested directly (see
-// supabase/__tests__/ics-proxy/validation.test.ts).
+// between an anonymous caller and an SSRF/open-proxy vector. Keep them pure.
 
 export interface TargetError {
   status: number;
@@ -44,11 +40,8 @@ function isBlockedIpv4([a, b]: [number, number, number, number]): boolean {
   return false;
 }
 
-// Expands an IPv6 literal into its eight 16-bit hextets, resolving "::" zero
-// compression and any trailing embedded IPv4 (e.g. "::ffff:127.0.0.1"). Returns
-// null when the string is not a valid IPv6 literal. Working on the fully
-// expanded form makes range checks representation-independent — a compressed
-// literal cannot hide the leading hextet.
+// Expands to the full eight hextets (resolving "::" and embedded IPv4) so the
+// range checks are representation-independent — compression can't hide a hextet.
 function expandIpv6(input: string): number[] | null {
   let str = input;
 
@@ -94,9 +87,8 @@ function expandIpv6(input: string): number[] | null {
   return groups.length === 8 ? groups : null;
 }
 
-// True when an IPv6 literal is loopback, unspecified, unique-local (fc00::/7),
-// or link-local (fe80::/10), or an IPv4-mapped address (::ffff:a.b.c.d) whose
-// embedded IPv4 is itself blocked. Unparseable literals are blocked defensively.
+// Blocks loopback/unspecified/unique-local/link-local and IPv4-mapped literals
+// with a blocked embedded IPv4; unparseable literals are blocked defensively.
 function isBlockedIpv6(host: string): boolean {
   const groups = expandIpv6(host);
   if (!groups) return true;
@@ -119,9 +111,8 @@ function isBlockedIpv6(host: string): boolean {
   return false;
 }
 
-// Blocks hosts that must never be reachable through the proxy. Bare hostnames
-// (domain names) are allowed here — DNS-rebinding is out of scope and would
-// require resolving + pinning the address ourselves.
+// Bare domain names pass — DNS-rebinding is out of scope; blocking it would
+// require resolving and pinning the address ourselves.
 export function isBlockedHostname(hostname: string): boolean {
   const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
 
@@ -153,10 +144,8 @@ export function checkTargetSafety(url: URL): TargetError | null {
   return null;
 }
 
-// Validates the caller-supplied feed URL: it must parse, pass the target-safety
-// checks, and point at an `.ics` file. The suffix is checked against the parsed
-// pathname (not the raw string) so tokenized feeds like
-// `https://host/cal.ics?token=abc` are accepted.
+// The `.ics` suffix is checked on the parsed pathname, not the raw string, so
+// tokenized feeds like `https://host/cal.ics?token=abc` are accepted.
 export function validateIcsUrl(raw: string): IcsUrlResult {
   let url: URL;
   try {
@@ -175,9 +164,8 @@ export function validateIcsUrl(raw: string): IcsUrlResult {
   return { ok: true, url };
 }
 
-// Explicit outbound header allowlist. Nothing from the inbound request is
-// forwarded, so caller credentials (authorization, cookie, apikey, …) can never
-// leak to a user-supplied calendar host.
+// Explicit allowlist — nothing inbound is forwarded, so caller credentials can
+// never leak to a user-supplied calendar host.
 export function buildOutboundHeaders(): Headers {
   return new Headers({
     "Accept": "text/calendar, text/plain;q=0.9, */*;q=0.5",

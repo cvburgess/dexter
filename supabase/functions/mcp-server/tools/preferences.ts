@@ -13,21 +13,13 @@ import {
 
 export const updatePreferencesInputSchema = {
   /**
-   * How many breaths the Ritual's Breathe step opens with (DEX-164). Bounded
-   * here where the column is not, for the reason `focusBlockMinutes` is: the
-   * app clamps whatever it reads, but there is no reason to let an agent store
-   * a zero the user would have to go and undo.
-   *
-   * The bounds restate `MIN_BREATHS`/`MAX_BREATHS` and must move with them.
-   * Not imported: `utils/breathing.ts` pulls in `Temporal`, so it is not one of
-   * the import-free modules Deno can read over `@src/` (see docs/backend.md,
-   * "Code shared with the app").
+   * DEX-164. Restates `MIN_BREATHS`/`MAX_BREATHS` and must move with them —
+   * `utils/breathing.ts` pulls in `Temporal`, so Deno can't import it.
    */
   breathCount: z.number().int().min(1).max(10).optional(),
   /**
-   * Which pattern that step opens with. `"shuffle"` is a real stored value, not
-   * an absence — it means a different technique each day, resolved from the
-   * ritual's date.
+   * `"shuffle"` is a real stored value, not an absence — a different technique
+   * each day, resolved from the ritual's date.
    */
   breathingTechnique: z
     .enum(["simple", "relax", "box", "shuffle"])
@@ -42,17 +34,14 @@ export const updatePreferencesInputSchema = {
   enableJournal: z.boolean().optional(),
   enableNotes: z.boolean().optional(),
   /**
-   * How long a focus block runs, in whole minutes (DEX-49). The column itself is
-   * unconstrained so an older client can read a length it doesn't offer, but
-   * there is no reason to let an agent write a zero or a negative one.
+   * Whole minutes (DEX-49). The column is unconstrained so older clients can
+   * read new lengths, but an agent has no reason to write zero or negative.
    */
   focusBlockMinutes: z.number().int().positive().optional(),
   lightTheme: z.string().min(1).optional(),
   /**
-   * The sign the Ritual's Horoscope step reads (DEX-128). `.nullable()` as well
-   * as `.optional()`, and the two mean different things here: omitting the
-   * field leaves the stored sign alone, while an explicit `null` clears it back
-   * to unset. `compactUpdate` only strips `undefined`, so the null survives.
+   * DEX-128: omitting the field keeps the stored sign; an explicit `null`
+   * clears it — `compactUpdate` only strips `undefined`, so the null survives.
    */
   sunSign: sunSignSchema.nullable().optional(),
   templateNote: z.string().optional(),

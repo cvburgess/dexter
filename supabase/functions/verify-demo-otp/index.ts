@@ -1,16 +1,5 @@
-// Signs the App Store reviewer / marketing demo account in without an inbox.
-//
-// The app's normal login is passwordless (magic link + email OTP), so a
-// reviewer can't receive a code out of band. Instead they enter the demo email
-// and a fixed code (DEMO_OTP); this function verifies both and exchanges them
-// for a real session via password sign-in. The demo password is *derived* from
-// the same DEMO_OTP the `seed-demo` script used to set it (see
-// `../_shared/demoAuth.ts`), so no password is stored here or shipped in the
-// app. Only the demo account can be signed in this way, and only with the
-// correct code.
-//
-// This uses the publishable key (not the service role) — `signInWithPassword`
-// is a normal auth call — so it does not widen the backend's privileges.
+// Signs the demo reviewer account in without an inbox, via a password
+// derived from DEMO_OTP (see `../_shared/demoAuth.ts`) — publishable key only.
 
 import "@supabase/functions-js/edge-runtime.d.ts";
 

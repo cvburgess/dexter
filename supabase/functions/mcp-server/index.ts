@@ -13,9 +13,8 @@ export const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-// `headers` is typed wider than its default on purpose: inferring it from
-// `corsHeaders` pins it to exactly those three keys, so the 401 below — which
-// adds `WWW-Authenticate` — would not type-check.
+// Typed wider than inferred from `corsHeaders`, or the 401 below (which adds
+// `WWW-Authenticate`) would not type-check.
 function jsonResponse(
   body: unknown,
   status = 200,

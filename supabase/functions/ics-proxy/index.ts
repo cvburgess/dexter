@@ -1,8 +1,3 @@
-// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
-
-// Setup type definitions for built-in Supabase Runtime APIs
 import "@supabase/functions-js/edge-runtime.d.ts";
 
 import {
@@ -23,9 +18,8 @@ const corsHeaders = {
 // Abort the upstream fetch if it does not complete within this window.
 const FETCH_TIMEOUT_MS = 10_000;
 
-// Cap the proxied feed size. Calendar feeds are text and typically well under
-// 1 MB; this bounds memory use and prevents the proxy being used to relay large
-// payloads.
+// Calendar feeds are typically well under 1 MB; this bounds memory use and
+// prevents the proxy relaying large payloads.
 const MAX_BODY_BYTES = 5 * 1024 * 1024;
 
 // Follow at most this many redirects, re-validating each hop.
@@ -38,10 +32,8 @@ function jsonResponse(body: unknown, status: number): Response {
   });
 }
 
-// Fetches the target, following redirects manually so each hop is re-checked
-// against the SSRF/scheme rules. Deno (unlike browsers) exposes the Location
-// header on a `redirect: "manual"` response, which lets us validate the next
-// hop before following it — closing the redirect-to-private-host bypass.
+// Follows redirects manually, re-validating each hop against the SSRF/scheme
+// rules — closes the redirect-to-private-host bypass.
 async function fetchSafely(
   initialUrl: URL,
   signal: AbortSignal,
@@ -79,9 +71,8 @@ async function fetchSafely(
   return { status: 502, error: "Too many redirects" };
 }
 
-// Reads the response body as UTF-8 text, aborting if it exceeds maxBytes.
-// Calendar feeds are always text, so decoding here is safe and lets us return a
-// plain string. Returns null when the cap is exceeded.
+// Reads the body as UTF-8 text, aborting past maxBytes; returns null when
+// the cap is exceeded.
 async function readCappedBody(
   response: Response,
   maxBytes: number,

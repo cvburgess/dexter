@@ -1,8 +1,5 @@
 // Maps an astrology-api.io v3 response onto a `public.horoscopes` insert row.
-//
-// Typed against the generated database types over the `@src/` alias (the same
-// way mcp-server does), so a column renamed in a migration fails `typecheck`
-// here rather than at runtime.
+// Typed against generated database types, so a renamed column fails here.
 
 import type { TablesInsert } from "@src/types/database.types.ts";
 

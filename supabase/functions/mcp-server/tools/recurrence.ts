@@ -1,23 +1,6 @@
 /**
- * The one-open-task invariant, server-side.
- *
- * **A repeat has exactly one open task.** A schedule on its own generates
- * nothing: recurrence spawns from *completing* a task whose `template_id` points
- * at a scheduled `repeat_task_templates` row. So a repeat with no open task can
- * never fire again, and one with several would fire several parallel chains.
- * These are the two halves of that guarantee — "don't create a second"
- * (`hasOpenTaskForTemplate`) and "don't leave zero" (`seedNextOccurrence`) —
- * mirroring `src/api/tasks.ts` and `src/hooks/useTemplates.tsx` in the app.
- *
- * Lives in its own module rather than in `tasks.ts` because both the task tools
- * (which spawn on completion) and the template tools (which seed on write) need
- * it, and `templates.ts` importing `tasks.ts` would be backwards.
- *
- * **Scope (DEX-94).** Only the *template* write paths seed. `create_task` with a
- * `templateId` can still add a second open task, and `update_task` can still
- * clear the last one — the Expo app has the identical gap, guarding them would
- * cost a lookup on every task write, and Settings → Tasks already flags a
- * stalled repeat beside a one-tap repair.
+ * The one-open-task invariant, server-side (DEX-94), mirroring the app's
+ * useTemplates/tasks pair — rules and scope: docs/features.md "Repeats".
  */
 
 import type { Database } from "@src/types/database.types.ts";
@@ -38,13 +21,8 @@ const readTemplateSubtasks = (value: unknown): { title: string }[] => {
 };
 
 /**
- * Whether a template still has something to fire from. Since `template_id` also
- * records provenance for tasks stamped from a template, a template's links may
- * all be long since checked off — so this asks about *open* tasks specifically.
- *
- * **A failed lookup reports `true`,** which makes every caller bail: an extra
- * parallel chain is silent and permanent, whereas a repeat left with no open
- * task is surfaced in Settings → Tasks with a one-tap repair.
+ * A failed lookup reports `true`, making every caller bail: an extra parallel
+ * chain is silent and permanent, where a stalled repeat has a ▶ repair.
  */
 export async function hasOpenTaskForTemplate(
   ctx: ToolContext,
@@ -84,17 +62,8 @@ export async function insertOccurrence(
 }
 
 /**
- * Gives a repeat its one open task, unless it already has one — the mirror of
- * `seedNextOccurrence` in `src/hooks/useTemplates.tsx`. A no-op for a
- * scheduleless row (a task template is stamped on demand and never recurs).
- *
- * Uses `getFirstOccurrence`, not `getNextOccurrence`: it counts today, so a
- * cadence that matches today produces a task now rather than looking like
- * nothing happened.
- *
- * Module-private: every server caller wants the best-effort form below. The app
- * exports its equivalent because the ▶ repair button in Settings → Tasks wants
- * failures surfaced; the server has no such caller.
+ * `getFirstOccurrence`, not `getNextOccurrence`: it counts today, so a cadence
+ * matching today lands a task now rather than looking like nothing happened.
  */
 async function seedNextOccurrence(
   ctx: ToolContext,
@@ -110,13 +79,8 @@ async function seedNextOccurrence(
 }
 
 /**
- * The seed as a best-effort step hanging off another write.
- *
- * Seeding is a *repair*, not part of the write the caller asked for: the
- * template row has already landed by the time it runs, and a repeat left with no
- * open task is surfaced and one-tap fixable in Settings → Tasks. Reporting a
- * save that succeeded as a failure would be worse — an agent that retries a
- * failed `create_template` writes a second row.
+ * Best-effort: the template write already landed, and an agent retrying a
+ * "failed" `create_template` writes a second row — a stalled repeat has a ▶ fix.
  */
 export async function trySeedNextOccurrence(
   ctx: ToolContext,
