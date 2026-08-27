@@ -14,6 +14,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSAlarmKitUsageDescription": "Dexter rings a native alarm at the time you set on a task.",
+        "NSMicrophoneUsageDescription": "Dexter never records audio. This notice is required by the audio library that plays breathing and alarm sounds.",
         "NSSupportsLiveActivities": true
       },
       "entitlements": {
