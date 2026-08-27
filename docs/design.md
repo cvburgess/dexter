@@ -303,14 +303,9 @@ scales with the density tier.
 
 ## Density tiers
 
-Two explicit tiers, written out in full rather than derived from a multiplier —
-spacing tightens harder than type does, and literals keep every value an
-integer.
-
-| | `space` xs/sm/md/lg | `fonts` subtitle/body/control/title/heading/display | `radii` md/full | `controls` md/sm | `icons` sm/md |
-| --- | --- | --- | --- | --- | --- |
-| comfortable | 4 / 8 / 16 / 24 | 14 / 14 / 16 / 16 / 24 / 40 | 12 / 999 | 40 / 32 | 14 / 24 |
-| compact | 3 / 6 / 12 / 18 | 12 / 12 / 14 / 14 / 20 / 32 | 12 / 999 | 32 / 26 | 12 / 22 |
+Two explicit tiers (values in `DENSITY`, `src/utils/theme.ts`), written out in
+full rather than derived from a multiplier — spacing tightens harder than type
+does, and literals keep every value an integer.
 
 **`compact` is web-only**, at and above `LARGE_DEVICE_MIN_WIDTH` (768). It is a
 *pointer* tier, not a width tier: a cursor hits a 26dp target as easily as a

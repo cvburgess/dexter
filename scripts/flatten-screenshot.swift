@@ -1,22 +1,5 @@
-// Re-encode a PNG without an alpha channel, optionally rotating it, for App
-// Store screenshots.
-//
-// App Store Connect rejects screenshots that carry an alpha channel, and
-// `xcrun simctl io <udid> screenshot` always emits RGBA. `sips` cannot strip
-// it — it re-adds alpha on every PNG export — so this redraws the image into
-// an opaque RGB bitmap via CoreGraphics. No external dependencies: Xcode is
-// already required to run the simulator these screenshots come from.
-//
-// Rotation lives here for the same reason: `simctl` captures the *native*
-// portrait framebuffer even when the device is in landscape, handing back a
-// portrait canvas with the content turned 90°. Rotating with `sips -r` first
-// would re-add the alpha channel this script exists to remove, so both happen
-// in one pass.
-//
-//   swift scripts/flatten-screenshot.swift raw.png out.png
-//   swift scripts/flatten-screenshot.swift raw.png out.png --rotate-ccw
-//
-// See scripts/screenshots/README.md for the full capture procedure.
+// Redraws a PNG into an opaque RGB bitmap (App Store Connect rejects alpha and
+// sips re-adds it on export), rotating in the same pass — sips -r would re-add alpha.
 
 import CoreGraphics
 import Foundation
@@ -77,11 +60,8 @@ ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
 ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
 
 if quarterTurn {
-  // Rotate about the canvas centre, then draw the source centred on it.
-  // CGContext draws a CGImage flipped relative to its own y-up space, so the
-  // sign here is the opposite of the one the names suggest: a *positive* angle
-  // is what lands as a counter-clockwise turn in the saved PNG. Verified
-  // against a known-good `sips -r -90` render rather than reasoned about.
+  // CGContext draws a CGImage flipped in its y-up space, so a *positive* angle
+  // lands counter-clockwise in the saved PNG — verified against `sips -r -90`.
   ctx.translateBy(x: CGFloat(width) / 2, y: CGFloat(height) / 2)
   ctx.rotate(by: rotation == .ccw ? .pi / 2 : -.pi / 2)
   ctx.draw(

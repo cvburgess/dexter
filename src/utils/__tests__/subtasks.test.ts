@@ -7,9 +7,8 @@ import {
 
 describe("makeSubtaskId", () => {
   it("mints distinct ids when called in a tight loop", () => {
-    // The fallback path keys partly off Date.now(), so a same-millisecond burst
-    // is exactly where a naive implementation collides — and re-keying a whole
-    // array is always a same-millisecond burst.
+    // The fallback keys partly off Date.now(), so a same-millisecond burst is
+    // exactly where a naive implementation collides — re-keying is always one.
     const ids = Array.from({ length: 500 }, () => makeSubtaskId());
 
     expect(new Set(ids).size).toBe(ids.length);

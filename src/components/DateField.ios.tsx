@@ -7,12 +7,8 @@ import {
 
 import { TDateFieldProps } from "./DateField.types";
 
-/**
- * A compact date chip. Hosts the SwiftUI date picker directly with
- * `matchContents` on both axes so the chip reports its real size and rows can
- * align it like any other view — the community `DateTimePicker`'s host only
- * matches vertically, leaving the chip floating in an unbounded width.
- */
+/** `matchContents` on both axes so the chip reports its real size — the
+ * community `DateTimePicker`'s host only matches vertically. */
 export function DateField({
   accentColor,
   onChange,

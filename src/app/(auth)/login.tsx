@@ -201,9 +201,8 @@ function CodeEntryForm({
       )}
       <TextInput
         testID="login-code-input"
-        // Regular users get a 6-digit numeric OTP. The demo account uses a
-        // static code, so it accepts a longer, non-numeric secret to keep the
-        // public verify-demo-otp endpoint from being brute-forceable.
+        // The demo account's static code is longer and non-numeric, to keep
+        // the public verify-demo-otp endpoint from being brute-forceable.
         placeholder={isDemo ? "Enter code" : "Enter 6-digit code"}
         value={code}
         onChangeText={onChangeCode}

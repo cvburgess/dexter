@@ -52,9 +52,8 @@ describe("AppearanceScreen", () => {
     mockUseIsLargeDevice.mockReturnValue(false);
   });
 
-  // Every settings screen that scrolls shares these edge arrays through
-  // settingsSafeAreaEdges.ts; the pair is asserted once, here. (account.tsx
-  // builds its own edges — the bottom-edge exception — and keeps its own pair.)
+  // Every scrolling settings screen shares these edges via
+  // settingsSafeAreaEdges.ts; asserted once, here (account.tsx is the exception).
   it("skips the left safe-area edge in two-pane mode (sidebar owns it)", () => {
     mockUseIsLargeDevice.mockReturnValue(true);
     const screen = renderWith();
@@ -68,9 +67,8 @@ describe("AppearanceScreen", () => {
     expect(screen.getByTestId("safe-area-edges-left,right")).toBeTruthy();
   });
 
-  // The edges above omit `bottom` so cards scroll under the tab bar; the scroll
-  // content is what has to reserve the inset, or the last one can never be
-  // scrolled clear of it (DEX-91).
+  // Edges omit `bottom` so cards scroll under the tab bar; content must reserve
+  // the inset itself or the last card can never clear it (DEX-91).
   it("adds the safe-area bottom inset to the scroll content's own padding", () => {
     mockPreferences();
     const screen = renderWithBottomInset(34, <AppearanceScreen />);
@@ -82,11 +80,8 @@ describe("AppearanceScreen", () => {
     expect(style.paddingBottom).toBe(Number(style.padding) + 34);
   });
 
-  // DEX-109. A theme card's only two children are its swatch row and its title
-  // row, so the card's single `gap` is the space between the colors and the
-  // name. Asserting it against the card's own padding rather than a literal
-  // pins the intent — one step, the standard inset, at either density — and
-  // fails if it drops back to the tighter in-group step it used to be.
+  // DEX-109: the card's single `gap` is the space between swatches and name.
+  // Asserted against the card's own padding, not a literal, to pin the intent.
   it("gives a theme card's swatches and title the same air as the card's inset", () => {
     const screen = renderWith();
 

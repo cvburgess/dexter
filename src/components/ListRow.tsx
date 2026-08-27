@@ -8,22 +8,13 @@ import { useTheme } from "@/utils/theme";
 type TListRowProps = {
   list: TList;
   openCount: number;
-  /**
-   * Archives the list. Confirmation and the write itself live on the screen,
-   * which owns the one `ConfirmationModal` the rows share — a modal per row
-   * would mount one for every list on screen.
-   */
+  /** Confirmation and the write live on the screen, which owns the one
+   * `ConfirmationModal` the rows share — a modal per row would mount too many. */
   onArchive: () => void;
 };
 
-/**
- * A compact list row: emoji tile, title, its open-task count, and an archive
- * button. Tapping the row itself opens the create/edit modal.
- *
- * Shaped like `HabitRow` and for the same reason: the row hosts two separate
- * tap targets, and nesting one Touchable inside another renders as a `<button>`
- * inside a `<button>` on web, which is invalid DOM.
- */
+/** A compact list row: emoji tile, title, open-task count, archive button.
+ * Shaped like `HabitRow` — two nested Touchables render invalid DOM on web. */
 export function ListRow({ list, openCount, onArchive }: TListRowProps) {
   const theme = useTheme();
   const router = useRouter();
@@ -43,9 +34,8 @@ export function ListRow({ list, openCount, onArchive }: TListRowProps) {
         }
         style={[
           styles.main,
-          // `md` between the emoji and its labels, matching `HabitRow`: with
-          // the tile's fill gone the glyph has no edge of its own, so it needs
-          // the wider step to read as separate from the title beside it.
+          // md, not sm — with the tile's fill gone the glyph needs the wider
+          // step to read as separate (matches HabitRow).
           { gap: theme.space.md, paddingVertical: theme.space.sm },
         ]}
       >
@@ -53,19 +43,8 @@ export function ListRow({ list, openCount, onArchive }: TListRowProps) {
           style={[
             styles.tile,
             {
-              // No fill behind the emoji: the glyph is the icon, and a tinted
-              // square under it read as a second, competing shape in the row.
-              //
-              // Height is a control size so the row keeps its height and the
-              // archive button beside it stays centered on the row rather than
-              // on the label block. Width is the *icon* scale, matching
-              // `SettingsRow`'s leading glyph: at `controls.md` the emoji wore
-              // 10pt of dead space on each side, which read as an indent from
-              // the card's edge and pushed the title 20pt further right than
-              // the settings rows' (DEX-61). An emoji's advance runs a little
-              // wider than its font size, so the glyph overflows this box by a
-              // point or two — nothing clips it, and a fixed box is what keeps
-              // every title in the list aligned.
+              // No fill — a tinted square competed as a second shape. Width
+              // matches SettingsRow's leading glyph scale (DEX-61).
               height: theme.controls.md,
               width: theme.icons.md,
             },
@@ -104,9 +83,8 @@ export function ListRow({ list, openCount, onArchive }: TListRowProps) {
         ]}
         testID={`archive-list-${list.id}`}
       >
-        {/* `error`, not the `textSecondary` habits' pause toggle uses: pausing
-            a habit is reversible in place, and archiving takes the list off
-            every screen it appears on. */}
+        {/* error, not habits' pause-toggle textSecondary — archiving takes
+            the list off every screen, unlike a reversible pause. */}
         <Icon
           color={theme.colors.error}
           ionicon="archive-outline"

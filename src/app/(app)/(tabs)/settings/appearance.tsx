@@ -51,16 +51,13 @@ export default function AppearanceScreen() {
       style={[styles.screen, { backgroundColor: theme.colors.background }]}
     >
       <ScrollView
-        // The edges above omit `bottom` so content scrolls under the
-        // translucent tab bar; adding the inset to the content's own bottom
-        // padding is what lets the last theme card clear it (DEX-91).
+        // Edges omit `bottom`; the content padding lets the last theme card
+        // clear the translucent tab bar (DEX-91).
         contentContainerStyle={[
           styles.content,
           {
             padding: theme.space.md,
             paddingBottom: theme.space.md + insets.bottom,
-            // The in-group step only: `SettingsSectionTitle` carries the `lg`
-            // between sections itself, so it applies wherever it renders (DEX-61).
             gap: theme.space.sm,
           },
         ]}
@@ -160,15 +157,9 @@ function ThemeCard({
             ? uiTheme.colors.primary
             : uiTheme.colors.border,
           borderWidth: selected ? 2 : StyleSheet.hairlineWidth,
-          // The card's two children are the swatch row and the footer, so this
-          // is the swatches-to-title gap and nothing else. `md` rather than the
-          // in-group `sm`: at `sm` the name crowded the color it names, which
-          // read as the swatches having a caption rather than the card being
-          // one thing (DEX-109).
+          // `md`, not the in-group `sm` — at `sm` the name crowded the color
+          // it names, reading as a caption rather than one card (DEX-109).
           gap: uiTheme.space.md,
-          // `md`, the standard inset: the card is a miniature of the app's own
-          // surface, so it reads better with the gutter a real pane would have
-          // than with the tighter in-group step the row between cards uses.
           padding: uiTheme.space.md,
         },
       ]}
@@ -183,9 +174,7 @@ function ThemeCard({
             key={i}
             style={{
               backgroundColor: color,
-              // A circle, so the radius is `full` rather than a point on the
-              // scale, and the box is square rather than stretched to fill the
-              // card's width.
+              // A circle: `full` radius, box square rather than stretched.
               borderRadius: uiTheme.radii.full,
               height: uiTheme.space.lg,
               width: uiTheme.space.lg,
@@ -211,10 +200,8 @@ function ThemeCard({
 
 const styles = StyleSheet.create({
   card: {
-    // Wide enough for the longest theme name beside its checkmark, and — not by
-    // accident — for the swatch row too: at comfortable four `space.lg` circles
-    // and three `space.xs` gaps come to 108, exactly this width less the card's
-    // `md` padding either side.
+    // Wide enough for the longest theme name and, not by accident, the
+    // swatch row: four space.lg circles + three space.xs gaps = 108.
     minWidth: 140,
     overflow: "hidden",
   },
@@ -223,9 +210,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  // The row wraps, so its gap (applied inline, since it's density-dependent)
-  // separates the cards both across and down — a wrapped second row needs the
-  // same breathing room as the one above it.
+  // Wraps; the inline gap separates cards both across and down.
   cards: {
     flexDirection: "row",
     flexWrap: "wrap",

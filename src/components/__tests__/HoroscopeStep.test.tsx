@@ -15,28 +15,23 @@ jest.mock("@/hooks/usePreferences", () => ({
 }));
 jest.mock("@/hooks/useHoroscope", () => ({ useHoroscope: jest.fn() }));
 // Mocked rather than driven through `useWindowDimensions` — jest-expo doesn't
-// mock RN's hook cleanly, which is the reason `useIsLargeDevice` is a thin
-// wrapper in the first place (see its docstring and docs/design.md).
+// mock RN's hook cleanly; that is why `useIsLargeDevice` is a thin wrapper.
 jest.mock("@/hooks/useIsLargeDevice", () => ({ useIsLargeDevice: jest.fn() }));
 
 jest.mock("react-native-safe-area-context", () =>
   require("@/testUtils/mockSafeAreaEdges").mockSafeAreaContext(),
 );
 
-// The star field is dark-scheme only, and with no ThemeProvider `useTheme`
-// resolves the scheme from here — see `utils/__tests__/theme.test.ts`, which
-// mocks the same submodule for the same reason.
+// With no ThemeProvider, `useTheme` resolves the scheme from this submodule —
+// same mock as `utils/__tests__/theme.test.ts`, for the same reason.
 jest.mock("react-native/Libraries/Utilities/useColorScheme", () => ({
   __esModule: true,
   default: jest.fn(() => "light"),
 }));
 
 const mockPush = jest.fn();
-// `useFocusEffect` is here for `useHoroscopeAudio`, which owns the step's
-// track: it runs on focus and cleans up on blur, and this stands that in as
-// mount/unmount. Its own behaviour is asserted in
-// `hooks/__tests__/useHoroscopeAudio.test.ts`; the player is inert here (see
-// `jest.setup.js`), so nothing in this file hears anything.
+// `useFocusEffect` stands in as mount/unmount for `useHoroscopeAudio`; the
+// player is inert here (jest.setup.js), so nothing in this file hears anything.
 jest.mock("expo-router", () => {
   const { useEffect } = require("react");
   return {
@@ -108,9 +103,8 @@ const gutterOf = (screen: ReturnType<typeof renderStep>) =>
 describe("HoroscopeStep", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // `clearAllMocks` drops the factory's default too, and a scheme of
-    // `undefined` resolves to light — stated here so a test that cares about
-    // the starfield sets it explicitly rather than inheriting a blank.
+    // `clearAllMocks` drops the factory's default too; a test that cares about
+    // the scheme must set it explicitly rather than inherit a blank.
     mockUseColorScheme.mockReturnValue("light");
   });
 
@@ -133,9 +127,8 @@ describe("HoroscopeStep", () => {
     });
   });
 
-  // A day the generator never covered is an empty state, not an error — the
-  // ritual's DayNav can walk to any date, including ones before the cron job
-  // existed.
+  // A day the generator never covered is an empty state, not an error —
+  // DayNav can walk to dates before the cron job existed.
   it("says so when the day has no row", () => {
     const screen = renderStep({ horoscope: null });
 
@@ -150,11 +143,8 @@ describe("HoroscopeStep", () => {
     expect(screen.getByTestId("horoscope-panel")).toBeTruthy();
   });
 
-  // An unread sign is `null`, exactly like a sign the user never picked — so
-  // ordering the branches the other way flashes the prompt, and its button, at
-  // every user who already has one, on every cold open. This is why the step
-  // reads `useSunSignPreference` rather than `usePreferences`, whose
-  // placeholder row cannot report that it is a placeholder.
+  // An unread sign is `null`, exactly like a never-picked one — hence
+  // `useSunSignPreference`, whose loading flag `usePreferences`' placeholder lacks.
   it("does not prompt for a sign while the preference is still loading", () => {
     const screen = renderStep({
       sunSign: null,
@@ -174,15 +164,8 @@ describe("HoroscopeStep", () => {
       expect(screen.getByText(HOROSCOPE.tips[0])).toBeTruthy();
     });
 
-    // The tips are the app's only custom-font text — every one of them, in the
-    // same cut, which is what makes the block read as one voice rather than a
-    // hero with two footnotes.
-    //
-    // The two resets are the real assertion: `fonts.heading` carries a 700 the
-    // loaded file already has, and the file is already italic, so leaving either
-    // in place stacks a *synthetic* weight or slant on top of a real one (see
-    // `SERIF`). Both are invisible failures — the text still renders, just
-    // smeared or double-slanted.
+    // The resets are the real assertion: the loaded file is already bold and
+    // italic, so a leftover weight/slant stacks a synthetic one — invisibly.
     it("sets every tip in the serif, with no synthetic weight or slant", () => {
       const screen = renderStep();
 
@@ -195,22 +178,16 @@ describe("HoroscopeStep", () => {
       }
     });
 
-    // The upstream's prose is still fetched and stored — it is the horoscope
-    // proper — but it is three sentences of astrological mechanism, and the
-    // step deliberately shows the tips instead. Asserted so "keep it in the DB"
-    // cannot quietly become "put it back on screen".
+    // The upstream prose stays stored but deliberately off screen; asserted so
+    // "keep it in the DB" cannot quietly become "put it back on screen".
     it("never renders the upstream's own text", () => {
       const screen = renderStep();
 
       expect(screen.queryByText(HOROSCOPE.text)).toBeNull();
     });
 
-    // DEX-138: the panel is capped at a fixed width on a large screen, so the
-    // gutter is the only thing left deciding how the card breathes. Asserted as
-    // a comparison rather than against literals because `space.lg` is a density
-    // token — the point is that the roomier screen gets the wider gutter, which
-    // is what the doubled gutter got backwards on web, where `compact` shrinks
-    // the token underneath it.
+    // DEX-138. A comparison, not literals: the point is the roomier screen gets
+    // the wider gutter — which a doubled density token got backwards on web.
     it("keeps a wider gutter on a large screen than on a phone", () => {
       const phone = gutterOf(renderStep());
       const large = gutterOf(renderStep({ largeScreen: true }));
@@ -218,27 +195,24 @@ describe("HoroscopeStep", () => {
       expect(large).toBeGreaterThan(phone);
     });
 
-    // The glyph says which sign this is; the name would only restate what the
-    // settings row the user set it from already told them, and it pushed the
-    // summary down the screen to do it.
+    // The glyph says which sign this is; the name restated the settings row
+    // and pushed the summary down the screen to do it.
     it("does not name the sign", () => {
       const screen = renderStep();
 
       expect(screen.queryByText("Leo")).toBeNull();
     });
 
-    // The zodiac code points have `Emoji_Presentation=Yes`, so a bare one
-    // renders as a full-color emoji in a palette no theme controls. U+FE0E is
-    // what makes the mark take `colors.text` like any other type.
+    // Zodiac code points default to emoji presentation; U+FE0E is what makes
+    // the mark take `colors.text` like any other type.
     it("draws the glyph in text presentation, not as emoji", () => {
       renderStep();
 
       expect(SUN_SIGNS.leo.glyph).toContain("︎");
     });
 
-    // The sky belongs to the horoscope, not to the panel: an empty or
-    // still-loading step is a plain surface rather than a starfield with
-    // nothing on it.
+    // The sky belongs to the horoscope, not the panel: an empty or loading
+    // step is a plain surface, not a starfield with nothing on it.
     it("lays a starfield behind it, and only once there is one", () => {
       expect(renderStep().getByTestId("horoscope-sky")).toBeTruthy();
 
@@ -252,9 +226,8 @@ describe("HoroscopeStep", () => {
       ).toBeNull();
     });
 
-    // The panel is a night sky whatever scheme the device is on, so the stars
-    // are too — they used to be dark-scheme only, back when a light theme got a
-    // pale panel to match its own ink.
+    // The panel is a night sky on every scheme — the stars used to be
+    // dark-scheme only, back when light themes got a pale panel.
     it("draws stars on a light scheme as well", () => {
       mockUseColorScheme.mockReturnValue("light");
 
@@ -279,13 +252,8 @@ describe("HoroscopeStep", () => {
       }
     });
 
-    // The grouping is the whole content of this block: an area under the wrong
-    // mark is the one failure a reader would actually act on, and every rating
-    // being an interchangeable 1-5 means nothing else would look wrong.
-    //
-    // Written out rather than derived from `lifeAreasInBucket`, which is what
-    // renders them — a derived expectation would pass even if both sides shared
-    // the same mistake. The order inside each band is house order.
+    // Written out rather than derived from `lifeAreasInBucket` (which renders
+    // them) — a derived expectation passes when both sides share a mistake.
     it("files each life area under the mark matching its rating", () => {
       const screen = renderStep();
 
@@ -301,10 +269,8 @@ describe("HoroscopeStep", () => {
       ).toBeTruthy();
     });
 
-    // A day with nothing rated 1-2 is a good day, not a broken one. The row is
-    // still drawn so the legend keeps its shape from one morning to the next,
-    // but a mark with nothing beside it would read as a bug rather than as an
-    // absence.
+    // An empty band still draws its row (the legend keeps its shape), but a
+    // mark with nothing beside it reads as a bug rather than an absence.
     it("shows a dash for a band with no areas in it", () => {
       const allNeutral = Object.fromEntries(
         LIFE_AREAS.map((area) => [area.key, 3]),
@@ -317,9 +283,8 @@ describe("HoroscopeStep", () => {
       expect(screen.getAllByText("—")).toHaveLength(2);
     });
 
-    // The columns are meant to start below the fold, so the hero is sized to the
-    // scroller rather than to its own content — otherwise the "scroll to
-    // reveal" reads as a list that merely happens to be long.
+    // The hero is sized to the scroller, not its content — otherwise the
+    // scroll-to-reveal reads as a list that merely happens to be long.
     it("sizes the hero to the measured viewport", () => {
       const screen = renderStep();
 

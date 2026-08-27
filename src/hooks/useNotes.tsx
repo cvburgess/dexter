@@ -17,14 +17,8 @@ type TUseNotes = [
   },
 ];
 
-// The realtime invalidation layer (useRealtimeInvalidation) checks this key
-// via `queryClient.isMutating` to skip refetching a date's cache entry while
-// its autosave is in flight — our own upsert echoes back as a realtime
-// event, and a refetch here would race the debounced editor (see the
-// onSuccess comment below). Scoped per date (not just "notes") so an autosave
-// still retrying for one date (e.g. after a swipe away — see the `retry`
-// comment below) doesn't suppress a genuine incoming update for a different,
-// unrelated date.
+// useRealtimeInvalidation checks this key to skip refetching while an autosave
+// is in flight. Per date, so one date's retry can't suppress another's update.
 export const notesMutationKey = (date: string) => ["notes", date];
 
 export const useNotes = (date: string): TUseNotes => {
@@ -33,10 +27,8 @@ export const useNotes = (date: string): TUseNotes => {
   const defaultNote: TNote = useMemo(
     () => ({
       date,
-      // A day with no row reads as a blank note (empty string). The daily-note
-      // template is NOT auto-applied here: notes UI offers "Use template" /
-      // "Blank note" when opening a blank day, so pre-filling would defeat that
-      // choice.
+      // A no-row day reads as a blank note. The daily-note template is NOT
+      // auto-applied — the UI's "Use template" / "Blank note" choice is why.
       content: "",
     }),
     [date],
@@ -48,10 +40,8 @@ export const useNotes = (date: string): TUseNotes => {
     retry: false,
   });
 
-  // `data` is a row (TNote), `null` when the day has no row yet, or `undefined`
-  // while loading. Fall back to the blank default in the latter two cases, but
-  // surface whether a real row exists so callers can distinguish "never
-  // started" from "started but blank".
+  // `data`: row, `null` (no row yet), or `undefined` (loading). `exists` lets
+  // callers tell "never started" from "started but blank".
   const note = data ?? defaultNote;
   const exists = data != null;
 
@@ -63,15 +53,11 @@ export const useNotes = (date: string): TUseNotes => {
   >({
     mutationFn: (diff) => upsertNote(supabase, { ...diff, date }),
     mutationKey: notesMutationKey(date),
-    // Retry a failed save at the QueryClient level (upsert is idempotent). This
-    // survives the component unmounting — an unmount flush (date change / tab
-    // switch) that fails would otherwise have no mounted component left to
-    // reschedule it, silently dropping the edit. `onError`/rollback runs only
-    // after retries are exhausted.
+    // Retries survive unmount (idempotent upsert): a failed unmount flush has
+    // no mounted component left to reschedule it. Rollback runs after retries.
     retry: 3,
-    // Optimistically fold the diff into the cache so autosave feels instant and
-    // switching views (Notes ↔ Tasks) doesn't flash stale content before the
-    // round-trip settles; roll back on error. Mirrors usePreferences.
+    // Optimistic fold-in so autosave feels instant and view switches don't
+    // flash stale content; rolls back on error. Mirrors usePreferences.
     onMutate: async (diff) => {
       await queryClient.cancelQueries({ queryKey: ["notes", date] });
       const previous = queryClient.getQueryData<TNote | null>(["notes", date]);
@@ -87,17 +73,13 @@ export const useNotes = (date: string): TUseNotes => {
         // day (both are concrete values React Query will set).
         queryClient.setQueryData(["notes", date], context.previous);
       } else {
-        // The day was never fetched (e.g. still errored), so there's nothing to
-        // restore to — drop the optimistic entry so a never-persisted note
-        // doesn't linger. (`setQueryData(…, undefined)` is a no-op.)
+        // Never fetched: nothing to restore, so drop the optimistic entry —
+        // `setQueryData(…, undefined)` would be a no-op.
         queryClient.removeQueries({ queryKey: ["notes", date] });
       }
     },
-    // Write the persisted row straight into the cache rather than invalidating
-    // (refetching): a refetch races with in-flight/optimistic edits and can
-    // stamp a stale server value over newer text, which the uncontrolled editor
-    // then re-seeds from on remount. The mutation response IS the latest saved
-    // state, so no GET is needed.
+    // Write the response into the cache rather than invalidating: a refetch
+    // races optimistic edits and can stamp stale text over newer content.
     onSuccess: (saved) => {
       queryClient.setQueryData(["notes", date], saved);
     },

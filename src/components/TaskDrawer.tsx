@@ -31,10 +31,8 @@ export type TGroupBy = "none" | "listId" | "priority" | "goalId";
 
 export type TTaskGroup = { id: string; title: string; tasks: TTask[] };
 
-// The flattened shape `FlashList` renders: `groupTasks`'s `{id, title, tasks}[]`
-// groups collapsed into a single list of header/task rows so recycling can
-// work across group boundaries. `getItemType` keys off `type` so headers and
-// task rows recycle into separate cell pools.
+// The flattened shape FlashList renders: groups collapsed into one list of
+// header/task rows; `getItemType` keys headers and tasks into separate pools.
 type TDrawerListItem =
   | { type: "header"; id: string; title: string }
   | { type: "task"; id: string; task: TTask };
@@ -54,17 +52,15 @@ const GROUP_META: { id: TGroupBy; title: string }[] = [
   { id: "goalId", title: "By Goal" },
 ];
 
-// Reuses PriorityControl's labels (the priority selector's source of truth)
-// rather than re-declaring the wording here; UNPRIORITIZED has no shorthand
-// icon/label there, so it's the one entry this map doesn't cover.
+// Reuses PriorityControl's labels rather than re-declaring the wording;
+// UNPRIORITIZED has no shorthand there, so it's the one entry this map skips.
 const PRIORITY_LABELS: Partial<Record<ETaskPriority, string>> =
   Object.fromEntries(
     PRIORITY_OPTIONS.map(({ value, label }) => [value, label]),
   );
 
-// Grouping order mirrors the legacy dexter-app QuickPlanner's priority
-// columns (most to least urgent), plus Unprioritized, which the legacy
-// grouping omitted.
+// Mirrors legacy dexter-app's QuickPlanner columns (most to least urgent),
+// plus Unprioritized, which that grouping omitted.
 const PRIORITY_ORDER: ETaskPriority[] = [
   ETaskPriority.IMPORTANT_AND_URGENT,
   ETaskPriority.URGENT,
@@ -103,18 +99,8 @@ export function groupMenuOptions(
   return buildMenuOptions(GROUP_META, selected, onSelect);
 }
 
-/**
- * Live, case-insensitive task filter — the legacy QuickPlanner's client-side
- * search.
- *
- * Splits and ANDs whitespace-separated terms via the shared `searchTerms`, and
- * matches subtask titles as well as the task's own, so it agrees with what the
- * `search_entries` RPC would have matched. That agreement is load-bearing since
- * DEX-47: a Search-tab result for an unscheduled task opens this drawer seeded
- * with the query the RPC answered, so a whole-query `includes` would filter out
- * the very task the user tapped whenever its terms appear out of order
- * ("buy milk" vs a task titled "Milk — remember to buy") or matched a subtask.
- */
+// ANDs whitespace-separated terms and matches subtask titles too, agreeing
+// with search_entries — DEX-47's opened-from-Search-tab drawer depends on it.
 export function searchTasksByTitle(tasks: TTask[], search: string): TTask[] {
   const terms = searchTerms(search);
   if (terms.length === 0) return tasks;
@@ -127,15 +113,8 @@ export function searchTasksByTitle(tasks: TTask[], search: string): TTask[] {
   });
 }
 
-/**
- * Splits `tasks` into the sections the Group menu selects: none (a single
- * unlabeled group), by list, by priority, or by goal. Empty groups are
- * dropped so an unused list/goal/priority doesn't render an empty section.
- * A task whose listId/goalId no longer matches any currently-fetched entity
- * (e.g. it was archived) falls into the "No List"/"No Goal" bucket rather
- * than disappearing, matching how `ListButton` falls back to a placeholder
- * for an unresolvable listId.
- */
+// Empty groups are dropped; a task whose listId/goalId no longer resolves
+// (e.g. archived) falls into "No List"/"No Goal" rather than disappearing.
 export function groupTasks(
   tasks: TTask[],
   groupBy: TGroupBy,
@@ -154,9 +133,8 @@ export function groupTasks(
     })).filter((group) => group.tasks.length > 0);
   }
 
-  // `groupBy` is narrowed to exactly "listId" | "goalId" here (the "none" and
-  // "priority" cases returned above), so it doubles as the task field to
-  // group on — no need to re-derive it from another ternary.
+  // `groupBy` is narrowed to "listId" | "goalId" here, so it doubles as the
+  // task field to group on.
   const entities: { id: string; title: string }[] =
     groupBy === "listId"
       ? lists.map((list) => ({
@@ -190,25 +168,13 @@ type TDrawerControlProps = {
   /** The current selection's resolved title — what the button reads. */
   title: string;
   options: TIconMenuOption[];
-  /**
-   * Whether this control has moved off its default (the `"none"` entry each
-   * meta list leads with: "No Filter" / "No Grouping").
-   */
+  /** Whether this control has moved off its `"none"` default. */
   active: boolean;
   testID: string;
 };
 
-/**
- * One of the drawer's two menu buttons. Filter and Group are the same control
- * with different contents, and they had drifted apart twice — once on height
- * (DEX-106), once on their border radius — so they share a body rather than
- * two call sites that have to be kept in step.
- *
- * **Active means "off its default", and it shows in both the label and the
- * outline.** The label already names the selection, but "Overdue" and "No
- * Grouping" read identically when both are plain ink inside a plain hairline,
- * so an applied filter was invisible until you opened the menu.
- */
+// Filter and Group share this body after drifting apart twice (height
+// DEX-106, border radius); active shows in both the label and the outline.
 function DrawerControl({
   label,
   title,
@@ -218,12 +184,8 @@ function DrawerControl({
 }: TDrawerControlProps) {
   const theme = useTheme();
 
-  // Filter, Group, and the search field under them are one cluster and should
-  // read as one size. `controls.md + space.sm` is the same expression `Button`
-  // uses for "a full-width control stands a step taller than a round icon
-  // button", and it lands within a point of what `TextInput`'s own padding
-  // resolves to on both density tiers — so the three line up without this
-  // reaching into the shared input.
+  // Same expression `Button` uses for "a full-width control stands a step
+  // taller"; lands within a point of `TextInput`'s own padding on both tiers.
   const height = theme.controls.md + theme.space.sm;
 
   return (
@@ -238,14 +200,11 @@ function DrawerControl({
           styles.controlButtonInner,
           {
             borderColor: active ? theme.colors.primary : theme.colors.border,
-            // `radii.md` is the app's one corner radius, shared with the
-            // `TextInput` below these two and with the pane around them
-            // (DEX-106); these buttons were the drawer's only square chrome.
+            // `radii.md` is the app's one radius, shared with TextInput and
+            // the pane around them — these buttons were the drawer's only square chrome.
             borderRadius: theme.radii.md,
-            // The same height as the menu host, so the bordered box fills it
-            // instead of hugging its label — without this the pill shrank to
-            // the text and read as squashed against the search field. Explicit,
-            // not `flex: 1`: see `controlButton` in the stylesheet.
+            // Same height as the menu host so the box fills it, not the
+            // label. Explicit, not `flex: 1` — see `controlButton` below.
             height,
             paddingHorizontal: theme.space.sm,
           },
@@ -269,76 +228,27 @@ function DrawerControl({
 type TTaskDrawerProps = {
   /** The day a row's "+" schedules its task onto. */
   date: Temporal.PlainDate;
-  /**
-   * The days the host already has on screen, which the drawer therefore leaves
-   * out of the backlog. Defaults to `[date]` — the Today tab's single day. The
-   * Week tab passes all seven of its columns (DEX-96), since offering back six
-   * days the user is already looking at isn't a backlog.
-   *
-   * Memoize it at the call site: it feeds the `tasks` memo below.
-   */
+  /** Days the host already shows, left out of the backlog. Default `[date]`;
+   * Week passes all seven columns (DEX-96). Memoize at the call site. */
   daysOnScreen?: Temporal.PlainDate[];
-  /**
-   * Controls the Filter preset from the parent when provided (with
-   * `onFilterChange`) — used by the mobile sheet to pre-apply the attention
-   * filter on open (DEX-58). Omitted for the docked large-screen pane, which
-   * keeps its own internal filter state.
-   */
+  /** Controls the Filter preset (mobile sheet pre-applies DEX-58's attention
+   * filter); omitted for the docked pane, which keeps its own state. */
   filterId?: TFilterId;
   onFilterChange?: (id: TFilterId) => void;
-  /**
-   * Controls the title search from the parent when provided (with
-   * `onSearchChange`), the same optional-controlled shape as `filterId` above.
-   * Both hosts use it to seed the box when a Search-tab result for an
-   * unscheduled task opens the backlog (DEX-47), so the task the user tapped is
-   * on screen immediately rather than somewhere in the backlog.
-   */
+  /** Controls the title search, seeded by a Search-tab result for an
+   * unscheduled task (DEX-47), same optional-controlled shape as filterId. */
   search?: string;
   onSearchChange?: (value: string) => void;
-  /**
-   * Whether to render the search field. On by default; the ritual's Backlog
-   * step turns it off (DEX-141), where the reader is being walked through a
-   * short list of what is slipping rather than hunting for a task they already
-   * have in mind.
-   *
-   * Only the field is dropped, not the search *state* — a host can still seed
-   * `search` while hiding the box, and `searchTasksByTitle` is a no-op at the
-   * empty default either way.
-   */
+  /** Renders the search field; the ritual's Backlog step turns it off
+   * (DEX-141). Only the field is dropped, not the search state. */
   showSearch?: boolean;
-  /**
-   * **Declares that this drawer is mounted under an animated opacity** — not a
-   * style knob. Liquid glass is a `UIVisualEffectView` sampling what is behind
-   * it and cannot do that through a non-opaque ancestor layer, so a row's "+"
-   * washes out to a bare glyph; the flag forces the plain bordered circle
-   * instead (see `GlassIconButton`). Only the ritual's Backlog step qualifies
-   * (DEX-150) — every other host docks the drawer under nothing animated, and
-   * setting it there would flatten glass that works and looks right.
-   */
+  /** Declares the drawer is under an animated opacity — liquid glass can't
+   * sample through it, so this forces the plain circle (DEX-150). */
   solid?: boolean;
 };
 
-/**
- * Shared task-drawer content: Filter/Group/Search controls over every
- * incomplete task not scheduled onto a day the host already shows (see
- * `daysOnScreen`), with a tap-to-schedule affordance
- * per row. Hosted two ways: an `@expo/ui` bottom sheet on small screens
- * (`TaskDrawerSheet`) and a docked pane on large screens (`today/index.tsx`).
- * The controls+search sit above a `FlashList` of the (possibly large, in
- * contrast to a single day's list) backlog — recycled rather than all mounted
- * at once, since each row's `TaskCard` carries multiple `@expo/ui` native
- * menu hosts (see `TaskCard.tsx`'s `minHeight` comment) that are expensive to
- * mount in bulk. Root is a plain `flex: 1` `View`, not a `ScrollView`: only
- * `FlashList` needs to scroll (it owns its own internal scroll), and nesting
- * a scroller inside a `ScrollView` breaks virtualization. `@shopify/flash-list`
- * still renders a real RN `ScrollView` under the hood (see its own
- * `CompatScroller.ts`), which is what lets the small-screen `@expo/ui`
- * `BottomSheetModal` (`TaskDrawerSheet`) keep coordinating its native
- * drag-to-dismiss/scroll-to-expand gestures with this list — verified
- * hands-on on iOS after the FlashList migration. Note the native `@expo/ui`
- * menu controls need an explicit height to render (see `controlButtonInner`)
- * (DEX-33).
- */
+// FlashList recycles rather than mounting the whole backlog at once, since
+// each row's TaskCard carries several expensive @expo/ui menu hosts (DEX-33).
 export function TaskDrawer({
   date,
   daysOnScreen,
@@ -352,8 +262,7 @@ export function TaskDrawer({
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   // Controlled by the parent when both props are given (mobile sheet), else
-  // self-managed (docked large-screen pane) — same optional-controlled shape
-  // as a standard input.
+  // self-managed (docked pane) — same optional-controlled shape as an input.
   const [internalFilterId, setInternalFilterId] = useState<TFilterId>("none");
   const filterId = controlledFilterId ?? internalFilterId;
   const setFilterId = onFilterChange ?? setInternalFilterId;
@@ -368,9 +277,8 @@ export function TaskDrawer({
   const [goals] = useGoals({ skipQuery: groupBy !== "goalId" });
   const [allTasks, { isLoading, updateTask, createTask, deleteTask }] =
     useTasks();
-  // Drives the "+" button's alarm prompt. Independent of the drag path, which
-  // routes through `DragScheduleProvider`'s own copy — this drawer renders on
-  // small screens too, where there is no provider.
+  // Drives the "+" button's alarm prompt; independent of the drag path's own
+  // copy in `DragScheduleProvider` — this drawer renders where there's none.
   const { changeSchedule, confirmationProps } = useScheduleChange(updateTask);
   const today = useToday();
   // The `?? [date]` fallback lives inside the memo: as an inline prop default
@@ -391,9 +299,8 @@ export function TaskDrawer({
   );
   const hasTasks = groups.length > 0;
 
-  // Flattened for FlashList: a group's title (when it has one — "no
-  // grouping" collapses everything into one untitled group) becomes a header
-  // row, followed by its tasks as task rows, all in one recyclable list.
+  // Flattened for FlashList: a group's title (if any) becomes a header row,
+  // followed by its tasks, all in one recyclable list.
   const listItems = useMemo<TDrawerListItem[]>(
     () =>
       groups.flatMap((group) => [
@@ -425,16 +332,8 @@ export function TaskDrawer({
               styles.groupTitle,
               {
                 color: theme.colors.textSecondary,
-                // Tops the row separator up to the group step: `lg` separates
-                // groups where `sm` separates rows within one (see
-                // docs/design.md, "Spacing"), and the separator has already
-                // contributed its `sm`. Without it a group's heading sat as
-                // close to the previous group's last task as that task sat to
-                // its own neighbours, and the groups ran together.
-                //
-                // Not on the first row, which has nothing above it to separate
-                // from — and this is a *recycled* row, so the margin has to be
-                // computed per render rather than baked into the stylesheet.
+                // Tops the separator's `sm` up to the group step or headings
+                // run into the group above (docs/design.md). Not the first row.
                 marginTop: index === 0 ? 0 : theme.space.lg - theme.space.sm,
               },
             ]}
@@ -449,14 +348,8 @@ export function TaskDrawer({
         <View style={[styles.row, { gap: theme.space.sm }]}>
           <View style={styles.cardWrapper}>
             <DraggableTaskCard
-              // FlashList recycles a row by reusing its React key from a pool
-              // and re-rendering with new props — it does NOT remount, and
-              // `keyExtractor` only sets FlashList's own stableId, not this
-              // key. Without keying here, `TaskCard`'s inline-edit state and
-              // any focused input survive the swap and get committed against
-              // whichever task landed in the recycled row — and drax, which
-              // caches a view's props when it registers, would keep dragging
-              // whichever task first mounted in the cell (DEX-77).
+              // FlashList recycles by reusing keys without remounting; else
+              // edit state and drax's cached drag survive the swap (DEX-77).
               key={task.id}
               task={task}
               onUpdate={(diff) => updateTask({ id: task.id, ...diff })}
@@ -465,11 +358,8 @@ export function TaskDrawer({
               onDelete={() => deleteTask(task.id)}
             />
           </View>
-          {/* Names the target day rather than saying "this day" — on the Week
-              tab the drawer sits beside seven of them (DEX-96) — and writes
-              through `changeSchedule` rather than `updateTask` for the alarm
-              prompt (DEX-77). Both rules now live in `TaskScheduleButton`,
-              which the ritual's Open tasks step draws two more of. */}
+          {/* Names the day and writes via changeSchedule for the alarm
+              prompt (DEX-77/96) — both rules live in TaskScheduleButton. */}
           <TaskScheduleButton
             date={date}
             mode="schedule"
@@ -492,26 +382,15 @@ export function TaskDrawer({
     [theme.space.sm],
   );
 
-  // Re-derive the list from a control and the old scroll offset is meaningless:
-  // the rows under it are different rows. Grouping is the clearest case — the
-  // whole list re-sections and, halfway down, the user lands in the middle of
-  // some group they didn't pick — but a filter or a search narrows it just as
-  // completely.
-  //
-  // Keyed on the three *inputs*, deliberately not on the derived `listItems`:
-  // that identity also changes when a task is edited, so checking a task off
-  // would yank the list back to the top under the user's finger.
+  // Re-deriving means the old scroll offset is meaningless. Keyed on the
+  // inputs, not `listItems` — that identity also changes on an edit.
   const listRef = useRef<FlashListRef<TDrawerListItem>>(null);
   useEffect(() => {
     listRef.current?.scrollToTop({ animated: false });
   }, [filterId, groupBy, search]);
 
-  // `container`'s own padding sits inside a pane that itself extends
-  // behind the tab bar, so it doesn't clear it — the inset has to go on the
-  // scrollable content on top of that. Memoized like this list's other props
-  // (renderItem/keyExtractor/getItemType): FlashList is wrapped in React.memo,
-  // so a fresh object each render would re-render the whole recycler on every
-  // keystroke in the search field.
+  // The pane extends behind the tab bar, so the inset goes on the content.
+  // Memoized — FlashList is React.memo'd; a fresh object re-renders it all.
   const listContentStyle = useMemo(
     () => ({ paddingBottom: insets.bottom }),
     [insets.bottom],
@@ -535,10 +414,8 @@ export function TaskDrawer({
         style={[
           styles.controls,
           { gap: theme.space.sm },
-          // The cluster's tail carries the step down to the list, so it moves
-          // to whichever control is last: the search field when it is there,
-          // this row when it isn't. Dropped entirely, the first card sat at the
-          // container's in-group `sm` and read as one more control.
+          // The cluster's tail moves to whichever control is last; dropped
+          // entirely, the first card read as one more control in the cluster.
           showSearch ? null : clusterTailStyle,
         ]}
         testID="drawer-controls"
@@ -564,21 +441,14 @@ export function TaskDrawer({
           placeholder="Search"
           value={search}
           onChangeText={setSearch}
-          // Filter, Group and Search are one cluster of controls; the list
-          // below is a different thing entirely, and at the container's
-          // in-group `sm` the first card read as one more control. Tops that up
-          // to the group step, the same way a group heading does — see
-          // docs/design.md, "Spacing". Supplied here rather than inside
-          // `TextInput`, which is shared app-wide and owns no spacing of its
-          // own.
+          // Tops the cluster up to the group step, same as a group heading
+          // (docs/design.md); supplied here since TextInput owns no spacing.
           style={clusterTailStyle}
         />
       ) : null}
       {isLoading && !hasTasks ? (
-        // `isLoading` reflects the canonical `useTasks()` query shared with
-        // the Tasks pane — usually already resolved by the time this drawer
-        // first mounts (the shell defers mounting until opened), but shown as
-        // a spinner rather than a bare gap on a cold app start where it isn't.
+        // Reflects the canonical useTasks() query, usually already resolved
+        // by mount — but shown as a spinner rather than a gap when it isn't.
         <View style={styles.state}>
           <ActivityIndicator color={theme.colors.textSecondary} />
         </View>
@@ -596,9 +466,8 @@ export function TaskDrawer({
           contentContainerStyle={listContentStyle}
         />
       )}
-      {/* Drives the "+" button's alarm prompt. A child of the drawer (unlike
-          the drag path's modal, which is a sibling of its DraxProvider) —
-          nothing here is animated or transformed for it to anchor to. */}
+      {/* Drives the "+" button's alarm prompt, unlike the drag path's modal
+          which sits as a DraxProvider sibling instead. */}
       <ConfirmationModal {...confirmationProps} />
     </View>
   );
@@ -613,31 +482,20 @@ function titleFor<T extends string>(
 }
 
 const styles = StyleSheet.create({
-  // `flex: 1` bounds this to the sheet/pane's height; whichever child ends up
-  // scrollable (the FlashList branch — the loading/empty branches are small,
-  // static content with no need to scroll) fills the remaining space below
-  // the controls/search. `padding` + inline `gap` reproduce what used to be
-  // the ScrollView's `contentContainerStyle` spacing.
+  // Bounds this to the sheet/pane's height; padding + inline gap reproduce
+  // the old ScrollView's contentContainerStyle spacing.
   container: {
     flex: 1,
   },
   controls: {
     flexDirection: "row",
   },
-  // Width only. **Both** buttons must also be given `height: theme.controls.md`
-  // inline, and they have to agree: the native `@expo/ui` menu host sizes
-  // asynchronously and measures its RN child, so a flex-only trigger has no
-  // height until a bounded ancestor resolves one — which the bottom sheet never
-  // does, collapsing the button to ~2pt and untappable (same reason
-  // StatusButton/ListButton/DayViewSwitcher pin theirs). DEX-61 dropped the
-  // height from both and restored it on Filter alone, which is what left the
-  // pair mismatched in the docked pane (DEX-106).
+  // Width only — both buttons also need the inline height (DEX-106): the
+  // menu host sizes async and a flex-only trigger collapses to ~2pt.
   controlButton: {
     flex: 1,
   },
-  // The rest of the button is themed inline — see `controlButtonSurface` above
-  // for the radius, border color, and horizontal padding. `alignSelf: stretch`
-  // fills the menu's width.
+  // Radius/border/padding are themed inline; alignSelf fills the menu's width.
   controlButtonInner: {
     alignItems: "center",
     alignSelf: "stretch",

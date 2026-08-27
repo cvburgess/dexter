@@ -10,8 +10,7 @@ import {
 } from "../../scripts/demoData.ts";
 
 // The demo seed runs with the service role (no DB validation in CI), so these
-// tests guard the curated data the same way the migration tests guard SQL:
-// assert the shape is valid and self-consistent before it ever hits Postgres.
+// tests guard shape and self-consistency before it ever hits Postgres.
 
 const data = buildDemoData();
 
@@ -48,9 +47,8 @@ Deno.test("templates use valid midnight cron schedules", () => {
 
 Deno.test("tasks have valid enums and title length", () => {
   for (const task of data.tasks) {
-    // Both checked against the enum's reverse mapping rather than a
-    // hand-written bound, so a member added to either enum widens this
-    // automatically.
+    // Checked against the enum's reverse mapping, not a hand-written bound,
+    // so a member added to either enum widens this automatically.
     assert(
       ETaskPriority[task.priority] !== undefined,
       `${task.title} priority`,
@@ -108,8 +106,8 @@ Deno.test("demo showcases subtask states for DEX-70", () => {
   const withSubtasks = data.tasks.filter((t) => (t.subtasks?.length ?? 0) > 0);
   assert(withSubtasks.length >= 2, "expected several tasks with checklists");
 
-  // A checklist mid-flight — some items checked off, some still open — is the
-  // state the completion sweep and the in-card rendering are most worth showing.
+  // A checklist mid-flight is the state the completion sweep and the
+  // in-card rendering are most worth showing.
   const hasPartial = withSubtasks.some(
     (t) => t.subtasks!.some((s) => s.done) && t.subtasks!.some((s) => !s.done),
   );
@@ -153,9 +151,8 @@ Deno.test("every foreign key reference resolves to a defined entity", () => {
   }
 });
 
-// Uses the app's own `isCompletionStatus`, not a local copy of it: a task in any
-// terminal status is closed out, so it can't be what makes the demo show an
-// overdue or left-behind card — the app filters those out of the backlog.
+// Uses the app's own `isCompletionStatus`, not a local copy — a closed-out
+// task can't be what shows an overdue or left-behind card.
 Deno.test("demo showcases the states screenshots depend on", () => {
   const hasOverdue = data.tasks.some(
     (t) =>
@@ -180,9 +177,8 @@ Deno.test("demo showcases the states screenshots depend on", () => {
   assert(hasWontDo, "expected a won't-do task");
   assert(hasAlarm, "expected a task with an alarm");
 
-  // The task drawer is one of the App Store screenshots, and a backlog holding
-  // one or two rows photographs as an empty feature rather than a place work
-  // waits. Spread across lists, so the drawer's grouping has something to show.
+  // The task drawer is an App Store screenshot; a backlog of one or two rows
+  // photographs as an empty feature rather than a place work waits.
   const unscheduled = data.tasks.filter((t) => t.scheduledForOffset === null);
   assert(
     unscheduled.length >= 5,

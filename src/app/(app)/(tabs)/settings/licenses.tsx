@@ -25,10 +25,8 @@ export default function LicensesScreen() {
   const twoPane = useIsLargeDevice();
   const insets = useSafeAreaInsets();
 
-  // Combine dependencies and devDependencies, sort alphabetically, and look up
-  // each license from the generated map (see `npm run licenses`). Deriving the
-  // list from package.json means a stale licenses.json still shows every current
-  // package — just "Unknown" for any not yet regenerated.
+  // Derived from package.json, so a stale licenses.json still lists every
+  // current package — just "Unknown" for any not yet regenerated.
   const allDependencies = {
     ...packageJson.dependencies,
     ...packageJson.devDependencies,
@@ -91,8 +89,7 @@ export default function LicensesScreen() {
         renderItem={renderItem}
         keyExtractor={(item) => item.name}
         ListHeaderComponent={ListHeaderComponent}
-        // `paddingBottom` adds the safe-area inset to the list's own padding —
-        // the edges above omit `bottom` so rows scroll under the tab bar
+        // Edges omit `bottom`; this lets rows scroll under the tab bar
         // (DEX-91).
         contentContainerStyle={{
           gap: theme.space.sm,

@@ -55,9 +55,8 @@ describe("TaskScheduleButton", () => {
       expect(screen.getByLabelText(label)).toBeTruthy();
     });
 
-    // The convention the drawer's "+" set and the ritual inherited: the drawer
-    // sits beside seven days on the Week tab and `DayNav` pages the ritual
-    // anywhere, so a button saying "tomorrow" would lie about where a task went.
+    // The drawer sits beside seven days on Week and DayNav pages the ritual
+    // anywhere, so "tomorrow" would lie about where a task went.
     it("names the day rather than saying today or tomorrow", () => {
       renderButton("defer", Temporal.PlainDate.from("2026-01-02"));
 
@@ -82,9 +81,8 @@ describe("TaskScheduleButton", () => {
       );
     });
 
-    // The day after the one on screen, not the day after *today* — an
-    // implementation anchored to `Temporal.Now` would send the task to the wrong
-    // day and still pass every label assertion above.
+    // The day after the one on screen, not after *today* — anchoring to
+    // `Temporal.Now` would still pass every label assertion above.
     it("defers to the day after the one on screen", () => {
       renderButton("defer");
 

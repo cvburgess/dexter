@@ -25,14 +25,8 @@ type TUseJournals = [
   },
 ];
 
-// The realtime invalidation layer (useRealtimeInvalidation) checks this key
-// via `queryClient.isMutating` to skip refetching a date's cache entry while
-// its autosave is in flight — our own upsert echoes back as a realtime
-// event, and a refetch here would race the debounced editor (see the
-// onSuccess comment below). Scoped per date (not just "journals") so an
-// autosave still retrying for one date (e.g. after a swipe away — see the
-// `retry` comment below) doesn't suppress a genuine incoming update for a
-// different, unrelated date.
+// useRealtimeInvalidation checks this via isMutating to skip refetching a
+// date whose autosave is still in flight (own upsert echoes back as realtime).
 export const journalsMutationKey = (date: string) => ["journals", date];
 
 export const useJournals = (date: string): TUseJournals => {
@@ -61,10 +55,8 @@ export const useJournals = (date: string): TUseJournals => {
     retry: false,
   });
 
-  // `data` is a row (TJournal), `null` when the day has no row yet, or
-  // `undefined` while loading. Fall back to the template-seeded default in the
-  // latter two cases, but surface whether a real row exists so callers can
-  // distinguish "never started" from "started but blank".
+  // `data` is a row, `null` (no row), or `undefined` (loading); fall back to
+  // the seeded default but surface `exists` for "never started" vs "blank".
   const journal = data ?? defaultJournal;
   const exists = data != null;
 
@@ -83,15 +75,11 @@ export const useJournals = (date: string): TUseJournals => {
   >({
     mutationFn: (diff) => upsertJournal(supabase, { ...withSeed(diff), date }),
     mutationKey: journalsMutationKey(date),
-    // Retry a failed save at the QueryClient level (upsert is idempotent). This
-    // survives the component unmounting — an unmount flush (date change / tab
-    // switch) that fails would otherwise have no mounted component left to
-    // reschedule it, silently dropping the edit. `onError`/rollback runs only
-    // after retries are exhausted.
+    // Retry at the QueryClient level (upsert is idempotent) so a failed save
+    // survives the component unmounting, e.g. on a date change or tab switch.
     retry: 3,
-    // Optimistically fold the diff into the cache so autosave feels instant and
-    // switching views (Journal ↔ Tasks) doesn't flash stale content before the
-    // round-trip settles; roll back on error. Mirrors usePreferences.
+    // Optimistic so autosave feels instant and switching views doesn't flash
+    // stale content; roll back on error. Mirrors usePreferences.
     onMutate: async (diff) => {
       await queryClient.cancelQueries({ queryKey: ["journals", date] });
       const previous = queryClient.getQueryData<TJournal | null>([
@@ -106,21 +94,15 @@ export const useJournals = (date: string): TUseJournals => {
     },
     onError: (_error, _diff, context) => {
       if (context && context.previous !== undefined) {
-        // Restore the prior cache value — a row, or `null` for a known no-row
-        // day (both are concrete values React Query will set).
+        // A row, or `null` for a known no-row day — both are concrete values.
         queryClient.setQueryData(["journals", date], context.previous);
       } else {
-        // The day was never fetched (e.g. still errored), so there's nothing to
-        // restore to — drop the optimistic entry so a never-persisted response
-        // doesn't linger. (`setQueryData(…, undefined)` is a no-op.)
+        // Never fetched, so nothing to restore to — drop the optimistic entry.
         queryClient.removeQueries({ queryKey: ["journals", date] });
       }
     },
-    // Write the persisted row straight into the cache rather than invalidating
-    // (refetching): a refetch races with in-flight/optimistic edits and can
-    // stamp a stale server value over newer text, which the uncontrolled inputs
-    // then re-seed from on remount. The mutation response IS the latest saved
-    // state, so no GET is needed.
+    // Write straight into the cache rather than invalidate: a refetch could
+    // race an in-flight edit and stamp a stale value over newer text.
     onSuccess: (saved) => {
       queryClient.setQueryData(["journals", date], saved);
     },

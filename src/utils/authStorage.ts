@@ -20,18 +20,13 @@ export function isInvalidRefreshTokenError(error: unknown): boolean {
 }
 
 function isAuthStorageKey(key: string): boolean {
-  // Never remove the PKCE code verifier: session bootstrap can run this while
-  // a magic-link/OAuth callback is being exchanged, and deleting the verifier
-  // would fail that exchange and discard a valid login.
+  // Never remove the PKCE code verifier — bootstrap can run this mid-exchange,
+  // and deleting it would fail the exchange and discard a valid login.
   if (key.endsWith("-code-verifier")) return false;
   return key.startsWith("sb-") || key.includes("supabase");
 }
 
-/**
- * Remove persisted Supabase auth entries. Used to recover from a corrupted or
- * revoked refresh token, which otherwise leaves the client erroring on every
- * session bootstrap.
- */
+/** Recovers from a corrupted/revoked refresh token that errors every bootstrap. */
 export async function clearSupabaseAuthStorage(): Promise<void> {
   const keys = await AsyncStorage.getAllKeys();
   const authKeys = keys.filter(isAuthStorageKey);

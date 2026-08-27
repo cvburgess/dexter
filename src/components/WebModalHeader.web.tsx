@@ -5,11 +5,8 @@ import { useTheme } from "@/utils/theme";
 
 import type { TWebModalHeaderProps } from "./WebModalHeader";
 
-/**
- * Web implementation: a header bar with Cancel (✕) and Save (✓) buttons.
- * The Stack header is hidden on web (`utils/stackOptions.web.ts`), so modal
- * screens render this instead.
- */
+// The Stack header is hidden on web (utils/stackOptions.web.ts), so modal
+// screens render this bar with Cancel (✕) and Save (✓) instead.
 export function WebModalHeader({
   isDisabled = false,
   onClose,
@@ -23,9 +20,8 @@ export function WebModalHeader({
         styles.container,
         {
           backgroundColor: theme.colors.surfaceSunken,
-          // The shared hairline token, not `textSecondary`: this header was the
-          // one border in the app drawn a full step darker than every other
-          // (DEX-61).
+          // The shared hairline token — this header was drawn a step darker
+          // than every other border (DEX-61).
           borderBottomColor: theme.colors.border,
           paddingVertical: theme.space.md,
         },

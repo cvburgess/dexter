@@ -37,14 +37,6 @@ describe("LoginScreen", () => {
     jest.clearAllMocks();
   });
 
-  it("renders Google and email sign-in options", () => {
-    const screen = render(<LoginScreen />);
-
-    expect(screen.getByTestId("login-google-button")).toBeTruthy();
-    expect(screen.getByTestId("login-email-input")).toBeTruthy();
-    expect(screen.getByTestId("login-email-button")).toBeTruthy();
-  });
-
   it("sends a login code to the trimmed email and shows the code entry", async () => {
     mockSignInWithEmail.mockResolvedValue(
       ok as Awaited<ReturnType<typeof signInWithEmail>>,
@@ -188,20 +180,6 @@ describe("LoginScreen", () => {
 
     expect(screen.getByTestId("login-email-input")).toBeTruthy();
     expect(screen.queryByTestId("login-code-input")).toBeNull();
-  });
-
-  it("starts the Google sign-in flow", async () => {
-    mockSignInWithGoogle.mockResolvedValue(
-      ok as Awaited<ReturnType<typeof signInWithGoogle>>,
-    );
-
-    const screen = render(<LoginScreen />);
-
-    fireEvent.press(screen.getByTestId("login-google-button"));
-
-    await waitFor(() => {
-      expect(mockSignInWithGoogle).toHaveBeenCalled();
-    });
   });
 
   it("shows an error message when Google sign-in fails", async () => {

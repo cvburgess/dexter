@@ -1,27 +1,17 @@
-// Fails the suite on React's "not wrapped in act(...)" warning instead of
-// letting it print. The suite had accumulated 45 of them (DEX-130), which is
-// enough to bury the one console line a genuinely failing test prints — and
-// each one is a real state update landing after its test returned, so the
-// assertion that followed it never saw the state it claimed to test.
-//
-// This has to live in `setupFilesAfterEnv`, not `setupFiles`: the latter runs
-// before the test framework is installed, so it cannot register lifecycle
-// hooks.
+// Fail the suite on React's act(...) warning — 45 of them had buried real
+// failures (DEX-130). Must be setupFilesAfterEnv: setupFiles has no lifecycle.
 
 const { format } = require("util");
 
 const originalError = console.error;
 const actWarnings = [];
 
-// Replaced by assignment rather than `jest.spyOn`, because ~65 test files call
-// `jest.restoreAllMocks()`/`resetAllMocks()` in a hook, any of which would
-// silently disarm a spy and leave the guard passing for the wrong reason.
+// Assignment, not `jest.spyOn` — ~65 test files call restoreAllMocks(),
+// which would silently disarm a spy and leave the guard passing vacuously.
 console.error = (...args) => {
   if (typeof args[0] === "string" && args[0].includes("not wrapped in act")) {
-    // React passes the component name as a `%s` argument, so the message has
-    // to be formatted before it says anything useful. Keep only the first
-    // line — the rest is React's boilerplate advice plus a stack that bottoms
-    // out in whichever timer flushed the update.
+    // Format first (React passes the component via %s); keep only line one —
+    // the rest is boilerplate plus a stack ending in whichever timer flushed.
     actWarnings.push(
       format(...args)
         .split("\n")[0]
@@ -32,9 +22,8 @@ console.error = (...args) => {
   originalError(...args);
 };
 
-// React emits the warning from the timer callback that scheduled the update,
-// which can run during a *later* test than the one that caused it — hence
-// both hooks, and hence the hedge in the message.
+// The warning can fire during a later test than the one that caused it —
+// hence both hooks, and the hedge in the message.
 const failOnActWarnings = () => {
   if (actWarnings.length === 0) return;
 

@@ -15,42 +15,10 @@ import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { ritualStepInsetTop } from "@/utils/ritualSteps";
 import { useTheme } from "@/utils/theme";
 
-/**
- * The arrival shared by the ritual's reporting steps — Calendar (DEX-140),
- * Backlog (DEX-141), Open tasks (DEX-146) and Review (DEX-148) — as one 0→1
- * with a set of overlapping windows onto it. The same structure `HoroscopeStep`
- * uses, and for the same reason: a stagger built from one driver cannot drift
- * out of order however the timings are retuned.
- *
- * The stages are the hero lines and then the body beneath them, so the figures
- * land one at a time in the order they read: a **1008ms fade per stage,
- * starting 864ms apart**.
- *
- * **Those two figures are the tuning, and they are stated in milliseconds
- * rather than as fractions of the total.** `useStageOpacity` needs fractions,
- * but deriving them here means the invariant the sequence depends on — the last
- * window closing exactly as the driver lands, so the tail is not dead time —
- * holds by construction rather than by arithmetic someone has to redo. It is
- * what let DEX-148 add a fifth stage without moving the first four by a
- * millisecond: `REVEAL_MS` grew from 3600 to 4464, and every existing step's
- * stages still start at 0 / 864 / 1728 / 2592.
- *
- * The two numbers do still trade against each other — widening the gap at a
- * *fixed* total can only come out of the fade — which is why both passes that
- * asked for more air between the lines lengthened the whole sequence instead:
- * 1200ms, then 2400, then 3600. The overlap that leaves is slight (144ms) where
- * it began generous. Deliberate: the horoscope is producing a reading and wants
- * one gathering movement, where figures being counted off read better arriving
- * as distinct events.
- */
+// Shared arrival for the reporting steps, one 0→1 with overlapping windows.
+// Stated in ms so DEX-148 added a fifth stage without moving the others' starts.
 const STAGE_GAP_MS = 864;
 const STAGE_FADE_MS = 1008;
-/**
- * Four hero lines and then the body — one more stage than the four DEX-148
- * found, since its Review step counts habits, tasks, events and focus blocks
- * before it draws anything. See above for why adding it moved none of the
- * others; a sixth would work the same way.
- */
 const STAGE_COUNT = 5;
 
 const REVEAL_MS = STAGE_GAP_MS * (STAGE_COUNT - 1) + STAGE_FADE_MS;
@@ -60,27 +28,12 @@ const REVEAL_STARTS = Array.from(
   { length: STAGE_COUNT },
   (_unused, stage) => (stage * STAGE_GAP_MS) / REVEAL_MS,
 );
-/**
- * The stage the body arrives on **for a hero that draws exactly three lines** —
- * the Calendar and Backlog steps, which always do.
- *
- * Not "the last stage": a step whose line count varies has to stage its body at
- * `heroLines.length` instead, or the body waits for figures that were never
- * drawn. That is the trap `SummaryStep`, `OpenTasksStep` and `ReviewStep` each
- * document at their own call site.
- */
+// For heroes that always draw exactly three lines. A variable count must
+// stage at heroLines.length instead (see SummaryStep, OpenTasksStep, ReviewStep).
 export const BODY_STAGE = 3;
 
-/**
- * Drives one arrival. `revealKey` gates the start and replays it when it
- * changes; pass `null` while the data is still loading so the sequence waits
- * rather than running against placeholder figures.
- *
- * Key it on the *day* rather than on the fetched data: a background refetch
- * hands back a fresh array every time, and a hero must not fade out from under
- * someone re-reading it. Walking `DayNav` replays the reveal by remounting the
- * whole step (`ritualPageKey`), so the key's only job is the wait.
- */
+// null while loading, so it waits rather than running against placeholders;
+// keyed on the day so a background refetch doesn't fade the hero out.
 export function useHeroReveal(revealKey: string | null): SharedValue<number> {
   const reduceMotion = useReducedMotion();
   const reveal = useSharedValue(0);
@@ -91,9 +44,8 @@ export function useHeroReveal(revealKey: string | null): SharedValue<number> {
       return;
     }
     if (reduceMotion) {
-      // Assigned rather than skipped: a plain write cancels whatever is running
-      // on the value, which is what stops a reveal mid-flight when the setting
-      // is turned on while the step is on screen.
+      // Assigned, not skipped: a plain write cancels whatever's running,
+      // stopping a reveal mid-flight if the setting flips while on screen.
       reveal.value = 1;
       return;
     }
@@ -109,16 +61,8 @@ export function useHeroReveal(revealKey: string | null): SharedValue<number> {
   return reveal;
 }
 
-/**
- * One stage's window onto the reveal, as `[from, to]` fractions of it.
- *
- * Split out of `useStageOpacity` because it is the whole of the stage table's
- * arithmetic and the only part of this module a test can see: everything below
- * it crosses into a worklet, which the reanimated mock renders opaque (see
- * docs/testing.md). A stage past the end of `REVEAL_STARTS` returns `NaN` here
- * rather than silently interpolating over `undefined` inside the worklet, where
- * the only symptom is a body that never fades in.
- */
+// Split out of useStageOpacity as the only part a test can see — everything
+// below crosses into a worklet the reanimated mock renders opaque.
 export const stageWindow = (stage: number): [number, number] => {
   const from = REVEAL_STARTS[stage];
   return [from, from + REVEAL_FADE];
@@ -147,10 +91,7 @@ export type THeroLine = {
 };
 
 type THeroLineProps = Omit<THeroLine, "key"> & {
-  /**
-   * The line's `key`, passed again under its own name — React reserves `key`
-   * and never delivers it to the component, and the testID needs it.
-   */
+  /** Passed again under its own name — React reserves `key` and never delivers it. */
   lineKey: string;
   /** This line's index into `REVEAL_STARTS`. */
   stage: number;
@@ -175,9 +116,7 @@ function HeroLine({
   return (
     <Animated.View
       accessible
-      // One node for the whole line: split across two `Text`s for the column,
-      // it would otherwise be read as a bare figure and then an orphaned
-      // fragment.
+      // One node — split across two Texts it reads as a bare figure and an orphan.
       accessibilityLabel={`${figure} ${words}`}
       style={[styles.line, { gap: theme.space.sm }, lineStyle]}
     >
@@ -203,30 +142,13 @@ type THeroLinesProps = {
   /** Up to four lines; each takes the matching `REVEAL_STARTS` stage. */
   lines: THeroLine[];
   reveal: SharedValue<number>;
-  /**
-   * Vertical space the body below the hero already brings itself, subtracted
-   * from this block's bottom padding so the total stays symmetric. The Backlog
-   * step passes `TaskDrawer`'s own padding; the Calendar step's timeline brings
-   * none, so it passes nothing.
-   */
+  /** Space the body already brings, subtracted from bottom padding to stay symmetric. */
   bodyInsetTop?: number;
   testID?: string;
 };
 
-/**
- * The hero a reporting ritual step opens with: a few figures, each with its
- * words, arriving one at a time.
- *
- * **Two columns, centered as a unit.** The figures are right-aligned and the
- * words left-aligned, so every line's text begins on one vertical line —
- * centering each line on its own length instead left the labels starting at as
- * many different x positions as there were lines. That takes the two nested
- * views below: the outer centers, the inner shrinks to the widest line so the
- * rows stretch to a common width.
- *
- * Carries its own vertical breathing room but no side gutter; `SwipeablePage`
- * and the ritual layouts own that (see docs/design.md, "Who owns spacing").
- */
+// Right-aligned figures, left-aligned words, so every line's text begins on
+// one vertical line — two nested views: outer centers, inner shrinks to widest.
 export function HeroLines({
   lines,
   reveal,
@@ -235,24 +157,12 @@ export function HeroLines({
 }: THeroLinesProps) {
   const theme = useTheme();
 
-  // The ritual layout has already placed its step inset above this block, so
-  // `lg` on both sides would leave the hero sitting visibly low — the space
-  // over it is that inset *plus* the padding, and under it only the padding.
-  // Matching the inset below evens the two out: above is `inset + lg`, below is
-  // `lg + (inset - bodyInsetTop) + bodyInsetTop`, which is the same number at
-  // either breakpoint. `useIsLargeDevice` is the very predicate `ritual/index`
-  // picks the layout with, so this cannot disagree with the inset actually
-  // applied.
+  // Matches the ritual layout's own step inset above this block, or lg on
+  // both sides would leave the hero sitting visibly low.
   const insetAbove = ritualStepInsetTop(theme.space, useIsLargeDevice());
 
-  // One width for every figure, so the words all start on the same vertical
-  // line however many characters each figure runs to. Measured rather than
-  // guessed at from the font size: the widest figure reports a width larger
-  // than the current one and raises it, and every narrower figure then measures
-  // exactly that `minWidth` and reports no change — so this converges in one
-  // extra layout pass and cannot oscillate. Monotonic on purpose; a figure
-  // shrinking leaves the column a little wide rather than re-flowing the hero
-  // out from under the reader.
+  // Measured, not guessed from font size — the widest figure raises minWidth
+  // and every narrower one then reports no change, converging in one pass.
   const [figureWidth, setFigureWidth] = useState(0);
   const onFigureLayout = useCallback((event: LayoutChangeEvent) => {
     const { width } = event.nativeEvent.layout;

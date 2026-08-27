@@ -7,9 +7,8 @@ import { DayNav } from "../DayNav";
 
 const SELECTED_DATE = new Date(2026, 11, 25); // Dec 25, 2026 (month is 0-based)
 
-// `DateField` wraps a native SwiftUI/community picker with no test double, so
-// stand it in with a pressable that surfaces the props `DayNav` wires up: the
-// `value` it renders and the `Date` it emits from `onChange`.
+// DateField wraps a native picker with no test double — stand it in with a
+// pressable surfacing the `value`/`onChange` props DayNav wires up.
 const mockDateField = jest.fn((props: TDateFieldProps) => (
   <TouchableOpacity
     accessibilityLabel="Pick a date"
@@ -56,8 +55,7 @@ describe("DayNav", () => {
 
   it("jumps to today when the date is pressed on a non-today day", () => {
     const onChangeDate = jest.fn();
-    // Derive from the real "today" so this is never coincidentally today
-    // (a fixed date would render the picker whenever the suite runs on it).
+    // Real "today" so this is never coincidentally today.
     const notToday = Temporal.Now.plainDateISO().add({ days: 10 });
     const screen = render(
       <DayNav date={notToday} onChangeDate={onChangeDate} />,

@@ -1,9 +1,5 @@
-// Shared demo-account identity for the App Store reviewer / marketing login.
-// Used by the `verify-demo-otp` Edge Function and the `seed-demo` script so the
-// account they provision and the credentials the function accepts never drift.
-//
-// NOTE: the app duplicates DEMO_EMAIL / isDemoEmail in `src/hooks/useAuth.tsx`
-// (it cannot import this Deno backend module); keep the value identical there.
+// Shared by `verify-demo-otp` and `seed-demo` so credentials never drift.
+// Duplicated in `src/hooks/useAuth.tsx` (can't import Deno) — keep in sync.
 
 /** The single demo account. Matched exactly — never a whole domain — so a real
  * user's login can never be routed through the demo bypass. */
@@ -13,10 +9,8 @@ export function isDemoEmail(email: string): boolean {
   return email.trim().toLowerCase() === DEMO_EMAIL;
 }
 
-// The demo password is derived from the shared DEMO_OTP secret rather than
-// stored on its own, so the seed script (which sets it) and the Edge Function
-// (which signs in with it) stay in sync through a single secret. The mixed
-// case + symbol keep it above Supabase's password-strength floor.
+// Derived rather than stored so seed-demo and verify-demo-otp stay in sync
+// through one secret; mixed case + symbol clear Supabase's strength floor.
 export function deriveDemoPassword(otp: string): string {
   return `Dexter!Demo_${otp}`;
 }

@@ -15,18 +15,13 @@ type TMoodFaceProps = {
   size: number;
   /** Overrides the ramp color — `MoodScale` passes `text` for an unselected face. */
   color?: string;
-  /**
-   * Fills the disc and knocks the features out in this color instead of drawing
-   * them. Pass the color actually behind the glyph — this paints, it doesn't
-   * cut a hole, so a wrong value shows as a halo rather than nothing.
-   */
+  /** Fills the disc and knocks features out in this color — pass what's
+   * actually behind the glyph, since a wrong value shows as a halo, not a hole. */
   knockout?: string;
 };
 
-/**
- * One face of the 1-5 scale. Drawn rather than picked from SF Symbols/Ionicons:
- * neither set has a five-step ramp, and half-matching glyphs drift per platform.
- */
+// One face of the 1-5 scale, drawn rather than picked from SF Symbols/Ionicons —
+// neither set has a five-step ramp, and half-matching glyphs drift per platform.
 export function MoodFace({ rating, size, color, knockout }: TMoodFaceProps) {
   const face = MOOD_FACES[rating];
   const disc = color ?? face.color;

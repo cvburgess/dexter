@@ -32,31 +32,20 @@ import { EmptyScreen } from "./EmptyScreen";
 const HOUR_HEIGHT = 72;
 /** Width reserved for the hour labels down the left edge. */
 const GUTTER_WIDTH = 50;
-/**
- * The timeline's own right inset, and the gutter's right padding. Part of the
- * coordinate system below rather than the spacing scale: the hour labels, the
- * hour lines, the now line and the events area are all positioned from
- * `GUTTER_WIDTH` and this, and they misalign the moment one of them moves
- * independently of the others (DEX-61).
- */
+/** Timeline right inset and gutter right padding — part of the fixed
+ * coordinate system below, not the spacing scale (DEX-61). */
 const GUTTER_INSET = 8;
 /** Diameter of the dot capping the "now" line. */
 const NOW_DOT_SIZE = 8;
-/**
- * Blocks at least this tall stack the time under the title; shorter ones render
- * the time inline to the right (no vertical room to stack). Half an hour at the
- * current scale, so a 30-minute event shows its time under the name.
- */
+/** Blocks at least this tall stack the time under the title; shorter ones
+ * render it inline. Half an hour at the current scale. */
 const STACKED_MIN_HEIGHT = HOUR_HEIGHT / 2;
 /** Only blocks this tall have room for a two-line title above the time. */
 const TWO_LINE_TITLE_MIN_HEIGHT = 50;
 /** Floor for very short blocks so a single inline line stays legible. */
 const MIN_EVENT_HEIGHT = 20;
-/**
- * Hairline gap shaved off each block's bottom so back-to-back events (e.g. 1–2
- * and 2–3) render with a sliver between them instead of touching edge-to-edge,
- * where their rounded corners read as one event overlapping the next.
- */
+/** Hairline gap shaved off each block's bottom so back-to-back events get a
+ * sliver between them, not touching edge-to-edge. */
 const EVENT_GAP = 2;
 /** Accent-fill opacity by RSVP: tentative reads faint, invited is outline-only
  * (transparent), so neither is mistaken for an accepted commitment. */
@@ -68,10 +57,8 @@ const RESPONSE_FILL_OPACITY: Partial<Record<TEventResponse, number>> = {
 const fillOpacity = (response?: TEventResponse): number =>
   (response && RESPONSE_FILL_OPACITY[response]) ?? NORMAL_FILL_OPACITY;
 
-/** Border for an event block. Every event carries a full-opacity accent bar
- * inset inside the rectangle (see `AccentBar`); invited events add a matching
- * uniform 1px accent outline so the hollow (unfilled) block still reads as a
- * complete card — matching Apple Calendar's treatment for unaccepted events. */
+/** Invited events add a 1px accent outline so the hollow block still reads
+ * as a complete card (Apple Calendar's treatment for unaccepted events). */
 const borderStyle = (accent: string, response?: TEventResponse): ViewStyle =>
   response === "invited" ? { borderColor: accent, borderWidth: 1 } : {};
 
@@ -104,11 +91,8 @@ const SCROLL_TOP_PADDING = 12;
 /** Padding below the last hour (plus the bottom safe-area inset at runtime). */
 const SCROLL_BOTTOM_PADDING = 24;
 
-/**
- * Minutes from `date`'s midnight to the current moment. Inside `[0, 1440]` on
- * today, `>1440` on a past day, and negative on a future day — which is what
- * lets the same value drive the now-line position and the past-event flag.
- */
+/** Minutes from `date`'s midnight to now — in `[0, 1440]` today, `>1440` on a
+ * past day, negative on a future one — drives the now-line and past-event flag together. */
 const nowMinutesFromDayStart = (date: Temporal.PlainDate): number =>
   Temporal.Now.plainDateTimeISO()
     .since(date.toPlainDateTime(), { largestUnit: "minute" })
@@ -118,14 +102,8 @@ type TCalendarViewProps = {
   date: Temporal.PlainDate;
 };
 
-/**
- * The Today-tab Calendar surface: the day's events on a themed, scrollable
- * vertical timeline bounded by the user's configured start/end hours. All-day
- * events are pinned in a header above the scroll; timed events are laid out on
- * the timeline with overlaps split into side-by-side columns
- * (`utils/calendarLayout`). The event source is platform-specific (device
- * calendars on native, proxied `.ics` feeds on web) but this view is agnostic.
- */
+/** The Today-tab timeline: all-day events pinned above the scroll, timed
+ * events laid out with overlaps split into columns (`utils/calendarLayout`). */
 export function CalendarView({ date }: TCalendarViewProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -133,10 +111,8 @@ export function CalendarView({ date }: TCalendarViewProps) {
   const [events, { isLoading, isError, permissionDenied, notConfigured }] =
     useCalendarEvents(date);
 
-  // Minutes-from-midnight of "now" relative to the viewed day, refreshed on an
-  // interval so the now-line advances and events dim as they end. Seeded from
-  // the initializer — SwipeablePage remounts this view per date, so `date` is
-  // stable for the component's lifetime and needs no in-effect re-seed.
+  // Refreshed on an interval so the now-line advances and events dim as they
+  // end; `date` is stable per mount (SwipeablePage remounts per day).
   const [nowMinutes, setNowMinutes] = useState(() =>
     nowMinutesFromDayStart(date),
   );
@@ -148,9 +124,8 @@ export function CalendarView({ date }: TCalendarViewProps) {
     return () => clearInterval(id);
   }, [date]);
 
-  // Snapped to whole hours in `calendarWindow`, which the ritual's Calendar
-  // step reads too so its "Nh free" is measured against the very window drawn
-  // here.
+  // Snapped to whole hours in `calendarWindow`, which the Calendar step also
+  // reads so its "Nh free" measures against the same window drawn here.
   const {
     startHour,
     endHour,
@@ -193,12 +168,8 @@ export function CalendarView({ date }: TCalendarViewProps) {
     HOUR_HEIGHT,
   );
 
-  // Once the scroll viewport is measured, anchor the now line in its upper third
-  // so recent and upcoming meetings are in frame without manual scrolling. This
-  // view remounts per day (SwipeablePage on small screens, a date `key` on large
-  // ones), so a once-per-mount scroll on first layout covers both "view loads"
-  // and "day changed". Skip when there's no now line (any day but today). The
-  // ref guards repeat layouts (rotation, split-view resize) from re-scrolling.
+  // Anchors the now line in the upper third on first layout; the view remounts
+  // per day, so this covers both "view loads" and "day changed" once each.
   const scrollRef = useRef<ScrollView>(null);
   const didScrollToNowRef = useRef(false);
   const scrollToNow = (event: LayoutChangeEvent) => {
@@ -223,9 +194,8 @@ export function CalendarView({ date }: TCalendarViewProps) {
 
   const dividerColor = withOpacity(theme.colors.text, 0.25);
 
-  // Ordered most specific first. `notConfigured` sits ahead of the generic
-  // message because a user with no calendar source at all was being told their
-  // day was clear, which is a claim about a calendar we never read.
+  // Ordered most specific first — `notConfigured` ahead of the generic
+  // message, or "no calendar" was being told their day was clear.
   const emptyMessage = permissionDenied
     ? "Calendar access is off. Enable it in your system settings to see your events."
     : isError
@@ -238,28 +208,13 @@ export function CalendarView({ date }: TCalendarViewProps) {
     !isLoading && allDayEvents.length === 0 && positioned.length === 0;
 
   return (
-    // Laid out bottom-up so the timeline scroller is the *first* child in the
-    // view tree while the all-day bar still renders above it (DEX-136). UIKit
-    // picks a tab screen's content scroll view by walking first subviews, so a
-    // day that happens to have an all-day event used to hide the scroller
-    // behind a bar that has none. Costs no pixels — React Native mounts native
-    // subviews in JSX order whatever the flex direction is. See
-    // docs/frontend.md, "Safe areas and keyboard".
+    // Bottom-up so the scroller is the first child UIKit's minimize-walk
+    // finds (DEX-136) while the all-day bar still renders above it.
     <View style={styles.container}>
       <ScrollView
         ref={scrollRef}
-        // Rendered whatever the day holds, with the empty state inside it
-        // rather than in its place, for the same reason (DEX-136): the walk
-        // happens once, when the screen mounts, and a day with no events would
-        // otherwise leave nothing for the tab bar to minimize against.
-        //
-        // Keyed on which of the two it is holding, and only measuring for the
-        // timeline. `scrollToNow` fires once per mount and then latches, so
-        // letting the empty state's layout run it would burn that one shot on
-        // a scroll with nowhere to go — and a day whose events arrive on a
-        // later refetch would open at midnight rather than at now. The key
-        // restores the mount (and so the layout pass) that the empty state
-        // used to cost by replacing this view outright.
+        // Empty state renders inside this scroller (DEX-136); keyed so
+        // remounting doesn't burn scrollToNow's one shot for nothing.
         key={showEmpty ? "empty" : "timeline"}
         onLayout={showEmpty ? undefined : scrollToNow}
         contentContainerStyle={
@@ -267,9 +222,8 @@ export function CalendarView({ date }: TCalendarViewProps) {
             ? styles.emptyContent
             : [
                 styles.scrollContent,
-                // The host SafeAreaView omits the bottom edge (the native tab
-                // bar owns it), so add the inset here or the last hour hides
-                // behind it. The empty state reserves the same inset itself.
+                // Host SafeAreaView omits `bottom` (the tab bar owns it), so
+                // add the inset here or the last hour hides behind it.
                 { paddingBottom: SCROLL_BOTTOM_PADDING + insets.bottom },
               ]
         }
@@ -335,20 +289,15 @@ function HourRow({
   return (
     <View>
       <Text
-        // One line, always: the label is absolutely positioned and centered by
-        // half its own font size, so a wrap would both overlap the hour below
-        // and put the first line off the line it names. At `subtitle`'s 14 the
-        // widest label ("12 AM") nearly fills the 42pt gutter, so a modest
-        // system font scale is enough to wrap it.
+        // One line, always: the label is centered on its own line by half its
+        // font size, so a wrap would overlap the hour below.
         numberOfLines={1}
         style={[
           styles.hourLabel,
           theme.fonts.subtitle,
           {
-            // Centers the label on the line it names: `top` is the line, and
-            // half the label's own size lifts its middle onto it. Derived from
-            // the role rather than fixed, or the two drift apart the moment the
-            // density tier changes the size out from under it.
+            // Derived from the role, not fixed, or the two drift apart when
+            // the density tier changes the font size.
             top: top - Math.round(theme.fonts.subtitle.fontSize / 2),
             color: theme.colors.textSecondary,
           },
@@ -563,9 +512,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: GUTTER_INSET,
   },
-  // Zero-height row whose top edge sits exactly at "now"; alignItems center
-  // makes the dot and line straddle that line. Spans from just left of the
-  // gutter (for the dot) to the same right edge as the hour lines.
+  // Zero-height row at "now"; alignItems center makes the dot and line
+  // straddle it, spanning from left of the gutter to the hour lines' edge.
   nowLineRow: {
     alignItems: "center",
     flexDirection: "row",
@@ -600,9 +548,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     position: "absolute",
   },
-  // Full-opacity accent bar inset inside every event's rectangle. Its width and
-  // corner are decorative marks rather than points on the radius scale — see
-  // `docs/design.md`.
+  // Its width and corner are decorative marks, not points on the radius
+  // scale — see docs/design.md.
   accentBar: {
     borderRadius: 2,
     position: "absolute",

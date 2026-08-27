@@ -13,8 +13,7 @@ type TModalHeaderActionsOptions = {
 };
 
 /** Wires a modal-style header's Cancel/Save actions (native buttons + the
- * `unstable_header*Items` variants), shared by every create/edit form
- * (new-task, and the tasks/habits/lists settings screens). */
+ * unstable_header*Items variants), shared by every create/edit form. */
 export function useModalHeaderActions({
   title,
   canSave,

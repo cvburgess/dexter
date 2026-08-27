@@ -14,22 +14,13 @@ type TSearchResultCardProps = {
   content: string;
   /** The search query, whose terms get marked in the excerpt. */
   query: string;
-  /**
-   * Omitted for a result with nowhere to open — a journal entry while the
-   * journal is disabled (see `canOpenSearchResult`). The card still renders its
-   * excerpt; it just isn't a link, matching how `TaskCard` drops its `onPress`
-   * for a completed unscheduled task.
-   */
+  /** Omitted for a result with nowhere to open (canOpenSearchResult) — the
+   * card still renders, just isn't a link, like TaskCard's completed case. */
   onPress?: () => void;
 };
 
-/**
- * A note or journal search result (DEX-47): the day it belongs to, the journal
- * prompt when there is one, and an excerpt with the matching terms marked.
- *
- * Tasks don't use this — they render the real `TaskCard`, so a result looks the
- * same as it does in the day's list.
- */
+// A note or journal search result (DEX-47). Tasks don't use this — they
+// render the real TaskCard, so a result matches the day's list.
 export function SearchResultCard({
   date,
   prompt,

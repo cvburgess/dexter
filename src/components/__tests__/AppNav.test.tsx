@@ -10,15 +10,8 @@ import { NAV_RAIL_WIDTH } from "@/utils/breakpoints";
 
 const mockRouter = { navigate: jest.fn(), push: jest.fn() };
 const mockPathname = { current: "/today" };
-// `Link` is stubbed as a pressable that surfaces its `href` — the real one needs
-// a navigation container this unit test doesn't mount. Asserting on the rendered
-// href is the point: destinations are real anchors on web, not onPress handlers,
-// so cmd-click and "copy link address" work.
-// Stands in for the real `Link`'s `asChild` path, which renders a `Slot` that
-// clones its single child with the href. Mirroring that here (rather than
-// wrapping the child) is what lets the tests assert the href lands on the
-// pressable itself — the property that makes these real anchors on web, and
-// that keeps the tile a flex container so its icon stays centered.
+// `Link` stubbed as a pressable surfacing `href`, mirroring the real
+// asChild/Slot clone that makes destinations real anchors on web.
 jest.mock("expo-router", () => {
   const { cloneElement } = jest.requireActual<typeof import("react")>("react");
   return {
@@ -29,12 +22,8 @@ jest.mock("expo-router", () => {
       children: ReactElement<{ href?: string; style?: unknown }>;
       href: string;
     }) {
-      // The real `Slot` refuses an array style on its child — it can't merge one
-      // with the props it clones in, and logs an `[expo-router]` error instead
-      // of rendering. Enforcing that here is what makes the rest of this suite a
-      // regression guard: the dock shipped with an array style that nothing
-      // caught, because the dock only renders below `RAIL_MIN_WIDTH` and no
-      // test rendered the real `Link`.
+      // Real `Slot` refuses an array style on its child (logs, doesn't
+      // render) — the dock once shipped one uncaught because nothing rendered it.
       if (Array.isArray(children.props.style)) {
         throw new Error(
           "<Link asChild> needs a flattened style on its child, not an array — " +
@@ -182,9 +171,8 @@ describe("destination glyphs", () => {
   });
 });
 
-// The rail's own concern, not the dock's: on a tablet it owns the physical left
-// edge of the display with no stack header above it, so it has to clear the
-// status bar, the home indicator, and a landscape cutout itself (DEX-104).
+// The rail's own concern: it owns the physical left edge with no stack
+// header above it, so it clears the status bar/home indicator itself (DEX-104).
 describe("NavRail safe-area insets", () => {
   beforeEach(() => {
     jest.clearAllMocks();

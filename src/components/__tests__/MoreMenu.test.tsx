@@ -104,11 +104,8 @@ const optionById = (id: string) =>
     .flatMap((section) => section.options)
     .find((option) => option.id === id);
 
-// The untitled inline groups: the task actions (focus block, subtask) and Edit
-// task, then Duplicate / the template rows / Delete. That first group is
-// conditional at both ends — no subtask row where a task can't take one, no
-// focus row where one can't be started (DEX-49) — so it drops out entirely when
-// neither applies and the menu starts at Edit task.
+// The untitled inline groups: task actions, Edit task, then Duplicate/
+// template/Delete. The first drops entirely when neither subtask nor focus applies.
 const inlineOptionTitles = () =>
   renderedSections()
     .filter((section) => !section.isSubmenu)
@@ -156,9 +153,8 @@ describe("MoreMenu", () => {
     expect(allTitles).not.toContain("Unset alarm");
   });
 
-  // Edit task is the general case the shortcuts above it stand in for, so it
-  // closes the group rather than opening it. Asserted as a relationship rather
-  // than an index, so inserting another shortcut doesn't falsely fail.
+  // Asserted as a relationship, not an index, so a new shortcut doesn't
+  // falsely fail this.
   it("puts Edit task last in the edit group, below Add subtask", () => {
     renderMenu(makeTask(), { onAddSubtask: jest.fn() });
 
@@ -188,13 +184,8 @@ describe("MoreMenu", () => {
     ]);
   });
 
-  // The priority and schedule shortcuts through Edit task read as one unruled
-  // group; only the duplicate/repeat/delete actions are set apart. The Edit
-  // task row carries the flag too: `IconMenu.native` draws an unmarked plain
-  // section as its own separated inline group, which would rule it off from
-  // the shortcuts beside it. The group's *first* section is the exception —
-  // `hideDivider` means "continue the section above", and with nothing above it
-  // there is no rule to suppress either way.
+  // Priority through Edit task reads as one unruled group; only Duplicate/
+  // repeat/Delete is set apart. The group's first section is exempt.
   it("rules off only the final action group", () => {
     renderMenu(makeTask(), { onAddSubtask: jest.fn() });
 
@@ -222,9 +213,6 @@ describe("MoreMenu", () => {
       ).toEqual(["Go to link"]);
     });
 
-    // The rule is drawn *above* a section, so what sets the link apart is the
-    // shortcut group below it not suppressing its own — the same flag it
-    // carries without a link, where it simply has no effect.
     it("rules the link off from the shortcuts below it", () => {
       renderMenu(linked(), { onAddSubtask: jest.fn() });
 
@@ -284,9 +272,7 @@ describe("MoreMenu", () => {
     });
   });
 
-  // `IconMenu.native` flattens every section into one id -> option map and
-  // dispatches the system menu's press by id, so a duplicate silently routes one
-  // row's tap to another's handler.
+  // A duplicate id would silently route one row's tap to another's handler.
   it("gives every option a menu-wide unique id", () => {
     renderMenu(
       makeTask({
@@ -315,9 +301,7 @@ describe("MoreMenu", () => {
     ]);
   });
 
-  // A task that already belongs to a template has nothing to choose: offering
-  // "Save as template" here would let it be saved a second time, as an
-  // orphaned row.
+  // "Save as template" here would let it be saved a second time, orphaned.
   it("offers only 'Edit repeat schedule' when a scheduled template is linked", () => {
     mockGetTemplateById.mockReturnValue({
       id: "template-1",
@@ -350,9 +334,8 @@ describe("MoreMenu", () => {
     ]);
   });
 
-  // An unresolved lookup means the templates query hasn't landed, not that the
-  // row is scheduleless — the repeat wording is the safe fallback, and either
-  // way the item opens the same editor.
+  // Unresolved means the query hasn't landed, not scheduleless — repeat
+  // wording is the safe fallback.
   it("keeps the repeat wording while the linked template is still loading", () => {
     mockGetTemplateById.mockReturnValue(undefined);
 
@@ -372,13 +355,9 @@ describe("MoreMenu", () => {
 
     optionById("save-as-template")?.onSelect();
 
-    // Nothing is stored until the editor's ✓, so ✕ leaves no orphan row — and
-    // navigating synchronously means two of these in a row can't have the
-    // first's late callback push its editor over the second's.
     expect(mockCreateTemplate).not.toHaveBeenCalled();
-    // `withAnchor` brings the tasks stack's anchor — its list — along when this
-    // push first enters that navigator, so the modal has something to render
-    // over and close back to rather than an empty black pane.
+    // withAnchor brings the tasks stack's list along on first entry, so the
+    // modal has something to render over rather than an empty pane.
     expect(mockPush).toHaveBeenCalledWith(
       {
         pathname: "/settings/tasks/[id]",
@@ -451,9 +430,8 @@ describe("MoreMenu", () => {
       expect(mockStartFocusBlock).not.toHaveBeenCalled();
     });
 
-    // The row is absent rather than offering "Start": starting here would have
-    // to silently cancel a block the user may be twenty minutes into, and this
-    // menu has no way to render a confirmation.
+    // Absent, not "Start" — starting here would silently cancel a block the
+    // user may be twenty minutes into.
     it("offers nothing while a different task's block is running", () => {
       mockLiveFocusBlock = { id: "block-1", taskId: "another-task" };
       renderMenu(makeTask({ id: "task-9" }));
@@ -574,9 +552,8 @@ describe("getTaskActionSections", () => {
     expect(onAddSubtask).toHaveBeenCalledTimes(1);
   });
 
-  // Both are task-level actions, so they share one group rather than drawing a
-  // divider between them — and the focus row leads, being the one that starts
-  // something rather than editing the card.
+  // Both are task-level actions sharing one group, no divider — focus leads
+  // since it starts something rather than editing the card.
   it("puts the focus block above the subtask action in the same group", () => {
     const sections = getTaskActionSections(jest.fn(), {
       title: "Start focus block",

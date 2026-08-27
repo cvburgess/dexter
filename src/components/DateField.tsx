@@ -2,11 +2,8 @@ import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 
 import { TDateFieldProps } from "./DateField.types";
 
-/**
- * Android/web implementation of the date field (also what `tsc` resolves —
- * Metro picks `DateField.ios.tsx` on iOS). The community `DateTimePicker`
- * sizes itself fine on these platforms.
- */
+/** Android/web date field — the community `DateTimePicker` sizes fine there;
+ * also what `tsc` resolves (Metro picks `.ios.tsx` on iOS). */
 export function DateField({
   accentColor,
   onChange,

@@ -1,8 +1,5 @@
-/**
- * Native implementation (no-op). On native platforms the modal header is
- * handled by the Stack navigator; see `WebModalHeader.web.tsx` for the web
- * implementation.
- */
+// Native no-op — the Stack navigator handles the modal header there;
+// see WebModalHeader.web.tsx.
 export type TWebModalHeaderProps = {
   isDisabled?: boolean;
   onClose: () => void;

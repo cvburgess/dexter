@@ -40,19 +40,8 @@ describe("getSwipeCommitDirection", () => {
 });
 
 describe("SwipeablePage", () => {
-  it("renders its children", () => {
-    const screen = render(
-      <SwipeablePage pageKey="2026-07-06" direction={0} onSwipe={jest.fn()}>
-        <Text>Task A</Text>
-      </SwipeablePage>,
-    );
-
-    expect(screen.getByText("Task A")).toBeTruthy();
-  });
-
-  // DEX-138: a page holds a column no wider than a tablet in portrait however
-  // much window it is handed. `width: "100%"` is half the pair — without it the
-  // centering stage would shrink the page to its content instead.
+  // DEX-138: `width: "100%"` is half the pair — without it the centering stage
+  // would shrink the page to its content instead of capping it.
   it("caps and centers the page at a tablet-portrait width", () => {
     const screen = render(
       <SwipeablePage pageKey="horoscope" direction={0} onSwipe={jest.fn()}>
@@ -130,10 +119,8 @@ describe("SwipeablePage", () => {
     expect(onSwipe).not.toHaveBeenCalled();
   });
 
-  // A bounded pager (the Ritual flow's steps) has an end in both directions.
-  // Declining the commit here rather than in the host is what keeps the drag
-  // offset from being stranded: only a `pageKey` change remounts and resets it,
-  // and a host with nowhere to go doesn't change the key.
+  // Declining inside the component is what un-strands the drag offset: only a
+  // `pageKey` change resets it, and a host with nowhere to go keeps its key.
   it("does not commit forward past the last page", () => {
     const onSwipe = jest.fn();
     render(

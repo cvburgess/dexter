@@ -24,33 +24,17 @@ type TWeekViewProps = {
   /** The Monday of the week on screen. */
   monday: Temporal.PlainDate;
   onChangeWeek: (monday: Temporal.PlainDate) => void;
-  /**
-   * The day the backlog's per-row "+" schedules onto — today when it falls
-   * inside this week, otherwise the week's Monday. The route picks it and also
-   * publishes it as the viewed day, so the nav rail's "+" agrees; see
-   * `week/index.tsx`.
-   */
+  /** The day the backlog's "+" schedules onto — today when inside this week,
+   * else the week's Monday; see week/index.tsx. */
   targetDate: Temporal.PlainDate;
   enableHabits: boolean;
-  /**
-   * The real calendar day, passed down rather than read from the clock here so
-   * this and `targetDate` are always derived from the same instant — reading it
-   * separately let an app left open across midnight move the today chip while
-   * still scheduling onto yesterday. `Temporal.Now.plainDateISO()` re-resolves
-   * the system time zone on every call, so sharing one read is also the
-   * cheaper arrangement.
-   */
+  /** Passed down, not read from the clock, so this and `targetDate` share one
+   * instant — reading separately let them disagree across a midnight rollover. */
   today: Temporal.PlainDate;
 };
 
-/**
- * The Week tab's large-screen layout (DEX-96): week navigation over seven day
- * columns, with an optional docked backlog — the legacy dexter-app's Week view,
- * including its drag-to-reschedule (DEX-77).
- *
- * The header row is `LargeScreenHeader`, shared with `LargeScreenToday`, so
- * switching tabs doesn't shift the nav row.
- */
+// The Week tab's large-screen layout (DEX-96): nav over seven columns with an
+// optional docked backlog, including drag-to-reschedule (DEX-77).
 export function WeekView({
   monday,
   onChangeWeek,
@@ -59,45 +43,22 @@ export function WeekView({
   today,
 }: TWeekViewProps) {
   const theme = useTheme();
-  // Local rather than `useTodayPanes`: sharing the `drawer` pane would mean
-  // opening the backlog here also opened it on Today, and the legacy view
-  // didn't persist its Quick Planner toggle either.
+  // Local, not `useTodayPanes` — sharing the pane would open the backlog on
+  // Today too.
   const [showDrawer, setShowDrawer] = useState(false);
 
-  // Memoized because `date` identity propagates: `DayTaskList` memoizes its
-  // per-day filter on it, and `HabitTracker`'s row-bootstrapping effect lists
-  // it as a dependency — a fresh array each render would re-filter seven task
-  // lists and re-fire that write effect on every unrelated re-render.
+  // Memoized because `date` identity propagates into per-day filters and
+  // HabitTracker's bootstrap effect deps — a fresh array re-fires both.
   const days = useMemo(() => weekDays(monday), [monday]);
   const todayIndex = days.findIndex((day) => day.equals(today));
 
   const scrollRef = useRef<ScrollView>(null);
-  // Guards the anchor so it runs once: `onLayout` fires again on any re-layout
-  // (opening the backlog pane, a device rotation), and re-scrolling then would
-  // yank the user back to today after they had scrolled elsewhere. Keyed on the
-  // week rather than a bare boolean only so the guard reads as "this week is
-  // anchored" — paging weeks doesn't change the scroller's own layout, so it
-  // doesn't re-fire `onLayout` and the horizontal offset is deliberately left
-  // where the user put it. Same shape as `CalendarView`'s `didScrollToNowRef`.
+  // Guards against onLayout re-firing on any re-layout, which would yank the
+  // user back to today. Keyed on the week so paging weeks stays put.
   const anchoredWeek = useRef<string | null>(null);
 
-  // Derived from the layout contract rather than measured, so this needs only
-  // the scroller's own `onLayout` — no coordination with a child's layout or
-  // with `onContentSizeChange`, either of which could land first and strand
-  // the anchor. Whenever the week overflows (the only case where scrolling
-  // exists) every column sits at exactly its minimum, since that is what
-  // stopped them shrinking; when it doesn't overflow, this underestimates the
-  // content and `scrollOffsetForTarget` clamps to 0 — which is the right
-  // answer there anyway.
-  // The *entire* space between two columns: the columns themselves run flush
-  // (see `WeekDayColumn`), so nothing stacks on top of this the way two 16pt
-  // gutters used to. Matches the row's own `paddingHorizontal`, so the space
-  // between columns equals the space outside the first and last — the grid
-  // reads as evenly spaced rather than edge-heavy. Load-bearing beyond
-  // spacing: the anchor math below derives the column pitch from it, so the
-  // two must move together or today scrolls to the wrong offset. Both read
-  // `space.md`, so that agreement is structural rather than two literals that
-  // happen to match.
+  // Derived from the layout contract, not measured. Also feeds the anchor
+  // math below, so this and the row's paddingHorizontal must move together.
   const columnGap = theme.space.md;
   const columnPitch = WEEK_COLUMN_MIN_WIDTH + columnGap;
   const minContentWidth = 7 * WEEK_COLUMN_MIN_WIDTH + 6 * columnGap;
@@ -136,9 +97,7 @@ export function WeekView({
       >
         <WeekNav monday={monday} onChangeWeek={onChangeWeek} />
       </LargeScreenHeader>
-      {/* Drag a card from one day onto another to reschedule it, or from the
-          backlog onto a day to schedule it — the whole point of having the week
-          on screen at once (DEX-77). */}
+      {/* Drag a card between days, or to/from the backlog (DEX-77). */}
       <DragScheduleProvider>
         <View
           style={[
@@ -150,41 +109,26 @@ export function WeekView({
             },
           ]}
         >
-          {/* A `DraxScrollView`, not a plain one, and that is load-bearing:
-              drax hit-tests a drop against measurements taken at layout time,
-              correcting each one by the scroll offset of its nearest *drax*
-              scroll container. A plain ScrollView registers no such offset and
-              scrolling fires no layout, so the moment the user scrolled the
-              week sideways every column's hit box would be stale by exactly the
-              distance scrolled and drops would land on the wrong day. It also
-              brings the edge auto-scroll that makes an off-screen day reachable
-              mid-drag. Every prop below is passed straight through to the
-              ScrollView it wraps. */}
+          {/* DraxScrollView, not plain: drax corrects hit-test offsets by
+              scroll position, and a plain ScrollView registers none. */}
           <DraxScrollView
             horizontal
             onLayout={(event: LayoutChangeEvent) =>
               anchorToday(event.nativeEvent.layout.width)
             }
             ref={scrollRef}
-            // Drax defaults this to 8, and it needs the offset only to correct
-            // hit boxes — one frame's worth of lag is imperceptible in a drop
-            // test, so halve the JS callbacks a horizontal scroll costs. The
-            // plain ScrollView this replaced had no `onScroll` at all.
+            // Halves drax's default JS callback rate — one frame's lag is
+            // imperceptible for hit-box correction.
             scrollEventThrottle={16}
             showsHorizontalScrollIndicator={false}
             style={styles.weekScroll}
-            // `flexGrow: 1` is what lets the seven columns divide the full width
-            // when they all fit; without it the row shrinks to its content and
-            // the columns sit at their minimum against a gap of empty space.
+            // Lets the seven columns divide the full width when they fit;
+            // without it the row shrinks to content, columns at minimum.
             contentContainerStyle={[styles.weekRow, { gap: columnGap }]}
           >
             {days.map((day, index) => (
-              // The drop target is the whole column, not its task list: the
-              // column is `flex: 1` and full height whatever it contains, which
-              // is what makes an *empty* day droppable — `WeekDayColumn` passes
-              // `emptyMessage={null}`, so an empty one renders nothing at all.
-              // Outlining the column also reads as "this day", which is the
-              // thing being chosen.
+              // The drop target is the whole column, full-height regardless
+              // of content — what makes an empty day droppable.
               <TaskDropTarget
                 key={day.toString()}
                 scheduledFor={day.toString()}
@@ -226,9 +170,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  // Gutter from `space.md`, the same token `LargeScreenHeader` above and
-  // `columnGap` below read — which is what lets the anchor math derive the
-  // column pitch and the grid read as evenly spaced rather than edge-heavy.
+  // Gutter from `space.md`, shared with `columnGap` so the anchor math and
+  // the grid's spacing can't drift apart.
   body: {
     flex: 1,
     flexDirection: "row",
@@ -239,9 +182,8 @@ const styles = StyleSheet.create({
   weekRow: {
     flexGrow: 1,
   },
-  // The columns flex to share the row and stop shrinking at the minimum, at
-  // which point the row scrolls sideways instead of squeezing TaskCard past
-  // the width its controls need.
+  // Stops shrinking at the minimum, then scrolls sideways instead of
+  // squeezing TaskCard past the width its controls need.
   column: {
     flex: 1,
     minWidth: WEEK_COLUMN_MIN_WIDTH,

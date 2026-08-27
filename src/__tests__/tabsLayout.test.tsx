@@ -3,14 +3,8 @@ import type { ReactNode } from "react";
 
 import TabsLayout from "@/app/(app)/(tabs)/_layout";
 
-// `IS_TABLET` is a module-scope constant (utils/deviceType.ts), not a hook, so
-// there is nothing to mock per render. A getter defers the read to render time:
-// the factory is hoisted above the imports and runs while the module graph is
-// still initialising, so it must not touch `mockIsTablet` (still in its TDZ) —
-// returning a plain object with a getter does exactly that. Babel compiles
-// `import { IS_TABLET }` to a property access at each use site to preserve live
-// bindings, so every render re-reads it. The `mock` name prefix is what
-// babel-plugin-jest-hoist allows through its out-of-scope check.
+// `IS_TABLET` is a module-scope constant, not a hook — a getter defers the
+// read to render time so it never touches `mockIsTablet` while still in TDZ.
 let mockIsTablet = false;
 jest.mock("@/utils/deviceType", () => ({
   get IS_TABLET() {
@@ -18,9 +12,8 @@ jest.mock("@/utils/deviceType", () => ({
   },
 }));
 
-// NativeTabs renders a real platform tab bar through react-native-screens,
-// which this unit test doesn't mount. Stub the pieces to markers so the only
-// thing exercised is which triggers the layout declares.
+// NativeTabs renders a real platform tab bar this unit test doesn't mount;
+// stub to markers so only which triggers the layout declares is exercised.
 jest.mock("expo-router/unstable-native-tabs", () => {
   const { Text } =
     jest.requireActual<typeof import("react-native")>("react-native");
@@ -52,9 +45,8 @@ jest.mock("@/components/AppShell", () => {
   };
 });
 
-// The accessory's own branch (timer vs. "＋ New Task") is its own component's
-// concern; here it only has to not drag expo-router's untransformed navigation
-// internals into this suite.
+// The accessory's own branch is its own component's concern; here it only has
+// to not drag expo-router's untransformed navigation internals into this suite.
 jest.mock("@/components/TabBarAccessory", () => ({
   TabBarAccessory: function TabBarAccessory() {
     return null;
@@ -64,9 +56,8 @@ jest.mock("@/components/TabBarAccessory", () => ({
 describe("TabsLayout", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Phones are the default here and under jest generally: unmocked,
-    // `Platform.isPad` is undefined, so `IS_TABLET` is false everywhere else in
-    // the suite too.
+    // Phones are the default under jest: unmocked, `Platform.isPad` is
+    // undefined, so `IS_TABLET` is false everywhere else too.
     mockIsTablet = false;
   });
 
@@ -85,12 +76,8 @@ describe("TabsLayout", () => {
       ]);
     });
 
-    // DEX-96 + DEX-104: seven day columns don't fit a phone, and a phone is now
-    // the only thing that reaches this branch — so Week is absent
-    // unconditionally rather than gated on window width. That is what keeps the
-    // trigger set (and therefore the registered routes, via
-    // `useOnlyUserDefinedScreens`) from depending on a value that can change
-    // mid-session.
+    // DEX-96 + DEX-104: seven columns don't fit a phone, so Week is absent
+    // unconditionally rather than gated on window width, which can change mid-session.
     it("never offers the Week tab, at any width", () => {
       const screen = render(<TabsLayout />);
 

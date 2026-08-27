@@ -248,10 +248,8 @@ describe("RepeatScheduleScreen", () => {
       );
     });
 
-    // A task that is already an occurrence of another repeat is not free to be
-    // linked: re-pointing its `template_id` would leave that schedule with no
-    // task to fire from, silently killing it. `useTemplates` seeds the new row
-    // its own first occurrence instead.
+    // Already linked to another repeat: re-pointing `template_id` would leave
+    // that schedule with no task to fire from, silently killing it.
     it("does not offer a task that already belongs to a repeat", () => {
       renderDraftFrom(
         { ...seedTask, templateId: "template-9" },
@@ -270,9 +268,8 @@ describe("RepeatScheduleScreen", () => {
   });
 
   describe("closing", () => {
-    // Popping, not navigating: the list is already underneath (the tasks stack
-    // anchors it), and replacing it instead would collapse what sits under
-    // *that*, leaving Tasks as the root of the settings tab with no back button.
+    // Popping, not navigating: replacing would collapse what sits under the
+    // already-anchored list, leaving Tasks as settings' root with no back button.
     it("pops back to the template list after saving", () => {
       mockUpdateTemplate.mockImplementation((_diff, { onSuccess }) =>
         onSuccess(),
@@ -310,9 +307,8 @@ describe("RepeatScheduleScreen", () => {
       expect(mockRouter.replace).toHaveBeenCalledWith("/settings/tasks");
     });
 
-    // The form owns the only header on web, and it doesn't render until the
-    // template resolves — so before DEX-101 the wait was a bare spinner with no
-    // way out but the backdrop (DEX-101).
+    // The form owns the only header on web and doesn't render until the
+    // template resolves; before DEX-101 the wait had no way out but the backdrop.
     describe("while the template is still loading", () => {
       beforeEach(() => {
         mockParams.current = { id: "template-1" };
@@ -403,9 +399,8 @@ describe("RepeatScheduleScreen", () => {
     expect(mockPickers["Month"]).toBeUndefined();
   });
 
-  // Setting Repeats to Never is what stops a repeat while keeping the template,
-  // so the only destructive action left is deleting the row — and it reads the
-  // same either way rather than masquerading as "Stop Repeating".
+  // Never keeps the template while stopping the repeat, so deleting the row is
+  // the only destructive action — never "Stop Repeating".
   it("offers one Delete Template action whether or not the row has a schedule", () => {
     const template = renderWith(makeTemplate({ schedule: null }));
     expect(template.getByText("Delete Template")).toBeTruthy();
@@ -427,10 +422,8 @@ describe("RepeatScheduleScreen", () => {
     expect(headerOptions().title).toBe("Template");
   });
 
-  // Both bail-outs used to read `isLoading ? spinner : <Redirect />`, which
-  // treats a failed fetch as a deleted row — `isLoading` is `false` in both
-  // cases, so an offline open silently threw the user back to the list
-  // (DEX-100).
+  // `isLoading ? spinner : <Redirect />` treated a failed fetch as a deleted
+  // row — both are `isLoading: false`, so offline silently bounced to the list.
   describe("when the record can't be resolved", () => {
     it("waits for the template fetch rather than closing", () => {
       mockParams.current = { id: "template-1" };
@@ -439,9 +432,8 @@ describe("RepeatScheduleScreen", () => {
 
       expect(mockRouter.back).not.toHaveBeenCalled();
       expect(mockRouter.replace).not.toHaveBeenCalled();
-      // The spinner, not the form and not the error state. This used to assert
-      // no header was wired at all, which DEX-101 inverted — the loading branch
-      // now carries one so ✕ exists — so discriminate on the body instead.
+      // The spinner, not the form or error state — DEX-101 gave the loading
+      // branch its own header, so discriminate on the body instead.
       expect(screen.queryByTestId("modal-error-retry")).toBeNull();
       expect(mockPickers["Repeats"]).toBeUndefined();
     });

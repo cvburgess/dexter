@@ -20,9 +20,8 @@ describe("habitFilters.activeForDay", () => {
   });
 });
 
-// Bootstrapping writes rows, so it is bounded in both directions (DEX-162):
-// future days have none by design, and inventing them for a long-past day would
-// persist history that never happened.
+// Bootstrapping writes rows, so it's bounded both ways (DEX-162) — future
+// days have none by design, and a long-past day would invent false history.
 describe("canBootstrapDailyHabits", () => {
   const today = Temporal.PlainDate.from("2026-08-14");
   const canBootstrap = (date: string) =>

@@ -12,10 +12,8 @@ import { WebOverlay } from "./WebOverlay.web";
 const POPOVER_WIDTH = 280;
 const VIEWPORT_MARGIN = 8;
 
-// react-native-web renders `<Text>` (the non-today day labels) with its "System"
-// font token, which expands to this stack. A raw `<button>` and react-day-picker
-// default to their own UA fonts, so set this explicitly to match the rest of the
-// app. (Kept in sync with RNW's SYSTEM_FONT_STACK.)
+// Matches RNW's "System" font token (kept in sync with SYSTEM_FONT_STACK) —
+// a raw <button>/react-day-picker default to their own UA fonts otherwise.
 const SYSTEM_FONT =
   '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 
@@ -34,23 +32,8 @@ const anchorFrom = (rect: DOMRect): TAnchor => {
   };
 };
 
-/**
- * Web implementation of the date field. The community `DateTimePicker` renders
- * nothing on web and the browser's native `input[type="date"]` can't match our
- * label styling, so — following the legacy dexter-app's `ButtonWithPopover` —
- * web renders the date as a plain button that opens a themed `react-day-picker`
- * calendar. The trigger uses the same `"Weekday, Mon D"` format as the rest of
- * the app, and the calendar is themed from `useTheme` (daisyUI tokens in the
- * legacy app map to our theme colors here).
- *
- * The calendar goes through `components/WebOverlay.web.tsx`, which portals it to
- * `document.body` and positions it `fixed`: the Today screen's task list (a
- * `react-native-reanimated` transformed subtree) and the new-task `ScrollView`
- * both create stacking/clipping contexts that would otherwise paint over or clip
- * an in-tree popover. The overlay is also what keeps the popover clickable when
- * the field is inside a modal screen — see its docstring for the inherited
- * `pointer-events` problem that reaching for a raw portal here reintroduces.
- */
+/** A plain button opens a themed `react-day-picker` — the community
+ * `DateTimePicker` renders nothing here. Goes through `WebOverlay.web.tsx`. */
 export function DateField({
   accentColor,
   onChange,
@@ -122,9 +105,8 @@ export function DateField({
           }}
           showOutsideDays
           weekStartsOn={1}
-          // Theme react-day-picker's native styling via CSS variables (accent
-          // drives the selected day's circular ring and today's color) rather
-          // than overriding the day shape ourselves — keeps the native circle.
+          // CSS variables theme react-day-picker's native styling — keeps
+          // the native circle rather than overriding the day shape.
           style={calendarVars}
         />
       </div>

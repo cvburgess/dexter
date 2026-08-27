@@ -13,15 +13,8 @@ import { Database, TablesInsert, TablesUpdate } from "@/types/database.types";
 import { applyFilters, TQueryFilter } from "./applyFilters";
 
 /**
- * A subtask is a lightweight checklist item stored inside its parent's
- * `subtasks` jsonb array — never its own row. Ids are minted client-side and
- * are only unique within the array. See `docs/features.md` (Tasks → Subtasks)
- * for the model and its accepted last-write-wins tradeoff.
- *
- * Complete or incomplete, and nothing else (DEX-153). The field is `done` rather
- * than `isComplete` deliberately: `changeCase` converts keys `deep: true`, so a
- * two-word key would be stored `is_complete` by the app while the MCP server —
- * which writes this array as raw jsonb — would store `isComplete`.
+ * Lives in the parent's `subtasks` jsonb, never its own row (docs/features.md).
+ * One-word `done` (DEX-153): `changeCase` deep-converts keys, raw MCP jsonb doesn't.
  */
 export type TSubtask = {
   id: string;
@@ -45,9 +38,8 @@ export type TTask = {
   url: string | null;
 };
 
-// Re-exported so `@/api/tasks` stays the one import site for task types, but the
-// enums themselves live in import-free leaf modules that the Deno MCP server can
-// also load — this file can't be, since it pulls in `@supabase/supabase-js`.
+// Re-exported so `@/api/tasks` stays the one import site; the enums live in
+// import-free leaf modules the Deno MCP server can also load — this file can't be.
 export { ETaskPriority, ETaskStatus };
 
 export const getTasks = async (
@@ -66,19 +58,8 @@ export const getTasks = async (
 };
 
 /**
- * Guarantees `subtasks` is an array of `{id, title, done}`. The row shape is an
- * unchecked cast, and the app and the database deploy independently — a bundle
- * that reaches users before the migration runs gets rows with no `subtasks`
- * column at all, and every consumer here dereferences it without guarding.
- * Mirrors the `alarmTime` `== null` handling in `TaskCard` (DEX-48).
- *
- * It also fills `done` from a legacy `status` (DEX-153). The backfill migration
- * converts what is stored, but the reverse skew is the one that outlives it: an
- * app bundle predating this change keeps writing `status` until its user
- * updates. Coerce, never reject — the terminal statuses map to `done`.
- *
- * Exported for `api/search.ts`, whose task results come back as jsonb from the
- * `search_entries` RPC rather than through `getTasks` — same rows, same guard.
+ * The row cast is unchecked and old bundles see rows with no `subtasks` column
+ * (DEX-48) or legacy `status` items — coerce, never reject (DEX-153).
  */
 export const withSubtasksArray = <T extends { subtasks?: TSubtask[] }>(
   row: T,
@@ -88,18 +69,8 @@ export const withSubtasksArray = <T extends { subtasks?: TSubtask[] }>(
     : { ...row, subtasks: [] };
 
 /**
- * One stored item, given a `done`. Reads the legacy `status` through
- * `isCompletionStatus` so "terminal" means the same thing it does everywhere
- * else, rather than a second list of which statuses count as finished.
- *
- * **A `status` present at all wins over a `done` beside it.** Nothing written
- * since DEX-153 emits one — this strips it, and no other write path adds it —
- * so its presence identifies a pre-DEX-153 writer. Those clients build their
- * write by spreading the item they read, which *post*-backfill already carries
- * `done`, so they emit both: a fresh `status` and the stale `done` they never
- * touched. Preferring `done` there would drop the user's action and could leave
- * an unchecked checklist under a closed parent — the one state the sweep exists
- * to prevent.
+ * A `status` present at all marks a pre-DEX-153 writer and wins over the stale
+ * `done` spread beside it — preferring `done` would drop the user's action.
  */
 const withDone = (subtask: TSubtask): TSubtask => {
   const legacy = subtask as TSubtask & { status?: ETaskStatus };
@@ -131,11 +102,8 @@ export type TCreateTask = {
 };
 
 /**
- * Builds the `createTask` input for duplicating an existing task: copies every
- * copyable field (including `status`) and omits the DB-generated `id`. The
- * `templateId` is intentionally dropped — a duplicate is an independent one-off
- * task, so only the original drives its repeat schedule (DEX-21). Subtasks are
- * copied with fresh ids so the two checklists can diverge.
+ * `templateId` is deliberately dropped — a duplicate is an independent one-off,
+ * so only the original drives its repeat (DEX-21). Subtasks get fresh ids.
  */
 export const duplicateTaskInput = (task: TTask): TCreateTask => ({
   title: task.title,
@@ -151,21 +119,8 @@ export const duplicateTaskInput = (task: TTask): TCreateTask => ({
 });
 
 /**
- * Builds the `createTask` input for promoting a subtask into a real task. The
- * new task inherits the parent's *context* — where it lives, when it's due, and
- * what it links to — but not its `alarmTime`: an alarm is a deliberate per-task
- * commitment, and silently cloning it onto a checklist item would ring an alarm
- * the user never set. That side effect is what sets `alarmTime` apart; a link
- * just sits there, so it travels with the rest of the context. The subtask keeps
- * its own title.
- *
- * This is the one place the two-state checklist meets the five-state task
- * (DEX-153): a checked subtask becomes a `DONE` task, an unchecked one a `TODO`.
- * The three other statuses are a task's to acquire — promotion is the moment an
- * item earns them, so it can't have arrived carrying one.
- *
- * Promotion is two non-atomic writes (create the task, then update the parent
- * minus the element); a crash between them leaves a duplicate, not data loss.
+ * Never inherits the alarm — cloning one would ring an alarm the user never set.
+ * The two writes aren't atomic; a crash leaves a duplicate, not loss (DEX-153).
  */
 export const promoteSubtaskInput = (
   parent: TTask,
@@ -182,11 +137,7 @@ export const promoteSubtaskInput = (
   url: parent.url,
 });
 
-/**
- * The array with one subtask removed — the second half of promotion, and the
- * delete action. Array-in/array-out like its siblings, so callers holding a
- * pending draft array (not a stored `TTask`) can use it too.
- */
+/** Array-in/array-out so callers holding a pending draft array can use it too. */
 export const removeSubtask = (
   subtasks: TSubtask[],
   subtaskId: string,
@@ -254,14 +205,8 @@ export const updateTasks = async (
 };
 
 /**
- * Whether an *open* task links to this template — the one predicate behind "can
- * this repeat still fire?". Recurrence spawns from *completing* a linked task,
- * so only a todo/in-progress one can ever fire it; since a template's link now
- * records provenance for stamped tasks too, its links may all be long since
- * checked off, which leaves the repeat stalled rather than live.
- *
- * Any age, so this still deliberately bypasses the canonical query's
- * recent-window filter: an occurrence scheduled a year out counts.
+ * Recurrence fires on *completing* an open linked task, and links also record
+ * provenance — all-closed means stalled. No recent-window filter: any age counts.
  */
 export const hasOpenTaskForTemplate = async (
   supabase: SupabaseClient<Database>,

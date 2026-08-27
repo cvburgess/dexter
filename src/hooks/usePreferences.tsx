@@ -44,10 +44,8 @@ const defaultPreferences: TPreferences = {
   themeMode: EThemeMode.SYSTEM,
 };
 
-/** Exported so a mutation can `ensureQueryData` the saved row on demand —
- * `useFocusBlocks` needs the focus block length at the moment a block starts,
- * and adding an observer to every task card's menu just to read it would
- * re-render the whole list on any unrelated preference edit. */
+/** Exported so `useFocusBlocks` can `ensureQueryData` the block length at
+ * start time, instead of an observer on every task card re-rendering the list. */
 export const preferencesQueryOptions = queryOptions({
   placeholderData: defaultPreferences,
   queryKey: ["preferences"],
@@ -73,16 +71,13 @@ export const usePreferences = (options?: THookOptions): TUsePreferences => {
 
   const { data } = useQuery({
     ...preferencesQueryOptions,
-    // Gate on `userId` so unauthenticated screens (e.g. login, which still call
-    // `useTheme` → `ThemeProvider`) don't fire a preferences query that RLS
-    // would reject.
+    // Unauthenticated screens (login → useTheme → ThemeProvider) still call
+    // this; gate on userId so they don't fire a query RLS would reject.
     enabled: !!userId && !options?.skipQuery,
   });
 
-  // Ignore any cached row when signed out — the `["preferences"]` cache isn't
-  // always cleared on session loss (only the Log Out button clears it), so a
-  // stale row could otherwise leak the previous account's theme onto the login
-  // screen instead of the OS-driven `defaultPreferences`.
+  // Ignore any cached row when signed out — only Log Out clears the cache, so
+  // a stale row could leak the previous account's theme onto the login screen.
   const preferences = userId
     ? (data ?? defaultPreferences)
     : defaultPreferences;
@@ -97,9 +92,7 @@ export const usePreferences = (options?: THookOptions): TUsePreferences => {
       if (!userId) throw new Error("Cannot update preferences without a user");
       return updatePreferences(supabase, { userId, ...diff });
     },
-    // Optimistically write the change into the cache so the app re-themes
-    // immediately instead of waiting for the round-trip + refetch; roll back if
-    // the save fails.
+    // Write optimistically so the app re-themes immediately; roll back on error.
     onMutate: async (diff) => {
       await queryClient.cancelQueries({ queryKey: ["preferences"] });
       const previous = queryClient.getQueryData<TPreferences>(["preferences"]);
@@ -122,18 +115,8 @@ export const usePreferences = (options?: THookOptions): TUsePreferences => {
   return [preferences, { updatePreferences: update }];
 };
 
-/**
- * Just the sun sign, for the Horoscope ritual step (DEX-128). Separate from
- * `usePreferences` for the same two reasons `useAlarmSoundPreference` is.
- *
- * `isLoading` is the load-bearing half. `defaultPreferences` carries
- * `sunSign: null` as placeholder data, and `null` is a *meaningful* value here —
- * it renders the "pick your sign" prompt and its button. Reading the
- * placeholder would flash that prompt at every user who already has a sign, on
- * every cold open, before flipping to their horoscope. And `select` narrows the
- * subscription, so a step that is on screen for the length of a ritual doesn't
- * re-render on an unrelated preference edit.
- */
+/** Just the sun sign, for the Horoscope step (DEX-128). `null` is meaningful
+ * placeholder data — without `isLoading`, every user flashes "pick your sign". */
 export const useSunSignPreference = (): {
   sunSign: TSunSign | null;
   isLoading: boolean;
@@ -148,24 +131,14 @@ export const useSunSignPreference = (): {
 
   return {
     sunSign: data ?? null,
-    // Paired with `userId` because a *disabled* query never leaves `pending`
-    // and so reports `isPlaceholderData` forever — see
-    // `useAlarmSoundPreference`, which pairs them for the same reason.
+    // Paired with userId: a *disabled* query never leaves `pending`, so
+    // isPlaceholderData alone would report "loading" forever when signed out.
     isLoading: !!userId && isPlaceholderData,
   };
 };
 
-/**
- * Just the three fields `resolveTheme` reads, for `useWidgetSync` (DEX-83).
- * Separate from `usePreferences` for the same two reasons
- * `useAlarmSoundPreference` is — and returned as flat primitives rather than a
- * settings object so an effect can depend on them without re-firing on a `select`
- * that rebuilt an equal object.
- *
- * `isLoading` earns its place the same way: publishing the placeholder would
- * paint every widget in the default `dexter`/`dark` palettes and then spend a
- * second reload repainting them once the saved row lands.
- */
+/** The three fields `resolveTheme` reads, for `useWidgetSync` (DEX-83) — flat
+ * primitives so an effect doesn't re-fire on an equal rebuilt object. */
 export const useThemePreferences = (): {
   themeMode: EThemeMode;
   lightTheme: string;
@@ -188,22 +161,14 @@ export const useThemePreferences = (): {
     themeMode: data?.themeMode ?? defaultPreferences.themeMode,
     lightTheme: data?.lightTheme ?? defaultPreferences.lightTheme,
     darkTheme: data?.darkTheme ?? defaultPreferences.darkTheme,
-    // Paired with `userId` for the reason spelled out in
-    // `useAlarmSoundPreference`: a disabled query never leaves `pending`, so
-    // `isPlaceholderData` alone would report "still loading" forever when
-    // signed out and the sign-out clear would never run.
+    // Publishing the placeholder would paint every widget default then spend a
+    // second reload repainting once the saved row lands.
     isLoading: !!userId && isPlaceholderData,
   };
 };
 
-/**
- * Just the alarm sound, for `useAlarmSync` (DEX-72). Separate from
- * `usePreferences` for two reasons: `isLoading` matters here and nowhere else —
- * scheduling on the placeholder would ring every alarm with the default sound
- * and then re-schedule the lot once the saved row lands — and `select` narrows
- * the subscription, so the root of the authenticated tree doesn't re-render on
- * every unrelated preference edit (a theme toggle, a calendar URL).
- */
+/** Just the alarm sound, for `useAlarmSync` (DEX-72) — scheduling on the
+ * placeholder would ring every alarm default, then re-schedule on load. */
 export const useAlarmSoundPreference = (): {
   alarmSound: string;
   isLoading: boolean;
@@ -218,23 +183,14 @@ export const useAlarmSoundPreference = (): {
 
   return {
     alarmSound: data ?? DEFAULT_ALARM_SOUND,
-    // `isPlaceholderData` is also true while the query is *disabled* (it never
-    // leaves `pending`), so it has to be paired with `userId` — otherwise the
-    // hook reports "still loading" forever whenever there's no session, and the
-    // sync that cancels a departing user's alarms would never run.
+    // Paired with userId or the sync that cancels a departing user's alarms
+    // would never run — a disabled query never leaves `pending`.
     isLoading: !!userId && isPlaceholderData,
   };
 };
 
-/**
- * Just the habits switch, for `useWidgetSync` (DEX-160).
- *
- * Same shape and same `userId` pairing as `useAlarmSoundPreference`, for the
- * same two reasons: publishing rings off the `true` placeholder would put a
- * habit grid on the home screen of someone who has the feature switched off and
- * then spend a second reload taking it away, and the narrow `select` keeps a
- * calendar URL from re-rendering the root of the authenticated tree.
- */
+/** Just the habits switch, for `useWidgetSync` (DEX-160) — same `userId`
+ * pairing as `useAlarmSoundPreference`, for the same reason. */
 export const useHabitsEnabledPreference = (): {
   enableHabits: boolean;
   isLoading: boolean;

@@ -14,18 +14,8 @@ import { notesMutationKey } from "./useNotes";
 import { TASKS_MUTATION_KEY } from "./useTasks";
 import { supabase } from "./useAuth";
 
-// Table -> cache keys to invalidate when a change lands for that table.
-// Reuses each hook's own exported key(s) where available (`goalsQueryOptions`/
-// `listsQueryOptions`/`HABITS_INVALIDATION_KEYS`) instead of a second
-// hand-copied literal that could drift out of sync — the same reason
-// `goalsQueryOptions`/`listsQueryOptions` are exported for `(app)/_layout.tsx`'s
-// prefetch. The remaining tables have no such export in their hooks (every
-// call site there already inlines the literal), so they're listed directly.
-// The three searchable tables also invalidate `["search"]` (DEX-47) so an open
-// results list doesn't keep showing a note that has since been edited away.
-// React Query only refetches *active* queries, so this costs nothing unless the
-// Search tab is on screen — and for notes/journals the per-date mutation guard
-// below already skips the invalidation while their autosave is in flight.
+// Table -> cache keys to invalidate. Reuses each hook's exported key so the
+// two can't drift; searchable tables also invalidate ["search"] (DEX-47).
 export const REALTIME_INVALIDATIONS: Record<string, readonly string[][]> = {
   daily_habits: [["dailyHabits"]],
   focus_blocks: FOCUS_BLOCKS_INVALIDATION_KEYS,
@@ -41,19 +31,8 @@ export const REALTIME_INVALIDATIONS: Record<string, readonly string[][]> = {
 
 const REALTIME_TABLES = Object.keys(REALTIME_INVALIDATIONS);
 
-// Query keys whose cache entries are keyed per date (`["notes", date]`) and
-// written by a debounced autosave, mapped to the mutation key that autosave tags
-// itself with. Their own writes echo back as realtime events, so invalidation
-// has to skip the date(s) still saving (see the guard in `invalidateTable`).
-//
-// Keyed by the *query key's* first element, not by table name. Those happen to
-// coincide for notes and journals, but not in general — `repeat_task_templates`
-// invalidates `["templates"]` — and it is the key that determines whether
-// `queryKey[1]` is a date. `["search", query]` (DEX-47) holds a search string
-// there, so it must not be found here.
-//
-// `Partial` because most keys have no entry: a bare `Record` would type every
-// lookup as defined and make the guard below read as redundant.
+// Query keys keyed per date, mapped to their debounced autosave's mutation key
+// so invalidation can skip in-flight dates (own writes echo back as realtime).
 const PER_DATE_MUTATION_KEYS: Partial<
   Record<string, (date: string) => readonly string[]>
 > = {
@@ -61,25 +40,12 @@ const PER_DATE_MUTATION_KEYS: Partial<
   notes: notesMutationKey,
 };
 
-// How long to wait for more events on the same table before invalidating —
-// coalesces a burst (e.g. a bulk task update) into a single refetch instead
-// of one cancel-and-restart per row.
+// Coalesces a burst of events on one table into a single refetch instead of
+// one cancel-and-restart per row.
 const FLUSH_DEBOUNCE_MS = 250;
 
-/**
- * Subscribes to Postgres changes on every realtime-enabled table for the
- * signed-in user and invalidates the matching query cache entries. This is
- * an invalidation *signal* only — event payloads are never written into the
- * cache, so a refetch always goes through the normal RLS-scoped REST path.
- * That sidesteps two Realtime limitations (DELETE events aren't filterable,
- * and their `old` record is PK-only under RLS): worst case an event is
- * missed or delayed, and the existing staleTime/focus-refetch layer catches
- * up within `DEFAULT_STALE_TIME_MS` (see QueryProvider).
- *
- * Realtime does not replay events missed while disconnected (e.g. the app
- * was backgrounded), so a rejoin after the first `SUBSCRIBED` invalidates
- * every mapped key once as a catch-up.
- */
+/** Subscribes to realtime changes and invalidates matching cache entries —
+ * signal only, payloads never cached. A rejoin invalidates everything once. */
 export const useRealtimeInvalidation = (userId: string | undefined) => {
   const queryClient = useQueryClient();
 
@@ -95,35 +61,19 @@ export const useRealtimeInvalidation = (userId: string | undefined) => {
           queryKey[0] === "tasks" &&
           queryClient.isMutating({ mutationKey: TASKS_MUTATION_KEY }) > 0
         ) {
-          // Our own write echoes back here. The optimistic cache already holds
-          // it, and the refetch this would start can resolve *after* a newer
-          // local edit — stamping stale rows over it, so the edit visibly
-          // reverts. Skipping loses nothing: the `["tasks"]` cache is what the
-          // in-flight mutation invalidates on settle, which is the catch-up for
-          // anything genuinely remote.
-          //
-          // Scoped to the `["tasks"]` key rather than the whole `tasks` table:
-          // `["search"]` (DEX-47) has no optimistic path — the Search tab's
-          // results come straight from the `search_entries` RPC — so skipping
-          // it here would leave a card the user just checked off or deleted on
-          // that very screen showing its old state, with no later catch-up.
+          // Our own write echoes back here; a refetch could revert a newer
+          // local edit. Scoped to ["tasks"] — ["search"] has no optimistic path.
           continue;
         }
 
-        // Looked up per *key*, not per table: the guard below reads
-        // `queryKey[1]` as a date, which is a property of the key rather than of
-        // the table that triggered it. One table can invalidate several keys —
-        // `notes` invalidates both `["notes", date]` and `["search", query]`
-        // (DEX-47), and only the first has a date in that slot.
+        // Looked up per key, not per table — notes invalidates both
+        // ["notes", date] and ["search", query], and only the first has a date.
         const perDateMutationKey = PER_DATE_MUTATION_KEYS[queryKey[0]];
 
         void queryClient.invalidateQueries({
           queryKey,
-          // `notes`/`journals` echo our own autosave back as a realtime event —
-          // skip only the date(s) whose autosave is still in flight, so it
-          // can't race the debounced editor (see the comment on
-          // notesMutationKey), without suppressing invalidation for every other
-          // cached date. Every other key invalidates unconditionally.
+          // Skip only date(s) mid-autosave, so our own echo can't race the
+          // debounced editor; every other cached date still invalidates.
           ...(perDateMutationKey && {
             predicate: (query) =>
               queryClient.isMutating({

@@ -21,10 +21,8 @@ describe("msUntilNextDay", () => {
     expect(msUntilNextDay(at("2026-08-14T00:00"))).toBe(24 * HOUR + SLACK);
   });
 
-  // The reason this takes a ZonedDateTime rather than reading the clock: a
-  // plain wall-clock subtraction is an hour wrong on each of these two days,
-  // which would arm the timer early (harmless, it re-arms) or an hour late —
-  // an hour of the new day spent on the old one, on a device left open.
+  // A plain wall-clock subtraction is an hour wrong on these two days — arming
+  // early is harmless, but an hour late spends an hour of the new day on the old.
   it("drops the hour a spring-forward day skips", () => {
     // 01:00 to midnight reads as 23 hours on the wall clock, but 02:00 never
     // happens, so only 22 hours elapse.

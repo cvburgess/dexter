@@ -10,18 +10,8 @@ type TUseHoroscope = [
   { isLoading: boolean },
 ];
 
-/**
- * One day's horoscope for one sign (DEX-128).
- *
- * Keyed by both, because the rows are global: two users on the same sign share
- * a cache entry, and the Ritual tab's `DayNav` can walk to any date.
- *
- * **Deliberately not wired to `useRealtimeInvalidation`.** `horoscopes` is not
- * in the `supabase_realtime` publication (see
- * `20260804005118_add_horoscopes.sql`) — the rows change once a day at a fixed
- * hour, so a subscription would idle for 24 hours to deliver what the shared
- * 60s `staleTime` plus a focus refetch already gets.
- */
+// One day's horoscope for one sign (DEX-128). Not wired to
+// useRealtimeInvalidation — not in the realtime publication.
 export const useHoroscope = (
   sunSign: TSunSign | null,
   date: string,
@@ -37,11 +27,8 @@ export const useHoroscope = (
   return [
     data ?? null,
     {
-      // A disabled query never leaves `pending`, so `isLoading` alone would
-      // report "still loading" forever for a user who hasn't picked a sign —
-      // and the step would show a blank panel instead of the prompt that asks
-      // them to pick one. Pair it with the gate, the way
-      // `useAlarmSoundPreference` pairs `isPlaceholderData` with `userId`.
+      // A disabled query never leaves `pending`, so pair with the gate or a
+      // user with no sign chosen sees a blank panel forever, not the prompt.
       isLoading: !!sunSign && isLoading,
     },
   ];

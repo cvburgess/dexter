@@ -86,12 +86,8 @@ const makeTask = (overrides: Partial<TTask> = {}): TTask => ({
   ...overrides,
 });
 
-/**
- * Renders with every template holding one open task — the state the
- * one-open-task invariant guarantees, so a row describes its cadence rather
- * than warning about it. Pass `tasks` explicitly to render a stalled repeat,
- * and `isLoading` for a tasks query that hasn't landed.
- */
+// Every template holds one open task by default (the healthy state); pass
+// `tasks` for a stalled repeat, `isLoading` for a pending tasks query.
 const renderWith = (
   templates: TTemplate[],
   tasks?: TTask[],
@@ -180,10 +176,8 @@ describe("TasksScreen", () => {
     });
   });
 
-  // A repeat fires by *completing* one of its tasks, so one with none left open
-  // can never fire again. It says so instead of quietly describing a cadence it
-  // will never act on, and the button is the recovery path for a spawn that
-  // failed mid-flight — which the cadence-time auto-seed can never see.
+  // A repeat fires by completing one of its tasks, so one with none open can
+  // never fire again; the button repairs a spawn that failed mid-flight.
   describe("a stalled repeat", () => {
     const stalledLabel = "Create next Water the plants";
 
@@ -236,10 +230,8 @@ describe("TasksScreen", () => {
       ).toBeTruthy();
     });
 
-    // An unloaded cache is "unknown", not "empty" — `useTasks` hands back a `[]`
-    // placeholder until its fetch lands. Reading that as stalled painted every
-    // healthy repeat red on first paint, then quietly corrected itself; if the
-    // query errors, the false alarm never clears.
+    // Unloaded is "unknown", not "empty" — reading useTasks' [] placeholder
+    // as stalled painted every healthy repeat red on first paint.
     it("waits for the tasks query rather than reading its placeholder as empty", () => {
       const screen = renderWith([makeTemplate()], [], true);
 

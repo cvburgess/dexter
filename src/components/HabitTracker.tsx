@@ -20,21 +20,12 @@ const TRACKER_HEIGHT = 56;
 
 type THabitTrackerProps = {
   date: Temporal.PlainDate;
-  /**
-   * Whether to offer the first-run "Create a habit" link when the account has
-   * no habits at all. The Week tab passes `false`: it renders one tracker per
-   * day column, and seven copies of the same call-to-action reads as noise
-   * rather than an invitation. The legacy app suppressed it outside the Day
-   * view for the same reason.
-   */
+  /** Week passes false — seven copies of the "Create a habit" nudge reads as noise. */
   showCreateNudge?: boolean;
 };
 
-/**
- * The Today-view habit row: tappable emoji rings that log progress. Ported from
- * dexter-app's `DailyHabits`. Future dates show dimmed, inert rings because
- * their daily rows aren't created until the day arrives.
- */
+// Tappable emoji rings that log progress. Future dates show dimmed, inert
+// rings — their daily rows aren't created until the day arrives.
 export function HabitTracker({
   date,
   showCreateNudge = true,
@@ -42,23 +33,19 @@ export function HabitTracker({
   const theme = useTheme();
   const router = useRouter();
 
-  // Subscribed rather than read from the clock so the rings stop being inert
-  // the moment the day catches up with them, without waiting for a remount
-  // (DEX-161).
+  // Subscribed, not clock-read, so rings stop being inert without a remount
+  // when the day catches up (DEX-161).
   const today = useToday();
   const isFutureDate = Temporal.PlainDate.compare(date, today) > 0;
 
-  // Every non-archived habit — used only to tell "no habits at all" (show the
-  // create nudge) apart from "none scheduled for this weekday" (show nothing).
-  // Skipped when the nudge is suppressed, since nothing else reads it: the
-  // Week tab mounts seven of these, and each would otherwise add an observer
-  // (and, landing cold on /week, a request) for data it never renders.
+  // Skipped when the nudge is suppressed — Week mounts seven of these and
+  // none would otherwise render this data.
   const [allHabits, { isLoading: allHabitsLoading }] = useHabits({
     skipQuery: !showCreateNudge,
   });
 
-  // Active, unpaused habits for this weekday — the source of truth for future
-  // dates, and what `createDailyHabits` bootstraps against for today/past.
+  // Source of truth for future dates, and what createDailyHabits bootstraps
+  // against for today/past.
   const [habits, { isLoading: habitsLoading }] = useHabits({
     filters: [
       ...habitFilters.notPaused,
@@ -71,32 +58,24 @@ export function HabitTracker({
     { createDailyHabits, incrementDailyHabit, isLoading: dailyHabitsLoading },
   ] = useDailyHabits(date.toString());
 
-  // Drop rings for habits that have since been paused or archived: the DB
-  // trigger removes today's daily row on pause/archive, but the client's
-  // dailyHabits cache isn't invalidated by a habit edit, so filter defensively
-  // (this also keeps today/past consistent with the filtered future path).
+  // A habit edit doesn't invalidate the dailyHabits cache, so filter
+  // defensively for paused/archived rows the DB trigger already dropped.
   const activeDailyHabits = dailyHabits.filter(
     (dailyHabit) =>
       !dailyHabit.habits.isPaused && !dailyHabit.habits.isArchived,
   );
 
-  // Whether this day's rows may still be created at all — false for future
-  // dates, and for days long enough past that creating them would invent
-  // history rather than record it (DEX-162). Shares its predicate with the
-  // mutation's own guard, so the effect below never calls one that would throw.
+  // False for future dates and for days far enough past that creating rows
+  // would invent history (DEX-162) — shares the mutation's own guard predicate.
   const canBootstrap = canBootstrapDailyHabits(date, today);
 
-  // Whether any active habit for this day still lacks a daily_habits row.
   const hasMissingHabit = habits.some(
     (habit) =>
       !dailyHabits.some((dailyHabit) => dailyHabit.habitId === habit.id),
   );
 
-  // Instantiate this day's rows for any active habit not yet tracked. Guarded
-  // on `hasMissingHabit` so the mutation (which throws when nothing is missing)
-  // is only called when there's work to do, and on both queries being loaded so
-  // it never runs against a still-loading (empty) habits list. Re-runs when a
-  // habit is added (hasMissingHabit flips true) and settles once rows exist.
+  // Guarded on hasMissingHabit so the mutation (which throws when nothing is
+  // missing) only runs when there's work, and on both queries being loaded.
   useEffect(() => {
     if (
       canBootstrap &&
@@ -141,9 +120,8 @@ export function HabitTracker({
       horizontal
       showsHorizontalScrollIndicator={false}
       style={styles.container}
-      // `gap` only: the row's side gutter is whoever placed it — the phone gets
-      // one from `SwipeablePage`, the Today pane and the Week columns want none
-      // (see docs/design.md, "Who owns spacing").
+      // `gap` only — the side gutter is whoever placed it (SwipeablePage on
+      // phone, none on the Today pane/Week columns; docs/design.md).
       contentContainerStyle={[styles.content, { gap: theme.space.sm }]}
     >
       {isFutureDate

@@ -19,9 +19,8 @@ jest.mock("@/hooks/useCalendarEvents", () => ({
   useCalendarEvents: jest.fn(),
 }));
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
-// Reached only through `useTaskDelete`, which has its own suite — stubbed with
-// real functions rather than `{}` so a delete added here fails on the assertion
-// rather than on `getTemplateById is not a function`.
+// Reached only through `useTaskDelete` (own suite); real functions rather than
+// `{}` so a delete added here fails on the assertion, not on a missing method.
 jest.mock("@/hooks/useTemplates", () => ({
   useTemplates: jest.fn(() => [
     [],
@@ -29,9 +28,8 @@ jest.mock("@/hooks/useTemplates", () => ({
   ]),
 }));
 
-// The card has its own suite and carries several `@expo/ui` menu hosts a unit
-// test can't drive; standing it in as a marker keeps this file about the
-// sentence and the two lists.
+// The card has its own suite and carries `@expo/ui` menu hosts a unit test
+// can't drive; a marker stand-in keeps this file about the sentence and lists.
 const mockTaskCard = jest.fn();
 jest.mock("@/components/TaskCard", () => {
   const { Text: RNText } =
@@ -119,11 +117,8 @@ const READY = {
   notConfigured: false,
 };
 
-/**
- * Seeds all five calendar reads at once — the step calls `useCalendarEvents`
- * once for tomorrow and once per history day, so the mock has to answer by date
- * rather than return one array.
- */
+// The step calls `useCalendarEvents` once for tomorrow and once per history
+// day, so the mock answers by date rather than returning one array.
 const renderStep = ({
   events = [] as TCalendarEvent[],
   history = {},
@@ -169,9 +164,8 @@ beforeEach(() => {
 });
 
 describe("PreviewTomorrowStep", () => {
-  // Checked first, and the order is load-bearing: every hook hands back an
-  // empty placeholder while it resolves, and the empty-history rule turns that
-  // into a confident "typical" that would rewrite itself moments later.
+  // Order is load-bearing: unresolved hooks serve empty placeholders, which
+  // the empty-history rule reads as a confident "typical" that then rewrites.
   it("renders nothing at all while any of the five days is still loading", () => {
     renderStep({ meta: { isLoading: true }, tasks: tasksOn(TOMORROW, 3) });
 
@@ -310,19 +304,16 @@ describe("PreviewTomorrowStep", () => {
       expect(screen.queryByText("No events tomorrow")).toBeNull();
     });
 
-    // A calendar switched on with nothing behind it has nothing to preview, so
-    // it takes the same path as one switched off rather than stranding the
-    // morning step's setup button below the fold.
+    // A calendar with no source takes the same path as one switched off, not
+    // an inline setup prompt stranded below the fold.
     it("is absent when the calendar has no source behind it", () => {
       renderStep({ meta: { notConfigured: true } });
 
       expect(screen.queryByText("No events tomorrow")).toBeNull();
     });
 
-    // A failed read hands back an empty array, which is indistinguishable from
-    // a clear day — and would book tomorrow at zero hours against a history
-    // that has some, telling the reader their day is calmer because their wifi
-    // dropped.
+    // A failed read hands back an empty array — indistinguishable from a clear
+    // day, which would read as "calmer" because the wifi dropped.
     it("says a read failed rather than claiming the day is empty", () => {
       renderStep({ meta: { isError: true } });
 
@@ -395,11 +386,8 @@ describe("PreviewTomorrowStep", () => {
       expect(screen.getByText("No tasks tomorrow")).toBeTruthy();
     });
 
-    // Tomorrow's tasks are open, so these cards rename — and a horizontal caret
-    // or selection drag across a live field would page the ritual instead of
-    // editing. `ReviewStep` can omit this only because a completed card renders
-    // no field at all. Unwrapped, because `TaskCard` notifies from an effect
-    // keyed on the callback's identity.
+    // Open cards rename, so a drag across a live field would page the ritual;
+    // unwrapped because `TaskCard` notifies from an effect keyed on identity.
     it("hands each card the editing callback, unwrapped", () => {
       const onEditingChange = jest.fn();
       mockUseCalendarEvents.mockReturnValue([[], READY]);

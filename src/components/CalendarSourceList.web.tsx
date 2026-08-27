@@ -9,13 +9,8 @@ import { TextInput } from "@/components/TextInput";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useTheme } from "@/utils/theme";
 
-/**
- * Web calendar sources: a list of public `.ics` feed URLs, persisted to
- * `preferences.calendarUrls`. Mirrors the Journal-prompts editor
- * (`settings/ritual.tsx`): edits commit on blur, structural add/delete write
- * the whole array, and `drafts` is the authoritative array so a structural edit
- * never builds on the optimistically-lagging preference.
- */
+/** Web calendar sources: `.ics` feed URLs in `preferences.calendarUrls`.
+ * `drafts` is authoritative so a structural edit never builds on a lagging preference. */
 export function CalendarSourceList() {
   const theme = useTheme();
   const navigation = useNavigation();
@@ -44,13 +39,8 @@ export function CalendarSourceList() {
   const deleteUrl = (index: number) =>
     writeUrls(drafts.filter((_, i) => i !== index));
 
-  // A "+" in the header adds a feed, matching Habits and Journal. Wired from
-  // here rather than from `settings/calendars.tsx` because the drafts array
-  // this appends to lives here — and because the screen also renders on native,
-  // where there are no feeds to add. Re-wired on every render so the handler
-  // closes over the latest drafts; cleared on unmount, which is what the other
-  // two express as `visible` — this list only mounts while Calendar is on, so
-  // toggling it off must take the affordance with it.
+  // Wired here, not settings/calendars.tsx, since the drafts array lives
+  // here; cleared on unmount so toggling Calendar off removes it too.
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (

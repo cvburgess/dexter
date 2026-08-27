@@ -17,13 +17,8 @@ export type TPositionedEvent = {
 
 const MINUTES_PER_HOUR = 60;
 
-/**
- * Pixel offset of the "now" line within the window, or `null` when the current
- * time falls outside `[startMin, endMin]` (so the caller renders nothing).
- * `nowMinutes` is minutes from the viewed day's midnight to now — on a past day
- * it exceeds `endMin` and on a future day it's below `startMin`, so this also
- * naturally hides the line on any day but today. Mirrors `layoutEvents`' topPx.
- */
+/** `null` when `nowMinutes` falls outside `[startMin, endMin]` — which happens
+ * naturally on any day but today, since it's minutes since that day's midnight. */
 export const nowLineTopPx = (
   nowMinutes: number,
   startMin: number,
@@ -34,17 +29,8 @@ export const nowLineTopPx = (
     ? null
     : (nowMinutes - startMin) * (hourHeightPx / MINUTES_PER_HOUR);
 
-/**
- * Scroll offset that places `targetPx` (a position within the scroll content,
- * e.g. the now-line) `anchorRatio` of the way down the viewport — 1/3 anchors it
- * to the upper third, leaving more room below for upcoming events. Clamped to
- * `[0, contentHeight - viewportHeight]` so the scroll never goes negative or
- * overshoots the content; returns 0 when the content is shorter than the
- * viewport (nothing to scroll).
- *
- * The arithmetic is axis-agnostic despite the vertical naming — `WeekView`
- * uses it on the horizontal axis to anchor today's column (DEX-96).
- */
+/** Places `targetPx` `anchorRatio` down the viewport, clamped to
+ * `[0, contentHeight - viewportHeight]`; `WeekView` reuses it on the horizontal axis (DEX-96). */
 export const scrollOffsetForTarget = (
   targetPx: number,
   viewportHeightPx: number,
@@ -58,41 +44,16 @@ export const scrollOffsetForTarget = (
   );
 };
 
-/**
- * Minutes from the viewed day's midnight to `moment`. Signed and unbounded: an
- * event that starts the previous day is negative, one that ends the next day is
- * >1440. Computing from the date (not bare `hour`/`minute`) is what lets
- * cross-midnight and multi-day events clamp into the window correctly.
- *
- * Exported for `utils/calendarStats`, which measures the same events in minutes
- * rather than pixels and must clamp them the same way.
- */
+/** Signed and unbounded (a prior-day start is negative, a next-day end is
+ * >1440), which is what lets cross-midnight events clamp correctly. Also used by `calendarStats`. */
 export const minutesFromDayStart = (
   moment: Temporal.PlainDateTime,
   dayStart: Temporal.PlainDateTime,
 ): number =>
   moment.since(dayStart, { largestUnit: "minute" }).total({ unit: "minute" });
 
-/**
- * Resolve timed events into `{ topPx, heightPx, columnIndex, columnCount }` for
- * a single-day timeline (the viewed `date`) spanning `startMin`→`endMin`
- * (minutes past midnight) at `hourHeightPx` per hour.
- *
- * Events are clamped to the visible window (an event starting before `startMin`
- * — including on a prior day — begins at the top; one ending after `endMin` is
- * cut at the bottom); events entirely outside the window are dropped.
- * Overlapping events are packed into side-by-side columns: events are grouped
- * into clusters of transitive overlap, and within a cluster each event takes the
- * first column whose previous event has already ended. All events in a cluster
- * share the cluster's column count so their rendered widths line up.
- *
- * All-day events are ignored here — the timeline pins them in a separate header.
- *
- * `nowMinutes` is minutes from the viewed day's midnight to now; each event is
- * flagged `isPast` when its (unclamped) end is at or before it. This is correct
- * across day boundaries: on a past day `nowMinutes > 1440` so all events read as
- * past, and on a future day it's negative so none do.
- */
+/** Clamps events to the visible window and packs overlaps into side-by-side
+ * columns sharing one column count per cluster; all-day events are ignored (pinned in a header). */
 export const layoutEvents = (
   events: TCalendarEvent[],
   date: Temporal.PlainDate,
@@ -114,10 +75,8 @@ export const layoutEvents = (
       startMin: minutesFromDayStart(event.start, dayStart),
       endMin: minutesFromDayStart(event.end, dayStart),
     }))
-    // Treat a zero/negative-length event as a short block so it stays visible.
-    // A drawing decision, not a claim about the day: `calendarStats` lets the
-    // same event contribute zero minutes, because a reminder pinned to an
-    // instant does not book a quarter hour of anybody's time.
+    // A drawing decision, not a claim about the day — `calendarStats` lets the
+    // same event contribute zero minutes.
     .map((e) =>
       e.endMin <= e.startMin ? { ...e, endMin: e.startMin + 15 } : e,
     )

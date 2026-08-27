@@ -37,32 +37,16 @@ type TBreatheStepProps = {
   date: Temporal.PlainDate;
 };
 
-/**
- * The evening ritual's first step (DEX-164): a few paced breaths before the
- * ritual asks anything of you.
- *
- * It exists for the reason the morning's Horoscope step does — opening a wind-
- * down on administrative work is jarring, so the first thing the ritual does is
- * something you can only do by stopping. Everything the step *says* is in
- * `utils/breathing`; everything it *draws* is in `BreatheFill`. What is left
- * here is the choosing.
- *
- * **The preference is a starting value, not a binding.** Adjusting the count or
- * the technique here changes this sitting only; the stored default is untouched
- * and comes back on the next visit, since `SwipeablePage` remounts the step
- * whenever the day, the mode or the step changes.
- */
+/** The evening's first step (DEX-164). **Starting value, not a binding** —
+ * adjusting count/technique here doesn't touch the stored default. */
 export function BreatheStep({ date }: TBreatheStepProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const isLargeDevice = useIsLargeDevice();
   const [preferences] = usePreferences();
 
-  // Held as overrides rather than as state seeded from the preference, because
-  // `usePreferences` hands back its placeholder row first: a `useState`
-  // initializer would freeze the default three breaths for a user whose stored
-  // count is six and never catch up. Reading through to the preference until
-  // the control is touched costs nothing and cannot go stale.
+  // Overrides, not seeded state — usePreferences hands back a placeholder row
+  // first, and a useState initializer would freeze that default forever.
   const [breathsOverride, setBreathsOverride] = useState<number | null>(null);
   const [techniqueOverride, setTechniqueOverride] =
     useState<TBreathingTechnique | null>(null);
@@ -76,25 +60,16 @@ export function BreatheStep({ date }: TBreatheStepProps) {
       date,
     );
 
-  // The plan and whether it is still going, together — rather than a plan that
-  // becomes `null` at the end. `BreatheFill` fades its word out over the run's
-  // end, so the plan those words are drawn from has to outlive the run itself.
-  // A fresh object each press is what re-triggers the fill, so pressing Begin
-  // twice runs twice.
+  // Plan and running-state together, not a plan that goes null at the end —
+  // BreatheFill fades its word out over the run's end and needs it to outlive.
   const [session, setSession] = useState<{
     plan: TBreathePlan;
     running: boolean;
   } | null>(null);
   const running = session?.running ?? false;
 
-  // Whether the run now ending got all the way to its last breath.
-  //
-  // **A ref, and set inside the handlers rather than derived from state.** The
-  // only thing that reads it is `useBreathAudio`'s cleanup, which decides
-  // between a settle and a quick exit — and an effect cleanup closes over the
-  // *previous* render, so a piece of state would still say "running" by the time
-  // it was asked. Assigning here happens before React re-renders at all, so the
-  // cleanup reads the answer rather than the question.
+  // A ref, not state: useBreathAudio's cleanup closes over the previous
+  // render, where state would still read "running" by the time it's asked.
   const endedNaturally = useRef(false);
 
   const begin = () => {
@@ -102,9 +77,8 @@ export function BreatheStep({ date }: TBreatheStepProps) {
     setSession({ plan: buildBreathePlan(technique, breaths), running: true });
   };
 
-  // One path out for both endings — a run that finished and a run that was
-  // tapped away land in the same place, which is also the place the step opened
-  // in — and they differ only in what they leave behind for the sound.
+  // One path out for both endings; they differ only in what they leave for
+  // the sound to read.
   const stop = useCallback(
     () =>
       setSession((current) =>
@@ -121,9 +95,7 @@ export function BreatheStep({ date }: TBreatheStepProps) {
     stop();
   }, [stop]);
 
-  // Takes the plan rather than the technique and count, so the sound is built
-  // from the same object the fill is animating and the two cannot disagree
-  // about what this run is.
+  // Takes the plan, not technique+count, so sound and fill can't disagree.
   useBreathAudio(session?.plan ?? null, running, endedNaturally);
 
   const controls = useSharedValue(1);
@@ -136,15 +108,8 @@ export function BreatheStep({ date }: TBreatheStepProps) {
 
   const beginSize = theme.controls.md * 3;
 
-  // What has to come off the bottom of anything centered in this step. The host
-  // `SafeAreaView` omits the bottom edge (the native tab bar owns it) and the
-  // ritual layout adds `ritualStepInsetTop` above, so a box centered in the
-  // whole step reads low by both — the same reservation `SummaryStep` and
-  // `EmptyScreen` make (see docs/design.md, "Who owns spacing").
-  //
-  // Computed here and handed to `BreatheFill` rather than measured again in it:
-  // the phase word has to land on the *same* center as the controls it replaces,
-  // and two derivations of one number is how they drift apart.
+  // Same bottom reservation as SummaryStep/EmptyScreen, handed to BreatheFill
+  // so the phase word lands on the same center as the controls it replaces.
   const insetBottom =
     insets.bottom + ritualStepInsetTop(theme.space, isLargeDevice);
 
@@ -157,20 +122,15 @@ export function BreatheStep({ date }: TBreatheStepProps) {
         running={running}
       />
 
-      {/* Kept mounted through a run rather than unmounted, so the controls
-          cross-fade both ways instead of popping back the instant the last
-          exhale ends. `pointerEvents` is what makes the faded-out copy
-          untappable — opacity alone would leave Begin live under the run. */}
+      {/* Kept mounted so controls cross-fade both ways; pointerEvents (not
+          opacity alone) is what makes the faded-out copy untappable. */}
       <Animated.View
         pointerEvents={running ? "none" : "auto"}
         style={[
           styles.controls,
           {
-            // Begin sits far clear of the two controls: they are a setting you
-            // glance at once, and the button is the only thing on the step worth
-            // reaching for. A multiple of the scale rather than a literal, the
-            // way `beginSize` is a multiple of `controls.md` — the scale stops
-            // at `lg`, and this gap is deliberately larger than anything on it.
+            // A multiple of the scale, not a literal — the scale stops at
+            // `lg` and this gap is deliberately larger than anything on it.
             gap: theme.space.lg * 5,
             paddingBottom: insetBottom,
           },
@@ -187,11 +147,8 @@ export function BreatheStep({ date }: TBreatheStepProps) {
             {
               backgroundColor: theme.colors.primary,
               borderRadius: theme.radii.full,
-              // Lifts the one thing on the step meant to be pressed. `LG`
-              // rather than `MD` for the size of the shape, and `2XL` is for a
-              // screen-sized surface — see docs/design.md, "Scrims and
-              // shadows". It only reads on a light theme, which is the accepted
-              // cost there.
+              // `LG` for the shape's size, not `MD` — see docs/design.md,
+              // "Scrims and shadows"; only reads on a light theme.
               boxShadow: SHADOW_LG,
               height: beginSize,
               width: beginSize,
@@ -206,11 +163,8 @@ export function BreatheStep({ date }: TBreatheStepProps) {
           </Text>
         </Pressable>
 
-        {/* Held in from the step's own edges as well as from each other. The
-            side gutter `SwipeablePage` supplies is what keeps the *step* off the
-            screen; this is the narrower column the two controls read best in,
-            which is the step's own business (see docs/design.md, "Who owns
-            spacing"). */}
+        {/* The narrower column these two controls read best in — the step's
+            own business (docs/design.md, "Who owns spacing"). */}
         <View
           style={[
             styles.settings,
@@ -235,11 +189,8 @@ export function BreatheStep({ date }: TBreatheStepProps) {
             testID="breathe-count-slider"
             value={breaths}
           />
-          {/* The same dropdown Settings uses, rather than a segmented row: three
-              techniques fit in a row today, but the row is the widest thing on
-              the step and a fourth would not. `PickerField` also brings
-              `FormRow`'s height, which is what keeps the `@expo/ui` `Host` from
-              collapsing the way a bare `Picker` does. */}
+          {/* Not a segmented row — a fourth technique wouldn't fit; PickerField's
+              FormRow height keeps the @expo/ui Host from collapsing. */}
           <PickerField
             label="Technique"
             options={BREATHING_TECHNIQUE_OPTIONS}
@@ -250,8 +201,7 @@ export function BreatheStep({ date }: TBreatheStepProps) {
         </View>
       </Animated.View>
 
-      {/* Only mounted while a run is in flight, so it can cover the whole step
-          without ever competing with the Begin button for a press. */}
+      {/* Only mounted mid-run, so it never competes with Begin for a press. */}
       {running ? (
         <Pressable
           accessibilityLabel="Stop breathing"
@@ -266,14 +216,12 @@ export function BreatheStep({ date }: TBreatheStepProps) {
 }
 
 const styles = StyleSheet.create({
-  // Carries no side gutter and no top inset of its own — `SwipeablePage`
-  // supplies the first and the ritual layouts the second (see docs/design.md,
-  // "Who owns spacing").
+  // No side gutter/top inset of its own — SwipeablePage and the ritual
+  // layouts own those (docs/design.md, "Who owns spacing").
   container: {
     flex: 1,
   },
-  // The button and its two controls as one centered block, the shape
-  // `SummaryStep` takes: there is no body here to hang from the top.
+  // Button + controls as one centered block, SummaryStep's shape.
   controls: {
     alignItems: "center",
     flex: 1,
@@ -283,10 +231,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  // Children stretch rather than center: `FormRow` carries no width of its own,
-  // so a centered `PickerField` would collapse to its content and sit the label
-  // beside the menu instead of at opposite ends of the row. The count centers
-  // itself below instead.
+  // Stretch, not center — FormRow has no width of its own, so a centered
+  // PickerField would collapse instead of spanning the row.
   settings: {
     alignSelf: "stretch",
   },

@@ -1,14 +1,5 @@
-// Curated, deterministic dataset for the App Store review / marketing demo
-// account (DEX-73). This module is intentionally pure — no Deno, network, or
-// env access — so it can be unit-tested without a database. `seed-demo.ts`
-// resolves the symbolic keys and day offsets below into real UUIDs and dates.
-//
-// Status and priority are the app's own enums, not copies of them —
-// `scripts/deno.json` maps `@src/` the same way the MCP server's config does,
-// and both modules are import-free, so this one stays pure. Aliased to
-// `DEMO_STATUS` / `DEMO_PRIORITY` to keep the `DEMO_*` naming the rest of the
-// file reads by. Priority was a hand-copied object literal until DEX-137
-// extracted `ETaskPriority` somewhere Deno could reach it.
+// Curated, deterministic demo dataset (DEX-73) — pure, so it's testable
+// without a database; `seed-demo.ts` resolves keys/offsets into real rows.
 import { ETaskPriority as DEMO_PRIORITY } from "@src/utils/taskPriority.ts";
 import { ETaskStatus as DEMO_STATUS } from "@src/utils/taskStatus.ts";
 
@@ -143,9 +134,8 @@ const promptText = (id: string): string =>
   PROMPTS.find((entry) => entry.id === id)!.prompt;
 
 /**
- * Build the curated demo dataset. Deterministic and self-consistent: every
- * `*Key` reference on a task/template/daily-habit points at an entity defined
- * here, so `seed-demo.ts` can resolve them and the unit test can assert it.
+ * Deterministic and self-consistent: every `*Key` reference resolves to an
+ * entity defined here, so `seed-demo.ts` and the unit test can both use it.
  */
 export function buildDemoData(): DemoDataset {
   const lists: DemoList[] = [
@@ -351,12 +341,8 @@ export function buildDemoData(): DemoDataset {
       dueOnOffset: null,
       listKey: "personal",
     },
-    // The unscheduled tail — everything below here has `scheduledForOffset:
-    // null` and so lands in the task drawer's Unscheduled filter. There are
-    // several on purpose: the drawer is one of the App Store screenshots, and a
-    // backlog holding a single task reads as an empty feature rather than a
-    // place work waits. Spread across lists and priorities so the drawer shows
-    // its grouping and colour rather than one flat run.
+    // Unscheduled tail (lands in the drawer's Unscheduled filter) — several
+    // on purpose, spread across lists/priorities for the App Store screenshot.
     {
       title: "Research a standing desk",
       priority: DEMO_PRIORITY.UNPRIORITIZED,
@@ -498,9 +484,8 @@ export function buildDemoData(): DemoDataset {
     enableJournal: true,
     enableHabits: true,
     enableHoroscope: true,
-    // Set so the Horoscope step shows an actual horoscope: with no sign it
-    // renders the "Choose your sign" prompt instead, which is not what the demo
-    // account or an App Store screenshot should show.
+    // With no sign the Horoscope step renders "Choose your sign" instead —
+    // not what a screenshot should show.
     sunSign: "libra",
     templatePrompts: [...PROMPTS],
   };

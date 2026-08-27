@@ -5,10 +5,8 @@ import { TFocusBlock } from "@/api/focusBlocks";
 
 import { useFocusAlarmSync } from "../useFocusAlarmSync";
 
-// Only the native calls are mocked; the pure helpers come from the real shared
-// module, since this hook's whole job is bookkeeping against real signatures
-// (the same split `useAlarmSync.test.tsx` uses). Wrappers rather than direct
-// references because the jest.mock factory is hoisted above `mockAlarms`.
+// Only native calls are mocked; pure helpers come from the real shared module
+// (the same split useAlarmSync.test.tsx uses).
 const mockAlarms = {
   scheduleFocusAlarm: jest.fn(),
   cancelTaskAlarm: jest.fn(),
@@ -85,11 +83,8 @@ describe("useFocusAlarmSync", () => {
           durationSeconds: 1500,
           soundName: "echos.wav",
         }),
-        // The reader's `colors.primary`/`colors.primaryContent`, baked in at
-        // schedule time — the theme resolves to Dexter's own in a test with no
-        // ThemeProvider above. Asserted as literals rather than "some hex
-        // string": both are hex, so only the exact values catch the pair being
-        // passed the wrong way round.
+        // Literal hexes, not "some hex string" — only exact values catch the
+        // pair being passed the wrong way round.
         { tint: "#00674f", content: "#c3ffcf" },
       ),
     );
@@ -121,11 +116,8 @@ describe("useFocusAlarmSync", () => {
   });
 
   it("does not reschedule a block that is still running unchanged", async () => {
-    // A refetch — a realtime invalidation, a foreground — hands back a *new*
-    // object carrying the same row. Rescheduling on that would cancel and
-    // rebuild a perfectly good alarm, which on the lock screen means the
-    // countdown blinking out and back for no reason. The effect watches the
-    // anchor fields rather than the block, so an identical row is a no-op.
+    // A refetch hands back a *new* object carrying the same row; rescheduling
+    // on that would blink the lock-screen countdown out and back for nothing.
     const { rerender } = renderHook(
       ({ live }: { live: TFocusBlock | null }) => useFocusAlarmSync(live),
       { initialProps: { live: block() } },
@@ -215,10 +207,8 @@ describe("useFocusAlarmSync", () => {
   });
 
   it("cancels an alarm left over for a paused block from a previous session", async () => {
-    // The cache is per-session, and while a block is live `useAlarmSync`
-    // protects its id from its own sweep — so if a pause's cancel never landed
-    // before the app closed, nothing else will ever clear this. It would ring
-    // at the original end time with the block sitting paused.
+    // Per-session cache, and useAlarmSync protects a live block's id from
+    // its own sweep — a cancel that missed before close is never cleared.
     mockAlarms.getScheduledAlarmIds.mockReturnValue(["block-1"]);
 
     renderHook(() =>

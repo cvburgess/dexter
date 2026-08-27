@@ -11,12 +11,8 @@ const mockAlarms = {
   cancelTaskAlarm: jest.fn(),
   getScheduledAlarmIds: jest.fn(() => [] as string[]),
 };
-// Wrappers (not direct references) so `mockAlarms` is read at call time — the
-// jest.mock factory is hoisted above the `const mockAlarms` initializer, so a
-// direct reference would evaluate it while still undefined. getScheduledAlarmIds
-// forwards no args (its zero-arg signature can't take a spread). The pure
-// helpers come from the real shared module: the hook's bookkeeping is only
-// meaningful against real signatures and filenames.
+// Wrappers so `mockAlarms` is read at call time — the factory is hoisted
+// above its initializer. Pure helpers come from the real shared module.
 jest.mock("@/utils/alarms", () => {
   const shared = jest.requireActual<typeof import("@/utils/alarms.shared")>(
     "@/utils/alarms.shared",
@@ -118,10 +114,8 @@ describe("useAlarmSync", () => {
 
     renderHook(() => useAlarmSync());
 
-    // `primary` and `primaryContent` from the reader's theme — Dexter's own,
-    // with no ThemeProvider above. Literals rather than `expect.any(String)`:
-    // both are hex, so only the exact values catch them being swapped, which
-    // would otherwise type-check and surface as an unreadable lock screen.
+    // Literal hexes, not expect.any(String) — only exact values catch the two
+    // colors being swapped, which would surface as an unreadable lock screen.
     await waitFor(() =>
       expect(mockAlarms.scheduleTaskAlarm).toHaveBeenCalledWith(
         expect.objectContaining({ id: "a" }),
@@ -163,9 +157,8 @@ describe("useAlarmSync", () => {
     );
   });
 
-  // The preferences query serves the defaults as placeholder data, so acting
-  // before the saved row lands would ring every alarm with the default sound and
-  // then re-schedule the lot (DEX-72).
+  // Placeholder data would ring every alarm with the default sound then
+  // re-schedule the lot once the saved row lands (DEX-72).
   it("waits for the saved preferences before touching AlarmKit", async () => {
     preferencesState.isLoading = true;
     mockAlarms.reconcileAlarms.mockReturnValue({
@@ -182,9 +175,8 @@ describe("useAlarmSync", () => {
     await waitFor(() => expect(mockAlarms.reconcileAlarms).toHaveBeenCalled());
   });
 
-  // What's recorded has to be the full signature, not just the fire time —
-  // that's what lets the next reconcile notice a title or sound edit. Read at
-  // call time, because the hook passes the live Map by reference.
+  // The full signature, not just fire time — that's what lets the next
+  // reconcile notice a title or sound edit.
   it("records the signature of what it scheduled, not just the fire time", async () => {
     const seen: (string | undefined)[] = [];
     mockAlarms.reconcileAlarms.mockImplementation(
@@ -208,11 +200,8 @@ describe("useAlarmSync", () => {
     await waitFor(() => expect(seen).toEqual([undefined, "1|A|echos.wav"]));
   });
 
-  // A sound change (or any task edit) re-fires the effect with a schedule still
-  // in flight. Overlapping runs would each reconcile against a cache the other
-  // hasn't written yet — re-scheduling alarms that are already correct, and
-  // racing on the same id, so AlarmKit can end up holding the losing run's
-  // sound while the cache records the winner's.
+  // Overlapping runs would each reconcile against a cache the other hasn't
+  // written yet, racing the same id in AlarmKit.
   it("queues a second run behind the first instead of overlapping it", async () => {
     const seen: (string | undefined)[] = [];
     mockAlarms.reconcileAlarms.mockImplementation(

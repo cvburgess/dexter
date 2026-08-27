@@ -4,10 +4,8 @@ layout: layouts/base.vto
 fullBleed: true
 ---
 
-{{# Every color and number on this page is rendered from `_data/brand.json`,
-    which mirrors `src/utils/theme.ts` — the app's canonical token source. The
-    swatches use inline `style` attributes rather than daisyUI classes on
-    purpose: this page has to show the *app's* palette, not the site's. #}}
+{{# Rendered from _data/brand.json, a hand mirror of src/utils/theme.ts. Inline
+    style attributes, not daisyUI classes — the app's palette, not the site's. #}}
 
 <div class="w-full flex flex-col items-center">
 

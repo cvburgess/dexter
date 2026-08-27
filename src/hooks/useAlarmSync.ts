@@ -16,34 +16,20 @@ import { useLiveFocusBlockId } from "./useFocusBlocks";
 import { useAlarmSoundPreference } from "./usePreferences";
 import { useTasks } from "./useTasks";
 
-/**
- * Keeps native iOS AlarmKit alarms in sync with the task list. Rather than
- * scheduling imperatively at each tap, this reconciles the alarms that *should*
- * exist (tasks with an alarm time, still open, whose moment is in the future)
- * against the ones AlarmKit already holds — scheduling new/edited alarms and
- * cancelling stale ones. That makes complete / delete / reschedule / unschedule
- * and background-created repeat occurrences all self-heal, and it re-projects
- * DB state onto AlarmKit on every launch (DEX-48).
- *
- * The alarm id is the task id (a 1:1 mapping). No-ops off iOS via `utils/alarms`.
- * Mounted once, high in the authenticated tree.
- */
+// Reconciles AlarmKit against what tasks say should ring, so complete/delete/
+// reschedule/repeat occurrences all self-heal on every launch (DEX-48).
 export const useAlarmSync = (): void => {
   const [tasks, { isLoading }] = useTasks();
   const { alarmSound, isLoading: preferencesLoading } =
     useAlarmSoundPreference();
   const soundName = alarmSoundFileName(alarmSound);
 
-  // Baked into each alarm as it is scheduled, and deliberately *not* part of
-  // `alarmSignature` — see `scheduleTaskAlarm`. A theme change re-runs this
-  // effect and finds every signature unchanged, so it recolours nothing already
-  // scheduled and costs no native calls. Both colours travel together, so a
-  // stale alarm keeps a pair that still reads.
+  // Baked in at schedule time, deliberately not part of `alarmSignature` — a
+  // theme change recolours nothing already scheduled (see `scheduleTaskAlarm`).
   const { colors } = useTheme();
 
-  // The running focus block's timer is an alarm this reconcile does not own
-  // (DEX-156), and ids carry no marker of which kind they are — so it has to be
-  // named here or the next task mutation cancels it.
+  // The focus block's timer alarm isn't owned by this reconcile (DEX-156) and
+  // carries no marker, so it must be named here or the next mutation cancels it.
   const { id: focusBlockId, isLoading: focusBlockLoading } =
     useLiveFocusBlockId();
   const protectedIds = useMemo(
@@ -55,23 +41,13 @@ export const useAlarmSync = (): void => {
   // reports only ids back, so this is how an edit to an existing alarm is seen.
   const scheduled = useRef(new Map<string, string>());
 
-  // Runs are queued, never overlapped. A sound change re-fires this effect with
-  // no task mutation of its own, and each run reconciles against `scheduled` —
-  // so two in-flight runs would each see a cache the other hasn't written yet,
-  // re-scheduling alarms that are already correct and racing on the same id
-  // (whichever native call lands last wins in AlarmKit, which need not be the
-  // one the cache ends up recording — leaving a stale sound or title ringing
-  // until the next launch). Serializing makes each reconcile see the finished
-  // state of the one before it.
+  // Queued, never overlapped: two in-flight runs would race the same id in
+  // AlarmKit and leave a stale sound or title ringing until next launch.
   const queue = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
-    // Every query serves placeholder or empty data first. Acting on the
-    // placeholder preferences would schedule every alarm with the default sound
-    // and then re-schedule them all once the real row lands (DEX-72); acting
-    // before the focus block resolves would cancel a running block's timer that
-    // survived from the last session, since an unloaded query and "no block"
-    // look identical here.
+    // Placeholder preferences would schedule every alarm with the default
+    // sound (DEX-72); an unresolved focus block looks identical to "no block".
     if (isLoading || preferencesLoading || focusBlockLoading) return;
 
     const sync = async () => {
@@ -105,9 +81,7 @@ export const useAlarmSync = (): void => {
             });
             scheduled.current.set(alarm.id, alarmSignature(alarm));
           } catch (error) {
-            // Leave it unrecorded so a later reconcile retries. Flag the
-            // failure so the user isn't left counting on an alarm that won't
-            // ring (e.g. AlarmKit authorization denied — DEX-48).
+            // Leave unrecorded so a later reconcile retries.
             anyScheduleFailed = true;
             console.warn(
               `[alarms] Failed to schedule alarm ${alarm.id}`,

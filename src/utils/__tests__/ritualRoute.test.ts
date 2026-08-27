@@ -94,9 +94,8 @@ describe("parseRitualLink", () => {
   });
 
   it("gives two follows of the same link different ids", () => {
-    // Cross-tab navigation reuses the mounted Ritual screen and only swaps its
-    // params, so a value-based comparison can't tell "already applied" from
-    // "applied, user navigated away, and asked again".
+    // Cross-tab nav reuses the mounted screen, so a value comparison can't
+    // tell "already applied" from "applied, then asked again".
     const first = parseRitualLink({
       date: "2026-07-12",
       step: "journal",

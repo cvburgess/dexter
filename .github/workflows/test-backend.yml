@@ -25,11 +25,8 @@ jobs:
       - name: Format check
         run: deno fmt --check
 
-      # `deno test` only type-checks modules a test imports, which leaves every
-      # function's `index.ts` unchecked — they are entrypoints, so nothing
-      # imports them. A type error there used to reach production silently
-      # (DEX-84 found a live one in mcp-server). Each function resolves against
-      # its own deno.json, so they are checked one at a time rather than by glob.
+      # `deno test` never type-checks entrypoints — nothing imports index.ts, and
+      # a type error there reached production (DEX-84). Each has its own deno.json.
       - name: Type check function entrypoints
         run: |
           for dir in functions/*/; do

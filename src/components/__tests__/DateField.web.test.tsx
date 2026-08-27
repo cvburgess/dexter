@@ -6,16 +6,14 @@ import { WebOverlay } from "../WebOverlay.web";
 
 const SELECTED_DATE = new Date(2026, 11, 25); // Dec 25, 2026 (month is 0-based)
 
-// The popover reaches the screen through `WebOverlay`, which portals it to
-// `document.body` at runtime; render it inline here so react-test-renderer
-// keeps it in the tree for RNTL queries.
+// WebOverlay portals to document.body at runtime; render inline here so
+// react-test-renderer keeps it in the tree for RNTL queries.
 jest.mock("react-dom", () =>
   require("@/testUtils/mockReactDomPortal").mockReactDomPortal(),
 );
 
-// react-day-picker is a DOM calendar with no test double; stand it in with a
-// pressable that fires `onSelect` so we can exercise the field's wiring. Its
-// stylesheet import is stubbed so Jest doesn't try to parse CSS as JS.
+// react-day-picker has no test double; stand it in with a pressable firing
+// onSelect. Its stylesheet import is stubbed so Jest doesn't parse CSS.
 const mockDayPicker = jest.fn((props: { onSelect: (date: Date) => void }) => (
   <Pressable testID="rdp-day" onPress={() => props.onSelect(SELECTED_DATE)}>
     <Text>25</Text>
@@ -59,11 +57,8 @@ describe("DateField (web)", () => {
     expect(screen.queryByTestId("rdp-day")).not.toBeNull();
   });
 
-  // Not decoration: a raw `createPortal` here rendered a calendar that painted
-  // over the new-task modal and swallowed every click, because a body portal
-  // inherits the `pointer-events: none` Radix puts on the body (DEX-134). Only
-  // `WebOverlay` re-declares `auto`. jsdom has no vaul in the tree, so this can
-  // prove the routing but not the click — that part is manual.
+  // Not decoration: a raw createPortal inherits Radix's body-wide
+  // pointer-events: none (DEX-134); only WebOverlay re-declares auto.
   it("renders the calendar through WebOverlay", () => {
     const screen = render(
       <DateField

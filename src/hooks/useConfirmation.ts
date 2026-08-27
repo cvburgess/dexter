@@ -29,15 +29,8 @@ const INITIAL_STATE: ConfirmationState = {
   actions: [],
 };
 
-/**
- * Adapts the declarative {@link ConfirmationModal} to a Promise-based API so
- * imperative, sequential flows can `await confirm(...)`.
- *
- * @returns `confirm` — opens the modal and resolves `true` when a non-cancel
- *   action is chosen, `false` on cancel/dismiss. Any `actions[].onPress` still
- *   fires, so multi-button flows can branch inside the handlers.
- * @returns `confirmationProps` — spread onto a single `<ConfirmationModal />`.
- */
+// Adapts the declarative ConfirmationModal to a Promise-based API so
+// imperative flows can `await confirm(...)`; resolves true unless cancelled.
 export function useConfirmation() {
   const [state, setState] = useState<ConfirmationState>(INITIAL_STATE);
   const resolverRef = useRef<((value: boolean) => void) | null>(null);

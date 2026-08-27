@@ -102,10 +102,8 @@ class FakeMutationBuilder {
 }
 
 /**
- * The set-returning-function path (`search_entries`), which PostgREST lets you
- * filter and limit like a table. Unlike `FakeMutationBuilder` it resolves at
- * `.limit()` rather than `.single()`/`.maybeSingle()`, because that is the
- * terminal call the search tool awaits.
+ * The `search_entries` RPC path. Resolves at `.limit()` rather than
+ * `.single()`/`.maybeSingle()` — that is the terminal call the search tool awaits.
  */
 class FakeRpcBuilder {
   readonly filters: string[] = [];
@@ -255,9 +253,8 @@ Deno.test("repeat task schedule validation enforces valid midnight cron fields",
   assertEquals(cronScheduleSchema.safeParse("0 0 1,99 * *").success, false);
 });
 
-// DEX-65: `update_template` widens the schedule to nullable so a repeat task
-// can be cleared back into a plain task template. The bare schema must still
-// reject null, or an invalid cron could slip past as one.
+// DEX-65: `update_template` widens the schedule to nullable, but the bare
+// schema must still reject null, or an invalid cron could slip past as one.
 Deno.test("a nullable schedule accepts null without loosening cron validation", () => {
   assertEquals(cronScheduleSchema.nullable().safeParse(null).success, true);
   assertEquals(cronScheduleSchema.safeParse(null).success, false);
@@ -280,9 +277,8 @@ Deno.test("preference updates do not accept user ids", () => {
   assertEquals("user_id" in updatePreferencesInputSchema, false);
 });
 
-// DEX-142: the schema and the snake_case mapping are two separate places to
-// remember a field, and a field present in only the first is accepted and then
-// silently dropped. Driving the handler covers both at once.
+// DEX-142: a field present in the schema but not the snake_case mapping is
+// accepted and silently dropped. Driving the handler covers both at once.
 Deno.test("update_preferences writes the horoscope toggle through", async () => {
   const registry = new ToolRegistry();
   const supabase = new FakeSupabase();
@@ -397,8 +393,7 @@ Deno.test("create_task derives user_id from authenticated context", async () => 
   );
 });
 
-// A richer fake than FakeSupabase: it hands out per-table queued rows for
-// `.single()`/`.maybeSingle()` reads and records inserts/deletes, so the
+// Richer than FakeSupabase: per-table queued rows plus recorded writes, so the
 // multi-step recurrence and delete-cleanup flows can be asserted end to end.
 type FakeRow = Record<string, unknown>;
 type FakeError = { message: string } | null;
@@ -491,15 +486,13 @@ class RecordingSupabase {
   constructor(
     private queues: Record<string, FakeRow[]>,
     /**
-     * Rows a *list* select returns — one awaited without `.single()`, like the
-     * one-open-task guard. Fixed rather than queued, since each flow runs at
-     * most one; empty by default, which reads as "no other open task".
+     * Rows a *list* select (awaited without `.single()`) returns. Empty by
+     * default, which reads as "no other open task".
      */
     private lists: Record<string, FakeRow[]> = {},
     /**
-     * Per-table PostgREST errors, so the bail-on-error branches can be
-     * exercised — `hasOpenTaskForTemplate` reads a failed lookup as "has one"
-     * rather than spawning a second chain.
+     * Per-table PostgREST errors, to exercise bail-on-error branches like
+     * `hasOpenTaskForTemplate` reading a failed lookup as "has one".
      */
     private errors: Record<string, { message: string }> = {},
   ) {}
@@ -576,10 +569,8 @@ Deno.test("update_task schedules the next occurrence when it completes a repeat 
   assertEquals(inserted.payload.user_id, RECUR_USER);
 });
 
-// A repeat has exactly one open task. Converting a template to a repeat makes
-// every task stamped from it an occurrence retroactively, so completing three
-// of them must not start three parallel chains. The completing task is already
-// terminal by the time this runs, so it can't match its own guard.
+// A repeat has exactly one open task: completing three stamped from one
+// template must not start three parallel chains.
 Deno.test("update_task spawns nothing when another open task links to the template", async () => {
   const registry = new ToolRegistry();
   const supabase = new RecordingSupabase({
@@ -615,9 +606,8 @@ Deno.test("update_task spawns nothing when another open task links to the templa
   );
 });
 
-// The whole point of DEX-65: a template is a blueprint, so completing a task
-// linked to one must not spawn anything. `maybeCreateNextRecurringTask` bails
-// on a falsy schedule, which is what keeps a converted repeat from recurring.
+// The whole point of DEX-65: `maybeCreateNextRecurringTask` bails on a falsy
+// schedule, which is what keeps a converted repeat from recurring.
 Deno.test("update_task spawns nothing when the linked template has no schedule", async () => {
   const registry = new ToolRegistry();
   const supabase = new RecordingSupabase({
@@ -792,10 +782,8 @@ Deno.test("delete_task leaves standalone tasks' templates untouched", async () =
   );
 });
 
-// DEX-94: the other half of the one-open-task invariant, server-side. A schedule
-// on its own generates nothing — recurrence spawns from *completing* a task
-// linked to the row — so a template write that leaves a cadence with no open
-// task produces a repeat that can never fire, and reports success doing it.
+// DEX-94: recurrence spawns only from *completing* a linked task, so a template
+// write leaving a cadence with no open task produces a repeat that never fires.
 function templateTools(supabase: RecordingSupabase): ToolRegistry {
   const registry = new ToolRegistry();
   registerTemplateTools(
@@ -850,9 +838,8 @@ Deno.test("create_template seeds nothing for a scheduleless task template", asyn
   assertEquals(supabase.inserts.filter((i) => i.table === "tasks").length, 0);
 });
 
-// A seeded occurrence's checklist is not covered separately: seeding and
-// completion-driven recurrence share `insertOccurrence`, so "a recurring
-// occurrence gets a fresh copy of the template's checklist" below covers both.
+// Seeding and completion-driven recurrence share `insertOccurrence`, so the
+// fresh-checklist test below covers a seeded occurrence's checklist too.
 
 Deno.test("update_template seeds an occurrence when a task template gains a cadence", async () => {
   const supabase = new RecordingSupabase({
@@ -897,10 +884,8 @@ Deno.test("update_template seeds nothing when the update clears the schedule", a
   assertEquals(supabase.inserts.filter((i) => i.table === "tasks").length, 0);
 });
 
-// Seeding is a repair hanging off a write that already landed. Reporting a
-// successful save as a failure is worse than a stalled repeat, which Settings →
-// Tasks flags with a one-tap fix: an agent that retries a failed
-// `create_template` writes a second row.
+// Seeding hangs off a write that already landed: an agent retrying a "failed"
+// `create_template` writes a second row, where a stalled repeat has a ▶ fix.
 Deno.test("create_template still succeeds when the open-task lookup fails", async () => {
   const supabase = new RecordingSupabase(
     { repeat_task_templates: [{ ...SEEDED_TEMPLATE, schedule: "0 0 * * *" }] },
@@ -1050,10 +1035,8 @@ Deno.test("update_task clears a link when sent null", async () => {
   assertEquals(supabase.updates[0].payload.url, null);
 });
 
-// Normalization lives in the schema, not the handler, so it is asserted where
-// it runs. The rule is the app's own `normalizeTaskUrl` — an agent-supplied
-// link has to be stored exactly like a typed one, or "Go to link" opens one and
-// not the other.
+// The rule is the app's own `normalizeTaskUrl`: an agent-supplied link must be
+// stored exactly like a typed one, or "Go to link" opens one and not the other.
 Deno.test("task url is normalized rather than rejected", () => {
   const registry = taskTools(new RecordingSupabase({}));
   const schema = registry.tools.get("create_task")
@@ -1105,8 +1088,7 @@ Deno.test("update_task rejects malformed subtask entries", () => {
     schema.subtasks.safeParse([{ id: "s1", title: "Ok", done: true }]).success,
     true,
   );
-  // DEX-153: `done` defaults to false, so an agent can compose a checklist from
-  // bare titles — the overwhelmingly common call.
+  // DEX-153: `done` defaults to false so bare titles compose a checklist.
   assertEquals(
     schema.subtasks.safeParse([{ id: "s1", title: "Fresh" }]),
     { success: true, data: [{ id: "s1", title: "Fresh", done: false }] },
@@ -1121,9 +1103,8 @@ Deno.test("update_task rejects malformed subtask entries", () => {
     schema.subtasks.safeParse([{ title: "No id", done: false }]).success,
     false,
   );
-  // The clean break fails loudly. Zod strips unknown keys by default, which
-  // would turn a legacy `status: 2` into a *not*-done item and silently uncheck
-  // a completed subtask; `.strict()` makes the caller read an error instead.
+  // Zod strips unknown keys by default, which would silently uncheck a legacy
+  // `status: 2` item; `.strict()` makes the caller read an error instead.
   assertEquals(
     schema.subtasks.safeParse([{ id: "s1", title: "Legacy", status: 2 }])
       .success,
@@ -1158,9 +1139,8 @@ Deno.test("task priority is bounded by the app's enum", () => {
   assertEquals(schema.priority.safeParse(null).success, false);
 });
 
-// The two fields sit adjacent in the same input as bare `0–4` integers meaning
-// entirely different things, and agents were writing a priority into `status`.
-// The descriptions are the fix, so assert they cannot be silently dropped.
+// DEX-137: agents were writing a priority into `status` — the descriptions are
+// the fix, so assert they cannot be silently dropped.
 Deno.test("task priority and status carry field descriptions", () => {
   const registry = taskTools(new RecordingSupabase({}));
   const described = (tool: string, field: string) => {
@@ -1216,10 +1196,8 @@ Deno.test("update_task sweeps open subtasks closed in the same write", async () 
   ]);
 });
 
-// DEX-153: a bundle predating the `done` change keeps writing `{id, title,
-// status}` until its user updates, and the backfill migration cannot reach what
-// has not been written yet. Rejecting those rows would read as "no subtasks" and
-// disable the sweep on exactly the tasks still being edited from an old client.
+// DEX-153: old bundles keep writing `{id, title, status}`, and rejecting those
+// rows would disable the sweep on exactly the tasks still edited from them.
 Deno.test("update_task sweeps a checklist still stored with statuses", async () => {
   const supabase = new RecordingSupabase({
     tasks: [
@@ -1244,10 +1222,8 @@ Deno.test("update_task sweeps a checklist still stored with statuses", async () 
   ]);
 });
 
-// Driven through the schema directly rather than a tool: every server-side read
-// of stored subtasks is followed by a sweep, which marks every item done and so
-// would mask the precedence this pins. The app reads the same shape with no
-// sweep in front of it — see `withSubtasksArray` in `src/api/__tests__`.
+// Driven through the schema directly: every tool read is followed by a sweep,
+// which would mask the precedence this pins (the app reads with no sweep).
 Deno.test("a stored status outranks the stale done written beside it", () => {
   // An old client spreads the item it read, so post-backfill it writes a fresh
   // `status` beside the stale `done` it never touched.
@@ -1265,9 +1241,8 @@ Deno.test("a stored status outranks the stale done written beside it", () => {
   );
 });
 
-// The stored `status` is legacy debris being read, not a value being accepted,
-// so nothing about it may fail the item — a failed parse means "no subtasks",
-// which skips the sweep silently rather than rejecting anything.
+// A stored `status` is legacy debris being read, not a value being accepted —
+// a failed parse means "no subtasks", which skips the sweep silently.
 Deno.test("an unreadable stored status still cannot disable the sweep", async () => {
   const supabase = new RecordingSupabase({
     tasks: [
@@ -1304,9 +1279,8 @@ Deno.test("update_task sweeps the checklist for delegated too, not just done", a
     ],
   });
 
-  // Delegated (4) is terminal alongside done (2) and won't-do (3) — handing the
-  // parent off closes its checklist the same way (DEX-68). With two states there
-  // is nowhere else for it to land than done (DEX-153).
+  // Delegated is terminal like done and won't-do (DEX-68); with two subtask
+  // states there is nowhere for its checklist to land but done (DEX-153).
   await taskTools(supabase).run("update_task", { taskId: SUB_TASK, status: 4 });
 
   assertEquals(supabase.updates.length, 1);
@@ -1412,9 +1386,8 @@ Deno.test("a recurring occurrence gets a fresh copy of the template's checklist"
 });
 
 Deno.test("the sweep survives a stored title longer than the input cap", async () => {
-  // The app has its own maxLength, but a title stored before that existed (or
-  // written any other way) must not make the whole array unparseable — failing
-  // the read would silently skip the sweep rather than reject anything.
+  // A stored title past the input cap must not make the array unparseable —
+  // failing the read would silently skip the sweep rather than reject anything.
   const longTitle = "x".repeat(250);
   const supabase = new RecordingSupabase({
     tasks: [
@@ -1624,11 +1597,8 @@ Deno.test("upsert_journal accepts any prompt set the app can legitimately store"
   const entries = (count: number, prompt = "Highlight") =>
     Array.from({ length: count }, () => ({ prompt, response: "" }));
 
-  // Nothing caps prompt count or length in the settings editor, in
-  // `update_preferences`, or on `preferences.template_prompts`, and `useJournals`
-  // seeds a row from that template through PostgREST (no Zod). A cap here would
-  // reject a row the app itself wrote, permanently breaking the documented
-  // get_journal → upsert_journal round trip for that user.
+  // Nothing caps prompt count or length anywhere the app writes them, so a cap
+  // here would permanently break the get_journal → upsert_journal round trip.
   assertEquals(prompts.safeParse(entries(60)).success, true);
   assertEquals(prompts.safeParse(entries(1, "x".repeat(250))).success, true);
   // Shape is still enforced — the column's check constraint expects an array of
@@ -1767,10 +1737,8 @@ Deno.test("note, journal, and search tools never accept a user id", () => {
   }
 });
 
-// DEX-47: search. The handler is thin by design — the matching lives in the
-// `search_entries` RPC — so these pin the call it makes and the two paths
-// where a thin handler still gets it wrong: reporting "no results" as an
-// error, and dropping the caller's filters.
+// DEX-47: matching lives in the `search_entries` RPC, so these pin the call the
+// thin handler makes plus its two failure paths (no-results-as-error, dropped filters).
 
 function searchTools(supabase: FakeSupabase): ToolRegistry {
   const registry = new ToolRegistry();
@@ -1805,9 +1773,8 @@ Deno.test("search never scopes by user id, leaving that to RLS", async () => {
     searchSchema.parse({ query: "quarterly" }),
   );
 
-  // `search_entries` is SECURITY INVOKER, so it runs under the caller's JWT and
-  // RLS scopes every branch. An `eq:user_id:` filter here would be a sign the
-  // function had been switched to SECURITY DEFINER without the tool catching up.
+  // `search_entries` is SECURITY INVOKER — RLS scopes every branch. A user_id
+  // filter here would signal a switch to DEFINER the tool never caught up with.
   assertEquals(
     supabase.lastRpc?.filters.some((filter) => filter.startsWith("eq:user_id")),
     false,

@@ -9,21 +9,14 @@ import {
 import { ReactNode, useEffect, useState } from "react";
 import { AppState, Platform } from "react-native";
 
-// Routes query/mutation failures to Sentry so data-layer errors are visible
-// without every call site having to report them individually. Components
-// still get the error via React Query's own state (isError/error) for UI
-// handling — this only adds reporting.
+// Routes query/mutation failures to Sentry without every call site reporting
+// individually; components still get isError/error for UI handling.
 const reportQueryError = (error: unknown) => {
   Sentry.captureException(error);
 };
 
-// Shared freshness window for Supabase-backed queries (DEX-36). Paired with
-// the realtime invalidation layer (see useRealtimeInvalidation): realtime
-// keeps the cache current while connected, and this staleTime bounds how far
-// behind a query can be when realtime misses an event or was never
-// connected. Device-backed queries (device calendars, AsyncStorage-backed
-// preferences like todayPanes) override this per-hook since there's no
-// cross-platform staleness to bound.
+// Shared freshness window (DEX-36): bounds how stale a query can get when
+// realtime misses an event. Device-backed hooks (calendars, AsyncStorage) override it.
 export const DEFAULT_STALE_TIME_MS = 1000 * 60;
 
 export const QueryProvider = ({ children }: { children: ReactNode }) => {
@@ -38,13 +31,8 @@ export const QueryProvider = ({ children }: { children: ReactNode }) => {
       }),
   );
 
-  // React Query's `refetchOnWindowFocus` relies on a `focusManager` event
-  // source that defaults to the browser's `visibilitychange` event, which
-  // doesn't exist on native. Tie it to `AppState` instead so foregrounding
-  // the app refetches queries that went stale while backgrounded — the same
-  // gap the auth-refresh AppState listener in utils/supabase.ts closes for
-  // tokens. Web already gets this behavior for free, so skip attaching a
-  // second listener there.
+  // focusManager defaults to the browser's visibilitychange event, absent on
+  // native — tie it to AppState so foregrounding refetches stale queries.
   useEffect(() => {
     if (Platform.OS === "web") return;
 

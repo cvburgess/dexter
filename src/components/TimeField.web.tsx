@@ -2,12 +2,8 @@ import { useTheme } from "@/utils/theme";
 
 import { TTimeFieldProps } from "./TimeField.types";
 
-/**
- * Web implementation of the time field. The community `DateTimePicker` renders
- * nothing on web (see `DateField.web`), so web uses the browser's native
- * `input[type="time"]`, themed to match the rest of the app. Its value is
- * already the `"HH:MM"` string the field speaks, so no conversion is needed.
- */
+// The community DateTimePicker renders nothing on web (see DateField.web), so
+// this uses the browser's native input[type="time"], themed to match.
 export function TimeField({ min, onChange, testID, value }: TTimeFieldProps) {
   const theme = useTheme();
 

@@ -5,29 +5,12 @@ import { GlassIconButton } from "@/components/GlassIconButton";
 import type { TIconName } from "@/components/Icon.types";
 import { formatWeekdayMonthDay } from "@/utils/formatPlainDate";
 
-/**
- * What a schedule button does to `scheduledFor`.
- *
- * Named for the *intent* rather than the value written, because two of the three
- * write a date and only the mode says which: `schedule` puts a task onto the day
- * the surface is showing, `defer` onto the day after it, `unschedule` takes it
- * off the calendar entirely.
- */
+// Named for the intent, not the value written: `schedule` targets the day
+// on screen, `defer` the day after it, `unschedule` clears the date.
 export type TScheduleMode = "schedule" | "defer" | "unschedule";
 
-/**
- * Every mode's glyph, on both icon sets.
- *
- * `unschedule` is a bare minus on iOS too, though SF Symbols has
- * `calendar.badge.minus` and Ionicons has no equivalent: the closest Ionicon,
- * `calendar-clear-outline`, is a calendar with an *x*, which reads as delete
- * rather than as taking the task off the day. Both platforms saying the same
- * plain minus beats one of them saying it better.
- *
- * `defer`'s arrow is also `StatusButton`'s glyph for DELEGATED — harmless, since
- * delegated is a terminal status and a task at one never appears beside these
- * buttons.
- */
+// `unschedule` is a bare minus on both platforms — Ionicons has no clean
+// equivalent to SF's calendar.badge.minus, so both agree on the plain glyph.
 const MODE_ICON: Record<TScheduleMode, TIconName> = {
   schedule: { sf: "plus", ionicon: "add-outline" },
   defer: { sf: "arrow.right", ionicon: "arrow-forward" },
@@ -37,21 +20,11 @@ const MODE_ICON: Record<TScheduleMode, TIconName> = {
 type TTaskScheduleButtonProps = {
   task: TTask;
   mode: TScheduleMode;
-  /**
-   * The day the surface is showing. `schedule` targets it and `defer` the day
-   * after it; `unschedule` still needs it for neither, and ignores it.
-   */
+  /** The day the surface is showing — `schedule` targets it, `defer` the
+   * day after it; `unschedule` ignores it. */
   date: Temporal.PlainDate;
-  /**
-   * **Must be a `useScheduleChange` `changeSchedule`, never a raw `updateTask`.**
-   * An alarm is bound to its task's scheduled date, so every write here owes the
-   * prompt that hook gives — writing straight through is what once left a
-   * backlog task's alarm pointing at the day it came from (DEX-77).
-   *
-   * Taken as a prop rather than by calling the hook here: it returns the props
-   * for one `ConfirmationModal`, and a button that owned that would mount a
-   * modal per row. The hook belongs to the surface; this belongs to the row.
-   */
+  /** Must be `useScheduleChange`'s `changeSchedule`, never raw `updateTask` —
+   * a raw write once left a backlog task's alarm on the day it came from (DEX-77). */
   onChangeSchedule: (task: TTask, scheduledFor: string | null) => void;
   /** Passed through for a button under a ritual step's fade — see `GlassIconButton`. */
   solid?: boolean;
@@ -66,18 +39,8 @@ const targetFor = (
   return (mode === "defer" ? date.add({ days: 1 }) : date).toString();
 };
 
-/**
- * The round button beside a task row that moves it on or off a day.
- *
- * Three surfaces draw one — the backlog drawer's "+", and the evening ritual's
- * Open tasks step at both ends of its rows — and all three were the same
- * `GlassIconButton` over the same `changeSchedule` call, retyping the same
- * label convention. The convention is the part worth holding in one place:
- * **every label names the day rather than saying "today" or "tomorrow"**, since
- * the drawer sits beside seven days on the Week tab and `DayNav` can page the
- * ritual anywhere, so a relative word would be a button that lies about where a
- * task went.
- */
+// The round button that moves a task on or off a day. Every label names the
+// day rather than "today"/"tomorrow" — DayNav can page the ritual anywhere.
 export function TaskScheduleButton({
   task,
   mode,

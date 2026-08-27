@@ -10,12 +10,8 @@ type THeaderAddButtonProps = {
   visible?: boolean;
 };
 
-/**
- * The "+" add button for a settings screen header, tinted with the primary
- * color. Shared by screens that add an item to a feature's list (Habits,
- * Journal). Renders nothing when `visible` is false so a disabled feature never
- * shows its add affordance.
- */
+/** The "+" add button for a settings screen header. Renders nothing when
+ * `visible` is false, so a disabled feature never shows its add affordance. */
 export function HeaderAddButton({
   accessibilityLabel,
   onPress,

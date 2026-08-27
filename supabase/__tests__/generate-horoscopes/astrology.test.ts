@@ -8,18 +8,8 @@ import {
   ZODIAC_SIGNS,
 } from "../../functions/generate-horoscopes/astrology.ts";
 
-// DEX-145. `index.ts` is a thin I/O shell by design, so the upstream contract —
-// request shape, response validation, life-area flattening — is pinned here
-// instead. Nothing in this file touches the network: `fetchHoroscope` takes its
-// fetch.
-//
-// The fixture below is the shape a live call actually returns (checked
-// 2026-08-11 against four signs and two dates), NOT the vendor's published
-// sample. Those differ in the way that matters most: the sample shows only the
-// inner object, while the wire format wraps it in
-// `{ success, data, metadata, ... }`. A fixture written from the docs would have
-// made every assertion here pass against a parser that reads `undefined` in
-// production. Re-check against a live call before changing this.
+// DEX-145: the fixture is a real response, not the vendor's docs sample —
+// those omit the `{ success, data, metadata }` envelope.
 
 const data = {
   text: "The universe offers subtle guidance through synchronicities.",
@@ -96,10 +86,8 @@ Deno.test("the request is a POST carrying a bearer token", async () => {
 });
 
 Deno.test("the request asks for a specific date in short format", async () => {
-  // The date is load-bearing: the cron generates *tomorrow* so the reading is
-  // ready when the reader wakes. Under the old provider this was an endpoint
-  // meaning "next" plus a timezone offset reverse-engineered against a server
-  // clock in IST; here it is a parameter, and this pins that it is actually sent.
+  // The date is a request parameter now — the old provider inferred "next"
+  // from a timezone offset reverse-engineered against a server clock in IST.
   const { fetch: fetchImpl, calls } = stubFetch(envelope);
 
   await fetchHoroscope("scorpio", "2026-08-12", "key", fetchImpl);
@@ -132,9 +120,8 @@ Deno.test("a non-2xx upstream response fails without echoing the body", async ()
 });
 
 Deno.test("the response envelope is unwrapped", async () => {
-  // The regression this exists for: the vendor's docs show the inner object, so
-  // a schema written from them parses `{ text, ... }` and silently reads
-  // `undefined` against the real `{ success, data: { text, ... } }`.
+  // The docs show only the inner object; a schema written from them silently
+  // reads `undefined` against the real `{ success, data: { text, ... } }`.
   const { fetch: fetchImpl } = stubFetch(envelope);
 
   const parsed = await fetchHoroscope("aries", "2026-08-12", "key", fetchImpl);
@@ -149,10 +136,8 @@ Deno.test("an unwrapped body is rejected rather than read as undefined", () => {
 });
 
 Deno.test("extra upstream fields are tolerated, not rejected", () => {
-  // The fixture already carries `planetary_influences`, `sign_emoji`,
-  // `time_window`, `language`, and `word_count`, none of which are stored. A
-  // schema that rejected unknown keys would turn a purely additive upstream
-  // change into twelve failed signs.
+  // Rejecting unknown keys would turn a purely additive upstream change
+  // into twelve failed signs.
   const result = horoscopeResponseSchema.safeParse({
     ...envelope,
     data: { ...data, brand_new_field: "x" },
@@ -162,9 +147,8 @@ Deno.test("extra upstream fields are tolerated, not rejected", () => {
 });
 
 Deno.test("a rating outside 1-5 is rejected", () => {
-  // Every rating lands in a column with a CHECK, and all twelve rows go up in
-  // one upsert — so an out-of-range value has to fail here, costing one sign,
-  // rather than at the insert, which would take the whole batch.
+  // All twelve rows go up in one upsert — this must fail here, costing one
+  // sign, not at the insert, which would take the whole batch.
   for (const overall_rating of [0, 6, 2.5, -1]) {
     assert(
       !horoscopeResponseSchema.safeParse({
@@ -192,10 +176,8 @@ Deno.test("a non-ISO date is rejected", () => {
 });
 
 Deno.test("a well-formed but impossible date is rejected", () => {
-  // The shape check alone passes every one of these, and every one is a value
-  // Postgres refuses — which fails the whole twelve-row upsert, not just the
-  // sign that carried it. The predecessor had this guard for `31-2-2026`;
-  // moving to an ISO format did not remove the need for it.
+  // Shape-valid but Postgres-refused — the predecessor had this guard for
+  // `31-2-2026`; moving to ISO format didn't remove the need for it.
   for (const date of ["2026-02-31", "2026-13-01", "2026-00-10", "2026-04-31"]) {
     assert(
       !horoscopeResponseSchema.safeParse({
@@ -229,9 +211,8 @@ Deno.test("life areas flatten to a complete twelve-key record", () => {
 });
 
 Deno.test("a missing life area throws and names what is missing", () => {
-  // Every rating column is NOT NULL, so there is no sensible default: a zero is
-  // outside the CHECK and an invented 3 would show the reader a neutral face for
-  // an area the upstream never rated.
+  // No sensible default exists: 0 fails the CHECK and an invented 3 would
+  // show a neutral face for an area the upstream never rated.
   const error = assertThrows(
     () =>
       toLifeAreaRatings(

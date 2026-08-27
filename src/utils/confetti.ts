@@ -1,11 +1,5 @@
-/**
- * The burst behind the Open tasks step's all-clear (DEX-146).
- *
- * React-free and deterministic so the field is unit-testable without a native
- * host — the same split `starField.ts` and `ritualSteps.ts` use. Everything here
- * is geometry in *fractions*; the component scales it to whatever box it is
- * given, so one field fits a phone and a capped-width desktop column alike.
- */
+// The Open tasks all-clear burst (DEX-146) — geometry in fractions, so one
+// field fits a phone and a capped-width desktop column alike.
 
 /** One piece of paper. */
 export type TConfettiPiece = {
@@ -26,11 +20,8 @@ export type TConfettiPiece = {
 };
 
 /**
- * A small deterministic PRNG (mulberry32), the same one `starField.ts` carries.
- *
- * `Math.random` would deal a new field on every render, and this one animates
- * while the step around it is still re-rendering (a task arriving from another
- * device re-runs the whole step) — pieces would teleport mid-fall.
+ * Deterministic PRNG (mulberry32, same as starField.ts) — Math.random would
+ * deal a new field on every re-render, teleporting pieces mid-fall.
  */
 const mulberry32 = (seed: number) => () => {
   seed = (seed + 0x6d2b79f5) | 0;
@@ -46,21 +37,14 @@ const MAX_DRIFT = 0.18;
 const MAX_TURNS = 2.5;
 
 /**
- * The share of the sequence the last piece may start on.
- *
- * Well short of 1 so every piece still has most of the timeline to fall
- * through — at 1 the stragglers would be cut off in mid-air when the driver
- * lands. The stagger is what stops the burst reading as one falling sheet.
+ * Latest start for the last piece, well short of 1 so stragglers finish
+ * falling before the driver lands — otherwise the burst reads as one sheet.
  */
 export const CONFETTI_STAGGER = 0.35;
 
 /**
- * Deals a confetti field.
- *
- * Every value is drawn flat rather than shaped the way `buildStarField` cubes
- * its radii: a sky wants a few bright stars among many faint ones, where paper
- * thrown in the air is genuinely uniform, and biasing it only made the burst
- * look sparse.
+ * Every value drawn flat, unlike buildStarField's cubed radii — paper in
+ * the air is genuinely uniform, and biasing it made the burst look sparse.
  */
 export const buildConfetti = (
   count: number,
@@ -76,10 +60,8 @@ export const buildConfetti = (
     ratio: 0.4 + random() * 0.6,
     turns: (random() * 2 - 1) * MAX_TURNS,
     delay: random() * CONFETTI_STAGGER,
-    // Dealt round-robin rather than by another draw, so the palette is used
-    // evenly however few pieces there are — a random tint per piece can leave a
-    // color unused, and with three of them that reads as the wrong palette
-    // rather than as chance.
+    // Round-robin, not another draw — a random tint can leave a color
+    // unused, and with only three that reads as the wrong palette.
     tint: index % tints,
   }));
 };

@@ -6,9 +6,8 @@ import { Database, TablesInsert, TablesUpdate } from "@/types/database.types";
 import { ETaskPriority, TTask } from "./tasks";
 
 /**
- * A template's checklist item. Unlike a task's subtask it carries no `status` —
- * a template is a blueprint, not state; each generated occurrence materializes
- * its own copy at the open status (see `subtasksFromTemplate`).
+ * No `status`, unlike a task's subtask — a template is a blueprint, not state;
+ * each occurrence materializes its own copy (see `subtasksFromTemplate`).
  */
 export type TTemplateSubtask = {
   id: string;
@@ -33,19 +32,15 @@ export type TTemplate = {
 };
 
 /**
- * Repeat tasks and task templates share this table; the schedule is what tells
- * them apart. A row without one is a blueprint the user stamps out on demand,
- * and nothing recurs from it — both recurrence paths (`useTasks`, the
- * mcp-server's `maybeCreateNextRecurringTask`) bail on a falsy schedule.
+ * Repeat tasks and task templates share the table; a row with no schedule is a
+ * blueprint, and both recurrence paths bail on a falsy schedule (DEX-65).
  */
 export const isTaskTemplate = (template: TTemplate) =>
   template.schedule === null;
 
 /**
- * Stands in for a template id in the editor's route while the row does not
- * exist yet, so "Save as template" can open a draft and write nothing until the
- * user confirms. Mirrors the `id: "new"` convention the list and habit editors
- * already use. A real id is a uuid, so this can never collide.
+ * Editor-route stand-in until the row exists, mirroring the list and habit
+ * editors' `id: "new"`. A real id is a uuid, so this can never collide.
  */
 export const NEW_TEMPLATE = "new";
 
@@ -53,9 +48,8 @@ export const NEW_TEMPLATE = "new";
 export const isRepeatTask = (template: TTemplate) => !isTaskTemplate(template);
 
 /**
- * The task's shape, minus everything that belongs to a single occurrence — its
- * dates and its progress. Shared by the "Repeat" flow, which writes it straight
- * away, and "Save as template", which seeds an unsaved draft with it.
+ * The task minus everything owned by one occurrence — dates and progress. Shared
+ * by "Repeat" (writes immediately) and "Save as template" (seeds a draft).
  */
 export const templateFieldsFromTask = (task: TTask) => ({
   alarmTime: task.alarmTime,
@@ -63,9 +57,8 @@ export const templateFieldsFromTask = (task: TTask) => ({
   listId: task.listId,
   priority: task.priority,
   title: task.title,
-  // Carry the checklist's titles across, dropping each item's status — the
-  // template is the blueprint every future occurrence starts from, so it
-  // records *what* the steps are, not how far this one task got.
+  // Titles only: the template records *what* the steps are, not how far this
+  // one task got.
   subtasks: task.subtasks.map(({ id, title }) => ({ id, title })),
 });
 

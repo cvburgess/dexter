@@ -1,11 +1,7 @@
 import { Children, isValidElement, ReactNode } from "react";
 
-// The global `@expo/ui` mock in jest.setup.js renders Picker as null, which is
-// enough for screens that merely contain one but leaves nothing to assert on or
-// drive. Tests that exercise a picker override it with this capturing version
-// instead. The captured props live here rather than in the test file because a
-// `jest.mock` factory is hoisted above the test file's own `const`s and so
-// can't close over them.
+// Overrides the global @expo/ui null mock for tests that drive a Picker.
+// Props live here since a jest.mock factory is hoisted above its own consts.
 
 let lastProps: Record<string, unknown> | null = null;
 const propsByTestID = new Map<string, Record<string, unknown>>();
@@ -26,13 +22,8 @@ export const mockExpoUiPicker = () => {
   return { Host, Picker };
 };
 
-/**
- * Props the most recently rendered Picker received.
- *
- * Only unambiguous on a screen with exactly one picker — Settings → Tasks now
- * renders two (alarm sound and focus block length), so reach for
- * {@link pickerPropsFor} there.
- */
+/** Props the most recently rendered Picker received — ambiguous with more
+ * than one on screen; use {@link pickerPropsFor} then. */
 export const pickerProps = () => lastProps;
 
 /** Props the Picker carrying `testID` received. */

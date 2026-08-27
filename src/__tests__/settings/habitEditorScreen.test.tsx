@@ -127,9 +127,8 @@ describe("HabitScreen", () => {
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
   });
 
-  // Archive is the only way out (DEX-108). The app archives things rather than
-  // destroying them, and a habit's history is the point of having tracked it —
-  // `deleteHabit` still exists on the hook, but nothing in the UI reaches it.
+  // Archive is the only way out (DEX-108) — a habit's history is the point of
+  // tracking it. `deleteHabit` exists on the hook but nothing in the UI calls it.
   it("offers archive and no delete", () => {
     const screen = renderWith(makeHabit());
 
@@ -138,9 +137,8 @@ describe("HabitScreen", () => {
     expect(mockDeleteHabit).not.toHaveBeenCalled();
   });
 
-  // The case a bare `router.back()` couldn't cover: a cold deep link straight
-  // to this URL, where an unguarded pop is an unhandled GO_BACK and both header
-  // buttons look dead.
+  // A cold deep link to this URL: an unguarded pop is an unhandled GO_BACK and
+  // both header buttons look dead.
   it("falls back to the list when there is nothing to pop", () => {
     mockRouter.canDismiss.mockReturnValue(false);
     renderWith(makeHabit());

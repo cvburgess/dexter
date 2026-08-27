@@ -17,33 +17,20 @@ export type TTaskForm = {
   setPriority: (priority: ETaskPriority) => void;
   listId: string | null;
   setListId: (listId: string | null) => void;
-  /**
-   * ISO date the task is scheduled for, or null when the task is unscheduled.
-   * Control-only (no shorthand token).
-   */
+  /** ISO date the task is scheduled for, or null when unscheduled.
+   * Control-only (no shorthand token). */
   scheduledFor: string | null;
   setScheduledFor: (scheduledFor: string | null) => void;
   dueOn: string | null;
   setDueOn: (dueOn: string | null) => void;
-  /**
-   * The day this form is *about*: the viewed day when creating, the task's own
-   * schedule when editing, today when neither says otherwise. It is what an
-   * empty date row fills itself with, so adding a deadline on a day the user
-   * navigated to lands on that day rather than on today (DEX-165).
-   *
-   * Fixed at mount, deliberately: it anchors the form to the day it was opened
-   * on, so rescheduling — or clearing the schedule outright — doesn't drag the
-   * other row's default along with it.
-   */
+  /** The day the form is about, fixed at mount — what an empty date row
+   * fills itself with (DEX-165). */
   anchorDate: string;
   /** Time-of-day the alarm fires (`"HH:MM"`), or null when no alarm is set. */
   alarmTime: string | null;
   setAlarmTime: (alarmTime: string | null) => void;
-  /**
-   * Raw link input. Held verbatim while typing — `normalizeTaskUrl` runs on the
-   * way into the payload, so a half-typed host is never rewritten under the
-   * user mid-keystroke.
-   */
+  /** Raw link input, held verbatim while typing — normalizeTaskUrl runs on
+   * the way into the payload, never under the user mid-keystroke. */
   url: string;
   setUrl: (url: string) => void;
   /** Checklist items to save alongside the task, in insertion order. */
@@ -51,45 +38,28 @@ export type TTaskForm = {
   setSubtasks: (subtasks: TSubtask[]) => void;
   /** Fills the form from a task template, leaving its dates alone (DEX-65). */
   applyTemplate: (template: TTemplate) => void;
-  /**
-   * The template the form was seeded from — or, when editing, the one the task
-   * already came from — or null when nothing seeded it. Both the picker's
-   * selection and the saved task's `template_id` read it, so the two can't
-   * disagree.
-   */
+  /** The template the form was seeded from (or the task's own), else null.
+   * The picker's selection and the saved template_id both read it. */
   templateId: string | null;
-  /**
-   * The resolved payload. In create mode the title has had its tokens stripped;
-   * in edit mode it is the title verbatim. `goalId` and `status` are absent
-   * either way — the form does not own them, so saving can't clobber them.
-   */
+  /** The resolved payload — tokens stripped in create mode, verbatim in
+   * edit. goalId/status are absent: the form doesn't own them. */
   task: TCreateTask;
   canSave: boolean;
 };
 
 type TUseTaskFormOptions = {
-  /**
-   * Create mode: the ISO date to schedule the new task for; defaults to today.
-   * Ignored when `task` is set — an existing task brings its own schedule.
-   */
+  /** Create mode: ISO date to schedule the new task for, defaulting to
+   * today. Ignored when `task` is set — it brings its own schedule. */
   defaultScheduledFor?: string;
-  /**
-   * Create mode: the link to open the form on — a page shared into the app from
-   * another app's share sheet (DEX-66). Ignored when `task` is set, which
-   * brings its own link.
-   */
+  /** Create mode: a link shared in from another app's share sheet
+   * (DEX-66). Ignored when `task` is set, which brings its own link. */
   defaultUrl?: string;
-  /**
-   * Edit mode: the saved task to seed every field from. Its presence is what
-   * takes the form out of create mode.
-   */
+  /** Edit mode: the task to seed from; its presence leaves create mode. */
   task?: TTask;
 };
 
-// The default can arrive from an untrusted route param (deep link), so normalize
-// it and fall back to today rather than letting a bad value throw downstream in
-// Temporal.PlainDate.from when the date chip renders. Also takes a saved task's
-// `scheduledFor`, which is null when the task is unscheduled — same fallback.
+// The value can arrive from an untrusted deep-link param (or be a saved task's
+// null): normalize and fall back to today rather than throwing at render.
 const resolveScheduledFor = (value?: string | null): string => {
   const today = Temporal.Now.plainDateISO().toString();
   if (!value) return today;
@@ -100,18 +70,8 @@ const resolveScheduledFor = (value?: string | null): string => {
   }
 };
 
-/**
- * State for the task form, shared by the create modal (`new-task`) and the edit
- * modal (`edit-task/[id]`).
- *
- * **Shorthand tokens are create-only.** In create mode, `!` priority,
- * `#list-slug`, and `due:N` typed into the title drive the matching controls
- * live; once a control is changed manually, the manual value wins over tokens.
- * In edit mode the title is seeded from a saved row that may legitimately
- * contain a `!` or a `#` — parsing it would strip those characters and re-drive
- * the controls off text the user never meant as shorthand (DEX-98). So editing
- * seeds each override slot from the task's own column and never runs the parser.
- */
+// Task form state shared by the create and edit modals. Shorthand tokens
+// are create-only: a saved title may hold literal !/# tokens (DEX-98).
 export const useTaskForm = (
   lists: TList[],
   { defaultScheduledFor, defaultUrl, task }: TUseTaskFormOptions = {},
@@ -122,9 +82,8 @@ export const useTaskForm = (
   const [scheduledFor, setScheduledFor] = useState<string | null>(() =>
     task ? task.scheduledFor : resolveScheduledFor(defaultScheduledFor),
   );
-  // Read once and never updated: the day the form was opened on outlives every
-  // later edit to `scheduledFor`, including clearing it. An unscheduled task
-  // has no day of its own to anchor to, so it falls back to today.
+  // Read once: the day the form opened on outlives every later edit to
+  // `scheduledFor`, including clearing it; an unscheduled task anchors to today.
   const [anchorDate] = useState(() =>
     resolveScheduledFor(task ? task.scheduledFor : defaultScheduledFor),
   );
@@ -135,18 +94,14 @@ export const useTaskForm = (
   // A saved task's link wins over a shared one: editing is never the target of
   // a share, so the two can't both be meaningful.
   const [url, setUrl] = useState(task?.url ?? defaultUrl ?? "");
-  // Provenance, not a mode: it records where the form's contents came from.
-  // Deliberately never cleared once set — editing a field or switching back to
-  // the New tab leaves the seeded values in place, so dropping the id would
-  // produce a task whose contents came from a template but which claims
-  // otherwise. Editing carries an existing task's link through untouched.
+  // Provenance, never cleared once set: dropping the id would produce a task
+  // whose contents came from a template but which claims otherwise.
   const [templateId, setTemplateId] = useState<string | null>(
     task?.templateId ?? null,
   );
 
   // `undefined` means "no manual override yet — follow the shorthand tokens".
-  // Editing has no tokens to follow, so every slot starts filled from the task
-  // and these are simply the live values.
+  // Edit mode has no tokens, so every slot starts filled from the task.
   const [priorityOverride, setPriorityOverride] = useState<
     ETaskPriority | undefined
   >(task?.priority);
@@ -157,9 +112,8 @@ export const useTaskForm = (
     task ? task.dueOn : undefined,
   );
 
-  // Not merely ignored in edit mode — never run, so a saved title can't be
-  // rewritten by the parser on its way to the payload. `due:N` counts from the
-  // anchor, so it lands the same day the Deadline row's "Add deadline" would.
+  // Never run in edit mode, so a saved title can't be rewritten. `due:N`
+  // counts from the anchor, landing where the Deadline row's default would.
   const parsed = isEditing
     ? undefined
     : parseTaskShorthand(title, lists, anchorDate);
@@ -180,26 +134,16 @@ export const useTaskForm = (
   const applyTemplate = (template: TTemplate) => {
     setTemplateId(template.id);
     setTitle(template.title);
-    // The *override* setters, so the template's choices survive whatever
-    // shorthand tokens its title happens to contain. `dueOn` is pinned to its
-    // current value for the same reason: it has no template counterpart to
-    // restate, but a `due:N` token in the title would otherwise move it.
+    // The *override* setters, so the template's choices beat any shorthand in
+    // its title; `dueOn` is pinned so a `due:N` token can't move it.
     setPriorityOverride(template.priority);
     setListOverride(template.listId);
     setDueOnOverride(dueOn);
-    // A template's checklist is a blueprint, so every item arrives unchecked.
-    // `subtasksFromTemplate` mints fresh ids, so two tasks stamped from one
-    // template never share them.
+    // Every item arrives unchecked with fresh ids — two tasks stamped from one
+    // template never share subtask ids.
     setSubtasks(subtasksFromTemplate(template.subtasks));
-    // `scheduledFor` is left alone on purpose — a template carries no dates, and
-    // the task belongs on the day the user was viewing. `url` likewise: a
-    // template has no link column, so applying one has nothing to say about a
-    // link the user (or a share) already put in the field.
-    //
-    // `alarmTime` is deliberately NOT copied. An alarm only rings once AlarmKit
-    // has been authorized and the task has a day to fire on, and this path can
-    // guarantee neither — `handleAddAlarm` in the modal is what asks for
-    // permission. Copying it here would seed alarms that silently never ring.
+    // `alarmTime` is NOT copied: this path can't guarantee AlarmKit
+    // authorization, so a copied alarm would silently never ring.
   };
 
   return {
@@ -232,10 +176,8 @@ export const useTaskForm = (
       // An empty field is no link, not an empty one — the same `null`-not-`""`
       // convention the date and alarm columns already follow.
       url: normalizeTaskUrl(url),
-      // Stamped from a template: `template_id` says only "this task came from
-      // that template". Nothing recurs from it — that is a property of the
-      // template's schedule, read at completion time — and the picker only
-      // offers scheduleless rows anyway.
+      // Says only "came from that template" — recurrence is a property of the
+      // template's schedule, read at completion time.
       templateId,
       // A task and its checklist are written in one statement.
       subtasks: savedSubtasks,

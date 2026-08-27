@@ -40,9 +40,8 @@ describe("getStatusSections", () => {
   });
 
   it("tints each icon from the theme, leaving To Do neutral", () => {
-    // Sentinels rather than real hex values: this pins which *token* each status
-    // reads, which is the part that must not drift. The literal colors are the
-    // theme's business and change per theme.
+    // Sentinels, not real hex values — pins which token each status reads,
+    // not the literal color, which is the theme's business.
     const colors = {
       success: "GREEN",
       error: "RED",

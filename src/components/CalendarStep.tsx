@@ -27,28 +27,13 @@ type TCalendarStepProps = {
   date: Temporal.PlainDate;
 };
 
-/**
- * `hour` only for exactly sixty minutes; `hours` for everything else, a half
- * hour and zero included ("0.5 hours", "0 hours"). English pluralizes on the
- * value rather than on whether it is whole, so this reads off the minutes
- * instead of the formatted string — `"1"` is the only figure that takes the
- * singular, and it is the only one this can produce it for.
- */
+/** `hour` only at exactly sixty minutes; `hours` for everything else — reads
+ * off the minutes since `"1"` is the only figure this can singularize. */
 const hoursLabel = (minutes: number): string =>
   Math.round(Math.max(0, minutes)) === 60 ? "hour" : "hours";
 
-/**
- * The morning ritual's Calendar step (DEX-140): what the day already holds,
- * stated in a line or two, over the same timeline the Today tab draws.
- *
- * The step only exists at all while `preferences.enableCalendar` is on —
- * `utils/ritualSteps` drops it from the flow otherwise — so everything here is
- * about the two states left underneath that: a calendar switched on but with no
- * source behind it, and a calendar with a day in it.
- *
- * Carries no side gutter and no top inset of its own; `SwipeablePage` and the
- * ritual layouts own those (see docs/design.md, "Who owns spacing").
- */
+// The morning Calendar step (DEX-140), over the Today tab's own timeline —
+// ritualSteps drops it entirely when enableCalendar is off.
 export function CalendarStep({ date }: TCalendarStepProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -79,27 +64,19 @@ export function CalendarStep({ date }: TCalendarStepProps) {
   const firstLineStyle = useStageOpacity(reveal, 0);
   const secondLineStyle = useStageOpacity(reveal, 1);
 
-  // A line each, in the order they read: how many, then what they cost, then
-  // what is left. Booked and free shared one line while the hero was centered —
-  // one fact read two ways, split by a bullet — but in the column they are two
-  // figures of the same kind, and stacking them puts all three on the same
-  // vertical line rather than hiding two of them inside a sentence.
+  // A line each, in the order they read — stacking booked and free (once one
+  // bulleted sentence) puts all three figures on the same vertical line.
   const heroLines: THeroLine[] = [
     {
       key: "events",
       figure: String(summary.eventCount),
       words: summary.eventCount === 1 ? "event" : "events",
-      // The same token the backlog step's "due soon" figure takes —
-      // `priority[0]` is daisyUI's "warning" (there is no dedicated `warning`
-      // color; see `Theme.colors.priority` in `theme.ts`). A day's events are
-      // a heads-up in exactly that register: not the failure `error` marks on
-      // the line below, not the all-clear of `success`, and not the neutral
-      // ink this used to take, which read as a caption rather than a reading.
+      // Same "warning" token as the backlog step's due-soon figure: a
+      // heads-up register, neither the `error` below nor a neutral caption.
       color: theme.colors.priority[ETaskPriority.IMPORTANT_AND_URGENT],
     },
-    // The unit sits in the words rather than the figure, so it takes their ink
-    // and the figure column measures only the number — "1.5" and "12" line up
-    // where "1h 30m" and "12h" could not.
+    // The unit sits in the words, not the figure, so the column measures
+    // only the number — "1.5"/"12" line up where "1h 30m"/"12h" could not.
     {
       key: "planned",
       figure: formatHours(summary.plannedMinutes),
@@ -114,12 +91,8 @@ export function CalendarStep({ date }: TCalendarStepProps) {
     },
   ];
 
-  // Loading is checked *first*, and the order is load-bearing: an unresolved
-  // read looks exactly like a user with no calendars, so testing the source
-  // ahead of it would flash the setup prompt — and its button — at a configured
-  // user on every cold open. Nothing rather than a spinner, for the same reason
-  // the horoscope shows nothing: one quick read, and a spinner that appears for
-  // a frame reads as the step failing.
+  // Checked first: an unresolved read looks like "no calendars", so testing
+  // that ahead of loading would flash the setup prompt at a configured user.
   if (isLoading) return null;
 
   if (notConfigured) {
@@ -141,8 +114,7 @@ export function CalendarStep({ date }: TCalendarStepProps) {
     );
   }
 
-  // A dropped connection is not a configuration problem, so it gets the plain
-  // message rather than a button offering to fix something that isn't broken.
+  // Not a configuration problem, so the plain message, no fix-it button.
   if (isError && events.length === 0) {
     return (
       <EmptyScreen message="Couldn't load your calendars. Check your connection or feed URLs." />
@@ -157,18 +129,15 @@ export function CalendarStep({ date }: TCalendarStepProps) {
           {
             gap: theme.space.xs,
             padding: theme.space.lg,
-            // The host SafeAreaView omits the bottom edge (the tab bar owns
-            // it), so centering in the full box would sit this visibly low —
-            // the same reservation `EmptyScreen` makes, and why this is a local
-            // block rather than that component: two lines, two colors.
+            // The same bottom reservation EmptyScreen makes — local here for
+            // the two-line, two-color copy.
             paddingBottom: theme.space.lg + insets.bottom,
           },
         ]}
         testID="calendar-step-clear"
       >
-        {/* Staged like the first two lines of the populated hero: the fact,
-            then the invitation that follows from it. Centered rather than
-            columned — there is no figure here to align against. */}
+        {/* Staged like the populated hero's first two lines; centered, not
+            columned — no figure here to align against. */}
         <Animated.Text
           style={[
             styles.heroLine,
@@ -196,12 +165,8 @@ export function CalendarStep({ date }: TCalendarStepProps) {
   return (
     <View style={styles.container}>
       <HeroLines lines={heroLines} reveal={reveal} />
-      {/* `flex: 1` belongs to this wrapper: `CalendarView` fills its parent, and
-          an `Animated.View` sized to its content would give it nothing to fill.
-          Opacity only, no translate — `SwipeablePage`'s intro already slides the
-          page 25px, a second axis compounds into a diagonal drift, and sliding a
-          grid past its own fixed hour gutter reads as a scroll the user never
-          made. */}
+      {/* Opacity only — a translate axis would drift diagonally, reading as a
+          scroll the user never made against the fixed hour gutter. */}
       <Animated.View style={[styles.calendar, calendarStyle]}>
         <CalendarView date={date} />
       </Animated.View>

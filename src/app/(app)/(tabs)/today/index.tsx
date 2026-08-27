@@ -18,19 +18,13 @@ type TDayState = {
   direction: -1 | 0 | 1;
 };
 
-// Owns only the state genuinely shared between the two layouts — the viewed day,
-// preferences, and the backlog-attention signal — then hands off to whichever
-// layout fits the screen. Each layout owns its own view/pane state internally
-// (see SmallScreenToday / LargeScreenToday) so a change to one can't affect the
-// other.
+// Owns only state shared between the two layouts (day, preferences, the
+// backlog-attention signal); each layout owns its own view/pane state.
 export default function TodayScreen() {
   const [preferences] = usePreferences();
   const multiPane = useIsLargeDevice();
-  // `?date=&mode=&q=&n=` — the deep-link contract the Search tab builds
-  // (`utils/todayRoute.ts`, DEX-47). Null for an ordinary tab press, which is
-  // why the state below still seeds itself from today. Typed loosely on purpose:
-  // `useLocalSearchParams` hands back a `string[]` for a repeated key, so
-  // `parseDayLink` narrows rather than trusting the shape.
+  // `?date=&mode=&q=&n=` deep-link contract (utils/todayRoute.ts, DEX-47);
+  // typed loosely since a repeated key hands back a string[].
   const params = useLocalSearchParams<{
     date?: string | string[];
     mode?: string | string[];
@@ -49,12 +43,8 @@ export default function TodayScreen() {
   // than drawing it as empty of closed-out work (DEX-162).
   useExpandTaskReach(day.date);
 
-  // Drives the Backlog attention dot and the filter that tapping Backlog
-  // pre-applies (DEX-58): the Filter preset for the first overdue/left-behind
-  // task (Overdue wins), or null when there's nothing. Anchored to the real
-  // today, not `day.date` — it signals stragglers regardless of which day is on
-  // screen. Reads the shared, already-warm `["tasks"]` cache the panes use, so
-  // it costs no extra fetch.
+  // Drives the Backlog attention dot (DEX-58); anchored to the real today,
+  // not day.date, so it signals stragglers regardless of the day shown.
   const [allTasks] = useTasks();
   const attentionFilter = useMemo(
     () => backlogAttentionFilter(allTasks, today),
@@ -73,20 +63,14 @@ export default function TodayScreen() {
       return { date: next, direction: Temporal.PlainDate.compare(next, date) };
     });
 
-  // Follow the day itself changing under the screen — an app foregrounded after
-  // midnight, or left open across it (DEX-161). Only when the screen is showing
-  // the day that just stopped being today: a user who paged to next Tuesday
-  // meant it, and rolling over is no reason to take that away.
-  //
-  // Adjusted during render for the same reason the link below is, and *before*
-  // it so a link arriving in the same pass still wins.
+  // Follow midnight foreground/resume (DEX-161) only if showing the day that
+  // ended. Adjusted during render, before the link below, so it still wins.
   const [lastToday, setLastToday] = useState(today);
   if (!today.equals(lastToday)) {
     setLastToday(today);
     if (day.date.equals(lastToday)) {
-      // Derived rather than hardcoded to 1: the day normally moves forward, but
-      // a device flown east across the date line moves it back, and the
-      // direction drives which way the day-change animation travels.
+      // Derived, not hardcoded to 1: flying east across the date line moves
+      // the day back, and direction drives the change animation.
       setDay({
         date: today,
         direction: Temporal.PlainDate.compare(today, day.date),
@@ -94,26 +78,15 @@ export default function TodayScreen() {
     }
   }
 
-  // Follow a `?date=` that arrives after mount. Navigating here from the Search
-  // tab re-renders this screen with new params rather than remounting it, so the
-  // initial state above only covers a cold open — this covers every later tap.
-  //
-  // Adjusted during render (React's supported pattern for deriving state from a
-  // changed prop, as `SmallScreenToday` already does for a disabled view) rather
-  // than in an effect: React re-runs this component before painting, so the day
-  // never renders wrong for a frame first. `appliedLinkId` is what makes it fire
-  // once per navigation — without it this would re-apply on every render and
-  // stomp the user's own day navigation. Keyed on `link.id` rather than the date
-  // itself, so re-following a link the user has since navigated away from still
-  // takes effect (see `TTodayRouteParams["n"]`).
+  // Follow a `?date=` arriving after mount, adjusted during render so the
+  // day never paints wrong for a frame; keyed on link.id so a re-follow lands.
   const [appliedLinkId, setAppliedLinkId] = useState(link?.id ?? null);
   if ((link?.id ?? null) !== appliedLinkId) {
     setAppliedLinkId(link?.id ?? null);
     if (link?.date) {
       const direction = Temporal.PlainDate.compare(link.date, day.date);
-      // Skip when the link points at the day already on screen: `direction`
-      // drives the day-change animation, and restarting it for no movement
-      // reads as a flicker.
+      // Skip a link pointing at the day already on screen — restarting the
+      // change animation for no movement reads as a flicker.
       if (direction !== 0) setDay({ date: link.date, direction });
     }
   }

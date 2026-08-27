@@ -36,13 +36,8 @@ Deno.test("the date comes from the response, not the local clock", () => {
 });
 
 Deno.test("each life area lands in its own column", () => {
-  // The test this file exists for. Twelve ratings flattened onto twelve
-  // same-typed columns is exactly where `rating_love: ratings.learning` would
-  // compile cleanly and quietly show a reader the wrong number — and every
-  // value being a 1-5 smallint means nothing downstream would ever look odd.
-  //
-  // Driven by singling out one area at a time rather than comparing two derived
-  // records, which would pass even if both sides shared the same mistake.
+  // Twelve same-typed columns is where `rating_love: ratings.learning` would
+  // compile clean and show the wrong number.
   for (const area of LIFE_AREAS) {
     const row = toHoroscopeRow("aries", dataWith(area)) as unknown as Record<
       string,
@@ -68,8 +63,7 @@ Deno.test("the text, overall rating, and tips are carried across", () => {
 });
 
 Deno.test("sentiment is never written", () => {
-  // It is a generated column derived from `overall_rating` in the database.
-  // Naming it in the insert is an error, and the whole point of generating it is
+  // Generated from `overall_rating` in the database — the whole point is
   // that the tint and the rating cannot drift apart.
   assert(
     !("sentiment" in toHoroscopeRow("gemini", dataWith())),
@@ -78,10 +72,8 @@ Deno.test("sentiment is never written", () => {
 });
 
 Deno.test("an added upstream field never reaches the insert", () => {
-  // `toHoroscopeRow` only names the fields it maps, but the guarantee that
-  // nothing else arrives comes from zod stripping unknown keys in `parse` — so
-  // this asserts the pair end to end. An unknown column fails the upsert for all
-  // twelve rows at once, not just the sign that carried it.
+  // The guarantee comes from zod stripping unknown keys in `parse`, so this
+  // asserts the pair end to end — an unknown column fails all twelve rows.
   const parsed = horoscopeResponseSchema.parse({
     success: true,
     data: {

@@ -38,10 +38,8 @@ jest.mock("@/components/HabitTracker", () => ({
   HabitTracker: () => mockHabitTracker(),
 }));
 
-// TaskCard wraps a native menu (MoreMenu) that can't be driven from a unit
-// test; stub it to a title + delete trigger so TasksView's list rendering and
-// delete wiring can be exercised. TaskCard's own rendering is covered by its
-// own tests.
+// TaskCard wraps a native menu that can't be driven here; stub to a title +
+// delete trigger so TasksView's list/delete wiring is exercisable.
 const mockTaskCard = ({
   task,
   onDelete,
@@ -106,9 +104,8 @@ const task = (overrides: Partial<TTask> = {}): TTask => ({
   goalId: null,
   listId: null,
   priority: ETaskPriority.URGENT,
-  // Matches this suite's `date` — TasksView now filters the canonical fetch
-  // down to tasks scheduled for the viewed day client-side (DEX-57), so a
-  // fixture task must be scheduled for that day to appear.
+  // Matches this suite's `date` — TasksView filters the canonical fetch to
+  // the viewed day client-side (DEX-57), so a fixture must match to appear.
   scheduledFor: "2026-07-13",
   status: ETaskStatus.TODO,
   subtasks: [],
@@ -162,10 +159,8 @@ describe("TasksView", () => {
   });
 
   it("keeps the task list mounted on a day with no tasks (DEX-136)", () => {
-    // Not cosmetic: UIKit resolves a tab screen's content scroll view once, at
-    // mount, by walking first subviews. Opening Today on an empty day used to
-    // leave the tab bar with no scroll view to minimize against for the life of
-    // the screen, because the empty state replaced the scroller outright.
+    // UIKit resolves a tab's content scroll view once, at mount; an empty
+    // state that replaced the scroller left the tab bar nothing to minimize.
     const screen = render(<TasksView date={date} />);
     expect(screen.UNSAFE_getByType(ScrollView)).toBeTruthy();
   });
@@ -194,9 +189,8 @@ describe("TasksView", () => {
     expect(screen.queryByText("habit-tracker")).toBeNull();
   });
 
-  // The host SafeAreaView omits the bottom edge so cards can scroll under the
-  // translucent tab bar; the list has to reserve that inset itself or its last
-  // card can never be scrolled clear of the bar (DEX-91).
+  // The host SafeAreaView omits the bottom edge, so the list must reserve
+  // that inset itself or the last card can never clear the tab bar (DEX-91).
   it("adds the safe-area bottom inset to the list's own bottom padding", () => {
     mockUseTasks.mockReturnValue(tasksResult([task()]));
     const screen = renderWithBottomInset(34, <TasksView date={date} />);
@@ -213,10 +207,8 @@ describe("TasksView", () => {
     expect(style.paddingTop).toBe(16);
   });
 
-  // The side gutter belongs to whoever placed the list (DEX-115): the phone
-  // gets one from `SwipeablePage`, while the Today pane and the Week columns
-  // want none — a gutter here stacked on top of theirs, which is what made the
-  // Tasks pane sit further from Notes than Notes sat from Calendar.
+  // The side gutter belongs to whoever placed the list (DEX-115) — a gutter
+  // here stacked on the caller's, unevenly spacing the Today panes.
   it("leaves the list's side gutter to its container", () => {
     mockUseTasks.mockReturnValue(tasksResult([task()]));
     const screen = renderWithBottomInset(0, <TasksView date={date} />);

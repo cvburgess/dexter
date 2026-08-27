@@ -11,10 +11,8 @@ const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 
 /**
- * Declared separately from the registration below so tests can apply its
- * defaults before invoking the handler, the same way `listTasksInputSchema`
- * does — a handler called directly would otherwise see `limit: undefined`,
- * which the real MCP server never passes.
+ * Declared separately so tests can apply its defaults before invoking the
+ * handler directly, which would otherwise see `limit: undefined`.
  */
 export const searchInputSchema = {
   query: z.string().min(1),
@@ -49,10 +47,8 @@ export function registerSearchTools(server: McpServer, ctx: ToolContext): void {
       annotations: { readOnlyHint: true, destructiveHint: false },
     },
     async ({ query, kinds, limit }) => {
-      // No `.eq("user_id", ctx.userId)` here, unlike every other tool in this
-      // directory. `search_entries` is SECURITY INVOKER, so it runs under the
-      // caller's JWT and RLS scopes all three of its branches to the caller's
-      // own rows — there is also no `user_id` column on the result to filter.
+      // No `.eq("user_id", ...)` here, unlike other tools: `search_entries` is
+      // SECURITY INVOKER, so RLS already scopes all three branches to the caller.
       let request = ctx.supabase.rpc("search_entries", { query });
 
       if (kinds) request = request.in("kind", kinds);
@@ -60,10 +56,8 @@ export function registerSearchTools(server: McpServer, ctx: ToolContext): void {
       const { data, error } = await request.limit(limit);
 
       if (error) return toolError(error.message);
-      // A query that matches nothing is the ordinary case, not a failure — the
-      // same reasoning as `get_note` on a day with no row. Returning an error
-      // would hand the agent `isError` for "no results" and, since `toolError`
-      // reports to Sentry, page us for it.
+      // No matches is ordinary, not a failure — an error here would page us
+      // via `toolError`'s Sentry report for "no results".
       return toolJson(data ?? []);
     },
   );

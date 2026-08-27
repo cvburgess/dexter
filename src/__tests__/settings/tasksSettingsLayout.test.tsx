@@ -4,9 +4,8 @@ import TasksSettingsLayout, {
   unstable_settings,
 } from "@/app/(app)/(tabs)/settings/tasks/_layout";
 
-// The real Stack/Stack.Screen require a navigation container this unit test
-// doesn't mount; render children through a passthrough and echo the options
-// that decide how each screen is presented.
+// The real Stack needs a navigation container this test doesn't mount; render
+// children through a passthrough and echo how each screen is presented.
 jest.mock("expo-router", () => {
   const { Text } =
     jest.requireActual<typeof import("react-native")>("react-native");
@@ -27,16 +26,14 @@ jest.mock("expo-router", () => {
 });
 
 describe("TasksSettingsLayout", () => {
-  // The anchor is what mounts the list beneath the editor however the editor is
-  // reached — including `MoreMenu` pushing `tasks/[id]` straight from a task
-  // card, which has no settings history of its own.
+  // Mounts the list beneath the editor however it's reached, including
+  // `MoreMenu` pushing `tasks/[id]` with no settings history of its own.
   it("anchors the stack on its list", () => {
     expect(unstable_settings.anchor).toBe("index");
   });
 
-  // The list's header belongs to the *parent* settings stack: this screen is
-  // this stack's root, so a header declared here renders without a back button
-  // and without swipe-back, whatever sits under the navigator (DEX-93).
+  // This screen is this stack's root, so a header declared here would render
+  // with no back button and no swipe-back regardless of what's underneath (DEX-93).
   it("leaves the list's header to the parent settings stack", () => {
     const screen = render(<TasksSettingsLayout />);
 

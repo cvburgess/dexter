@@ -41,11 +41,8 @@ jest.mock("@/hooks/useTasks", () => ({
 jest.mock("@/hooks/useLists", () => ({ useLists: jest.fn() }));
 jest.mock("@/hooks/useGoals", () => ({ useGoals: jest.fn() }));
 
-// The native `@expo/ui` menu host can't be driven from a unit test (see
-// ListButton.test); render only the trigger, and capture the sections so a
-// menu option's onSelect can be invoked directly. `style` is captured too —
-// the menu host sizes its RN child, so the height passed here is the only
-// thing keeping the trigger tappable (DEX-106).
+// Native menu host isn't driveable; capture sections + style — the menu host
+// sizes its RN child, so the height here is what keeps it tappable (DEX-106).
 const mockIconMenu = jest.fn(
   (props: {
     accessibilityLabel?: string;
@@ -103,18 +100,15 @@ const selectGroupOption = (id: string) => {
     ?.onSelect();
 };
 
-// TaskCard wraps a native menu (MoreMenu) that can't be driven from a unit
-// test (see TasksView.test); stub it to its title. TaskCard's own rendering
-// is covered by its own tests.
+// TaskCard wraps a native menu that can't be driven here; stub it to its
+// title — TaskCard's own rendering is covered by its own tests.
 const mockTaskCard = ({ task }: { task: TTask }) => <Text>{task.title}</Text>;
 jest.mock("../TaskCard", () => ({
   TaskCard: (props: Parameters<typeof mockTaskCard>[0]) => mockTaskCard(props),
 }));
 
-// A jest.fn so the props can be asserted on as well as pressed — `solid` never
-// reaches the DOM off iOS (that branch draws the bordered circle regardless), so
-// the call is the only place the flag is visible to a unit test. `clearAllMocks`
-// in beforeEach clears the calls but keeps this implementation.
+// A jest.fn so props are assertable, not just pressable — `solid` never
+// reaches the DOM off iOS, so the call is the only place it's visible.
 const mockGlassIconButton = jest.fn(
   ({
     accessibilityLabel,
@@ -264,10 +258,8 @@ describe("searchTasksByTitle", () => {
     expect(searchTasksByTitle(tasks, "xyz")).toEqual([]);
   });
 
-  // DEX-47: a Search-tab result for an unscheduled task opens this drawer seeded
-  // with the query the RPC answered, so this filter has to agree with what
-  // `search_entries` matched — otherwise the drawer hides the very task the
-  // user just tapped.
+  // DEX-47: a Search result opens this drawer seeded with the RPC's query, so
+  // this filter must agree with search_entries or hide the tapped task.
   it("requires every term but not their order, matching the search RPC", () => {
     const outOfOrder = [task({ id: "3", title: "Milk — remember to buy" })];
 
@@ -402,11 +394,8 @@ describe("TaskDrawer", () => {
     ).toBeTruthy();
   });
 
-  // DEX-106. The `@expo/ui` menu host measures its RN child, so a trigger with
-  // no height has none until a bounded ancestor resolves one — which the bottom
-  // sheet never does, collapsing the button to ~2pt and untappable. DEX-61
-  // dropped the height from both of these and restored it on Filter alone,
-  // which is what left the pair mismatched. They have to agree.
+  // DEX-106: the menu host measures its RN child, so a heightless trigger
+  // collapses to ~2pt in the bottom sheet. DEX-61 restored it on Filter only.
   it("gives both the Filter and Group triggers the same pinned height", () => {
     render(<TaskDrawer date={date} />);
 
@@ -491,8 +480,7 @@ describe("TaskDrawer", () => {
   });
 
   // The drawer reserves whatever bottom inset its host publishes, so the last
-  // row clears the native tab bar in the docked pane (DEX-91). Hosts that
-  // aren't overlapped by the bar zero it for their subtree.
+  // row clears the native tab bar in the docked pane (DEX-91).
   it("reserves the host's bottom inset below the list's last row", () => {
     mockUseTasks.mockReturnValue(tasksResult([task()]));
     const screen = renderWithBottomInset(34, <TaskDrawer date={date} />);
@@ -550,14 +538,11 @@ describe("TaskDrawer", () => {
     });
   });
 
-  // `solid` says "this drawer is under an animated opacity", which only the
-  // ritual's Backlog step is (DEX-150). What it *looks* like is iOS-only and
-  // invisible to Jest — this is cover for the flag reaching the button at all,
-  // and for the docked hosts not getting it by default.
+  // `solid` says "this drawer is under an animated opacity" (DEX-150, Backlog
+  // step only) — its look is iOS-only/invisible to Jest; this covers the flag.
   describe("the row button's solid flag", () => {
-    // Throws rather than returning undefined when the button isn't there: an
-    // absent flag and an absent button both read as `undefined`, and the
-    // negative case below would pass on a drawer that rendered no rows at all.
+    // Throws rather than undefined when the button is missing — else the
+    // negative case below would pass on a drawer rendering no rows at all.
     const solidOfSchedule = () => {
       const call = mockGlassIconButton.mock.calls.find(
         ([props]) =>
@@ -583,14 +568,11 @@ describe("TaskDrawer", () => {
     });
   });
 
-  // The "+" writes `scheduledFor`, so it owes the same alarm prompt the card's
-  // own menu gives. It used to call `updateTask` directly, which moved the task
-  // and left its alarm pointing at the day it came from (DEX-77).
+  // The "+" owes the same alarm prompt the card's menu gives — it used to
+  // call updateTask directly and strand the alarm (DEX-77).
   describe("scheduling a task that has an alarm", () => {
-    // The native ConfirmationModal renders nothing and drives `Alert.alert`
-    // imperatively, so the prompt is asserted through the spy rather than by
-    // querying for text. Restored in the suite's afterEach — a spy left in
-    // place leaks into every later test in the run.
+    // ConfirmationModal renders nothing natively, so assert via the Alert spy;
+    // restored in afterEach or it leaks into later tests.
     let alertSpy: jest.SpyInstance;
 
     /** Presses the "+" for a task carrying an alarm, and returns the prompt's buttons. */
@@ -694,10 +676,8 @@ describe("TaskDrawer", () => {
     expect(onFilterChange).toHaveBeenCalledWith("overdue");
   });
 
-  // "Overdue" and "No Grouping" looked identical when both were plain ink in a
-  // plain hairline, so an applied filter was invisible until you opened the
-  // menu. Only a control that has moved off its `"none"` default wears the
-  // accent — label and outline together.
+  // An applied filter used to be invisible until you opened the menu; only a
+  // control off its `"none"` default wears the accent, label and outline together.
   it("accents a control's label and outline only while it is off its default", () => {
     const screen = render(
       <TaskDrawer date={date} filterId="overdue" onFilterChange={jest.fn()} />,
@@ -726,14 +706,12 @@ describe("TaskDrawer", () => {
       expect(screen.queryByLabelText("Search")).toBeNull();
     });
 
-    // The cluster's tail is what holds the list a group step below the
-    // controls. Dropped with the field, the first card sat at the container's
-    // in-group `sm` and read as one more control — so it moves to the controls
-    // row rather than disappearing.
+    // The field's tail holds the list a group step below the controls; hidden,
+    // it moves to the controls row rather than disappearing.
     it("hands its bottom margin to the controls row when hidden", () => {
       const withSearch = render(<TaskDrawer date={date} />);
-      // Read off the field rather than rebuilt from tokens: what matters is
-      // that the same gap survives, not what it resolves to on this density.
+      // Read off the field rather than a token — what matters is the gap
+      // survives, not what it resolves to on this density.
       const tail = StyleSheet.flatten(
         withSearch.getByLabelText("Search").props.style as ViewStyle,
       ).marginBottom;
@@ -750,10 +728,7 @@ describe("TaskDrawer", () => {
   });
 
   // A group heading carries the group step above it, on top of the row
-  // separator's own `sm`. Without it a heading sat as close to the previous
-  // group's last task as that task sat to its own neighbours, and the sections
-  // ran together. The first heading is the exception — nothing above it to
-  // separate from.
+  // separator's own `sm`, or sections run together. The first heading excepted.
   it("separates a group heading from the group above it, but not the first", () => {
     mockUseTasks.mockReturnValue(
       tasksResult([
@@ -769,8 +744,7 @@ describe("TaskDrawer", () => {
       StyleSheet.flatten(screen.getByText(heading).props.style as TextStyle[])
         .marginTop;
 
-    // `space.lg - space.sm` on the comfortable tier: the separator has already
-    // contributed its `sm`, so this tops the pair up to the group step.
+    // `space.lg - space.sm`: the separator already contributed `sm`.
     expect(marginOf("Urgent")).toBe(0);
     expect(marginOf("Unprioritized")).toBe(16);
   });

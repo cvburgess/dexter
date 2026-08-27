@@ -1,10 +1,5 @@
-// Base (web + Android) implementation of the alarm layer. AlarmKit is iOS-only,
-// so everything here is a no-op; the real native calls live in `alarms.ios.ts`
-// and the bundler selects that variant on iOS. This base file also lets
-// TypeScript resolve `@/utils/alarms` (it does not resolve platform extensions).
-//
-// The pure reconciliation math is shared from `alarms.shared.ts` on every
-// platform — only the native side effects differ.
+// Base (web + Android) no-op alarm layer; the bundler picks `alarms.ios.ts` on
+// iOS. Also lets TypeScript resolve `@/utils/alarms` (no platform extensions).
 import { TAlarmColors, TAlarmSchedule, TFocusAlarm } from "./alarms.shared";
 
 export * from "./alarms.shared";

@@ -1,16 +1,5 @@
-# Sign the demo account in on a freshly launched app.
-#
-# The OTP is never written here — it is a Supabase function secret. It arrives
-# as `MAESTRO_DEMO_OTP` in the environment: Maestro exposes shell variables with
-# that prefix to flows automatically, which keeps the secret out of the process
-# arguments where `-e DEMO_OTP=…` would leave it visible in `ps` for the whole
-# run. The demo email short-circuits the magic-link send in
-# `app/(auth)/login.tsx`, so the code field appears immediately and no mailbox
-# is involved.
-#
-# Selectors are `id:` throughout on purpose. Maestro compiles a `text:` selector
-# to a *regular expression*, which is how an earlier attempt at this spent ten
-# minutes failing to match a label containing a `+`. See ../README.md.
+# Sign the demo account in. The OTP arrives as MAESTRO_DEMO_OTP, never in argv
+# where `ps` could read it; selectors are id: — text: compiles to a regex (../README.md).
 appId: com.dexterplanner
 ---
 # clearState so a rerun never inherits a half-finished login, and so the capture
@@ -20,10 +9,8 @@ appId: com.dexterplanner
     permissions:
       all: allow
 
-# A springboard alert outlives `clearState` — the app relaunches *behind* it. So
-# a run that died mid-capture leaves its "Open in “Dexter”?" prompt sitting over
-# the login screen, and the next run cannot see `login-email-input` at all.
-# Cancel rather than Open: at this point the stale link is not one we want.
+# A springboard alert outlives `clearState`, so a dead run's "Open in Dexter?"
+# prompt sits over login. Cancel — the stale link is not one we want.
 - runFlow:
     when:
       visible: "Open in .Dexter.*"

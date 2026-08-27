@@ -11,9 +11,8 @@ import { createRitualState, type TRitualState } from "@/utils/ritualSteps";
 import type { TDateFieldProps } from "../DateField.types";
 import { SmallScreenRitual } from "../SmallScreenRitual";
 
-// `DateField` wraps a native picker with no test double; `DayNav` renders it
-// whenever the viewed day is today. The `mock` prefix satisfies Jest's hoisting
-// rule, as in `DayNav.test.tsx`.
+// DateField wraps a native picker with no test double. `mock` prefix
+// satisfies Jest's hoisting rule, as in DayNav.test.tsx.
 const mockDateField = (props: TDateFieldProps) => (
   <TouchableOpacity accessibilityLabel="Pick a date" onPress={jest.fn()}>
     <Text>{props.value.toISOString()}</Text>
@@ -47,9 +46,8 @@ jest.mock("../RitualStepSwitcher", () => ({
     mockStepSwitcher(props),
 }));
 
-// The step content has its own test and (for the journal) needs a query client
-// and a session; stand it in with the step's title, the date it was handed, and
-// a pressable that reports focus so this file can assert the swipe suspends.
+// Stubbed with title, date, and a focus-reporting pressable, so this file can
+// assert the swipe suspends without a query client or session.
 const mockStepView = ({
   step,
   date,
@@ -75,10 +73,8 @@ jest.mock("../RitualStepView", () => ({
     mockStepView(props),
 }));
 
-// Records what the layout hands the pager while still rendering the real one,
-// so the swipe tests below stay end-to-end. `fireGestureHandler` binds the
-// handler at mount, so an `enabled` that flips *after* mount can only be
-// observed as a prop.
+// Records props while rendering the real component, so swipe tests stay
+// end-to-end — fireGestureHandler binds at mount, so `enabled` is only observable as a prop.
 const mockSwipeablePage = jest.fn();
 jest.mock("../SwipeablePage", () => {
   const actual = jest.requireActual("../SwipeablePage");
@@ -178,9 +174,8 @@ describe("SmallScreenRitual", () => {
       expect(onSwipe).toHaveBeenCalledWith(-1);
     });
 
-    // Proves `canPrev`/`canNext` are threaded through: the pager declines the
-    // gesture itself, so the content springs back instead of being stranded
-    // off-screen waiting for a remount that never comes.
+    // Proves canPrev/canNext are threaded through — the pager declines the
+    // gesture itself rather than stranding content off-screen.
     it("is declined before the first step", () => {
       const onSwipe = jest.fn();
       renderRitual({ onSwipe });

@@ -8,11 +8,7 @@ type TEmojiPickerProps = {
   onSelect: (emoji: string) => void;
 };
 
-/**
- * A themed emoji picker sheet. Wraps `rn-emoji-keyboard` — a pure-JS React
- * Native component (no native module, so no dev-client rebuild) that renders on
- * iOS, Android, and web. The parent owns the open/closed state.
- */
+/** Wraps `rn-emoji-keyboard` — pure JS, no dev-client rebuild needed. */
 export function EmojiPicker({ open, onClose, onSelect }: TEmojiPickerProps) {
   const theme = useTheme();
 

@@ -28,9 +28,8 @@ import {
   withOpacity,
 } from "@/utils/theme";
 
-// The string branch of `Href` — every nav destination is a static path, so the
-// object form (`{pathname, params}`) never applies and prefix-matching an active
-// route stays type-safe.
+// The string branch of `Href`: every destination is a static path, and
+// prefix-matching the active route needs a string.
 type TNavHref = Extract<Href, string>;
 
 type TNavItem = {
@@ -40,33 +39,17 @@ type TNavItem = {
   icon: TSettingsIconName;
   /** Floats this item (and everything after it) to the far end of the rail. */
   pinnedToBottom?: boolean;
-  /**
-   * Hides this destination below `LARGE_DEVICE_MIN_WIDTH` (DEX-96). Declared
-   * on the item rather than filtered at each render site so the rail and the
-   * dock can't disagree about which destinations exist — the same reasoning as
-   * `pinnedToBottom`. The route stays registered either way; only the nav
-   * affordance goes away.
-   */
+  /** Hides the destination below LARGE_DEVICE_MIN_WIDTH (DEX-96); the route
+   * stays registered either way — only the nav affordance goes. */
   largeScreenOnly?: boolean;
 };
 
-/**
- * The app's navigation destinations, in rail order (top to bottom) and dock
- * order (left to right). Keep in sync with the native tab triggers in
- * `app/(app)/(tabs)/_layout.tsx` when a tab is added or removed — the two
- * declarations are deliberately separate (different icon vocabularies, and this
- * list adds a "+" that the native tab bar hosts as an accessory instead), so
- * nothing enforces it automatically. That sync is narrower than it used to be:
- * since DEX-104 the native triggers are the **phone** tab bar only, so a
- * tablet-or-wider destination like Week lives here alone.
- */
+// Nav destinations in rail/dock order. Nothing syncs this with the phone tab
+// triggers in app/(app)/(tabs)/_layout.tsx — keep the two aligned by hand.
 export const NAV_ITEMS: TNavItem[] = [
   { key: "today", href: "/today", label: "Today", icon: "sunny-outline" },
-  // No `largeScreenOnly`, unlike Week below: one route serves every width, with
-  // the layout rather than the destination changing (DEX-127). One fixed glyph
-  // for both halves of the day too — the moon stands for the ritual as a whole,
-  // and a destination whose icon changed at noon would read as a different
-  // destination.
+  // One route at every width (DEX-127), and one fixed glyph: an icon that
+  // changed at noon would read as a different destination.
   { key: "ritual", href: "/ritual", label: "Ritual", icon: "moon-outline" },
   {
     key: "week",
@@ -92,11 +75,8 @@ export const NAV_ITEMS: TNavItem[] = [
 const isActive = (pathname: string, href: TNavHref) =>
   pathname === href || pathname.startsWith(`${href}/`);
 
-/**
- * Shared behavior for both nav variants: which destination is current, and how
- * to open the create-task modal. Destinations themselves are `Link`s rather than
- * handlers — see `navItemProps`.
- */
+// Shared behavior for both nav variants; destinations are Links rather than
+// handlers — see navItemProps.
 function useAppNav() {
   const router = useRouter();
   const pathname = usePathname();
@@ -114,29 +94,8 @@ function useAppNav() {
   return { items, openNewTask, pathname };
 }
 
-/**
- * The props every destination's pressable shares across both variants.
- *
- * These go on the child of an `asChild` `Link`, not on the `Link` itself. A bare
- * `Link` wraps its children in a `Text`, and a text box doesn't lay its children
- * out as a flex container — the tile's `alignItems`/`justifyContent` centering
- * (and the dock item's `flex`/`gap`) silently stop applying, leaving the icon
- * parked at the text origin. Handing `Link` a `View`-backed child instead keeps
- * flex layout *and* the real anchor: react-native-web's `View` renders an `<a>`
- * whenever it's given an `href`, exactly like `Text` does.
- *
- * The child has to be a `Pressable`, not a `TouchableOpacity`: `Link`'s `Slot`
- * hands the child its `href`, and only `Pressable` spreads unrecognized props
- * through to the underlying `View`. `TouchableOpacity` forwards a fixed prop
- * set, which swallows both `href` and `aria-current` — the anchor and the
- * screen-reader cue would silently vanish.
- *
- * `aria-current="page"` is what actually marks the active destination for
- * assistive tech: `accessibilityState.selected` maps to `aria-selected`, which
- * only carries meaning on tab/option/row roles and is ignored on a link. It's
- * kept alongside because it's the cross-platform signal (and what the tests
- * assert), but `aria-current` is the one a screen reader announces here.
- */
+/** On a `Pressable` child of `asChild` Link — `Text` wrapping breaks flex
+ * layout, `TouchableOpacity` swallows `href`/`aria-current`. */
 const navItemProps = (item: TNavItem, selected: boolean) => ({
   accessibilityLabel: item.label,
   accessibilityState: { selected },
@@ -144,16 +103,8 @@ const navItemProps = (item: TNavItem, selected: boolean) => ({
   testID: `nav-${item.key}`,
 });
 
-/**
- * The navigation rail: on **every tablet** at every width, and on web above
- * `RAIL_MIN_WIDTH` (see `components/AppShell.tsx`). Ports the legacy
- * dexter-app's `DesktopNav`: a narrow full-height column of floating rounded
- * icon tiles on the sunken background, the active one filled with the inverted
- * ink color, and the gear pinned to the bottom. The "+" below it is Dexter's
- * create-task entry point wherever this renders (DEX-74, DEX-104) — including
- * Android tablets, which have never had one, since the iOS `BottomAccessory`
- * that hosts it on phones has no Android equivalent.
- */
+// The rail: every tablet at every width, web above RAIL_MIN_WIDTH. Its "+"
+// is the create-task entry point wherever it renders (DEX-74, DEX-104).
 export function NavRail() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -166,31 +117,14 @@ export function NavRail() {
       style={[
         styles.rail,
         {
-          // Sunken, not `background`: the rail is chrome beside the content
-          // pane, and on the same surface the two read as one sheet (DEX-61).
-          // The tiles' own `background` fill is what lifts them off it — they
-          // read as pieces of the content sheet floating on the chrome.
+          // Sunken chrome (DEX-61); the tiles' own `background` fill is what
+          // lifts them off it.
           backgroundColor: theme.colors.surfaceSunken,
-          // `lg`, the group step: each tile is its own destination rather than
-          // one control in a cluster, and at `md` they read as a stack. The
-          // shadow needs the room too — `shadow-md` drops 4pt with a 6pt blur,
-          // so tiles a tight gap apart cast onto each other.
+          // `lg`, the group step — and shadow-md's 4pt drop needs the room, or
+          // tiles cast onto each other.
           gap: theme.space.lg,
-          // The rail owns the physical left edge with nothing above it, so it
-          // absorbs three insets — the same reasoning as `SettingsSidebar`,
-          // which is the other component that holds an edge in a two-pane
-          // layout. `top` because there is no stack header to clear the status
-          // bar for it, `bottom` so the home indicator doesn't cross the "+",
-          // and `left` for a landscape display cutout. `right` is deliberately
-          // unclaimed: the content pane is on that side.
-          //
-          // The width *grows* by the left inset rather than padding into the
-          // fixed 76dp, or a cutout would squeeze the tiles it's meant to clear.
-          // All three are 0 on web (no `viewport-fit=cover` — see `NavDock`),
-          // so this reduces to exactly the previous `width`/`paddingVertical`
-          // there. Unlike `SettingsSidebar` the rail takes no extra web-side
-          // padding: that compensates for a heading, and the top tile doesn't
-          // need it.
+          // Owns top/bottom/left insets (right belongs to content); width
+          // *grows* by the left inset, or a cutout would squeeze the tiles.
           paddingBottom: theme.space.md + insets.bottom,
           paddingLeft: insets.left,
           paddingTop: theme.space.md + insets.top,
@@ -227,15 +161,8 @@ export function NavRail() {
   );
 }
 
-/**
- * One rail destination.
- *
- * A component of its own so it can hold its own hover state. The tile's style
- * has to be flattened (see below), which rules out `Pressable`'s style-function
- * form — the usual way to read `hovered` — so the state is lifted into React
- * instead. Ports dexter-app's `hover:shadow-lg transition-shadow`, minus the
- * transition: RN has no CSS transitions, so the lift snaps rather than eases.
- */
+// One rail destination. Hover state lives in React because the flattened
+// style below rules out Pressable's style-function form.
 function NavRailTile({
   item,
   selected,
@@ -277,17 +204,8 @@ function NavRailTile({
   );
 }
 
-/**
- * The navigation dock shown on narrow **web** viewports — the legacy
- * dexter-app's `MobileNav`. Same destinations as the rail, laid out as a
- * labelled bottom bar with the active item tinted with the primary color
- * instead of filled.
- *
- * Web-only in practice, unlike the rail: phones render the native tab bar and
- * tablets render the rail at every width (DEX-104), so nothing native reaches
- * this. Kept platform-neutral anyway — it costs nothing and the narrow-window
- * case is the one most likely to want it back.
- */
+// The dock for narrow web viewports — web-only in practice (phones get
+// native tabs, tablets the rail at every width, DEX-104).
 export function NavDock() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -304,12 +222,8 @@ export function NavDock() {
           backgroundColor: theme.colors.surfaceSunken,
           borderTopColor: theme.colors.border,
           paddingTop: theme.space.sm,
-          // Reserves the home-indicator inset. Inert as things stand: on web
-          // react-native-safe-area-context reads `env(safe-area-inset-*)`,
-          // which only resolves non-zero when the page opts into
-          // `viewport-fit=cover` — Expo's default web template (this app has no
-          // `public/index.html` override) does not. Kept so the dock is already
-          // correct if that ever changes.
+          // Inert today — web insets need `viewport-fit=cover`, which Expo's
+          // default template lacks — but correct the day that changes.
           paddingBottom: theme.space.sm + insets.bottom,
         },
       ]}
@@ -324,9 +238,7 @@ export function NavDock() {
           <Link asChild href={item.href} key={item.key}>
             <Pressable
               {...navItemProps(item, selected)}
-              // Flattened for the same reason as the rail's tile above — the
-              // `Slot` behind `asChild` can't merge an array style with the
-              // props it injects, and errors out instead of styling the item.
+              // Flattened for the same reason as the rail's tile above.
               style={StyleSheet.flatten([
                 styles.dockItem,
                 { gap: theme.space.xs },
@@ -391,13 +303,6 @@ export function NavDock() {
   );
 }
 
-/**
- * `shadow-md hover:shadow-lg` — the exact pair dexter-app's `Nav.tsx` lifts its
- * tiles with. What this app drew before was a single `0 1px 3px`, effectively
- * the first half of Tailwind's `shadow-sm`: a rung down and missing the second
- * layer, which read as a smudged hairline rather than a lift. The values and
- * the reasoning behind them live in `utils/theme.ts`.
- */
 /** The rail tile's box; see `NavRail` and `NAV_TILE_SIZE`. */
 const tileStyle = (theme: Theme, hovered = false) => ({
   borderRadius: theme.radii.md,
@@ -406,10 +311,8 @@ const tileStyle = (theme: Theme, hovered = false) => ({
   width: NAV_TILE_SIZE,
 });
 
-/**
- * A fixed-height icon band so every dock label sits on the same baseline,
- * whether the item is a bare icon or the "+" chip beside it.
- */
+// A fixed-height icon band so every dock label sits on the same baseline,
+// whether the item is a bare icon or the "+" chip beside it.
 const iconSlotStyle = (theme: Theme) => ({
   height: theme.icons.md + theme.space.xs,
 });
@@ -417,9 +320,8 @@ const iconSlotStyle = (theme: Theme) => ({
 const styles = StyleSheet.create({
   rail: {
     alignItems: "center",
-    // Explicit rather than relying on the shell row's default `stretch`:
-    // pinning the gear to the bottom (`marginTop: "auto"`) only works if the
-    // rail actually fills the viewport height.
+    // Pinning the gear with `marginTop: "auto"` only works if the rail
+    // actually fills the viewport height.
     alignSelf: "stretch",
     // `width` is set inline, not here: it varies with the left safe-area inset.
   },

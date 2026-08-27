@@ -19,42 +19,24 @@ type TJournalViewProps = {
   date: string;
   /** Which ritual is asking (DEX-151). Only this period's prompts render. */
   mode: TRitualMode;
-  /** Fired as a response field gains/loses focus, so the host can disable
-   * day-swipe while editing. */
+  /** Fired on focus/blur so the host can disable day-swipe while editing. */
   onEditingChange?: (editing: boolean) => void;
 };
 
-// Autosave cadence: long enough to coalesce a burst of keystrokes into one
-// write, short enough that a response is safe within a second of pausing.
-// Matches NotesView.
+// Long enough to coalesce keystrokes, short enough to be safe within a
+// second of pausing. Matches NotesView.
 const SAVE_DEBOUNCE_MS = 800;
 
-// Approximate line height for the response field's 16px font. Only ever used
-// for the size a field starts at, before it has measured itself — a short
-// answer shouldn't render as a tall empty box that's more likely to sit under
-// the keyboard.
+// Approximate line height, used only for the field's pre-measurement start size.
 const RESPONSE_LINE_HEIGHT = 20;
 
-// Height for `lines` lines of response text, including the shared TextInput's
-// own vertical padding.
-//
-// This is a **floor and a first paint**, not the real height: it counts hard
-// newlines, so it has no idea how many rows a long paragraph wraps onto. The
-// height that matters comes from the field measuring its own content (see
-// `JournalResponseField`). Keeping the estimate as the floor is what stops a
-// missing or zero measurement from collapsing a field to nothing.
+// A floor and first paint, not the real height — it counts hard newlines,
+// not wrapped rows. The measured content (JournalResponseField) takes over.
 const responseHeight = (lines: number, spacing: number) =>
   Math.max(1, lines) * RESPONSE_LINE_HEIGHT + spacing * 2;
 
-/**
- * The Journal surface for a single day. Reads/writes the day's reflection
- * prompts via `useJournals`, autosaving edits (debounced). Responses are plain
- * text (unlike Notes' markdown editor), so this renders identically on web and
- * native. Prompts auto-seed from `preferences.templatePrompts` (via
- * `useJournals`' `defaultJournal`), so there is no template chooser — nothing
- * persists until the user answers. Remounted per date by `SwipeablePage` (keyed
- * on the day), which re-seeds the uncontrolled inputs when the day changes.
- */
+// Autosaving journal surface for a day. Plain-text responses, unlike Notes'
+// markdown editor, so it renders identically on web and native.
 export function JournalView({
   date,
   mode,
@@ -76,9 +58,7 @@ export function JournalView({
   );
 
   if (visible.length === 0) {
-    // Two different nothings: an existing day predates this ritual's prompts,
-    // a missing one means the template has none (rare — `stepsFor` drops it).
-    // The scale still renders: a mood is the one thing this day can record.
+    // The scale still renders — a mood is the one thing this day can record.
     return (
       <EmptyScreen
         message={
@@ -133,22 +113,15 @@ function JournalEditor({
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
-  // Track the latest per-index text so a save can rebuild the whole array,
-  // seeded from the loaded responses. Seeded once at mount; the editor is
-  // remounted (re-seeding) whenever the prompt labels change, so the label set
-  // stays invariant for this mount's lifetime.
+  // Seeded once at mount; the editor remounts whenever prompt labels change.
   const responsesRef = useRef(prompts.map((p) => p.response));
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRef = useRef<TJournalPrompt[] | null>(null);
   const savingRef = useRef(false);
 
-  // Drain pending edits one save at a time, always sending the latest prompts.
-  // Serializing (never two saves in flight) keeps overlapping debounced/retrying
-  // saves from writing older responses over newer ones — both the server and the
-  // React Query cache stay last-edit-wins. Mirrors NotesView. React Query's
-  // mutate is referentially stable, so closing over `upsertJournalAsync` is
-  // stable.
+  // Serializing (never two saves in flight) keeps overlapping saves from
+  // writing older responses over newer ones. Mirrors NotesView.
   const drainSaves = useCallback(async () => {
     if (savingRef.current) return;
     savingRef.current = true;
@@ -159,9 +132,7 @@ function JournalEditor({
         try {
           await upsertJournalAsync({ prompts: pending });
         } catch {
-          // Retries (in useJournals) are exhausted. Requeue unless newer text
-          // already arrived, then stop so we don't hot-loop a persistent
-          // failure — the next edit/unmount flush retries.
+          // Requeue unless newer text arrived, then stop to avoid a hot loop.
           if (pendingRef.current === null) pendingRef.current = pending;
           break;
         }
@@ -182,8 +153,8 @@ function JournalEditor({
   const handleChangeResponse = useCallback(
     (index: number, text: string) => {
       responsesRef.current[index] = text;
-      // `upsertJournal` replaces the whole jsonb column, so rebuild from `prompts`
-      // — the whole day, not the rendered subset, or the other ritual's answers go.
+      // Rebuild from the whole day, not the rendered subset, or the other
+      // ritual's answers are lost — upsertJournal replaces the whole column.
       pendingRef.current = prompts.map((prompt, i) => ({
         prompt: prompt.prompt,
         period: prompt.period,
@@ -198,30 +169,18 @@ function JournalEditor({
   // Persist any pending edit when the view unmounts (date change / tab switch).
   useEffect(() => flush, [flush]);
 
-  // Reset the host's editing flag on unmount so a date change while a field is
-  // focused (which unmounts the input without a reliable `onBlur`) can't leave
-  // day-swipe suspended on the next day. Mirrors NoteEditor's unmount reset.
+  // A date change unmounts a focused field without a reliable onBlur, which
+  // would otherwise leave day-swipe suspended. Mirrors NoteEditor.
   useEffect(() => () => onEditingChange?.(false), [onEditingChange]);
 
   return (
     <ScrollView
       style={styles.scroll}
-      // Insets the content by the keyboard's height (iOS) so a focused field
-      // low on the screen is scrolled clear of it rather than left covered.
-      // Android resizes the window instead (Expo's default
-      // softwareKeyboardLayoutMode), and web has no overlay keyboard. Matches
-      // new-task.tsx and settings/tasks/[id].tsx (DEX-92). This replaced an
-      // animated wrapper that padded the scroller's *frame* by the keyboard
-      // height: that gave scroll room past the last field but never moved
-      // content, so the field stayed under the keyboard. Don't reintroduce it
-      // alongside this prop — the two would both subtract the keyboard.
+      // Insets content by the keyboard height on iOS (DEX-92). Don't pair
+      // with a frame-padding wrapper — both would subtract the keyboard.
       automaticallyAdjustKeyboardInsets
-      // Vertical only — the side gutter is the caller's (`SwipeablePage` on the
-      // phone, the Journal branch of `NotesJournalTabs` in the tabbed pane);
-      // see docs/design.md, "Who owns spacing".
-      //
-      // The host's SafeAreaView omits "bottom" (the tab bar owns that inset),
-      // so the content reserves it here — see docs/frontend.md.
+      // Vertical only — side gutter is the caller's; bottom reserved here
+      // since the host's SafeAreaView omits it (docs/design.md, docs/frontend.md).
       contentContainerStyle={{
         gap: theme.space.lg,
         paddingTop: theme.space.md,
@@ -233,8 +192,7 @@ function JournalEditor({
       <View style={{ marginBottom: theme.space.md }}>
         <MoodScale value={mood} onChange={onChangeMood} />
       </View>
-      {/* `index` is a position in the **stored** array, not on screen — the same
-          number `handleChangeResponse`, `responsesRef` and the testID use. */}
+      {/* index is a position in the stored array, not on screen. */}
       {visible.map((index) => (
         <JournalResponseField
           key={index}
@@ -262,32 +220,8 @@ type TJournalResponseFieldProps = {
   testID: string;
 };
 
-// A single prompt + response row.
-//
-// **The field grows rather than scrolling.** A response is prose the user is
-// writing, so a box that hides the top of it behind its own scrollbar is the
-// wrong shape entirely; the step's own `ScrollView` is what scrolls. The height
-// tracks the input's **measured** content, which is the only thing that knows
-// how tall wrapped text renders — an earlier cut counted `\n`s, so a long
-// paragraph typed without a single Enter stayed one line tall. That estimate
-// survives as the floor (see `responseHeight`) so nothing collapses before the
-// first measurement lands.
-//
-// **`minHeight`, never `height`.** On the new architecture a multiline
-// `TextInput` measures its own text and grows with it — but only while nothing
-// pins it. An explicit `height` wins over that intrinsic size, which left the
-// field frozen at whatever the single mount-time measurement reported: right
-// for text that was already saved, and stuck scrolling for everything typed
-// afterwards. As a floor it composes instead of competing, and it is what web
-// needs, where `react-native-web` renders a plain `<textarea>` that has no
-// intrinsic growth of its own.
-//
-// **Do not add `scrollEnabled={false}` to "enforce" the no-scrolling part.** It
-// does the opposite: with scrolling off, iOS reports a content size clamped to
-// the view's own bounds, so `onContentSizeChange` only ever echoes back the
-// height already set here. Paired with `overflow: hidden` that silently clips
-// what the user is typing. Growth is what removes the scrollbar — there is
-// nothing to scroll once the box fits its content.
+// Grows rather than scrolling (the step's ScrollView scrolls); minHeight,
+// never height — scrollEnabled={false} clamps content size and clips typing.
 function JournalResponseField({
   prompt,
   response,
@@ -299,12 +233,8 @@ function JournalResponseField({
   const theme = useTheme();
   const [contentHeight, setContentHeight] = useState(0);
 
-  // The seed is only good until the field has measured itself. `response` is
-  // the saved answer at mount and never changes after it — the input is
-  // uncontrolled and typing writes refs rather than state — so keeping its
-  // newline count as the floor would leave a five-line answer's box five lines
-  // tall after the user cleared it. Once a measurement exists it takes over,
-  // and one line is the only floor still worth holding.
+  // Uncontrolled input — response never updates after mount, so its newline
+  // count as a permanent floor would keep a cleared answer's box tall.
   const minHeight =
     contentHeight > 0
       ? Math.max(responseHeight(1, theme.space.md), contentHeight)

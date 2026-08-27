@@ -49,9 +49,8 @@ describe("BREATHING_TECHNIQUES", () => {
     ]);
   });
 
-  // The table above shipped with Relax inverted, and the exact-value test did
-  // not catch it — it asserted whatever the implementation said. These assert
-  // what each technique is *for*, which is the part a wrong number contradicts.
+  // The table above shipped with Relax inverted and the exact-value test
+  // missed it; these assert what each technique is *for* instead.
   it("gives Relax a longer exhale than inhale, which is the whole technique", () => {
     // A trailing exhale is what engages the parasympathetic response. Inverted,
     // Relax is just a slower Simple that happens to feel like work.
@@ -236,9 +235,8 @@ describe("buildBreathePlan", () => {
     expect(plan.words.inhale.input).toHaveLength(2 * 4);
   });
 
-  // The words used to cross-fade on the boundary, so two were briefly legible
-  // at once. Each one's window now sits inside its own leg, which leaves a beat
-  // of nothing between them.
+  // Words used to cross-fade at the boundary, briefly showing two at once;
+  // each window now sits inside its own leg, leaving a beat between them.
   it.each(techniques)(
     "leaves a gap between one word and the next for %s",
     (technique) => {
@@ -275,9 +273,8 @@ describe("buildBreathePlan", () => {
   });
 });
 
-// Kept deliberately thin: the voicing and envelopes are still being tuned by
-// ear, so anything pinning exact chords or curve shapes would be rewritten every
-// pass. These are the structural facts that survive the tuning.
+// Kept deliberately thin: voicing/envelopes are still tuned by ear, so these
+// assert only the structural facts that survive that tuning.
 describe("buildBreathAudioSchedule", () => {
   const voice = (
     schedule: readonly TBreathAudioCurve[],
@@ -301,9 +298,8 @@ describe("buildBreathAudioSchedule", () => {
         const curves = voice(schedule, which);
         if (curves.length === 0) continue;
 
-        // Each curve opens no earlier than the one before it closed. A curve is
-        // only legal if nothing lands *inside* its window, so a rise handing
-        // straight over to its own fall is the tightest this may ever get.
+        // No curve opens before the last one closed — a rise handing straight
+        // to its own fall is the tightest this may ever get.
         for (let i = 1; i < curves.length; i += 1) {
           expect(curves[i].atMs).toBeGreaterThanOrEqual(endMs(curves[i - 1]));
         }
@@ -316,9 +312,8 @@ describe("buildBreathAudioSchedule", () => {
     },
   );
 
-  // Every curve goes straight to `setValueCurveAtTime`, which rejects fewer
-  // than two points or a duration that is not strictly positive, and reads the
-  // samples as evenly spaced across that duration.
+  // `setValueCurveAtTime` rejects fewer than two points or a non-positive
+  // duration, and reads samples as evenly spaced across it.
   it.each(BREATHING_TECHNIQUE_ORDER)(
     "hands out curves the audio API will accept (%s)",
     (technique) => {
@@ -335,11 +330,8 @@ describe("buildBreathAudioSchedule", () => {
     },
   );
 
-  // `setValueCurveAtTime` throws outright when a curve's window is not clear,
-  // so this is not a matter of taste: any curve of the same voice opening at or
-  // before another's close kills the whole run rather than sounding slightly
-  // off. Asserted with a strict `>` so the schedule can never drift back onto
-  // the knife-edge of exact adjacency, where a single ULP decides it.
+  // Strict `>` avoids drifting back onto exact adjacency, where one ULP
+  // decides whether setValueCurveAtTime throws.
   it.each(BREATHING_TECHNIQUE_ORDER)(
     "leaves daylight between one curve and the next on a voice (%s)",
     (technique) => {
@@ -375,10 +367,8 @@ describe("buildBreathAudioSchedule", () => {
     }
   });
 
-  // Which hold is which is derived from `levels`, not from the leg's own phase —
-  // both are just `"hold"`. Swap the two and the cycle stops arching: the tone
-  // would drop after the inhale and climb after the exhale, which is legible on
-  // a device and invisible everywhere else.
+  // Derived from `levels`, not the leg's own phase (both are just "hold") —
+  // swapped, the tone would drop after inhale and climb after exhale.
   it("puts the high hold after the inhale and the low one after the exhale", () => {
     const box = buildBreathAudioSchedule(buildBreathePlan("box", 1));
     // Box is inhale 0-5s, hold 5-10s, exhale 10-15s, hold 15-20s.
@@ -386,9 +376,8 @@ describe("buildBreathAudioSchedule", () => {
     expect(voice(box, "exhaleHold")[0].atMs).toBe(15000);
   });
 
-  // Every leg has to actually get *loud* — an attack that never lands leaves the
-  // phase audible but never at full, which is exactly the kind of wrong that
-  // sounds merely "off" rather than broken.
+  // Every leg has to actually get *loud* — an attack that never lands sounds
+  // merely "off" rather than broken.
   it.each(BREATHING_TECHNIQUE_ORDER)(
     "brings every leg to full inside its own leg (%s)",
     (technique) => {
@@ -399,10 +388,8 @@ describe("buildBreathAudioSchedule", () => {
       for (const leg of plan.session) {
         const start = elapsed;
         const end = start + leg.ms;
-        // Some curve opens with this leg, reaches full, and is done inside it.
-        // Two curves open here — the previous leg's fall lands on the same
-        // boundary — so this asserts one of them rises rather than assuming
-        // which comes first in the array.
+        // Two curves open here (the previous leg's fall shares the boundary),
+        // so assert one of them rises rather than assuming array order.
         const rises = schedule.filter(
           (curve) =>
             curve.atMs === start &&
@@ -415,9 +402,8 @@ describe("buildBreathAudioSchedule", () => {
     },
   );
 
-  // A release that outran the gap to the same voice's next rise would have the
-  // tone fighting its own next entry — silent in every test that does not look
-  // for it, and the reason RELEASE_RATIO is a fraction rather than a duration.
+  // A release outrunning the gap to the same voice's next rise would fight
+  // its own next entry — why RELEASE_RATIO is a fraction, not a duration.
   it.each(BREATHING_TECHNIQUE_ORDER)(
     "finishes each release before that voice sounds again (%s)",
     (technique) => {
@@ -444,9 +430,8 @@ describe("buildBreathAudioSchedule", () => {
     },
   );
 
-  // The library bounds a param's queues at this and drops the overflow in
-  // silence (see the constant's own comment). Two events a leg, plus the hook's
-  // opening `setValueAtTime(0)` that gates a voice before its first curve.
+  // The library bounds a param's queues at this and drops overflow silently.
+  // Two events a leg, plus the hook's opening setValueAtTime(0) gate.
   it.each(BREATHING_TECHNIQUE_ORDER)(
     "leaves every voice inside the per-param event budget (%s)",
     (technique) => {

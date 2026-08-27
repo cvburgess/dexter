@@ -30,9 +30,8 @@ jest.mock("@/hooks/useLists", () => ({
   ],
 }));
 
-// `useDismissModal` guards on `canDismiss` — not the global `canGoBack`, which
-// is also true when the only "back" available is a tab jump. Default to "there
-// is something beneath us", which is every in-app entry into this modal.
+// `useDismissModal` guards on `canDismiss`, not `canGoBack` (also true for a
+// tab jump). Default to "something beneath us" — every in-app entry.
 const mockRouter = {
   back: jest.fn(),
   push: jest.fn(),
@@ -41,9 +40,8 @@ const mockRouter = {
 };
 const mockNavigation = { setOptions: jest.fn() };
 const mockSearchParams: { current: Record<string, string> } = { current: {} };
-// Stands in for react-navigation's focus lifecycle: the effect runs while the
-// screen is focused, which is the case for every in-app open of this modal.
-// `mockIsFocused` lets a test hold the screen in the background instead.
+// Stands in for react-navigation's focus lifecycle; `mockIsFocused` lets a
+// test hold the screen in the background.
 const mockIsFocused = { current: true };
 jest.mock("expo-router", () => {
   const { useEffect } = require("react");
@@ -60,10 +58,8 @@ jest.mock("expo-router", () => {
   };
 });
 
-// jest.setup renders `@expo/ui`'s SwiftUI DatePicker as null, which hides the
-// lower bound `TimeField.ios` hands it. Capture the props instead so the alarm
-// picker's range is assertable; keyed by testID, since `DateField.ios` renders
-// through the very same primitive.
+// jest.setup renders the SwiftUI DatePicker as null, hiding TimeField.ios's
+// lower bound — capture props by testID (DateField uses the same primitive).
 const datePickerProps: Record<string, { range?: { start: Date } }> = {};
 jest.mock("@expo/ui/swift-ui", () => ({
   DatePicker: (props: { testID?: string; range?: { start: Date } }) => {
@@ -316,15 +312,8 @@ describe("EditTaskScreen", () => {
     );
   });
 
-  // The create form can only ever seed `defaultAlarmTime()` (now + a few
-  // minutes), so this is edit-only: a saved 08:00 alarm on a task scheduled
-  // today is in the past by lunchtime, and a range that excludes it makes
-  // SwiftUI clamp the selection to now — silently moving an alarm the user
-  // only came to look at, and persisting it on ✓.
-  //
-  // The clock is pinned because both cases are stated relative to "now": with a
-  // real clock, a run just after midnight would leave a morning alarm in the
-  // *future* and invert the first assertion.
+  // Edit-only: a saved alarm can be in the past, and a range excluding it
+  // makes SwiftUI silently clamp and persist it on ✓.
   describe("alarm picker bounds (clock pinned to midday)", () => {
     beforeEach(() => jest.useFakeTimers({ now: new Date(2026, 6, 29, 12, 0) }));
     afterEach(() => jest.useRealTimers());
@@ -397,9 +386,8 @@ describe("EditTaskScreen", () => {
     expect(diff).not.toHaveProperty("status");
   });
 
-  // A cold deep link to /edit-task/<id> leaves the stack holding only this
-  // modal, where `back()` is an unhandled GO_BACK: ✕ looks dead and ✓ writes
-  // without ever closing. Mirrors settings/tasks/[id]'s guard.
+  // A cold deep link leaves the stack holding only this modal, where `back()`
+  // is an unhandled GO_BACK: ✕ looks dead and ✓ never closes.
   it("replaces rather than popping when there is nothing beneath it", () => {
     mockRouter.canDismiss.mockReturnValue(false);
     render(<EditTaskScreen />);
@@ -429,9 +417,8 @@ describe("EditTaskScreen", () => {
     expect(mockRouter.replace).not.toHaveBeenCalled();
   });
 
-  // The form owns the only header on web, and it doesn't render until the task
-  // resolves — so before DEX-101 a cold deep link was a bare spinner with no
-  // way out but the backdrop.
+  // The form owns the only header on web and doesn't render until the task
+  // resolves — before DEX-101 a cold deep link was a bare spinner.
   describe("while the task is still loading", () => {
     beforeEach(() => setTasks([], { isLoading: true }));
 
@@ -505,9 +492,8 @@ describe("EditTaskScreen", () => {
     expect(mockRouter.replace).toHaveBeenCalledWith("/");
   });
 
-  // `router.back()` pops whichever navigator is focused, and a modal screen
-  // stays mounted while its tab is in the background — so a refetch that drops
-  // the task there must not pop the screen the user is actually looking at.
+  // `back()` pops whichever navigator is focused, so a background-tab refetch
+  // that drops the task must not pop the screen the user is looking at.
   it("waits for focus before dismissing a backgrounded screen", () => {
     mockIsFocused.current = false;
     setTasks([]);
@@ -517,9 +503,8 @@ describe("EditTaskScreen", () => {
     expect(mockRouter.replace).not.toHaveBeenCalled();
   });
 
-  // `isLoading` is `isPlaceholderData`, which react-query drops to `false` on
-  // error while `tasks` falls back to `[]` — so without an explicit `isError`
-  // a failed fetch is indistinguishable from a deleted task (DEX-100).
+  // `isLoading` drops to false on error while `tasks` falls back to `[]`, so
+  // without `isError` a failed fetch looks like a deleted task (DEX-100).
   describe("when the tasks query fails", () => {
     beforeEach(() => setTasks([], { isError: true }));
 
@@ -562,9 +547,8 @@ describe("EditTaskScreen", () => {
     });
   });
 
-  // A background refetch can fail long after the first load resolved. The
-  // cache still holds the task, so the form the user is typing into must
-  // survive it rather than being replaced by the error state.
+  // A background refetch can fail after first load; the cache still holds the
+  // task, so the form being typed into must survive it.
   it("keeps the form mounted when a refetch fails after the task resolved", () => {
     setTasks([savedTask], { isError: true });
     const screen = render(<EditTaskScreen />);

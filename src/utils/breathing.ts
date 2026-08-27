@@ -1,18 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 
-/**
- * The Breathe ritual step's model (DEX-164): the techniques on offer, and the
- * whole timeline of one run of one of them.
- *
- * React-free and import-free besides `Temporal`, the same split `ritualSteps`
- * takes and for the same reason — but here there is a second, sharper one.
- * Everything downstream of `buildBreathePlan` is a worklet, and
- * `docs/testing.md` is blunt that no test can see across that boundary: the
- * reanimated mock renders it opaque, so a wrong number in an interpolation
- * table has no symptom until it is on a device. Keeping the entire timeline as
- * plain arrays computed here means the part that can be wrong is the part that
- * is tested, and the worklet is left with nothing to decide.
- */
+// The Breathe step's model (DEX-164). Everything downstream is a worklet
+// no test can see across, so the whole timeline is plain arrays computed here.
 
 /** What the breather is doing during one leg of a breath. */
 export type TBreathPhase = "inhale" | "hold" | "exhale";
@@ -27,10 +16,8 @@ export type TBreathLeg = {
 export type TBreathingTechnique = "simple" | "relax" | "box";
 
 /**
- * What the *preference* can hold, which is one more thing than the step can
- * run: `"shuffle"` picks a technique per day rather than naming one. Offered in
- * Settings only — the step's own control lists the three real techniques, since
- * choosing "whichever" for a session you are about to start is not a choice.
+ * One more than the step itself can run: "shuffle" picks per day. Settings
+ * only — choosing "whichever" for a session about to start isn't a choice.
  */
 export type TBreathingTechniqueSetting = TBreathingTechnique | "shuffle";
 
@@ -42,21 +29,8 @@ export const BREATH_PHASE_LABELS: Record<TBreathPhase, string> = {
 };
 
 /**
- * The techniques, each as the legs of a **single breath** — `buildBreathePlan`
- * repeats the cycle rather than storing a whole run.
- *
- * **Every cycle ends at an empty fill**, on an exhale or on the hold after one.
- * The step leans on that: a run simply stops when its last leg does, with no
- * settling animation and no filled-page end state to get the controls back off
- * of. A fourth technique ending on an inhale would break that quietly, which is
- * why `breathePlanEndsEmpty` exists to assert it.
- *
- * Durations are the ones in DEX-164 and are deliberately whole seconds: the
- * numbers are also what the step *says* it is doing, and "inhale for six" is a
- * count the breather can follow when they look away from the screen.
- *
- * Relax exhales longer than it inhales, which is the entire technique — it
- * shipped inverted, hence tests asserting the relationships and not the values.
+ * Legs of one breath — buildBreathePlan repeats the cycle, which must always
+ * end empty (breathePlanEndsEmpty pins it; Relax shipped inverted once).
  */
 export const BREATHING_TECHNIQUES: Record<
   TBreathingTechnique,
@@ -88,12 +62,8 @@ export const BREATHING_TECHNIQUES: Record<
 };
 
 /**
- * The techniques in rotation order, which is also the order both controls list
- * them in — shortest breath first, so the row reads as increasing effort.
- *
- * Spelled out as values rather than taken from `Object.keys` above, so it is a
- * `readonly` tuple the compiler can index and `techniqueForDay` cannot return
- * `undefined` from.
+ * Rotation and control-list order, shortest first. Spelled out rather than
+ * Object.keys so techniqueForDay indexes a tuple and can't return undefined.
  */
 export const BREATHING_TECHNIQUE_ORDER = ["simple", "relax", "box"] as const;
 
@@ -102,9 +72,8 @@ export const MIN_BREATHS = 1;
 export const MAX_BREATHS = 10;
 
 /**
- * The count and technique a user who has expressed no preference starts from.
- * Both match the column defaults in
- * `20260816210000_add_preferences_breathe.sql`; each pair must move together.
+ * Defaults for a user with no preference — match the column defaults in
+ * `20260816210000_add_preferences_breathe.sql`; keep the two in step.
  */
 export const DEFAULT_BREATH_COUNT = 3;
 export const DEFAULT_BREATHING_TECHNIQUE: TBreathingTechniqueSetting =
@@ -120,10 +89,8 @@ export const BREATHING_TECHNIQUE_OPTIONS: readonly {
 }));
 
 /**
- * The same three plus Shuffle, for the Settings picker. Values are strings
- * because `PickerField<V extends string>` requires it — which these already
- * are, so unlike the focus-block lengths nothing has to round-trip through
- * `Number`.
+ * The three techniques plus Shuffle. Values are strings for PickerField —
+ * unlike focus-block lengths, nothing round-trips through Number.
  */
 export const BREATHING_TECHNIQUE_SETTING_OPTIONS: readonly {
   label: string;
@@ -135,16 +102,8 @@ export const describeBreathCount = (count: number): string =>
   count === 1 ? "1 breath" : `${count} breaths`;
 
 /**
- * Every count the step can run, for the Settings picker.
- *
- * Derived from the bounds above rather than spelled out the way
- * `FOCUS_BLOCK_LENGTHS` is: those lengths are an irregular list picked by taste,
- * where this is simply the range, and deriving it means the menu cannot drift
- * from what `resolveBreathCount` clamps to.
- *
- * Values are strings because `PickerField<V extends string>` requires it; the
- * call site reads them back through `Number`, the same round-trip the focus
- * block lengths make. Labels carry the unit so a menu row reads on its own.
+ * Every count the step can run. Derived from the bounds, not spelled out
+ * like FOCUS_BLOCK_LENGTHS, so the menu can't drift from resolveBreathCount.
  */
 export const BREATH_COUNT_OPTIONS: readonly {
   label: string;
@@ -155,15 +114,8 @@ export const BREATH_COUNT_OPTIONS: readonly {
 });
 
 /**
- * A stored breath count narrowed to one the step can run.
- *
- * The column carries no CHECK constraint, for the reason
- * `focus_block_minutes` carries none: the range is app-owned and expected to
- * move with taste, so an older build has to be able to read a count it doesn't
- * offer. Out of range clamps rather than falling back to the default — a 12
- * saved by a later build means "as many as you'll give me", and 10 honours that
- * where 3 would silently contradict it. A non-integer is not a near miss of
- * anything, so it takes the default.
+ * No CHECK constraint — app-owned range, like focus_block_minutes. Clamps
+ * out-of-range instead of defaulting, honouring a later build's larger count.
  */
 export const resolveBreathCount = (count: number): number => {
   if (!Number.isInteger(count)) return DEFAULT_BREATH_COUNT;
@@ -171,12 +123,8 @@ export const resolveBreathCount = (count: number): number => {
 };
 
 /**
- * A stored technique narrowed to one this build knows.
- *
- * Unlike the count there is nothing to clamp toward — an unrecognized name is
- * a technique a later build added, and guessing which of ours it resembles
- * would be worse than starting from the default. Mirrors
- * `resolveFocusBlockMinutes` and `resolveAlarmSound`.
+ * Unlike the count, nothing to clamp toward — an unrecognized name is a
+ * later build's technique; guessing which of ours it resembles is worse.
  */
 export const resolveBreathingTechniqueSetting = (
   value: string,
@@ -189,14 +137,8 @@ export const resolveBreathingTechniqueSetting = (
 const EPOCH = Temporal.PlainDate.from("1970-01-01");
 
 /**
- * The technique a given day runs — the identity for a named setting, and the
- * rotation for `"shuffle"`.
- *
- * Derived from the date rather than stored, so nothing has to be written when
- * the day turns and two devices opening the same evening's ritual agree. The
- * remainder is taken off days since the epoch rather than `dayOfYear`, which
- * would stutter at every new year (365 % 3 lands back on the same technique two
- * days running).
+ * Derived from the date, not stored, so two devices agree at the day turn.
+ * Uses days since epoch, not dayOfYear — 365 % 3 stutters at a year boundary.
  */
 export const techniqueForDay = (
   setting: TBreathingTechniqueSetting,
@@ -205,9 +147,8 @@ export const techniqueForDay = (
   if (setting !== "shuffle") return setting;
   const days = EPOCH.until(date, { largestUnit: "day" }).days;
   const count = BREATHING_TECHNIQUE_ORDER.length;
-  // `((n % k) + k) % k` rather than `n % k`: JavaScript's remainder keeps the
-  // sign of the dividend, so a date before 1970 would index the tuple with a
-  // negative number and hand back `undefined`.
+  // `((n%k)+k)%k`, not `n%k`: JS remainder keeps the dividend's sign, so a
+  // date before 1970 would index with a negative number and return undefined.
   return BREATHING_TECHNIQUE_ORDER[((days % count) + count) % count];
 };
 
@@ -218,27 +159,14 @@ export type TBreatheInterpolation = {
 };
 
 /**
- * How long each phase word takes to fade in and out, as a share of its own leg.
- *
- * A fraction rather than a fixed duration so the fade stays in proportion on a
- * one-breath run and a ten-breath one.
+ * Fade duration for each phase word, as a share of its own leg — proportion
+ * stays the same on a one-breath run and a ten-breath one.
  */
 const WORD_FADE_RATIO = 0.08;
 
 /**
- * How long the step holds *no* word at each end of a leg, as a share of it.
- *
- * The words used to cross-fade: both windows sat on the boundary, so "Exhale"
- * was arriving while "Inhale" was still leaving and the two were briefly legible
- * over one another. This is the beat of nothing that separates them — the word
- * leaves before the turn and the next arrives after it, which is also how the
- * breath itself feels at the top.
- *
- * Both this and the fade are shares of the leg, so a word's whole window is
- * `2 × (gap + fade)` of it — well under the leg however the durations are
- * retuned, which is what keeps every `input` array below monotonic. A
- * non-monotonic one makes `interpolate` return garbage, with no symptom short
- * of a device.
+ * Silence at each leg's ends — words used to cross-fade at the boundary.
+ * Must keep 2×(gap+fade) under the leg or `input` goes non-monotonic.
  */
 const WORD_GAP_RATIO = 0.06;
 
@@ -248,19 +176,13 @@ export type TBreathePlan = {
   session: readonly TBreathLeg[];
   totalMs: number;
   /**
-   * The fill level each leg **ends** at, 0 (empty) to 1 (full), index-aligned
-   * with `session`. The step turns this straight into a `withSequence` of one
-   * timing per leg; a hold's entry repeats the level before it, which is what
-   * makes a hold a timing to the value it already holds and so costs the step
-   * no branch of its own.
+   * Fill level each leg ends at, 0–1, index-aligned with `session`. A hold
+   * repeats the prior level, so the step needs no branch for it.
    */
   levels: readonly number[];
   /**
-   * One opacity table per phase, over the run's normalized progress. A phase a
-   * technique never uses (`hold`, outside Box) gets a flat zero rather than an
-   * empty table — `interpolate` needs two points, and a step that rendered its
-   * three words conditionally would need to know which, which is exactly the
-   * decision this module exists to take away from it.
+   * One opacity table per phase. An unused phase (hold, outside Box) gets a
+   * flat zero, not empty — `interpolate` needs two points either way.
    */
   words: Record<TBreathPhase, TBreatheInterpolation>;
 };
@@ -273,10 +195,8 @@ const levelAfter = (phase: TBreathPhase, previous: number): number => {
 };
 
 /**
- * The whole timeline of one run.
- *
- * `breaths` is narrowed here rather than at the call site so the step cannot
- * build a plan for a count it could not have chosen.
+ * The whole timeline of one run. `breaths` is narrowed here, not at the call
+ * site, so the step can't build a plan for a count it couldn't have chosen.
  */
 export const buildBreathePlan = (
   technique: TBreathingTechnique,
@@ -296,10 +216,8 @@ export const buildBreathePlan = (
     levels.push(levelAfter(leg.phase, levels[levels.length - 1] ?? 0));
   }
 
-  // Walk the legs once, building all three tables together: each leg
-  // contributes a 0→1→0 pulse to its own phase's table, and nothing to the
-  // other two. Points are emitted in time order by construction, which is what
-  // keeps every `input` array monotonic without a sort.
+  // Walk the legs once: each contributes a 0→1→0 pulse to its own phase's
+  // table only. Emitted in time order, so `input` stays monotonic unsorted.
   const words: Record<TBreathPhase, { input: number[]; output: number[] }> = {
     inhale: { input: [], output: [] },
     hold: { input: [], output: [] },
@@ -314,11 +232,8 @@ export const buildBreathePlan = (
     const fade = span * WORD_FADE_RATIO;
     const gap = span * WORD_GAP_RATIO;
     const table = words[leg.phase];
-    // The whole window sits *inside* the leg, which is what puts a gap either
-    // side of every boundary: the word is already gone before the leg ends and
-    // the next one has not started yet. It also means no point can fall outside
-    // [0, 1], so unlike the crossing version this needs no clamping — a
-    // negative input would be a breakpoint the driver never reaches.
+    // Window sits inside the leg (gap on both sides of the boundary), so
+    // every point stays in [0,1] — unlike the crossing version, no clamping.
     table.input.push(
       start + gap,
       start + gap + fade,
@@ -348,11 +263,8 @@ const flatIfEmpty = (table: {
   table.input.length === 0 ? { input: [0, 1], output: [0, 0] } : table;
 
 /**
- * Whether a plan leaves the fill empty, which every technique must.
- *
- * Exported for the test that pins it rather than merely asserted there, so the
- * invariant is stated next to the table it constrains — see
- * `BREATHING_TECHNIQUES`.
+ * Whether a plan ends empty, which every technique must. Exported so the
+ * test pinning it states the invariant next to BREATHING_TECHNIQUES.
  */
 export const breathePlanEndsEmpty = (plan: TBreathePlan): boolean =>
   plan.levels[plan.levels.length - 1] === 0;
@@ -363,13 +275,8 @@ export type TBreathAudioVoice =
   "inhale" | "inhaleHold" | "exhale" | "exhaleHold";
 
 /**
- * One envelope a voice's gain follows: a shape, when it starts, and how long it
- * takes. Two per sounding leg — the rise across the leg, then the fall over the
- * opening of the next.
- *
- * `values` is normalized 0-1, not a gain — the hook multiplies by its own peak,
- * so nothing about how loud the exercise is leaks in here. Samples are evenly
- * spaced across `durationMs`, which is what `setValueCurveAtTime` expects.
+ * One gain envelope: shape, start, duration. Two per leg — rise across it,
+ * fall over the next. `values` is normalized 0-1; the hook scales by peak.
  */
 export type TBreathAudioCurve = {
   voice: TBreathAudioVoice;
@@ -380,25 +287,14 @@ export type TBreathAudioCurve = {
 };
 
 /**
- * How finely a curve is sampled.
- *
- * This costs nothing per point: the whole shape is **one** automation event
- * however many samples describe it, which is the entire reason for using curves
- * over a staircase of ramps. High enough that the slowest leg — eight seconds of
- * Relax's exhale — still gets a breakpoint every ~60ms.
+ * Curve sample density — free per point since the whole shape is one
+ * automation event; high enough for ~60ms breakpoints on the slowest leg.
  */
 const CURVE_POINTS = 128;
 
 /**
- * The sliver of silence between a leg's rise and its own fall.
- *
- * Not cosmetic. A curve is rejected if anything starts *strictly inside* its
- * window, so a fall beginning exactly where its rise ended is legal — but only
- * if the two times are bit-identical doubles, and they are reached by different
- * arithmetic (`at(start) + leg.ms/1000` against `at(start + leg.ms)`). One ULP
- * of drift the wrong way and the whole run throws instead of sounding. A
- * millisecond is many orders of magnitude clear of that, and the param simply
- * holds its last value across it — the curve had already reached full.
+ * Silence between a leg's rise and fall — not cosmetic. A same-instant
+ * boundary risks ULP drift between arithmetic paths; 1ms is safely clear.
  */
 const CURVE_GAP_MS = 1;
 
@@ -411,17 +307,8 @@ export const easeOut = (t: number): number => Math.sin((Math.PI / 2) * t);
 export const easeInOut = (t: number): number => (1 - Math.cos(Math.PI * t)) / 2;
 
 /**
- * The most automation events one `AudioParam` will hold.
- *
- * `react-native-audio-api` bounds *both* of a param's queues at this
- * (`AUDIO_PARAM_MAX_QUEUED_EVENTS`, `core/utils/Constants.h`) and past it
- * `push` returns false and the event is **dropped silently** — no error, no
- * warning, the param simply stops changing and holds its last value. The
- * envelope used to be a staircase of 25 `linearRampToValueAtTime` calls per
- * leg, which at three breaths — the app's default — overran the queue partway
- * through the third leg and lost its release, so the chord never came back down
- * and droned under the rest of the run. That was DEX-187. Two curves per leg
- * puts a ten-breath run at 21 events, and browsers have no such bound anyway.
+ * react-native-audio-api silently drops events past this bound — 25
+ * ramps/leg overran it and lost the release, droning forever (DEX-187).
  */
 export const BREATH_AUDIO_MAX_EVENTS_PER_PARAM = 64;
 
@@ -459,18 +346,8 @@ const ATTACK = sample((t) =>
 const RELEASE = sample((t) => 1 - easeOut(t));
 
 /**
- * Every envelope of one run (DEX-167), scheduled on the audio clock the moment
- * Begin is pressed — so nothing recomputes per leg and nothing drifts.
- *
- * Each leg's tone rises across its own leg and releases over the opening of the
- * next, leaving two chords always crossfading. Entries are in time order **per
- * voice**, which is the ordering `AudioParam` automation actually cares about.
- *
- * **Two events per leg, not twenty-five.** A curve is one event however finely
- * it is sampled, which is what keeps a ten-breath run inside
- * `BREATH_AUDIO_MAX_EVENTS_PER_PARAM`. A leg's rise ends exactly where its fall
- * begins, which the library allows: events strictly inside a curve's window
- * collide with it, events landing on the boundary do not.
+ * Every envelope of one run (DEX-167), scheduled at Begin so nothing drifts.
+ * Two events per leg, not twenty-five, stays inside the param's event bound.
  */
 export const buildBreathAudioSchedule = (
   plan: TBreathePlan,

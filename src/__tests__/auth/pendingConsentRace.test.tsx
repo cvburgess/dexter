@@ -16,9 +16,8 @@ jest.mock("@/components/LoadingScreen", () => {
   return { LoadingScreen: () => <Text>loading</Text> };
 });
 
-// Navigation is imperative and one-way, so record every href a <Redirect> is
-// rendered with — not just the final one — to catch a transient redirect to
-// Today mid-transition.
+// Record every href a <Redirect> renders with — not just the final one — to
+// catch a transient redirect to Today mid-transition.
 const redirectHrefs: string[] = [];
 
 type Href =

@@ -22,30 +22,16 @@ import { StatusButton } from "./StatusButton";
 import { subtaskGeometry, SubtaskConnectors } from "./SubtaskConnector";
 import { SubtaskRow } from "./SubtaskRow";
 
-// Matches dexter-app's cardColors: incomplete cards sit on the priority color
-// muted toward the surface (`colors.priorityMuted`, pre-blended in theme.ts);
-// complete cards fade the raw color to a 3% tint with muted (25% opacity) text,
-// regardless of priority. The complete tint stays an alpha deliberately — it is
-// meant to read as *absence* of a card, not as a fourth surface color.
-//
-// The fill is the *only* thing that shapes a card: there is no outline
-// (DEX-114). A hairline around a block of color read as a second edge on every
-// prioritized card, and the unprioritized card it did earn its keep on is now
-// `surfaceSunken` instead, which separates it from the pane on its own.
+// Matches dexter-app's cardColors; complete cards fade to a 3% tint to read
+// as *absence* of a card. No outline (DEX-114) — a hairline read as an edge.
 const COMPLETE_OPACITY = 0.03;
 const COMPLETE_TEXT_OPACITY = 0.25;
 
 /** Which row, if any, is currently in inline-edit mode. */
 type TEditing = { kind: "title" } | { kind: "subtask"; id: string } | null;
 
-/**
- * A rename that has been committed but whose write hasn't reached the cache
- * yet. Leaving edit mode is synchronous, while the optimistic write is a tick
- * behind it — so without this the pre-edit title paints in between and the old
- * text visibly blinks back before the new one settles.
- *
- * One slot, because `editing` is one slot: only a single row can be renaming.
- */
+// A committed rename whose write hasn't reached the cache — without this the
+// pre-edit title blinks back for a frame before the optimistic write settles.
 type TRenamed =
   | { kind: "title"; from: string; to: string }
   | { kind: "subtask"; id: string; from: string; to: string };
@@ -55,31 +41,14 @@ type TTaskCardProps = {
   onUpdate: (diff: Omit<TUpdateTask, "id">) => void;
   onDuplicate: () => void;
   onDelete: () => void;
-  /**
-   * Creates the task a promoted subtask becomes; mirrors how `onDuplicate`
-   * defers creation upward. Required, not optional: promotion removes the
-   * subtask from its parent, so a host that didn't wire this would silently
-   * delete the subtask and create nothing in its place.
-   */
+  /** Creates the task a promoted subtask becomes. Required — promotion
+   * removes the subtask from its parent, so an unwired host loses it. */
   onPromoteSubtask: (task: TCreateTask) => void;
-  /**
-   * Turns the title into a link instead of a rename affordance — the Search
-   * tab's results open the task rather than editing it in place (DEX-47).
-   *
-   * Only the title changes. `StatusButton`, the date/list buttons, the subtask
-   * rows, and the long-press `MoreMenu` all keep working, so a result can still
-   * be checked off or rescheduled without leaving Search.
-   */
+  /** Turns the title into a link for Search results (DEX-47); only the
+   * title changes, everything else keeps working without leaving Search. */
   onPress?: () => void;
-  /**
-   * Fires whenever an inline rename opens or closes (title or any subtask row).
-   *
-   * `DraggableTaskCard` uses it to suspend the drag while a field is focused
-   * (DEX-77): on web the drag activates with no hold at all, so dragging across
-   * the text to select it would pick the card up instead of selecting. Same
-   * shape and same reason as `SwipeablePage`'s `enabled={!editing}`, which
-   * `NotesView`/`JournalView` drive through a prop of this name.
-   */
+  /** Fires when an inline rename opens/closes. DraggableTaskCard uses it to
+   * suspend the drag while focused — web's drag has no hold at all (DEX-77). */
   onEditingChange?: (editing: boolean) => void;
 };
 
@@ -95,35 +64,22 @@ export function TaskCard({
   const theme = useTheme();
   const checklist = subtaskGeometry(theme);
   const [editing, setEditing] = useState<TEditing>(null);
-  // The alarm-confirmation flow lives in the hook so every surface that
-  // reschedules — this card's menu, the backlog's "+", and the drag-to-schedule
-  // drop targets — prompts identically (DEX-77). The id is dropped on the way
-  // out because this card's `onUpdate` is already bound to its own task by the
-  // parent.
+  // Lives in the hook so every rescheduling surface prompts identically
+  // (DEX-77); `id` drops since `onUpdate` is already bound to this task.
   const { changeSchedule, confirmationProps } = useScheduleChange(
     ({ id: _id, ...diff }) => onUpdate(diff),
   );
   const isComplete = isCompletionStatus(task.status);
 
-  // Notified from an effect rather than from each `setEditing` call site: the
-  // state has four of them (title open, title close, subtask open, the unmount
-  // cleanup that closes a row), and a listener that has to be remembered at
-  // every one is a listener that eventually isn't. Keyed on the boolean, not on
-  // `editing`, so moving between two subtask rows doesn't churn it.
+  // From an effect, not each of the four setEditing sites. Keyed on the
+  // boolean so moving between subtask rows doesn't churn it.
   const isEditing = editing !== null;
   useEffect(() => {
     onEditingChange?.(isEditing);
   }, [isEditing, onEditingChange]);
 
-  // Rows this card has created that the cache hasn't confirmed yet: the empty
-  // one "Add subtask" is showing, plus any just committed whose write is still
-  // in flight. A list rather than a single slot because return chains a fresh
-  // row while the one before it is still unconfirmed. Everything else reads
-  // straight from `task.subtasks`, so a change arriving from another device is
-  // never masked.
-  // Always updated through the function form: a row that unmounts commits from
-  // *its* last-render closure, which can hold a list two taps out of date, and
-  // replacing the list wholesale from there would drop whatever arrived since.
+  // A list, since return chains a fresh row while the one before is still
+  // unconfirmed. Function-form setter: an unmounting row's closure is stale.
   const [unconfirmed, setUnconfirmed] = useState<TSubtask[]>([]);
 
   const [renamed, setRenamed] = useState<TRenamed | null>(null);
@@ -132,16 +88,13 @@ export function TaskCard({
       renamed.kind === "title"
         ? task.title
         : task.subtasks.find((subtask) => subtask.id === renamed.id)?.title;
-    // The prop is authoritative again the moment it moves off what we renamed
-    // *from* — whether that's the optimistic write landing or a failure rolling
-    // it back. Derived during render, not in an effect, so the overlay never
-    // outlives the frame that makes it redundant.
+    // Authoritative again once the prop moves off `from` — write landed or
+    // rolled back. Derived during render so the overlay never outlives it.
     if (current !== renamed.from) setRenamed(null);
   }
 
-  // Display-only overlays. Every write still composes from `task.subtasks`, so
-  // an in-flight rename can never be folded into the next update as if it were
-  // server state.
+  // Display-only overlays — every write still composes from task.subtasks, so
+  // an in-flight rename is never folded into the next update as server state.
   const title = renamed?.kind === "title" ? renamed.to : task.title;
   const renamedRows =
     renamed?.kind === "subtask"
@@ -152,9 +105,8 @@ export function TaskCard({
         )
       : task.subtasks;
 
-  // A row drops out of the local list the moment the cache has it. Derived
-  // during render, like the rename above, so it is never rendered twice — once
-  // from the cache and once from here — even for a single frame.
+  // A row drops out the moment the cache has it — derived during render so it
+  // is never rendered twice, even for one frame.
   const unsettled = unconfirmed.filter(
     (row) => !task.subtasks.some((subtask) => subtask.id === row.id),
   );
@@ -162,12 +114,8 @@ export function TaskCard({
 
   const subtasks = [...renamedRows, ...unsettled];
 
-  /**
-   * Clear edit mode only if the row named still owns it. React runs the
-   * outgoing row's unmount cleanup *after* `editing` has already moved to the
-   * row the user just tapped, so clearing blindly cancels the edit they are
-   * starting — and the tap reads as having done nothing at all.
-   */
+  // Clear only if this row still owns it — unmount cleanup runs *after*
+  // `editing` moved to the row just tapped, so clearing blindly cancels it.
   const stopEditingTitle = () =>
     setEditing((current) => (current?.kind === "title" ? null : current));
 
@@ -190,10 +138,8 @@ export function TaskCard({
   const commitSubtaskTitle = (id: string, title: string) => {
     stopEditingSubtask(id);
 
-    // A row the cache doesn't have yet is one this card created — so whether
-    // this is an append or an edit is decided by server state, never by how
-    // stale this closure's copy of the local list happens to be. Once the cache
-    // owns the row, this is an ordinary rename and never a second append.
+    // Whether this is an append or edit is decided by server state, never by
+    // how stale this closure's local-list copy is.
     const unconfirmedRow = task.subtasks.some((subtask) => subtask.id === id)
       ? undefined
       : unconfirmed.find((row) => row.id === id);
@@ -204,9 +150,8 @@ export function TaskCard({
         setUnconfirmed((rows) => rows.filter((row) => row.id !== id));
         return;
       }
-      // Kept on screen carrying the title just committed, rather than dropped
-      // to wait for the write — dropping it blinks the whole row out of the
-      // checklist and back in. It clears itself once the cache confirms it.
+      // Kept on screen with the committed title rather than dropped to wait
+      // for the write — else the whole row blinks out and back in.
       setUnconfirmed((rows) =>
         rows.map((row) => (row.id === id ? { ...row, title } : row)),
       );
@@ -235,9 +180,8 @@ export function TaskCard({
   };
 
   const priorityColor = theme.colors.priority[task.priority];
-  // The color everything on the card (title, button outlines/icons, border)
-  // is drawn in — matches dexter-app's Card.tsx, which derives all of it
-  // from the priority's "-content" color, muted to `text` when done.
+  // Everything on the card draws in this — matches dexter-app's Card.tsx,
+  // muted to `text` when done.
   const contentColor = isComplete
     ? withOpacity(theme.colors.text, COMPLETE_TEXT_OPACITY)
     : theme.colors.priorityContent[task.priority];
@@ -251,12 +195,8 @@ export function TaskCard({
             ? withOpacity(priorityColor, COMPLETE_OPACITY)
             : theme.colors.priorityMuted[task.priority],
           borderRadius: theme.radii.md,
-          // Floor of padding (×2) + the inline control height. A completed
-          // card's only height-defining child is the StatusButton's native menu
-          // host, whose async sizing can transiently report 0 — without this
-          // floor the row (or a whole list of completed tasks) collapses blank.
-          // A floor, not a fixed height, so multi-line titles and subtasks can
-          // still grow the card.
+          // Floor, not fixed height: a completed card's only height-defining
+          // child is StatusButton's async-sizing menu host, which can report 0.
           minHeight: theme.space.md * 2 + theme.controls.sm,
           padding: theme.space.md,
         },
@@ -272,20 +212,14 @@ export function TaskCard({
         <EditableText
           value={title}
           editing={editing?.kind === "title"}
-          // Renaming a finished task is disabled, matching the buttons below.
-          // No `&& !onPress` here — `EditableText` already gives `onPress`
-          // precedence over `editable`, and stating it twice would let a future
-          // change to one site read as contradicting the other.
+          // No `&& !onPress` — EditableText already gives onPress precedence.
           editable={!isComplete}
-          // Two lines before truncating: a card is a fixed-width column on
-          // every layout, and one line clipped most real task titles.
           numberOfLines={2}
           onPress={onPress}
           onStartEdit={() => setEditing({ kind: "title" })}
           onCommit={(committed) => {
             stopEditingTitle();
-            // An emptied title reverts rather than wiping the task — a task with
-            // no title would be unidentifiable and unrecoverable from the list.
+            // An emptied title reverts — a titleless task is unrecoverable.
             if (!committed || committed === task.title) return;
             setRenamed({ kind: "title", from: task.title, to: committed });
             onUpdate({ title: committed });
@@ -299,26 +233,15 @@ export function TaskCard({
             },
           ]}
         />
-        {/* The list emoji used to sit here, beside the due date (`ListButton`,
-            still in the tree, still exported and still tested). Hidden rather
-            than removed (DEX-113): the card reads cleaner without it, but the
-            emoji may come back somewhere else, and `ListButton` is still the
-            only list picker outside the task form. `task.listId` is untouched.
-
-            Prefixing the title with the emoji ("🏠 Wash the cat") was tried
-            and rejected — no emoji on the card at all is the point. */}
+        {/* The list emoji used to sit here (ListButton, still tested);
+            hidden not removed (DEX-113) — no emoji on the card is the point. */}
         {!isComplete && (
           <DueDateButton
             dueOn={task.dueOn}
             priorityColor={priorityColor}
             contentColor={contentColor}
-            // A step beyond the row's `gap` (DEX-111). The title is `flex: 1`,
-            // so a long one runs right up to the edge of its box and the badge
-            // read as attached to the last word. Passed in rather than baked
-            // into the badge, which owns no spacing of its own — see
-            // docs/design.md, "Who owns spacing". Passed rather than wrapped
-            // because the badge renders nothing when the task has no due date,
-            // and a wrapper would keep applying its margin regardless.
+            // A step beyond the row's gap (DEX-111): passed in, not baked into
+            // the badge, which renders nothing with no due date.
             style={{ marginLeft: theme.space.sm }}
           />
         )}
@@ -328,9 +251,8 @@ export function TaskCard({
           style={[
             {
               gap: checklist.gap,
-              // Not indented: the checklist runs the full width of the title
-              // row, so a subtask's controls sit directly under the parent's,
-              // both columns of circles on the same vertical axes.
+              // Not indented: subtask controls sit directly under the
+              // parent's, both circle columns on the same vertical axis.
               paddingHorizontal: checklist.inset,
               paddingTop: checklist.offset,
             },
@@ -354,9 +276,8 @@ export function TaskCard({
               onSubmit={(title) => {
                 if (title) addSubtask();
               }}
-              // A completed parent's checklist is frozen: the sweep just closed
-              // every row, and re-opening one would restore exactly the
-              // done-parent-with-open-children state the sweep exists to prevent.
+              // Frozen once complete — reopening a row would restore the
+              // done-parent-with-open-children state the sweep prevents.
               interactive={!isComplete}
               onToggleDone={(done) =>
                 onUpdate({
@@ -376,8 +297,8 @@ export function TaskCard({
     </View>
   );
 
-  // Priority/schedule/list editing (and the long-press that opens it) isn't
-  // available once a task reaches a terminal status, matching the buttons above.
+  // Priority/schedule/list editing isn't available once terminal, matching
+  // the buttons above.
   if (isComplete) return card;
 
   return (
@@ -403,11 +324,9 @@ const styles = StyleSheet.create({
     alignSelf: "stretch",
   },
   container: {
-    // Both branches stretch to the list width so the row measures its natural
-    // single-line height (the complete branch renders without the MoreMenu
-    // wrapper that would otherwise supply the stretch).
+    // Both branches stretch to the list width for a natural single-line
+    // height — the complete branch has no MoreMenu wrapper to supply it.
     alignSelf: "stretch",
-    // A column now: the title row, then the checklist stacked beneath it.
     flexDirection: "column",
     overflow: "hidden",
   },

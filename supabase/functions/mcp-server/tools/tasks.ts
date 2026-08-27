@@ -30,10 +30,8 @@ import { hasOpenTaskForTemplate, insertOccurrence } from "./recurrence.ts";
 type Subtask = z.infer<typeof subtaskSchema>;
 
 /**
- * Reads a task row's `subtasks` column, which Postgres types as `Json`. Uses the
- * unbounded *stored* schema, not the tool-input one: an existing row whose title
- * exceeds the input cap must still sweep correctly, and failing the parse would
- * silently skip the sweep rather than reject anything.
+ * Uses the unbounded *stored* schema, not the tool-input one: a title past the
+ * input cap must still sweep, and a failed parse silently skips the sweep.
  */
 const readSubtasks = (value: unknown): Subtask[] => {
   const parsed = storedSubtasksSchema.safeParse(value);
@@ -41,14 +39,8 @@ const readSubtasks = (value: unknown): Subtask[] => {
 };
 
 /**
- * Reads the row a completing write is about to overwrite, returning both the
- * pre-update status (so recurrence can tell a fresh completion from a re-tap)
- * and the checklist checked off. Shared by `update_task` and `archive_task` —
- * the two completion paths — so the read and the sweep can't drift apart between
- * them. Piggybacks on the read recurrence already needed: no extra round trip.
- *
- * The caller decides *whether* to sweep by only calling this on a terminal
- * status; every terminal status sweeps the same way, so none is passed in.
+ * Shared by the two completion paths (update_task, archive_task) so the read
+ * and the sweep can't drift; the caller gates on terminal status.
  */
 async function readForCompletion(
   ctx: ToolContext,
@@ -70,11 +62,8 @@ async function readForCompletion(
 }
 
 /**
- * When a task update completes a repeat task, schedule its next occurrence — the
- * TypeScript replacement for the dropped `create_next_recurring_task` trigger
- * (DEX-21), sharing `getNextTaskDate` with the Expo app. No-ops unless the task
- * just transitioned into a terminal status — done/won't-do/delegated — from a
- * non-complete `previousStatus`, and is linked to a template with a schedule.
+ * The TypeScript replacement for the dropped recurrence trigger (DEX-21):
+ * no-ops unless a scheduled template's task freshly turned terminal.
  */
 async function maybeCreateNextRecurringTask(
   ctx: ToolContext,
@@ -98,12 +87,8 @@ async function maybeCreateNextRecurringTask(
     .maybeSingle();
   if (!template?.schedule) return;
 
-  // A repeat has exactly one open task. A template can gain a schedule after the
-  // fact, which retroactively turns every task stamped from it into an
-  // occurrence; without this, completing three of them would start three
-  // parallel chains. Both callers run this after their own write has landed, so
-  // the task that triggered it is already terminal (or deleted) and cannot match
-  // its own guard.
+  // A repeat has exactly one open task — completing several tasks stamped from
+  // one template must not start parallel chains (the completer is already terminal).
   if (await hasOpenTaskForTemplate(ctx, template.id)) return;
 
   const nextDate = getNextTaskDate(
@@ -116,9 +101,8 @@ async function maybeCreateNextRecurringTask(
   await insertOccurrence(ctx, template, nextDate);
 }
 
-// Zod emits a union's own description, not its members' — so the descriptions
-// these two wrap have to be restated here or the filter fields would be the one
-// place an agent still sees a bare `0–4` with no explanation (DEX-137).
+// DEX-137: a z.union emits its own description, not its members' — restate them
+// or the filter fields show an agent a bare `0–4` with no explanation.
 const statusFilterSchema = z.union([
   taskStatusSchema,
   z.array(taskStatusSchema).min(1),
@@ -315,9 +299,8 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
           priority: task.priority,
           scheduled_for: task.scheduledFor ?? null,
           status: task.status,
-          // A task created already-complete gets the same sweep an update
-          // would apply, so the done-parent-with-open-children state the sweep
-          // exists to prevent can't be inserted through the front door.
+          // Same sweep an update applies, so a done parent with open children
+          // can't be inserted through the front door.
           subtasks: isCompletionStatus(task.status)
             ? completeSubtasks(task.subtasks ?? [])
             : (task.subtasks ?? []),
@@ -387,19 +370,16 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
         return toolError("No fields provided to update.");
       }
 
-      // Recurrence only fires when THIS update sets a completion status (a
-      // fresh completion), not when an already-done task is edited. Gate on the
-      // incoming status — matching the app's `diff.status` guard — and read the
-      // pre-update status in the same case so a re-completion is skipped.
+      // Recurrence fires only when THIS update sets a completion status (the
+      // app's `diff.status` guard) — never for an edit to an already-done task.
       const isCompleting = isCompletionStatus(update.status);
       let previousStatus: number | null | undefined;
       if (isCompleting) {
         const completion = await readForCompletion(ctx, taskId);
         previousStatus = completion.previousStatus;
 
-        // Fold the checklist sweep into this same write so a completed parent
-        // is never briefly stored alongside open children. An explicit
-        // `subtasks` from the caller wins.
+        // One write, so a completed parent is never briefly stored beside open
+        // children; an explicit `subtasks` from the caller wins.
         if (fields.subtasks === undefined && completion.sweptSubtasks) {
           update.subtasks = completion.sweptSubtasks;
         }
@@ -436,9 +416,8 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
       annotations: { readOnlyHint: false, destructiveHint: true },
     },
     async ({ taskId }) => {
-      // Deleting a task doesn't cascade to its template (the FK is ON DELETE SET
-      // NULL), so a repeat task's template must be removed explicitly to stop
-      // future occurrences.
+      // The FK is ON DELETE SET NULL, so a repeat's template must be removed
+      // explicitly to stop future occurrences.
       const { data: task } = await ctx.supabase
         .from("tasks")
         .select("template_id")
@@ -455,12 +434,8 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
       if (error) return toolError(error.message);
 
       if (task?.template_id) {
-        // Only a template that still carries a schedule is this task's repeat.
-        // A scheduleless one is a saved task template (DEX-65) — the user's,
-        // not this task's — and deleting it here would destroy it silently.
-        // A failed lookup must not be read as "scheduleless": silently skipping
-        // the delete would strand the repeat schedule with no linked task while
-        // still reporting success.
+        // A scheduleless template is a saved task template (DEX-65), not this
+        // task's repeat; and a failed lookup must not read as "scheduleless".
         const { data: template, error: lookupError } = await ctx.supabase
           .from("repeat_task_templates")
           .select("schedule")
@@ -509,9 +484,8 @@ export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
       let previousStatus: number | null | undefined;
       let sweptSubtasks: Subtask[] | undefined;
       if (!restore) {
-        // Archiving is a completion, so it sweeps the checklist in the same
-        // write — the mirror of update_task. Restoring does not: a restored
-        // task returns to todo with its checklist as the user left it.
+        // Archiving is a completion and sweeps like update_task; restoring
+        // leaves the checklist as the user left it.
         const completion = await readForCompletion(ctx, taskId);
         previousStatus = completion.previousStatus;
         sweptSubtasks = completion.sweptSubtasks;

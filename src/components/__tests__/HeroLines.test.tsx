@@ -94,8 +94,8 @@ describe("HeroLines", () => {
       expect(minWidthOf(screen, "events")).toBe(64);
     });
 
-    // Monotonic on purpose: a figure shrinking leaves the column a little wide
-    // rather than re-flowing the hero out from under the reader.
+    // Monotonic on purpose: a shrinking figure leaves the column a little wide
+    // rather than re-flowing the hero under the reader.
     it("does not narrow when a figure gets shorter", () => {
       const screen = render(<Host />);
 
@@ -106,12 +106,10 @@ describe("HeroLines", () => {
     });
   });
 
-  // The stage table's arithmetic, tested on this side of the worklet boundary —
-  // past it the reanimated mock shows nothing, so a `NaN` window would render
-  // as a body that simply never appears, on device only.
+  // Tested on this side of the worklet boundary — past it the reanimated mock
+  // shows nothing, so a NaN window is a body that never appears, on device only.
   describe("the stage windows", () => {
-    // Four hero lines (the most `THeroLinesProps` allows) and then the body. A
-    // step that draws four figures stages its body at 4, which is exactly the
+    // Four hero lines (the prop's max) then the body: stage 4 is exactly the
     // index that did not exist before DEX-148.
     it.each([0, 1, 2, 3, 4])("stage %i lands inside the reveal", (stage) => {
       const [from, to] = stageWindow(stage);
@@ -126,9 +124,8 @@ describe("HeroLines", () => {
       expect(stageWindow(4)[1]).toBeCloseTo(1, 10);
     });
 
-    // DEX-148 added a fifth stage by lengthening `REVEAL_MS`, not by respacing
-    // the others. Scaled back to milliseconds, the first four still start where
-    // they always did — 864ms apart — so no existing step's rhythm moved.
+    // DEX-148 added the fifth stage by lengthening `REVEAL_MS`, not respacing:
+    // the first four must still start 864ms apart, or every step's rhythm moves.
     it("leaves the first four stages where they were", () => {
       const totalMs = 4 * 864 + 1008;
       const startsMs = [0, 1, 2, 3].map((stage) =>

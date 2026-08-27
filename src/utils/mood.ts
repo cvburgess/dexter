@@ -1,8 +1,5 @@
-/**
- * The journal's 1-5 mood score (DEX-191): each face's geometry and color as plain
- * data, so a wrong number is a unit-test failure rather than a shape only a
- * device shows.
- */
+// The journal's 1-5 mood score (DEX-191): each face's geometry and color as
+// plain data, so a wrong number is a unit-test failure, not a device-only bug.
 
 export const MOOD_RATINGS = [1, 2, 3, 4, 5] as const;
 
@@ -31,11 +28,8 @@ export const MOOD_LABELS: Record<TMoodRating, string> = {
   5: "Great",
 };
 
-/**
- * The five faces, worst to best. Each mouth is spelled out rather than
- * interpolated from a curve: the ends are open shapes and the middle is a
- * straight line, so no single control point produces all five.
- */
+// Worst to best. Each mouth is spelled out rather than interpolated from a
+// curve — the ends are open shapes and the middle a straight line.
 export const MOOD_FACES: Record<TMoodRating, TMoodFace> = {
   1: {
     color: "#D6312B",

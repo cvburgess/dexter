@@ -7,24 +7,8 @@ import { Icon } from "@/components/Icon";
 import { TFocusTimerActions } from "@/hooks/useFocusTimer";
 import { useTheme } from "@/utils/theme";
 
-/**
- * The running focus block as the iOS tab bar's bottom accessory (iOS 26+),
- * taking the capsule "＋ New Task" otherwise fills.
- *
- * **This component is instantiated twice at once** — react-native-screens
- * renders the accessory once for the `regular` placement and once for `inline`
- * (see `useFocusTimer.tsx`). So it takes its block and its controls as props
- * from the module store rather than calling the query hooks, and it must never
- * gain an effect that writes: that write would fire twice.
- *
- * The inline placement is the strip beside a minimized tab bar and has room for
- * the countdown and one control, so it keeps the one that is about the timer —
- * pushed to the far edge, where a thumb already is.
- *
- * There is deliberately **no create-task button here**, even though the
- * accessory is a phone's only one: a block is 25 minutes of not adding to the
- * list, and the button is back the moment it ends.
- */
+/** iOS bottom accessory, replacing "＋ New Task". **Instantiated twice**
+ * (regular + inline) — takes props, never an effect that writes. */
 export function FocusTimerAccessory({
   actions,
   block,
@@ -48,9 +32,8 @@ export function FocusTimerAccessory({
           gap: theme.space.sm,
           paddingHorizontal: theme.space.md,
         },
-        // Minimized, the countdown and the pause control are the only two
-        // things here, so they take the two ends rather than huddling at the
-        // leading edge — the control lands under the thumb.
+        // Minimized: countdown and pause take the two ends, control under
+        // the thumb, rather than huddling at the leading edge.
         isInline ? styles.inline : null,
       ]}
     >

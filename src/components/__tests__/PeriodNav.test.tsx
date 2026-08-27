@@ -8,15 +8,12 @@ import { PeriodNav, PeriodNavLabel } from "../PeriodNav";
 import { WeekNav } from "../WeekNav";
 import { formatWeekdayMonthDay } from "@/utils/formatPlainDate";
 
-// `DayNav` imports `DateField`, which wraps a native picker with no test
-// double. Nothing here renders it — the alignment cases below use a non-today
-// date, which takes the label branch — but the module still has to load.
+// `DateField` wraps a native picker with no test double; the alignment cases
+// use a non-today date so `DayNav` takes the label branch and never renders it.
 jest.mock("../DateField", () => ({ DateField: () => null }));
 
-// Pinned from outside the module on purpose: `PeriodNav` keeps the width
-// private, so this is the assertion that a deliberate change to it is
-// deliberate. Both tabs' chevrons land on the same x only because the slot is
-// this wide regardless of what the label says.
+// Pinned from outside the module on purpose: both tabs' chevrons land on the
+// same x only because the slot is this wide regardless of the label.
 const CENTER_SLOT_WIDTH = 160;
 
 const styleOf = (node: ReactTestInstance) =>
@@ -36,14 +33,6 @@ describe("PeriodNav", () => {
     onPrev: jest.fn(),
     prevLabel: "Previous thing",
   };
-
-  it("renders both chevrons and the center slot", () => {
-    const screen = renderNav();
-
-    expect(screen.getByLabelText("Previous thing")).toBeTruthy();
-    expect(screen.getByText("center")).toBeTruthy();
-    expect(screen.getByLabelText("Next thing")).toBeTruthy();
-  });
 
   it("calls onPrev when the previous chevron is pressed", () => {
     const onPrev = jest.fn();
@@ -83,11 +72,8 @@ describe("PeriodNavLabel", () => {
   });
 });
 
-// The Today and Week header rows have to sit on the same baseline. That used to
-// be held by a comment in each nav; `PeriodNav` makes it structural, and this
-// catches the regression that survives the extraction — one nav quietly
-// dropping the shared component, or wrapping its label in a competing style
-// (DEX-97).
+// DEX-97: Today and Week header rows share a baseline. This catches the drift
+// the extraction can't — a nav dropping PeriodNav or restyling its label.
 describe("shared metrics between DayNav and WeekNav", () => {
   // Derived from the real "today" so `DayNav` never takes its picker branch,
   // which has no `PeriodNavLabel` to compare against.

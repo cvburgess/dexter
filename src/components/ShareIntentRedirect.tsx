@@ -4,30 +4,14 @@ import { useEffect } from "react";
 
 import { extractSharedUrl } from "@/utils/taskUrl";
 
-/**
- * Sends a link shared into Dexter from another app to the create-task modal,
- * with the link pre-filled (DEX-66). Renders nothing; mounted once, under
- * `ShareIntentProvider`.
- *
- * The provider already owns every way a share can arrive — the deep link the
- * share extension redirects on, the native module's own events, and an
- * `AppState` refresh when the app returns to the foreground — and publishes
- * `hasShareIntent`, which turns true only once the payload has actually been
- * populated. Waiting on that rather than on "a share is pending" is what makes
- * this a single effect: there is no half-filled payload to guard against, and
- * no window in which two signals for one share could both fire.
- *
- * Inert on web, where `useShareIntent` disables itself.
- */
+// Sends a link shared into Dexter to the create-task modal, pre-filled
+// (DEX-66). Renders nothing; inert on web, where useShareIntent disables itself.
 export function ShareIntentRedirect() {
   const { hasShareIntent, shareIntent, resetShareIntent } =
     useShareIntentContext();
   const { text, webUrl } = shareIntent;
-  // This sits beside the root Stack rather than inside it, so on a cold start
-  // the payload can land before there is anything to navigate — and a `push`
-  // then is dropped, losing the share outright. The root navigation state has
-  // no `key` until the navigator has mounted, so waiting on it defers exactly
-  // that case and nothing else.
+  // A cold-start payload can land before there's anything to navigate, and a
+  // push then is dropped — waiting for the root nav state's `key` defers exactly that.
   const isNavigatorReady = useRootNavigationState()?.key !== undefined;
 
   useEffect(() => {
@@ -40,9 +24,8 @@ export function ShareIntentRedirect() {
     // `push`, not `replace` — the modal opens *over* wherever the app was, and
     // ✕ has to land back there.
     router.push(url ? { pathname: "/new-task", params: { url } } : "/new-task");
-    // `resetShareIntent` is deliberately omitted: the provider rebuilds it on
-    // every render, so depending on it would re-run this effect continuously
-    // for as long as a share is pending.
+    // resetShareIntent omitted — the provider rebuilds it every render, which
+    // would re-run this effect continuously while a share is pending.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasShareIntent, isNavigatorReady, webUrl, text]);
 

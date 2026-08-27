@@ -15,11 +15,8 @@ type TModalErrorScreenProps = {
   onRetry: () => void;
 };
 
-/**
- * The copy a modal shows for a query that failed, phrased around the records it
- * couldn't load — "tasks", "repeat schedules". One sentence for every such
- * screen, so a wording change is one edit rather than a hunt through the app.
- */
+/** Copy a modal shows for a failed query, phrased around the records it
+ * couldn't load — one sentence, so a wording change is one edit. */
 export const loadFailedMessage = (records: string) =>
   `Couldn't load your ${records}. Check your connection and try again.`;
 
@@ -27,18 +24,8 @@ export const loadFailedMessage = (records: string) =>
 // `useModalHeaderActions` re-wires on every render by design.
 const noop = () => {};
 
-/**
- * What a modal screen renders when the query behind it failed, rather than
- * treating the empty result as a deleted record and bouncing the user
- * elsewhere (DEX-100).
- *
- * Takes a `fallback` and owns its own dismissal, like the sibling
- * `DismissModal` — so a screen adopting this pattern needs neither its own
- * `useDismissModal` call nor a wrapper component to bridge the two.
- *
- * ✓ is wired but disabled — there is nothing to save from here — so the header
- * keeps its usual shape and ✕ stays live; retrying is the body's own button.
- */
+/** What a modal renders when its query failed, rather than treating the
+ * empty result as a deleted record (DEX-100). ✓ is wired but disabled. */
 export function ModalErrorScreen({
   fallback,
   message,

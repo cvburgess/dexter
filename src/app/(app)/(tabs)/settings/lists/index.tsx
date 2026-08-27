@@ -34,9 +34,8 @@ export default function ListsScreen() {
   const twoPane = useIsLargeDevice();
   const insets = useSafeAreaInsets();
 
-  // Open (TODO/in-progress) task counts per list, derived from the canonical
-  // task cache. Completed tasks aren't counted — the cache only holds the
-  // recent completed window, so a "# complete" total would undercount history.
+  // Open counts only — the cache holds just a recent completed window, so
+  // a "# complete" total would undercount history.
   const openCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const task of tasks) {
@@ -47,11 +46,8 @@ export default function ListsScreen() {
     return counts;
   }, [tasks]);
 
-  // Same prompt and copy as the edit modal's Archive action
-  // (`settings/lists/[id].tsx`), since it is the same write from a second
-  // place: the row disappears from every screen and there is no unarchive
-  // anywhere in the app, so this asks first even though the pause toggle it
-  // sits beside does not.
+  // Same prompt as the edit modal's Archive (settings/lists/[id].tsx) — same
+  // write, no unarchive anywhere, so this asks first unlike the pause toggle.
   const archiveList = async (list: TList) => {
     const confirmed = await confirm({
       title: `Archive ${list.title}?`,
@@ -92,16 +88,13 @@ export default function ListsScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <ScrollView
-        // The edges above omit `bottom` so content scrolls under the
-        // translucent tab bar; adding the inset to the content's own bottom
-        // padding is what lets the last row clear it (DEX-91).
+        // Edges omit `bottom`; the content padding lets the last row clear
+        // the translucent tab bar (DEX-91).
         contentContainerStyle={[
           styles.content,
           {
             padding: theme.space.md,
             paddingBottom: theme.space.md + insets.bottom,
-            // The in-group step only: `SettingsSectionTitle` carries the `lg`
-            // between sections itself, so it applies wherever it renders (DEX-61).
             gap: theme.space.sm,
           },
         ]}

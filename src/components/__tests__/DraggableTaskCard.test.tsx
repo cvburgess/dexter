@@ -14,9 +14,8 @@ import { DraggableTaskCard } from "../DraggableTaskCard";
 jest.mock("@/hooks/useAuth", () => ({ supabase: {} }));
 jest.mock("@/hooks/useTasks", () => ({ useTasks: jest.fn() }));
 
-// TaskCard wraps a native menu host that can't be driven from a unit test (see
-// TaskDrawer.test); render its title and capture the props this wrapper passes
-// down, so the editing gate can be driven directly.
+// TaskCard's native menu host can't be driven here (see TaskDrawer.test) —
+// render its title and capture props so the editing gate is drivable directly.
 const mockTaskCard = jest.fn((props: ComponentProps<typeof TaskCard>) => (
   <Text>{props.task.title}</Text>
 ));
@@ -129,9 +128,8 @@ describe("DraggableTaskCard", () => {
     expect(preview.getByTestId(`task-card-preview-${task.id}`)).toBeTruthy();
   });
 
-  // TaskCard withholds MoreMenu — and with it the Schedule submenu — once a task
-  // is terminal, so a draggable finished card would be the only way left to
-  // reschedule one.
+  // TaskCard withholds MoreMenu (and Schedule) once terminal, so a draggable
+  // finished card would be the only way left to reschedule one.
   it.each([
     ["done", ETaskStatus.DONE],
     ["won't do", ETaskStatus.WONT_DO],
@@ -146,9 +144,8 @@ describe("DraggableTaskCard", () => {
   });
 
   describe("while a field on the card is being edited", () => {
-    // Web activates the drag with no hold at all (see `dragActivation`), so
-    // without this, dragging across a title to select the text would pick the
-    // card up instead. Same fix as SwipeablePage's `enabled={!editing}`.
+    // No-hold activation means selecting title text would pick the card up
+    // instead — same fix as SwipeablePage's `enabled={!editing}`.
     it("suspends the drag", () => {
       const screen = render(withProvider(<DraggableTaskCard {...cardProps} />));
       expect(dragProps(screen).draggable).toBe(true);

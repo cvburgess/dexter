@@ -65,9 +65,8 @@ describe("AccountScreen", () => {
     mockUseIsLargeDevice.mockReturnValue(false);
   });
 
-  // account.tsx builds its own edge arrays (it claims `bottom` — no scroller),
-  // so its pair is asserted here; the shared settingsSafeAreaEdges pair is
-  // asserted once in appearanceScreen.test.tsx.
+  // account.tsx builds its own edges (it claims `bottom`); the shared
+  // settingsSafeAreaEdges pair is asserted once, in appearanceScreen.test.tsx.
   it("skips the left safe-area edge in two-pane mode (sidebar owns it)", () => {
     mockUseIsLargeDevice.mockReturnValue(true);
     const screen = render(<AccountScreen />);
@@ -94,10 +93,8 @@ describe("AccountScreen", () => {
     );
   });
 
-  // The two actions had been drawn identically — both full-width `dangerous`
-  // buttons — so ending a session looked exactly like destroying the account
-  // (DEX-108). Only one of them wears the error color now, and only the other
-  // takes the row's leftover width.
+  // Both were full-width `dangerous` buttons, so ending a session looked like
+  // destroying the account (DEX-108) — now only one wears the error color.
   it("draws log out and delete account with different weight", () => {
     const screen = render(<AccountScreen />);
     const { colors } = themes.dexter;

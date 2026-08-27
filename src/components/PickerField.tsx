@@ -17,9 +17,8 @@ type TPickerFieldProps<V extends string> = {
   minHeight?: number;
 };
 
-/** A labeled row wrapping a menu-style @expo/ui Picker, shared by every form
- * that lets the user pick one option from a fixed list (list, goal, repeat
- * frequency, month, day of month, ...). */
+/** A labeled row wrapping a menu-style @expo/ui Picker, shared by every
+ * fixed-list picker form (list, goal, repeat frequency, month, day). */
 export function PickerField<V extends string>({
   label,
   options,

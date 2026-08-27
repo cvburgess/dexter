@@ -5,18 +5,13 @@ import { IconMenu } from "../IconMenu.web";
 import { TIconMenuSection } from "../IconMenu.types";
 import { WebOverlay } from "../WebOverlay.web";
 
-// The menu reaches the screen through `WebOverlay`, which portals it to
-// `document.body` at runtime; render it inline here so react-test-renderer
-// keeps it in the tree for RNTL queries.
+// WebOverlay portals to document.body at runtime; render inline so
+// react-test-renderer keeps it in the tree for RNTL queries.
 jest.mock("react-dom", () =>
   require("@/testUtils/mockReactDomPortal").mockReactDomPortal(),
 );
 
-/**
- * Host (not composite) elements whose flattened style matches — the menu's
- * layout details live in styles, and every element renders twice in the tree
- * otherwise.
- */
+// Host, not composite, elements — every element otherwise renders twice.
 const hostsStyled = (
   screen: ReturnType<typeof render>,
   matches: (style: ViewStyle) => boolean,
@@ -73,11 +68,8 @@ describe("IconMenu (web)", () => {
     expect(screen.getByText("Done")).toBeTruthy();
   });
 
-  // It used to be an RN `Modal`, whose body portal inherits the
-  // `pointer-events: none` Radix puts on the body — so the menu was dead
-  // wherever it opened from inside a modal screen, which `SubtaskRow` inside
-  // `TaskForm` does (DEX-134). `WebOverlay` is the portal that re-declares
-  // `auto`.
+  // It used to be an RN Modal, whose body portal inherits Radix's
+  // pointer-events: none — dead wherever opened inside a modal (DEX-134).
   it("renders the menu through WebOverlay", () => {
     const screen = render(
       <IconMenu
@@ -124,10 +116,8 @@ describe("IconMenu (web)", () => {
     expect(screen.queryByText("To Do")).toBeNull();
   });
 
-  // The overlay is invisible — a context menu floats over undimmed content
-  // (DEX-125) — so nothing about it is visible to catch a regression. It is
-  // still the only thing that closes the menu on a click outside, and it would
-  // go on rendering exactly the same if it stopped taking presses at all.
+  // The overlay is invisible (DEX-125), so nothing catches a regression
+  // visually — it would render the same if it stopped taking presses.
   it("closes the menu when the invisible overlay is pressed", () => {
     const screen = render(
       <IconMenu
@@ -149,11 +139,8 @@ describe("IconMenu (web)", () => {
     expect(screen.queryByText("To Do")).toBeNull();
   });
 
-  // The catcher is a sibling behind the menu, not its parent. Nested, a press
-  // on the menu's own chrome — the title, a section heading, the container's
-  // padding — found no responder of its own and bubbled to the catcher, so
-  // clicking the header of a menu that had just popped open under the cursor
-  // dismissed it.
+  // The catcher is a sibling behind the menu, not its parent — nested, a
+  // press on the menu's own chrome bubbled up and dismissed it on open.
   it("keeps the menu open when its own title is pressed", () => {
     const titled: TIconMenuSection[] = [
       {
@@ -257,10 +244,8 @@ describe("IconMenu (web)", () => {
     expect(style.top).toBe(100 + 8);
   });
 
-  // The option row holds focus while it is pressed, so an action that focuses
-  // something of its own — an inline edit's autoFocus input, say — has to run
-  // after the row is unmounted or it loses the focus again (DEX-70, first seen
-  // against RN `Modal`'s focus restore).
+  // The row holds focus while pressed, so an action focusing its own input
+  // must run after the row unmounts or it loses focus again (DEX-70).
   it("runs the option's action only once the menu has closed", () => {
     let menuStillOpen: boolean | null = null;
     const sectionsWithSpy: TIconMenuSection[] = [

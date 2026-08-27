@@ -39,9 +39,8 @@ export default function HabitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [, { getHabitById, isLoading }] = useHabits();
 
-  // Editing is decided by the route, not by whether the habit has loaded yet —
-  // otherwise a cold cache (deep link / web reload) would treat an edit as a
-  // create and save a duplicate.
+  // Decided by the route, not whether loaded — a cold cache would otherwise
+  // treat an edit as a create and save a duplicate.
   const isEditing = id !== "new";
   const existing = getHabitById(isEditing ? id : null);
 
@@ -236,10 +235,8 @@ function HabitForm({ existing }: { existing?: THabit }) {
           />
         </FormRow>
 
-        {/* Archive only, no delete (DEX-108) — the app archives things, it
-            doesn't destroy them, and a habit's history is the point of tracking
-            it. `deleteHabit` still exists on the hook for the API layer; nothing
-            in the UI reaches it. Lists have worked this way all along. */}
+        {/* Archive only, no delete (DEX-108) — a habit's history is the point
+            of tracking it. `deleteHabit` still exists on the hook; nothing in the UI reaches it. */}
         {isEditing && (
           <View style={{ marginTop: theme.space.sm }}>
             <Button variant="dangerous" onPress={handleArchive}>

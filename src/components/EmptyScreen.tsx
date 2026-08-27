@@ -11,10 +11,8 @@ type TEmptyScreenProps = {
   children?: ReactNode;
 };
 
-// Centered empty/get-started state for the Today-tab surfaces (Tasks, Notes,
-// Journal, Calendar). The host SafeAreaView omits the bottom edge (the native
-// tab bar owns it), so reserve `insets.bottom` here — otherwise content centers
-// over the area behind the tab bar and sits visibly low.
+// Centered empty state for the Today-tab surfaces; reserves `insets.bottom`
+// itself since the host SafeAreaView omits the edge (tab bar owns it).
 export function EmptyScreen({ message, children }: TEmptyScreenProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();

@@ -117,9 +117,8 @@ describe("useJournals", () => {
     ]);
   });
 
-  // `journals.prompts` defaults to `[]`, and the template only fills in while
-  // the day has no row — so a mood that inserted the row alone would strand the
-  // day on an empty journal it never got seeded with.
+  // prompts defaults to `[]` and the template only fills a rowless day, so a
+  // mood-only insert would strand it on an empty journal.
   describe("mood (DEX-191)", () => {
     it("carries the seeded prompts when a mood creates the day's row", async () => {
       setTemplatePrompts([amPrompt("Highlight")]);

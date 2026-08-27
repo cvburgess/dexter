@@ -78,9 +78,8 @@ describe("HabitTracker", () => {
     });
 
     it("renders the row rather than stalling on the skipped query", () => {
-      // Regression guard for the skip above: `isLoading` must not stay true
-      // for a query that will never run, or the tracker would render its
-      // loading branch forever.
+      // `isLoading` must not stay true for a query that will never run, or the
+      // tracker renders its loading branch forever.
       const screen = render(
         <HabitTracker date={date} showCreateNudge={false} />,
       );
@@ -90,9 +89,8 @@ describe("HabitTracker", () => {
     });
   });
 
-  // Bootstrapping is a write. Old days became routine to visit once they load
-  // their tasks (DEX-162), and the Week tab mounts seven trackers at once, so an
-  // unbounded bootstrap would persist habit history that never happened.
+  // Bootstrapping is a write: old days are routine to visit (DEX-162) and Week
+  // mounts seven trackers, so an unbounded bootstrap persists history that never happened.
   describe("bootstrapping a day's rows", () => {
     const renderOn = (on: Temporal.PlainDate) => {
       const createDailyHabits = jest.fn();

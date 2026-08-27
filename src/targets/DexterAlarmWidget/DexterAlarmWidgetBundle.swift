@@ -1,11 +1,8 @@
 import SwiftUI
 import WidgetKit
 
-// Every Dexter widget lives in this one extension. The target keeps its
-// alarm-era name and bundle id on purpose: it shipped in v2.0.0, a second
-// target would mean a second extension bundle id and provisioning profile, and
-// the widget gallery groups by app and labels each entry with its own
-// `configurationDisplayName` — so splitting them would buy nothing a user sees.
+// Every Dexter widget lives in this one extension. It keeps its alarm-era
+// name on purpose — splitting it would buy nothing a user sees.
 @main
 struct DexterAlarmWidgetBundle: WidgetBundle {
     @WidgetBundleBuilder

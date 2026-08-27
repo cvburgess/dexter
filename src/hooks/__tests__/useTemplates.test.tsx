@@ -99,9 +99,8 @@ describe("useTemplates", () => {
     mockHasOpenTaskForTemplate.mockResolvedValue(false);
   });
 
-  // `isLoading` is `isPending`, which drops to `false` on error while
-  // `templates` falls back to `[]` — so without `isError` a failed fetch looks
-  // exactly like a deleted template to the editor screen (DEX-100).
+  // isLoading is isPending, which drops false on error while templates falls
+  // back to `[]` — without isError a failed fetch reads as deleted (DEX-100).
   it("reports a failed fetch rather than an empty template list", async () => {
     mockGetTemplates.mockRejectedValue(new Error("network error"));
 
@@ -130,11 +129,8 @@ describe("useTemplates", () => {
     expect(result.current[1].isError).toBe(false);
   });
 
-  // A repeat has exactly one open task. A schedule generates nothing on its own
-  // — recurrence spawns from completing a task that links to the template — so
-  // promoting a saved template to a repeat has to leave an open occurrence
-  // behind, or the row would sit under "Repeat tasks" describing a cadence it
-  // can never act on.
+  // A schedule alone generates nothing — recurrence spawns from completing a
+  // linked task — so promoting a template must leave an open occurrence behind.
   describe("updateTemplate seeding the next occurrence", () => {
     const promote = async (schedule: string | null) => {
       mockUpdateTemplate.mockResolvedValue({
@@ -193,11 +189,8 @@ describe("useTemplates", () => {
     });
   });
 
-  // `tasks.template_id` means "this task came from that template", which is
-  // simply true of the task a draft was seeded from — whatever cadence it ends
-  // up saved on. So the link is recorded unconditionally; whether anything
-  // recurs from it is the template's schedule's business, read at completion
-  // time.
+  // template_id just records provenance unconditionally; whether anything
+  // recurs from it is the template's schedule's business at completion time.
   describe("createTemplate", () => {
     it.each([["0 0 * * *"], [null]])(
       "links the source task for a row saved with schedule %p",
@@ -226,10 +219,8 @@ describe("useTemplates", () => {
       },
     );
 
-    // The caller withholds `linkTaskId` when the source task already came from a
-    // template, since a task has one `template_id` and re-pointing it would
-    // rewrite where it came from. The new row still needs something to fire
-    // from, so it gets its own occurrence.
+    // linkTaskId is withheld when the source came from a template — the new
+    // row seeds its own occurrence instead of rewriting provenance.
     it("seeds an occurrence for a scheduled row with no task to link", async () => {
       mockCreateTemplate.mockResolvedValue({
         id: "template-1",
@@ -262,9 +253,8 @@ describe("useTemplates", () => {
     });
   });
 
-  // The repair button behind a stalled repeat in Settings → Tasks. It runs the
-  // very code path the auto-seed does, guards included, so the fix can't drift
-  // from what was supposed to have prevented the problem.
+  // The Settings → Tasks repair button runs the same path the auto-seed does,
+  // guards included, so the fix can't drift from the original prevention.
   describe("createNextOccurrence", () => {
     const repeat = {
       id: "template-1",

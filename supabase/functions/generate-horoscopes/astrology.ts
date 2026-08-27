@@ -1,10 +1,5 @@
-// astrology-api.io v3 client for DEX-145 (replacing AstrologyAPI, DEX-84).
-//
-// Everything in this module is pure or takes its `fetch` as an argument, so the
-// whole upstream contract — the request shape, the response validation, and the
-// life-area flattening — is testable without network access. Backend CI runs
-// `deno test` with no network and no Postgres, so `index.ts` deliberately keeps
-// nothing but I/O wiring.
+// astrology-api.io v3 client (DEX-145, replacing AstrologyAPI DEX-84). Pure or
+// fetch-injected throughout — CI has no network, so index.ts keeps the I/O.
 
 import { z } from "zod";
 
@@ -14,11 +9,8 @@ import type { Database } from "@src/types/database.types.ts";
 export type TSunSign = Database["public"]["Enums"]["sun_sign"];
 
 /**
- * The twelve sun signs, in astrological order.
- *
- * Lowercase because these strings are also the `sign` value the upstream
- * expects in the request body. `satisfies` makes a value the enum does not
- * contain a type error right here.
+ * Lowercase because these are also the upstream's `sign` request values;
+ * `satisfies` makes a value outside the enum a type error here.
  */
 export const ZODIAC_SIGNS = [
   "aries",
@@ -38,11 +30,8 @@ export const ZODIAC_SIGNS = [
 const API_URL = "https://api.astrology-api.io/api/v3/horoscope/sign/daily/text";
 
 /**
- * The twelve life areas, in the order the upstream returns them (house order).
- *
  * Each maps to a `rating_<area>` column, so this list and the migration's
- * columns have to agree. Verified 2026-08-11 across four signs and two dates:
- * every response carried all twelve, always in this order.
+ * columns have to agree (verified against live responses, 2026-08-11).
  */
 export const LIFE_AREAS = [
   "identity",
@@ -62,20 +51,14 @@ export const LIFE_AREAS = [
 export type TLifeArea = typeof LIFE_AREAS[number];
 
 /**
- * A 1-5 rating, validated here rather than left to the column's CHECK.
- *
- * All twelve signs go up in a single upsert, so a value the constraint rejects
- * would fail the whole batch. Catching it in the parse fails just that sign,
- * which is what the per-sign isolation in `index.ts` is built to contain.
+ * Validated here, not left to the column's CHECK: the twelve signs share one
+ * upsert, so a constraint rejection fails the whole batch instead of one sign.
  */
 const rating = z.number().int().min(1).max(5);
 
 /**
- * Only the fields we store. Zod strips unknown keys by default, which is
- * deliberate: the payload also carries `sign_emoji`, `time_window`, `timeframe`,
- * `language`, `has_emoji`, `word_count`, and a `planetary_influences[]` array,
- * none of which the app uses. Declaring them would turn a provider adding or
- * renaming an unused field into twelve failed signs.
+ * Only the fields we store — declaring the payload's unused fields would turn a
+ * provider renaming one into twelve failed signs.
  */
 export const horoscopeDataSchema = z.object({
   text: z.string().min(1),
@@ -84,14 +67,8 @@ export const horoscopeDataSchema = z.object({
   life_area_focus: z.array(
     z.object({ area: z.string(), rating }),
   ),
-  // Already ISO (`2026-08-11`), unlike AstrologyAPI's `D-M-YYYY` — but the
-  // shape check alone is not enough, and the reason survived the provider
-  // change intact. `2026-02-31` and `2026-13-01` both match the pattern and
-  // both are values Postgres rejects, which fails the *whole* twelve-row upsert
-  // rather than the one sign that carried it. The round-trip is what separates
-  // a well-formed string from a real day: JS rolls an impossible date over
-  // (`2026-02-31` → `2026-03-03`) instead of erroring, so a value that comes
-  // back unchanged is a date that exists.
+  // `2026-02-31` matches the pattern but fails the whole twelve-row upsert; JS
+  // rolls impossible dates over, so only a round-trip-stable value is a real day.
   date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "date must be ISO YYYY-MM-DD")
@@ -103,12 +80,8 @@ export const horoscopeDataSchema = z.object({
 });
 
 /**
- * The response envelope.
- *
- * The vendor's published sample shows only the inner object, but the wire format
- * wraps it: `{ success, data, metadata, warnings, pagination }`. Parsing the
- * envelope rather than the sample is the difference between reading `text` and
- * reading `undefined`.
+ * The vendor's sample omits the envelope the wire format wraps everything in —
+ * parsing it is the difference between reading `text` and reading `undefined`.
  */
 export const horoscopeResponseSchema = z.object({
   data: horoscopeDataSchema,
@@ -120,13 +93,8 @@ export type THoroscopeData = z.infer<typeof horoscopeDataSchema>;
 export type TLifeAreaRatings = Record<TLifeArea, number>;
 
 /**
- * Flattens `life_area_focus[]` into a complete twelve-key record.
- *
- * Throws rather than defaulting a missing area. Every rating column is NOT
- * NULL, so a partial response has no sensible fallback — a zero would be
- * outside the CHECK, and inventing a 3 would quietly show the reader a neutral
- * face for an area the upstream never rated. Naming the missing areas is what
- * makes the Sentry report actionable if the payload ever changes shape.
+ * Throws rather than defaulting a missing area — inventing a 3 would show a
+ * neutral face for an area never rated; naming them keeps Sentry actionable.
  */
 export function toLifeAreaRatings(
   focus: THoroscopeData["life_area_focus"],
@@ -146,16 +114,8 @@ export function toLifeAreaRatings(
 }
 
 /**
- * Fetches one sign's horoscope for `date`.
- *
- * The date is requested explicitly rather than relying on an endpoint that
- * means "tomorrow". AstrologyAPI had a `/daily/next` path and a timezone offset
- * that had to be reverse-engineered against its server's clock; v3 takes an ISO
- * date and echoes it back, so "which day is this" stops being an inference.
- *
- * `fetchImpl` is injected rather than stubbed onto `globalThis` so tests never
- * touch the network — the same dependency-injection shape `_shared/sentry.ts`
- * uses for its client.
+ * The date is an explicit request parameter, never an inferred "tomorrow"
+ * (AstrologyAPI's was IST-relative); `fetchImpl` injected so tests stay offline.
  */
 export async function fetchHoroscope(
   sign: TSunSign,
@@ -174,20 +134,15 @@ export async function fetchHoroscope(
       date,
       // ~35 words, which is what the step's hero is sized for.
       format: "short",
-      // Observably inert: the vendor's docs disagree on whether this is
-      // `use_emoji` or `emoji`, and neither name changed the output in testing
-      // (2026-08-11) — `short` prose came back emoji-free either way, while the
-      // response's own `has_emoji` reported `true` regardless. Sent because it
-      // states the intent and costs nothing; do not "fix" it to `emoji` on the
-      // assumption that it does something.
+      // Observably inert either way (tested 2026-08-11): states intent only —
+      // do not "fix" it to `emoji` on the assumption that it does something.
       use_emoji: false,
     }),
   });
 
   if (!response.ok) {
-    // The body is not included: it can echo the request, and a quota-exhausted
-    // 429 is the expected failure on a metered plan rather than a mystery
-    // needing forensics.
+    // No body: it can echo the request, and a metered plan's 429 needs no
+    // forensics.
     throw new Error(
       `astrology-api.io returned ${response.status} for ${sign}`,
     );

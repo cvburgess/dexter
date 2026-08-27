@@ -14,10 +14,8 @@ import {
   withOpacity,
 } from "../theme";
 
-// `react-native`'s `useColorScheme` lazily delegates to the default export of
-// this submodule (see react-native/index.js), so mocking the submodule controls
-// what the typed public `useColorScheme` — and therefore `useTheme` — resolves,
-// without loading the full native module registry.
+// RN's `useColorScheme` lazily delegates to this submodule's default export, so
+// mocking it drives `useTheme` without loading the full native module registry.
 jest.mock("react-native/Libraries/Utilities/useColorScheme", () => ({
   __esModule: true,
   default: jest.fn(),
@@ -52,9 +50,8 @@ describe("withOpacity", () => {
   });
 });
 
-// With no ThemeProvider above it (as in these renders), `useTheme` has no saved
-// preference to honor and falls back to the OS-scheme default: `dexter` (light)
-// or `dark` (dark).
+// With no ThemeProvider above it, `useTheme` has no saved preference and falls
+// back to the OS-scheme default: `dexter` (light) or `dark` (dark).
 describe("useTheme (no provider)", () => {
   afterEach(() => {
     mockUseColorScheme.mockReset();
@@ -90,10 +87,8 @@ describe("useTheme (no provider)", () => {
 });
 
 describe("density tiers", () => {
-  // `compact` is web-only (see `useTheme`), and jest-expo's preset runs this
-  // suite as iOS — so every compact assertion has to say so explicitly.
-  // `restoreAllMocks` puts `Platform.OS` back; it leaves the module mocks above
-  // alone, since those are factory `jest.fn()`s rather than spies.
+  // `compact` is web-only and jest-expo runs as iOS, so compact assertions set
+  // web explicitly. `restoreAllMocks` restores `Platform.OS`, not factory mocks.
   const asWeb = () => jest.replaceProperty(Platform, "OS", "web");
 
   afterEach(() => {
@@ -120,9 +115,8 @@ describe("density tiers", () => {
     expect(result.current.space).toBe(DENSITY.compact.space);
   });
 
-  // The tier DEX-61 tuned for a desktop pointer puts `controls.sm` at 26dp,
-  // well under the 44pt iOS minimum tap target, so a tablet reads cramped on
-  // it. Native opts out at every width.
+  // DEX-61's pointer tier puts `controls.sm` at 26dp — under iOS's 44pt tap
+  // target — so native opts out at every width.
   it("stays comfortable on a large native device", () => {
     mockUseIsLargeDevice.mockReturnValue(true);
 
@@ -171,15 +165,11 @@ it("offers every palette in the Appearance picker", () => {
   );
 });
 
-// The sentiment panel is the one surface in the app that does not follow the
-// user's scheme, so it is also the one place `colors.text` cannot be trusted:
-// on a light theme it is near-black ink over a near-black panel. This is the
-// guard (DEX-128).
+// The sentiment panel ignores the user's scheme, so a light theme's
+// `colors.text` is near-black ink over a near-black panel — the guard (DEX-128).
 describe("sentimentInk", () => {
-  // `textSecondary` is an alpha of `text` rather than a hex on every palette,
-  // so this reads both forms. The alpha itself is not a problem here — the
-  // panel beneath is opaque, so it composites down to a dimmer version of the
-  // same light ink rather than picking up whatever is behind.
+  // `textSecondary` is an alpha of `text` on every palette, so this reads both
+  // forms; the panel beneath is opaque, so the alpha composites to dimmer ink.
   const lightness = (color: string) => {
     const rgb = color.startsWith("#")
       ? [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16))
@@ -188,9 +178,8 @@ describe("sentimentInk", () => {
     return rgb.reduce((sum, value) => sum + value, 0);
   };
 
-  // The panel bases total under 40 of a possible 765. Anything readable on
-  // them is nowhere near that, so a generous floor still fails loudly the
-  // moment a light theme's own ink leaks through — `dexter`'s `text` is 183.
+  // Panel bases total under 40 of 765, so a generous floor still fails loudly
+  // the moment a light theme's own ink leaks through — `dexter`'s `text` is 183.
   const READABLE = 400;
 
   it.each(THEMES.map((theme) => theme.name))(

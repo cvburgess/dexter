@@ -10,10 +10,8 @@ type TPriorityControlProps = {
   onChangePriority: (priority: ETaskPriority) => void;
 };
 
-/**
- * Ported from dexter-app's `PriorityButton` icons (Fire/Star/Alarm/Umbrella),
- * ordered to match the shorthand tokens: `!` → `!!!!`.
- */
+// Ported from dexter-app's PriorityButton icons, ordered to match the
+// shorthand tokens: `!` → `!!!!`.
 export const PRIORITY_OPTIONS = [
   {
     label: "Urgent",
@@ -37,11 +35,8 @@ export const PRIORITY_OPTIONS = [
   },
 ] as const;
 
-/**
- * The accent color for a priority's icon. NEITHER's priority color is the
- * card color (invisible on the background), so it renders in the text color
- * instead.
- */
+// NEITHER's priority color is the card color (invisible on the background),
+// so its icon renders in the text color instead.
 export const priorityIconColor = (
   value: ETaskPriority,
   theme: Theme,
@@ -50,14 +45,8 @@ export const priorityIconColor = (
     ? theme.colors.text
     : theme.colors.priority[value];
 
-/**
- * The fill and icon color of a *selected* option. NEITHER inverts for the same
- * reason its icon does: its priority color is the card color, which is all but
- * invisible against the form background, and its content color is the text
- * color the icon already carries unselected — so filling with one and drawing
- * with the other leaves the option looking untouched. Swapping the pair gives
- * it a filled chip like every other priority.
- */
+// NEITHER inverts fill/content: its priority color is invisible on the form
+// background, so filling+drawing unswapped would leave it looking untouched.
 export const prioritySelectedColors = (
   value: ETaskPriority,
   theme: Theme,
@@ -72,11 +61,8 @@ export const prioritySelectedColors = (
         content: theme.colors.priorityContent[value],
       };
 
-/**
- * A segmented-control-style row of priority icons tinted with the theme's
- * priority colors. Tapping the selected icon again clears back to
- * unprioritized.
- */
+// A segmented-control-style row of priority icons; tapping the selected one
+// again clears back to unprioritized.
 export function PriorityControl({
   priority,
   onChangePriority,

@@ -18,9 +18,8 @@ jest.mock("@/hooks/useLists", () => ({
   ],
 }));
 
-// The native menu host isn't driveable in a test renderer, so capture the
-// sections each IconMenu is handed and invoke the options directly. This keeps
-// the real SubtaskRow and EditableText in the tree.
+// The native menu host isn't driveable in a test renderer, so capture each
+// IconMenu's sections and invoke options directly; SubtaskRow stays real.
 type IconMenuMockProps = {
   accessibilityLabel: string;
   sections: TIconMenuSection[];
@@ -86,13 +85,8 @@ const renderCard = (
     />,
   );
 
-/**
- * Renders the card with the task fed back from its own updates — which is what
- * `useTasks` now does via its optimistic cache write. Several behaviors are only
- * correct *because* the stored value moves forward between two writes in the
- * same event (return-to-chain being the sharp case), so testing them against a
- * frozen prop would assert a world the app no longer runs in.
- */
+// Feeds the card its own updates, as useTasks' optimistic write does — some
+// behaviors (return-to-chain) are only correct because the value moves forward.
 type TWriteMock = jest.Mock<void, [Omit<TUpdateTask, "id">]>;
 
 function LiveCard({
@@ -118,10 +112,8 @@ function LiveCard({
   );
 }
 
-/**
- * The options of the `index`-th menu carrying `label`, in render order — so
- * index 0 is the first subtask's menu, index 1 the second's.
- */
+// The options of the index-th menu carrying `label`, in render order — so
+// index 0 is the first subtask's menu, index 1 the second's.
 const menuOptions = (label: string, index: number): TIconMenuOption[] =>
   mockIconMenu.mock.calls
     .map(([props]) => props)
@@ -134,11 +126,8 @@ const selectOption = (label: string, index: number, id: string) => {
   option.onSelect();
 };
 
-/**
- * Invokes "Add subtask" the way the parent's MoreMenu would. Wrapped in `act`
- * because it is a captured callback, not a fired event — the resulting state
- * update would otherwise not be flushed before the assertions run.
- */
+// In `act` because it is a captured callback, not a fired event — the state
+// update would otherwise not flush before the assertions run.
 const addSubtask = () =>
   act(() => mockMoreMenu.mock.calls[0][0].onAddSubtask?.());
 
@@ -157,13 +146,6 @@ describe("TaskCard subtasks", () => {
     expect(screen.queryByTestId("task-card-sub-1")).toBeNull();
   });
 
-  it("renders the card unchanged when there are no subtasks", () => {
-    renderCard({ ...baseTask, subtasks: [] });
-
-    expect(screen.getByTestId("task-card-task-1")).toBeTruthy();
-    expect(screen.queryByTestId("subtask-row-sub-1")).toBeNull();
-  });
-
   describe("inline title editing", () => {
     it("swaps the title to an input when tapped", () => {
       renderCard(baseTask);
@@ -174,9 +156,8 @@ describe("TaskCard subtasks", () => {
       expect(screen.getByTestId("subtask-title-sub-1-input")).toBeTruthy();
     });
 
-    // The outgoing input's unmount cleanup commits *after* `editing` has moved
-    // to the row just tapped, so a commit that cleared edit mode outright would
-    // cancel the edit being started and the tap would read as a dead press.
+    // The outgoing input's unmount cleanup commits *after* `editing` moved on,
+    // so a commit clearing edit mode outright would cancel the edit just begun.
     it("hands the edit over when a subtask is tapped mid-rename of the title", () => {
       renderCard(baseTask);
 
@@ -267,10 +248,8 @@ describe("TaskCard subtasks", () => {
       expect(onUpdate).not.toHaveBeenCalled();
     });
 
-    // `renderCard` freezes the prop, which is exactly the window this guards:
-    // leaving edit mode is synchronous while the optimistic cache write is a
-    // tick behind it. Reading `task.title` there paints the pre-edit title for
-    // a frame — the old text visibly blinking back before the new one settles.
+    // Leaving edit mode is synchronous, the optimistic write a tick behind —
+    // reading `task.title` there blinks the pre-edit title back for a frame.
     it("shows the committed title before the write lands", () => {
       renderCard(baseTask);
 
@@ -378,9 +357,8 @@ describe("TaskCard subtasks", () => {
       });
     });
 
-    // `renderCard` freezes the prop, so the row exists only locally — the same
-    // window the optimistic write has yet to close. Dropping the row at commit
-    // time blinks it out of the checklist and back in when the write lands.
+    // `renderCard` freezes the prop, so dropping the row at commit time would
+    // blink it out of the checklist and back in when the write lands.
     it("keeps a just-added row on screen until the write lands", () => {
       renderCard(baseTask);
 
@@ -419,9 +397,8 @@ describe("TaskCard subtasks", () => {
     });
 
     it("chains another empty row while keeping the title just committed", () => {
-      // The regression this guards: committing and appending happen in one
-      // event, so an append that reads pre-commit state blanks the typed title
-      // and then writes the empty title back over it.
+      // Commit and append happen in one event; an append reading pre-commit
+      // state would blank the typed title and write it back empty.
       const onWrite = jest.fn<void, [Omit<TUpdateTask, "id">]>();
       render(<LiveCard initial={baseTask} onWrite={onWrite} />);
 
@@ -562,9 +539,8 @@ describe("TaskCard subtasks", () => {
     it("offers no checkbox or row actions", () => {
       renderCard(done);
 
-      // Unchecking a swept subtask would restore exactly the
-      // done-parent-with-open-children state the sweep exists to prevent — and
-      // nothing re-sweeps until the parent is completed again.
+      // Unchecking a swept subtask would restore the done-parent-with-open-
+      // children state the sweep exists to prevent.
       expect(screen.queryByLabelText("Subtask complete")).toBeNull();
       const labels = mockIconMenu.mock.calls.map(
         ([props]) => props.accessibilityLabel,

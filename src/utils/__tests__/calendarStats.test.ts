@@ -163,9 +163,8 @@ describe("summarizeDay", () => {
     });
   });
 
-  // The hero says "today", not "on your timeline": an all-day event and a 5 AM
-  // standup are both things the user has today, even though neither occupies a
-  // minute of the window drawn beneath the count.
+  // The hero says "today", not "on your timeline" — an all-day event counts
+  // even though it occupies no minute of the window drawn beneath it.
   it("counts events it doesn't time", () => {
     const summary = summarize([
       event("holiday", pdt(12, 0), pdt(13, 0), true),

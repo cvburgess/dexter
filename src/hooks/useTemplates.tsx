@@ -24,13 +24,8 @@ type TMutateCallbacks = {
 
 export type TCreateTemplateVars = {
   template: TCreateTemplate;
-  /**
-   * The task the template was drafted from, if that task is free to be linked
-   * (it does not already belong to a template). It is linked unconditionally:
-   * `tasks.template_id` means "this task came from that template", which is
-   * simply true here whether or not the new row carries a schedule. Whether the
-   * task recurs is a property of the template, read at completion time.
-   */
+  /** The task the template was drafted from, if free to link (no template yet).
+   * Linked unconditionally — whether it recurs is read at completion time. */
   linkTaskId?: string;
 };
 
@@ -41,23 +36,16 @@ type TUseTemplates = [
       vars: TCreateTemplateVars,
       callbacks?: TMutateCallbacks,
     ) => void;
-    /**
-     * Gives a repeat its next open task — the manual half of the one-open-task
-     * invariant, for a repeat that has run dry. A no-op for a scheduleless row
-     * or one that still has an open task.
-     */
+    /** Gives a repeat its next open task if it has run dry — a no-op for a
+     * scheduleless row or one that still has an open task. */
     createNextOccurrence: (
       template: TTemplate,
       callbacks?: TMutateCallbacks,
     ) => void;
     deleteTemplate: (id: string, callbacks?: TMutateCallbacks) => void;
     getTemplateById: (id: string | null) => TTemplate | undefined;
-    /**
-     * The fetch failed. Distinct from an empty result: `isLoading` is
-     * `isPending`, which drops to `false` on error while `templates` falls back
-     * to `[]` — so without this a failed fetch is indistinguishable from
-     * "this template was deleted" (DEX-100).
-     */
+    /** Distinct from an empty result: isLoading drops false on error too, so
+     * without this a failed fetch reads as a deleted template (DEX-100). */
     isError: boolean;
     isLoading: boolean;
     /** Re-runs the fetch; the retry behind a failed load. */
@@ -69,19 +57,8 @@ type TUseTemplates = [
   },
 ];
 
-/**
- * Gives a repeat its one open task, unless it already has one.
- *
- * **A repeat has exactly one open task.** A schedule on its own generates
- * nothing: recurrence spawns from *completing a task whose `template_id` points
- * at a scheduled row*, so a repeat with no open task sits under "Repeat tasks"
- * describing a cadence it can never act on. This is the one code path that
- * fixes that, whether it runs automatically when a row gains a cadence or from
- * the repair button on a stalled row in Settings.
- *
- * Counts today, so a cadence that matches today produces a task now rather than
- * looking like nothing happened.
- */
+/** Gives a repeat its one open task, unless it already has one — a schedule
+ * alone generates nothing since recurrence spawns from completion. */
 const seedNextOccurrence = async (template: TTemplate): Promise<void> => {
   if (!template.schedule) return;
   if (await hasOpenTaskForTemplate(supabase, template.id)) return;
@@ -105,16 +82,8 @@ const seedNextOccurrence = async (template: TTemplate): Promise<void> => {
   });
 };
 
-/**
- * The seed as a best-effort step hanging off another write.
- *
- * Seeding is a *repair*, not part of the save the user asked for: the template
- * row is already written by the time it runs, and a repeat left with no open
- * task is surfaced and one-tap fixable in Settings → Tasks. Letting it reject
- * would report a save that succeeded as a failure — which for `createTemplate`
- * is worse than cosmetic, since the editor re-arms ✓ and the retry writes a
- * second row.
- */
+/** Best-effort: a repair, not part of the save — letting it reject would
+ * report a successful save as a failure. */
 const trySeedNextOccurrence = async (template: TTemplate): Promise<void> => {
   try {
     await seedNextOccurrence(template);
@@ -146,10 +115,8 @@ export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
       mutationFn: async ({ template, linkTaskId }) => {
         const created = await createTemplate(supabase, template);
 
-        // The task this was drafted from did come from this template, whatever
-        // cadence the draft was saved on — so record it. A scheduled row gets
-        // the open task it needs to fire from for free; a scheduleless one just
-        // records provenance, and nothing recurs until it gains a schedule.
+        // Recorded regardless of cadence: a scheduled row gets the open task
+        // it needs to fire from for free; a scheduleless one just records it.
         if (linkTaskId) {
           await updateTask(supabase, {
             id: linkTaskId,
@@ -157,8 +124,7 @@ export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
           });
         } else {
           // No task to fire from — give a scheduled row its own first
-          // occurrence, the same guarantee `updateTemplate` makes. A no-op for
-          // a scheduleless row.
+          // occurrence, same guarantee updateTemplate makes.
           await trySeedNextOccurrence(created);
         }
 
@@ -184,9 +150,8 @@ export const useTemplates = (options?: TUseTemplatesOptions): TUseTemplates => {
     },
   });
 
-  // The repair button in Settings → Tasks, and literally the same code path the
-  // auto-seed above takes — a stalled repeat is fixed by the thing that was
-  // supposed to have prevented it.
+  // The Settings → Tasks repair button — the same path the auto-seed above
+  // takes, so a fix can't drift from the original prevention.
   const { mutate: createNext } = useMutation<void, Error, TTemplate>({
     mutationFn: seedNextOccurrence,
     onSuccess: () => {

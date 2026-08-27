@@ -11,9 +11,8 @@ import {
 } from "@/api/focusBlocks";
 import { useLiveFocusBlock } from "@/hooks/useFocusBlocks";
 
-// useFocusBlocks imports the supabase client from useAuth, which reads the app's
-// URI scheme at module scope — not available under Jest. `userId` gates the
-// query, so it has to be a real value here.
+// useAuth reads the app's URI scheme at module scope, unavailable under
+// Jest. `userId` gates the query, so it has to be a real value.
 jest.mock("@/hooks/useAuth", () => ({
   supabase: {},
   useAuth: () => ({ userId: "user-1" }),
@@ -87,9 +86,8 @@ afterEach(() => {
 });
 
 describe("startFocusBlock", () => {
-  // Reading the placeholder instead would start a 25-minute block for someone
-  // who chose 50 and hasn't loaded their row yet — the whole reason this awaits
-  // `ensureQueryData` rather than holding a preferences observer.
+  // The placeholder would start a 25-minute block for someone who chose 50
+  // and hasn't loaded their row yet — this awaits ensureQueryData instead.
   it("runs for the saved length, not the default", async () => {
     const { result } = renderLive(50);
 
@@ -125,9 +123,8 @@ describe("the transitions", () => {
     mockGetLive.mockResolvedValue(block());
   });
 
-  // Both halves matter and dropping either is silent: no snapshot and the timer
-  // restarts from full on resume; no cleared anchor and the row violates the
-  // `resumed_at_iff_active` constraint.
+  // Dropping either half is silent: no snapshot restarts the timer from full
+  // on resume; no cleared anchor violates resumed_at_iff_active.
   it("pauses onto a snapshot and clears the anchor", async () => {
     const { result } = renderLive();
     await waitFor(() => expect(result.current[0]).not.toBeNull());
@@ -191,9 +188,8 @@ describe("the transitions", () => {
     });
   });
 
-  // What makes the completion write idempotent: the timeout and the AppState
-  // listener can both come due for the same block, and the second must not
-  // rewrite a row that has already ended.
+  // The timeout and the AppState listener can both come due for the same
+  // block; the second must not rewrite a row that has already ended.
   it("ignores a transition on a block that already ended", async () => {
     const { result } = renderLive();
     await waitFor(() => expect(result.current[0]).not.toBeNull());
@@ -205,10 +201,8 @@ describe("the transitions", () => {
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  // Ending a block takes the bar off screen on the tap rather than a round trip
-  // later. Held open deliberately so the assertion lands while the write is
-  // still in flight — and settled before the test ends, since a mutation left
-  // on a pending promise wedges the whole run.
+  // Held open deliberately so the assertion lands mid-write, and settled
+  // before the test ends — a pending mutation would wedge the whole run.
   it("clears the live block before the write comes back", async () => {
     let settle: (block: TFocusBlock) => void = () => {};
     mockUpdate.mockReturnValueOnce(

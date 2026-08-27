@@ -1,11 +1,5 @@
-// Base (web + Android) implementation of the widget layer. WidgetKit is
-// iOS-only, so both writes are no-ops here; the real App Group calls live in
-// `widgets.ios.ts` and the bundler selects that variant on iOS. This base file
-// also lets TypeScript resolve `@/utils/widgets` (it does not resolve platform
-// extensions).
-//
-// The payload itself is built on every platform from `widgets.shared.ts` —
-// only the side effect differs.
+// Base (web + Android) no-op widget layer; the bundler picks `widgets.ios.ts`
+// on iOS. Also lets TypeScript resolve `@/utils/widgets` (no platform extensions).
 import {
   TPendingHabitSteps,
   TWidgetHabitSnapshot,

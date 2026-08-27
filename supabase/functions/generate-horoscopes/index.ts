@@ -1,27 +1,5 @@
-// Generates tomorrow's horoscope for all twelve sun signs and upserts them into
-// `public.horoscopes` (DEX-84; re-pointed at astrology-api.io v3 in DEX-145).
-//
-// There is no summarization step: the upstream returns display-ready prose, so
-// the row is what it sent plus the sign we asked for. That also removes the
-// failure mode the old pipeline had, where a paid fetch succeeded, the LLM call
-// after it failed, and the run stored nothing — spending a call and leaving the
-// sign for the next hour to buy again.
-//
-// Invoked once a day by the pg_cron job in
-// 20260804005119_schedule_generate_horoscopes.sql, which POSTs here through
-// pg_net with the shared `x-cron-secret` header. See docs/api-routes.md
-// "Scheduled job: dex84-generate-horoscopes".
-//
-// This is the first Edge Function to use the service role key. Every other
-// function deliberately does not (docs/api-routes.md notes this for mcp-server):
-// they act for a signed-in user, so a user-scoped client keeps RLS as the
-// enforcement layer. Horoscopes are global rows that no user owns and no RLS
-// policy grants INSERT on, so there is no user whose privileges could write
-// them. The exposure is bounded by this file never reading a caller-supplied
-// identifier and never returning row data.
-//
-// Like ics-proxy, everything worth testing lives in the sibling modules; this
-// file is the I/O shell.
+// Generates horoscopes for all twelve signs (DEX-84, DEX-145); contract and
+// service-role rationale: docs/api-routes.md "generate-horoscopes".
 
 import "@supabase/functions-js/edge-runtime.d.ts";
 
@@ -34,10 +12,8 @@ import { fetchHoroscope, type TSunSign, ZODIAC_SIGNS } from "./astrology.ts";
 import { isAuthorizedCronRequest } from "./auth.ts";
 import { toHoroscopeRow } from "./row.ts";
 
-// No CORS headers and no OPTIONS branch, unlike the other functions in this
-// directory. Nothing browser-based ever calls this — pg_net is the only client —
-// so the preflight machinery would be dead code, and naming `x-cron-secret` in
-// an Allow-Headers list would advertise the gate for no benefit.
+// No CORS/OPTIONS on purpose: pg_net is the only client, and naming
+// `x-cron-secret` in an Allow-Headers list would advertise the gate.
 function jsonResponse(body: unknown, status: number): Response {
   return Response.json(body, { status });
 }
@@ -52,11 +28,8 @@ async function generateForSign(sign: TSunSign, date: string, apiKey: string) {
   try {
     return toHoroscopeRow(sign, await fetchHoroscope(sign, date, apiKey));
   } catch (error) {
-    // Twelve signs run concurrently and `Promise.allSettled` keeps only the
-    // reason, so without this the sign is lost for every failure that does not
-    // name it itself — the Zod errors and "life_area_focus is missing" are the
-    // ones to expect. Sentry is the durable signal for this job
-    // (docs/api-routes.md "Scheduled job"), so it has to say which sign.
+    // `Promise.allSettled` keeps only the reason, and Zod errors don't name the
+    // sign — Sentry is this job's durable signal, so the wrapper must say which.
     throw new Error(`Failed to generate the horoscope for ${sign}`, {
       cause: error,
     });
@@ -83,11 +56,8 @@ async function handler(req: Request): Promise<Response> {
   }
 
   if (!isAuthorizedCronRequest(req, cronSecret)) {
-    // Not reported to Sentry, deliberately, and for the same reason
-    // `verify-demo-otp` stays quiet on a bad code: this endpoint is publicly
-    // reachable, so anyone spraying it could turn the error budget into a
-    // denial-of-service against our own alerting. Rejections belong in the
-    // request log.
+    // Deliberately not reported to Sentry: the endpoint is public, so sprayed
+    // rejections could DoS our own alerting. They belong in the request log.
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
@@ -105,26 +75,12 @@ async function handler(req: Request): Promise<Response> {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  // The date this run writes — and, since DEX-145, the date it *asks* for:
-  // v3 takes an explicit ISO date, so this is a request parameter rather than
-  // the guess it was under AstrologyAPI (whose `/daily/next` endpoint meant
-  // "tomorrow" relative to a server clock in IST, and needed an offset derived
-  // by experiment). The row's date still comes from the response, so the
-  // disagreement check below is still worth making — it is now an assertion
-  // that the upstream honored the request rather than a timezone tripwire.
+  // Since DEX-145 the date is a request parameter (v3 takes an explicit ISO
+  // date); the row's date still comes from the response — see the check below.
   const expected = expectedDate();
 
-  // The quota guard, and the work list: the signs already stored for the
-  // expected date are the ones this run does not need to pay for again. A
-  // partial run is an anticipated state (see the per-sign isolation below), and
-  // asking *which* signs are missing rather than *how many* makes recovering
-  // from one cost one upstream call and one generation instead of twelve of
-  // each. `force` regenerates everything, which is what it is for.
-  //
-  // This does not guard against a second invocation arriving while the first is
-  // still running — nothing is written until all signs settle, so a concurrent
-  // retry would read zero and duplicate the work. It guards the far more likely
-  // case: a re-run after the day is already done or partly done.
+  // Quota guard: fetch only the signs missing for the date (`force` overrides).
+  // Guards re-runs, not concurrent runs — those would read zero and duplicate.
   let alreadyStored = 0;
   let pending: readonly TSunSign[] = ZODIAC_SIGNS;
   if (!force) {
@@ -143,9 +99,8 @@ async function handler(req: Request): Promise<Response> {
     pending = ZODIAC_SIGNS.filter((sign) => !stored.has(sign));
 
     if (pending.length === 0) {
-      // Reached only when every sign is already stored, so the day is complete
-      // by definition. Same keys as the run below, so a consumer never has to
-      // branch on `skipped` to read the result.
+      // Every sign already stored. Same keys as the run below, so a consumer
+      // never branches on `skipped` to read the result.
       return jsonResponse({
         expected,
         dates: [],
@@ -158,8 +113,6 @@ async function handler(req: Request): Promise<Response> {
   }
 
   // Per-sign isolation: one sign failing upstream must not cost the others.
-  // Run concurrently — at most twelve short calls against one service, well
-  // inside the wall-clock budget.
   const results = await Promise.allSettled(
     pending.map((sign) => generateForSign(sign, expected, astrologyApiKey)),
   );
@@ -171,11 +124,8 @@ async function handler(req: Request): Promise<Response> {
 
   for (const failure of failures) {
     captureException(failure.reason);
-    // Logged as well as reported. `captureException` silently no-ops when
-    // SENTRY_DSN is unset, which is every local run and any environment where
-    // Sentry was never configured — a real local run lost two signs with no
-    // trace at all before this was added. `supabase functions logs` is then the
-    // second signal in production and the only one anywhere else.
+    // Also logged: `captureException` no-ops with no SENTRY_DSN, and a local
+    // run once lost two signs with no trace at all.
     console.error(failure.reason);
   }
 
@@ -192,27 +142,18 @@ async function handler(req: Request): Promise<Response> {
     }
   }
 
-  // Report the dates actually written rather than the date requested, so a
-  // disagreement with `expected` is visible in `net._http_response` instead of
-  // silently looking like a normal run. Normally one date; more than one means
-  // the upstream answered different signs for different days and is worth a look.
+  // Dates actually written, not the date requested — a disagreement with
+  // `expected` must be visible in `net._http_response`, not look like a run.
   const dates = [...new Set(rows.map((row) => row.date))].sort();
 
-  // A row whose upstream date is not `expected` was written under a different
-  // key, so it does nothing for the date this run is completing. Asking for an
-  // explicit date should make that impossible, but `alreadyStored` is scoped to
-  // `expected` and counting rows that landed elsewhere alongside it would report
-  // `complete: true` for a date still missing signs — and `complete` is precisely
-  // the field an operator trusts without checking.
+  // A row written under another date does nothing for the day this run is
+  // completing — counting it would report `complete: true` while signs are missing.
   const storedForDate = alreadyStored +
     rows.filter((row) => row.date === expected).length;
 
   if (dates.some((date) => date !== expected)) {
-    // Should be unreachable: the date is a request parameter and the response
-    // echoes it. If it fires, the upstream stopped honoring `date`, and every
-    // later run will re-fetch the same signs forever because `expected` never
-    // fills up — worth an alert, not just a field in a response body nobody is
-    // reading.
+    // Upstream stopped honoring `date`: every later run re-fetches the same
+    // signs forever on metered calls — worth an alert, not a response field.
     captureException(
       new Error(
         `generate-horoscopes expected ${expected} but wrote ${
@@ -222,22 +163,14 @@ async function handler(req: Request): Promise<Response> {
     );
   }
 
-  // The status describes the *day*, not this run's slice of it. Because each run
-  // only requests the signs it is missing, `pending` is often a single sign, so
-  // keying the status off this run's writes would report a gateway outage when
-  // eleven of twelve rows are sitting in the table and one sign failed — which
-  // is the ordinary, self-healing case the 07:00 and 08:00 runs exist to repair.
-  //
-  // 502 is reserved for the state actually worth alarming on: the date has no
-  // rows at all and this run produced none, which is what a bad key or a dead
-  // upstream looks like. Sentry has the per-sign detail either way.
+  // The status describes the *day*, not this run's slice: 502 only when the
+  // date has no rows at all — a one-sign miss is what the later runs repair.
   return jsonResponse({
     expected,
     dates,
     generated: rows.length,
     failed: failures.length,
-    // Saves an operator correlating counts across runs to answer "is the day
-    // done?" — the only question `net._http_response` is usually opened for.
+    // "Is the day done?" — the question `net._http_response` is opened for.
     complete: storedForDate === ZODIAC_SIGNS.length,
   }, storedForDate > 0 ? 200 : 502);
 }

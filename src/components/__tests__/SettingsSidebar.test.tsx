@@ -13,9 +13,8 @@ jest.mock("expo-router", () => ({
   usePathname: () => mockPathname,
 }));
 
-// The icon's only role in these assertions is carrying `color`; stub it to a
-// marker that exposes that, since the real one renders an Ionicons glyph whose
-// color a query can't reach.
+// Stubbed to a marker exposing `color`, since the real Ionicons glyph's
+// color isn't queryable.
 jest.mock("@/components/SettingsIcon", () => ({
   SettingsIcon: ({ color, name }: { color: string; name: string }) => {
     const { View } =
@@ -24,12 +23,8 @@ jest.mock("@/components/SettingsIcon", () => ({
   },
 }));
 
-/**
- * The palette the component itself resolves. Read through the hook rather than
- * indexing `themes` directly, because with no ThemeProvider mounted `useTheme`
- * falls back on the *system* color scheme — so naming a theme here would pin
- * the test to whichever one Jest's scheme happens to select.
- */
+// Read via the hook, not themes[name] — with no ThemeProvider, useTheme
+// falls back to Jest's system scheme.
 const themeColors = () => renderHook(() => useTheme()).result.current.colors;
 
 /** A row's own style, flattened — `styles.row` plus the inline themed half. */
@@ -60,10 +55,8 @@ describe("SettingsSidebar", () => {
     ).toBe(false);
   });
 
-  // DEX-110. The active row sinks into the sidebar rather than sitting on it as
-  // a solid primary slab. `surfaceSunken` is the token because a settings row
-  // *holds* content (docs/design.md's surface rule) and the sidebar around it is
-  // `background` — the one step down that rule allows.
+  // DEX-110: the active row sinks into the sidebar rather than a solid
+  // primary slab — surfaceSunken is the one step down background allows.
   it("fills the selected row with the sunken surface, not the primary color", () => {
     const colors = themeColors();
     render(<SettingsSidebar />);
@@ -78,9 +71,8 @@ describe("SettingsSidebar", () => {
     expect(rowStyle("appearance").backgroundColor).toBe("transparent");
   });
 
-  // The icon and the label read one `contentColor` const, so this pins both at
-  // once — and pins that it is `primary`, not the `primaryContent` that paired
-  // with the old primary fill (DEX-110).
+  // Pins both from one contentColor const — primary, not the primaryContent
+  // that paired with the old primary fill (DEX-110).
   it("inks the selected row's icon and label with the primary color", () => {
     const colors = themeColors();
     render(<SettingsSidebar />);
@@ -101,10 +93,7 @@ describe("SettingsSidebar", () => {
     expect(labelColor("Appearance")).toBe(colors.text);
   });
 
-  // The rows inset their own content so a selected row's fill can run out to
-  // the pane's gutter; the heading has no fill and so no inset, which left it
-  // hanging a step to the left of every icon beneath it. Assert the two
-  // paddings against each other rather than a literal — the alignment is the
+  // Asserted against each other, not a literal — alignment is the
   // requirement, whichever token it ends up being.
   it("lines the heading up with the rows' content, not the pane's edge", () => {
     render(<SettingsSidebar />);

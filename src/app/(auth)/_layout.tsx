@@ -8,9 +8,8 @@ import { useTheme } from "@/utils/theme";
 export default function AuthLayout() {
   const { initializing, session } = useAuth();
   const theme = useTheme();
-  // Native Google sign-in completes the exchange in place on the login screen,
-  // so this layout — not auth-callback — is the redirect point that must return
-  // the user to a pending OAuth consent.
+  // Native Google sign-in completes in place, so this layout — not
+  // auth-callback — is the redirect point for a pending OAuth consent.
   const pending = usePendingOAuthConsent(!initializing && !!session);
 
   if (!initializing && session) {

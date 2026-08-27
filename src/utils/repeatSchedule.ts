@@ -1,19 +1,8 @@
 import { Cron } from "croner";
 
 /**
- * Shared repeat-schedule logic for repeat task templates, used by BOTH the Expo
- * app (`@/utils/repeatSchedule`) and the mcp-server edge function
- * (`@src/utils/repeatSchedule.ts`). It replaces the legacy Postgres
- * `create_next_recurring_task` trigger (see the DEX-21 migration).
- *
- * Keep this file self-contained: import only `croner`. Deno requires explicit
- * `.ts` extensions on relative imports while Metro/tsc forbid them, so pulling
- * in another `src/` module here would break one of the two runtimes.
- *
- * Schedules are midnight cron expressions (`0 0 <day-of-month> <month>
- * <day-of-week>`), matching the `repeat_task_templates.schedule` RLS
- * constraint. All date math is done in UTC over calendar dates (no time of day),
- * so it never drifts with the device's timezone.
+ * Shared by BOTH the Expo app and the mcp-server edge function (DEX-21). Import
+ * only `croner`: Deno requires `.ts` on relative imports, Metro/tsc forbid it.
  */
 
 /** Cron day-of-week is 0-6 with 0 = Sunday (7 is also accepted as Sunday). */
@@ -46,10 +35,8 @@ const MONTH_NAMES = [
 ];
 
 /**
- * The next date (YYYY-MM-DD) a `schedule` fires strictly after `referenceDate`,
- * or `null` when there is no schedule or the pattern has no upcoming match
- * (e.g. an impossible calendar date). Returns `null` on an invalid cron rather
- * than throwing so callers can treat "no next task" uniformly.
+ * The next date (YYYY-MM-DD) strictly after `referenceDate`, or `null` — even
+ * on an invalid cron — so callers can treat "no next task" uniformly.
  */
 export const getNextOccurrence = (
   schedule: string | null | undefined,
@@ -57,17 +44,14 @@ export const getNextOccurrence = (
 ): string | null => {
   if (!schedule) return null;
 
-  // Start one second past midnight so a match ON `referenceDate` is excluded
-  // regardless of whether croner treats `nextRun` as inclusive — every match is
-  // at midnight, so the offset can never skip a valid occurrence.
+  // One second past midnight excludes a match ON `referenceDate` whether or not
+  // croner's `nextRun` is inclusive; every match is at midnight, so none skip.
   const from = new Date(`${referenceDate}T00:00:01Z`);
   if (Number.isNaN(from.getTime())) return null;
 
   try {
-    // `utcOffset: 0` (not `timezone: "UTC"`) keeps croner on its Intl-free UTC
-    // path. Hermes ships only a partial Intl.DateTimeFormat (see
-    // formatPlainDate.ts), and a named timezone would route through it and could
-    // throw on device — silently yielding no next occurrence.
+    // `utcOffset: 0`, not `timezone: "UTC"`: Hermes ships partial Intl, and a
+    // named timezone routes through it and can throw on device.
     const next = new Cron(schedule, { utcOffset: 0 }).nextRun(from);
     return next ? next.toISOString().slice(0, 10) : null;
   } catch {
@@ -76,11 +60,8 @@ export const getNextOccurrence = (
 };
 
 /**
- * The first date (YYYY-MM-DD) a newly scheduled template should produce,
- * counting `today` itself — unlike `getNextOccurrence`, which is always strictly
- * after its reference because it answers "when does this recur *again*". Used
- * when a template is promoted to a repeat and has no occurrence yet, where
- * skipping a cadence that matches today would look like nothing happened.
+ * Unlike `getNextOccurrence`, counts `today` itself: promoting a template to a
+ * cadence that matches today should produce a task today.
  */
 export const getFirstOccurrence = (
   schedule: string | null | undefined,
@@ -94,10 +75,8 @@ export const getFirstOccurrence = (
 };
 
 /**
- * The date (YYYY-MM-DD) to schedule the next occurrence of a completed repeat
- * task, or `null` when it should not recur. The reference point is
- * `max(today, scheduledFor)` so a rescheduled task's cadence follows its new
- * date and a late completion never spawns a task dated in the past.
+ * References `max(today, scheduledFor)` so a rescheduled task's cadence follows
+ * its new date and a late completion never spawns a task dated in the past.
  */
 export const getNextTaskDate = (
   task: { scheduledFor: string | null },
@@ -131,9 +110,8 @@ export const buildSchedule = (schedule: TRepeatSchedule): string => {
 };
 
 /**
- * Parses a midnight cron expression back into an editor-friendly schedule.
- * Falls back to a daily schedule for anything that doesn't map cleanly onto a
- * frequency preset (e.g. step/range fields from an MCP-created template).
+ * Falls back to daily for anything that doesn't map cleanly onto a frequency
+ * preset (e.g. step/range fields from an MCP-created template).
  */
 export const parseSchedule = (
   schedule: string | null | undefined,

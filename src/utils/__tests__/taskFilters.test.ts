@@ -74,10 +74,8 @@ describe("selectTasksForDate", () => {
 });
 
 describe("selectOpenTasksForDate", () => {
-  // The evening ritual's step is about what is left to put down, so every
-  // terminal status drops out — including DELEGATED and WONT_DO, which are
-  // "closed" without having been finished and are the two a hand-written
-  // `status === DONE` check would miss.
+  // Every terminal status drops out — DELEGATED and WONT_DO are "closed"
+  // without being finished, the two a hand-written `=== DONE` check would miss.
   it("keeps only the day's tasks nobody has closed out", () => {
     const tasks = [
       task({
@@ -113,9 +111,8 @@ describe("selectOpenTasksForDate", () => {
     ]);
   });
 
-  // The scope is the ritual's own day (DEX-146): stragglers from earlier days
-  // and the unscheduled backlog are the morning Backlog step's job, and pulling
-  // them in here would make the evening list the thing it is meant to close.
+  // Scope is the ritual's own day (DEX-146): stragglers and the unscheduled
+  // backlog are the morning Backlog step's job, not the evening list's.
   it("ignores other days and the unscheduled backlog", () => {
     const tasks = [
       task({ id: "yesterday", scheduledFor: "2026-07-15" }),
@@ -131,10 +128,8 @@ describe("selectOpenTasksForDate", () => {
 });
 
 describe("selectCompletedTasksForDate", () => {
-  // The Review step reports what the day added up to (DEX-148), and abandoning
-  // a task or handing it off both count as putting it down — the same reading
-  // `selectOpenTasksForDate` takes from the other side, so the two partition
-  // the day rather than leaving WONT_DO and DELEGATED in neither list.
+  // DEX-148: abandoning or handing off both count as putting a task down, so
+  // the two selectors partition the day — WONT_DO/DELEGATED land in neither otherwise.
   it("keeps every terminal status, not just DONE", () => {
     const tasks = [
       task({
@@ -171,9 +166,8 @@ describe("selectCompletedTasksForDate", () => {
     ]);
   });
 
-  // Scope is `scheduledFor`, since tasks carry no completion timestamp: a task
-  // finished today but scheduled for yesterday is yesterday's review, not this
-  // one's.
+  // Scope is `scheduledFor` — no completion timestamp exists: a task finished
+  // today but scheduled for yesterday is yesterday's review.
   it("ignores other days and the unscheduled backlog", () => {
     const tasks = [
       task({
@@ -198,9 +192,8 @@ describe("selectCompletedTasksForDate", () => {
     ]);
   });
 
-  // Together with the suite above: no task scheduled for the day falls outside
-  // both selectors, which is what makes the evening's two steps a partition of
-  // it rather than two overlapping filters.
+  // No task scheduled for the day falls outside both selectors — the evening's
+  // two steps partition it rather than overlap.
   it("partitions the day with selectOpenTasksForDate", () => {
     const tasks = [
       ETaskStatus.TODO,
@@ -458,9 +451,8 @@ describe("backlogCounts", () => {
   });
 
   it("counts a task in every bucket it belongs to", () => {
-    // The three figures each answer for their own Filter preset rather than
-    // for a share of one total, so a task both left behind and overdue has to
-    // show up under either preset the reader picks.
+    // Each figure answers for its own preset, not a share of one total — a task
+    // both left behind and overdue shows under either preset the reader picks.
     const tasks = [task({ scheduledFor: "2026-07-10", dueOn: "2026-07-12" })];
 
     expect(backlogCounts(tasks, today)).toEqual({

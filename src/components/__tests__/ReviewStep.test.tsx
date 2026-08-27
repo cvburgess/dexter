@@ -35,9 +35,8 @@ jest.mock("@/hooks/useFocusBlocks", () => ({
   useFocusBlocks: jest.fn(),
 }));
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
-// Reached only through `useTaskDelete`, which has its own suite — stubbed with
-// real functions rather than `{}` so a delete added here fails on the assertion
-// rather than on `getTemplateById is not a function`.
+// Real functions, not `{}`, so a delete added here fails the assertion
+// rather than on "getTemplateById is not a function".
 jest.mock("@/hooks/useTemplates", () => ({
   useTemplates: jest.fn(() => [
     [],
@@ -45,9 +44,8 @@ jest.mock("@/hooks/useTemplates", () => ({
   ]),
 }));
 
-// Both children have their own suites and carry several `@expo/ui` menu hosts a
-// unit test can't drive; standing them in as markers keeps this file about the
-// hero's figures and the step's scope.
+// Both have their own suites and menu hosts a unit test can't drive; stubbed
+// as markers so this file stays about the hero's figures.
 jest.mock("@/components/TaskCard", () => {
   const { Text: RNText } =
     jest.requireActual<typeof import("react-native")>("react-native");
@@ -156,10 +154,8 @@ beforeEach(() => {
 });
 
 describe("ReviewStep", () => {
-  // Every hook hands back an empty placeholder while its query resolves, so a
-  // cold open looks exactly like a day where nothing happened — reporting that
-  // ahead of this guard would tell someone who cleared their list that they got
-  // nothing done.
+  // Every hook serves an empty placeholder while resolving — without this
+  // guard a cold open reads as a day nothing happened on.
   it("renders nothing rather than a premature quiet day", () => {
     setDay({ isLoading: true });
 
@@ -196,10 +192,8 @@ describe("ReviewStep", () => {
       expect(screen.getByLabelText("1 task done")).toBeTruthy();
     });
 
-    // A habit paused or archived after the fact keeps its row until the trigger
-    // clears it, and a habit edit doesn't invalidate the dailyHabits cache — so
-    // the hero would otherwise count a habit the ring row below it no longer
-    // draws.
+    // A habit edit doesn't invalidate the dailyHabits cache, so the hero
+    // could otherwise count a habit the ring row below it no longer draws.
     it("ignores rows for habits since paused or archived", () => {
       setDay({
         habits: [
@@ -213,9 +207,7 @@ describe("ReviewStep", () => {
       expect(screen.getByLabelText("1 habit done")).toBeTruthy();
     });
 
-    // The rule the summary step set: a line exists per feature the reader has,
-    // not per non-zero count, so a zero still reads but a calendar line for
-    // someone with no calendar is noise.
+    // One line per feature the reader has, not per non-zero count.
     it("drops the habit and event lines when those features are off", () => {
       mockUsePreferences.mockReturnValue(
         preferences({ enableHabits: false, enableCalendar: false }),
@@ -229,9 +221,7 @@ describe("ReviewStep", () => {
       expect(screen.queryByLabelText(/event/)).toBeNull();
     });
 
-    // The reason `cancelled` is its own status rather than a deleted row: a
-    // block stopped early is recorded honestly and still kept out of the
-    // evening's figure. A block still running hasn't happened yet either.
+    // `cancelled` is its own status, not a deleted row — honest but excluded.
     it("counts only completed focus blocks, not cancelled or running ones", () => {
       setDay({
         focusBlocks: [
@@ -248,9 +238,7 @@ describe("ReviewStep", () => {
   });
 
   describe("the completed list", () => {
-    // Scope is the ritual's own day and only what was closed out — the exact
-    // complement of the open tasks step two swipes back, so no task shows in
-    // both and neither list is the other's leftovers.
+    // Exact complement of the open tasks step — no task in both lists.
     it("lists every terminal status on the day and nothing else", () => {
       setDay({
         tasks: [
@@ -275,9 +263,8 @@ describe("ReviewStep", () => {
   });
 
   describe("a day with nothing closed out", () => {
-    // The rings are the one interactive thing on the step, so a day with no
-    // finished tasks still has a body worth drawing — a habit ticked after
-    // dinner is exactly what an evening review is for.
+    // Rings are the one interactive thing here, so an unfinished day still
+    // draws a body — a habit ticked after dinner is what a review is for.
     it("keeps the habit row and stays out of the centered branch", () => {
       render(<ReviewStep date={DATE} />);
 

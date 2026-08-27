@@ -16,15 +16,8 @@ import { supabase, useAuth } from "@/hooks/useAuth";
 import { setPendingOAuthAuthorizationId } from "@/utils/oauthReturn";
 import { useTheme } from "@/utils/theme";
 
-/**
- * OAuth consent screen for MCP / third-party integrations.
- *
- * Supabase's OAuth server redirects an authorizing client here with an
- * `authorization_id` query param. This route lives outside the authenticated
- * `(app)` group, so it carries its own guard: an unauthenticated visitor is
- * bounced to sign-in with the `authorization_id` stashed, then returned here
- * after login (see utils/oauthReturn.ts and app/auth-callback.tsx).
- */
+// OAuth consent for MCP/third-party integrations. Outside (app), so it
+// self-guards: bounces to sign-in with authorization_id stashed and returned.
 export default function OAuthConsentScreen() {
   const { authorization_id: authorizationId } = useLocalSearchParams<{
     authorization_id?: string;
@@ -61,9 +54,8 @@ export default function OAuthConsentScreen() {
     void stash.finally(() => router.replace("/(auth)/login"));
   }, [initializing, session, authorizationId, router]);
 
-  // Try to fetch the requesting client's name once authenticated. If the
-  // authorization is not found (404), it was already auto-approved by Supabase
-  // — show a success message.
+  // Fetch the requesting client's name once authenticated; a 404 means
+  // Supabase already auto-approved it.
   useEffect(() => {
     if (initializing || !session || !authorizationId) return;
 

@@ -13,26 +13,8 @@ import {
   type TRitualStepId,
 } from "@/utils/ritualSteps";
 
-/**
- * The Ritual tab's deep-link contract (DEX-105), both directions — the builder
- * below and the parser beside it, in one module so a change to the format can't
- * update one side and leave the other reading the old shape. The same split
- * `utils/todayRoute.ts` uses, and for the same reason.
- *
- * **`mode` is optional, and omitting it is the normal case.** A link that names
- * no ritual lets the clock choose, which is what a search result wants: the
- * journal entry you tapped belongs to today, and which half of the day you are
- * in is a property of *now* rather than of the link.
- *
- * Naming it matters when the same screen has to come back twice. `horoscope`
- * exists only in the morning ritual, so `?step=horoscope` followed after noon
- * lands nowhere in particular, and `journal` renders a different flow either
- * side of midday. A shared link, or a screenshot run that must produce the same
- * image at any hour, needs to say which one it means.
- *
- * Order matters where this is applied: `withMode` restarts the ritual at step
- * 0, so the mode has to be settled *before* the step is followed, never after.
- */
+// The Ritual tab's deep-link contract (DEX-105), both directions, in one
+// module. Apply `mode` before `step` — `withMode` restarts at step 0.
 
 /** The requested step, or null when absent or unrecognized. */
 export const parseRitualStep = (value: TRouteParam): TRitualStepId | null => {
@@ -43,14 +25,8 @@ export const parseRitualStep = (value: TRouteParam): TRitualStepId | null => {
 };
 
 /**
- * The requested ritual, or null when absent or unrecognized — in which case the
- * clock still chooses, which is what an ordinary link should do.
- *
- * Naming the mode is what makes a ritual link reproducible: `horoscope` is a
- * morning-only step, so `?step=horoscope` followed after noon lands nowhere in
- * particular, and `journal` renders a different ritual either side of midday.
- * Anything that needs the same screen twice — a shared link, an App Store
- * screenshot run — has to be able to say which half of the day it means.
+ * The requested ritual, or null when absent/unrecognized — the clock then
+ * chooses, which is what an ordinary link should do.
  */
 export const parseRitualMode = (value: TRouteParam): TRitualMode | null => {
   const mode = firstParam(value);
@@ -63,12 +39,8 @@ type TRitualRouteParams = {
   mode?: TRitualMode;
   step?: TRitualStepId;
   /**
-   * Distinguishes one navigation from the next.
-   *
-   * Cross-tab navigation reuses the mounted Ritual screen and only swaps its
-   * params, so the screen can only tell "this link changed" by comparing values
-   * — and two taps on the same search result produce identical values. See
-   * `TTodayRouteParams["n"]`, which carries the full reasoning.
+   * Distinguishes one navigation from the next — cross-tab nav reuses the
+   * mounted screen, so two taps with identical values need this to differ.
    */
   n?: string;
 };
@@ -85,9 +57,8 @@ export const ritualRoute = (params: TRitualRouteParams = {}): Href => {
 };
 
 /**
- * Everything the Ritual tab needs from its route params, with an `id` that
- * changes whenever the link is *followed* rather than only when its contents
- * differ. Null when the route carries no link at all (an ordinary tab press).
+ * Everything the Ritual tab needs from route params; `id` changes whenever
+ * the link is followed, not just when contents differ. Null with no link.
  */
 export type TRitualLink = {
   id: string;

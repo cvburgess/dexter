@@ -14,23 +14,13 @@ import { useTheme } from "@/utils/theme";
 
 type TDayTaskListProps = {
   date: Temporal.PlainDate;
-  /**
-   * Shown in place of the list when the day has no tasks. `null` renders
-   * nothing at all — what the Week tab's columns want, since seven empty-state
-   * messages side by side read as noise rather than information (DEX-96).
-   */
+  /** Shown for an empty day; `null` renders nothing — what Week's columns
+   * want, since seven empty-state messages side by side read as noise. */
   emptyMessage?: string | null;
 };
 
-/**
- * One day's task list — the scrolling card list plus the repeat-aware delete
- * confirmation, with no habit row and no header of its own.
- *
- * Extracted from `TasksView` so the Week tab's day columns (DEX-96) get the
- * same list without re-deriving the delete flow, which has to know that a
- * linked template may be a repeat schedule (delete it) or a saved task
- * template (keep it). `TasksView` is now this plus `HabitTracker`.
- */
+// One day's task list plus the repeat-aware delete confirmation, no habit
+// row or header — extracted so Week's day columns (DEX-96) share it.
 export function DayTaskList({
   date,
   emptyMessage = "No tasks scheduled for this day.",
@@ -42,45 +32,18 @@ export function DayTaskList({
     () => selectTasksForDate(allTasks, date),
     [allTasks, date],
   );
-  // The repeat-aware delete lives in the hook so the ritual's Open tasks step
-  // shares it (DEX-146) — a second copy could drop a repeat schedule on one
-  // surface and keep it on the other.
+  // Lives in the hook so Open tasks shares it (DEX-146) — a second copy could
+  // drop a repeat schedule on one surface and keep it on the other.
   const { confirmDelete, confirmationProps } = useTaskDelete();
 
   return (
     <>
-      {/* A plain ScrollView (not FlatList): a day's list is small, so
-          virtualization buys nothing — and the cards contain @expo/ui menu
-          hosts that size asynchronously, which virtualized off-viewport
-          mounting makes worse (expo/expo#42576). The cards themselves pin
-          their heights (see TaskCard/StatusButton) so layout stays stable.
-
-          It is also rendered unconditionally, with the empty state *inside* it
-          rather than in its place (DEX-136). UIKit resolves a tab screen's
-          content scroll view once, when the screen mounts, by walking first
-          subviews — so a day that happens to be empty at that moment used to
-          leave the tab bar with no scroll view to minimize against for the
-          life of the screen. See docs/frontend.md, "Safe areas and keyboard". */}
+      {/* Plain ScrollView: cards' @expo/ui menu hosts size async, which
+          virtualization worsens (expo/expo#42576). Empty state renders inside it (DEX-136). */}
       <ScrollView
         style={styles.scroll}
-        // Vertical only — the side gutter belongs to whoever placed this list
-        // (see docs/design.md, "Who owns spacing"). The phone gets one from
-        // `SwipeablePage`; the Today pane and the Week columns want none, and
-        // a gutter per column would stack with its neighbour's and double
-        // every gap in the grid (DEX-96).
-        //
-        // The host SafeAreaView omits the bottom edge (the native tab bar
-        // owns it — see SmallScreenToday/LargeScreenToday/WeekView), so the
-        // list adds that inset to its own padding here. Padding the content
-        // rather than the container keeps cards scrolling *under* the
-        // translucent bar — what `minimizeBehavior="onScrollDown"` (see
-        // `(tabs)/_layout.tsx`) needs in order to have anything to reveal —
-        // while still letting the last card scroll fully clear of it.
-        //
-        // The empty state takes `flexGrow` and none of that padding instead:
-        // `EmptyScreen` is a `flex: 1` centred box that reserves the same
-        // inset itself, so adding the list's would centre it against a box
-        // that has already been shortened once and sit it visibly high.
+        // Vertical only — the gutter belongs to whoever placed this list
+        // (docs/design.md); content, not container, gets the bottom inset.
         contentContainerStyle={
           tasks.length === 0
             ? styles.emptyContent
@@ -95,9 +58,8 @@ export function DayTaskList({
           ? !isLoading &&
             emptyMessage !== null && <EmptyScreen message={emptyMessage} />
           : tasks.map((item) => (
-              // Draggable only where a `DragScheduleProvider` is above it — the
-              // Week columns and Today's Tasks pane. Everywhere else this is a
-              // plain TaskCard (DEX-77).
+              // Draggable only under a DragScheduleProvider (Week columns,
+              // Today's Tasks pane); a plain TaskCard elsewhere (DEX-77).
               <DraggableTaskCard
                 key={item.id}
                 task={item}

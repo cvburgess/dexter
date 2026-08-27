@@ -5,9 +5,8 @@ import { THabit } from "@/api/habits";
 
 import { useHabitWidgetDrain } from "../useHabitWidgetDrain";
 
-// Only the App Group side effects and the write are mocked. The key format
-// comes from the real module, so a change to `pendingHabitStepsKey` fails here
-// rather than silently leaving every queued step unparseable.
+// Only the App Group side effects and the write are mocked; the key format
+// comes from the real module, so a change to it fails here instead of silently.
 const mockWidgets = {
   readPendingHabitSteps: jest.fn<Record<string, number>, []>(() => ({})),
   clearPendingHabitSteps: jest.fn(),
@@ -97,9 +96,8 @@ describe("useHabitWidgetDrain", () => {
   });
 
   it("clamps a step the habit's target has since dropped below", async () => {
-    // The intent computed against the target the snapshot carried; the app can
-    // have lowered it since. The DB trigger clamps an existing row, so without
-    // this a row *created* by the upsert would be the one place that escapes.
+    // The snapshot's target may have since been lowered; the DB trigger
+    // clamps existing rows, so a row *created* here is the one place that escapes.
     mockHabitsState.habits = [habit({ steps: 2 })];
     mockWidgets.readPendingHabitSteps.mockReturnValue({ [KEY]: 5 });
 
@@ -113,8 +111,8 @@ describe("useHabitWidgetDrain", () => {
   });
 
   it("waits for the habits list before draining", async () => {
-    // Draining against the empty list a cold start begins with would treat
-    // every queued step as belonging to a deleted habit and discard the lot.
+    // A cold start's empty list would treat every step as belonging to a
+    // deleted habit and discard the lot.
     mockHabitsState.habits = [];
     mockHabitsState.isLoading = true;
     mockWidgets.readPendingHabitSteps.mockReturnValue({ [KEY]: 3 });
@@ -144,8 +142,8 @@ describe("useHabitWidgetDrain", () => {
   });
 
   it("leaves a step that failed to persist in the queue", async () => {
-    // Offline, or a row the server rejected. The widget is still showing the
-    // value, so the user sees no regression while it waits for the next try.
+    // Offline or rejected — the widget still shows the value, so no
+    // regression while it waits for the next try.
     mockUpsertDailyHabit.mockRejectedValue(new Error("offline"));
     mockWidgets.readPendingHabitSteps.mockReturnValue({ [KEY]: 3 });
 

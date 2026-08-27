@@ -36,10 +36,8 @@ export default function AccountScreen() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const [pending, setPending] = useState(false);
-  // In two-pane mode this screen sits beside the sidebar, not at the physical
-  // left edge — but SafeAreaView applies the window's insets regardless of
-  // position, which would indent the content away from the sidebar on
-  // notched devices in landscape. The sidebar absorbs the left inset instead.
+  // In two-pane mode the sidebar absorbs the left inset — SafeAreaView would
+  // otherwise apply it regardless of position and indent content on a notch.
   const twoPane = useIsLargeDevice();
 
   const handleLogOut = async () => {
@@ -53,11 +51,9 @@ export default function AccountScreen() {
     setPending(true);
     try {
       await signOut();
-      // Drop cached data so nothing leaks to the next signed-in user.
       queryClient.clear();
-      // No manual navigation: the (app)/_layout guard redirects to login once
-      // the session state flips to null. Navigating here would race that state
-      // update and (auth)/_layout could bounce a stale session back into the app.
+      // No manual navigation: (app)/_layout redirects on session → null.
+      // Navigating here would race that and bounce a stale session back in.
     } finally {
       setPending(false);
     }
@@ -74,8 +70,7 @@ export default function AccountScreen() {
     setPending(true);
     try {
       await deleteAccount();
-      // Same rationale as log out: clear the cache and let the (app)/_layout
-      // guard handle navigation when the session flips to null.
+      // Same rationale as log out: clear the cache, let (app)/_layout navigate.
       queryClient.clear();
     } finally {
       setPending(false);
@@ -83,12 +78,8 @@ export default function AccountScreen() {
   };
 
   return (
-    // The one settings screen that still claims the bottom edge, rather than
-    // omitting it and reserving the inset in scroll content like the rest
-    // (DEX-91) — there is no scroll container here, just a profile block and
-    // two buttons, so nothing could be scrolled out from under the tab bar.
-    // Give this screen a scroller and it should move to the shared
-    // EDGES_* constants with the others.
+    // The one settings screen claiming the bottom edge (DEX-91) — no
+    // scroller here, so nothing could hide under the tab bar.
     <SafeAreaView
       edges={twoPane ? ["bottom", "right"] : ["bottom", "left", "right"]}
       style={[
@@ -101,14 +92,8 @@ export default function AccountScreen() {
     >
       {session ? <UserProfile session={session} /> : null}
 
-      {/* Two very different actions that had been drawn identically — both
-          full-width `dangerous` buttons, so the one that ends a session looked
-          exactly like the one that destroys every row the account owns
-          (DEX-108). The legacy web app's split, restored: log out is the
-          ordinary, wide, neutral action; delete account is small, sized to its
-          own label, and the only thing on the screen wearing the error color.
-          Weight carries the warning, so the button can't be reached for by
-          muscle memory. */}
+      {/* Both were full-width dangerous buttons (DEX-108); now weight carries
+          the warning: log out is wide and neutral, delete is small. */}
       <View style={[styles.actions, { gap: theme.space.sm }]}>
         <Button
           variant="default"
@@ -138,8 +123,7 @@ function UserProfile({ session }: { session: Session }) {
   const theme = useTheme();
   const { user } = session;
 
-  // Supabase types user_metadata as Record<string, any>; narrow the fields we
-  // read (populated by OAuth providers like Google) to avoid `any`.
+  // Supabase types user_metadata as Record<string, any>; narrow to avoid it.
   const metadata = user.user_metadata as {
     avatar_url?: string;
     full_name?: string;
@@ -213,9 +197,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "space-between",
   },
-  // A row, so "Delete Account" sizes to its own label instead of stretching:
-  // a full-width button reads as the screen's primary action, which is the last
-  // thing this one should look like.
+  // A row so "Delete Account" sizes to its label — full-width would read as
+  // the screen's primary action.
   actions: {
     alignItems: "center",
     flexDirection: "row",

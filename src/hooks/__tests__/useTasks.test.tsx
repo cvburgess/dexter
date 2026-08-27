@@ -22,13 +22,8 @@ import { resolveReach } from "@/utils/taskReach";
 import { expandTaskReach, resetTaskReach } from "../useTaskReach";
 import { canonicalTaskFilters, tasksQueryKey, useTasks } from "../useTasks";
 
-/**
- * The cache entry the hook reads under the default reach. The key carries how
- * far back the fetch reaches (DEX-162), so a test inspecting the cache directly
- * has to name it — and computes it through `resolveReach` rather than restating
- * the arithmetic, so a change to the default can't leave these asserting against
- * a key nothing writes.
- */
+/** The cache entry under the default reach (DEX-162) — computed via
+ * `resolveReach` so a changed default can't leave this key stale. */
 const tasksKey = () =>
   tasksQueryKey(resolveReach(null, Temporal.Now.plainDateISO()));
 
@@ -112,9 +107,8 @@ describe("useTasks", () => {
     const first = renderHook(() => useTasks(), { wrapper });
     const second = renderHook(() => useTasks(), { wrapper });
 
-    // Both callers, not just the fetch count: the shared query notifies each
-    // of them when it resolves, and a test that returns before those land
-    // leaves the updates outside act() (DEX-130).
+    // Both callers, not just fetch count — the shared query notifies each on
+    // resolve, and returning before that lands outside act() (DEX-130).
     await waitFor(() => {
       expect(first.result.current[1].isLoading).toBe(false);
       expect(second.result.current[1].isLoading).toBe(false);
@@ -166,9 +160,8 @@ describe("useTasks", () => {
       );
     });
 
-    // Without `keepPreviousData` the widened key would serve `[]` for the round
-    // trip, blanking every mounted view; and `isLoading` is what stops a day
-    // view drawing "no tasks scheduled" over the pending fetch.
+    // Without keepPreviousData the widened key serves `[]` for the round trip,
+    // blanking every mounted view during the pending fetch.
     it("keeps the rows already on screen while the wider fetch lands", async () => {
       const { wrapper } = createWrapper();
       const existing: TTask = {
@@ -217,10 +210,8 @@ describe("useTasks", () => {
     });
   });
 
-  // The whole point of `isError`: react-query only serves `placeholderData`
-  // while the query is pending, so on failure `tasks` falls back to `[]` and
-  // `isLoading` reads `false` — indistinguishable from an empty account
-  // without this flag (DEX-100).
+  // The whole point of isError: on failure react-query falls back to `[]` and
+  // isLoading reads false — indistinguishable from empty otherwise (DEX-100).
   it("reports a failed fetch rather than an empty task list", async () => {
     const { wrapper } = createWrapper();
     mockGetTasks.mockRejectedValue(new Error("network error"));
@@ -300,10 +291,8 @@ describe("useTasks", () => {
   });
 
   describe("refetching after a mutation", () => {
-    // `useRealtimeInvalidation` drops a remote `tasks` event outright while a
-    // task mutation is in flight, and leans on the mutation to invalidate when
-    // it settles. A create/delete that only invalidated on success would strand
-    // another device's change made in that window.
+    // useRealtimeInvalidation drops a remote event while a mutation is in
+    // flight, leaning on settle to invalidate — success-only would strand it.
     it("refetches even when a create fails", async () => {
       const { settled, wrapper } = createWrapper();
       mockCreateTask.mockRejectedValue(new Error("offline"));
@@ -472,9 +461,8 @@ describe("useTasks", () => {
     expect(created.scheduledFor).not.toBe(today);
   });
 
-  // A repeat has exactly one open task. A template can gain a schedule after
-  // the fact, which retroactively turns every task stamped from it into an
-  // occurrence — completing three of them must not start three parallel chains.
+  // A repeat has exactly one open task; a template gaining a schedule later
+  // turns every stamped task into an occurrence — no parallel chains.
   describe("the one-open-task guard on completion", () => {
     const template: TTemplate = {
       id: "template-1",
@@ -811,9 +799,8 @@ describe("useTasks", () => {
       await settled();
     });
 
-    // The rollback carries the key it snapshotted, so a reach that widens while
-    // the write is in flight doesn't get the narrower entry's rows written over
-    // it — which would drop every older day the expansion had just loaded.
+    // Rollback carries its snapshotted key, so a reach that widens mid-write
+    // doesn't get the narrower entry's rows written back over it.
     it("rolls back into the entry it snapshotted, not whichever reach is current", async () => {
       const { settled, wrapper, queryClient } = createWrapper();
       const older: TTask = {

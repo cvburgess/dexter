@@ -8,9 +8,8 @@ export type TFilterId =
 
 const DUE_SOON_WINDOW_DAYS = 13;
 
-// Defined in the import-free `utils/taskStatus` so the Deno MCP server shares the
-// one predicate; re-exported here because this module is where the app's task
-// filtering lives and every existing call site imports it from here.
+// Defined in import-free `utils/taskStatus` so the Deno MCP server shares the
+// one predicate; re-exported here, where the app's task filtering lives.
 export { isCompletionStatus };
 
 const isIncomplete = (task: TTask): boolean => !isCompletionStatus(task.status);
@@ -33,14 +32,8 @@ export function selectTasksForDate(
 }
 
 /**
- * Tasks scheduled for `date` that nobody has closed out — the evening ritual's
- * Open tasks step (DEX-146).
- *
- * `selectTasksForDate` narrowed by the same `isIncomplete` the backlog scope
- * uses, rather than a `status` test of its own: "still open" is one decision,
- * and it lives in `utils/taskStatus`'s `isCompletionStatus` (shared with the
- * Deno MCP server), so a status added there becomes open-or-closed everywhere at
- * once.
+ * Tasks for `date` nobody has closed out — the evening Open tasks step
+ * (DEX-146). Uses the shared `isCompletionStatus`: "still open" is one decision.
  */
 export function selectOpenTasksForDate(
   tasks: TTask[],
@@ -50,18 +43,8 @@ export function selectOpenTasksForDate(
 }
 
 /**
- * Tasks scheduled for `date` that somebody closed out — the evening ritual's
- * Review step (DEX-148), and the exact complement of `selectOpenTasksForDate`.
- *
- * Both read `isCompletionStatus` rather than testing `status` themselves, so
- * "done with" stays one decision made in `utils/taskStatus` (shared with the
- * Deno MCP server) and the two selectors cannot come to disagree about a status
- * added there.
- *
- * **Scope is `scheduledFor`, not a completion timestamp** — tasks have no
- * `completedAt` column, so this is "what the day was carrying, finished" rather
- * than "what was finished during the day". A task closed out today but
- * scheduled for yesterday belongs to yesterday's review.
+ * The Review step's list (DEX-148) — exact complement of `selectOpenTasksForDate`.
+ * Scope is `scheduledFor`, not a completion timestamp: tasks have no `completedAt`.
  */
 export function selectCompletedTasksForDate(
   tasks: TTask[],
@@ -73,14 +56,8 @@ export function selectCompletedTasksForDate(
 }
 
 /**
- * Incomplete tasks that are unscheduled or scheduled for a day *not* already on
- * screen — the Backlog drawer's base scope (on-device equivalent of the former
- * `notScheduledForDateFilters` server query, DEX-57).
- *
- * `daysOnScreen` is however many days the host is showing: one on the Today tab,
- * seven on the Week tab (DEX-96). The rule is the same either way — offer what
- * isn't already in front of the user — so this takes a cardinality rather than a
- * mode, and there is no separate week variant to keep in step with this one.
+ * Backlog base scope (DEX-57): incomplete tasks not already on screen. Takes a
+ * day array (one on Today, seven on Week) so no separate week variant (DEX-96).
  */
 export function selectBacklogTasks(
   tasks: TTask[],
@@ -95,11 +72,8 @@ export function selectBacklogTasks(
 }
 
 /**
- * Applies the Backlog's Filter-menu preset on top of an already-scoped task
- * array (on-device equivalent of the former `taskFilters` server presets,
- * DEX-57). `"none"` is a no-op. `dueOn`/`scheduledFor` are ISO `YYYY-MM-DD`
- * strings, which compare correctly with plain string operators — no Temporal
- * parsing needed per task.
+ * The Filter-menu preset over an already-scoped array (DEX-57). ISO `YYYY-MM-DD`
+ * strings compare correctly as strings — no Temporal parsing per task.
  */
 export function filterTasks(
   tasks: TTask[],
@@ -130,18 +104,8 @@ export function filterTasks(
 }
 
 /**
- * The Backlog Filter preset the attention dot maps to (DEX-58), or `null` when
- * no *incomplete* task is overdue or left behind as of `today`. `"overdue"`
- * wins when both kinds exist (product decision: overdue is more time-sensitive).
- * The dot itself is just `backlogAttentionFilter(...) !== null`, and tapping
- * Backlog pre-applies the returned preset in the drawer.
- *
- * Anchored to today, not the viewed day, since it signals "you have stragglers"
- * regardless of which day is on screen. Uses the same strict `< today` boundary
- * as the drawer's Overdue / Left Behind presets (a task due today is not yet
- * overdue). The status guard matters: `filterTasks`'s presets don't check
- * completion themselves (the drawer pre-scopes to incomplete via
- * `selectBacklogTasks`), so a completed past-due task must not light the dot.
+ * Attention-dot preset (DEX-58); overdue outranks leftBehind. Anchored to today
+ * with a strict `<`; must skip completed tasks — the presets themselves don't.
  */
 export function backlogAttentionFilter(
   tasks: TTask[],
@@ -166,12 +130,8 @@ export type TBacklogCounts = {
 };
 
 /**
- * The order the Backlog step's hero states its three counts in, which is also
- * the order `defaultBacklogFilter` walks them.
- *
- * Exported so the hero maps over this rather than restating the order beside
- * its labels: the reading order and the filter priority are one product
- * decision, and a second copy is a copy that can be reordered on its own.
+ * The hero's reading order and `defaultBacklogFilter`'s walk — one product
+ * decision, exported so the hero can't restate it beside its labels.
  */
 export const BACKLOG_COUNT_ORDER = [
   "leftBehind",
@@ -180,22 +140,8 @@ export const BACKLOG_COUNT_ORDER = [
 ] as const satisfies readonly (keyof TBacklogCounts & TFilterId)[];
 
 /**
- * The three figures the ritual Backlog step's hero states (DEX-141), over an
- * array already scoped by `selectBacklogTasks` — which is what excludes
- * completed tasks and the day the ritual is on, since the presets below don't
- * check either themselves.
- *
- * Built from `filterTasks` rather than from its own predicates so a count can
- * never drift from the Filter preset it labels: the hero says "3 tasks left
- * behind" directly above a menu whose "Left Behind" entry has to show those
- * same three.
- *
- * The buckets deliberately overlap — a task scheduled last week *and* due last
- * week is counted in both `leftBehind` and `overdue`, because each figure
- * answers for its own preset rather than for a share of one total.
- *
- * Anchored to `today`, not the ritual's date, for the same reason: the drawer
- * beneath the hero filters against today whichever day the header is on.
+ * Hero figures (DEX-141) over a `selectBacklogTasks`-scoped array, built from
+ * `filterTasks` so a count can't drift from its preset. Buckets overlap on purpose.
  */
 export function backlogCounts(
   tasks: TTask[],
@@ -209,15 +155,8 @@ export function backlogCounts(
 }
 
 /**
- * The Filter preset the ritual Backlog step opens on: the first non-zero count
- * in the order the hero reads, Left Behind → Overdue → Due Soon, or `"none"`
- * when nothing needs attention.
- *
- * Deliberately not `backlogAttentionFilter`, which answers a different question
- * for the Today tab's attention dot (DEX-58) — that one puts Overdue first and
- * ignores Due Soon entirely, because a dot has to pick the single most
- * time-sensitive thing, where this step is walking the reader down a list it
- * has already shown them in full.
+ * First non-zero count in the hero's reading order. Deliberately not
+ * `backlogAttentionFilter` (DEX-58) — the dot ranks Overdue first, skips Due Soon.
  */
 export function defaultBacklogFilter(counts: TBacklogCounts): TFilterId {
   return BACKLOG_COUNT_ORDER.find((id) => counts[id] > 0) ?? "none";
@@ -228,24 +167,8 @@ const isCountedFilter = (id: TFilterId): id is keyof TBacklogCounts =>
   (BACKLOG_COUNT_ORDER as readonly TFilterId[]).includes(id);
 
 /**
- * The preset the ritual Backlog step should be showing, given whichever one the
- * reader last landed on and the counts as they stand now.
- *
- * `current` while it still has tasks; otherwise the next bucket that does, in
- * the hero's order. Clearing out Left Behind moves the reader on to Overdue
- * rather than leaving them looking at an empty list they have to notice and
- * re-filter their way out of — which is the point of the step, working down
- * what is slipping until there is none of it left.
- *
- * **The emptiness is what licenses the move.** A preset that still has tasks in
- * it is never swapped: derived from the counts alone, the filter would jump the
- * moment a *different* bucket changed and the reader would lose their place
- * mid-list. And a preset outside the hero's three ("Unscheduled", "No Filter")
- * is a detour the reader chose deliberately, so it is left alone whether or not
- * it is empty — this step has no opinion about it.
- *
- * Pure, so the step derives it during render rather than reaching for an effect
- * to chase the counts.
+ * `current` while it still has tasks, else the next non-empty bucket in the
+ * hero's order — only emptiness moves the filter, and detour presets stay put.
  */
 export function nextBacklogFilter(
   current: TFilterId,

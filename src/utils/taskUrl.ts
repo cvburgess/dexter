@@ -1,19 +1,9 @@
-// Pure string logic for a task's link, with no React Native imports, so the
-// Deno MCP server can load it too (`@src/utils/taskUrl.ts`) and normalize an
-// agent-supplied link by exactly the same rule the app applies to a typed one.
-// Opening a link is a platform effect and lives in `utils/openUrl` instead.
+// No React Native imports, so the Deno MCP server loads this too and applies
+// the same normalization. Opening a link lives in `utils/openUrl` instead.
 
 /**
- * A scheme at the head of the value — `https:`, but also `mailto:` and any
- * app's own `dexter:`. Deliberately matches the scheme alone rather than a
- * whole URL: this decides whether to *add* `https://`, not whether the value is
- * valid.
- *
- * The colon must not be followed by a digit, or a bare `host:port` would read
- * as a scheme: `localhost:3000` and `example.com:8080/admin` are ordinary links
- * to paste onto a task, and left un-prefixed neither one opens. The cost is
- * that a numeric-first scheme body (`sms:15551234`) gets an `https://` it
- * didn't want, which is the rarer of the two by a wide margin.
+ * Matches the scheme alone — this decides whether to *add* `https://`, not
+ * validity. `(?!\d)` keeps `localhost:3000` from reading as a scheme.
  */
 const HAS_SCHEME = /^[a-z][a-z0-9+.-]*:(?!\d)/i;
 
@@ -24,14 +14,8 @@ const FIRST_LINK = /https?:\/\/\S+/i;
 const TRAILING_PUNCTUATION = /[.,;:!?'"]+$/;
 
 /**
- * A shared link without the punctuation that closed the sentence around it.
- * `FIRST_LINK` matches a run of non-space, so "see (https://example.com)."
- * yields a URL ending in `).` — stored as-is, that opens the wrong target or
- * nothing at all.
- *
- * A closing paren is only dropped when nothing in the link opened one, because
- * plenty of real URLs end in `)` — Wikipedia's disambiguated titles being the
- * usual example.
+ * `FIRST_LINK` matches a run of non-space, so the sentence's closing `).` comes
+ * along. A `)` is only dropped when the link opened none — real URLs end in `)`.
  */
 const withoutTrailingPunctuation = (url: string): string => {
   const trimmed = url.replace(TRAILING_PUNCTUATION, "");
@@ -41,13 +25,8 @@ const withoutTrailingPunctuation = (url: string): string => {
 };
 
 /**
- * A task's link as it should be stored: trimmed, `null` when empty, and given
- * an `https://` when the value is a bare host.
- *
- * Normalizes rather than validates. A link is optional, so a typo in it must
- * never block saving the task it belongs to — and the scheme is the one part
- * the user can't be expected to supply, because without it `Linking.openURL`
- * won't open `dexterplanner.com` at all.
+ * Normalizes rather than validates: a typo must never block saving the task,
+ * and without a scheme `Linking.openURL` won't open a bare host at all.
  */
 export const normalizeTaskUrl = (value: string): string | null => {
   const trimmed = value.trim();
@@ -56,12 +35,8 @@ export const normalizeTaskUrl = (value: string): string | null => {
 };
 
 /**
- * The link inside an OS share payload, or null when there isn't one.
- *
- * `webUrl` is what a browser's share sheet sends, and it is already just the
- * link. Everything else arrives as text — sometimes a bare link, sometimes a
- * sentence with one in it — so the fallback pulls the first http(s) run out and
- * then sheds whatever punctuation the sentence wrapped around it.
+ * `webUrl` is already just the link; text may be a sentence with one in it, so
+ * the fallback pulls the first http(s) run and sheds the sentence's punctuation.
  */
 export const extractSharedUrl = (
   webUrl?: string | null,

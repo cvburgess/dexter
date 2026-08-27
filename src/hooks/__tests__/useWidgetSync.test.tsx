@@ -7,10 +7,8 @@ import { EThemeMode } from "@/api/preferences";
 
 import { useWidgetSync } from "../useWidgetSync";
 
-// Only the two side effects are mocked. `buildWidgetSnapshot` comes from the
-// real module so these assertions run against a real payload — the point of the
-// hook is *when* it publishes, and "when" is only meaningful if what it compares
-// is the genuine article.
+// Only the two side effects are mocked; buildWidgetSnapshot is real, since the
+// point of the hook is *when* it publishes against a genuine payload.
 const mockWidgets = {
   writeWidgetSnapshot: jest.fn(),
   clearWidgetSnapshot: jest.fn(),
@@ -211,9 +209,8 @@ describe("useWidgetSync", () => {
   });
 
   it("touches nothing while auth is still restoring", () => {
-    // `session` is null on every cold start until the stored one loads.
-    // Clearing here would blank the widget on launch and repopulate it a beat
-    // later — two reloads and a visible flash of the empty state.
+    // session is null on every cold start until the stored one loads; clearing
+    // here would flash the empty state before repopulating a beat later.
     mockAuthState.session = null;
     mockAuthState.initializing = true;
 
@@ -255,9 +252,8 @@ describe("useWidgetSync", () => {
     });
 
     it("sends an empty payload when the habits feature is off", () => {
-      // Not a skipped write: the switch can be turned off *after* a snapshot
-      // was published, and a widget already on the home screen would otherwise
-      // keep showing rings for a feature the app no longer has.
+      // Not a skipped write — the switch can flip off after a snapshot was
+      // published, and the widget would otherwise keep showing stale rings.
       mockHabitsEnabledState.enableHabits = false;
       mockHabitsState.habits = [habit()];
 
@@ -275,9 +271,8 @@ describe("useWidgetSync", () => {
       mockHabitsState.habits = [habit()];
 
       const { rerender } = renderHook(() => useWidgetSync());
-      // Dated off the real clock, because the payload only carries today and
-      // the next three days — a fixed date would fall outside the window and
-      // leave the snapshot unchanged, which is not what this asserts.
+      // Dated off the real clock — the payload only carries today +3 days, and
+      // a fixed date could fall outside the window and leave it unchanged.
       mockTasksState.tasks = [task({ scheduledFor: TODAY })];
       rerender({});
 

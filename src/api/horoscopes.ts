@@ -11,21 +11,8 @@ export type THoroscopeSentiment =
   Database["public"]["Enums"]["horoscope_sentiment"];
 
 /**
- * A day's horoscope for one sign (DEX-84; re-shaped for astrology-api.io v3 in
- * DEX-145).
- *
- * Global reference data, not user data: the table has no `user_id` and every
- * signed-in user reads the same twelve rows a day. `preferences.sun_sign` is
- * the only user-scoped half — it says which of them is yours.
- *
- * `text` is the reading itself (~35 words) and is **stored but never rendered**
- * — see the Horoscope step's `Hero` for why the tips carry the screen instead.
- * The step shows the first tip as its hero, the rest below it, and then the
- * twelve life-area ratings grouped into three bands — see `LIFE_AREAS` and
- * `ratingBucket` in `utils/horoscope.ts`.
- *
- * `sentiment` is derived in the database from `overallRating`, not sent by the
- * upstream, which is why the two can never disagree.
+ * Global reference data — no `user_id`; `preferences.sun_sign` picks yours
+ * (DEX-84, DEX-145). `sentiment` derives from `overallRating` in the DB.
  */
 export type THoroscope = {
   sunSign: TSunSign;
@@ -62,10 +49,8 @@ export const getHoroscope = async (
     .maybeSingle();
 
   if (error) throw error;
-  // No row for this sign and day — the generator runs once a day and only
-  // forward, so any date it hasn't covered (a day the user navigated back to,
-  // or one further ahead than it has reached) legitimately has nothing. That is
-  // an empty state, not an error, so it has to be distinguishable from a row.
+  // The generator runs once a day and only forward, so an uncovered date is an
+  // empty state, not an error — it has to be distinguishable from a row.
   if (!data) return null;
 
   return camelCase(data) as THoroscope;

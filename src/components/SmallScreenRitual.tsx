@@ -28,20 +28,8 @@ type TSmallScreenRitualProps = {
   onToggleMode: () => void;
 };
 
-/**
- * The ritual on a small screen: one step at a time, `DayNav` between the AM/PM
- * switch and the step switcher, and a swipe that pages between steps rather
- * than days (DEX-127).
- *
- * **Nothing here is a "next" button.** Advancing is the swipe, exactly as it is
- * for days on the Today tab, and the switcher is navigation — it jumps to any
- * step and, because its trigger wears the current step's icon, doubles as a
- * "you are here". The large-screen layout (`LargeScreenRitual`) shows every step
- * at once in a segmented control instead, and drops the swipe with it.
- *
- * Fully controlled: every transition is `utils/ritualSteps`' business, so this
- * holds no state of its own.
- */
+// One step at a time; a swipe pages between steps, not days (DEX-127).
+// Fully controlled: every transition is utils/ritualSteps' business.
 export function SmallScreenRitual({
   state,
   onChangeDate,
@@ -52,11 +40,8 @@ export function SmallScreenRitual({
   const theme = useTheme();
   const step = currentStep(state);
   const lastStep = isLastStep(state);
-  // Suspends the step swipe while a step's text field is focused, so a
-  // horizontal drag positions the caret instead of paging — the same trade the
-  // Today tab makes for Notes and Journal. Held per layout rather than in the
-  // route's `TRitualState`: crossing the breakpoint remounts this and resets the
-  // flag to `false`, which is the safe direction.
+  // Suspends the step swipe on focus, same trade Today makes for Notes/Journal.
+  // Held per layout, not in TRitualState — a breakpoint crossing safely resets it.
   const [editing, setEditing] = useState(false);
 
   return (
@@ -72,11 +57,8 @@ export function SmallScreenRitual({
           <RitualStepSwitcher onSelectStep={onSelectStep} state={state} />
         }
       />
-      {/* Only the top inset here: `SwipeablePage` supplies the side gutter, and
-          this is the same `space.md` so a step that paints to its own edges —
-          the horoscope's card does — sits the same distance off the header as
-          it does off the sides. Matches what `LargeScreenRitual` has always
-          added (see docs/design.md, "Who owns spacing"). */}
+      {/* Top inset only — SwipeablePage supplies the side gutter, matching
+          LargeScreenRitual's own (docs/design.md, "Who owns spacing"). */}
       <View
         style={[
           styles.body,

@@ -2,12 +2,8 @@ import type { NativeStackNavigationOptions } from "expo-router/build/react-navig
 
 import { Theme } from "./theme";
 
-/**
- * Options for a standard list/detail screen with a visible header, themed so
- * the header and screen body follow the active color scheme. The header shares
- * the body's `background` rather than sinking to `surfaceSunken` — see the
- * native variant for why.
- */
+// Header shares the body's `background` rather than `surfaceSunken` — see
+// the native variant for why.
 export function createListScreenOptions(
   theme: Theme,
   title: string,
@@ -20,10 +16,7 @@ export function createListScreenOptions(
   };
 }
 
-/**
- * Options for modal screens. Web implementation hides the default header —
- * the screen renders `WebModalHeader` (Cancel/Save bar) instead.
- */
+// Hides the default header; the screen renders WebModalHeader instead.
 export function createModalScreenOptions(
   theme: Theme,
   title: string,

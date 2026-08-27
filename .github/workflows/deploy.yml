@@ -9,10 +9,8 @@ on:
       - 'src/**'
   workflow_dispatch:
 
-# Serialize production deploys: never run migrations / function deploys /
-# EAS steps concurrently against the same project. Queue superseded runs
-# rather than cancel them — cancelling mid-migration could leave prod in a
-# half-applied state.
+# Serialize production deploys; queue superseded runs rather than cancel —
+# cancelling mid-migration could leave prod half-applied.
 concurrency:
   group: deploy-production
   cancel-in-progress: false
@@ -53,13 +51,8 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
-      # `--include-all` applies any local migration missing from the remote
-      # history, even one whose timestamp sorts before the remote HEAD. PRs
-      # merge in a different order than their migrations were authored, so a
-      # migration written before another PR's can land after it; without this
-      # flag `db push` exits 1 and blocks the whole deploy (DEX-65 / #81).
-      # The tradeoff: a migration can be applied out of timestamp order, so
-      # each one must stand alone — see docs/backend.md.
+      # PRs merge in a different order than migrations were authored; without
+      # --include-all, db push exits 1 (DEX-65/#81). Tradeoff: docs/backend.md.
       - name: Apply Migrations
         run: supabase db push --include-all --password ${{ secrets.SUPABASE_DB_PASSWORD }}
         env:

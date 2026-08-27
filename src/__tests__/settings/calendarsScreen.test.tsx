@@ -7,13 +7,8 @@ import { usePreferences } from "@/hooks/usePreferences";
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 jest.mock("@/hooks/useIsLargeDevice", () => ({ useIsLargeDevice: jest.fn() }));
 
-// The source list runs an unmocked React Query against the device's calendars,
-// which resolves a microtask or two *after* these synchronous assertions — a
-// state update outside `act()` that `jest.setupAfterEnv.js` then fails whichever
-// test happens to be running when React flushes it (DEX-130). Nothing here
-// asserts on the list, and both its variants have their own suite in
-// `components/__tests__/CalendarSourceList.test.tsx`, so it stands in as a
-// marker rather than being re-exercised per screen.
+// The real list's unmocked query resolves after these sync assertions, tripping
+// the act() guard (DEX-130); it has its own suite, so stub to a marker here.
 jest.mock("@/components/CalendarSourceList", () => {
   const { Text } =
     jest.requireActual<typeof import("react-native")>("react-native");

@@ -3,10 +3,8 @@ import { AudioManager, decodeAudioData } from "react-native-audio-api";
 
 import { useHoroscopeAudio } from "@/hooks/useHoroscopeAudio";
 
-// An audio graph this file can read back. Everything the hook schedules lands
-// on `currentTime` on gain params, so those calls are the only observable
-// behaviour — the global stub in `jest.setup.js` is inert on purpose, and this
-// replaces it.
+// The global stub in jest.setup.js is inert on purpose; this replaces it
+// with an audio graph that records the gain-param calls the hook schedules.
 const mockParam = () => ({
   cancelAndHoldAtTime: jest.fn(),
   linearRampToValueAtTime: jest.fn(),
@@ -56,21 +54,16 @@ const mockAudioContext = jest.fn(() => {
   return context;
 });
 
-// The decode fires at *module* scope — while this file's own `const`s are
-// still being initialized, so anything the promise closes over must live here.
-// The deferred is handed back through the mocked module itself (`__mockDecode`
-// below); tests resolve it to settle the track, and playback proceeds only
-// after that.
+// The decode fires at module scope, before this file's own consts exist, so
+// the deferred is handed back via the mocked module's `__mockDecode` instead.
 jest.mock("react-native-audio-api", () => {
   const mockDecode = {
     resolve: (_buffer: { duration: number }) => {},
   };
 
   return {
-    // Defined inside the factory rather than closed over: the hook creates
-    // its playback context at *focus* time, but importing the hook still
-    // needs the mock to exist, and the factory runs before this file's own
-    // declarations do.
+    // Defined inside the factory: it must exist before this file's own
+    // declarations run, since the hook creates its context at focus time.
     AudioContext: function () {
       return mockAudioContext();
     },
@@ -88,11 +81,8 @@ const mockDecode = jest.requireMock<{
   __mockDecode: { resolve: (buffer: { duration: number }) => void };
 }>("react-native-audio-api").__mockDecode;
 
-// Stand in for react-navigation's focus lifecycle, as `useViewedDay.test.tsx`
-// does: run the effect on mount (focus) and its cleanup on unmount (blur). The
-// hook memoizes on `[enabled]`, so toggling that re-runs it exactly as a real
-// blur-then-focus would — which is what makes "unmount" below stand for
-// switching tabs as well as leaving the step.
+// Mount/unmount stand in for focus/blur; toggling `enabled` re-runs the
+// effect exactly as a real blur-then-focus would.
 jest.mock("expo-router", () => {
   const { useEffect } = require("react");
   return {
@@ -111,8 +101,7 @@ const EXIT_FADE_MS = 2000;
 // fraction of this rather than of 1.
 const MAX_VOLUME = 0.1;
 
-// Read before any `clearAllMocks` can wipe them. Importing the hook is the
-// whole event — there is nothing later to observe.
+// Read before clearAllMocks wipes them — importing the hook is the whole event.
 const decodeCallsOnImport = jest.mocked(decodeAudioData).mock.calls.length;
 const disabledSessionsOnImport = jest.mocked(
   // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -134,9 +123,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  // Drain whichever fade's `setTimeout` is pending before handing the clock
-  // back, so a test that unmounts does not leave the close running into the
-  // next one.
+  // Drain whichever fade's setTimeout is pending, or an unmounted test's
+  // close runs into the next one.
   jest.advanceTimersByTime(EXIT_FADE_MS * 2);
   jest.useRealTimers();
 });
@@ -185,9 +173,8 @@ describe("useHoroscopeAudio", () => {
     );
 
     const gain = mockGains[0].gain;
-    // Two sets: one anchors the ceiling at the start, the second anchors it
-    // again where the tail begins — a ramp alone would slope over the whole
-    // track instead of the last seconds.
+    // Anchored twice: at the start, then again where the tail begins — a
+    // ramp alone would slope over the whole track instead of the last seconds.
     expect(gain.setValueAtTime).toHaveBeenCalledWith(MAX_VOLUME, 0);
     expect(gain.setValueAtTime).toHaveBeenCalledWith(
       MAX_VOLUME,
@@ -206,12 +193,11 @@ describe("useHoroscopeAudio", () => {
     unmount();
 
     const gain = mockGains[0].gain;
-    // The tail ramp is still scheduled; the hold cancels it and the fade rides
-    // from wherever the gain actually is.
+    // The hold cancels the still-scheduled tail ramp; the fade rides from
+    // wherever the gain actually is.
     expect(gain.cancelAndHoldAtTime).toHaveBeenCalledWith(0);
-    // The anchor: with the tail events gone, the ramp must start at `now` at
-    // the tail's value there — unanchored it would slope from the t=0 set and
-    // be mostly gone the instant the cleanup runs.
+    // Unanchored, the ramp would slope from the t=0 set and be mostly gone
+    // the instant cleanup runs.
     expect(gain.setValueAtTime).toHaveBeenCalledTimes(3);
     expect(gain.setValueAtTime).toHaveBeenLastCalledWith(MAX_VOLUME, 0);
     expect(gain.linearRampToValueAtTime).toHaveBeenCalledWith(
@@ -220,20 +206,14 @@ describe("useHoroscopeAudio", () => {
     );
     expect(mockSources[0].stop).toHaveBeenCalledWith(EXIT_FADE_MS / 1000);
 
-    // Closing tears the context down wherever it is, so it has to outlast the
-    // fade rather than cut it short.
+    // Closing tears the context down, so it has to outlast the fade.
     expect(mockContexts[0].close).not.toHaveBeenCalled();
     jest.advanceTimersByTime(EXIT_FADE_MS);
     expect(mockContexts[0].close).toHaveBeenCalled();
   });
 
-  // Switching tabs was the bug this hook shipped with: a tab navigator keeps
-  // its screens mounted, so an unmount-scoped effect never cleaned up and the
-  // track played on over the next tab. Worth being straight about what this
-  // does and does not prove — the mock above stands focus in as mount, so it
-  // cannot catch a regression back to plain `useEffect`. What it does pin is
-  // that the cleanup path is driven by the hook's *input* rather than only by
-  // teardown, which is the half that is testable here.
+  // Pins that cleanup is driven by the hook's input, not only teardown; the
+  // mock stands focus in as mount, so it can't catch a plain-useEffect regression.
   it("fades when it stops being enabled, not only when it goes away", async () => {
     const { rerender } = renderHook<void, { enabled: boolean }>(
       ({ enabled }) => useHoroscopeAudio(enabled),
@@ -248,10 +228,8 @@ describe("useHoroscopeAudio", () => {
     expect(mockContexts[0].close).toHaveBeenCalled();
   });
 
-  // Coming back inside the two-second exit fade — swipe to the next step and
-  // straight back, or tab away and return — used to leave the outgoing player
-  // running while a new one started, laying the same track over itself at two
-  // positions. An echo, not ambience.
+  // Returning inside the exit fade used to leave the outgoing player running
+  // while a new one started — the same track over itself at two positions.
   it("never leaves two tracks audible at once", async () => {
     const first = renderHook(() => useHoroscopeAudio(true));
     await settleDecode();
@@ -275,10 +253,8 @@ describe("useHoroscopeAudio", () => {
     expect(mockContexts[0].close).toHaveBeenCalledTimes(1);
   });
 
-  // The first entry pays for the decode, and that is when a swipe away is
-  // most likely. `useFocusEffect`'s callback cannot await it, so the cleanup
-  // flags the pending continuation — without that, a blur during the first
-  // load would leave a source running with no cleanup registered.
+  // Cleanup flags the pending continuation since the effect can't await the
+  // decode — otherwise a blur during load leaves a source with no cleanup.
   it("does not start playback when the step blurs before the decode settles", async () => {
     const { unmount } = renderHook(() => useHoroscopeAudio(true));
     unmount();

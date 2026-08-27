@@ -64,9 +64,8 @@ describe("SegmentedControl", () => {
     expect(screen.queryByTestId("mode-new")).toBe(null);
   });
 
-  // The icon form exists for the Ritual toolbar, where six words wouldn't fit
-  // but six glyphs do. iOS hosts a real UISegmentedControl instead
-  // (`RitualStepSegments.ios`), so this drawn form is Android and web's.
+  // For the Ritual toolbar, where glyphs fit but six words wouldn't — iOS
+  // hosts a real UISegmentedControl instead (RitualStepSegments.ios).
   describe("icon segments", () => {
     const ICON_OPTIONS = [
       {
@@ -112,9 +111,8 @@ describe("SegmentedControl", () => {
     });
   });
 
-  // `stretch` decides whether segments divide their container or size to their
-  // own content. The second is required in a toolbar row, which has no width of
-  // its own for `flex: 1` segments to divide — they would collapse to nothing.
+  // A toolbar row has no width of its own for `flex: 1` segments to divide —
+  // they'd collapse to nothing without content-sizing.
   describe("stretch", () => {
     const segmentFlex = (value: boolean | undefined) => {
       const screen = render(

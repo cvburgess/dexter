@@ -5,9 +5,8 @@ describe("isTaskDragPayload", () => {
     expect(isTaskDragPayload({ taskId: "task-1" })).toBe(true);
   });
 
-  // Drax types every payload as `unknown`, so a receiver has no guarantee about
-  // what reaches it. Anything that slipped through would reach `updateTask` with
-  // an undefined id and write a row that doesn't exist.
+  // Drax types every payload as `unknown`; anything that slipped through would
+  // reach `updateTask` with an undefined id and write a row that doesn't exist.
   it.each([
     ["undefined", undefined],
     ["null", null],

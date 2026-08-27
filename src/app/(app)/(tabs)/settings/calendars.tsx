@@ -39,16 +39,13 @@ export default function CalendarsScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <ScrollView
-        // The edges above omit `bottom` so content scrolls under the
-        // translucent tab bar; adding the inset to the content's own bottom
-        // padding is what lets the last row clear it (DEX-91).
+        // Edges omit `bottom`; the content padding lets the last row clear
+        // the translucent tab bar (DEX-91).
         contentContainerStyle={[
           styles.content,
           {
             padding: theme.space.md,
             paddingBottom: theme.space.md + insets.bottom,
-            // The in-group step only: `SettingsSectionTitle` carries the `lg`
-            // between sections itself, so it applies wherever it renders (DEX-61).
             gap: theme.space.sm,
           },
         ]}

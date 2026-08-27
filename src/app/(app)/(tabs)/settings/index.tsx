@@ -17,9 +17,8 @@ export default function SettingsScreen() {
   const twoPane = useIsLargeDevice();
   const insets = useSafeAreaInsets();
 
-  // On wide screens the list becomes a persistent sidebar (SettingsSidebar) and
-  // this index would otherwise render the same list again in the detail pane, so
-  // redirect to a default subview and let the sidebar drive navigation.
+  // Wide screens get the list as a persistent sidebar, so redirect to a
+  // default subview rather than render the same list again in the pane.
   if (twoPane) {
     return <Redirect href={`/settings/${SETTINGS_ITEMS[0].slug}`} />;
   }
@@ -32,11 +31,8 @@ export default function SettingsScreen() {
       style={[styles.screen, { backgroundColor: theme.colors.background }]}
     >
       <FlatList
-        // Ungrouped: each item is its own card, separated by margin (rather than
-        // sharing a single grouped surface).
-        // `paddingBottom` adds the safe-area inset to the list's own padding:
-        // the edges above omit `bottom` so rows scroll under the translucent
-        // tab bar, and this is what lets the last one clear it (DEX-91).
+        // Ungrouped cards; edges omit `bottom` so this padding lets the
+        // last row clear the translucent tab bar (DEX-91).
         contentContainerStyle={{
           gap: theme.space.sm,
           padding: theme.space.md,

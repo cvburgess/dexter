@@ -41,10 +41,8 @@ export const supabase = createClient<Database>(
   },
 );
 
-// On native, the auto-refresh timer is suspended while the app is
-// backgrounded, so the access token can silently expire. Tie the timer to
-// AppState so the token is eagerly refreshed when the app returns to the
-// foreground. The browser keeps timers running, so this is unnecessary on web.
+// Native suspends timers while backgrounded, so the token can silently
+// expire; tie refresh to AppState. Unnecessary on web, which keeps timers running.
 if (Platform.OS !== "web") {
   AppState.addEventListener("change", (state) => {
     if (state === "active") {

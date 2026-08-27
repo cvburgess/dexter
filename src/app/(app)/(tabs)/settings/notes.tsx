@@ -23,10 +23,8 @@ export default function NotesScreen() {
   const twoPane = useIsLargeDevice();
   const insets = useSafeAreaInsets();
 
-  // Edit the template locally and commit on blur so we don't write a
-  // preference on every keystroke. Re-sync from the stored value when it
-  // changes elsewhere, but never while the field is focused (would clobber
-  // in-progress typing).
+  // Edit locally, commit on blur; re-sync from stored value on change
+  // elsewhere unless focused, which would clobber typing.
   const [draft, setDraft] = useState(preferences.templateNote);
   const focusedRef = useRef(false);
   useEffect(() => {
@@ -46,16 +44,13 @@ export default function NotesScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <ScrollView
-        // The edges above omit `bottom` so content scrolls under the
-        // translucent tab bar; adding the inset to the content's own bottom
-        // padding is what lets the last row clear it (DEX-91).
+        // Edges omit `bottom`; the content padding lets the last row clear
+        // the translucent tab bar (DEX-91).
         contentContainerStyle={[
           styles.content,
           {
             padding: theme.space.md,
             paddingBottom: theme.space.md + insets.bottom,
-            // The in-group step only: `SettingsSectionTitle` carries the `lg`
-            // between sections itself, so it applies wherever it renders (DEX-61).
             gap: theme.space.sm,
           },
         ]}

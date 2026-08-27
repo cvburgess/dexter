@@ -23,11 +23,8 @@ describe("parseDayMode", () => {
   });
 
   it("rejects an unknown mode rather than passing it through", () => {
-    // `calendar` is a real day view but nothing links to it — there is nothing
-    // in a calendar event to search. `journal` is no longer a day view at all
-    // (DEX-105): it links through `utils/ritualRoute.ts` instead, so a stale
-    // `?mode=journal` URL must fall through to Tasks rather than select a view
-    // that doesn't exist.
+    // Nothing links to `calendar`, and `journal` moved to ritualRoute (DEX-105)
+    // — a stale `?mode=journal` URL must fall through to Tasks.
     expect(parseDayMode("calendar")).toBeNull();
     expect(parseDayMode("journal")).toBeNull();
     expect(parseDayMode(undefined)).toBeNull();
@@ -48,9 +45,8 @@ describe("parseDayLink", () => {
   });
 
   it("gives two follows of the same link different ids", () => {
-    // The whole point: cross-tab navigation reuses the mounted Today screen and
-    // only swaps its params, so a value-based comparison can't tell "already
-    // applied" from "applied, user navigated away, and asked again".
+    // Cross-tab navigation only swaps params, so a value-based comparison
+    // can't tell "already applied" from "applied, left, and asked again".
     const first = parseDayLink({ date: "2026-07-14", mode: "notes", n: "1" });
     const second = parseDayLink({ date: "2026-07-14", mode: "notes", n: "2" });
 

@@ -81,9 +81,8 @@ const renderWith = (
   return render(<RitualScreen />);
 };
 
-// The "Add prompt" affordance lives in the navigation header (set via
-// setOptions), so it isn't in the screen's own tree. Render the latest
-// headerRight to inspect/press it.
+// "Add prompt" lives in the navigation header, not the screen's own tree;
+// render the latest headerRight to inspect/press it.
 const renderHeader = () => {
   const options = mockSetOptions.mock.calls.at(-1)?.[0];
   return render(options.headerRight());
@@ -120,9 +119,8 @@ describe("RitualScreen", () => {
       expect(pickerPropsFor("sun-sign-picker")?.selectedValue).toBe("leo");
     });
 
-    // A null sign has no matching item of its own, and a Picker given a value
-    // none of its items carry renders with nothing selected — so it has to
-    // land on the sentinel instead.
+    // A Picker given a value none of its items carry renders with nothing
+    // selected, so a null sign has to land on the sentinel instead.
     it("falls back to the unset sentinel when no sign is stored", () => {
       renderWith({ sunSign: null });
 
@@ -163,10 +161,8 @@ describe("RitualScreen", () => {
       expect(pickerPropsFor("sun-sign-picker")?.selectedValue).toBe("leo");
     });
 
-    // The Horoscope is the other story: the sign feeds that step and nothing
-    // else, so with the step off the picker would offer a choice that changes
-    // nothing (DEX-142). `pickerProps` is null rather than stale because
-    // `resetPicker` runs in `beforeEach`.
+    // The sign feeds only the Horoscope step, so with it off the picker would
+    // offer a choice that changes nothing (DEX-142).
     it("hides when the Horoscope is disabled", () => {
       renderWith({ enableHoroscope: false, sunSign: "leo" });
 
@@ -205,9 +201,8 @@ describe("RitualScreen", () => {
     expect(renderHeader().getByLabelText("Add prompt")).toBeTruthy();
   });
 
-  // Without this, a focused prompt low on the screen stays under the keyboard:
-  // the wrapper this replaced padded the scroller's frame, which gave scroll
-  // room but never moved content to the field (DEX-92).
+  // Without this a focused prompt stays under the keyboard — the wrapper this
+  // replaced padded the frame, which gave room but never moved content (DEX-92).
   it("lets iOS inset the scroll content by the keyboard", () => {
     const screen = renderWith({ enableJournal: true });
 

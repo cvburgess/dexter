@@ -13,24 +13,8 @@ type TDayNavHeaderProps = {
   trailing?: ReactNode;
 };
 
-/**
- * The small-screen header row shared by the Today tab and the Ritual flow:
- * `DayNav` with up to one control at each edge.
- *
- * The controls are **absolutely positioned rather than flex siblings**, which is
- * the whole reason this is a component. `DayNav` spans the full width so its
- * arrows and date stay screen-centered; a control taking row space would push it
- * off-center by its own width, so Today (one control) and Ritual (two) would
- * center their navs in different places and the row would visibly shift as you
- * moved between the tabs. Overlaying keeps the nav put whatever sits beside it —
- * the horizontal counterpart of what `LargeScreenHeader` does for the
- * large-screen tabs (DEX-127).
- *
- * This only works while each control is about as wide as the space beside the
- * nav, which is why the Ritual flow's small-screen step control is a single
- * button opening a menu: showing every step at once is the large-screen
- * layout's job, where the toolbar has room for it.
- */
+/** `DayNav` with up to one control per edge, **absolutely positioned, not
+ * flex siblings** — a flex control would push the centered arrows off. */
 export function DayNavHeader({
   date,
   onChangeDate,
@@ -58,10 +42,8 @@ const styles = StyleSheet.create({
   header: {
     justifyContent: "center",
   },
-  // Full-height so the overlaid control centers against the nav row whatever
-  // its own height is. The inset is the value the Today tab has always used for
-  // its switcher; it is deliberately a little tighter than the theme gutter so
-  // the control clears `PeriodNav`'s chevron hit area.
+  // Full-height so the control centers against the nav row; inset is
+  // Today's own switcher value, tighter than the gutter to clear PeriodNav.
   slot: {
     alignItems: "center",
     bottom: 0,

@@ -12,24 +12,8 @@ import {
 import { supabase, useAuth } from "./useAuth";
 import { useHabits } from "./useHabits";
 
-/**
- * Persists the habit steps the widget could not (DEX-160).
- *
- * `DexterHabitStepIntent` runs inside the widget extension, which holds no
- * Supabase session and deliberately never will — see the header of
- * `utils/widgets.shared.ts` for why mirroring one into the App Group would end
- * with the user signed out. So the intent files each tap under
- * `PENDING_HABIT_STEPS_KEY` and the widget renders `pending ?? snapshot`; this
- * hook is the other half, draining the queue into Supabase the next time the
- * app is in front of the user.
- *
- * The direction is why it isn't part of `useWidgetSync`: that hook publishes
- * *to* the App Group and touches no server, this one reads *from* it and is the
- * only widget code that writes to the database.
- *
- * Mounted once, high in the authenticated tree. No-ops off iOS, where
- * `readPendingHabitSteps` is always empty.
- */
+// Drains widget-queued habit steps into Supabase on foreground (DEX-160):
+// the extension holds no session (see utils/widgets.shared.ts). Mount once.
 export const useHabitWidgetDrain = (): void => {
   const queryClient = useQueryClient();
   const { session } = useAuth();
@@ -37,15 +21,12 @@ export const useHabitWidgetDrain = (): void => {
 
   const isSignedIn = !!session;
 
-  // Whether a drain is already in flight. Foregrounding fires the listener
-  // while the mount pass may still be awaiting Supabase, and two passes over
-  // the same queue would both try to persist — and then both clear — the same
-  // keys.
+  // Foregrounding can fire while the mount pass still awaits Supabase; two
+  // passes would both persist — then both clear — the same keys.
   const draining = useRef(false);
 
-  // The habit list as of the last commit, read through a ref so the drain can
-  // look up a habit's `steps` without the callback (and with it the effect and
-  // its listener) being torn down and rebuilt on every habits refetch.
+  // Read through a ref so a habits refetch doesn't tear down and rebuild the
+  // callback, the effect, and its AppState listener.
   const habitsRef = useRef(habits);
   useEffect(() => {
     habitsRef.current = habits;
@@ -60,9 +41,8 @@ export const useHabitWidgetDrain = (): void => {
 
     draining.current = true;
 
-    // The keys that reached the database, cleared together at the end. A key
-    // whose write threw is left in the queue on purpose: the next foreground
-    // retries it, which is the whole point of the queue surviving a failure.
+    // Keys whose write threw stay queued on purpose — the next foreground
+    // retries them; that is the point of the queue surviving a failure.
     const drained: string[] = [];
     const dates = new Set<string>();
 
@@ -70,9 +50,8 @@ export const useHabitWidgetDrain = (): void => {
       for (const [key, stepsComplete] of entries) {
         const parsed = parsePendingHabitStepsKey(key);
 
-        // Written by the extension, so this parses another binary's output. A
-        // key this build cannot read would otherwise sit in the queue forever,
-        // retried on every foreground; dropping it costs one tap.
+        // Keys come from another binary; one this build cannot parse would sit
+        // queued forever. Dropping it costs one tap.
         if (!parsed) {
           drained.push(key);
           continue;
@@ -94,29 +73,22 @@ export const useHabitWidgetDrain = (): void => {
             date: parsed.date,
             habitId: parsed.habitId,
             steps: habit.steps,
-            // The intent computed this against the target the *snapshot*
-            // carried, which an edit in the app can have lowered since. The DB
-            // trigger already clamps `steps_complete` on a same-day `steps`
-            // edit; this keeps a row created by the upsert itself from being
-            // the one place that escapes it.
+            // The intent computed against the snapshot's target, which an app
+            // edit can have lowered since; clamp like the DB trigger does.
             stepsComplete: Math.min(stepsComplete, habit.steps),
           });
           drained.push(key);
           dates.add(parsed.date);
         } catch {
-          // Offline, or a row the server rejected. Left queued for the next
-          // foreground — the widget is still showing this value, so the user
-          // sees no regression in the meantime.
+          // Offline or rejected: left queued for the next foreground. The
+          // widget still shows this value, so the user sees no regression.
         }
       }
 
       clearPendingHabitSteps(drained);
 
-      // Only the daily rows, not `HABITS_INVALIDATION_KEYS`. That pairing exists
-      // for a habit *edit*, which can change today's rows through the DB
-      // trigger; a step changes nothing about the habit itself, and refetching
-      // the list would re-render the root of the authenticated tree — where
-      // `useWidgetSync` now reads it — for no new data.
+      // Not `HABITS_INVALIDATION_KEYS`: a step changes nothing about the habit
+      // itself, and refetching the list re-renders the authenticated root.
       if (dates.size > 0) {
         void queryClient.invalidateQueries({ queryKey: ["dailyHabits"] });
       }
@@ -130,12 +102,8 @@ export const useHabitWidgetDrain = (): void => {
     // `useWidgetSync` has already emptied the queue by this point.
     if (!isSignedIn) return;
 
-    // **Waiting on the habits list is not an optimisation.** The drain reads a
-    // habit's `steps` to clamp the queued value, and treats a habit it cannot
-    // find as one deleted since the tap — so draining against the empty list a
-    // cold start begins with would discard every queued step as belonging to a
-    // habit that no longer exists, which is the one failure this queue exists
-    // to prevent.
+    // Not an optimisation: draining against a cold start's empty habits list
+    // would discard every queued step as belonging to a deleted habit.
     if (habitsLoading) return;
 
     // A cold start never fires an `AppState` change, so the queue a killed app

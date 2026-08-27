@@ -46,11 +46,8 @@ const mockTasks = (tasks: TTask[]) => {
   ]);
 };
 
-/**
- * The props the drax stub passed to the drop target. Drax itself calls these
- * off its own registry rather than off the rendered element, which is why the
- * tests below invoke them directly instead of simulating a pointer path.
- */
+// The props the drax stub passed to the drop target — real drax calls these
+// off its own registry, which is why tests invoke them directly.
 const targetProps = (screen: ReturnType<typeof render>, testID: string) =>
   screen.getByTestId(testID).props as {
     acceptsDrag: (payload: unknown) => boolean;
@@ -178,13 +175,8 @@ describe("TaskDropTarget", () => {
     });
   });
 
-  // The regression these guard is invisible to a normal render assertion. Drax
-  // snapshots a view's props into its registry when the view registers and
-  // refreshes that snapshot only when a *capability* prop changes, then calls
-  // the snapshotted handler. The Jest stub is a pass-through View, so reading
-  // the current prop off the element would pass no matter how stale the real
-  // handler had become. Capturing a handler and calling it after a rerender is
-  // what reproduces drax's actual behavior.
+  // Invisible to a normal assertion: the Jest stub is a pass-through View, so
+  // capturing a handler and calling it post-rerender reproduces drax's staleness.
   describe("handlers held from an earlier render", () => {
     it("schedules for the target's current date, not the one it mounted with", () => {
       const screen = renderTarget("2026-07-16");

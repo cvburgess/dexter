@@ -28,31 +28,8 @@ type TLargeScreenRitualProps = {
   onSwipe: (direction: 1 | -1) => void;
 };
 
-/**
- * The ritual on a large screen: the same flow as the phone, laid out for a
- * window rather than squeezed into one (DEX-127).
- *
- * It runs **in the tab**, not in a modal. An earlier cut opened the phone
- * experience in a form sheet from a play button, which meant two copies of the
- * ritual state and a route that showed nothing on its own; one route rendering
- * one flow is both simpler and linkable.
- *
- * One difference from `SmallScreenRitual`, and it is about having room: the
- * steps are a segmented control in the toolbar rather than a menu, so the whole
- * ritual is visible and its progress readable at a glance.
- *
- * The swipe is **not** a difference — `SwipeablePage` wraps the step here too.
- * That departs from the large-screen Today tab, which deliberately has no
- * swipe, and the reason it should: paging days is navigation between equals,
- * where the nav arrows say plainly what a gesture only implies, but a ritual is
- * a sequence you move *through*, and a trackpad or touchscreen swipe is the
- * most direct way to say "next". It costs nothing to offer alongside the
- * segments.
- *
- * `DayNav` sits flush at the gutter, matching the Week tab rather than Today —
- * Today centers its nav inside a slot capped to the Tasks pane so it labels
- * that column, and there is no column here to label.
- */
+/** The ritual on a large screen (DEX-127): one route, one state copy — a
+ * sequence moved through via SwipeablePage, unlike Today's arrows. */
 export function LargeScreenRitual({
   state,
   onChangeDate,
@@ -63,9 +40,7 @@ export function LargeScreenRitual({
   const theme = useTheme();
   const step = currentStep(state);
   const lastStep = isLastStep(state);
-  // The swipe is not a small-screen affordance on this tab (see above), so the
-  // caret conflict it creates isn't either: a focused text field suspends it
-  // here exactly as it does on the phone.
+  // A focused text field suspends the swipe here exactly as on the phone.
   const [editing, setEditing] = useState(false);
 
   return (
@@ -83,18 +58,8 @@ export function LargeScreenRitual({
       >
         <DayNav date={state.date} onChangeDate={onChangeDate} />
       </LargeScreenHeader>
-      {/* Only the top inset here: `SwipeablePage` supplies the side gutter, on
-          this layout exactly as it does on the phone, so the step never pads
-          itself from its container's edge (see docs/design.md, "Who owns
-          spacing").
-
-          **Twice that gutter**, not equal to it (DEX-138). Once the page is
-          capped and centered, a step that paints to its own edges — the
-          horoscope's card does — reads as hanging off the toolbar at a matching
-          inset, because the window leaves far more air at its sides than the
-          gutter ever will. Derived from the same token the sides use so the two
-          cannot drift; the phone keeps them equal, having no centering bands to
-          answer to. */}
+      {/* Only the top inset: SwipeablePage supplies the side gutter, doubled
+          from the phone's (DEX-138) or a step reads as hanging off the toolbar. */}
       <View
         style={[
           styles.body,

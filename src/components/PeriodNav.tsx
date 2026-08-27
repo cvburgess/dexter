@@ -10,27 +10,14 @@ type TPeriodNavProps = {
   prevLabel: string;
   /** Accessibility label for the › chevron, e.g. "Next week". */
   nextLabel: string;
-  /**
-   * The center slot's contents, between the two chevrons — a `PeriodNavLabel`
-   * for the "jump back to now" shortcut both tabs have, or any other control.
-   * The slot sizes it; the caller doesn't restate the width.
-   */
+  /** Center slot content — a PeriodNavLabel, or any other control; the slot
+   * sizes it, so the caller never restates the width. */
   children: ReactNode;
 };
 
-/**
- * The prev/center/next row shared by `DayNav` (Today) and `WeekNav` (Week).
- *
- * Owning the arrow hit area, the 24pt chevrons, and the center slot's width
- * here is what keeps the two tabs' header rows on the same baseline: the
- * metrics live in one place, so they can't drift the way they could when each
- * nav carried its own copy guarded by a comment (DEX-97). The slot's width is
- * fixed rather than intrinsic so the chevrons also stay put as the label's text
- * changes ("Friday, Jul 3" → "Wednesday, Sep 10").
- *
- * Purely presentational — the period arithmetic and what the center does stay
- * with the caller, which is the only part the two navs genuinely disagree on.
- */
+// Shared by DayNav and WeekNav so their header rows share one baseline
+// (DEX-97) — the slot's width is fixed, not intrinsic, so the chevrons stay
+// put as the label's text length changes.
 export function PeriodNav({
   onPrev,
   onNext,
@@ -98,9 +85,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  // The default `alignItems: "stretch"` is load-bearing: it hands the full slot
-  // width to whatever the caller puts here, so a tappable label's hit area is
-  // the whole 160 rather than just its text.
+  // Default alignItems: "stretch" is load-bearing — hands the full slot width
+  // to the label, so its hit area is the whole 160, not just its text.
   center: {
     minWidth: 160,
   },

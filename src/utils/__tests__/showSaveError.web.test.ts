@@ -1,7 +1,5 @@
-// `showSaveError` is platform-agnostic — only the alert underneath it splits —
-// so covering the web path means swapping in the web variant of `../alert`.
-// Jest resolves the extension-less path to the native file, and the factory is
-// hoisted above the imports, hence `requireActual` rather than a plain import.
+// Only the alert underneath splits by platform; jest resolves extension-less
+// paths to native and hoists the factory, hence `requireActual`.
 import { showSaveError } from "../showSaveError";
 
 jest.mock("../alert", () =>
@@ -9,11 +7,7 @@ jest.mock("../alert", () =>
 );
 
 describe("showSaveError (web)", () => {
-  // Jest's environment has a `window` but no `alert` on it, so there is nothing
-  // to spy on — assign the stub and put the original back afterwards. The
-  // reference is only ever stored and re-assigned, never called detached, so
-  // `unbound-method` (which flags it as of typescript-eslint 8.65) has nothing
-  // to protect here.
+  // Jest's window has no `alert` to spy on, so assign a stub and restore it.
   // eslint-disable-next-line @typescript-eslint/unbound-method
   const originalAlert = window.alert;
   const windowAlert = jest.fn();
@@ -30,8 +24,8 @@ describe("showSaveError (web)", () => {
   it("reaches the browser dialog with the whole sentence", () => {
     showSaveError("task");
 
-    // The browser dialog has no title slot, so "Something went wrong" is lost —
-    // the message has to carry the failure on its own.
+    // No title slot, so "Something went wrong" is lost — the message alone
+    // must carry the failure.
     expect(windowAlert).toHaveBeenCalledWith(
       "We couldn't save your task. Please try again.",
     );

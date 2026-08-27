@@ -2,42 +2,15 @@ import { Temporal } from "@js-temporal/polyfill";
 
 import { TCalendarEvent } from "@/hooks/useCalendarEvents.types";
 
-/**
- * How tomorrow reads against a typical one of its own weekday: what the evening
- * ritual's Preview tomorrow step (DEX-149) says above the agenda.
- *
- * React-free and import-light, the same leaf discipline `calendarStats` keeps,
- * so every rule here — the comparison band, the no-history guard, and the whole
- * copy table — is unit-testable without a native host. The step resolves tones
- * to theme tokens and renders; it decides nothing.
- */
+// What the evening ritual's Preview tomorrow step (DEX-149) says above the
+// agenda. React-free like calendarStats — the step resolves tones and renders.
 
-/**
- * How far from the average still counts as a typical day, as a fraction of it.
- *
- * Wide on purpose. A weekday's load is a handful of samples of a noisy quantity,
- * and a band tight enough to be statistically interesting would call almost
- * every day unusual — which is the same as saying nothing. At 30% the step only
- * speaks up when the difference is one a person would themselves notice.
- */
+// Wide on purpose: a weekday's load is a few noisy samples, and a tighter
+// band would call almost every day unusual.
 const COMPARABLE_BAND = 0.3;
 
-/**
- * The four dates whose weekday matches `date` — last week's, and the three
- * before it.
- *
- * **A fixed-length tuple, and that is load-bearing rather than pedantic.** The
- * step reads each of these with its own `useCalendarEvents` call, so the count
- * has to be a constant the Rules of Hooks can see; typed as an array, a caller
- * could pass a length and break the step in a way nothing here would catch.
- *
- * Four weeks back also sits just inside the task fetch's *default* reach:
- * `DEFAULT_TASK_REACH_DAYS` is 30, and the oldest day this returns is 27 before
- * the ritual's own date — three days of slack, and no more. Lengthening this tuple
- * means raising that default too, or tonight's ritual silently drops the oldest
- * sample's completed tasks. (An old ritual date is covered instead by
- * `oldestDayRead` below, which the screen widens the reach to.)
- */
+// Fixed length, load-bearing: each is read via its own useCalendarEvents
+// call, so the count must be a Rules-of-Hooks constant.
 export type TWeekdayHistory = [
   Temporal.PlainDate,
   Temporal.PlainDate,
@@ -54,33 +27,16 @@ export const matchingWeekdaysBefore = (
   date.subtract({ weeks: 4 }),
 ];
 
-/**
- * The oldest day a ritual on `date` reads tasks for — its own day is the newest,
- * and `matchingWeekdaysBefore` samples four weeks back from *tomorrow*.
- *
- * The Ritual screen widens the task fetch to this rather than to the day on
- * screen (DEX-162), so an old ritual's history samples are actually fetched
- * instead of counting as zero. Derived from the same tuple the step reads, so
- * the two cannot drift apart.
- */
+// The Ritual screen widens the task fetch to this, not to the day on screen
+// (DEX-162), so an old ritual's history samples are fetched, not zero.
 export const oldestDayRead = (date: Temporal.PlainDate): Temporal.PlainDate =>
   matchingWeekdaysBefore(date.add({ days: 1 }))[3];
 
 /** How one of tomorrow's figures sits against its own recent history. */
 export type TLoad = "higher" | "lower" | "comparable";
 
-/**
- * `value` against the average of `history`, inside a ±30% band.
- *
- * **An entirely empty history reads as comparable, not as higher.** Against a
- * zero average any figure at all is infinitely above it, so the arithmetic alone
- * would tell someone opening the app for the first time that tomorrow is busier
- * than a Thursday it has never seen. Treating "no evidence" as "nothing to say"
- * is the honest reading, and it resolves itself after a week of use.
- *
- * A history that is *partly* zero is real evidence and is averaged as-is — three
- * empty Thursdays and one with six tasks makes 1.5 the typical Thursday.
- */
+// An entirely empty history reads as comparable — against a zero average any
+// figure is infinitely above it; a partly-empty history averages as-is.
 export const compareToTypical = (value: number, history: number[]): TLoad => {
   const total = history.reduce((sum, entry) => sum + entry, 0);
   if (total === 0) return "comparable";
@@ -92,26 +48,16 @@ export const compareToTypical = (value: number, history: number[]): TLoad => {
   return value > average ? "higher" : "lower";
 };
 
-/**
- * A day's events in the order an agenda reads them: all-day first, then by start
- * time.
- *
- * All-day events lead because they frame the day rather than sit at a point in
- * it — a birthday is true of the whole Thursday, and slotting it at midnight
- * would bury it under the first standup. Copies rather than sorting in place;
- * the array belongs to a React Query cache.
- */
+// All-day events lead because they frame the day rather than sit at a point
+// in it. Copies rather than sorting in place — the array belongs to a cache.
 export const sortAgenda = (events: TCalendarEvent[]): TCalendarEvent[] =>
   [...events].sort((a, b) => {
     if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
     return Temporal.PlainDateTime.compare(a.start, b.start);
   });
 
-/**
- * A phrase's ink, named by what it means rather than by which color it takes —
- * the step maps these onto `colors.error` / `colors.success` / `colors.text`.
- * Kept as intent here so the whole copy table stays testable without a theme.
- */
+// Named by meaning, not color — the step maps these onto theme tokens, which
+// keeps the copy table testable without one.
 export type TCopyTone = "plain" | "up" | "down";
 
 export type TCopySegment = { text: string; tone: TCopyTone };
@@ -132,19 +78,8 @@ const clause = (load: TLoad, noun: string): TCopySegment | null => {
   };
 };
 
-/**
- * The hero sentence, from the two comparisons and tomorrow's weekday.
- *
- * **`events: null` means the reader has no calendar**, and it deliberately
- * behaves as `"comparable"` rather than as its own branch: a missing axis has
- * nothing to say, so the sentence falls through to whatever the task axis alone
- * reads as — the single-clause line when tasks are unusual, and the typical-day
- * line when they are not. That is exactly what the reader with no calendar
- * should see, out of the same table rather than a parallel one.
- *
- * Meetings lead the two-clause line because that is the axis a day is felt
- * along: what is already booked is what the reader cannot move.
- */
+// `events: null` means no calendar; it behaves as "comparable" rather than
+// its own branch, so the sentence falls through to the task axis alone.
 export const tomorrowCopy = (
   tasks: TLoad,
   events: TLoad | null,
@@ -152,9 +87,8 @@ export const tomorrowCopy = (
 ): TTomorrowCopy => {
   const eventLoad: TLoad = events ?? "comparable";
 
-  // `calmer` and `busier` carry the reading on their own, so they take the ink
-  // the clauses below take — the whole sentence is the comparison here, where
-  // the two-axis lines have a phrase per axis to mark instead.
+  // "calmer"/"busier" carry the whole reading here, so they take the ink the
+  // two-axis clauses take below.
   if (eventLoad === "lower" && tasks === "lower") {
     return {
       segments: [
@@ -186,8 +120,7 @@ export const tomorrowCopy = (
     };
   }
 
-  // What is left is one clause or two, and two only ever means one up and one
-  // down — both-up and both-down were answered above.
+  // One clause or two; two only ever means one up and one down.
   const clauses = [
     clause(eventLoad, "meetings"),
     clause(tasks, "tasks"),

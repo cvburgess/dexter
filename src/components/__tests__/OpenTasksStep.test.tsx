@@ -15,9 +15,8 @@ jest.mock("@/hooks/useTasks", () => ({
   ...jest.requireActual<typeof import("@/hooks/useTasks")>("@/hooks/useTasks"),
   useTasks: jest.fn(),
 }));
-// Reached only through `useTaskDelete`, which has its own suite — but stubbed
-// with real functions rather than `{}` so a delete added here fails on the
-// assertion rather than on `getTemplateById is not a function`.
+// Reached only through `useTaskDelete` (own suite); real functions rather than
+// `{}` so a delete added here fails on the assertion, not on a missing method.
 jest.mock("@/hooks/useTemplates", () => ({
   useTemplates: jest.fn(() => [
     [],
@@ -25,9 +24,8 @@ jest.mock("@/hooks/useTemplates", () => ({
   ]),
 }));
 
-// The card has its own suite and carries several `@expo/ui` menu hosts that a
-// unit test can't drive; standing it in as a marker keeps this file about the
-// hero, the scope, and the two buttons beside it.
+// The card has its own suite and carries `@expo/ui` menu hosts a unit test
+// can't drive; a marker stand-in keeps this file about the hero and buttons.
 jest.mock("@/components/TaskCard", () => {
   const { Text: RNText } =
     jest.requireActual<typeof import("react-native")>("react-native");
@@ -101,9 +99,8 @@ beforeEach(() => {
 });
 
 describe("OpenTasksStep", () => {
-  // `useTasks` hands back an empty placeholder array until the query resolves,
-  // so the day looks finished on every cold open — the all-clear here would
-  // throw confetti at someone whose evening is full.
+  // `useTasks` serves an empty placeholder until the query resolves, so the
+  // all-clear would throw confetti at someone whose evening is full.
   it("renders nothing rather than a premature all-clear", () => {
     const screen = renderStep([], { isLoading: true });
 
@@ -129,9 +126,8 @@ describe("OpenTasksStep", () => {
       expect(screen.getByLabelText("1 open task")).toBeTruthy();
     });
 
-    // The scope is the ritual's own day and only what is still open: a
-    // completed task is not something to close out, and another day's is the
-    // morning Backlog step's business.
+    // Scope is the ritual's own day and only what is still open — other days
+    // are the morning Backlog step's business.
     it("leaves out closed tasks and other days", () => {
       const screen = renderStep([
         task({ id: "1", title: "Still open" }),
@@ -192,9 +188,8 @@ describe("OpenTasksStep", () => {
       });
     });
 
-    // The ritual can be paged to any date with `DayNav`, so "tomorrow" is the
-    // day after the *ritual's* — an implementation anchored to `Temporal.Now`
-    // would send this task to the wrong day and pass every test above.
+    // "Tomorrow" is the day after the *ritual's* — an implementation anchored
+    // to `Temporal.Now` would pass every test above and move the wrong day.
     it("follows the ritual's date rather than the real tomorrow", () => {
       const screen = renderStep([task({ scheduledFor: "2026-01-02" })], {
         date: Temporal.PlainDate.from("2026-01-02"),
@@ -222,14 +217,11 @@ describe("OpenTasksStep", () => {
     });
   });
 
-  // Both buttons write `scheduledFor`, so both owe the alarm prompt the card's
-  // own menu gives (DEX-77). Writing straight through is exactly what left a
-  // backlog task's alarm pointing at the day it came from.
+  // DEX-77: both buttons write `scheduledFor`, so both owe the alarm prompt —
+  // writing straight through left a backlog task's alarm on the old day.
   describe("a task carrying an alarm", () => {
-    // The native ConfirmationModal renders nothing and calls `Alert.alert`
-    // imperatively, so the prompt is asserted through the spy rather than by
-    // querying for text. Restored in `afterEach` — a spy left in place leaks
-    // into every later test in the run.
+    // Native ConfirmationModal renders nothing — assert via the Alert.alert
+    // spy, restored in afterEach so it can't leak into later tests.
     let alertSpy: jest.SpyInstance;
 
     const pressAndReadPrompt = (label: string) => {
@@ -269,11 +261,8 @@ describe("OpenTasksStep", () => {
       });
     });
 
-    // Unscheduling removes the date the alarm needs to fire, so it is
-    // unset-or-cancel rather than the keep-or-drop choice a move offers.
-    // `await`ed, unlike the move above: this prompt resolves the `confirm`
-    // promise and writes on the way back out of it, where each of the move's
-    // buttons applies itself from its own `onPress`.
+    // Unscheduling removes the date the alarm fires on, so it is unset-or-
+    // cancel; awaited because the write lands when the confirm promise resolves.
     it("warns that unscheduling unsets the alarm, then clears both", async () => {
       const { title, buttons } = pressAndReadPrompt(
         'Unschedule "Write report"',

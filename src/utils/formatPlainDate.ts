@@ -1,9 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 
-// Hermes's built-in Intl.DateTimeFormat is a partial implementation (no
-// `calendar` in resolvedOptions()), which makes @js-temporal/polyfill's
-// toLocaleString throw "Missing internal slot calendar-id" on native. Format
-// manually instead of depending on Intl completeness.
+// Hermes's Intl.DateTimeFormat is partial (no `calendar` in
+// resolvedOptions()), so the polyfill's toLocaleString throws on native.
 const WEEKDAYS = [
   "Monday",
   "Tuesday",
@@ -37,10 +35,7 @@ export const formatWeekdayMonthDay = (date: Temporal.PlainDate) =>
 export const formatWeekday = (date: Temporal.PlainDate) =>
   WEEKDAYS[date.dayOfWeek - 1];
 
-/**
- * e.g. "7/3" — the Week tab's column subtitles, matching the legacy app's
- * numeric `M/D`. Unpadded on both parts, as the legacy view rendered it.
- */
+/** e.g. "7/3" — Week's column subtitles, unpadded like the legacy app's. */
 export const formatMonthDay = (date: Temporal.PlainDate) =>
   `${date.month}/${date.day}`;
 

@@ -89,9 +89,8 @@ export function registerTemplateTools(
       inputSchema: {
         title: z.string().min(1),
         priority: taskPrioritySchema.optional(),
-        // Nullable as well as optional, mirroring `update_template`: null is
-        // the value that *means* "task template", so a caller that states it
-        // explicitly must not be rejected.
+        // Nullable, mirroring `update_template`: null means "task template",
+        // so a caller stating it explicitly must not be rejected.
         schedule: cronScheduleSchema.nullable().optional(),
         goalId: uuidSchema.nullable().optional(),
         listId: uuidSchema.nullable().optional(),
@@ -118,10 +117,8 @@ export function registerTemplateTools(
 
       if (error) return templateError(error.message);
 
-      // A repeat has exactly one open task, and a schedule on its own generates
-      // nothing — recurrence spawns from *completing* a task linked to the row.
-      // Without this the tool would report success on a repeat that is born
-      // stalled (DEX-94). A no-op for a scheduleless task template.
+      // A schedule alone generates nothing — recurrence spawns from
+      // *completing* a linked task (DEX-94); a no-op for a task template.
       await trySeedNextOccurrence(ctx, data);
       return toolJson(data);
     },
@@ -184,13 +181,8 @@ export function registerTemplateTools(
 
       if (error) return templateError(error.message);
 
-      // Promoting a task template to a repeat gives it the open task it needs to
-      // fire from. A no-op when the row already has one, or when this update
-      // cleared `schedule` back to null (DEX-94).
-      //
-      // Deliberately not gated on `schedule` being part of *this* update, which
-      // would save a lookup on metadata-only edits: like the app's
-      // `updateTemplate`, any edit to a repeat that has run dry also repairs it.
+      // Deliberately not gated on `schedule` being part of this update — like
+      // the app's `updateTemplate`, any edit to a dry repeat also repairs it.
       await trySeedNextOccurrence(ctx, data);
       return toolJson(data);
     },

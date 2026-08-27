@@ -14,9 +14,7 @@ jest.mock("@expo/ui/community/menu", () => ({
   MenuView: (props: Parameters<typeof mockMenuView>[0]) => mockMenuView(props),
 }));
 
-// `react-native`'s `useColorScheme` lazily delegates to the default export of
-// this submodule, so mocking the submodule is what controls the scheme
-// `useTheme` resolves — see the same note in `utils/__tests__/theme.test.ts`.
+// Controls the scheme useTheme resolves — see theme.test.ts's same note.
 jest.mock("react-native/Libraries/Utilities/useColorScheme", () => ({
   __esModule: true,
   default: jest.fn(),

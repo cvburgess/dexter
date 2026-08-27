@@ -55,9 +55,8 @@ describe("useLists", () => {
     const first = renderHook(() => useLists(), { wrapper });
     const second = renderHook(() => useLists(), { wrapper });
 
-    // Both callers, not just the fetch count: the shared query notifies each
-    // of them when it resolves, and a test that returns before those land
-    // leaves the updates outside act() (DEX-130).
+    // Both callers, not just fetch count — the shared query notifies each on
+    // resolve, and returning before that lands outside act() (DEX-130).
     await waitFor(() => {
       expect(first.result.current[1].isLoading).toBe(false);
       expect(second.result.current[1].isLoading).toBe(false);

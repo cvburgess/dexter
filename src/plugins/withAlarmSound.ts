@@ -1,18 +1,5 @@
-// DEX-72: bundle custom alarm sounds into the iOS app.
-//
-// AlarmKit's `AlertConfiguration.AlertSound.named(_:)` — what `expo-alarm-kit`'s
-// `soundName` option maps to — resolves the filename against the *app bundle*,
-// so a sound that only lives in `assets/` never rings. This project is fully
-// CNG (`ios/` is generated and gitignored), and neither Expo nor the
-// `expo-alarm-kit` podspec offers a way to declare a raw bundle resource, so
-// prebuild has to do it: copy the file into the generated iOS project and add
-// it to the app target's Copy Bundle Resources phase. This mirrors how
-// `expo-notifications` handles its own `sounds` option upstream.
-//
-// Adding a sound is a one-line change to the `sounds` array in `app.json`; the
-// matching entry in `ALARM_SOUNDS` (`utils/alarms.shared.ts`) is what makes it
-// selectable. Because this touches the native project it needs a dev-client
-// rebuild, not an OTA update.
+// DEX-72: AlarmKit resolves soundName against the app bundle, so this copies
+// a sound into the generated iOS project and adds it to Copy Bundle Resources.
 import fs from "fs";
 import path from "path";
 
@@ -28,8 +15,7 @@ type TAlarmSoundOptions = {
   sounds: string[];
 };
 
-/** `projectName` is optional on every mod's request but always present for iOS;
- * both mods below need it to address the app target's group. */
+/** Optional on every mod's request but always present for iOS. */
 const requireProjectName = (projectName?: string): string => {
   if (!projectName)
     throw new Error("[withAlarmSound] Missing iOS project name");
@@ -73,9 +59,7 @@ const withAlarmSound: ConfigPlugin<TAlarmSoundOptions> = (
         filepath: path.join(projectName, path.basename(sound)),
         groupName: projectName,
         isBuildFile: true,
-        // The `xcode` package ships no type declarations, so the `XcodeProject`
-        // that `modResults` is typed as resolves to an untyped value. Nothing to
-        // narrow at this boundary.
+        // The `xcode` package ships no type declarations; nothing to narrow.
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         project: xcodeConfig.modResults,
       });

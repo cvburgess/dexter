@@ -100,9 +100,8 @@ describe("promoteSubtaskInput", () => {
     expect(promoteSubtaskInput(source, subtask).alarmTime).toBeNull();
   });
 
-  // DEX-153: the two-state checklist meets the five-state task here and nowhere
-  // else. A promoted item can only ever land on one of these two statuses — the
-  // other three are a task's to acquire once it exists.
+  // DEX-153: a promoted item lands on DONE or TODO only — the other three
+  // statuses are a task's to acquire once it exists.
   it("promotes a checked subtask to a done task", () => {
     expect(promoteSubtaskInput(source, source.subtasks[0]).status).toBe(
       ETaskStatus.DONE,
@@ -116,9 +115,8 @@ describe("promoteSubtaskInput", () => {
   });
 });
 
-// DEX-153: the app and the database deploy independently, and a bundle predating
-// the `done` change keeps writing `{id, title, status}` until its user updates.
-// Reads coerce rather than reject — rejecting would strand those rows.
+// DEX-153: a bundle predating `done` keeps writing `{id, title, status}` until
+// its user updates. Reads coerce rather than reject to avoid stranding rows.
 describe("withSubtasksArray", () => {
   // Cast at the boundary the guard exists for: these are shapes the *type*
   // says can't reach it, and the row is an unchecked cast in production too.
@@ -157,11 +155,8 @@ describe("withSubtasksArray", () => {
     ]);
   });
 
-  // The case that outlives the backfill. An old client builds its write by
-  // spreading the item it read — which post-backfill already carries `done` —
-  // so it emits a fresh `status` beside the stale `done` it never touched.
-  // Preferring `done` would silently drop the user's action, and for a sweep
-  // would leave an unchecked checklist under a closed parent.
+  // Outlives the backfill: an old client spreads the item it read, emitting a
+  // fresh `status` beside a stale `done` — preferring `done` drops the action.
   it("prefers a legacy status over the stale done written beside it", () => {
     expect(
       rowWith([
@@ -211,11 +206,8 @@ describe("appendSubtask", () => {
   });
 });
 
-// The one predicate behind "can this repeat still fire?". Recurrence spawns
-// from *completing* a linked task, so a template whose links are all closed out
-// is stalled — which is why the status filter is load-bearing rather than a
-// tidy-up: `template_id` also records provenance for tasks stamped from a
-// template, and those get checked off like any other.
+// Recurrence spawns from *completing* a linked task, and `template_id` also
+// records provenance for stamped tasks — the status filter is load-bearing.
 describe("hasOpenTaskForTemplate", () => {
   const mockQuery = (result: { data: unknown[]; error: unknown }) => {
     const limit = jest.fn(() => Promise.resolve(result));

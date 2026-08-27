@@ -1,22 +1,5 @@
-// Reset the App Store / marketing demo account to a curated, known-good state
-// (DEX-73). Idempotent: run it as often as you like and the demo user always
-// lands on the same data.
-//
-// Usage (never commit these values — pass them at runtime):
-//   cd supabase/scripts
-//   SUPABASE_URL=... \
-//   SUPABASE_SERVICE_ROLE_KEY=... \
-//   DEMO_OTP=... \
-//   deno task seed-demo
-//
-// The demo account's email is the shared DEMO_EMAIL constant, and its password
-// is derived from DEMO_OTP — the same secret the verify-demo-otp Edge Function
-// uses to sign the reviewer in — so the two never drift (see
-// ../functions/_shared/demoAuth.ts).
-//
-// The service-role key bypasses RLS, so every inserted row sets `user_id`
-// explicitly (there is no `auth.uid()` under the service role). It is a secret
-// with full database access — only ever supply it via the environment.
+// Reset the demo account to a known-good state (DEX-73); idempotent. Service
+// role bypasses RLS, so every row sets `user_id` explicitly — see README.md.
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
@@ -244,9 +227,7 @@ async function seed(
     ),
   );
 
-  // The signup trigger creates a preferences row, but upsert keeps the reset
-  // idempotent even if that row is ever missing. Unset columns keep their DB
-  // defaults on insert.
+  // Upsert keeps this idempotent even if the signup trigger's row is missing.
   await runWrite(
     "preferences",
     supabase.from("preferences").upsert({

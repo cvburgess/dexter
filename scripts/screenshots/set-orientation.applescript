@@ -1,18 +1,5 @@
--- Set a booted simulator's orientation.
---
---   osascript set-orientation.applescript "iPad Pro 13-inch (M5)" "Landscape Left"
---
--- There is no `simctl` verb for this — orientation lives only in the Simulator
--- app's Device > Orientation menu — so this drives that menu, which needs
--- Accessibility permission for whatever runs it (Terminal, iTerm, or the
--- editor). Grant it in System Settings > Privacy & Security > Accessibility.
---
--- The menu applies to the *focused* device window and several simulators are
--- usually booted at once, so this raises the named device's window first.
---
--- Note that rotating does not change what `simctl io screenshot` hands back: it
--- always captures the native portrait framebuffer, with the content turned 90°.
--- `scripts/flatten-screenshot.swift --rotate-ccw` straightens it.
+-- Drives Simulator's Device > Orientation menu (no simctl verb exists); needs
+-- Accessibility permission, and raises the named device's window first.
 
 on run argv
   if (count of argv) < 2 then

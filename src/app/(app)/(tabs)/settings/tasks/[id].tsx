@@ -71,11 +71,8 @@ const MONTHS = [
   "December",
 ];
 
-/**
- * "Never" is not a cadence, so it stays out of the shared `TRepeatFrequency`
- * union — it means "this row has no schedule at all", which is what makes it a
- * task template rather than a repeat task (DEX-65).
- */
+// "Never" is not a cadence, so it stays out of `TRepeatFrequency` — it means
+// "no schedule at all", which is what makes a row a template, not a repeat.
 type TEditorFrequency = TRepeatFrequency | "never";
 
 const FREQUENCIES: { value: TEditorFrequency; label: string }[] = [
@@ -86,19 +83,15 @@ const FREQUENCIES: { value: TEditorFrequency; label: string }[] = [
   { value: "yearly", label: "Yearly" },
 ];
 
-// Max day-of-month per month (February = 29 to allow a leap-day yearly repeat).
-// Used to clamp the yearly day picker so an impossible date like Feb 30 — which
-// the schedule can never match — is unselectable.
+// February = 29 (leap-day yearly repeat); clamps the day picker so an
+// impossible date like Feb 30 is unselectable.
 const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
 const dayOptions = (maxDay: number) =>
   Array.from({ length: maxDay }, (_, i) => i + 1);
 
-/**
- * The unsaved shape a menu action starts from, seeded off its task. Repeat
- * opens on a daily cadence and Save as template on none, which is the only
- * difference between the two — either can be changed before saving.
- */
+// The unsaved shape a menu action starts from: Repeat opens daily, Save as
+// template opens none — either can be changed before saving.
 const draftFromTask = (task: TTask, repeats: boolean): TTemplateDraft => ({
   ...templateFieldsFromTask(task),
   schedule: repeats ? buildSchedule({ frequency: "daily" }) : null,
@@ -113,9 +106,8 @@ export default function RepeatScheduleScreen() {
     fromTask?: string;
     repeats?: string;
   }>();
-  // Both queries are aliased, not just one: this screen resolves a template
-  // *and* a task, and a bare `isLoading` in a file routed at `settings/tasks`
-  // reads like the tasks query when it is in fact the templates one.
+  // Both queries aliased: this screen resolves a template and a task, and a
+  // bare `isLoading` here would read like the tasks query.
   const [
     ,
     {
@@ -130,9 +122,8 @@ export default function RepeatScheduleScreen() {
     { isError: isTasksError, isLoading: isLoadingTasks, refetch: refetchTasks },
   ] = useTasks();
 
-  // Repeat and Save as template both route here before anything is stored,
-  // carrying the task to seed from — so ✕ leaves nothing behind and ✓ is what
-  // writes the row.
+  // Both routes carry the task to seed from before anything is stored, so ✕
+  // leaves nothing behind and ✓ is what writes the row.
   if (id === NEW_TEMPLATE) {
     const task = tasks.find((candidate) => candidate.id === fromTask);
     if (!task) {
@@ -151,13 +142,8 @@ export default function RepeatScheduleScreen() {
     return (
       <RepeatScheduleForm
         draft={draftFromTask(task, repeats === "1")}
-        // Only a task that doesn't already come from a template — of either
-        // kind — is free to be linked. A task has one `template_id`, and
-        // re-pointing it would rewrite where it came from and could leave a
-        // repeat with nothing to fire from; `useTemplates` seeds the new row
-        // its own first occurrence instead. Under the current menu this is only
-        // reachable for a linked task via a deep link, but it is what makes
-        // that harmless.
+        // Only a task with no template_id yet is free to link — re-pointing an
+        // existing one could leave a repeat with nothing to fire from.
         linkTaskId={task.templateId ? undefined : task.id}
       />
     );
@@ -240,9 +226,8 @@ function RepeatScheduleForm({
   const canSave =
     title.trim().length > 0 && (frequency !== "weekly" || weekdays.length > 0);
 
-  // A template, not a repeat — drives every piece of copy on the screen so the
-  // editor reads correctly the moment the frequency is switched, not only
-  // after it is saved.
+  // Drives every piece of copy so the editor reads correctly the moment the
+  // frequency is switched, not only after it is saved.
   const isTemplate = frequency === "never";
 
   const buildCurrentSchedule = (): string | null => {
@@ -260,10 +245,8 @@ function RepeatScheduleForm({
     }
   };
 
-  // Pops rather than navigating: the stack this screen was pushed onto already
-  // has the list under it (`tasks/_layout.tsx` anchors it), and popping keeps
-  // whatever is under *that* — without it the Tasks screen becomes the root of
-  // the settings tab and loses its own back button.
+  // Pops rather than navigating: tasks/_layout.tsx anchors the list beneath
+  // this screen, and popping keeps it there instead of losing the back button.
   const handleClose = useDismissModal(HOME);
 
   const handleSave = () => {
@@ -288,18 +271,14 @@ function RepeatScheduleForm({
       },
     };
 
-    // A draft has no row yet — ✓ is what writes it. `createTemplate` links the
-    // source task whatever cadence it was saved on: the task did come from this
-    // template either way, and a scheduled row gets the open task it needs to
-    // fire from for free.
+    // A draft has no row yet — createTemplate links the source task and, if
+    // scheduled, seeds the open task it needs to fire from.
     if (existing) updateTemplate({ id: existing.id, ...fields }, callbacks);
     else createTemplate({ template: fields, linkTaskId }, callbacks);
   };
 
-  // One destructive action, one message, whether or not the row has a schedule.
-  // "Stop repeating" used to live here too, but setting Repeats to Never now
-  // does that — and keeps the template — so a second button offering it only
-  // blurred the difference between dropping the schedule and deleting the row.
+  // "Stop repeating" used to live here too; setting Repeats to Never now does
+  // that (and keeps the template), so a second button only blurred the two.
   const handleDelete = async () => {
     if (!existing) return;
     const confirmed = await confirm({
@@ -324,9 +303,8 @@ function RepeatScheduleForm({
     );
 
   useModalHeaderActions({
-    // Follows the picker in every case, drafts included: a draft opened from
-    // Repeat starts on a cadence, so titling it "New Template" would describe
-    // the wrong thing.
+    // Follows the picker even for a draft opened from Repeat, which starts on
+    // a cadence — "New Template" would describe the wrong thing there.
     title: isTemplate
       ? existing
         ? "Template"
@@ -348,8 +326,8 @@ function RepeatScheduleForm({
       />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        // Insets the content by the keyboard's height (iOS) so a subtask row it
-        // covers stays reachable. Android resizes the window instead.
+        // iOS insets content by the keyboard height so a covered subtask row
+        // stays reachable; Android resizes the window instead.
         automaticallyAdjustKeyboardInsets
         contentContainerStyle={{
           gap: theme.space.sm,

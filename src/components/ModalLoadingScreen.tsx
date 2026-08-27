@@ -15,21 +15,8 @@ type TModalLoadingScreenProps = {
 // `useModalHeaderActions` re-wires on every render by design.
 const noop = () => {};
 
-/**
- * What a modal screen renders while the query behind it is still resolving.
- *
- * A bare `<LoadingScreen />` leaves the modal with no way out, because the ✕/✓
- * chrome lives in the form that hasn't rendered yet — and on web that is the
- * *only* header: expo-router's web modal stack renders the screen straight into
- * its drawer with no header slot at all (`ModalStackRouteDrawer` reads only the
- * sheet detents and `webModalStyle`), so `createModalScreenOptions.web`'s
- * `headerShown: false` documents that rather than causing it. Flipping the flag
- * would change nothing (DEX-101).
- *
- * Takes a `fallback` and owns its own dismissal, like the sibling
- * `ModalErrorScreen` and `DismissModal`. ✓ is wired but disabled — there is
- * nothing to save yet — so the header keeps its usual shape and ✕ stays live.
- */
+/** What a modal renders while its query resolves — a bare `<LoadingScreen />`
+ * would leave it with no ✕/✓, since that chrome lives in the unrendered form (DEX-101). */
 export function ModalLoadingScreen({ fallback }: TModalLoadingScreenProps) {
   const dismiss = useDismissModal(fallback);
 

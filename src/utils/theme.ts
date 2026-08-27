@@ -22,23 +22,17 @@ export interface TThemeColors {
   primaryContent: string;
   /**
    * The content sheet, and the lightest surface in the theme (daisyUI
-   * `base-100`) — screen bodies, panes, the sheet behind cards, and the nav
-   * rail's tiles. Content is the brightest plane in the app; everything that
-   * frames it recedes to `surfaceSunken`.
+   * `base-100`); everything that frames it recedes to `surfaceSunken`.
    */
   background: string;
   /**
-   * Sunken *below* `background` (daisyUI `base-200`) — cards, inputs, rows,
-   * menus, and the web nav rail and dock. Anything that frames or holds
-   * content rather than being content (DEX-61).
+   * Sunken *below* `background` (daisyUI `base-200`) — anything that frames or
+   * holds content rather than being content (DEX-61).
    */
   surfaceSunken: string;
   /**
-   * Hairline borders and dividers, always a step *darker* than the surfaces
-   * above — dark themes included, where the line is drawn by taking light away
-   * rather than adding it. Opaque and tuned per theme rather than an alpha of
-   * `text`: a single alpha that reads correctly on a light surface is invisible
-   * on a dark one (DEX-61).
+   * Hairline borders, a step *darker* than the surfaces on every theme. Opaque
+   * and tuned per theme: one alpha of `text` can't read on both schemes (DEX-61).
    */
   border: string;
   text: string;
@@ -48,29 +42,13 @@ export interface TThemeColors {
   success: string;
   successContent: string;
   /**
-   * Task priority accent colors, indexed by `ETaskPriority`
-   * (`utils/taskPriority.ts`):
-   * [IMPORTANT_AND_URGENT, URGENT, IMPORTANT, NEITHER, UNPRIORITIZED]. Ported
-   * from dexter-app's `cardColors` (`src/components/Card.tsx`), which maps
-   * those same priorities to the daisyUI `warning` / `error` / `info` /
-   * `base-100` / `neutral` tokens respectively.
-   *
-   * `UNPRIORITIZED` is the one slot that does **not** take its daisyUI token:
-   * it is always this theme's `text`, the app's ink (DEX-114). See the palette
-   * notes below `mutePriorities` for why.
-   *
-   * These are the full-strength accents — dots, bars, badges, and the overdue
-   * due-date pill. For the card *fill*, use `priorityMuted`.
+   * Full-strength priority accents, indexed by `ETaskPriority`. `UNPRIORITIZED`
+   * alone skips its daisyUI token and takes this theme's `text` (DEX-114).
    */
   priority: string[];
   /**
-   * Solid card fills, indexed the same way. Each is the matching `priority`
-   * accent pre-blended over this theme's `background` — the pane a card sits
-   * on — at `CARD_FILL_ALPHA`, the alpha task cards used to composite at render
-   * time. Pre-blending makes the fill opaque, so a card no longer shifts color
-   * when it sits over a pane that isn't `background` (DEX-61).
-   *
-   * `NEITHER` is `surfaceSunken` rather than a blend — see `mutePriorities`.
+   * Solid card fills: each accent pre-blended over `background` so a card can't
+   * shift color over other panes (DEX-61). `NEITHER` — see `mutePriorities`.
    */
   priorityMuted: string[];
   /** Text color readable on top of the matching `priority` color (the daisyUI tokens' `-content` pair). */
@@ -81,11 +59,8 @@ export interface TThemeColors {
 export type TThemePalette = {
   colors: TThemeColors;
   /**
-   * Whether this palette reads as light or dark. Carried on the palette (not
-   * just in `THEMES`) so `useTheme` can hand it to native components that theme
-   * themselves rather than taking individual colors — see `IconMenu.native`,
-   * where Android's menu would otherwise follow the *device* scheme and ignore
-   * an explicit in-app `LIGHT`/`DARK` preference.
+   * On the palette (not just `THEMES`) for native components that theme
+   * themselves — Android's menu ignores an in-app scheme otherwise (`IconMenu`).
    */
   mode: "light" | "dark";
 };
@@ -106,13 +81,8 @@ export interface TDensityTokens {
     /** Default body copy — task titles, row labels, calendar event names. */
     body: TFont<"400">;
     /**
-     * Interactive controls: buttons, text inputs, date/time pickers.
-     *
-     * **Never below 16 on `comfortable`.** iOS Safari zooms the page when a
-     * focused input's font-size is under 16px, and `TextInput` has no `.web`
-     * variant, so it renders on mobile web where `comfortable` applies. Split
-     * from `title` (which carries the same values) precisely so tuning `title`
-     * for density can't silently reintroduce that zoom.
+     * Controls. **Never below 16 on `comfortable`** — iOS Safari zooms inputs
+     * under 16px on mobile web; split from `title` so tuning it can't regress this.
      */
     control: TFont<"600">;
     /** A component's primary line — a row's name, a field's label. */
@@ -123,19 +93,15 @@ export interface TDensityTokens {
     display: TFont<"900">;
   };
   /**
-   * `md` is the app's one corner radius — cards, inputs, panes, tiles, buttons
-   * all share it. `full` is for shapes that are meant to be circles or pills
-   * (status buttons, priority pills, habit tiles) and is deliberately not a
-   * point on the radius scale.
+   * `md` is the app's one corner radius. `full` is for circles and pills, and
+   * deliberately not a point on the radius scale.
    */
   radii: { md: number; full: number };
   /** Diameters for round tap targets. `md` = icon buttons and tiles, `sm` = inline controls. */
   controls: { md: number; sm: number };
   /**
-   * Glyph sizes. Kept separate from `fonts` because an icon's optical size
-   * doesn't track the type it sits beside — a 20pt icon reads as the peer of a
-   * 16pt label. `sm` = inline affordances (chevrons, menu glyphs), `md` = a
-   * row's or nav item's leading icon.
+   * Glyph sizes, separate from `fonts`: an icon's optical size doesn't track
+   * the type beside it — a 20pt icon reads as the peer of a 16pt label.
    */
   icons: { sm: number; md: number };
 }
@@ -147,18 +113,14 @@ export interface Theme extends TDensityTokens {
 }
 
 /**
- * How dense the numeric tokens are. `compact` applies on **web** at and above
- * `LARGE_DEVICE_MIN_WIDTH`, where the phone-tuned sizing read noticeably too
- * large and bold next to the legacy app (DEX-61). Native stays `comfortable` at
- * every width — see `useTheme` for why.
+ * `compact` applies on **web** at and above `LARGE_DEVICE_MIN_WIDTH` (DEX-61).
+ * Native stays `comfortable` at every width — see `useTheme` for why.
  */
 export type TDensity = "comfortable" | "compact";
 
 /**
- * Both tiers are written out in full rather than derived from a multiplier:
- * spacing wants to tighten harder than type does (a scaled-down subtitle stops
- * being legible well before the padding stops being roomy), and literals keep
- * every value an integer and reviewable against `docs/design.md`.
+ * Written out in full, not derived from a multiplier: spacing tightens harder
+ * than type does, and literals stay reviewable against `docs/design.md`.
  */
 export const DENSITY: Record<TDensity, TDensityTokens> = {
   comfortable: {
@@ -218,13 +180,8 @@ function blend(color: string, over: string, alpha: number): string {
 }
 
 /**
- * Pre-blends a theme's priority accents into the solid card fills.
- *
- * `NEITHER` is the exception and takes `surfaceSunken` outright: its accent
- * *is* `base-100`, so blending it over the `background` pane returns the pane
- * itself and a `NEITHER` card dissolved into whatever it sat on. Cards carry no
- * outline (DEX-114), so the fill is the only thing left to draw the card — it
- * has to be a surface the pane isn't.
+ * `NEITHER`'s accent *is* `base-100`, so blending it over `background` returns
+ * the pane; cards carry no outline (DEX-114), so it takes `surfaceSunken`.
  */
 const mutePriorities = (
   priority: string[],
@@ -239,61 +196,8 @@ const mutePriorities = (
 };
 
 /**
- * The Horoscope panel's color, per sentiment (DEX-128).
- *
- * **These are the one place in the app where a color is not a theme token**,
- * and the exception is deliberate rather than an oversight — `docs/design.md`
- * carries it in its exceptions list. The panel is a mood, not a surface: it has
- * to say *green day / purple day / blue day* at a glance, and a token that
- * changed hue with the user's palette could not.
- *
- * **It is a night sky on every theme, light ones included.** There was a pale
- * set for light schemes at one point and it is gone: reading the day is a
- * lights-down moment, and a horoscope on a bright panel is a different thing
- * from a horoscope on a dark one. That makes this the app's one surface that
- * does not follow the user's scheme, so anything drawn on it takes
- * `sentimentInk` rather than `colors.text` — see below.
- *
- * Green reads positive and purple negative; blue is the neutral, which the DB
- * enum spells `mixed` (the facets genuinely pull both ways). Each hue sits at
- * one lightness, ~6%, so the three read as equally dark and only the hue
- * changes. The brand values as first given sat at 11–19%, which put `mixed`
- * level with `dim`'s own `background` and made the panel dissolve into the page
- * on that theme; these clear *every* dark palette's background, `abyss`
- * (#001e29) included.
- *
- * **They carry more saturation than their lightness would suggest** — 60–90%.
- * Chroma collapses as a color approaches black exactly as it does approaching
- * white, so a moderate saturation at 6% lightness yields a barely-tinted grey.
- * The target is almost-black *with a color in it*, and the color half is the
- * part that has to be fought for. **This is about as deep as it can usefully
- * go**: each base totals the high thirties of a possible 765 across its three
- * channels, and the hue lives in a spread of a dozen units inside that, so a
- * further step down spends the distinctness between the three sentiments —
- * which is the panel's whole job.
- *
- * **Both ends of the breath are authored, not derived.** The first cut computed
- * `peak` by blending toward a much paler shade of the hue, and it washed out:
- * crossing from 6% lightness to 93% moves through grey, so the peak lost
- * saturation as fast as it gained brightness and every hue drifted toward the
- * same pale nothing. A hand-written pair holds one hue and one saturation and
- * differs only in lightness, so the breath *deepens* the color instead of
- * diluting it. The channels are the tell: `positive` moves +1/+9/+8, nearly all
- * of it green, where the blended peak moved +20/+19/+19 — the signature of a
- * slide toward white.
- *
- * **The amplitude has a hard floor set by the framebuffer, not by taste.** A
- * channel holds whole numbers, so the count of distinct colors this animation
- * can ever show is the largest per-channel difference between `base` and `peak`
- * — nothing exists between two adjacent integers. Two points of lightness puts
- * that count around 10, and `BREATHE_LEG_MS` in `HoroscopeStep` divided by it
- * is how long each shade is held: the quantity the eye actually judges.
- *
- * The two constants are therefore one setting — **steps × step-duration = leg
- * length**. Narrowing the amplitude without shortening the leg buys nothing but
- * a longer hold on each shade. Note also what this does *not* explain: raising
- * the count to 20 did not smooth anything, which is what pointed at the easing
- * curve in `HoroscopeStep` rather than at these values.
+ * DEX-128: deliberately non-token (docs/design.md's exceptions list) — a night
+ * sky on every theme, so panel ink is `sentimentInk`. Hand-tuned; blends washed out.
  */
 const SENTIMENT_COLORS: Record<
   THoroscopeSentiment,
@@ -303,9 +207,8 @@ const SENTIMENT_COLORS: Record<
   positive: { base: "#021c1a", peak: "#032622" },
   // hsl(311 90% 6%) → 8%
   negative: { base: "#1d0218", peak: "#270220" },
-  // hsl(220 60% 7%) → 10%. A point deeper and a point wider than its neighbours:
-  // blue is the darkest hue at a given lightness, so it needs the extra to hold
-  // both its own weight and a visible breath.
+  // hsl(220 60% 7%) → 10% — deeper and wider than its neighbours: blue is the
+  // darkest hue at a given lightness, so it needs extra to hold a visible breath.
   mixed: { base: "#070e1d", peak: "#0a1429" },
 };
 
@@ -318,63 +221,23 @@ export function sentimentTints(sentiment: THoroscopeSentiment): {
 }
 
 /**
- * The Horoscope card's frame — white, on every theme (DEX-128).
- *
- * The second color in the app that is not a theme token, and it sits here
- * beside `SENTIMENT_COLORS` for the same reason: the panel is a tarot card, not
- * a surface, and a card's border is part of the object rather than part of the
- * app around it. `colors.border` drew it from opposite sides on the two schemes
- * — a pale band on light themes, a dark one on dark themes — which read as two
- * different objects.
- *
- * **Note what it does on the palest light themes.** `light`'s `background` is
- * pure white and `dexter`'s is all but, so there the frame is the page's own
- * color: the card reads as a dark shape with white space around it rather than
- * as a drawn border. That is the accepted cost of one frame everywhere.
- */
-/**
- * The app's serif family, for the places that want a voice rather than a label.
- *
- * **The app's only custom font.** Everything else is the platform's system face,
- * which is why the six type roles carry a size and a weight and no family: a
- * role says how loud a thing is, and until now every one of them said it in the
- * same voice. This is the second voice, and it is deliberately scoped — reach
- * for it where the app is *saying* something (the Horoscope step's tips) rather
- * than labelling something.
- *
- * **Each entry is a separate loaded file, not a family plus modifiers.** This is
- * the part that surprises: on the web `font-family: Playfair` with
- * `font-weight: 700` picks the bold cut, but React Native has no such
- * resolution — a custom family name maps to exactly one file. Asking for a
- * weight or a style this map does not name gets you the platform's *synthetic*
- * one: a smeared faux-bold on Android, an oblique slant on iOS, and on a
- * typeface chosen for its italic that is precisely the wrong result. So
- * anything using one of these must set `fontWeight` and `fontStyle` to
- * `"normal"` — the file already carries both.
- *
- * Adding a cut is two lines: the import in `app/_layout.tsx`'s `useFonts` and an
- * entry here. Only load what is used — each is a separate ~100-200KB asset in
- * the bundle and a separate download on web. A 400 cut was carried here briefly
- * for the tips below the hero and removed once they took the 700 as well: an
- * entry nothing sets is a download every user pays for.
+ * The app's only custom font. RN maps a family name to exactly one file — no
+ * bold/italic resolution — so callers set fontWeight/fontStyle to "normal".
  */
 export const SERIF = {
   /** Playfair Display, 700 italic. */
   displayItalic: "PlayfairDisplay_700Bold_Italic",
 } as const;
 
+/**
+ * The Horoscope card's frame — white on every theme (DEX-128): `colors.border`
+ * drew it from opposite sides per scheme, reading as two different objects.
+ */
 export const SENTIMENT_FRAME = "#ffffff";
 
 /**
- * The ink for anything drawn on the sentiment panel.
- *
- * The panel is a night sky whatever the user's theme, so a light theme's dark
- * `colors.text` would be all but invisible on it — this is the price of the
- * panel not following the scheme, and paying it here keeps every caller from
- * having to know. A dark theme already has ink for a dark surface and keeps its
- * own, so the user's palette still shows through wherever it can; a light one
- * borrows the default dark palette's, which is what the app would have used had
- * the scheme been dark.
+ * Ink for the sentiment panel — a night sky on every theme, so a light theme's
+ * dark `colors.text` is invisible on it and borrows the default dark palette's.
  */
 export function sentimentInk(theme: Theme): {
   text: string;
@@ -386,30 +249,8 @@ export function sentimentInk(theme: Theme): {
   return { text, textSecondary };
 }
 
-// Each theme is a daisyUI theme ported oklch → hex. The TThemeColors fields map
-// onto daisyUI tokens as: background = base-100, surfaceSunken = base-200,
-// text = base-content, primary/error/success = the matching token + its
-// `-content` pair, and the priority arrays = [warning, error, info, base-100,
-// base-content] with their `-content` pairs. The two surfaces are anchored where
-// dexter-app anchors them — content on base-100, chrome on base-200 — so the
-// app reads at the same brightness as the legacy web app rather than a rung
-// darker (DEX-61).
-// `UNPRIORITIZED` is the other deviation from the port (DEX-114). daisyUI's
-// `neutral` is a *dark* swatch on every theme, so on the dark themes an
-// unprioritized card came out near-black against an already dark pane while the
-// active nav tile — `withOpacity(text, 0.8)`, see `AppNav` — went light. The two
-// are meant to be the same mark: a block of the app's ink with the surface
-// showing through the type on it. dexter only got that right by accident, its
-// `neutral` and `base-content` being the same brown. Taking `base-content`
-// outright makes it hold on all five themes, and because the fill blends the
-// ink at `CARD_FILL_ALPHA` (0.8) it lands on the tile's own 80% ink by
-// construction rather than by coincidence.
-// `border` is the exception: daisyUI has no border token, so the dark themes
-// take base-300 (the step below chrome, and what dexter-app draws its own
-// borders with) while the light themes go one step beyond theirs, since a light
-// theme's base-300 is nearly its base-200. "dexter" is Dexter's
-// custom brand theme (green primary on a warm base); the rest are faithful
-// ports of the daisyUI themes of the same name.
+// daisyUI themes ported oklch → hex (background=base-100, surfaceSunken=base-200,
+// text=base-content — DEX-61); border is hand-picked, daisyUI has no token for it.
 const DEXTER_PRIORITY = ["#fcb700", "#ff627d", "#00bafe", "#fffbf4", "#593d31"];
 const dexter: TThemePalette = {
   mode: "light",
@@ -537,10 +378,8 @@ export type TThemeMeta = {
 };
 
 /**
- * Themes offered in the Appearance picker, grouped by the mode they belong to.
- * Each `mode` is read off the palette rather than restated here, so the picker
- * can't group a theme under one heading while `useTheme().mode` — and the
- * native menus themed from it — report the other.
+ * The Appearance picker's themes. `mode` is read off the palette, so the picker
+ * can't group a theme under one heading while `useTheme().mode` reports the other.
  */
 export const THEMES: TThemeMeta[] = [
   { name: "dexter", label: "Dexter", mode: dexter.mode },
@@ -556,11 +395,8 @@ const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 /**
- * Hydration-safe color scheme resolution.
- *
- * On web the first render has no reliable `prefers-color-scheme` signal, so
- * render `light` first and resolve the real scheme in a layout effect (before
- * paint, so there is no visible flash). Native resolves immediately.
+ * Web's first render has no reliable `prefers-color-scheme`, so render `light`
+ * and resolve in a layout effect (before paint — no flash). Native is immediate.
  */
 export function useResolvedColorScheme(): "light" | "dark" {
   const systemScheme = useColorScheme();
@@ -579,12 +415,8 @@ type TThemePreferences = {
 };
 
 /**
- * Resolves the active palette from the user's preferences and the OS color
- * scheme. `SYSTEM` mode follows the OS; `LIGHT`/`DARK` force the scheme. An
- * unknown stored theme name falls back to the default for the resolved scheme.
- *
- * Deliberately pure and density-free — screen size doesn't change *which*
- * theme is active, so `useTheme` composes the density tokens on top.
+ * `SYSTEM` follows the OS; `LIGHT`/`DARK` force it; unknown names fall back per
+ * scheme. Pure and density-free — screen size doesn't change *which* theme.
  */
 export function resolveTheme(
   preferences: TThemePreferences,
@@ -608,19 +440,14 @@ export function resolveTheme(
 }
 
 /**
- * Holds the palette resolved from the user's saved preferences. Supplied by
- * `ThemeProvider` (mounted inside the auth + query providers). `null` outside a
- * provider — e.g. the root layout above those providers, unauthenticated
- * screens, or tests — where `useTheme` falls back to an OS-driven default.
+ * Supplied by `ThemeProvider`; `null` outside one (root layout, unauthenticated
+ * screens, tests), where `useTheme` falls back to an OS-driven default.
  */
 export const ThemeContext = createContext<TThemePalette | null>(null);
 
 /**
- * The active theme: the user's palette plus the density tier for this screen.
- *
- * Density keys off `useIsLargeDevice` rather than `useWindowDimensions`
- * directly, so a test that already mocks the breakpoint gets the matching tier
- * for free (and jest-expo doesn't mock RN's dimensions hook cleanly).
+ * Palette + density tier. Density keys off `useIsLargeDevice` so a test mocking
+ * the breakpoint gets the tier free (jest-expo mocks RN dimensions poorly).
  */
 export function useTheme(): Theme {
   const provided = useContext(ThemeContext);
@@ -632,13 +459,8 @@ export function useTheme(): Theme {
     (scheme === "dark"
       ? themes[DEFAULT_DARK_THEME]
       : themes[DEFAULT_LIGHT_THEME]);
-  // Compact is a *pointer* tier, not a width tier. It exists because the
-  // phone-tuned sizing read noticeably too large next to the legacy desktop web
-  // app (DEX-61) — a mouse-at-a-desk problem, where a cursor hits a 26dp target
-  // as easily as a 40dp one. A large touch device has the width but not the
-  // input: `controls.sm` at 26dp is well under the 44pt iOS minimum tap target,
-  // so an iPad on this tier reads cramped rather than refined. Native therefore
-  // stays comfortable at every width, and `compact` is web-only.
+  // Compact is a *pointer* tier, not a width tier (DEX-61): its 26dp controls
+  // sit under iOS's 44pt tap target, so native stays comfortable at every width.
   const density: TDensity =
     isLargeDevice && Platform.OS === "web" ? "compact" : "comfortable";
 
@@ -649,25 +471,8 @@ export function useTheme(): Theme {
 }
 
 /**
- * Tailwind v4's `shadow-md` and `shadow-lg`, ported literally from dexter-app.
- * Not theme tokens — a shadow is the absence of light, so it is the same on
- * every theme and has nothing to vary with. They live here rather than in a
- * component because four surfaces draw them (the nav rail's tiles, the web
- * menu, the web date popover, the web confirmation card) and three of those
- * had drifted into separate hand-rolled values.
- *
- * **Black, not `colors.text`.** Deriving a shadow from the ink inverts it on
- * the dark themes, where the ink is light, painting a pale halo around the
- * surface instead of lifting it. See docs/design.md, "Scrims and shadows".
- *
- * Both are two-layer: a wide soft drop with a negative spread over a tighter
- * layer that keeps the shape's own edge defined. A single-layer shadow reads
- * as a smudged hairline instead of a lift.
- *
- * The CSS string form renders on native too — RN 0.86's `processBoxShadow`
- * parses it, negative spread included, and `@react-native/normalize-colors`
- * handles the `rgb(R G B / A)` slash notation — so no `shadow*`/`elevation`
- * fallback is needed.
+ * Tailwind's shadow-md/lg. Black, not `colors.text` — ink-derived shadows halo
+ * on dark themes (docs/design.md). The CSS string parses on native (RN 0.86).
  */
 export const SHADOW_MD =
   "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)";
@@ -675,30 +480,14 @@ export const SHADOW_LG =
   "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)";
 
 /**
- * Tailwind v4's `shadow-2xl`, for a surface the size of a screen.
- *
- * The two above are tuned for things a few hundred points across — a menu, a
- * tile, a popover — where 15px of blur at 10% black is a clear lift. Across the
- * Horoscope card it is a rumour: blur and alpha both have to scale with the
- * shape or the shadow reads as nothing at all, which is what `SHADOW_LG` on
- * that card looked like.
- *
- * **Single-layer, unlike the other two, and that is Tailwind's own choice
- * rather than an oversight.** The second tight layer up there exists to keep a
- * small shape's edge defined under a soft drop; at 50px of blur there is no
- * hairline left to smudge, and the card draws its own edge with a `space.md`
- * frame regardless.
+ * Tailwind's shadow-2xl, for screen-sized surfaces: blur and alpha must scale
+ * with the shape — `SHADOW_LG` across the Horoscope card read as nothing.
  */
 export const SHADOW_2XL = "0 25px 50px -12px rgb(0 0 0 / 0.25)";
 
 /**
- * Applies an alpha channel to a color, e.g. for a scrim or to dim content
- * without fading the surface under it. Accepts a `#rrggbb` hex color or an
- * existing `rgba(...)` string — in the latter case, `alpha` multiplies the
- * color's existing alpha, matching how nested opacity modifiers compose in CSS.
- *
- * For a tinted *surface*, prefer a pre-blended token (`colors.priorityMuted`):
- * an alpha fill takes on whatever is behind it.
+ * Alpha for `#rrggbb` or `rgba(...)` input (multiplies an existing alpha, as CSS
+ * nests opacity). For a tinted *surface* prefer a pre-blended token instead.
  */
 export function withOpacity(color: string, alpha: number): string {
   const rgbaMatch = color.match(
