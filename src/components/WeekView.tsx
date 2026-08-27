@@ -28,9 +28,8 @@ type TWeekViewProps = {
    * else the week's Monday; see week/index.tsx. */
   targetDate: Temporal.PlainDate;
   enableHabits: boolean;
-  /** Passed down rather than read from the clock, so this and `targetDate`
-   * share one instant — reading separately let the today chip and the
-   * schedule target disagree across a midnight rollover. */
+  /** Passed down, not read from the clock, so this and `targetDate` share one
+   * instant — reading separately let them disagree across a midnight rollover. */
   today: Temporal.PlainDate;
 };
 

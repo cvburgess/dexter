@@ -12,11 +12,8 @@ type TTemplatePickerProps = {
   isLoading?: boolean;
 };
 
-/**
- * The task templates a new task can start from. Selection outlines the chosen
- * card the way the appearance screen's theme picker does (DEX-65); the caller
- * decides what selecting means.
- */
+// Selection outlines the chosen card the way the appearance screen's theme
+// picker does (DEX-65); the caller decides what selecting means.
 export function TemplatePicker({
   templates,
   selectedId,

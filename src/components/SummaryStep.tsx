@@ -42,12 +42,8 @@ const CONTENT_FADE_MS = 1800;
 const plural = (count: number, noun: string) =>
   `${noun}${count === 1 ? "" : "s"}`;
 
-/**
- * The morning ritual's closing step (DEX-144): what the day adds up to, and
- * the door out to it. Closed the evening too until DEX-149 (see ritualSteps).
- * All three figures take `colors.primary` — none of this day's numbers is bad
- * news, unlike the calendar/backlog steps' sentiment colors.
- */
+// The morning ritual's closing step (DEX-144). All three figures take
+// colors.primary — none of this day's numbers is bad news.
 export function SummaryStep({ date }: TSummaryStepProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -209,8 +205,7 @@ export function SummaryStep({ date }: TSummaryStepProps) {
       {/* First child so it paints under the block without a z-index. */}
       <SunriseBackground revealKey={day} />
       {/* bodyInsetTop zeroes HeroLines' own top-anchor compensation, which
-          would otherwise just widen the gap to the button in this centered
-          layout — leaving `lg` above and below the figures instead. */}
+          would otherwise just widen the gap to the button here. */}
       <Animated.View style={[styles.content, contentStyle]}>
         <HeroLines
           bodyInsetTop={insetAbove}

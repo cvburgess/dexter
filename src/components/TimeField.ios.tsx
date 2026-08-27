@@ -8,11 +8,8 @@ import {
 import { dateToTimeString, timeStringToDate } from "./TimeField.shared";
 import { TTimeFieldProps } from "./TimeField.types";
 
-/**
- * A compact time chip. Hosts the SwiftUI time picker directly with
- * `matchContents` so it reports its real size and aligns in a settings row —
- * mirrors `DateField.ios` but shows hour + minute instead of a date.
- */
+// A compact time chip, hosting the SwiftUI picker directly with matchContents
+// so it reports its real size — mirrors DateField.ios but for hour + minute.
 export function TimeField({
   accentColor,
   min,

@@ -185,9 +185,8 @@ export function TaskForm({
       )}
 
       <FormRow label="Link" minHeight={32}>
-        {/* The input sizes to this wrapper rather than to itself: `TextInput`
-            carries `width: "100%"`, which in a space-between row would push the
-            label off the edge. */}
+        {/* TextInput carries width: "100%", which in a space-between row
+            would push the label off the edge without this wrapper. */}
         <View style={[styles.linkField, { marginLeft: theme.space.md }]}>
           <TextInput
             autoCapitalize="none"

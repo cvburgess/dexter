@@ -5,11 +5,8 @@ import { useTheme } from "@/utils/theme";
 
 import type { TWebModalHeaderProps } from "./WebModalHeader";
 
-/**
- * Web implementation: a header bar with Cancel (✕) and Save (✓) buttons.
- * The Stack header is hidden on web (`utils/stackOptions.web.ts`), so modal
- * screens render this instead.
- */
+// The Stack header is hidden on web (utils/stackOptions.web.ts), so modal
+// screens render this bar with Cancel (✕) and Save (✓) instead.
 export function WebModalHeader({
   isDisabled = false,
   onClose,

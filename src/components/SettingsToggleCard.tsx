@@ -8,11 +8,8 @@ type TSettingsToggleCardProps = {
   onValueChange: (value: boolean) => void;
 };
 
-/**
- * The standard settings "enable" control: a card wrapping a label and an on/off
- * Switch. Used to gate a whole feature (Calendar, Habits, Notes, Journal). The
- * Switch's `accessibilityLabel` mirrors the label so tests can query by it.
- */
+// The standard settings "enable" control, used to gate a whole feature. The
+// Switch's accessibilityLabel mirrors the label so tests can query by it.
 export function SettingsToggleCard({
   label,
   value,

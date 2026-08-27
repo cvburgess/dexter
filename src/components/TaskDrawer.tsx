@@ -242,9 +242,8 @@ type TTaskDrawerProps = {
   /** Renders the search field; the ritual's Backlog step turns it off
    * (DEX-141). Only the field is dropped, not the search state. */
   showSearch?: boolean;
-  /** Declares the drawer is under an animated opacity, not a style knob —
-   * liquid glass can't sample through it, so this forces the plain circle
-   * (Backlog step only, DEX-150; see GlassIconButton). */
+  /** Declares the drawer is under an animated opacity — liquid glass can't
+   * sample through it, so this forces the plain circle (DEX-150). */
   solid?: boolean;
 };
 

@@ -63,16 +63,8 @@ export function StatusButton({
   );
 }
 
-/**
- * Tints each status's menu icon, reusing the same tokens the priority icons draw
- * from: yellow/blue are the daisyUI `warning`/`info` slots of the `priority`
- * array, and green/red are the dedicated `success`/`error` tokens. To Do is left
- * untinted so it inherits the menu's own text color — an open task is the neutral
- * default, and giving it an accent would imply a state it doesn't have.
- *
- * Passing `colors` in (rather than reading a theme here) keeps this a pure
- * function of its arguments, which is what lets the test call it directly.
- */
+// Reuses the priority icons' own tokens. To Do stays untinted — an open task
+// is the neutral default, and `colors` is a param so tests can call this pure.
 const iconColorForStatus = (
   status: ETaskStatus,
   colors: Theme["colors"],
@@ -140,20 +132,9 @@ export const getStatusSections = (
   },
 ];
 
-/**
- * The trigger draws a text character rather than the menu's `SymbolView` icon
- * (which would tint fine — see `PriorityControl`): the typographic circle is the
- * task affordance itself, and nesting an SF `circle` inside the bordered circle
- * would double it up. So each status carries two glyphs — the symbol name in
- * `getStatusSections` and its text counterpart here. Delegated pairs the arrow
- * symbol with "→" so the menu row and the trigger read as the same mark.
- *
- * Keyed as a `Record` rather than a switch with a `default` so that adding a
- * status without a glyph is a type error instead of a silent fallback to "○".
- * The `??` at the call site is for values the *type* can't police: `tasks.status`
- * is an unconstrained smallint and the row is an unchecked cast, so an
- * out-of-enum value renders "○" rather than an empty button.
- */
+// A text glyph, not the menu's SF `circle` icon — nesting one inside the
+// bordered trigger circle would double it. `Record`, not a switch, so a
+// missing status is a type error; the call-site `??` covers an unchecked-cast out-of-enum value.
 const GLYPHS: Record<ETaskStatus, string> = {
   [ETaskStatus.TODO]: "○",
   [ETaskStatus.IN_PROGRESS]: "◐",

@@ -9,14 +9,8 @@ type TTasksViewProps = {
   date: Temporal.PlainDate;
 };
 
-/**
- * Habits + the day's task list for `date` — the always-visible pane of the
- * Today tab. Composable so it can be shown alone (small screens) or beside
- * other panes (large screens); see `today/index.tsx`.
- *
- * The list itself lives in `DayTaskList`, which the Week tab's day columns
- * reuse (DEX-96).
- */
+// Habits + the day's task list — the always-visible Today pane, composable
+// so it stands alone or beside other panes. List lives in DayTaskList (DEX-96).
 export function TasksView({ date }: TTasksViewProps) {
   const [preferences] = usePreferences();
 

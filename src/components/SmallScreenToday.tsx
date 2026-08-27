@@ -93,9 +93,8 @@ export function SmallScreenToday({
       edges={["top", "left", "right"]}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      {/* column-reverse puts the scroll view first in the tree (DEX-136) while
-          the header still renders above it — see docs/frontend.md. TaskDrawerSheet
-          stays outside this wrapper since its layout contribution is a modal's. */}
+      {/* column-reverse puts the scroll view first in the tree (DEX-136);
+          TaskDrawerSheet stays outside since its layout contribution is a modal's. */}
       <View style={styles.reversed}>
         <DayViewContent
           view={activeView}

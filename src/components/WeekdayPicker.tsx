@@ -2,9 +2,8 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { useTheme } from "@/utils/theme";
 
-/** Which day-of-week numbering the caller's `selected`/`onToggle` values use:
- * cron (0 = Sunday, per settings/tasks/[id].tsx's repeat schedules) or
- * Temporal's `dayOfWeek` (Monday = 1 … Sunday = 7, per habits). */
+/** Which day-of-week numbering the caller's values use: cron (0 = Sunday) or
+ * Temporal's dayOfWeek (Monday = 1 … Sunday = 7, per habits). */
 export type TWeekdayValueSource = "cron" | "temporal";
 
 // Day names, Monday-first — the order every chip row displays in.
@@ -31,9 +30,7 @@ type TWeekdayPickerProps = {
 };
 
 /** A row of toggleable weekday chips, shared by the repeat-schedule and habit
- * forms. Chip labels/accessibility labels are derived from the day name;
- * `valueSource` picks which day-of-week numbering `selected`/`onToggle`
- * round-trip. */
+ * forms; `valueSource` picks which day-of-week numbering round-trips. */
 export function WeekdayPicker({
   valueSource,
   selected,

@@ -71,9 +71,8 @@ export function TaskDrawerSheet({ date, ref }: TTaskDrawerSheetProps) {
         if (index >= 0) setHasOpened(true);
       }}
     >
-      {/* flex:1 bounds TaskDrawer so its FlashList scrolls within the detent.
-          Background: the sheet host paints none of its own, so a modal reads
-          as a modal wherever it's presented from. */}
+      {/* flex:1 bounds TaskDrawer's FlashList within the detent; the sheet
+          host paints no background of its own, so this supplies one. */}
       <BottomSheetView
         style={[styles.content, { backgroundColor: theme.colors.background }]}
       >

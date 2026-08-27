@@ -11,17 +11,13 @@ type TTemplateRowProps = {
   /** The line under the title — a schedule in settings, a step count in the picker. */
   description: string;
   onPress: () => void;
-  /**
-   * Omit where the row is a link rather than a choice: the outline and
-   * checkmark only appear once a row can be selected.
-   */
+  /** Omit where the row is a link, not a choice — outline/checkmark only
+   * appear once a row can be selected. */
   selected?: boolean;
   /** Colors the description as an error — a repeat that can no longer fire. */
   isStalled?: boolean;
-  /**
-   * A second tap target beside the row's own, e.g. the one-tap repair on a
-   * stalled repeat. Its presence restructures the row — see the comment below.
-   */
+  /** A second tap target beside the row's own (e.g. a stalled repeat's
+   * repair) — its presence restructures the row into two touch targets. */
   action?: {
     icon: TIconName;
     accessibilityLabel: string;
@@ -31,12 +27,8 @@ type TTemplateRowProps = {
   testID?: string;
 };
 
-/**
- * One template as a card. Shared by the Settings → Tasks lists and the
- * create-task modal's template picker, which show the same row and differ only
- * in their description line, whether the row can be selected, and whether it
- * carries an inline action.
- */
+// One template as a card, shared by Settings → Tasks and the create-task
+// modal's picker — they differ only in description, selectability, and action.
 export function TemplateRow({
   template,
   description,
