@@ -7,9 +7,8 @@ import {
   useResolvedColorScheme,
 } from "@/utils/theme";
 
-// Resolves the active theme from the user's saved preferences and the OS color
-// scheme, then supplies it to every `useTheme()` call below. Must be mounted
-// inside the auth + query providers, since `usePreferences` reads both.
+// Must be mounted inside the auth + query providers, since usePreferences
+// reads both.
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const [preferences] = usePreferences();
   const systemScheme = useResolvedColorScheme();

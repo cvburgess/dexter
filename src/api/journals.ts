@@ -21,10 +21,8 @@ export type TJournal = {
   mood: number | null;
 };
 
-// Normalize a raw `journals` row into `TJournal`, coercing a null `prompts` to
-// `[]`. The column is NOT NULL, but `TJournal.prompts` is `TJournalPrompt[]` and
-// callers `.map()` it / read `.length`, so neither the fetch (`getJournal`) nor
-// the write (`upsertJournal`) may leak a null into the React Query cache.
+// Callers `.map()` `prompts` unguarded, so neither the fetch nor the write may
+// leak a null into the React Query cache, whatever the row carries.
 const rowToJournal = (data: Tables<"journals">): TJournal => {
   const row = camelCase(data) as TJournal;
   return {
@@ -66,9 +64,8 @@ export const upsertJournal = async (
   const { data, error } = await supabase
     .from("journals")
     .upsert(snakeCase(diff) as TablesInsert<"journals">, {
-      // The table is keyed (user_id, date) and `user_id` is never sent (column
-      // default + RLS), so name the target explicitly — PostgREST would
-      // otherwise infer the conflict target from the payload's columns alone.
+      // `user_id` is never sent (column default + RLS), so name the target —
+      // PostgREST would otherwise infer it from the payload's columns alone.
       onConflict: "user_id,date",
     })
     .select()

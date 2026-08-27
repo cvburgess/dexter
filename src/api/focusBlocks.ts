@@ -5,11 +5,8 @@ import { camelCase, snakeCase } from "@/utils/changeCase";
 import { TFocusBlockStatus } from "@/utils/focusBlocks";
 import { Database, TablesInsert, TablesUpdate } from "@/types/database.types";
 
-/**
- * One Pomodoro-style timer (DEX-49). `remainingSeconds` + `resumedAt` are an
- * anchor rather than a live countdown — see `utils/focusBlocks.ts` and the
- * `add_focus_blocks` migration.
- */
+// One Pomodoro-style timer (DEX-49); remainingSeconds + resumedAt are an
+// anchor, not a live countdown — see utils/focusBlocks.ts.
 export type TFocusBlock = {
   /** The **local** day this block belongs to, stamped once when it starts.
    * What the ritual's Review step counts by. */
@@ -26,14 +23,8 @@ export type TFocusBlock = {
 
 const FOCUS_BLOCK_SELECT = "*, tasks(*)";
 
-/**
- * The block the timer UI is currently showing, or `null`.
- *
- * `.limit(1)` and take the first row rather than `.maybeSingle()`: the partial
- * unique index makes two live rows impossible from here on, but `maybeSingle`
- * *throws* `PGRST116` on a pre-existing pair, and a timer bar that crashes is a
- * worse failure than one showing the newer of two blocks.
- */
+// `.limit(1)` + first row, not `.maybeSingle()`: a pre-existing duplicate pair
+// makes maybeSingle throw PGRST116, and a crashed timer bar is worse than a stale one.
 export const getLiveFocusBlock = async (
   supabase: SupabaseClient<Database>,
 ): Promise<TFocusBlock | null> => {
@@ -89,9 +80,8 @@ export const createFocusBlock = async (
 export type TUpdateFocusBlock = {
   id: string;
   remainingSeconds?: number;
-  /** Always written alongside `status`: the `resumed_at_iff_active` constraint
-   * rejects a running block without an anchor, or a stopped one carrying a
-   * stale anchor. */
+  /** Always written alongside `status` — `resumed_at_iff_active` rejects a
+   * mismatched pair. */
   resumedAt?: string | null;
   status?: TFocusBlockStatus;
 };

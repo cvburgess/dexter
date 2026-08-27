@@ -36,9 +36,8 @@ export const upsertNote = async (
   const { data, error } = await supabase
     .from("notes")
     .upsert(snakeCase(diff) as TablesInsert<"notes">, {
-      // The table is keyed (user_id, date) and `user_id` is never sent (column
-      // default + RLS), so name the target explicitly — PostgREST would
-      // otherwise infer the conflict target from the payload's columns alone.
+      // `user_id` is never sent (column default + RLS), so name the target —
+      // PostgREST would otherwise infer it from the payload's columns alone.
       onConflict: "user_id,date",
     })
     .select()

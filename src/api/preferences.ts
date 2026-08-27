@@ -15,17 +15,13 @@ export enum EThemeMode {
 }
 
 export type TPreferences = {
-  /** A `TAlarmSound` value — see `ALARM_SOUNDS` in `utils/alarms.shared.ts`.
-   * Typed as `string` because the DB column is unconstrained text: an older
-   * build must be able to read a sound it doesn't know about. */
+  /** A `TAlarmSound` value, typed `string`: the column is unconstrained text,
+   * so an older build must be able to read a sound it doesn't know about. */
   alarmSound: string;
-  /** How many breaths the Breathe ritual step opens with (DEX-164). A plain
-   * number, like `focusBlockMinutes` and for the same reason: the column is
-   * unconstrained, so an older build must be able to read a count it doesn't
-   * offer. `resolveBreathCount` narrows it at the read site. */
+  /** Breaths the Breathe step opens with (DEX-164). Unconstrained column, so
+   * older builds must read unknown counts; `resolveBreathCount` narrows them. */
   breathCount: number;
-  /** Which pattern the Breathe step opens with — a `TBreathingTechniqueSetting`
-   * value, which includes `"shuffle"` (see `utils/breathing.ts`). Typed as
+  /** A `TBreathingTechniqueSetting` value, including `"shuffle"` — typed
    * `string` for the reason `alarmSound` is. */
   breathingTechnique: string;
   calendarEndTime: string;
@@ -34,23 +30,17 @@ export type TPreferences = {
   darkTheme: string;
   enableCalendar: boolean;
   enableHabits: boolean;
-  /** Whether the Ritual's morning walk includes its Horoscope step (DEX-142).
-   * Independent of `sunSign`: turning the step off leaves a chosen sign stored,
-   * so turning it back on restores the horoscope rather than re-asking. */
+  /** DEX-142: independent of `sunSign` — toggling off keeps the stored sign,
+   * so re-enabling restores the horoscope rather than re-asking. */
   enableHoroscope: boolean;
   enableJournal: boolean;
   enableNotes: boolean;
-  /** How long a focus block runs, in whole minutes (DEX-49). Typed as a plain
-   * number because the DB column is unconstrained: an older build must be able
-   * to read a length it doesn't offer, which `resolveFocusBlockMinutes` narrows
-   * back to one it does. */
+  /** Whole minutes (DEX-49). Unconstrained column, so an older build must read
+   * lengths it doesn't offer; `resolveFocusBlockMinutes` narrows them back. */
   focusBlockMinutes: number;
   lightTheme: string;
-  /** The sign the Horoscope ritual step reads for, or `null` when unset —
-   * the only preference with no sensible default, since guessing one would
-   * show a stranger's horoscope as though it were the user's (DEX-128). This
-   * is the one nullable field in this type; treat it as a real state rather
-   * than coalescing it to a sign. */
+  /** `null` when unset — the one preference with no sensible default: guessing
+   * would show a stranger's horoscope as the user's (DEX-128). Never coalesce. */
   sunSign: TSunSign | null;
   templateNote: string;
   /** The journal's prompts, each carrying the ritual that asks it (DEX-151).

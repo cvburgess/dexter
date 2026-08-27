@@ -4,13 +4,8 @@ import { TTask, withSubtasksArray } from "@/api/tasks";
 import { camelCase } from "@/utils/changeCase";
 import { Database } from "@/types/database.types";
 
-/**
- * One hit from the `search_entries` RPC (DEX-47), discriminated on where it came
- * from. A task carries its whole row so the results list can render the same
- * `TaskCard` the Today list does; notes and journal entries carry the full
- * matched text, not a server-built excerpt, so the client can compute the
- * highlight offsets itself (see `utils/searchHighlight.ts`).
- */
+// One hit from the search_entries RPC (DEX-47). A task carries its whole
+// row; notes/journals carry full text so the client computes highlights.
 export type TSearchResult =
   | { kind: "task"; task: TTask }
   | { kind: "note"; date: string; content: string }
@@ -25,17 +20,12 @@ type TSearchRow = {
   content: string | null;
 };
 
-/**
- * Narrows a raw row to the union, dropping anything malformed rather than
- * letting a half-built result reach the list. Each branch requires exactly the
- * fields its `kind` promises: a note with no date could not be navigated to, and
- * a task with no row could not be rendered.
- */
+// Drops anything malformed rather than letting a half-built result reach the
+// list — a note with no date can't be navigated to, a task with no row rendered.
 const rowToResult = (row: TSearchRow): TSearchResult | null => {
   if (row.kind === "task") {
-    // `task` is jsonb, so `camelCase`'s deep walk has already renamed its keys
-    // (scheduled_for → scheduledFor). Same rows `getTasks` returns, so they need
-    // the same subtasks guard.
+    // camelCase's deep walk already renamed keys; same rows getTasks
+    // returns, so they need the same subtasks guard.
     return row.task
       ? { kind: "task", task: withSubtasksArray(row.task as TTask) }
       : null;
@@ -52,10 +42,8 @@ const rowToResult = (row: TSearchRow): TSearchResult | null => {
       ? {
           kind: "journal",
           date: row.entryDate,
-          // Neither is required — only the date is. In practice the response is
-          // always present: it's the only field `search_entries` matches on, so
-          // an empty one can't be a hit. The prompt is the question it answered,
-          // shown for context but never searched.
+          // Only the date is required — the response is always present since
+          // it's the only field search_entries matches on.
           prompt: row.prompt ?? "",
           content: row.content ?? "",
         }
@@ -65,16 +53,8 @@ const rowToResult = (row: TSearchRow): TSearchResult | null => {
   return null;
 };
 
-/**
- * Searches task titles (including subtask titles), note content, and journal
- * responses for `query`. Journal *prompts* come back with each hit for context
- * but are not searched — see the migration for why.
- *
- * The matching lives entirely in the `search_entries` RPC — term splitting, LIKE
- * escaping, and per-user scoping (the function is `security invoker`, so RLS
- * scopes it). Passing `query` through untouched is deliberate: escaping it here
- * would double-escape what the function already handles.
- */
+// Matching lives entirely in the RPC (term splitting, LIKE escaping,
+// security invoker); passing query untouched avoids double-escaping.
 export const searchEntries = async (
   supabase: SupabaseClient<Database>,
   query: string,

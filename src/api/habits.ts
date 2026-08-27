@@ -135,15 +135,8 @@ export type TUpdateDailyHabit = {
 };
 
 /**
- * Writes a day's progress whether or not the row exists yet (DEX-160).
- *
- * `updateDailyHabit` cannot serve the widget drain: `daily_habits` rows are
- * bootstrapped by an effect in `HabitTracker`, so a step tapped on the home
- * screen before the app has run that day has nothing to update, and `.single()`
- * would throw on the empty result. An insert alone is no better — the row may
- * well exist. The primary key is `(date, habit_id)`, which is exactly the
- * conflict target, and `steps` is `not null` with no default, so the caller has
- * to supply the day's target alongside the progress.
+ * DEX-160: a widget tap can land before `HabitTracker` bootstraps the day's row,
+ * so upsert on the `(date, habit_id)` PK; `steps` has no default, so it travels.
  */
 export const upsertDailyHabit = async (
   supabase: SupabaseClient<Database>,

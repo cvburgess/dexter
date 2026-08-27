@@ -100,10 +100,8 @@ describe("upsertDailyHabit", () => {
       stepsComplete: 3,
     });
 
-    // `steps` travels because the row may not exist yet — a step tapped on the
-    // widget before the Today screen has bootstrapped the day — and the column
-    // is `not null` with no default. Still never `percent_complete` or
-    // `user_id`.
+    // `steps` travels because the row may not exist yet (widget tap before the
+    // day is bootstrapped) and is not null. Never `percent_complete`/`user_id`.
     expect(upsert).toHaveBeenCalledWith(
       { date: "2026-07-11", habit_id: "habit-1", steps: 8, steps_complete: 3 },
       { onConflict: "date,habit_id" },
