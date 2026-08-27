@@ -1,15 +1,5 @@
-/**
- * Reads release notes from the repo's CHANGELOG.md.
- *
- * Each entry is a `## vX.Y.Z` heading. Everything below the `---` rule inside an
- * entry is the internal PR list (DEX ticket numbers, PR links) and is dropped —
- * only the user-facing bullets above it are published. Older entries predate the
- * rule and have no `---` at all, in which case the whole body is user-facing.
- *
- * The heading format is load-bearing elsewhere: `.github/scripts/tag-and-release.sh`
- * matches `^## vX.Y.Z$` anchored, so nothing (a date, say) may be appended to it.
- * That is why releases here carry no date.
- */
+// Parses the root CHANGELOG.md. Only text above an entry's `---` is published
+// (below is the PR list); `## vX.Y.Z` headings stay bare — tag-and-release.sh anchors on them.
 interface Release {
   version: string;
   notes: string;

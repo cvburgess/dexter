@@ -1,27 +1,12 @@
 name: Reset Demo Account
 
-# Puts the production demo account back to the curated dataset every morning,
-# so App Store review, marketing screenshots, and anyone using the public demo
-# login always land on known-good data — whatever the previous day's visitors
-# did to it. The seeded data is relative-dated ("due in 2 days"), so this also
-# keeps the account from aging even when nobody touches it (DEX-117).
-#
-# Same idempotent script the preview branches run
-# (supabase/scripts/seed-demo.ts), pointed at production. It needs no new repo
-# secrets: the service-role key is fetched from the Management API at runtime,
-# and supabase/.env.preview already carries production's DEMO_OTP — see
-# docs/backend.md.
-#
-# The hour is load-bearing beyond preference: seed-demo.ts derives "today" from
-# `new Date().toISOString()` (UTC). At 12:00 UTC, UTC-today still equals
-# Eastern-today, so the relative-dated tasks land where a US viewer expects.
-# Moving this to an overnight-UTC slot would seed tomorrow's dates.
+# Reseeds the demo account daily (DEX-117). The hour is load-bearing:
+# seed-demo derives "today" in UTC, so an overnight slot seeds tomorrow's dates.
 
 on:
   schedule:
-    # 12:00 UTC = 08:00 EDT / 07:00 EST. GitHub cron is UTC-only with no DST
-    # support, so the winter hour of drift is accepted rather than gated
-    # around with a second cron.
+    # 12:00 UTC = 08:00 EDT. GitHub cron has no DST support, so the winter hour
+    # of drift is accepted rather than gated with a second cron.
     - cron: '0 12 * * *'
   workflow_dispatch:
 
@@ -32,15 +17,8 @@ jobs:
   reset:
     name: Reset production demo account
     runs-on: ubuntu-latest
-    # Its own group, deliberately *not* deploy.yml's `deploy-production`.
-    # Sharing that one would serialize the seed against production deploys, but
-    # GitHub keeps only a single pending run per group: a second deploy
-    # entering the group evicts the queued reset, silently skipping a day's
-    # reseed. That group is also workflow-level in deploy.yml, so it stays held
-    # through the long EAS export/deploy/update steps, which a data-only seed
-    # doesn't race with at all. Only reseeds serialize against each other —
-    # `cancel-in-progress: false` so a manual dispatch queues behind a running
-    # reseed instead of killing it half-wiped.
+    # Not deploy.yml's group — GitHub keeps one pending run per group, so a
+    # deploy would evict a queued reseed. No cancel: never kill one half-wiped.
     concurrency:
       group: reset-demo-production
       cancel-in-progress: false
@@ -55,10 +33,8 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_ID }}
-        # The seed script writes through the Auth Admin API and bypasses RLS,
-        # so it needs the project's service-role key. Fetching it from the
-        # Management API — the same call preview-branch.yml makes, pointed at
-        # the production ref — keeps that key out of repo secrets entirely.
+        # seed-demo bypasses RLS via the Auth Admin API; fetching the
+        # service-role key from the Management API keeps it out of repo secrets.
         run: |
           set -euo pipefail
           # Captured, never echoed — reveal=true returns the key material in full.
@@ -66,8 +42,7 @@ jobs:
             -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
             -H "Accept: application/json" \
             "https://api.supabase.com/v1/projects/$PROJECT_REF/api-keys?reveal=true")
-          # Prefer the legacy `service_role` JWT; fall back to a new-style
-          # secret key if legacy JWT keys are ever disabled on the project.
+          # Legacy service_role JWT first, else a new-style sb_secret_ key;
           # `.api_key` is null-guarded before startswith, which errors on null.
           key=$(echo "$keys" | jq -r '
             [.[] | select(.api_key != null)] as $present
@@ -86,21 +61,12 @@ jobs:
       - name: Reset demo account
         working-directory: supabase/scripts
         env:
-          # supabase/.env.preview deliberately carries *production's* DEMO_OTP
-          # (docs/backend.md, "DEMO_OTP and the seeded password rotate
-          # together"), so the same encrypted file that seeds previews seeds
-          # production — this workflow needs no new repo secret.
+          # .env.preview deliberately carries *production's* DEMO_OTP — "rotate
+          # together", docs/backend.md — so one encrypted file seeds both.
           DOTENV_PRIVATE_KEY_PREVIEW: ${{ secrets.DOTENV_PRIVATE_KEY_PREVIEW }}
-          # The project's own supabase.co host rather than the
-          # api.dexterplanner.com custom domain: both serve the same API, but
-          # this one is derived from the very ref we just fetched the key for,
-          # so the URL and the credential can never point at different projects.
+          # The project's own supabase.co host, derived from the same ref the
+          # key was fetched for — URL and credential can't point at different projects.
           SUPABASE_URL: https://${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co
-        # Version-pinned: this decrypts a production credential and should not
-        # float to whatever `@latest` resolves to on a given day. `--strict` is
-        # load-bearing: without it dotenvx only *logs* a failed decrypt (a
-        # missing or rotated DOTENV_PRIVATE_KEY_PREVIEW) and still runs the
-        # command with the raw `encrypted:…` ciphertext as DEMO_OTP — the job
-        # would go green every morning while resetting the demo password to a
-        # value verify-demo-otp can never derive.
+        # Pinned: this decrypts a production credential. `--strict` is load-bearing —
+        # without it a failed decrypt still runs with ciphertext as DEMO_OTP, job green.
         run: npx --yes @dotenvx/dotenvx@2.18.1 run --strict -f ../.env.preview -- deno task seed-demo

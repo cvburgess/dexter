@@ -1,14 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Creates or updates a git tag and GitHub release for the given version.
-# Reads the full release body from CHANGELOG.md.
-#
-# Usage: tag-and-release.sh <version>
-# Example: tag-and-release.sh 2.0.0
-#
-# Requires: git, gh
-# Environment: GH_TOKEN (set automatically in GitHub Actions)
+# Create or update the git tag and GitHub release for <version>, body from
+# CHANGELOG.md. Usage: tag-and-release.sh 2.0.0 (needs gh; GH_TOKEN in Actions).
 
 VERSION="${1:?Usage: tag-and-release.sh <version>}"
 TAG="v${VERSION}"

@@ -1,12 +1,6 @@
 #!/usr/bin/env bash
-#
-# Capture the App Store screenshot set on iOS Simulators, strip the alpha
-# channel, and verify every file before it can reach App Store Connect.
-#
-#   DEMO_OTP=... scripts/screenshots/capture.sh --device all --build
-#
-# See README.md for the failure modes this exists to prevent, and
-# docs/appstore.md for the listing metadata that goes with the images.
+# DEMO_OTP=... scripts/screenshots/capture.sh --device all --build
+# Failure modes: README.md; listing metadata: docs/appstore.md.
 
 set -euo pipefail
 
@@ -21,27 +15,8 @@ BUNDLE_ID="com.dexterplanner"
 # staleness check below for why the installed bundle can't answer this.
 BUILD_STAMPS="$HOME/.cache/dexter-screenshots"
 
-# Device profiles: key | name | SimDeviceType | native WxH | orientation | drawer.
-#
-# Only a Pro Max is an accepted iPhone size — App Store Connect validates
-# against a fixed list of reference resolutions, and an iPhone Air (1260x2736)
-# or a non-Max 17 Pro (1206x2622) is rejected however clean the capture. Apple
-# downscales the 6.9" set for smaller devices, so one iPhone entry is enough.
-# The iPad 13" set is required because the app ships for iPad, and the Mac
-# listing reuses it (Mac support is the iPad build on Apple Silicon).
-#
-# `native WxH` is what `simctl io screenshot` hands back, which is always the
-# portrait framebuffer — even in landscape, where the content simply arrives
-# turned 90°. The *published* size is that swapped when orientation is
-# landscape, and Apple accepts either (1320x2868 / 2868x1320 for the 6.9"
-# iPhone, 2064x2752 / 2752x2064 for the 13" iPad).
-#
-# iPad is landscape, iPhone is not, and that asymmetry is the app's, not a
-# preference: `UISupportedInterfaceOrientations` in the built Info.plist is
-# portrait-only, while `UISupportedInterfaceOrientations~ipad` carries both
-# landscape orientations. An iPhone rotated by the menu simply keeps rendering
-# portrait. Landscape also happens to be the better iPad shot — at 1366pt wide
-# all four panes fit, where portrait squeezes the notes pane to nothing.
+# key | name | SimDeviceType | native WxH | orientation | drawer. Native size is
+# the portrait framebuffer even in landscape; accepted sizes and why: README.md.
 PROFILES=(
   "iphone|iPhone 17 Pro Max|com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max|1320x2868|portrait|sheet"
   "ipad|iPad Pro 13-inch (M5)|com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-12GB|2064x2752|landscape|pane"
@@ -76,9 +51,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-# --- preflight ---------------------------------------------------------------
-# Everything checked here is cheaper to catch now than after a five-minute
-# native build.
+# --- preflight: cheaper to catch here than after a five-minute build ---------
 
 [ -n "${DEMO_OTP:-}" ] || die "DEMO_OTP is not set. It is a Supabase function secret — ask for it, never commit it."
 [ -x "$MAESTRO" ] || command -v maestro >/dev/null 2>&1 || die "maestro not found at $MAESTRO. Install: curl -fsSL https://get.maestro.mobile.dev | bash"
@@ -99,24 +72,19 @@ grep -qE '^EXPO_PUBLIC_SUPABASE_URL=.*(api\.dexterplanner\.com|isreileykodwkyedc
 xcrun simctl list runtimes 2>/dev/null | grep -qE 'iOS 2[6-9]' \
   || die "no iOS 26+ runtime installed — AlarmKit rows are hidden below iOS 26."
 
-# Rotating the simulator has no `simctl` verb — it lives only in the Simulator
-# app's Device > Orientation menu — so the landscape profiles drive that menu
-# via AppleScript, which needs Accessibility permission. Checked here because
-# the failure is otherwise a silent no-op: the menu click "succeeds", the device
-# never turns, and the capture is quietly portrait.
+# Rotation is AppleScript over Simulator's menu (no simctl verb) and needs
+# Accessibility permission — without it the click "succeeds" and stays portrait.
 if printf '%s\n' "${PROFILES[@]}" | grep -q '|landscape|'; then
   osascript -e 'tell application "System Events" to name of first process' >/dev/null 2>&1 \
     || die "this terminal lacks Accessibility permission, which the orientation menu needs. Grant it under System Settings > Privacy & Security > Accessibility."
 fi
 
-# Used to read simctl's JSON. Present with the Xcode command line tools, which
-# are already required, but named here so a broken install fails in a second
-# rather than inside the device lookup.
+# Reads simctl's JSON; named here so a broken Xcode CLT install fails in a
+# second rather than inside the device lookup.
 [ -x /usr/bin/python3 ] || die "/usr/bin/python3 is missing — install the Xcode command line tools (xcode-select --install)."
 
-# One scratch directory for the whole run, removed on exit. `$(mktemp -t x).png`
-# would write to a path mktemp never created, leaking an empty temp file behind
-# every screenshot.
+# One scratch dir for the run — `$(mktemp -t x).png` would write to a path
+# mktemp never created, leaking an empty temp file per screenshot.
 WORK_DIR="$(mktemp -d -t capture)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
@@ -125,23 +93,17 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 RUN_MARKER="$WORK_DIR/started"
 : > "$RUN_MARKER"
 
-# Maestro reads shell variables prefixed with MAESTRO_ and exposes them to flows
-# under the same name. Exporting the OTP that way keeps it out of the process
-# arguments, where `-e DEMO_OTP=…` would leave a function secret readable in
-# `ps` output for the whole run.
+# MAESTRO_-prefixed vars reach flows by name; `-e DEMO_OTP=…` would leave the
+# secret readable in `ps` output for the whole run.
 export MAESTRO_DEMO_OTP="$DEMO_OTP"
 
 # --- helpers -----------------------------------------------------------------
 
-# Maestro's loudest log lines are harmless: it reinstalls its XCUITest runner on
-# every run and polls 127.0.0.1:<port> until it answers, logging each miss at
-# INFO as "[Failed] ... ConnectException". Real failures are selectors and app
-# state, and Maestro saves a screenshot of the actual screen. Point at it.
+# Maestro's "[Failed] ... ConnectException" startup lines are harmless runner
+# polling; real failures leave a screenshot of the actual screen — point at it.
 report_maestro_failure() {
   local shot
-  # Newer than this run only. The newest failure screenshot overall could easily
-  # belong to some unrelated Maestro run from last week, and pointing at that
-  # would send the reader off debugging a screen this run never displayed.
+  # Newer than this run only — the newest shot overall may be last week's run.
   # -print0/-0 because Maestro names these with a ❌ and bracketed flow name.
   shot="$(find "$HOME/.maestro/tests" -name 'screenshot-*.png' -newer "$RUN_MARKER" -print0 2>/dev/null \
     | xargs -0 ls -t 2>/dev/null | head -1 || true)"
@@ -155,9 +117,8 @@ report_maestro_failure() {
 }
 
 run_flow() {
-  # </dev/null because callers sit inside a `while read` loop fed by the
-  # manifest: a subprocess that touched stdin would swallow rows, and screens
-  # would silently go missing rather than fail.
+  # </dev/null: callers sit inside a `while read` loop over the manifest, and a
+  # subprocess touching stdin would silently swallow rows.
   "$MAESTRO" --device "$1" test "${@:2}" </dev/null \
     || { report_maestro_failure; exit 1; }
 }
@@ -206,8 +167,7 @@ for profile in "${PROFILES[@]}"; do
 
   xcrun simctl bootstatus "$udid" -b >/dev/null 2>&1 || true
 
-  # Verify geometry *before* the expensive build: a capture from the wrong
-  # device is rejected no matter how good it looks. This checks the *native*
+  # Verify geometry before the expensive build — against the *native*
   # framebuffer, which stays portrait in either orientation.
   geom_tmp="$WORK_DIR/geom.png"
   xcrun simctl io "$udid" screenshot "$geom_tmp" >/dev/null 2>&1
@@ -215,25 +175,12 @@ for profile in "${PROFILES[@]}"; do
   rm -f "$geom_tmp"
   [ "$geom" = "$native" ] || die "'$name' renders at $geom, expected the $native native framebuffer."
 
-  # "Is it installed?" is not the question — a stale *debug* build installed by
-  # some earlier session passes that and then drops the dev-menu sheet over the
-  # login screen, which is unrecoverable from inside a flow. Ask whether the
-  # installed app is a Release build instead: Release bundles the JS as
-  # `main.jsbundle`, while a dev-client build ships `EXDevLauncher.bundle` and
-  # `Dexter.debug.dylib` and loads its JS from Metro.
+  # "Installed" is not enough — a dev-client build drops the dev-menu sheet over
+  # login. Release bundles `main.jsbundle`; dev clients ship `EXDevLauncher.bundle`.
   installed="$(xcrun simctl get_app_container "$udid" "$BUNDLE_ID" 2>/dev/null || true)"
 
-  # Staleness, not just presence. A Release build whose bundle predates the app
-  # source is the worst kind of wrong: it launches, logs in, and captures real
-  # screens — of the *old* app. A deep-link parameter added since the build is
-  # simply ignored, and the run looks like an app bug rather than a stale
-  # binary. (It cost exactly that once: a partial `--device all` run rebuilt one
-  # simulator and left the other behind.)
-  # Compared against a stamp this script writes after each successful build,
-  # never against the installed bundle's own mtime. Reinstalling the *same* old
-  # build product refreshes that mtime — `launchApp: clearState` does exactly
-  # that — so the bundle can look newer than the source while its contents are
-  # weeks behind. The stamp only moves when a build actually runs.
+  # Staleness against this script's own build stamp, never the bundle's mtime —
+  # reinstalling an old build refreshes mtime. Why a stale Release bites: README.md.
   stamp="$BUILD_STAMPS/$udid.built"
   stale=0
   if [ ! -f "$stamp" ]; then
@@ -253,15 +200,8 @@ for profile in "${PROFILES[@]}"; do
       warn "installed app on '$name' predates the current app source; rebuilding."
     fi
     info "building (Release) for $name — several minutes"
-    # Release excludes expo-dev-client: no onboarding modal, no dev-menu sheet
-    # over the login screen, no floating dev-tools gear over the header button,
-    # and no Metro server to keep alive. Those three were the whole reason the
-    # old procedure needed percentage-coordinate taps.
-    #
-    # SENTRY_DISABLE_AUTO_UPLOAD keeps the @sentry/react-native Release
-    # debug-symbol phase from needing a SENTRY_AUTH_TOKEN that only EAS has.
-    # --no-bundler because expo otherwise starts Metro and streams app logs
-    # forever after launch — the Release binary carries its own main.jsbundle.
+    # Release excludes expo-dev-client's overlays; SENTRY_DISABLE_AUTO_UPLOAD
+    # skips a phase needing EAS's token; --no-bundler — Release carries main.jsbundle.
     ( cd "$REPO_ROOT/src" \
       && SENTRY_DISABLE_AUTO_UPLOAD=true npx expo run:ios --no-bundler --configuration Release --device "$name" ) \
       || die "build failed for $name"
@@ -306,11 +246,8 @@ for profile in "${PROFILES[@]}"; do
 
     raw="$WORK_DIR/raw.png"
     xcrun simctl io "$udid" screenshot "$raw" >/dev/null 2>&1
-    # simctl rather than maestro's takeScreenshot: this is the native-resolution
-    # capture. simctl always emits RGBA and App Store Connect rejects alpha —
-    # sips cannot strip it (it re-adds alpha on every PNG export), hence the
-    # CoreGraphics redraw in flatten-screenshot.swift. The same pass straightens
-    # a landscape capture, which arrives as a portrait canvas turned 90°.
+    # simctl always emits RGBA and sips re-adds alpha on every export — hence
+    # the CoreGraphics redraw, which also straightens a landscape capture.
     if [ "$orientation" = "landscape" ]; then
       swift "$FLATTEN" "$raw" "$out_dir/$idx-$sname.png" --rotate-ccw
     else
@@ -323,10 +260,8 @@ done
 
 [ "$captured" -gt 0 ] || die "nothing captured — check --device and --screens."
 
-# --- verify ------------------------------------------------------------------
-# A hard gate, not a report. This is the one step that catches both historical
-# App Store rejections (wrong reference resolution, and a lingering alpha
-# channel), and both surface identically as a vague "dimensions" error.
+# --- verify: a hard gate — both historical rejections (wrong resolution, and
+# lingering alpha) surface as the same vague "dimensions" error ---------------
 
 info "verifying $captured file(s)"
 failed=0
