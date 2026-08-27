@@ -38,27 +38,16 @@ export default function AppLayout() {
   // extension reads (no-op elsewhere), and clears it on sign-out.
   useWidgetSync();
 
-  // The other direction: persists the habit steps tapped on the home screen
-  // while the app wasn't running, since the extension holds no session of its
-  // own (DEX-160).
+  // Persists habit steps tapped on the home screen while the app wasn't
+  // running — the extension holds no session of its own (DEX-160).
   useHabitWidgetDrain();
 
-  // Warms the lists/goals caches (`useLists`/`useGoals`'s own query options)
-  // as soon as a session exists, so the Backlog drawer's Group menu never has
-  // to wait on a cold fetch the first time "By List"/"By Goal" is picked.
-  // Keyed on `userId` rather than the `session` object: Supabase reissues a
-  // new `Session` object on every token refresh (roughly hourly) for the same
-  // still-signed-in user, and keying on `session` itself would refire this
-  // (and re-prefetch) on every one of those, not just an actual sign-in.
+  // Warms lists/goals so the Backlog drawer's Group menu never waits on a
+  // cold fetch. Keyed on userId — Supabase reissues Session on token refresh.
   useEffect(() => {
     if (!userId) {
-      // Explicit log-out/delete-account already clear the whole cache
-      // (settings/account.tsx), but a session can also end without going
-      // through that screen (a revoked/expired token, "sign out everywhere"
-      // from another device) — clear it here too, the same way, so a
-      // different user signing in on the same device afterward never sees
-      // the previous user's still-fresh tasks/notes/habits/etc. (not just
-      // lists/goals) before something else invalidates them (DEX-36).
+      // A session can also end without account.tsx's clear (revoked token,
+      // sign-out-everywhere) — clear here too against stale data (DEX-36).
       queryClient.clear();
       return;
     }
@@ -88,10 +77,8 @@ export default function AppLayout() {
           options={createModalScreenOptions(theme, "Edit Task")}
         />
       </Stack>
-      {/* Publishes the running focus block to the store every timer surface
-          reads, completes a block when its time runs out, and hosts the prompt
-          that guards stopping one. Here, and only here: inside the providers,
-          alive on every tab, outside any single tab screen (DEX-49). */}
+      {/* Publishes the running focus block, completes it on timeout, hosts
+          the stop confirmation — alive on every tab, outside any one (DEX-49). */}
       <FocusTimerHost />
     </View>
   );

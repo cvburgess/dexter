@@ -34,9 +34,8 @@ export default function ListScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [, { getListById, isLoading }] = useLists();
 
-  // Editing is decided by the route, not by whether the list has loaded yet —
-  // otherwise a cold cache (deep link / web reload) would treat an edit as a
-  // create and save a duplicate.
+  // Decided by the route, not whether loaded — a cold cache would otherwise
+  // treat an edit as a create and save a duplicate.
   const isEditing = id !== "new";
   const existing = getListById(isEditing ? id : null);
 
@@ -127,9 +126,8 @@ function ListForm({ existing }: { existing?: TList }) {
         contentContainerStyle={{
           gap: theme.space.sm,
           padding: theme.space.md,
-          // After the shorthand, not before it: both resolve to the same
-          // bottom inset, but reading it in this order doesn't require
-          // knowing that.
+          // After the shorthand — reading in this order needs no knowledge
+          // that both resolve to the same bottom inset.
           paddingBottom: theme.space.lg,
         }}
         keyboardShouldPersistTaps="handled"

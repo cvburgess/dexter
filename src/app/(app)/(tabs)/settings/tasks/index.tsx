@@ -51,15 +51,8 @@ export default function TasksScreen() {
   const taskTemplates = templates.filter(isTaskTemplate);
   const repeatTasks = templates.filter(isRepeatTask);
 
-  // A repeat has exactly one open task, and fires by *completing* it — so one
-  // with none can never fire again and is stalled, not merely idle. Answered
-  // from the cache: the canonical query already holds every incomplete task
-  // regardless of date (`useTasks`), so no extra query is needed.
-  //
-  // An unloaded cache is "unknown", not "empty": `useTasks` hands back a `[]`
-  // placeholder until its fetch lands, and reading that as stalled would paint
-  // every healthy repeat with the red warning and a repair button on first
-  // paint, then quietly correct itself.
+  // A repeat fires by completing its one open task, so none means stalled.
+  // Unloaded is "unknown" — useTasks' [] placeholder isn't "empty".
   const isStalled = (template: TTemplate) =>
     !isLoadingTasks &&
     !tasks.some(
@@ -76,16 +69,13 @@ export default function TasksScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <ScrollView
-        // The edges above omit `bottom` so content scrolls under the
-        // translucent tab bar; adding the inset to the content's own bottom
-        // padding is what lets the last row clear it (DEX-91).
+        // Edges omit `bottom`; the content padding lets the last row clear
+        // the translucent tab bar (DEX-91).
         contentContainerStyle={[
           styles.content,
           {
             padding: theme.space.md,
             paddingBottom: theme.space.md + insets.bottom,
-            // The in-group step only: `SettingsSectionTitle` carries the `lg`
-            // between sections itself, so it applies wherever it renders (DEX-61).
             gap: theme.space.sm,
           },
         ]}
@@ -95,12 +85,8 @@ export default function TasksScreen() {
         {isAlarmSupported && (
           <View style={{ gap: theme.space.sm }}>
             <SettingsSectionTitle>Alarms</SettingsSectionTitle>
-            {/* The card is here rather than inside `PickerField` because this is
-                the only picker that is a settings input. Its other six call
-                sites (`tasks/[id].tsx`, `TaskForm`) are bare rows stacked into
-                a form, where a card per row would fight the grouping. Same
-                surface/radius/padding as `SettingsToggleCard`, which is what
-                every other standalone settings input already sits on. */}
+            {/* Card lives here, not in PickerField: this is the only picker
+                that's a standalone settings input, not a form row. */}
             <View
               style={{
                 backgroundColor: theme.colors.surfaceSunken,
@@ -111,9 +97,8 @@ export default function TasksScreen() {
               <PickerField
                 label="Sound"
                 options={ALARM_SOUNDS}
-                // Resolved, not raw: the column is unconstrained text, and the
-                // Picker needs a value matching one of its items or it renders
-                // with nothing selected.
+                // Resolved, not raw: the column is unconstrained text and an
+                // unmatched value renders the Picker with nothing selected.
                 selectedValue={resolveAlarmSound(alarmSound)}
                 testID="alarm-sound-picker"
                 onValueChange={(value) =>
@@ -137,11 +122,8 @@ export default function TasksScreen() {
             <PickerField
               label="Length"
               options={FOCUS_BLOCK_LENGTHS}
-              // Every block runs for this long — there is no per-block choice,
-              // which is what keeps starting one a single tap from a task's
-              // menu (DEX-49). Resolved for the same reason the sound is: the
-              // column is unconstrained, and an unmatched value renders the
-              // Picker with nothing selected.
+              // No per-block choice keeps starting one a single tap (DEX-49);
+              // resolved for the same unconstrained-column reason as the sound.
               selectedValue={String(
                 resolveFocusBlockMinutes(focusBlockMinutes),
               )}
@@ -178,21 +160,15 @@ type TTemplateSectionProps = {
   /** The one-line summary under each row's title. */
   describe: (template: TTemplate) => string;
   emptyText: string;
-  /**
-   * Repeat tasks only: how to spot one that has run dry, and how to fix it. A
-   * task template is stamped out on demand and has nothing to stall.
-   */
+  /** Repeat tasks only — how to spot a stalled one and fix it. */
   repair?: {
     isStalled: (template: TTemplate) => boolean;
     onPress: (template: TTemplate) => void;
   };
 };
 
-/**
- * A titled list of template rows. Repeat tasks and task templates render
- * identically and open the same editor — only the section's copy, the line
- * under each title, and the repair action differ.
- */
+// Repeat tasks and task templates render identically; only the copy, the
+// line under each title, and the repair action differ.
 function TemplateSection({
   title,
   templates,
@@ -219,9 +195,8 @@ function TemplateSection({
       ) : (
         <View style={{ gap: theme.space.sm }}>
           {templates.map((template) => {
-            // The stalled state replaces the cadence rather than sitting beside
-            // it: "Every day" is what the row is failing to do, so restating it
-            // alongside the warning would read as a contradiction.
+            // Stalled replaces the cadence rather than sitting beside it —
+            // "Every day" is what the row is failing to do.
             const stalled = repair?.isStalled(template) ?? false;
 
             return (

@@ -29,9 +29,8 @@ export default function HabitsScreen() {
   const twoPane = useIsLargeDevice();
   const insets = useSafeAreaInsets();
 
-  // A "+" in the header opens the create modal (mirrors New Task), but only when
-  // habit tracking is on — otherwise there's no list to add to. Re-wired on
-  // every render so the handler and `enableHabits` gate stay current.
+  // "+" opens the create modal only when habit tracking is on. Re-wired
+  // every render so the handler and gate stay current.
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
@@ -56,16 +55,13 @@ export default function HabitsScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <ScrollView
-        // The edges above omit `bottom` so content scrolls under the
-        // translucent tab bar; adding the inset to the content's own bottom
-        // padding is what lets the last row clear it (DEX-91).
+        // Edges omit `bottom`; the content padding lets the last row clear
+        // the translucent tab bar (DEX-91).
         contentContainerStyle={[
           styles.content,
           {
             padding: theme.space.md,
             paddingBottom: theme.space.md + insets.bottom,
-            // The in-group step only: `SettingsSectionTitle` carries the `lg`
-            // between sections itself, so it applies wherever it renders (DEX-61).
             gap: theme.space.sm,
           },
         ]}

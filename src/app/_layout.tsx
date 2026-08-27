@@ -19,43 +19,16 @@ import { configureAlarms } from "@/utils/alarms";
 import { getSentryDsn } from "@/utils/sentry";
 import { useTheme } from "@/utils/theme";
 
-// Hold the splash until the custom font is in memory. Module scope, because the
-// splash auto-hides as soon as the root component's first frame lands and a call
-// inside the component is already too late.
-//
-// This is the app's only startup gate, and it exists for a specific failure
-// rather than on principle: the Horoscope step's hero is set in `SERIF`, and
-// without the hold it paints in the system face and swaps a frame later. The
-// step fades its content in over ~3.6s, so that swap does not land under a
-// splash the way a normal cold start would hide it — it happens in full view,
-// mid-animation.
-//
-// It is deliberately not awaited anywhere: `catch` rather than `void` because a
-// rejected prevent-auto-hide is not a reason to fail to launch. The worst case
-// is the swap this exists to avoid.
+// Hold the splash until the custom font loads (module scope — too late once
+// the first frame lands), or the Horoscope hero's SERIF face swaps mid-animation.
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-// Instantiated once at module scope (not per-render) so the same integration
-// instance is both passed to Sentry.init below and registered against the
-// navigation container in ThemedStack.
+// Module scope so the same instance is both passed to Sentry.init and
+// registered against ThemedStack's navigation container.
 const navigationIntegration = Sentry.reactNavigationIntegration();
 
-/**
- * Whether this build reports to Sentry at all.
- *
- * Off in development, for two reasons. Sentry's ingest domains sit on
- * EasyPrivacy and most ad blockers' default lists, so in a browser the
- * transport's `fetch` is rejected before it leaves the tab — and `debug` below
- * printed that failure for every envelope, which at `tracesSampleRate: 1.0`
- * means every navigation. The noise was the visible half; the other half is
- * that a developer's own exceptions and traces have no business in the
- * production issue stream, where they crowd out the reports that came from
- * real users.
- *
- * Flip to `true` to exercise the reporting path locally — `debug` follows this
- * flag rather than `__DEV__` so doing so also turns the SDK's own logging back
- * on, which is the only thing that makes such a session legible.
- */
+// Off in development: ad blockers reject Sentry's fetch before it leaves the
+// tab, and dev exceptions have no business in the production issue stream.
 const SENTRY_ENABLED = !__DEV__;
 
 // Sentry.init runs at module scope — the earliest point in the app's
@@ -66,15 +39,12 @@ Sentry.init({
   integrations: [navigationIntegration],
   tracesSampleRate: 1.0,
   enableAutoSessionTracking: true,
-  // react-native-web has no native module bridge, so native crash
-  // handling / the native SDK have no web counterpart. The SDK no-ops these
-  // internally on web already, but setting them explicitly keeps intent
-  // readable here instead of relying on an undocumented internal check —
-  // same rationale as the AppState guard in utils/supabase.ts.
+  // The SDK already no-ops these on web; explicit for readable intent, as
+  // with the AppState guard in utils/supabase.ts.
   enableNative: Platform.OS !== "web",
   enableNativeCrashHandling: Platform.OS !== "web",
-  // Not `__DEV__`: with the SDK disabled this would only narrate events being
-  // discarded, trading one stream of dev-console noise for another.
+  // Not `__DEV__`: with the SDK disabled this would only narrate discarded
+  // events, one noise stream for another.
   debug: __DEV__ && SENTRY_ENABLED,
 });
 
@@ -105,23 +75,16 @@ function ThemedStack() {
 }
 
 function RootLayout() {
-  // `error` is as good as `loaded` here: a font that failed to load is a reason
-  // to start in the system face, not a reason to hold the splash forever. The
-  // hero degrades to the platform serif fallback, which is the same thing every
-  // other line in the app already uses.
-  //
-  // One entry per loaded file — React Native resolves a custom family name to
-  // exactly one, and cannot derive a weight from it. See `SERIF` in
-  // `utils/theme.ts` before adding another.
+  // `error` is as good as `loaded` — a failed font starts in the system face
+  // rather than holding the splash forever.
   const [fontsLoaded, fontError] = useFonts({ PlayfairDisplay_700Bold_Italic });
 
   useEffect(() => {
     if (fontsLoaded || fontError) SplashScreen.hideAsync().catch(() => {});
   }, [fontsLoaded, fontError]);
 
-  // Nothing rather than a placeholder: the splash is still up, so this frame is
-  // never seen. Rendering the tree early and swapping the font underneath it is
-  // the whole thing being avoided.
+  // Nothing rather than a placeholder — the splash is still up, so this frame
+  // is never seen.
   if (!fontsLoaded && !fontError) return null;
 
   return (
@@ -142,16 +105,11 @@ function RootLayout() {
   );
 }
 
-// Sentry.wrap adds a touch-event boundary + profiler around the root
-// component. It's plain component composition (no ref mutation or hook
-// trickery), so it's compatible with the React Compiler enabled via
-// experiments.reactCompiler in app.json.
+// Plain composition (no ref/hook trickery), so it's React-Compiler-safe.
 export default Sentry.wrap(RootLayout);
 
-// Expo Router renders this in place of the route tree when a render error is
-// thrown anywhere in this layout's subtree (including inside the providers
-// above), so it can't assume ThemeProvider mounted successfully — useTheme()
-// falls back to an OS-resolved default when there's no provider above it.
+// Can render when providers above (including ThemeProvider) failed to mount —
+// useTheme() falls back to an OS-resolved default with no provider above it.
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   const theme = useTheme();
 

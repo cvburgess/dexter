@@ -21,11 +21,7 @@ import { useTemplates } from "@/hooks/useTemplates";
 import { showSaveError } from "@/utils/showSaveError";
 import { useTheme } from "@/utils/theme";
 
-/**
- * Where the task's starting point comes from: nothing, a saved template, or
- * (eventually) a spoken description. AI is a deliberate placeholder — the tab
- * exists so the shape of the modal is settled before the feature lands.
- */
+// AI is a deliberate placeholder so the modal's shape is settled before it lands.
 type TNewTaskMode = "new" | "template" | "ai";
 
 const MODE_OPTIONS: TSegmentedControlOption<TNewTaskMode>[] = [
@@ -43,9 +39,8 @@ export default function NewTaskScreen() {
   const [lists, { isLoading: isLoadingLists }] = useLists();
   const [, { createTask }] = useTasks({ skipQuery: true });
   const [allTemplates, { isLoading: isLoadingTemplates }] = useTemplates();
-  // `scheduledFor` is set by NewTaskButton to the day the user was viewing
-  // (absent → today); `url` by `ShareIntentRedirect`, to the link that was
-  // shared into the app from another app's share sheet (DEX-66).
+  // scheduledFor: NewTaskButton's viewed day (absent → today). url:
+  // ShareIntentRedirect's shared link (DEX-66).
   const { scheduledFor, url } = useLocalSearchParams<{
     scheduledFor?: string;
     url?: string;
@@ -62,9 +57,7 @@ export default function NewTaskScreen() {
   // blueprints a new task can start from.
   const templates = allTemplates.filter(isTaskTemplate);
 
-  // Saving waits for lists so `#list` tokens in the title can resolve, and
-  // is one-shot so a double tap can't create duplicate tasks. The AI tab has no
-  // form behind it yet, so there is nothing there to save.
+  // Waits for lists so `#list` tokens resolve; one-shot against double taps.
   const canSave = form.canSave && !isLoadingLists && mode !== "ai";
 
   const handleClose = useDismissModal(HOME);
@@ -98,10 +91,8 @@ export default function NewTaskScreen() {
           onChange={setMode}
         />
 
-        {/* Selecting is not saving: the template seeds the form below and the
-            user can still edit anything before the task is created. The form
-            holds the selection, so the outlined card and the task's
-            `template_id` can never disagree. */}
+        {/* Selecting seeds the form, not saving — still editable before the
+            task is created. */}
         {mode === "template" && (
           <TemplatePicker
             templates={templates}

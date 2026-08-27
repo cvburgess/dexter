@@ -39,9 +39,8 @@ export default function HabitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [, { getHabitById, isLoading }] = useHabits();
 
-  // Editing is decided by the route, not by whether the habit has loaded yet —
-  // otherwise a cold cache (deep link / web reload) would treat an edit as a
-  // create and save a duplicate.
+  // Decided by the route, not whether loaded — a cold cache would otherwise
+  // treat an edit as a create and save a duplicate.
   const isEditing = id !== "new";
   const existing = getHabitById(isEditing ? id : null);
 

@@ -30,9 +30,8 @@ export default function EditTaskScreen() {
 
   const task = tasks.find((candidate) => candidate.id === id);
 
-  // Resolving the task wins over every other state: a background refetch that
-  // fails after a successful load leaves the cache populated, and the form the
-  // user is typing into must survive that.
+  // Resolving the task wins over every other state — a failed background
+  // refetch leaves the cache populated, and the form must survive that.
   if (task) {
     // The `key` remounts the form if the resolved task changes, so the fields
     // can't carry one task's edits onto another.
@@ -55,9 +54,8 @@ export default function EditTaskScreen() {
     );
   }
 
-  // Loaded, with no match: a deleted task, a stale deep link, or a row that
-  // aged out of the canonical window. Close the modal rather than navigating
-  // the whole app, so whatever it was opened over survives.
+  // No match: deleted, stale link, or aged out of the window. Close the
+  // modal rather than navigate, so whatever it was opened over survives.
   return <DismissModal fallback={HOME} />;
 }
 
@@ -69,9 +67,8 @@ function EditTaskForm({ task }: { task: TTask }) {
   const { scrollViewProps, scrollToEndOnNextLayout } = useTaskFormScroll();
   const handleClose = useDismissModal(HOME);
 
-  // One-shot, like the create modal: a double tap can't fire two writes. The
-  // whole field set goes in one `updateTask` — `goalId` and `status` are not on
-  // this form, so they are absent from the payload and left untouched.
+  // One-shot against double taps. goalId and status aren't on this form, so
+  // they're absent from the payload and left untouched.
   const handleSave = () => {
     if (hasSaved.current || !form.canSave) return;
     hasSaved.current = true;
