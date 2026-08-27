@@ -123,9 +123,8 @@ describe("ListScreen", () => {
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
   });
 
-  // The case a bare `router.back()` couldn't cover: a cold deep link straight
-  // to this URL, where an unguarded pop is an unhandled GO_BACK and both header
-  // buttons look dead.
+  // A cold deep link to this URL: an unguarded pop is an unhandled GO_BACK and
+  // both header buttons look dead.
   it("falls back to the list when there is nothing to pop", () => {
     mockRouter.canDismiss.mockReturnValue(false);
     renderWith(makeList());

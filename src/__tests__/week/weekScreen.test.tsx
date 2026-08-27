@@ -17,18 +17,13 @@ jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 jest.mock("@/hooks/useViewedDay", () => ({
   usePublishViewedDay: jest.fn(),
 }));
-// The screen subscribes to the current day rather than reading the clock
-// (DEX-161). Mocked so a test can move the day under a mounted screen; the
-// store's own foreground/timer wiring is covered by hooks/useToday.test.
+// Subscribes to the current day (DEX-161), mocked so a test can move it under
+// a mounted screen; the store's own wiring is hooks/useToday.test's.
 const mockToday = { current: Temporal.Now.plainDateISO() };
 jest.mock("@/hooks/useToday", () => ({ useToday: () => mockToday.current }));
 
-// WeekView is exercised through its own pieces (WeekNav/WeekDayColumn tests);
-// stub it to markers that echo the props this route decides — which week is on
-// screen, and which day the "+" entry points target — plus a control for
-// driving week changes back through the route's own state. Typed off the real
-// component so a prop rename fails here rather than silently drifting; the
-// `mock` prefix is what satisfies Jest's hoisting rule.
+// WeekView is exercised via its own pieces; stub to markers echoing the props
+// this route decides, typed off the real component to catch prop renames.
 const mockWeekView = ({
   monday,
   onChangeWeek,
@@ -180,9 +175,8 @@ describe("WeekScreen", () => {
     });
 
     it("hands WeekView the same day it derived the target from", () => {
-      // One clock read for the screen. When these came from separate reads and
-      // one was frozen at mount, an app left open across midnight moved the
-      // today chip while still scheduling onto yesterday.
+      // One clock read for the screen — separate reads let an app open across
+      // midnight move the today chip while still scheduling onto yesterday.
       const screen = render(<WeekScreen />);
 
       expect(screen.getByText(`today:${today.toString()}`)).toBeTruthy();

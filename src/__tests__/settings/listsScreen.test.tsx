@@ -22,9 +22,8 @@ jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush }),
 }));
 
-// The prompt itself is covered by ConfirmationModal's own tests; here it only
-// has to resolve so the archive path can be exercised (as in
-// `listEditorScreen.test.tsx`).
+// Covered by ConfirmationModal's own tests; here it only resolves so the
+// archive path can be exercised.
 const mockConfirm = jest.fn<Promise<boolean>, [unknown]>();
 jest.mock("@/hooks/useConfirmation", () => ({
   useConfirmation: () => ({

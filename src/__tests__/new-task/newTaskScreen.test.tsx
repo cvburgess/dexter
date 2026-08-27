@@ -66,9 +66,8 @@ jest.mock("@/hooks/useTemplates", () => ({
   ],
 }));
 
-// `useDismissModal` guards on `canDismiss` — not the global `canGoBack`, which
-// is also true when the only "back" available is a tab jump. Default to "there
-// is something beneath us", which is every in-app entry into this modal.
+// `useDismissModal` guards on `canDismiss`, not `canGoBack` (also true for a
+// tab jump). Default to "something beneath us" — every in-app entry.
 const mockRouter = {
   back: jest.fn(),
   push: jest.fn(),
@@ -88,9 +87,8 @@ jest.mock("expo-router", () => ({
 // grab the latest options to interact with them like the header would.
 const headerOptions = () => mockNavigation.setOptions.mock.calls.at(-1)?.[0];
 
-// The @expo/ui form controls are native components with no test doubles;
-// control state logic is covered by the useTaskForm hook tests. They are
-// mocked globally in jest.setup.js.
+// @expo/ui form controls are mocked globally in jest.setup.js; control state
+// logic is covered by the useTaskForm hook tests.
 
 const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
 const mockCreateTask = jest.fn();
@@ -140,9 +138,8 @@ describe("NewTaskScreen", () => {
     expect(mockCreateTask).not.toHaveBeenCalled();
   });
 
-  // A cold deep link to /new-task leaves the stack holding only this modal,
-  // where `back()` is an unhandled GO_BACK: ✕ looks dead and ✓ writes the task
-  // without ever closing. Mirrors edit-task/[id]'s guard.
+  // A cold deep link leaves the stack holding only this modal, where `back()`
+  // is an unhandled GO_BACK: ✕ looks dead and ✓ never closes.
   it("replaces rather than popping when there is nothing beneath it", () => {
     mockRouter.canDismiss.mockReturnValue(false);
     render(<NewTaskScreen />);
@@ -424,9 +421,8 @@ describe("NewTaskScreen", () => {
     );
   });
 
-  // Clearing the schedule doesn't forget which day the form was opened on, so
-  // adding it back returns to the viewed day rather than snapping to today
-  // (DEX-165).
+  // Clearing the schedule keeps the day the form opened on, so adding it back
+  // returns to the viewed day rather than snapping to today (DEX-165).
   it("restores the viewed day when the schedule is added back", () => {
     mockSearchParams.current = { scheduledFor: "2026-07-08" };
     const screen = render(<NewTaskScreen />);

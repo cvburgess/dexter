@@ -61,9 +61,8 @@ describe("SettingsScreen", () => {
     }
   });
 
-  // The screen omits the bottom safe-area edge so rows scroll under the tab
-  // bar; the list content is what reserves the inset, or the last row can never
-  // be scrolled clear of it (DEX-91).
+  // Bottom edge omitted so rows scroll under the tab bar; content must reserve
+  // the inset itself or the last row can never clear it (DEX-91).
   it("adds the safe-area bottom inset to the list's own padding", () => {
     const screen = renderWithBottomInset(34, <SettingsScreen />);
 

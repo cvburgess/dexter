@@ -8,12 +8,8 @@ import { useSearch } from "@/hooks/useSearch";
 import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
 
-// `requireActual` keeps the real MIN_SEARCH_LENGTH, which the screen reads to
-// decide whether the *field* holds a searchable query — a stubbed `undefined`
-// would make every comparison against it false and pin the screen to its idle
-// state. That pulls in useSearch's real module graph, which reaches useAuth →
-// expo-linking → the expo-constants manifest this unit test doesn't set up,
-// hence the stub below it.
+// `requireActual` keeps the real MIN_SEARCH_LENGTH — a stubbed undefined would
+// pin the screen to idle. That drags in useAuth's module graph, hence the stub below.
 jest.mock("@/hooks/useAuth", () => ({ supabase: {} }));
 jest.mock("@/hooks/useSearch", () => {
   const actual =
@@ -39,10 +35,8 @@ jest.mock("@/hooks/usePreferences", () => ({
     {},
   ],
 }));
-// Both halves of this screen's safe-area handling are stubbed: the context (for
-// `useSafeAreaInsets`, which reserves the tab bar in the list's own content) and
-// `react-native-screens`' SafeAreaView, which frames the screen. See the
-// DEX-107 test at the bottom of this file for why they are two different things.
+// Both halves of this screen's safe-area handling are stubbed — the context
+// insets and the screens SafeAreaView framing it; see the DEX-107 test below.
 jest.mock("react-native-safe-area-context", () =>
   require("@/testUtils/mockSafeAreaEdges").mockSafeAreaContext(),
 );
@@ -50,11 +44,8 @@ jest.mock("react-native-screens/experimental", () =>
   require("@/testUtils/mockSafeAreaEdges").mockScreensSafeArea(),
 );
 
-// On native `SearchField` is `Stack.SearchBar`, which renders `null` and hangs
-// itself off the screen's navigation options — there's no element for a test to
-// type into. Stub it with a plain input carrying the same accessibility label so
-// this suite can drive the query; the real component's two halves are covered by
-// SearchField.web.test.tsx and, on native, only by the device.
+// Native `SearchField` renders null (it's `Stack.SearchBar`); stub a plain
+// input with the same label so this suite can drive the query.
 const mockSearchField = ({
   value,
   onChangeText,
@@ -79,11 +70,8 @@ jest.mock("@/components/SearchField", () => ({
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));
 
-// TaskCard mounts several native `@expo/ui` menu hosts that a unit test can't
-// drive. Stub it to a marker exposing the title plus two buttons — one wired to
-// `onPress` (the prop this screen adds, DEX-47) and one to `onDelete`, so the
-// repeat-template cleanup can be asserted. The card's own behavior is covered by
-// TaskCard.test.
+// TaskCard mounts native menu hosts a unit test can't drive; stub to a marker
+// with onPress (DEX-47) and onDelete so template cleanup can be asserted.
 const mockTaskCard = ({
   task,
   onPress,
@@ -120,11 +108,8 @@ const mockUseTemplates = useTemplates as jest.MockedFunction<
 const mockDeleteTask = jest.fn();
 const mockDeleteTemplate = jest.fn();
 
-/**
- * Types into the field and lets the screen's debounce elapse, so the query
- * actually reaches `useSearch` (and `searchedQuery`, which the backlog link
- * carries) rather than staying at its pre-debounce value.
- */
+// Types then lets the debounce elapse, so the query reaches useSearch rather
+// than staying at its pre-debounce value.
 const typeSearch = (text: string) => {
   fireEvent.changeText(screen.getByLabelText("Search"), text);
   act(() => jest.advanceTimersByTime(500));
@@ -201,10 +186,8 @@ describe("SearchScreen", () => {
   });
 
   it("keeps the results list mounted while idle (DEX-136)", () => {
-    // Not cosmetic: UIKit resolves this tab screen's content scroll view once,
-    // when it mounts — always on the idle state — by walking first subviews. A
-    // list that only appeared once there were results left the tab bar with
-    // nothing to minimize against for the life of the screen.
+    // Not cosmetic: UIKit resolves this tab's scroll view once at mount, always
+    // on the idle state — a list appearing only with results breaks tab-bar minimize.
     mockUseSearch.mockReturnValue(searchResult([], { enabled: false }));
 
     render(<SearchScreen />);
@@ -240,9 +223,8 @@ describe("SearchScreen", () => {
   });
 
   it("does not fall back to the idle prompt during the debounce window", () => {
-    // `enabled` comes from the hook, which is keyed on the *debounced* query, so
-    // it lags the field by up to one debounce. Gating the idle state on it told
-    // a user who had just typed two characters that they hadn't typed anything.
+    // `enabled` lags the field by up to one debounce; gating idle on it told a
+    // user who'd just typed two characters that they hadn't typed anything.
     mockUseSearch.mockReturnValue(searchResult([], { enabled: false }));
     render(<SearchScreen />);
 
@@ -387,9 +369,8 @@ describe("SearchScreen", () => {
     render(<SearchScreen />);
     typeSearch("milk");
 
-    // It has nowhere to open: the backlog shows only incomplete tasks, so a
-    // link would land on an empty drawer. The card is still rendered — its
-    // status button is how the task gets reopened from here.
+    // Nowhere to open: the backlog shows only incomplete tasks. The card still
+    // renders — its status button is how the task gets reopened.
     fireEvent.press(screen.getByLabelText("open-Buy milk"));
 
     expect(mockPush).not.toHaveBeenCalled();
@@ -413,10 +394,8 @@ describe("SearchScreen", () => {
     });
   });
 
-  // The journal moved to the Ritual tab (DEX-105), so this is the one result
-  // that opens a tab other than Today. The link names the ritual too (DEX-151):
-  // "What went well?" is an evening prompt in the preferences mocked above, and
-  // the clock must not be allowed to land the tap in a flow without the step.
+  // The journal moved to the Ritual tab (DEX-105) — the one result opening a
+  // tab other than Today. The link also names the ritual (DEX-151).
   it("opens a journal result on its day's ritual journal step", () => {
     mockUseSearch.mockReturnValue(searchResult([journalResult]));
     render(<SearchScreen />);
@@ -446,13 +425,8 @@ describe("SearchScreen", () => {
   it("frames itself from the screen's safe area, not the tab's (DEX-107)", () => {
     render(<SearchScreen />);
 
-    // Jest can't measure an inset, but it can pin the thing that regressed:
-    // which provider the top edge comes from. The frame has to resolve against
-    // the stack screen's own view — whose safe area includes the translucent
-    // header `Stack.SearchBar` forces — and not the per-tab SafeAreaProvider,
-    // whose top inset is only the status bar. Swapping this back to the
-    // context's SafeAreaView reopens the bug; the Search section of
-    // `docs/features.md` carries the mechanism.
+    // Jest can't measure an inset, but it can pin which provider the top edge
+    // comes from — the stack screen's own view, not the per-tab SafeAreaProvider.
     expect(
       screen.getByTestId("screen-safe-area-edges-left,right,top"),
     ).toBeTruthy();

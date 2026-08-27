@@ -5,18 +5,15 @@ import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 
 jest.mock("@/hooks/useIsLargeDevice", () => ({ useIsLargeDevice: jest.fn() }));
 
-// Stub the sidebar to a marker so this test only exercises _layout's own
-// mount/unmount decision, not the sidebar's internals — those are
-// SettingsSidebar.test's.
+// Stub to a marker so this only exercises _layout's mount/unmount decision,
+// not the sidebar's own internals (SettingsSidebar.test's).
 jest.mock("@/components/SettingsSidebar", () => {
   const { Text } = require("react-native");
   return { SettingsSidebar: () => <Text>settings-sidebar</Text> };
 });
 
-// The real Stack/Stack.Screen require a navigation container this unit test
-// doesn't mount; render children through a passthrough so the wrapping View
-// structure around the sidebar is still exercised. Stack.Screen echoes the
-// options that decide who owns each screen's header, so they're assertable.
+// The real Stack needs a navigation container this test doesn't mount; render
+// children through a passthrough and echo the header-ownership options.
 jest.mock("expo-router", () => {
   const { Text } =
     jest.requireActual<typeof import("react-native")>("react-native");
@@ -67,11 +64,8 @@ describe("SettingsLayout", () => {
     expect(screen.queryByText("settings-sidebar")).toBeNull();
   });
 
-  // Tasks is the one section that is a nested stack of its own, and this stack
-  // has to keep its header: `tasks/index` is that nested stack's root, and a
-  // stack's root screen gets no native back button however much history sits
-  // under the navigator. Hiding it here is what stranded the Tasks list with
-  // the tab bar as its only way out (DEX-93).
+  // `tasks/index` is a nested stack's root, which gets no native back button
+  // regardless of history — hiding it here stranded the list (DEX-93).
   it("owns the header for the nested tasks stack", () => {
     const screen = render(<SettingsLayout />);
 
@@ -80,9 +74,8 @@ describe("SettingsLayout", () => {
     ).toBeTruthy();
   });
 
-  // The back item leads to `settings/index`, the list of sections. In two-pane
-  // mode the sidebar is that list and never leaves, so the chevron points at
-  // something already on screen. Titles are unaffected — only the back item.
+  // The back item leads to `settings/index`; in two-pane mode the sidebar is
+  // that list and never leaves, so the chevron would point at the screen itself.
   it("hides the back item in two-pane mode, keeping titles", () => {
     mockUseIsLargeDevice.mockReturnValue(true);
     const screen = render(<SettingsLayout />);

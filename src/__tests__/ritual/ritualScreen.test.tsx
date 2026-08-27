@@ -21,10 +21,8 @@ jest.mock("@/hooks/useViewedDay", () => ({
 jest.mock("@/hooks/usePreferences", () => ({
   usePreferences: jest.fn(),
 }));
-// The screen subscribes to the current day rather than reading the clock for it
-// (DEX-161). Mocked so a test can move the day under a mounted screen; the
-// store's own foreground/timer wiring is covered by hooks/useToday.test. The
-// *mode* still comes from the faked clock, so a rollover test moves both.
+// The screen subscribes to the current day (DEX-161), mocked so a test can
+// move it under a mounted screen; mode still comes from the faked clock.
 const mockToday = { current: Temporal.PlainDate.from("2026-08-09") };
 jest.mock("@/hooks/useToday", () => ({ useToday: () => mockToday.current }));
 // The route parses `?date=&step=&n=` (DEX-105); each test names its own params.
@@ -35,10 +33,8 @@ jest.mock("expo-router", () => ({
   useLocalSearchParams: () => mockUseLocalSearchParams(),
 }));
 
-// Both layouts are covered by their own tests; stub them to markers echoing the
-// state this route owns, plus controls for driving each transition back through
-// it. Typed off the real components so a prop rename fails here rather than
-// drifting silently; the `mock` prefix satisfies Jest's hoisting rule.
+// Both layouts are covered by their own tests; stub to markers echoing state
+// plus transition controls, typed off the real components to catch prop renames.
 const mockSmallScreenRitual = ({
   state,
   onChangeDate,
@@ -118,8 +114,7 @@ const mockUsePreferences = usePreferences as jest.MockedFunction<
   typeof usePreferences
 >;
 
-// Every step preference is named explicitly rather than defaulted here: each
-// decides whether a step exists, so an omitted one reads as `false` and
+// Every preference is named explicitly — an omitted one reads `false` and
 // silently shortens the list every assertion below counts against.
 const preferences = ({
   enableJournal = true,
@@ -177,9 +172,8 @@ describe("RitualScreen", () => {
     expect(screen.getByText(`small:${TODAY}:pm:0:0`)).toBeTruthy();
   });
 
-  // DEX-161: the whole state — date *and* mode — was frozen in a `useState`
-  // initializer, so an app open across midnight kept offering yesterday's
-  // ritual until a force-quit.
+  // DEX-161: date and mode were frozen in a useState initializer, so an app
+  // open across midnight kept offering yesterday's ritual until a force-quit.
   describe("the day changing underneath the screen", () => {
     const TOMORROW = "2026-08-10";
 
@@ -286,11 +280,8 @@ describe("RitualScreen", () => {
   // DEX-105: a journal search result is the only thing that links here.
   describe("a deep link", () => {
     it("opens on the linked day and step from a cold mount", () => {
-      // The tab mounts lazily, so the *first* result followed in a session
-      // arrives with its params already present and no change for a
-      // render-time adjustment to notice. Seeding in the initializer is what
-      // covers it — without that this passes on every later tap and fails only
-      // on the first, which is the worst possible shape for the bug.
+      // The tab mounts lazily, so the first followed result arrives with
+      // params already present — this fails only on the first tap otherwise.
       mockUseLocalSearchParams.mockReturnValue({
         date: "2026-07-12",
         step: "journal",
@@ -538,8 +529,7 @@ describe("RitualScreen", () => {
     });
 
     // The horoscope is the morning ritual's first step, so this is the one
-    // preference that changes where the ritual *opens* — everything shifts down
-    // one rather than a gap appearing in the middle.
+    // preference that changes where the ritual opens.
     it("drops the horoscope step, so the second step is Calendar", () => {
       const screen = render(<RitualScreen />);
 
@@ -598,11 +588,8 @@ describe("RitualScreen", () => {
     expect(screen.getByText(`small:${TODAY}:am:1:0`)).toBeTruthy();
   });
 
-  // The calendar preference defaults to *off*, so this runs in the opposite
-  // direction from the journal's late arrival: an enabled user's ritual gains a
-  // step a moment after mount rather than losing one. The screen sets state
-  // during render whenever the flag disagrees, so this is also what would catch
-  // a transition that failed to update it.
+  // The calendar preference defaults off, so this runs opposite the journal's
+  // late arrival: an enabled user's ritual gains a step after mount.
   it("adds the calendar step when the preference arrives late", () => {
     mockUsePreferences.mockReturnValue(preferences({ enableCalendar: false }));
     const screen = render(<RitualScreen />);

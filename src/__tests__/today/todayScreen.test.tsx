@@ -25,26 +25,21 @@ const mockPublishViewedDay = usePublishViewedDay as jest.MockedFunction<
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 jest.mock("@/hooks/useTodayPanes", () => ({ useTodayPanes: jest.fn() }));
 jest.mock("@/hooks/useIsLargeDevice", () => ({ useIsLargeDevice: jest.fn() }));
-// TodayScreen reads the canonical task cache only to drive the Backlog
-// attention dot + the filter tapping Backlog pre-applies (DEX-58); the mocked
-// TasksView/TaskDrawer own the real fetch in their own suites. A jest.fn so
-// individual tests can inject tasks (its module-scope useAuth import otherwise
-// needs the expo-constants manifest this unit test doesn't set up).
+// Reads the canonical task cache only to drive the Backlog attention dot and
+// pre-applied filter (DEX-58); TasksView/TaskDrawer own the real fetch elsewhere.
 jest.mock("@/hooks/useTasks", () => ({ useTasks: jest.fn() }));
 
 const mockPush = jest.fn();
-// The `?date=&mode=&q=` deep link the Search tab builds (DEX-47). Mutable so a
-// test can set the params before rendering, the way arriving on the route with
-// them would.
+// The `?date=&mode=&q=` deep link the Search tab builds (DEX-47), mutable so a
+// test can set params before rendering.
 const mockSearchParams: { current: Record<string, string> } = { current: {} };
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush }),
   useLocalSearchParams: () => mockSearchParams.current,
 }));
 
-// The always-visible Tasks pane owns its own data fetching (see
-// TasksView.test); stub it to a marker exposing the date it was given so this
-// suite can assert day-navigation wiring without a QueryClientProvider.
+// The Tasks pane owns its own fetching (TasksView.test); stub to a marker
+// exposing its date so this suite can assert day-nav wiring with no QueryClient.
 const mockTasksView = ({ date }: { date: Temporal.PlainDate }) => (
   <Text>tasks-view:{date.toString()}</Text>
 );
@@ -52,14 +47,8 @@ jest.mock("@/components/TasksView", () => ({
   TasksView: (props: Parameters<typeof mockTasksView>[0]) =>
     mockTasksView(props),
 }));
-// Notes/Calendar read via hooks that need a QueryClientProvider or native
-// modules this unit test doesn't mount; their own behavior is covered by their
-// own tests. Stub each to a marker exposing its date, plus a mount counter
-// (`useEffect` with no deps) — both seed uncontrolled/one-time state from
-// `date` at mount (see their own comments) and rely on the host remounting them via a date-keyed `key` for a
-// new day to take effect; the large-screen suite below asserts on this count
-// to catch a missing `key` (a stale-content bug a marker's `date` prop alone
-// can't reveal, since the prop updates fine even without a remount).
+// Notes/Calendar need hooks/native modules this test doesn't mount; stub
+// each to a marker plus a mount counter to catch a missing date-keyed remount.
 const mockNotesViewMount = jest.fn();
 const MockNotesView = ({ date }: { date: string }) => {
   useEffect(() => mockNotesViewMount(), []);
@@ -78,10 +67,8 @@ jest.mock("@/components/CalendarView", () => ({
   CalendarView: (props: Parameters<typeof MockCalendarView>[0]) =>
     MockCalendarView(props),
 }));
-// The docked large-screen drawer pane; its own filter/group/search behavior
-// is covered by TaskDrawer.test. Stub it to a marker exposing its date, and
-// spy on its props so this suite can assert the pane's visibility, toggle
-// wiring, and the pre-applied filter.
+// The docked drawer pane; its own filter/group/search is covered by
+// TaskDrawer.test. Spy on props to assert visibility, toggle wiring, and filter.
 const mockTaskDrawer = jest.fn(
   ({ date }: { date: Temporal.PlainDate; filterId?: string }) => (
     <Text>task-drawer:{date.toString()}</Text>
@@ -91,9 +78,8 @@ jest.mock("@/components/TaskDrawer", () => ({
   TaskDrawer: (props: Parameters<typeof mockTaskDrawer>[0]) =>
     mockTaskDrawer(props),
 }));
-// The mobile sheet shell hosts a native `@expo/ui` bottom sheet that can't be
-// driven from a unit test; stub it to a marker exposing its date, and fake the
-// imperative ref so pressing the drawer action can be asserted.
+// The native bottom sheet can't be driven from a unit test; stub to a marker
+// and fake the imperative ref so the drawer action can be asserted.
 const mockPresentTaskDrawer = jest.fn();
 const mockTaskDrawerSheet = ({
   ref,
@@ -110,11 +96,8 @@ jest.mock("@/components/TaskDrawerSheet", () => ({
     mockTaskDrawerSheet(props),
 }));
 
-// The real switcher is an icon-only native trigger (GlassIconButton + IconMenu),
-// so it can't be driven from a unit test. Stub it with a plain button per view
-// that calls onChangeView, plus a button for the drawer action (onOpenDrawer),
-// letting tests exercise the small-screen view branches and the drawer trigger.
-// The switcher's own gating is covered by DayViewSwitcher.test.
+// The native switcher can't be driven from a unit test; stub a plain button
+// per view plus the drawer action. Its own gating is DayViewSwitcher.test's.
 const mockDayViewSwitcher = ({
   onChangeView,
   onOpenDrawer,
@@ -146,9 +129,8 @@ jest.mock("@/components/DayViewSwitcher", () => ({
   DayViewSwitcher: (props: Parameters<typeof mockDayViewSwitcher>[0]) =>
     mockDayViewSwitcher(props),
 }));
-// The large-screen pane toggles wrap the same native trigger; stub similarly,
-// gated on the enable* props like the real component. Its own gating/wiring
-// is covered by DayPaneToggles.test.
+// Same native trigger, stubbed similarly and gated on enable* like the real
+// component; its own wiring is DayPaneToggles.test's.
 const mockDayPaneToggles = ({
   onTogglePane,
   enableNotes,
@@ -246,9 +228,8 @@ const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
   typeof useIsLargeDevice
 >;
 
-// The screen subscribes to the current day rather than reading the clock
-// (DEX-161). Mocked so a test can move the day under a mounted screen; the
-// store's own foreground/timer wiring is covered by hooks/useToday.test.
+// Subscribes to the current day (DEX-161), mocked so a test can move it under
+// a mounted screen; the store's own wiring is hooks/useToday.test's.
 const mockToday = { current: Temporal.Now.plainDateISO() };
 jest.mock("@/hooks/useToday", () => ({
   useToday: () => mockToday.current,
@@ -295,9 +276,8 @@ describe("TodayScreen", () => {
     expect(lastPublishedDay()).toBe(Temporal.Now.plainDateISO().toString());
   });
 
-  // DEX-161: the app was open before midnight and came back after it. Before
-  // this, `day.date` was frozen in a `useState` initializer and only a
-  // force-quit moved it.
+  // DEX-161: `day.date` was frozen in a useState initializer, so only a
+  // force-quit moved it across a midnight the app stayed open through.
   describe("the day changing underneath the screen", () => {
     const tomorrow = () => Temporal.Now.plainDateISO().add({ days: 1 });
 
@@ -356,11 +336,8 @@ describe("TodayScreen", () => {
 
       fireEvent.press(screen.getByLabelText("Open task drawer"));
 
-      // Both arguments reset what a `mode=backlog` deep link may have seeded:
-      // this entry point means "show me my backlog", not "show it still narrowed
-      // to Unscheduled and filtered by a search from three screens ago"
-      // (DEX-47). `"none"`, not `undefined` — `undefined` would leave the
-      // seeded Unscheduled filter in place.
+      // Resets a `mode=backlog` link's seeded filter (DEX-47): this means "show
+      // my backlog", not a slice still narrowed to Unscheduled.
       expect(mockPresentTaskDrawer).toHaveBeenCalledWith("none", "");
     });
 
@@ -520,8 +497,7 @@ describe("TodayScreen", () => {
 
     it("pre-applies the attention filter to the docked drawer when the toggle opens it", () => {
       // Stateful pane mock so pressing the toggle actually opens the pane and
-      // the docked TaskDrawer renders (the setDrawerFilterId re-render picks up
-      // the now-open state).
+      // the docked TaskDrawer renders.
       let drawerOpen = false;
       mockUseTodayPanes.mockImplementation(
         () =>
@@ -615,10 +591,8 @@ describe("TodayScreen", () => {
 
       fireEvent.press(screen.getByLabelText("Next day"));
 
-      // NotesView seeds uncontrolled inputs, and CalendarView
-      // seeds its "now" line, only once per mount — a second render with a
-      // new `date` prop but the same component instance would leave both
-      // showing stale content instead of the new day's.
+      // Both seed one-time state at mount — a re-render with a new `date` but
+      // the same instance would leave stale content instead of the new day's.
       expect(mockNotesViewMount).toHaveBeenCalledTimes(2);
       expect(mockCalendarViewMount).toHaveBeenCalledTimes(2);
     });
@@ -630,19 +604,16 @@ describe("TodayScreen", () => {
     });
 
     it("offers no create button of its own in the header", () => {
-      // The nav rail (web) and the tab-bar accessory (native) both carry a
-      // "+", so a third one in the header was redundant. Both read the viewed
-      // day back through `usePublishViewedDay`/`newTaskRoute`, which the
-      // "publishes the viewed day" cases below cover.
+      // The nav rail (web) and tab-bar accessory (native) both carry a "+", so
+      // a third in the header was redundant.
       const screen = render(<TodayScreen />);
 
       expect(screen.queryByLabelText("New Task")).toBeNull();
     });
   });
 
-  // DEX-47: the `?date=&mode=&q=` deep link the Search tab builds. The link
-  // format itself is unit-tested in utils/__tests__/todayRoute.test.ts; these
-  // cover what this screen does on arrival.
+  // DEX-47: the link format is unit-tested in todayRoute.test.ts; these cover
+  // what this screen does on arrival.
   describe("search deep links", () => {
     it("opens the day named by ?date= instead of today", () => {
       mockSearchParams.current = { date: "2026-07-14" };
@@ -697,8 +668,7 @@ describe("TodayScreen", () => {
 
     it("opens the backlog sheet pre-filtered and pre-searched", () => {
       // An unscheduled task has no day to open, so the link points at the
-      // drawer instead — seeded so the task the user tapped is on screen
-      // straight away rather than somewhere in the backlog.
+      // drawer instead, seeded so the tapped task is on screen straight away.
       mockSearchParams.current = { mode: "backlog", q: "quarterly" };
 
       render(<TodayScreen />);
@@ -716,11 +686,8 @@ describe("TodayScreen", () => {
     });
 
     it("re-applies a link the user has since navigated away from", () => {
-      // The real regression this guards: cross-tab navigation reuses this
-      // mounted screen and only swaps its params, so tapping a result, moving to
-      // another day, and tapping the *same* result again produces identical
-      // date/mode values. Without the per-navigation `n`, the second tap would
-      // switch tabs and then do nothing.
+      // Cross-tab navigation reuses this mounted screen and only swaps params,
+      // so two taps on the same result produce identical date/mode without `n`.
       mockSearchParams.current = { date: "2026-07-14", mode: "tasks", n: "1" };
       const screen = render(<TodayScreen />);
       expect(screen.getByText("tasks-view:2026-07-14")).toBeTruthy();
@@ -801,9 +768,8 @@ describe("TodayScreen", () => {
       });
 
       it("clears a deep link's seeded filter when the header reopens the drawer", () => {
-        // The header's Backlog action means "show me my backlog". Without this
-        // it inherited the link's Unscheduled filter and showed only a slice of
-        // it — the search was cleared but the filter was not.
+        // The header's Backlog action means "show my backlog" — without this
+        // it inherited the link's Unscheduled filter, showing only a slice.
         mockUseTodayPanes.mockReturnValue(panes({ drawer: true }));
         mockSearchParams.current = { mode: "backlog", q: "quarterly", n: "1" };
         const screen = render(<TodayScreen />);

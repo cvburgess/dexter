@@ -95,19 +95,14 @@ describe("auth guards", () => {
   describe("AppLayout ((app)/_layout.tsx)", () => {
     beforeEach(() => {
       jest.clearAllMocks();
-      // Every signed-in render fires the prefetch effect; give it a resolved
-      // value by default so tests that don't care about prefetch behavior
-      // specifically don't log React Query's "data cannot be undefined"
-      // error for an un-mocked resolution.
+      // Every signed-in render fires the prefetch effect; resolve it by
+      // default or React Query logs "data cannot be undefined".
       mockGetLists.mockResolvedValue([]);
       mockGetGoals.mockResolvedValue([]);
     });
 
-    // AppLayout prefetches lists/goals via useQueryClient() once a session
-    // exists, which needs a real provider in the tree (unlike the other
-    // layouts in this file). Returns `rerender`/`queryClient` too, so a test
-    // can change the mocked auth state and re-render against the SAME client
-    // to observe how the prefetch effect reacts to that transition.
+    // AppLayout's prefetch needs a real provider; rerender reuses the SAME
+    // client so auth transitions can be observed against it.
     const renderWithQueryClient = (ui: ReactNode) => {
       const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false } },
@@ -175,9 +170,8 @@ describe("auth guards", () => {
       const screen = renderWithQueryClient(<AppLayout />);
       await waitFor(() => expect(mockGetLists).toHaveBeenCalledTimes(1));
 
-      // A token refresh reissues a new Session object for the same user —
-      // the effect must key on userId, not session identity, or this would
-      // refire the prefetch on every refresh for the life of the session.
+      // A token refresh reissues a new Session object for the same user; the
+      // effect must key on userId or every refresh refires the prefetch.
       mockUseAuth.mockReturnValue({
         initializing: false,
         session: { user: { id: "user-1" } } as Session,
@@ -200,11 +194,8 @@ describe("auth guards", () => {
       // whole cache is cleared, not just what this effect itself warmed.
       screen.queryClient.setQueryData(["tasks"], []);
 
-      // e.g. a revoked/expired token, or "sign out everywhere" from another
-      // device — not the settings/account.tsx log-out action, which already
-      // clears the whole cache itself. Without clearing here too, a
-      // different user signing in on the same device could briefly see the
-      // previous user's still-fresh data (DEX-36).
+      // Revoked token / "sign out everywhere" — not the account log-out, which
+      // clears itself. Without this, the next user sees stale data (DEX-36).
       mockUseAuth.mockReturnValue(authStates.signedOut);
       screen.rerender(<AppLayout />);
 
