@@ -5,21 +5,8 @@ process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??= "test-publishable-key";
 
 require("react-native-gesture-handler/jestSetup");
 
-// FlashList stands in as a plain view that renders every item, which is what
-// the real one already did here: no native layout events fire under
-// react-test-renderer, so it can't measure a viewport to virtualize against.
-// The mock is for `act(...)` noise, not virtualization — FlashList v2 sets
-// `isLoaded` from inside a `requestAnimationFrame` and pokes its render id
-// from several `setTimeout`s, all of which land after a synchronous test body
-// returns. That was 41 of the 45 warnings this suite emitted (DEX-130), and
-// no amount of awaiting in a test file stops the *next* one from reappearing.
-//
-// This is not `@shopify/flash-list/jestSetup`, which is a different thing and
-// still the wrong one: it only stubs `measureLayout` to constrain the list
-// back down to a realistic viewport (useful only for a test asserting on what
-// does/doesn't render off-screen — scope it to that one file), it does not
-// touch the timers, and loading it globally via `setupFiles` (which re-runs
-// per test file) was measured to balloon the full suite from ~5s to 90-100s.
+// Plain pass-through list: FlashList v2 schedules state from rAF/timers that
+// outlive synchronous tests (DEX-130). Not its own jestSetup — docs/testing.md.
 jest.mock("@shopify/flash-list", () => {
   const { Fragment, forwardRef, useImperativeHandle } = require("react");
   const { View } = require("react-native");
@@ -37,9 +24,8 @@ jest.mock("@shopify/flash-list", () => {
     },
     ref,
   ) {
-    // TaskDrawer scrolls the list back to the top when its filter changes.
-    // Pinned with `[]` so the handle is stable across renders, as the real
-    // component's is — a test can capture it and still see later calls.
+    // `[]` keeps the handle stable across renders like the real one's, so a
+    // test can capture it and still see later scrollToTop calls.
     useImperativeHandle(
       ref,
       () => ({
@@ -51,9 +37,8 @@ jest.mock("@shopify/flash-list", () => {
       [],
     );
 
-    // The empty state lives inside the list on the surfaces that keep the list
-    // mounted through it (DEX-136), so a mock that only rendered `data` would
-    // make those screens look blank to a test.
+    // Empty states live inside the list (DEX-136); rendering only `data`
+    // would make those screens look blank to a test.
     const rows = data ?? [];
 
     return (
@@ -78,28 +63,15 @@ jest.mock("@shopify/flash-list", () => {
   return { FlashList };
 });
 
-// The reanimated mock leaves `useReducedMotion` out — its source has the hook
-// stubbed as `// useReducedMotion: ADD ME IF NEEDED` — so any component that
-// guards an animation on it throws in every test that mounts it (DEX-128,
-// `HoroscopeStep`). Report motion as allowed, which is the branch under test;
-// a test that wants the reduced path re-mocks this hook for itself.
-//
-// Note also that the mock's `interpolateColor` is a no-op returning
-// `undefined`, so an animated `backgroundColor` is never assertable from a
-// rendered tree. That is why the color math lives in `sentimentTints`
-// (`utils/theme.ts`) and is pinned by `utils/__tests__/theme.test.ts` instead.
+// The reanimated mock lacks `useReducedMotion` (DEX-128) — report motion
+// allowed; its `interpolateColor` returns undefined, so pin colors at source.
 jest.mock("react-native-reanimated", () => {
   const mock = require("react-native-reanimated/mock");
   return { ...mock, useReducedMotion: () => false };
 });
 
-// `react-native-audio-api` reaches for its native module at import time, and
-// `utils/audio.ts` calls `AudioManager.disableSessionManagement()` at module
-// scope — so merely importing a step that plays sound throws here without
-// this. An inert graph is enough for every component test; the hooks' own
-// tests (`hooks/__tests__/useBreathAudio.test.ts`,
-// `hooks/__tests__/useHoroscopeAudio.test.ts`) mock the module for themselves
-// with a context they can inspect.
+// `utils/audio.ts` touches the native module at import time, so importing a
+// sound-playing step throws without this; audio hooks re-mock with a context.
 jest.mock("react-native-audio-api", () => {
   const param = () => ({
     cancelAndHoldAtTime: jest.fn(),
@@ -109,9 +81,8 @@ jest.mock("react-native-audio-api", () => {
   });
 
   return {
-    // `useHoroscopeAudio` calls this at module scope. It never resolves, so a
-    // component test that mounts the Horoscope step never builds a playback
-    // graph — same reason the rest of this mock is inert.
+    // Called at module scope by `useHoroscopeAudio`; never resolves, so
+    // component tests never build a playback graph.
     decodeAudioData: jest.fn(() => new Promise(() => {})),
     AudioContext: jest.fn().mockImplementation(() => ({
       close: jest.fn().mockResolvedValue(undefined),
@@ -135,9 +106,8 @@ jest.mock("react-native-audio-api", () => {
       }),
       currentTime: 0,
       destination: {},
-      // Small on purpose: the hook fills an impulse response of
-      // `sampleRate * seconds` samples, and every test that mounts the Breathe
-      // step would otherwise pay for 350k `Math.random()` calls.
+      // Small on purpose: the impulse response is `sampleRate * seconds`
+      // samples — a real rate costs every Breathe test 350k Math.random calls.
       sampleRate: 64,
     })),
     AudioManager: { disableSessionManagement: jest.fn() },
@@ -153,17 +123,14 @@ jest.mock(
   () => require("react-native-safe-area-context/jest/mock").default,
 );
 
-// @expo/ui's MenuView is a native component with no test double of its own;
-// render just the trigger so components using it (via IconMenu.native) can
-// still be tested. Selection logic is covered by testing each menu's
-// exported section-builder functions directly.
+// Native MenuView has no test double; render just the trigger. Selection
+// logic is covered via each menu's exported section-builder functions.
 jest.mock("@expo/ui/community/menu", () => ({
   MenuView: ({ children }) => children,
 }));
 
-// @expo/ui's universal components (SwiftUI/Compose hosts) have no test
-// doubles either; selection logic is exercised through the props of the
-// components that render them.
+// The SwiftUI/Compose hosts have no test doubles either; selection logic is
+// exercised through the props of the components that render them.
 jest.mock("@expo/ui", () => {
   const Host = ({ children }) => children;
   const Picker = () => null;
@@ -176,9 +143,8 @@ jest.mock("@expo/ui", () => {
 // expo-symbols renders a native SF Symbol / Material Symbol view.
 jest.mock("expo-symbols", () => ({ SymbolView: () => null }));
 
-// expo-glass-effect wraps a native iOS UIVisualEffectView; render its children
-// through a plain View and report glass as unavailable so the .ios fallback path
-// is exercised without the native module.
+// Render glass children through plain Views and report glass unavailable so
+// the .ios fallback path is exercised without the native module.
 jest.mock("expo-glass-effect", () => {
   const { View } = require("react-native");
   return {
@@ -215,9 +181,8 @@ jest.mock("expo-calendar", () => ({
   listEvents: jest.fn(async () => []),
 }));
 
-// expo-alarm-kit wraps native iOS AlarmKit (used by utils/alarms.ios). Default
-// authorization to granted and the schedule/cancel/query calls to no-ops so the
-// alarm layer can be tested without the native module.
+// Authorization defaults to granted and schedule/cancel/query to no-ops so
+// the alarm layer can be tested without native AlarmKit.
 jest.mock("expo-alarm-kit", () => ({
   configure: jest.fn(() => true),
   requestAuthorization: jest.fn(async () => "authorized"),
@@ -228,10 +193,8 @@ jest.mock("expo-alarm-kit", () => ({
   generateUUID: jest.fn(() => "test-uuid"),
 }));
 
-// expo-share-intent ships a native module (the iOS share extension / Android
-// intent filters). Default to "no share arrived" so mounting the app under test
-// takes the same path a normal launch does; a test that cares supplies its own
-// payload by re-mocking useShareIntentContext.
+// Default to "no share arrived" so mounting the app takes the normal-launch
+// path; a test that cares re-mocks useShareIntentContext with a payload.
 jest.mock("expo-share-intent", () => ({
   ShareIntentProvider: ({ children }) => children,
   useShareIntentContext: jest.fn(() => ({
@@ -241,20 +204,8 @@ jest.mock("expo-share-intent", () => ({
   })),
 }));
 
-// react-native-drax drives drag hit-testing through Reanimated shared values
-// (`spatialIndexSV.modify`, `scrollOffsetsSV.modify`) that the
-// `react-native-reanimated/mock` above doesn't implement — mounting a real
-// DraxProvider throws. All three render as ordinary views that pass their props
-// straight through, so a test finds a drop target by testID and invokes
-// `onReceiveDragDrop`/`acceptsDrag` directly rather than simulating a pointer
-// path (DEX-77). They render their children rather than `null`, or every card
-// inside a drag source would vanish from existing assertions.
-//
-// Note what this stub cannot catch: drax caches a view's props in its registry
-// and calls the *cached* handler, while a pass-through View calls the current
-// one. A drop handler that has gone stale therefore still passes here. See
-// `TaskDropTarget`, whose test captures a handler and calls it after a rerender
-// to reproduce the real behavior.
+// Drax needs shared-value ops the reanimated mock lacks, so all three pass
+// through and tests invoke drop props directly (DEX-77) — a stale cached handler still passes here; TaskDropTarget's test captures-then-rerenders to catch that.
 jest.mock("react-native-drax", () => {
   const { ScrollView, View } = require("react-native");
   return {
@@ -270,10 +221,8 @@ jest.mock("react-native-drax", () => {
   };
 });
 
-// @expo/ui's SwiftUI primitives (used by DateField.ios and
-// RitualStepSegments.ios) are native views. Rendered as null so a screen that
-// merely contains one still mounts; a test that needs to drive one overrides
-// this with a capturing mock of its own (see RitualStepSegments.test).
+// Native SwiftUI primitives render as null so screens containing one still
+// mount; a test that drives one overrides with its own capturing mock.
 jest.mock("@expo/ui/swift-ui", () => ({
   DatePicker: () => null,
   Host: ({ children }) => children,

@@ -1,42 +1,20 @@
 import SwiftUI
 import WidgetKit
 
-// The home screen and lock screen surfaces for today's tasks (DEX-83). Every
-// view here reads a snapshot the app published into the App Group — see
-// `DexterWidgetSnapshot.swift`. Nothing fetches, and nothing writes: taps are
-// deep links, so completing a task still goes through the app, where the
-// subtask sweep and the recurrence spawn live.
+// Home/lock screen surfaces for today's tasks (DEX-83); taps are deep links
+// so completion still goes through the app's subtask sweep/recurrence spawn.
 
-/// Where a tap lands. `/today` needs no `date` param — the tab opens on the
-/// current day by itself, and passing one would make a repeat tap a no-op link
-/// rather than a plain "go to Today".
-///
-/// Force-unwrapped because both are literals this file owns: if either stops
-/// parsing it is a typo made here, and a widget that silently stopped opening
-/// the app would be far harder to notice than a crash on the first build.
+/// `/today` needs no `date` param — passing one would make a repeat tap a
+/// no-op link. Force-unwrapped: both are literals this file owns.
 private let dexterTodayURL = URL(string: "dexter:///today")!
 private let dexterNewTaskURL = URL(string: "dexter:///new-task")!
 
-/// Copy for the day the user has cleared, verbatim from DEX-83. Not shown for
-/// an empty column in the extra-large widget, where three blank columns of it
-/// would drown the one day that has work in it.
+/// Copy for a cleared day (DEX-83). Not shown for an empty extra-large
+/// column, where three blank copies would drown the one day with work.
 private let dexterAllDone = "All done! No more tasks today"
 
-/// How many task rows a family has room for.
-///
-/// Measured off a device rather than guessed: after WidgetKit's 16pt content
-/// margins a small or medium widget leaves ~138pt of height, the header and its
-/// spacing take ~28 of it, and a `.caption` row pitches at ~18.5 — so six rows
-/// fit. A large widget is 382pt tall and fits about fourteen, which is what
-/// `WIDGET_TASKS_PER_DAY` is sized to; large and extra-large therefore draw
-/// whatever arrives and let that cap do the limiting, rather than restating a
-/// number that would have to be kept in step with the JS side.
-///
-/// **Medium stops one row short of its capacity, and small does not.** Six is
-/// exact, with nothing left for a title that wraps onto the second line
-/// `DexterTaskRow` allows — so medium keeps a row of slack for one, while small
-/// gives up wrapping entirely (see `dexterTitleLineLimit`) and can be packed to
-/// the edge because nothing there can grow.
+/// Small fits six exactly; medium stops one row short for a two-line wrap,
+/// which small forgoes (dexterTitleLineLimit). Large caps at WIDGET_TASKS_PER_DAY.
 private func dexterRowLimit(for family: WidgetFamily) -> Int {
     switch family {
     case .systemSmall: 6
@@ -45,14 +23,8 @@ private func dexterRowLimit(for family: WidgetFamily) -> Int {
     }
 }
 
-/// How many lines a task title may take.
-///
-/// Small is the narrowest family and the one where wrapping was costing the most:
-/// a second line there buys a few more characters of a title while spending a
-/// whole task's worth of height. One line each fits six tasks instead of four,
-/// which is the better trade on a widget whose job is the count and the shape of
-/// the day. Every other family is wide enough that a wrapped title is the
-/// exception, and reads better completed than truncated.
+/// Small forgoes wrapping: a second line costs a whole task's worth of
+/// height there, and six single-line tasks beat four wrapped ones.
 private func dexterTitleLineLimit(for family: WidgetFamily) -> Int {
     family == .systemSmall ? 1 : 2
 }
@@ -63,24 +35,15 @@ struct DexterTasksEntry: TimelineEntry {
     let date: Date
     let snapshot: DexterWidgetSnapshot?
 
-    /// The local day this entry stands for, as the ISO string the payload keys
-    /// on. Derived from `date` rather than from "now" so an entry scheduled for
-    /// a future midnight renders that day when it comes up.
+    /// Derived from `date`, not "now", so an entry scheduled for a future
+    /// midnight renders that day when it comes up.
     var isoDate: String {
         dexterISOFormatter.string(from: date)
     }
 }
 
-/// One entry for now, then one at each upcoming local midnight the snapshot
-/// still covers.
-///
-/// This is what makes the rollover cost nothing. The payload carries four days,
-/// so a widget can advance through them unattended: at 00:00 WidgetKit swaps to
-/// the next entry, which re-slices the same snapshot to the new day. A user who
-/// plans tomorrow tonight sees tomorrow on the lock screen in the morning
-/// without the app being opened, without a background task, and without a timer
-/// in JS. `.atEnd` then asks for a fresh timeline once the days run out, at
-/// which point `day(on:)` finds nothing and the empty state takes over.
+/// One entry for now, then each upcoming midnight the four-day snapshot
+/// covers, with no app open, background task, or JS timer.
 struct DexterTasksProvider: TimelineProvider {
     func placeholder(in context: Context) -> DexterTasksEntry {
         DexterTasksEntry(date: Date(), snapshot: nil)
@@ -103,11 +66,8 @@ struct DexterTasksProvider: TimelineProvider {
         let now = Date()
         var entries = [DexterTasksEntry(date: now, snapshot: snapshot)]
 
-        // One entry per day the snapshot still covers *ahead of today* — not
-        // `days.count - 1`, which counts from the day the app published rather
-        // than from now. A snapshot four days old would otherwise book three
-        // midnights it has no data for, and sit on the empty state until the
-        // last of them passed before `.atEnd` asked for anything new.
+        // Counted from *now*, not days.count - 1, or a stale snapshot books
+        // midnights it has no data for.
         let today = dexterISOFormatter.string(from: now)
         let upcoming = snapshot?.days.filter { $0.date > today } ?? []
 
@@ -127,9 +87,8 @@ struct DexterTasksProvider: TimelineProvider {
 
 // MARK: - Pieces
 
-/// A task's open circle, stroked in its priority accent — the one thing DEX-83
-/// asks for by name. Sized off the font so it keeps its relationship to the
-/// title as the accessory families shrink the type.
+/// The open circle, stroked in its priority accent (DEX-83). Sized off the
+/// font so it keeps proportion as accessory families shrink the type.
 private struct DexterTaskCircle: View {
     let color: Color
     var size: CGFloat = 13
@@ -150,8 +109,8 @@ private struct DexterTaskRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             DexterTaskCircle(color: palette.color(for: task.priority))
-                // A circle has no baseline of its own, so it aligns to the top
-                // of the row and drifts up off a two-line title without this.
+                // A circle has no baseline of its own and drifts up off a
+                // two-line title without this.
                 .alignmentGuide(.firstTextBaseline) { $0.height * 0.8 }
             Text(task.title)
                 .font(font)
@@ -179,9 +138,8 @@ private struct DexterTasksHeader: View {
             if count > 0 {
                 Text("\(count)")
                     .font(font)
-                    // `textSecondary` is an `rgba()` string the payload can't
-                    // carry, so the dimmed ink is derived here at the same 0.6
-                    // the theme uses.
+                    // textSecondary is an rgba() string the payload can't
+                    // carry, so it's derived here at the theme's same 0.6.
                     .foregroundStyle(palette.textColor.opacity(0.6))
             }
             Spacer(minLength: 0)
@@ -189,12 +147,8 @@ private struct DexterTasksHeader: View {
     }
 }
 
-/// The `+` on the medium, large, and extra-large families.
-///
-/// A `Link` is why it exists only there: WidgetKit routes taps per element from
-/// `.systemMedium` up, while `.systemSmall` and the accessories have one target
-/// for the whole widget. That platform rule is exactly why DEX-83 gives the
-/// small widget no button rather than it being an omission.
+/// The `+` on medium/large/extra-large only: WidgetKit routes per-element
+/// taps from `.systemMedium` up, so small gets no button, per DEX-83.
 private struct DexterAddTaskButton: View {
     let palette: DexterWidgetPalette
     var size: CGFloat = 30
@@ -243,11 +197,8 @@ private struct DexterTasksListView: View {
                             palette: palette,
                             lineLimit: titleLineLimit
                         )
-                            // Only the bottom row can collide with the `+`,
-                            // which overlays that corner rather than taking a
-                            // row of its own. Insetting every row instead cost
-                            // the whole list 34pt of title width to protect one
-                            // of them.
+                            // Only the bottom row can collide with the `+`;
+                            // insetting every row costs the whole list width.
                             .padding(
                                 .trailing,
                                 showsAddButton && index == rows.count - 1
@@ -273,11 +224,8 @@ private struct DexterTasksListView: View {
     }
 }
 
-/// The extra-large iPad layout: today and the next three days as columns.
-///
-/// An empty column stays blank rather than repeating "All done!" — DEX-83 asks
-/// for that, and four copies of the same sentence would read as an error state
-/// rather than as a clear week.
+/// Today and the next three days as columns. An empty one stays blank rather
+/// than repeating "All done!" (DEX-83) — four copies would read as an error.
 private struct DexterTasksColumnsView: View {
     let entry: DexterTasksEntry
     let palette: DexterWidgetPalette
@@ -289,9 +237,8 @@ private struct DexterTasksColumnsView: View {
               })
         else { return [] }
 
-        // Sliced from the entry's own day rather than from the payload's first
-        // element: an entry scheduled for a future midnight has to start its
-        // columns there, or day two would still be headed "Today".
+        // Sliced from the entry's own day, not the payload's first element,
+        // or a future-midnight entry's day two would still be headed "Today".
         return snapshot.days[start...].enumerated().map { offset, day in
             (title: columnTitle(offset: offset, iso: day.date), day: day)
         }
@@ -316,19 +263,16 @@ private struct DexterTasksColumnsView: View {
                         palette: palette
                     )
                     Divider().overlay(palette.borderColor)
-                    // A column is as tall as a large widget, so it fits more
-                    // rows than `WIDGET_TASKS_PER_DAY` ever sends — no slice of
-                    // its own.
+                    // A column fits more rows than WIDGET_TASKS_PER_DAY ever
+                    // sends — no slice of its own needed.
                     ForEach(column.day.tasks) { task in
                         DexterTaskRow(task: task, palette: palette)
                     }
                     Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
-                // The `+` overlays the bottom of the *last* column, so only that
-                // one has to stop short of it. A full column here reaches the
-                // bottom edge, and without this its final rows read through the
-                // button.
+                // The `+` overlays only the last column's bottom; without
+                // this its final rows would read through the button.
                 .padding(.bottom, column.day.date == columns.last?.day.date ? 36 : 0)
             }
         }
@@ -341,13 +285,8 @@ private struct DexterTasksColumnsView: View {
 
 // MARK: - Lock screen
 
-/// Up to three of today's tasks.
-///
-/// No palette is applied: iOS renders lock screen accessories in
-/// `WidgetRenderingMode.vibrant`, desaturating the whole view to monochrome, so
-/// a priority hex would land as a shade of the wallpaper's tint no matter what
-/// we sent. The circles still carry priority as *brightness*; that is the
-/// platform, not something to work around.
+/// No palette applied: iOS's vibrant rendering desaturates accessories, so
+/// priority reads as brightness only.
 private struct DexterTasksAccessoryView: View {
     let day: DexterWidgetDay?
 
@@ -364,10 +303,8 @@ private struct DexterTasksAccessoryView: View {
                     }
                 }
             } else {
-                // `day` is non-nil only when the snapshot actually covers
-                // today, so an empty list here really is a cleared day — the
-                // caller routes the no-data case away before it reaches this
-                // view.
+                // `day` is non-nil only when the snapshot covers today, so an
+                // empty list here really is a cleared day.
                 Text(dexterAllDone)
                     .font(.caption2)
                     .lineLimit(2)
@@ -405,9 +342,8 @@ private struct DexterTasksWidgetView: View {
 
     let entry: DexterTasksEntry
 
-    /// The palette this widget draws with, or the app's own light theme when
-    /// there is no snapshot — so the "open Dexter" state is still a Dexter
-    /// surface rather than an unpainted rectangle.
+    /// Falls back to the light theme with no snapshot, so "open Dexter" is
+    /// still a Dexter surface, not an unpainted rectangle.
     private var palette: DexterWidgetPalette {
         entry.snapshot?.palette(for: colorScheme) ?? dexterFallbackPalette
     }
@@ -418,9 +354,8 @@ private struct DexterTasksWidgetView: View {
 
     var body: some View {
         content
-            // Clear on the lock screen, where a widget is meant to float on the
-            // wallpaper — and where `vibrant` rendering would flatten a themed
-            // fill into an opaque grey slab anyway.
+            // Clear on the lock screen — vibrant rendering would flatten a
+            // themed fill into an opaque grey slab anyway.
             .containerBackground(
                 family == .accessoryRectangular
                     ? AnyShapeStyle(.clear)
@@ -435,11 +370,8 @@ private struct DexterTasksWidgetView: View {
         if family == .accessoryRectangular {
             DexterTasksAccessoryView(day: day)
         } else if day == nil {
-            // No snapshot, or one that has aged past its four-day window with
-            // the app never opened. Both mean we have nothing to say about
-            // today — and saying "All done!" here would be a claim about a day
-            // we don't have, on a surface the user reads *instead of* opening
-            // the app.
+            // No snapshot, or one aged past its window — "All done!" would
+            // be a claim about a day we don't have.
             DexterNoDataView(palette: palette, message: dexterNoTasksMessage)
         } else if family == .systemExtraLarge {
             DexterTasksColumnsView(entry: entry, palette: palette)
@@ -455,13 +387,8 @@ private struct DexterTasksWidgetView: View {
     }
 }
 
-/// The `+` on its own, for the lock screen.
-///
-/// A second `Widget` rather than another family on `DexterTasksWidget`: the two
-/// occupy the same kind of slot, so a user picking "the Dexter lock screen
-/// widget" has to be able to choose between a list and a button. Declaring only
-/// the circular family keeps it out of the home screen gallery, where the `+`
-/// already lives inside the list widget.
+/// A separate Widget, not another family on DexterTasksWidget, so a user
+/// choosing "the lock screen widget" can pick between list and button.
 struct DexterAddTaskWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(
@@ -469,18 +396,15 @@ struct DexterAddTaskWidget: Widget {
             provider: DexterAddTaskProvider()
         ) { _ in
             ZStack {
-                // The ring is what makes the glyph read as a button rather than
-                // as a mark on the wallpaper. `strokeBorder` insets the line so
-                // it stays inside the slot's circular bounds instead of being
-                // clipped in half by them.
+                // strokeBorder insets the line so it stays inside the slot's
+                // circular bounds instead of being clipped in half.
                 Circle().strokeBorder(lineWidth: 2)
                 Image(systemName: "plus")
                     .font(.system(size: 20, weight: .semibold))
             }
             .padding(1)
-            // The standard translucent disc behind a circular complication.
-            // Without it the glyph floats on bare wallpaper and reads as part
-            // of the photo rather than as a button.
+            // Standard translucent disc — without it the glyph floats on
+            // bare wallpaper and reads as part of the photo.
             .containerBackground(for: .widget) { AccessoryWidgetBackground() }
             .widgetURL(dexterNewTaskURL)
         }
@@ -490,10 +414,8 @@ struct DexterAddTaskWidget: Widget {
     }
 }
 
-/// A `+` never changes, so this widget has nothing to schedule. It gets its own
-/// provider rather than borrowing `DexterTasksProvider` so it neither reads the
-/// App Group nor books midnight entries against the reload budget for a glyph
-/// that would look identical at every one of them.
+/// A `+` never changes, so this gets its own provider rather than borrowing
+/// DexterTasksProvider — no App Group read, no midnight entries for nothing.
 private struct DexterAddTaskEntry: TimelineEntry {
     let date: Date
 }
