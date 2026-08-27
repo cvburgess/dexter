@@ -49,10 +49,22 @@ appId: com.dexterplanner
     commands:
       - tapOn: "^Open$"
 
+# The anchor wait runs twice around an AlarmKit check: the prompt (see
+# login.yaml) can land seconds after navigation, over the anchor, mid-wait.
 - runFlow:
     when:
       true: ${ANCHOR_BY == "id"}
     commands:
+      - extendedWaitUntil:
+          visible:
+            id: ${ANCHOR}
+          timeout: 15000
+          optional: true
+      - runFlow:
+          when:
+            visible: ".*schedule alarms and timers.*"
+          commands:
+            - tapOn: "^Allow$"
       - extendedWaitUntil:
           visible:
             id: ${ANCHOR}
@@ -62,6 +74,16 @@ appId: com.dexterplanner
     when:
       true: ${ANCHOR_BY == "text"}
     commands:
+      - extendedWaitUntil:
+          visible:
+            text: ${ANCHOR}
+          timeout: 15000
+          optional: true
+      - runFlow:
+          when:
+            visible: ".*schedule alarms and timers.*"
+          commands:
+            - tapOn: "^Allow$"
       - extendedWaitUntil:
           visible:
             text: ${ANCHOR}
