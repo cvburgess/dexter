@@ -14,10 +14,8 @@ type TJournalPeriodMenuProps = {
   onChange: (period: TRitualMode) => void;
 };
 
-/**
- * Which ritual asks a journal prompt (DEX-151), as the leading control on its row.
- * Icons and words come from `MODE_META`, so this and the mode button can't drift.
- */
+// Which ritual asks a journal prompt (DEX-151); icons/words come from
+// MODE_META so this and the mode button can't drift.
 export function JournalPeriodMenu({
   period,
   promptNumber,
@@ -55,10 +53,8 @@ export function JournalPeriodMenu({
   );
 }
 
-/**
- * Exported so the selection logic is testable: the `MenuView` double renders only
- * the trigger, so a section builder is how every icon menu here is covered.
- */
+// Exported so selection logic is testable: MenuView double-renders only the
+// trigger, so a section builder is how icon menus get covered.
 export const journalPeriodSections = (
   period: TRitualMode,
   onChange: (period: TRitualMode) => void,

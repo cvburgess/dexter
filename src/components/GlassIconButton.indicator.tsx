@@ -3,12 +3,8 @@ import { Pressable, StyleSheet, View } from "react-native";
 
 import { Theme } from "@/utils/theme";
 
-/**
- * The button's accessibility label, annotated when the attention dot shows so
- * screen readers announce that the button needs attention. Kept generic — the
- * dot is a generic affordance, so the *reason* for the attention lives with the
- * consumer, not this shared primitive.
- */
+/** Announces the attention dot to screen readers; kept generic since the
+ * *reason* for the attention lives with the consumer, not this primitive. */
 export function indicatorLabel(
   accessibilityLabel: string,
   indicator: boolean | undefined,
@@ -25,16 +21,8 @@ type TFinishButtonOptions = {
   theme: Theme;
 };
 
-/**
- * Shared tail of both `GlassIconButton` variants: wrap the platform-rendered
- * `content` in a `Pressable` when interactive, then overlay a small
- * warning-yellow attention dot in the top-right corner when `indicator` is set
- * (DEX-58). `content` already carries the anchor a11y label for the
- * non-interactive (menu-trigger) case; the `Pressable` owns it otherwise.
- * `theme.colors.priority[0]` is the daisyUI "warning" (yellow) token — the
- * legacy app's left-behind color, documented on `Theme.colors.priority` in
- * `theme.ts` — reused rather than adding a dedicated `warning` token.
- */
+/** Shared tail of both `GlassIconButton` variants: wraps `content` in a
+ * `Pressable` when interactive, overlaying an attention dot if set (DEX-58). */
 export function finishButton(
   content: ReactNode,
   { onPress, label, indicator, theme }: TFinishButtonOptions,

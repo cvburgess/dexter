@@ -1,12 +1,7 @@
 import type { ReactNode } from "react";
 
-/**
- * Native implementation (passthrough). The Stack navigator hosts the screen
- * directly, and the scroll view has to stay the screen's outermost element for
- * iOS's `contentInsetAdjustmentBehavior`/`automaticallyAdjustKeyboardInsets` to
- * inset it under the floating form-sheet header — so this deliberately adds no
- * wrapper view. See `ModalScreen.web.tsx` for why web needs one.
- */
+/** Native passthrough — no wrapper view, so the scroll view stays the
+ * screen's outermost element for iOS's inset behaviors to find it. */
 export type TModalScreenProps = {
   children: ReactNode;
 };

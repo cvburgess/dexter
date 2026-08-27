@@ -219,9 +219,8 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
 
   return (
     <View style={styles.panel} testID="horoscope-panel">
-      {/* Every painted layer lives in here, content is its sibling — hangs
-          panelBleed below the box so color carries under the translucent tab
-          bar without dragging the scroller's measured height with it. */}
+      {/* Hangs panelBleed below the box so color carries under the tab bar
+          without dragging the scroller's measured height with it. */}
       <View
         pointerEvents="none"
         style={[
@@ -239,9 +238,8 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
           },
         ]}
       >
-        {/* peak fading in over base via opacity, not backgroundColor
-            interpolation — opacity is a compositor property, backgroundColor
-            repaints the screen-sized layer every frame as a slideshow. */}
+        {/* opacity, not backgroundColor interpolation, which repaints the
+            screen-sized layer every frame as a slideshow. */}
         <Animated.View
           style={[
             StyleSheet.absoluteFill,
@@ -263,9 +261,8 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
           </View>
         ) : null}
       </View>
-      {/* Loading checked first — an unread sign is null, indistinguishable
-          from never-picked, so testing sunSign first flashes the prompt.
-          Renders nothing (not a spinner) since the panel is already on screen. */}
+      {/* Loading checked first: an unread sign is null, indistinguishable
+          from never-picked, so testing sunSign first flashes the prompt. */}
       {isLoading ? null : !sunSign ? (
         <EmptyScreen message="Pick your sun sign to read the day's horoscope.">
           <Button
@@ -302,11 +299,8 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
             scrollOffset={scrollOffset}
             viewportHeight={viewportHeight}
           />
-          {/* Every block is a direct child of the scroller, load-bearing: onLayout's
-              y is relative to the immediate parent, so a wrapper group would
-              report a plausible-but-wrong reveal position. */}
-          {/* Keyed by position — the list is fixed per day, and two identical
-              tips from a generator would collide on a string key. */}
+          {/* Direct scroller children, load-bearing: onLayout's y is relative
+              to the immediate parent, so a wrapper would report a wrong reveal position. */}
           {remainingTips.map((tip, index) => (
             <RevealOnScroll
               key={`tip-${index}`}
@@ -339,8 +333,8 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
             </RevealOnScroll>
           ))}
 
-          {/* Stacked, not three parallel columns — columns gave every band an
-              equal third regardless of area count, drawing near-empty ones. */}
+          {/* Stacked, not columns: columns gave every band an equal third
+              regardless of area count, drawing near-empty ones. */}
           {RATING_BUCKETS.map((bucket, bucketIndex) => {
             const areas = lifeAreasInBucket(horoscope, bucket.id);
 
@@ -396,9 +390,8 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
                     {bucket.glyph}
                   </Text>
                 </View>
-                {/* One joined string, not a node list, so it wraps as prose
-                    beside the mark. Em dash when empty — the row still draws
-                    so the legend's shape stays constant morning to morning. */}
+                {/* One joined string so it wraps as prose beside the mark; em
+                    dash when empty keeps the legend's shape constant. */}
                 <Text
                   style={[
                     styles.bucketAreas,
@@ -463,8 +456,8 @@ function Hero({
         { minHeight: Math.max(0, viewportHeight - bottomInset) },
       ]}
     >
-      {/* minHeight already shortened by the bottom inset, so this centers in
-          the visible screenful, not a box running behind the tab bar. */}
+      {/* minHeight already shortened by bottomInset — centers in the visible
+          screenful, not a box running behind the tab bar. */}
       <View
         style={[
           styles.heroContent,
@@ -508,8 +501,8 @@ function Hero({
           {bySentence(horoscope.tips[0] ?? "")}
         </Animated.Text>
       </View>
-      {/* Pinned to the fold, not trailing the summary — absolute so it can't
-          shift the centered content as the summary's length changes. */}
+      {/* Absolute so it can't shift the centered content as the summary's
+          length changes. */}
       <ScrollHint
         color={ink.textSecondary}
         reveal={reveal}

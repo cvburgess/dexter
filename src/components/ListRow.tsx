@@ -8,22 +8,13 @@ import { useTheme } from "@/utils/theme";
 type TListRowProps = {
   list: TList;
   openCount: number;
-  /**
-   * Archives the list. Confirmation and the write itself live on the screen,
-   * which owns the one `ConfirmationModal` the rows share — a modal per row
-   * would mount one for every list on screen.
-   */
+  /** Confirmation and the write live on the screen, which owns the one
+   * `ConfirmationModal` the rows share — a modal per row would mount too many. */
   onArchive: () => void;
 };
 
-/**
- * A compact list row: emoji tile, title, its open-task count, and an archive
- * button. Tapping the row itself opens the create/edit modal.
- *
- * Shaped like `HabitRow` and for the same reason: the row hosts two separate
- * tap targets, and nesting one Touchable inside another renders as a `<button>`
- * inside a `<button>` on web, which is invalid DOM.
- */
+/** A compact list row: emoji tile, title, open-task count, archive button.
+ * Shaped like `HabitRow` — two nested Touchables render invalid DOM on web. */
 export function ListRow({ list, openCount, onArchive }: TListRowProps) {
   const theme = useTheme();
   const router = useRouter();
@@ -92,9 +83,8 @@ export function ListRow({ list, openCount, onArchive }: TListRowProps) {
         ]}
         testID={`archive-list-${list.id}`}
       >
-        {/* `error`, not the `textSecondary` habits' pause toggle uses: pausing
-            a habit is reversible in place, and archiving takes the list off
-            every screen it appears on. */}
+        {/* error, not habits' pause-toggle textSecondary — archiving takes
+            the list off every screen, unlike a reversible pause. */}
         <Icon
           color={theme.colors.error}
           ionicon="archive-outline"

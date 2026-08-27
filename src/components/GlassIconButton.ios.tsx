@@ -8,15 +8,8 @@ import { finishButton, indicatorLabel } from "./GlassIconButton.indicator";
 import { TGlassIconButtonProps } from "./GlassIconButton.types";
 import { Icon } from "./Icon";
 
-/**
- * iOS circular action button using Apple's liquid glass (`expo-glass-effect`),
- * icon-only. Falls back to a plain bordered circle when glass isn't available
- * (iOS < 26 / reduce transparency), or when the caller passes `solid` because it
- * sits under an animated opacity the glass cannot sample through.
- * `isInteractive` (the liquid touch response) is enabled only for standalone
- * `onPress` buttons — as an `IconMenu` trigger we leave it off so it can't
- * intercept the menu-opening tap.
- */
+/** iOS liquid-glass circular button, falling back to plain bordered circle
+ * when unavailable/`solid`; `isInteractive` off as an IconMenu trigger. */
 export function GlassIconButton({
   sfSymbol,
   ionicon,

@@ -4,15 +4,8 @@ import { useTheme } from "@/utils/theme";
 
 import type { TIconProps } from "./Icon.types";
 
-/**
- * Android/web (and `tsc`) icon: an Ionicon. The iOS variant lives in
- * `Icon.ios.tsx` and draws the SF Symbol instead.
- *
- * Every icon in the app goes through here so the two names travel together and
- * neither platform can silently fall back to a third icon set (DEX-61). The one
- * exception is `NativeTabs.Trigger.Icon`, which accepts only an SF Symbol and an
- * Android drawable — see `docs/design.md`.
- */
+/** Android/web (and tsc) icon: an Ionicon; Icon.ios.tsx draws the SF Symbol
+ * instead, so neither falls back to a third set (DEX-61). */
 export function Icon({ ionicon, size, color }: TIconProps) {
   const theme = useTheme();
 

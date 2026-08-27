@@ -160,9 +160,8 @@ export function IconMenu({
       </div>
       {anchor ? (
         <WebOverlay>
-          {/* Invisible, not a scrim (DEX-125) — catches the dismissing click.
-              A sibling behind the menu, not its parent, so a press on the
-              menu's own chrome doesn't bubble to this and dismiss it. */}
+          {/* Invisible, not a scrim (DEX-125); a sibling behind the menu so
+              a press on the menu's own chrome doesn't bubble and dismiss it. */}
           <Pressable
             testID="menu-overlay"
             style={StyleSheet.absoluteFill}

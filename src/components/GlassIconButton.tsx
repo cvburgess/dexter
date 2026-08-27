@@ -6,12 +6,8 @@ import { finishButton, indicatorLabel } from "./GlassIconButton.indicator";
 import { TGlassIconButtonProps } from "./GlassIconButton.types";
 import { Icon } from "./Icon";
 
-/**
- * Android/web (and `tsc`) implementation of the circular icon button. The iOS
- * liquid-glass variant lives in `GlassIconButton.ios.tsx`; `expo-glass-effect`
- * renders nothing but a bare `View` off iOS, so here we draw a plain bordered
- * circle. `Icon` picks the glyph for the platform.
- */
+/** Android/web (and `tsc`) circular icon button — a plain bordered circle,
+ * since `expo-glass-effect` renders nothing off iOS. */
 export function GlassIconButton({
   sfSymbol,
   ionicon,

@@ -84,9 +84,8 @@ export function HabitRing({
 
   const ring = (
     <View style={[styles.container, faded && styles.faded]}>
-      {/* Rotate the whole SVG with a plain RN transform so the arc appears to
-          start at 12 o'clock. react-native-svg's own rotation/transform props
-          throw on web, so this stays off the SVG element itself. */}
+      {/* A plain RN transform, not react-native-svg's own rotation prop,
+          which throws on web — starts the arc at 12 o'clock either way. */}
       <View style={styles.svgRotate}>
         <Svg width={SIZE} height={SIZE}>
           <Circle

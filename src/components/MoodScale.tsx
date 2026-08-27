@@ -22,10 +22,8 @@ type TMoodScaleProps = {
   onChange: (rating: TMoodRating) => void;
 };
 
-/**
- * The 1-5 face row at the top of the journal. Selection is the only state — a
- * tap saves immediately, since a discrete choice has nothing to debounce.
- */
+// The 1-5 face row atop the journal. Selection is the only state — a tap
+// saves immediately, since a discrete choice has nothing to debounce.
 export function MoodScale({ value, onChange }: TMoodScaleProps) {
   const theme = useTheme();
 

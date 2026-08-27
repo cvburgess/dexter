@@ -10,11 +10,8 @@ type THabitRowProps = {
   updateHabit: (habit: TUpdateHabit) => void;
 };
 
-/**
- * A compact habit row: emoji tile, title, its schedule, and an inline
- * pause/resume toggle. Tapping the row opens the create/edit modal; the pause
- * button toggles in place without leaving the list.
- */
+/** A compact habit row: emoji tile, title, schedule, pause/resume toggle.
+ * Tapping the row opens the edit modal; the pause button acts in place. */
 export function HabitRow({ habit, updateHabit }: THabitRowProps) {
   const theme = useTheme();
   const router = useRouter();
