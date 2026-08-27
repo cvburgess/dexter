@@ -1,11 +1,6 @@
 /**
- * Turns a matched note or journal entry into a short excerpt with the matching
- * terms marked (DEX-47).
- *
- * This is the payoff of the RPC matching on substrings rather than a `tsvector`:
- * the offsets are exact, so what gets highlighted is provably what matched. A
- * stemming search would report the row as a hit while the literal term never
- * appears in it, leaving nothing to mark.
+ * Excerpts a matched entry with its terms marked (DEX-47). Relies on the RPC
+ * matching substrings, not a `tsvector` — a stemmed hit may have nothing to mark.
  */
 
 /** A run of excerpt text, either matched or not. Render matched runs emphasized. */
@@ -19,20 +14,15 @@ export const EXCERPT_RADIUS = 80;
 const ELLIPSIS = "…";
 
 /**
- * Splits a query the same way `search_entries` does — on whitespace, so a term
- * can never contain a space and therefore can never span a line break in the
- * text below.
+ * Splits the same way `search_entries` does — on whitespace, so a term can
+ * never span a line break in the text below.
  */
 export const searchTerms = (query: string): string[] =>
   query.trim().toLowerCase().split(/\s+/).filter(Boolean);
 
 /**
- * Collapses runs of whitespace so a markdown note excerpts as one tidy line
- * instead of carrying its newlines into the card.
- *
- * Done *before* matching, not after, so every offset below indexes the string
- * that actually gets rendered. Collapsing can't cost a match: terms hold no
- * whitespace, so none of them straddles the runs being collapsed.
+ * Collapsed *before* matching so every offset indexes the rendered string;
+ * terms hold no whitespace, so collapsing can't cost a match.
  */
 const normalize = (text: string): string => text.replace(/\s+/g, " ").trim();
 
@@ -42,9 +32,8 @@ const findRanges = (haystack: string, terms: string[]): TRange[] => {
   const ranges: TRange[] = [];
 
   for (const term of terms) {
-    // Advance by one rather than by the term's length so self-overlapping
-    // occurrences ("aa" in "aaa") are both found and merged into one run,
-    // instead of the second being skipped and highlighted as a shorter span.
+    // Advance by one, not the term's length, so self-overlapping occurrences
+    // ("aa" in "aaa") are both found and merged into one run.
     let index = lower.indexOf(term);
     while (index !== -1) {
       ranges.push({ start: index, end: index + term.length });
@@ -84,16 +73,8 @@ const head = (haystack: string, radius: number): TExcerptSegment[] => {
 };
 
 /**
- * An excerpt of `text` windowed around its first match on `query`, split into
- * matched and unmatched runs.
- *
- * Returns the head of the text when nothing matches. Every row reaching this
- * has already matched in Postgres, so that should be unreachable — but the two
- * matchers are not the same code: `ilike` case-folds by collation while this
- * uses JavaScript's `toLowerCase()`, and the two disagree on some Unicode (the
- * Turkish dotless ı being the standard example). Rendering the head of the text
- * degrades gracefully; throwing or rendering nothing would turn a cosmetic
- * mismatch into a blank result card.
+ * Windows `text` around its first match on `query`. Falls back to the head when
+ * nothing matches: `ilike` and JS `toLowerCase()` disagree on some Unicode.
  */
 export function buildExcerpt(
   text: string,
@@ -107,9 +88,8 @@ export function buildExcerpt(
   const ranges = terms.length > 0 ? findRanges(haystack, terms) : [];
   if (ranges.length === 0) return head(haystack, radius);
 
-  // Windowed on the *first* match only. Trying to span every match would either
-  // pull in the whole note or need several disjoint windows, and the first hit
-  // is what tells the user why this result is here.
+  // Windowed on the *first* match only — spanning every match could pull in
+  // the whole note, and the first hit is why the result is here.
   const [first] = ranges;
   const sliceStart = Math.max(0, first.start - radius);
   const sliceEnd = Math.min(haystack.length, first.end + radius);

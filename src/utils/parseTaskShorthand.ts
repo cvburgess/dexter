@@ -17,11 +17,7 @@ const normalizeListTitle = (title: string): string => {
 export const parseTaskShorthand = (
   input: string,
   availableLists: TList[] = [],
-  /**
-   * ISO date `due:N` counts forward from — the day the form is about, so
-   * `due:2` typed while viewing Friday means Sunday, not two days from now
-   * (DEX-165). Must already be a valid date; defaults to today when omitted.
-   */
+  /** ISO date `due:N` counts forward from — the viewed day, not today (DEX-165). */
   anchorDate?: string,
 ): TaskShorthandResult => {
   let workingInput = input.trim();

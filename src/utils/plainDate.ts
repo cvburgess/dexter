@@ -1,14 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 
-/**
- * The date pickers (`components/DateField.*`) speak the platform's native
- * `Date`; everything else in the app speaks `Temporal.PlainDate` or an ISO
- * `"YYYY-MM-DD"` string. These convert at that boundary.
- *
- * Always through the *local* calendar fields, never by parsing the ISO string
- * directly: `new Date("2026-07-26")` is read as UTC midnight, which lands on
- * the day before anywhere west of Greenwich.
- */
+// Always via local calendar fields — parsing the ISO string directly reads
+// as UTC midnight, landing a day early west of Greenwich.
 
 /** `Temporal.PlainDate` → a `Date` at local midnight on the same day. */
 export const plainDateToDate = (date: Temporal.PlainDate): Date =>

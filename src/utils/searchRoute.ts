@@ -10,14 +10,8 @@ import { isCompletionStatus } from "@/utils/taskStatus";
 import { todayRoute } from "@/utils/todayRoute";
 
 /**
- * Where a search result opens (DEX-47).
- *
- * Split out of `utils/todayRoute.ts` once a result could land somewhere other
- * than the Today tab: since DEX-105 a journal result opens the **Ritual** tab,
- * so "the Today tab's deep-link contract" no longer described this pair. It
- * owns both halves — whether a result is tappable at all, and where the tap
- * goes — so the Search screen's `onPress` guard and the route it would build
- * can't disagree.
+ * Where a search result opens (DEX-47). Owns both whether a result is tappable
+ * and where the tap goes, so the Search screen's guard and route can't disagree.
  */
 
 /** What the answer depends on beyond the result itself. */
@@ -30,26 +24,9 @@ type TSearchRouteOptions = {
 };
 
 /**
- * Whether a search result has anywhere to open.
- *
- * False in two cases. A **completed** task with no scheduled date has no day to
- * open, and the backlog — where an unscheduled task would otherwise go — can
- * never show it: `selectBacklogTasks` filters to incomplete tasks before any
- * preset runs, and the canonical `["tasks"]` fetch excludes completed rows with
- * a null `scheduledFor` outright. Linking it would open an empty drawer reading
- * "you're all caught up", which is a dead end rather than an answer.
- *
- * A **journal** result with the journal disabled is the same shape of dead end:
- * the ritual has no journal step for that user (see `stepsFor`), so the link
- * would switch tabs and land on whatever step happens to be first. Old entries
- * stay searchable and readable either way — only the tap target goes.
- *
- * Since DEX-151 a journal with no prompts has no step in either ritual, which is
- * the same dead end; prompts in only one is fine, since the link names it.
- *
- * Nothing is lost by not linking either: the result card in Search *is* the
- * useful surface, and `TaskCard` renders its `StatusButton` above the
- * `isComplete` guard, so a task can still be reopened from the results.
+ * False when no surface can show the result: a completed, unscheduled task (the
+ * backlog filters those out), or a journal with no step (off, or no prompts —
+ * DEX-151). The result card itself stays useful either way.
  */
 export const canOpenSearchResult = (
   result: TSearchResult,
@@ -80,15 +57,8 @@ const journalResultMode = (
 };
 
 /**
- * Where tapping a search result should land, or null when it has nowhere to go
- * (see `canOpenSearchResult`).
- *
- * An *incomplete* task with no scheduled date goes to the backlog with the query
- * carried along — the drawer seeds its own search box from it, so the task is on
- * screen immediately instead of somewhere in the backlog. A journal entry goes to
- * its day's journal step, **naming the ritual** — the clock's may not have one.
- *
- * `nonce` should differ per tap; see `TTodayRouteParams["n"]`.
+ * An unscheduled task goes to the backlog carrying `query` so the drawer seeds
+ * its search box; a journal entry *names* its ritual. `nonce` differs per tap.
  */
 export const searchResultRoute = (
   result: TSearchResult,

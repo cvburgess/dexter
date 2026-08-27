@@ -86,10 +86,8 @@ describe("buildExcerpt", () => {
   });
 
   it("falls back to the head of the text when nothing matches", () => {
-    // Defensive: every row reaching the excerpt has already matched in
-    // Postgres, but `ilike` case-folds by collation while this uses JS
-    // `toLowerCase()`, and the two disagree on some Unicode. Degrading to the
-    // head of the text beats a blank card.
+    // Postgres `ilike` case-folds by collation, JS `toLowerCase()` by Unicode —
+    // they disagree on some text, and the head of the text beats a blank card.
     const segments = buildExcerpt("an unrelated response", "prompt");
 
     expect(segments).toEqual([{ text: "an unrelated response", match: false }]);

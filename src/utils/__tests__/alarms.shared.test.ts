@@ -223,9 +223,8 @@ describe("reconcileAlarms", () => {
   });
 
   it("leaves a protected id alone while still cancelling everything else", () => {
-    // The running focus block's timer (DEX-156). Alarm ids are row ids in one
-    // flat namespace, so without this it looks exactly like a task alarm whose
-    // task no longer wants one, and dies on the next task mutation.
+    // The running focus block's timer (DEX-156): ids share one flat namespace,
+    // so unprotected it dies on the next task mutation like any stale alarm.
     const { toCancel } = reconcileAlarms(
       [],
       ["block-1", "task-9"],
@@ -287,9 +286,8 @@ describe("focusAlarmFor", () => {
   });
 
   it("identifies the alarm by the instant it will ring, not the shrinking duration", () => {
-    // Why `alarmSignature` needs no focus-block variant: recomputed later in the
-    // same block, the alarm still compares equal to the one already scheduled,
-    // so a reconcile leaves a good alarm in place.
+    // Why `alarmSignature` needs no focus-block variant: recomputed later, the
+    // alarm still compares equal, so a reconcile leaves a good alarm in place.
     const early = focusAlarmFor(focusBlock(), NOW);
     const later = focusAlarmFor(focusBlock(), new Date(NOW.getTime() + 30_000));
 
@@ -322,9 +320,8 @@ describe("focusAlarmFor", () => {
   });
 
   it("wants no alarm inside the last minute, which AlarmKit won't take", () => {
-    // `scheduleTimerAlarm` throws below 60s rather than returning false, so this
-    // guard is what keeps the reconcile from alerting the user every run. The
-    // in-app timeout still ends the block on time whenever the app is open.
+    // `scheduleTimerAlarm` throws below 60s rather than returning false; this
+    // guard keeps the reconcile from alerting the user every run.
     expect(
       focusAlarmFor(focusBlock({ remainingSeconds: 959 }), NOW),
     ).toBeNull();

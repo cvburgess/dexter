@@ -98,9 +98,8 @@ describe("compareToTypical", () => {
     expect(compareToTypical(6, history)).toBe("lower");
   });
 
-  // The guard the step leans on: with nothing to compare against, any figure at
-  // all is infinitely above a zero average, and a first-time reader would be
-  // told tomorrow is busier than a day the app has never seen.
+  // With nothing to compare against, any figure is infinitely above a zero
+  // average — a first-time reader would otherwise hear "busier than never".
   it("reads an entirely empty history as typical, whatever tomorrow holds", () => {
     expect(compareToTypical(9, [0, 0, 0, 0])).toBe("comparable");
     expect(compareToTypical(0, [0, 0, 0, 0])).toBe("comparable");

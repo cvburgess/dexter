@@ -1,15 +1,11 @@
 import { cancelAlarm, scheduleAlarm, scheduleTimerAlarm } from "expo-alarm-kit";
 
-// Imported directly rather than through `@/utils/alarms` so the iOS variant is
-// exercised regardless of the resolver's platform (see docs/testing.md — the
-// same reason `.web` files are imported by path). `expo-alarm-kit` is mocked in
-// `jest.setup.js`.
+// Imported by path so the iOS variant is exercised regardless of the resolver's
+// platform (see docs/testing.md); `expo-alarm-kit` is mocked in `jest.setup.js`.
 import { scheduleFocusAlarm, scheduleTaskAlarm } from "../alarms.ios";
 
-/** Stands in for the reader's `colors.primary`/`colors.primaryContent` — the dim
- * theme's, so a test that passed only for the brand green would fail. The two
- * are deliberately far apart so a transposition shows up as a wrong value rather
- * than a passing assertion. */
+/** The dim theme's `primary`/`primaryContent`, deliberately far apart so a
+ * transposition shows up as a wrong value rather than a passing assertion. */
 const TINT = "#9fe88d";
 const CONTENT = "#091307";
 const COLORS = { tint: TINT, content: CONTENT };
@@ -47,18 +43,9 @@ describe("scheduleTaskAlarm", () => {
     expect(mockScheduleAlarm.mock.calls[0][0]).not.toHaveProperty("soundName");
   });
 
-  it("tints the presentation with the theme colour, not AlarmKit's blue", async () => {
-    await scheduleTaskAlarm(alarm, COLORS);
-
-    expect(mockScheduleAlarm).toHaveBeenCalledWith(
-      expect.objectContaining({ tintColor: TINT }),
-    );
-  });
-
   it("sends primaryContent alongside the tint so the widget need not derive it", async () => {
-    // Both colours travel, and in the right slots — swapping them type-checks
-    // (they are both hex strings) and only shows up on a device, as a lock
-    // screen drawing its background colour on top of itself.
+    // Both colours, in the right slots — a swap type-checks (both hex) and only
+    // shows up on a device as an unreadable lock screen.
     await scheduleTaskAlarm(alarm, COLORS);
 
     expect(mockScheduleAlarm).toHaveBeenCalledWith(
@@ -88,11 +75,8 @@ describe("scheduleFocusAlarm", () => {
   });
 
   it("passes no pause or resume label, so the countdown carries no controls", async () => {
-    // The load-bearing assertion of DEX-156. Given either label, AlarmKit draws
-    // a button the app can never honour: `AlarmManager.shared.alarms` reports a
-    // paused alarm's state but never its elapsed time, so a lock-screen pause
-    // could only be mirrored into `remaining_seconds` as a guess. Omitting them
-    // relies on the fork's optional pause/resume buttons (DEX-158).
+    // Load-bearing for DEX-156: given a label, AlarmKit draws a pause button the
+    // app can never honour (elapsed time is unreported). Fork makes it optional (DEX-158).
     await scheduleFocusAlarm(focusAlarm, COLORS);
 
     const options = mockScheduleTimerAlarm.mock.calls[0][0];
@@ -137,7 +121,7 @@ describe("scheduleFocusAlarm", () => {
   });
 
   it("tints the countdown from the same colours a task alarm takes", async () => {
-    // The two features are kept in step deliberately: one sound preference, one
+    // Kept in step with task alarms deliberately: one sound preference, one
     // colour pair, both read off the reader's theme at schedule time.
     await scheduleFocusAlarm(focusAlarm, COLORS);
 

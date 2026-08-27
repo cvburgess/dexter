@@ -1,11 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// The OAuth consent screen (src/app/oauth/consent.tsx) lives outside the
-// authenticated route group, so an unauthenticated visitor is bounced to the
-// login screen. We stash the pending `authorization_id` here so the post-login
-// redirect (src/app/auth-callback.tsx) can return them to the consent screen
-// instead of dropping them on Today. AsyncStorage maps to localStorage on web,
-// so the value survives the full-page magic-link / Google redirects.
+// Stashes the pending authorization_id so an unauthenticated visitor bounced
+// to login returns to consent, not Today, after sign-in.
 const PENDING_OAUTH_AUTHORIZATION_ID_KEY =
   "dexter-pending-oauth-authorization-id";
 

@@ -40,9 +40,8 @@ describe("RITUAL_STEPS", () => {
     ]);
   });
 
-  // The evening closes on Preview tomorrow, not on a Summary (DEX-149): a count
-  // of the day you have just finished reviewing is a third reading of it, where
-  // the last question the evening actually has is about the day ahead.
+  // DEX-149: the evening closes on Preview tomorrow, not a Summary — its last
+  // question is about the day ahead, not a third reading of the one reviewed.
   it("lists the evening steps in order, ending on the preview", () => {
     expect(RITUAL_STEPS.pm.map((step) => step.title)).toEqual([
       // DEX-164: the evening opens on a breath rather than on its task list.
@@ -137,9 +136,8 @@ describe("stepsFor", () => {
     },
   );
 
-  // DEX-140: the calendar step only exists for a user who has a calendar, the
-  // same way the journal step follows its own preference. The evening ritual
-  // has no calendar step, so turning it off changes nothing there.
+  // DEX-140: the calendar step follows its preference like the journal's; the
+  // evening ritual has no calendar step, so turning it off changes nothing there.
   it("drops the morning calendar step when the calendar is disabled", () => {
     const ids = stepsFor(state({ calendarEnabled: false })).map(
       (step) => step.id,
@@ -165,9 +163,8 @@ describe("stepsFor", () => {
     expect(ids).toEqual(["horoscope", "backlog", "summary"]);
   });
 
-  // DEX-142: the horoscope is opt-out, and it is the morning ritual's *first*
-  // step — so turning it off changes which step the ritual opens on, which no
-  // other toggle does.
+  // DEX-142: the horoscope is the morning's *first* step, so this toggle alone
+  // changes which step the ritual opens on.
   it("drops the morning horoscope step when the horoscope is disabled", () => {
     const ids = stepsFor(state({ horoscopeEnabled: false })).map(
       (step) => step.id,
@@ -198,11 +195,8 @@ describe("stepsFor", () => {
     expect(ids).toEqual(["backlog", "summary"]);
   });
 
-  // Stable references, not fresh arrays: both switchers map this on every
-  // render, and the route compares against it to detect a preference change.
-  // Every combination, because `STEP_LISTS` is precomputed per key — a key that
-  // fell out of `TOGGLE_KEYS` would return `undefined` here rather than a stale
-  // list, and only an exhaustive sweep catches it.
+  // Stable references, swept exhaustively: `STEP_LISTS` is precomputed per key,
+  // so a key fallen out of `TOGGLE_KEYS` returns `undefined`, not a stale list.
   it.each(
     [false, true].flatMap((journalEnabled) =>
       [false, true].flatMap((calendarEnabled) =>
@@ -272,11 +266,8 @@ describe("goToStep", () => {
     },
   );
 
-  // The range check alone doesn't reject these — every comparison against NaN
-  // is false — so one would land in `state.step`, where `currentStep` returns
-  // undefined and every caller reading `step.id` throws. The iOS switcher
-  // coerces a raw selection with `Number()`, which is where a NaN would come
-  // from.
+  // The range check alone passes NaN (every comparison false) into `state.step`,
+  // where `currentStep` returns undefined; the iOS switcher's `Number()` is the source.
   it.each([NaN, 1.5, Infinity])(
     "returns the same state for a non-index %p",
     (index) => {
@@ -286,9 +277,8 @@ describe("goToStep", () => {
     },
   );
 
-  // The bound is the *derived* list's length, not the mode's — the two rituals
-  // have been the same length since Breathe joined the evening (DEX-164), but a
-  // toggle still shrinks either one under a mounted screen.
+  // The bound is the *derived* list's length, not the mode's (DEX-164) — a
+  // toggle still shrinks either ritual under a mounted screen.
   it("bounds against the active ritual's own length", () => {
     expect(goToStep(state({ mode: "pm" }), 4)).toMatchObject({ step: 4 });
     expect(
@@ -298,9 +288,8 @@ describe("goToStep", () => {
 });
 
 describe("withDate", () => {
-  // DEX-138: the step is the question, the date is only which day's answer is
-  // on screen. Someone comparing yesterday's journal to today's would otherwise
-  // walk the whole ritual again for every day they visited.
+  // DEX-138: the step is the question, the date only which day answers it —
+  // otherwise every visited day costs another full lap of the ritual.
   it("stays on the current step, travelling forward to a later day", () => {
     const next = withDate(state({ step: 3 }), DATE.add({ days: 1 }));
 
@@ -314,9 +303,8 @@ describe("withDate", () => {
     ).toMatchObject({ step: 3, direction: -1 });
   });
 
-  // Carrying the index across is only safe because the list it indexes cannot
-  // change under a date move — unlike `withMode`, which restarts at 0 for
-  // exactly that reason.
+  // Safe only because a date move cannot change the list it indexes — unlike
+  // `withMode`, which restarts at 0 for exactly that reason.
   it("keeps pointing at the same step in either mode, journal on or off", () => {
     expect(currentStep(withDate(state({ step: 2 }), TOMORROW)).title).toBe(
       currentStep(state({ step: 2 })).title,
@@ -333,9 +321,8 @@ describe("withDate", () => {
     );
   });
 
-  // The date is part of `ritualPageKey`, so the page still remounts and
-  // re-seeds for the new day even though the step index never moved — without
-  // that, staying put would mean showing the old day's content.
+  // The date is part of `ritualPageKey`, so the page still remounts and re-seeds
+  // for the new day — otherwise staying put would show the old day's content.
   it("still counts as a new page even though the step did not move", () => {
     const before = state({ step: 3 });
 
@@ -392,9 +379,8 @@ describe("step position helpers", () => {
     expect(currentStep(state({ mode: "pm", step: 0 })).title).toBe("Breathe");
   });
 
-  // The last index is whatever the *derived* list makes it, which a toggle can
-  // change under a mounted screen — so the check has to read the active list
-  // rather than a single constant.
+  // The last index is whatever the *derived* list makes it — a toggle changes
+  // it under a mounted screen, so the check reads the active list, not a constant.
   it("knows both ends of each ritual", () => {
     expect(isFirstStep(state())).toBe(true);
     expect(isLastStep(state())).toBe(false);
@@ -415,10 +401,8 @@ describe("withJournalEnabled", () => {
     expect(withJournalEnabled(before, true)).toBe(before);
   });
 
-  // The whole reason this exists rather than a clamp: journal is index 1 of the
-  // morning ritual, so removing it shifts Calendar/Backlog/Tasks down one. A
-  // clamp never fires for those — they stay in range — and would silently move
-  // someone from Calendar to Backlog.
+  // Removing journal shifts every later step down one; a clamp never fires for
+  // those (still in range) and would silently move Calendar to Backlog.
   it("keeps the user on the same step by id when the journal is removed", () => {
     const next = withJournalEnabled(state({ step: 2 }), false);
 
@@ -467,9 +451,8 @@ describe("withJournalEnabled", () => {
 });
 
 describe("withCalendarEnabled", () => {
-  // Identity matters as much here as anywhere: `ritual/index.tsx` compares this
-  // flag against preferences *during render* and sets state when they disagree,
-  // so a transition that returned an unchanged flag would spin forever.
+  // `ritual/index.tsx` compares this flag against preferences *during render*
+  // and sets state on disagreement — an unchanged flag would spin forever.
   it("returns the same state when the preference hasn't changed", () => {
     const before = state({ step: 2 });
 
@@ -491,9 +474,8 @@ describe("withCalendarEnabled", () => {
     expect(next.direction).toBe(0);
   });
 
-  // The cold-launch shape, and the direction the journal never runs in: the
-  // calendar preference defaults to *off*, so an enabled user's ritual gains
-  // the step a moment after mount.
+  // The cold-launch shape, a direction the journal never runs: calendar defaults
+  // *off*, so an enabled user's ritual gains the step a moment after mount.
   it("keeps the user on the same step by id when the calendar is added", () => {
     const before = state({ calendarEnabled: false, step: 2 });
 
@@ -531,9 +513,8 @@ describe("withCalendarEnabled", () => {
 });
 
 describe("withHoroscopeEnabled", () => {
-  // Same reason as the other two: `ritual/index.tsx` compares this flag against
-  // preferences *during render*, so a transition returning an unchanged flag
-  // would spin forever.
+  // Same as the other two: the flag is compared against preferences *during
+  // render*, so a transition returning an unchanged flag would spin forever.
   it("returns the same state when the preference hasn't changed", () => {
     const before = state({ step: 2 });
 
@@ -541,9 +522,8 @@ describe("withHoroscopeEnabled", () => {
   });
 
   it("updates the flag even when the step list doesn't change", () => {
-    // The evening ritual has no horoscope step at all, so this is the whole
-    // effect there — and the case that would hang the render loop if the flag
-    // went unwritten.
+    // The evening has no horoscope step, so the flag write is the whole effect
+    // — and the case that would hang the render loop if it went unwritten.
     const next = withHoroscopeEnabled(state({ mode: "pm", step: 3 }), false);
 
     expect(next.horoscopeEnabled).toBe(false);
@@ -575,9 +555,8 @@ describe("withHoroscopeEnabled", () => {
     );
   });
 
-  // The horoscope is index 0, so there is no earlier step to fall back to: the
-  // clamp lands on index 0 of the *new* list, which is whatever now opens the
-  // ritual. This is the one toggle that can change where a ritual starts.
+  // Horoscope is index 0 — no earlier step to fall back to, so the clamp lands
+  // on the *new* list's index 0. The one toggle that can move a ritual's start.
   it("moves to the new first step when the horoscope itself was on screen", () => {
     const next = withHoroscopeEnabled(state({ step: 0 }), false);
 
@@ -645,9 +624,8 @@ describe("withLink", () => {
     expect(withLink(before, { date: null, step: null })).toBe(before);
   });
 
-  // A journal link followed by a user who has the journal disabled: there is no
-  // step to land on, so the ritual opens where it would have anyway rather than
-  // guessing at a neighbour.
+  // A journal link with the journal disabled: no step to land on, so the ritual
+  // opens where it would have anyway rather than guessing at a neighbour.
   it("leaves the step alone when the linked one isn't in this ritual", () => {
     const before = state({ journalEnabled: false, step: 2 });
 
@@ -661,10 +639,8 @@ describe("withLink", () => {
     expect(next.mode).toBe("pm");
   });
 
-  // The ordering rule this function exists to hold: `withMode` restarts the
-  // ritual at step 0, so applying the mode after the step would silently
-  // discard the step. `review` is evening-only, which is what makes this fail
-  // loudly if the order is ever flipped.
+  // `withMode` restarts at step 0, so mode-after-step would silently discard
+  // the step. `review` is evening-only, making an order flip fail loudly.
   it("applies the mode before the step, not after", () => {
     const next = withLink(state(), {
       date: null,

@@ -151,9 +151,8 @@ describe("buildWidgetSnapshot", () => {
   });
 
   it("collapses both palettes to one when the user has forced a scheme", () => {
-    // `resolveTheme` already does this; the point is that the widget inherits
-    // it and correctly stops following the OS, because it has no other way to
-    // learn about `themeMode`.
+    // `resolveTheme` already does this; the point is the widget inherits it
+    // and stops following the OS, having no other way to learn `themeMode`.
     const forced = {
       themeMode: EThemeMode.LIGHT,
       lightTheme: "light",
@@ -251,9 +250,8 @@ describe("buildHabitWidgetSnapshot", () => {
       habit({ id: "archived", isArchived: true }),
     ]);
 
-    // The DB trigger clears today's row on pause or archive, but a habit edit
-    // doesn't invalidate the dailyHabits cache — so the filter has to be here
-    // as well, the way `HabitTracker` applies it defensively.
+    // A habit edit doesn't invalidate the dailyHabits cache, so the filter
+    // has to be here too, the way `HabitTracker` applies it defensively.
     days.forEach((day) => {
       expect(day.habits.map((h) => h.id)).toEqual(["active"]);
     });
@@ -278,9 +276,8 @@ describe("buildHabitWidgetSnapshot", () => {
   });
 
   it("still lists a habit whose daily row does not exist yet", () => {
-    // The rows are bootstrapped by an effect in `HabitTracker`, so a user who
-    // hasn't opened Today has none. Driving the widget off `dailyHabits` would
-    // leave the home screen empty on exactly those mornings.
+    // Rows are bootstrapped by an effect in `HabitTracker`; driving the widget
+    // off `dailyHabits` would leave the home screen empty on those mornings.
     const { days } = buildHabits([habit({ id: "habit-1" })], []);
 
     expect(days[0].habits[0].stepsComplete).toBe(0);
@@ -347,9 +344,8 @@ describe("parsePendingHabitSteps", () => {
   });
 
   it("drops unreadable entries without losing the readable ones", () => {
-    // Written by a different binary — the extension's — so a partial upgrade or
-    // a half-finished write can leave one entry malformed. Rejecting the whole
-    // object would cost the user every tap since the app was last open.
+    // A half-finished write from the extension can leave one entry malformed
+    // — rejecting the whole object would cost every tap since last open.
     const raw = JSON.stringify({
       [key]: 3,
       "no-separator": 1,

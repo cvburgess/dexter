@@ -6,14 +6,8 @@ import {
   TEventResponse,
 } from "@/hooks/useCalendarEvents.types";
 
-// Hard ceiling on recurrence expansion per event. The real terminator is "stop
-// once an occurrence starts after the target day"; this guards against
-// pathological/looping RRULEs (e.g. FREQ=SECONDLY) hanging the parser. 10000
-// occurrences covers ~27 years of a daily event — enough for any realistic
-// feed. The tradeoff: an unbounded sub-daily rule (HOURLY/MINUTELY) whose
-// DTSTART is far in the past could exhaust the cap before reaching today; such
-// feeds are effectively nonexistent, so we accept that over risking incorrect
-// fast-forward seeking.
+// Guards against a pathological/looping RRULE (e.g. FREQ=SECONDLY) hanging
+// the parser; 10000 covers ~27 years of a daily event.
 const MAX_ITERATIONS = 10000;
 
 /** An ICAL.Time as exposed by ical.js — typed loosely to avoid depending on internals. */
@@ -55,22 +49,15 @@ const emailOf = (calAddress: string): string =>
     .trim()
     .toLowerCase();
 
-/**
- * Keep an ICS `COLOR` value only when it's `#RRGGBB` hex. RFC 7986 permits CSS3
- * color *names* (e.g. `turquoise`), which the app's hex-only `withOpacity`
- * mis-parses into `rgba(NaN, NaN, NaN, a)` (a fill-less block); drop anything
- * non-hex so the event falls back to the theme accent instead.
- */
+/** RFC 7986 permits CSS3 color names (e.g. `turquoise`), which the app's
+ * hex-only `withOpacity` mis-parses into a fill-less block — drop non-hex instead. */
 const hexColorOrUndefined = (value: unknown): string | undefined => {
   const color = typeof value === "string" ? value.trim() : "";
   return /^#[0-9a-f]{6}$/i.test(color) ? color : undefined;
 };
 
-/**
- * The current user's RSVP for a VEVENT, matched against their email via the
- * ATTENDEE properties' CAL-ADDRESS. Returns undefined when there's no matching
- * attendee (common for subscription feeds) or no email to match on.
- */
+/** Matched against email via ATTENDEE's CAL-ADDRESS; undefined when there's no
+ * matching attendee (common for subscription feeds) or no email to match on. */
 const responseForUser = (
   vevent: ICAL.Component,
   userEmail: string | undefined,
@@ -89,12 +76,8 @@ const responseForUser = (
   return undefined;
 };
 
-/**
- * Build a `TCalendarEvent` for one occurrence, or null if it doesn't intersect
- * the target day. `dayStartMs`/`dayEndMs` bound the day as absolute instants
- * (local midnight → next local midnight); `targetDate` bounds all-day events by
- * calendar date.
- */
+/** Null if the occurrence doesn't intersect the target day. `dayStartMs`/`dayEndMs`
+ * bound timed events; `targetDate` bounds all-day events by calendar date. */
 const occurrenceToEvent = (
   uid: string,
   title: string,
@@ -144,19 +127,8 @@ const occurrenceToEvent = (
   };
 };
 
-/**
- * Parse raw `.ics` text and return the events occurring on `date`, expanding
- * recurrence rules. VTIMEZONE definitions in the feed are registered so
- * TZID-qualified times resolve to the correct absolute instant. A malformed
- * individual event is skipped rather than failing the whole feed.
- *
- * `timeZone` is the viewer's IANA zone (e.g. from `Temporal.Now.timeZoneId()`),
- * used to bound the target day; pass a fixed zone in tests for determinism.
- *
- * `userEmail`, when provided, is matched against each event's ATTENDEE list to
- * set the current user's RSVP (`response`); feeds without a matching attendee
- * leave it undefined.
- */
+/** Registers the feed's VTIMEZONEs so TZID times resolve to the correct
+ * instant; a malformed individual event is skipped rather than failing the whole feed. */
 export const parseIcsEventsForDate = (
   icsText: string,
   date: Temporal.PlainDate,
@@ -165,9 +137,8 @@ export const parseIcsEventsForDate = (
 ): TCalendarEvent[] => {
   let calendar: ICAL.Component;
   try {
-    // ical.js declares `parse` as returning `any`. It produces a jCal array —
-    // the shape the Component constructor takes — so narrow it to `unknown[]`
-    // rather than letting `any` leak into the call.
+    // ical.js declares `parse` as returning `any`; narrow the jCal array to
+    // `unknown[]` rather than letting `any` leak into the call.
     calendar = new ICAL.Component(ICAL.parse(icsText) as unknown[]);
   } catch {
     return [];

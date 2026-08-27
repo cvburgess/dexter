@@ -60,9 +60,8 @@ describe("searchResultRoute", () => {
   });
 
   it("refuses to route a completed, unscheduled task anywhere", () => {
-    // The backlog can never show it — `selectBacklogTasks` filters to
-    // incomplete tasks, and the canonical fetch excludes completed rows with a
-    // null `scheduledFor` outright — so linking it would open an empty drawer.
+    // The backlog can never show a completed, unscheduled task, so linking
+    // it would open an empty drawer.
     for (const status of [
       ETaskStatus.DONE,
       ETaskStatus.WONT_DO,
@@ -113,9 +112,8 @@ describe("searchResultRoute", () => {
     content: "remembered the milk",
   };
 
-  // DEX-105: the journal left the Today tab, so this is the one result that
-  // opens a different tab entirely. DEX-151: it also names the ritual, rather
-  // than leaving the clock to pick one that may have no journal step.
+  // DEX-105: the journal left the Today tab. DEX-151: the link names the
+  // ritual rather than letting the clock pick one with no journal step.
   it("sends a journal entry to the ritual that still asks that question", () => {
     expect(canOpenSearchResult(journalResult, JOURNAL_ON)).toBe(true);
     expect(searchResultRoute(journalResult, "milk", "1", JOURNAL_ON)).toEqual({
@@ -170,9 +168,8 @@ describe("searchResultRoute", () => {
   });
 
   it("refuses to route a journal entry when the journal is disabled", () => {
-    // The ritual has no journal step for that user, so the link would switch
-    // tabs and land on whichever step happens to be first. Old entries stay
-    // searchable and readable — only the tap target goes.
+    // With no journal step the link would land on an arbitrary step. Old
+    // entries stay searchable and readable — only the tap target goes.
     expect(canOpenSearchResult(journalResult, JOURNAL_OFF)).toBe(false);
     expect(
       searchResultRoute(journalResult, "milk", "1", JOURNAL_OFF),

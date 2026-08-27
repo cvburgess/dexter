@@ -40,10 +40,8 @@ describe("SUN_SIGN_OPTIONS", () => {
     });
   });
 
-  // Built from the generated enum array rather than a second hand-written list,
-  // so the picker cannot fall out of step with the column it writes to — and it
-  // reads in astrological order, which is why the migration declares it that
-  // way rather than alphabetically.
+  // Built from the generated enum array, not a second hand-written list, so
+  // the picker can't fall out of step with the column it writes to.
   it("follows the enum's own order", () => {
     expect(SUN_SIGN_OPTIONS.slice(1).map((option) => option.value)).toEqual([
       ...SIGNS,
@@ -87,12 +85,8 @@ describe("LIFE_AREAS", () => {
 });
 
 describe("ratingBucket", () => {
-  // DEX-166: these thresholds are also the database's, which derives
-  // `horoscopes.sentiment` by counting the twelve areas into these same three
-  // buckets and taking the biggest. If one side moves, a reader gets a green
-  // card over a band of down arrows — and nothing in CI can catch it, since the
-  // other side of the rule is a generated column no test here reaches. This
-  // case is the pin.
+  // DEX-166: these thresholds are also the database's generated-column rule,
+  // which no test here reaches — this pins the side that can regress.
   it("splits 1-5 into three groups, worst to best", () => {
     expect(ratingBucket(1)).toBe("negative");
     expect(ratingBucket(2)).toBe("negative");
@@ -103,10 +97,8 @@ describe("ratingBucket", () => {
 });
 
 describe("RATING_BUCKETS", () => {
-  // Best first, deliberately: worst-first put a list of what is going badly
-  // directly under the day's advice, which read as an accusation rather than a
-  // reading. The arrows carry the meaning either way, so the order is free to
-  // serve the tone.
+  // Best first, deliberately — worst-first read as an accusation under the
+  // day's advice; the arrows carry the meaning either way.
   it("leads with the positive band", () => {
     expect(RATING_BUCKETS.map((bucket) => bucket.id)).toEqual([
       "positive",
@@ -120,10 +112,8 @@ describe("RATING_BUCKETS", () => {
     expect(new Set(RATING_BUCKETS.map((b) => b.label)).size).toBe(3);
   });
 
-  // The variation selector is what forces text presentation, which is what lets
-  // the mark take the panel's ink instead of rendering as a full-color emoji in
-  // a palette no theme controls (docs/design.md, "Icons"). It is invisible in
-  // source, so nothing but a test will notice it going missing.
+  // The variation selector forces text presentation instead of a full-color
+  // emoji; invisible in source, so only a test notices it going missing.
   it("forces text presentation on every glyph", () => {
     for (const bucket of RATING_BUCKETS) {
       expect(bucket.glyph).toContain("︎");
@@ -194,9 +184,8 @@ describe("bySentence", () => {
     expect(bySentence("Why not? Go on!")).toBe("Why not?\nGo on!");
   });
 
-  // The whitespace is *replaced*, not added to. Prose that already carried a
-  // newline would otherwise come back double-spaced, and a run of spaces would
-  // leave the second sentence indented.
+  // Whitespace is replaced, not added to — an existing newline would
+  // otherwise come back double-spaced.
   it("does not double up on whitespace that already breaks", () => {
     expect(bySentence("One.\nTwo.")).toBe("One.\nTwo.");
     expect(bySentence("One.  Two.")).toBe("One.\nTwo.");

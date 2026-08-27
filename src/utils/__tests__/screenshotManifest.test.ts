@@ -5,16 +5,8 @@ import { parseRitualMode, parseRitualStep } from "@/utils/ritualRoute";
 import { parseDayMode } from "@/utils/todayRoute";
 
 /**
- * `scripts/screenshots/screens.tsv` names screens by deep link, and nothing at
- * runtime tells you when one stops resolving — the capture just hangs on its
- * anchor until the timeout, months later, the morning of a submission.
- *
- * That is not hypothetical: the procedure this manifest replaced reached the
- * journal through the Today tab's view switcher, DEX-105 moved the journal to
- * the Ritual tab, and the instructions went on saying otherwise until someone
- * tried to use them. This test is the guard that failure earned — it holds the
- * manifest against the same route parsers the app itself uses, so the next such
- * move breaks here instead of there.
+ * Holds screens.tsv against the app's own route parsers so a moved screen
+ * breaks here, not as a capture hang the morning of a submission (DEX-105).
  */
 
 type TRow = {
@@ -45,10 +37,8 @@ const ROUTES: Record<string, (params: URLSearchParams) => void> = {
   },
   ritual: (params) => {
     expect(parseRitualStep(params.get("step") ?? undefined)).not.toBeNull();
-    // Pinning the mode is what makes a ritual capture reproducible at any hour:
-    // `horoscope` exists only in the morning, and `journal` renders a different
-    // flow either side of noon. Without it the run's output depends on when it
-    // happened to be started.
+    // Pinning the mode keeps a ritual capture reproducible at any hour —
+    // `horoscope` is morning-only and `journal` differs either side of noon.
     expect(parseRitualMode(params.get("mode") ?? undefined)).not.toBeNull();
   },
   week: () => {},
@@ -82,9 +72,8 @@ describe("screenshot manifest", () => {
   });
 
   it("gives every Today link a distinct nonce", () => {
-    // Cross-tab navigation reuses the mounted screen and only swaps params, so
-    // two links with identical values are indistinguishable to it — a repeated
-    // nonce silently means "no navigation happened" rather than an error.
+    // Cross-tab navigation only swaps params, so a repeated nonce silently
+    // means "no navigation happened" rather than an error.
     const nonces = rows
       .filter((row) => new URL(row.link).hostname === "today")
       .map((row) => `${row.device}:${new URL(row.link).searchParams.get("n")}`);

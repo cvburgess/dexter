@@ -29,9 +29,7 @@ describe("parseTaskShorthand", () => {
     });
   });
 
-  // `due:N` counts from the day the form is about, not the wall clock, so a
-  // task created while viewing a future day gets a deadline relative to that
-  // day (DEX-165).
+  // `due:N` counts from the form's anchor day, not the wall clock (DEX-165).
   it("counts due:N from the anchor date when one is given", () => {
     const result = parseTaskShorthand("Ship it due:3", lists, "2026-07-08");
 

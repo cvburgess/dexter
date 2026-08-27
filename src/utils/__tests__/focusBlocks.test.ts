@@ -19,9 +19,8 @@ describe("liveRemainingSeconds", () => {
     expect(liveRemainingSeconds(anchor(), START + 60_000)).toBe(1440);
   });
 
-  // The whole point of the anchor: a paused block's snapshot is the answer, and
-  // no amount of wall-clock time moves it. If this ever reads the clock, pausing
-  // a timer stops stopping it.
+  // The whole point of the anchor: a paused block's snapshot is the answer
+  // regardless of wall-clock time. If this ever reads the clock, pause breaks.
   it("returns a paused block's snapshot however much time passes", () => {
     const paused = anchor({ status: "paused", resumedAt: null });
 
@@ -35,10 +34,8 @@ describe("liveRemainingSeconds", () => {
     expect(liveRemainingSeconds(anchor(), START + 3_600_000)).toBe(0);
   });
 
-  // Nothing ticks while a block is paused, so the countdown's clock is as stale
-  // as the pause was long when a resume writes a fresh anchor. Unclamped, that
-  // negative elapsed would *add* the pause to the remaining time and show the
-  // timer jumping upward for a tick.
+  // A resume's fresh anchor is as stale as the pause was long; unclamped, that
+  // negative elapsed would add the pause back and jump the timer upward.
   it("never reads above the snapshot for a clock behind the anchor", () => {
     const resumed = anchor({
       remainingSeconds: 900,
@@ -95,9 +92,8 @@ describe("resolveFocusBlockMinutes", () => {
     expect(resolveFocusBlockMinutes(50)).toBe(50);
   });
 
-  // The column is unconstrained so an older build can read a newer build's
-  // choice. Without this the @expo/ui Picker renders with nothing selected and
-  // the user can't tell how long their blocks run.
+  // Unconstrained column, so an older build can read a newer build's choice;
+  // without this the Picker renders nothing selected.
   it("falls back to 25 for a length it doesn't", () => {
     expect(resolveFocusBlockMinutes(37)).toBe(25);
     expect(resolveFocusBlockMinutes(0)).toBe(25);

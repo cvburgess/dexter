@@ -140,9 +140,8 @@ describe("parseSchedule", () => {
   });
 });
 
-// Unlike `getNextOccurrence`, this one counts its reference date — promoting a
-// template to a cadence that matches today should produce a task today, not
-// look like nothing happened.
+// Unlike `getNextOccurrence`, this counts its reference date — promoting a
+// template whose cadence matches today should produce a task today.
 describe("getFirstOccurrence", () => {
   it("returns the reference date itself when the schedule matches it", () => {
     expect(getFirstOccurrence("0 0 * * *", "2026-07-12")).toBe("2026-07-12");

@@ -1,51 +1,11 @@
 import { Dimensions, Platform } from "react-native";
 
-// `screen`, not `window`: the physical display. An iPad in a narrow Split View
-// slice is still an iPad, and the value this feeds — which navigation shell to
-// mount — must not follow the window.
+// `screen`, not `window`: an iPad in Split View is still an iPad, and this
+// feeds which navigation shell mounts — it must not follow the window.
 const { width, height } = Dimensions.get("screen");
 
-/**
- * True on iPad and on Android tablets; false on phones and on web.
- *
- * Read once at module scope, and deliberately a constant rather than a hook or
- * a function: the caller (`app/(app)/(tabs)/_layout.tsx`) is choosing between
- * two *navigators*, and anything that could flip at runtime would swap the
- * navigator under a running app and reset every tab's state. A function would
- * read as though it might.
- *
- * **The one device this is wrong for is an Android foldable.** `configChanges`
- * in the manifest covers `screenSize|screenLayout|smallestScreenSize`, so
- * folding doesn't even recreate the activity, let alone the JS context — this
- * value is captured at launch and never recomputed. A foldable launched folded
- * keeps the phone tab bar after it opens; launched open and then folded, it
- * keeps a 76dp rail in a ~318dp window. Restarting the app is the only
- * recovery. Accepted for now because reactivity here is the exact thing DEX-104
- * removed, and no supported device in the lineup folds; revisit by splitting
- * the decision (a stable *shell* choice, a reactive *rail* choice) rather than
- * by making this a hook.
- *
- * **Mac Catalyst counts as a tablet** (DEX-85). Under "Optimize Interface for
- * Mac" the Catalyst idiom is `mac`, not `pad`, so `Platform.isPad` is `false`
- * there — without the extra clause a Mac window would get the phone
- * `NativeTabs` shell, and `/week` would not even be a registered route. Unlike
- * the iPad and Android cases this is not a screen-size judgement: a Mac window
- * is a rail surface by construction, whatever its current width.
- *
- * Android has no `isPad`, so it uses the platform's own definition of a tablet:
- * a smallest width of 600dp is `sw600dp`, the resource qualifier Android itself
- * uses to pick tablet layouts. `Math.min` rather than `width` so the answer
- * doesn't depend on which orientation the app happened to launch in.
- *
- * **Web is false by construction** — `Platform.OS` is `"web"`, so neither
- * branch matches — which is what keeps web on its own width-based rail/dock
- * split (`hooks/useShowNavRail.ts`) instead of pinning the rail the way a
- * tablet does.
- *
- * Deliberately not `expo-device`: it isn't a dependency, its Android
- * implementation is this same screen-size bucket, and adding a native module
- * would force a dev-client rebuild for three lines of arithmetic.
- */
+// A constant, not a hook: it picks a navigator, and flipping at runtime would
+// reset every tab's state. Mac Catalyst counts as a tablet (DEX-85, idiom `mac`).
 export const IS_TABLET =
   Platform.OS === "ios"
     ? Platform.isPad || Platform.isMacCatalyst

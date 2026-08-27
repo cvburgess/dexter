@@ -1,27 +1,15 @@
 // Pure focus-block logic (DEX-49), shared by the api module, the timer hooks,
-// and the settings picker, and unit-tested directly. Deliberately import-free:
-// the countdown math is the part most worth testing and the part most easily
-// broken, and keeping it free of React, Supabase, and platform modules means it
-// tests with no mocking at all.
+// and the settings picker. Deliberately import-free, so it tests with no mocking.
 
 /** A focus block's lifecycle state — mirrors the `focus_block_status` enum. */
 export type TFocusBlockStatus = "active" | "paused" | "complete" | "cancelled";
 
-/** How long a block runs when the user has expressed no preference. Matches the
- * column default in `20260813201604_add_preferences_focus_block_minutes.sql`;
- * both must move together. */
+/** Matches the column default in
+ * `20260813201604_add_preferences_focus_block_minutes.sql`; move both together. */
 export const DEFAULT_FOCUS_BLOCK_MINUTES = 25;
 
-/**
- * The lengths offered in Settings → Tasks. Values are strings because
- * `PickerField<V extends string>` requires it; the call site reads them back
- * through `Number`.
- *
- * The range brackets the two intervals the method page recommends — 25 minutes
- * for administrative work, 50 for deep work — rather than trying to be
- * exhaustive. This is an app-owned list expected to move with taste, which is
- * why the column carries no CHECK constraint.
- */
+/** Values are strings — `PickerField<V extends string>` requires it, read back
+ * via `Number`. No CHECK constraint: an app-owned list expected to move with taste. */
 export const FOCUS_BLOCK_LENGTHS: readonly {
   value: string;
   label: string;
@@ -35,13 +23,8 @@ export const FOCUS_BLOCK_LENGTHS: readonly {
   { value: "60", label: "1 hour" },
 ];
 
-/**
- * A stored preference narrowed to a length this build offers.
- *
- * A newer client (or a hand-edited row) can store a length this build doesn't
- * list, and the picker would then render with *nothing* selected — the same
- * footgun `resolveAlarmSound` exists for. Degrade to the default instead.
- */
+/** A newer client can store a length this build doesn't list — the picker would
+ * render nothing selected (same footgun as `resolveAlarmSound`); degrade instead. */
 export const resolveFocusBlockMinutes = (minutes: number): number =>
   FOCUS_BLOCK_LENGTHS.some((option) => Number(option.value) === minutes)
     ? minutes
@@ -59,17 +42,8 @@ export type TFocusAnchor = {
   resumedAt: string | null;
 };
 
-/**
- * How much time is left on a block right now, in exact (fractional) seconds.
- *
- * **This is the anchor design.** `remainingSeconds` is a snapshot taken at the
- * last pause and `resumedAt` is when the current run began, so a running block's
- * true remaining time is the snapshot minus however long it has been running.
- * Nothing writes a countdown to the database — every client subtracts.
- *
- * `nowMs` is a parameter rather than a `Date.now()` call so this tests without
- * mocking a clock (the dependency-injection habit in `docs/testing.md`).
- */
+/** The anchor design: `remainingSeconds` is a snapshot at the last pause,
+ * `resumedAt` when the current run began — every client subtracts, nothing writes a countdown. */
 export const liveRemainingSeconds = (
   block: TFocusAnchor,
   nowMs: number,
@@ -77,12 +51,8 @@ export const liveRemainingSeconds = (
   if (block.status === "paused") return Math.max(0, block.remainingSeconds);
   if (block.status !== "active" || !block.resumedAt) return 0;
 
-  // Elapsed is clamped at zero, which matters for a `nowMs` that predates the
-  // anchor. A countdown's clock only ticks while the block runs, so after a ten
-  // minute pause the caller's last reading is ten minutes older than the fresh
-  // `resumedAt` a resume writes — a negative elapsed there would *add* those ten
-  // minutes to the remaining time and show the timer jumping up. Clamped, the
-  // worst case is the pre-pause figure holding for one tick.
+  // Clamped at zero: after a pause, `resumedAt` is fresher than the caller's
+  // last reading, so unclamped elapsed would go negative and jump the timer up.
   const elapsedSeconds = Math.max(
     0,
     (nowMs - Date.parse(block.resumedAt)) / 1000,
@@ -90,19 +60,8 @@ export const liveRemainingSeconds = (
   return Math.max(0, block.remainingSeconds - elapsedSeconds);
 };
 
-/**
- * A remaining-seconds value as a countdown reads it: `"24:59"`, `"0:07"`,
- * `"60:00"`.
- *
- * Rounds **up**, so a 25-minute block reads `25:00` for its whole first second
- * rather than dropping to `24:59` immediately, and only reaches `0:00` when the
- * time is genuinely gone.
- *
- * Minutes keep counting past 60 instead of growing an hours field. An hour is
- * the longest block on offer, and a field that appears only at the top of the
- * range would change the glyph count — which matters in the tab-bar accessory,
- * where the countdown sits in a fixed-width capsule.
- */
+/** Rounds up so a fresh block doesn't drop a second immediately; minutes keep
+ * counting past 60 (no hours field) so the tab-bar capsule's glyph count never changes. */
 export const formatCountdown = (seconds: number): string => {
   const whole = Math.max(0, Math.ceil(seconds));
   const minutes = Math.floor(whole / 60);

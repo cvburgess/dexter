@@ -13,9 +13,8 @@ describe("buildStarField", () => {
     expect(flat(field)).toHaveLength(72);
   });
 
-  // Every layer costs one animation whether or not it holds anything, so an
-  // empty one is a timer running for nothing. Round-robin dealing is what
-  // guarantees it can't happen.
+  // Every layer costs one animation regardless of contents — round-robin
+  // dealing guarantees none run empty.
   it("fills the layers evenly, leaving none empty", () => {
     const field = buildStarField(30, 4, 1);
     const sizes = field.map((layer) => layer.length);
@@ -46,9 +45,8 @@ describe("buildStarField", () => {
     expect(buildStarField(20, 2, 1)).not.toEqual(buildStarField(20, 2, 2));
   });
 
-  // Size and brightness are cubed rather than drawn flat, so most stars are
-  // small and faint and a few are bright. A uniform field reads as noise or a
-  // texture rather than as a sky — this is the property that prevents it.
+  // Cubed, not flat, so most stars are small/faint with a few bright — a
+  // uniform field reads as noise rather than a sky.
   it("keeps most stars small, with a few standing out", () => {
     const stars = flat(buildStarField(200, 4, 42));
     const radii = stars.map((star) => star.radius).sort((a, b) => a - b);

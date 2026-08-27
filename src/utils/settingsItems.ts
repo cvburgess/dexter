@@ -20,9 +20,8 @@ export type TSettingsItem = {
   icon: TSettingsIconName;
 };
 
-// Each item navigates to a subview under `/settings/<slug>` (registered in
-// settings/_layout.tsx). Shared by the list (index.tsx) and the large-screen
-// sidebar (SettingsSidebar.tsx) so both stay in sync.
+// Shared by the list (index.tsx) and the large-screen sidebar
+// (SettingsSidebar.tsx) so both stay in sync.
 export const SETTINGS_ITEMS: TSettingsItem[] = [
   {
     slug: "account",
@@ -60,10 +59,8 @@ export const SETTINGS_ITEMS: TSettingsItem[] = [
     subtitle: "Habit tracking preferences",
     icon: "repeat-outline",
   },
-  // Named for the flow rather than the Journal alone (DEX-128): the sun sign
-  // the Horoscope step reads and the prompts the Journal step seeds from are
-  // both settings for the same guided walk, and the remaining DEX-34 steps
-  // land here too rather than each claiming a section of their own.
+  // Named for the flow, not Journal alone (DEX-128) — Horoscope and Journal
+  // settings share this section, and future DEX-34 steps land here too.
   {
     slug: "ritual",
     title: "Ritual",
