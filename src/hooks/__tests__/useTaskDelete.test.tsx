@@ -130,9 +130,8 @@ describe("useTaskDelete", () => {
     expect(mockDeleteTask).toHaveBeenCalledWith("task-1");
   });
 
-  // Unknown — still loading, or a stale id — counts as "not a repeat": leaving
-  // a schedule behind is visible and undoable in Settings, where deleting a
-  // template the user saved is neither.
+  // Unknown (loading, or a stale id) counts as "not a repeat" — leaving a
+  // schedule behind is visible and undoable; deleting a saved template isn't.
   it("keeps an unresolvable template rather than guessing", async () => {
     const { result } = setup(null);
 

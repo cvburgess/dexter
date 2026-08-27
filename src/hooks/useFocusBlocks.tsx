@@ -26,19 +26,16 @@ import { preferencesQueryOptions } from "./usePreferences";
 /** The running-or-held block, if any. One row, one key. */
 const LIVE_FOCUS_BLOCK_KEY = ["focusBlocks", "live"];
 
-/** Shared by the full hook below and `useLiveFocusBlockId`, so the two observe
- * one query rather than two hand-copied definitions — `preferencesQueryOptions`
- * exists for the same reason. */
+/** Shared by the full hook and `useLiveFocusBlockId`, so the two observe one
+ * query rather than two hand-copied definitions. */
 const liveFocusBlockQueryOptions = queryOptions({
   queryKey: LIVE_FOCUS_BLOCK_KEY,
   queryFn: () => getLiveFocusBlock(supabase),
 });
 
 /**
- * Exported so `useRealtimeInvalidation` shares this definition instead of a
- * hand-copied one that could drift. The bare `["focusBlocks"]` prefix covers
- * both the live row and every per-date list, so a block that ends on another
- * device refreshes the timer bar *and* tonight's Review figure.
+ * Shared with `useRealtimeInvalidation`. The bare prefix covers the live row
+ * and every per-date list, so a remote end refreshes bar and Review together.
  */
 export const FOCUS_BLOCKS_INVALIDATION_KEYS = [["focusBlocks"]];
 
@@ -63,13 +60,8 @@ type TUseLiveFocusBlock = [
 ];
 
 /**
- * The focus block currently on screen, and the five transitions that move it
- * (DEX-49).
- *
- * Every transition writes the anchor — `remaining_seconds` *and* `resumed_at`
- * together — because the `resumed_at_iff_active` constraint rejects a running
- * block with no anchor and a stopped one still carrying one. Nothing here writes
- * a per-second countdown; see `utils/focusBlocks.ts`.
+ * The live block and its five transitions (DEX-49). Each writes the whole
+ * anchor — `resumed_at_iff_active` rejects a partial one. No per-second writes.
  */
 export const useLiveFocusBlock = (): TUseLiveFocusBlock => {
   const { userId } = useAuth();
@@ -77,9 +69,8 @@ export const useLiveFocusBlock = (): TUseLiveFocusBlock => {
 
   const { data: block, isLoading } = useQuery({
     ...liveFocusBlockQueryOptions,
-    // Gated on `userId` for the same reason `usePreferences` is: this hook is
-    // mounted at the root of the authenticated tree, where its effects still run
-    // during the auth-initializing pass, and RLS would reject the read.
+    // Gated like `usePreferences`: effects run during the auth-initializing
+    // pass at the tree root, where RLS would reject the read.
     enabled: !!userId,
   });
 
@@ -91,12 +82,8 @@ export const useLiveFocusBlock = (): TUseLiveFocusBlock => {
 
   const { mutate: start } = useMutation<TFocusBlock, Error, string>({
     mutationFn: async (taskId) => {
-      // `ensureQueryData`, not a `usePreferences()` call in the component: the
-      // only caller is the task card's menu, which renders once per card, so an
-      // observer there would re-render the whole list on any unrelated
-      // preference edit. Reading `defaultPreferences` instead would start a
-      // 25-minute block for someone who chose 50 but hasn't loaded their row
-      // yet — this awaits the saved value exactly once.
+      // `ensureQueryData`, not `usePreferences()`: per-card MoreMenu can't
+      // hold an observer, and defaults would ignore an unloaded saved value.
       const preferences = await queryClient.ensureQueryData(
         preferencesQueryOptions,
       );
@@ -129,9 +116,8 @@ export const useLiveFocusBlock = (): TUseLiveFocusBlock => {
     { previous?: TFocusBlock | null }
   >({
     mutationFn: (diff) => updateFocusBlock(supabase, diff),
-    // Optimistic so the play/pause glyph flips on the tap rather than a round
-    // trip later. A transition to an ended status clears the live row outright,
-    // which is what takes the bar off screen.
+    // Optimistic so the play/pause glyph flips on the tap; a transition to an
+    // ended status clears the live row, taking the bar off screen.
     onMutate: async (diff) => {
       await queryClient.cancelQueries({ queryKey: LIVE_FOCUS_BLOCK_KEY });
       const previous = queryClient.getQueryData<TFocusBlock | null>(
@@ -158,16 +144,13 @@ export const useLiveFocusBlock = (): TUseLiveFocusBlock => {
     onSettled: invalidate,
   });
 
-  // Rounded up, matching what the countdown was reading at the moment of the
-  // tap — pausing at a displayed `12:01` and resuming to `12:00` would look like
-  // the timer had lost a second to the tap itself.
+  // Rounded up to match the displayed countdown — pausing at `12:01` and
+  // resuming to `12:00` would look like the tap itself cost a second.
   const snapshot = (block: TFocusBlock) =>
     Math.ceil(liveRemainingSeconds(block, Date.now()));
 
-  // Every transition is a no-op on a block that has already ended. The guard is
-  // what makes `finishFocusBlock` idempotent: the completion timeout and the
-  // AppState listener can both fire for the same block, and the second must not
-  // reopen or rewrite it.
+  // The guard makes `finishFocusBlock` idempotent: the timeout and AppState
+  // listener can both fire, and the second must not reopen the block.
   const move = (
     block: TFocusBlock,
     diff: Omit<TUpdateFocusBlock, "id">,
@@ -186,9 +169,8 @@ export const useLiveFocusBlock = (): TUseLiveFocusBlock => {
           resumedAt: null,
           status: "cancelled",
         }),
-      // The only transition that takes callbacks: its caller latches the block
-      // id so the timeout and the AppState listener can't both write it, and
-      // needs to know when to release that latch (see `usePublishFocusTimer`).
+      // Callbacks exist so `usePublishFocusTimer` knows when to release its
+      // completion latch.
       finishFocusBlock: (block, callbacks) =>
         move(
           block,
@@ -215,13 +197,8 @@ export const useLiveFocusBlock = (): TUseLiveFocusBlock => {
 };
 
 /**
- * Whether a block is live, and which one — for a reader that needs to know a
- * block exists without the five mutations `useLiveFocusBlock` builds.
- *
- * `useAlarmSync` is the caller (DEX-156): the running block's timer is an
- * AlarmKit alarm it must not cancel, and mounting the full hook at the root of
- * the tree would add mutation observers to read one string. `select` narrows the
- * re-render to an id change, so a pause or a tick down doesn't reach it.
+ * The live block's id without `useLiveFocusBlock`'s mutation observers, for
+ * `useAlarmSync`'s sweep guard (DEX-156). `select` narrows to id changes.
  */
 export const useLiveFocusBlockId = (): {
   id: string | null;
@@ -241,9 +218,8 @@ export const useLiveFocusBlockId = (): {
 type TUseFocusBlocks = [TFocusBlock[], { isLoading: boolean }];
 
 /**
- * One local day's blocks, for the evening ritual's Review figure. Read-only —
- * a past day's blocks are a record, and the only surface that writes one is the
- * live timer above.
+ * One local day's blocks, for the Review figure. Read-only — a past day's
+ * blocks are a record; only the live timer above writes one.
  */
 export const useFocusBlocks = (
   date: string,

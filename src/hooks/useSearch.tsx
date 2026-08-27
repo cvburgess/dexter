@@ -50,20 +50,15 @@ export const useSearch = (query: string): TUseSearch => {
     // Keyed on the trimmed query, so "  todo" and "todo" share one cache entry
     // — and so does re-typing a query the user already ran.
     queryKey: ["search", trimmed],
-    // The query travels *with* its results rather than being inferred from
-    // `isPlaceholderData` and a ref: while `keepPreviousData` is holding the
-    // previous rows, `data.query` is still the query those rows matched, which
-    // is what the excerpts have to highlight against.
+    // The query travels with its results rather than a ref: while
+    // keepPreviousData holds prior rows, data.query is what they matched.
     queryFn: async () => ({
       query: trimmed,
       results: await searchEntries(supabase, trimmed),
     }),
     enabled,
-    // Hold the previous query's results while the next one is in flight.
-    // Without this every keystroke makes `data` undefined for a beat, which
-    // swaps the results list out for a spinner — tearing down the FlashList
-    // (and its recycling pools and layout measurements) and rebuilding every
-    // row, once per character typed.
+    // Without this every keystroke makes `data` undefined for a beat, tearing
+    // down the FlashList and rebuilding every row per character typed.
     placeholderData: keepPreviousData,
   });
 

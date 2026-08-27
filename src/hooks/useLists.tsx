@@ -37,15 +37,12 @@ type THookOptions = {
   skipQuery?: boolean;
 };
 
-// A stable reference (rather than an inline `= []` default, which creates a
-// new array every render) so consumers that memoize on `lists` don't
-// recompute on every render while the query is skipped/empty.
+// A stable reference, not an inline `= []` default, so consumers memoizing
+// on `lists` don't recompute every render while the query is skipped/empty.
 const EMPTY_LISTS: TList[] = [];
 
-// Exported so callers that need to warm this cache ahead of a mount (e.g.
-// `(app)/_layout.tsx`'s launch-time prefetch) share the exact key/fetcher this
-// hook uses, instead of a second hand-copied definition that could drift out
-// of sync with this one. staleTime falls through to the QueryProvider default.
+// Exported so launch-time prefetch (`(app)/_layout.tsx`) shares this exact
+// key/fetcher instead of a hand-copied one that could drift.
 export const listsQueryOptions = queryOptions({
   queryKey: ["lists"],
   queryFn: () => getLists(supabase),

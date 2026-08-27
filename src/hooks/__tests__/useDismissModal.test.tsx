@@ -14,10 +14,8 @@ jest.mock("expo-router", () => ({
   useRouter: () => mockRouter,
 }));
 
-// `Href`, not `string`: that's what `useDismissModal` takes. `Href` only
-// narrows to the concrete route union once `.expo/types/router.d.ts` has been
-// generated, so a `string` here type-checks in CI (where the file is absent)
-// and fails locally after the dev server has run — see DEX-120.
+// `Href`, not `string`: `Href` only narrows once `.expo/types/router.d.ts` is
+// generated, so a `string` type-checks in CI but fails locally (DEX-120).
 function Harness({ fallback }: { fallback: Href }) {
   const dismiss = useDismissModal(fallback);
   return (
@@ -54,9 +52,8 @@ describe("useDismissModal", () => {
     expect(mockRouter.back).not.toHaveBeenCalled();
   });
 
-  // `canGoBack` is global, so it is also true when the only "back" available is
-  // the tab navigator jumping to another tab — popping then throws the user out
-  // of Settings instead of landing on `fallback` (DEX-93).
+  // `canGoBack` is also true for a tab-jump "back" — popping would throw the
+  // user out of Settings instead of landing on `fallback` (DEX-93).
   it("ignores canGoBack, which cannot tell a stack pop from a tab jump", () => {
     mockRouter.canDismiss.mockReturnValue(false);
     mockRouter.canGoBack.mockReturnValue(true);

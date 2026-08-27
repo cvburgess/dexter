@@ -41,19 +41,13 @@ type TUseTasks = [
     createTask: (task: TCreateTask, callbacks?: TMutateCallbacks) => void;
     deleteTask: (id: string) => void;
     /**
-     * The canonical fetch failed. Distinct from an empty result: `isLoading`
-     * cannot stand in for it, since react-query only serves `placeholderData`
-     * while the query is pending — on error `tasks` falls back to `[]` and
-     * `isLoading` is `false`, which reads exactly like "you have no tasks"
-     * (DEX-100).
+     * The canonical fetch failed. Distinct from empty: on error `tasks` is `[]`
+     * and `isLoading` false, which reads as "you have no tasks" (DEX-100).
      */
     isError: boolean;
     /**
-     * The canonical fetch has no settled rows for the current reach — the first
-     * load, and also a reach widening under an older day (DEX-162), where
-     * `tasks` still holds the previous reach's rows. Callers that reconcile
-     * against the outside world (`useAlarmSync`, `useWidgetSync`) wait it out
-     * rather than acting on a list that is about to grow.
+     * No settled rows for the current reach — first load, or a reach widening
+     * (DEX-162). Reconcilers (alarm/widget sync) wait it out.
      */
     isLoading: boolean;
     /** Re-runs the canonical fetch; the retry behind a failed load. */
@@ -70,17 +64,8 @@ type TSupabaseHookOptions = {
 const getToday = () => Temporal.Now.plainDateISO();
 
 /**
- * The canonical fetch's cache entry, keyed by how far back it reaches (DEX-162).
- *
- * The reach is in the key so React Query owns the transition when a screen opens
- * an older day: widening starts a fresh entry, which reads as `isLoading` while
- * `keepPreviousData` holds the rows already on screen — rather than leaving
- * `isLoading` false over a stale array, which every day view would draw as "no
- * tasks scheduled".
- *
- * Invalidation deliberately stays on the bare `["tasks"]` prefix everywhere
- * below, so it keeps matching whatever the current reach is (and so
- * `useRealtimeInvalidation`'s map needs no change).
+ * Cache key carries the reach (DEX-162) so widening reads as `isLoading`.
+ * Invalidation stays on the bare `["tasks"]` prefix to match any reach.
  */
 export const tasksQueryKey = (reach: Temporal.PlainDate) => [
   "tasks",
@@ -100,9 +85,8 @@ const findTask = (tasks: TTask[] | undefined, id: string): TTask | undefined =>
   tasks?.find((task) => task.id === id);
 
 /**
- * Applies an update diff to a cached task. Only keys the caller actually set are
- * copied — spreading the raw diff would write `undefined` over real values, since
- * every field on `TUpdateTask` is optional.
+ * Applies an update diff to a cached task. Only keys the caller set are copied
+ * — spreading the raw diff would write `undefined` over real values.
  */
 const applyDiff = (task: TTask, { id: _id, ...diff }: TUpdateTask): TTask => {
   const provided = Object.fromEntries(
@@ -112,17 +96,8 @@ const applyDiff = (task: TTask, { id: _id, ...diff }: TUpdateTask): TTask => {
 };
 
 /**
- * Folds a subtask sweep into a completing update, so checking off a parent
- * closes its whole checklist in the *same* row write. Doing it here rather than
- * at each call site is what makes the sweep atomic — and means no future caller
- * can complete a task and silently leave its children open.
- *
- * Any terminal status sweeps, not only `DONE` — a won't-do or delegated parent
- * is equally finished with, and a two-state checklist has nowhere else to go.
- *
- * Deliberately does nothing when the caller already supplied `subtasks` (an
- * explicit array wins over the sweep), when the task isn't in the cache, or when
- * every subtask is already checked off.
+ * Folds the subtask sweep into a completing update so parent and checklist
+ * close in one row write. Any terminal status sweeps; explicit `subtasks` wins.
  */
 const withSubtaskSweep = (
   queryClient: QueryClient,
@@ -145,16 +120,8 @@ const withSubtaskSweep = (
 };
 
 /**
- * Gives every row in a bulk upsert the same key set. PostgREST rejects a batch
- * whose objects differ in shape (`PGRST102`), which the sweep can cause by
- * adding `subtasks` to only the rows that happen to be completing.
- *
- * A key a row is missing is padded from that row's *cached* value, so the write
- * restates what is already stored. Padding with `null` instead would be a real
- * edit: this is an upsert, where an omitted column is left alone but an
- * explicit null overwrites — so a batch of `[{id, scheduledFor}, {id, listId}]`
- * would silently clear the very columns the caller didn't mention, and a padded
- * `subtasks: null` would fail the whole batch against a `not null` column.
+ * Pads every row in a bulk upsert to one key set (PostgREST rejects mixed
+ * shapes, PGRST102) from *cached* values — a `null` pad would really clear.
  */
 const normalizeBulkKeys = (
   queryClient: QueryClient,
@@ -172,10 +139,8 @@ const normalizeBulkKeys = (
     return Object.fromEntries(
       [...keys].map((key) => [
         key,
-        // `in`, not `??`: a diff that deliberately clears a column carries an
-        // explicit null, and the padding must not read that as "missing".
-        // `null` remains the last resort for a row absent from the cache,
-        // where there is no stored value to restate.
+        // `in`, not `??`: an explicit null clearing a column must not read
+        // as "missing"; `null` is the last resort for a row absent from cache.
         key in diff
           ? diff[key as keyof TUpdateTask]
           : (cached?.[key as keyof TTask] ?? null),
@@ -185,16 +150,9 @@ const normalizeBulkKeys = (
 };
 
 /**
- * When an update completes a repeat task, schedule its next occurrence — the
- * TypeScript replacement for the dropped `create_next_recurring_task` trigger
- * (DEX-21). No-ops unless this update is a fresh transition into a terminal
- * status (done/won't-do/delegated) on a task linked to a template with a
- * schedule.
- *
- * Reads the task from `previousTasks` — the snapshot `onMutate` took *before*
- * the optimistic write — not from the live cache. The optimistic write has
- * already set the completing status by the time this runs, so a live read would
- * see an already-complete task and skip every recurrence.
+ * Completing a repeat schedules its next occurrence (replaces the DEX-21
+ * trigger). Reads the pre-optimistic snapshot — the live cache already looks
+ * complete by the time this runs, which would skip every recurrence.
  */
 const maybeCreateNextRecurringTask = async (
   queryClient: QueryClient,
@@ -217,13 +175,8 @@ const maybeCreateNextRecurringTask = async (
   const template = templates.find(({ id }) => id === task.templateId);
   if (!template?.schedule) return;
 
-  // A repeat has exactly one open task. A template can gain a schedule after
-  // the fact, which retroactively turns every task stamped from it into an
-  // occurrence — without this, completing three of them would start three
-  // parallel chains. Safe to ask the server here specifically because this runs
-  // in `onSuccess`, after `mutationFn`'s write has landed: the task being
-  // completed is already terminal server-side, so it cannot match its own
-  // guard.
+  // A repeat has exactly one open task; safe post-write since the completing
+  // task is already terminal server-side and can't match its own guard.
   if (await hasOpenTaskForTemplate(supabase, template.id)) return;
 
   const nextDate = getNextTaskDate(
@@ -249,18 +202,8 @@ const maybeCreateNextRecurringTask = async (
 };
 
 /**
- * The single fetch the Today and Backlog views derive from: every incomplete
- * task, plus any task (regardless of status) scheduled on or after `reach` —
- * bounding the payload while keeping the Today list's recently-completed rows
- * intact. Filtering, grouping, and searching for a specific view all happen
- * client-side over this one cached array (see `utils/taskFilters.ts`) instead of
- * separate server queries per view/day/filter (DEX-57).
- *
- * `reach` defaults to `DEFAULT_TASK_REACH_DAYS` back and widens as the user
- * opens older days (DEX-162, see `useTaskReach`) — so this *is* the fetch a day
- * view needs, however far back it pages. Still not a general-purpose "all tasks"
- * fetch: a view needing full history regardless of where the user has navigated
- * (e.g. an analytics screen) would need its own query.
+ * The one fetch every view filters client-side (DEX-57): open tasks plus any
+ * task scheduled on/after `reach`, which widens as older days open (DEX-162).
  */
 export const canonicalTaskFilters = (
   reach: Temporal.PlainDate = getToday().subtract({
@@ -273,13 +216,8 @@ export const canonicalTaskFilters = (
   ]),
 ];
 
-// The realtime invalidation layer (useRealtimeInvalidation) checks this key via
-// `queryClient.isMutating` to skip refetching while one of our own writes is in
-// flight — Postgres echoes that write back as a realtime event, and a refetch
-// it triggers can resolve *after* a newer local edit and stamp stale rows over
-// it. Unscoped, unlike `notesMutationKey`: there is a single `["tasks"]` cache
-// entry, so there is no unrelated slice left to invalidate anyway. Every task
-// mutation carries it, and each one's own settle invalidation is the catch-up.
+// useRealtimeInvalidation checks this key to skip refetching while our own
+// write is in flight (its echo could stamp stale rows over a newer edit).
 export const TASKS_MUTATION_KEY = ["tasks"];
 
 export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
@@ -294,11 +232,8 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
     refetch,
   } = useQuery({
     enabled: !options?.skipQuery,
-    // `keepPreviousData`, not `[]`: widening the reach changes the key, and
-    // serving an empty array while the wider fetch lands would blank every
-    // mounted view for the round trip. Holding the previous reach's rows keeps
-    // them on screen, and `isPlaceholderData` still reports the load — which is
-    // what stops a day view drawing "no tasks scheduled" over a pending fetch.
+    // Widening the reach changes the key; an empty placeholder would blank
+    // every view for the round trip (`isPlaceholderData` still reports it).
     placeholderData: (previous: TTask[] | undefined) => previous ?? [],
     queryKey,
     queryFn: () => getTasks(supabase, canonicalTaskFilters(reach)),
@@ -307,25 +242,16 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
   const { mutate: create } = useMutation<TTask[], Error, TCreateTask>({
     mutationKey: TASKS_MUTATION_KEY,
     mutationFn: (task) => createTask(supabase, task),
-    // On settle, not on success: `useRealtimeInvalidation` drops a remote
-    // `tasks` event outright while any task mutation is in flight, and this is
-    // the catch-up it counts on. Skipping it on failure would strand whatever
-    // another device changed in that window until the query went stale.
+    // On settle, not success: this is the catch-up useRealtimeInvalidation
+    // counts on for the remote events it dropped mid-mutation.
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
 
   /**
-   * Writes the diff into the `["tasks"]` cache before the request goes out and
-   * restores the snapshot if it fails — the same optimistic pattern
-   * `usePreferences`, `useNotes`, and `useHabits` already use.
-   *
-   * This is what makes checklist editing correct rather than merely quick.
-   * `subtasks` is replaced as a whole array, so any consumer that reads the
-   * cached task to build the next array — `withSubtaskSweep` below, and
-   * `TaskCard` composing an edit — would otherwise be working from pre-write
-   * state and would silently clobber the edit before it.
+   * Optimistic write + rollback (mirrors usePreferences/useNotes/useHabits).
+   * Consumers building the next `subtasks` array must see post-write state.
    */
   const optimisticUpdate = {
     onMutate: async (diff: TUpdateTask) => {
@@ -338,10 +264,8 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
         ),
       );
 
-      // The key travels with the snapshot rather than being read again on
-      // rollback: the reach can widen while this write is in flight, and
-      // `onError` would then restore the *narrower* entry's rows into the wider
-      // one — dropping every older day the expansion had just loaded.
+      // The key travels with the snapshot: the reach can widen mid-flight, and
+      // rollback must restore the entry it snapshotted, not the current one.
       return { previousTasks, queryKey };
     },
     onError: (
@@ -373,15 +297,8 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
   });
 
   /**
-   * Folds the sweep in here rather than inside `mutationFn` so it reads the
-   * cache *before* this update's own optimistic write lands — and after any
-   * previous one, which is the whole point.
-   *
-   * `callbacks` are react-query's per-call `MutateOptions`, forwarded so a
-   * caller can act on the settled write the way `createTask` already lets one:
-   * the edit modal keeps itself open and reports the failure rather than
-   * closing over an optimistic change that has since rolled back (DEX-98).
-   * They run in addition to the mutation-level handlers above, never instead.
+   * Sweep folded here, not in `mutationFn`, to read the cache before this
+   * write's optimistic land. `callbacks` forward per-call options (DEX-98).
    */
   const updateWithSweep = (diff: TUpdateTask, callbacks?: TMutateCallbacks) =>
     update(withSubtaskSweep(queryClient, queryKey, diff), callbacks);
@@ -410,13 +327,8 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
     // On settle, for the same reason as `create` above.
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      // `focus_blocks.task_id` cascades, so deleting a task silently takes its
-      // blocks with it — including a running one. Realtime cannot tell us:
-      // a DELETE's `old` record carries PK columns only, so the client's
-      // `user_id` filter never matches one on that table (docs/backend.md).
-      // Without this the timer bar keeps counting down a row that is gone, its
-      // pause/stop writes fail against no row, and every other task hides
-      // "Start focus block" until an unrelated refetch clears it.
+      // `focus_blocks.task_id` cascades and realtime can't report it (a DELETE
+      // carries PK columns only — docs/backend.md), so invalidate explicitly.
       FOCUS_BLOCKS_INVALIDATION_KEYS.forEach((queryKey) => {
         void queryClient.invalidateQueries({ queryKey });
       });

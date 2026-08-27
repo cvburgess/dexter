@@ -45,35 +45,16 @@ type TSupabaseHookOptions = {
   filters?: TQueryFilter[];
 };
 
-// A habit edit can change today's daily rows — the DB trigger deletes them on
-// pause/archive or a days_active change, and the dailyHabits join carries the
-// habit's emoji/title. Exported so other consumers that need to invalidate
-// this pairing (e.g. useRealtimeInvalidation) share it instead of a second
-// hand-copied definition that could drift out of sync.
+// A habit edit can change today's daily rows (pause/archive/days_active
+// trigger). Exported so useRealtimeInvalidation shares this pairing.
 export const HABITS_INVALIDATION_KEYS = [["habits"], ["dailyHabits"]];
 
 // How far back a day's rows may still be created. Matches the task fetch's
 // default reach, which is roughly how far back a user is plausibly catching up.
 const HABIT_BOOTSTRAP_WINDOW_DAYS = 30;
 
-/**
- * Whether a day's `daily_habits` rows may still be instantiated (DEX-162).
- *
- * Future dates have no rows yet by design — they're drawn from the habit
- * definitions instead. Long-past dates are the case this guard exists for:
- * bootstrapping is a *write*, so opening an old day would otherwise manufacture
- * rows out of today's habit definitions and persist them as history that never
- * happened. Old days are now worth visiting, and the Week tab mounts seven
- * trackers at once, so this went from rare to routine.
- *
- * The window keeps the honest catch-up case working: a day skipped last week
- * still backfills, and shows the zero progress it actually had.
- *
- * Shared by the mutation below and `HabitTracker`'s bootstrap effect, the way
- * `OPEN_TASK_STATUSES`/`isCompletionStatus` are — the effect decides whether to
- * call, the mutation refuses if called anyway, and if the two disagreed every
- * render of an old day would throw a rejected mutation into Sentry.
- */
+// Whether a day's rows may still be instantiated (DEX-162). Bootstrapping is
+// a write, so an unbounded window would manufacture false history.
 export const canBootstrapDailyHabits = (
   date: Temporal.PlainDate,
   today: Temporal.PlainDate,
@@ -94,20 +75,8 @@ const dailyHabitsQueryOptions = (date: string) =>
     retry: false,
   });
 
-/**
- * One day's rows and nothing else, for `useWidgetSync` (DEX-160).
- *
- * `useDailyHabits` can't serve it: that hook mounts an inner `useHabits` to
- * bootstrap missing rows, and its `skipQuery` silences *both* reads rather than
- * just that one — so at the root of the authenticated tree it would add a
- * second, filtered habits fetch on every tab that isn't Today, for a list the
- * widget never reads. The same reason `useThemePreferences` and
- * `useAlarmSoundPreference` sit alongside `usePreferences`.
- *
- * It also deliberately does *not* bootstrap. Creating a day's rows is the
- * Today screen's job, and doing it here would have the widget's publisher
- * writing to the database as a side effect of drawing a home screen.
- */
+// One day's rows for useWidgetSync (DEX-160). useDailyHabits can't serve it —
+// skipQuery would add a second fetch on every non-Today tab. Never bootstraps.
 export const useDailyHabitProgress = (
   date: string,
 ): { dailyHabits: TDailyHabit[]; isLoading: boolean } => {
@@ -120,9 +89,8 @@ export const useDailyHabitProgress = (
 
   return {
     dailyHabits: data ?? [],
-    // Paired with `userId` for the reason `useAlarmSoundPreference` spells out:
-    // a disabled query never leaves `pending`, so this would otherwise report
-    // "still loading" forever while signed out.
+    // Paired with `userId`: a disabled query never leaves `pending`, which
+    // would otherwise report loading forever while signed out.
     isLoading: !!userId && isPending,
   };
 };
@@ -183,20 +151,8 @@ type TUseDailyHabits = [
   },
 ];
 
-/**
- * A day's habit rows and the two mutations that move them.
- *
- * `skipQuery` is the same option `useHabits` takes, and it silences **both**
- * reads — this hook's own and the inner `useHabits` it needs for
- * `createDailyHabits`. A caller that only wants the count when the reader has
- * the feature on (the ritual's Review step, DEX-148) would otherwise fire two
- * observers and a request for a habit list it never draws, which is the cost
- * `SummaryStep` already avoids on the plain `useHabits` side.
- *
- * The mutations are left wired rather than stubbed out under the flag: they are
- * unreachable from a caller that skipped the read, and a `create` that silently
- * did nothing would be the worse surprise if one ever did call it.
- */
+// `skipQuery` silences this read and the inner useHabits (DEX-148); mutations
+// stay wired regardless — unreachable when skipped, but no silent no-op.
 export const useDailyHabits = (
   date: string,
   options?: { skipQuery?: boolean },
@@ -261,9 +217,8 @@ export const useDailyHabits = (
     { previous?: TDailyHabit[] }
   >({
     mutationFn: (diff) => updateDailyHabit(supabase, diff),
-    // Write the new step count into the cache immediately so back-to-back taps
-    // each read fresh progress. Without this, a second tap before the refetch
-    // reuses the stale snapshot and drops the step.
+    // Write the step count into the cache immediately — otherwise a second
+    // tap before the refetch reuses the stale snapshot and drops the step.
     onMutate: async (diff) => {
       await queryClient.cancelQueries({ queryKey: ["dailyHabits", date] });
       const previous = queryClient.getQueryData<TDailyHabit[]>([
@@ -300,10 +255,8 @@ export const useDailyHabits = (
   });
 
   const incrementDailyHabit = (dailyHabit: TDailyHabit) => {
-    // Derive the next value from the freshest cached row, not the snapshot the
-    // ring captured on its last render — otherwise two taps before a re-render
-    // both compute from the same stepsComplete and repeat a step. onMutate keeps
-    // this cache current between taps.
+    // Derive from the freshest cached row, not the ring's last-render snapshot
+    // — otherwise two taps before a re-render both repeat the same step.
     const rows = queryClient.getQueryData<TDailyHabit[]>(["dailyHabits", date]);
     const current =
       rows?.find((row) => row.habitId === dailyHabit.habitId) ?? dailyHabit;

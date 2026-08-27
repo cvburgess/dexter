@@ -68,10 +68,8 @@ describe("useTodayPanes", () => {
   });
 
   it("fills in a pane added after the value was stored, keeping the rest", async () => {
-    // Simulates a device that stored its preferences before `drawer` existed
-    // and while `journal` still did (DEX-105) — the missing key falls back to
-    // its default and the removed one is dropped, rather than the whole value
-    // being treated as corrupt and reset.
+    // Pre-`drawer`, still-`journal` (DEX-105) stored value — the missing key
+    // falls back to default and the removed one drops, not a full reset.
     await AsyncStorage.setItem(
       TODAY_PANES_KEY,
       JSON.stringify({ notes: false, journal: true, calendar: false }),
@@ -146,9 +144,8 @@ describe("useTodayPanes", () => {
     });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
-    // Simulates two rapid button taps (Notes then Calendar) landing
-    // before the first toggle's AsyncStorage write resolves and re-renders
-    // this hook — both must still be applied, not just the last one.
+    // Two rapid taps land before the first toggle's write resolves — both
+    // must apply, not just the last one.
     await act(async () => {
       const first = result.current[1].togglePane("notes");
       const second = result.current[1].togglePane("calendar");

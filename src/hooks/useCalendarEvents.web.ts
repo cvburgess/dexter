@@ -17,11 +17,8 @@ const proxyUrl = (icsUrl: string): string => {
   return `${supabaseUrl}/functions/v1/ics-proxy?url=${encodeURIComponent(icsUrl)}`;
 };
 
-/**
- * Fetch and parse every configured feed for the day. Feeds are independent: a
- * failed one is skipped so the rest still render; only an all-feeds failure
- * surfaces as an error.
- */
+// Feeds are independent: a failed one is skipped so the rest still render;
+// only an all-feeds failure surfaces as an error.
 const fetchIcsEvents = async (
   urls: string[],
   dateIso: string,
@@ -80,8 +77,7 @@ export const useCalendarEvents = (
     queryKey: ["calendarEvents", date.toString(), urls, userEmail],
     queryFn: () => fetchIcsEvents(urls, date.toString(), userEmail),
     staleTime: STALE_TIME_MS,
-    // SwipeablePage mounts a fresh view per day, so refetch on every day-load to
-    // pick up feed changes since the day was last cached. Cached events still
+    // Refetch on every day-load to pick up feed changes; cached events still
     // show during the background refetch, so there's no empty flash.
     refetchOnMount: "always",
   });
@@ -92,10 +88,8 @@ export const useCalendarEvents = (
       isLoading: active && isLoading,
       isError,
       permissionDenied: false,
-      // Safe to answer synchronously, unlike native: the feed list and the
-      // master switch are two fields of the same preferences row, so a caller
-      // only reaches this while `enableCalendar` is true — which means the row
-      // has loaded and `calendarUrls` is the user's, not the default `[]`.
+      // Safe synchronously, unlike native: reaching here means enableCalendar
+      // is true, so the preferences row has loaded and urls is the user's own.
       notConfigured: urls.length === 0,
     },
   ];

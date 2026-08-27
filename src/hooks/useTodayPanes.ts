@@ -6,15 +6,12 @@ export type TTodayPane = "notes" | "calendar" | "drawer";
 
 export type TTodayPanes = Record<TTodayPane, boolean>;
 
-// Which optional panes are shown on the large-screen Today layout is a
-// per-device choice (like `useEnabledDeviceCalendars`), so it lives in
-// AsyncStorage rather than the Supabase `preferences` row.
+// A per-device choice (like useEnabledDeviceCalendars), so it lives in
+// AsyncStorage rather than the Supabase preferences row.
 export const TODAY_PANES_KEY = "dexter.today.panes";
 
-// "Whole day at a glance" — the display panes default open so the multi-column
-// layout is useful (and discoverable) the first time a user sees it. The task
-// drawer (DEX-33) is an opt-in triage tool rather than a glance surface, so it
-// defaults closed.
+// Display panes default open so the layout is discoverable on first view;
+// the task drawer (DEX-33) is opt-in triage, so it defaults closed.
 const DEFAULT_PANES: TTodayPanes = {
   notes: true,
   calendar: true,
@@ -25,12 +22,8 @@ const DEFAULT_PANES: TTodayPanes = {
 // adding a pane only ever means updating one place.
 const TODAY_PANE_KEYS = Object.keys(DEFAULT_PANES) as TTodayPane[];
 
-// Only checks the keys actually present, so a device's stored value from
-// before a pane was added (e.g. `drawer`) still passes — `readPanes` below
-// fills in any missing keys from `DEFAULT_PANES` rather than discarding the
-// user's existing notes/calendar choices. It says nothing about a key for a
-// pane that has since been *removed* (`journal`, DEX-105): unknown keys are
-// simply not examined here, and `readPanes` drops them.
+// Only checks keys actually present, so a value stored before a pane was
+// added still passes; `readPanes` fills missing keys from DEFAULT_PANES.
 const isPartialTodayPanes = (value: unknown): value is Partial<TTodayPanes> =>
   typeof value === "object" &&
   value !== null &&
@@ -45,10 +38,8 @@ const readPanes = async (): Promise<TTodayPanes> => {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!isPartialTodayPanes(parsed)) return DEFAULT_PANES;
-    // Built key by key from `TODAY_PANE_KEYS` rather than spread over the
-    // defaults, so a stored key for a pane that has since been *removed*
-    // (`journal`, DEX-105) is dropped instead of riding along in a value typed
-    // as `TTodayPanes`. The next write then clears it from storage too.
+    // Built key by key, not spread over defaults, so a removed pane's stored
+    // key (`journal`, DEX-105) drops instead of riding along untyped.
     return Object.fromEntries(
       TODAY_PANE_KEYS.map((key) => [key, parsed[key] ?? DEFAULT_PANES[key]]),
     ) as TTodayPanes;
@@ -80,17 +71,9 @@ export const useTodayPanes = (): TUseTodayPanes => {
     staleTime: Infinity,
   });
 
-  /**
-   * The one write path: applies `update` to the cached panes and persists the
-   * result.
-   *
-   * Derives the next value from the query cache via `setQueryData`'s updater
-   * form (applied synchronously) rather than the `data` closed over at the last
-   * render, so two changes fired back to back — before either's AsyncStorage
-   * write resolves and re-renders this hook — each read the other's update
-   * instead of clobbering it. An updater that returns its input unchanged skips
-   * the storage write entirely.
-   */
+  /** The one write path. Derives the next value via `setQueryData`'s updater
+   * form (synchronous), not the closed-over `data`, so two rapid changes each
+   * see the other's update instead of clobbering it. */
   const updatePanes = useCallback(
     async (update: (panes: TTodayPanes) => TTodayPanes) => {
       let previous: TTodayPanes | undefined;
@@ -114,17 +97,8 @@ export const useTodayPanes = (): TUseTodayPanes => {
     [updatePanes],
   );
 
-  /**
-   * Opens a pane if it isn't already, for a `?mode=` deep link from the Search
-   * tab (DEX-47).
-   *
-   * Idempotent on purpose, and deliberately *not* `togglePane` behind a
-   * `panes[pane]` check at the call site: that check would have to read `panes`,
-   * which would put it in the caller's effect dependencies — so every later pane
-   * toggle would re-run the effect and re-open a pane the user had just closed.
-   * Returning `prev` unchanged when the pane is already open keeps this callback
-   * stable and the caller's dependency list down to the route params.
-   */
+  /** Opens a pane for a `?mode=` deep link (DEX-47) — not `togglePane` behind
+   * a `panes[pane]` check, which would re-open a pane the user just closed. */
   const openPane = useCallback(
     (pane: TTodayPane) =>
       updatePanes((prev) => (prev[pane] ? prev : { ...prev, [pane]: true })),

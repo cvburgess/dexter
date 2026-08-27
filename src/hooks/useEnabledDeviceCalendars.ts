@@ -2,10 +2,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
-// Which device calendars are shown is a per-device choice (the issue: "only
-// saved to device"), so it lives in AsyncStorage rather than the Supabase
-// `preferences` row. `null` means "no choice saved yet" — callers treat that as
-// "all calendars enabled" so the timeline works before the user customizes it.
+// Per-device choice, so AsyncStorage rather than the synced preferences row.
+// `null` means unset — callers treat that as "all calendars enabled".
 export const ENABLED_CALENDARS_KEY = "dexter.calendar.enabledIds";
 
 const readEnabledIds = async (): Promise<string[] | null> => {
@@ -24,11 +22,8 @@ type TUseEnabledDeviceCalendars = [
   { setEnabledIds: (ids: string[]) => Promise<void>; isLoading: boolean },
 ];
 
-/**
- * The set of device-calendar ids the user has chosen to show, persisted to the
- * device. Shared through React Query so the settings screen and the events hook
- * stay in sync and a toggle re-renders both immediately.
- */
+// Shared through React Query so the settings screen and the events hook stay
+// in sync and a toggle re-renders both immediately.
 export const useEnabledDeviceCalendars = (): TUseEnabledDeviceCalendars => {
   const queryClient = useQueryClient();
 

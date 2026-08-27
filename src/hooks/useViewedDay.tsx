@@ -2,20 +2,8 @@ import { Temporal } from "@js-temporal/polyfill";
 import { useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 
-// The day the user is currently viewing, so the app-wide "New Task" flow can
-// default a new task's schedule to it. Kept in a module-scoped variable rather
-// than React context because the value has to be read at *press* time:
-// NewTaskButton renders in the NativeTabs bottom accessory, and opening the
-// modal blurs the tab that publishes the day, so a value captured during render
-// would already be stale by the time the press is handled. `null` means no day
-// is on screen (Settings/Search, cold start), where creation falls back to
-// today.
-//
-// (An earlier version of this comment said context could not reach the
-// accessory. It can — react-native-screens renders the accessory's children
-// in-tree, wrapped in expo-router's placement context. What *is* true, and
-// matters for anything else mounted there, is that it renders them **twice**,
-// once per placement; see `useFocusTimer.tsx`.)
+// Module-scoped, not context: NewTaskButton reads this at *press* time, and
+// opening the modal blurs the tab before a re-render could recapture it.
 let viewedDay: Temporal.PlainDate | null = null;
 
 /** The day currently on screen, or `null` when none. Read at the moment of use. */

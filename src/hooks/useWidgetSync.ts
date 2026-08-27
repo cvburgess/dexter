@@ -20,19 +20,8 @@ import { useTasks } from "./useTasks";
 import { useToday } from "./useToday";
 
 /**
- * Publishes the snapshots the iOS widget extension renders from (DEX-83, and
- * habits in DEX-160), the way `useAlarmSync` projects task alarms onto AlarmKit
- * — and simpler, because there is nothing on the other side to reconcile
- * against: the App Group holds exactly what we last wrote.
- *
- * The two payloads live on separate keys and reload separately, so a task edit
- * never spends the habits widget's metered reloads and a habit tap never spends
- * the task widget's. They share this hook anyway, because "is it safe to
- * publish yet" — restoring, signed out, still on placeholder data — is one
- * question, and answering it twice is how the two answers drift apart.
- *
- * Mounted once, high in the authenticated tree. No-ops off iOS via
- * `utils/widgets`.
+ * Publishes the iOS widget snapshots (tasks DEX-83, habits DEX-160) on separate
+ * keys, sharing one "safe to publish yet" gate so the two answers can't drift.
  */
 export const useWidgetSync = (): void => {
   const [tasks, { isLoading }] = useTasks();
@@ -47,70 +36,48 @@ export const useWidgetSync = (): void => {
   const { enableHabits, isLoading: habitsEnabledLoading } =
     useHabitsEnabledPreference();
 
-  // Every non-archived habit, paused ones included — `buildHabitWidgetSnapshot`
-  // applies the paused/archived/weekday filter itself, once per day it carries,
-  // and a pre-filtered list could only answer for one of the four.
+  // Unfiltered on purpose: `buildHabitWidgetSnapshot` applies the paused/
+  // archived/weekday filter itself, once per day the snapshot carries.
   const [habits, { isLoading: habitsLoading }] = useHabits();
 
-  // Today's rows supply the progress the rings are filled to; the habits above
-  // supply which rings exist.
-  //
-  // Subscribed rather than read from the clock (DEX-161), which is what lets it
-  // be a real dependency below: this re-keys the query and re-slices both
-  // snapshots when the day changes. The extension's own timeline still handles
-  // midnight itself (DEX-83); what it can't do is notice that the app came back
-  // at 9am still publishing yesterday's window.
+  // Subscribed rather than read from the clock (DEX-161) so a day change
+  // re-slices both snapshots — the widget's timeline can't fix a stale window.
   const today = useToday();
   const { dailyHabits, isLoading: dailyHabitsLoading } = useDailyHabitProgress(
     today.toString(),
   );
 
-  // A boolean, not the `Session` itself. Supabase hands back a new object on
-  // every token refresh — roughly hourly for a user who never signs out — and
-  // depending on it would re-run this effect each time (`app/(app)/_layout.tsx`
-  // keys its own prefetch on `userId` to dodge exactly that). The payload
-  // comparison below would swallow the extra runs, but the point is not to make
-  // them.
+  // A boolean, not the `Session` itself: Supabase mints a new object on every
+  // token refresh (~hourly), which would re-run this effect each time.
   const isSignedIn = !!session;
 
-  // The last payload handed to the App Group this session. A widget reload is
-  // metered — WidgetKit spends a daily budget of roughly 40-70 refreshes on a
-  // widget the user actually looks at — so an effect run that computes an
-  // identical payload (a mutation to a task on some other day, an unrelated
-  // preference edit, a re-render) must cost nothing.
+  // Last payload written. WidgetKit meters reloads (~40-70/day), so an effect
+  // run that computes an identical payload must cost nothing.
   const published = useRef<string | null>(null);
 
-  // The habits payload's own record of the same thing. Two refs, not one, for
-  // the reason the two keys exist at all: a habit tapped on the home screen
-  // must not make the task widget redraw, and vice versa.
+  // Two refs, not one, for the reason the two keys exist: a habit tap must not
+  // make the task widget redraw, and vice versa.
   const publishedHabits = useRef<string | null>(null);
 
-  // Whether the App Group has already been emptied for the current signed-out
-  // stretch. Separate from `published` because the two answer different
-  // questions: `published` is "what did *this process* write", and the snapshot
-  // that needs clearing is usually one a *previous* launch wrote.
+  // Whether the App Group was emptied this signed-out stretch. Separate from
+  // `published`: the snapshot needing clearing is usually a previous launch's.
   const cleared = useRef(false);
 
   useEffect(() => {
-    // `session` is null while auth is still restoring, which is every cold
-    // start. Clearing on that would wipe the widget on launch and repopulate it
-    // a beat later — two reloads and a visible flash of the empty state.
+    // `session` is null while auth restores on every cold start; clearing then
+    // would wipe and repopulate the widget — two reloads and a visible flash.
     if (initializing) return;
 
-    // Signed out, whether by the Log Out button or by a token the server
-    // revoked while the app was closed. The home screen sits outside the app's
-    // own UI, so without this it keeps showing the departing user's tasks to
-    // whoever picks the phone up next. Ahead of the loading gate: with no
-    // session there is nothing left to wait for.
+    // Signed out: without this the home screen keeps showing the departing
+    // user's tasks. Ahead of the loading gate — no session, nothing to wait for.
     if (!isSignedIn) {
       if (cleared.current) return;
       clearWidgetSnapshot();
       // Takes the pending queue with it: a step tapped by the departing user is
       // no longer anyone's to persist once the session it belonged to is gone.
       clearHabitWidgetSnapshot();
-      // Recorded only once the calls have returned, so a throw leaves this run
-      // unmarked and the next one retries — the same reason `useAlarmSync`
-      // records a scheduled alarm after AlarmKit accepts it, not before.
+      // Recorded after the calls return, so a throw leaves this run unmarked
+      // and the next one retries (the same pattern as `useAlarmSync`).
       cleared.current = true;
       published.current = null;
       publishedHabits.current = null;
@@ -119,13 +86,8 @@ export const useWidgetSync = (): void => {
 
     cleared.current = false;
 
-    // Every query serves placeholder data first — `[]` for tasks and habits,
-    // the default row for preferences. Publishing that would put an empty "All
-    // done!" on the home screen in the app's default palette and then spend a
-    // second reload replacing it, on every cold open (the reason `useAlarmSync`
-    // waits on the same signals). One gate for both payloads: they resolve
-    // within a moment of each other on a cold start, and while we wait the
-    // widgets show the *previous* snapshot rather than an empty state.
+    // Placeholder data must not publish: it would flash an empty "All done!"
+    // and spend a second metered reload replacing it, on every cold open.
     if (
       isLoading ||
       preferencesLoading ||
@@ -152,10 +114,8 @@ export const useWidgetSync = (): void => {
       published.current = serialized;
     }
 
-    // An empty habit list rather than a skipped write when the feature is off:
-    // the switch can be turned off *after* a snapshot was published, and a
-    // widget left on the home screen would otherwise keep showing rings for a
-    // feature the app no longer has.
+    // An empty list, not a skipped write, when habits are off: a snapshot
+    // published before the switch flipped would otherwise show rings forever.
     const habitSnapshot = buildHabitWidgetSnapshot(
       enableHabits ? habits : [],
       enableHabits ? dailyHabits : [],

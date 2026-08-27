@@ -12,9 +12,8 @@ jest.mock("@/hooks/useAuth", () => ({
 jest.mock("@/hooks/useFocusBlocks", () => ({
   useLiveFocusBlock: jest.fn(),
 }));
-// The native countdown is `useFocusAlarmSync`'s own subject; here it would only
-// drag the preferences query (and a QueryClientProvider) into a test about the
-// store and the completion write.
+// useFocusAlarmSync's own subject; here it would only drag a preferences
+// query into a test about the store and the completion write.
 jest.mock("@/hooks/useFocusAlarmSync", () => ({
   useFocusAlarmSync: jest.fn(),
 }));
@@ -101,9 +100,8 @@ describe("the published snapshot", () => {
     expect(result.current.block).toBeNull();
   });
 
-  // `useSyncExternalStore` compares snapshots by identity, so republishing a
-  // fresh object every render would re-render every subscriber every render —
-  // and the accessory is one of them, twice over.
+  // useSyncExternalStore compares by identity, so a fresh object every
+  // render would re-render every subscriber — the accessory twice over.
   it("does not re-render a subscriber when the block is unchanged", () => {
     const live = block();
     setLiveBlock(live);
@@ -123,9 +121,8 @@ describe("the published snapshot", () => {
   });
 });
 
-// Stopping records the time the block actually ran and there is no un-cancel,
-// so every surface that offers it — the bar, the accessory, the task menu —
-// goes through the one prompt the host renders.
+// No un-cancel, so every surface offering Stop goes through the one prompt
+// the host renders.
 describe("stopping a block", () => {
   it("asks first, and stops once confirmed", async () => {
     const live = block();
@@ -174,9 +171,8 @@ describe("completing a block when its time runs out", () => {
     expect(finishFocusBlock).toHaveBeenCalledTimes(1);
   });
 
-  // The timeout and the AppState listener can both come due for the same block,
-  // and the row's own status is no guard — both closures captured it while it
-  // was still active.
+  // Both the timeout and the AppState listener can come due for the same
+  // block, and status is no guard — both closures captured it while active.
   it("writes complete exactly once, not once per due signal", () => {
     setLiveBlock(block({ remainingSeconds: 60 }));
     renderHook(() => usePublishFocusTimer(confirmStop));
@@ -192,9 +188,8 @@ describe("completing a block when its time runs out", () => {
     expect(finishFocusBlock).toHaveBeenCalledTimes(1);
   });
 
-  // The app was closed or force-quit straight through the end of the block.
-  // Because `date` was stamped when it started, it still counts toward the
-  // right day however late this runs.
+  // App closed or force-quit through the end of the block; `date` was
+  // stamped at start, so it still counts toward the right day.
   it("completes a block that was already past due at mount", () => {
     jest.setSystemTime(START + 3_600_000);
     setLiveBlock(block({ remainingSeconds: 60 }));
@@ -220,10 +215,8 @@ describe("completing a block when its time runs out", () => {
     expect(finishFocusBlock).not.toHaveBeenCalled();
   });
 
-  // Latching the block id is what stops the timeout and the AppState listener
-  // both writing it — but holding the latch through a *failed* write would
-  // strand the block at 0:00 as still `active`, where the one-live-block index
-  // refuses a new start and Stop would record it `cancelled`.
+  // Latching the id stops the timeout and AppState listener double-writing,
+  // but holding it through a failed write would strand the block active.
   it("retries after a completion write fails", () => {
     const foregrounds: ((state: string) => void)[] = [];
     jest

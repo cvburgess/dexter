@@ -8,11 +8,8 @@ import { useEnabledDeviceCalendars } from "@/hooks/useEnabledDeviceCalendars";
 import { usePreferences } from "@/hooks/usePreferences";
 import { settleQueries } from "@/testUtils/settleQueries";
 
-// The web/native hooks are separate platform variants that we test side by side.
-// The resolver collapses the `.web` suffix to the same module, but these must
-// stay distinct imports so both implementations are exercised. The rule reports
-// on both lines, so a single `disable-next-line` won't cover it — hence the
-// block pair.
+// Both platform variants must stay distinct imports so both are exercised;
+// the lint rule reports on both lines, hence the block pair.
 /* eslint-disable import/no-duplicates */
 import { useCalendarEvents as useNativeCalendarEvents } from "../useCalendarEvents";
 import { useCalendarEvents as useWebCalendarEvents } from "../useCalendarEvents.web";
@@ -109,8 +106,8 @@ describe("useCalendarEvents (web)", () => {
   it("refetches when the view remounts for the same day", async () => {
     setPreferences({ calendarUrls: ["https://example.com/cal.ics"] });
 
-    // One shared client across both mounts so the day's result is cached: only
-    // `refetchOnMount: "always"` makes the second mount fetch again.
+    // One shared client so the day is cached — only refetchOnMount: "always"
+    // makes the second mount fetch again.
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -127,10 +124,8 @@ describe("useCalendarEvents (web)", () => {
     await waitFor(() => expect(second.result.current[0]).toHaveLength(1));
     expect(fetch).toHaveBeenCalledTimes(2);
 
-    // That second mount serves the cached day straight away and refetches
-    // behind it, so both assertions above land while the request is still in
-    // flight. Wait for it to finish, or it updates the hook after the test has
-    // returned (DEX-130).
+    // The cached day serves immediately while a refetch runs behind it; wait
+    // for it or it updates the hook after the test returns (DEX-130).
     await settleQueries(client);
   });
 

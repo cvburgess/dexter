@@ -336,9 +336,8 @@ describe("useTaskForm", () => {
       expect(result.current.listId).toBe("list-home");
     });
 
-    // `template_id` means "this task came from that template", which is simply
-    // true of a stamped task — so the payload records it. The picker only
-    // offers scheduleless rows, so nothing recurs from the link.
+    // templateId just records provenance here — the picker only offers
+    // scheduleless rows, so nothing recurs from the link.
     it("stamps the template's id onto the form and the payload", () => {
       const { result } = renderHook(() => useTaskForm([homeList]));
 
@@ -348,9 +347,8 @@ describe("useTaskForm", () => {
       expect(result.current.task.templateId).toBe("template-1");
     });
 
-    // The seeded values survive an edit, so the provenance has to as well —
-    // clearing it would produce a task whose contents came from a template but
-    // which claims otherwise.
+    // Seeded values survive an edit, so provenance must too — clearing it
+    // would misattribute a template-sourced task.
     it("keeps the id after the user edits a seeded field", () => {
       const { result } = renderHook(() => useTaskForm([homeList]));
 
@@ -360,9 +358,8 @@ describe("useTaskForm", () => {
       expect(result.current.task.templateId).toBe("template-1");
     });
 
-    // An alarm only rings once AlarmKit is authorized and the task has a day to
-    // fire on. This path can promise neither, and the modal's "Add alarm" is
-    // what asks for permission — so a copied alarm would silently never ring.
+    // A copied alarm can't promise AlarmKit authorization or a day to fire on,
+    // so it would silently never ring — "Add alarm" is what asks for permission.
     it("does not carry the template's alarm across", () => {
       const { result } = renderHook(() => useTaskForm([homeList]));
 
@@ -402,9 +399,8 @@ describe("useTaskForm", () => {
       expect(firstIds).not.toEqual(secondIds);
     });
 
-    // The template editor's title field does no shorthand parsing, so a title
-    // containing `due:5` round-trips into storage verbatim and would otherwise
-    // move the deadline when the template is applied.
+    // The template editor's title field does no shorthand parsing, so a `due:5`
+    // round-trips verbatim instead of moving the deadline when applied.
     it("ignores a due: token in the template's own title", () => {
       const { result } = renderHook(() => useTaskForm([homeList]));
 
@@ -538,9 +534,8 @@ describe("useTaskForm", () => {
       expect(result.current.canSave).toBe(true);
     });
 
-    // An unscheduled task stays unscheduled: `defaultScheduledFor` describes
-    // where a *new* task should land, and applying it here would silently
-    // reschedule a task the user only opened to rename.
+    // defaultScheduledFor describes where a *new* task lands; applying it here
+    // would silently reschedule a task the user only opened to rename.
     it("keeps an unscheduled task unscheduled, ignoring the create default", () => {
       const { result } = renderHook(() =>
         useTaskForm([homeList], {
@@ -643,9 +638,8 @@ describe("useTaskForm", () => {
       });
     });
 
-    // Clearing a seeded value has to stick: `undefined` means "follow the
-    // tokens" in create mode, so a null that collapsed back to the task's own
-    // value would make the list unclearable.
+    // `undefined` means "follow the tokens" in create mode, so a null that
+    // collapsed back to the task's own value would make the list unclearable.
     it("lets a seeded list and deadline be cleared back to null", () => {
       const { result } = renderHook(() =>
         useTaskForm([homeList], {

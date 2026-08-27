@@ -1,19 +1,11 @@
 import { Temporal } from "@js-temporal/polyfill";
 
-/**
- * The current user's RSVP for an event, when the source exposes it. `undefined`
- * means unknown — you're the organizer, there's no attendee data, or we can't
- * match you among the attendees — and renders as a normal (accepted) block.
- * `"invited"` means needs-action / not yet responded.
- */
+// `undefined` (unknown/organizer/no attendee data) renders as a normal
+// accepted block; `"invited"` means needs-action / not yet responded.
 export type TEventResponse = "accepted" | "tentative" | "invited";
 
-/**
- * A single calendar event normalized to the app's Temporal types, so the
- * timeline renders identically regardless of source (native device calendars on
- * iOS/Android, proxied `.ics` feeds on web). `start`/`end` are wall-clock times
- * in the viewer's local zone.
- */
+// Normalized to the app's Temporal types so the timeline renders identically
+// regardless of source. `start`/`end` are wall-clock times in the local zone.
 export type TCalendarEvent = {
   /** Stable id for React keys — the event's UID (or a derived per-occurrence id). */
   id: string;
@@ -28,30 +20,17 @@ export type TCalendarEvent = {
   response?: TEventResponse;
 };
 
-/**
- * The events for the viewed day plus load/permission state. Mirrors the
- * `[value, meta]` tuple shape used by `useTasks`/`useNotes`.
- */
+// Mirrors the `[value, meta]` tuple shape used by `useTasks`/`useNotes`.
 export type TUseCalendarEvents = [
   TCalendarEvent[],
   {
     isLoading: boolean;
-    /** A read failed: the device read (native), or *every* configured feed
-     * (web). One failing feed among several is omitted, not surfaced here. */
+    /** The device read failed (native), or every configured feed failed (web). */
     isError: boolean;
     /** Native only: calendar permission was denied. Always false on web. */
     permissionDenied: boolean;
-    /**
-     * There is no source to read from, so an empty day means "nothing is set
-     * up" rather than "nothing is scheduled". Native: permission was denied,
-     * the device exposes no event calendars, or the user has turned every one
-     * of them off. Web: no `.ics` feed URLs are configured.
-     *
-     * False while `isLoading` on native — the answer isn't known until the
-     * query resolves — so a caller that branches on it must check the loading
-     * flag first or it will offer a setup prompt to a configured user for a
-     * beat on every cold open.
-     */
+    /** No source configured. False while isLoading on native — check that
+     * first or a configured user briefly sees the setup prompt on cold open. */
     notConfigured: boolean;
   },
 ];

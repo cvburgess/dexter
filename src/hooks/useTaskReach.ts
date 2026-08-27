@@ -89,8 +89,7 @@ export const useTaskReach = (): Temporal.PlainDate => {
 export const useExpandTaskReach = (date: Temporal.PlainDate): void => {
   useEffect(() => {
     expandTaskReach(date);
-    // Keyed on the ISO string, not the `PlainDate`: the screens hand back a
-    // fresh object whenever they rebuild their day state, and the reach only
-    // cares about the value.
+    // Keyed on the ISO string, not the PlainDate — screens hand back a fresh
+    // object per rebuild, and the reach only cares about the value.
   }, [date.toString()]); // eslint-disable-line react-hooks/exhaustive-deps
 };

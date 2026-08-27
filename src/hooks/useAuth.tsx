@@ -54,17 +54,15 @@ export const signInWithEmail = (email: string) =>
     options: { emailRedirectTo: redirectTo },
   });
 
-// The single App Store reviewer / marketing demo account. Duplicated (not
-// imported) from supabase/functions/_shared/demoAuth.ts because the app cannot
-// import the Deno backend module; keep the value identical in both places.
+// Duplicated from supabase/functions/_shared/demoAuth.ts (can't import Deno);
+// keep identical.
 export const DEMO_EMAIL = "demo@dexterplanner.com";
 
 export const isDemoEmail = (email: string) =>
   email.trim().toLowerCase() === DEMO_EMAIL;
 
-// Verify the 6-digit code from the login email. The same code is delivered as
-// both the magic link and `{{ .Token }}` (see supabase/templates/magic_link.html),
-// so a user can tap the link or type the code.
+// The same code backs both the magic link and `{{ .Token }}` in the login
+// email, so a user can tap the link or type the code.
 export const verifyEmailOtp = (email: string, token: string) =>
   supabase.auth.verifyOtp({
     email: email.trim(),
@@ -72,10 +70,8 @@ export const verifyEmailOtp = (email: string, token: string) =>
     type: "email",
   });
 
-// Demo login: the app's UI is passwordless, so an App Store reviewer can't
-// receive a code. The verify-demo-otp Edge Function validates the demo email +
-// a fixed code and returns a session we install locally. Shaped like the other
-// helpers (`{ error }`) for the caller.
+// The app is passwordless, so a reviewer can't receive a code — this trades
+// the demo email + fixed code for a session via verify-demo-otp.
 export const verifyDemoOtp = async (
   email: string,
   token: string,
@@ -108,9 +104,8 @@ export const verifyDemoOtp = async (
 };
 
 export const signInWithGoogle = async () => {
-  // On web, let Supabase do a full-page redirect; the /auth-callback route
-  // completes the exchange when the browser returns. On native, open an auth
-  // session in the browser and exchange the code from the returned URL.
+  // Web: full-page redirect, /auth-callback completes it. Native: open an
+  // auth session and exchange the code from the returned URL.
   const skipBrowserRedirect = Platform.OS !== "web";
 
   const { data, error } = await supabase.auth.signInWithOAuth({

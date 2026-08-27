@@ -1,11 +1,8 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useQuery } from "@tanstack/react-query";
 import * as Calendar from "expo-calendar";
-// Attendee RSVP comes from the legacy by-id call: the new OO API's
-// `event.getAttendees()` returns empty shared objects on iOS in SDK 57
-// (status/isCurrentUser never populate). Imported from `/legacy` so it doesn't
-// hit the deprecation guard that throws when the same method is used off the
-// main module.
+// SDK 57's OO `event.getAttendees()` returns empty shared objects on iOS;
+// the `/legacy` import also dodges the main module's deprecation throw.
 import { getAttendeesForEventAsync } from "expo-calendar/legacy";
 
 import { useAuth } from "./useAuth";
@@ -17,9 +14,8 @@ import {
   TUseCalendarEvents,
 } from "./useCalendarEvents.types";
 
-// Native (iOS + Android) calendar source: the device's own calendars via
-// expo-calendar. This base file is also what `tsc` resolves; Metro picks
-// `useCalendarEvents.web.ts` on web (proxied .ics feeds instead).
+// Native calendar source; `tsc` resolves this base file, while Metro picks
+// `useCalendarEvents.web.ts` (proxied .ics feeds) on web.
 
 const STALE_TIME_MS = 1000 * 60 * 10;
 
@@ -49,9 +45,8 @@ type TDeviceAttendee = {
 };
 
 /**
- * The current user's RSVP → app response. Only the not-a-firm-yes states get a
- * distinct value; accepted/declined/unknown fall through to `undefined` (normal
- * styling), since we only visually distinguish invited and tentative.
+ * RSVP → app response. Declined/unknown fall to `undefined` (normal styling);
+ * only invited and tentative are visually distinguished.
  */
 const statusToResponse = (
   status: Calendar.AttendeeStatus | undefined,
@@ -70,9 +65,8 @@ const statusToResponse = (
 };
 
 /**
- * Resolve the current user's RSVP for an event via its attendee list. Prefers
- * the OS `isCurrentUser` flag (iOS); otherwise matches the signed-in email. A
- * failed lookup or no match yields `undefined` so the event still renders.
+ * Prefers the OS `isCurrentUser` flag (iOS); Android matches signed-in email.
+ * A failed lookup yields `undefined` so the event still renders.
  */
 const fetchEventResponse = async (
   eventId: string,
@@ -117,10 +111,8 @@ const nativeToEvent = (
       ? event.startDate.getTime()
       : new Date(event.startDate).getTime();
   return {
-    // expo-calendar returns the same `id` for every occurrence of a recurring
-    // event, so suffix the occurrence start to keep React keys unique when a
-    // series fires more than once in the viewed day (mirrors the web
-    // `${uid}-${startMs}` id).
+    // expo-calendar reuses one `id` across a recurring event's occurrences;
+    // suffix the start to keep React keys unique (mirrors the web id).
     id: `${event.id}-${startMs}`,
     title: event.title || "(No title)",
     start: toPlainDateTime(event.startDate, timeZone),
@@ -132,15 +124,8 @@ const nativeToEvent = (
 };
 
 /**
- * Read the day's events from the enabled device calendars. Requests permission
- * on first use; a denied grant returns no events with `permissionDenied` set so
- * the UI can prompt. `enabledIds === null` means the user hasn't customized the
- * selection yet, so every calendar is included.
- *
- * `notConfigured` says there was nothing to read from at all — no grant, no
- * calendars on the device, or every one of them switched off. It falls out of
- * the two early returns below rather than costing a second `expo-calendar`
- * call (and, on the denied branch, a second permission prompt).
+ * `enabledIds === null` means never customized → all calendars. `notConfigured`
+ * falls out of the early returns to avoid a second call/permission prompt.
  */
 const fetchDeviceEvents = async (
   dateIso: string,
@@ -198,22 +183,19 @@ export const useCalendarEvents = (
   const active = preferences.enableCalendar;
 
   const { data, isLoading, isError } = useQuery({
-    // Wait for the device-local selection to load before fetching, so a cold
-    // start with some calendars disabled doesn't briefly fetch (and cache)
-    // every calendar under a stale `null` key.
+    // Waiting on the selection keeps a cold start from briefly fetching (and
+    // caching) every calendar under a stale `null` key.
     enabled: active && !enabledLoading,
     queryKey: ["calendarEvents", date.toString(), enabledIds, userEmail],
     queryFn: () => fetchDeviceEvents(date.toString(), enabledIds, userEmail),
     staleTime: STALE_TIME_MS,
-    // SwipeablePage mounts a fresh view per day, so refetch on every day-load to
-    // pick up calendar edits made since the day was last cached. Cached events
-    // still show during the background refetch, so there's no empty flash.
+    // Refetch per day-load to pick up calendar edits; cached events still show
+    // during the background refetch, so there's no empty flash.
     refetchOnMount: "always",
   });
 
-  // The placeholder's `notConfigured: false` is what keeps a still-loading read
-  // from reading as an unconfigured one — the answer isn't known until the
-  // query resolves.
+  // `notConfigured: false` here keeps a still-loading read from reading as an
+  // unconfigured one — the answer isn't known until the query resolves.
   const result = data ?? {
     events: [],
     permissionDenied: false,

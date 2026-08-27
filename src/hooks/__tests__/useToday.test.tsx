@@ -3,9 +3,8 @@ import { AppState } from "react-native";
 
 import { useDayRollover, useToday } from "../useToday";
 
-// Local, not UTC: the hook reads the device's calendar day, so a fixed instant
-// has to be pinned in the zone the code will read it in — the same rule
-// `__tests__/ritual/ritualScreen.test.tsx` states.
+// Local, not UTC — the hook reads the device's calendar day, so a fixed
+// instant must be pinned in the zone the code reads it in.
 const localTime = (day: number, hour: number, minute = 0) =>
   new Date(2026, 7, day, hour, minute);
 
@@ -76,10 +75,8 @@ describe("useToday (DEX-161)", () => {
     expect(result.current.toString()).toBe("2026-08-16");
   });
 
-  // The identity contract: `usePublishViewedDay` keys a focus effect on this
-  // value, so a fresh `PlainDate` per render would tear that effect down on
-  // every unrelated re-render and momentarily clear the viewed day the nav
-  // rail's "+" reads.
+  // usePublishViewedDay keys a focus effect on this value — a fresh PlainDate
+  // per render would tear it down and momentarily clear the nav rail's "+".
   it("hands back the same object until the day actually changes", () => {
     const { result, rerender } = renderToday();
     const first = result.current;

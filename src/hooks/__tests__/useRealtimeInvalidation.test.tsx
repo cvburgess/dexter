@@ -29,11 +29,8 @@ const mockRemoveChannel = jest.fn();
 
 jest.mock("@/hooks/useAuth", () => ({
   supabase: {
-    // Wrapped rather than a direct `channel: mockChannel` reference: jest
-    // hoists this factory above `const mockChannel = jest.fn()` below, and
-    // `@/hooks/useNotes` (imported above) requires this module immediately —
-    // a direct reference would capture `mockChannel` before it's assigned.
-    // The wrapper only reads it lazily, once a test actually calls in.
+    // Wrapped, not a direct `channel: mockChannel` reference — jest hoists this
+    // factory above the const, so a direct reference would capture it too early.
     channel: (...args: unknown[]) => mockChannel(...args),
     removeChannel: (...args: unknown[]) => mockRemoveChannel(...args),
   },
@@ -189,9 +186,8 @@ describe("useRealtimeInvalidation", () => {
       });
       act(() => jest.advanceTimersByTime(250));
 
-      // One flush, not three — expressed as "one call per key the table maps to"
-      // rather than a literal 1, so adding a key to `tasks` (as DEX-47's
-      // `["search"]` did) doesn't read as a coalescing regression.
+      // "One call per key the table maps to", not a literal 1, so adding a key
+      // (as DEX-47's ["search"] did) doesn't read as a coalescing regression.
       expect(invalidateSpy).toHaveBeenCalledTimes(
         REALTIME_INVALIDATIONS.tasks.length,
       );
@@ -214,11 +210,8 @@ describe("useRealtimeInvalidation", () => {
         act(() => binding.handler({ table }));
         act(() => jest.advanceTimersByTime(250));
 
-        // Asserted with an exact match, so it also pins that no `predicate`
-        // rides along: notes/journals guard their own per-date entries against
-        // an in-flight autosave, and that guard reads `queryKey[1]` as a date —
-        // which for `["search", query]` is the search string. Attaching it here
-        // would drop this invalidation for anyone searching a date-shaped term.
+        // Exact match pins that no predicate rides along — the per-date guard
+        // reads queryKey[1] as a date, which for ["search", query] is the query.
         expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["search"] });
         invalidateSpy.mockClear();
       }
@@ -357,11 +350,8 @@ describe("useRealtimeInvalidation", () => {
       // Postgres echoing our own write back must not start a refetch: it can
       // resolve after a *newer* local edit and stamp stale rows over it.
       expect(mockGetTasks.mock.calls.length).toBe(fetchCountBeforeEvent);
-      // ...but the skip is scoped to the `["tasks"]` key, not the whole table.
-      // `["search"]` has no optimistic cache to protect (its rows come straight
-      // from the RPC), and the mutation's settle invalidation only covers
-      // `["tasks"]` — so suppressing it here would leave a card the user just
-      // checked off *on the Search tab* showing its old status indefinitely.
+      // ...but scoped to ["tasks"] only — ["search"] has no optimistic cache to
+      // protect, so suppressing it here would leave a stale card on Search.
       expect(invalidateSpy).toHaveBeenCalledWith(
         expect.objectContaining({ queryKey: ["search"] }),
       );
@@ -390,9 +380,8 @@ describe("useRealtimeInvalidation", () => {
       renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
 
       mockGetNote.mockResolvedValue(null);
-      // Date A's upsert never resolves within this test — simulates an
-      // autosave still retrying in the background after the component
-      // unmounted (see useNotes.tsx's retry comment).
+      // Date A's upsert never resolves — simulates an autosave still retrying
+      // after the component unmounted.
       mockUpsertNote.mockReturnValue(new Promise(() => {}));
 
       const dateA = renderHook(() => useNotes("2026-07-12"), { wrapper });

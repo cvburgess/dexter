@@ -3,9 +3,8 @@ import { render } from "@testing-library/react-native";
 
 import { getViewedDay, usePublishViewedDay } from "@/hooks/useViewedDay";
 
-// Stand in for react-navigation's focus lifecycle: run the effect on mount
-// (focus) and its cleanup on unmount (blur). usePublishViewedDay memoizes the
-// effect on [date], so a date change re-runs it just like a real re-focus.
+// Stands in for react-navigation's focus lifecycle: effect on mount (focus),
+// cleanup on unmount (blur) — a date change re-runs it like a real re-focus.
 jest.mock("expo-router", () => {
   const { useEffect } = require("react");
   return {

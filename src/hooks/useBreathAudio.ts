@@ -65,38 +65,16 @@ const PEAK: Record<TBreathAudioVoice, number> = {
 
 const EXIT_FADE_MS = 1500;
 
-// A finished run has to outlast the reverb — the fade sits after the convolver,
-// so anything shorter silences the room mid-decay. That is a floor rather than
-// the answer, though: it also has to stay clearly longer than a quit, or
-// finishing the exercise would cut off faster than walking away from it, which
-// is what a short reverb would otherwise do.
+// A floor, not the answer: must outlast the reverb tail, but also stay longer
+// than a quit or finishing would cut off faster than walking away.
 const END_FADE_MS = Math.max(REVERB_SECONDS * 1000, EXIT_FADE_MS * 2);
 
-/**
- * How far ahead of the context's own clock a run is scheduled.
- *
- * `setValueCurveAtTime` clamps a start time already in the past up to *now*,
- * which would stretch that curve past its intended end and into the start of
- * the release that follows it — and a curve overlapping the boundary of the
- * next one throws rather than fudging it. Scheduling everything a beat ahead
- * means nothing is ever clamped, so every curve lands exactly where the
- * schedule computed it. Inaudible against the fill, which starts on the JS
- * thread anyway.
- */
+// A start time already in the past gets clamped to now, stretching a curve
+// into the next one's boundary — which throws. A beat of lead-in avoids that.
 const LEAD_IN_SECONDS = 0.05;
 
-/**
- * How much room the master leaves above the loudest thing the run can produce.
- *
- * Every voice plateaus at full for the last third of its leg (`ATTACK_RATIO`),
- * so the peak of the whole exercise is the end of an exhale — the lowest chord,
- * on the only sawtooth. Its six oscillators are detuned by a few cents each, and
- * every ten-odd seconds their beating comes into alignment and they sum
- * coherently rather than averaging out. Add four seconds of reverb tail holding
- * energy from every voice at once and the peaks were clipping, audible as a
- * crackle a couple of breaths apart. −6dB, which costs nothing a volume control
- * cannot give back.
- */
+// The lowest chord's oscillators periodically beat into alignment and sum
+// coherently; with the reverb tail that was clipping. −6dB headroom fixes it.
 const MASTER_HEADROOM = 0.5;
 
 // A finished run decays like a room, most of the drop early. A quit eases both
@@ -131,29 +109,13 @@ type TVoice = {
   peak: number;
 };
 
-/**
- * Sounds a breathing run (DEX-167): a chord per phase, crossfading into each
- * other, so the turns are audible with your eyes shut.
- *
- * **The whole run is scheduled on the audio clock at Begin** and nothing runs
- * afterwards — no timer to drift over 200 seconds of Box, and nothing crossing
- * out of `BreatheFill`'s worklet.
- *
- * **`useFocusEffect`, not `useEffect`**, or the tones follow the breather to
- * another tab; and this hook owns the context, so every path out reaches
- * `close()`. Creating it inside a Begin press is also what satisfies the web
- * autoplay rule.
- *
- * Ungated, matching `useHoroscopeAudio`: there is no "sounds" setting yet.
- */
+// Sounds a breathing run (DEX-167): scheduled on the audio clock at Begin so
+// nothing drifts; useFocusEffect, not useEffect, or tones follow to another tab.
 export function useBreathAudio(
   plan: TBreathePlan | null,
   running: boolean,
-  /**
-   * Whether the run now ending reached its last breath. A ref because the
-   * cleanup that reads it closes over the render *before* the one that ended the
-   * run, so a plain prop would still say `false` at the only moment it matters.
-   */
+  // Ref because the cleanup closing over the ending run needs the value from
+  // *before* that render, which a plain prop can't give at that moment.
   endedNaturally: RefObject<boolean>,
 ) {
   // Only the audio is focus-scoped; `BreatheFill` animates on regardless. So a
@@ -230,13 +192,8 @@ export function useBreathAudio(
         exhaleHold: createVoice("exhaleHold"),
       };
 
-      // Two curves per leg rather than a staircase of ramps, which is what
-      // keeps each param inside `BREATH_AUDIO_MAX_EVENTS_PER_PARAM` — past it
-      // the library drops automation without a word, and the voice sticks where
-      // it was left (DEX-187). One gain per voice: a filter feeding several
-      // gains would have them scaling its output buffer in turn, since a gain
-      // multiplies its input in place and the graph hands every consumer the
-      // same buffer.
+      // Two curves per leg keeps each param inside its event budget — past it
+      // the library drops automation silently and the voice sticks (DEX-187).
       for (const curve of buildBreathAudioSchedule(plan)) {
         const { gain, peak } = voices[curve.voice];
         gain.gain.setValueCurveAtTime(
@@ -253,10 +210,8 @@ export function useBreathAudio(
         const endsAt = now + fadeMs / 1000;
         const shape = fadeShape(finished);
 
-        // The shape falls from 1 to 0, so it is scaled by wherever the master
-        // actually sits — otherwise the fade opens by jumping the run *louder*
-        // than it was playing. Safe to take that as a constant because nothing
-        // else automates the master.
+        // Scaled by MASTER_HEADROOM, not 1, or the fade opens by jumping the
+        // run louder than it was playing.
         master.gain.cancelAndHoldAtTime(now);
         for (let step = 1; step <= FADE_STEPS; step += 1) {
           const t = step / FADE_STEPS;
@@ -284,11 +239,8 @@ export function useBreathAudio(
   );
 }
 
-/**
- * The reverb's impulse response: decaying noise, which is how `Tone.Reverb`
- * builds one too. Two channels of *independent* noise, so the tail arrives
- * wider than the mono chord feeding it.
- */
+// Decaying noise per channel, independently, so the tail arrives wider than
+// the mono chord feeding it (the same approach Tone.Reverb takes).
 function buildImpulseResponse(context: AudioContext) {
   const length = Math.floor(context.sampleRate * REVERB_SECONDS);
   const impulse = context.createBuffer(2, length, context.sampleRate);

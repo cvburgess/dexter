@@ -15,21 +15,8 @@ import { useTheme } from "@/utils/theme";
 import { useAlarmSoundPreference } from "./usePreferences";
 
 /**
- * Keeps the running focus block's native AlarmKit countdown in sync with the
- * row (DEX-156). The same projection-of-DB-state shape as `useAlarmSync`, and
- * for the same reason: a block ends, is paused, or is stopped through five
- * different transitions across three surfaces, and scheduling imperatively at
- * each of them is five places to forget.
- *
- * **The lock screen is read-only.** The countdown AlarmKit presents carries no
- * pause or resume button — see `scheduleFocusAlarm` for why that is the only
- * correct configuration, and `docs/features.md` → Focus blocks for the rule it
- * settles. So this is a one-way sync by design: nothing on the lock screen can
- * change a block, and the app remains the only writer of the anchor.
- *
- * Called once, by `usePublishFocusTimer` — the hook that already owns every
- * focus-block write and is mounted exactly once by `FocusTimerHost`. No-ops off
- * iOS via `utils/alarms`.
+ * One-way sync of the live block's AlarmKit countdown (DEX-156); the lock
+ * screen is read-only by design (see `scheduleFocusAlarm`). Call once.
  */
 export const useFocusAlarmSync = (block: TFocusBlock | null): void => {
   const { alarmSound, isLoading: preferencesLoading } =
@@ -40,14 +27,12 @@ export const useFocusAlarmSync = (block: TFocusBlock | null): void => {
   // same bargain `useAlarmSync` takes — see `scheduleFocusAlarm`.
   const { colors } = useTheme();
 
-  // What we last scheduled, by id — AlarmKit reports only ids back, so this is
-  // how a still-correct alarm is told apart from one that needs replacing. At
-  // most one entry: there is at most one live block.
+  // AlarmKit reports only ids back, so this is how a still-correct alarm is
+  // told apart from one needing replacement. At most one live block, one entry.
   const scheduled = useRef(new Map<string, string>());
 
-  // Queued, never overlapped, for the reason spelled out in `useAlarmSync`: two
-  // in-flight runs each reconcile against a cache the other hasn't written yet,
-  // and whichever native call lands last need not be the one the cache records.
+  // Queued, never overlapped (see `useAlarmSync`): overlapping runs reconcile
+  // against a cache the other hasn't written yet.
   const queue = useRef<Promise<void>>(Promise.resolve());
 
   const id = block?.id;
@@ -57,9 +42,8 @@ export const useFocusAlarmSync = (block: TFocusBlock | null): void => {
   const title = block?.tasks.title;
 
   useEffect(() => {
-    // Acting on the placeholder preferences row would schedule the block with
-    // the default sound and re-schedule it the moment the real row lands
-    // (DEX-72).
+    // Acting on the placeholder preferences row would schedule with the default
+    // sound, then re-schedule when the real row lands (DEX-72).
     if (preferencesLoading) return;
 
     const sync = async () => {
@@ -78,17 +62,8 @@ export const useFocusAlarmSync = (block: TFocusBlock | null): void => {
             )
           : null;
 
-      // Everything AlarmKit holds *for a focus block* that shouldn't be there.
-      // Only ids this hook could own are ever candidates — what it scheduled
-      // this session, plus the live block's own id — so a sweep here can never
-      // reach a task alarm. The mirror of this is `protectedIds` in
-      // `useAlarmSync`.
-      //
-      // The live block's id has to be in that set, not just the cache: the cache
-      // is per-session, and while a block is live `useAlarmSync` protects its id
-      // from *its* sweep. A pause whose cancel didn't land before the app closed
-      // would otherwise leave an alarm no one will ever cancel, ringing at the
-      // original end time while the block sits paused.
+      // Only ids this hook could own are sweep candidates, so it never
+      // reaches a task alarm; the live id joins the per-session cache.
       const owned = new Set(scheduled.current.keys());
       if (id && getScheduledAlarmIds().includes(id)) owned.add(id);
 
@@ -108,10 +83,8 @@ export const useFocusAlarmSync = (block: TFocusBlock | null): void => {
 
       if (!desired) return;
 
-      // Already scheduled in exactly this shape — nothing to do. The cache is
-      // per-session, so a launch always reschedules the running block once; that
-      // is `useAlarmSync`'s bargain too, and the only way to be sure, since
-      // AlarmKit reports ids and never what they were scheduled with.
+      // The cache is per-session, so a launch reschedules the running block
+      // once — AlarmKit reports ids, never what they were scheduled with.
       const signature = alarmSignature(desired);
       if (scheduled.current.get(desired.id) === signature) return;
 
@@ -122,9 +95,8 @@ export const useFocusAlarmSync = (block: TFocusBlock | null): void => {
         });
         scheduled.current.set(desired.id, signature);
       } catch (error) {
-        // Left unrecorded so the next run retries. The alert matches
-        // `useAlarmSync`'s: a block the user believes will ring and won't is
-        // worth interrupting for, since the whole point is to stop watching it.
+        // Left unrecorded so the next run retries. A block the user believes
+        // will ring and won't is worth interrupting for.
         console.warn(
           `[alarms] Failed to schedule focus alarm ${desired.id}`,
           error,
