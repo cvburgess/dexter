@@ -60,3 +60,4 @@ app-example
 
 # Lume build output
 _site
+/.pi/tasks
