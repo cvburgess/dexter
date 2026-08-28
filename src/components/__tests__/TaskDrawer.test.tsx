@@ -206,6 +206,38 @@ describe("filterMenuOptions", () => {
     expect(options.find((o) => o.id === "none")?.isSelected).toBe(false);
   });
 
+  it("suffixes a preset's count and omits zero counts (DEX-126)", () => {
+    const options = filterMenuOptions("none", jest.fn(), {
+      overdue: 7,
+      dueSoon: 0,
+      leftBehind: 2,
+      unscheduled: 0,
+    });
+
+    expect(options.find((o) => o.id === "overdue")?.title).toBe("Overdue (7)");
+    expect(options.find((o) => o.id === "leftBehind")?.title).toBe(
+      "Left Behind (2)",
+    );
+    expect(options.find((o) => o.id === "dueSoon")?.title).toBe("Due Soon");
+    expect(options.find((o) => o.id === "unscheduled")?.title).toBe(
+      "Unscheduled",
+    );
+    // "No Filter" is the whole scope, not a preset — never counted.
+    expect(options.find((o) => o.id === "none")?.title).toBe("No Filter");
+  });
+
+  it("leaves every title bare when counts are omitted", () => {
+    const options = filterMenuOptions("none", jest.fn());
+
+    expect(options.map((o) => o.title)).toEqual([
+      "No Filter",
+      "Overdue",
+      "Due Soon",
+      "Left Behind",
+      "Unscheduled",
+    ]);
+  });
+
   it("calls onSelect with the option's id", () => {
     const onSelect = jest.fn();
     filterMenuOptions("none", onSelect)

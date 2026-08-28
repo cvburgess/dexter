@@ -21,8 +21,10 @@ import { useTasks } from "@/hooks/useTasks";
 import { useToday } from "@/hooks/useToday";
 import { searchTerms } from "@/utils/searchHighlight";
 import {
+  filterMenuCounts,
   filterTasks,
   selectBacklogTasks,
+  TCountedFilterId,
   TFilterId,
 } from "@/utils/taskFilters";
 import { useTheme } from "@/utils/theme";
@@ -83,12 +85,25 @@ function buildMenuOptions<T extends string>(
   }));
 }
 
-/** Builds the Filter menu's options. Exported so selection wiring is unit-testable without the native menu host. */
+/**
+ * Builds the Filter menu's options. Exported so selection wiring is unit-testable without the native menu host.
+ * Optional `counts` suffix each preset's title with its size — `Overdue (7)`; zero counts stay bare (DEX-126).
+ * "No Filter" is the whole scope, not a preset, so it never carries a figure.
+ */
 export function filterMenuOptions(
   selected: TFilterId,
   onSelect: (id: TFilterId) => void,
+  counts?: Record<TCountedFilterId, number>,
 ): TIconMenuOption[] {
-  return buildMenuOptions(FILTER_META, selected, onSelect);
+  return FILTER_META.map(({ id, title }) => {
+    const count = id === "none" ? undefined : counts?.[id];
+    return {
+      id,
+      title: count ? `${title} (${count})` : title,
+      isSelected: id === selected,
+      onSelect: () => onSelect(id),
+    };
+  });
 }
 
 /** Builds the Group menu's options. Exported so selection wiring is unit-testable without the native menu host. */
@@ -293,6 +308,17 @@ export function TaskDrawer({
     [allTasks, date, daysOnScreen, filterId, today],
   );
 
+  // Counts over the same scope `tasks` filters, so each figure is what
+  // selecting that preset would actually show (DEX-126).
+  const menuCounts = useMemo(
+    () =>
+      filterMenuCounts(
+        selectBacklogTasks(allTasks, daysOnScreen ?? [date]),
+        today,
+      ),
+    [allTasks, date, daysOnScreen, today],
+  );
+
   const groups = useMemo(
     () => groupTasks(searchTasksByTitle(tasks, search), groupBy, lists, goals),
     [tasks, search, groupBy, lists, goals],
@@ -423,7 +449,7 @@ export function TaskDrawer({
         <DrawerControl
           label="Filter"
           title={titleFor(FILTER_META, filterId)}
-          options={filterMenuOptions(filterId, setFilterId)}
+          options={filterMenuOptions(filterId, setFilterId, menuCounts)}
           active={filterId !== "none"}
           testID="drawer-filter-surface"
         />

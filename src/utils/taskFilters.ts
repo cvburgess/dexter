@@ -154,6 +154,24 @@ export function backlogCounts(
   };
 }
 
+/** A filter preset the menu suffixes with a count (DEX-126) — every one but "none". */
+export type TCountedFilterId = Exclude<TFilterId, "none">;
+
+/**
+ * Per-preset figures for the Filter menu's option titles (DEX-126) over a
+ * `selectBacklogTasks`-scoped array. `backlogCounts` plus Unscheduled, so a
+ * menu figure and the hero's can't drift apart.
+ */
+export function filterMenuCounts(
+  tasks: TTask[],
+  today: Temporal.PlainDate,
+): Record<TCountedFilterId, number> {
+  return {
+    ...backlogCounts(tasks, today),
+    unscheduled: filterTasks(tasks, "unscheduled", today).length,
+  };
+}
+
 /**
  * First non-zero count in the hero's reading order. Deliberately not
  * `backlogAttentionFilter` (DEX-58) — the dot ranks Overdue first, skips Due Soon.
