@@ -7,6 +7,7 @@ import {
   backlogAttentionFilter,
   backlogCounts,
   defaultBacklogFilter,
+  filterMenuCounts,
   nextBacklogFilter,
   filterTasks,
   isCompletionStatus,
@@ -504,6 +505,47 @@ describe("backlogCounts", () => {
       leftBehind: 0,
       overdue: 0,
       dueSoon: 0,
+    });
+  });
+});
+
+describe("filterMenuCounts", () => {
+  const today = Temporal.PlainDate.from("2026-07-16");
+
+  it("counts every preset the menu shows, including Unscheduled", () => {
+    const tasks = [
+      task({ id: "1", scheduledFor: "2026-07-10" }), // leftBehind
+      task({ id: "2", dueOn: "2026-07-15", scheduledFor: "2026-07-16" }), // overdue
+      task({ id: "3", dueOn: "2026-07-20", scheduledFor: "2026-07-16" }), // dueSoon
+      task({ id: "4" }), // unscheduled
+      task({ id: "5", scheduledFor: "2026-07-16" }), // today: in no bucket
+    ];
+
+    expect(filterMenuCounts(tasks, today)).toEqual({
+      overdue: 1,
+      dueSoon: 1,
+      leftBehind: 1,
+      unscheduled: 1,
+    });
+  });
+
+  it("counts a task in every bucket it belongs to", () => {
+    const tasks = [task({ scheduledFor: "2026-07-10", dueOn: "2026-07-12" })];
+
+    expect(filterMenuCounts(tasks, today)).toEqual({
+      overdue: 1,
+      dueSoon: 0,
+      leftBehind: 1,
+      unscheduled: 0,
+    });
+  });
+
+  it("is all zeroes for an empty backlog", () => {
+    expect(filterMenuCounts([], today)).toEqual({
+      overdue: 0,
+      dueSoon: 0,
+      leftBehind: 0,
+      unscheduled: 0,
     });
   });
 });
