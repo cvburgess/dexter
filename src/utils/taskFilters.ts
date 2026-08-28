@@ -4,11 +4,7 @@ import { TTask } from "@/api/tasks";
 import { isCompletionStatus } from "@/utils/taskStatus";
 
 export type TFilterId =
- | "none"
- | "overdue"
- | "dueSoon"
- | "leftBehind"
- | "unscheduled";
+  "none" | "overdue" | "dueSoon" | "leftBehind" | "unscheduled";
 
 const DUE_SOON_WINDOW_DAYS = 13;
 
@@ -20,19 +16,19 @@ const isIncomplete = (task: TTask): boolean => !isCompletionStatus(task.status);
 
 /** Due date set and strictly before `todayIso` — the "Overdue" preset's predicate. */
 const isOverdue = (task: TTask, todayIso: string): boolean =>
- task.dueOn !== null && task.dueOn < todayIso;
+  task.dueOn !== null && task.dueOn < todayIso;
 
 /** Scheduled for a day strictly before `todayIso` — the "Left Behind" preset's predicate. */
 const isLeftBehind = (task: TTask, todayIso: string): boolean =>
- task.scheduledFor !== null && task.scheduledFor < todayIso;
+  task.scheduledFor !== null && task.scheduledFor < todayIso;
 
 /** Tasks scheduled for `date`, any status — the Today list's contents. */
 export function selectTasksForDate(
- tasks: TTask[],
- date: Temporal.PlainDate,
+  tasks: TTask[],
+  date: Temporal.PlainDate,
 ): TTask[] {
- const iso = date.toString();
- return tasks.filter((task) => task.scheduledFor === iso);
+  const iso = date.toString();
+  return tasks.filter((task) => task.scheduledFor === iso);
 }
 
 /**
@@ -40,10 +36,10 @@ export function selectTasksForDate(
  * (DEX-146). Uses the shared `isCompletionStatus`: "still open" is one decision.
  */
 export function selectOpenTasksForDate(
- tasks: TTask[],
- date: Temporal.PlainDate,
+  tasks: TTask[],
+  date: Temporal.PlainDate,
 ): TTask[] {
- return selectTasksForDate(tasks, date).filter(isIncomplete);
+  return selectTasksForDate(tasks, date).filter(isIncomplete);
 }
 
 /**
@@ -51,12 +47,12 @@ export function selectOpenTasksForDate(
  * Scope is `scheduledFor`, not a completion timestamp: tasks have no `completedAt`.
  */
 export function selectCompletedTasksForDate(
- tasks: TTask[],
- date: Temporal.PlainDate,
+  tasks: TTask[],
+  date: Temporal.PlainDate,
 ): TTask[] {
- return selectTasksForDate(tasks, date).filter((task) =>
-  isCompletionStatus(task.status),
- );
+  return selectTasksForDate(tasks, date).filter((task) =>
+    isCompletionStatus(task.status),
+  );
 }
 
 /**
@@ -64,15 +60,15 @@ export function selectCompletedTasksForDate(
  * day array (one on Today, seven on Week) so no separate week variant (DEX-96).
  */
 export function selectBacklogTasks(
- tasks: TTask[],
- daysOnScreen: Temporal.PlainDate[],
+  tasks: TTask[],
+  daysOnScreen: Temporal.PlainDate[],
 ): TTask[] {
- const shown = new Set(daysOnScreen.map((day) => day.toString()));
- return tasks.filter(
-  (task) =>
-   isIncomplete(task) &&
-   (task.scheduledFor === null || !shown.has(task.scheduledFor)),
- );
+  const shown = new Set(daysOnScreen.map((day) => day.toString()));
+  return tasks.filter(
+    (task) =>
+      isIncomplete(task) &&
+      (task.scheduledFor === null || !shown.has(task.scheduledFor)),
+  );
 }
 
 /**
@@ -80,29 +76,31 @@ export function selectBacklogTasks(
  * strings compare correctly as strings — no Temporal parsing per task.
  */
 export function filterTasks(
- tasks: TTask[],
- filterId: TFilterId,
- today: Temporal.PlainDate,
+  tasks: TTask[],
+  filterId: TFilterId,
+  today: Temporal.PlainDate,
 ): TTask[] {
- const todayIso = today.toString();
+  const todayIso = today.toString();
 
- switch (filterId) {
-  case "none":
-   return tasks;
-  case "overdue":
-   return tasks.filter((task) => isOverdue(task, todayIso));
-  case "dueSoon": {
-   const cutoffIso = today.add({ days: DUE_SOON_WINDOW_DAYS }).toString();
-   return tasks.filter(
-    (task) =>
-     task.dueOn !== null && task.dueOn >= todayIso && task.dueOn <= cutoffIso,
-   );
+  switch (filterId) {
+    case "none":
+      return tasks;
+    case "overdue":
+      return tasks.filter((task) => isOverdue(task, todayIso));
+    case "dueSoon": {
+      const cutoffIso = today.add({ days: DUE_SOON_WINDOW_DAYS }).toString();
+      return tasks.filter(
+        (task) =>
+          task.dueOn !== null &&
+          task.dueOn >= todayIso &&
+          task.dueOn <= cutoffIso,
+      );
+    }
+    case "leftBehind":
+      return tasks.filter((task) => isLeftBehind(task, todayIso));
+    case "unscheduled":
+      return tasks.filter((task) => task.scheduledFor === null);
   }
-  case "leftBehind":
-   return tasks.filter((task) => isLeftBehind(task, todayIso));
-  case "unscheduled":
-   return tasks.filter((task) => task.scheduledFor === null);
- }
 }
 
 /**
@@ -110,25 +108,25 @@ export function filterTasks(
  * with a strict `<`; must skip completed tasks — the presets themselves don't.
  */
 export function backlogAttentionFilter(
- tasks: TTask[],
- today: Temporal.PlainDate,
+  tasks: TTask[],
+  today: Temporal.PlainDate,
 ): TFilterId | null {
- const todayIso = today.toString();
- let hasLeftBehind = false;
- for (const task of tasks) {
-  if (!isIncomplete(task)) continue;
-  // Any overdue task wins outright, whatever the array order.
-  if (isOverdue(task, todayIso)) return "overdue";
-  if (isLeftBehind(task, todayIso)) hasLeftBehind = true;
- }
- return hasLeftBehind ? "leftBehind" : null;
+  const todayIso = today.toString();
+  let hasLeftBehind = false;
+  for (const task of tasks) {
+    if (!isIncomplete(task)) continue;
+    // Any overdue task wins outright, whatever the array order.
+    if (isOverdue(task, todayIso)) return "overdue";
+    if (isLeftBehind(task, todayIso)) hasLeftBehind = true;
+  }
+  return hasLeftBehind ? "leftBehind" : null;
 }
 
 /** What the ritual Backlog step's hero counts (DEX-141). */
 export type TBacklogCounts = {
- leftBehind: number;
- overdue: number;
- dueSoon: number;
+  leftBehind: number;
+  overdue: number;
+  dueSoon: number;
 };
 
 /**
@@ -136,9 +134,9 @@ export type TBacklogCounts = {
  * decision, exported so the hero can't restate it beside its labels.
  */
 export const BACKLOG_COUNT_ORDER = [
- "leftBehind",
- "overdue",
- "dueSoon",
+  "leftBehind",
+  "overdue",
+  "dueSoon",
 ] as const satisfies readonly (keyof TBacklogCounts & TFilterId)[];
 
 /**
@@ -146,14 +144,14 @@ export const BACKLOG_COUNT_ORDER = [
  * `filterTasks` so a count can't drift from its preset. Buckets overlap on purpose.
  */
 export function backlogCounts(
- tasks: TTask[],
- today: Temporal.PlainDate,
+  tasks: TTask[],
+  today: Temporal.PlainDate,
 ): TBacklogCounts {
- return {
-  leftBehind: filterTasks(tasks, "leftBehind", today).length,
-  overdue: filterTasks(tasks, "overdue", today).length,
-  dueSoon: filterTasks(tasks, "dueSoon", today).length,
- };
+  return {
+    leftBehind: filterTasks(tasks, "leftBehind", today).length,
+    overdue: filterTasks(tasks, "overdue", today).length,
+    dueSoon: filterTasks(tasks, "dueSoon", today).length,
+  };
 }
 
 /** A filter preset the menu suffixes with a count (DEX-126) — every one but "none". */
@@ -165,13 +163,13 @@ export type TCountedFilterId = Exclude<TFilterId, "none">;
  * menu figure and the hero's can't drift apart.
  */
 export function filterMenuCounts(
- tasks: TTask[],
- today: Temporal.PlainDate,
+  tasks: TTask[],
+  today: Temporal.PlainDate,
 ): Record<TCountedFilterId, number> {
- return {
-  ...backlogCounts(tasks, today),
-  unscheduled: filterTasks(tasks, "unscheduled", today).length,
- };
+  return {
+    ...backlogCounts(tasks, today),
+    unscheduled: filterTasks(tasks, "unscheduled", today).length,
+  };
 }
 
 /**
@@ -179,21 +177,21 @@ export function filterMenuCounts(
  * `backlogAttentionFilter` (DEX-58) — the dot ranks Overdue first, skips Due Soon.
  */
 export function defaultBacklogFilter(counts: TBacklogCounts): TFilterId {
- return BACKLOG_COUNT_ORDER.find((id) => counts[id] > 0) ?? "none";
+  return BACKLOG_COUNT_ORDER.find((id) => counts[id] > 0) ?? "none";
 }
 
 /** Whether a preset is one of the three the hero counts. */
 const isCountedFilter = (id: TFilterId): id is keyof TBacklogCounts =>
- (BACKLOG_COUNT_ORDER as readonly TFilterId[]).includes(id);
+  (BACKLOG_COUNT_ORDER as readonly TFilterId[]).includes(id);
 
 /**
  * `current` while it still has tasks, else the next non-empty bucket in the
  * hero's order — only emptiness moves the filter, and detour presets stay put.
  */
 export function nextBacklogFilter(
- current: TFilterId,
- counts: TBacklogCounts,
+  current: TFilterId,
+  counts: TBacklogCounts,
 ): TFilterId {
- if (!isCountedFilter(current) || counts[current] > 0) return current;
- return defaultBacklogFilter(counts);
+  if (!isCountedFilter(current) || counts[current] > 0) return current;
+  return defaultBacklogFilter(counts);
 }
