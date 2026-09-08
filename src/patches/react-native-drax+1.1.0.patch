@@ -26,7 +26,7 @@ index c4bdb68..23fd354 100644
    // ── Animated styles ────────────────────────────────────────────────
    const {
 diff --git a/node_modules/react-native-drax/lib/module/compat/useDraxPanGesture.js b/node_modules/react-native-drax/lib/module/compat/useDraxPanGesture.js
-index ec37fe2..beff8e9 100644
+index ec37fe2..587175a 100644
 --- a/node_modules/react-native-drax/lib/module/compat/useDraxPanGesture.js
 +++ b/node_modules/react-native-drax/lib/module/compat/useDraxPanGesture.js
 @@ -29,6 +29,8 @@ function useDraxPanGestureV3(config) {
@@ -38,15 +38,14 @@ index ec37fe2..beff8e9 100644
    return rngh.usePanGesture(panConfig);
  }
  
-@@ -61,9 +63,15 @@ function useDraxPanGestureV2(config) {
+@@ -61,9 +63,14 @@ function useDraxPanGestureV2(config) {
    // different from v3's PanGesture at compile time, but GestureDetector accepts both at runtime.
    // Since Gesture comes from require() (any), the assignment is valid without a cast.
    const gesture = useMemo(() => {
 -    let g = Gesture.Pan().enabled(enabled).activateAfterLongPress(longPressDelay).maxPointers(config.maxPointers).shouldCancelWhenOutside(config.shouldCancelWhenOutside);
 +    let g = Gesture.Pan().enabled(enabled).maxPointers(config.maxPointers).shouldCancelWhenOutside(config.shouldCancelWhenOutside);
-+    // `activateAfterLongPress(0)` is not "no long press" on iOS: RNGH treats
-+    // only NaN as unset, so 0 activates the pan on the next runloop tick
-+    // regardless of movement and cancels every RN touch inside (DEX-196).
++    // 0 is not "no long press" on iOS — RNGH treats only NaN as unset, so it
++    // activates on touch-down regardless of movement, eating taps (DEX-196).
 +    if (longPressDelay > 0) g = g.activateAfterLongPress(longPressDelay);
      if (config.failOffsetX !== undefined) g = g.failOffsetX(config.failOffsetX);
      if (config.failOffsetY !== undefined) g = g.failOffsetY(config.failOffsetY);
@@ -160,7 +159,7 @@ index 521d7ae..e7d864d 100644
    onUpdate: (event: DraxPanEvent) => void;
    onDeactivate: (event: DraxPanEvent) => void;
 diff --git a/node_modules/react-native-drax/src/compat/useDraxPanGesture.ts b/node_modules/react-native-drax/src/compat/useDraxPanGesture.ts
-index 565782b..db88ba2 100644
+index 565782b..be8796d 100644
 --- a/node_modules/react-native-drax/src/compat/useDraxPanGesture.ts
 +++ b/node_modules/react-native-drax/src/compat/useDraxPanGesture.ts
 @@ -30,6 +30,8 @@ function useDraxPanGestureV3(config: DraxPanGestureConfig): DraxPanGesture {
@@ -172,16 +171,15 @@ index 565782b..db88ba2 100644
    return rngh.usePanGesture(panConfig);
  }
  
-@@ -73,11 +75,16 @@ function useDraxPanGestureV2(config: DraxPanGestureConfig): DraxPanGesture {
+@@ -73,11 +75,15 @@ function useDraxPanGestureV2(config: DraxPanGestureConfig): DraxPanGesture {
    const gesture: DraxPanGesture = useMemo(() => {
      let g = Gesture.Pan()
        .enabled(enabled)
 -      .activateAfterLongPress(longPressDelay)
        .maxPointers(config.maxPointers)
        .shouldCancelWhenOutside(config.shouldCancelWhenOutside);
-+    // `activateAfterLongPress(0)` is not "no long press" on iOS: RNGH treats
-+    // only NaN as unset, so 0 activates the pan on the next runloop tick
-+    // regardless of movement and cancels every RN touch inside (DEX-196).
++    // 0 is not "no long press" on iOS — RNGH treats only NaN as unset, so it
++    // activates on touch-down regardless of movement, eating taps (DEX-196).
 +    if (longPressDelay > 0) g = g.activateAfterLongPress(longPressDelay);
      if (config.failOffsetX !== undefined) g = g.failOffsetX(config.failOffsetX);
      if (config.failOffsetY !== undefined) g = g.failOffsetY(config.failOffsetY);
