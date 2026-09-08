@@ -1,7 +1,7 @@
 # Features
 
 What each feature is and why it is shaped the way it is — the screens and the
-tables behind them in one place. Rules that apply to *any* screen live in
+tables behind them in one place. Rules that apply to _any_ screen live in
 `docs/frontend.md`, rules that apply to any table in `docs/backend.md`, and
 endpoint contracts in `docs/api-routes.md`.
 
@@ -18,7 +18,7 @@ array client-side (`utils/taskFilters.ts`), so paging days is fetch-free
 starts at `DEFAULT_TASK_REACH_DAYS` (30) back and drops to the first of the month
 whenever Today, Week, or Ritual shows an older day — snapped to a month so
 swiping past the boundary doesn't refetch per swipe. Two things make that safe to
-do with one cache entry: the reach is *in the query key*, so widening reads as a
+do with one cache entry: the reach is _in the query key_, so widening reads as a
 load rather than a silently stale array (with `keepPreviousData` holding the rows
 already on screen); and every `invalidateQueries` stays on the bare `["tasks"]`
 prefix, so realtime and the mutations' own settle invalidation keep matching
@@ -28,13 +28,13 @@ mounted view, so pulling it back in would empty days another surface is showing.
 ### Paging and panes
 
 `components/SwipeablePage.tsx` (small screens) pages days with a pan gesture and
-an intro fade/slide on a keyed remount — deliberately *not* an `entering` layout
+an intro fade/slide on a keyed remount — deliberately _not_ an `entering` layout
 animation, which on the new architecture intermittently leaves the subtree blank
 or mis-measured. It is shared with the Ritual tab (prop is `pageKey`, not
 `dateKey`). Its `canNext`/`canPrev` exist because `onEnd` does not reset
 `translateX` on a commit (the host's key change remounts at zero; resetting first
 is what flashed the old day back) — a bounded pager must decline the swipe
-*inside* the component or the content parks where the finger left it.
+_inside_ the component or the content parks where the finger left it.
 
 Large screens: Tasks is always visible at a fixed `TASKS_PANE_WIDTH` — it does
 **not** flex, so a `TaskCard` is the same shape at every window size and the
@@ -48,7 +48,7 @@ The drawer toggle carries the overdue/left-behind **attention dot**
 (`utils/taskFilters.ts`'s `backlogAttentionFilter` — Overdue first, else Left
 Behind, as of the real today); the small-screen home for the dot is the
 `DayViewSwitcher` trigger. Opening the drawer from those buttons pre-applies that
-filter; on large screens the header toggle resets filter+search when *opening* —
+filter; on large screens the header toggle resets filter+search when _opening_ —
 load-bearing, or a `?mode=backlog` deep link's Unscheduled filter survives into
 the header's "Backlog" action and shows a slice of what it promises.
 
@@ -60,7 +60,7 @@ schedules through `useScheduleChange` (alarm prompt included). It renders a
 flattened `{type: "header"|"task"}` FlashList so rows recycle — each row carries
 `@expo/ui` native menu hosts, expensive in bulk. FlashList v2 is JS-only, which
 is exactly why the drawer can virtualize while `TasksView`'s un-virtualized
-`ScrollView` cannot (a *native* recycler's off-viewport churn aggravates the
+`ScrollView` cannot (a _native_ recycler's off-viewport churn aggravates the
 hosts' async sizing, expo/expo#42576). The app deliberately runs
 `@shopify/flash-list` newer than the SDK pin, listed in `package.json`'s
 `expo.install.exclude` (DEX-116) so `expo install --check` stops proposing the
@@ -72,7 +72,7 @@ Two things are load-bearing in the small-screen sheet (`TaskDrawerSheet`,
 FlashList both need `flex: 1` or the list lays out at full content height and
 overflows instead of scrolling. The sheet is imperative (`present(filter?)` —
 `BottomSheetModal` has no controlled visible prop) and defers rendering the
-drawer until first open. It presents *over* the tab bar, so it corrects the
+drawer until first open. It presents _over_ the tab bar, so it corrects the
 inherited bottom inset with a `SafeAreaInsetsContext.Provider` `bottom: 0`
 (`testUtils/renderWithBottomInset.tsx` drives tests through the same mechanism).
 
@@ -97,6 +97,11 @@ exposes `exists` and never auto-seeds). `components/JournalView.tsx` (Ritual tab
 only since DEX-105) autosaves `journals.prompts` wholesale; responses are plain
 text; both rituals edit the same per-date entry, each rendering **its own half**
 of it (DEX-151).
+
+The note editor is WYSIWYG, not a markdown-syntax editor: typing `# ` stays
+literal text that only becomes a heading once reparsed on reload. Headings and
+lists exist solely through the input's ref methods (DEX-201); its native format
+menu covers inline styles only.
 
 `template_prompts` is jsonb `{id, prompt, period}`, read only via
 `parseTemplatePrompts`; **a subset renders but the whole array is written**.
@@ -147,7 +152,7 @@ contracts:
   arrays would defeat identity comparisons downstream. `state.step` indexes a list
   that can shrink, so it may only be produced by a transition in that module —
   never `{ ...state, step: n }` at a call site.
-- **The `withXEnabled` transitions move the user by step *id*, not index** — a
+- **The `withXEnabled` transitions move the user by step _id_, not index** — a
   clamp would silently move someone from Calendar to Backlog when an earlier step
   is removed. Preserving the id also keeps `ritualPageKey` unchanged so
   `SwipeablePage` doesn't remount for a preference flipped in another tab.
@@ -228,14 +233,14 @@ silently.
 and the fill crosses the center of the step twice per breath, so one copy in
 either color disappears for half of every cycle. A `primary` copy sits on the
 neutral ground; a `primaryContent` copy sits inside the fill, which clips it.
-The fill translates down by its empty share and the inner copy translates *up*
+The fill translates down by its empty share and the inner copy translates _up_
 by the same amount, so it holds still while its clip window slides over it —
 both transforms, so it stays on the compositor. The fill's box is square, so the
 `overflow: hidden` doing the clipping avoids the offscreen-rendering cost the
 Horoscope panel documents for a rounded one.
 
 **This is the one animation in the app that ignores Reduce Motion.** Everywhere
-else the motion decorates something legible without it; here it *is* the
+else the motion decorates something legible without it; here it _is_ the
 exercise, and it only runs once the user has pressed Begin. Suppressing it
 would leave a blank step and a word with nothing pacing it. Tapping anywhere
 during a run stops it — ten Box breaths is 200 seconds, and cancelling and
@@ -249,7 +254,7 @@ clock at Begin instead; `useBreathAudio` holds the tuning, and needs a dev-clien
 
 **Scheduling it all upfront caps what one `AudioParam` may carry.**
 `react-native-audio-api` bounds every param's automation queues at 64 events and
-drops the rest *silently* — no error, no warning, the param just stops changing
+drops the rest _silently_ — no error, no warning, the param just stops changing
 and its chord drones on. A staircase of ramps overran that on the third breath
 and lost the leg's release (DEX-187), so each leg is **two `setValueCurveAtTime`
 calls** instead: a curve is one event however finely it is sampled. Browsers
@@ -269,7 +274,7 @@ detuning drifts into alignment every ten-odd seconds. That, against a reverb
 tail holding energy from every voice at once, was clipping — hence the master's
 headroom, and part of why the tail is a second rather than the four it started
 at. The settle after a finished run takes its length from that tail, but as a
-*floor*: it also has to stay longer than the fade a quit gets, or completing the
+_floor_: it also has to stay longer than the fade a quit gets, or completing the
 exercise would end more abruptly than abandoning it.
 
 ### Horoscope step (DEX-128, re-shaped in DEX-145)
@@ -284,7 +289,7 @@ are `docs/design.md`'s Sentiment section.
 - **The hero shows the first tip, and `horoscopes.text` is never rendered at
   all.** The column is still fetched and stored — it is the horoscope proper —
   but as a hero it was three sentences of astrological mechanism ("Mars strains
-  against the Sun's natal position") where the tips are the part written *to* the
+  against the Sun's natal position") where the tips are the part written _to_ the
   reader. Keep it stored; putting it back on screen is a decision, not a fix, and
   a test asserts it stays off.
 - **The hero is sized to exactly one screenful**, so whatever it holds is a
@@ -298,7 +303,7 @@ are `docs/design.md`'s Sentiment section.
   react-native-community/discussions-and-proposals#890 is the open ask.
 - Below the fold: the remaining `tips`, then the twelve life areas sorted into
   three stacked bands by rating (`lifeAreasInBucket`), each a mark beside its
-  areas joined into one string. Three parallel *columns* were the first cut and
+  areas joined into one string. Three parallel _columns_ were the first cut and
   were cut: they gave every band the same third of the card however the ratings
   fell, so a day with one bad area and eleven good ones drew two near-empty
   columns beside a crowded one. A band can legitimately be empty — a day with
@@ -344,7 +349,7 @@ which drives its shape:
   each life area buckets by rating (≥4 positive, ≤2 negative, else mixed) and
   the day takes whichever bucket holds the most, any tie yielding mixed
   (DEX-166). The UI groups the areas with the same thresholds, so the card's
-  tint *is* the largest band under it. It was generated from the upstream's
+  tint _is_ the largest band under it. It was generated from the upstream's
   single `overall_rating` until DEX-166 — a value astrology-api.io returns as 3
   nearly every day, which tinted the panel neutral almost unconditionally.
   `overall_rating` is still stored and now read by nothing.
@@ -416,7 +421,7 @@ centered as one block.
 and the two were answering the same question badly: a count of the day you have
 just walked Open tasks and Review through is a third reading of it, where the
 last thing the evening actually has to say is about the day ahead. The morning
-keeps it because there the count is the *first* word on the day and the hand-off
+keeps it because there the count is the _first_ word on the day and the hand-off
 to the Today tab is the point of the step.
 
 - **A morning task-list step was built here first and removed.** `DayTaskList`
@@ -452,7 +457,7 @@ to the Today tab is the point of the step.
 
 ### Open tasks step (DEX-146)
 
-The evening ritual's first *working* step — Breathe opens the walk ahead of it
+The evening ritual's first _working_ step — Breathe opens the walk ahead of it
 since DEX-164: one `HeroLines` count over the day's still-open tasks, each row
 between a leading Unschedule button and a trailing move-to-the-next-day one.
 Load-bearing:
@@ -460,7 +465,7 @@ Load-bearing:
 - **It is not the morning task-list step the Summary section records being
   removed**, and the difference is the axis that one failed on. That step copied
   a surface it could not replace; the evening ritual has no other task list to
-  duplicate, and every row here exists to be *dispatched* by one of the two
+  duplicate, and every row here exists to be _dispatched_ by one of the two
   buttons rather than read. The list empties as it is worked, which is the step.
 - **Scope is the ritual's day and only what is still open** —
   `selectOpenTasksForDate`, which is `selectTasksForDate` narrowed by the same
@@ -474,7 +479,7 @@ Load-bearing:
   "today" or "tomorrow"**, since the drawer sits beside seven days on the Week
   tab and `DayNav` can page the ritual anywhere, so a relative word would be a
   button that lies about where a task went. `defer` targets `date.add({days: 1})`
-  — the day after the one *on screen*, not the real tomorrow.
+  — the day after the one _on screen_, not the real tomorrow.
 - **It takes `changeSchedule` as a prop and never calls `useScheduleChange`
   itself.** Every write owes the alarm prompt that hook gives, never a raw
   `updateTask` (DEX-77, the rule the drawer's "+" learned the hard way) — but the
@@ -523,8 +528,8 @@ it, where the Today list mixes closed rows in with open ones.)
   different depending on when you looked — and `DayNav` can page anywhere. Same
   reading `calendarStats.eventCount` already takes.
 - **The habit figure is the only count that must come from `useDailyHabits`.**
-  `SummaryStep` reads `useHabits` because it asks how many habits the day *has*;
-  a review asks how many got *done*, which only the daily rows know
+  `SummaryStep` reads `useHabits` because it asks how many habits the day _has_;
+  a review asks how many got _done_, which only the daily rows know
   (`stepsComplete >= steps`). It applies `HabitTracker`'s paused/archived filter
   too — the trigger clears the row but a habit edit doesn't invalidate the
   `dailyHabits` cache, so the hero would otherwise count a ring the row below it
@@ -546,7 +551,7 @@ it, where the Today list mixes closed rows in with open ones.)
 - **The body is staged at `heroLines.length`, not `BODY_STAGE`** — the trap
   Summary and Open tasks both document, and live here because the line count runs
   from two to four with the reader's preferences.
-- Nothing closed out *and* no rings to tap centers the figures
+- Nothing closed out _and_ no rings to tap centers the figures
   (`review-step-quiet`). No confetti: a day with nothing finished is a reading,
   not a win. With habits on the rings are always drawn, since a habit ticked
   after dinner is what an evening review is for.
@@ -563,10 +568,10 @@ One sentence on the shape of `date + 1`, then its agenda and its tasks a scroll
 below the fold. The only step that reads a day other than the ritual's own.
 
 - **The comparison band is ±30% of the average of the last four matching
-  weekdays, and an entirely empty history reads as *typical*.** Against a zero
+  weekdays, and an entirely empty history reads as _typical_.** Against a zero
   average any figure is infinitely above it, so the arithmetic alone tells a
   first-time reader that tomorrow is busier than a Thursday the app has never
-  seen. A *partly* empty history is real evidence and is averaged as-is. The band
+  seen. A _partly_ empty history is real evidence and is averaged as-is. The band
   is wide on purpose: four samples of a noisy quantity, and a band tight enough
   to be statistically interesting would call almost every day unusual.
 - **The calendar history is four extra `useCalendarEvents()` calls, not a range
@@ -586,7 +591,7 @@ below the fold. The only step that reads a day other than the ritual's own.
   nothing cached to draw, changes what the agenda says.
 - **The reveal waits on all five days, history included.** Every reporting step
   holds its reveal until its numbers exist; here the empty-history rule makes a
-  confident "typical" that rewrites itself as "busier" the *likely* outcome of
+  confident "typical" that rewrites itself as "busier" the _likely_ outcome of
   not waiting, rather than an edge case.
 - **This is the one place sentiment ink is right on an evening step.** Review
   refuses it because a day already lived would be getting a verdict; a day still
@@ -632,9 +637,9 @@ plain views, which is what keeps `DraxView` off small screens without threading
 an enable prop.
 
 - **Drax caches a view's props in its registry** at registration, refreshing only
-  when a *capability* prop changes, and dispatches off that snapshot. So drop
+  when a _capability_ prop changes, and dispatches off that snapshot. So drop
   handlers must be identity-stable closures reading refs (`useCallback` keyed on
-  the date is *not* a fix — a new identity is what the registry declines to pick
+  the date is _not_ a fix — a new identity is what the registry declines to pick
   up), and the drag **payload is a task id** resolved at drop time, never the
   task object, which would freeze stale.
 - **The drop target is the whole day column**, which is what makes an empty day
@@ -673,7 +678,7 @@ The query debounces through `useDebouncedValue` — deliberately a timer and not
 `useDeferredValue`, which is a rendering-priority hint, not a throttle: when the
 deferred render is cheap every keystroke still reaches the server. Results group
 into sections (substring matching has no relevance score to interleave by);
-`utils/searchHighlight.ts` collapses whitespace *before* matching so offsets index
+`utils/searchHighlight.ts` collapses whitespace _before_ matching so offsets index
 the rendered string, and falls back to the head of the text — `ilike` case-folds
 by collation while the client uses `toLowerCase()`, and they disagree on some
 Unicode.
@@ -746,10 +751,10 @@ blur, on return, **and on unmount-while-editing** (FlashList recycles rows out
 from under a half-typed title); end edits via `blur()`, never
 `Keyboard.dismiss()` (dismissing leaves the input focused, so the next tap never
 fires the committing blur); an emptied title reverts for an existing row but
-discards a never-saved one, decided by *origin*, not stored state; editing is
+discards a never-saved one, decided by _origin_, not stored state; editing is
 disabled once the task completes (unchecking a swept subtask restores the state
 the sweep prevents); clearing edit mode on commit is guarded by row id, because
-the outgoing row's cleanup runs *after* `editing` moved to the next row.
+the outgoing row's cleanup runs _after_ `editing` moved to the next row.
 
 `TaskCard` renders `task.subtasks` directly plus at most one never-persisted
 `pending` row (an empty subtask fails MCP validation and would disable the
@@ -829,7 +834,7 @@ outright.
 **Repeat tasks recur in TypeScript, not Postgres.** Completing a task linked to a
 `repeat_task_templates` row creates the next occurrence via
 `src/utils/repeatSchedule.ts` (croner-backed, shared over `@src/`); the old
-Postgres trigger was dropped. `delete_task` also deletes a linked *scheduled*
+Postgres trigger was dropped. `delete_task` also deletes a linked _scheduled_
 template so occurrences stop — a scheduleless one is a saved template the user may
 still stamp from, and survives.
 
@@ -839,19 +844,19 @@ both; switching between them is writing or clearing `schedule`. The column has
 **no default**, so every insert must state its schedule — `create_template` with
 `schedule` omitted creates a task template.
 
-**The one-open-task invariant.** Recurrence spawns from *completing* a linked
+**The one-open-task invariant.** Recurrence spawns from _completing_ a linked
 task, so:
 
-- *Don't create a second chain.* `maybeCreateNextRecurringTask` (app) and
+- _Don't create a second chain._ `maybeCreateNextRecurringTask` (app) and
   `hasOpenTaskForTemplate` (`functions/mcp-server/tools/recurrence.ts`, DEX-94)
   both skip the spawn when another open task links to the template; a failed
   lookup reads as "has one", because an extra chain is silent and permanent while
   a stalled repeat is surfaced and repairable. The app can safely ask the server
   in `onSuccess` because the completing task is already terminal.
-- *Don't leave zero.* `seedNextOccurrence` fires when a row gains a cadence
+- _Don't leave zero._ `seedNextOccurrence` fires when a row gains a cadence
   (`getFirstOccurrence` counts today); `create_template`/`update_template` seed a
   first occurrence best-effort, never failing the template write.
-- *Say so when it hits zero anyway.* The spawn is fire-and-forget, so Settings →
+- _Say so when it hits zero anyway._ The spawn is fire-and-forget, so Settings →
   Tasks flags a stalled repeat with a ▶ that calls literally the same code path.
 - Deliberately not applied to `create_task`/`update_task`'s `templateId` — the app
   has the same gap, and the ▶ repair covers it.
@@ -882,7 +887,7 @@ recurred occurrence copies the template's, so repeats keep their alarm.
   the past: a SwiftUI `DatePicker` given a range excluding its selection **clamps
   it and writes the clamped value back**, so keeping the bound would move the
   alarm just by opening the modal.
-- The reconcile's session cache keys on **`alarmSignature`** — time, title, *and*
+- The reconcile's session cache keys on **`alarmSignature`** — time, title, _and_
   sound — because AlarmKit reports back only ids, so an edit that moves no fire
   time is otherwise invisible (sound switches and retitles used to be).
 - **AlarmKit holds more than task alarms**, so the reconcile's cancel sweep takes
@@ -892,7 +897,7 @@ recurred occurrence copies the template's, so repeats keep their alarm.
 - **The colours are baked in when an alarm is scheduled, and never repainted.**
   An `AlarmAttributes` colour is fixed at schedule time, so recolouring an alarm
   AlarmKit already holds means cancelling and re-scheduling it. They are
-  therefore kept *out* of `alarmSignature`: changing theme recolours the alarms
+  therefore kept _out_ of `alarmSignature`: changing theme recolours the alarms
   set after the change and leaves the rest, which for something as short-lived as
   an alarm is the cheaper trade. Tracking the live palette instead would
   re-schedule every alarm twice a day on its own for anyone on
@@ -912,11 +917,11 @@ recurred occurrence copies the template's, so repeats keep their alarm.
   holding the loser's sound).
 - The widget extension (`src/targets/DexterAlarmWidget/`,
   `@bacons/apple-targets`) must keep its metadata struct named exactly `Meta` to
-  match what `expo-alarm-kit` schedules — ActivityKit matches on the *unqualified*
+  match what `expo-alarm-kit` schedules — ActivityKit matches on the _unqualified_
   type name, which is why a struct in the widget's module matches one declared in
   the module's, and why renaming it breaks the lock screen with no compile error
   on either side. All of this is native: dev-client rebuild, never OTA. (A JS-only
-  OTA *can* reach an older native binary, and degrades safely — ExpoModulesCore's
+  OTA _can_ reach an older native binary, and degrades safely — ExpoModulesCore's
   `Record` ignores dictionary keys it doesn't know.)
 - Alarm sounds: `ALARM_SOUNDS` in `alarms.shared.ts` maps stored values to bundled
   filenames and resolves **unknown values to `undefined`** (a newer build's sound
@@ -962,7 +967,7 @@ transition writes both halves of the anchor or is rejected.
   is the detour DEX-98 removed. `total_seconds` is still per-row, so per-block
   lengths need no migration if that changes.
 - **The menu row has three states and the third is the point**: start, stop the
-  block running on *this* task, or — while another task's block runs — no row at
+  block running on _this_ task, or — while another task's block runs — no row at
   all. Offering "start" there would silently cancel a block the user may be
   twenty minutes into, and `MoreMenu` renders no confirmation.
 
@@ -1018,7 +1023,7 @@ setting, and no new Swift target: the DEX-48 widget already renders
   `expo-alarm-kit` (DEX-158) — `AlarmPresentation.Countdown.pauseButton` is
   optional in AlarmKit, but the published module built one unconditionally.
   Consequence worth knowing: since `AlarmPresentation.Paused.resumeButton` is
-  *not* optional, there is no "paused, no button" presentation, so pausing in the
+  _not_ optional, there is no "paused, no button" presentation, so pausing in the
   app cancels the alarm and the countdown leaves the lock screen until you
   resume.
 - **Task alarms and focus alarms share one id namespace**, so `reconcileAlarms`
@@ -1030,7 +1035,7 @@ setting, and no new Swift target: the DEX-48 widget already renders
   preferences. An unloaded query and "no block" look identical, and acting on the
   first cancels a running block's timer at launch.
 - **A block inside its last minute gets no alarm at all** — AlarmKit's floor is
-  60 seconds and `scheduleTimerAlarm` *throws* below it rather than returning
+  60 seconds and `scheduleTimerAlarm` _throws_ below it rather than returning
   `false`. The in-app timeout still ends it on time whenever the app is open, so
   the loss is a ring for a block backgrounded during its final minute.
 - `dismissPayload` carries the block id and nothing reads it yet: pressing Stop
@@ -1078,13 +1083,13 @@ a step. They live in `src/targets/DexterAlarmWidget/` —
 `utils/widgets.shared.ts`.
 
 - **The widget renders a snapshot; it never fetches.** The Supabase session lives
-  in AsyncStorage inside the *app* container, which an extension cannot read.
+  in AsyncStorage inside the _app_ container, which an extension cannot read.
   Mirroring it into the App Group was rejected on a specific hazard, not on
   effort: Supabase rotates refresh tokens with a 10-second reuse interval and
   revokes the whole session on a reuse outside it, so a widget refreshing on its
   own 40-70×/day would leave the app's stored token generations behind and sign
   the user out. It would also restate `canonicalTaskFilters` in Swift. The cost
-  accepted instead is that edits made on *another* device (web, MCP, a second
+  accepted instead is that edits made on _another_ device (web, MCP, a second
   phone) are stale until this one next runs the app.
 - **The payload carries four days, and that is what makes the rollover free.**
   The timeline emits an entry per upcoming local midnight, each re-slicing the
@@ -1093,7 +1098,7 @@ a step. They live in `src/targets/DexterAlarmWidget/` —
   fourth day `day(on:)` finds nothing and the widget says "Open Dexter" rather
   than presenting a stale day as today's — which is also why the accessory's
   empty state distinguishes "All done!" from having no snapshot at all.
-- **The habit payload builds *every* day from `habits`, today included, and
+- **The habit payload builds _every_ day from `habits`, today included, and
   overlays progress from the daily rows.** Not an accident of sharing code with
   the future days: `daily_habits` rows are created by an effect in
   `HabitTracker`, so a user who has not opened the Today tab has none at all, and
@@ -1103,13 +1108,13 @@ a step. They live in `src/targets/DexterAlarmWidget/` —
   are the general case rather than a branch.
 - **Both palettes ship, because the extension cannot read
   `preferences.theme_mode`.** `useWidgetSync` calls `resolveTheme` twice and
-  SwiftUI picks with `@Environment(\.colorScheme)`. A user who has *forced* light
+  SwiftUI picks with `@Environment(\.colorScheme)`. A user who has _forced_ light
   or dark gets that palette in both halves, so the widget correctly stops
   following the OS. `textSecondary` and `priorityMuted` are deliberately absent:
   the first is an `rgba()` string the `#rrggbb` parser can't read (the dimmed ink
   is `.opacity(0.6)` in Swift), the second is blended at module load.
 - **iOS renders lock screen accessories in `WidgetRenderingMode.vibrant`,
-  desaturating them to monochrome.** Priority reaches that surface as *brightness*
+  desaturating them to monochrome.** Priority reaches that surface as _brightness_
   and never as hue, whatever colour is sent — the platform, not a bug to chase,
   and the reason the accessory view applies no palette and no container
   background at all.

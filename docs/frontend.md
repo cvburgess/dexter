@@ -313,10 +313,10 @@ The four-file pattern (`.types.ts` / `.native.tsx` / `.web.tsx` / a `.tsx`
 re-exporting native so `tsc` — which doesn't do platform-extension resolution —
 can resolve the import). Notable splits:
 
-- `NoteEditor`: native wraps `react-native-enriched-markdown` (uncontrolled, and
-  its enclosing `ScrollView` is what dismisses the keyboard); web is the
-  **read-only** renderer (upstream #392), which needs `md4cFlags.hardSoftBreaks`
-  or it collapses newline-per-Enter into one paragraph. Native → dev-client rebuild.
+- `NoteEditor`: native wraps `react-native-enriched-markdown` (uncontrolled); web
+  is the **read-only** renderer (upstream #392), which needs
+  `md4cFlags.hardSoftBreaks` or it collapses newline-per-Enter into one
+  paragraph. Native module → dev-client rebuild.
 - `SearchField`: two files only; the native half renders `null` and can't be
   unit-tested — device-only verification.
 - `GlassIconButton`: liquid glass on iOS with plain-circle fallback; needs an
