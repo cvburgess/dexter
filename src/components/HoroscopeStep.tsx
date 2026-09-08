@@ -175,7 +175,13 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
       reveal.value = 0;
       return;
     }
-    if (seen || reduceMotion) {
+    if (seen) {
+      reveal.value = 1;
+      return;
+    }
+    // Marked whether or not it animates — this also gates the audio below.
+    markRevealed();
+    if (reduceMotion) {
       reveal.value = 1;
       return;
     }
@@ -186,7 +192,6 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
       duration: REVEAL_MS,
       easing: Easing.linear,
     });
-    markRevealed();
   }, [markRevealed, reduceMotion, reveal, revealDate, seen]);
 
   // Read straight off the scroller so the scroll-driven fades below never

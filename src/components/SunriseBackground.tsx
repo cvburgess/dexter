@@ -127,6 +127,8 @@ export function SunriseBackground({ revealKey }: TSunriseBackgroundProps) {
       rise.value = 0;
       return;
     }
+    // Marked whether or not it animates — see useHeroReveal.
+    markRevealed();
     if (reduceMotion) {
       rise.value = 1;
       return;
@@ -138,7 +140,6 @@ export function SunriseBackground({ revealKey }: TSunriseBackgroundProps) {
       // curve; easing this would bunch all five arrivals together.
       easing: Easing.linear,
     });
-    markRevealed();
   }, [markRevealed, ready, reduceMotion, rise, revealKey, seen]);
 
   return (

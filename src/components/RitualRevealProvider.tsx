@@ -16,7 +16,8 @@ export type TStepReveal = {
   /** `null` while the device read is in flight — drivers wait rather than
    * animating against an answer that may still say "already seen". */
   seen: boolean | null;
-  /** Called by a driver the moment it starts a real animation. */
+  /** Called by a driver once the step's content is on screen. Only valid while
+   * `seen` is false — calling it after a `true` would un-mark the step. */
   markRevealed: () => void;
 };
 

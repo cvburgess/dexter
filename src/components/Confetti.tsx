@@ -153,6 +153,12 @@ export function Confetti({ revealKey }: TConfettiProps) {
       fall.value = 0;
       return;
     }
+    // Marked whether or not it bursts — see useHeroReveal.
+    markRevealed();
+    if (reduceMotion) {
+      fall.value = 0;
+      return;
+    }
     fall.value = 0;
     fall.value = withTiming(1, {
       duration: CONFETTI_MS,
@@ -160,8 +166,7 @@ export function Confetti({ revealKey }: TConfettiProps) {
       // same as SunriseBackground/useHeroReveal.
       easing: Easing.linear,
     });
-    markRevealed();
-  }, [fall, markRevealed, ready, revealKey, seen]);
+  }, [fall, markRevealed, ready, reduceMotion, revealKey, seen]);
 
   // A revisit joins the reduced-motion path rather than settling: the burst's
   // end state is paper hanging mid-air.

@@ -47,9 +47,18 @@ export function useHeroReveal(revealKey: string | null): SharedValue<number> {
       reveal.value = 0;
       return;
     }
-    if (seen || reduceMotion) {
+    if (seen) {
       // Assigned, not skipped: a plain write cancels whatever's running,
       // stopping a reveal mid-flight if the setting flips while on screen.
+      reveal.value = 1;
+      return;
+    }
+    // Arriving with the content loaded is the visit, reduced motion included —
+    // the horoscope's audio hangs off this too, and gating it only for users
+    // who see animations would leave the track replaying for everyone else.
+    // Only ever reached with `seen` false, or it would un-mark the step.
+    markRevealed();
+    if (reduceMotion) {
       reveal.value = 1;
       return;
     }
@@ -60,9 +69,6 @@ export function useHeroReveal(revealKey: string | null): SharedValue<number> {
       // windows rather than the easing of the driver behind them.
       easing: Easing.linear,
     });
-    // Not on the reduced-motion path above: nothing was shown, so turning the
-    // setting off later that day should still earn one real reveal.
-    markRevealed();
   }, [markRevealed, reduceMotion, reveal, revealKey, seen]);
 
   return reveal;
