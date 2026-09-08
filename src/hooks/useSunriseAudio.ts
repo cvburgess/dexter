@@ -1,0 +1,196 @@
+import { useFocusEffect } from "expo-router";
+import { useCallback, useRef } from "react";
+import { AudioContext, type OscillatorNode } from "react-native-audio-api";
+
+import { BAND_WINDOWS, SUNRISE_MS } from "@/components/SunriseBackground";
+import "@/utils/audio";
+
+// Matches SummaryStep's CONTENT_FADE_MS — the figures' own fade. Not imported
+// from there: that module imports this one, and a cycle costs more than a copy.
+const SETTLE_MS = 1800;
+
+// A harmonic stack on A2, one partial per band. Anything but whole multiples of
+// the fundamental would be a chord, and a chord is a mood the sky hasn't picked.
+const PARTIALS = [110, 220, 330, 440, 550];
+
+// Only the fundamental has harmonics for the lowpass below to shape; the
+// partials above it *are* those harmonics, and a triangle up there is hash.
+const WAVE = (index: number) => (index === 0 ? "triangle" : "sine");
+
+// Two oscillators per partial, this far either side. The slow beating between
+// them is the warmth; much wider and it speeds up into roughness.
+const DETUNE_CENTS = 4;
+
+// Swept across the rise, not fixed: light arriving reads as a spectrum opening,
+// which is the one sunrise-shaped gesture available without a sample.
+const LOWPASS_FROM_HZ = 400;
+const LOWPASS_TO_HZ = 1800;
+
+// Read as decibels, not a percentage: gain is linear amplitude against a
+// logarithmic ear, so halving this is only −6dB. Same register as the horoscope.
+const MAX_VOLUME = 0.1;
+
+// Falls off as 1/n so the fundamental stays the note and the partials stay
+// overtones of it rather than five notes at once.
+const WEIGHTS = PARTIALS.map((_, index) => 1 / (index + 1));
+const WEIGHT_SUM = WEIGHTS.reduce((sum, weight) => sum + weight, 0);
+
+// Shorter than the settle on purpose: this answers someone who has already
+// swiped away, so anything slower follows them onto the next step.
+const EXIT_FADE_MS = 1200;
+
+// A start time already in the past gets clamped to now, stretching a curve into
+// the next one's boundary — which throws. A beat of lead-in avoids that.
+const LEAD_IN_SECONDS = 0.05;
+
+const easeOut = (t: number) => Math.sin((Math.PI / 2) * t);
+const easeInOut = (t: number) => (1 - Math.cos(Math.PI * t)) / 2;
+
+// Enough to read as a curve rather than a staircase, and far inside the
+// library's 64-event-per-param budget (DEX-187) since each curve is one event.
+const CURVE_STEPS = 24;
+
+// A fade has to be a curve too: one straight ramp holds up near full and then
+// drops out from under a logarithmic ear.
+const FADE_STEPS = 12;
+
+const sample = (shape: (t: number) => number) =>
+  Float32Array.from({ length: CURVE_STEPS + 1 }, (_, step) =>
+    shape(step / CURVE_STEPS),
+  );
+
+// Most of the drop early, like a room letting go — the same shape a finished
+// breathing run settles with.
+const DECAY = sample((t) => 1 - easeOut(t));
+
+/** Where the envelope sits, as a fraction of its peak, `ms` in. */
+const levelAt = (ms: number) => {
+  if (ms <= SUNRISE_MS) return 1;
+  const settled = Math.min(1, (ms - SUNRISE_MS) / SETTLE_MS);
+  return 1 - easeOut(settled);
+};
+
+// Module scope because a fade outlives the effect that started it, and nothing
+// else could cut one short. Only one Summary step is ever on screen.
+let fadingOut: {
+  context: AudioContext;
+  timer: ReturnType<typeof setTimeout>;
+} | null = null;
+
+/** Ends any fade still in flight, at once. */
+const stopFadingOut = () => {
+  if (!fadingOut) return;
+
+  clearTimeout(fadingOut.timer);
+  void fadingOut.context.close();
+  fadingOut = null;
+};
+
+// Sounds the Summary step's sunrise (DEX-198): a warm stack swelling with the
+// bands and settling as the figures arrive. `revealKey` is the day, or null to
+// stay silent — the caller owns the gating (loading, blank day, reduced motion).
+export function useSunriseAudio(revealKey: string | null) {
+  // Focus-scoped audio against a component-scoped animation: coming back from
+  // another tab finds `rise` already settled, so a replay would swell at a
+  // static sky. Swiping in unmounts and remounts, which clears this.
+  const scheduledFor = useRef<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!revealKey) {
+        scheduledFor.current = null;
+        // Registered even here, so leaving after the envelope has finished
+        // still has something to cut a fade with.
+        return stopFadingOut;
+      }
+      if (scheduledFor.current === revealKey) return;
+      scheduledFor.current = revealKey;
+
+      // Before anything is created, so at most one sunrise is ever audible.
+      stopFadingOut();
+
+      const context = new AudioContext();
+      const startedAt = context.currentTime + LEAD_IN_SECONDS;
+      const at = (ms: number) => startedAt + ms / 1000;
+      const endsAt = at(SUNRISE_MS + SETTLE_MS);
+
+      // Everything lands here, so one hold-and-ramp on the way out covers the
+      // whole stack rather than five envelopes racing each other down.
+      const master = context.createGain();
+      master.gain.setValueAtTime(MAX_VOLUME, startedAt);
+      master.gain.setValueCurveAtTime(DECAY, at(SUNRISE_MS), SETTLE_MS / 1000);
+      master.connect(context.destination);
+
+      const lowpass = context.createBiquadFilter();
+      lowpass.type = "lowpass";
+      lowpass.frequency.setValueAtTime(LOWPASS_FROM_HZ, startedAt);
+      lowpass.frequency.linearRampToValueAtTime(LOWPASS_TO_HZ, at(SUNRISE_MS));
+      lowpass.connect(master);
+
+      const oscillators: OscillatorNode[] = [];
+
+      PARTIALS.forEach((hz, index) => {
+        const [from, to] = BAND_WINDOWS[index];
+
+        const gain = context.createGain();
+        // Only where the window opens later: the library rejects an event
+        // inside a curve's span, and a curve opening at `startedAt` carries its
+        // own leading zero anyway, so anchoring both there risks a throw.
+        if (from > 0) gain.gain.setValueAtTime(0, startedAt);
+        gain.connect(lowpass);
+
+        for (const cents of [-DETUNE_CENTS, DETUNE_CENTS]) {
+          const oscillator = context.createOscillator();
+          oscillator.type = WAVE(index);
+          oscillator.frequency.setValueAtTime(hz, startedAt);
+          oscillator.detune.setValueAtTime(cents, startedAt);
+          oscillator.connect(gain);
+          oscillator.start(startedAt);
+          oscillators.push(oscillator);
+        }
+
+        // Halved across the detune pair, so a partial cannot sum past the
+        // share of MAX_VOLUME its weight bought it.
+        const peak = WEIGHTS[index] / WEIGHT_SUM / 2;
+        gain.gain.setValueCurveAtTime(
+          sample((t) => easeInOut(t) * peak),
+          at(from * SUNRISE_MS),
+          ((to - from) * SUNRISE_MS) / 1000,
+        );
+      });
+
+      return () => {
+        const now = context.currentTime;
+        const stopsAt = Math.min(endsAt, now + EXIT_FADE_MS / 1000);
+
+        // cancelAndHold leaves the opening ceiling as the last event, so an
+        // unanchored ramp would slope from full — a jump, not a fade. Anchored
+        // at where the envelope has actually got to instead.
+        master.gain.cancelAndHoldAtTime(now);
+        const level = MAX_VOLUME * levelAt((now - startedAt) * 1000);
+        master.gain.setValueAtTime(level, now);
+        for (let step = 1; step <= FADE_STEPS; step += 1) {
+          const t = step / FADE_STEPS;
+          master.gain.linearRampToValueAtTime(
+            (1 - easeInOut(t)) * level,
+            now + ((EXIT_FADE_MS / 1000) * step) / FADE_STEPS,
+          );
+        }
+
+        // Clamped: past the natural end the oscillators have already stopped,
+        // and re-stopping a finished node is not the library's happy path.
+        for (const oscillator of oscillators) oscillator.stop(stopsAt);
+
+        // Closing tears the graph down wherever it is, so it waits out the
+        // fade. A timer only because `close()` has no scheduled form.
+        const timer = setTimeout(() => {
+          void context.close();
+          // A new sunrise may already have claimed the slot.
+          if (fadingOut?.context === context) fadingOut = null;
+        }, EXIT_FADE_MS);
+
+        fadingOut = { context, timer };
+      };
+    }, [revealKey]),
+  );
+}

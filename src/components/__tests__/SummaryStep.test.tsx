@@ -14,7 +14,17 @@ import { SummaryStep } from "../SummaryStep";
 // useTasks imports the supabase client from useAuth, which reads the app's URI
 // scheme at module scope — not available under Jest.
 jest.mock("@/hooks/useAuth", () => ({ supabase: {} }));
-jest.mock("expo-router", () => ({ useRouter: jest.fn() }));
+// `useFocusEffect` stands in as mount/unmount for `useSunriseAudio`; the audio
+// graph is inert here (jest.setup.js), so nothing in this file hears anything.
+jest.mock("expo-router", () => {
+  const { useEffect } = require("react");
+  return {
+    useFocusEffect: (effect: () => void | (() => void)) => {
+      useEffect(() => effect(), [effect]);
+    },
+    useRouter: jest.fn(),
+  };
+});
 jest.mock("@/hooks/useTasks", () => ({
   ...jest.requireActual<typeof import("@/hooks/useTasks")>("@/hooks/useTasks"),
   useTasks: jest.fn(),
