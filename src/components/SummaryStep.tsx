@@ -23,6 +23,7 @@ import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { habitFilters, useHabits } from "@/hooks/useHabits";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useSunriseAudio } from "@/hooks/useSunriseAudio";
 import { useTasks } from "@/hooks/useTasks";
 import { ritualStepInsetTop } from "@/utils/ritualSteps";
 import { selectTasksForDate } from "@/utils/taskFilters";
@@ -98,6 +99,10 @@ export function SummaryStep({ date }: TSummaryStepProps) {
 
   const total = counts.reduce((sum, line) => sum + line.count, 0);
   const isLoading = habitsLoading || eventsLoading || tasksLoading;
+
+  // Gated on what mounts the sunrise, not on the step: a blank day draws no
+  // bands, and reduced motion skips straight to their end state (DEX-198).
+  useSunriseAudio(!isLoading && total > 0 && !reduceMotion ? day : null);
 
   // Blank-day driver only — its message/button still stagger since there's no
   // sunrise to sequence against. Null on every other path.

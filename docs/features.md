@@ -254,6 +254,12 @@ and lost the leg's release (DEX-187), so each leg is **two `setValueCurveAtTime`
 calls** instead: a curve is one event however finely it is sampled. Browsers
 impose no such bound, so it only ever misbehaved on device.
 
+**A param the exit fade must reshape cannot carry a curve (DEX-198).**
+`cancelAndHoldAtTime` truncates a `setValueCurveAtTime` rather than removing it,
+and the library rejects a new event inside a curve's span — so the sunrise's
+settle is stepped ramps on its master gain, and curves live only where nothing
+cancels them. Same reason an event may not sit on a curve's own start.
+
 **A voice's filter may only feed one gain.** `GainNode` multiplies its input
 buffer in place, and the graph hands every consumer of a node the same buffer —
 so a filter fanned out to several gains has each of them scaling the output of

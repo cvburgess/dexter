@@ -25,7 +25,9 @@ const BANDS = [
 // One driver, [from, to] window per band, uneven and overlapping ~2/3.
 // Exported so the step can wait for the sky to settle — see SummaryStep.
 export const SUNRISE_MS = 2200;
-const BAND_WINDOWS = [
+// Also exported: useSunriseAudio swells one partial per window, so the sound
+// arrives with the bands rather than on a schedule of its own.
+export const BAND_WINDOWS = [
   [0, 0.22],
   [0.14, 0.47],
   [0.28, 0.61],
