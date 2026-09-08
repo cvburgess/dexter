@@ -86,6 +86,7 @@ export function NoteEditor({
         contextMenuItems={menuItems}
         cursorColor={theme.colors.primary}
         defaultValue={initialValue}
+        markdownShortcuts
         markdownStyle={inputStyle}
         multiline
         onBlur={() => {

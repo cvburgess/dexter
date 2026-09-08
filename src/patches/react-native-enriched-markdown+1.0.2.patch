@@ -1,0 +1,307 @@
+diff --git a/node_modules/react-native-enriched-markdown/ios/generated/ReactCodegen/EnrichedMarkdownTextSpec/Props.cpp b/node_modules/react-native-enriched-markdown/ios/generated/ReactCodegen/EnrichedMarkdownTextSpec/Props.cpp
+index 9042352..90e8605 100644
+--- a/node_modules/react-native-enriched-markdown/ios/generated/ReactCodegen/EnrichedMarkdownTextSpec/Props.cpp
++++ b/node_modules/react-native-enriched-markdown/ios/generated/ReactCodegen/EnrichedMarkdownTextSpec/Props.cpp
+@@ -154,6 +154,7 @@ EnrichedMarkdownTextInputProps::EnrichedMarkdownTextInputProps(
+     editable(convertRawProp(context, rawProps, "editable", sourceProps.editable, {false})),
+     autoFocus(convertRawProp(context, rawProps, "autoFocus", sourceProps.autoFocus, {false})),
+     scrollEnabled(convertRawProp(context, rawProps, "scrollEnabled", sourceProps.scrollEnabled, {false})),
++    markdownShortcuts(convertRawProp(context, rawProps, "markdownShortcuts", sourceProps.markdownShortcuts, {false})),
+     autoCapitalize(convertRawProp(context, rawProps, "autoCapitalize", sourceProps.autoCapitalize, {})),
+     multiline(convertRawProp(context, rawProps, "multiline", sourceProps.multiline, {false})),
+     cursorColor(convertRawProp(context, rawProps, "cursorColor", sourceProps.cursorColor, {})),
+@@ -212,6 +213,10 @@ folly::dynamic EnrichedMarkdownTextInputProps::getDiffProps(
+     result["scrollEnabled"] = scrollEnabled;
+   }
+     
++  if (markdownShortcuts != oldProps->markdownShortcuts) {
++    result["markdownShortcuts"] = markdownShortcuts;
++  }
++    
+   if (autoCapitalize != oldProps->autoCapitalize) {
+     result["autoCapitalize"] = autoCapitalize;
+   }
+diff --git a/node_modules/react-native-enriched-markdown/ios/generated/ReactCodegen/EnrichedMarkdownTextSpec/Props.h b/node_modules/react-native-enriched-markdown/ios/generated/ReactCodegen/EnrichedMarkdownTextSpec/Props.h
+index 1416540..8dfe01b 100644
+--- a/node_modules/react-native-enriched-markdown/ios/generated/ReactCodegen/EnrichedMarkdownTextSpec/Props.h
++++ b/node_modules/react-native-enriched-markdown/ios/generated/ReactCodegen/EnrichedMarkdownTextSpec/Props.h
+@@ -3705,6 +3705,7 @@ class EnrichedMarkdownTextInputProps final : public ViewProps {
+   bool editable{false};
+   bool autoFocus{false};
+   bool scrollEnabled{false};
++  bool markdownShortcuts{false};
+   std::string autoCapitalize{};
+   bool multiline{false};
+   SharedColor cursorColor{};
+diff --git a/node_modules/react-native-enriched-markdown/ios/input/ENRMMarkdownShortcutMatcher.h b/node_modules/react-native-enriched-markdown/ios/input/ENRMMarkdownShortcutMatcher.h
+new file mode 100644
+index 0000000..e8fdb20
+--- /dev/null
++++ b/node_modules/react-native-enriched-markdown/ios/input/ENRMMarkdownShortcutMatcher.h
+@@ -0,0 +1,22 @@
++#pragma once
++
++#import "ENRMInputBlockType.h"
++#import <Foundation/Foundation.h>
++
++NS_ASSUME_NONNULL_BEGIN
++
++/// Recognizes the markdown block prefixes a user types at the start of a
++/// paragraph — `#`…`######`, `-`/`*`/`+`, `1.`/`1)` — so the input can turn the
++/// paragraph into the matching block and drop the prefix (Notion-style
++/// markdown shortcuts). Pure text matching; the caller owns the mutation.
++@interface ENRMMarkdownShortcutMatcher : NSObject
++
++/// Matches `prefix` (the paragraph text before the space the user just typed,
++/// with no leading whitespace) against the shortcut grammar. Returns YES and
++/// fills `outType`/`outLevel` on a match. Ordered items match any number —
++/// the block store renumbers ordinals, so `3.` on a fresh line still starts at 1.
+++ (BOOL)matchPrefix:(NSString *)prefix outType:(ENRMInputBlockType *)outType outLevel:(NSInteger *)outLevel;
++
++@end
++
++NS_ASSUME_NONNULL_END
+diff --git a/node_modules/react-native-enriched-markdown/ios/input/ENRMMarkdownShortcutMatcher.mm b/node_modules/react-native-enriched-markdown/ios/input/ENRMMarkdownShortcutMatcher.mm
+new file mode 100644
+index 0000000..37b55ab
+--- /dev/null
++++ b/node_modules/react-native-enriched-markdown/ios/input/ENRMMarkdownShortcutMatcher.mm
+@@ -0,0 +1,57 @@
++#import "ENRMMarkdownShortcutMatcher.h"
++
++/// Upper bound on the digits accepted before `.`/`)`. Anything longer is a
++/// number the user is writing, not a list marker.
++static const NSUInteger kENRMMaxOrderedMarkerDigits = 9;
++
++@implementation ENRMMarkdownShortcutMatcher
++
+++ (BOOL)matchPrefix:(NSString *)prefix outType:(ENRMInputBlockType *)outType outLevel:(NSInteger *)outLevel
++{
++  NSUInteger length = prefix.length;
++  if (length == 0) {
++    return NO;
++  }
++
++  unichar first = [prefix characterAtIndex:0];
++
++  // `#`{1,6} → heading at that level.
++  if (first == '#') {
++    if (length > 6) {
++      return NO;
++    }
++    for (NSUInteger i = 1; i < length; i++) {
++      if ([prefix characterAtIndex:i] != '#') {
++        return NO;
++      }
++    }
++    *outType = ENRMBlockTypeForHeadingLevel((NSInteger)length);
++    *outLevel = (NSInteger)length;
++    return YES;
++  }
++
++  // `-`, `*`, `+` → bullet item at depth 0.
++  if (length == 1 && (first == '-' || first == '*' || first == '+')) {
++    *outType = ENRMInputBlockTypeUnorderedListItem;
++    *outLevel = 0;
++    return YES;
++  }
++
++  // digits followed by `.` or `)` → numbered item at depth 0.
++  unichar last = [prefix characterAtIndex:length - 1];
++  if ((last == '.' || last == ')') && length >= 2 && length - 1 <= kENRMMaxOrderedMarkerDigits) {
++    for (NSUInteger i = 0; i < length - 1; i++) {
++      unichar c = [prefix characterAtIndex:i];
++      if (c < '0' || c > '9') {
++        return NO;
++      }
++    }
++    *outType = ENRMInputBlockTypeOrderedListItem;
++    *outLevel = 0;
++    return YES;
++  }
++
++  return NO;
++}
++
++@end
+diff --git a/node_modules/react-native-enriched-markdown/ios/input/EnrichedMarkdownTextInput.mm b/node_modules/react-native-enriched-markdown/ios/input/EnrichedMarkdownTextInput.mm
+index 9a9987e..54985a6 100644
+--- a/node_modules/react-native-enriched-markdown/ios/input/EnrichedMarkdownTextInput.mm
++++ b/node_modules/react-native-enriched-markdown/ios/input/EnrichedMarkdownTextInput.mm
+@@ -20,6 +20,7 @@
+ #import "ENRMInputTypingAttributesController.h"
+ #import "ENRMLinkCoordinator.h"
+ #import "ENRMLinkRegexConfig.h"
++#import "ENRMMarkdownShortcutMatcher.h"
+ #import "ENRMMentionCoordinator.h"
+ #import "ENRMStyleHandler.h"
+ #import "ENRMStyleMergingConfig.h"
+@@ -110,6 +111,7 @@ @implementation EnrichedMarkdownTextInput {
+   ENRMLinkCoordinator *_linkCoordinator;
+   ENRMClipboardCoordinator *_clipboardCoordinator;
+ 
++  BOOL _markdownShortcutsEnabled;
+   ENRMWritingDirectionMode _writingDirectionMode;
+   NSWritingDirection _resolvedLayoutDirection;
+ 
+@@ -386,6 +388,9 @@ - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &
+   if (newViewProps.scrollEnabled != oldViewProps.scrollEnabled) {
+     _textView.scrollEnabled = newViewProps.scrollEnabled;
+   }
++  if (newViewProps.markdownShortcuts != oldViewProps.markdownShortcuts) {
++    _markdownShortcutsEnabled = newViewProps.markdownShortcuts;
++  }
+ 
+   if (newViewProps.autoCapitalize != oldViewProps.autoCapitalize) {
+     NSString *value = [NSString stringWithUTF8String:newViewProps.autoCapitalize.c_str()];
+@@ -1572,6 +1577,70 @@ - (ENRMInputTypingAttributesController *)typingController
+ 
+ #pragma mark - Text edit tracking
+ 
++/// Markdown shortcuts: when the user types a space after `#`…`######`,
++/// `-`/`*`/`+` or `1.`/`1)` at the start of a plain paragraph, drop the prefix
++/// and make the paragraph that block. Runs after the stores are adjusted for the
++/// edit and before scoped formatting. Returns YES when it converted, in which
++/// case the replace path has already reformatted and emitted.
++- (BOOL)applyMarkdownShortcutForEditAtLocation:(NSUInteger)editLocation
++                                insertedLength:(NSUInteger)insertedLength
++                              preEditBlockType:(ENRMInputBlockType)preEditBlockType
++{
++  if (!_markdownShortcutsEnabled || insertedLength == 0 || preEditBlockType != ENRMInputBlockTypeParagraph) {
++    return NO;
++  }
++
++  NSString *text = ENRMGetPlainText(_textView);
++  if (editLocation >= text.length) {
++    return NO;
++  }
++  NSUInteger insertedEnd = MIN(editLocation + insertedLength, text.length);
++
++  // The trigger is the first space inside the inserted run — a single
++  // keystroke in the common case, a whole token when autocorrect or an
++  // automation inserts several characters at once.
++  NSUInteger spaceIndex = NSNotFound;
++  for (NSUInteger i = editLocation; i < insertedEnd; i++) {
++    if ([text characterAtIndex:i] == ' ') {
++      spaceIndex = i;
++      break;
++    }
++  }
++  if (spaceIndex == NSNotFound) {
++    return NO;
++  }
++
++  NSUInteger lineStart = [text paragraphRangeForRange:NSMakeRange(spaceIndex, 0)].location;
++  if (spaceIndex == lineStart || [_blockCoordinator blockAtPosition:lineStart inText:text] != nil) {
++    return NO;
++  }
++
++  NSString *prefix = [text substringWithRange:NSMakeRange(lineStart, spaceIndex - lineStart)];
++  ENRMInputBlockType type = ENRMInputBlockTypeParagraph;
++  NSInteger level = 0;
++  if (![ENRMMarkdownShortcutMatcher matchPrefix:prefix outType:&type outLevel:&level]) {
++    return NO;
++  }
++
++  NSRange prefixRange = NSMakeRange(lineStart, spaceIndex + 1 - lineStart);
++  NSRange caretBefore = _textView.selectedRange;
++
++  // A zero-length range at the line start: the store expands it to the whole
++  // paragraph, and on an emptied line it persists as the block's anchor.
++  ENRMBlockRange *block = [ENRMBlockRange rangeWithType:type range:NSMakeRange(0, 0) level:level];
++  [self replaceTextInRange:prefixRange withText:@"" formattingRanges:@[] blockRanges:@[ block ]];
++
++  if (caretBefore.location >= NSMaxRange(prefixRange)) {
++    NSUInteger caret = caretBefore.location - prefixRange.length;
++    _textView.selectedRange = NSMakeRange(MIN(caret, ENRMGetPlainText(_textView).length), 0);
++  }
++  _lastSelectedRange = _textView.selectedRange;
++
++  [_typingController syncWithCursorBlock];
++  [self updateEmptyBulletMarker];
++  return YES;
++}
++
+ - (void)handleTextChanged
+ {
+   if (_editSession.isComposing) {
+@@ -1615,6 +1684,7 @@ - (void)handleTextChanged
+                                                       pendingStyleRemovals:_typingController.pendingStyleRemovals];
+ 
+   BOOL touchedNewline = [_editPipeline processTextChangeWithContext:context];
++  ENRMInputBlockType preEditBlockType = _preEditBlockType;
+ 
+   // Consumed: clear pre-edit state so stale values can't leak to the next edit.
+   _preEditBlockType = ENRMInputBlockTypeParagraph;
+@@ -1624,6 +1694,14 @@ - (void)handleTextChanged
+ 
+   _lastTextLength = newLength;
+ 
++  // A typed markdown prefix turns the paragraph into a block; the replace path
++  // reformats and emits on its own, so the rest of this pass is redundant.
++  if ([self applyMarkdownShortcutForEditAtLocation:editLocation
++                                    insertedLength:insertedLength
++                                  preEditBlockType:preEditBlockType]) {
++    return;
++  }
++
+ #if !TARGET_OS_OSX
+   if (newLength == 0) {
+     if ([self headingLevelForCursorParagraph] > 0 || [self listBlockForCursorParagraph] != nil) {
+diff --git a/node_modules/react-native-enriched-markdown/lib/module/EnrichedMarkdownTextInput.js b/node_modules/react-native-enriched-markdown/lib/module/EnrichedMarkdownTextInput.js
+index 0f81eaa..b391704 100644
+--- a/node_modules/react-native-enriched-markdown/lib/module/EnrichedMarkdownTextInput.js
++++ b/node_modules/react-native-enriched-markdown/lib/module/EnrichedMarkdownTextInput.js
+@@ -35,6 +35,7 @@ export const EnrichedMarkdownTextInput = ({
+   editable = true,
+   autoFocus = false,
+   scrollEnabled = true,
++  markdownShortcuts = false,
+   autoCapitalize = 'sentences',
+   multiline = true,
+   cursorColor,
+@@ -346,6 +347,7 @@ export const EnrichedMarkdownTextInput = ({
+     editable: editable,
+     autoFocus: autoFocus,
+     scrollEnabled: scrollEnabled,
++    markdownShortcuts: markdownShortcuts,
+     autoCapitalize: autoCapitalize,
+     multiline: multiline,
+     cursorColor: cursorColor,
+diff --git a/node_modules/react-native-enriched-markdown/lib/module/EnrichedMarkdownTextInputNativeComponent.ts b/node_modules/react-native-enriched-markdown/lib/module/EnrichedMarkdownTextInputNativeComponent.ts
+index dc228d5..dad5938 100644
+--- a/node_modules/react-native-enriched-markdown/lib/module/EnrichedMarkdownTextInputNativeComponent.ts
++++ b/node_modules/react-native-enriched-markdown/lib/module/EnrichedMarkdownTextInputNativeComponent.ts
+@@ -209,6 +209,7 @@ export interface NativeProps extends ViewProps {
+    * @default true
+    */
+   scrollEnabled?: boolean;
++  markdownShortcuts?: boolean;
+   /**
+    * Auto-capitalization behavior.
+    */
+diff --git a/node_modules/react-native-enriched-markdown/lib/typescript/src/EnrichedMarkdownTextInput.d.ts b/node_modules/react-native-enriched-markdown/lib/typescript/src/EnrichedMarkdownTextInput.d.ts
+index f0d5473..a7aa6e9 100644
+--- a/node_modules/react-native-enriched-markdown/lib/typescript/src/EnrichedMarkdownTextInput.d.ts
++++ b/node_modules/react-native-enriched-markdown/lib/typescript/src/EnrichedMarkdownTextInput.d.ts
+@@ -171,6 +171,8 @@ export interface EnrichedMarkdownTextInputProps extends Omit<ViewProps, 'style'
+     editable?: boolean;
+     autoFocus?: boolean;
+     scrollEnabled?: boolean;
++    /** Typed `# `, `- `, `1. ` at a paragraph start become blocks. @default false */
++    markdownShortcuts?: boolean;
+     autoCapitalize?: string;
+     multiline?: boolean;
+     cursorColor?: ColorValue;
+diff --git a/node_modules/react-native-enriched-markdown/src/EnrichedMarkdownTextInputNativeComponent.ts b/node_modules/react-native-enriched-markdown/src/EnrichedMarkdownTextInputNativeComponent.ts
+index dc228d5..dad5938 100644
+--- a/node_modules/react-native-enriched-markdown/src/EnrichedMarkdownTextInputNativeComponent.ts
++++ b/node_modules/react-native-enriched-markdown/src/EnrichedMarkdownTextInputNativeComponent.ts
+@@ -209,6 +209,7 @@ export interface NativeProps extends ViewProps {
+    * @default true
+    */
+   scrollEnabled?: boolean;
++  markdownShortcuts?: boolean;
+   /**
+    * Auto-capitalization behavior.
+    */

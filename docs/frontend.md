@@ -382,6 +382,10 @@ lives on the palette (not just `THEMES`) for exactly this.
 - **Patch filenames carry the installed version and it is load-bearing** — after
   any dependency bump, re-run `npx patch-package <name>` so the filename tracks
   it; a mismatch is a warning locally and a hard `npm ci` failure in CI.
+- **`react-native-enriched-markdown` carries upstream #782 (typed `# `/`- `/`1. `
+  shortcuts) ahead of release, iOS only.** The published package ships its
+  codegen output, so the patch edits `ios/generated/**/Props.{h,cpp}` by hand as
+  well as the sources; drop it and bump when the feature lands upstream.
 - **`expo-alarm-kit` is a fork, not a patch** (`cvburgess/expo-alarm-kit`, pinned
   by git ref; DEX-158). A patch could make the timer's pause button optional but
   could not add a field to the metadata struct AlarmKit carries — that meant

@@ -98,12 +98,12 @@ only since DEX-105) autosaves `journals.prompts` wholesale; responses are plain
 text; both rituals edit the same per-date entry, each rendering **its own half**
 of it (DEX-151).
 
-The note editor is WYSIWYG, not a markdown-syntax editor: typing `# ` stays
-literal text that only becomes a heading once reparsed on reload. Headings and
-lists are custom items in the native selection menu (DEX-201), which the library
-builds only once text is selected — an empty line cannot be formatted, and a
-keyboard-anchored toolbar was rejected because it hides behind the tab bar
-whenever a hardware keyboard keeps the soft one closed.
+The note editor is WYSIWYG, not a markdown-syntax editor. On iOS a typed `# `,
+`- ` or `1. ` converts the line into that block (a patched upstream feature — see
+`docs/frontend.md`); on Android it stays literal until reparsed on reload.
+Headings and lists are also custom items in the native selection menu (DEX-201),
+which the library builds only once text is selected; a keyboard-anchored toolbar
+was rejected because it hides behind the tab bar under a hardware keyboard.
 
 `template_prompts` is jsonb `{id, prompt, period}`, read only via
 `parseTemplatePrompts`; **a subset renders but the whole array is written**.
