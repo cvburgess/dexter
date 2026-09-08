@@ -98,8 +98,8 @@ export function markdownStyle(theme: Theme): MarkdownStyle {
       padding: space.sm,
       marginTop: 0,
       marginBottom: space.md,
-      // Only the roles a theme color honestly means; the rest inherit `color`.
-      // Unset, all 14 fall back to a light palette that fails on dark themes.
+      // No effect yet: web has no highlighter (upstream #732) and the editor
+      // can't style code blocks. Kept so dark themes read once web catches up.
       syntaxColors: {
         comment: colors.textSecondary,
         keyword: colors.primary,
