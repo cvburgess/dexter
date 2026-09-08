@@ -21,9 +21,9 @@ jest.mock("../DateField", () => ({
   DateField: (props: TDateFieldProps) => mockDateField(props),
 }));
 
-// The segmented control has its own test; stand it in with a marker and a
+// The step menu has its own test; stand it in with a marker and a
 // pressable so this file can assert what the toolbar wires up.
-const mockStepSegments = ({
+const mockStepSwitcher = ({
   state,
   onSelectStep,
 }: {
@@ -31,7 +31,7 @@ const mockStepSegments = ({
   onSelectStep: (index: number) => void;
 }) => (
   <>
-    <Text>{`segments:${state.mode}:${state.step}`}</Text>
+    <Text>{`switcher:${state.mode}:${state.step}`}</Text>
     <TouchableOpacity
       accessibilityLabel="pick-step-2"
       onPress={() => onSelectStep(2)}
@@ -40,9 +40,9 @@ const mockStepSegments = ({
     </TouchableOpacity>
   </>
 );
-jest.mock("../RitualStepSegments", () => ({
-  RitualStepSegments: (props: Parameters<typeof mockStepSegments>[0]) =>
-    mockStepSegments(props),
+jest.mock("../RitualStepSwitcher", () => ({
+  RitualStepSwitcher: (props: Parameters<typeof mockStepSwitcher>[0]) =>
+    mockStepSwitcher(props),
 }));
 
 // Stands in for the step's title, date, and a pressable that reports focus
@@ -133,13 +133,13 @@ describe("LargeScreenRitual", () => {
     expect(screen.getByText("Breathe")).toBeTruthy();
   });
 
-  it("hands the segments the step on screen", () => {
+  it("hands the step menu the step on screen", () => {
     const screen = renderRitual({ state: state({ mode: "pm", step: 3 }) });
 
-    expect(screen.getByText("segments:pm:3")).toBeTruthy();
+    expect(screen.getByText("switcher:pm:3")).toBeTruthy();
   });
 
-  it("jumps to the step the segments picked", () => {
+  it("jumps to the step the menu picked", () => {
     const onSelectStep = jest.fn();
     const screen = renderRitual({ onSelectStep });
 
@@ -157,8 +157,44 @@ describe("LargeScreenRitual", () => {
     expect(onToggleMode).toHaveBeenCalledTimes(1);
   });
 
+  // The arrows flank the page in the gutters (DEX-200): dragging is a touch
+  // idiom, so a pointer needs something to click.
+  describe("the step arrows", () => {
+    it("pages forward", () => {
+      const onSwipe = jest.fn();
+      const screen = renderRitual({ onSwipe, state: state({ step: 1 }) });
+
+      fireEvent.press(screen.getByLabelText("Next ritual step"));
+
+      expect(onSwipe).toHaveBeenCalledWith(1);
+    });
+
+    it("pages back", () => {
+      const onSwipe = jest.fn();
+      const screen = renderRitual({ onSwipe, state: state({ step: 1 }) });
+
+      fireEvent.press(screen.getByLabelText("Previous ritual step"));
+
+      expect(onSwipe).toHaveBeenCalledWith(-1);
+    });
+
+    it("hides the back arrow on the first step", () => {
+      const screen = renderRitual();
+
+      expect(screen.queryByLabelText("Previous ritual step")).toBeNull();
+      expect(screen.getByLabelText("Next ritual step")).toBeTruthy();
+    });
+
+    it("hides the next arrow on the last step", () => {
+      const screen = renderRitual({ state: state({ step: 4 }) });
+
+      expect(screen.queryByLabelText("Next ritual step")).toBeNull();
+      expect(screen.getByLabelText("Previous ritual step")).toBeTruthy();
+    });
+  });
+
   // Unlike large-screen Today, which has none — a ritual is a sequence to
-  // move through, so the gesture is offered alongside the segments.
+  // move through, so the gesture is offered alongside the arrows.
   describe("the swipe", () => {
     it("pages forward", () => {
       const onSwipe = jest.fn();

@@ -1,5 +1,4 @@
 import { fireEvent, render } from "@testing-library/react-native";
-import { StyleSheet } from "react-native";
 
 import { SegmentedControl } from "../SegmentedControl";
 
@@ -64,8 +63,8 @@ describe("SegmentedControl", () => {
     expect(screen.queryByTestId("mode-new")).toBe(null);
   });
 
-  // For the Ritual toolbar, where glyphs fit but six words wouldn't — iOS
-  // hosts a real UISegmentedControl instead (RitualStepSegments.ios).
+  // A segment can draw a glyph instead of its label, for a row where the
+  // words wouldn't fit.
   describe("icon segments", () => {
     const ICON_OPTIONS = [
       {
@@ -108,33 +107,6 @@ describe("SegmentedControl", () => {
       fireEvent.press(screen.getByLabelText("Evening"));
 
       expect(onChange).toHaveBeenCalledWith("pm");
-    });
-  });
-
-  // A toolbar row has no width of its own for `flex: 1` segments to divide —
-  // they'd collapse to nothing without content-sizing.
-  describe("stretch", () => {
-    const segmentFlex = (value: boolean | undefined) => {
-      const screen = render(
-        <SegmentedControl
-          options={OPTIONS}
-          stretch={value}
-          testIDPrefix="mode"
-          value="new"
-          onChange={jest.fn()}
-        />,
-      );
-
-      return StyleSheet.flatten(screen.getByTestId("mode-new").props.style)
-        .flex;
-    };
-
-    it("divides the container by default", () => {
-      expect(segmentFlex(undefined)).toBe(1);
-    });
-
-    it("sizes to content when off", () => {
-      expect(segmentFlex(false)).toBeUndefined();
     });
   });
 });

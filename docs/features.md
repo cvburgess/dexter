@@ -161,7 +161,9 @@ contracts:
 
 The swipe pages **steps**, runs at every width (unlike Today, where large screens
 page by arrows — a ritual is a sequence you move through, so the gesture means
-something), and is suspended while a step reports editing.
+something), and is suspended while a step reports editing. Large screens flank
+it with chevron buttons too (DEX-200) — dragging is a touch idiom a pointer
+can't discover — committing the same step change, so both animate identically.
 `components/RitualStepView.tsx` is the seam: it branches on `step.id` and unbuilt
 steps fall through to a placeholder, which is what lets sub-issues fill steps in
 without touching the flow. The step's `onEditingChange` must be passed
@@ -169,12 +171,9 @@ without touching the flow. The step's `onEditingChange` must be passed
 depends on its identity, and a fresh function per render clears the editing flag
 on focus.
 
-The step control mirrors Today's split (menu on small screens, segments on
-large); on iOS the segments are a real SwiftUI segmented `Picker` for liquid
-glass, pinned to exact pixels for the reason `docs/frontend.md` gives about
-`@expo/ui` host sizing. The drawn `SegmentedControl` (Android/web) needs
-`stretch={false}` in the header's actions row, which has no width of its own —
-`flex: 1` segments would divide nothing and collapse.
+One step control at every width: the `RitualStepSwitcher` icon menu. Large
+screens used a segmented control until DEX-200, which spent a content-sized
+toolbar row on up to nine steps and needed a platform split to look right.
 
 `components/HeroLines.tsx` is shared by the reporting steps: right-aligned
 figures, left-aligned words, the figure column **measured** (widest raises a

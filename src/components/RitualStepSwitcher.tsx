@@ -9,9 +9,8 @@ import {
 import { currentStep } from "@/utils/ritualSteps";
 import { useTheme } from "@/utils/theme";
 
-// Small-screen step control: DayViewSwitcher's shape applied to steps. No
-// "next" action — advancing is the swipe; large screens use
-// RitualStepSegments instead, both reading one STEP_ICONS table.
+// The step control at every width: DayViewSwitcher's shape applied to steps.
+// No "next" action — advancing is the swipe, or the large screen's arrows.
 export function RitualStepSwitcher({
   state,
   onSelectStep,
