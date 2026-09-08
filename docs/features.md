@@ -99,9 +99,9 @@ text; both rituals edit the same per-date entry, each rendering **its own half**
 of it (DEX-151).
 
 The note editor is WYSIWYG, not a markdown-syntax editor: typing `# ` stays
-literal text that only becomes a heading once reparsed on reload. Headings and
-lists exist solely through the input's ref methods (DEX-201); its native format
-menu covers inline styles only.
+literal text that only becomes a heading once reparsed on reload. The keyboard
+bar carries exactly what the input's native format menu cannot reach — headings
+and lists — so inline styles are deliberately absent from it (DEX-201).
 
 `template_prompts` is jsonb `{id, prompt, period}`, read only via
 `parseTemplatePrompts`; **a subset renders but the whole array is written**.

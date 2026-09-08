@@ -17,17 +17,27 @@ const LEADING = 1.6;
 export const NOTE_MD4C_FLAGS: Md4cFlags = { hardSoftBreaks: true };
 
 /**
- * Six levels onto four type roles — no token is added for a level a note will
- * almost never use. `block` holds margins only the renderer's type accepts.
+ * The first three levels get distinct sizes because the toolbar's heading
+ * button cycles through them; deeper ones repeat h3 rather than earn a token.
  */
 const headings = (
   { colors, fonts }: Theme,
   block?: { marginTop: number; marginBottom: number },
 ) => ({
   h1: { ...fonts.heading, color: colors.text, ...block },
-  h2: { ...fonts.heading, color: colors.text, ...block },
-  h3: { ...fonts.title, color: colors.text, ...block },
-  h4: { ...fonts.title, color: colors.text, ...block },
+  h2: { ...fonts.title, color: colors.text, ...block },
+  h3: {
+    ...fonts.body,
+    fontWeight: fonts.title.fontWeight,
+    color: colors.text,
+    ...block,
+  },
+  h4: {
+    ...fonts.body,
+    fontWeight: fonts.title.fontWeight,
+    color: colors.text,
+    ...block,
+  },
   h5: {
     ...fonts.body,
     fontWeight: fonts.title.fontWeight,
@@ -79,8 +89,6 @@ export function markdownStyle(theme: Theme): MarkdownStyle {
       marginTop: 0,
       marginBottom: space.md,
     },
-    // `syntaxColors` is left unset: no theme color means "keyword" or "string",
-    // so highlighting falls back to the library's palette (DEX follow-up).
     codeBlock: {
       color: colors.text,
       backgroundColor: colors.surfaceSunken,
@@ -90,6 +98,15 @@ export function markdownStyle(theme: Theme): MarkdownStyle {
       padding: space.sm,
       marginTop: 0,
       marginBottom: space.md,
+      // Only the roles a theme color honestly means; the rest inherit `color`.
+      // Unset, all 14 fall back to a light palette that fails on dark themes.
+      syntaxColors: {
+        comment: colors.textSecondary,
+        keyword: colors.primary,
+        string: colors.success,
+        number: colors.error,
+        constant: colors.error,
+      },
     },
     code: {
       color: colors.text,

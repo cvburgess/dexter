@@ -58,8 +58,9 @@ Tap on a habit to track progress or mark it as complete.
 
 Daily notes are a space to jot down your thoughts and let your ideas flow.
 
-Most markdown syntax is supported so feel free to add links, headings, lists,
-and more.
+Notes are richly formatted as you write them — headings and lists from the bar
+above the keyboard, and bold, italic, underline, strikethrough or a link by
+selecting text.
 
 If you don't want to use the notes feature, it can be disabled in settings.
 

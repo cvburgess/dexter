@@ -13,10 +13,9 @@ Notes are a space to jot down your thoughts and let your ideas flow.
 
 Notes live in the [Day](/tips/day) view under the **Notes** tab.
 
-Most markdown syntax is supported so feel free to add links, headings, lists,
-and more.
-
-[Learn more about Markdown syntax](https://www.markdownguide.org/basic-syntax/)
+Notes are richly formatted as you write them. Use the bar above the keyboard
+for headings and lists, and select text to make it bold, italic, underlined or
+struck through, or to turn it into a link.
 
 ## Settings
 
