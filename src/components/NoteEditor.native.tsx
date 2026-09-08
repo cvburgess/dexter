@@ -8,9 +8,10 @@ import { useTheme } from "@/utils/theme";
 import { TNoteEditorProps } from "./NoteEditor.types";
 
 // Uncontrolled (defaultValue + onChangeMarkdown) so React never fights the
-// caret. Formatting is the input's own selection menu — there is no toolbar.
-// The ScrollView is load-bearing: the input routes tap-outside and swipe-down
-// keyboard dismissal through its enclosing scroll view.
+// caret; formatting is the input's own selection menu, not a toolbar.
+
+// The input routes tap-outside and swipe-down dismissal through whatever
+// ScrollView encloses it, so this wrapper is what closes the keyboard.
 
 export function NoteEditor({
   initialValue,

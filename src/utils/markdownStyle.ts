@@ -17,23 +17,28 @@ const LEADING = 1.6;
 export const NOTE_MD4C_FLAGS: Md4cFlags = { hardSoftBreaks: true };
 
 /**
- * Six heading levels onto four type roles: pairs share a size and the app
- * gains no token for a level a note will almost never use.
+ * Six levels onto four type roles — no token is added for a level a note will
+ * almost never use. `block` holds margins only the renderer's type accepts.
  */
-const headings = ({ colors, fonts }: Theme) => ({
-  h1: { ...fonts.heading, color: colors.text },
-  h2: { ...fonts.heading, color: colors.text },
-  h3: { ...fonts.title, color: colors.text },
-  h4: { ...fonts.title, color: colors.text },
+const headings = (
+  { colors, fonts }: Theme,
+  block?: { marginTop: number; marginBottom: number },
+) => ({
+  h1: { ...fonts.heading, color: colors.text, ...block },
+  h2: { ...fonts.heading, color: colors.text, ...block },
+  h3: { ...fonts.title, color: colors.text, ...block },
+  h4: { ...fonts.title, color: colors.text, ...block },
   h5: {
     ...fonts.body,
     fontWeight: fonts.title.fontWeight,
     color: colors.textSecondary,
+    ...block,
   },
   h6: {
     ...fonts.body,
     fontWeight: fonts.title.fontWeight,
     color: colors.textSecondary,
+    ...block,
   },
 });
 
@@ -43,7 +48,7 @@ export function markdownStyle(theme: Theme): MarkdownStyle {
   const lineHeight = Math.round(fonts.body.fontSize * LEADING);
 
   return {
-    ...headings(theme),
+    ...headings(theme, { marginTop: space.lg, marginBottom: space.sm }),
     paragraph: {
       ...fonts.body,
       color: colors.text,

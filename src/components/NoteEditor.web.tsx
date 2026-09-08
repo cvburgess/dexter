@@ -12,11 +12,15 @@ import { TNoteEditorProps } from "./NoteEditor.types";
 export function NoteEditor({ initialValue, testID }: TNoteEditorProps) {
   const theme = useTheme();
   const style = useMemo(() => markdownStyle(theme), [theme]);
+  const container = useMemo(
+    () => ({ padding: theme.space.md }),
+    [theme.space.md],
+  );
 
   return (
     <ScrollView style={styles.container} testID={testID}>
       <EnrichedMarkdownText
-        containerStyle={{ padding: theme.space.md }}
+        containerStyle={container}
         // Toggling a checkbox here would never reach Supabase.
         enableTaskListItemToggle={false}
         markdown={initialValue}

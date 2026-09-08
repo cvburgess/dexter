@@ -42,7 +42,7 @@ trigger used to be gated on `useIsLargeDevice()` and survived only by a
 portrait-lock argument that was never true of iPad. Now: a phone declares no
 `week` trigger at all (with `useOnlyUserDefinedScreens`, the route doesn't resolve
 there), everywhere else registers it unconditionally and `week/index.tsx` renders
-an explanation below the breakpoint. Whether the nav *item* is offered is a
+an explanation below the breakpoint. Whether the nav _item_ is offered is a
 `largeScreenOnly` flag on `NAV_ITEMS`, filtered in one place. Keep that a width
 predicate — an iPad mini in portrait genuinely can't render seven columns.
 
@@ -58,11 +58,11 @@ a block — deliberate, since a block is time spent not adding to the list, and 
 button returns the moment it ends.
 
 **The bottom accessory renders its children twice, at once.**
-`react-native-screens` renders `ios.bottomAccessory('regular')` *and*
+`react-native-screens` renders `ios.bottomAccessory('regular')` _and_
 `ios.bottomAccessory('inline')` as two live children, wrapped in expo-router's
 placement context. Two consequences, and the first is the trap: **every effect
 there runs twice**, so nothing mounted in the accessory may write. (The second:
-React context *does* reach it — an older comment in `useViewedDay.tsx` claimed
+React context _does_ reach it — an older comment in `useViewedDay.tsx` claimed
 otherwise, and the module store there is justified by press-time reads, not by
 context.) `TabBarAccessory` is therefore a dumb reader over `useFocusTimer`'s
 module store, and the write that completes a block lives in `(app)/_layout.tsx`.
@@ -103,17 +103,17 @@ row; `useLiveFocusBlock` is for the handful of surfaces that own the timer.
   `isError`/`refetch` on `useLists`/`useHabits` first. `new-task.tsx` still has a
   bare `router.back()` close — on a cold `/new-task` load ✕ is a dead `GO_BACK`;
   `useDismissModal("/")` is the fix, not yet done.
-- **Create *in* the modal — route to `id: "new"` and let ✓ do the write.** A menu
+- **Create _in_ the modal — route to `id: "new"` and let ✓ do the write.** A menu
   item that writes a row and then opens its editor leaves ✕ nothing to cancel
   (orphan row) and, pushed from `onSuccess`, can open a phantom modal for the
   wrong record when the action fires twice. Decide anything the write needs from
-  the *saved* values, not the entry point.
+  the _saved_ values, not the entry point.
 - **`router.back()` is not a safe close** — several modals are pushed from outside
   their own stack (MoreMenu's template items). `settings/tasks/` is its own stack
   anchored on its `index` (`unstable_settings = { anchor: "index" }`); outside
   callers push `{ withAnchor: true }`. Pushing the list first at the call site is
-  *not* enough — cold-navigation pushes coalesce. Prefer `back()` over
-  `router.dismissTo(href)`: `dismissTo` *replaces* when it can't find its target
+  _not_ enough — cold-navigation pushes coalesce. Prefer `back()` over
+  `router.dismissTo(href)`: `dismissTo` _replaces_ when it can't find its target
   and throws away the history under it.
 - **A nested stack's root gets no back button on native unless the parent owns its
   header** (DEX-93): the native back item comes from the platform controller's own
@@ -177,7 +177,7 @@ minimize at all — silently, since nothing else about it looks wrong:
   subviews in JSX order, so the order changes and the pixels don't
   (`SmallScreenToday`, `TasksView`, `CalendarView`).
 - **It must be there on the first frame.** An empty or loading state that
-  *replaces* the scroller is usually exactly what the walk sees — Search always
+  _replaces_ the scroller is usually exactly what the walk sees — Search always
   mounts idle, Today can open on a day with no tasks. Put those states inside
   the scroller (`ListEmptyComponent`, or a child of a `flexGrow: 1` content
   container) rather than in its place. This is the rule the Search tab's DEX-107
@@ -188,7 +188,7 @@ the mounted subviews, which is the thing being fixed. The escape hatch is
 `ScrollViewMarker` from `react-native-screens/experimental`, which names the
 scroll view outright — but its native half compiles only when
 `RNS_GAMMA_ENABLED=1` is set at `pod install`, and is an inert stub otherwise,
-so it would have to be threaded through EAS *and* every local build.
+so it would have to be threaded through EAS _and_ every local build.
 
 Keyboard avoidance composes with that: screens with fields in a scroller set
 `automaticallyAdjustKeyboardInsets` (iOS insets content; Android resizes the
@@ -208,7 +208,7 @@ tokens mean lives in `docs/design.md` — read it before touching a style.**
 Plumbing:
 
 - **`useTheme()`** composes palette + density and is the only way components read
-  style values. Inject varying values inline; keep static *layout* in
+  style values. Inject varying values inline; keep static _layout_ in
   `StyleSheet.create` (its values are static, so anything theme- or
   tier-dependent must be inline).
 - `providers/ThemeProvider.tsx` resolves `preferences.themeMode` / `lightTheme` /
@@ -287,14 +287,14 @@ Freshness is three layers, no interval polling (DEX-36):
 **Anything that renders "today" reads `hooks/useToday.ts`.** A
 `Temporal.Now.plainDateISO()` in a `useState` initializer is frozen for the life
 of the mount, which is why an app open before midnight kept yesterday until a
-force-quit; one during render is correct only whenever something *else*
+force-quit; one during render is correct only whenever something _else_
 re-renders, and nothing does at midnight. The hook's snapshot re-reads the clock
 but hands back the **same `PlainDate` until the day changes** — load-bearing, or
 `usePublishViewedDay` re-registers its focus effect on every unrelated render and
 momentarily clears the day the nav rail's "+" reads.
 
 `useDayRollover()` (once, in `(app)/_layout.tsx`) is what re-renders subscribers
-at the boundary: a timeout anchored on the next local midnight *and* an
+at the boundary: a timeout anchored on the next local midnight _and_ an
 `AppState` listener, since JS is frozen while suspended and the timer fires
 however late on resume. Not an interval — the no-polling rule above still holds.
 
@@ -313,17 +313,15 @@ The four-file pattern (`.types.ts` / `.native.tsx` / `.web.tsx` / a `.tsx`
 re-exporting native so `tsc` — which doesn't do platform-extension resolution —
 can resolve the import). Notable splits:
 
-- `NoteEditor`: native wraps `react-native-enriched-markdown` (uncontrolled —
-  `defaultValue` + `onChangeMarkdown` so React never fights the caret; the
-  enclosing `ScrollView` is what dismisses the keyboard); web is its
+- `NoteEditor`: native wraps `react-native-enriched-markdown` (uncontrolled, and
+  its enclosing `ScrollView` is what dismisses the keyboard); web is the
   **read-only** renderer (upstream #392), which needs `md4cFlags.hardSoftBreaks`
-  or it collapses the editor's newline-per-Enter into one paragraph, and the
-  `katex` Metro stub. Native module → dev-client rebuild.
+  or it collapses newline-per-Enter into one paragraph. Native → dev-client rebuild.
 - `SearchField`: two files only; the native half renders `null` and can't be
   unit-tested — device-only verification.
 - `GlassIconButton`: liquid glass on iOS with plain-circle fallback; needs an
   explicit `size` because the native menu host requires a fixed-size trigger. Its
-  `active` prop exists because the *default* tint differs by platform — omitting
+  `active` prop exists because the _default_ tint differs by platform — omitting
   it drew the button two different colors. **`solid` forces the fallback circle
   on iOS, and any button under an animated opacity needs it**: the glass is a
   `UIVisualEffectView` sampling what is behind it and cannot do that through a
@@ -334,7 +332,7 @@ can resolve the import). Notable splits:
   `window.alert` web (RN's `Alert` silently no-ops there). Reach for it instead of
   another `Platform.OS === "web"` branch; the browser dialog has no title slot, so
   the message must read without one. `ConfirmationModal` (via `useConfirmation`)
-  remains the answer when the user must *choose*.
+  remains the answer when the user must _choose_.
 
 ### Menus (`IconMenu` / `MoreMenu`)
 
@@ -345,7 +343,7 @@ is a detour, not a shortcut** (DEX-98) — everything a single tap can't finish
 lives in the edit modal. The focus-block row (DEX-49) clears that bar only
 because the length is a preference; making it ask "how long?" would put it back
 under the rule. It is also **absent**, not disabled, while another task's block
-runs — see `docs/features.md`. Its Stop *does* prompt, per the rule above that a
+runs — see `docs/features.md`. Its Stop _does_ prompt, per the rule above that a
 menu action writing immediately keeps its confirmation: the modal is hosted once
 in `FocusTimerHost`, since `MoreMenu` renders per card and has nowhere to put one. The reason a picker sheet existed at all still stands:
 neither platform's date picker can be opened imperatively (no ref, no
@@ -354,7 +352,7 @@ module. Menu actions that write immediately keep their confirmation prompts; the
 edit modal writes nothing until ✓ and applies the same rules silently.
 
 **Every `@expo/ui` host sizes asynchronously, and a mis-sized one renders
-*untappable*** — which is why `DayViewSwitcher`, `StatusButton`, `TaskCard` and
+_untappable_** — which is why `DayViewSwitcher`, `StatusButton`, `TaskCard` and
 the ritual step control all pin theirs to exact pixels. `Host matchContents` is
 the part to re-check on device after an `@expo/ui` bump. A native menu host also
 sizes to its child's **intrinsic** height, so a flex-only child inside a scroller
@@ -364,7 +362,7 @@ explicit `height`.
 Menu styling: `iconColor` on an iOS action button needs `@expo/ui` ≥ 57.0.8 (below
 that the system menu ignores `.foregroundColor`). The Android menu's light/dark
 comes from `colorScheme`, fed from `useTheme().mode` — unset, the Compose menu
-follows the *device* scheme, wrong whenever the in-app theme disagrees; `mode`
+follows the _device_ scheme, wrong whenever the in-app theme disagrees; `mode`
 lives on the palette (not just `THEMES`) for exactly this.
 
 ### Native-module load-bearing versions
@@ -374,7 +372,7 @@ lives on the palette (not just `THEMES`) for exactly this.
   here as a patch until upstream), those leaked mutations corrupted Fabric
   rendering — cards ballooned, collapsed, or whole days rendered blank (DEX-28). A
   downgrade brings the corruption back.
-- **A patch to a *precompiled* Expo module never reaches the binary** —
+- **A patch to a _precompiled_ Expo module never reaches the binary** —
   `patch-package` edits source that precompiled linking never compiles, and
   nothing warns. Only packages shipping `prebuilds/*.tar.gz` are actually
   precompiled (in SDK 57: `expo-modules-core`, `expo-file-system`, `expo-font`);
@@ -395,7 +393,7 @@ lives on the palette (not just `THEMES`) for exactly this.
     the whole install. The cost is that a stale `build/` ships silently, so the
     fork's CI rebuilds and diffs it. Change its source, commit the build.
   - **npm rewrites the `git+https://` spec to `git+ssh://` in the lockfile.**
-    Harmless *only* while the fork is public: pacote fetches hosted GitHub repos
+    Harmless _only_ while the fork is public: pacote fetches hosted GitHub repos
     over the codeload tarball and never invokes ssh. Making it private breaks CI
     and EAS with no obvious error.
   - Dropping the fork means restoring a patch, not just bumping a version.
@@ -408,7 +406,7 @@ lives on the palette (not just `THEMES`) for exactly this.
   is the manual Build and Submit workflow — see `docs/appstore.md`.
 - **Expo's generated type files are gitignored, so local and CI type-checking
   differ.** `expo-env.d.ts` and `.expo/types/router.d.ts` are written by
-  `expo start`/`expo export`. A *stale* router.d.ts fails `npm run typecheck` on a
+  `expo start`/`expo export`. A _stale_ router.d.ts fails `npm run typecheck` on a
   route that exists — start the dev server once before believing it. CI has
   neither file, so a type-aware lint rule can pass locally and fail there;
   `src/global.d.ts` carries `/// <reference types="expo/types" />` for exactly this
@@ -457,10 +455,10 @@ excludes it.
 Three native patches exist for this target (the first two compile-time-guarded and
 inert on iOS):
 
-| Patch | Why |
-|---|---|
-| `react-native+0.86.2.patch` | `UISwitch` resolves to an AppKit checkbox under the Mac idiom; sets sliding style and makes `RCTSwitchSize()` measure the same style. |
-| `@expo+ui+57.0.8.patch` | SwiftUI resolves `Menu` to an AppKit pull-down, replacing custom `IconMenu` labels. Upstream: expo/expo#48448. |
+| Patch                        | Why                                                                                                                                            |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `react-native+0.86.2.patch`  | `UISwitch` resolves to an AppKit checkbox under the Mac idiom; sets sliding style and makes `RCTSwitchSize()` measure the same style.          |
+| `@expo+ui+57.0.8.patch`      | SwiftUI resolves `Menu` to an AppKit pull-down, replacing custom `IconMenu` labels. Upstream: expo/expo#48448.                                 |
 | `expo-calendar+57.0.1.patch` | **Not Catalyst-specific** — `EKCalendarItem.calendar` is `null_unspecified` and a force-unwrap traps the JS thread. Upstream: expo/expo#48445. |
 
 Not implemented: menu bar, multi-window, and any distribution path.
