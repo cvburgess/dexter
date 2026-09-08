@@ -132,7 +132,7 @@ export function markdownStyle(theme: Theme): MarkdownStyle {
       headerBackgroundColor: colors.surfaceSunken,
       headerTextColor: colors.text,
       rowEvenBackgroundColor: colors.background,
-      rowOddBackgroundColor: colors.surfaceSunken,
+      rowOddBackgroundColor: colors.background,
       borderColor: colors.border,
       borderWidth: 1,
       borderRadius: radii.md,

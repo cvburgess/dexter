@@ -109,6 +109,7 @@ export function NoteEditor({
 
   const inList = isListActive(state);
   const controls = BLOCK_CONTROLS.filter((c) => inList || !c.listOnly);
+  const headingActive = state?.heading.isActive ?? false;
 
   return (
     <View style={styles.fill}>
@@ -172,9 +173,7 @@ export function NoteEditor({
             <Pressable
               accessibilityLabel="Heading"
               accessibilityRole="button"
-              accessibilityState={{
-                selected: state?.heading.isActive ?? false,
-              }}
+              accessibilityState={{ selected: headingActive }}
               hitSlop={theme.space.sm}
               onPress={() =>
                 inputRef.current?.toggleHeading(nextHeadingLevel(state))
@@ -184,7 +183,7 @@ export function NoteEditor({
                 style={[
                   theme.fonts.control,
                   {
-                    color: state?.heading.isActive
+                    color: headingActive
                       ? theme.colors.primary
                       : theme.colors.textSecondary,
                   },
