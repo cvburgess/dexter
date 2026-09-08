@@ -27,8 +27,8 @@ const DETUNE_CENTS = 4;
 
 // Swept across the rise, not fixed: light arriving reads as a spectrum opening,
 // which is the one sunrise-shaped gesture available without a sample.
-const LOWPASS_FROM_HZ = 800;
-const LOWPASS_TO_HZ = 4000;
+const LOWPASS_FROM_HZ = 600;
+const LOWPASS_TO_HZ = 3000;
 
 // Read as decibels, not a percentage: gain is linear amplitude against a
 // logarithmic ear, so halving this is only −6dB. Same register as the horoscope.
