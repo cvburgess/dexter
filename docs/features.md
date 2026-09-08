@@ -162,9 +162,8 @@ contracts:
 The swipe pages **steps**, runs at every width (unlike Today, where large screens
 page by arrows — a ritual is a sequence you move through, so the gesture means
 something), and is suspended while a step reports editing. Large screens flank
-the page with chevron buttons too (DEX-200): dragging is a touch idiom, so a
-pointer needs something to click. They commit the same step change the gesture
-does, so both animate identically.
+it with chevron buttons too (DEX-200) — dragging is a touch idiom a pointer
+can't discover — committing the same step change, so both animate identically.
 `components/RitualStepView.tsx` is the seam: it branches on `step.id` and unbuilt
 steps fall through to a placeholder, which is what lets sub-issues fill steps in
 without touching the flow. The step's `onEditingChange` must be passed

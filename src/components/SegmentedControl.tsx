@@ -7,8 +7,8 @@ import { useTheme } from "@/utils/theme";
 export type TSegmentedControlOption<T extends string | number> = {
   label: string;
   value: T;
-  /** Drawn in place of the label (which becomes the a11y name) — for a
-   * toolbar where six words won't fit but six glyphs do (DEX-127). */
+  /** Drawn in place of the label, which becomes the a11y name. No current
+   * caller uses it — Ritual's icon segments were its one consumer (DEX-200). */
   icon?: TIconName;
 };
 

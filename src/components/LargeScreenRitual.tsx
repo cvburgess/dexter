@@ -62,10 +62,10 @@ export function LargeScreenRitual({
       >
         <DayNav date={state.date} onChangeDate={onChangeDate} />
       </LargeScreenHeader>
-      {/* Only the top inset: SwipeablePage supplies the side gutter, doubled
-          from the phone's (DEX-138) or a step reads as hanging off the toolbar. */}
-      {/* Capping the row at the page's own max plus both gutters keeps the
-          arrows beside the page on a wide window and off it just above 768. */}
+      {/* Only the top inset — SwipeablePage pads its own sides, doubled from
+          the phone's (DEX-138) or a step hangs off the toolbar. Capping the row
+          at the page's max plus both arrow columns keeps the arrows beside the
+          page on a wide window and off it just above 768. */}
       <View
         style={[
           styles.body,
