@@ -6,7 +6,7 @@
 - Ritual steps arrive once a day — come back to one later and it's there instantly, no waiting through the animation again
 - Step through your ritual with arrow buttons on larger screens, and jump to any step from the menu
 - See how much is waiting behind each backlog filter without opening it
-- Add headings and lists to your notes from the new bar above the keyboard, and select text for bold, italic, underline, strikethrough, or a link
+- Select text in a note to turn it into a heading or a list, or make it bold, italic, underlined, struck through, or a link
 - Notes keep their formatting on the web, and match whichever theme you've chosen
 - Fixed bugs and made improvements to improve the user experience
 

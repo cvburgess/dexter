@@ -1,10 +1,6 @@
 import type { StyleState } from "react-native-enriched-markdown";
 
-import {
-  headingLabel,
-  isListActive,
-  nextHeadingLevel,
-} from "@/utils/markdownToolbar";
+import { isListActive, nextHeadingLevel } from "@/utils/markdownMenu";
 
 const styleState = (overrides: Partial<StyleState> = {}): StyleState => ({
   bold: { isActive: false },
@@ -43,21 +39,6 @@ describe("nextHeadingLevel", () => {
     expect(
       nextHeadingLevel(styleState({ heading: { isActive: true, level: 5 } })),
     ).toBe(5);
-  });
-});
-
-describe("headingLabel", () => {
-  it("reads the level while a heading is set", () => {
-    expect(
-      headingLabel(styleState({ heading: { isActive: true, level: 2 } })),
-    ).toBe("H2");
-  });
-
-  it("falls back to a bare H", () => {
-    expect(headingLabel(null)).toBe("H");
-    expect(
-      headingLabel(styleState({ heading: { isActive: false, level: 3 } })),
-    ).toBe("H");
   });
 });
 

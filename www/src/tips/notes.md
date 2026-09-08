@@ -13,9 +13,9 @@ Notes are a space to jot down your thoughts and let your ideas flow.
 
 Notes live in the [Day](/tips/day) view under the **Notes** tab.
 
-Notes are richly formatted as you write them. Use the bar above the keyboard
-for headings and lists, and select text to make it bold, italic, underlined or
-struck through, or to turn it into a link.
+Notes are richly formatted as you write them. Select some text to turn its
+line into a heading or a list, or to make it bold, italic, underlined or struck
+through, or to turn it into a link.
 
 ## Settings
 

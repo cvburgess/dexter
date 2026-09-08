@@ -1,6 +1,6 @@
 import type { HeadingLevel, StyleState } from "react-native-enriched-markdown";
 
-/** Deepest level the cycling heading button reaches before turning off. */
+/** Deepest level the cycling Heading menu item reaches before turning off. */
 const MAX_CYCLE_LEVEL: HeadingLevel = 3;
 
 /**
@@ -16,13 +16,7 @@ export function nextHeadingLevel(state: StyleState | null): HeadingLevel {
   return (level + 1) as HeadingLevel;
 }
 
-/** What the heading button reads: its level when set, a bare `H` when not. */
-export function headingLabel(state: StyleState | null): string {
-  const heading = state?.heading;
-  return heading?.isActive ? `H${heading.level}` : "H";
-}
-
-/** Indent and outdent only mean anything inside a list, so they only show there. */
+/** Indent and outdent only mean anything inside a list, so the menu hides them elsewhere. */
 export function isListActive(state: StyleState | null): boolean {
   return Boolean(state?.unorderedList.isActive || state?.orderedList.isActive);
 }
