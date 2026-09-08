@@ -9,8 +9,8 @@ import { NotesView } from "../NotesView";
 jest.mock("@/hooks/useNotes", () => ({ useNotes: jest.fn() }));
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 
-// Stand in for the platform editor (native lib has no test double). Surface the
-// seeded value and let a press simulate a markdown edit.
+// Stand in for the platform editor. Surface the seeded value, and let a press
+// simulate a markdown edit.
 const mockNoteEditor = jest.fn(
   ({
     initialValue,

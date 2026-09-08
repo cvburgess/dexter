@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.2.0
+
+- Your morning ritual now closes with a gentle sunrise tone that rises with the light
+- Ritual steps arrive once a day — come back to one later and it's there instantly, no waiting through the animation again
+- Step through your ritual with arrow buttons on larger screens, and jump to any step from the menu
+- See how much is waiting behind each backlog filter without opening it
+- Select text in a note to turn it into a heading or a list, or make it bold, italic, underlined, struck through, or a link
+- Notes keep their formatting on the web, and match whichever theme you've chosen
+- Fixed bugs and made improvements to improve the user experience
+
+---
+
+- DEX-201: Upgrade enriched-markdown to 1.0.2, theme notes, and add a formatting toolbar (#175)
+- DEX-199: Play ritual step animations and audio once per day (#174)
+- Use arrow glyphs for the large-screen ritual step buttons (#173)
+- DEX-198: Play a generated sunrise sound on the final AM ritual step (#172)
+- DEX-200: Flanking step arrows and menu control on large-screen ritual (#171)
+- DEX-195: Remove pi claude-hooks extension superseded by pi-lens (#169)
+- DEX-126: Backlog counts on filters (#168)
+- DEX-194: Configure pi coding agent for the repo (#167)
+- DEX-193: Optimize repo for readability (#166)
+- Add NSMicrophoneUsageDescription to fix App Store submission (#165)
+- Refresh App Store screenshots and cut v2.1.0 release notes (#164)
+
 ## v2.1.0
 
 - Start and end your day with the new Ritual tab — guided morning and evening flows with journaling, a mood check-in, a daily horoscope, a breathing exercise, and a look at the day ahead

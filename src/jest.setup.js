@@ -140,6 +140,12 @@ jest.mock("@expo/ui", () => {
   return { Host, Picker };
 });
 
+// Fabric views: rendering one or calling a ref method throws under Jest. The
+// library ships its own mock, kept in step with the real API upstream.
+jest.mock("react-native-enriched-markdown", () =>
+  require("react-native-enriched-markdown/jest"),
+);
+
 // expo-symbols renders a native SF Symbol / Material Symbol view.
 jest.mock("expo-symbols", () => ({ SymbolView: () => null }));
 

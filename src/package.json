@@ -1,7 +1,7 @@
 {
   "name": "dexter",
   "main": "expo-router/entry",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "license": "MIT",
   "engines": {
     "node": ">=24"
@@ -69,7 +69,7 @@
     "react-native": "0.86.2",
     "react-native-audio-api": "^0.13.3",
     "react-native-drax": "^1.1.0",
-    "react-native-enriched-markdown": "^0.7.4",
+    "react-native-enriched-markdown": "^1.0.2",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",

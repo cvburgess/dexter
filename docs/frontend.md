@@ -313,9 +313,10 @@ The four-file pattern (`.types.ts` / `.native.tsx` / `.web.tsx` / a `.tsx`
 re-exporting native so `tsc` — which doesn't do platform-extension resolution —
 can resolve the import). Notable splits:
 
-- `NoteEditor`: native wraps `react-native-enriched-markdown` (uncontrolled —
-  `defaultValue` + `onChangeMarkdown` so React never fights the caret); web is
-  **read-only** (upstream #392). Native module → dev-client rebuild.
+- `NoteEditor`: native wraps `react-native-enriched-markdown` (uncontrolled); web
+  is the **read-only** renderer (upstream #392), which needs
+  `md4cFlags.hardSoftBreaks` or it collapses newline-per-Enter into one
+  paragraph. Native module → dev-client rebuild.
 - `SearchField`: two files only; the native half renders `null` and can't be
   unit-tested — device-only verification.
 - `GlassIconButton`: liquid glass on iOS with plain-circle fallback; needs an
@@ -426,6 +427,10 @@ lives on the palette (not just `THEMES`) for exactly this.
   copy until DEX-169, and the two drifted the moment anything bumped one and not
   the other; don't add a `version` key back to it. (Build numbers are separate —
   EAS owns those via `appVersionSource: "remote"`.)
+- **A native change needs a version bump in the same merge.** `deploy.yml`
+  runs `eas update --channel production` on every push to `main`, and
+  `runtimeVersion` is the app version — so JS built against new native code
+  reaches every installed binary of the *old* version unless the bump fences it.
 - Env: `.env.local` with `EXPO_PUBLIC_SUPABASE_URL` /
   `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` / `EXPO_PUBLIC_SENTRY_DSN` (see
   `src/README.md`). Regenerate DB types with `npm run supabase:types`.

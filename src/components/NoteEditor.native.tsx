@@ -1,76 +1,23 @@
-import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import Animated, {
-  useAnimatedKeyboard,
-  useAnimatedStyle,
-} from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { SymbolView, type SymbolViewProps } from "expo-symbols";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ScrollView, StyleSheet } from "react-native";
 import {
+  type ContextMenuItem,
   EnrichedMarkdownTextInput,
   type EnrichedMarkdownTextInputInstance,
   type StyleState,
 } from "react-native-enriched-markdown";
 
+import { isListActive, nextHeadingLevel } from "@/utils/markdownMenu";
+import { markdownInputStyle } from "@/utils/markdownStyle";
 import { useTheme } from "@/utils/theme";
 
 import { TNoteEditorProps } from "./NoteEditor.types";
 
 // Uncontrolled (defaultValue + onChangeMarkdown) so React never fights the
-// caret. The accessory bar's toggles/Done go through the ref (blur(),
-// toggleBold() etc) since this isn't RN's TextInput — no InputAccessoryView,
-// and Keyboard.dismiss() is a no-op on it.
+// caret. The input routes keyboard dismissal through the enclosing ScrollView.
 
-/** Height of the accessory bar; also the bottom inset reserved for it. */
-const BAR_HEIGHT = 44;
-
-type TFormatControl = {
-  /** `StyleState` key whose `isActive` drives this button's highlight. */
-  key: keyof StyleState;
-  /** Names a Material Symbol directly, not via Icon (DEX-61) — Ionicons
-   * has no bold/italic/underline/strikethrough glyph to convert to. */
-  symbol: SymbolViewProps["name"];
-  label: string;
-  /** Instance method toggled on press. */
-  method:
-    "toggleBold" | "toggleItalic" | "toggleUnderline" | "toggleStrikethrough";
-};
-
-/** Inline-format toggles shown in the accessory bar, left to right. */
-const FORMAT_CONTROLS: TFormatControl[] = [
-  {
-    key: "bold",
-    symbol: { ios: "bold", android: "format_bold", web: "format_bold" },
-    label: "Bold",
-    method: "toggleBold",
-  },
-  {
-    key: "italic",
-    symbol: { ios: "italic", android: "format_italic", web: "format_italic" },
-    label: "Italic",
-    method: "toggleItalic",
-  },
-  {
-    key: "underline",
-    symbol: {
-      ios: "underline",
-      android: "format_underlined",
-      web: "format_underlined",
-    },
-    label: "Underline",
-    method: "toggleUnderline",
-  },
-  {
-    key: "strikethrough",
-    symbol: {
-      ios: "strikethrough",
-      android: "format_strikethrough",
-      web: "format_strikethrough",
-    },
-    label: "Strikethrough",
-    method: "toggleStrikethrough",
-  },
-];
+// Block commands ride the native selection menu, which the library only builds
+// once text is selected — so an empty line can't be formatted: type, then select.
 
 export function NoteEditor({
   initialValue,
@@ -81,147 +28,92 @@ export function NoteEditor({
   testID,
 }: TNoteEditorProps) {
   const theme = useTheme();
-  const keyboard = useAnimatedKeyboard();
-  const insets = useSafeAreaInsets();
   const inputRef = useRef<EnrichedMarkdownTextInputInstance>(null);
-  const [focused, setFocused] = useState(false);
   const [state, setState] = useState<StyleState | null>(null);
-
-  // Ride the top edge of the keyboard as it animates in/out (UI thread).
-  const barStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: -keyboard.height.value }],
-  }));
-
-  // Shrinks the frame, not padding (the library ignores it as a scroll
-  // inset) — not automaticallyAdjustKeyboardInsets (DEX-92), which needs a ScrollView.
-  const editorInsetStyle = useAnimatedStyle(() => ({
-    paddingBottom: Math.max(
-      keyboard.height.value + (focused ? BAR_HEIGHT : 0),
-      insets.bottom,
-    ),
-  }));
+  const inputStyle = useMemo(() => markdownInputStyle(theme), [theme]);
 
   // React fires no blur on unmount, which would otherwise leave the host's
   // swipe gesture disabled on the next day.
   useEffect(() => () => onFocusChange?.(false), [onFocusChange]);
 
+  // `icon` is an SF Symbol the library draws itself; Android shows text only.
+  const inList = isListActive(state);
+  const menuItems = useMemo<ContextMenuItem[]>(
+    () => [
+      {
+        text: "Heading",
+        icon: "textformat.size",
+        onPress: ({ styleState }) =>
+          inputRef.current?.toggleHeading(nextHeadingLevel(styleState)),
+      },
+      {
+        text: "Bullet list",
+        icon: "list.bullet",
+        onPress: () => inputRef.current?.toggleUnorderedList(),
+      },
+      {
+        text: "Numbered list",
+        icon: "list.number",
+        onPress: () => inputRef.current?.toggleOrderedList(),
+      },
+      {
+        text: "Outdent",
+        icon: "decrease.indent",
+        visible: inList,
+        onPress: () => inputRef.current?.outdentList(),
+      },
+      {
+        text: "Indent",
+        icon: "increase.indent",
+        visible: inList,
+        onPress: () => inputRef.current?.indentList(),
+      },
+    ],
+    [inList],
+  );
+
   return (
-    <View style={styles.container}>
-      <Animated.View style={[styles.editorFill, editorInsetStyle]}>
-        <EnrichedMarkdownTextInput
-          ref={inputRef}
-          autoFocus={autoFocus}
-          cursorColor={theme.colors.primary}
-          defaultValue={initialValue}
-          multiline
-          onBlur={() => {
-            setFocused(false);
-            // Clear so a later focus doesn't flash the previous caret's
-            // highlights before the input emits a fresh state.
-            setState(null);
-            onFocusChange?.(false);
-          }}
-          onChangeMarkdown={onChangeMarkdown}
-          onChangeState={setState}
-          onFocus={() => {
-            setFocused(true);
-            onFocusChange?.(true);
-          }}
-          placeholder={placeholder}
-          placeholderTextColor={theme.colors.textSecondary}
-          selectionColor={theme.colors.primary}
-          style={StyleSheet.flatten([
-            styles.editor,
-            // Body copy, not a heading: the writing surface takes the same role
-            // token as the rest of the app's prose.
-            theme.fonts.body,
-            { color: theme.colors.text, padding: theme.space.md },
-          ])}
-          testID={testID}
-        />
-      </Animated.View>
-      {focused && (
-        <Animated.View
-          style={[
-            styles.accessory,
-            barStyle,
-            {
-              backgroundColor: theme.colors.surfaceSunken,
-              borderTopColor: theme.colors.border,
-              paddingHorizontal: theme.space.md,
-            },
-          ]}
-        >
-          <View style={[styles.tools, { gap: theme.space.lg }]}>
-            {FORMAT_CONTROLS.map((control) => {
-              const active = state?.[control.key].isActive ?? false;
-              return (
-                <Pressable
-                  key={control.key}
-                  accessibilityLabel={control.label}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  hitSlop={theme.space.sm}
-                  onPress={() => inputRef.current?.[control.method]()}
-                  style={styles.tool}
-                >
-                  <SymbolView
-                    name={control.symbol}
-                    size={theme.icons.md}
-                    tintColor={
-                      active ? theme.colors.primary : theme.colors.textSecondary
-                    }
-                  />
-                </Pressable>
-              );
-            })}
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            hitSlop={theme.space.sm}
-            onPress={() => inputRef.current?.blur()}
-          >
-            <Text
-              style={[theme.fonts.control, { color: theme.colors.primary }]}
-            >
-              Done
-            </Text>
-          </Pressable>
-        </Animated.View>
-      )}
-    </View>
+    <ScrollView
+      automaticallyAdjustKeyboardInsets
+      contentContainerStyle={styles.fill}
+      keyboardDismissMode="interactive"
+      keyboardShouldPersistTaps="handled"
+      style={styles.fill}
+    >
+      <EnrichedMarkdownTextInput
+        ref={inputRef}
+        autoFocus={autoFocus}
+        contextMenuItems={menuItems}
+        cursorColor={theme.colors.primary}
+        defaultValue={initialValue}
+        markdownStyle={inputStyle}
+        multiline
+        onBlur={() => {
+          // Stale list state would otherwise gate the menu on the next focus.
+          setState(null);
+          onFocusChange?.(false);
+        }}
+        onChangeMarkdown={onChangeMarkdown}
+        onChangeState={setState}
+        onFocus={() => onFocusChange?.(true)}
+        placeholder={placeholder}
+        placeholderTextColor={theme.colors.textSecondary}
+        selectionColor={theme.colors.primary}
+        style={StyleSheet.flatten([
+          styles.fill,
+          // Body copy, not a heading: the writing surface takes the same role
+          // token as the rest of the app's prose.
+          theme.fonts.body,
+          { color: theme.colors.text, padding: theme.space.md },
+        ])}
+        testID={testID}
+      />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  fill: {
     flex: 1,
-  },
-  // Wraps the input; its animated paddingBottom shrinks the input's frame to the
-  // visible viewport (see `editorInsetStyle`) so the built-in caret-scroll works.
-  editorFill: {
-    flex: 1,
-  },
-  editor: {
-    flex: 1,
-  },
-  accessory: {
-    alignItems: "center",
-    borderTopWidth: StyleSheet.hairlineWidth,
-    bottom: 0,
-    flexDirection: "row",
-    height: BAR_HEIGHT,
-    justifyContent: "space-between",
-    left: 0,
-    position: "absolute",
-    right: 0,
-  },
-  tools: {
-    alignItems: "center",
-    flexDirection: "row",
-  },
-  tool: {
-    alignItems: "center",
-    justifyContent: "center",
   },
 });
