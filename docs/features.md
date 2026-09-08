@@ -655,9 +655,12 @@ an enable prop.
   meaningful drop is sideways. A timed hold was tried twice and **cannot work**:
   `activateAfterLongPress` activates regardless of movement, so below the menu's
   ~500ms it silently cancels the menu and above it loses the drag — presenting as
-  intermittent. The per-axis `dragActivationOffsetX`/`dragActivationFailOffsetY`
-  props come from `patches/react-native-drax+1.1.0.patch`, which touches `src/`,
-  `lib/typescript/` and `lib/module/` so every entry point agrees.
+  intermittent. **`0` is not "off" on iOS either** (DEX-196) — RNGH treats only
+  NaN as unset, so it activated on every stationary press and ate the touches
+  inside the card, cancelled by a finger's drift but not a mouse click's.
+  `patches/react-native-drax+1.1.0.patch` drops the call at `0` and adds the
+  per-axis `dragActivationOffsetX`/`dragActivationFailOffsetY` props; it touches
+  `src/`, `lib/typescript/` and `lib/module/` so every entry point agrees.
 - **The hover preview is a static shell** (`TaskCardPreview`) — drax's default
   re-renders the dragged children into its overlay, which would mount a second
   set of async-sizing `@expo/ui` hosts that report 0 on native. It needs
