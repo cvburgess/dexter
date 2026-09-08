@@ -57,7 +57,7 @@ export function DraggableTaskCard(props: TDraggableTaskCardProps) {
       testID={`task-drag-${task.id}`}
       // Not draggable when finished, or mid-edit — no-hold activation is
       // the same gesture as selecting title text (SwipeablePage's `!editing`).
-      draggable={!editing && !isCompletionStatus(task.status)}
+      draggable={drag.enabled && !editing && !isCompletionStatus(task.status)}
       // A card is a drop target's guest, never a target itself; without this
       // drax would let one card receive another.
       receptive={false}

@@ -124,8 +124,8 @@ export function LargeScreenToday({
         </View>
       </LargeScreenHeader>
       {/* Drag-to-schedule between Tasks and the backlog drawer (DEX-77) —
-          large screens only, where the panes are siblings. */}
-      <DragScheduleProvider>
+          armed only with the drawer open; the other target is the card's own day. */}
+      <DragScheduleProvider enabled={panes.drawer}>
         <View
           style={[
             styles.paneRow,
