@@ -31,11 +31,8 @@ type TLargeScreenRitualProps = {
   onSwipe: (direction: 1 | -1) => void;
 };
 
-const CHEVRON_PREV: TIconName = { sf: "chevron.left", ionicon: "chevron-back" };
-const CHEVRON_NEXT: TIconName = {
-  sf: "chevron.right",
-  ionicon: "chevron-forward",
-};
+const ARROW_PREV: TIconName = { sf: "arrow.left", ionicon: "arrow-back" };
+const ARROW_NEXT: TIconName = { sf: "arrow.right", ionicon: "arrow-forward" };
 
 /** Deliberately not `GlassIconButton`: a step arrow reads as the page's own
  * primary action, and glass washes out over the darker step backgrounds. */
@@ -123,7 +120,7 @@ export function LargeScreenRitual({
         <View style={[styles.gutter, { minWidth: gutterMin }]}>
           {canPrev ? (
             <StepArrow
-              icon={CHEVRON_PREV}
+              icon={ARROW_PREV}
               label="Previous ritual step"
               onPress={() => onSwipe(-1)}
               size={arrowSize}
@@ -152,7 +149,7 @@ export function LargeScreenRitual({
         <View style={[styles.gutter, { minWidth: gutterMin }]}>
           {canNext ? (
             <StepArrow
-              icon={CHEVRON_NEXT}
+              icon={ARROW_NEXT}
               label="Next ritual step"
               onPress={() => onSwipe(1)}
               size={arrowSize}
