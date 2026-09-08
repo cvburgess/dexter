@@ -116,7 +116,7 @@ export function NoteEditor({
         automaticallyAdjustKeyboardInsets
         contentContainerStyle={[
           styles.fill,
-          { paddingBottom: theme.controls.md },
+          { paddingBottom: focused ? theme.controls.md : 0 },
         ]}
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
@@ -202,7 +202,9 @@ export function NoteEditor({
                   key={control.method}
                   accessibilityLabel={control.label}
                   accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
+                  accessibilityState={
+                    control.activeKey ? { selected: active } : undefined
+                  }
                   hitSlop={theme.space.sm}
                   onPress={() => inputRef.current?.[control.method]()}
                 >
