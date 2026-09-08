@@ -13,30 +13,30 @@ import "@/utils/audio";
 // from there: that module imports this one, and a cycle costs more than a copy.
 const SETTLE_MS = 1800;
 
-// A harmonic stack on A2, one partial per band. Anything but whole multiples of
-// the fundamental would be a chord, and a chord is a mood the sky hasn't picked.
-const PARTIALS = [110, 220, 330, 440, 550];
+// C major, ascending, one note per band — arriving in order they arpeggiate up
+// and accumulate into the chord. A harmonic stack read as an ominous drone.
+const NOTES = [261.63, 329.63, 392.0, 523.25, 659.25]; // C4 E4 G4 C5 E5
 
-// Only the fundamental has harmonics for the lowpass below to shape; the
-// partials above it *are* those harmonics, and a triangle up there is hash.
-const WAVE = (index: number) => (index === 0 ? "triangle" : "sine");
+// Triangle for the two that carry the body, sine above: at C5 and up a
+// triangle's harmonics land where the ear is sharpest and read as glare.
+const WAVE = (index: number) => (index < 2 ? "triangle" : "sine");
 
-// Two oscillators per partial, this far either side. The slow beating between
+// Two oscillators per note, this far either side. The slow beating between
 // them is the warmth; much wider and it speeds up into roughness.
 const DETUNE_CENTS = 4;
 
 // Swept across the rise, not fixed: light arriving reads as a spectrum opening,
 // which is the one sunrise-shaped gesture available without a sample.
-const LOWPASS_FROM_HZ = 400;
-const LOWPASS_TO_HZ = 1800;
+const LOWPASS_FROM_HZ = 800;
+const LOWPASS_TO_HZ = 4000;
 
 // Read as decibels, not a percentage: gain is linear amplitude against a
 // logarithmic ear, so halving this is only −6dB. Same register as the horoscope.
 const MAX_VOLUME = 0.1;
 
-// Falls off as 1/n so the fundamental stays the note and the partials stay
-// overtones of it rather than five notes at once.
-const WEIGHTS = PARTIALS.map((_, index) => 1 / (index + 1));
+// 1/√n, not 1/n: the top of a chord has to stay audible as a note, where an
+// overtone could fall away. Some taper still, or the ear reads the top as shrill.
+const WEIGHTS = NOTES.map((_, index) => 1 / Math.sqrt(index + 1));
 const WEIGHT_SUM = WEIGHTS.reduce((sum, weight) => sum + weight, 0);
 
 // Shorter than the settle on purpose: this answers someone who has already
@@ -157,7 +157,7 @@ export function useSunriseAudio(revealKey: string | null) {
 
       const oscillators: OscillatorNode[] = [];
 
-      PARTIALS.forEach((hz, index) => {
+      NOTES.forEach((hz, index) => {
         const [from, to] = BAND_WINDOWS[index];
 
         const gain = context.createGain();
@@ -176,7 +176,7 @@ export function useSunriseAudio(revealKey: string | null) {
           oscillators.push(oscillator);
         }
 
-        // Halved across the detune pair, so a partial cannot sum past the
+        // Halved across the detune pair, so a note cannot sum past the
         // share of MAX_VOLUME its weight bought it.
         const peak = WEIGHTS[index] / WEIGHT_SUM / 2;
         gain.gain.setValueCurveAtTime(

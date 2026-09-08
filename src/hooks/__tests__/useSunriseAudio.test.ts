@@ -96,9 +96,9 @@ const LEAD_IN_SECONDS = 0.05;
 
 const DAY = "2026-08-09";
 
-// The hook builds the master first, then one gain per partial.
+// The hook builds the master first, then one gain per note.
 const masterGain = () => mockGains[0].gain;
-const partialGains = () => mockGains.slice(1);
+const noteGains = () => mockGains.slice(1);
 
 /** Every linear ramp scheduled on a param, as `[value, at]` pairs. */
 const rampsOn = (param: ReturnType<typeof mockParam>) =>
@@ -143,16 +143,16 @@ describe("useSunriseAudio", () => {
 
   // Thin on the sound itself — partials and envelopes are still tuned by ear.
   // What's left is the lifecycle, which isn't in flux.
-  it("opens a partial per band and leaves them all silent to start", () => {
+  it("opens a note per band and leaves them all silent to start", () => {
     renderHook(() => useSunriseAudio(DAY));
 
-    // Two detuned oscillators per partial, into one gain each.
-    expect(mockOscillators).toHaveLength(partialGains().length * 2);
+    // Two detuned oscillators per note, into one gain each.
+    expect(mockOscillators).toHaveLength(noteGains().length * 2);
     expect(mockContext.createBiquadFilter).toHaveBeenCalledTimes(1);
 
     // Either anchored silent at the start, or opening from a curve whose own
     // first sample is zero — never left sitting at a gain node's default of 1.
-    for (const { gain } of partialGains()) {
+    for (const { gain } of noteGains()) {
       const [curve] = curvesOn(gain);
       const anchored = gain.setValueAtTime.mock.calls.some(
         ([value, at]) => value === 0 && at === LEAD_IN_SECONDS,
@@ -171,7 +171,7 @@ describe("useSunriseAudio", () => {
     mockContext.currentTime = 40;
     renderHook(() => useSunriseAudio(DAY));
 
-    const starts = partialGains().flatMap((gain) =>
+    const starts = noteGains().flatMap((gain) =>
       curvesOn(gain.gain).map((curve) => curve.at),
     );
     expect(starts.length).toBeGreaterThan(0);
@@ -184,7 +184,7 @@ describe("useSunriseAudio", () => {
     renderHook(() => useSunriseAudio(DAY));
 
     const rangeEnds = LEAD_IN_SECONDS + SUNRISE_MS / 1000;
-    for (const { gain } of partialGains()) {
+    for (const { gain } of noteGains()) {
       for (const curve of curvesOn(gain)) {
         expect(curve.at).toBeGreaterThanOrEqual(LEAD_IN_SECONDS);
         expect(curve.end).toBeLessThanOrEqual(rangeEnds + Number.EPSILON);
@@ -201,15 +201,15 @@ describe("useSunriseAudio", () => {
     expect(lastValue).toBeCloseTo(0);
   });
 
-  // Five partials summing coherently at the peak is the one moment this could
-  // clip; each buys only its weighted share of the ceiling.
+  // Five notes summing coherently once the chord is complete is the one moment
+  // this could clip; each buys only its weighted share of the ceiling.
   it("never lets the stack sum past its ceiling", () => {
     renderHook(() => useSunriseAudio(DAY));
 
-    const peaks = partialGains().flatMap((gain) =>
+    const peaks = noteGains().flatMap((gain) =>
       curvesOn(gain.gain).map((curve) => Math.max(...curve.values)),
     );
-    // Two oscillators per gain, so each partial's peak lands twice. The
+    // Two oscillators per gain, so each note's peak lands twice. The
     // tolerance is Float32 storage: the weights sum to exactly 1 in float64.
     const summed = peaks.reduce((sum, peak) => sum + peak, 0) * 2;
     expect(summed).toBeLessThanOrEqual(1 + 1e-6);
