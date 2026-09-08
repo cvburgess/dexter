@@ -6,13 +6,13 @@
 - Ritual steps arrive once a day — come back to one later and it's there instantly, no waiting through the animation again
 - Step through your ritual with arrow buttons on larger screens, and jump to any step from the menu
 - See how much is waiting behind each backlog filter without opening it
+- Add headings and lists to your notes from the new bar above the keyboard, and select text for bold, italic, underline, strikethrough, or a link
 - Notes keep their formatting on the web, and match whichever theme you've chosen
-- Format note text by selecting it — bold, italic, links and more now live in the standard text menu
 - Fixed bugs and made improvements to improve the user experience
 
 ---
 
-- Upgrade enriched-markdown to 1.0.2 and theme markdown rendering (#175)
+- DEX-201: Upgrade enriched-markdown to 1.0.2, theme notes, and add a formatting toolbar (#175)
 - DEX-199: Play ritual step animations and audio once per day (#174)
 - Use arrow glyphs for the large-screen ritual step buttons (#173)
 - DEX-198: Play a generated sunrise sound on the final AM ritual step (#172)
