@@ -44,8 +44,7 @@ type TRitualRevealProviderProps = {
 };
 
 /** Tells every animation and audio driver in one ritual step whether its
- * arrival has already played (DEX-199). Mounted inside `SwipeablePage`'s
- * keyed subtree, so its lifetime is exactly one visit to one step. */
+ * arrival already played (DEX-199). Lives one visit — SwipeablePage keys it. */
 export function RitualRevealProvider({
   date,
   mode,
@@ -59,11 +58,8 @@ export function RitualRevealProvider({
 
   const [stored, { markSeen, isLoading }] = useSeenRitualSteps(isToday);
 
-  // Once a driver here has marked, the stored `true` is our own write — read it
-  // back and `seen` would flip mid-visit, cutting the reveal short and, because
-  // `useHoroscopeAudio`'s `enabled` is a `useFocusEffect` dependency, fading the
-  // track out seconds after it started. A fresh mount resets this, which is
-  // exactly the next visit.
+  // Our own write, read back, would flip `seen` mid-visit — cutting the reveal
+  // short and fading the horoscope track out (its `enabled` is a focus dep).
   const [markedHere, setMarkedHere] = useState(false);
   const seen = isLoading
     ? null

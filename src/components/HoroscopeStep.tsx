@@ -221,9 +221,8 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
   // the scroll (see RevealOnScroll).
   const maxScroll = Math.max(0, contentHeight - viewportHeight);
 
-  // Gated on the horoscope, not on mounting, so a still-loading or empty day
-  // stays silent — and on `seen`, which is frozen per visit: a live value
-  // would flip mid-track and this hook's cleanup would fade it straight out.
+  // Gated on the horoscope so a loading or empty day stays silent, and on
+  // `seen` — per visit, or this hook's cleanup fades the track straight out.
   useHoroscopeAudio(!!horoscope && seen === false);
 
   return (

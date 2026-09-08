@@ -53,10 +53,8 @@ export function useHeroReveal(revealKey: string | null): SharedValue<number> {
       reveal.value = 1;
       return;
     }
-    // Arriving with the content loaded is the visit, reduced motion included —
-    // the horoscope's audio hangs off this too, and gating it only for users
-    // who see animations would leave the track replaying for everyone else.
-    // Only ever reached with `seen` false, or it would un-mark the step.
+    // Reduced motion included: the horoscope's audio hangs off this mark, so
+    // gating only animated visits leaves it replaying. Needs `seen` false.
     markRevealed();
     if (reduceMotion) {
       reveal.value = 1;

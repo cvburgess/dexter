@@ -57,9 +57,8 @@ describe("RitualRevealProvider", () => {
     await waitFor(() => expect(result.current.seen).toBe(true));
   });
 
-  // DEX-199: a live read would flip `seen` the moment a driver marks, and
-  // `useHoroscopeAudio`'s `enabled` is a useFocusEffect dep — the track would
-  // fade out seconds after it started.
+  // DEX-199: reading our own write back flips `seen` mid-visit, and
+  // `useHoroscopeAudio`'s `enabled` is a focus dep — the track fades out.
   it("keeps reporting the step unseen for the rest of the visit after marking", async () => {
     const result = renderReveal();
     await waitFor(() => expect(result.current.seen).toBe(false));

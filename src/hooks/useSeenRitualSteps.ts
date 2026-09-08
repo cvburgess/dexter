@@ -45,9 +45,8 @@ type TUseSeenRitualSteps = [
   },
 ];
 
-/** Which ritual steps have already played their arrival on a given day
- * (DEX-199). `enabled` false skips the read for a caller that already knows
- * the answer — a ritual for any day but today never animates. */
+/** Which ritual steps already played their arrival on a given day (DEX-199).
+ * `enabled` false skips the read — any day but today never animates. */
 export const useSeenRitualSteps = (enabled = true): TUseSeenRitualSteps => {
   const queryClient = useQueryClient();
 
