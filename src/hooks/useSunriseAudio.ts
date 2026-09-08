@@ -54,11 +54,8 @@ const easeInOut = (t: number) => (1 - Math.cos(Math.PI * t)) / 2;
 // library's 64-event-per-param budget (DEX-187) since each curve is one event.
 const CURVE_STEPS = 24;
 
-// Both descents are stepped ramps rather than one `setValueCurveAtTime`: the
-// exit fade has to `cancelAndHoldAtTime` the master mid-flight, and the library
-// rejects a new event inside a curve's span — a truncated curve's own boundary
-// is not worth betting on. A descent needs several steps either way, since one
-// straight ramp holds up near full and then drops out from under the ear.
+// Stepped ramps, not a `setValueCurveAtTime`: the exit fade cancelAndHolds the
+// master mid-flight, and the library rejects an event inside a curve's span.
 const SETTLE_STEPS = 16;
 const FADE_STEPS = 12;
 
@@ -82,9 +79,8 @@ const rideDown = (
   }
 };
 
-// Most of the drop early, like a room letting go — the same shape a finished
-// breathing run settles with. The exit fade eases both ends instead, or its
-// steepest moment lands right where the reader swiped away.
+// The settle drops early, like a room letting go; the fade eases both ends, or
+// its steepest moment lands right where the reader swiped away.
 const SETTLE_SHAPE = (t: number) => 1 - easeOut(t);
 const FADE_SHAPE = (t: number) => 1 - easeInOut(t);
 
@@ -110,13 +106,11 @@ const stopFadingOut = () => {
   fadingOut = null;
 };
 
-// Sounds the Summary step's sunrise (DEX-198): a warm stack swelling with the
-// bands and settling as the figures arrive. `revealKey` is the day, or null to
-// stay silent — the caller owns the gating (loading, blank day, reduced motion).
+// Sounds the Summary step's sunrise (DEX-198). `revealKey` is the day, or null
+// to stay silent — the caller owns the gating; see SummaryStep.
 export function useSunriseAudio(revealKey: string | null) {
-  // Focus-scoped audio against a component-scoped animation: coming back from
-  // another tab finds `rise` already settled, so a replay would swell at a
-  // static sky. Swiping in unmounts and remounts, which clears this.
+  // Coming back from another tab finds `rise` already settled, so a replay
+  // would swell at a static sky. Swiping in remounts, which clears this.
   const scheduledFor = useRef<string | null>(null);
 
   useFocusEffect(
@@ -167,9 +161,8 @@ export function useSunriseAudio(revealKey: string | null) {
         const [from, to] = BAND_WINDOWS[index];
 
         const gain = context.createGain();
-        // Only where the window opens later: the library rejects an event
-        // inside a curve's span, and a curve opening at `startedAt` carries its
-        // own leading zero anyway, so anchoring both there risks a throw.
+        // Skipped where the curve already opens here: an event on a curve's
+        // own start is a span conflict, and its first sample is zero anyway.
         if (from > 0) gain.gain.setValueAtTime(0, startedAt);
         gain.connect(lowpass);
 
@@ -198,8 +191,7 @@ export function useSunriseAudio(revealKey: string | null) {
         const stopsAt = Math.min(endsAt, now + EXIT_FADE_MS / 1000);
 
         // cancelAndHold leaves the opening ceiling as the last event, so an
-        // unanchored ramp would slope from full — a jump, not a fade. Anchored
-        // at where the envelope has actually got to instead.
+        // unanchored ramp would slope from full — a jump, not a fade.
         master.gain.cancelAndHoldAtTime(now);
         const level = MAX_VOLUME * levelAt((now - startedAt) * 1000);
         master.gain.setValueAtTime(level, now);

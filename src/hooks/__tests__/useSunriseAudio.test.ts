@@ -79,8 +79,8 @@ jest.mock("expo-router", () => {
   const { useEffect } = require("react");
   return {
     useFocusEffect: (effect: () => void | (() => void)) => {
-      // Mutating this doesn't itself re-render; the test bumps it and
-      // re-renders, and the dependency is what turns that into a fresh focus.
+      // The test bumps this and re-renders; the dependency is what turns that
+      // into a fresh focus.
       // eslint-disable-next-line react-hooks/exhaustive-deps
       useEffect(() => effect(), [effect, mockFocus.generation]);
     },
