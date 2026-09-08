@@ -314,8 +314,11 @@ re-exporting native so `tsc` — which doesn't do platform-extension resolution 
 can resolve the import). Notable splits:
 
 - `NoteEditor`: native wraps `react-native-enriched-markdown` (uncontrolled —
-  `defaultValue` + `onChangeMarkdown` so React never fights the caret); web is
-  **read-only** (upstream #392). Native module → dev-client rebuild.
+  `defaultValue` + `onChangeMarkdown` so React never fights the caret; the
+  enclosing `ScrollView` is what dismisses the keyboard); web is its
+  **read-only** renderer (upstream #392), which needs `md4cFlags.hardSoftBreaks`
+  or it collapses the editor's newline-per-Enter into one paragraph, and the
+  `katex` Metro stub. Native module → dev-client rebuild.
 - `SearchField`: two files only; the native half renders `null` and can't be
   unit-tested — device-only verification.
 - `GlassIconButton`: liquid glass on iOS with plain-circle fallback; needs an

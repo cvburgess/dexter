@@ -325,10 +325,8 @@ Every icon names **both** an SF Symbol and an Ionicon through
 `expo-symbols` silently falls back to **Google's Material Symbols** off iOS,
 which is how the app once rendered two different icon sets by platform.
 
-Two documented exceptions: `NativeTabs.Trigger.Icon` accepts only `sf` + `md`
-names, so the four tab icons keep Material names; and
-`NoteEditor.native.tsx`'s four formatting toggles have no Ionicons equivalent
-(the file is `.native.tsx`, so only Android draws a Material Symbol).
+One documented exception: `NativeTabs.Trigger.Icon` accepts only `sf` + `md`
+names, so the four tab icons keep Material names.
 
 ## Scrims and shadows
 
