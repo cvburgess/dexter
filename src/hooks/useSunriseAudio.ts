@@ -1,6 +1,10 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useRef } from "react";
-import { AudioContext, type OscillatorNode } from "react-native-audio-api";
+import {
+  AudioContext,
+  type GainNode,
+  type OscillatorNode,
+} from "react-native-audio-api";
 
 import { BAND_WINDOWS, SUNRISE_MS } from "@/components/SunriseBackground";
 import "@/utils/audio";
@@ -50,8 +54,12 @@ const easeInOut = (t: number) => (1 - Math.cos(Math.PI * t)) / 2;
 // library's 64-event-per-param budget (DEX-187) since each curve is one event.
 const CURVE_STEPS = 24;
 
-// A fade has to be a curve too: one straight ramp holds up near full and then
-// drops out from under a logarithmic ear.
+// Both descents are stepped ramps rather than one `setValueCurveAtTime`: the
+// exit fade has to `cancelAndHoldAtTime` the master mid-flight, and the library
+// rejects a new event inside a curve's span — a truncated curve's own boundary
+// is not worth betting on. A descent needs several steps either way, since one
+// straight ramp holds up near full and then drops out from under the ear.
+const SETTLE_STEPS = 16;
 const FADE_STEPS = 12;
 
 const sample = (shape: (t: number) => number) =>
@@ -59,15 +67,31 @@ const sample = (shape: (t: number) => number) =>
     shape(step / CURVE_STEPS),
   );
 
+/** Rides a param from `level` down along `shape`, in `steps` linear ramps. */
+const rideDown = (
+  param: GainNode["gain"],
+  shape: (t: number) => number,
+  from: number,
+  seconds: number,
+  level: number,
+  steps: number,
+) => {
+  for (let step = 1; step <= steps; step += 1) {
+    const t = step / steps;
+    param.linearRampToValueAtTime(shape(t) * level, from + seconds * t);
+  }
+};
+
 // Most of the drop early, like a room letting go — the same shape a finished
-// breathing run settles with.
-const DECAY = sample((t) => 1 - easeOut(t));
+// breathing run settles with. The exit fade eases both ends instead, or its
+// steepest moment lands right where the reader swiped away.
+const SETTLE_SHAPE = (t: number) => 1 - easeOut(t);
+const FADE_SHAPE = (t: number) => 1 - easeInOut(t);
 
 /** Where the envelope sits, as a fraction of its peak, `ms` in. */
 const levelAt = (ms: number) => {
   if (ms <= SUNRISE_MS) return 1;
-  const settled = Math.min(1, (ms - SUNRISE_MS) / SETTLE_MS);
-  return 1 - easeOut(settled);
+  return SETTLE_SHAPE(Math.min(1, (ms - SUNRISE_MS) / SETTLE_MS));
 };
 
 // Module scope because a fade outlives the effect that started it, and nothing
@@ -118,7 +142,17 @@ export function useSunriseAudio(revealKey: string | null) {
       // whole stack rather than five envelopes racing each other down.
       const master = context.createGain();
       master.gain.setValueAtTime(MAX_VOLUME, startedAt);
-      master.gain.setValueCurveAtTime(DECAY, at(SUNRISE_MS), SETTLE_MS / 1000);
+      // Anchored again where the settle begins — a ramp runs from the previous
+      // event, so without this the descent would slope across the whole swell.
+      master.gain.setValueAtTime(MAX_VOLUME, at(SUNRISE_MS));
+      rideDown(
+        master.gain,
+        SETTLE_SHAPE,
+        at(SUNRISE_MS),
+        SETTLE_MS / 1000,
+        MAX_VOLUME,
+        SETTLE_STEPS,
+      );
       master.connect(context.destination);
 
       const lowpass = context.createBiquadFilter();
@@ -169,13 +203,14 @@ export function useSunriseAudio(revealKey: string | null) {
         master.gain.cancelAndHoldAtTime(now);
         const level = MAX_VOLUME * levelAt((now - startedAt) * 1000);
         master.gain.setValueAtTime(level, now);
-        for (let step = 1; step <= FADE_STEPS; step += 1) {
-          const t = step / FADE_STEPS;
-          master.gain.linearRampToValueAtTime(
-            (1 - easeInOut(t)) * level,
-            now + ((EXIT_FADE_MS / 1000) * step) / FADE_STEPS,
-          );
-        }
+        rideDown(
+          master.gain,
+          FADE_SHAPE,
+          now,
+          EXIT_FADE_MS / 1000,
+          level,
+          FADE_STEPS,
+        );
 
         // Clamped: past the natural end the oscillators have already stopped,
         // and re-stopping a finished node is not the library's happy path.

@@ -100,6 +100,10 @@ const DAY = "2026-08-09";
 const masterGain = () => mockGains[0].gain;
 const partialGains = () => mockGains.slice(1);
 
+/** Every linear ramp scheduled on a param, as `[value, at]` pairs. */
+const rampsOn = (param: ReturnType<typeof mockParam>) =>
+  param.linearRampToValueAtTime.mock.calls as [number, number][];
+
 /** Every curve scheduled on a param, as a start/end window in seconds. */
 const curvesOn = (param: ReturnType<typeof mockParam>) =>
   (
@@ -187,11 +191,14 @@ describe("useSunriseAudio", () => {
       }
     }
 
-    const [decay] = curvesOn(masterGain());
-    expect(decay.at).toBeCloseTo(rangeEnds);
-    expect(decay.end).toBeCloseTo(rangeEnds + SETTLE_MS / 1000);
-    // Ends in silence rather than being cut off there.
-    expect(decay.values[decay.values.length - 1]).toBeCloseTo(0);
+    // The settle is stepped ramps, not a curve — see the hook on why the master
+    // must stay curve-free. It opens where the bands land and ends in silence.
+    const settle = rampsOn(masterGain());
+    const [, firstAt] = settle[0];
+    const [lastValue, lastAt] = settle[settle.length - 1];
+    expect(firstAt).toBeGreaterThan(rangeEnds);
+    expect(lastAt).toBeCloseTo(rangeEnds + SETTLE_MS / 1000);
+    expect(lastValue).toBeCloseTo(0);
   });
 
   // Five partials summing coherently at the peak is the one moment this could
@@ -225,10 +232,10 @@ describe("useSunriseAudio", () => {
       [number, number],
     ];
     expect(held).toBeLessThan(MAX_VOLUME);
-    for (const [value] of masterGain().linearRampToValueAtTime.mock.calls as [
-      number,
-      number,
-    ][]) {
+    // Only the ramps the fade itself added: the settle's own were scheduled
+    // ahead of this moment and legitimately sit higher.
+    for (const [value, at] of rampsOn(masterGain())) {
+      if (at < mockContext.currentTime) continue;
       expect(value).toBeLessThanOrEqual(held);
     }
   });
