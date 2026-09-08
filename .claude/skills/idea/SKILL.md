@@ -2,7 +2,7 @@
 name: idea
 description: Prototype an idea into a testable MVP, iterate on it live, then formalize it into a Linear issue and PR once approved. Use when the user has a problem, solution, or rough sketch they want to build and try quickly.
 argument-hint: [the idea — a problem, a solution, or a rough sketch]
-disable-model-invocation: true
+disable-model-invocation: false
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep, Agent, Skill, AskUserQuestion, mcp__linear-server__save_issue, mcp__linear-server__list_issue_labels, mcp__linear-server__list_issue_statuses, mcp__claude_ai_Linear__save_issue, mcp__claude_ai_Linear__list_issue_labels, mcp__claude_ai_Linear__list_issue_statuses
 ---
 

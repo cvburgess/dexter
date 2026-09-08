@@ -2,7 +2,7 @@
 name: implement-issue
 description: Implement a Linear issue end-to-end. Use when the user wants to build a feature, fix a bug, or complete work described in a Linear issue.
 argument-hint: [Linear issue id (e.g. DEX-294) or Linear issue URL]
-disable-model-invocation: true
+disable-model-invocation: false
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep, Agent, Skill, AskUserQuestion, mcp__linear-server__get_issue, mcp__linear-server__list_comments, mcp__linear-server__save_comment, mcp__linear-server__save_issue
 ---
 

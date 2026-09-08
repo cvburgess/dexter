@@ -2,7 +2,7 @@
 name: triage-sentry
 description: Triage Sentry issues by investigating root cause, then either resolving noise in Sentry or creating a Linear bug issue. Use when the user wants to triage, review, or act on Sentry errors.
 argument-hint: [Sentry issue ID, URL, or "all" to triage open issues]
-disable-model-invocation: true
+disable-model-invocation: false
 allowed-tools: Agent, Read, Grep, Glob, Bash(git log*), mcp__sentry__search_issues, mcp__sentry__get_issue_details, mcp__sentry__update_issue, mcp__sentry__find_organizations, mcp__sentry__find_projects, mcp__claude_ai_Sentry__search_issues, mcp__claude_ai_Sentry__get_issue_details, mcp__claude_ai_Sentry__update_issue, mcp__claude_ai_Sentry__find_organizations, mcp__claude_ai_Sentry__find_projects, mcp__linear-server__list_issue_labels, mcp__linear-server__save_issue, mcp__claude_ai_Linear__list_issue_labels, mcp__claude_ai_Linear__save_issue
 ---
 
