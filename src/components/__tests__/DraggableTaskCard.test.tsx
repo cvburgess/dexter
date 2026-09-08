@@ -110,6 +110,18 @@ describe("DraggableTaskCard", () => {
     expect(dragProps(screen).payload).toEqual({ taskId: "task-1" });
   });
 
+  // Today's only other target is the card's own day, so with the drawer closed
+  // a drag could only snap back — and its pan would still swallow presses.
+  it("is not draggable while the provider is disabled", () => {
+    const screen = render(
+      <DragScheduleProvider enabled={false}>
+        <DraggableTaskCard {...cardProps} />
+      </DragScheduleProvider>,
+    );
+
+    expect(dragProps(screen).draggable).toBe(false);
+  });
+
   it("never receives a drop itself", () => {
     const screen = render(withProvider(<DraggableTaskCard {...cardProps} />));
 

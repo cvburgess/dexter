@@ -636,10 +636,11 @@ below the fold. The only step that reads a day other than the ritual's own.
 
 Large screens only (a phone's backlog is a native sheet a drag can't cross), and
 never the only path — the row "+" and the Schedule submenu remain for keyboard
-and screen readers. Library is `react-native-drax` (pure JS, OTA-safe).
-`useDragSchedule()` returns `null` outside the provider and both ends degrade to
-plain views, which is what keeps `DraxView` off small screens without threading
-an enable prop.
+and screen readers. Today arms it only while the drawer is open (DEX-196) — its
+other target is the card's own day; Week's columns keep it always on. Library is
+`react-native-drax` (pure JS, OTA-safe). `useDragSchedule()` returns `null`
+outside the provider and both ends degrade to plain views, which is what keeps
+`DraxView` off small screens without threading an enable prop.
 
 - **Drax caches a view's props in its registry** at registration, refreshing only
   when a *capability* prop changes, and dispatches off that snapshot. So drop
@@ -655,9 +656,13 @@ an enable prop.
   meaningful drop is sideways. A timed hold was tried twice and **cannot work**:
   `activateAfterLongPress` activates regardless of movement, so below the menu's
   ~500ms it silently cancels the menu and above it loses the drag — presenting as
-  intermittent. The per-axis `dragActivationOffsetX`/`dragActivationFailOffsetY`
-  props come from `patches/react-native-drax+1.1.0.patch`, which touches `src/`,
-  `lib/typescript/` and `lib/module/` so every entry point agrees.
+  intermittent. **`0` is not "off" on iOS either** (DEX-196) — RNGH treats only
+  NaN as unset (Android and web guard `> 0`), so it activated on a stationary
+  press with no movement check; touch taps in a scrolling list survived it, Mac
+  mouse clicks did not, and the subtask checkbox never saw its press.
+  `patches/react-native-drax+1.1.0.patch` drops the call at `0` and adds the
+  per-axis `dragActivationOffsetX`/`dragActivationFailOffsetY` props; it touches
+  `src/`, `lib/typescript/` and `lib/module/` so every entry point agrees.
 - **The hover preview is a static shell** (`TaskCardPreview`) — drax's default
   re-renders the dragged children into its overlay, which would mount a second
   set of async-sizing `@expo/ui` hosts that report 0 on native. It needs

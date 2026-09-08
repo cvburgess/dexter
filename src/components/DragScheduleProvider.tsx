@@ -15,6 +15,8 @@ import { useScheduleChange } from "@/hooks/useScheduleChange";
 import { useTasks } from "@/hooks/useTasks";
 
 export type TDragSchedule = {
+  /** `false` parks every card's pan gesture — no drag can start. */
+  enabled: boolean;
   /** The task a payload refers to *right now*, not at drax registration time
    * (see `isTaskDragPayload`); `undefined` if deleted mid-drag. */
   getTask: (taskId: string) => TTask | undefined;
@@ -32,11 +34,16 @@ export function useDragSchedule(): TDragSchedule | null {
 
 type TDragScheduleProviderProps = {
   children: ReactNode;
+  /** Off while a drag has nowhere useful to go — Today without its drawer. */
+  enabled?: boolean;
 };
 
 /** Hosts drag-to-schedule per large-screen layout, not the app root (DEX-77) —
  * `DraxProvider` needs a real view per layout; one `useTasks()` avoids seven subscriptions on Week. */
-export function DragScheduleProvider({ children }: TDragScheduleProviderProps) {
+export function DragScheduleProvider({
+  children,
+  enabled = true,
+}: TDragScheduleProviderProps) {
   const [tasks, { updateTask }] = useTasks();
   const { changeSchedule, confirmationProps } = useScheduleChange(updateTask);
 
@@ -49,16 +56,17 @@ export function DragScheduleProvider({ children }: TDragScheduleProviderProps) {
     changeScheduleRef.current = changeSchedule;
   });
 
-  // Built once — every field reads through a ref, so a changed context value
-  // would otherwise bypass React's bailout on unchanged `children`.
+  // Rebuilt only when `enabled` flips — every other field reads through a
+  // ref, so a changed value would bypass React's bailout on unchanged children.
   const value = useMemo(
     () => ({
+      enabled,
       getTask: (taskId: string) =>
         tasksRef.current.find((task) => task.id === taskId),
       scheduleTask: (task: TTask, scheduledFor: string | null) =>
         changeScheduleRef.current(task, scheduledFor),
     }),
-    [],
+    [enabled],
   );
 
   return (

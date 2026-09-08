@@ -1,8 +1,8 @@
 import { dragActivation } from "../dragActivation";
 
 describe("dragActivation", () => {
-  // Any non-zero `activateAfterLongPress` fires regardless of movement and kills
-  // MoreMenu's long-press context menu — 100ms and 200ms both failed that way.
+  // Non-zero `activateAfterLongPress` fires regardless of movement and kills
+  // MoreMenu (100ms and 200ms both did); 0 is safe only via the drax patch.
   it("never starts a drag from a stationary press, so the context menu survives", () => {
     expect(dragActivation().longPressDelay).toBe(0);
   });
