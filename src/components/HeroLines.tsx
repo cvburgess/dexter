@@ -11,6 +11,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
+import { useStepReveal } from "@/components/RitualRevealProvider";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { ritualStepInsetTop } from "@/utils/ritualSteps";
 import { useTheme } from "@/utils/theme";
@@ -36,14 +37,17 @@ export const BODY_STAGE = 3;
 // keyed on the day so a background refetch doesn't fade the hero out.
 export function useHeroReveal(revealKey: string | null): SharedValue<number> {
   const reduceMotion = useReducedMotion();
+  const { seen, markRevealed } = useStepReveal();
   const reveal = useSharedValue(0);
 
   useEffect(() => {
-    if (!revealKey) {
+    // A pending `seen` waits like pending data does — animating now would
+    // replay an arrival the device is about to say was already played.
+    if (seen === null || !revealKey) {
       reveal.value = 0;
       return;
     }
-    if (reduceMotion) {
+    if (seen || reduceMotion) {
       // Assigned, not skipped: a plain write cancels whatever's running,
       // stopping a reveal mid-flight if the setting flips while on screen.
       reveal.value = 1;
@@ -56,7 +60,10 @@ export function useHeroReveal(revealKey: string | null): SharedValue<number> {
       // windows rather than the easing of the driver behind them.
       easing: Easing.linear,
     });
-  }, [reduceMotion, reveal, revealKey]);
+    // Not on the reduced-motion path above: nothing was shown, so turning the
+    // setting off later that day should still earn one real reveal.
+    markRevealed();
+  }, [markRevealed, reduceMotion, reveal, revealKey, seen]);
 
   return reveal;
 }

@@ -12,6 +12,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { ETaskPriority } from "@/api/tasks";
+import { useStepReveal } from "@/components/RitualRevealProvider";
 import {
   buildConfetti,
   CONFETTI_STAGGER,
@@ -127,6 +128,7 @@ type TConfettiProps = {
 export function Confetti({ revealKey }: TConfettiProps) {
   const theme = useTheme();
   const reduceMotion = useReducedMotion();
+  const { seen, markRevealed } = useStepReveal();
   const fall = useSharedValue(0);
   // Measured, not `useWindowDimensions` — SwipeablePage caps the step's
   // column on large screens, so the window is wider than the box this fills.
@@ -146,7 +148,8 @@ export function Confetti({ revealKey }: TConfettiProps) {
   const ready = size.height > 0;
 
   useEffect(() => {
-    if (!ready) {
+    // `seen` renders nothing at all below, so don't drive a tree no one sees.
+    if (!ready || seen !== false) {
       fall.value = 0;
       return;
     }
@@ -157,9 +160,12 @@ export function Confetti({ revealKey }: TConfettiProps) {
       // same as SunriseBackground/useHeroReveal.
       easing: Easing.linear,
     });
-  }, [ready, fall, revealKey]);
+    markRevealed();
+  }, [fall, markRevealed, ready, revealKey, seen]);
 
-  if (reduceMotion) return null;
+  // A revisit joins the reduced-motion path rather than settling: the burst's
+  // end state is paper hanging mid-air.
+  if (reduceMotion || seen !== false) return null;
 
   const tints = tintsFor(theme.colors);
 

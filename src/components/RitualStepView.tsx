@@ -9,6 +9,7 @@ import { JournalView } from "@/components/JournalView";
 import { OpenTasksStep } from "@/components/OpenTasksStep";
 import { PreviewTomorrowStep } from "@/components/PreviewTomorrowStep";
 import { ReviewStep } from "@/components/ReviewStep";
+import { RitualRevealProvider } from "@/components/RitualRevealProvider";
 import { SummaryStep } from "@/components/SummaryStep";
 import type { TRitualMode, TRitualStep } from "@/utils/ritualSteps";
 
@@ -24,9 +25,23 @@ type TRitualStepViewProps = {
   onEditingChange: (editing: boolean) => void;
 };
 
+// The provider wraps every branch, including ones that read nothing —
+// cheaper than branching, and its lifetime is one visit (DEX-199).
+export function RitualStepView(props: TRitualStepViewProps) {
+  return (
+    <RitualRevealProvider
+      date={props.date}
+      mode={props.mode}
+      stepId={props.step.id}
+    >
+      <RitualStep {...props} />
+    </RitualRevealProvider>
+  );
+}
+
 // The DEX-34 seam: branches on step.id, nothing else about the flow changes.
 // The default is the landing spot for an unbranched id — RitualStepView.test walks every step.
-export function RitualStepView({
+function RitualStep({
   step,
   date,
   mode,
