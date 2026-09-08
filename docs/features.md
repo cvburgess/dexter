@@ -193,6 +193,11 @@ worklet the reanimated mock renders opaque, and a stage index off the end of the
 table produces `NaN` whose only symptom is a body that never fades in, on device
 only.
 
+**The reveal is gated on an ancestor `RitualRevealProvider` that `useHeroReveal`
+reads implicitly (DEX-199)**: once per day per step, and never for a day that
+isn't today. Arriving marks the step even under Reduce Motion — the horoscope's
+audio hangs off the same mark, or the track would replay all day.
+
 ### Breathe step (DEX-164)
 
 The evening's first step, and the counterpart to the morning's horoscope: a
@@ -505,8 +510,8 @@ Load-bearing:
   deliberate divergences from its neighbours: it takes **theme colors** where the
   sunrise takes fixed hexes (a sunrise in the user's palette isn't a sunrise,
   where confetti has no true color), and it renders **nothing at all** under
-  reduced motion rather than settling — its settled state is paper hanging in
-  mid-air, which reads as a bug.
+  reduced motion or on a revisit rather than settling — its settled state is
+  paper hanging in mid-air, which reads as a bug.
 - `hooks/useTaskDelete.ts` holds the repeat-aware delete this step and
   `DayTaskList` share. A second copy is what would let one surface drop a repeat
   schedule while the other keeps it. (`TaskDrawer` still deletes straight through

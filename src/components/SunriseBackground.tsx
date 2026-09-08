@@ -12,6 +12,8 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
+import { useStepReveal } from "@/components/RitualRevealProvider";
+
 // Outermost first (paint order), but arrive innermost-first (see `stage`) so
 // the glow sweeps up. Fixed warm colors — a sunrise must not take the user's palette.
 const BANDS = [
@@ -98,6 +100,7 @@ type TSunriseBackgroundProps = {
 // content waits for SUNRISE_MS so the two don't compete for the same time.
 export function SunriseBackground({ revealKey }: TSunriseBackgroundProps) {
   const reduceMotion = useReducedMotion();
+  const { seen, markRevealed } = useStepReveal();
   const rise = useSharedValue(0);
   // Measured, not useWindowDimensions — SwipeablePage caps the column width on
   // large screens, so the window is wider than the box this fills.
@@ -117,10 +120,17 @@ export function SunriseBackground({ revealKey }: TSunriseBackgroundProps) {
   // Same shape useHeroReveal uses — assigned, not skipped, under reduced
   // motion, so a mid-flight rise cancels if the setting flips mid-step.
   useEffect(() => {
-    if (!ready) {
+    // Above the measure guard: the risen end state is the same at any size.
+    if (seen) {
+      rise.value = 1;
+      return;
+    }
+    if (seen === null || !ready) {
       rise.value = 0;
       return;
     }
+    // Marked whether or not it animates — see useHeroReveal.
+    markRevealed();
     if (reduceMotion) {
       rise.value = 1;
       return;
@@ -132,7 +142,7 @@ export function SunriseBackground({ revealKey }: TSunriseBackgroundProps) {
       // curve; easing this would bunch all five arrivals together.
       easing: Easing.linear,
     });
-  }, [ready, reduceMotion, rise, revealKey]);
+  }, [markRevealed, ready, reduceMotion, rise, revealKey, seen]);
 
   return (
     <Animated.View

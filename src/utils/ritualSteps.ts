@@ -192,9 +192,17 @@ export const isFirstStep = (state: TRitualState): boolean => state.step === 0;
 export const isLastStep = (state: TRitualState): boolean =>
   state.step === stepsFor(state).length - 1;
 
+/** One step of one day's ritual. Shared so `ritualPageKey` and DEX-199's
+ * seen-gate can't disagree on what counts as a distinct visit. */
+export const stepVisitKey = (
+  date: string,
+  mode: TRitualMode,
+  stepId: TRitualStepId,
+): string => `${date}-${mode}-${stepId}`;
+
 /** `SwipeablePage`'s remount key — all three parts matter, derived once so layouts can't disagree on what counts as a page. */
 export const ritualPageKey = (state: TRitualState): string =>
-  `${state.date.toString()}-${state.mode}-${currentStep(state).id}`;
+  stepVisitKey(state.date.toString(), state.mode, currentStep(state).id);
 
 /**
  * Returns the **same object** at either end rather than a clamped copy — a

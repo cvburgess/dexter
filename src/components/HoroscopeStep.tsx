@@ -26,6 +26,7 @@ import Animated, {
 import { THoroscope } from "@/api/horoscopes";
 import { Button } from "@/components/Button";
 import { EmptyScreen } from "@/components/EmptyScreen";
+import { useStepReveal } from "@/components/RitualRevealProvider";
 import { RevealOnScroll, ScrollHint } from "@/components/ScrollReveal";
 import { StarField } from "@/components/StarField";
 import { useHoroscope } from "@/hooks/useHoroscope";
@@ -143,6 +144,7 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
   const [contentHeight, setContentHeight] = useState(0);
 
   const reduceMotion = useReducedMotion();
+  const { seen, markRevealed } = useStepReveal();
   const breathe = useSharedValue(0);
 
   useEffect(() => {
@@ -169,10 +171,16 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
   const revealDate = horoscope?.date ?? null;
 
   useEffect(() => {
-    if (!revealDate) {
+    if (seen === null || !revealDate) {
       reveal.value = 0;
       return;
     }
+    if (seen) {
+      reveal.value = 1;
+      return;
+    }
+    // Marked whether or not it animates — this also gates the audio below.
+    markRevealed();
     if (reduceMotion) {
       reveal.value = 1;
       return;
@@ -184,7 +192,7 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
       duration: REVEAL_MS,
       easing: Easing.linear,
     });
-  }, [reduceMotion, reveal, revealDate]);
+  }, [markRevealed, reduceMotion, reveal, revealDate, seen]);
 
   // Read straight off the scroller so the scroll-driven fades below never
   // touch the JS thread.
@@ -213,9 +221,9 @@ export function HoroscopeStep({ date }: THoroscopeStepProps) {
   // the scroll (see RevealOnScroll).
   const maxScroll = Math.max(0, contentHeight - viewportHeight);
 
-  // Gated on the horoscope, not on mounting, so a still-loading or empty day
-  // stays silent.
-  useHoroscopeAudio(!!horoscope);
+  // Gated on the horoscope so a loading or empty day stays silent, and on
+  // `seen` — per visit, or this hook's cleanup fades the track straight out.
+  useHoroscopeAudio(!!horoscope && seen === false);
 
   return (
     <View style={styles.panel} testID="horoscope-panel">

@@ -2,7 +2,7 @@
 name: optimize-for-readability
 description: Remove low-value tests, re-author bloated docs sections, and compress oversized comment blocks so the codebase stays accurate, valuable, and human-readable. Use when the user wants to strip AI-generated bloat from a branch, a path, or the whole repo.
 argument-hint: [optional path (e.g. src/components, docs/) or "all" for a whole-repo pass; default is the current branch diff]
-disable-model-invocation: true
+disable-model-invocation: false
 allowed-tools: Bash(git *), Bash(grep *), Bash(rg *), Bash(cd src && npm *), Bash(cd src && npx prettier *), Bash(cd supabase && deno *), Read, Edit, Write, Glob, Grep
 ---
 

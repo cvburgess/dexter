@@ -18,6 +18,7 @@ import {
   useHeroReveal,
   useStageOpacity,
 } from "@/components/HeroLines";
+import { useStepReveal } from "@/components/RitualRevealProvider";
 import { SUNRISE_MS, SunriseBackground } from "@/components/SunriseBackground";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { habitFilters, useHabits } from "@/hooks/useHabits";
@@ -50,6 +51,7 @@ export function SummaryStep({ date }: TSummaryStepProps) {
   const insets = useSafeAreaInsets();
   const isLargeDevice = useIsLargeDevice();
   const reduceMotion = useReducedMotion();
+  const { seen } = useStepReveal();
   const router = useRouter();
   const [preferences] = usePreferences();
   // A value, not the PlainDate object — identity comparison would restart
@@ -114,11 +116,12 @@ export function SummaryStep({ date }: TSummaryStepProps) {
   // block once the sunrise settles, rather than competing with its bands.
   const content = useSharedValue(0);
   useEffect(() => {
-    if (isLoading) {
+    if (isLoading || seen === null) {
       content.value = 0;
       return;
     }
-    if (reduceMotion) {
+    // Or a revisited Summary sits blank behind the sunrise for SUNRISE_MS.
+    if (seen || reduceMotion) {
       // Assigned, not skipped — cancels a fade already in flight if the
       // setting flips mid-step, same rule useHeroReveal and the sunrise follow.
       content.value = 1;
@@ -131,7 +134,9 @@ export function SummaryStep({ date }: TSummaryStepProps) {
     );
     // `day`, not `date` — same key the reveal/sunrise use, so all three
     // restart together rather than this one also firing for an equal PlainDate.
-  }, [content, isLoading, reduceMotion, day]);
+    // No markRevealed here — the sunrise and the blank-day reveal in this
+    // same tree already record the visit.
+  }, [content, isLoading, reduceMotion, day, seen]);
   const contentStyle = useAnimatedStyle(() => ({ opacity: content.value }));
 
   // Pinned at 1 so HeroLines' own per-line stagger is skipped and the wrapper

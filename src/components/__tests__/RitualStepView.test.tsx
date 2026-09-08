@@ -146,6 +146,13 @@ jest.mock("@/components/PreviewTomorrowStep", () => {
   };
 });
 
+// Same reason as the children below: the provider owns a query (and so needs a
+// client). This file is about which branch the seam picks (DEX-199).
+jest.mock("@/components/RitualRevealProvider", () => ({
+  RitualRevealProvider: ({ children }: { children: React.ReactNode }) =>
+    children,
+}));
+
 const DATE = Temporal.PlainDate.from("2026-08-09");
 
 const renderStep = (step: TRitualStep, mode: TRitualMode = "am") =>
