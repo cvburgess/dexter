@@ -15,10 +15,10 @@ const SETTLE_MS = 1800;
 
 // C major, ascending, one note per band — arriving in order they arpeggiate up
 // and accumulate into the chord. A harmonic stack read as an ominous drone.
-const NOTES = [261.63, 329.63, 392.0, 523.25, 659.25]; // C4 E4 G4 C5 E5
+const NOTES = [130.81, 164.81, 196.0, 261.63, 329.63]; // C3 E3 G3 C4 E4
 
-// Triangle for the two that carry the body, sine above: at C5 and up a
-// triangle's harmonics land where the ear is sharpest and read as glare.
+// Triangle for the two that carry the body, sine above: past C4 a triangle's
+// harmonics land where the ear is sharpest and read as glare.
 const WAVE = (index: number) => (index < 2 ? "triangle" : "sine");
 
 // Two oscillators per note, this far either side. The slow beating between
