@@ -1,10 +1,11 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { DayNav } from "@/components/DayNav";
-import { GlassIconButton } from "@/components/GlassIconButton";
+import { Icon } from "@/components/Icon";
+import type { TIconName } from "@/components/Icon.types";
 import { LargeScreenHeader } from "@/components/LargeScreenHeader";
 import { RitualModeButton } from "@/components/RitualModeButton";
 import { RitualStepSwitcher } from "@/components/RitualStepSwitcher";
@@ -30,6 +31,52 @@ type TLargeScreenRitualProps = {
   onSwipe: (direction: 1 | -1) => void;
 };
 
+const CHEVRON_PREV: TIconName = { sf: "chevron.left", ionicon: "chevron-back" };
+const CHEVRON_NEXT: TIconName = {
+  sf: "chevron.right",
+  ionicon: "chevron-forward",
+};
+
+/** Deliberately not `GlassIconButton`: a step arrow reads as the page's own
+ * primary action, and glass washes out over the darker step backgrounds. */
+function StepArrow({
+  icon,
+  label,
+  onPress,
+  size,
+}: {
+  icon: TIconName;
+  label: string;
+  onPress: () => void;
+  size: number;
+}) {
+  const theme = useTheme();
+
+  return (
+    <TouchableOpacity
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={[
+        styles.arrow,
+        {
+          backgroundColor: theme.colors.primary,
+          borderRadius: theme.radii.full,
+          height: size,
+          width: size,
+        },
+      ]}
+    >
+      <Icon
+        color={theme.colors.primaryContent}
+        ionicon={icon.ionicon}
+        sf={icon.sf}
+        size={size * 0.5}
+      />
+    </TouchableOpacity>
+  );
+}
+
 /** The ritual on a large screen (DEX-127): one route, one state copy — a
  * sequence moved through via SwipeablePage, unlike Today's arrows. */
 export function LargeScreenRitual({
@@ -45,7 +92,8 @@ export function LargeScreenRitual({
   const canNext = !isLastStep(state);
   // A focused text field suspends the swipe here exactly as on the phone.
   const [editing, setEditing] = useState(false);
-  const gutterWidth = theme.controls.md + theme.space.sm * 2;
+  const arrowSize = theme.controls.md * 2;
+  const gutterMin = arrowSize + theme.space.md * 2;
 
   return (
     <SafeAreaView
@@ -63,52 +111,51 @@ export function LargeScreenRitual({
         <DayNav date={state.date} onChangeDate={onChangeDate} />
       </LargeScreenHeader>
       {/* Only the top inset — SwipeablePage pads its own sides, doubled from
-          the phone's (DEX-138) or a step hangs off the toolbar. Capping the row
-          at the page's max plus both arrow columns keeps the arrows beside the
-          page on a wide window and off it just above 768. */}
+          the phone's (DEX-138) or a step hangs off the toolbar. */}
       <View
         style={[
           styles.body,
-          {
-            paddingTop: ritualStepInsetTop(theme.space, true),
-            maxWidth: SWIPEABLE_PAGE_MAX_WIDTH + gutterWidth * 2,
-          },
+          { paddingTop: ritualStepInsetTop(theme.space, true) },
         ]}
       >
-        <View style={[styles.gutter, { width: gutterWidth }]}>
+        {/* The page takes its max and the gutters split what is left, so each
+            arrow floats mid-gutter; `minWidth` keeps it off the page below 880. */}
+        <View style={[styles.gutter, { minWidth: gutterMin }]}>
           {canPrev ? (
-            <GlassIconButton
-              accessibilityLabel="Previous ritual step"
-              ionicon="chevron-back"
+            <StepArrow
+              icon={CHEVRON_PREV}
+              label="Previous ritual step"
               onPress={() => onSwipe(-1)}
-              sfSymbol="chevron.left"
+              size={arrowSize}
             />
           ) : null}
         </View>
-        <SwipeablePage
-          canNext={canNext}
-          canPrev={canPrev}
-          direction={state.direction}
-          enabled={!editing}
-          onSwipe={onSwipe}
-          pageKey={ritualPageKey(state)}
-        >
-          {/* `setEditing` passed raw, not wrapped — see `RitualStepView`'s
-              `onEditingChange`. */}
-          <RitualStepView
-            date={state.date}
-            mode={state.mode}
-            onEditingChange={setEditing}
-            step={step}
-          />
-        </SwipeablePage>
-        <View style={[styles.gutter, { width: gutterWidth }]}>
+        <View style={styles.pageColumn}>
+          <SwipeablePage
+            canNext={canNext}
+            canPrev={canPrev}
+            direction={state.direction}
+            enabled={!editing}
+            onSwipe={onSwipe}
+            pageKey={ritualPageKey(state)}
+          >
+            {/* `setEditing` passed raw, not wrapped — see `RitualStepView`'s
+                `onEditingChange`. */}
+            <RitualStepView
+              date={state.date}
+              mode={state.mode}
+              onEditingChange={setEditing}
+              step={step}
+            />
+          </SwipeablePage>
+        </View>
+        <View style={[styles.gutter, { minWidth: gutterMin }]}>
           {canNext ? (
-            <GlassIconButton
-              accessibilityLabel="Next ritual step"
-              ionicon="chevron-forward"
+            <StepArrow
+              icon={CHEVRON_NEXT}
+              label="Next ritual step"
               onPress={() => onSwipe(1)}
-              sfSymbol="chevron.right"
+              size={arrowSize}
             />
           ) : null}
         </View>
@@ -122,12 +169,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   body: {
-    alignSelf: "center",
     flex: 1,
     flexDirection: "row",
-    width: "100%",
   },
   gutter: {
+    alignItems: "center",
+    flexBasis: 0,
+    flexGrow: 1,
+    flexShrink: 0,
+    justifyContent: "center",
+  },
+  // Basis, not grow: the page claims its max first and the gutters divide the
+  // rest, then it shrinks below 880 where there is nothing left to divide.
+  pageColumn: {
+    flexBasis: SWIPEABLE_PAGE_MAX_WIDTH,
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  arrow: {
     alignItems: "center",
     justifyContent: "center",
   },
