@@ -1,5 +1,13 @@
+import type { Ref } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  TextInput as NativeTextInput,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { TJournal, TJournalPrompt } from "@/api/journals";
@@ -116,6 +124,9 @@ function JournalEditor({
   // Seeded once at mount; the editor remounts whenever prompt labels change.
   const responsesRef = useRef(prompts.map((p) => p.response));
 
+  // Keyed by position on screen, not by index into the stored day (DEX-203).
+  const fieldRefs = useRef<(NativeTextInput | null)[]>([]);
+
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRef = useRef<TJournalPrompt[] | null>(null);
   const savingRef = useRef(false);
@@ -193,9 +204,12 @@ function JournalEditor({
         <MoodScale value={mood} onChange={onChangeMood} />
       </View>
       {/* index is a position in the stored array, not on screen. */}
-      {visible.map((index) => (
+      {visible.map((index, position) => (
         <JournalResponseField
           key={index}
+          ref={(field) => {
+            fieldRefs.current[position] = field;
+          }}
           prompt={prompts[index].prompt}
           response={prompts[index].response}
           onBlur={() => {
@@ -204,6 +218,18 @@ function JournalEditor({
           }}
           onChangeText={(text) => handleChangeResponse(index, text)}
           onFocus={() => onEditingChange?.(true)}
+          // Web has no handler: the browser already walks the fields in order,
+          // and only it can also do Shift+Tab.
+          onTab={
+            Platform.OS === "web"
+              ? undefined
+              : () => {
+                  const next = fieldRefs.current[position + 1];
+                  // Nothing left to answer — let go of the keyboard.
+                  if (next) next.focus();
+                  else fieldRefs.current[position]?.blur();
+                }
+          }
           testID={`journal-response-${index}`}
         />
       ))}
@@ -214,9 +240,12 @@ function JournalEditor({
 type TJournalResponseFieldProps = {
   prompt: string;
   response: string;
+  ref: Ref<NativeTextInput>;
   onBlur: () => void;
   onChangeText: (text: string) => void;
   onFocus: () => void;
+  /** Move to the next prompt. Omitted on web, where the browser does it. */
+  onTab?: () => void;
   testID: string;
 };
 
@@ -225,16 +254,21 @@ type TJournalResponseFieldProps = {
 function JournalResponseField({
   prompt,
   response,
+  ref,
   onBlur,
   onChangeText,
   onFocus,
+  onTab,
   testID,
 }: TJournalResponseFieldProps) {
   const theme = useTheme();
   const [contentHeight, setContentHeight] = useState(0);
+  // Controlled only so a tab can be taken back out (see onKeyPress); the value
+  // matches what the field already holds otherwise, so the caret never moves.
+  const [text, setText] = useState(response);
 
-  // Uncontrolled input — response never updates after mount, so its newline
-  // count as a permanent floor would keep a cleared answer's box tall.
+  // The seeded newline count is a first paint, not a permanent floor — holding
+  // it would keep a cleared answer's box tall.
   const minHeight =
     contentHeight > 0
       ? Math.max(responseHeight(1, theme.space.md), contentHeight)
@@ -247,10 +281,23 @@ function JournalResponseField({
       </Text>
       <TextInput
         accessibilityLabel={prompt}
-        defaultValue={response}
+        ref={ref}
+        value={text}
         multiline
         onBlur={onBlur}
-        onChangeText={onChangeText}
+        // iOS reports Tab only *after* inserting the character, so strip it
+        // here rather than trying to refuse it at the keypress (DEX-203).
+        onChangeText={(next) => {
+          const stripped = next.replace(/\t/g, "");
+          setText(stripped);
+          onChangeText(stripped);
+        }}
+        onKeyPress={
+          onTab &&
+          ((event) => {
+            if (event.nativeEvent.key === "Tab") onTab();
+          })
+        }
         // Fires whenever the wrapped content's size changes, which is the only
         // thing that knows how tall the text actually renders.
         onContentSizeChange={(event) =>
