@@ -168,6 +168,7 @@ export function OpenTasksStep({ date, onEditingChange }: TOpenTasksStepProps) {
             paddingTop: theme.space.md,
             paddingBottom: theme.space.md + insets.bottom,
           }}
+          showsVerticalScrollIndicator={false}
           style={styles.scroll}
         >
           {tasks.map((task) => (

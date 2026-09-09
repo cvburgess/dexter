@@ -490,6 +490,7 @@ export function TaskDrawer({
           ItemSeparatorComponent={ItemSeparator}
           style={styles.list}
           contentContainerStyle={listContentStyle}
+          showsVerticalScrollIndicator={false}
         />
       )}
       {/* Drives the "+" button's alarm prompt, unlike the drag path's modal
