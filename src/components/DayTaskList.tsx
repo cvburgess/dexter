@@ -41,6 +41,7 @@ export function DayTaskList({
       {/* Plain ScrollView: cards' @expo/ui menu hosts size async, which
           virtualization worsens (expo/expo#42576). Empty state renders inside it (DEX-136). */}
       <ScrollView
+        showsVerticalScrollIndicator={false}
         style={styles.scroll}
         // Vertical only — the gutter belongs to whoever placed this list
         // (docs/design.md); content, not container, gets the bottom inset.

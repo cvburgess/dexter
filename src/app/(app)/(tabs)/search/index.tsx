@@ -253,6 +253,7 @@ export default function SearchScreen() {
         // first tap only dismissing it.
         keyboardShouldPersistTaps="handled"
         style={styles.list}
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={listContentStyle}
       />
     </SafeAreaView>

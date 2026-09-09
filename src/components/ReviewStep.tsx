@@ -173,6 +173,7 @@ export function ReviewStep({ date }: TReviewStepProps) {
             paddingTop: habitRow ? theme.space.md : 0,
             paddingBottom: theme.space.md + insets.bottom,
           }}
+          showsVerticalScrollIndicator={false}
           style={styles.scroll}
         >
           {tasks.map((task) => (
