@@ -1,6 +1,11 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
 import type { ReactTestInstance } from "react-test-renderer";
-import { ScrollView, StyleSheet, type ViewStyle } from "react-native";
+import {
+  TextInput as NativeTextInput,
+  ScrollView,
+  StyleSheet,
+  type ViewStyle,
+} from "react-native";
 
 import { TJournalPrompt } from "@/api/journals";
 import { useJournals } from "@/hooks/useJournals";
@@ -343,6 +348,80 @@ describe("JournalView", () => {
 
       const measured = heightOf(screen.getByTestId("journal-response-0"));
       expect(measured).toBeLessThan(seeded as number);
+    });
+  });
+
+  // iOS reports Tab through onKeyPress only after inserting the character, so
+  // both halves matter: the focus move, and taking the tab back out.
+  describe("Tab moves to the next prompt (DEX-203)", () => {
+    const TWO: TJournalPrompt[] = [
+      { prompt: "Highlight", response: "" },
+      { prompt: "Grateful for", response: "" },
+    ];
+
+    // The field refs land on jest-expo's TextInput class mock, so the only
+    // handle on a programmatic focus is its prototype; the instance says which.
+    const spyOnFields = () => ({
+      focus: jest.spyOn(NativeTextInput.prototype, "focus"),
+      blur: jest.spyOn(NativeTextInput.prototype, "blur"),
+    });
+    const focusedTestIDs = (spy: jest.SpyInstance) =>
+      spy.mock.instances.map(
+        (field) => (field as NativeTextInput).props.testID,
+      );
+
+    const pressTab = (field: ReactTestInstance) =>
+      fireEvent(field, "keyPress", { nativeEvent: { key: "Tab" } });
+
+    afterEach(() => jest.restoreAllMocks());
+
+    it("focuses the next prompt on screen", () => {
+      const screen = setup({ prompts: TWO });
+      const spies = spyOnFields();
+
+      pressTab(screen.getByTestId("journal-response-0"));
+
+      expect(focusedTestIDs(spies.focus)).toEqual(["journal-response-1"]);
+      expect(spies.blur).not.toHaveBeenCalled();
+    });
+
+    // Nothing left to answer — trapping focus would leave no keyboard-only
+    // way out of the step.
+    it("blurs the last prompt instead of wrapping around", () => {
+      const screen = setup({ prompts: TWO });
+      const spies = spyOnFields();
+
+      pressTab(screen.getByTestId("journal-response-1"));
+
+      expect(focusedTestIDs(spies.blur)).toEqual(["journal-response-1"]);
+      expect(spies.focus).not.toHaveBeenCalled();
+    });
+
+    it("never saves the tab character iOS inserted", () => {
+      jest.useFakeTimers();
+      try {
+        const screen = setup({ prompts: [TWO[0]] });
+
+        fireEvent.changeText(
+          screen.getByTestId("journal-response-0"),
+          "one\ttwo",
+        );
+        act(() => jest.advanceTimersByTime(800));
+
+        expect(mockUpsertJournalAsync).toHaveBeenCalledWith({
+          prompts: [{ prompt: "Highlight", response: "onetwo" }],
+        });
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it("leaves the pressed field's own text alone", () => {
+      const screen = setup({ prompts: TWO });
+
+      fireEvent.changeText(screen.getByTestId("journal-response-0"), "kept\t");
+
+      expect(screen.getByDisplayValue("kept")).toBeTruthy();
     });
   });
 
