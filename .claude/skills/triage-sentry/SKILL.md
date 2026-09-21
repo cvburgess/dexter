@@ -12,7 +12,7 @@ Investigate Sentry issues, determine root cause, and take action: resolve noise 
 
 ## Execution requirements
 
-- **A Sentry MCP connection is required.** This repo does not configure one — `.cursor/mcp.json` declares only `supabase`, `expo`, and `linear-server`, and Claude Code does not read that file. Sentry must be connected at the user/connector level.
+- **A Sentry MCP connection is required.** This repo declares no MCP servers of its own, so Sentry must be connected at the user/connector level.
 - **If the first Sentry tool call fails or no Sentry tool is available, stop and say so.** Tell the user to connect the Sentry MCP server, then stop. Never guess at issue IDs, error messages, or event counts — a fabricated triage is worse than no triage.
 - **MCP tool prefixes vary by connector.** Sentry tools surface as either `mcp__sentry__*` or `mcp__claude_ai_Sentry__*`, and Linear as either `mcp__linear-server__*` or `mcp__claude_ai_Linear__*`. Use whichever prefix the environment actually exposes; both are listed in `allowed-tools`.
 
@@ -128,7 +128,7 @@ The issue **description** (Markdown) must follow this template:
 < How to trigger this error, if known from the Sentry event context >
 ```
 
-Then call `save_issue` with `team: "DEX"` (per CLAUDE.md), `title`, `description`, `labels: ["Bug"]` (confirm the label exists with `list_issue_labels` if the call is rejected), and `state: "Ready"` so the issue lands in the team's `Ready` column instead of the default `In Refinement` — the same convention as `.claude/skills/create-issue/SKILL.md`. If the user specifies a different team or state, use that instead.
+Then call `save_issue` with `team: "DEX"` (per AGENTS.md), `title`, `description`, `labels: ["Bug"]` (confirm the label exists with `list_issue_labels` if the call is rejected), and `state: "Ready"` so the issue lands in the team's `Ready` column instead of the default `In Refinement` — the same convention as `.claude/skills/create-issue/SKILL.md`. If the user specifies a different team or state, use that instead.
 
 ### Step 6: Report results
 

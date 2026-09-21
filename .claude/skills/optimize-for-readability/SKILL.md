@@ -8,7 +8,7 @@ allowed-tools: Bash(git *), Bash(grep *), Bash(rg *), Bash(cd src && npm *), Bas
 
 # Optimize for Readability
 
-AI tools accrete long docs sections, low-value tests, and comment essays faster than humans prune them. This skill is the pruning pass: it enforces rules the repo already has — the low-value-test list in `docs/testing.md`, the 2-line comment cap and docs philosophy in `CLAUDE.md` — against existing code, not just new changes.
+AI tools accrete long docs sections, low-value tests, and comment essays faster than humans prune them. This skill is the pruning pass: it enforces rules the repo already has — the low-value-test list in `docs/testing.md`, the 2-line comment cap and docs philosophy in `AGENTS.md` — against existing code, not just new changes.
 
 This is **not** a code review. Do not hunt for bugs, do not change behavior, do not rename or restructure code — that is `/quick-code-review`'s job. Every edit here either deletes something or rewrites prose; runtime behavior is identical before and after.
 
@@ -29,7 +29,7 @@ Announce the mode and scope in one line before touching anything, e.g. `Diff mod
 Read the criteria from their source files — do not work from memory:
 
 - `docs/testing.md` — "Which tests are worth writing": the keep-list (pure logic, security properties, API contracts, DEX-xxx regression pins) and the five "not worth writing" categories removed en masse in DEX-143.
-- `CLAUDE.md` — the comment rule under "Standards" and the "Which docs are worth writing" section.
+- `AGENTS.md` — the comment rule under "Standards" and the "Which docs are worth writing" section.
 
 The definitions live there on purpose: this skill names the categories but never restates them, so the doctrine cannot drift between the two files.
 
@@ -45,7 +45,7 @@ For each test file in scope, read it and delete every test that falls into one o
 
 For each markdown file in scope, scrutinize every section longer than 5 lines. The 5-line mark is a **trigger, not a cap**: re-author the section to keep only what the code cannot say — gotchas, counterfactuals, team opinions, constraints invisible at the point of use — at whatever length that lands. Delete file listings, command tables, workflow enumerations, feature narratives, and changelog-style prose entirely; the repo and its git history already answer those. An edit that only removes text is a success, not a no-op.
 
-**Never touch**: `CLAUDE.md` and `AGENTS.md` (curated agent config that must stay byte-identical — leave both alone entirely), `CHANGELOG.md` (user-facing release notes), and `.claude/**` (skills are procedures by design). `CLAUDE.md`'s "4 doc lines per PR" cap governs additions on feature PRs; it does not restrict this removal-dominant pass.
+**Never touch**: `AGENTS.md` (curated agent config — leave it alone entirely), `CHANGELOG.md` (user-facing release notes), and `.claude/**` (skills are procedures by design). `AGENTS.md`'s "4 doc lines per PR" cap governs additions on feature PRs; it does not restrict this removal-dominant pass.
 
 ### Step 5: Pass 3 — compress comment blocks
 
@@ -85,4 +85,4 @@ In diff and path modes, end with: `Review with git diff HEAD before committing.`
 - **No behavior changes, ever.** A bug, a rename, or a refactor you notice along the way is out of scope — note it in the report and move on.
 - **Never `.skip` a test** — delete it or keep it.
 - **When unsure whether a test earns its keep, keep it.** Deletions here should be confident, category-cited calls, not judgment coin-flips.
-- **`CLAUDE.md`, `AGENTS.md`, `CHANGELOG.md`, and `.claude/**` are off limits** in every mode.
+- **`AGENTS.md`, `CHANGELOG.md`, and `.claude/**` are off limits** in every mode.
