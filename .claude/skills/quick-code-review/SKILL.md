@@ -136,7 +136,7 @@ Follow this exactly.
 > - **Reuse** — new code that re-implements something the codebase already has. Grep shared/utility modules and files adjacent to the change, and name the existing helper to call instead.
 > - **Simplification** — redundant or derivable state, copy-paste with slight variation, deep nesting, dead code left behind. Name the simpler form that does the same job.
 > - **Efficiency** — redundant computation or repeated I/O, independent operations run sequentially, blocking work added to startup or hot paths. Name the cheaper alternative.
-> - **Conventions** — clear violations of a governing `CLAUDE.md` (repo root, or one in a directory that is an ancestor of a changed file). Only flag a violation when you can quote the exact rule and the exact line that breaks it — no style preferences, no "spirit of the doc" inferences. Name the `CLAUDE.md` path and quote the rule.
+> - **Conventions** — clear violations of the repo-root `AGENTS.md`. Only flag a violation when you can quote the exact rule and the exact line that breaks it — no style preferences, no "spirit of the doc" inferences. Quote the rule.
 >
 > For cleanup and conventions findings, state the concrete cost — what is duplicated, wasted, harder to maintain, or which rule is broken — instead of a crash. Correctness bugs always outrank cleanup and conventions findings when the output cap forces a cut.
 >

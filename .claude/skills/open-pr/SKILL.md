@@ -61,7 +61,6 @@ Create a GitHub pull request for the current branch.
    Key rules:
    - **Prefer tightening or deleting over adding.** If this PR made a paragraph obsolete, delete it — a doc edit that only removes text is a success
    - A feature narrative inside `frontend.md`/`backend.md` is the specific failure the docs split exists to prevent
-   - `CLAUDE.md` and `AGENTS.md` must always stay identical — update both if either changes
    - Only update skills if the PR directly changes behavior the skill documents
    - Only make factual updates — no speculative or cosmetic edits
    - Err on the side of not updating if unsure
@@ -69,7 +68,7 @@ Create a GitHub pull request for the current branch.
 5. **Commit documentation updates** if any docs were changed:
 
    ```bash
-   git add docs/ CLAUDE.md AGENTS.md .claude/skills/
+   git add docs/ AGENTS.md .claude/skills/
    ```
 
    Only commit if there are staged changes. Use message: `Update documentation for PR`. Skip entirely if no docs changed.
@@ -121,6 +120,5 @@ If a Linear issue was found, replace `DEX-XXX` in the `Closes` line with the act
 - If the branch has no commits ahead of main, inform the user and do not create a PR
 - Keep the summary focused on **what changed and why**, not listing every file
 - **Most PRs need no doc changes at all** — writing is the exception, not the routine
-- `CLAUDE.md` and `AGENTS.md` must always have identical content — update both if either changes
 - Do not update docs for purely cosmetic code changes
 - If unsure whether a doc needs updating, err on the side of not updating
