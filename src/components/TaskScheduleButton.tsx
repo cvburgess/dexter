@@ -9,12 +9,12 @@ import { formatWeekdayMonthDay } from "@/utils/formatPlainDate";
 // on screen, `defer` the day after it, `unschedule` clears the date.
 export type TScheduleMode = "schedule" | "defer" | "unschedule";
 
-// `unschedule` is a bare minus on both platforms — Ionicons has no clean
-// equivalent to SF's calendar.badge.minus, so both agree on the plain glyph.
+// Only iOS names the date on `unschedule` — Ionicons has no badged calendar,
+// so Android/web fall back to the bare minus.
 const MODE_ICON: Record<TScheduleMode, TIconName> = {
   schedule: { sf: "plus", ionicon: "add-outline" },
   defer: { sf: "arrow.right", ionicon: "arrow-forward" },
-  unschedule: { sf: "minus", ionicon: "remove-outline" },
+  unschedule: { sf: "calendar.badge.minus", ionicon: "remove-outline" },
 };
 
 type TTaskScheduleButtonProps = {
