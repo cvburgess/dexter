@@ -1,6 +1,12 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useMemo, useRef, useState } from "react";
-import { LayoutChangeEvent, ScrollView, StyleSheet, View } from "react-native";
+import {
+  LayoutChangeEvent,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
 import { DraxScrollView } from "react-native-drax";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -112,6 +118,11 @@ export function WeekView({
           {/* DraxScrollView, not plain: drax corrects hit-test offsets by
               scroll position, and a plain ScrollView registers none. */}
           <DraxScrollView
+            // Mac only: a click-drag's coarse moves let the native scroll beat
+            // the card's RNGH pan (no arbitration); trackpad/wheel still scroll.
+            canCancelContentTouches={
+              !(Platform.OS === "ios" && Platform.isMacCatalyst)
+            }
             horizontal
             onLayout={(event: LayoutChangeEvent) =>
               anchorToday(event.nativeEvent.layout.width)

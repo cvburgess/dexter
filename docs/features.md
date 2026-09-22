@@ -670,6 +670,9 @@ outside the provider and both ends degrade to plain views, which is what keeps
   `patches/react-native-drax+1.1.0.patch` drops the call at `0` and adds the
   per-axis `dragActivationOffsetX`/`dragActivationFailOffsetY` props; it touches
   `src/`, `lib/typescript/` and `lib/module/` so every entry point agrees.
+- **RNGH can't arbitrate with a native ScrollView's pan**, so on Mac a click-drag
+  raced Week's horizontal scroller; `blocksExternalGesture` only blocks RNGH's
+  stand-in recognizer. Week sets `canCancelContentTouches={false}` on Catalyst.
 - **The hover preview is a static shell** (`TaskCardPreview`) — drax's default
   re-renders the dragged children into its overlay, which would mount a second
   set of async-sizing `@expo/ui` hosts that report 0 on native. It needs
