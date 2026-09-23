@@ -1,7 +1,14 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { useMemo, useRef, useState } from "react";
-import { LayoutChangeEvent, ScrollView, StyleSheet, View } from "react-native";
+import {
+  LayoutChangeEvent,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
 import { DraxScrollView } from "react-native-drax";
+import { useAnimatedRef } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { DragScheduleProvider } from "@/components/DragScheduleProvider";
@@ -52,7 +59,8 @@ export function WeekView({
   const days = useMemo(() => weekDays(monday), [monday]);
   const todayIndex = days.findIndex((day) => day.equals(today));
 
-  const scrollRef = useRef<ScrollView>(null);
+  // Animated so a pressed card can pause it from the UI thread (DEX-207).
+  const scrollRef = useAnimatedRef<ScrollView>();
   // Guards against onLayout re-firing on any re-layout, which would yank the
   // user back to today. Keyed on the week so paging weeks stays put.
   const anchoredWeek = useRef<string | null>(null);
@@ -98,7 +106,11 @@ export function WeekView({
         <WeekNav monday={monday} onChangeWeek={onChangeWeek} />
       </LargeScreenHeader>
       {/* Drag a card between days, or to/from the backlog (DEX-77). */}
-      <DragScheduleProvider>
+      {/* Web's drag doesn't race the scroller (drax sets touch-action there),
+          and `setNativeProps` is native-only. */}
+      <DragScheduleProvider
+        pauseScrollRef={Platform.OS === "web" ? undefined : scrollRef}
+      >
         <View
           style={[
             styles.body,

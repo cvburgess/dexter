@@ -1,6 +1,12 @@
 import { act, render } from "@testing-library/react-native";
 import type { ComponentProps, ReactNode } from "react";
-import { Text } from "react-native";
+import { ScrollView, Text } from "react-native";
+import { State } from "react-native-gesture-handler";
+import {
+  fireGestureHandler,
+  getByGestureTestId,
+} from "react-native-gesture-handler/jest-utils";
+import type { AnimatedRef } from "react-native-reanimated";
 
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import type { TaskCard } from "@/components/TaskCard";
@@ -21,6 +27,14 @@ const mockTaskCard = jest.fn((props: ComponentProps<typeof TaskCard>) => (
 ));
 jest.mock("@/components/TaskCard", () => ({
   TaskCard: (props: ComponentProps<typeof TaskCard>) => mockTaskCard(props),
+}));
+
+// The reanimated mock has no `setNativeProps`; capture what the press gesture sets.
+const mockSetNativeProps = jest.fn();
+jest.mock("react-native-reanimated", () => ({
+  ...jest.requireActual<object>("react-native-reanimated/mock"),
+  useReducedMotion: () => false,
+  setNativeProps: (...args: unknown[]) => mockSetNativeProps(...args),
 }));
 
 const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
@@ -175,5 +189,25 @@ describe("DraggableTaskCard", () => {
 
       expect(dragProps(screen).draggable).toBe(true);
     });
+  });
+
+  // DEX-207: nothing arbitrates Week's native scroll against drax's pan, so a
+  // press pauses it — and a release that failed to resume it would freeze the week.
+  it("pauses the host scroller while pressed and resumes it on release", () => {
+    const scrollRef = { current: null } as unknown as AnimatedRef<ScrollView>;
+    render(
+      <DragScheduleProvider pauseScrollRef={scrollRef}>
+        <DraggableTaskCard {...cardProps} />
+      </DragScheduleProvider>,
+    );
+
+    fireGestureHandler(getByGestureTestId(`task-press-${task.id}`), [
+      { state: State.BEGAN },
+      { state: State.END },
+    ]);
+
+    const updates = mockSetNativeProps.mock.calls.map(([, update]) => update);
+    expect(updates[0]).toEqual({ scrollEnabled: false });
+    expect(updates.at(-1)).toEqual({ scrollEnabled: true });
   });
 });
