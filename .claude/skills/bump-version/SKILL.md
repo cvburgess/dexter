@@ -57,7 +57,7 @@ Bump the app version in all required files and write release notes to `CHANGELOG
       - For MCP / AI integrations, refer to "your favorite AI tools like Claude, ChatGPT, and Gemini" rather than naming a single client
       - One bullet per feature; group related PRs
       - Order by impact: features first, then improvements
-      - Roll all bug fixes and minor polish into a single trailing bullet: "Fixed bugs and made improvements to improve the user experience"
+      - Roll all bug fixes and minor polish into a single trailing bullet: "Fixed bugs and improved the user experience"
       - Aim for ≤ 8 bullets total
    2. A horizontal rule (`---`)
    3. The full PR list from step 1
@@ -71,7 +71,7 @@ Bump the app version in all required files and write release notes to `CHANGELOG
 
 - Scan printed recipes with your camera
 - Faster recipe imports from your favorite cooking blogs
-- Fixed bugs and made improvements to improve the user experience
+- Fixed bugs and improved the user experience
 
 ---
 

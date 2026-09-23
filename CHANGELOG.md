@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.2.1
+
+- Start a line in a note with `#` for a heading, or `-` or `1.` for a list, and it formats as you type
+- Press Tab to jump to the next journal prompt when you're using a keyboard
+- Fixed bugs and improved the user experience
+
+---
+
+- DEX-208: Add a /build-local-apple-app skill (#184)
+- DEX-207: Fix Week's horizontal scroll stealing card drags (#183)
+- DEX-202: Sync the enriched-markdown patch with upstream review (#182)
+- DEX-206: Retire dead agent config — CLAUDE.md symlink, .cursor, BugBot skill (#181)
+- DEX-205: Draw the unschedule button as a calendar with a minus on iOS (#180)
+- DEX-203: Move to the next journal prompt on Tab (#179)
+- DEX-204: Hide scroll indicators on task lists (#178)
+- DEX-202: Typed markdown shortcuts in notes via upstream patch (#177)
+
 ## v2.2.0
 
 - Your morning ritual now closes with a gentle sunrise tone that rises with the light
