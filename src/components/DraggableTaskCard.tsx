@@ -2,11 +2,14 @@ import {
   ComponentProps,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
-import { StyleSheet } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { DraxView } from "react-native-drax";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { setNativeProps } from "react-native-reanimated";
 
 import { useDragSchedule } from "@/components/DragScheduleProvider";
 import { TaskCard } from "@/components/TaskCard";
@@ -29,16 +32,21 @@ const DRAG_ACTIVATION = dragActivation();
 /** A `TaskCard` draggable onto a `TaskDropTarget` (DEX-77) — a plain
  * `TaskCard` outside a `DragScheduleProvider`. Hosts must key this per task. */
 export function DraggableTaskCard(props: TDraggableTaskCardProps) {
+  const { task } = props;
   const drag = useDragSchedule();
   // Local, not lifted: only this wrapper needs it, and `TaskCard` already owns
   // the state this mirrors.
   const [editing, setEditing] = useState(false);
+  // Not draggable when finished, or mid-edit — no-hold activation is the same
+  // gesture as selecting title text (SwipeablePage's `!editing`).
+  const draggable =
+    !!drag?.enabled && !editing && !isCompletionStatus(task.status);
 
   // Read through a ref: drax caches this prop and only refreshes it on a
   // capability-prop change, so an inline arrow would freeze the old priority.
-  const taskRef = useRef(props.task);
+  const taskRef = useRef(task);
   useEffect(() => {
-    taskRef.current = props.task;
+    taskRef.current = task;
   });
   const renderHoverContent = useCallback(
     ({ dimensions }: { dimensions?: { width: number } }) => (
@@ -47,17 +55,35 @@ export function DraggableTaskCard(props: TDraggableTaskCardProps) {
     [],
   );
 
+  // Nothing arbitrates a native scroll against drax's pan, so a fast sideways
+  // move let the scroller win (DEX-207); pause it from touch-down, on the UI thread.
+  const pauseScrollRef = drag?.pauseScrollRef;
+  const pressGesture = useMemo(() => {
+    if (!pauseScrollRef) return null;
+    const resume = () => {
+      "worklet";
+      setNativeProps(pauseScrollRef, { scrollEnabled: true });
+    };
+    return Gesture.Manual()
+      .enabled(draggable)
+      .withTestId(`task-press-${task.id}`)
+      .onBegin(() => {
+        setNativeProps(pauseScrollRef, { scrollEnabled: false });
+      })
+      .onTouchesUp(resume)
+      .onTouchesCancelled(resume)
+      .onFinalize(resume);
+  }, [pauseScrollRef, draggable, task.id]);
+
   if (!drag) return <TaskCard {...props} />;
 
-  const { task } = props;
   const payload: TTaskDragPayload = { taskId: task.id };
+  const card = <TaskCard {...props} onEditingChange={setEditing} />;
 
   return (
     <DraxView
       testID={`task-drag-${task.id}`}
-      // Not draggable when finished, or mid-edit — no-hold activation is
-      // the same gesture as selecting title text (SwipeablePage's `!editing`).
-      draggable={drag.enabled && !editing && !isCompletionStatus(task.status)}
+      draggable={draggable}
       // A card is a drop target's guest, never a target itself; without this
       // drax would let one card receive another.
       receptive={false}
@@ -70,7 +96,13 @@ export function DraggableTaskCard(props: TDraggableTaskCardProps) {
       // mounting a second set of native menu hosts (TaskCardPreview).
       renderHoverContent={renderHoverContent}
     >
-      <TaskCard {...props} onEditingChange={setEditing} />
+      {pressGesture ? (
+        <GestureDetector gesture={pressGesture}>
+          <View>{card}</View>
+        </GestureDetector>
+      ) : (
+        card
+      )}
     </DraxView>
   );
 }

@@ -474,4 +474,7 @@ Not implemented: menu bar, multi-window, and any distribution path.
 **The Mac app on the App Store is not this target.** It is the ordinary iOS/iPad
 binary with "Designed for iPad" enabled on Apple Silicon — no EAS profile sets
 `EXPO_MAC_CATALYST=1`, so nothing built by CI has ever been a Catalyst build.
-Shipping Catalyst instead would mean a separate binary and its own submission.
+**We don't ship it (DEX-207):** a production OTA would crash it — the AlarmKit stub
+is a build-time Metro alias, so the `eas update` bundle imports the unlinked module
+— and it needs its own CI/signing outside EAS, App Sandbox entitlements, and a
+second submission every release.

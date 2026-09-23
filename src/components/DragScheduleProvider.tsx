@@ -6,8 +6,9 @@ import {
   useMemo,
   useRef,
 } from "react";
-import { StyleSheet } from "react-native";
+import { ScrollView, StyleSheet } from "react-native";
 import { DraxProvider } from "react-native-drax";
+import type { AnimatedRef } from "react-native-reanimated";
 
 import { TTask } from "@/api/tasks";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
@@ -22,6 +23,8 @@ export type TDragSchedule = {
   getTask: (taskId: string) => TTask | undefined;
   /** Moves a task to `scheduledFor` (`null` unschedules), prompting first if it carries an alarm. */
   scheduleTask: (task: TTask, scheduledFor: string | null) => Promise<void>;
+  /** A scroller that pauses while a card is pressed; see `DraggableTaskCard`. */
+  pauseScrollRef: AnimatedRef<ScrollView> | null;
 };
 
 const DragScheduleContext = createContext<TDragSchedule | null>(null);
@@ -36,6 +39,8 @@ type TDragScheduleProviderProps = {
   children: ReactNode;
   /** Off while a drag has nowhere useful to go — Today without its drawer. */
   enabled?: boolean;
+  /** A scroller sharing a card's drag axis — Week's row of days (DEX-207). */
+  pauseScrollRef?: AnimatedRef<ScrollView>;
 };
 
 /** Hosts drag-to-schedule per large-screen layout, not the app root (DEX-77) —
@@ -43,6 +48,7 @@ type TDragScheduleProviderProps = {
 export function DragScheduleProvider({
   children,
   enabled = true,
+  pauseScrollRef,
 }: TDragScheduleProviderProps) {
   const [tasks, { updateTask }] = useTasks();
   const { changeSchedule, confirmationProps } = useScheduleChange(updateTask);
@@ -56,8 +62,8 @@ export function DragScheduleProvider({
     changeScheduleRef.current = changeSchedule;
   });
 
-  // Rebuilt only when `enabled` flips — every other field reads through a
-  // ref, so a changed value would bypass React's bailout on unchanged children.
+  // Rebuilt only when `enabled` flips (an animated ref is stable) — the rest
+  // read through refs, so a changed value would bypass React's bailout.
   const value = useMemo(
     () => ({
       enabled,
@@ -65,8 +71,9 @@ export function DragScheduleProvider({
         tasksRef.current.find((task) => task.id === taskId),
       scheduleTask: (task: TTask, scheduledFor: string | null) =>
         changeScheduleRef.current(task, scheduledFor),
+      pauseScrollRef: pauseScrollRef ?? null,
     }),
-    [enabled],
+    [enabled, pauseScrollRef],
   );
 
   return (
