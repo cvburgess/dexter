@@ -114,18 +114,20 @@ export type TCreateDailyHabit = {
   stepsComplete: number;
 };
 
-export const createDailyHabit = async (
+// DEX-216: the row may already exist (another tracker, device, or widget tap);
+// ignoreDuplicates leaves it untouched instead of raising 23505.
+export const createDailyHabits = async (
   supabase: SupabaseClient<Database>,
-  dailyHabit: TCreateDailyHabit,
+  dailyHabits: TCreateDailyHabit[],
 ) => {
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("daily_habits")
-    .insert(snakeCase(dailyHabit) as TablesInsert<"daily_habits">)
-    .select()
-    .single();
+    .upsert(snakeCase(dailyHabits) as TablesInsert<"daily_habits">[], {
+      onConflict: "date,habit_id",
+      ignoreDuplicates: true,
+    });
 
   if (error) throw error;
-  return camelCase(data) as TDailyHabit;
 };
 
 export type TUpdateDailyHabit = {
