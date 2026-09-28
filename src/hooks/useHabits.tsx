@@ -8,7 +8,7 @@ import {
 
 import { TQueryFilter } from "@/api/applyFilters";
 import {
-  createDailyHabit,
+  createDailyHabits,
   createHabit,
   deleteHabit,
   getDailyHabits,
@@ -172,35 +172,33 @@ export const useDailyHabits = (
   });
 
   const { mutate: create } = useMutation<void, Error>({
+    mutationKey: ["dailyHabits", "bootstrap", date],
     mutationFn: async () => {
       const today = Temporal.Now.plainDateISO();
 
+      // Nothing to do isn't a failure — throwing here only fed Sentry noise.
       if (
         isLoading ||
         !canBootstrapDailyHabits(Temporal.PlainDate.from(date), today)
       ) {
-        throw new Error("Cannot create daily habits for this date");
+        return;
       }
 
-      const getDailyHabit = (habit: THabit) => {
-        return dailyHabits.find(
-          (dailyHabit) => dailyHabit.habitId === habit.id,
-        );
-      };
+      const missingHabits = habits.filter(
+        (habit) =>
+          !dailyHabits.some((dailyHabit) => dailyHabit.habitId === habit.id),
+      );
 
-      const missingHabits = habits.filter((habit) => !getDailyHabit(habit));
+      if (missingHabits.length === 0) return;
 
-      if (missingHabits.length === 0) throw new Error("No missing habits");
-
-      await Promise.all(
-        missingHabits.map((habit) =>
-          createDailyHabit(supabase, {
-            date: date.toString(),
-            habitId: habit.id,
-            steps: habit.steps,
-            stepsComplete: 0,
-          }),
-        ),
+      await createDailyHabits(
+        supabase,
+        missingHabits.map((habit) => ({
+          date,
+          habitId: habit.id,
+          steps: habit.steps,
+          stepsComplete: 0,
+        })),
       );
     },
     onSuccess: () => {

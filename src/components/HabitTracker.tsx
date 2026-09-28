@@ -74,8 +74,8 @@ export function HabitTracker({
       !dailyHabits.some((dailyHabit) => dailyHabit.habitId === habit.id),
   );
 
-  // Guarded on hasMissingHabit so the mutation (which throws when nothing is
-  // missing) only runs when there's work, and on both queries being loaded.
+  // Guarded on hasMissingHabit so the mutation only runs when there's work,
+  // and on both queries being loaded.
   useEffect(() => {
     if (
       canBootstrap &&

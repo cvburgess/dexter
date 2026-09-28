@@ -1,6 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
 import {
+  createDailyHabits,
   createHabit,
   getHabits,
   updateDailyHabit,
@@ -80,6 +81,54 @@ describe("updateDailyHabit", () => {
     expect(update).toHaveBeenCalledWith({ steps_complete: 3 });
     expect(eqDate).toHaveBeenCalledWith("date", "2026-07-11");
     expect(eqHabit).toHaveBeenCalledWith("habit_id", "habit-1");
+  });
+});
+
+describe("createDailyHabits", () => {
+  it("batches the day's rows into one insert that skips existing rows", async () => {
+    const upsert = jest.fn(() => Promise.resolve({ error: null }));
+    const from = jest.fn(() => ({ upsert }));
+    const supabase = { from } as unknown as SupabaseClient<Database>;
+
+    await createDailyHabits(supabase, [
+      { date: "2026-07-11", habitId: "habit-1", steps: 1, stepsComplete: 0 },
+      { date: "2026-07-11", habitId: "habit-2", steps: 8, stepsComplete: 0 },
+    ]);
+
+    // ignoreDuplicates is ON CONFLICT DO NOTHING: an existing row keeps its
+    // progress, and a concurrent bootstrap can't raise 23505 (DEX-216).
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(upsert).toHaveBeenCalledWith(
+      [
+        {
+          date: "2026-07-11",
+          habit_id: "habit-1",
+          steps: 1,
+          steps_complete: 0,
+        },
+        {
+          date: "2026-07-11",
+          habit_id: "habit-2",
+          steps: 8,
+          steps_complete: 0,
+        },
+      ],
+      { onConflict: "date,habit_id", ignoreDuplicates: true },
+    );
+  });
+
+  it("throws when Supabase returns an error", async () => {
+    const error = new Error("insert failed");
+    const upsert = jest.fn(() => Promise.resolve({ error }));
+    const supabase = {
+      from: jest.fn(() => ({ upsert })),
+    } as unknown as SupabaseClient<Database>;
+
+    await expect(
+      createDailyHabits(supabase, [
+        { date: "2026-07-11", habitId: "habit-1", steps: 1, stepsComplete: 0 },
+      ]),
+    ).rejects.toBe(error);
   });
 });
 
