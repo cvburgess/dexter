@@ -1,11 +1,12 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render } from "@testing-library/react-native";
 import type { ComponentProps } from "react";
-import { Text } from "react-native";
+import { StyleSheet, Text } from "react-native";
 
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import type { WeekDayColumn } from "@/components/WeekDayColumn";
 import { useTasks } from "@/hooks/useTasks";
+import { WEEK_COLUMN_MIN_WIDTH } from "@/utils/breakpoints";
 
 import { WeekView } from "../WeekView";
 
@@ -139,5 +140,36 @@ describe("WeekView drag-to-schedule", () => {
     const screen = renderWeek();
 
     expect(screen.queryByTestId("backlog-drop-target")).toBeNull();
+  });
+});
+
+describe("WeekView column width", () => {
+  const columnWidthAfterLayout = (viewportWidth: number) => {
+    const screen = renderWeek();
+    fireEvent(screen.getByTestId("week-scroll"), "layout", {
+      nativeEvent: {
+        layout: { x: 0, y: 0, width: viewportWidth, height: 800 },
+      },
+    });
+    return Array.from({ length: 7 }, (_, offset) => {
+      const day = monday.add({ days: offset }).toString();
+      return StyleSheet.flatten(
+        screen.getByTestId(`week-drop-${day}`).props.style,
+      ).width;
+    });
+  };
+
+  // The explicit width is what lets each card's menu host stretch (DEX-222).
+  it("splits a wide viewport evenly across the seven columns", () => {
+    const gap = 16;
+    expect(columnWidthAfterLayout(1400)).toEqual(
+      Array(7).fill((1400 - 6 * gap) / 7),
+    );
+  });
+
+  it("holds columns at their minimum width when the week overflows", () => {
+    expect(columnWidthAfterLayout(600)).toEqual(
+      Array(7).fill(WEEK_COLUMN_MIN_WIDTH),
+    );
   });
 });
