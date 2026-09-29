@@ -6,7 +6,7 @@
 #   PREVIEW_URL=https://<project ref>.supabase.co
 #   PREVIEW_KEY=sb_publishable_...
 #
-# Fails with an actionable message when the branch has no preview branch.
+# Exits 3 when the branch has no preview branch, 1 on any other failure.
 # Never prints anon, service_role, or sb_secret_ keys.
 set -euo pipefail
 
@@ -27,7 +27,7 @@ REF="$(BRANCHES_JSON="$BRANCHES_JSON" GIT_BRANCH="$BRANCH" node -e '
 if [[ -z "$REF" ]]; then
   echo "error: no Supabase preview branch for git branch \"$BRANCH\"." >&2
   echo "Preview branches are only created when the PR touches supabase/migrations/, so there may be none for this branch." >&2
-  exit 1
+  exit 3 # distinct from CLI/auth failures so auto mode can fall back to prod
 fi
 
 KEYS_JSON="$(npx supabase projects api-keys --project-ref "$REF" -o json)"
