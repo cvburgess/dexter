@@ -73,7 +73,7 @@ function DayEvents({ date }: { date: Temporal.PlainDate }) {
       testID={`week-events-${date.toString()}`}
     >
       {agenda.map((event) => (
-        <EventRow event={event} key={event.id} />
+        <EventRow compact event={event} key={event.id} />
       ))}
     </View>
   );
