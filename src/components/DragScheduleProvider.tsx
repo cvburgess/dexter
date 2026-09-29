@@ -23,6 +23,8 @@ export type TDragSchedule = {
   getTask: (taskId: string) => TTask | undefined;
   /** Moves a task to `scheduledFor` (`null` unschedules), prompting first if it carries an alarm. */
   scheduleTask: (task: TTask, scheduledFor: string | null) => Promise<void>;
+  /** Moves a task onto `listId` (`null` clears it) — the Lists tab (DEX-221). */
+  assignList: (task: TTask, listId: string | null) => void;
   /** A scroller that pauses while a card is pressed; see `DraggableTaskCard`. */
   pauseScrollRef: AnimatedRef<ScrollView> | null;
 };
@@ -57,9 +59,11 @@ export function DragScheduleProvider({
   // handlers, and `changeSchedule` itself is unstable (rebuilt every render).
   const tasksRef = useRef(tasks);
   const changeScheduleRef = useRef(changeSchedule);
+  const updateTaskRef = useRef(updateTask);
   useEffect(() => {
     tasksRef.current = tasks;
     changeScheduleRef.current = changeSchedule;
+    updateTaskRef.current = updateTask;
   });
 
   // Rebuilt only when `enabled` flips (an animated ref is stable) — the rest
@@ -71,6 +75,8 @@ export function DragScheduleProvider({
         tasksRef.current.find((task) => task.id === taskId),
       scheduleTask: (task: TTask, scheduledFor: string | null) =>
         changeScheduleRef.current(task, scheduledFor),
+      assignList: (task: TTask, listId: string | null) =>
+        updateTaskRef.current({ id: task.id, listId }),
       pauseScrollRef: pauseScrollRef ?? null,
     }),
     [enabled, pauseScrollRef],

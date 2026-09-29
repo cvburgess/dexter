@@ -175,6 +175,84 @@ describe("TaskDropTarget", () => {
     });
   });
 
+  // The Lists tab's columns (DEX-221): same target, keyed on a list instead.
+  describe("with a list destination", () => {
+    const renderListTarget = (listId: string | null) =>
+      render(
+        <DragScheduleProvider>
+          <TaskDropTarget listId={listId} testID="target">
+            <Text>Work</Text>
+          </TaskDropTarget>
+        </DragScheduleProvider>,
+      );
+
+    it("assigns a dropped task to the list without touching its date", () => {
+      mockTasks([task({ scheduledFor: "2026-07-16" })]);
+      const screen = renderListTarget("work");
+
+      targetProps(screen, "target").onReceiveDragDrop({
+        dragged: { payload: { taskId: "task-1" } },
+      });
+
+      expect(mockUpdateTask).toHaveBeenCalledWith({
+        id: "task-1",
+        listId: "work",
+      });
+    });
+
+    it("clears the list of a task dropped on No List", () => {
+      mockTasks([task({ listId: "work" })]);
+      const screen = renderListTarget(null);
+
+      targetProps(screen, "target").onReceiveDragDrop({
+        dragged: { payload: { taskId: "task-1" } },
+      });
+
+      expect(mockUpdateTask).toHaveBeenCalledWith({
+        id: "task-1",
+        listId: null,
+      });
+    });
+
+    it("rejects a task already on this list and accepts one from another", () => {
+      mockTasks([task({ listId: "work" })]);
+      const screen = renderListTarget("work");
+      const { acceptsDrag } = targetProps(screen, "target");
+
+      expect(acceptsDrag({ taskId: "task-1" })).toBe(false);
+
+      mockTasks([task({ listId: "home" })]);
+      screen.rerender(
+        <DragScheduleProvider>
+          <TaskDropTarget listId="work" testID="target">
+            <Text>Work</Text>
+          </TaskDropTarget>
+        </DragScheduleProvider>,
+      );
+
+      expect(acceptsDrag({ taskId: "task-1" })).toBe(true);
+    });
+
+    it("assigns to the target's current list, not the one it mounted with", () => {
+      const screen = renderListTarget("work");
+      const captured = targetProps(screen, "target").onReceiveDragDrop;
+
+      screen.rerender(
+        <DragScheduleProvider>
+          <TaskDropTarget listId="home" testID="target">
+            <Text>Home</Text>
+          </TaskDropTarget>
+        </DragScheduleProvider>,
+      );
+      captured({ dragged: { payload: { taskId: "task-1" } } });
+
+      expect(mockUpdateTask).toHaveBeenCalledWith({
+        id: "task-1",
+        listId: "home",
+      });
+    });
+  });
+
   // Invisible to a normal assertion: the Jest stub is a pass-through View, so
   // capturing a handler and calling it post-rerender reproduces drax's staleness.
   describe("handlers held from an earlier render", () => {
