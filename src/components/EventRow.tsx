@@ -6,8 +6,7 @@ import { useTheme } from "@/utils/theme";
 
 type TEventRowProps = {
   event: TCalendarEvent;
-  /** Time over a one-line, ellipsized title — for columns too narrow to fit
-   * both on one row (Week, DEX-186). */
+  /** Ellipsizes the title to one line, for narrow Week columns (DEX-186). */
   compact?: boolean;
 };
 
@@ -17,65 +16,46 @@ export function EventRow({ event, compact = false }: TEventRowProps) {
   // Tracks the density tier without earning its own token — same derivation
   // as CalendarView's now-dot.
   const size = theme.space.sm;
-  const gap = theme.space.sm;
   const when = event.allDay
     ? "all-day"
     : formatTimeRange(event.start, event.end);
-
-  const bullet = (
-    <View
-      style={[
-        styles.bullet,
-        {
-          backgroundColor: event.color ?? theme.colors.primary,
-          borderRadius: theme.radii.full,
-          height: size,
-          width: size,
-        },
-      ]}
-    />
-  );
-  const time = (
-    <Text
-      numberOfLines={compact ? 1 : undefined}
-      style={[theme.fonts.body, { color: theme.colors.textSecondary }]}
-      testID={`event-time-${event.id}`}
-    >
-      {when}
-    </Text>
-  );
-  const titleStyle = [theme.fonts.title, { color: theme.colors.text }];
 
   return (
     <View
       accessible
       // One node for the row — split children read as an orphaned time/title.
       accessibilityLabel={`${when} ${event.title}`}
+      style={[styles.eventRow, { gap: theme.space.sm }]}
     >
-      {compact ? (
-        <>
-          <View style={[styles.eventRow, { gap }]}>
-            {bullet}
-            {time}
-          </View>
-          {/* Indented past the dot so the title hangs under the time. */}
-          <Text
-            numberOfLines={1}
-            style={[titleStyle, { marginLeft: size + gap }]}
-          >
-            {event.title}
-          </Text>
-        </>
-      ) : (
-        <View style={[styles.eventRow, { gap }]}>
-          {bullet}
-          {time}
-          {/* Takes the rest of the row so titles start at the same x. */}
-          <Text numberOfLines={2} style={[styles.eventTitle, ...titleStyle]}>
-            {event.title}
-          </Text>
-        </View>
-      )}
+      <View
+        style={[
+          styles.bullet,
+          {
+            backgroundColor: event.color ?? theme.colors.primary,
+            borderRadius: theme.radii.full,
+            height: size,
+            width: size,
+          },
+        ]}
+      />
+      <Text
+        numberOfLines={1}
+        style={[theme.fonts.body, { color: theme.colors.textSecondary }]}
+        testID={`event-time-${event.id}`}
+      >
+        {when}
+      </Text>
+      {/* Takes the rest of the row so titles start at the same x. */}
+      <Text
+        numberOfLines={compact ? 1 : 2}
+        style={[
+          styles.eventTitle,
+          theme.fonts.title,
+          { color: theme.colors.text },
+        ]}
+      >
+        {event.title}
+      </Text>
     </View>
   );
 }
