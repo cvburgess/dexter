@@ -1,7 +1,7 @@
 ---
 name: use-preview-branch
 description: Point the local Expo app at the Supabase preview branch for the current git branch by swapping the prod/preview Supabase lines in src/.env.local, then start the dev server. Use when testing a PR against its Supabase preview branch.
-allowed-tools: Bash(.claude/skills/use-preview-branch/scripts/*), Bash(git branch*), Bash(cd src && npm start*)
+allowed-tools: Bash(.agents/skills/use-preview-branch/scripts/*), Bash(git branch*), Bash(cd src && npm start*)
 ---
 
 # Use Preview Branch
@@ -24,7 +24,7 @@ These IDs are stable and should be used directly. Never resolve them dynamically
 Run from the repo root (or worktree root):
 
 ```bash
-.claude/skills/use-preview-branch/scripts/get-preview-env.sh
+.agents/skills/use-preview-branch/scripts/get-preview-env.sh
 ```
 
 This resolves the current git branch, finds the matching Supabase preview branch, and prints `PREVIEW_REF`, `PREVIEW_URL`, and `PREVIEW_KEY` (the `sb_publishable_` key). It fails with a clear message when:
@@ -37,7 +37,7 @@ This resolves the current git branch, finds the matching Supabase preview branch
 Run the swap script with the values from Step 1:
 
 ```bash
-.claude/skills/use-preview-branch/scripts/swap-env.sh --preview <PREVIEW_URL> <PREVIEW_KEY>
+.agents/skills/use-preview-branch/scripts/swap-env.sh --preview <PREVIEW_URL> <PREVIEW_KEY>
 ```
 
 The script comments out the prod pair under `# Supabase`, writes the preview pair under `# Preview branch`, and leaves every other line (Sentry, etc.) untouched. It is idempotent, copies `src/.env.local` from the main checkout first if it's missing (fresh worktree), and refuses non-`sb_publishable_` keys. Do not hand-edit the file; the script supersedes manual edits.
@@ -59,7 +59,7 @@ Tell the user:
 To point back at production, run the same script's inverse mode (this is what the `use-main-branch` skill does):
 
 ```bash
-.claude/skills/use-preview-branch/scripts/swap-env.sh --prod
+.agents/skills/use-preview-branch/scripts/swap-env.sh --prod
 ```
 
 ## Important

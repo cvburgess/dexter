@@ -128,7 +128,7 @@ The issue **description** (Markdown) must follow this template:
 < How to trigger this error, if known from the Sentry event context >
 ```
 
-Then call `save_issue` with `team: "DEX"` (per AGENTS.md), `title`, `description`, `labels: ["Bug"]` (confirm the label exists with `list_issue_labels` if the call is rejected), and `state: "Ready"` so the issue lands in the team's `Ready` column instead of the default `In Refinement` — the same convention as `.claude/skills/create-issue/SKILL.md`. If the user specifies a different team or state, use that instead.
+Then call `save_issue` with `team: "DEX"` (per AGENTS.md), `title`, `description`, `labels: ["Bug"]` (confirm the label exists with `list_issue_labels` if the call is rejected), and `state: "Ready"` so the issue lands in the team's `Ready` column instead of the default `In Refinement` — the same convention as `.agents/skills/create-issue/SKILL.md`. If the user specifies a different team or state, use that instead.
 
 ### Step 6: Report results
 

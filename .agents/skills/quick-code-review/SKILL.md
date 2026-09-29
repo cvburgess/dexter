@@ -61,7 +61,7 @@ If no override fired, choose **light** only when **all** of these hold:
 
 - **5 or fewer non-test files** changed
 - **150 or fewer changed lines** (insertions + deletions), excluding lockfiles and generated files
-- The change is confined to **one top-level area** — `src/`, `supabase/`, `www/`, `docs/`, `scripts/`, or `.claude/`
+- The change is confined to **one top-level area** — `src/`, `supabase/`, `www/`, `docs/`, `scripts/`, `.agents/`, or `.claude/`
 - **Test files account for less than half the changed lines** — the light prompt below skips test hunks entirely, so a test-heavy diff would come back clean having reviewed almost nothing
 
 Otherwise choose **heavy**. When the call is genuinely borderline, choose heavy: the cost of over-reviewing is some tokens, the cost of under-reviewing is a bug reaching `main`.
@@ -86,7 +86,7 @@ Read the architecture doc for the areas the diff touches:
 - tests → [`docs/testing.md`](docs/testing.md)
 - style values → [`docs/design.md`](docs/design.md)
 
-In light mode read only the doc for the single area involved. Skip entirely if the diff is confined to `docs/` or `.claude/`.
+In light mode read only the doc for the single area involved. Skip entirely if the diff is confined to `docs/`, `.agents/`, or `.claude/`.
 
 ### Step 7: Run the review
 

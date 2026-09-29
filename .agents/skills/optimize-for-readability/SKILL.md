@@ -45,7 +45,7 @@ For each test file in scope, read it and delete every test that falls into one o
 
 For each markdown file in scope, scrutinize every section longer than 5 lines. The 5-line mark is a **trigger, not a cap**: re-author the section to keep only what the code cannot say — gotchas, counterfactuals, team opinions, constraints invisible at the point of use — at whatever length that lands. Delete file listings, command tables, workflow enumerations, feature narratives, and changelog-style prose entirely; the repo and its git history already answer those. An edit that only removes text is a success, not a no-op.
 
-**Never touch**: `AGENTS.md` (curated agent config — leave it alone entirely), `CHANGELOG.md` (user-facing release notes), and `.claude/**` (skills are procedures by design). `AGENTS.md`'s "4 doc lines per PR" cap governs additions on feature PRs; it does not restrict this removal-dominant pass.
+**Never touch**: `AGENTS.md` (curated agent config — leave it alone entirely), `CHANGELOG.md` (user-facing release notes), and `.agents/**` / `.claude/**` (skills are procedures by design). `AGENTS.md`'s "4 doc lines per PR" cap governs additions on feature PRs; it does not restrict this removal-dominant pass.
 
 ### Step 5: Pass 3 — compress comment blocks
 
@@ -85,4 +85,4 @@ In diff and path modes, end with: `Review with git diff HEAD before committing.`
 - **No behavior changes, ever.** A bug, a rename, or a refactor you notice along the way is out of scope — note it in the report and move on.
 - **Never `.skip` a test** — delete it or keep it.
 - **When unsure whether a test earns its keep, keep it.** Deletions here should be confident, category-cited calls, not judgment coin-flips.
-- **`AGENTS.md`, `CHANGELOG.md`, and `.claude/**` are off limits** in every mode.
+- **`AGENTS.md`, `CHANGELOG.md`, `.agents/**`, and `.claude/**` are off limits** in every mode.
