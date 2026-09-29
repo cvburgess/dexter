@@ -81,8 +81,8 @@ inherited bottom inset with a `SafeAreaInsetsContext.Provider` `bottom: 0`
 `components/CalendarView.tsx` is a themed timeline bounded by the user's
 start/end hours; `utils/calendarLayout.ts` clamps and packs overlapping events;
 times are hand-formatted (`utils/formatPlainTime.ts` — Hermes ships a partial
-`Intl`), 12h or 24h per the OS setting from `expo-localization`, not `Intl`,
-which misses the iOS 24-Hour Time toggle. The source is the platform-split `hooks/useCalendarEvents.*` (native:
+`Intl`), 12h/24h per `expo-localization`, since `Intl` misses the iOS 24-Hour
+Time toggle. The source is the platform-split `hooks/useCalendarEvents.*` (native:
 `expo-calendar` + device-local `useEnabledDeviceCalendars`; web: `.ics` feeds
 through the `ics-proxy` function, parsed by `utils/icsEvents.ts`), normalized to
 one `TCalendarEvent`. `notConfigured` is computed in both platform files from
