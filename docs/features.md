@@ -589,10 +589,9 @@ below the fold. The only step that reads a day other than the ritual's own.
 - **The calendar history is four extra `useCalendarEvents()` calls, not a range
   hook.** The hook takes one `PlainDate` and has no range form; four more calls
   buy the history with none of the fetching, caching, permission or error
-  handling written twice, and React Query keys each day separately. The price is
-  paid on web, where each date re-fetches and re-parses the same `.ics` feed —
-  `parseIcsEventsForDate` is hard-scoped to one target date. Worth a range parser
-  if feeds get large, not before. All five days are measured through the reader's
+  handling written twice. On web the download is cached per feed (DEX-186), so
+  each date only re-parses it — `parseIcsEventsForDate` is hard-scoped to one
+  target date. All five days are measured through the reader's
   own `calendarWindow`, so a history measured over a different window can't read
   as a change in the day.
 - **A failed read is not an empty day, and the comparison is where that bites.**
