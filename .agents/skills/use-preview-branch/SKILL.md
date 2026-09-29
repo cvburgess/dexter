@@ -52,7 +52,7 @@ Tell the user:
 
 - The preview branch ref and URL (`https://<preview_ref>.supabase.co`).
 - Preview branches don't share production's data (only its migrations and `supabase/seed.sql`), so they'll need to sign in/sign up fresh on the preview branch.
-- To remind them to revert `src/.env.local` (run `/use-main-branch`) when done testing against the preview.
+- To remind them to revert `src/.env.local` (run the `use-main-branch` skill) when done testing against the preview.
 
 ## Reverting
 

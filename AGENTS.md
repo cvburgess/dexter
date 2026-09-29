@@ -20,7 +20,8 @@ Dexter is a planner product delivered as an Expo (React Native) app with iOS, An
 - **No co-author lines** in commits and **no "Generated with Claude Code" footer** in PR descriptions.
 - **No script gymnastics:** don't write complex Python/bash to parse data or transcripts — use simple, direct tool calls.
 - **Hardcode known values:** use `cvburgess/dexter` directly in skills, scripts, and `gh` commands — never dynamic resolution like `gh repo view`.
-- **Interactive skills use `AskUserQuestion`**, not plain-text questions; when integrating `/grill-me` into another skill, name the step "Collaborate on the plan".
+- **Interactive skills use the client's structured-question tool** (Claude Code: `AskUserQuestion`), not plain-text questions; when integrating the `grill-me` skill into another skill, name the step "Collaborate on the plan".
+- **Skills are vendor-neutral:** write the procedure, not the tool — name a client's tool only as a parenthetical hint.
 - **Comments max out at 2 lines per block; doc updates at 4 lines per PR.** Write the one thing the code cannot say — a gotcha, a constraint, why the obvious alternative failed — and stop. Rationale essays belong in the PR description, not the source.
 
 ## Key constraints
@@ -70,6 +71,7 @@ Prefer tightening or deleting existing prose over adding: when a change makes a 
 
 - **No plaintext `.env` files are committed.** The one exception is `supabase/.env.preview` (dotenvx-encrypted for preview branches); its private key `supabase/.env.keys` is gitignored and must never be committed. See `docs/backend.md`.
 - **Supabase local dev** (`supabase start`) requires Docker.
+- **Skills live in `.agents/skills/`; `.claude/skills` is a symlink to it** (Claude Code doesn't read `.agents/`). Edit and `git add` the `.agents/` path — git rejects pathspecs beyond a symlink.
 - **A green `npm test` is not a typecheck** — Jest strips types without checking them. Run `npm run typecheck` alongside the tests.
 - **`npm run lint` is `eslint .`, not `expo lint` (DEX-95)** — `expo lint` silently skipped 46% of the app while exiting 0. Don't switch it back.
 - **Don't pass a file path through `npm run lint`/`npm run format`** — both scripts carry their own `.` target, so an appended path rewrites the whole tree. Use `npx eslint --fix <file>` / `npx prettier --write <file>`.

@@ -102,7 +102,7 @@ Do not run `npm test`, `npm run lint`, or `npm run typecheck` unless a fix you a
 
 Summarize in a few lines: the mode that ran, what it found, what was fixed, what was deliberately skipped and why, and anything worth a human's attention that you did not fix. A clean review is a valid outcome — say so plainly rather than manufacturing findings.
 
-If light mode ran, end with one line offering the escalation: `Run /quick-code-review heavy for a deeper pass.` This makes a mistaken triage cost one message instead of a missed bug. Do not offer this after a heavy review.
+If light mode ran, end with one line offering the escalation: `Run the quick-code-review skill in heavy mode for a deeper pass.` This makes a mistaken triage cost one message instead of a missed bug. Do not offer this after a heavy review.
 
 ---
 

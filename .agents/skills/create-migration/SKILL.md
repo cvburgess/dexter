@@ -1,3 +1,8 @@
+---
+name: create-migration
+description: Create a new Supabase database migration following project conventions. Use when the user wants to add or change a table, column, index, RLS policy, trigger, or database function.
+---
+
 # Create Database Migration
 
 Create a new Supabase database migration following project conventions.

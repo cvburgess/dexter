@@ -24,7 +24,7 @@ Build the Debug dev client for the current worktree and launch it against a loca
 
 ## Step 1: Pick the platform
 
-Take it from the argument (`mac`, `simulator`, or `device`). If there is none, ask with `AskUserQuestion`.
+Take it from the argument (`mac`, `simulator`, or `device`). If there is none, ask the user with your structured-question tool (Claude Code: `AskUserQuestion`).
 
 ## Step 2: Prepare the worktree
 
@@ -54,7 +54,7 @@ Run it as a background task; a clean build takes several minutes. Report `BUILD 
 
 ### simulator
 
-1. List simulators with `xcrun simctl list devices available`. Names repeat across runtimes, so always use a **UDID**. Ask which device with `AskUserQuestion` (iPad for large-screen work, iPhone otherwise).
+1. List simulators with `xcrun simctl list devices available`. Names repeat across runtimes, so always use a **UDID**. Ask which device with the structured-question tool (iPad for large-screen work, iPhone otherwise).
 2. The destination is `id=<UDID>`. No signing is involved, so it runs inside the sandbox.
 3. Install and launch. The first install on a freshly booted simulator can take a few minutes, so run it as a background task:
    ```bash

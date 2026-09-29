@@ -7,11 +7,11 @@ allowed-tools: Agent, mcp__linear-server__get_issue, mcp__linear-server__list_te
 
 # Create Linear Issue
 
-Create or update a Linear issue. Delegate research and writing to sonnet subagents. Use Linear MCP (`get_issue`, `list_teams`, `save_issue`, etc.).
+Create or update a Linear issue. Delegate research and writing to subagents. Use Linear MCP (`get_issue`, `list_teams`, `save_issue`, etc.).
 
 ## Instructions
 
-You are the orchestrator. Delegate research and writing to sonnet subagents. Perform Linear MCP calls yourself.
+You are the orchestrator. Delegate research and writing to subagents. Perform Linear MCP calls yourself.
 
 ### Step 1: Determine issue type and understand the request
 
@@ -31,7 +31,7 @@ Ask follow-up questions if team, project, or labels are unclear.
 
 ### Step 2: Launch research agent
 
-Launch a sonnet subagent to explore the codebase for context:
+Launch a subagent to explore the codebase for context:
 
 #### Agent A — Codebase Research
 
@@ -42,19 +42,15 @@ Prompt the agent with the user's request description. Ask it to:
 - Find relevant types, database schemas, or edge functions
 - Return a structured list of findings with file paths and brief descriptions
 
-Set `model: "sonnet"` and `subagent_type: "Explore"`.
+Make it a read-only research subagent (Claude Code: `subagent_type: "Explore"`).
 
 ### Step 3: Collaborate on the plan
 
-Use the `/grill-me` skill to collaborate with the user on the proposed issue. Pass the research findings from Agent A and the user's original request as context. Resolve any open questions or gaps before proceeding to draft the issue.
-
-```
-/grill-me
-```
+Run the `grill-me` skill to collaborate with the user on the proposed issue. Pass the research findings from Agent A and the user's original request as context. Resolve any open questions or gaps before proceeding to draft the issue.
 
 ### Step 4: Launch author agent
 
-Once the research agent completes, launch a sonnet subagent to draft the issue:
+Once the research agent completes, launch a subagent to draft the issue:
 
 #### Agent B — Issue Author
 
@@ -97,7 +93,7 @@ Fill each section thoughtfully:
 - **Test Cases**: List how to verify the issue is resolved or the work is complete
 - **Notes**: Add relevant context, file paths, library doc links from the research
 
-Set `model: "sonnet"` and `subagent_type: "general-purpose"`.
+Use a general-purpose subagent.
 
 ### Step 5: Resolve team and labels
 

@@ -11,7 +11,7 @@ tree resolving dependencies between decisions one by one.
 If a question can be answered by exploring the codebase, explore
 the codebase instead.
 
-For each question, provide your recommended answer and use the
-AskUserQuestion tool to present the question. Do NOT ask questions
-as plain text — always use the AskUserQuestion tool so the user
-gets the structured GUI prompt.
+For each question, provide your recommended answer and present it
+with your structured-question tool (Claude Code: AskUserQuestion)
+so the user gets a selectable prompt. Fall back to plain text only
+if your client has no such tool.

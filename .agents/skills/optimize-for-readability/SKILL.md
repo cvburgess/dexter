@@ -10,7 +10,7 @@ allowed-tools: Bash(git *), Bash(grep *), Bash(rg *), Bash(cd src && npm *), Bas
 
 AI tools accrete long docs sections, low-value tests, and comment essays faster than humans prune them. This skill is the pruning pass: it enforces rules the repo already has — the low-value-test list in `docs/testing.md`, the 2-line comment cap and docs philosophy in `AGENTS.md` — against existing code, not just new changes.
 
-This is **not** a code review. Do not hunt for bugs, do not change behavior, do not rename or restructure code — that is `/quick-code-review`'s job. Every edit here either deletes something or rewrites prose; runtime behavior is identical before and after.
+This is **not** a code review. Do not hunt for bugs, do not change behavior, do not rename or restructure code — that is the `quick-code-review` skill's job. Every edit here either deletes something or rewrites prose; runtime behavior is identical before and after.
 
 ## Instructions
 

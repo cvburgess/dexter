@@ -38,16 +38,16 @@ An issue is **implementation-ready** when **all** of these hold:
 
 ### Step 3: Research the codebase
 
-Launch two sonnet subagents **in parallel**, both with `subagent_type: "Explore"`:
+Launch two read-only research subagents **in parallel** (Claude Code: `subagent_type: "Explore"`):
 
 - **Agent A (codebase analysis):** prompt with the full issue payload (and comments if loaded), or the user's description. Ask it to map each plan step to the files, components, hooks, types, tables, and edge functions involved, and to name the existing patterns the implementation should follow.
 - **Agent B (test and doc landscape):** prompt with the issue title and description. Ask it to find existing tests for the areas being changed and the test patterns to follow (`docs/testing.md`), and the docs worth *reading* for context. It should report a doc *update* only if it can name the durable gotcha this work would produce; "no doc updates needed" is the expected answer. Also ask it to flag marketing copy the change would make stale: `www/src/tips/`, `www/src/_data/faqs.json`, `www/src/_data/features.json`, `www/src/_data/releases.ts`.
 
 ### Step 4: Collaborate on the plan
 
-Synthesize both agents' findings into a concrete plan, then use `/grill-me` to collaborate with the user on it, passing the plan, research findings, and open questions as context.
+Synthesize both agents' findings into a concrete plan, then run the `grill-me` skill to collaborate with the user on it, passing the plan, research findings, and open questions as context.
 
-Once shared understanding is reached, get approval with AskUserQuestion:
+Once shared understanding is reached, get approval with your structured-question tool (Claude Code: `AskUserQuestion`):
 
 ```
 Here's my implementation plan for DEX-XXX (or "for <short title>" in description mode):
@@ -67,7 +67,7 @@ Does this look right, or should I adjust anything?
 
 > Only in description mode. In issue mode, skip to Step 6.
 
-Before writing any code, file the approved plan as a Linear issue so the research and decisions outlive this session. Use the `/create-issue` description template (`## Why`, `## Goal`, `## Plan`, `## Test Cases`, `## Notes`), filled from the research and the `/grill-me` outcome: Plan steps name the files to change, Notes capture the decisions and trade-offs resolved while collaborating.
+Before writing any code, file the approved plan as a Linear issue so the research and decisions outlive this session. Use the `create-issue` skill's description template (`## Why`, `## Goal`, `## Plan`, `## Test Cases`, `## Notes`), filled from the research and the `grill-me` outcome: Plan steps name the files to change, Notes capture the decisions and trade-offs resolved while collaborating.
 
 Call `save_issue` with `title` (under 80 characters), `team: "DEX"`, `description`, the type label from Step 1 (`list_issue_labels` if unsure), and `state: "Ready"`. Share the returned `url` with the user, and use the new identifier everywhere the steps below say "Linear identifier".
 
@@ -109,18 +109,18 @@ Prefer tightening or deleting over adding. Separately, if the change alters user
 
 ### Step 10: Self-review the diff
 
-Run `/quick-code-review`. Commit what it changed, and act on anything it flagged but skipped.
+Run the `quick-code-review` skill. Commit what it changed, and act on anything it flagged but skipped.
 
 ### Step 11: Readability pass
 
-Run `/optimize-for-readability` and commit what it changed. Its test deletions are intended; if you disagree with one, restore that file rather than skipping the pass.
+Run the `optimize-for-readability` skill and commit what it changed. Its test deletions are intended; if you disagree with one, restore that file rather than skipping the pass.
 
 ### Step 12: Open a Pull Request
 
-Run `/open-pr <Linear identifier>` so the PR body links to Linear.
+Run the `open-pr` skill with the Linear identifier so the PR body links to Linear.
 
 ## Important
 
 - **Staff-level judgment**: if the plan has gaps or problems, flag them rather than blindly implementing
 - **Never force-push or amend**: always create new commits
-- **If stuck, ask**: use AskUserQuestion rather than guessing at requirements
+- **If stuck, ask**: ask the user rather than guessing at requirements
