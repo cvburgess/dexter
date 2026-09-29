@@ -69,24 +69,21 @@ export function WeekView({
   const columnGap = theme.space.md;
   // Explicit, not `flex: 1`: in the scroller's indefinite width columns sized
   // to content, and cards' matchContents menu hosts stopped stretching (DEX-222).
-  const columnWidth = Math.max(
-    WEEK_COLUMN_MIN_WIDTH,
-    (viewportWidth - 6 * columnGap) / 7,
-  );
-  const columnPitch = columnWidth + columnGap;
-  const contentWidth = 7 * columnWidth + 6 * columnGap;
+  const columnWidthFor = (viewport: number) =>
+    Math.max(WEEK_COLUMN_MIN_WIDTH, (viewport - 6 * columnGap) / 7);
 
-  const anchorToday = (viewportWidth: number) => {
+  const anchorToday = (viewport: number) => {
     const key = monday.toString();
     if (todayIndex < 0 || anchoredWeek.current === key) return;
     anchoredWeek.current = key;
+    const width = columnWidthFor(viewport);
     scrollRef.current?.scrollTo({
       // Anchors today in the left third rather than dead center, so the rest
       // of the week — the part you can still plan — stays in frame.
       x: scrollOffsetForTarget(
-        todayIndex * columnPitch,
-        viewportWidth,
-        contentWidth,
+        todayIndex * (width + columnGap),
+        viewport,
+        7 * width + 6 * columnGap,
       ),
       animated: false,
     });
@@ -149,7 +146,7 @@ export function WeekView({
               <TaskDropTarget
                 key={day.toString()}
                 scheduledFor={day.toString()}
-                style={{ width: columnWidth }}
+                style={{ width: columnWidthFor(viewportWidth) }}
                 testID={`week-drop-${day.toString()}`}
               >
                 <WeekDayColumn
