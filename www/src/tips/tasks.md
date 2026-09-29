@@ -13,11 +13,10 @@ for, the last step hands you straight to that day's list.
 
 The evening ritual gets to the other half of that a breath later: after its
 opening Breathe step, everything still open on the day you're closing out, with
-a button on each side of it — send it to
-tomorrow, or take it off the calendar and back into your backlog. Clear the list
-and the step says so. It ends on the day you just sent all of that to: whether
-tomorrow is busier or calmer than a typical one of its weekday, and the events
-and tasks it holds.
+a button on each side of it — send it to tomorrow, or take it off the calendar
+and back into your backlog. Clear the list and the step says so. It ends on the
+day you just sent all of that to: whether tomorrow is busier or calmer than a
+typical one of its weekday, and the events and tasks it holds.
 
 ## Status
 
@@ -95,6 +94,9 @@ projects - whatever makes sense in your brain.
 Each list is represented by an emoji you choose to keep it kind of cute.
 
 **Note**: Tasks can only be assigned to one list.
+
+On a larger screen, the Lists tab shows a board with a column per list, so you
+can drag tasks between them.
 
 [Learn more about lists](/tips/lists)
 
