@@ -51,8 +51,8 @@ export function WeekDayColumn({
 }
 
 const styles = StyleSheet.create({
-  // Flexes to share the row with the other six columns, capped at
-  // WEEK_COLUMN_MIN_WIDTH; bounds DayTaskList's flex:1 ScrollView so it scrolls.
+  // Fills the drop target WeekView sizes; bounds DayTaskList's flex:1
+  // ScrollView so it scrolls.
   container: {
     flex: 1,
   },

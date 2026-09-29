@@ -65,23 +65,25 @@ export function WeekView({
   // user back to today. Keyed on the week so paging weeks stays put.
   const anchoredWeek = useRef<string | null>(null);
 
-  // Derived from the layout contract, not measured. Also feeds the anchor
-  // math below, so this and the row's paddingHorizontal must move together.
+  const [viewportWidth, setViewportWidth] = useState(0);
   const columnGap = theme.space.md;
-  const columnPitch = WEEK_COLUMN_MIN_WIDTH + columnGap;
-  const minContentWidth = 7 * WEEK_COLUMN_MIN_WIDTH + 6 * columnGap;
+  // Explicit, not `flex: 1`: in the scroller's indefinite width columns sized
+  // to content, and cards' matchContents menu hosts stopped stretching (DEX-222).
+  const columnWidthFor = (viewport: number) =>
+    Math.max(WEEK_COLUMN_MIN_WIDTH, (viewport - 6 * columnGap) / 7);
 
-  const anchorToday = (viewportWidth: number) => {
+  const anchorToday = (viewport: number) => {
     const key = monday.toString();
     if (todayIndex < 0 || anchoredWeek.current === key) return;
     anchoredWeek.current = key;
+    const width = columnWidthFor(viewport);
     scrollRef.current?.scrollTo({
       // Anchors today in the left third rather than dead center, so the rest
       // of the week — the part you can still plan — stays in frame.
       x: scrollOffsetForTarget(
-        todayIndex * columnPitch,
-        viewportWidth,
-        minContentWidth,
+        todayIndex * (width + columnGap),
+        viewport,
+        7 * width + 6 * columnGap,
       ),
       animated: false,
     });
@@ -105,9 +107,8 @@ export function WeekView({
       >
         <WeekNav monday={monday} onChangeWeek={onChangeWeek} />
       </LargeScreenHeader>
-      {/* Drag a card between days, or to/from the backlog (DEX-77). */}
-      {/* Web's drag doesn't race the scroller (drax sets touch-action there),
-          and `setNativeProps` is native-only. */}
+      {/* Drag between days or to/from the backlog (DEX-77). No scroll pause on
+          web: drax sets touch-action there, and `setNativeProps` is native-only. */}
       <DragScheduleProvider
         pauseScrollRef={Platform.OS === "web" ? undefined : scrollRef}
       >
@@ -125,18 +126,18 @@ export function WeekView({
               scroll position, and a plain ScrollView registers none. */}
           <DraxScrollView
             horizontal
-            onLayout={(event: LayoutChangeEvent) =>
-              anchorToday(event.nativeEvent.layout.width)
-            }
+            onLayout={(event: LayoutChangeEvent) => {
+              setViewportWidth(event.nativeEvent.layout.width);
+              anchorToday(event.nativeEvent.layout.width);
+            }}
             ref={scrollRef}
             // Halves drax's default JS callback rate — one frame's lag is
             // imperceptible for hit-box correction.
             scrollEventThrottle={16}
             showsHorizontalScrollIndicator={false}
             style={styles.weekScroll}
-            // Lets the seven columns divide the full width when they fit;
-            // without it the row shrinks to content, columns at minimum.
-            contentContainerStyle={[styles.weekRow, { gap: columnGap }]}
+            testID="week-scroll"
+            contentContainerStyle={{ gap: columnGap }}
           >
             {days.map((day, index) => (
               // The drop target is the whole column, full-height regardless
@@ -144,7 +145,7 @@ export function WeekView({
               <TaskDropTarget
                 key={day.toString()}
                 scheduledFor={day.toString()}
-                style={styles.column}
+                style={{ width: columnWidthFor(viewportWidth) }}
                 testID={`week-drop-${day.toString()}`}
               >
                 <WeekDayColumn
@@ -190,15 +191,6 @@ const styles = StyleSheet.create({
   },
   weekScroll: {
     flex: 1,
-  },
-  weekRow: {
-    flexGrow: 1,
-  },
-  // Stops shrinking at the minimum, then scrolls sideways instead of
-  // squeezing TaskCard past the width its controls need.
-  column: {
-    flex: 1,
-    minWidth: WEEK_COLUMN_MIN_WIDTH,
   },
   // Docked outside the horizontal scroller so it stays put while the week
   // scrolls under it. Mirrors LargeScreenToday's drawerPane.
