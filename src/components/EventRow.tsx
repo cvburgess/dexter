@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
 import { TCalendarEvent } from "@/hooks/useCalendarEvents.types";
+import { useUses24HourClock } from "@/hooks/useUses24HourClock";
 import { formatTimeRange } from "@/utils/formatPlainTime";
 import { useTheme } from "@/utils/theme";
 
@@ -13,12 +14,13 @@ type TEventRowProps = {
 // A dot, not CalendarView's inset bar — there's no block height to edge here.
 export function EventRow({ event, compact = false }: TEventRowProps) {
   const theme = useTheme();
+  const uses24HourClock = useUses24HourClock();
   // Tracks the density tier without earning its own token — same derivation
   // as CalendarView's now-dot.
   const size = theme.space.sm;
   const when = event.allDay
     ? "all-day"
-    : formatTimeRange(event.start, event.end);
+    : formatTimeRange(event.start, event.end, uses24HourClock);
 
   return (
     <View

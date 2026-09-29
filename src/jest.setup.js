@@ -123,6 +123,11 @@ jest.mock(
   () => require("react-native-safe-area-context/jest/mock").default,
 );
 
+// A 12h device, so rendered times match the AM/PM strings tests assert on.
+jest.mock("expo-localization", () => ({
+  useCalendars: () => [{ uses24hourClock: false }],
+}));
+
 // Native MenuView has no test double; render just the trigger. Selection
 // logic is covered via each menu's exported section-builder functions.
 jest.mock("@expo/ui/community/menu", () => ({
