@@ -38,13 +38,8 @@ ROOT="$(git rev-parse --show-toplevel)"
 ENV_FILE="$ROOT/src/.env.local"
 
 if [[ ! -f "$ENV_FILE" ]]; then
-  if [[ "$ROOT" != "$MAIN_CHECKOUT" && -f "$MAIN_CHECKOUT/src/.env.local" ]]; then
-    cp "$MAIN_CHECKOUT/src/.env.local" "$ENV_FILE"
-    echo "copied src/.env.local from main checkout"
-  else
-    echo "error: $ENV_FILE not found" >&2
-    exit 1
-  fi
+  echo "error: $ENV_FILE not found; run copy-env-files.sh first" >&2
+  exit 1
 fi
 
 TMP="$(mktemp)"
