@@ -63,7 +63,7 @@ command -v xcrun >/dev/null 2>&1 || die "xcrun not found — install Xcode."
 # The demo account only exists in production. A preview branch has its own
 # seeded copy, but not the one the App Store listing and the marketing site show.
 ENV_LOCAL="$REPO_ROOT/src/.env.local"
-[ -f "$ENV_LOCAL" ] || die "src/.env.local is missing — run .agents/skills/start-dev-server/scripts/swap-env.sh --prod"
+[ -f "$ENV_LOCAL" ] || die "src/.env.local is missing — run .agents/skills/start-dev-server/scripts/copy-env-files.sh"
 grep -qE '^EXPO_PUBLIC_SUPABASE_URL=.*(api\.dexterplanner\.com|isreileykodwkyedcewv)' "$ENV_LOCAL" \
   || die "src/.env.local does not point at production. Run: .agents/skills/start-dev-server/scripts/swap-env.sh --prod"
 

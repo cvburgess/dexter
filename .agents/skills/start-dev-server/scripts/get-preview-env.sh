@@ -18,7 +18,7 @@ if [[ -z "$BRANCH" ]]; then
   exit 1
 fi
 
-BRANCHES_JSON="$(npx supabase branches list --project-ref "$PROD_REF" -o json)"
+BRANCHES_JSON="$(npx supabase branches list --project-ref "$PROD_REF" -o json)" || exit 1
 REF="$(BRANCHES_JSON="$BRANCHES_JSON" GIT_BRANCH="$BRANCH" node -e '
   const branches = JSON.parse(process.env.BRANCHES_JSON);
   const match = branches.find((b) => b.git_branch === process.env.GIT_BRANCH);
