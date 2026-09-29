@@ -11,7 +11,7 @@ Act as a technical business analyst to refine an existing Linear issue. Fill in 
 
 ## Instructions
 
-You are the orchestrator. Delegate research and writing to sonnet subagents. Use Linear MCP for reads and writes.
+You are the orchestrator. Delegate research and writing to subagents. Use Linear MCP for reads and writes.
 
 ### Step 1: Fetch the issue
 
@@ -21,7 +21,7 @@ Build a compact summary for subagents: `title`, `description`, `labels`, `state`
 
 ### Step 2: Launch research agents in parallel
 
-Launch these two sonnet subagents **in parallel** (single message, two Agent tool calls):
+Launch these two subagents **in parallel** (start both before waiting on either):
 
 #### Agent A — Issue Analysis
 
@@ -31,7 +31,7 @@ Prompt the agent with the issue summary from step 1. Ask it to:
 - List specific questions or areas that need enhancement
 - Return a structured list of gaps and suggestions
 
-Set `model: "sonnet"` and `subagent_type: "general-purpose"`.
+Use a general-purpose subagent.
 
 #### Agent B — Codebase Exploration
 
@@ -43,19 +43,15 @@ Prompt the agent with the issue title and description. Ask it to:
 - Find relevant types, database schemas, or edge functions
 - Return a structured list of relevant file paths with brief descriptions of why each is relevant
 
-Set `model: "sonnet"` and `subagent_type: "Explore"`.
+Make it a read-only research subagent (Claude Code: `subagent_type: "Explore"`).
 
 ### Step 3: Collaborate on the plan
 
-Use the `/grill-me` skill to collaborate with the user on the refinement approach. Pass the gap analysis from Agent A and codebase findings from Agent B as context. Resolve any open questions before proceeding to rewrite the issue.
-
-```
-/grill-me
-```
+Run the `grill-me` skill to collaborate with the user on the refinement approach. Pass the gap analysis from Agent A and codebase findings from Agent B as context. Resolve any open questions before proceeding to rewrite the issue.
 
 ### Step 4: Launch author agent
 
-Once both research agents complete, launch a single sonnet subagent to draft the enhanced issue:
+Once both research agents complete, launch a single subagent to draft the enhanced issue:
 
 #### Agent C — Issue Author
 
@@ -75,7 +71,7 @@ Ask it to:
 
 Return two things: the enhanced Markdown **description** and the summary comment body.
 
-Set `model: "sonnet"` and `subagent_type: "general-purpose"`.
+Use a general-purpose subagent.
 
 ### Step 5: Update the issue and add a summary comment
 

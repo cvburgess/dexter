@@ -68,7 +68,7 @@ Create a GitHub pull request for the current branch.
 5. **Commit documentation updates** if any docs were changed:
 
    ```bash
-   git add docs/ AGENTS.md .claude/skills/
+   git add docs/ AGENTS.md .agents/skills/
    ```
 
    Only commit if there are staged changes. Use message: `Update documentation for PR`. Skip entirely if no docs changed.

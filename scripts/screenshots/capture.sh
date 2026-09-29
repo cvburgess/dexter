@@ -63,9 +63,9 @@ command -v xcrun >/dev/null 2>&1 || die "xcrun not found — install Xcode."
 # The demo account only exists in production. A preview branch has its own
 # seeded copy, but not the one the App Store listing and the marketing site show.
 ENV_LOCAL="$REPO_ROOT/src/.env.local"
-[ -f "$ENV_LOCAL" ] || die "src/.env.local is missing — run .claude/skills/use-preview-branch/scripts/swap-env.sh --prod"
+[ -f "$ENV_LOCAL" ] || die "src/.env.local is missing — run .agents/skills/use-preview-branch/scripts/swap-env.sh --prod"
 grep -qE '^EXPO_PUBLIC_SUPABASE_URL=.*(api\.dexterplanner\.com|isreileykodwkyedcewv)' "$ENV_LOCAL" \
-  || die "src/.env.local does not point at production. Run: .claude/skills/use-preview-branch/scripts/swap-env.sh --prod"
+  || die "src/.env.local does not point at production. Run: .agents/skills/use-preview-branch/scripts/swap-env.sh --prod"
 
 # AlarmKit landed in iOS 26; the task "Add alarm" row is hidden below it, so an
 # older runtime silently captures a different screen.

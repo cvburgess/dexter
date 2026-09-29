@@ -1,7 +1,7 @@
 ---
 name: use-main-branch
 description: Point the local Expo app back at the production Supabase project by swapping the preview/prod Supabase lines in src/.env.local (uncomment prod, comment out preview). Use when done testing against a Supabase preview branch and want to return to production, or whenever the user says "use main branch", "switch back to prod", "go back to production Supabase", or "stop using the preview branch". This is the inverse of use-preview-branch.
-allowed-tools: Bash(.claude/skills/use-preview-branch/scripts/swap-env.sh*), Bash(cd src && npm start*)
+allowed-tools: Bash(.agents/skills/use-preview-branch/scripts/swap-env.sh*), Bash(cd src && npm start*)
 ---
 
 # Use Main Branch
@@ -24,7 +24,7 @@ These are stable and should be used directly. Never resolve them dynamically.
 Run the shared swap script (it lives in the `use-preview-branch` skill; both skills use it) from the repo root (or worktree root):
 
 ```bash
-.claude/skills/use-preview-branch/scripts/swap-env.sh --prod
+.agents/skills/use-preview-branch/scripts/swap-env.sh --prod
 ```
 
 The script uncomments the prod pair under `# Supabase`, comments out the preview pair under `# Preview branch` (preserving its values for a later switch back), and leaves every other line (Sentry, etc.) untouched. It is idempotent — if the file already points at prod it reports "no changes made" — and copies `src/.env.local` from the main checkout first if it's missing (fresh worktree). Do not hand-edit the file; the script supersedes manual edits.

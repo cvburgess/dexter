@@ -30,7 +30,7 @@ Maestro at runtime.
 **Point the app at production.** The demo account lives only there:
 
 ```sh
-.claude/skills/use-preview-branch/scripts/swap-env.sh --prod
+.agents/skills/use-preview-branch/scripts/swap-env.sh --prod
 ```
 
 The script checks this and refuses otherwise, but doing it first saves a cycle.

@@ -1,3 +1,8 @@
+---
+name: create-migration
+description: Create a new Supabase database migration following project conventions. Use when the user wants to add or change a table, column, index, RLS policy, trigger, or database function.
+---
+
 # Create Database Migration
 
 Create a new Supabase database migration following project conventions.
@@ -15,7 +20,7 @@ Read the user's description of the schema change they want to make.
 3. Read `docs/backend.md` for the rules that apply to any table (RLS invariants, grants, enums, realtime, migration ordering), and the relevant `docs/features.md` section for what the table being changed already stores and why
 4. If the change involves JSONB columns, read `src/types/ingredients.ts` for Zod schemas and `supabase/schemas/` for JSON schema files
 
-For query optimization, RLS performance, and schema design guidance, see the [Supabase Postgres Best Practices skill](/.claude/skills/supabase-postgres-best-practices/SKILL.md).
+For query optimization, RLS performance, and schema design guidance, see the [Supabase Postgres Best Practices skill](../supabase-postgres-best-practices/SKILL.md).
 
 ### Step 3: Generate migration timestamp
 

@@ -14,7 +14,7 @@ Investigate Sentry issues, determine root cause, and take action: resolve noise 
 
 - **A Sentry MCP connection is required.** This repo declares no MCP servers of its own, so Sentry must be connected at the user/connector level.
 - **If the first Sentry tool call fails or no Sentry tool is available, stop and say so.** Tell the user to connect the Sentry MCP server, then stop. Never guess at issue IDs, error messages, or event counts — a fabricated triage is worse than no triage.
-- **MCP tool prefixes vary by connector.** Sentry tools surface as either `mcp__sentry__*` or `mcp__claude_ai_Sentry__*`, and Linear as either `mcp__linear-server__*` or `mcp__claude_ai_Linear__*`. Use whichever prefix the environment actually exposes; both are listed in `allowed-tools`.
+- **MCP tool names vary by client.** Use the Sentry and Linear MCP tools under whatever prefix your client exposes (Claude Code: `mcp__sentry__*` or `mcp__claude_ai_Sentry__*`, and the Linear equivalents; both are in `allowed-tools`).
 
 ## Setup
 
@@ -27,7 +27,7 @@ If either slug fails to resolve, call `find_projects` for the `cvburgess` org an
 
 ## Instructions
 
-You are the orchestrator. Delegate source investigation and issue drafting to sonnet subagents. Perform all Sentry and Linear MCP calls yourself.
+You are the orchestrator. Delegate source investigation and issue drafting to subagents. Perform all Sentry and Linear MCP calls yourself.
 
 ### Step 1: Find issues to triage
 
@@ -50,7 +50,7 @@ For each issue, fetch full details with `get_issue_details`. Extract:
 
 ### Step 3: Investigate root cause
 
-Launch a sonnet Explore subagent to investigate the source. Prompt it with:
+Launch a read-only research subagent to investigate the source. Prompt it with:
 
 - The error message and stacktrace
 - The culprit file path, mapped into this repo:
@@ -67,7 +67,7 @@ Tell the agent that these frames are deliberate reporting paths, not necessarily
 
 The real culprit is usually the frame beneath these. See the "Error monitoring (Sentry)" section of `docs/frontend.md` and the Sentry paragraph in `docs/backend.md` for how reporting is wired.
 
-Set `model: "sonnet"` and `subagent_type: "Explore"`.
+In Claude Code, use `subagent_type: "Explore"`.
 
 ### Step 4: Classify the issue
 
@@ -99,9 +99,9 @@ Report to the user: issue ID and the reason for resolution.
 
 #### For bugs — create a Linear issue
 
-Launch a sonnet subagent to draft the issue description. Prompt it with the error details, root cause analysis, and suggested fix from Step 3.
+Launch a subagent to draft the issue description. Prompt it with the error details, root cause analysis, and suggested fix from Step 3.
 
-Set `model: "sonnet"` and `subagent_type: "general-purpose"`.
+Use a general-purpose subagent.
 
 The issue **description** (Markdown) must follow this template:
 
@@ -128,7 +128,7 @@ The issue **description** (Markdown) must follow this template:
 < How to trigger this error, if known from the Sentry event context >
 ```
 
-Then call `save_issue` with `team: "DEX"` (per AGENTS.md), `title`, `description`, `labels: ["Bug"]` (confirm the label exists with `list_issue_labels` if the call is rejected), and `state: "Ready"` so the issue lands in the team's `Ready` column instead of the default `In Refinement` — the same convention as `.claude/skills/create-issue/SKILL.md`. If the user specifies a different team or state, use that instead.
+Then call `save_issue` with `team: "DEX"` (per AGENTS.md), `title`, `description`, `labels: ["Bug"]` (confirm the label exists with `list_issue_labels` if the call is rejected), and `state: "Ready"` so the issue lands in the team's `Ready` column instead of the default `In Refinement` — the same convention as `.agents/skills/create-issue/SKILL.md`. If the user specifies a different team or state, use that instead.
 
 ### Step 6: Report results
 
@@ -144,6 +144,6 @@ Summarize every action taken in a table:
 - For edge function errors, map `/var/tmp/sb-compile-edge-runtime/functions/` to `supabase/functions/`
 - Use the `Bug` label for every bug issue created by this skill
 - Include the Sentry issue link in every Linear bug issue
-- This skill triages and files issues — it never modifies app code. Suggest the fix in the Linear issue; leave implementation to `/implement`
+- This skill triages and files issues — it never modifies app code. Suggest the fix in the Linear issue; leave implementation to the `implement` skill
 - Sentry MCP has no comment tool here, so don't try to post the Linear URL back onto the Sentry issue — the Linear issue's Sentry link is the connection, and the summary table is the record
 - When no rule in Step 4 clearly applies, create the Linear issue — better a tracked issue that gets closed than a missed bug. This is a tiebreak for genuinely unclassified issues, not an override of the noise rules, which always win when they match
