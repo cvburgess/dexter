@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.3.0
+
+- Plan across all your lists at once on larger screens — a new Lists board shows each list as a column, and you can drag tasks between them
+- See your calendar right in the Week view, with a toggle to show or hide each day's events
+- Times now match your device's 12- or 24-hour clock setting
+- Fixed bugs and improved the user experience
+
+---
+
+- DEX-223: Honor the device's 12h/24h clock setting (#195)
+- DEX-186: Add a calendar toggle to the Week view (#194)
+- DEX-222: Fix Week task cards not stretching to their column (#193)
+- DEX-221: Add a large-screen Lists kanban tab (#192)
+- DEX-179: Write the Habits tips page (#191)
+- DEX-220: Add /start-dev-server, replacing the env-swap skills (#190)
+- DEX-219: Move skills to vendor-neutral .agents/skills (#189)
+- DEX-217: Rename /implement-issue to /implement, accept descriptions (#188)
+- DEX-216: Make the daily habit bootstrap idempotent (#187)
+- DEX-215: Report Supabase errors to Sentry as PostgrestError (#186)
+
 ## v2.2.1
 
 - Start a line in a note with `#` for a heading, or `-` or `1.` for a list, and it formats as you type
