@@ -144,6 +144,6 @@ Summarize every action taken in a table:
 - For edge function errors, map `/var/tmp/sb-compile-edge-runtime/functions/` to `supabase/functions/`
 - Use the `Bug` label for every bug issue created by this skill
 - Include the Sentry issue link in every Linear bug issue
-- This skill triages and files issues — it never modifies app code. Suggest the fix in the Linear issue; leave implementation to `/implement-issue`
+- This skill triages and files issues — it never modifies app code. Suggest the fix in the Linear issue; leave implementation to `/implement`
 - Sentry MCP has no comment tool here, so don't try to post the Linear URL back onto the Sentry issue — the Linear issue's Sentry link is the connection, and the summary table is the record
 - When no rule in Step 4 clearly applies, create the Linear issue — better a tracked issue that gets closed than a missed bug. This is a tiebreak for genuinely unclassified issues, not an override of the noise rules, which always win when they match
