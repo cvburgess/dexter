@@ -6,6 +6,7 @@ import { StyleSheet, Text } from "react-native";
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import type { WeekDayColumn } from "@/components/WeekDayColumn";
 import { useTasks } from "@/hooks/useTasks";
+import { useWeekCalendar } from "@/hooks/useWeekCalendar";
 import { WEEK_COLUMN_MIN_WIDTH } from "@/utils/breakpoints";
 
 import { WeekView } from "../WeekView";
@@ -14,11 +15,15 @@ import { WeekView } from "../WeekView";
 // scheme at module scope — not available under Jest.
 jest.mock("@/hooks/useAuth", () => ({ supabase: {} }));
 jest.mock("@/hooks/useTasks", () => ({ useTasks: jest.fn() }));
+jest.mock("@/hooks/useWeekCalendar", () => ({ useWeekCalendar: jest.fn() }));
 
 // The column's own rendering has its own test; typed off the real component
 // so a prop rename fails here rather than drifting silently.
-const mockWeekDayColumn = ({ date }: ComponentProps<typeof WeekDayColumn>) => (
-  <Text>{`column:${date.toString()}`}</Text>
+const mockWeekDayColumn = ({
+  date,
+  showCalendar,
+}: ComponentProps<typeof WeekDayColumn>) => (
+  <Text>{`column:${date.toString()}:calendar=${String(showCalendar)}`}</Text>
 );
 jest.mock("@/components/WeekDayColumn", () => ({
   WeekDayColumn: (props: ComponentProps<typeof WeekDayColumn>) =>
@@ -49,13 +54,18 @@ const task = (overrides: Partial<TTask> = {}): TTask => ({
 });
 
 const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
+const mockUseWeekCalendar = useWeekCalendar as jest.MockedFunction<
+  typeof useWeekCalendar
+>;
+const mockToggleCalendar = jest.fn();
 
 const monday = Temporal.PlainDate.from("2026-07-13");
 const thursday = "2026-07-16";
 
-const renderWeek = () =>
+const renderWeek = ({ enableCalendar = false } = {}) =>
   render(
     <WeekView
+      enableCalendar={enableCalendar}
       monday={monday}
       onChangeWeek={jest.fn()}
       targetDate={Temporal.PlainDate.from(thursday)}
@@ -73,6 +83,7 @@ const targetProps = (screen: ReturnType<typeof render>, testID: string) =>
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockUseWeekCalendar.mockReturnValue([false, { toggle: mockToggleCalendar }]);
   mockUseTasks.mockReturnValue([
     [task({ scheduledFor: "2026-07-13" })],
     {
@@ -140,6 +151,19 @@ describe("WeekView drag-to-schedule", () => {
     const screen = renderWeek();
 
     expect(screen.queryByTestId("backlog-drop-target")).toBeNull();
+  });
+});
+
+describe("WeekView calendar toggle (DEX-186)", () => {
+  // The stored toggle outlives the setting: turning the calendar off in
+  // Settings must hide both the button and the events.
+  it("ignores a stored toggle while the calendar is disabled", () => {
+    mockUseWeekCalendar.mockReturnValue([true, { toggle: mockToggleCalendar }]);
+
+    const screen = renderWeek({ enableCalendar: false });
+
+    expect(screen.queryByLabelText("Toggle calendar events")).toBeNull();
+    expect(screen.queryAllByText(/calendar=true/)).toHaveLength(0);
   });
 });
 

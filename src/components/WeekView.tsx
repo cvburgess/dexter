@@ -11,6 +11,7 @@ import { DraxScrollView } from "react-native-drax";
 import { useAnimatedRef } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { VIEW_META } from "@/components/DayViewSwitcher";
 import { DragScheduleProvider } from "@/components/DragScheduleProvider";
 import { GlassIconButton } from "@/components/GlassIconButton";
 import { LargeScreenHeader } from "@/components/LargeScreenHeader";
@@ -18,6 +19,7 @@ import { TaskDrawer } from "@/components/TaskDrawer";
 import { TaskDropTarget } from "@/components/TaskDropTarget";
 import { WeekDayColumn } from "@/components/WeekDayColumn";
 import { WeekNav } from "@/components/WeekNav";
+import { useWeekCalendar } from "@/hooks/useWeekCalendar";
 import {
   DRAWER_PANE_MAX_WIDTH,
   TASK_LIST_PANE_MIN_WIDTH,
@@ -34,6 +36,7 @@ type TWeekViewProps = {
   /** The day the backlog's "+" schedules onto — today when inside this week,
    * else the week's Monday; see week/index.tsx. */
   targetDate: Temporal.PlainDate;
+  enableCalendar: boolean;
   enableHabits: boolean;
   /** Passed down, not read from the clock, so this and `targetDate` share one
    * instant — reading separately let them disagree across a midnight rollover. */
@@ -46,6 +49,7 @@ export function WeekView({
   monday,
   onChangeWeek,
   targetDate,
+  enableCalendar,
   enableHabits,
   today,
 }: TWeekViewProps) {
@@ -53,6 +57,8 @@ export function WeekView({
   // Local, not `useTodayPanes` — sharing the pane would open the backlog on
   // Today too.
   const [showDrawer, setShowDrawer] = useState(false);
+  const [calendarToggled, { toggle: toggleCalendar }] = useWeekCalendar();
+  const showCalendar = enableCalendar && calendarToggled;
 
   // Memoized because `date` identity propagates into per-day filters and
   // HabitTracker's bootstrap effect deps — a fresh array re-fires both.
@@ -96,13 +102,24 @@ export function WeekView({
     >
       <LargeScreenHeader
         actions={
-          <GlassIconButton
-            accessibilityLabel="Toggle task drawer pane"
-            active={showDrawer}
-            ionicon="file-tray-full-outline"
-            onPress={() => setShowDrawer((open) => !open)}
-            sfSymbol="tray.full"
-          />
+          <>
+            {enableCalendar && (
+              <GlassIconButton
+                accessibilityLabel="Toggle calendar events"
+                active={calendarToggled}
+                ionicon={VIEW_META.calendar.icon.ionicon}
+                onPress={toggleCalendar}
+                sfSymbol={VIEW_META.calendar.icon.sf}
+              />
+            )}
+            <GlassIconButton
+              accessibilityLabel="Toggle task drawer pane"
+              active={showDrawer}
+              ionicon="file-tray-full-outline"
+              onPress={() => setShowDrawer((open) => !open)}
+              sfSymbol="tray.full"
+            />
+          </>
         }
       >
         <WeekNav monday={monday} onChangeWeek={onChangeWeek} />
@@ -152,6 +169,7 @@ export function WeekView({
                   date={day}
                   enableHabits={enableHabits}
                   isToday={index === todayIndex}
+                  showCalendar={showCalendar}
                 />
               </TaskDropTarget>
             ))}

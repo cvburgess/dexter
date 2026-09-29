@@ -24,6 +24,8 @@ week view.
   cards
 - <i class="ph-bold ph-square-half"></i> **Quick Planner**: Toggle the quick
   planner
+- <i class="ph-bold ph-calendar-blank"></i> **Calendar**: Show each day's events
+  (appears when the calendar is enabled)
 
 ## Tasks
 
@@ -50,6 +52,13 @@ The week view includes a simple habit tracker you can configure in settings.
 Tap on a habit to track progress or mark it as complete.
 
 [Learn more about habits](/tips/habits)
+
+## Calendar
+
+Toggle the calendar in the toolbar to list each day's events between its habits
+and its tasks, so you can see which days are already busy as you plan.
+
+[Learn more about the calendar](/tips/calendar)
 
 ## Quick Planner
 

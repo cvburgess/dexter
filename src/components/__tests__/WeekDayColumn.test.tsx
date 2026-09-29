@@ -4,6 +4,8 @@ import { StyleSheet, Text } from "react-native";
 import type { TextStyle, ViewStyle } from "react-native";
 
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
+import { useCalendarEvents } from "@/hooks/useCalendarEvents";
+import { TCalendarEvent } from "@/hooks/useCalendarEvents.types";
 import { useTasks } from "@/hooks/useTasks";
 import { useTemplates } from "@/hooks/useTemplates";
 import { formatMonthDay, formatWeekday } from "@/utils/formatPlainDate";
@@ -32,6 +34,10 @@ jest.mock("@/components/HabitTracker", () => ({
     mockHabitTracker(props),
 }));
 
+jest.mock("@/hooks/useCalendarEvents", () => ({
+  useCalendarEvents: jest.fn(),
+}));
+
 // TaskCard wraps native menus that can't be driven from a unit test.
 jest.mock("@/components/TaskCard", () => {
   const { Text: RNText } =
@@ -45,6 +51,7 @@ const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
 const mockUseTemplates = useTemplates as jest.MockedFunction<
   typeof useTemplates
 >;
+const mockUseCalendarEvents = jest.mocked(useCalendarEvents);
 
 const tasksResult = (tasks: TTask[] = []) =>
   [
@@ -73,6 +80,29 @@ const task = (overrides: Partial<TTask> = {}): TTask => ({
   subtasks: [],
   templateId: null,
   url: null,
+  ...overrides,
+});
+
+const calendarResult = (
+  events: TCalendarEvent[],
+  status: Partial<ReturnType<typeof useCalendarEvents>[1]> = {},
+): ReturnType<typeof useCalendarEvents> => [
+  events,
+  {
+    isLoading: false,
+    isError: false,
+    permissionDenied: false,
+    notConfigured: false,
+    ...status,
+  },
+];
+
+const event = (overrides: Partial<TCalendarEvent> = {}): TCalendarEvent => ({
+  id: "event-1",
+  title: "Design review",
+  start: Temporal.PlainDateTime.from("2026-07-29T16:00"),
+  end: Temporal.PlainDateTime.from("2026-07-29T17:00"),
+  allDay: false,
   ...overrides,
 });
 
@@ -172,6 +202,58 @@ describe("WeekDayColumn", () => {
       );
 
       expect(screen.queryByText(/habit-tracker/)).toBeNull();
+    });
+  });
+
+  describe("calendar events (DEX-186)", () => {
+    it("lists the day's events, all-day first, when shown", () => {
+      mockUseCalendarEvents.mockReturnValue(
+        calendarResult([
+          event({ id: "timed", title: "Design review" }),
+          event({ id: "allday", title: "Offsite", allDay: true }),
+        ]),
+      );
+
+      const screen = render(
+        <WeekDayColumn
+          date={date}
+          enableHabits={false}
+          isToday={false}
+          showCalendar
+        />,
+      );
+
+      expect(mockUseCalendarEvents).toHaveBeenCalledWith(date);
+      const labels = screen
+        .getAllByLabelText(/Design review|Offsite/)
+        .map((node) => node.props.accessibilityLabel as string);
+      expect(labels).toEqual(["all-day Offsite", "4:00-5:00 PM Design review"]);
+    });
+
+    it("doesn't read the calendar when hidden", () => {
+      render(
+        <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
+      );
+
+      expect(mockUseCalendarEvents).not.toHaveBeenCalled();
+    });
+
+    it("shows nothing for a failed read, not an error in every column", () => {
+      mockUseCalendarEvents.mockReturnValue(
+        calendarResult([], { isError: true }),
+      );
+
+      const screen = render(
+        <WeekDayColumn
+          date={date}
+          enableHabits={false}
+          isToday={false}
+          showCalendar
+        />,
+      );
+
+      expect(screen.queryByTestId(`week-events-${date.toString()}`)).toBeNull();
+      expect(screen.queryByText(/calendar/i)).toBeNull();
     });
   });
 

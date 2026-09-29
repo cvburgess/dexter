@@ -20,6 +20,9 @@ The calendar lives in the [Day](/tips/day) view.
 
 Open the day view switcher in the toolbar and choose **Calendar** to see it.
 
+In the [Week](/tips/week) view, toggle the calendar in the toolbar to list each
+day's events in its column.
+
 It is also a step of your daily ritual. Open the **Ritual** tab in the morning
 and the Calendar step tells you how many events you have, how much of the day is
 already booked, and how much of it is still yours — with the same timeline
@@ -33,8 +36,8 @@ themselves a scroll below that.
 
 ### Turning the calendar on and off
 
-- **Enabled**: The calendar will appear in the Day view, and as a step of your
-  daily ritual
+- **Enabled**: The calendar will appear in the Day view, can be toggled on in
+  the Week view, and appears as a step of your daily ritual
 - **Disabled**: The calendar will be hidden, the ritual will skip its Calendar
   step, and the evening's Preview tomorrow step will show only your tasks
 
