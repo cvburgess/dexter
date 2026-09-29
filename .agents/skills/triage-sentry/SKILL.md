@@ -67,7 +67,7 @@ Tell the agent that these frames are deliberate reporting paths, not necessarily
 
 The real culprit is usually the frame beneath these. See the "Error monitoring (Sentry)" section of `docs/frontend.md` and the Sentry paragraph in `docs/backend.md` for how reporting is wired.
 
-Make it a read-only research subagent (Claude Code: `subagent_type: "Explore"`).
+In Claude Code, use `subagent_type: "Explore"`.
 
 ### Step 4: Classify the issue
 
