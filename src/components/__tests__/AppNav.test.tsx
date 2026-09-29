@@ -79,18 +79,17 @@ describe.each(variants)("$name", ({ Component }) => {
   });
 
   describe("large-screen-only destinations (DEX-96)", () => {
-    it("offers Week on a large screen", () => {
+    it.each(["week", "lists"])("offers %s on a large screen", (key) => {
       const screen = render(<Component />);
 
-      expect(screen.getByTestId("nav-week")).toBeTruthy();
-      expect(screen.getByTestId("nav-week").props.href).toBe("/week");
+      expect(screen.getByTestId(`nav-${key}`).props.href).toBe(`/${key}`);
     });
 
-    it("hides Week below the breakpoint", () => {
+    it.each(["week", "lists"])("hides %s below the breakpoint", (key) => {
       mockUseIsLargeDevice.mockReturnValue(false);
       const screen = render(<Component />);
 
-      expect(screen.queryByTestId("nav-week")).toBeNull();
+      expect(screen.queryByTestId(`nav-${key}`)).toBeNull();
     });
 
     it("keeps every other destination below the breakpoint", () => {

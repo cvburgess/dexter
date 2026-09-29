@@ -13,6 +13,7 @@ Pick a topic below to learn how that part of Dexter works.
   task as you build your day.
 - [**Day View**](/tips/day/). The single-day planner.
 - [**Week View**](/tips/week/). Zoom out and plan the week ahead.
+- [**Lists**](/tips/lists/). Organize tasks into lists and sort them on a board.
 - [**Calendar**](/tips/calendar/). Pull events alongside your tasks.
 
 ## Capture

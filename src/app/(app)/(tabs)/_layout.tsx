@@ -34,8 +34,8 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Icon sf="moon.stars" md="bedtime" />
         <NativeTabs.Trigger.Label>Ritual</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      {/* No `week` trigger: seven columns don't fit a phone (DEX-96), so the
-          route is never registered here and /week doesn't resolve. */}
+      {/* No `week` or `lists` trigger: kanban columns don't fit a phone (DEX-96,
+          DEX-221), so neither route is registered here nor resolves. */}
       <NativeTabs.Trigger name="settings">
         <NativeTabs.Trigger.Icon sf="gear" md="settings" />
         <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
