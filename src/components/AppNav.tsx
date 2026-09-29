@@ -58,6 +58,13 @@ export const NAV_ITEMS: TNavItem[] = [
     icon: "calendar-outline",
     largeScreenOnly: true,
   },
+  {
+    key: "lists",
+    href: "/lists",
+    label: "Lists",
+    icon: "list-outline",
+    largeScreenOnly: true,
+  },
   { key: "search", href: "/search", label: "Search", icon: "search-outline" },
   {
     key: "settings",
