@@ -78,10 +78,11 @@ describe("TabsLayout", () => {
 
     // DEX-96 + DEX-104: seven columns don't fit a phone, so Week is absent
     // unconditionally rather than gated on window width, which can change mid-session.
-    it("never offers the Week tab, at any width", () => {
+    it("never offers the Week or Lists tab, at any width", () => {
       const screen = render(<TabsLayout />);
 
       expect(screen.queryByText("trigger:week")).toBeNull();
+      expect(screen.queryByText("trigger:lists")).toBeNull();
     });
 
     it("does not render the rail shell", () => {

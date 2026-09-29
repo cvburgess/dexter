@@ -22,9 +22,10 @@ export function AppShell({ rail }: { rail: boolean }) {
         >
           <Tabs.Screen name="today" />
           <Tabs.Screen name="ritual" />
-          {/* Registered at every width, unlike its nav item (DEX-96): a
-              typed or bookmarked `/week` URL has to resolve. */}
+          {/* Registered at every width, unlike their nav items (DEX-96): a
+              typed or bookmarked `/week` or `/lists` URL has to resolve. */}
           <Tabs.Screen name="week" />
+          <Tabs.Screen name="lists" />
           <Tabs.Screen name="settings" />
           <Tabs.Screen name="search" />
         </Tabs>

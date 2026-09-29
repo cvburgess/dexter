@@ -96,6 +96,9 @@ Each list is represented by an emoji you choose to keep it kind of cute.
 
 **Note**: Tasks can only be assigned to one list.
 
+On a larger screen, the Lists tab shows a board with a column per list, so you
+can drag tasks between them.
+
 [Learn more about lists](/tips/lists)
 
 ## More options

@@ -2,6 +2,7 @@ import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import { StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 import { DraxView } from "react-native-drax";
 
+import { TTask } from "@/api/tasks";
 import {
   TDragSchedule,
   useDragSchedule,
@@ -9,23 +10,21 @@ import {
 import { isTaskDragPayload } from "@/utils/dragPayload";
 import { useTheme } from "@/utils/theme";
 
-type TTaskDropTargetProps = {
-  /** The ISO date a dropped task is scheduled for; `null` unschedules it,
-   * making the backlog pane a target for dragging a task back out. */
-  scheduledFor: string | null;
+/** Where a dropped task goes: a date (`null` unschedules — the backlog pane),
+ * or a list (`null` clears it — the Lists tab's "No List" column). */
+type TDropDestination =
+  { scheduledFor: string | null } | { listId: string | null };
+
+type TTaskDropTargetProps = TDropDestination & {
   style?: StyleProp<ViewStyle>;
   children: ReactNode;
   testID?: string;
 };
 
-// Reschedules a task dropped onto it (DEX-77). Outside a DragScheduleProvider
+// Moves a task dropped onto it (DEX-77, DEX-221). Outside a DragScheduleProvider
 // it's a plain View, since a bare DraxView throws — see useDragSchedule.
-export function TaskDropTarget({
-  scheduledFor,
-  style,
-  children,
-  testID,
-}: TTaskDropTargetProps) {
+export function TaskDropTarget(props: TTaskDropTargetProps) {
+  const { style, children, testID } = props;
   const theme = useTheme();
   const drag = useDragSchedule();
   const receivingStyle = useMemo(
@@ -35,18 +34,18 @@ export function TaskDropTarget({
 
   // Drax dispatches off a props snapshot taken at registration, so a stable
   // closure reading through refs is the fix — see the test's rerender capture.
-  const scheduledForRef = useRef(scheduledFor);
+  const destinationRef = useRef<TDropDestination>(props);
   const dragRef = useRef(drag);
   useEffect(() => {
-    scheduledForRef.current = scheduledFor;
+    destinationRef.current = props;
     dragRef.current = drag;
   });
 
   // Empty deps — the point of the refs above. Drax consults acceptsDrag
-  // before highlighting, so a task dragged onto its own day never highlights.
+  // before highlighting, so a task dragged onto its own column never highlights.
   const acceptsDrag = useCallback((payload: unknown) => {
     const task = resolveTask(payload, dragRef.current);
-    return task !== undefined && task.scheduledFor !== scheduledForRef.current;
+    return task !== undefined && !isAlreadyThere(task, destinationRef.current);
   }, []);
 
   const onReceiveDragDrop = useCallback(
@@ -55,7 +54,10 @@ export function TaskDropTarget({
       // Not redundant with `acceptsDrag`: the task can be deleted between the
       // two, from another device or another pane.
       if (!task) return;
-      void dragRef.current?.scheduleTask(task, scheduledForRef.current);
+      const destination = destinationRef.current;
+      if ("listId" in destination)
+        dragRef.current?.assignList(task, destination.listId);
+      else void dragRef.current?.scheduleTask(task, destination.scheduledFor);
     },
     [],
   );
@@ -85,6 +87,12 @@ export function TaskDropTarget({
 function resolveTask(payload: unknown, drag: TDragSchedule | null) {
   if (!isTaskDragPayload(payload)) return undefined;
   return drag?.getTask(payload.taskId);
+}
+
+function isAlreadyThere(task: TTask, destination: TDropDestination) {
+  return "listId" in destination
+    ? task.listId === destination.listId
+    : task.scheduledFor === destination.scheduledFor;
 }
 
 const styles = StyleSheet.create({
