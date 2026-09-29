@@ -25,7 +25,6 @@ describe("useWeekCalendar", () => {
     const first = renderHook(() => useWeekCalendar(), {
       wrapper: createWrapper(),
     });
-    await act(async () => {}); // let the initial storage read land first
     await act(() => first.result.current[1].toggle());
     expect(first.result.current[0]).toBe(true);
 
@@ -41,7 +40,6 @@ describe("useWeekCalendar", () => {
       wrapper: createWrapper(),
     });
 
-    await act(async () => {});
     // Both fire before a re-render; closing over `data` would leave it on.
     const { toggle } = result.current[1];
     await act(() => Promise.all([toggle(), toggle()]));

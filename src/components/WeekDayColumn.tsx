@@ -16,7 +16,7 @@ type TWeekDayColumnProps = {
   /** Passed in rather than recomputed — the parent already finds today's
    * column to anchor the scroll. */
   isToday: boolean;
-  showCalendar: boolean;
+  showCalendar?: boolean;
 };
 
 // One day of the Week tab (DEX-96): chip + habit rings + events (DEX-186) +
@@ -25,7 +25,7 @@ export function WeekDayColumn({
   date,
   enableHabits,
   isToday,
-  showCalendar,
+  showCalendar = false,
 }: TWeekDayColumnProps) {
   const theme = useTheme();
 

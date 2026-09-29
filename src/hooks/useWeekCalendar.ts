@@ -24,9 +24,13 @@ export const useWeekCalendar = (): TUseWeekCalendar => {
     staleTime: Infinity,
   });
 
-  // setQueryData's updater form, not closed-over `data`, so rapid presses
-  // don't clobber each other.
+  // Waits out the first read so it can't land after (and undo) a press; the
+  // updater form, not closed-over `data`, keeps rapid presses from clobbering.
   const toggle = useCallback(async () => {
+    await queryClient.ensureQueryData({
+      queryKey: QUERY_KEY,
+      queryFn: readShown,
+    });
     const next = queryClient.setQueryData<boolean>(
       QUERY_KEY,
       (prev = false) => !prev,

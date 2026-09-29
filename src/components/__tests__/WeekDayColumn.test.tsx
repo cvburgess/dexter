@@ -48,33 +48,10 @@ jest.mock("@/components/TaskCard", () => {
 });
 
 const mockUseTasks = useTasks as jest.MockedFunction<typeof useTasks>;
-const mockUseCalendarEvents = jest.mocked(useCalendarEvents);
-
-const calendarResult = (
-  events: TCalendarEvent[],
-  status: Partial<ReturnType<typeof useCalendarEvents>[1]> = {},
-): ReturnType<typeof useCalendarEvents> => [
-  events,
-  {
-    isLoading: false,
-    isError: false,
-    permissionDenied: false,
-    notConfigured: false,
-    ...status,
-  },
-];
-
-const event = (overrides: Partial<TCalendarEvent> = {}): TCalendarEvent => ({
-  id: "event-1",
-  title: "Design review",
-  start: Temporal.PlainDateTime.from("2026-07-29T16:00"),
-  end: Temporal.PlainDateTime.from("2026-07-29T17:00"),
-  allDay: false,
-  ...overrides,
-});
 const mockUseTemplates = useTemplates as jest.MockedFunction<
   typeof useTemplates
 >;
+const mockUseCalendarEvents = jest.mocked(useCalendarEvents);
 
 const tasksResult = (tasks: TTask[] = []) =>
   [
@@ -106,6 +83,29 @@ const task = (overrides: Partial<TTask> = {}): TTask => ({
   ...overrides,
 });
 
+const calendarResult = (
+  events: TCalendarEvent[],
+  status: Partial<ReturnType<typeof useCalendarEvents>[1]> = {},
+): ReturnType<typeof useCalendarEvents> => [
+  events,
+  {
+    isLoading: false,
+    isError: false,
+    permissionDenied: false,
+    notConfigured: false,
+    ...status,
+  },
+];
+
+const event = (overrides: Partial<TCalendarEvent> = {}): TCalendarEvent => ({
+  id: "event-1",
+  title: "Design review",
+  start: Temporal.PlainDateTime.from("2026-07-29T16:00"),
+  end: Temporal.PlainDateTime.from("2026-07-29T17:00"),
+  allDay: false,
+  ...overrides,
+});
+
 // 2026-07-29 is a Wednesday, and deliberately not today.
 const date = Temporal.PlainDate.from("2026-07-29");
 
@@ -134,12 +134,7 @@ beforeEach(() => {
 describe("WeekDayColumn", () => {
   it("labels the column with the weekday and numeric date", () => {
     const screen = render(
-      <WeekDayColumn
-        date={date}
-        enableHabits={false}
-        isToday={false}
-        showCalendar={false}
-      />,
+      <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
     );
 
     expect(screen.getByText("Wednesday")).toBeTruthy();
@@ -155,12 +150,7 @@ describe("WeekDayColumn", () => {
     );
 
     const screen = render(
-      <WeekDayColumn
-        date={date}
-        enableHabits={false}
-        isToday={false}
-        showCalendar={false}
-      />,
+      <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
     );
 
     expect(screen.getByText("Mine")).toBeTruthy();
@@ -171,12 +161,7 @@ describe("WeekDayColumn", () => {
     // Seven of them side by side read as noise, and an empty column already
     // says what it needs to.
     const screen = render(
-      <WeekDayColumn
-        date={date}
-        enableHabits={false}
-        isToday={false}
-        showCalendar={false}
-      />,
+      <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
     );
 
     expect(screen.queryByText(/no tasks/i)).toBeNull();
@@ -187,12 +172,7 @@ describe("WeekDayColumn", () => {
   it("offers no per-column create affordance", () => {
     // Creating goes through the tab's single "+" (see WeekView).
     const screen = render(
-      <WeekDayColumn
-        date={date}
-        enableHabits={false}
-        isToday={false}
-        showCalendar={false}
-      />,
+      <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
     );
 
     expect(screen.queryByLabelText(/new task/i)).toBeNull();
@@ -201,12 +181,7 @@ describe("WeekDayColumn", () => {
   describe("habits", () => {
     it("renders the tracker when habits are enabled", () => {
       const screen = render(
-        <WeekDayColumn
-          date={date}
-          enableHabits
-          isToday={false}
-          showCalendar={false}
-        />,
+        <WeekDayColumn date={date} enableHabits isToday={false} />,
       );
 
       expect(screen.getByText("habit-tracker:nudge=false")).toBeTruthy();
@@ -214,14 +189,7 @@ describe("WeekDayColumn", () => {
 
     it("suppresses the create-a-habit nudge", () => {
       // Seven columns would otherwise show seven copies of the same link.
-      render(
-        <WeekDayColumn
-          date={date}
-          enableHabits
-          isToday={false}
-          showCalendar={false}
-        />,
-      );
+      render(<WeekDayColumn date={date} enableHabits isToday={false} />);
 
       expect(mockHabitTracker).toHaveBeenCalledWith(
         expect.objectContaining({ showCreateNudge: false }),
@@ -230,12 +198,7 @@ describe("WeekDayColumn", () => {
 
     it("hides the tracker when habits are disabled", () => {
       const screen = render(
-        <WeekDayColumn
-          date={date}
-          enableHabits={false}
-          isToday={false}
-          showCalendar={false}
-        />,
+        <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
       );
 
       expect(screen.queryByText(/habit-tracker/)).toBeNull();
@@ -269,12 +232,7 @@ describe("WeekDayColumn", () => {
 
     it("doesn't read the calendar when hidden", () => {
       render(
-        <WeekDayColumn
-          date={date}
-          enableHabits={false}
-          isToday={false}
-          showCalendar={false}
-        />,
+        <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
       );
 
       expect(mockUseCalendarEvents).not.toHaveBeenCalled();
@@ -304,12 +262,7 @@ describe("WeekDayColumn", () => {
 
     it("fills the chip with the inverted ink color", () => {
       const screen = render(
-        <WeekDayColumn
-          date={today}
-          enableHabits={false}
-          isToday
-          showCalendar={false}
-        />,
+        <WeekDayColumn date={today} enableHabits={false} isToday />,
       );
 
       // The pair NavRail uses for its selected tile.
@@ -320,12 +273,7 @@ describe("WeekDayColumn", () => {
 
     it("draws today's label in the background color so it reads on the fill", () => {
       const screen = render(
-        <WeekDayColumn
-          date={today}
-          enableHabits={false}
-          isToday
-          showCalendar={false}
-        />,
+        <WeekDayColumn date={today} enableHabits={false} isToday />,
       );
 
       expect(
@@ -337,12 +285,7 @@ describe("WeekDayColumn", () => {
 
     it("announces itself as today to assistive tech", () => {
       const screen = render(
-        <WeekDayColumn
-          date={today}
-          enableHabits={false}
-          isToday
-          showCalendar={false}
-        />,
+        <WeekDayColumn date={today} enableHabits={false} isToday />,
       );
 
       expect(
@@ -354,12 +297,7 @@ describe("WeekDayColumn", () => {
 
     it("leaves other days' chips unfilled and unlabelled as today", () => {
       const screen = render(
-        <WeekDayColumn
-          date={date}
-          enableHabits={false}
-          isToday={false}
-          showCalendar={false}
-        />,
+        <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
       );
 
       // No ", today" suffix, and no fill.
