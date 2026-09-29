@@ -107,9 +107,8 @@ export function WeekView({
       >
         <WeekNav monday={monday} onChangeWeek={onChangeWeek} />
       </LargeScreenHeader>
-      {/* Drag a card between days, or to/from the backlog (DEX-77). */}
-      {/* Web's drag doesn't race the scroller (drax sets touch-action there),
-          and `setNativeProps` is native-only. */}
+      {/* Drag between days or to/from the backlog (DEX-77). No scroll pause on
+          web: drax sets touch-action there, and `setNativeProps` is native-only. */}
       <DragScheduleProvider
         pauseScrollRef={Platform.OS === "web" ? undefined : scrollRef}
       >
