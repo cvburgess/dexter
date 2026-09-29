@@ -1,10 +1,14 @@
 import { Temporal } from "@js-temporal/polyfill";
+import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { DayTaskList } from "@/components/DayTaskList";
+import { EventRow } from "@/components/EventRow";
 import { HabitTracker } from "@/components/HabitTracker";
+import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { formatMonthDay, formatWeekday } from "@/utils/formatPlainDate";
 import { useTheme, withOpacity } from "@/utils/theme";
+import { sortAgenda } from "@/utils/tomorrowPreview";
 
 type TWeekDayColumnProps = {
   date: Temporal.PlainDate;
@@ -12,14 +16,16 @@ type TWeekDayColumnProps = {
   /** Passed in rather than recomputed — the parent already finds today's
    * column to anchor the scroll. */
   isToday: boolean;
+  showCalendar: boolean;
 };
 
-// One day of the Week tab (DEX-96): chip + habit rings + task list, read-only —
-// creating a task goes through the tab's single "+" (see WeekView).
+// One day of the Week tab (DEX-96): chip + habit rings + events (DEX-186) +
+// task list, read-only — creating a task goes through the tab's single "+".
 export function WeekDayColumn({
   date,
   enableHabits,
   isToday,
+  showCalendar,
 }: TWeekDayColumnProps) {
   const theme = useTheme();
 
@@ -77,9 +83,32 @@ export function WeekDayColumn({
           <HabitTracker date={date} showCreateNudge={false} />
         </View>
       )}
+      {showCalendar && <DayEvents date={date} />}
       {/* No empty state: seven "no tasks" messages side by side read as noise,
           and an empty column is already self-evident. */}
       <DayTaskList date={date} emptyMessage={null} />
+    </View>
+  );
+}
+
+// Its own component so the calendar query only mounts while shown. Natural
+// height above DayTaskList's flex:1 scroller, which takes what's left.
+function DayEvents({ date }: { date: Temporal.PlainDate }) {
+  const theme = useTheme();
+  const [events] = useCalendarEvents(date);
+  const agenda = useMemo(() => sortAgenda(events), [events]);
+
+  // No empty or error text, for the same reason as the task list's.
+  if (agenda.length === 0) return null;
+
+  return (
+    <View
+      style={{ gap: theme.space.sm, marginTop: theme.space.md }}
+      testID={`week-events-${date.toString()}`}
+    >
+      {agenda.map((event) => (
+        <EventRow event={event} key={event.id} />
+      ))}
     </View>
   );
 }

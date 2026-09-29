@@ -65,6 +65,7 @@ export default function WeekScreen() {
 
   return (
     <WeekView
+      enableCalendar={preferences.enableCalendar}
       enableHabits={preferences.enableHabits}
       monday={monday}
       onChangeWeek={setMonday}

@@ -129,6 +129,21 @@ describe("useCalendarEvents (web)", () => {
     await settleQueries(client);
   });
 
+  it("downloads a feed once for every day showing it (DEX-186)", async () => {
+    setPreferences({ calendarUrls: ["https://example.com/cal.ics"] });
+
+    // The Week tab mounts seven days at once; each must parse the one
+    // download rather than fetch its own.
+    const { result } = renderHook(
+      () => [DAY, DAY.add({ days: 1 })].map((day) => useWebCalendarEvents(day)),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() => expect(result.current[0][0]).toHaveLength(1));
+    expect(result.current[1][0]).toEqual([]);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
   it("stays idle with no feeds configured, and says so", () => {
     setPreferences({ calendarUrls: [] });
 
