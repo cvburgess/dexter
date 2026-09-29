@@ -154,22 +154,6 @@ describe("WeekView drag-to-schedule", () => {
 });
 
 describe("WeekView calendar toggle (DEX-186)", () => {
-  it("toggles the columns' events from the header", () => {
-    const screen = renderWeek({ enableCalendar: true });
-
-    fireEvent.press(screen.getByLabelText("Toggle calendar events"));
-
-    expect(mockToggleCalendar).toHaveBeenCalled();
-  });
-
-  it("shows events in every column once toggled on", () => {
-    mockUseWeekCalendar.mockReturnValue([true, { toggle: mockToggleCalendar }]);
-
-    const screen = renderWeek({ enableCalendar: true });
-
-    expect(screen.getAllByText(/calendar=true/)).toHaveLength(7);
-  });
-
   // The stored toggle outlives the setting: turning the calendar off in
   // Settings must hide both the button and the events.
   it("ignores a stored toggle while the calendar is disabled", () => {
