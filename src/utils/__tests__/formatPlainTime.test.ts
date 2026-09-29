@@ -8,23 +8,23 @@ import {
 
 describe("formatTime", () => {
   it("formats morning times with AM", () => {
-    expect(formatTime({ hour: 9, minute: 5 })).toBe("9:05 AM");
+    expect(formatTime({ hour: 9, minute: 5 }, false)).toBe("9:05 AM");
   });
 
   it("uses 12 for midnight and noon", () => {
-    expect(formatTime({ hour: 0, minute: 0 })).toBe("12:00 AM");
-    expect(formatTime({ hour: 12, minute: 0 })).toBe("12:00 PM");
+    expect(formatTime({ hour: 0, minute: 0 }, false)).toBe("12:00 AM");
+    expect(formatTime({ hour: 12, minute: 0 }, false)).toBe("12:00 PM");
   });
 
   it("formats afternoon times with PM", () => {
-    expect(formatTime({ hour: 20, minute: 30 })).toBe("8:30 PM");
+    expect(formatTime({ hour: 20, minute: 30 }, false)).toBe("8:30 PM");
   });
 });
 
 describe("formatTimeRange", () => {
   it("states the period once when both ends share it", () => {
     expect(
-      formatTimeRange({ hour: 16, minute: 0 }, { hour: 17, minute: 15 }),
+      formatTimeRange({ hour: 16, minute: 0 }, { hour: 17, minute: 15 }, false),
     ).toBe("4:00-5:15 PM");
   });
 
@@ -32,26 +32,49 @@ describe("formatTimeRange", () => {
   // to guess which side of noon a meeting starts on.
   it("states both when the span crosses noon", () => {
     expect(
-      formatTimeRange({ hour: 11, minute: 30 }, { hour: 13, minute: 0 }),
+      formatTimeRange({ hour: 11, minute: 30 }, { hour: 13, minute: 0 }, false),
     ).toBe("11:30 AM-1:00 PM");
   });
 
   it("treats noon as PM and midnight as AM", () => {
     expect(
-      formatTimeRange({ hour: 12, minute: 0 }, { hour: 12, minute: 45 }),
+      formatTimeRange({ hour: 12, minute: 0 }, { hour: 12, minute: 45 }, false),
     ).toBe("12:00-12:45 PM");
     expect(
-      formatTimeRange({ hour: 0, minute: 0 }, { hour: 1, minute: 30 }),
+      formatTimeRange({ hour: 0, minute: 0 }, { hour: 1, minute: 30 }, false),
     ).toBe("12:00-1:30 AM");
   });
 });
 
 describe("formatHourLabel", () => {
   it("labels hours compactly", () => {
-    expect(formatHourLabel(0)).toBe("12 AM");
-    expect(formatHourLabel(6)).toBe("6 AM");
-    expect(formatHourLabel(12)).toBe("12 PM");
-    expect(formatHourLabel(23)).toBe("11 PM");
+    expect(formatHourLabel(0, false)).toBe("12 AM");
+    expect(formatHourLabel(6, false)).toBe("6 AM");
+    expect(formatHourLabel(12, false)).toBe("12 PM");
+    expect(formatHourLabel(23, false)).toBe("11 PM");
+  });
+});
+
+describe("on a 24-hour clock (DEX-223)", () => {
+  it("formats times unpadded with no period", () => {
+    expect(formatTime({ hour: 15, minute: 0 }, true)).toBe("15:00");
+    expect(formatTime({ hour: 9, minute: 5 }, true)).toBe("9:05");
+    expect(formatTime({ hour: 0, minute: 0 }, true)).toBe("0:00");
+  });
+
+  it("formats ranges with no period, even across noon", () => {
+    expect(
+      formatTimeRange({ hour: 15, minute: 0 }, { hour: 16, minute: 15 }, true),
+    ).toBe("15:00-16:15");
+    expect(
+      formatTimeRange({ hour: 11, minute: 0 }, { hour: 13, minute: 0 }, true),
+    ).toBe("11:00-13:00");
+  });
+
+  it("labels the hour gutter as H:00", () => {
+    expect(formatHourLabel(9, true)).toBe("9:00");
+    expect(formatHourLabel(0, true)).toBe("0:00");
+    expect(formatHourLabel(24, true)).toBe("0:00");
   });
 });
 

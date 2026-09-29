@@ -16,6 +16,7 @@ import {
   TEventResponse,
 } from "@/hooks/useCalendarEvents.types";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useUses24HourClock } from "@/hooks/useUses24HourClock";
 import {
   layoutEvents,
   nowLineTopPx,
@@ -106,6 +107,7 @@ type TCalendarViewProps = {
  * events laid out with overlaps split into columns (`utils/calendarLayout`). */
 export function CalendarView({ date }: TCalendarViewProps) {
   const theme = useTheme();
+  const uses24HourClock = useUses24HourClock();
   const insets = useSafeAreaInsets();
   const [preferences] = usePreferences();
   const [events, { isLoading, isError, permissionDenied, notConfigured }] =
@@ -241,12 +243,18 @@ export function CalendarView({ date }: TCalendarViewProps) {
                 top={(hour - startHour) * HOUR_HEIGHT}
                 dividerColor={dividerColor}
                 theme={theme}
+                uses24HourClock={uses24HourClock}
               />
             ))}
 
             <View style={styles.eventsArea}>
               {positioned.map((p) => (
-                <EventBlock key={p.event.id} positioned={p} theme={theme} />
+                <EventBlock
+                  key={p.event.id}
+                  positioned={p}
+                  theme={theme}
+                  uses24HourClock={uses24HourClock}
+                />
               ))}
             </View>
 
@@ -280,11 +288,13 @@ function HourRow({
   top,
   dividerColor,
   theme,
+  uses24HourClock,
 }: {
   hour: number;
   top: number;
   dividerColor: string;
   theme: ReturnType<typeof useTheme>;
+  uses24HourClock: boolean;
 }) {
   return (
     <View>
@@ -303,7 +313,7 @@ function HourRow({
           },
         ]}
       >
-        {formatHourLabel(hour)}
+        {formatHourLabel(hour, uses24HourClock)}
       </Text>
       <View style={[styles.hourLine, { top, backgroundColor: dividerColor }]} />
     </View>
@@ -313,9 +323,11 @@ function HourRow({
 function EventBlock({
   positioned,
   theme,
+  uses24HourClock,
 }: {
   positioned: TPositionedEvent;
   theme: ReturnType<typeof useTheme>;
+  uses24HourClock: boolean;
 }) {
   const { event, topPx, heightPx, columnIndex, columnCount, isPast } =
     positioned;
@@ -365,7 +377,7 @@ function EventBlock({
               { color: theme.colors.textSecondary },
             ]}
           >
-            {formatTime(event.start)}
+            {formatTime(event.start, uses24HourClock)}
           </Text>
         </>
       ) : (
@@ -389,7 +401,7 @@ function EventBlock({
               { color: theme.colors.textSecondary, marginLeft: theme.space.xs },
             ]}
           >
-            {formatTime(event.start)}
+            {formatTime(event.start, uses24HourClock)}
           </Text>
         </View>
       )}
