@@ -1,20 +1,20 @@
 {
   "mcpServers": {
     "dexter": {
-      "type": "remote",
-      "url": "https://api.dexterplanner.com/functions/v1/mcp-server"
+      "url": "https://api.dexterplanner.com/functions/v1/mcp-server",
+      "description": "dexter app data and tools"
     },
     "supabase": {
-      "type": "remote",
-      "url": "https://mcp.supabase.com/mcp?project_ref=isreileykodwkyedcewv"
+      "url": "https://mcp.supabase.com/mcp?project_ref=isreileykodwkyedcewv",
+      "description": "supabase tools"
     },
     "expo": {
-      "type": "remote",
-      "url": "https://mcp.expo.dev/mcp"
+      "url": "https://mcp.expo.dev/mcp",
+      "description": "expo tools"
     },
-    "linear": {
-      "type": "remote",
-      "url": "https://mcp.linear.app/mcp"
+    "linear-server": {
+      "url": "https://mcp.linear.app/mcp",
+      "description": "linear-server tools"
     }
   }
 }
