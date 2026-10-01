@@ -6,66 +6,96 @@ import { createMcpServer } from "./server.ts";
 import { WebTransport } from "./transport.ts";
 import { captureException, withSentry } from "../_shared/sentry.ts";
 
-export const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+const BASE_CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-// Typed wider than inferred from `corsHeaders`, or the 401 below (which adds
-// `WWW-Authenticate`) would not type-check.
+// Echo the request origin only when allowlisted. Non-browser clients send no
+// Origin header (and ignore CORS); nothing here grants cookie credentials.
+function corsHeaders(origin: string | null): Record<string, string> {
+  const headers = { ...BASE_CORS_HEADERS };
+  if (origin !== null && isOriginAllowed(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+  return headers;
+}
+
 function jsonResponse(
   body: unknown,
   status = 200,
-  headers: Record<string, string> = corsHeaders,
+  cors: Record<string, string> = corsHeaders(null),
 ) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...headers, "Content-Type": "application/json" },
+    headers: { ...cors, "Content-Type": "application/json" },
   });
 }
 
 function protectedResourceMetadataUrl(req: Request): string {
-  const publicOrigin = new URL(req.url).origin.replace(/^http:/, "https:");
-  return `${publicOrigin}/functions/v1/mcp-server/.well-known/oauth-protected-resource`;
+  try {
+    const publicOrigin = new URL(req.url).origin.replace(/^http:/, "https:");
+    return `${publicOrigin}/functions/v1/mcp-server/.well-known/oauth-protected-resource`;
+  } catch {
+    return "";
+  }
 }
 
 Deno.serve(withSentry(async (req: Request): Promise<Response> => {
+  const origin = req.headers.get("origin");
+  const cors = corsHeaders(origin);
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
 
-  if (!isOriginAllowed(req.headers.get("origin"))) {
-    return jsonResponse({ error: "Origin not allowed" }, 403);
+  if (!isOriginAllowed(origin)) {
+    return jsonResponse({ error: "Origin not allowed" }, 403, cors);
   }
 
   if (req.method === "GET") {
-    const url = new URL(req.url);
-    const subPath = url.pathname.replace(
-      /^(\/functions\/v1)?\/mcp-server/,
-      "",
-    );
-    const publicOrigin = url.origin.replace(/^http:/, "https:");
+    try {
+      const url = new URL(req.url);
+      const subPath = url.pathname.replace(
+        /^(\/functions\/v1)?\/mcp-server/,
+        "",
+      );
+      const publicOrigin = url.origin.replace(/^http:/, "https:");
 
-    if (subPath === "/.well-known/oauth-protected-resource") {
-      return jsonResponse({
-        resource: `${publicOrigin}/functions/v1/mcp-server`,
-        authorization_servers: [`${publicOrigin}/auth/v1`],
-        bearer_methods_supported: ["header"],
-      });
+      if (subPath === "/.well-known/oauth-protected-resource") {
+        return jsonResponse(
+          {
+            resource: `${publicOrigin}/functions/v1/mcp-server`,
+            // GoTrue's OAuth issuer is always the raw project URL, even behind a
+            // custom domain — and the /auth/v1 path is required for discovery.
+            authorization_servers: [
+              `${Deno.env.get("SUPABASE_URL") ?? publicOrigin}/auth/v1`,
+            ],
+            bearer_methods_supported: ["header"],
+          },
+          200,
+          cors,
+        );
+      }
+
+      return jsonResponse(
+        {
+          name: "dexter",
+          version: "1.0.0",
+          description:
+            "Manage Dexter planning data including tasks, goals, lists, habits, notes, journals, templates, and preferences.",
+        },
+        200,
+        cors,
+      );
+    } catch {
+      return jsonResponse({ error: "Invalid request URL" }, 400, cors);
     }
-
-    return jsonResponse({
-      name: "dexter",
-      version: "1.0.0",
-      description:
-        "Manage Dexter planning data including tasks, goals, lists, habits, notes, journals, templates, and preferences.",
-    });
   }
 
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405);
+    return jsonResponse({ error: "Method not allowed" }, 405, cors);
   }
 
   try {
@@ -75,7 +105,7 @@ Deno.serve(withSentry(async (req: Request): Promise<Response> => {
         { error: "Unauthorized" },
         401,
         {
-          ...corsHeaders,
+          ...cors,
           "WWW-Authenticate": `Bearer resource_metadata="${
             protectedResourceMetadataUrl(req)
           }"`,
@@ -91,10 +121,10 @@ Deno.serve(withSentry(async (req: Request): Promise<Response> => {
     const response = await transport.handleMessage(body);
 
     if (response === null) {
-      return new Response(null, { status: 204, headers: corsHeaders });
+      return new Response(null, { status: 204, headers: cors });
     }
 
-    return jsonResponse(response);
+    return jsonResponse(response, 200, cors);
   } catch (error) {
     captureException(error);
     return jsonResponse(
@@ -104,6 +134,7 @@ Deno.serve(withSentry(async (req: Request): Promise<Response> => {
         id: null,
       },
       500,
+      cors,
     );
   }
 }));
