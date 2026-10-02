@@ -458,7 +458,8 @@ template change fails loudly — expect to re-anchor on SDK upgrades), and
 `useAlarmSync` answers the throw with a repeating alert). Build with `xcodebuild`
 (`expo run:ios` has no `variant=` support); sanity-check `UIDeviceFamily` prints
 `6`, not `2`. `IS_TABLET` covers Catalyst (idiom `mac`); `isAlarmSupported`
-excludes it.
+excludes it and the App Store "Designed for iPad" app (idiom `pad`, so only
+expo-device's `DESKTOP` detects it — DEX-230).
 
 Three native patches exist for this target (the first two compile-time-guarded and
 inert on iOS):

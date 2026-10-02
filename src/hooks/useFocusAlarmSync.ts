@@ -8,6 +8,7 @@ import {
   cancelTaskAlarm,
   focusAlarmFor,
   getScheduledAlarmIds,
+  isAlarmSupported,
   scheduleFocusAlarm,
 } from "@/utils/alarms";
 import { useTheme } from "@/utils/theme";
@@ -33,6 +34,9 @@ export const useFocusAlarmSync = (block: TFocusBlock | null): void => {
   // against a cache the other hasn't written yet.
   const queue = useRef<Promise<void>>(Promise.resolve());
 
+  // A failure retries on every run, so warn once per session (see `useAlarmSync`).
+  const warned = useRef(false);
+
   const id = block?.id;
   const status = block?.status;
   const resumedAt = block?.resumedAt;
@@ -40,6 +44,8 @@ export const useFocusAlarmSync = (block: TFocusBlock | null): void => {
   const title = block?.tasks.title;
 
   useEffect(() => {
+    if (!isAlarmSupported) return;
+
     // Acting on the placeholder preferences row would schedule with the default
     // sound, then re-schedule when the real row lands (DEX-72).
     if (preferencesLoading) return;
@@ -99,10 +105,13 @@ export const useFocusAlarmSync = (block: TFocusBlock | null): void => {
           `[alarms] Failed to schedule focus alarm ${desired.id}`,
           error,
         );
-        Alert.alert(
-          "Timer won't ring",
-          "We couldn't set the alarm for this focus block, so it won't ring if you leave the app. Check that alarms are enabled for Dexter in Settings.",
-        );
+        if (!warned.current) {
+          warned.current = true;
+          Alert.alert(
+            "Timer won't ring",
+            "We couldn't set the alarm for this focus block, so it won't ring if you leave the app. Check that alarms are enabled for Dexter in Settings.",
+          );
+        }
       }
     };
 

@@ -11,6 +11,7 @@ const mockAlarms = {
   scheduleFocusAlarm: jest.fn(),
   cancelTaskAlarm: jest.fn(),
   getScheduledAlarmIds: jest.fn(() => [] as string[]),
+  isAlarmSupported: true,
 };
 jest.mock("@/utils/alarms", () => {
   const shared = jest.requireActual<typeof import("@/utils/alarms.shared")>(
@@ -25,6 +26,9 @@ jest.mock("@/utils/alarms", () => {
     cancelTaskAlarm: (...args: unknown[]) =>
       mockAlarms.cancelTaskAlarm(...args),
     getScheduledAlarmIds: () => mockAlarms.getScheduledAlarmIds(),
+    get isAlarmSupported() {
+      return mockAlarms.isAlarmSupported;
+    },
   };
 });
 
@@ -60,6 +64,7 @@ describe("useFocusAlarmSync", () => {
     preferencesState.alarmSound = "echos";
     preferencesState.isLoading = false;
     mockAlarms.getScheduledAlarmIds.mockReturnValue([]);
+    mockAlarms.isAlarmSupported = true;
     mockAlarms.scheduleFocusAlarm.mockResolvedValue(undefined);
     mockAlarms.cancelTaskAlarm.mockResolvedValue(undefined);
     alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
@@ -88,6 +93,23 @@ describe("useFocusAlarmSync", () => {
         { tint: "#00674f", content: "#c3ffcf" },
       ),
     );
+  });
+
+  // A failure retries on every run, so on the Mac app each tick re-alerted (DEX-230).
+  it("warns only once per session when scheduling keeps failing", async () => {
+    mockAlarms.scheduleFocusAlarm.mockRejectedValue(new Error("rejected"));
+    const { rerender } = renderHook(
+      ({ live }: { live: TFocusBlock | null }) => useFocusAlarmSync(live),
+      { initialProps: { live: block() } },
+    );
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
+
+    rerender({ live: block({ remainingSeconds: 1200 }) });
+
+    await waitFor(() =>
+      expect(mockAlarms.scheduleFocusAlarm).toHaveBeenCalledTimes(2),
+    );
+    expect(alertSpy).toHaveBeenCalledTimes(1);
   });
 
   it("schedules nothing at all when no block is running", async () => {

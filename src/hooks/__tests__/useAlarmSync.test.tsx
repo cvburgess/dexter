@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react-native";
+import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { Alert } from "react-native";
 
 import { useAlarmSync } from "../useAlarmSync";
@@ -10,6 +10,7 @@ const mockAlarms = {
   scheduleTaskAlarm: jest.fn(),
   cancelTaskAlarm: jest.fn(),
   getScheduledAlarmIds: jest.fn(() => [] as string[]),
+  isAlarmSupported: true,
 };
 // Wrappers so `mockAlarms` is read at call time — the factory is hoisted
 // above its initializer. Pure helpers come from the real shared module.
@@ -27,6 +28,9 @@ jest.mock("@/utils/alarms", () => {
     cancelTaskAlarm: (...args: unknown[]) =>
       mockAlarms.cancelTaskAlarm(...args),
     getScheduledAlarmIds: () => mockAlarms.getScheduledAlarmIds(),
+    get isAlarmSupported() {
+      return mockAlarms.isAlarmSupported;
+    },
   };
 });
 
@@ -64,6 +68,7 @@ describe("useAlarmSync", () => {
     focusBlockState.id = null;
     focusBlockState.isLoading = false;
     mockAlarms.getScheduledAlarmIds.mockReturnValue([]);
+    mockAlarms.isAlarmSupported = true;
     alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
     // The hook console.warns each failure; silence it to keep test output clean.
     warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
@@ -88,6 +93,35 @@ describe("useAlarmSync", () => {
 
     await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
     expect(alertSpy.mock.calls[0][0]).toBe("Alarm not set");
+  });
+
+  // Failed ids retry on every run, so on the Mac app each edit re-alerted (DEX-230).
+  it("warns only once per session when failures repeat across runs", async () => {
+    mockAlarms.reconcileAlarms.mockReturnValue({
+      toSchedule: [{ id: "a", title: "A", epochSeconds: 1 }],
+      toCancel: [],
+    });
+    mockAlarms.scheduleTaskAlarm.mockRejectedValue(new Error("rejected"));
+
+    const { rerender } = renderHook(() => useAlarmSync());
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
+
+    rerender({});
+
+    await waitFor(() =>
+      expect(mockAlarms.scheduleTaskAlarm).toHaveBeenCalledTimes(2),
+    );
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves AlarmKit alone where alarms are unsupported", async () => {
+    mockAlarms.isAlarmSupported = false;
+
+    renderHook(() => useAlarmSync());
+
+    await act(async () => {});
+    expect(mockAlarms.reconcileAlarms).not.toHaveBeenCalled();
+    expect(alertSpy).not.toHaveBeenCalled();
   });
 
   it("does not warn when scheduling succeeds", async () => {
