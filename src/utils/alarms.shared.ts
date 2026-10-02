@@ -1,5 +1,5 @@
 // Pure alarm scheduling math (DEX-48, DEX-156) shared by the platform variants
-// of `utils/alarms` — native-free so reconciliation is testable without mocks.
+// of `utils/alarms` — AlarmKit-free so reconciliation is testable without mocks.
 
 import { DeviceType, deviceType } from "expo-device";
 import { Platform } from "react-native";
