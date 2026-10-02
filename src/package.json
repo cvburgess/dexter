@@ -1,7 +1,7 @@
 {
   "name": "dexter",
   "main": "expo-router/entry",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "license": "MIT",
   "engines": {
     "node": ">=24"
@@ -53,6 +53,7 @@
     "expo-calendar": "~57.0.1",
     "expo-constants": "~57.0.3",
     "expo-dev-client": "~57.0.10",
+    "expo-device": "~57.0.2",
     "expo-font": "~57.0.0",
     "expo-glass-effect": "~57.0.1",
     "expo-linking": "~57.0.4",

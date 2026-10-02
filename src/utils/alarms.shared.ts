@@ -1,16 +1,19 @@
 // Pure alarm scheduling math (DEX-48, DEX-156) shared by the platform variants
-// of `utils/alarms` — native-free so reconciliation is testable without mocks.
+// of `utils/alarms` — AlarmKit-free so reconciliation is testable without mocks.
 
+import { DeviceType, deviceType } from "expo-device";
 import { Platform } from "react-native";
 
 import { TTask } from "@/api/tasks";
 import { liveRemainingSeconds, TFocusAnchor } from "@/utils/focusBlocks";
 import { isCompletionStatus } from "@/utils/taskFilters";
 
-/** The one gate every alarm surface uses. Mac Catalyst is excluded (DEX-85):
- * `Platform.OS` is "ios" there but AlarmKit isn't even linked into that build. */
+/** The one gate every alarm surface uses. Mac is excluded (DEX-85, DEX-230): the
+ * "Designed for iPad" app is idiom `pad`, so only DESKTOP catches it, not `isMacCatalyst`. */
 export const isAlarmSupported =
-  Platform.OS === "ios" && !Platform.isMacCatalyst;
+  Platform.OS === "ios" &&
+  !Platform.isMacCatalyst &&
+  deviceType !== DeviceType.DESKTOP;
 
 /** Seeds a repeat template's alarm — recurring, so "now" is meaningless.
  * One-off task alarms use {@link defaultAlarmTime} instead. */

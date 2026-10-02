@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.3.1
+
+- Dexter on Mac no longer interrupts you about alarms it can't set
+- Fixed bugs and improved the user experience
+
+---
+
+- DEX-230: Stop alarm-failure alerts on the Mac app
+- Remove summarize-pr skill (#200)
+- DEX-225: Fix MCP OAuth issuer mismatch behind the custom domain (#199)
+- DEX-224: Commit shared pi MCP config (#198)
+- DEX-218: Opt the web app out of Dark Reader (#197)
+
 ## v2.3.0
 
 - Plan across all your lists at once on larger screens — a new Lists board shows each list as a column, and you can drag tasks between them

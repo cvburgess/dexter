@@ -6,6 +6,7 @@ import {
   alarmSoundFileName,
   cancelTaskAlarm,
   getScheduledAlarmIds,
+  isAlarmSupported,
   reconcileAlarms,
   scheduleTaskAlarm,
 } from "@/utils/alarms";
@@ -45,7 +46,12 @@ export const useAlarmSync = (): void => {
   // AlarmKit and leave a stale sound or title ringing until next launch.
   const queue = useRef<Promise<void>>(Promise.resolve());
 
+  // Failed ids retry on every run, so without this one cause re-alerts per edit.
+  const warned = useRef(false);
+
   useEffect(() => {
+    if (!isAlarmSupported) return;
+
     // Placeholder preferences would schedule every alarm with the default
     // sound (DEX-72); an unresolved focus block looks identical to "no block".
     if (isLoading || preferencesLoading || focusBlockLoading) return;
@@ -91,7 +97,8 @@ export const useAlarmSync = (): void => {
         }),
       ]);
 
-      if (anyScheduleFailed) {
+      if (anyScheduleFailed && !warned.current) {
+        warned.current = true;
         Alert.alert(
           "Alarm not set",
           "We couldn't set one of your task alarms, so it won't ring. Check that alarms are enabled for Dexter in Settings.",
