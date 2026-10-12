@@ -1,7 +1,5 @@
-# Scopes the pi-lens yamllint lane to this repo. GitHub Actions workflows are
-# machine-managed (no document marker) and routinely exceed 80 chars in
-# expressions, so both defaults are relaxed; the `on:` key is a YAML truthy
-# false positive.
+# Relaxes yamllint for GitHub Actions workflows: no document marker, long
+# expressions, and the `on:` truthy false positive.
 extends: default
 rules:
   document-start: disable

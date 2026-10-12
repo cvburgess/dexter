@@ -59,12 +59,11 @@ a real session.
   unthrottled, so `DEMO_OTP` must be **long and random**, not 6 digits; the login
   screen's demo path accepts a long non-numeric code.
 - **The login email carries both a link and the code** —
-  `templates/magic_link.html` renders `{{ .Token }}` alongside the link.
-  The hosted project's Magic Link template is dashboard-managed — paste the file
-  into Authentication → Email Templates or production emails carry only the link.
-  The native local stack (`supabase start`) can't serve custom templates, so its
-  emails carry only the link: tap it, or sign in with the demo OTP. See
-  `docs/appstore.md` for the reviewer flow.
+  `templates/magic_link.html` renders `{{ .Token }}` alongside the link. The
+  hosted project's template is dashboard-managed — paste the file into
+  Authentication → Email Templates or production emails carry only the link.
+  The native local stack can't serve custom templates, so locally: tap the link,
+  or use the demo OTP. See `docs/appstore.md` for the reviewer flow.
 
 ## `search_entries(query text)`
 
