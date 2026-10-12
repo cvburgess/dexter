@@ -46,6 +46,12 @@ fi
 TMP="$(mktemp)"
 trap 'rm -f "$TMP"' EXIT
 
+# The local section doesn't exist in older copies of the file; add it so
+# --local has somewhere to write. Placeholders get replaced on the first swap.
+if ! grep -q '^# Local stack$' "$ENV_FILE"; then
+  printf '\n# Local stack\n# EXPO_PUBLIC_SUPABASE_URL="http://localhost:54321"\n# EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="sb_publishable_"\n' >>"$ENV_FILE"
+fi
+
 section=""
 while IFS= read -r line || [[ -n "$line" ]]; do
   case "$line" in

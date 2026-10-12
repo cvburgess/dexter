@@ -1,6 +1,6 @@
 ---
 name: start-dev-server
-description: Start the Expo dev server for this checkout, pointed at the right Supabase project. Copies missing .env files into a fresh worktree, picks production or the branch's Supabase preview branch, stops this checkout's old server, and starts on a free port. Use when the user says "start the dev server", "run the app", "test against the preview branch", "use main branch", "switch back to prod", or "stop using the preview branch". Pass `prod` or `preview` to force the environment.
+description: Start the Expo dev server for this checkout, pointed at the right Supabase project. Copies missing .env files into a fresh worktree, picks production, the branch's Supabase preview branch, or this worktree's local stack, stops this checkout's old server, and starts on a free port. Use when the user says "start the dev server", "run the app", "test against the preview branch", "test against local supabase", "use main branch", "switch back to prod", or "stop using the preview branch". Pass `prod`, `preview`, or `local` to force the environment.
 allowed-tools: Bash(.agents/skills/start-dev-server/scripts/*), Bash(git branch*), Bash(cd src && npm start*)
 ---
 
@@ -32,7 +32,7 @@ A fresh worktree has none of the gitignored `.env*` files. This copies each miss
 
 ### Step 2: Resolve the environment
 
-The argument (`prod` or `preview`) forces the mode. Without one:
+The argument (`prod`, `preview`, or `local`) forces the mode. Without one:
 
 - `git branch --show-current` is `main` or empty (detached HEAD) → **prod**. Skip the Supabase lookup.
 - Any other branch → run the preview lookup below. Exit 0 → **preview**; exit 3 (no preview branch) → **prod**.
@@ -48,9 +48,18 @@ It prints `PREVIEW_REF`, `PREVIEW_URL`, and `PREVIEW_KEY` (the `sb_publishable_`
 ```bash
 .agents/skills/start-dev-server/scripts/swap-env.sh --prod
 .agents/skills/start-dev-server/scripts/swap-env.sh --preview <PREVIEW_URL> <PREVIEW_KEY>
+.agents/skills/start-dev-server/scripts/swap-env.sh --local <LOCAL_URL> <LOCAL_KEY>
 ```
 
-Run the one matching the mode. The script toggles the pairs under `# Supabase` and `# Preview branch`, leaves every other line untouched, is idempotent, and refuses non-`sb_publishable_` keys. Do not hand-edit the file. If it reports no active prod pair, restore the `# Supabase` section from the main checkout's `src/.env.local` and rerun.
+Run the one matching the mode. The script toggles the pairs under `# Supabase`, `# Preview branch`, and `# Local stack`, leaves every other line untouched, is idempotent, and refuses non-`sb_publishable_` keys. Do not hand-edit the file. If it reports no active prod pair, restore the `# Supabase` section from the main checkout's `src/.env.local` and rerun.
+
+For **local**, first get the values from the worktree's own stack (this also creates and starts it on first use, docker-free):
+
+```bash
+.agents/skills/start-dev-server/scripts/get-local-stack.sh
+```
+
+It prints `LOCAL_URL` and `LOCAL_KEY` (the `sb_publishable_` key). It fails if the Supabase CLI can't run the stack; report that and stop rather than falling back.
 
 ### Step 4: Free a port
 
@@ -76,6 +85,7 @@ Tell the user the port and the environment:
 
 - **Prod:** the app points at `https://api.dexterplanner.com`.
 - **Preview:** the preview ref and `PREVIEW_URL`. Preview branches share only migrations and `supabase/seed.sql`, not production data, so they'll need to sign up fresh. Run `/start-dev-server prod` to switch back.
+- **Local:** the stack's `LOCAL_URL` and Studio at its `STUDIO_URL`. Local stacks share nothing with production — sign up fresh, or use the demo account (see `docs/api-routes.md`). Email sign-in sends only the magic link (no 6-digit code — the native stack can't serve custom templates); tap the link, or use the demo OTP. Run `/start-dev-server prod` to switch back.
 
 ## Important
 
