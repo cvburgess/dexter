@@ -108,6 +108,14 @@ that aren't visible from the YAML alone:
   so the deploy passes `--include-all`. The rule that falls out: **every migration
   must stand alone.** Never depend on a later-timestamped migration; prefer
   `IF EXISTS`/`IF NOT EXISTS`; if two must land in order, ship them in one PR.
+- **Schema changes are declarative now (DEX-227): edit `supabase/schemas/`, then
+  `supabase db schema declarative sync -f <name> --no-apply` generates the
+  migration.** The schema files win: after a rebase, fix the files and re-sync —
+  never hand-merge generated migrations (two PRs syncing from the same base can
+  produce overlapping diffs). Prove the tree and the history agree with a fresh
+  `db reset` + `sync --no-apply` reporting "No schema changes found". The
+  `create-migration` skill holds the full workflow and the hand-written-DML
+  escape hatches.
 - **A red test run does not block the production deploy** — `deploy.yml` has no
   dependency on the test workflows; tests gate PR merge only.
 - **Preview branches need `preview-branch.yml`'s help**: Supabase deploys functions
