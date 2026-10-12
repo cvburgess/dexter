@@ -1,0 +1,8 @@
+# Relaxes yamllint for GitHub Actions workflows: no document marker, long
+# expressions, and the `on:` truthy false positive.
+extends: default
+rules:
+  document-start: disable
+  line-length: disable
+  truthy:
+    check-keys: false

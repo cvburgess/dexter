@@ -1,5 +1,4 @@
 /* eslint-disable */
-
 export type Json =
   | string
   | number
@@ -9,10 +8,30 @@ export type Json =
   | Json[];
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "12.2.3 (519615d)";
+  graphql_public: {
+    Tables: {
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json;
+          operationName?: string;
+          query?: string;
+          variables?: Json;
+        };
+        Returns: Json;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
   };
   public: {
     Tables: {
@@ -25,10 +44,11 @@ export type Database = {
           steps_complete: number;
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           date: string;
           habit_id: string;
-          percent_complete?: number | null;
+          percent_complete?: never;
           steps: number;
           steps_complete?: number;
           user_id?: string;
@@ -36,7 +56,7 @@ export type Database = {
         Update: {
           date?: string;
           habit_id?: string;
-          percent_complete?: number | null;
+          percent_complete?: never;
           steps?: number;
           steps_complete?: number;
           user_id?: string;
@@ -63,6 +83,7 @@ export type Database = {
           total_seconds: number;
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           date: string;
@@ -103,6 +124,7 @@ export type Database = {
           title: string | null;
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           id?: string;
@@ -131,6 +153,7 @@ export type Database = {
           title: string;
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           days_active: number[];
@@ -177,6 +200,7 @@ export type Database = {
           text: string;
           tips: string[];
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           date: string;
@@ -193,7 +217,7 @@ export type Database = {
           rating_relationships: number;
           rating_spirituality: number;
           rating_travel: number;
-          sentiment?: Database["public"]["Enums"]["horoscope_sentiment"];
+          sentiment?: never;
           sun_sign: Database["public"]["Enums"]["sun_sign"];
           text: string;
           tips?: string[];
@@ -214,7 +238,7 @@ export type Database = {
           rating_relationships?: number;
           rating_spirituality?: number;
           rating_travel?: number;
-          sentiment?: Database["public"]["Enums"]["horoscope_sentiment"];
+          sentiment?: never;
           sun_sign?: Database["public"]["Enums"]["sun_sign"];
           text?: string;
           tips?: string[];
@@ -226,21 +250,22 @@ export type Database = {
           created_at: string;
           date: string;
           mood: number | null;
-          prompts: Json;
+          prompts: NonNullable<Json>;
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           date: string;
           mood?: number | null;
-          prompts?: Json;
+          prompts?: NonNullable<Json>;
           user_id?: string;
         };
         Update: {
           created_at?: string;
           date?: string;
           mood?: number | null;
-          prompts?: Json;
+          prompts?: NonNullable<Json>;
           user_id?: string;
         };
         Relationships: [];
@@ -254,6 +279,7 @@ export type Database = {
           title: string | null;
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           emoji: string;
@@ -279,6 +305,7 @@ export type Database = {
           date: string;
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           content?: string;
           created_at?: string;
@@ -311,10 +338,11 @@ export type Database = {
           light_theme: string;
           sun_sign: Database["public"]["Enums"]["sun_sign"] | null;
           template_note: string;
-          template_prompts: Json;
+          template_prompts: NonNullable<Json>;
           theme_mode: number;
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           alarm_sound?: string;
           breath_count?: number;
@@ -332,7 +360,7 @@ export type Database = {
           light_theme?: string;
           sun_sign?: Database["public"]["Enums"]["sun_sign"] | null;
           template_note?: string;
-          template_prompts?: Json;
+          template_prompts?: NonNullable<Json>;
           theme_mode?: number;
           user_id?: string;
         };
@@ -353,7 +381,7 @@ export type Database = {
           light_theme?: string;
           sun_sign?: Database["public"]["Enums"]["sun_sign"] | null;
           template_note?: string;
-          template_prompts?: Json;
+          template_prompts?: NonNullable<Json>;
           theme_mode?: number;
           user_id?: string;
         };
@@ -368,10 +396,11 @@ export type Database = {
           list_id: string | null;
           priority: number;
           schedule: string | null;
-          subtasks: Json;
+          subtasks: NonNullable<Json>;
           title: string;
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           alarm_time?: string | null;
           created_at?: string;
@@ -380,7 +409,7 @@ export type Database = {
           list_id?: string | null;
           priority?: number;
           schedule?: string | null;
-          subtasks?: Json;
+          subtasks?: NonNullable<Json>;
           title?: string;
           user_id?: string;
         };
@@ -392,7 +421,7 @@ export type Database = {
           list_id?: string | null;
           priority?: number;
           schedule?: string | null;
-          subtasks?: Json;
+          subtasks?: NonNullable<Json>;
           title?: string;
           user_id?: string;
         };
@@ -424,12 +453,13 @@ export type Database = {
           priority: number;
           scheduled_for: string | null;
           status: number;
-          subtasks: Json;
+          subtasks: NonNullable<Json>;
           template_id: string | null;
           title: string;
           url: string | null;
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           alarm_time?: string | null;
           created_at?: string;
@@ -440,7 +470,7 @@ export type Database = {
           priority?: number;
           scheduled_for?: string | null;
           status?: number;
-          subtasks?: Json;
+          subtasks?: NonNullable<Json>;
           template_id?: string | null;
           title?: string;
           url?: string | null;
@@ -456,7 +486,7 @@ export type Database = {
           priority?: number;
           scheduled_for?: string | null;
           status?: number;
-          subtasks?: Json;
+          subtasks?: NonNullable<Json>;
           template_id?: string | null;
           title?: string;
           url?: string | null;
@@ -491,18 +521,25 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      delete_user: { Args: never; Returns: undefined };
+      delete_user: { Args: Record<PropertyKey, never>; Returns: undefined };
+      horoscope_sentiment_from_ratings: {
+        Args: { ratings: number[] };
+        Returns: Database["public"]["Enums"]["horoscope_sentiment"];
+      };
       search_entries: {
         Args: { query: string };
         Returns: {
+          content: string;
+          entry_date: string;
           kind: string;
-          entry_date: string | null;
-          task: Json | null;
-          prompt: string | null;
-          content: string | null;
+          prompt: string;
+          task: Json;
         }[];
       };
-      trigger_generate_horoscopes: { Args: never; Returns: number };
+      trigger_generate_horoscopes: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
+      };
     };
     Enums: {
       focus_block_status: "active" | "paused" | "complete" | "cancelled";
@@ -520,6 +557,610 @@ export type Database = {
         | "capricorn"
         | "aquarius"
         | "pisces";
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
+  storage: {
+    Tables: {
+      buckets: {
+        Row: {
+          allowed_mime_types: string[] | null;
+          avif_autodetection: boolean | null;
+          created_at: string | null;
+          file_size_limit: number | null;
+          id: string;
+          lifecycle_configuration: Json | null;
+          lifecycle_configuration_generation: string | null;
+          name: string;
+          owner: string | null;
+          owner_id: string | null;
+          public: boolean | null;
+          type: Database["storage"]["Enums"]["buckettype"];
+          updated_at: string | null;
+          versioning_status: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          allowed_mime_types?: string[] | null;
+          avif_autodetection?: boolean | null;
+          created_at?: string | null;
+          file_size_limit?: number | null;
+          id: string;
+          lifecycle_configuration?: Json | null;
+          lifecycle_configuration_generation?: string | null;
+          name: string;
+          owner?: string | null;
+          owner_id?: string | null;
+          public?: boolean | null;
+          type?: Database["storage"]["Enums"]["buckettype"];
+          updated_at?: string | null;
+          versioning_status?: string;
+        };
+        Update: {
+          allowed_mime_types?: string[] | null;
+          avif_autodetection?: boolean | null;
+          created_at?: string | null;
+          file_size_limit?: number | null;
+          id?: string;
+          lifecycle_configuration?: Json | null;
+          lifecycle_configuration_generation?: string | null;
+          name?: string;
+          owner?: string | null;
+          owner_id?: string | null;
+          public?: boolean | null;
+          type?: Database["storage"]["Enums"]["buckettype"];
+          updated_at?: string | null;
+          versioning_status?: string;
+        };
+        Relationships: [];
+      };
+      buckets_analytics: {
+        Row: {
+          created_at: string;
+          deleted_at: string | null;
+          format: string;
+          id: string;
+          name: string;
+          type: Database["storage"]["Enums"]["buckettype"];
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          deleted_at?: string | null;
+          format?: string;
+          id?: string;
+          name: string;
+          type?: Database["storage"]["Enums"]["buckettype"];
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          deleted_at?: string | null;
+          format?: string;
+          id?: string;
+          name?: string;
+          type?: Database["storage"]["Enums"]["buckettype"];
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      buckets_vectors: {
+        Row: {
+          created_at: string;
+          id: string;
+          type: Database["storage"]["Enums"]["buckettype"];
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          id: string;
+          type?: Database["storage"]["Enums"]["buckettype"];
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          type?: Database["storage"]["Enums"]["buckettype"];
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      iceberg_namespaces: {
+        Row: {
+          bucket_name: string;
+          catalog_id: string;
+          created_at: string;
+          id: string;
+          metadata: NonNullable<Json>;
+          name: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          bucket_name: string;
+          catalog_id: string;
+          created_at?: string;
+          id?: string;
+          metadata?: NonNullable<Json>;
+          name: string;
+          updated_at?: string;
+        };
+        Update: {
+          bucket_name?: string;
+          catalog_id?: string;
+          created_at?: string;
+          id?: string;
+          metadata?: NonNullable<Json>;
+          name?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "iceberg_namespaces_catalog_id_fkey";
+            columns: ["catalog_id"];
+            isOneToOne: false;
+            referencedRelation: "buckets_analytics";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      iceberg_tables: {
+        Row: {
+          bucket_name: string;
+          catalog_id: string;
+          created_at: string;
+          id: string;
+          location: string;
+          name: string;
+          namespace_id: string;
+          remote_table_id: string | null;
+          shard_id: string | null;
+          shard_key: string | null;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          bucket_name: string;
+          catalog_id: string;
+          created_at?: string;
+          id?: string;
+          location: string;
+          name: string;
+          namespace_id: string;
+          remote_table_id?: string | null;
+          shard_id?: string | null;
+          shard_key?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          bucket_name?: string;
+          catalog_id?: string;
+          created_at?: string;
+          id?: string;
+          location?: string;
+          name?: string;
+          namespace_id?: string;
+          remote_table_id?: string | null;
+          shard_id?: string | null;
+          shard_key?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "iceberg_tables_catalog_id_fkey";
+            columns: ["catalog_id"];
+            isOneToOne: false;
+            referencedRelation: "buckets_analytics";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "iceberg_tables_namespace_id_fkey";
+            columns: ["namespace_id"];
+            isOneToOne: false;
+            referencedRelation: "iceberg_namespaces";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      migrations: {
+        Row: {
+          executed_at: string | null;
+          hash: string;
+          id: number;
+          name: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          executed_at?: string | null;
+          hash: string;
+          id: number;
+          name: string;
+        };
+        Update: {
+          executed_at?: string | null;
+          hash?: string;
+          id?: number;
+          name?: string;
+        };
+        Relationships: [];
+      };
+      objects: {
+        Row: {
+          archived_at: string | null;
+          bucket_id: string | null;
+          created_at: string | null;
+          id: string;
+          is_delete_marker: boolean;
+          is_versioned: boolean;
+          last_accessed_at: string | null;
+          metadata: Json | null;
+          name: string | null;
+          owner: string | null;
+          owner_id: string | null;
+          path_tokens: string[] | null;
+          updated_at: string | null;
+          user_metadata: Json | null;
+          version: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          archived_at?: string | null;
+          bucket_id?: string | null;
+          created_at?: string | null;
+          id?: string;
+          is_delete_marker?: boolean;
+          is_versioned?: boolean;
+          last_accessed_at?: string | null;
+          metadata?: Json | null;
+          name?: string | null;
+          owner?: string | null;
+          owner_id?: string | null;
+          path_tokens?: never;
+          updated_at?: string | null;
+          user_metadata?: Json | null;
+          version?: string | null;
+        };
+        Update: {
+          archived_at?: string | null;
+          bucket_id?: string | null;
+          created_at?: string | null;
+          id?: string;
+          is_delete_marker?: boolean;
+          is_versioned?: boolean;
+          last_accessed_at?: string | null;
+          metadata?: Json | null;
+          name?: string | null;
+          owner?: string | null;
+          owner_id?: string | null;
+          path_tokens?: never;
+          updated_at?: string | null;
+          user_metadata?: Json | null;
+          version?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "objects_bucketId_fkey";
+            columns: ["bucket_id"];
+            isOneToOne: false;
+            referencedRelation: "buckets";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      s3_multipart_uploads: {
+        Row: {
+          bucket_id: string;
+          created_at: string;
+          id: string;
+          in_progress_size: number;
+          key: string;
+          metadata: Json | null;
+          owner_id: string | null;
+          upload_signature: string;
+          user_metadata: Json | null;
+          version: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          bucket_id: string;
+          created_at?: string;
+          id: string;
+          in_progress_size?: number;
+          key: string;
+          metadata?: Json | null;
+          owner_id?: string | null;
+          upload_signature: string;
+          user_metadata?: Json | null;
+          version: string;
+        };
+        Update: {
+          bucket_id?: string;
+          created_at?: string;
+          id?: string;
+          in_progress_size?: number;
+          key?: string;
+          metadata?: Json | null;
+          owner_id?: string | null;
+          upload_signature?: string;
+          user_metadata?: Json | null;
+          version?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "s3_multipart_uploads_bucket_id_fkey";
+            columns: ["bucket_id"];
+            isOneToOne: false;
+            referencedRelation: "buckets";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      s3_multipart_uploads_parts: {
+        Row: {
+          bucket_id: string;
+          created_at: string;
+          etag: string;
+          id: string;
+          key: string;
+          owner_id: string | null;
+          part_number: number;
+          size: number;
+          upload_id: string;
+          version: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          bucket_id: string;
+          created_at?: string;
+          etag: string;
+          id?: string;
+          key: string;
+          owner_id?: string | null;
+          part_number: number;
+          size?: number;
+          upload_id: string;
+          version: string;
+        };
+        Update: {
+          bucket_id?: string;
+          created_at?: string;
+          etag?: string;
+          id?: string;
+          key?: string;
+          owner_id?: string | null;
+          part_number?: number;
+          size?: number;
+          upload_id?: string;
+          version?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "s3_multipart_uploads_parts_bucket_id_fkey";
+            columns: ["bucket_id"];
+            isOneToOne: false;
+            referencedRelation: "buckets";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "s3_multipart_uploads_parts_upload_id_fkey";
+            columns: ["upload_id"];
+            isOneToOne: false;
+            referencedRelation: "s3_multipart_uploads";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      vector_indexes: {
+        Row: {
+          bucket_id: string;
+          created_at: string;
+          data_type: string;
+          dimension: number;
+          distance_metric: string;
+          id: string;
+          metadata_configuration: Json | null;
+          name: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          bucket_id: string;
+          created_at?: string;
+          data_type: string;
+          dimension: number;
+          distance_metric: string;
+          id?: string;
+          metadata_configuration?: Json | null;
+          name: string;
+          updated_at?: string;
+        };
+        Update: {
+          bucket_id?: string;
+          created_at?: string;
+          data_type?: string;
+          dimension?: number;
+          distance_metric?: string;
+          id?: string;
+          metadata_configuration?: Json | null;
+          name?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "vector_indexes_bucket_id_fkey";
+            columns: ["bucket_id"];
+            isOneToOne: false;
+            referencedRelation: "buckets_vectors";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      allow_any_operation: {
+        Args: { expected_operations: string[] };
+        Returns: boolean;
+      };
+      allow_only_operation: {
+        Args: { expected_operation: string };
+        Returns: boolean;
+      };
+      can_insert_object: {
+        Args: { bucketid: string; metadata: Json; name: string; owner: string };
+        Returns: undefined;
+      };
+      extension: { Args: { name: string }; Returns: string };
+      filename: { Args: { name: string }; Returns: string };
+      foldername: { Args: { name: string }; Returns: string[] };
+      get_common_prefix: {
+        Args: { p_delimiter: string; p_key: string; p_prefix: string };
+        Returns: string;
+      };
+      get_size_by_bucket: {
+        Args: { delete_markers?: string; noncurrent_versions?: string };
+        Returns: {
+          bucket_id: string;
+          size: number;
+        }[];
+      };
+      list_multipart_uploads_with_delimiter: {
+        Args: {
+          bucket_id: string;
+          delimiter_param: string;
+          max_keys?: number;
+          next_key_token?: string;
+          next_upload_token?: string;
+          prefix_param: string;
+          raw_prefix_param?: string;
+        };
+        Returns: {
+          created_at: string;
+          id: string;
+          key: string;
+        }[];
+      };
+      list_objects_with_delimiter: {
+        Args: {
+          _bucket_id: string;
+          delete_markers?: string;
+          delimiter_param: string;
+          max_keys?: number;
+          next_token?: string;
+          next_token_archived_at?: string;
+          next_token_version?: string;
+          noncurrent_versions?: string;
+          prefix_param: string;
+          sort_order?: string;
+          start_after?: string;
+        };
+        Returns: {
+          archived_at: string;
+          created_at: string;
+          id: string;
+          is_delete_marker: boolean;
+          is_versioned: boolean;
+          last_accessed_at: string;
+          metadata: Json;
+          name: string;
+          updated_at: string;
+          version: string;
+        }[];
+      };
+      operation: { Args: Record<PropertyKey, never>; Returns: string };
+      search: {
+        Args: {
+          bucketname: string;
+          delete_markers?: string;
+          levels?: number;
+          limits?: number;
+          noncurrent_versions?: string;
+          offsets?: number;
+          prefix: string;
+          search?: string;
+          sortcolumn?: string;
+          sortorder?: string;
+        };
+        Returns: {
+          archived_at: string;
+          created_at: string;
+          id: string;
+          is_delete_marker: boolean;
+          is_versioned: boolean;
+          last_accessed_at: string;
+          metadata: Json;
+          name: string;
+          updated_at: string;
+          version: string;
+        }[];
+      };
+      search_by_timestamp: {
+        Args: {
+          delete_markers?: string;
+          noncurrent_versions?: string;
+          p_bucket_id: string;
+          p_level: number;
+          p_limit: number;
+          p_prefix: string;
+          p_sort_column: string;
+          p_sort_column_after: string;
+          p_sort_order: string;
+          p_start_after: string;
+          p_start_after_version?: string;
+        };
+        Returns: {
+          archived_at: string;
+          created_at: string;
+          id: string;
+          is_delete_marker: boolean;
+          is_versioned: boolean;
+          key: string;
+          last_accessed_at: string;
+          metadata: Json;
+          name: string;
+          updated_at: string;
+          version: string;
+        }[];
+      };
+      search_v2: {
+        Args: {
+          bucket_name: string;
+          delete_markers?: string;
+          levels?: number;
+          limits?: number;
+          noncurrent_versions?: string;
+          prefix: string;
+          sort_column?: string;
+          sort_column_after?: string;
+          sort_order?: string;
+          start_after?: string;
+          start_after_archived_at?: string;
+          start_after_is_continuation?: boolean;
+          start_after_version?: string;
+        };
+        Returns: {
+          archived_at: string;
+          created_at: string;
+          id: string;
+          is_delete_marker: boolean;
+          is_versioned: boolean;
+          key: string;
+          last_accessed_at: string;
+          metadata: Json;
+          name: string;
+          updated_at: string;
+          version: string;
+        }[];
+      };
+    };
+    Enums: {
+      buckettype: "STANDARD" | "ANALYTICS" | "VECTOR";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -645,6 +1286,9 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       focus_block_status: ["active", "paused", "complete", "cancelled"],
@@ -663,6 +1307,11 @@ export const Constants = {
         "aquarius",
         "pisces",
       ],
+    },
+  },
+  storage: {
+    Enums: {
+      buckettype: ["STANDARD", "ANALYTICS", "VECTOR"],
     },
   },
 } as const;

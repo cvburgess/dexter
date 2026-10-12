@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# Toggle the Supabase prod/preview pairs in src/.env.local.
+# Toggle the Supabase prod/preview/local pairs in src/.env.local.
 #
 # Usage:
 #   swap-env.sh --preview <url> <sb_publishable_key>   Point the app at a Supabase preview branch
+#   swap-env.sh --local <url> <sb_publishable_key>     Point the app at this worktree's local stack
 #   swap-env.sh --prod                                 Point the app back at production
 #
-# Idempotent: running the same mode twice is a no-op. Only touches the four
-# EXPO_PUBLIC_SUPABASE_* lines under the "# Supabase" and "# Preview branch"
-# headers; every other line passes through untouched.
+# Idempotent: running the same mode twice is a no-op. Only touches the six
+# EXPO_PUBLIC_SUPABASE_* lines under the "# Supabase", "# Preview branch", and
+# "# Local stack" headers; every other line passes through untouched.
 set -euo pipefail
 
 MAIN_CHECKOUT="/Users/charlesburgess/Documents/GitHub/dexter"
@@ -18,14 +19,14 @@ usage() {
 }
 
 MODE="${1:-}"
-PREVIEW_URL=""
-PREVIEW_KEY=""
+PAIR_URL=""
+PAIR_KEY=""
 case "$MODE" in
-  --preview)
-    PREVIEW_URL="${2:-}"
-    PREVIEW_KEY="${3:-}"
-    [[ -n "$PREVIEW_URL" && -n "$PREVIEW_KEY" ]] || usage
-    if [[ "$PREVIEW_KEY" != sb_publishable_* ]]; then
+  --preview|--local)
+    PAIR_URL="${2:-}"
+    PAIR_KEY="${3:-}"
+    [[ -n "$PAIR_URL" && -n "$PAIR_KEY" ]] || usage
+    if [[ "$PAIR_KEY" != sb_publishable_* ]]; then
       echo "error: key must start with sb_publishable_ (never write anon, service_role, or sb_secret_ keys to src/.env.local)" >&2
       exit 1
     fi
@@ -45,18 +46,25 @@ fi
 TMP="$(mktemp)"
 trap 'rm -f "$TMP"' EXIT
 
+# The local section doesn't exist in older copies of the file; add it so
+# --local has somewhere to write. Placeholders get replaced on the first swap.
+if ! grep -q '^# Local stack$' "$ENV_FILE"; then
+  printf '\n# Local stack\n# EXPO_PUBLIC_SUPABASE_URL="http://localhost:54321"\n# EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="sb_publishable_"\n' >>"$ENV_FILE"
+fi
+
 section=""
 while IFS= read -r line || [[ -n "$line" ]]; do
   case "$line" in
     "# Supabase") section="prod" ;;
     "# Preview branch") section="preview" ;;
+    "# Local stack") section="local" ;;
     "# EXPO_PUBLIC_SUPABASE_"*) ;; # commented env line, not a section header
     "#"*) section="" ;; # any other comment header ends the section
   esac
 
   out="$line"
   if [[ "$section" == "prod" ]]; then
-    if [[ "$MODE" == "--preview" && "$line" == EXPO_PUBLIC_SUPABASE_* ]]; then
+    if [[ ("$MODE" == "--preview" || "$MODE" == "--local") && "$line" == EXPO_PUBLIC_SUPABASE_* ]]; then
       out="# $line"
     elif [[ "$MODE" == "--prod" && "$line" == "# EXPO_PUBLIC_SUPABASE_"* ]]; then
       out="${line#\# }"
@@ -64,10 +72,19 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   elif [[ "$section" == "preview" ]]; then
     if [[ "$MODE" == "--preview" ]]; then
       case "$line" in
-        "EXPO_PUBLIC_SUPABASE_URL="* | "# EXPO_PUBLIC_SUPABASE_URL="*) out="EXPO_PUBLIC_SUPABASE_URL=\"$PREVIEW_URL\"" ;;
-        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="* | "# EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="*) out="EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=\"$PREVIEW_KEY\"" ;;
+        "EXPO_PUBLIC_SUPABASE_URL="* | "# EXPO_PUBLIC_SUPABASE_URL="*) out="EXPO_PUBLIC_SUPABASE_URL=\"$PAIR_URL\"" ;;
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="* | "# EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="*) out="EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=\"$PAIR_KEY\"" ;;
       esac
-    elif [[ "$MODE" == "--prod" && "$line" == EXPO_PUBLIC_SUPABASE_* ]]; then
+    elif [[ ("$MODE" == "--prod" || "$MODE" == "--local") && "$line" == EXPO_PUBLIC_SUPABASE_* ]]; then
+      out="# $line"
+    fi
+  elif [[ "$section" == "local" ]]; then
+    if [[ "$MODE" == "--local" ]]; then
+      case "$line" in
+        "EXPO_PUBLIC_SUPABASE_URL="* | "# EXPO_PUBLIC_SUPABASE_URL="*) out="EXPO_PUBLIC_SUPABASE_URL=\"$PAIR_URL\"" ;;
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="* | "# EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="*) out="EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=\"$PAIR_KEY\"" ;;
+      esac
+    elif [[ ("$MODE" == "--prod" || "$MODE" == "--preview") && "$line" == EXPO_PUBLIC_SUPABASE_* ]]; then
       out="# $line"
     fi
   fi
@@ -87,8 +104,10 @@ else
   trap - EXIT
   if [[ "$MODE" == "--prod" ]]; then
     echo "src/.env.local now points at production"
+  elif [[ "$MODE" == "--local" ]]; then
+    echo "src/.env.local now points at the local stack: $PAIR_URL"
   else
-    echo "src/.env.local now points at preview: $PREVIEW_URL"
+    echo "src/.env.local now points at preview: $PAIR_URL"
   fi
 fi
 echo "Restart the Expo dev server to pick up the change (Expo reads .env only at startup)."
