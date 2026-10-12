@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - 'supabase/**'
-      - '.github/scripts/retire-mcp-server.sh'
       - 'src/**'
   workflow_dispatch:
 
@@ -35,7 +34,6 @@ jobs:
           filters: |
             supabase:
               - 'supabase/**'
-              - '.github/scripts/retire-mcp-server.sh'
             src:
               - 'src/**'
 
@@ -77,23 +75,9 @@ jobs:
           # Pinned: >= 2.117.0 for the MCP server block (DEX-228).
           version: 2.120.0
 
-      - name: Configure MCP server metadata
-        run: >-
-          supabase secrets set --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
-          MCP_SERVER_NAME=dexter
-          'MCP_SERVER_DESCRIPTION=Manage Dexter planning data including tasks, goals, lists, habits, notes, journals, templates, and preferences.'
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-
       - name: Deploy Edge Functions
         run: supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-
-      - name: Retire legacy MCP function
-        run: sh .github/scripts/retire-mcp-server.sh "$SUPABASE_PROJECT_REF"
-        env:
-          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_ID }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
   deploy-eas:
