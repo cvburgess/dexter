@@ -1,3 +1,8 @@
+# Native-process local stack (no Docker); per-directory, so parallel worktrees
+# each get their own stack. Requires CLI >= 2.120.0.
+[experimental]
+stack = true
+
 # ---------- Database ----------
 
 [db]
