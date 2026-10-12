@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "dexter": {
-      "url": "https://api.dexterplanner.com/functions/v1/mcp-server",
+      "url": "https://api.dexterplanner.com/functions/v1/mcp",
       "description": "dexter app data and tools"
     },
     "supabase": {
