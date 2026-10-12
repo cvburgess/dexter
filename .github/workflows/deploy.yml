@@ -9,9 +9,6 @@ on:
       - 'src/**'
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 # Serialize production deploys; queue superseded runs rather than cancel —
 # cancelling mid-migration could leave prod half-applied.
 concurrency:
