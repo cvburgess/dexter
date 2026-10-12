@@ -70,7 +70,7 @@ Create `supabase/migrations/<timestamp>_<description>.sql` following these conve
 supabase db reset
 ```
 
-This runs all migrations in order and loads seed data. Verify the migration applies cleanly. No Docker needed — the local stack is native and per-directory (DEX-226), so worktrees don't collide; run `supabase start` first if the stack isn't up.
+This runs all migrations in order and loads seed data. Verify the migration applies cleanly. No Docker needed — the local stack is native and per-directory (DEX-226). If the stack isn't up, start it with `.agents/skills/start-dev-server/scripts/get-local-stack.sh`, not a bare `supabase start` — that uses `config.toml`'s fixed ports and collides with other worktrees' stacks.
 
 ### Step 6: Generate updated types
 
