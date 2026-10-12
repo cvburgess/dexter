@@ -3,12 +3,24 @@
 [experimental]
 stack = true
 
+# Declarative Schemas 2.0 (pg-delta): supabase/schemas/ is the source of truth;
+# migrations are generated with `supabase db schema declarative sync` (DEX-227).
+[experimental.pgdelta]
+enabled = true
+
+# Migrations call pg_net (database webhooks), so the local stack needs the
+# webhook plumbing set up. Required for the pg-delta extension check to pass.
+[experimental.webhooks]
+enabled = true
+
 # ---------- Database ----------
 
 [db]
 port = 54322
 shadow_port = 54320
-major_version = 15
+# Matches production (17.6.x). The pg-delta shadow database must parse the
+# declarative schema files, and MAINTAIN grants are Postgres 17+ (DEX-227).
+major_version = 17
 
 [db.pooler]
 enabled = false

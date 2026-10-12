@@ -16,9 +16,7 @@ promises is `docs/api-routes.md`.
   `user_id` policies cover it. Only new tables and new access patterns need policy
   work.
 - **Grants must be stated explicitly on any new table.** Default privileges on
-  this stack grant no DML to `anon`/`authenticated`/`service_role`; the baseline's
-  `grant all` was a one-time snapshot. `service_role` does **not** get INSERT for
-  free — BYPASSRLS exempts a role from policies, not grants. Check
+  this stack are not an access contract; BYPASSRLS exempts policies, not grants. Check
   `\dp public.<table>` rather than assuming.
 - **Enums only for genuinely closed sets.** `sun_sign`, `horoscope_sentiment`,
   and `focus_block_status` qualify — a focus block is running, held, finished, or
@@ -34,8 +32,7 @@ promises is `docs/api-routes.md`.
   records no dependency on that function's body**. `create or replace` on it
   recomputes nothing, leaving stored rows no expression in the schema produces.
   Changing such a rule means dropping and re-adding the column, which rewrites
-  the table and thereby backfills it (`20260817143500`). Note also that
-  `alter column ... set expression` is Postgres 17 and `config.toml` pins 15.
+  the table and thereby backfills it (`20260817143500`).
 
 ## RLS policy invariants
 
@@ -108,6 +105,8 @@ that aren't visible from the YAML alone:
   so the deploy passes `--include-all`. The rule that falls out: **every migration
   must stand alone.** Never depend on a later-timestamped migration; prefer
   `IF EXISTS`/`IF NOT EXISTS`; if two must land in order, ship them in one PR.
+- **Declarative schemas win (DEX-227):** rebase and re-sync `supabase/schemas/`, never hand-merge migrations.
+  A fresh reset + sync must report "No schema changes found"; the `create-migration` skill holds the workflow.
 - **A red test run does not block the production deploy** — `deploy.yml` has no
   dependency on the test workflows; tests gate PR merge only.
 - **Preview branches need `preview-branch.yml`'s help**: Supabase deploys functions
