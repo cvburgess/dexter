@@ -6,7 +6,7 @@ Write a test when it would catch a real regression:
 
 - **Pure logic** — date math, transforms, parsers, reducers (`src/utils/__tests__/`). No mocks, fast, the highest signal in the repo.
 - **Security properties** — SSRF guards, auth/origin checks, secret handling (`supabase/__tests__/ics-proxy/validation.test.ts`, `config/previewSecrets.test.ts`).
-- **API contracts** — drive real handler logic through a fake at the boundary; `supabase/__tests__/mcp-server/tools.test.ts`'s registry harness is the pattern.
+- **API contracts** — drive real handler logic through a fake at the boundary; `supabase/__tests__/mcp/domain-tools.test.ts`'s registry harness is the pattern.
 - **Regressions** — pin a fixed bug and annotate the test with its issue id (`DEX-xxx`) so the guard's reason survives.
 
 Not worth writing (removed en masse in DEX-143 — don't reintroduce):

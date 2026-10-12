@@ -2,7 +2,7 @@ import type { ToolRegistrar } from "../../functions/_shared/mcp-tools/types.ts";
 import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
 
-import type { ToolContext } from "../../functions/mcp-server/server.ts";
+import type { ToolContext } from "../../functions/_shared/mcp-tools/types.ts";
 import {
   cronScheduleSchema,
   getTodayIsoDate,

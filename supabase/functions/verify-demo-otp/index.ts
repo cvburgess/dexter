@@ -55,7 +55,7 @@ async function handler(req: Request): Promise<Response> {
   }
 
   // Supabase injects the publishable keys as a JSON dictionary keyed by name;
-  // the baseline ships a single key named "default" (mirrors mcp-server/auth).
+  // the baseline ships a single key named "default".
   const supabasePublishableKey = JSON.parse(publishableKeys)["default"];
   const supabase = createClient(supabaseUrl, supabasePublishableKey, {
     auth: { autoRefreshToken: false, persistSession: false },

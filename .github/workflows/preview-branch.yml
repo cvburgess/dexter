@@ -84,6 +84,12 @@ jobs:
         # idempotent and overwrites prior versions.
         run: supabase functions deploy --project-ref ${{ needs.resolve.outputs.ref }}
 
+      - name: Retire legacy MCP function
+        run: sh .github/scripts/retire-mcp-server.sh "$SUPABASE_PROJECT_REF"
+        env:
+          SUPABASE_PROJECT_REF: ${{ needs.resolve.outputs.ref }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
   seed-demo:
     name: Seed demo account on preview branch
     needs: resolve

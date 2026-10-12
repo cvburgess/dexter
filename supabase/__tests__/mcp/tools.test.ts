@@ -5,12 +5,9 @@ import {
 } from "@modelcontextprotocol/server";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { createClient } from "@supabase/supabase-js";
-import type { User } from "@supabase/supabase-js";
 
 import type { Database } from "@src/types/database.types.ts";
 import { createServer } from "../../functions/mcp/handler.ts";
-import { createMcpServer } from "../../functions/mcp-server/server.ts";
-import { WebTransport } from "../../functions/mcp-server/transport.ts";
 
 const USER = "00000000-0000-4000-8000-000000000001";
 const TASK = "00000000-0000-4000-8000-000000000002";
@@ -99,44 +96,18 @@ function fixture() {
   };
 }
 
-Deno.test("DEX-228: v1 and v2 expose identical tool contracts and ownership-free inputs", async () => {
-  const f = fixture();
-  const legacy = createMcpServer(f.supabase, { id: USER } as User);
-  const transport = new WebTransport();
-  await legacy.connect(transport);
-  try {
-    const response = await transport.handleMessage({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/list",
-      params: {},
-    });
-    assert(response && "result" in response);
-    const oldTools = (response.result as { tools: Tool[] }).tools;
-    const { tools } = await f.rpc<{ tools: Tool[] }>("tools/list");
-    const contract = (tool: Tool) => ({
-      name: tool.name,
-      title: tool.title,
-      description: tool.description,
-      annotations: tool.annotations,
-      inputSchema: Object.fromEntries(
-        Object.entries(tool.inputSchema).filter(([key]) => key !== "$schema"),
-      ),
-    });
-    assertEquals(tools.map(contract), oldTools.map(contract));
-    assertEquals(tools.length, 36);
-    for (const tool of tools) {
-      const properties = tool.inputSchema.properties ?? {};
-      assert(!("user_id" in properties), `${tool.name} exposes user_id`);
-      assert(!("userId" in properties), `${tool.name} exposes userId`);
-    }
-    const listTasks = tools.find((tool) => tool.name === "list_tasks")!;
-    const descriptions = JSON.stringify(listTasks.inputSchema);
-    assertStringIncludes(descriptions, "1 here is To Do, not Urgent");
-    assertStringIncludes(descriptions, "1 here is Urgent, not To Do");
-  } finally {
-    await legacy.close();
+Deno.test("DEX-228: discovery preserves tool descriptions and never accepts ownership inputs", async () => {
+  const { tools } = await fixture().rpc<{ tools: Tool[] }>("tools/list");
+  assertEquals(tools.length, 36);
+  for (const tool of tools) {
+    const properties = tool.inputSchema.properties ?? {};
+    assert(!("user_id" in properties), `${tool.name} exposes user_id`);
+    assert(!("userId" in properties), `${tool.name} exposes userId`);
   }
+  const listTasks = tools.find((tool) => tool.name === "list_tasks")!;
+  const descriptions = JSON.stringify(listTasks.inputSchema);
+  assertStringIncludes(descriptions, "1 here is To Do, not Urgent");
+  assertStringIncludes(descriptions, "1 here is Urgent, not To Do");
 });
 
 Deno.test("DEX-228: list_tasks scopes the real PostgREST request and returns JSON plus structured data", async () => {

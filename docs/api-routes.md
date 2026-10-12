@@ -12,23 +12,17 @@ credentials, private/loopback/link-local/cloud-metadata hosts blocked across
 manually-followed redirect hops. Inbound headers are never forwarded (explicit
 outbound allowlist); responses capped at 5 MB / 10s.
 
-## `mcp-server`
+## `mcp`
 
-Gateway JWT verification off so it validates bearer tokens inline: a
-publishable-key client with the incoming `Authorization` header,
-`auth.getUser()`, then that user-scoped client for all tools so **RLS remains the
-enforcement layer**; the service role key is not used. It validates browser
-`Origin` headers (DNS-rebinding protection; no-Origin requests are allowed for
-desktop clients). Tool inputs never accept `user_id` — ownership derives from the
-token.
+Gateway JWT verification is off; middleware validates user JWTs against JWKS.
+RLS enforces access; tools never receive an admin client or accept `user_id`.
+Browser Origins are allowlisted; desktop clients may omit Origin. Legacy HS256
+sessions need refreshing; OAuth discovery retains the raw project issuer.
 
 **Tool params carry `.describe()`, not tool-level prose** — the status and
 priority schemas describe their own 0–4 numbering and contrast each other, because
 agents were writing a priority into `status` (DEX-137). A `z.union` does not
 inherit its members' descriptions and needs its own.
-
-**`mcp` coexists with `mcp-server`** using JWKS/RLS; old clients keep their URL.
-Legacy HS256 sessions need refreshing; discovery keeps the raw project OAuth issuer.
 
 ## `generate-horoscopes`
 
@@ -84,7 +78,7 @@ neither caller.
   caller's JWT so RLS scopes all three branches. A `DEFINER` function would make
   scoping depend on hand-written `user_id` filters — three chances to leak a
   journal. This is also why the MCP `search` tool alone adds no `user_id` filter
-  (pinned in `__tests__/mcp-server/tools.test.ts`).
+  (pinned in `__tests__/mcp/domain-tools.test.ts`).
 - **Matching is substring `ilike`, ANDed across terms** — not `tsvector`, because
   the UI highlights exact matched offsets (stemming leaves nothing to mark) and
   mid-word queries work ("eisen" finds "eisenhower"). At this corpus size there is
@@ -144,7 +138,7 @@ select vault.update_secret(id, '<new value>')
 
 ## OAuth server (MCP authorization)
 
-`mcp-server` validates bearer tokens but doesn't issue them — Supabase Auth's
+`mcp` validates bearer tokens but doesn't issue them — Supabase Auth's
 built-in OAuth 2.1 server does (`[auth.oauth_server]` in `config.toml`, dynamic
 registration off). The consent redirect goes to
 `{site_url}/oauth/consent?authorization_id=…`, which is the Expo screen at

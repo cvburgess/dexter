@@ -5,7 +5,6 @@
     "strict": true
   },
   "imports": {
-    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@1.24.0",
     "@modelcontextprotocol/server": "npm:@modelcontextprotocol/server@2.0.0",
     "@supabase/server": "npm:@supabase/server@1.9.0",
     "jose": "npm:jose@6.2.12",

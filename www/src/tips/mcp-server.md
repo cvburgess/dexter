@@ -13,8 +13,11 @@ MCP-compatible assistant can connect to your planning data.
 **Server URL**
 
 ```
-https://api.dexterplanner.com/functions/v1/mcp-server
+https://api.dexterplanner.com/functions/v1/mcp
 ```
+
+Already connected? Reconnect using this URL; the previous endpoint has been
+retired. Authorize again if your existing access token is rejected.
 
 ## What it can do
 
@@ -28,16 +31,10 @@ examples:
 
 ## Claude
 
-Works on Claude.ai, Claude Desktop, and Claude Code.
-
 **Claude.ai or Claude Desktop.** Open Settings → Connectors → Add custom
 connector, then paste the server URL.
 
-**Claude Code.** Run:
-
-```
-claude mcp add --transport http dexter https://api.dexterplanner.com/functions/v1/mcp-server
-```
+Claude Code’s dynamic loopback redirect is not supported yet.
 
 ## ChatGPT
 
@@ -59,7 +56,7 @@ Add Dexter to your Gemini CLI config at `~/.gemini/settings.json`:
 {
   "mcpServers": {
     "dexter": {
-      "httpUrl": "https://api.dexterplanner.com/functions/v1/mcp-server"
+      "httpUrl": "https://api.dexterplanner.com/functions/v1/mcp"
     }
   }
 }

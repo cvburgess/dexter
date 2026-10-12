@@ -9,8 +9,6 @@ export interface ToolContext {
   userId: string;
 }
 
-// Both MCP SDK generations implement this seam; tools never see a transport
-// or an admin client, and their parsed arguments retain schema inference.
 export interface ToolRegistrar {
   registerTool<Shape extends Record<string, z.ZodType> = Record<never, never>>(
     name: string,
