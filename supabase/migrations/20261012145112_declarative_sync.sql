@@ -1,8 +1,5 @@
--- DEX-227: one-time convergence of migration history with the declarative
--- schema tree exported from production (supabase/schemas/). Normalizes table
--- grants/default privileges to production's state and relocates pg_net's
--- recorded namespace to public (the local webhooks setup pre-installs it into
--- extensions). No-ops on production, which already matches.
+-- DEX-227: one-time convergence of migration history with the declarative schema
+-- tree exported from production. A semantic no-op on prod, which already matches.
 
 SET local check_function_bodies = off;
 
