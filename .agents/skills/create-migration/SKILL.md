@@ -18,7 +18,7 @@ Read the user's description of the schema change they want to make.
 1. Read `src/types/database.types.ts` to understand the current schema
 2. Read existing migrations in `supabase/migrations/` to understand conventions
 3. Read `docs/backend.md` for the rules that apply to any table (RLS invariants, grants, enums, realtime, migration ordering), and the relevant `docs/features.md` section for what the table being changed already stores and why
-4. If the change involves JSONB columns, read `src/types/ingredients.ts` for Zod schemas and `supabase/schemas/` for JSON schema files
+4. If the change involves JSONB columns, read `src/types/ingredients.ts` for Zod schemas
 
 For query optimization, RLS performance, and schema design guidance, see the [Supabase Postgres Best Practices skill](../supabase-postgres-best-practices/SKILL.md).
 
@@ -70,7 +70,7 @@ Create `supabase/migrations/<timestamp>_<description>.sql` following these conve
 supabase db reset
 ```
 
-This runs all migrations in order and loads seed data. Verify the migration applies cleanly.
+This runs all migrations in order and loads seed data. Verify the migration applies cleanly. No Docker needed — the local stack is native and per-directory (DEX-226), so worktrees don't collide; run `supabase start` first if the stack isn't up.
 
 ### Step 6: Generate updated types
 
@@ -78,7 +78,7 @@ This runs all migrations in order and loads seed data. Verify the migration appl
 supabase gen types typescript --local > src/types/database.types.ts
 ```
 
-Types are auto-generated in CI after production migrations, but updating locally ensures type-safe development.
+Nothing regenerates types in CI — production migrations never update `src/types/database.types.ts`. Committing the regenerated file with the migration is the only way it stays current.
 
 ### Step 7: Remind user about PR workflow
 

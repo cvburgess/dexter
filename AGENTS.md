@@ -70,7 +70,7 @@ Prefer tightening or deleting existing prose over adding: when a change makes a 
 ## Gotchas
 
 - **No plaintext `.env` files are committed.** The one exception is `supabase/.env.preview` (dotenvx-encrypted for preview branches); its private key `supabase/.env.keys` is gitignored and must never be committed. See `docs/backend.md`.
-- **Supabase local dev** (`supabase start`) requires Docker.
+- **Supabase local dev** needs no Docker — `supabase/config.toml` opts into the native per-directory stack (`[experimental] stack = true`), so parallel worktrees each get their own stack.
 - **Skills live in `.agents/skills/`; `.claude/skills` is a symlink to it** (Claude Code doesn't read `.agents/`). Edit and `git add` the `.agents/` path — git rejects pathspecs beyond a symlink.
 - **A green `npm test` is not a typecheck** — Jest strips types without checking them. Run `npm run typecheck` alongside the tests.
 - **`npm run lint` is `eslint .`, not `expo lint` (DEX-95)** — `expo lint` silently skipped 46% of the app while exiting 0. Don't switch it back.
