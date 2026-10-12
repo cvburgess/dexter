@@ -57,13 +57,6 @@ enable_signup = true
 double_confirm_changes = false
 enable_confirmations = false
 
-# The passwordless login email carries both a magic link ({{ .ConfirmationURL }})
-# and the 6-digit code ({{ .Token }}), so users can either tap the link or type
-# the code on the login screen's code-entry step. See docs/frontend.md (Auth).
-[auth.email.template.magic_link]
-subject = "Your Dexter login code"
-content_path = "./supabase/templates/magic_link.html"
-
 # Mirrors the hosted project's Google provider (see the Supabase dashboard).
 # DO NOT commit the OAuth secret — it is read from the environment.
 [auth.external.google]
