@@ -1,8 +1,28 @@
-import type { SupabaseContext } from "@supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@src/types/database.types.ts";
+import type { z } from "zod";
 
-export type ToolContext = {
+import type { Database } from "@src/types/database.types.ts";
+import type { ToolResult } from "./helpers.ts";
+
+export interface ToolContext {
   supabase: SupabaseClient<Database>;
-  userClaims: NonNullable<SupabaseContext<Database>["userClaims"]>;
-};
+  userId: string;
+}
+
+export interface ToolRegistrar {
+  registerTool<Shape extends Record<string, z.ZodType> = Record<never, never>>(
+    name: string,
+    config: {
+      title?: string;
+      description?: string;
+      inputSchema?: Shape;
+      annotations?: {
+        readOnlyHint?: boolean;
+        destructiveHint?: boolean;
+        idempotentHint?: boolean;
+        openWorldHint?: boolean;
+      };
+    },
+    handler: (args: z.output<z.ZodObject<Shape>>) => Promise<ToolResult>,
+  ): void;
+}

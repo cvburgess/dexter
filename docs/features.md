@@ -868,7 +868,7 @@ both; switching between them is writing or clearing `schedule`. The column has
 task, so:
 
 - *Don't create a second chain.* `maybeCreateNextRecurringTask` (app) and
-  `hasOpenTaskForTemplate` (`functions/_shared/mcp-tools/recurrence.ts`, DEX-94)
+  `hasOpenTaskForTemplate` (`functions/mcp/tools/recurrence.ts`, DEX-94)
   both skip the spawn when another open task links to the template; a failed
   lookup reads as "has one", because an extra chain is silent and permanent while
   a stalled repeat is surfaced and repairable. The app can safely ask the server

@@ -46,7 +46,7 @@ function fixture() {
   const handler = createMcpHandler(() =>
     createServer({
       supabase,
-      userClaims: { id: USER, role: "authenticated" },
+      userId: USER,
     })
   );
 

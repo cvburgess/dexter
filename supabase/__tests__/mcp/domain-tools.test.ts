@@ -1,33 +1,33 @@
-import type { ToolRegistrar } from "../../functions/_shared/mcp-tools/types.ts";
+import type { ToolRegistrar } from "../../functions/mcp/tools/types.ts";
 import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
 
-import type { ToolContext } from "../../functions/_shared/mcp-tools/types.ts";
+import type { ToolContext } from "../../functions/mcp/tools/types.ts";
 import {
   cronScheduleSchema,
   getTodayIsoDate,
   storedSubtasksSchema,
-} from "../../functions/_shared/mcp-tools/helpers.ts";
+} from "../../functions/mcp/tools/helpers.ts";
 import {
   registerHabitTools,
   updateDailyHabitInputSchema,
-} from "../../functions/_shared/mcp-tools/habits.ts";
-import { registerJournalTools } from "../../functions/_shared/mcp-tools/journals.ts";
-import { registerNoteTools } from "../../functions/_shared/mcp-tools/notes.ts";
+} from "../../functions/mcp/tools/habits.ts";
+import { registerJournalTools } from "../../functions/mcp/tools/journals.ts";
+import { registerNoteTools } from "../../functions/mcp/tools/notes.ts";
 import {
   registerPreferenceTools,
   updatePreferencesInputSchema,
-} from "../../functions/_shared/mcp-tools/preferences.ts";
+} from "../../functions/mcp/tools/preferences.ts";
 import {
   registerSearchTools,
   searchSchema,
-} from "../../functions/_shared/mcp-tools/search.ts";
+} from "../../functions/mcp/tools/search.ts";
 import {
   applyTaskFilters,
   listTasksSchema,
   registerTaskTools,
-} from "../../functions/_shared/mcp-tools/tasks.ts";
-import { registerTemplateTools } from "../../functions/_shared/mcp-tools/templates.ts";
+} from "../../functions/mcp/tools/tasks.ts";
+import { registerTemplateTools } from "../../functions/mcp/tools/templates.ts";
 
 type ToolHandler = (args: Record<string, unknown>) => Promise<unknown>;
 

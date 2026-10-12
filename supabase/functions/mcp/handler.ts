@@ -8,7 +8,7 @@ import {
 } from "@supabase/server";
 
 import type { Database } from "@src/types/database.types.ts";
-import { isOriginAllowed } from "../_shared/mcp-origin.ts";
+import { isOriginAllowed } from "./origin.ts";
 import { captureException, withSentry } from "../_shared/sentry.ts";
 import { registerTools, type ToolContext } from "./tools/index.ts";
 
@@ -40,7 +40,7 @@ function handleMcp(
     () =>
       createServer({
         supabase: ctx.supabase,
-        userClaims: ctx.userClaims!,
+        userId: ctx.userClaims!.id,
       }),
     { onerror: captureException },
   );
