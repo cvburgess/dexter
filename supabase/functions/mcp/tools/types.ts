@@ -5,5 +5,4 @@ import type { Database } from "@src/types/database.types.ts";
 export type ToolContext = {
   supabase: SupabaseClient<Database>;
   userClaims: NonNullable<SupabaseContext<Database>["userClaims"]>;
-  jwtClaims: NonNullable<SupabaseContext<Database>["jwtClaims"]>;
 };

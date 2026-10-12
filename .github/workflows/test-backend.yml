@@ -3,10 +3,10 @@ name: Test Backend
 on:
   pull_request:
     branches: [main]
-    paths: ["supabase/**", ".github/scripts/retire-mcp-server.sh"]
+    paths: ["supabase/**"]
   push:
     branches: [main]
-    paths: ["supabase/**", ".github/scripts/retire-mcp-server.sh"]
+    paths: ["supabase/**"]
 
 jobs:
   test:

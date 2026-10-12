@@ -47,11 +47,6 @@ function fixture() {
     createServer({
       supabase,
       userClaims: { id: USER, role: "authenticated" },
-      jwtClaims: {
-        sub: USER,
-        role: "authenticated",
-        client_id: "oauth-client",
-      },
     })
   );
 

@@ -4,7 +4,6 @@ import { z } from "zod";
 import { registerTools as registerDexterTools } from "../../_shared/mcp-tools/index.ts";
 import type { ToolRegistrar } from "../../_shared/mcp-tools/types.ts";
 import { captureException } from "../../_shared/sentry.ts";
-import { runtimeErrorResult } from "./result.ts";
 import type { ToolContext } from "./types.ts";
 
 export type { ToolContext } from "./types.ts";
@@ -20,9 +19,13 @@ export function registerTools(server: McpServer, context: ToolContext): void {
           return await callback(args);
         } catch (error) {
           captureException(error);
-          return runtimeErrorResult(
-            new Error("Unable to complete this tool request."),
-          );
+          return {
+            isError: true,
+            content: [{
+              type: "text",
+              text: "Unable to complete this tool request.",
+            }],
+          };
         }
       });
     },

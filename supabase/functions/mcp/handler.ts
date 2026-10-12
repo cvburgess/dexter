@@ -41,7 +41,6 @@ function handleMcp(
       createServer({
         supabase: ctx.supabase,
         userClaims: ctx.userClaims!,
-        jwtClaims: ctx.jwtClaims!,
       }),
     { onerror: captureException },
   );
