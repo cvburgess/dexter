@@ -76,9 +76,10 @@ This runs all migrations in order and loads seed data. Verify the migration appl
 
 ```bash
 supabase gen types typescript --local > src/types/database.types.ts
+npx prettier --write src/types/database.types.ts
 ```
 
-Nothing regenerates types in CI — production migrations never update `src/types/database.types.ts`. Committing the regenerated file with the migration is the only way it stays current.
+Keep the `/* eslint-disable */` first line — the file is linted, not ignored, and it's generated code. Nothing regenerates types in CI — production migrations never update `src/types/database.types.ts`. Committing the regenerated file with the migration is the only way it stays current. Expect the PostgrestVersion marker to change when the CLI version moves; run `npm run typecheck` after regenerating.
 
 ### Step 7: Remind user about PR workflow
 
