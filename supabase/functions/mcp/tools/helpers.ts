@@ -166,10 +166,14 @@ function isIntegerInRange(value: string, min: number, max: number): boolean {
 export type ToolResult = {
   content: Array<{ type: "text"; text: string }>;
   isError?: boolean;
+  structuredContent?: unknown;
 };
 
 export function toolJson(data: unknown): ToolResult {
-  return { content: [{ type: "text", text: JSON.stringify(data) }] };
+  return {
+    content: [{ type: "text", text: JSON.stringify(data) ?? "null" }],
+    structuredContent: data ?? null,
+  };
 }
 
 export function toolError(message: string): ToolResult {

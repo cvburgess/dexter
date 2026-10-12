@@ -1,7 +1,6 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
-import type { ToolContext } from "../server.ts";
+import type { ToolContext, ToolRegistrar } from "./types.ts";
 import {
   compactUpdate,
   dateSchema,
@@ -10,7 +9,10 @@ import {
   toolJson,
 } from "./helpers.ts";
 
-export function registerNoteTools(server: McpServer, ctx: ToolContext): void {
+export function registerNoteTools(
+  server: ToolRegistrar,
+  ctx: ToolContext,
+): void {
   server.registerTool(
     "get_note",
     {

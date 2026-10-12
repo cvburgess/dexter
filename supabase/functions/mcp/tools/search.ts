@@ -1,7 +1,6 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
-import type { ToolContext } from "../server.ts";
+import type { ToolContext, ToolRegistrar } from "./types.ts";
 import { toolError, toolJson } from "./helpers.ts";
 
 /** The three things `search_entries` can return, as a tool-input filter. */
@@ -26,7 +25,10 @@ export const searchInputSchema = {
 
 export const searchSchema = z.object(searchInputSchema);
 
-export function registerSearchTools(server: McpServer, ctx: ToolContext): void {
+export function registerSearchTools(
+  server: ToolRegistrar,
+  ctx: ToolContext,
+): void {
   server.registerTool(
     "search",
     {

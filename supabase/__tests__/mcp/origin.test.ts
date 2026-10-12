@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
 
-import { isOriginAllowed } from "../../functions/mcp-server/origin.ts";
+import { isOriginAllowed } from "../../functions/mcp/origin.ts";
 
 Deno.test("isOriginAllowed allows desktop clients without Origin", () => {
   assertEquals(isOriginAllowed(null), true);

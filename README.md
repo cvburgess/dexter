@@ -41,8 +41,8 @@ Prioritize with the Eisenhower Matrix, plan your day intentionally, brain-dump t
 
 Dexter exposes a [Model Context Protocol](https://modelcontextprotocol.io) server, so any MCP-compatible assistant can plug into your planning data. Plan your day, capture tasks, and review what you wrote in your journal just by asking.
 
-- **Server URL:** `https://api.dexterplanner.com/functions/v1/mcp-server`
-- **Works with:** Claude (claude.ai, Claude Desktop, Claude Code), ChatGPT, Gemini CLI, Cursor, and other MCP clients
+- **Server URL:** `https://api.dexterplanner.com/functions/v1/mcp`
+- **Works with:** Claude (claude.ai, Claude Desktop), ChatGPT, Gemini CLI, Cursor, and other MCP clients
 
 See the [MCP setup guide](https://dexterplanner.com/tips/mcp-server) for connection steps.
 

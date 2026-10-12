@@ -8,7 +8,7 @@ import { getFirstOccurrence } from "@src/utils/repeatSchedule.ts";
 import { subtasksFromTemplate } from "@src/utils/subtasks.ts";
 import { ETaskStatus, OPEN_TASK_STATUSES } from "@src/utils/taskStatus.ts";
 
-import type { ToolContext } from "../server.ts";
+import type { ToolContext } from "./types.ts";
 import { getTodayIsoDate, storedTemplateSubtasksSchema } from "./helpers.ts";
 
 export type TemplateRow =

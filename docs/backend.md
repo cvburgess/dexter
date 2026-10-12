@@ -86,14 +86,14 @@ no-ops when `SENTRY_DSN` is unset, `withSentry`-wrapped handlers, and every MCP
 
 - **Task status/priority enums are shared, not mirrored.**
   `src/utils/taskStatus.ts` / `taskPriority.ts` are imported by the app,
-  `mcp-server`, and `scripts/demoData.ts` over the `@src/` alias, and must stay
+  `mcp`, and `scripts/demoData.ts` over the `@src/` alias, and must stay
   **import-free** (Deno requires `.ts` extensions on relative imports; Metro/tsc
   forbid them — which is why the enums can't live in `src/api/tasks.ts`, which
   re-exports them). Lower priority is *more* urgent; `UNPRIORITIZED` (4) means
   "never chosen".
 - The same import-free rule carries `src/utils/repeatSchedule.ts` (recurrence) and
   `src/utils/taskUrl.ts` (link normalization) — both applied identically by the app
-  and `mcp-server`.
+  and `mcp`.
 
 ## Deployment (CI/CD)
 

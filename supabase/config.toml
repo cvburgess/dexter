@@ -109,11 +109,11 @@ verify_jwt = false
 import_map = "./functions/ics-proxy/deno.json"
 entrypoint = "./functions/ics-proxy/index.ts"
 
-[functions.mcp-server]
+[functions.mcp]
 enabled = true
 verify_jwt = false
-import_map = "./functions/mcp-server/deno.json"
-entrypoint = "./functions/mcp-server/index.ts"
+import_map = "./functions/mcp/deno.json"
+entrypoint = "./functions/mcp/index.ts"
 
 # Generates tomorrow's horoscopes; invoked only by the pg_cron job
 # (public.trigger_generate_horoscopes). verify_jwt is off because a project JWT

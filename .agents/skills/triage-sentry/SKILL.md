@@ -62,7 +62,7 @@ Launch a read-only research subagent to investigate the source. Prompt it with:
 Tell the agent that these frames are deliberate reporting paths, not necessarily the bug:
 
 - `captureException` / `withSentry` in `supabase/functions/_shared/sentry.ts` — the shared capture helper every function funnels through
-- `toolError(...)` in `supabase/functions/mcp-server/` — MCP tools return errors rather than throwing, and every `toolError` also reports
+- `toolError(...)` in `supabase/functions/mcp/tools/` — MCP tools return errors rather than throwing, and every `toolError` also reports
 - `Sentry.captureException` in `src/app/_layout.tsx`'s `ErrorBoundary` and in `src/providers/QueryProvider.tsx`'s query/mutation `onError` handlers
 
 The real culprit is usually the frame beneath these. See the "Error monitoring (Sentry)" section of `docs/frontend.md` and the Sentry paragraph in `docs/backend.md` for how reporting is wired.

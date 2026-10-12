@@ -1,4 +1,3 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
 import { getNextTaskDate } from "@src/utils/repeatSchedule.ts";
@@ -7,7 +6,7 @@ import { completeSubtasks } from "@src/utils/subtasks.ts";
 // module header for why this one is safe to import from Deno.
 import { ETaskStatus, isCompletionStatus } from "@src/utils/taskStatus.ts";
 
-import type { ToolContext } from "../server.ts";
+import type { ToolContext, ToolRegistrar } from "./types.ts";
 import {
   compactUpdate,
   dateSchema,
@@ -206,7 +205,10 @@ export function applyTaskFilters<T extends TaskFilterQuery<T>>(
   return filteredQuery;
 }
 
-export function registerTaskTools(server: McpServer, ctx: ToolContext): void {
+export function registerTaskTools(
+  server: ToolRegistrar,
+  ctx: ToolContext,
+): void {
   server.registerTool(
     "list_tasks",
     {

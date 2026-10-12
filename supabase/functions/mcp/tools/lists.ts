@@ -1,7 +1,6 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
-import type { ToolContext } from "../server.ts";
+import type { ToolContext, ToolRegistrar } from "./types.ts";
 import {
   compactUpdate,
   hasUpdates,
@@ -10,18 +9,21 @@ import {
   uuidSchema,
 } from "./helpers.ts";
 
-export function registerGoalTools(server: McpServer, ctx: ToolContext): void {
+export function registerListTools(
+  server: ToolRegistrar,
+  ctx: ToolContext,
+): void {
   server.registerTool(
-    "list_goals",
+    "list_lists",
     {
-      title: "List Goals",
-      description: "List goals. Archived goals are excluded by default.",
+      title: "List Lists",
+      description: "List task lists. Archived lists are excluded by default.",
       inputSchema: { includeArchived: z.boolean().optional().default(false) },
       annotations: { readOnlyHint: true, destructiveHint: false },
     },
     async ({ includeArchived }) => {
       let query = ctx.supabase
-        .from("goals")
+        .from("lists")
         .select("*")
         .eq("user_id", ctx.userId)
         .order("created_at");
@@ -37,41 +39,42 @@ export function registerGoalTools(server: McpServer, ctx: ToolContext): void {
   );
 
   server.registerTool(
-    "get_goal",
+    "get_list",
     {
-      title: "Get Goal",
-      description: "Get a single goal by ID.",
-      inputSchema: { goalId: uuidSchema },
+      title: "Get List",
+      description: "Get a single task list by ID.",
+      inputSchema: { listId: uuidSchema },
       annotations: { readOnlyHint: true, destructiveHint: false },
     },
-    async ({ goalId }) => {
+    async ({ listId }) => {
       const { data, error } = await ctx.supabase
-        .from("goals")
+        .from("lists")
         .select("*")
-        .eq("id", goalId)
+        .eq("id", listId)
         .eq("user_id", ctx.userId)
         .maybeSingle();
 
       if (error) return toolError(error.message);
-      if (!data) return toolError("Goal not found");
+      if (!data) return toolError("List not found");
       return toolJson(data);
     },
   );
 
   server.registerTool(
-    "create_goal",
+    "create_list",
     {
-      title: "Create Goal",
-      description: "Create a new goal for the authenticated user.",
+      title: "Create List",
+      description: "Create a new task list for the authenticated user.",
       inputSchema: {
         title: z.string().min(1),
+        emoji: z.string().min(1),
       },
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    async ({ title }) => {
+    async ({ title, emoji }) => {
       const { data, error } = await ctx.supabase
-        .from("goals")
-        .insert({ user_id: ctx.userId, title })
+        .from("lists")
+        .insert({ user_id: ctx.userId, title, emoji })
         .select()
         .single();
 
@@ -81,13 +84,14 @@ export function registerGoalTools(server: McpServer, ctx: ToolContext): void {
   );
 
   server.registerTool(
-    "update_goal",
+    "update_list",
     {
-      title: "Update Goal",
-      description: "Update one or more goal fields.",
+      title: "Update List",
+      description: "Update one or more task list fields.",
       inputSchema: {
-        goalId: uuidSchema,
+        listId: uuidSchema,
         title: z.string().min(1).optional(),
+        emoji: z.string().min(1).optional(),
         isArchived: z.boolean().optional(),
       },
       annotations: {
@@ -96,9 +100,10 @@ export function registerGoalTools(server: McpServer, ctx: ToolContext): void {
         idempotentHint: true,
       },
     },
-    async ({ goalId, title, isArchived }) => {
+    async ({ listId, title, emoji, isArchived }) => {
       const update = compactUpdate({
         title,
+        emoji,
         is_archived: isArchived,
       });
 
@@ -107,9 +112,9 @@ export function registerGoalTools(server: McpServer, ctx: ToolContext): void {
       }
 
       const { data, error } = await ctx.supabase
-        .from("goals")
+        .from("lists")
         .update(update)
-        .eq("id", goalId)
+        .eq("id", listId)
         .eq("user_id", ctx.userId)
         .select()
         .single();
@@ -120,12 +125,13 @@ export function registerGoalTools(server: McpServer, ctx: ToolContext): void {
   );
 
   server.registerTool(
-    "archive_goal",
+    "archive_list",
     {
-      title: "Archive Goal",
-      description: "Archive a goal, or restore it by setting restore to true.",
+      title: "Archive List",
+      description:
+        "Archive a task list, or restore it by setting restore to true.",
       inputSchema: {
-        goalId: uuidSchema,
+        listId: uuidSchema,
         restore: z.boolean().optional().default(false),
       },
       annotations: {
@@ -134,11 +140,11 @@ export function registerGoalTools(server: McpServer, ctx: ToolContext): void {
         idempotentHint: true,
       },
     },
-    async ({ goalId, restore }) => {
+    async ({ listId, restore }) => {
       const { data, error } = await ctx.supabase
-        .from("goals")
+        .from("lists")
         .update({ is_archived: !restore })
-        .eq("id", goalId)
+        .eq("id", listId)
         .eq("user_id", ctx.userId)
         .select()
         .single();

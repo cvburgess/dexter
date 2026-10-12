@@ -1,7 +1,6 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
-import type { ToolContext } from "../server.ts";
+import type { ToolContext, ToolRegistrar } from "./types.ts";
 import {
   compactUpdate,
   dateSchema,
@@ -19,7 +18,10 @@ export const updateDailyHabitInputSchema = {
   stepsComplete: z.number().int().min(0),
 };
 
-export function registerHabitTools(server: McpServer, ctx: ToolContext): void {
+export function registerHabitTools(
+  server: ToolRegistrar,
+  ctx: ToolContext,
+): void {
   server.registerTool(
     "list_habits",
     {
