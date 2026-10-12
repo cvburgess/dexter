@@ -72,6 +72,14 @@ jobs:
           # Pinned: >= 2.117.0 for the MCP server block (DEX-228).
           version: 2.120.0
 
+      - name: Configure MCP server metadata
+        run: >-
+          supabase secrets set --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+          MCP_SERVER_NAME=dexter
+          'MCP_SERVER_DESCRIPTION=Manage Dexter planning data including tasks, goals, lists, habits, notes, journals, templates, and preferences.'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
       - name: Deploy Edge Functions
         run: supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
         env:

@@ -100,6 +100,8 @@ enabled = false
 DEMO_OTP = "env(DEMO_OTP)"
 ASTROLOGY_API_KEY = "env(ASTROLOGY_API_KEY)"
 HOROSCOPE_CRON_SECRET = "env(HOROSCOPE_CRON_SECRET)"
+MCP_SERVER_NAME = "env(MCP_SERVER_NAME)"
+MCP_SERVER_DESCRIPTION = "env(MCP_SERVER_DESCRIPTION)"
 
 # ---------- Edge Functions ----------
 
@@ -108,6 +110,12 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/ics-proxy/deno.json"
 entrypoint = "./functions/ics-proxy/index.ts"
+
+[functions.mcp]
+enabled = true
+verify_jwt = false
+import_map = "./functions/mcp/deno.json"
+entrypoint = "./functions/mcp/index.ts"
 
 [functions.mcp-server]
 enabled = true

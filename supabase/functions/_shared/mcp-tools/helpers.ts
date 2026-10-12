@@ -5,7 +5,7 @@ import { normalizeTaskUrl } from "@src/utils/taskUrl.ts";
 import { ETaskPriority } from "@src/utils/taskPriority.ts";
 import { ETaskStatus, isCompletionStatus } from "@src/utils/taskStatus.ts";
 
-import { captureException } from "../../_shared/sentry.ts";
+import { captureException } from "../sentry.ts";
 
 export const uuidSchema = z.string().uuid();
 export const dateSchema = z.string().regex(

@@ -1,7 +1,6 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
-import type { ToolContext } from "../server.ts";
+import type { ToolContext, ToolRegistrar } from "./types.ts";
 import {
   compactUpdate,
   cronScheduleSchema,
@@ -25,7 +24,7 @@ function templateError(message: string): ReturnType<typeof toolError> {
 }
 
 export function registerTemplateTools(
-  server: McpServer,
+  server: ToolRegistrar,
   ctx: ToolContext,
 ): void {
   server.registerTool(

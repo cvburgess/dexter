@@ -1,7 +1,6 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
-import type { ToolContext } from "../server.ts";
+import type { ToolContext, ToolRegistrar } from "./types.ts";
 import {
   compactUpdate,
   dateSchema,
@@ -25,7 +24,7 @@ const journalPromptsSchema = z.array(journalPromptSchema);
 const moodSchema = z.number().int().min(1).max(5).nullable().optional();
 
 export function registerJournalTools(
-  server: McpServer,
+  server: ToolRegistrar,
   ctx: ToolContext,
 ): void {
   server.registerTool(

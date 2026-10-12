@@ -1,21 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { z } from "zod";
 
 import type { Database } from "@src/types/database.types.ts";
-import { registerGoalTools } from "./tools/goals.ts";
-import { registerHabitTools } from "./tools/habits.ts";
-import { registerJournalTools } from "./tools/journals.ts";
-import { registerListTools } from "./tools/lists.ts";
-import { registerNoteTools } from "./tools/notes.ts";
-import { registerPreferenceTools } from "./tools/preferences.ts";
-import { registerSearchTools } from "./tools/search.ts";
-import { registerTaskTools } from "./tools/tasks.ts";
-import { registerTemplateTools } from "./tools/templates.ts";
+import { registerTools } from "../_shared/mcp-tools/index.ts";
+import type { ToolRegistrar } from "../_shared/mcp-tools/types.ts";
 
-export interface ToolContext {
-  supabase: SupabaseClient<Database>;
-  userId: string;
-}
+export type { ToolContext } from "../_shared/mcp-tools/types.ts";
 
 export function createMcpServer(
   supabase: SupabaseClient<Database>,
@@ -26,17 +17,19 @@ export function createMcpServer(
     version: "1.0.0",
   });
 
-  const ctx: ToolContext = { supabase, userId: user.id };
-
-  registerTaskTools(server, ctx);
-  registerGoalTools(server, ctx);
-  registerListTools(server, ctx);
-  registerHabitTools(server, ctx);
-  registerNoteTools(server, ctx);
-  registerJournalTools(server, ctx);
-  registerTemplateTools(server, ctx);
-  registerPreferenceTools(server, ctx);
-  registerSearchTools(server, ctx);
+  const registrar: ToolRegistrar = {
+    registerTool(name, config, callback) {
+      const inputSchema = z.object(
+        config.inputSchema ?? ({} as NonNullable<typeof config.inputSchema>),
+      );
+      server.registerTool<never, typeof inputSchema>(
+        name,
+        { ...config, inputSchema },
+        (args) => callback(args),
+      );
+    },
+  };
+  registerTools(registrar, { supabase, userId: user.id });
 
   return server;
 }

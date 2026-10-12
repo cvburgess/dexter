@@ -1,32 +1,33 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { ToolRegistrar } from "../../functions/_shared/mcp-tools/types.ts";
 import { assert, assertEquals } from "@std/assert";
+import { z } from "zod";
 
 import type { ToolContext } from "../../functions/mcp-server/server.ts";
 import {
   cronScheduleSchema,
   getTodayIsoDate,
   storedSubtasksSchema,
-} from "../../functions/mcp-server/tools/helpers.ts";
+} from "../../functions/_shared/mcp-tools/helpers.ts";
 import {
   registerHabitTools,
   updateDailyHabitInputSchema,
-} from "../../functions/mcp-server/tools/habits.ts";
-import { registerJournalTools } from "../../functions/mcp-server/tools/journals.ts";
-import { registerNoteTools } from "../../functions/mcp-server/tools/notes.ts";
+} from "../../functions/_shared/mcp-tools/habits.ts";
+import { registerJournalTools } from "../../functions/_shared/mcp-tools/journals.ts";
+import { registerNoteTools } from "../../functions/_shared/mcp-tools/notes.ts";
 import {
   registerPreferenceTools,
   updatePreferencesInputSchema,
-} from "../../functions/mcp-server/tools/preferences.ts";
+} from "../../functions/_shared/mcp-tools/preferences.ts";
 import {
   registerSearchTools,
   searchSchema,
-} from "../../functions/mcp-server/tools/search.ts";
+} from "../../functions/_shared/mcp-tools/search.ts";
 import {
   applyTaskFilters,
   listTasksSchema,
   registerTaskTools,
-} from "../../functions/mcp-server/tools/tasks.ts";
-import { registerTemplateTools } from "../../functions/mcp-server/tools/templates.ts";
+} from "../../functions/_shared/mcp-tools/tasks.ts";
+import { registerTemplateTools } from "../../functions/_shared/mcp-tools/templates.ts";
 
 type ToolHandler = (args: Record<string, unknown>) => Promise<unknown>;
 
@@ -286,7 +287,7 @@ Deno.test("update_preferences writes the horoscope toggle through", async () => 
   assertEquals("enableHoroscope" in updatePreferencesInputSchema, true);
 
   registerPreferenceTools(
-    registry as unknown as McpServer,
+    registry as unknown as ToolRegistrar,
     makeToolContext(supabase, "00000000-0000-4000-8000-0000000000aa"),
   );
 
@@ -304,7 +305,7 @@ Deno.test("update_preferences writes journal prompts through with their rituals"
   assertEquals("templatePrompts" in updatePreferencesInputSchema, true);
 
   registerPreferenceTools(
-    registry as unknown as McpServer,
+    registry as unknown as ToolRegistrar,
     makeToolContext(supabase, "00000000-0000-4000-8000-0000000000aa"),
   );
 
@@ -330,7 +331,7 @@ Deno.test("update_preferences mints an id for a prompt that arrives without one"
   const supabase = new FakeSupabase();
 
   registerPreferenceTools(
-    registry as unknown as McpServer,
+    registry as unknown as ToolRegistrar,
     makeToolContext(supabase, "00000000-0000-4000-8000-0000000000aa"),
   );
 
@@ -376,7 +377,7 @@ Deno.test("create_task derives user_id from authenticated context", async () => 
   const userId = "00000000-0000-4000-8000-0000000000aa";
 
   registerTaskTools(
-    registry as unknown as McpServer,
+    registry as unknown as ToolRegistrar,
     makeToolContext(supabase, userId),
   );
 
@@ -553,7 +554,7 @@ Deno.test("update_task schedules the next occurrence when it completes a repeat 
   });
 
   registerTaskTools(
-    registry as unknown as McpServer,
+    registry as unknown as ToolRegistrar,
     recordingContext(supabase, RECUR_USER),
   );
 
@@ -594,7 +595,7 @@ Deno.test("update_task spawns nothing when another open task links to the templa
   });
 
   registerTaskTools(
-    registry as unknown as McpServer,
+    registry as unknown as ToolRegistrar,
     recordingContext(supabase, RECUR_USER),
   );
 
@@ -628,7 +629,7 @@ Deno.test("update_task spawns nothing when the linked template has no schedule",
   });
 
   registerTaskTools(
-    registry as unknown as McpServer,
+    registry as unknown as ToolRegistrar,
     recordingContext(supabase, RECUR_USER),
   );
 
@@ -651,7 +652,7 @@ Deno.test("update_task does not re-create an occurrence for an already-complete 
   });
 
   registerTaskTools(
-    registry as unknown as McpServer,
+    registry as unknown as ToolRegistrar,
     recordingContext(supabase, RECUR_USER),
   );
 
@@ -677,7 +678,7 @@ Deno.test("update_task does not spawn an occurrence when editing a completed rep
   });
 
   registerTaskTools(
-    registry as unknown as McpServer,
+    registry as unknown as ToolRegistrar,
     recordingContext(supabase, RECUR_USER),
   );
 
@@ -702,7 +703,7 @@ Deno.test("archive_task schedules the next occurrence when it completes a repeat
   });
 
   registerTaskTools(
-    registry as unknown as McpServer,
+    registry as unknown as ToolRegistrar,
     recordingContext(supabase, RECUR_USER),
   );
 
@@ -723,7 +724,7 @@ Deno.test("delete_task also deletes a linked repeat template", async () => {
   });
 
   registerTaskTools(
-    registry as unknown as McpServer,
+    registry as unknown as ToolRegistrar,
     recordingContext(supabase, RECUR_USER),
   );
 
@@ -750,7 +751,7 @@ Deno.test("delete_task keeps a linked task template", async () => {
   });
 
   registerTaskTools(
-    registry as unknown as McpServer,
+    registry as unknown as ToolRegistrar,
     recordingContext(supabase, RECUR_USER),
   );
 
@@ -770,7 +771,7 @@ Deno.test("delete_task leaves standalone tasks' templates untouched", async () =
   });
 
   registerTaskTools(
-    registry as unknown as McpServer,
+    registry as unknown as ToolRegistrar,
     recordingContext(supabase, RECUR_USER),
   );
 
@@ -787,7 +788,7 @@ Deno.test("delete_task leaves standalone tasks' templates untouched", async () =
 function templateTools(supabase: RecordingSupabase): ToolRegistry {
   const registry = new ToolRegistry();
   registerTemplateTools(
-    registry as unknown as McpServer,
+    registry as unknown as ToolRegistrar,
     recordingContext(supabase, RECUR_USER),
   );
   return registry;
@@ -921,7 +922,7 @@ Deno.test("update_template still succeeds when the seed throws", async () => {
 
   const registry = new ToolRegistry();
   registerTemplateTools(
-    registry as unknown as McpServer,
+    registry as unknown as ToolRegistrar,
     recordingContext(exploding as unknown as RecordingSupabase, RECUR_USER),
   );
 
@@ -943,7 +944,7 @@ Deno.test("update_daily_habit only writes steps_complete", async () => {
   const userId = "00000000-0000-4000-8000-0000000000aa";
 
   registerHabitTools(
-    registry as unknown as McpServer,
+    registry as unknown as ToolRegistrar,
     makeToolContext(supabase, userId),
   );
 
@@ -975,7 +976,7 @@ const SUB_TASK = "00000000-0000-4000-8000-0000000000ff";
 function taskTools(supabase: RecordingSupabase, userId = SUB_USER) {
   const registry = new ToolRegistry();
   registerTaskTools(
-    registry as unknown as McpServer,
+    registry as unknown as ToolRegistrar,
     recordingContext(supabase, userId),
   );
   return registry;
@@ -1144,10 +1145,12 @@ Deno.test("task priority is bounded by the app's enum", () => {
 Deno.test("task priority and status carry field descriptions", () => {
   const registry = taskTools(new RecordingSupabase({}));
   const described = (tool: string, field: string) => {
-    const schema = registry.tools.get(tool)?.inputSchema as Record<
-      string,
-      { description?: string } | undefined
-    >;
+    const schema = z.toJSONSchema(
+      z.object(
+        registry.tools.get(tool)?.inputSchema as Record<string, z.ZodType>,
+      ),
+      { io: "input" },
+    ).properties as Record<string, { description?: string } | undefined>;
     return schema[field]?.description ?? "";
   };
 
@@ -1162,10 +1165,12 @@ Deno.test("task priority and status carry field descriptions", () => {
   // A template has no status; its priority still needs describing.
   const templates = templateTools(new RecordingSupabase({}));
   for (const tool of ["create_template", "update_template"]) {
-    const schema = templates.tools.get(tool)?.inputSchema as Record<
-      string,
-      { description?: string } | undefined
-    >;
+    const schema = z.toJSONSchema(
+      z.object(
+        templates.tools.get(tool)?.inputSchema as Record<string, z.ZodType>,
+      ),
+      { io: "input" },
+    ).properties as Record<string, { description?: string } | undefined>;
     assert((schema.priority?.description ?? "").length > 0);
   }
 });
@@ -1474,7 +1479,7 @@ const NOTE_USER = "00000000-0000-4000-8000-0000000000cc";
 function noteTools(supabase: FakeSupabase): ToolRegistry {
   const registry = new ToolRegistry();
   registerNoteTools(
-    registry as unknown as McpServer,
+    registry as unknown as ToolRegistrar,
     makeToolContext(supabase, NOTE_USER),
   );
   return registry;
@@ -1483,7 +1488,7 @@ function noteTools(supabase: FakeSupabase): ToolRegistry {
 function journalTools(supabase: FakeSupabase): ToolRegistry {
   const registry = new ToolRegistry();
   registerJournalTools(
-    registry as unknown as McpServer,
+    registry as unknown as ToolRegistrar,
     makeToolContext(supabase, NOTE_USER),
   );
   return registry;
@@ -1743,7 +1748,7 @@ Deno.test("note, journal, and search tools never accept a user id", () => {
 function searchTools(supabase: FakeSupabase): ToolRegistry {
   const registry = new ToolRegistry();
   registerSearchTools(
-    registry as unknown as McpServer,
+    registry as unknown as ToolRegistrar,
     makeToolContext(supabase, NOTE_USER),
   );
   return registry;

@@ -27,6 +27,9 @@ priority schemas describe their own 0–4 numbering and contrast each other, bec
 agents were writing a priority into `status` (DEX-137). A `z.union` does not
 inherit its members' descriptions and needs its own.
 
+**`mcp` coexists with `mcp-server`** using JWKS/RLS; old clients keep their URL.
+Legacy HS256 sessions need refreshing; discovery keeps the raw project OAuth issuer.
+
 ## `generate-horoscopes`
 
 Gateway JWT verification off for a reason worth stating plainly: **`verify_jwt` is
