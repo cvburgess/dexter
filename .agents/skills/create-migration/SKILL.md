@@ -56,15 +56,16 @@ supabase db schema declarative sync -f <snake_case_name> --no-apply
 
 No timestamp or file name juggling — the CLI writes
 `supabase/migrations/<timestamp>_<name>.sql`. The `--no-apply` flag writes the
-file without touching the local database; apply it with `db reset` (Step 6) so
+file without touching the local database; apply it with `db reset` (Step 5) so
 the reset exercises the whole chain.
 
 **Review the generated migration before committing.** pg-delta models most
 entities, but two things to look for:
 
 - **Default-privilege GRANT/REVOKEs on new objects.** If the migration grants
-  privileges you didn't intend (default privileges leaking through), strip
-  those lines and state the grants you want explicitly.
+  privileges you didn't intend (default privileges leaking through), correct
+  the grants/default privileges in `supabase/schemas/` and regenerate; do not
+  strip generated lines while leaving the canonical schema unchanged.
 - **Destructive statements** (`drop`, `truncate`, `delete`) get flagged by the
   CLI — double-check each one before keeping it.
 

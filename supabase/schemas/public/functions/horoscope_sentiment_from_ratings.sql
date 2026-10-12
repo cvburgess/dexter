@@ -7,11 +7,8 @@ CREATE OR REPLACE FUNCTION public.horoscope_sentiment_from_ratings (
   SET search_path TO 'public', 'pg_temp'
   AS $function$
   select case
-    -- Strict `>` on both comparisons is the whole tie rule: a bucket wins only
-    -- by outnumbering *both* others, so any tie for the top falls through to
-    -- `mixed`. That includes the tie between the two ends — six positive areas
-    -- against six negative ones is the most mixed a day can be, and reading it
-    -- as either end would be a coin flip shown as a judgement.
+    -- Strict > makes every tie for the largest bucket mixed, including a tie
+    -- between positive and negative with no neutral ratings.
     when positive > mixed and positive > negative
       then 'positive'::public.horoscope_sentiment
     when negative > mixed and negative > positive
@@ -19,11 +16,7 @@ CREATE OR REPLACE FUNCTION public.horoscope_sentiment_from_ratings (
     else 'mixed'::public.horoscope_sentiment
   end
   from (
-    -- The same thresholds `ratingBucket()` applies in src/utils/horoscope.ts,
-    -- and they must stay the same: a band of down arrows under a green panel
-    -- would be a bug, and it is these three lines that make that impossible.
-    -- The middle takes the odd width because a lone 3 is the genuinely
-    -- neutral value.
+    -- Keep these thresholds aligned with ratingBucket() in src/utils/horoscope.ts.
     select
       count(*) filter (where rating >= 4) as positive,
       count(*) filter (where rating = 3) as mixed,

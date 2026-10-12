@@ -18,9 +18,8 @@ begin
       where name = 'generate_horoscopes_secret';
   exception
     when others then
-      -- Three shapes of "not configured here", all benign: no `vault` schema at
-      -- all, no SELECT privilege on the view, or a secret this project's key
-      -- cannot decrypt (a dump restored elsewhere).
+      -- Missing Vault, missing access, or secrets restored with another key
+      -- all mean this project's cron is unprovisioned.
       raise warning 'DEX-84: vault is unreadable (% %); skipping horoscope generation.',
         sqlstate, sqlerrm;
       return null;
@@ -31,10 +30,8 @@ begin
     return null;
   end if;
 
-  -- Returns a request id immediately; the pg_net background worker performs the
-  -- POST. The returned id is what joins to `net._http_response`, which makes
-  -- `select public.trigger_generate_horoscopes();` a complete manual smoke test:
-  -- NULL means unprovisioned, a number means enqueued.
+  -- A request id means enqueued, not delivered; check net._http_response
+  -- for the actual HTTP result. NULL means this project is unprovisioned.
   select net.http_post(
     url := v_url,
     body := jsonb_build_object('source', 'pg_cron'),
