@@ -12,18 +12,12 @@ import { isOriginAllowed } from "./origin.ts";
 import { captureException, withSentry } from "../_shared/sentry.ts";
 import { registerTools, type ToolContext } from "./tools/index.ts";
 
-export const SERVER_DESCRIPTION =
-  "Manage Dexter planning data including tasks, goals, lists, habits, notes, journals, templates, and preferences.";
-
-function readTextEnv(name: string, fallback: string): string {
-  return Deno.env.get(name)?.trim() || fallback;
-}
-
 export function createServer(context: ToolContext): McpServer {
   const server = new McpServer(
-    { name: readTextEnv("MCP_SERVER_NAME", "dexter"), version: "1.0.0" },
+    { name: "dexter", version: "1.0.0" },
     {
-      instructions: readTextEnv("MCP_SERVER_DESCRIPTION", SERVER_DESCRIPTION) +
+      instructions:
+        "Manage Dexter planning data including tasks, goals, lists, habits, notes, journals, templates, and preferences." +
         " Every tool runs as the signed-in user; Row Level Security applies. " +
         "Read each tool's description and annotations before calling it.",
     },
