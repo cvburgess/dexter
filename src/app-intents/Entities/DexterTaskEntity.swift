@@ -1,10 +1,8 @@
 import AppIntents
 internal import ExpoAppIntents
 
-/// An open task, offered to Siri and Shortcuts as a "Complete task" parameter.
-/// Values come from the `task` catalog JavaScript publishes via
-/// `setEntityCatalogAsync("task", ...)`; subtitle carries the list name to
-/// disambiguate like-titled tasks.
+/// An open task, offered as the "Complete task" parameter. Values come from
+/// the `task` catalog; the subtitle carries the list name for disambiguation.
 struct DexterTaskEntity: AppEntity {
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "Task"
     static let defaultQuery = DexterTaskEntityQuery()

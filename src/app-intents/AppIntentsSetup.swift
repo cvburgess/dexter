@@ -7,9 +7,8 @@ final class AppIntentsSetup: Module {
   public func definition() -> ExpoModulesCore.ModuleDefinition {
     Name("AppIntentsSetup")
     OnCreate {
-      // Siri resolves a shortcut phrase's parameters against the values it
-      // was last given, so poking the provider whenever JS republishes a
-      // catalog keeps phrases like "Add <task> to Dexter" current.
+      // Siri resolves a phrase's parameters against the values it last saw, so
+      // republish whenever JS refreshes a catalog (keeps phrases current).
       Task {
         await AppIntentDispatcher.shared.setShortcutsRefreshHandler {
           AppShortcuts.updateAppShortcutParameters()

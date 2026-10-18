@@ -1,10 +1,8 @@
 import AppIntents
 internal import ExpoAppIntents
 
-/// "Add a task to Dexter" — the title is spoken or typed, with an optional
-/// list and due date Shortcuts can fill in. JS persists through the
-/// `addTask` handler, so the app must open (headless JS is not shipped yet;
-/// the habit intent's queue path is how a write avoids that).
+/// "Add a task to Dexter" — spoken/typed title, optional list and due date.
+/// JS persists, so the app opens (headless JS is not shipped yet).
 struct AddTaskIntent: AppIntent {
     static let title: LocalizedStringResource = "Add Task"
     static let description = IntentDescription("Adds a task to a list.")

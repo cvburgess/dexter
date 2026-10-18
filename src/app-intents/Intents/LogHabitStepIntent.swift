@@ -1,10 +1,8 @@
 import AppIntents
 import Foundation
 
-/// "Log a habit step in Dexter" — the one intent that needs no JavaScript:
-/// like the home-screen widget rings, it queues to the App Group and
-/// `useHabitWidgetDrain` persists it on the next foreground. That also means
-/// it can stay headless (`openAppWhenRun = false`), unlike the task intents.
+/// Queues to the widget's App Group row, so it needs no JavaScript and can
+/// stay headless — `useHabitWidgetDrain` persists it on next foreground.
 struct LogHabitStepIntent: AppIntent {
     static let title: LocalizedStringResource = "Log Habit Step"
     static let description = IntentDescription("Adds a step to a habit.")

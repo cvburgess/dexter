@@ -1,9 +1,8 @@
 import AppIntents
 internal import ExpoAppIntents
 
-/// A habit, offered to Siri and Shortcuts as the "Log habit step" parameter.
-/// Values come from the `habit` catalog JavaScript publishes; subtitle carries
-/// the emoji so a spoken name is disambiguated by what the user sees.
+/// A habit, the "Log habit step" parameter. Values come from the `habit`
+/// catalog; the subtitle carries the emoji for spoken disambiguation.
 struct DexterHabitEntity: AppEntity {
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "Habit"
     static let defaultQuery = DexterHabitEntityQuery()

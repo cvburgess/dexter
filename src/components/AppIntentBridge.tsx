@@ -9,11 +9,8 @@ import { useLists } from "@/hooks/useLists";
 import { useTasks } from "@/hooks/useTasks";
 import { ETaskStatus, isCompletionStatus } from "@/utils/taskStatus";
 
-// iOS App Intents bridge (DEX-235): publishes the entity catalogs Siri and
-// Shortcuts resolve parameters against, applies the `addTask`/`completeTask`
-// invocations through the same hooks the UI uses, and clears the resource on
-// sign-out. Renders nothing. The native layer is iOS-only; every API here is
-// a no-op on web/Android/Expo Go, so the component is safe to mount everywhere.
+// iOS App Intents bridge (DEX-235): publishes entity catalogs, applies
+// `addTask`/`completeTask` invocations via the UI's hooks, clears on sign-out.
 
 // Catalogs live in UserDefaults and the invocation queue caps at 100 entries,
 // so Siri gets a bounded, id-plus-title view (issue note 5).
@@ -55,19 +52,15 @@ export function AppIntentBridge() {
   // a live event, and our own re-drains (the sign-in gate below) — applied once.
   const handledIds = useRef(new Set<string>());
 
-  // completeTask reuses the UI's updateTask, whose subtask sweep and recurring
-  // spawn read the query cache snapshot. A cold start must not complete a
-  // recurring task before that snapshot exists, or the next occurrence is lost
-  // (DEX-21); the gate keeps such invocations queued until the fetch settles.
+  // Gate completeTask until the tasks fetch settles: updateTask's recurring
+  // spawn reads the cache snapshot, and a cold start would lose it (DEX-21).
   const tasksSettled = useRef(!tasksLoading && !tasksError);
   useEffect(() => {
     tasksSettled.current = !tasksLoading && !tasksError;
   }, [tasksError, tasksLoading]);
 
-  // Publish the catalogs no earlier than the data backing them has loaded —
-  // an empty catalog published during that window would wipe the native one,
-  // which the next same-data publish treats as unchanged and does not restore.
-  // (`dataReady` above is the guard; this comment records why.)
+  // dataReady gate: publishing an empty catalog mid-load wipes the native
+  // one, and the next same-data publish does not restore it.
 
   const applyInvocation = useCallback(
     async (invocation: AppIntentInvocation) => {
@@ -213,11 +206,8 @@ export function AppIntentBridge() {
     publishCatalogs();
   }, [dataReady, isSignedIn, publishCatalogs]);
 
-  // Sign-out cleanup, once per signed-out stretch. The catalogs and donations
-  // go as soon as the app observes a missing session (Siri must not keep
-  // offering the departing user's tasks); the invocation queue only clears on
-  // an actual sign-out — a signed-out cold start may hold an invocation that
-  // just fired and is waiting for a sign-in, which must not be dropped.
+  // Drop catalogs/donations on sign-out (Siri must not keep the departing
+  // user's tasks); keep queued invocations — they wait for the sign-in.
   const hadSession = useRef(isSignedIn);
   const cleanedUpSignedOut = useRef(false);
 

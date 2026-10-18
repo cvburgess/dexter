@@ -1,11 +1,8 @@
 import AppIntents
 internal import ExpoAppIntents
 
-/// All three query implementations share this shape: read the catalog
-/// JavaScript published under the kind, rebuild entities from its records, and
-/// fuzzy-match a spoken value against id/title/subtitle. The catalogs start
-/// empty until the app has run and published, so Siri offers nothing (and the
-/// parameterized shortcuts cannot run) before the first launch.
+/// Rebuild entities from the JS-published catalog for a kind, fuzzy-matching
+/// a spoken value against id/title/subtitle; empty until the app first runs.
 
 struct DexterTaskEntityQuery: EntityStringQuery {
     func entities(for identifiers: [String]) async throws -> [DexterTaskEntity] {

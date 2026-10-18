@@ -42,9 +42,8 @@ private struct DexterHabitDecoded: Decodable {
     let stepsComplete: Int
 }
 
-/// `date|habitId` → absolute stepsComplete on the App Group key the widget's
-/// `DexterPendingHabitSteps` writes. Either target may write; only the app
-/// drains (`useHabitWidgetDrain` persists it on the next foreground).
+/// `date|habitId` → absolute stepsComplete on the widget's App Group key.
+/// Either target may write; the app drains on the next foreground.
 enum DexterAppHabitSteps {
     static func advance(habitId: String, on date: String) {
         guard let defaults = UserDefaults(suiteName: dexterAppGroup),
