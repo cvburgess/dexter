@@ -12,6 +12,7 @@ import {
 } from "@/api/tasks";
 import { useScheduleChange } from "@/hooks/useScheduleChange";
 import { isCompletionStatus } from "@/utils/taskFilters";
+import { TASK_TITLE_MAX_LENGTH } from "@/utils/subtasks";
 import { useTheme, withOpacity } from "@/utils/theme";
 
 import { ConfirmationModal } from "./ConfirmationModal";
@@ -212,6 +213,7 @@ export function TaskCard({
         <EditableText
           value={title}
           editing={editing?.kind === "title"}
+          maxLength={TASK_TITLE_MAX_LENGTH}
           // No `&& !onPress` — EditableText already gives onPress precedence.
           editable={!isComplete}
           numberOfLines={2}
