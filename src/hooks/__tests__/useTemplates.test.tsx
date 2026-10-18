@@ -214,6 +214,7 @@ describe("useTemplates", () => {
             templateId: "template-1",
           }),
         );
+        await view.settled();
         // The linked task is the occurrence — no second one is seeded.
         expect(mockCreateTask).not.toHaveBeenCalled();
       },
@@ -249,6 +250,7 @@ describe("useTemplates", () => {
           }),
         ),
       );
+      await view.settled();
       expect(mockUpdateTask).not.toHaveBeenCalled();
     });
   });
