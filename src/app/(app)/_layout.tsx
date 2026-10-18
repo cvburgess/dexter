@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { FocusTimerHost } from "@/components/FocusTimerHost";
+import { AppIntentBridge } from "@/components/AppIntentBridge";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useAlarmSync } from "@/hooks/useAlarmSync";
 import { useAuth } from "@/hooks/useAuth";
@@ -80,6 +81,7 @@ export default function AppLayout() {
       {/* Publishes the running focus block, completes it on timeout, hosts
           the stop confirmation — alive on every tab, outside any one (DEX-49). */}
       <FocusTimerHost />
+      <AppIntentBridge />
     </View>
   );
 }

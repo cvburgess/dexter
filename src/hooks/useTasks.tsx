@@ -5,6 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+import * as AppIntents from "expo-app-intents";
 
 import { makeOrFilter, TQueryFilter } from "@/api/applyFilters";
 import {
@@ -225,6 +226,15 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
   const { mutate: create } = useMutation<TTask[], Error, TCreateTask>({
     mutationKey: TASKS_MUTATION_KEY,
     mutationFn: (task) => createTask(supabase, task),
+    onSuccess: async (_data, input) => {
+      // Tells Siri the user just added a task so it can suggest the action
+      // later. No-op on web/Android/Expo Go; an empty title is a draft row.
+      if (input.title?.trim()) {
+        await AppIntents.donateIntentAsync("addTask", {
+          title: input.title,
+        }).catch(() => {});
+      }
+    },
     // On settle, not success: this is the catch-up useRealtimeInvalidation
     // counts on for the remote events it dropped mid-mutation.
     onSettled: () => {
@@ -270,8 +280,24 @@ export const useTasks = (options?: TSupabaseHookOptions): TUseTasks => {
     mutationKey: TASKS_MUTATION_KEY,
     mutationFn: (diff) => updateTask(supabase, diff),
     ...optimisticUpdate,
-    onSuccess: (_data, diff, context) =>
-      maybeCreateNextRecurringTask(queryClient, diff, context?.previousTasks),
+    onSuccess: async (data, diff, context) => {
+      await maybeCreateNextRecurringTask(
+        queryClient,
+        diff,
+        context?.previousTasks,
+      );
+      // Donates a completion to Siri (DEX-235); no-op where App Intents do not
+      // exist. The completing row carries the title the entity needs.
+      if (diff.status === ETaskStatus.DONE) {
+        const completed = data.find((task) => task.id === diff.id);
+        if (completed?.title) {
+          await AppIntents.donateIntentAsync("completeTask", {
+            taskId: completed.id,
+            taskTitle: completed.title,
+          }).catch(() => {});
+        }
+      }
+    },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
