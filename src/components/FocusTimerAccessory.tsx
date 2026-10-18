@@ -1,4 +1,4 @@
-import { NativeTabs } from "expo-router/unstable-native-tabs";
+import { NativeTabs } from "expo-router/native-tabs";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { TFocusBlock } from "@/api/focusBlocks";

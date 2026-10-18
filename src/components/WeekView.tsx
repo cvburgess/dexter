@@ -3,7 +3,7 @@ import { useMemo, useRef, useState } from "react";
 import {
   LayoutChangeEvent,
   Platform,
-  ScrollView,
+  ScrollViewInstance,
   StyleSheet,
   View,
 } from "react-native";
@@ -66,7 +66,7 @@ export function WeekView({
   const todayIndex = days.findIndex((day) => day.equals(today));
 
   // Animated so a pressed card can pause it from the UI thread (DEX-207).
-  const scrollRef = useAnimatedRef<ScrollView>();
+  const scrollRef = useAnimatedRef<ScrollViewInstance>();
   // Guards against onLayout re-firing on any re-layout, which would yank the
   // user back to today. Keyed on the week so paging weeks stays put.
   const anchoredWeek = useRef<string | null>(null);

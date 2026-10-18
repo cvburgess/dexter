@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { NativeTabs } from "expo-router/unstable-native-tabs";
+import { NativeTabs } from "expo-router/native-tabs";
 import { StyleSheet, Text, TouchableOpacity } from "react-native";
 
 import { newTaskRoute } from "@/utils/newTaskRoute";

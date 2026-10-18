@@ -100,13 +100,14 @@ export function NoteEditor({
         placeholder={placeholder}
         placeholderTextColor={theme.colors.textSecondary}
         selectionColor={theme.colors.primary}
-        style={StyleSheet.flatten([
-          styles.fill,
+        style={{
+          ...styles.fill,
           // Body copy, not a heading: the writing surface takes the same role
           // token as the rest of the app's prose.
-          theme.fonts.body,
-          { color: theme.colors.text, padding: theme.space.md },
-        ])}
+          ...theme.fonts.body,
+          color: theme.colors.text,
+          padding: theme.space.md,
+        }}
         testID={testID}
       />
     </ScrollView>

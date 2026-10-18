@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TextInputInstance,
   TextStyle,
 } from "react-native";
 
@@ -115,7 +116,7 @@ function InlineInput({
   // elsewhere is safe to adopt; after, it must not stomp their keystrokes.
   const [dirty, setDirty] = useState(false);
   const [seeded, setSeeded] = useState(initialValue);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
 
   // Re-seed from a value changed elsewhere while untouched (another device,
   // a realtime refetch) — render-phase state adjustment, React's own pattern.

@@ -1,9 +1,9 @@
 import type { Ref } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  TextInput as NativeTextInput,
   Platform,
   ScrollView,
+  TextInputInstance,
   StyleSheet,
   Text,
   View,
@@ -125,7 +125,7 @@ function JournalEditor({
   const responsesRef = useRef(prompts.map((p) => p.response));
 
   // Keyed by position on screen, not by index into the stored day (DEX-203).
-  const fieldRefs = useRef<(NativeTextInput | null)[]>([]);
+  const fieldRefs = useRef<(TextInputInstance | null)[]>([]);
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRef = useRef<TJournalPrompt[] | null>(null);
@@ -240,7 +240,7 @@ function JournalEditor({
 type TJournalResponseFieldProps = {
   prompt: string;
   response: string;
-  ref: Ref<NativeTextInput>;
+  ref: Ref<TextInputInstance>;
   onBlur: () => void;
   onChangeText: (text: string) => void;
   onFocus: () => void;

@@ -1,4 +1,4 @@
-import { NativeTabs } from "expo-router/unstable-native-tabs";
+import { NativeTabs } from "expo-router/native-tabs";
 
 import { AppShell } from "@/components/AppShell";
 import { TabBarAccessory } from "@/components/TabBarAccessory";

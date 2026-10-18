@@ -1,12 +1,12 @@
 import { useCallback, useRef } from "react";
-import { ScrollView } from "react-native";
+import { ScrollView, ScrollViewInstance } from "react-native";
 
 import { useTheme } from "@/utils/theme";
 
 type TTaskFormScroll = {
   /** Spread onto the `ScrollView` that wraps a `TaskForm`. */
   scrollViewProps: React.ComponentProps<typeof ScrollView> & {
-    ref: React.RefObject<ScrollView | null>;
+    ref: React.RefObject<ScrollViewInstance | null>;
   };
   /** Hand to `TaskForm`'s `onAddSubtaskRow`. */
   scrollToEndOnNextLayout: () => void;
@@ -16,7 +16,7 @@ type TTaskFormScroll = {
  * not a wrapper — a render prop back to screen content trips react-hooks/refs. */
 export function useTaskFormScroll(): TTaskFormScroll {
   const theme = useTheme();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   // Set when a subtask row is added, consumed by the next content size change.
   const pendingScroll = useRef(false);
 

@@ -14,7 +14,7 @@ jest.mock("@/utils/deviceType", () => ({
 
 // NativeTabs renders a real platform tab bar this unit test doesn't mount;
 // stub to markers so only which triggers the layout declares is exercised.
-jest.mock("expo-router/unstable-native-tabs", () => {
+jest.mock("expo-router/native-tabs", () => {
   const { Text } =
     jest.requireActual<typeof import("react-native")>("react-native");
   const NativeTabs = ({ children }: { children?: ReactNode }) => children;
