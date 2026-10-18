@@ -97,7 +97,7 @@ describe("ListsView", () => {
     expect(screen.getByTestId("list-drop-none")).toBeTruthy();
 
     mockData([task({ listId: "work" })], [list("work")]);
-    await await screen.rerender(<ListsView />);
+    await screen.rerender(<ListsView />);
     expect(screen.queryByTestId("list-drop-none")).toBeNull();
   });
 

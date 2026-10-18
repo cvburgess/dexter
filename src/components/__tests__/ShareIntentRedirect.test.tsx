@@ -95,7 +95,7 @@ describe("ShareIntentRedirect", () => {
     expect(mockReset).not.toHaveBeenCalled();
 
     mockNavigationState = { key: "root" };
-    await await screen.rerender(<ShareIntentRedirect />);
+    await screen.rerender(<ShareIntentRedirect />);
 
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/new-task",
@@ -110,7 +110,7 @@ describe("ShareIntentRedirect", () => {
 
     const screen = await render(<ShareIntentRedirect />);
     setShareIntent({ webUrl: null, text: null });
-    await await screen.rerender(<ShareIntentRedirect />);
+    await screen.rerender(<ShareIntentRedirect />);
 
     expect(mockReset).toHaveBeenCalledTimes(1);
     expect(mockRefresh).toHaveBeenCalledTimes(1);

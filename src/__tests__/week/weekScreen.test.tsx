@@ -100,7 +100,7 @@ describe("WeekScreen", () => {
       const screen = await render(<WeekScreen />);
 
       mockToday.current = thisMonday.add({ weeks: 1 });
-      await await screen.rerender(<WeekScreen />);
+      await screen.rerender(<WeekScreen />);
 
       expect(
         screen.getByText(
@@ -116,7 +116,7 @@ describe("WeekScreen", () => {
       await fireEvent.press(screen.getByLabelText("next-week"));
 
       mockToday.current = thisMonday.add({ weeks: 1 });
-      await await screen.rerender(<WeekScreen />);
+      await screen.rerender(<WeekScreen />);
 
       expect(
         screen.getByText(
@@ -131,7 +131,7 @@ describe("WeekScreen", () => {
       const screen = await render(<WeekScreen />);
 
       mockToday.current = thisMonday.add({ days: 1 });
-      await await screen.rerender(<WeekScreen />);
+      await screen.rerender(<WeekScreen />);
 
       expect(
         screen.getByText(`today:${thisMonday.add({ days: 1 }).toString()}`),

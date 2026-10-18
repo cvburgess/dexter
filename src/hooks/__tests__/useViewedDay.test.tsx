@@ -36,7 +36,7 @@ describe("useViewedDay", () => {
     const screen = await render(<Publisher date={day} />);
     expect(getViewedDay()?.toString()).toBe("2026-07-08");
 
-    await await screen.unmount();
+    await screen.unmount();
 
     expect(getViewedDay()).toBeNull();
   });

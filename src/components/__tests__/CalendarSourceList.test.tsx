@@ -60,7 +60,7 @@ describe("CalendarSourceList (web / .ics feeds)", () => {
 
   it("clears the header's + when the list unmounts", async () => {
     const screen = await renderWith([]);
-    await await screen.unmount();
+    await screen.unmount();
     expect(mockSetOptions).toHaveBeenLastCalledWith({ headerRight: undefined });
   });
 

@@ -285,7 +285,7 @@ describe("TodayScreen", () => {
       const screen = await render(<TodayScreen />);
 
       mockToday.current = tomorrow();
-      await await screen.rerender(<TodayScreen />);
+      await screen.rerender(<TodayScreen />);
 
       expect(
         screen.getByText(`tasks-view:${tomorrow().toString()}`),
@@ -300,7 +300,7 @@ describe("TodayScreen", () => {
       await fireEvent.press(screen.getByLabelText("Next day"));
 
       mockToday.current = tomorrow();
-      await await screen.rerender(<TodayScreen />);
+      await screen.rerender(<TodayScreen />);
 
       expect(
         screen.getByText(
@@ -698,7 +698,7 @@ describe("TodayScreen", () => {
 
       // Same result tapped again — only `n` differs.
       mockSearchParams.current = { date: "2026-07-14", mode: "tasks", n: "2" };
-      await await screen.rerender(<TodayScreen />);
+      await screen.rerender(<TodayScreen />);
 
       expect(screen.getByText("tasks-view:2026-07-14")).toBeTruthy();
     });
@@ -709,7 +709,7 @@ describe("TodayScreen", () => {
       await fireEvent.press(screen.getByLabelText("Next day"));
 
       // Same params, no new navigation.
-      await await screen.rerender(<TodayScreen />);
+      await screen.rerender(<TodayScreen />);
 
       expect(screen.getByText("tasks-view:2026-07-15")).toBeTruthy();
     });
@@ -721,7 +721,7 @@ describe("TodayScreen", () => {
 
       // The user dismissed the sheet and tapped the same result again.
       mockSearchParams.current = { mode: "backlog", q: "quarterly", n: "2" };
-      await await screen.rerender(<TodayScreen />);
+      await screen.rerender(<TodayScreen />);
 
       expect(mockPresentTaskDrawer).toHaveBeenCalledTimes(2);
     });
@@ -783,10 +783,10 @@ describe("TodayScreen", () => {
         // Close, then reopen from the header with nothing needing attention.
         await fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
         mockUseTodayPanes.mockReturnValue(panes({ drawer: false }));
-        await await screen.rerender(<TodayScreen />);
+        await screen.rerender(<TodayScreen />);
         mockUseTodayPanes.mockReturnValue(panes({ drawer: true }));
         await fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
-        await await screen.rerender(<TodayScreen />);
+        await screen.rerender(<TodayScreen />);
 
         expect(mockTaskDrawer).toHaveBeenLastCalledWith(
           expect.objectContaining({ filterId: "none", search: "" }),

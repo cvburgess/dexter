@@ -183,7 +183,7 @@ describe("RitualScreen", () => {
 
       mockToday.current = today.add({ days: 1 });
       jest.setSystemTime(localTime(9, 10));
-      await await screen.rerender(<RitualScreen />);
+      await screen.rerender(<RitualScreen />);
 
       expect(screen.getByText(`small:${TOMORROW}:am:0:0`)).toBeTruthy();
     });
@@ -197,7 +197,7 @@ describe("RitualScreen", () => {
 
       mockToday.current = today.add({ days: 1 });
       jest.setSystemTime(localTime(9, 10));
-      await await screen.rerender(<RitualScreen />);
+      await screen.rerender(<RitualScreen />);
 
       expect(screen.getByText(`small:${TOMORROW}:am:0:0`)).toBeTruthy();
     });
@@ -208,7 +208,7 @@ describe("RitualScreen", () => {
 
       mockToday.current = today.add({ days: 1 });
       jest.setSystemTime(localTime(9, 10));
-      await await screen.rerender(<RitualScreen />);
+      await screen.rerender(<RitualScreen />);
 
       expect(screen.getByText("small:2026-08-12:am:0:1")).toBeTruthy();
     });
@@ -304,7 +304,7 @@ describe("RitualScreen", () => {
         step: "journal",
         n: "1",
       });
-      await await screen.rerender(<RitualScreen />);
+      await screen.rerender(<RitualScreen />);
 
       expect(screen.getByText("small:2026-07-12:am:1:1")).toBeTruthy();
     });
@@ -327,7 +327,7 @@ describe("RitualScreen", () => {
         step: "journal",
         n: "2",
       });
-      await await screen.rerender(<RitualScreen />);
+      await screen.rerender(<RitualScreen />);
 
       expect(screen.getByText("small:2026-07-12:am:1:-1")).toBeTruthy();
     });
@@ -465,7 +465,7 @@ describe("RitualScreen", () => {
       expect(screen.getByText(`small:${TODAY}:am:2:1`)).toBeTruthy();
 
       mockUsePreferences.mockReturnValue(preferences({ enableJournal: false }));
-      await await screen.rerender(<RitualScreen />);
+      await screen.rerender(<RitualScreen />);
 
       expect(screen.getByText(`small:${TODAY}:am:1:0`)).toBeTruthy();
     });
@@ -583,7 +583,7 @@ describe("RitualScreen", () => {
     expect(screen.getByText(`small:${TODAY}:am:2:1`)).toBeTruthy();
 
     mockUsePreferences.mockReturnValue(preferences({ enableHoroscope: false }));
-    await await screen.rerender(<RitualScreen />);
+    await screen.rerender(<RitualScreen />);
 
     expect(screen.getByText(`small:${TODAY}:am:1:0`)).toBeTruthy();
   });
@@ -600,7 +600,7 @@ describe("RitualScreen", () => {
     expect(screen.getByText(`small:${TODAY}:am:2:1`)).toBeTruthy();
 
     mockUsePreferences.mockReturnValue(preferences());
-    await await screen.rerender(<RitualScreen />);
+    await screen.rerender(<RitualScreen />);
 
     expect(screen.getByText(`small:${TODAY}:am:3:0`)).toBeTruthy();
   });
