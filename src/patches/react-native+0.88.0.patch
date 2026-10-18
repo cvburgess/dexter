@@ -1,8 +1,8 @@
 diff --git a/node_modules/react-native/React/Base/RCTUtils.mm b/node_modules/react-native/React/Base/RCTUtils.mm
-index ba4e930..b116e65 100644
+index 04f4e4e..0582366 100644
 --- a/node_modules/react-native/React/Base/RCTUtils.mm
 +++ b/node_modules/react-native/React/Base/RCTUtils.mm
-@@ -432,7 +432,16 @@ CGSize RCTSwitchSize(void)
+@@ -427,7 +427,16 @@ CGSize RCTSwitchSize(void)
    static dispatch_once_t onceToken;
    dispatch_once(&onceToken, ^{
      RCTUnsafeExecuteOnMainQueueSync(^{
