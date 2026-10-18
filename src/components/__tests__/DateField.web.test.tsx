@@ -29,8 +29,8 @@ const getTrigger = (screen: ReturnType<typeof render>) =>
   screen.UNSAFE_root.findByProps({ "data-testid": "field" });
 
 describe("DateField (web)", () => {
-  it("renders the value as a Weekday, Mon D label", () => {
-    const screen = render(
+  it("renders the value as a Weekday, Mon D label", async () => {
+    const screen = await render(
       <DateField
         testID="field"
         value={new Date(2026, 6, 3)}
@@ -41,8 +41,8 @@ describe("DateField (web)", () => {
     expect(getTrigger(screen).props.children).toBe("Friday, Jul 3");
   });
 
-  it("does not open the calendar until the trigger is pressed", () => {
-    const screen = render(
+  it("does not open the calendar until the trigger is pressed", async () => {
+    const screen = await render(
       <DateField
         testID="field"
         value={new Date(2026, 6, 3)}
@@ -52,15 +52,15 @@ describe("DateField (web)", () => {
 
     expect(screen.queryByTestId("rdp-day")).toBeNull();
 
-    fireEvent(getTrigger(screen), "click");
+    await fireEvent(getTrigger(screen), "click");
 
     expect(screen.queryByTestId("rdp-day")).not.toBeNull();
   });
 
   // Not decoration: a raw createPortal inherits Radix's body-wide
   // pointer-events: none (DEX-134); only WebOverlay re-declares auto.
-  it("renders the calendar through WebOverlay", () => {
-    const screen = render(
+  it("renders the calendar through WebOverlay", async () => {
+    const screen = await render(
       <DateField
         testID="field"
         value={new Date(2026, 6, 3)}
@@ -70,14 +70,14 @@ describe("DateField (web)", () => {
 
     expect(screen.UNSAFE_root.findAllByType(WebOverlay)).toHaveLength(0);
 
-    fireEvent(getTrigger(screen), "click");
+    await fireEvent(getTrigger(screen), "click");
 
     expect(screen.UNSAFE_root.findAllByType(WebOverlay)).toHaveLength(1);
   });
 
-  it("calls onChange with the picked Date and closes the calendar", () => {
+  it("calls onChange with the picked Date and closes the calendar", async () => {
     const onChange = jest.fn<void, [Date]>();
-    const screen = render(
+    const screen = await render(
       <DateField
         testID="field"
         value={new Date(2026, 6, 3)}
@@ -85,8 +85,8 @@ describe("DateField (web)", () => {
       />,
     );
 
-    fireEvent(getTrigger(screen), "click");
-    fireEvent.press(screen.getByTestId("rdp-day"));
+    await fireEvent(getTrigger(screen), "click");
+    await fireEvent.press(screen.getByTestId("rdp-day"));
 
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith(SELECTED_DATE);

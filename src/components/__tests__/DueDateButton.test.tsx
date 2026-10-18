@@ -10,8 +10,8 @@ const daysFromNow = (days: number) =>
 const PRIORITY = "#111111";
 const CONTENT = "#eeeeee";
 
-const renderBadge = (dueOn: string) =>
-  render(
+const renderBadge = async (dueOn: string) =>
+  await render(
     <DueDateButton
       dueOn={dueOn}
       priorityColor={PRIORITY}
@@ -38,8 +38,8 @@ const colors = (dueOn: string) => {
 };
 
 describe("DueDateButton", () => {
-  it("renders nothing when dueOn is unset", () => {
-    const screen = render(
+  it("renders nothing when dueOn is unset", async () => {
+    const screen = await render(
       <DueDateButton
         dueOn={null}
         priorityColor={PRIORITY}
@@ -50,16 +50,16 @@ describe("DueDateButton", () => {
     expect(screen.toJSON()).toBeNull();
   });
 
-  it("shows the integer days remaining for a future due date", () => {
-    expect(renderBadge(daysFromNow(5)).getByText("5")).toBeTruthy();
+  it("shows the integer days remaining for a future due date", async () => {
+    expect(await renderBadge(daysFromNow(5)).getByText("5")).toBeTruthy();
   });
 
-  it("shows 0 when due today", () => {
-    expect(renderBadge(daysFromNow(0)).getByText("0")).toBeTruthy();
+  it("shows 0 when due today", async () => {
+    expect(await renderBadge(daysFromNow(0)).getByText("0")).toBeTruthy();
   });
 
-  it("shows a negative count when overdue", () => {
-    expect(renderBadge(daysFromNow(-3)).getByText("-3")).toBeTruthy();
+  it("shows a negative count when overdue", async () => {
+    expect(await renderBadge(daysFromNow(-3)).getByText("-3")).toBeTruthy();
   });
 
   it("sits on the priority color with priority-content text/outline when not overdue", () => {

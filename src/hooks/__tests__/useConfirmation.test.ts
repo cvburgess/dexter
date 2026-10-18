@@ -4,10 +4,10 @@ import { useConfirmation } from "../useConfirmation";
 
 describe("useConfirmation", () => {
   test("resolves true when the confirm action is pressed", async () => {
-    const { result } = renderHook(() => useConfirmation());
+    const { result } = await renderHook(() => useConfirmation());
 
     let resolved: boolean | undefined;
-    act(() => {
+    await act(() => {
       void result.current
         .confirm({ title: "Delete", message: "Sure?", confirmLabel: "Yes" })
         .then((value) => {
@@ -31,10 +31,10 @@ describe("useConfirmation", () => {
   });
 
   test("resolves false when the cancel action is pressed", async () => {
-    const { result } = renderHook(() => useConfirmation());
+    const { result } = await renderHook(() => useConfirmation());
 
     let resolved: boolean | undefined;
-    act(() => {
+    await act(() => {
       void result.current
         .confirm({ title: "Delete", message: "Sure?" })
         .then((value) => {
@@ -54,10 +54,10 @@ describe("useConfirmation", () => {
   });
 
   test("resolves false on dismiss via onClose", async () => {
-    const { result } = renderHook(() => useConfirmation());
+    const { result } = await renderHook(() => useConfirmation());
 
     let resolved: boolean | undefined;
-    act(() => {
+    await act(() => {
       void result.current
         .confirm({ title: "Delete", message: "Sure?" })
         .then((value) => {
@@ -74,10 +74,10 @@ describe("useConfirmation", () => {
     expect(result.current.confirmationProps.visible).toBe(false);
   });
 
-  test("synthesizes default cancel/confirm labels", () => {
-    const { result } = renderHook(() => useConfirmation());
+  test("synthesizes default cancel/confirm labels", async () => {
+    const { result } = await renderHook(() => useConfirmation());
 
-    act(() => {
+    await act(() => {
       void result.current.confirm({ title: "T", message: "M" });
     });
 
@@ -87,10 +87,10 @@ describe("useConfirmation", () => {
     expect(labels).toEqual(["Cancel", "OK"]);
   });
 
-  test("applies destructive role to the confirm action", () => {
-    const { result } = renderHook(() => useConfirmation());
+  test("applies destructive role to the confirm action", async () => {
+    const { result } = await renderHook(() => useConfirmation());
 
-    act(() => {
+    await act(() => {
       void result.current.confirm({
         title: "T",
         message: "M",
@@ -106,11 +106,11 @@ describe("useConfirmation", () => {
   });
 
   test("runs custom action onPress and resolves by role", async () => {
-    const { result } = renderHook(() => useConfirmation());
+    const { result } = await renderHook(() => useConfirmation());
     const keepPress = jest.fn();
 
     let resolved: boolean | undefined;
-    act(() => {
+    await act(() => {
       void result.current
         .confirm({
           title: "Repeating task",

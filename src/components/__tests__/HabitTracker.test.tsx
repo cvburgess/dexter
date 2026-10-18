@@ -48,39 +48,39 @@ beforeEach(() => {
 });
 
 describe("HabitTracker", () => {
-  it("offers the create-a-habit nudge by default", () => {
-    const screen = render(<HabitTracker date={date} />);
+  it("offers the create-a-habit nudge by default", async () => {
+    const screen = await render(<HabitTracker date={date} />);
 
     expect(screen.getByText("Create a habit")).toBeTruthy();
   });
 
   describe("showCreateNudge={false} (DEX-96)", () => {
-    it("suppresses the nudge", () => {
+    it("suppresses the nudge", async () => {
       // The Week tab mounts one tracker per column; seven copies of the same
       // call-to-action reads as noise.
-      const screen = render(
+      const screen = await render(
         <HabitTracker date={date} showCreateNudge={false} />,
       );
 
       expect(screen.queryByText("Create a habit")).toBeNull();
     });
 
-    it("skips the all-habits query that only the nudge reads", () => {
-      render(<HabitTracker date={date} showCreateNudge={false} />);
+    it("skips the all-habits query that only the nudge reads", async () => {
+      await render(<HabitTracker date={date} showCreateNudge={false} />);
 
       expect(mockUseHabits).toHaveBeenCalledWith({ skipQuery: true });
     });
 
-    it("still runs the query when the nudge is enabled", () => {
-      render(<HabitTracker date={date} />);
+    it("still runs the query when the nudge is enabled", async () => {
+      await render(<HabitTracker date={date} />);
 
       expect(mockUseHabits).toHaveBeenCalledWith({ skipQuery: false });
     });
 
-    it("renders the row rather than stalling on the skipped query", () => {
+    it("renders the row rather than stalling on the skipped query", async () => {
       // `isLoading` must not stay true for a query that will never run, or the
       // tracker renders its loading branch forever.
-      const screen = render(
+      const screen = await render(
         <HabitTracker date={date} showCreateNudge={false} />,
       );
 

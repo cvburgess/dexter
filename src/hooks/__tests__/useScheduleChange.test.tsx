@@ -21,9 +21,9 @@ const task = (overrides: Partial<TTask> = {}): TTask => ({
 });
 
 /** Renders the hook with a spy updater, mirroring how TaskCard and the large-screen drop target wire it up. */
-const setup = () => {
+const setup = async () => {
   const onUpdate = jest.fn();
-  const { result } = renderHook(() => useScheduleChange(onUpdate));
+  const { result } = await renderHook(() => useScheduleChange(onUpdate));
   return { onUpdate, result };
 };
 
@@ -43,7 +43,7 @@ const press = (
 
 describe("useScheduleChange", () => {
   it("reschedules directly when the task has no alarm", async () => {
-    const { onUpdate, result } = setup();
+    const { onUpdate, result } = await setup();
 
     await act(async () => {
       await result.current.changeSchedule(task(), "2026-07-20");
@@ -59,7 +59,7 @@ describe("useScheduleChange", () => {
   // A task whose `alarmTime` is absent rather than null (e.g. a DB missing the
   // column) must still count as "no alarm" — the hook uses `== null` for this.
   it("reschedules directly when alarmTime is undefined rather than null", async () => {
-    const { onUpdate, result } = setup();
+    const { onUpdate, result } = await setup();
     const withoutColumn = task();
     delete (withoutColumn as Partial<TTask>).alarmTime;
 
@@ -74,7 +74,7 @@ describe("useScheduleChange", () => {
   });
 
   it("does not prompt when the schedule is unchanged, even with an alarm set", async () => {
-    const { onUpdate, result } = setup();
+    const { onUpdate, result } = await setup();
 
     await act(async () => {
       await result.current.changeSchedule(
@@ -92,9 +92,9 @@ describe("useScheduleChange", () => {
 
   describe("unscheduling a task with an alarm", () => {
     it("clears the alarm alongside the date once confirmed", async () => {
-      const { onUpdate, result } = setup();
+      const { onUpdate, result } = await setup();
 
-      act(() => {
+      await act(() => {
         void result.current.changeSchedule(
           task({ alarmTime: "09:00:00" }),
           null,
@@ -113,9 +113,9 @@ describe("useScheduleChange", () => {
     });
 
     it("leaves the task alone when cancelled", async () => {
-      const { onUpdate, result } = setup();
+      const { onUpdate, result } = await setup();
 
-      act(() => {
+      await act(() => {
         void result.current.changeSchedule(
           task({ alarmTime: "09:00:00" }),
           null,

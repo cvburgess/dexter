@@ -61,7 +61,7 @@ const makeList = (overrides: Partial<TList> = {}): TList => ({
   ...overrides,
 });
 
-const renderWith = (existing?: TList) => {
+const renderWith = async (existing?: TList) => {
   mockParams.current = { id: existing?.id ?? "new" };
   mockUseLists.mockReturnValue([
     existing ? [existing] : [],
@@ -73,7 +73,7 @@ const renderWith = (existing?: TList) => {
       updateList: mockUpdateList,
     },
   ] as never);
-  return render(<ListScreen />);
+  return await render(<ListScreen />);
 };
 
 const close = () => {
@@ -95,8 +95,8 @@ describe("ListScreen", () => {
 
   // Popping, not navigating: replacing would collapse whatever sits under this
   // screen, which is what left Tasks as the root of the settings tab (DEX-93).
-  it("pops when closed", () => {
-    renderWith(makeList());
+  it("pops when closed", async () => {
+    await renderWith(makeList());
 
     close();
 
@@ -104,9 +104,9 @@ describe("ListScreen", () => {
     expect(mockRouter.replace).not.toHaveBeenCalled();
   });
 
-  it("pops after saving", () => {
+  it("pops after saving", async () => {
     mockUpdateList.mockImplementation((_diff, { onSuccess }) => onSuccess());
-    renderWith(makeList());
+    await renderWith(makeList());
 
     save();
 
@@ -116,18 +116,18 @@ describe("ListScreen", () => {
 
   it("pops after archiving", async () => {
     mockUpdateList.mockImplementation((_diff, { onSuccess }) => onSuccess());
-    const screen = renderWith(makeList());
+    const screen = await renderWith(makeList());
 
-    fireEvent.press(screen.getByText("Archive"));
+    await fireEvent.press(screen.getByText("Archive"));
 
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
   });
 
   // A cold deep link to this URL: an unguarded pop is an unhandled GO_BACK and
   // both header buttons look dead.
-  it("falls back to the list when there is nothing to pop", () => {
+  it("falls back to the list when there is nothing to pop", async () => {
     mockRouter.canDismiss.mockReturnValue(false);
-    renderWith(makeList());
+    await renderWith(makeList());
 
     close();
 

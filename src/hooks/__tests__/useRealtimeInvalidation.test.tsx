@@ -112,18 +112,18 @@ describe("useRealtimeInvalidation", () => {
     mockChannel.mockImplementation(() => makeChannel());
   });
 
-  it("does not open a channel while signed out", () => {
+  it("does not open a channel while signed out", async () => {
     const { wrapper } = createWrapper();
 
-    renderHook(() => useRealtimeInvalidation(undefined), { wrapper });
+    await renderHook(() => useRealtimeInvalidation(undefined), { wrapper });
 
     expect(mockChannel).not.toHaveBeenCalled();
   });
 
-  it("subscribes to every mapped table scoped to the user", () => {
+  it("subscribes to every mapped table scoped to the user", async () => {
     const { wrapper } = createWrapper();
 
-    renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
+    await renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
 
     expect(mockChannel).toHaveBeenCalledWith("invalidations:user-1");
     const tables = Object.keys(REALTIME_INVALIDATIONS);
@@ -135,34 +135,34 @@ describe("useRealtimeInvalidation", () => {
     });
   });
 
-  it("invalidates the mapped key for a single-table event after the flush window", () => {
+  it("invalidates the mapped key for a single-table event after the flush window", async () => {
     jest.useFakeTimers();
     try {
       const { wrapper, queryClient } = createWrapper();
       const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
-      renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
+      await renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
 
       const binding = captured!.bindings.find((b) => b.table === "tasks")!;
-      act(() => binding.handler({ table: "tasks" }));
+      await act(() => binding.handler({ table: "tasks" }));
       expect(invalidateSpy).not.toHaveBeenCalled();
 
-      act(() => jest.advanceTimersByTime(250));
+      await act(() => jest.advanceTimersByTime(250));
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["tasks"] });
     } finally {
       jest.useRealTimers();
     }
   });
 
-  it("invalidates both mapped keys for a habits event", () => {
+  it("invalidates both mapped keys for a habits event", async () => {
     jest.useFakeTimers();
     try {
       const { wrapper, queryClient } = createWrapper();
       const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
-      renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
+      await renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
 
       const binding = captured!.bindings.find((b) => b.table === "habits")!;
-      act(() => binding.handler({ table: "habits" }));
-      act(() => jest.advanceTimersByTime(250));
+      await act(() => binding.handler({ table: "habits" }));
+      await act(() => jest.advanceTimersByTime(250));
 
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["habits"] });
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["dailyHabits"] });
@@ -171,20 +171,20 @@ describe("useRealtimeInvalidation", () => {
     }
   });
 
-  it("coalesces a burst of events for one table into a single invalidation", () => {
+  it("coalesces a burst of events for one table into a single invalidation", async () => {
     jest.useFakeTimers();
     try {
       const { wrapper, queryClient } = createWrapper();
       const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
-      renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
+      await renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
 
       const binding = captured!.bindings.find((b) => b.table === "tasks")!;
-      act(() => {
+      await act(() => {
         binding.handler({ table: "tasks" });
         binding.handler({ table: "tasks" });
         binding.handler({ table: "tasks" });
       });
-      act(() => jest.advanceTimersByTime(250));
+      await act(() => jest.advanceTimersByTime(250));
 
       // "One call per key the table maps to", not a literal 1, so adding a key
       // (as DEX-47's ["search"] did) doesn't read as a coalescing regression.
@@ -196,19 +196,19 @@ describe("useRealtimeInvalidation", () => {
     }
   });
 
-  it("invalidates search alongside each of the three searchable tables", () => {
+  it("invalidates search alongside each of the three searchable tables", async () => {
     jest.useFakeTimers();
     try {
       const { wrapper, queryClient } = createWrapper();
       const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
-      renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
+      await renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
 
       // An open results list must not keep showing a note that has since been
       // edited away, or miss a task that now matches (DEX-47).
       for (const table of ["tasks", "notes", "journals"]) {
         const binding = captured!.bindings.find((b) => b.table === table)!;
-        act(() => binding.handler({ table }));
-        act(() => jest.advanceTimersByTime(250));
+        await act(() => binding.handler({ table }));
+        await act(() => jest.advanceTimersByTime(250));
 
         // Exact match pins that no predicate rides along — the per-date guard
         // reads queryKey[1] as a date, which for ["search", query] is the query.
@@ -224,7 +224,7 @@ describe("useRealtimeInvalidation", () => {
     jest.useFakeTimers();
     try {
       const { wrapper } = createWrapper();
-      renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
+      await renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
 
       let resolveUpsert: () => void = () => {};
       mockGetNote.mockResolvedValue(null);
@@ -234,27 +234,27 @@ describe("useRealtimeInvalidation", () => {
         }),
       );
 
-      const notes = renderHook(() => useNotes("2026-07-12"), { wrapper });
+      const notes = await renderHook(() => useNotes("2026-07-12"), { wrapper });
       await waitFor(() =>
         expect(notes.result.current[1].isLoading).toBe(false),
       );
       // The initial mount already fetched this date once.
       const fetchCountBeforeEvent = mockGetNote.mock.calls.length;
-      act(() => notes.result.current[1].upsertNote({ content: "hi" }));
+      await act(() => notes.result.current[1].upsertNote({ content: "hi" }));
       await waitFor(() => expect(mockUpsertNote.mock.calls.length).toBe(1));
 
       const binding = captured!.bindings.find((b) => b.table === "notes")!;
-      act(() => binding.handler({ table: "notes" }));
-      act(() => jest.advanceTimersByTime(250));
+      await act(() => binding.handler({ table: "notes" }));
+      await act(() => jest.advanceTimersByTime(250));
 
       // Still mid-autosave for this exact date — no extra refetch yet.
       expect(mockGetNote.mock.calls.length).toBe(fetchCountBeforeEvent);
 
-      act(() => resolveUpsert());
+      await act(() => resolveUpsert());
       await waitFor(() => expect(notes.result.current[0].content).toBe("hi"));
 
-      act(() => binding.handler({ table: "notes" }));
-      act(() => jest.advanceTimersByTime(250));
+      await act(() => binding.handler({ table: "notes" }));
+      await act(() => jest.advanceTimersByTime(250));
 
       // The autosave has settled — the same date now refetches normally.
       await waitFor(() =>
@@ -271,7 +271,7 @@ describe("useRealtimeInvalidation", () => {
     jest.useFakeTimers();
     try {
       const { wrapper } = createWrapper();
-      renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
+      await renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
 
       let resolveUpsert: () => void = () => {};
       mockGetJournal.mockResolvedValue(null);
@@ -286,25 +286,29 @@ describe("useRealtimeInvalidation", () => {
         { updatePreferences: jest.fn() },
       ]);
 
-      const journals = renderHook(() => useJournals("2026-07-12"), { wrapper });
+      const journals = await renderHook(() => useJournals("2026-07-12"), {
+        wrapper,
+      });
       await waitFor(() =>
         expect(journals.result.current[1].isLoading).toBe(false),
       );
       const fetchCountBeforeEvent = mockGetJournal.mock.calls.length;
-      act(() => journals.result.current[1].upsertJournal({ prompts: [] }));
+      await act(() =>
+        journals.result.current[1].upsertJournal({ prompts: [] }),
+      );
       await waitFor(() => expect(mockUpsertJournal.mock.calls.length).toBe(1));
 
       const binding = captured!.bindings.find((b) => b.table === "journals")!;
-      act(() => binding.handler({ table: "journals" }));
-      act(() => jest.advanceTimersByTime(250));
+      await act(() => binding.handler({ table: "journals" }));
+      await act(() => jest.advanceTimersByTime(250));
 
       expect(mockGetJournal.mock.calls.length).toBe(fetchCountBeforeEvent);
 
-      act(() => resolveUpsert());
+      await act(() => resolveUpsert());
       await waitFor(() => expect(journals.result.current[1].exists).toBe(true));
 
-      act(() => binding.handler({ table: "journals" }));
-      act(() => jest.advanceTimersByTime(250));
+      await act(() => binding.handler({ table: "journals" }));
+      await act(() => jest.advanceTimersByTime(250));
 
       await waitFor(() =>
         expect(mockGetJournal.mock.calls.length).toBeGreaterThan(
@@ -320,7 +324,7 @@ describe("useRealtimeInvalidation", () => {
     jest.useFakeTimers();
     try {
       const { wrapper, queryClient } = createWrapper();
-      renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
+      await renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
 
       let resolveUpdate: () => void = () => {};
       mockGetTasks.mockResolvedValue([]);
@@ -330,22 +334,22 @@ describe("useRealtimeInvalidation", () => {
         }),
       );
 
-      const tasks = renderHook(() => useTasks(), { wrapper });
+      const tasks = await renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
         expect(tasks.result.current[1].isLoading).toBe(false),
       );
       // The initial mount already fetched once.
       const fetchCountBeforeEvent = mockGetTasks.mock.calls.length;
 
-      act(() =>
+      await act(() =>
         tasks.result.current[1].updateTask({ id: "task-1", title: "Renamed" }),
       );
       await waitFor(() => expect(mockUpdateTask.mock.calls.length).toBe(1));
 
       const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
       const binding = captured!.bindings.find((b) => b.table === "tasks")!;
-      act(() => binding.handler({ table: "tasks" }));
-      act(() => jest.advanceTimersByTime(250));
+      await act(() => binding.handler({ table: "tasks" }));
+      await act(() => jest.advanceTimersByTime(250));
 
       // Postgres echoing our own write back must not start a refetch: it can
       // resolve after a *newer* local edit and stamp stale rows over it.
@@ -359,7 +363,7 @@ describe("useRealtimeInvalidation", () => {
         expect.objectContaining({ queryKey: ["tasks"] }),
       );
 
-      act(() => resolveUpdate());
+      await act(() => resolveUpdate());
 
       // Nothing is lost by skipping — the write's own settle invalidation is
       // the catch-up for anything that genuinely changed elsewhere.
@@ -377,23 +381,23 @@ describe("useRealtimeInvalidation", () => {
     jest.useFakeTimers();
     try {
       const { wrapper } = createWrapper();
-      renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
+      await renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
 
       mockGetNote.mockResolvedValue(null);
       // Date A's upsert never resolves — simulates an autosave still retrying
       // after the component unmounted.
       mockUpsertNote.mockReturnValue(new Promise(() => {}));
 
-      const dateA = renderHook(() => useNotes("2026-07-12"), { wrapper });
+      const dateA = await renderHook(() => useNotes("2026-07-12"), { wrapper });
       await waitFor(() =>
         expect(dateA.result.current[1].isLoading).toBe(false),
       );
-      act(() => dateA.result.current[1].upsertNote({ content: "hi" }));
+      await act(() => dateA.result.current[1].upsertNote({ content: "hi" }));
       await waitFor(() =>
         expect(mockUpsertNote.mock.calls.length).toBeGreaterThan(0),
       );
 
-      const dateB = renderHook(() => useNotes("2026-07-13"), { wrapper });
+      const dateB = await renderHook(() => useNotes("2026-07-13"), { wrapper });
       await waitFor(() =>
         expect(dateB.result.current[1].isLoading).toBe(false),
       );
@@ -402,8 +406,8 @@ describe("useRealtimeInvalidation", () => {
       ).length;
 
       const binding = captured!.bindings.find((b) => b.table === "notes")!;
-      act(() => binding.handler({ table: "notes" }));
-      act(() => jest.advanceTimersByTime(250));
+      await act(() => binding.handler({ table: "notes" }));
+      await act(() => jest.advanceTimersByTime(250));
 
       // Date A's still-pending autosave must not block date B's refetch.
       await waitFor(() =>
@@ -417,16 +421,16 @@ describe("useRealtimeInvalidation", () => {
     }
   });
 
-  it("invalidates every mapped key once on a rejoin after a drop, but not on the first subscribe", () => {
+  it("invalidates every mapped key once on a rejoin after a drop, but not on the first subscribe", async () => {
     const { wrapper, queryClient } = createWrapper();
     const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
-    renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
+    await renderHook(() => useRealtimeInvalidation("user-1"), { wrapper });
 
-    act(() => captured!.statusHandler!("SUBSCRIBED"));
+    await act(() => captured!.statusHandler!("SUBSCRIBED"));
     expect(invalidateSpy).not.toHaveBeenCalled();
 
-    act(() => captured!.statusHandler!("CHANNEL_ERROR"));
-    act(() => captured!.statusHandler!("SUBSCRIBED"));
+    await act(() => captured!.statusHandler!("CHANNEL_ERROR"));
+    await act(() => captured!.statusHandler!("SUBSCRIBED"));
 
     const invalidatedKeys = invalidateSpy.mock.calls.map(
       ([arg]) => (arg as { queryKey: string[] }).queryKey,
@@ -438,26 +442,29 @@ describe("useRealtimeInvalidation", () => {
       });
   });
 
-  it("removes the channel on unmount", () => {
+  it("removes the channel on unmount", async () => {
     const { wrapper } = createWrapper();
 
-    const { unmount } = renderHook(() => useRealtimeInvalidation("user-1"), {
-      wrapper,
-    });
-    unmount();
+    const { unmount } = await renderHook(
+      () => useRealtimeInvalidation("user-1"),
+      {
+        wrapper,
+      },
+    );
+    await unmount();
 
     expect(mockRemoveChannel).toHaveBeenCalledTimes(1);
   });
 
-  it("removes the old channel and opens a new one when the user changes", () => {
+  it("removes the old channel and opens a new one when the user changes", async () => {
     const { wrapper } = createWrapper();
 
-    const { rerender } = renderHook(
+    const { rerender } = await renderHook(
       ({ userId }: { userId: string | undefined }) =>
         useRealtimeInvalidation(userId),
       { wrapper, initialProps: { userId: "user-1" } },
     );
-    rerender({ userId: "user-2" });
+    await rerender({ userId: "user-2" });
 
     expect(mockRemoveChannel).toHaveBeenCalledTimes(1);
     expect(mockChannel).toHaveBeenCalledWith("invalidations:user-2");

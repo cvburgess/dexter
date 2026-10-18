@@ -39,7 +39,7 @@ const mockUsePreferences = usePreferences as jest.MockedFunction<
 const mockUpsertNote = jest.fn();
 const mockUpsertNoteAsync = jest.fn().mockResolvedValue(undefined);
 
-const setup = ({
+const setup = async ({
   content = "",
   exists = false,
   isLoading = false,
@@ -63,51 +63,51 @@ const setup = ({
     { templateNote } as never,
     { updatePreferences: jest.fn() },
   ]);
-  return render(<NotesView date="2026-07-12" />);
+  return await render(<NotesView date="2026-07-12" />);
 };
 
 describe("NotesView", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("offers the template choice when no row exists yet and a template is set", () => {
-    const screen = setup({ exists: false, templateNote: "# Daily" });
+  it("offers the template choice when no row exists yet and a template is set", async () => {
+    const screen = await setup({ exists: false, templateNote: "# Daily" });
 
     expect(screen.getByText("Use daily note template")).toBeTruthy();
     expect(screen.getByText("Blank note")).toBeTruthy();
     expect(screen.queryByLabelText("note-editor")).toBeNull();
   });
 
-  it("seeds the template when 'Use daily note template' is chosen", () => {
-    const screen = setup({ exists: false, templateNote: "# Daily" });
+  it("seeds the template when 'Use daily note template' is chosen", async () => {
+    const screen = await setup({ exists: false, templateNote: "# Daily" });
 
-    fireEvent.press(screen.getByText("Use daily note template"));
+    await fireEvent.press(screen.getByText("Use daily note template"));
 
     expect(mockUpsertNote).toHaveBeenCalledWith({ content: "# Daily" });
   });
 
-  it("writes an empty note row when 'Blank note' is chosen", () => {
-    const screen = setup({ exists: false, templateNote: "# Daily" });
+  it("writes an empty note row when 'Blank note' is chosen", async () => {
+    const screen = await setup({ exists: false, templateNote: "# Daily" });
 
-    fireEvent.press(screen.getByText("Blank note"));
+    await fireEvent.press(screen.getByText("Blank note"));
 
     expect(mockUpsertNote).toHaveBeenCalledWith({ content: "" });
   });
 
-  it("keeps the editor after a choice even if the save has not yet succeeded", () => {
+  it("keeps the editor after a choice even if the save has not yet succeeded", async () => {
     // `exists` stays false (mirrors a save still pending or rolled back), but
     // committing to the editor must not bounce back to the chooser.
-    const screen = setup({ exists: false, templateNote: "# Daily" });
+    const screen = await setup({ exists: false, templateNote: "# Daily" });
 
-    fireEvent.press(screen.getByText("Blank note"));
+    await fireEvent.press(screen.getByText("Blank note"));
 
     expect(screen.queryByText("Use daily note template")).toBeNull();
     expect(screen.getByLabelText("note-editor")).toBeTruthy();
   });
 
-  it("shows the editor once a row exists, even when the note is empty", () => {
+  it("shows the editor once a row exists, even when the note is empty", async () => {
     // Covers both a persisted 'Blank note' choice and clearing a note to empty:
     // the chooser must not resurface just because the content is blank.
-    const screen = setup({
+    const screen = await setup({
       exists: true,
       content: "",
       templateNote: "# Daily",
@@ -117,8 +117,8 @@ describe("NotesView", () => {
     expect(screen.getByLabelText("note-editor")).toBeTruthy();
   });
 
-  it("shows the editor seeded with an existing note", () => {
-    const screen = setup({
+  it("shows the editor seeded with an existing note", async () => {
+    const screen = await setup({
       exists: true,
       content: "existing note",
       templateNote: "# Daily",
@@ -128,29 +128,29 @@ describe("NotesView", () => {
     expect(screen.getByText("seed:existing note")).toBeTruthy();
   });
 
-  it("skips the chooser when no template is configured", () => {
-    const screen = setup({ exists: false, templateNote: "" });
+  it("skips the chooser when no template is configured", async () => {
+    const screen = await setup({ exists: false, templateNote: "" });
 
     expect(screen.queryByText("Use daily note template")).toBeNull();
     expect(screen.getByLabelText("note-editor")).toBeTruthy();
   });
 
-  it("shows a loading indicator and no chooser while the day loads", () => {
-    const screen = setup({ isLoading: true, templateNote: "# Daily" });
+  it("shows a loading indicator and no chooser while the day loads", async () => {
+    const screen = await setup({ isLoading: true, templateNote: "# Daily" });
 
     expect(screen.queryByText("Use daily note template")).toBeNull();
     expect(screen.queryByLabelText("note-editor")).toBeNull();
   });
 
-  it("autosaves edits after the debounce window elapses", () => {
+  it("autosaves edits after the debounce window elapses", async () => {
     jest.useFakeTimers();
     try {
-      const screen = setup({ exists: true, content: "existing note" });
+      const screen = await setup({ exists: true, content: "existing note" });
 
-      fireEvent.press(screen.getByLabelText("note-editor"));
+      await fireEvent.press(screen.getByLabelText("note-editor"));
       expect(mockUpsertNoteAsync).not.toHaveBeenCalled();
 
-      act(() => jest.advanceTimersByTime(800));
+      await act(() => jest.advanceTimersByTime(800));
 
       expect(mockUpsertNoteAsync).toHaveBeenCalledWith({
         content: "edited note",

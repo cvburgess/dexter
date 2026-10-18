@@ -32,10 +32,13 @@ describe("TabsLayoutWeb", () => {
   it.each([
     ["wide", true],
     ["narrow", false],
-  ])("passes the %s-viewport rail decision to the shell", (_label, rail) => {
-    mockUseShowNavRail.mockReturnValue(rail);
-    const screen = render(<TabsLayoutWeb />);
+  ])(
+    "passes the %s-viewport rail decision to the shell",
+    async (_label, rail) => {
+      mockUseShowNavRail.mockReturnValue(rail);
+      const screen = await render(<TabsLayoutWeb />);
 
-    expect(screen.getByText(`shell:rail=${rail}`)).toBeTruthy();
-  });
+      expect(screen.getByText(`shell:rail=${rail}`)).toBeTruthy();
+    },
+  );
 });

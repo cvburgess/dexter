@@ -13,8 +13,8 @@ jest.mock("expo-symbols", () => ({
 }));
 
 describe("GlassIconButton", () => {
-  it("shows the attention dot and annotates the label when indicator is true", () => {
-    const screen = render(
+  it("shows the attention dot and annotates the label when indicator is true", async () => {
+    const screen = await render(
       <GlassIconButton
         indicator
         sfSymbol="tray.full"
@@ -27,8 +27,8 @@ describe("GlassIconButton", () => {
     expect(screen.getByLabelText("Backlog, needs attention")).toBeTruthy();
   });
 
-  it("omits the attention dot when indicator is falsy", () => {
-    const screen = render(
+  it("omits the attention dot when indicator is falsy", async () => {
+    const screen = await render(
       <GlassIconButton
         sfSymbol="tray.full"
         ionicon="file-tray-full-outline"

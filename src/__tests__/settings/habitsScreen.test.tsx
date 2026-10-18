@@ -29,20 +29,20 @@ const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
 >;
 const mockUpdate = jest.fn();
 
-const renderWith = (overrides: { enableHabits?: boolean } = {}) => {
+const renderWith = async (overrides: { enableHabits?: boolean } = {}) => {
   mockUseHabits.mockReturnValue([[], { updateHabit: jest.fn() } as never]);
   mockUsePreferences.mockReturnValue([
     { enableHabits: true, ...overrides } as never,
     { updatePreferences: mockUpdate },
   ]);
-  return render(<HabitsScreen />);
+  return await render(<HabitsScreen />);
 };
 
 // The "+" add button lives in the navigation header (set via setOptions), so
 // render the latest headerRight to inspect/press it.
-const renderHeader = () => {
+const renderHeader = async () => {
   const options = mockSetOptions.mock.calls.at(-1)?.[0];
-  return render(options.headerRight());
+  return await render(options.headerRight());
 };
 
 describe("HabitsScreen", () => {
@@ -51,22 +51,22 @@ describe("HabitsScreen", () => {
     mockUseIsLargeDevice.mockReturnValue(false);
   });
 
-  it("shows the header add button when habit tracking is enabled", () => {
-    renderWith({ enableHabits: true });
+  it("shows the header add button when habit tracking is enabled", async () => {
+    await renderWith({ enableHabits: true });
 
-    expect(renderHeader().getByLabelText("New habit")).toBeTruthy();
+    expect(await renderHeader().getByLabelText("New habit")).toBeTruthy();
   });
 
-  it("hides the header add button when habit tracking is disabled", () => {
-    renderWith({ enableHabits: false });
+  it("hides the header add button when habit tracking is disabled", async () => {
+    await renderWith({ enableHabits: false });
 
-    expect(renderHeader().queryByLabelText("New habit")).toBeNull();
+    expect(await renderHeader().queryByLabelText("New habit")).toBeNull();
   });
 
-  it("opens the new-habit modal when the add button is pressed", () => {
-    renderWith({ enableHabits: true });
+  it("opens the new-habit modal when the add button is pressed", async () => {
+    await renderWith({ enableHabits: true });
 
-    fireEvent.press(renderHeader().getByLabelText("New habit"));
+    await fireEvent.press(await renderHeader().getByLabelText("New habit"));
 
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/settings/habits/[id]",

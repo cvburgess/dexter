@@ -83,8 +83,8 @@ jest.mock("@/hooks/useFocusTimer", () => ({
 }));
 
 /** Renders the menu with the props every test would otherwise restate. */
-const renderMenu = (task: TTask = makeTask(), props = {}) =>
-  render(
+const renderMenu = async (task: TTask = makeTask(), props = {}) =>
+  await render(
     <MoreMenu
       task={task}
       onChangePriority={jest.fn()}
@@ -118,8 +118,8 @@ describe("MoreMenu", () => {
     mockLiveFocusBlock = null;
   });
 
-  it("opens on long-press with no menu title, wrapping its children", () => {
-    const screen = renderMenu();
+  it("opens on long-press with no menu title, wrapping its children", async () => {
+    const screen = await renderMenu();
 
     expect(screen.getByText("Task row")).toBeTruthy();
     expect(mockIconMenu).toHaveBeenCalledWith(
@@ -130,8 +130,8 @@ describe("MoreMenu", () => {
 
   // The point of DEX-98: List, Deadline, and the alarm are gone, and every
   // field they used to reach now lives behind the one Edit task row.
-  it("drops the List, Deadline and alarm rows", () => {
-    renderMenu(makeTask({ alarmTime: "08:00", listId: "list-home" }), {
+  it("drops the List, Deadline and alarm rows", async () => {
+    await renderMenu(makeTask({ alarmTime: "08:00", listId: "list-home" }), {
       onAddSubtask: jest.fn(),
     });
 
@@ -155,8 +155,8 @@ describe("MoreMenu", () => {
 
   // Asserted as a relationship, not an index, so a new shortcut doesn't
   // falsely fail this.
-  it("puts Edit task last in the edit group, below Add subtask", () => {
-    renderMenu(makeTask(), { onAddSubtask: jest.fn() });
+  it("puts Edit task last in the edit group, below Add subtask", async () => {
+    await renderMenu(makeTask(), { onAddSubtask: jest.fn() });
 
     const allTitles = renderedSections().flatMap((section) =>
       section.options.map((option) => option.title),
@@ -169,8 +169,8 @@ describe("MoreMenu", () => {
     );
   });
 
-  it("marks Priority and Schedule as submenus and the rest inline", () => {
-    renderMenu(makeTask(), { onAddSubtask: jest.fn() });
+  it("marks Priority and Schedule as submenus and the rest inline", async () => {
+    await renderMenu(makeTask(), { onAddSubtask: jest.fn() });
 
     expect(
       renderedSections().map((section) => Boolean(section.isSubmenu)),
@@ -186,8 +186,8 @@ describe("MoreMenu", () => {
 
   // Priority through Edit task reads as one unruled group; only Duplicate/
   // repeat/Delete is set apart. The group's first section is exempt.
-  it("rules off only the final action group", () => {
-    renderMenu(makeTask(), { onAddSubtask: jest.fn() });
+  it("rules off only the final action group", async () => {
+    await renderMenu(makeTask(), { onAddSubtask: jest.fn() });
 
     expect(
       renderedSections().map((section) => Boolean(section.hideDivider)),
@@ -197,32 +197,32 @@ describe("MoreMenu", () => {
   describe("go to link", () => {
     const linked = () => makeTask({ url: "https://example.com/spec" });
 
-    it("has no link row when the task has no link", () => {
-      renderMenu(makeTask(), { onAddSubtask: jest.fn() });
+    it("has no link row when the task has no link", async () => {
+      await renderMenu(makeTask(), { onAddSubtask: jest.fn() });
 
       expect(optionById("go-to-link")).toBeUndefined();
       // Unchanged from the no-link menu: the shortcuts still open the group.
       expect(renderedSections()[0].title).toBe("Priority");
     });
 
-    it("puts the link first, above everything that edits the task", () => {
-      renderMenu(linked(), { onAddSubtask: jest.fn() });
+    it("puts the link first, above everything that edits the task", async () => {
+      await renderMenu(linked(), { onAddSubtask: jest.fn() });
 
       expect(
         renderedSections()[0].options.map((option) => option.title),
       ).toEqual(["Go to link"]);
     });
 
-    it("rules the link off from the shortcuts below it", () => {
-      renderMenu(linked(), { onAddSubtask: jest.fn() });
+    it("rules the link off from the shortcuts below it", async () => {
+      await renderMenu(linked(), { onAddSubtask: jest.fn() });
 
       expect(
         renderedSections().map((section) => Boolean(section.hideDivider)),
       ).toEqual([false, false, true, true, true, false]);
     });
 
-    it("opens the link rather than navigating in-app", () => {
-      renderMenu(linked());
+    it("opens the link rather than navigating in-app", async () => {
+      await renderMenu(linked());
 
       optionById("go-to-link")?.onSelect();
 
@@ -231,8 +231,8 @@ describe("MoreMenu", () => {
     });
   });
 
-  it("opens the edit modal from the Edit task row", () => {
-    renderMenu();
+  it("opens the edit modal from the Edit task row", async () => {
+    await renderMenu();
 
     optionById("edit-task")?.onSelect();
 
@@ -246,8 +246,8 @@ describe("MoreMenu", () => {
 
   // "Pick a date…" used to open a sheet that could only set the schedule. It
   // now opens the form that owns every date the task has (DEX-98).
-  it("opens the edit modal from 'Pick a date…' rather than a picker sheet", () => {
-    renderMenu();
+  it("opens the edit modal from 'Pick a date…' rather than a picker sheet", async () => {
+    await renderMenu();
 
     optionById("schedule-pick-date")?.onSelect();
 
@@ -257,9 +257,9 @@ describe("MoreMenu", () => {
     });
   });
 
-  it("opens the edit modal from the current custom-date row", () => {
+  it("opens the edit modal from the current custom-date row", async () => {
     const farOut = Temporal.Now.plainDateISO().add({ days: 60 }).toString();
-    renderMenu(makeTask({ scheduledFor: farOut }));
+    await renderMenu(makeTask({ scheduledFor: farOut }));
 
     renderedSections()
       .find((section) => section.title === "Schedule")
@@ -273,8 +273,8 @@ describe("MoreMenu", () => {
   });
 
   // A duplicate id would silently route one row's tap to another's handler.
-  it("gives every option a menu-wide unique id", () => {
-    renderMenu(
+  it("gives every option a menu-wide unique id", async () => {
+    await renderMenu(
       makeTask({
         scheduledFor: Temporal.Now.plainDateISO().toString(),
         dueOn: Temporal.Now.plainDateISO().toString(),
@@ -291,8 +291,8 @@ describe("MoreMenu", () => {
 
   // Only a task that belongs to no template can make one, and it can make
   // either kind — so this is the one case that shows two template rows.
-  it("offers both Repeat and Save as template when the task has no template", () => {
-    renderMenu(makeTask({ templateId: null }));
+  it("offers both Repeat and Save as template when the task has no template", async () => {
+    await renderMenu(makeTask({ templateId: null }));
 
     expect(inlineOptionTitles()).toEqual([
       ["Start focus block"],
@@ -302,13 +302,13 @@ describe("MoreMenu", () => {
   });
 
   // "Save as template" here would let it be saved a second time, orphaned.
-  it("offers only 'Edit repeat schedule' when a scheduled template is linked", () => {
+  it("offers only 'Edit repeat schedule' when a scheduled template is linked", async () => {
     mockGetTemplateById.mockReturnValue({
       id: "template-1",
       schedule: "0 0 * * *",
     } as never);
 
-    renderMenu(makeTask({ templateId: "template-1" }));
+    await renderMenu(makeTask({ templateId: "template-1" }));
 
     expect(inlineOptionTitles()).toEqual([
       ["Start focus block"],
@@ -319,13 +319,13 @@ describe("MoreMenu", () => {
 
   // The linked row carries no schedule, so it is a saved template rather than a
   // repeat — the same single edit item, under the noun that fits (DEX-65).
-  it("offers only 'Edit template' when the linked template has no schedule", () => {
+  it("offers only 'Edit template' when the linked template has no schedule", async () => {
     mockGetTemplateById.mockReturnValue({
       id: "template-1",
       schedule: null,
     } as never);
 
-    renderMenu(makeTask({ templateId: "template-1" }));
+    await renderMenu(makeTask({ templateId: "template-1" }));
 
     expect(inlineOptionTitles().at(-1)).toEqual([
       "Duplicate",
@@ -336,10 +336,10 @@ describe("MoreMenu", () => {
 
   // Unresolved means the query hasn't landed, not scheduleless — repeat
   // wording is the safe fallback.
-  it("keeps the repeat wording while the linked template is still loading", () => {
+  it("keeps the repeat wording while the linked template is still loading", async () => {
     mockGetTemplateById.mockReturnValue(undefined);
 
-    renderMenu(makeTask({ templateId: "template-1" }));
+    await renderMenu(makeTask({ templateId: "template-1" }));
 
     expect(inlineOptionTitles().at(-1)).toEqual([
       "Duplicate",
@@ -350,8 +350,8 @@ describe("MoreMenu", () => {
 
   // Save as template opens a draft rather than writing a row, so ✕ leaves
   // nothing behind — the link to the source task is made by the editor's ✓.
-  it("opens an unsaved draft seeded from the task, writing nothing yet", () => {
-    renderMenu(makeTask({ templateId: null }));
+  it("opens an unsaved draft seeded from the task, writing nothing yet", async () => {
+    await renderMenu(makeTask({ templateId: null }));
 
     optionById("save-as-template")?.onSelect();
 
@@ -369,8 +369,8 @@ describe("MoreMenu", () => {
 
   // Repeat writes nothing up front either — it opens the same draft, differing
   // only in the cadence it starts on.
-  it("opens a repeating draft from Repeat, writing nothing yet", () => {
-    renderMenu(makeTask({ templateId: null }));
+  it("opens a repeating draft from Repeat, writing nothing yet", async () => {
+    await renderMenu(makeTask({ templateId: null }));
 
     optionById("repeat")?.onSelect();
 
@@ -391,13 +391,13 @@ describe("MoreMenu", () => {
     [null, "edit-template"],
   ])(
     "opens the linked template directly (schedule %p, via %s)",
-    (schedule, optionId_) => {
+    async (schedule, optionId_) => {
       mockGetTemplateById.mockReturnValue({
         id: "template-1",
         schedule,
       } as never);
 
-      renderMenu(makeTask({ templateId: "template-1" }));
+      await renderMenu(makeTask({ templateId: "template-1" }));
 
       optionById(optionId_)?.onSelect();
 
@@ -410,8 +410,8 @@ describe("MoreMenu", () => {
   );
 
   describe("focus block (DEX-49)", () => {
-    it("starts one on this task when nothing is running", () => {
-      renderMenu(makeTask({ id: "task-9" }));
+    it("starts one on this task when nothing is running", async () => {
+      await renderMenu(makeTask({ id: "task-9" }));
 
       expect(optionById("focus-block")?.title).toBe("Start focus block");
       optionById("focus-block")?.onSelect();
@@ -419,9 +419,9 @@ describe("MoreMenu", () => {
       expect(mockStartFocusBlock).toHaveBeenCalledWith("task-9");
     });
 
-    it("stops the block running on this very task", () => {
+    it("stops the block running on this very task", async () => {
       mockLiveFocusBlock = { id: "block-1", taskId: "task-9" };
-      renderMenu(makeTask({ id: "task-9" }));
+      await renderMenu(makeTask({ id: "task-9" }));
 
       expect(optionById("focus-block")?.title).toBe("Stop focus block");
       optionById("focus-block")?.onSelect();
@@ -432,17 +432,17 @@ describe("MoreMenu", () => {
 
     // Absent, not "Start" — starting here would silently cancel a block the
     // user may be twenty minutes into.
-    it("offers nothing while a different task's block is running", () => {
+    it("offers nothing while a different task's block is running", async () => {
       mockLiveFocusBlock = { id: "block-1", taskId: "another-task" };
-      renderMenu(makeTask({ id: "task-9" }));
+      await renderMenu(makeTask({ id: "task-9" }));
 
       expect(optionById("focus-block")).toBeUndefined();
     });
 
     // Timing work on something already closed out is meaningless, and the
     // completed cards in the evening's Review are exactly where this would show.
-    it("offers nothing on a task that is already closed out", () => {
-      renderMenu(makeTask({ id: "task-9", status: ETaskStatus.DONE }));
+    it("offers nothing on a task that is already closed out", async () => {
+      await renderMenu(makeTask({ id: "task-9", status: ETaskStatus.DONE }));
 
       expect(optionById("focus-block")).toBeUndefined();
     });

@@ -69,8 +69,8 @@ describe.each(variants)("$name", ({ Component }) => {
     mockUseIsLargeDevice.mockReturnValue(true);
   });
 
-  it("renders every destination plus the create-task button", () => {
-    const screen = render(<Component />);
+  it("renders every destination plus the create-task button", async () => {
+    const screen = await render(<Component />);
 
     visibleItems(true).forEach((item) => {
       expect(screen.getByTestId(`nav-${item.key}`)).toBeTruthy();
@@ -79,22 +79,22 @@ describe.each(variants)("$name", ({ Component }) => {
   });
 
   describe("large-screen-only destinations (DEX-96)", () => {
-    it.each(["week", "lists"])("offers %s on a large screen", (key) => {
-      const screen = render(<Component />);
+    it.each(["week", "lists"])("offers %s on a large screen", async (key) => {
+      const screen = await render(<Component />);
 
       expect(screen.getByTestId(`nav-${key}`).props.href).toBe(`/${key}`);
     });
 
-    it.each(["week", "lists"])("hides %s below the breakpoint", (key) => {
+    it.each(["week", "lists"])("hides %s below the breakpoint", async (key) => {
       mockUseIsLargeDevice.mockReturnValue(false);
-      const screen = render(<Component />);
+      const screen = await render(<Component />);
 
       expect(screen.queryByTestId(`nav-${key}`)).toBeNull();
     });
 
-    it("keeps every other destination below the breakpoint", () => {
+    it("keeps every other destination below the breakpoint", async () => {
       mockUseIsLargeDevice.mockReturnValue(false);
-      const screen = render(<Component />);
+      const screen = await render(<Component />);
 
       visibleItems(false).forEach((item) => {
         expect(screen.getByTestId(`nav-${item.key}`)).toBeTruthy();
@@ -103,32 +103,32 @@ describe.each(variants)("$name", ({ Component }) => {
     });
   });
 
-  it("marks the current destination as selected", () => {
-    const screen = render(<Component />);
+  it("marks the current destination as selected", async () => {
+    const screen = await render(<Component />);
 
     expect(screen.getByTestId("nav-today")).toBeSelected();
     expect(screen.getByTestId("nav-settings")).not.toBeSelected();
   });
 
-  it("keeps Settings selected inside its nested routes", () => {
+  it("keeps Settings selected inside its nested routes", async () => {
     mockPathname.current = "/settings/lists/abc";
-    const screen = render(<Component />);
+    const screen = await render(<Component />);
 
     expect(screen.getByTestId("nav-settings")).toBeSelected();
     expect(screen.getByTestId("nav-today")).not.toBeSelected();
   });
 
-  it("renders each destination as a real link to its route", () => {
-    const screen = render(<Component />);
+  it("renders each destination as a real link to its route", async () => {
+    const screen = await render(<Component />);
 
     visibleItems(true).forEach((item) => {
       expect(screen.getByTestId(`nav-${item.key}`).props.href).toBe(item.href);
     });
   });
 
-  it("marks the current destination with aria-current for assistive tech", () => {
+  it("marks the current destination with aria-current for assistive tech", async () => {
     mockPathname.current = "/search";
-    const screen = render(<Component />);
+    const screen = await render(<Component />);
 
     expect(screen.getByTestId("nav-search").props["aria-current"]).toBe("page");
     expect(
@@ -136,11 +136,11 @@ describe.each(variants)("$name", ({ Component }) => {
     ).toBeUndefined();
   });
 
-  it("opens the new-task modal seeded with the viewed day", () => {
+  it("opens the new-task modal seeded with the viewed day", async () => {
     mockViewedDay.current = Temporal.PlainDate.from("2026-07-08");
-    const screen = render(<Component />);
+    const screen = await render(<Component />);
 
-    fireEvent.press(screen.getByTestId("nav-new-task"));
+    await fireEvent.press(screen.getByTestId("nav-new-task"));
 
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: "/new-task",
@@ -148,10 +148,10 @@ describe.each(variants)("$name", ({ Component }) => {
     });
   });
 
-  it("opens the new-task modal with no date when no day is on screen", () => {
-    const screen = render(<Component />);
+  it("opens the new-task modal with no date when no day is on screen", async () => {
+    const screen = await render(<Component />);
 
-    fireEvent.press(screen.getByTestId("nav-new-task"));
+    await fireEvent.press(screen.getByTestId("nav-new-task"));
 
     expect(mockRouter.push).toHaveBeenCalledWith("/new-task");
   });
@@ -181,10 +181,10 @@ describe("NavRail safe-area insets", () => {
   const railStyle = (screen: ReturnType<typeof render>) =>
     StyleSheet.flatten(screen.getByLabelText("Main navigation").props.style);
 
-  it("absorbs the top, bottom and left insets", () => {
-    const base = railStyle(renderWithInsets({}, <NavRail />));
+  it("absorbs the top, bottom and left insets", async () => {
+    const base = railStyle(await renderWithInsets({}, <NavRail />));
     const inset = railStyle(
-      renderWithInsets({ top: 24, left: 8, bottom: 20 }, <NavRail />),
+      await renderWithInsets({ top: 24, left: 8, bottom: 20 }, <NavRail />),
     );
 
     // Measured against the zero-inset render rather than a hardcoded token, so
@@ -196,16 +196,16 @@ describe("NavRail safe-area insets", () => {
 
   // The rail grows rather than padding inward: eating the cutout out of the
   // fixed 76dp would squeeze the tiles the inset exists to protect.
-  it("widens by the left inset instead of padding into its own width", () => {
-    const screen = renderWithInsets({ left: 8 }, <NavRail />);
+  it("widens by the left inset instead of padding into its own width", async () => {
+    const screen = await renderWithInsets({ left: 8 }, <NavRail />);
 
     expect(railStyle(screen).width).toBe(NAV_RAIL_WIDTH + 8);
   });
 
   // Web's insets are always 0 (nothing opts into `viewport-fit=cover`), so this
   // is the guard that the tablet work left web's rail exactly as it was.
-  it("is exactly the rail width when there are no insets", () => {
-    const screen = renderWithInsets({}, <NavRail />);
+  it("is exactly the rail width when there are no insets", async () => {
+    const screen = await renderWithInsets({}, <NavRail />);
 
     expect(railStyle(screen).width).toBe(NAV_RAIL_WIDTH);
     expect(railStyle(screen).paddingLeft).toBe(0);

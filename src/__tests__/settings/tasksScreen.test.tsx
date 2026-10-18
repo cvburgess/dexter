@@ -88,7 +88,7 @@ const makeTask = (overrides: Partial<TTask> = {}): TTask => ({
 
 // Every template holds one open task by default (the healthy state); pass
 // `tasks` for a stalled repeat, `isLoading` for a pending tasks query.
-const renderWith = (
+const renderWith = async (
   templates: TTemplate[],
   tasks?: TTask[],
   isLoading = false,
@@ -104,7 +104,7 @@ const renderWith = (
       ),
     { isLoading } as never,
   ]);
-  return render(<TasksScreen />);
+  return await render(<TasksScreen />);
 };
 
 describe("TasksScreen", () => {
@@ -118,15 +118,15 @@ describe("TasksScreen", () => {
     resetPicker();
   });
 
-  it("explains where each kind of saved task comes from when there are none", () => {
-    const screen = renderWith([]);
+  it("explains where each kind of saved task comes from when there are none", async () => {
+    const screen = await renderWith([]);
 
     expect(screen.getByText(/open its menu and choose Repeat/i)).toBeTruthy();
     expect(screen.getByText(/choose Save as template/i)).toBeTruthy();
   });
 
-  it("lists each repeat task with a human-readable schedule", () => {
-    const screen = renderWith([makeTemplate()]);
+  it("lists each repeat task with a human-readable schedule", async () => {
+    const screen = await renderWith([makeTemplate()]);
 
     expect(screen.getByText("Repeat tasks")).toBeTruthy();
     expect(screen.getByText("Water the plants")).toBeTruthy();
@@ -135,8 +135,8 @@ describe("TasksScreen", () => {
 
   // Both kinds live in one table; the schedule is the only thing separating
   // them, so a mix must not leak across the two sections (DEX-65).
-  it("sorts scheduleless rows into Task templates, described by their checklist", () => {
-    const screen = renderWith([
+  it("sorts scheduleless rows into Task templates, described by their checklist", async () => {
+    const screen = await renderWith([
       makeTemplate(),
       makeTemplate({
         id: "template-2",
@@ -157,19 +157,19 @@ describe("TasksScreen", () => {
     expect(screen.queryByText("Doesn't repeat")).toBe(null);
   });
 
-  it("opens the same editor from either section", () => {
-    const screen = renderWith([
+  it("opens the same editor from either section", async () => {
+    const screen = await renderWith([
       makeTemplate(),
       makeTemplate({ id: "template-2", schedule: null, title: "Trip packing" }),
     ]);
 
-    fireEvent.press(screen.getByLabelText("Edit Water the plants"));
+    await fireEvent.press(screen.getByLabelText("Edit Water the plants"));
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/settings/tasks/[id]",
       params: { id: "template-1" },
     });
 
-    fireEvent.press(screen.getByLabelText("Edit Trip packing"));
+    await fireEvent.press(screen.getByLabelText("Edit Trip packing"));
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/settings/tasks/[id]",
       params: { id: "template-2" },
@@ -181,8 +181,8 @@ describe("TasksScreen", () => {
   describe("a stalled repeat", () => {
     const stalledLabel = "Create next Water the plants";
 
-    it("says it isn't recurring and offers to create the next task", () => {
-      const screen = renderWith([makeTemplate()], []);
+    it("says it isn't recurring and offers to create the next task", async () => {
+      const screen = await renderWith([makeTemplate()], []);
 
       expect(
         screen.getByText("Not recurring — no open task to repeat from"),
@@ -190,7 +190,7 @@ describe("TasksScreen", () => {
       // The cadence is what the row is failing to do, so it isn't restated.
       expect(screen.queryByText("Weekly on Mon")).toBe(null);
 
-      fireEvent.press(screen.getByLabelText(stalledLabel));
+      await fireEvent.press(screen.getByLabelText(stalledLabel));
       expect(mockCreateNextOccurrence).toHaveBeenCalledWith(
         expect.objectContaining({ id: "template-1" }),
       );
@@ -198,10 +198,10 @@ describe("TasksScreen", () => {
 
     // The repair button is a second tap target inside the row, so the row must
     // still open the editor rather than being swallowed by it.
-    it("still opens the editor from the row itself", () => {
-      const screen = renderWith([makeTemplate()], []);
+    it("still opens the editor from the row itself", async () => {
+      const screen = await renderWith([makeTemplate()], []);
 
-      fireEvent.press(screen.getByLabelText("Edit Water the plants"));
+      await fireEvent.press(screen.getByLabelText("Edit Water the plants"));
 
       expect(mockPush).toHaveBeenCalledWith({
         pathname: "/settings/tasks/[id]",
@@ -210,8 +210,8 @@ describe("TasksScreen", () => {
       expect(mockCreateNextOccurrence).not.toHaveBeenCalled();
     });
 
-    it("says nothing of the sort while an open task remains", () => {
-      const screen = renderWith([makeTemplate()]);
+    it("says nothing of the sort while an open task remains", async () => {
+      const screen = await renderWith([makeTemplate()]);
 
       expect(screen.getByText("Weekly on Mon")).toBeTruthy();
       expect(screen.queryByLabelText(stalledLabel)).toBe(null);
@@ -219,8 +219,8 @@ describe("TasksScreen", () => {
 
     // A completed occurrence is not an open one: the link stays behind, so
     // counting links rather than open tasks would call this repeat healthy.
-    it("ignores a linked task that has been checked off", () => {
-      const screen = renderWith(
+    it("ignores a linked task that has been checked off", async () => {
+      const screen = await renderWith(
         [makeTemplate()],
         [makeTask({ status: ETaskStatus.DONE })],
       );
@@ -232,8 +232,8 @@ describe("TasksScreen", () => {
 
     // Unloaded is "unknown", not "empty" — reading useTasks' [] placeholder
     // as stalled painted every healthy repeat red on first paint.
-    it("waits for the tasks query rather than reading its placeholder as empty", () => {
-      const screen = renderWith([makeTemplate()], [], true);
+    it("waits for the tasks query rather than reading its placeholder as empty", async () => {
+      const screen = await renderWith([makeTemplate()], [], true);
 
       expect(screen.getByText("Weekly on Mon")).toBeTruthy();
       expect(screen.queryByLabelText(stalledLabel)).toBe(null);
@@ -241,8 +241,8 @@ describe("TasksScreen", () => {
 
     // A task template is stamped out on demand and recurs from nothing, so it
     // has nothing to stall.
-    it("never flags a task template", () => {
-      const screen = renderWith(
+    it("never flags a task template", async () => {
+      const screen = await renderWith(
         [makeTemplate({ id: "template-2", schedule: null, title: "Packing" })],
         [],
       );
@@ -252,8 +252,8 @@ describe("TasksScreen", () => {
     });
   });
 
-  it("offers every alarm sound, with the stored one selected", () => {
-    const screen = renderWith([]);
+  it("offers every alarm sound, with the stored one selected", async () => {
+    const screen = await renderWith([]);
 
     expect(screen.getByText("Sound")).toBeTruthy();
     expect(pickerOptionsFor(ALARM_PICKER)).toEqual([
@@ -263,20 +263,20 @@ describe("TasksScreen", () => {
     expect(pickerPropsFor(ALARM_PICKER)?.selectedValue).toBe("echos");
   });
 
-  it("falls back to System for a stored sound this build doesn't ship", () => {
+  it("falls back to System for a stored sound this build doesn't ship", async () => {
     // Otherwise the picker renders with nothing selected and the user can't
     // tell what their alarms will ring.
     mockUsePreferences.mockReturnValue([
       { alarmSound: "chimes" } as never,
       { updatePreferences: mockUpdatePreferences },
     ]);
-    renderWith([]);
+    await renderWith([]);
 
     expect(pickerPropsFor(ALARM_PICKER)?.selectedValue).toBe("system");
   });
 
-  it("saves the alarm sound when a different one is picked", () => {
-    renderWith([]);
+  it("saves the alarm sound when a different one is picked", async () => {
+    await renderWith([]);
 
     const onValueChange = pickerPropsFor(ALARM_PICKER)?.onValueChange as (
       value: string,
@@ -289,8 +289,8 @@ describe("TasksScreen", () => {
   });
 
   describe("focus block length (DEX-49)", () => {
-    it("offers every length, with the stored one selected", () => {
-      const screen = renderWith([]);
+    it("offers every length, with the stored one selected", async () => {
+      const screen = await renderWith([]);
 
       expect(screen.getByText("Length")).toBeTruthy();
       expect(pickerOptionsFor(FOCUS_PICKER).map((o) => o.value)).toEqual([
@@ -307,20 +307,20 @@ describe("TasksScreen", () => {
 
     // Same footgun as the alarm sound: the column is unconstrained, and a value
     // this build doesn't offer leaves the picker showing nothing at all.
-    it("falls back to 25 for a stored length this build doesn't offer", () => {
+    it("falls back to 25 for a stored length this build doesn't offer", async () => {
       mockUsePreferences.mockReturnValue([
         { alarmSound: "echos", focusBlockMinutes: 37 } as never,
         { updatePreferences: mockUpdatePreferences },
       ]);
-      renderWith([]);
+      await renderWith([]);
 
       expect(pickerPropsFor(FOCUS_PICKER)?.selectedValue).toBe("25");
     });
 
     // The picker round-trips through strings; the preference is a number, and
     // storing "45" would make every later multiplication concatenate instead.
-    it("saves the length as a number", () => {
-      renderWith([]);
+    it("saves the length as a number", async () => {
+      await renderWith([]);
 
       const onValueChange = pickerPropsFor(FOCUS_PICKER)?.onValueChange as (
         value: string,

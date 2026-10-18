@@ -54,8 +54,8 @@ const targetProps = (screen: ReturnType<typeof render>, testID: string) =>
     onReceiveDragDrop: (event: { dragged: { payload?: unknown } }) => void;
   };
 
-const renderTarget = (scheduledFor: string | null) =>
-  render(
+const renderTarget = async (scheduledFor: string | null) =>
+  await render(
     <DragScheduleProvider>
       <TaskDropTarget scheduledFor={scheduledFor} testID="target">
         <Text>Thursday</Text>
@@ -69,8 +69,8 @@ beforeEach(() => {
 });
 
 describe("TaskDropTarget", () => {
-  it("renders its children as a plain view outside a provider", () => {
-    const screen = render(
+  it("renders its children as a plain view outside a provider", async () => {
+    const screen = await render(
       <TaskDropTarget scheduledFor="2026-07-16">
         <Text>Thursday</Text>
       </TaskDropTarget>,
@@ -79,8 +79,8 @@ describe("TaskDropTarget", () => {
     expect(screen.getByText("Thursday")).toBeTruthy();
   });
 
-  it("schedules a dropped task for its own date", () => {
-    const screen = renderTarget("2026-07-16");
+  it("schedules a dropped task for its own date", async () => {
+    const screen = await renderTarget("2026-07-16");
 
     targetProps(screen, "target").onReceiveDragDrop({
       dragged: { payload: { taskId: "task-1" } },
@@ -92,9 +92,9 @@ describe("TaskDropTarget", () => {
     });
   });
 
-  it("unschedules a task dropped on a null target, which is what the backlog pane is", () => {
+  it("unschedules a task dropped on a null target, which is what the backlog pane is", async () => {
     mockTasks([task({ scheduledFor: "2026-07-16" })]);
-    const screen = renderTarget(null);
+    const screen = await renderTarget(null);
 
     targetProps(screen, "target").onReceiveDragDrop({
       dragged: { payload: { taskId: "task-1" } },
@@ -106,8 +106,8 @@ describe("TaskDropTarget", () => {
     });
   });
 
-  it("ignores a payload that isn't a task", () => {
-    const screen = renderTarget("2026-07-16");
+  it("ignores a payload that isn't a task", async () => {
+    const screen = await renderTarget("2026-07-16");
 
     targetProps(screen, "target").onReceiveDragDrop({
       dragged: { payload: { some: "other drag" } },
@@ -116,9 +116,9 @@ describe("TaskDropTarget", () => {
     expect(mockUpdateTask).not.toHaveBeenCalled();
   });
 
-  it("ignores a task deleted while it was being dragged", () => {
+  it("ignores a task deleted while it was being dragged", async () => {
     mockTasks([]);
-    const screen = renderTarget("2026-07-16");
+    const screen = await renderTarget("2026-07-16");
 
     targetProps(screen, "target").onReceiveDragDrop({
       dragged: { payload: { taskId: "task-1" } },
@@ -128,18 +128,18 @@ describe("TaskDropTarget", () => {
   });
 
   describe("acceptsDrag", () => {
-    it("accepts a task scheduled for another day", () => {
+    it("accepts a task scheduled for another day", async () => {
       mockTasks([task({ scheduledFor: "2026-07-14" })]);
-      const screen = renderTarget("2026-07-16");
+      const screen = await renderTarget("2026-07-16");
 
       expect(
         targetProps(screen, "target").acceptsDrag({ taskId: "task-1" }),
       ).toBe(true);
     });
 
-    it("accepts an unscheduled task onto a day", () => {
+    it("accepts an unscheduled task onto a day", async () => {
       mockTasks([task({ scheduledFor: null })]);
-      const screen = renderTarget("2026-07-16");
+      const screen = await renderTarget("2026-07-16");
 
       expect(
         targetProps(screen, "target").acceptsDrag({ taskId: "task-1" }),
@@ -148,26 +148,26 @@ describe("TaskDropTarget", () => {
 
     // Rejecting rather than no-op'ing on drop is deliberate: drax consults this
     // before a view becomes the receiver, so the column never highlights either.
-    it("rejects a task already scheduled for this day", () => {
+    it("rejects a task already scheduled for this day", async () => {
       mockTasks([task({ scheduledFor: "2026-07-16" })]);
-      const screen = renderTarget("2026-07-16");
+      const screen = await renderTarget("2026-07-16");
 
       expect(
         targetProps(screen, "target").acceptsDrag({ taskId: "task-1" }),
       ).toBe(false);
     });
 
-    it("rejects an already-unscheduled task onto the backlog", () => {
+    it("rejects an already-unscheduled task onto the backlog", async () => {
       mockTasks([task({ scheduledFor: null })]);
-      const screen = renderTarget(null);
+      const screen = await renderTarget(null);
 
       expect(
         targetProps(screen, "target").acceptsDrag({ taskId: "task-1" }),
       ).toBe(false);
     });
 
-    it("rejects a foreign payload", () => {
-      const screen = renderTarget("2026-07-16");
+    it("rejects a foreign payload", async () => {
+      const screen = await renderTarget("2026-07-16");
 
       expect(targetProps(screen, "target").acceptsDrag({ nope: true })).toBe(
         false,
@@ -214,7 +214,7 @@ describe("TaskDropTarget", () => {
       });
     });
 
-    it("rejects a task already on this list and accepts one from another", () => {
+    it("rejects a task already on this list and accepts one from another", async () => {
       mockTasks([task({ listId: "work" })]);
       const screen = renderListTarget("work");
       const { acceptsDrag } = targetProps(screen, "target");
@@ -222,7 +222,7 @@ describe("TaskDropTarget", () => {
       expect(acceptsDrag({ taskId: "task-1" })).toBe(false);
 
       mockTasks([task({ listId: "home" })]);
-      screen.rerender(
+      await await screen.rerender(
         <DragScheduleProvider>
           <TaskDropTarget listId="work" testID="target">
             <Text>Work</Text>
@@ -233,11 +233,11 @@ describe("TaskDropTarget", () => {
       expect(acceptsDrag({ taskId: "task-1" })).toBe(true);
     });
 
-    it("assigns to the target's current list, not the one it mounted with", () => {
+    it("assigns to the target's current list, not the one it mounted with", async () => {
       const screen = renderListTarget("work");
       const captured = targetProps(screen, "target").onReceiveDragDrop;
 
-      screen.rerender(
+      await await screen.rerender(
         <DragScheduleProvider>
           <TaskDropTarget listId="home" testID="target">
             <Text>Home</Text>
@@ -256,11 +256,11 @@ describe("TaskDropTarget", () => {
   // Invisible to a normal assertion: the Jest stub is a pass-through View, so
   // capturing a handler and calling it post-rerender reproduces drax's staleness.
   describe("handlers held from an earlier render", () => {
-    it("schedules for the target's current date, not the one it mounted with", () => {
-      const screen = renderTarget("2026-07-16");
+    it("schedules for the target's current date, not the one it mounted with", async () => {
+      const screen = await renderTarget("2026-07-16");
       const captured = targetProps(screen, "target").onReceiveDragDrop;
 
-      screen.rerender(
+      await await screen.rerender(
         <DragScheduleProvider>
           <TaskDropTarget scheduledFor="2026-07-20" testID="target">
             <Text>Monday</Text>
@@ -275,16 +275,16 @@ describe("TaskDropTarget", () => {
       });
     });
 
-    it("judges the payload against the task as it is now, not as it was", () => {
+    it("judges the payload against the task as it is now, not as it was", async () => {
       mockTasks([task({ scheduledFor: "2026-07-16" })]);
-      const screen = renderTarget("2026-07-16");
+      const screen = await renderTarget("2026-07-16");
       const captured = targetProps(screen, "target").acceptsDrag;
       expect(captured({ taskId: "task-1" })).toBe(false);
 
       // The task moved off this day while the card stayed mounted, so it is a
       // valid drop here again.
       mockTasks([task({ scheduledFor: "2026-07-14" })]);
-      screen.rerender(
+      await await screen.rerender(
         <DragScheduleProvider>
           <TaskDropTarget scheduledFor="2026-07-16" testID="target">
             <Text>Thursday</Text>

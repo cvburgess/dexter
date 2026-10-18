@@ -79,9 +79,9 @@ const tasksResult = (
     },
   ] as never;
 
-const renderStep = (tasks: TTask[] = [], isLoading = false) => {
+const renderStep = async (tasks: TTask[] = [], isLoading = false) => {
   mockUseTasks.mockReturnValue(tasksResult(tasks, isLoading));
-  return render(<BacklogStep date={TODAY} />);
+  return await render(<BacklogStep date={TODAY} />);
 };
 
 /** The color a rendered `<Text>` resolves to, for the hero's ink assertions. */
@@ -109,23 +109,23 @@ describe("BacklogStep", () => {
   describe("while the tasks are loading", () => {
     // Placeholder array makes every count zero — the all-clear hero here
     // would congratulate someone whose backlog is full.
-    it("renders nothing rather than a premature all-clear", () => {
-      const screen = renderStep([], true);
+    it("renders nothing rather than a premature all-clear", async () => {
+      const screen = await renderStep([], true);
 
       expect(screen.toJSON()).toBeNull();
     });
   });
 
   describe("with nothing needing attention", () => {
-    it("centers the counts and drops the backlog", () => {
-      const screen = renderStep([]);
+    it("centers the counts and drops the backlog", async () => {
+      const screen = await renderStep([]);
 
       expect(screen.getByTestId("backlog-step-clear")).toBeTruthy();
       expect(screen.queryByText(/^drawer:/)).toBeNull();
     });
 
-    it("states all three zeroes in the success color", () => {
-      const screen = renderStep([]);
+    it("states all three zeroes in the success color", async () => {
+      const screen = await renderStep([]);
 
       expect(screen.getByLabelText("0 tasks left behind")).toBeTruthy();
       expect(screen.getByLabelText("0 tasks overdue")).toBeTruthy();
@@ -139,8 +139,8 @@ describe("BacklogStep", () => {
 
     // A backlog full of undated tasks can still have nothing slipping — the
     // step is about what's slipping (DEX-141), not browsing the rest.
-    it("stays clear for a backlog of undated, unscheduled tasks", () => {
-      const screen = renderStep([task({ id: "1" }), task({ id: "2" })]);
+    it("stays clear for a backlog of undated, unscheduled tasks", async () => {
+      const screen = await renderStep([task({ id: "1" }), task({ id: "2" })]);
 
       expect(screen.getByTestId("backlog-step-clear")).toBeTruthy();
       expect(screen.queryByText(/^drawer:/)).toBeNull();
@@ -148,8 +148,8 @@ describe("BacklogStep", () => {
   });
 
   describe("with a backlog that needs attention", () => {
-    it("counts each bucket and shows the drawer beneath", () => {
-      const screen = renderStep([
+    it("counts each bucket and shows the drawer beneath", async () => {
+      const screen = await renderStep([
         leftBehind("1"),
         leftBehind("2"),
         overdue("3"),
@@ -164,8 +164,12 @@ describe("BacklogStep", () => {
 
     // Figures carry color, words stay ink (CalendarStep's convention); due
     // soon takes the warning token, not `error` — it's a heads-up, not a failure.
-    it("colors the figures by what they mean", () => {
-      const screen = renderStep([leftBehind("1"), overdue("2"), dueSoon("3")]);
+    it("colors the figures by what they mean", async () => {
+      const screen = await renderStep([
+        leftBehind("1"),
+        overdue("2"),
+        dueSoon("3"),
+      ]);
 
       expect(colorOf(screen.getByTestId("hero-figure-leftBehind"))).toBe(
         colors.error,
@@ -178,8 +182,8 @@ describe("BacklogStep", () => {
       );
     });
 
-    it("still colors an empty bucket as success", () => {
-      const screen = renderStep([leftBehind("1")]);
+    it("still colors an empty bucket as success", async () => {
+      const screen = await renderStep([leftBehind("1")]);
 
       expect(colorOf(screen.getByTestId("hero-figure-leftBehind"))).toBe(
         colors.error,
@@ -191,53 +195,53 @@ describe("BacklogStep", () => {
 
     // The step walks a short list of what is slipping; it is not where you go
     // to hunt for a task you already have in mind.
-    it("hides the drawer's search field", () => {
-      renderStep([leftBehind("1")]);
+    it("hides the drawer's search field", async () => {
+      await renderStep([leftBehind("1")]);
 
       expect(drawerProps().showSearch).toBe(false);
     });
 
     // The drawer sits under two fades glass can't sample through (DEX-150);
     // the rendering is device-only, this just covers the step declaring it.
-    it("tells the drawer it is under an animated opacity", () => {
-      renderStep([leftBehind("1")]);
+    it("tells the drawer it is under an animated opacity", async () => {
+      await renderStep([leftBehind("1")]);
 
       expect(drawerProps().solid).toBe(true);
     });
 
-    it("hands the drawer the ritual's day rather than today's", () => {
+    it("hands the drawer the ritual's day rather than today's", async () => {
       const other = TODAY.add({ days: 4 });
       mockUseTasks.mockReturnValue(tasksResult([leftBehind("1")]));
 
-      render(<BacklogStep date={other} />);
+      await render(<BacklogStep date={other} />);
 
       expect(drawerProps().date.toString()).toBe(other.toString());
     });
   });
 
   describe("the opening filter", () => {
-    it("opens on Left Behind ahead of everything else", () => {
-      renderStep([leftBehind("1"), overdue("2"), dueSoon("3")]);
+    it("opens on Left Behind ahead of everything else", async () => {
+      await renderStep([leftBehind("1"), overdue("2"), dueSoon("3")]);
 
       expect(drawerProps().filterId).toBe("leftBehind");
     });
 
-    it("falls to Overdue when nothing is left behind", () => {
-      renderStep([overdue("1"), dueSoon("2")]);
+    it("falls to Overdue when nothing is left behind", async () => {
+      await renderStep([overdue("1"), dueSoon("2")]);
 
       expect(drawerProps().filterId).toBe("overdue");
     });
 
-    it("falls to Due Soon when nothing is left behind or overdue", () => {
-      renderStep([dueSoon("1")]);
+    it("falls to Due Soon when nothing is left behind or overdue", async () => {
+      await renderStep([dueSoon("1")]);
 
       expect(drawerProps().filterId).toBe("dueSoon");
     });
 
-    it("keeps the reader's own choice", () => {
-      renderStep([leftBehind("1"), dueSoon("2")]);
+    it("keeps the reader's own choice", async () => {
+      await renderStep([leftBehind("1"), dueSoon("2")]);
 
-      act(() => drawerProps().onFilterChange?.("unscheduled"));
+      await act(() => drawerProps().onFilterChange?.("unscheduled"));
 
       expect(drawerProps().filterId).toBe("unscheduled");
     });
@@ -252,8 +256,8 @@ describe("BacklogStep", () => {
       screen.rerender(<BacklogStep date={TODAY} />);
     };
 
-    it("moves on to the next bucket that still has tasks", () => {
-      const screen = renderStep([leftBehind("1"), dueSoon("2")]);
+    it("moves on to the next bucket that still has tasks", async () => {
+      const screen = await renderStep([leftBehind("1"), dueSoon("2")]);
       expect(drawerProps().filterId).toBe("leftBehind");
 
       withTasks(screen, [dueSoon("2")]);
@@ -262,8 +266,12 @@ describe("BacklogStep", () => {
       expect(drawerProps().filterId).toBe("dueSoon");
     });
 
-    it("follows the hero's order when more than one is left", () => {
-      const screen = renderStep([leftBehind("1"), overdue("2"), dueSoon("3")]);
+    it("follows the hero's order when more than one is left", async () => {
+      const screen = await renderStep([
+        leftBehind("1"),
+        overdue("2"),
+        dueSoon("3"),
+      ]);
 
       withTasks(screen, [overdue("2"), dueSoon("3")]);
 
@@ -272,8 +280,8 @@ describe("BacklogStep", () => {
 
     // Emptiness licenses the move — derived from counts alone, the filter
     // would jump the moment a different bucket changed.
-    it("stays put while the reader's bucket still has tasks", () => {
-      const screen = renderStep([
+    it("stays put while the reader's bucket still has tasks", async () => {
+      const screen = await renderStep([
         leftBehind("1"),
         leftBehind("2"),
         overdue("3"),
@@ -288,8 +296,8 @@ describe("BacklogStep", () => {
 
     // Must be recorded, not just derived — left alone, refilling the emptied
     // bucket would yank the list back off whatever the reader moved on to.
-    it("does not snap back when a cleared bucket refills", () => {
-      const screen = renderStep([leftBehind("1"), overdue("2")]);
+    it("does not snap back when a cleared bucket refills", async () => {
+      const screen = await renderStep([leftBehind("1"), overdue("2")]);
       expect(drawerProps().filterId).toBe("leftBehind");
 
       withTasks(screen, [overdue("2")]);
@@ -303,9 +311,9 @@ describe("BacklogStep", () => {
 
     // A preset outside the hero's three is a detour the reader chose; the step
     // has no opinion about it, empty or not.
-    it("leaves a preset the hero does not count alone", () => {
-      const screen = renderStep([leftBehind("1"), overdue("2")]);
-      act(() => drawerProps().onFilterChange?.("unscheduled"));
+    it("leaves a preset the hero does not count alone", async () => {
+      const screen = await renderStep([leftBehind("1"), overdue("2")]);
+      await act(() => drawerProps().onFilterChange?.("unscheduled"));
 
       withTasks(screen, [overdue("2")]);
 

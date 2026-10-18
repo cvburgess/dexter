@@ -71,7 +71,7 @@ describe("getListSections", () => {
 });
 
 describe("ListButton", () => {
-  it("shows the selected list's emoji", () => {
+  it("shows the selected list's emoji", async () => {
     mockUseLists.mockReturnValue([
       lists,
       {
@@ -83,7 +83,7 @@ describe("ListButton", () => {
       },
     ]);
 
-    const screen = render(
+    const screen = await render(
       <ListButton
         listId="list-2"
         contentColor="#000000"
@@ -94,7 +94,7 @@ describe("ListButton", () => {
     expect(screen.getByText("🏠")).toBeTruthy();
   });
 
-  it("shows a placeholder when no list is selected", () => {
+  it("shows a placeholder when no list is selected", async () => {
     mockUseLists.mockReturnValue([
       lists,
       {
@@ -106,7 +106,7 @@ describe("ListButton", () => {
       },
     ]);
 
-    const screen = render(
+    const screen = await render(
       <ListButton
         listId={null}
         contentColor="#000000"
@@ -117,7 +117,7 @@ describe("ListButton", () => {
     expect(screen.getByText("🚫")).toBeTruthy();
   });
 
-  it("pins the menu trigger to the button's 32×32 size", () => {
+  it("pins the menu trigger to the button's 32×32 size", async () => {
     // The trigger wrapper must never influence the task card row's height.
     mockUseLists.mockReturnValue([
       lists,
@@ -130,7 +130,7 @@ describe("ListButton", () => {
       },
     ]);
 
-    render(
+    await render(
       <ListButton
         listId={null}
         contentColor="#000000"

@@ -63,7 +63,7 @@ describe("useJournals", () => {
     setTemplatePrompts([amPrompt("Highlight"), amPrompt("Grateful for")]);
     mockGetJournal.mockResolvedValue(null);
 
-    const { result } = renderHook(() => useJournals("2026-07-12"), {
+    const { result } = await renderHook(() => useJournals("2026-07-12"), {
       wrapper: createWrapper().wrapper,
     });
 
@@ -86,7 +86,7 @@ describe("useJournals", () => {
     ]);
     mockGetJournal.mockResolvedValue(null);
 
-    const { result } = renderHook(() => useJournals("2026-07-12"), {
+    const { result } = await renderHook(() => useJournals("2026-07-12"), {
       wrapper: createWrapper().wrapper,
     });
 
@@ -105,7 +105,7 @@ describe("useJournals", () => {
       mood: null,
     });
 
-    const { result } = renderHook(() => useJournals("2026-07-12"), {
+    const { result } = await renderHook(() => useJournals("2026-07-12"), {
       wrapper: createWrapper().wrapper,
     });
 
@@ -129,12 +129,12 @@ describe("useJournals", () => {
         mood: 4,
       });
 
-      const { result } = renderHook(() => useJournals("2026-07-12"), {
+      const { result } = await renderHook(() => useJournals("2026-07-12"), {
         wrapper: createWrapper().wrapper,
       });
       await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
-      act(() => result.current[1].upsertJournal({ mood: 4 }));
+      await act(() => result.current[1].upsertJournal({ mood: 4 }));
 
       await waitFor(() =>
         expect(mockUpsertJournal).toHaveBeenCalledWith(expect.anything(), {
@@ -158,12 +158,12 @@ describe("useJournals", () => {
         mood: 2,
       });
 
-      const { result } = renderHook(() => useJournals("2026-07-12"), {
+      const { result } = await renderHook(() => useJournals("2026-07-12"), {
         wrapper: createWrapper().wrapper,
       });
       await waitFor(() => expect(result.current[1].exists).toBe(true));
 
-      act(() => result.current[1].upsertJournal({ mood: 2 }));
+      await act(() => result.current[1].upsertJournal({ mood: 2 }));
 
       await waitFor(() =>
         expect(mockUpsertJournal).toHaveBeenCalledWith(expect.anything(), {
@@ -176,7 +176,7 @@ describe("useJournals", () => {
     it("defaults an unwritten day's mood to null", async () => {
       mockGetJournal.mockResolvedValue(null);
 
-      const { result } = renderHook(() => useJournals("2026-07-12"), {
+      const { result } = await renderHook(() => useJournals("2026-07-12"), {
         wrapper: createWrapper().wrapper,
       });
 
@@ -194,12 +194,12 @@ describe("useJournals", () => {
       mood: null,
     });
 
-    const { result } = renderHook(() => useJournals("2026-07-12"), {
+    const { result } = await renderHook(() => useJournals("2026-07-12"), {
       wrapper: createWrapper().wrapper,
     });
 
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
-    act(() => result.current[1].upsertJournal({ prompts }));
+    await act(() => result.current[1].upsertJournal({ prompts }));
 
     // Only the journal's own column travels now — the note no longer has to be
     // re-sent to survive the write (DEX-51).
@@ -218,12 +218,12 @@ describe("useJournals", () => {
       .mockRejectedValueOnce(new Error("blip"))
       .mockResolvedValueOnce({ date: "2026-07-12", prompts, mood: null });
 
-    const { result } = renderHook(() => useJournals("2026-07-12"), {
+    const { result } = await renderHook(() => useJournals("2026-07-12"), {
       wrapper: createWrapper().wrapper,
     });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
-    act(() => result.current[1].upsertJournal({ prompts }));
+    await act(() => result.current[1].upsertJournal({ prompts }));
 
     await waitFor(() => expect(mockUpsertJournal).toHaveBeenCalledTimes(2));
     // The successful retry's response is written to the cache.
@@ -236,12 +236,12 @@ describe("useJournals", () => {
     mockGetJournal.mockResolvedValue(null);
     mockUpsertJournal.mockRejectedValue(new Error("save failed"));
 
-    const { result } = renderHook(() => useJournals("2026-07-12"), {
+    const { result } = await renderHook(() => useJournals("2026-07-12"), {
       wrapper: createWrapper().wrapper,
     });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
-    act(() =>
+    await act(() =>
       result.current[1].upsertJournal({
         prompts: [{ prompt: "Highlight", response: "typed" }],
       }),
@@ -269,13 +269,15 @@ describe("useJournals", () => {
       }),
     );
 
-    const { result } = renderHook(() => useJournals("2026-07-12"), { wrapper });
+    const { result } = await renderHook(() => useJournals("2026-07-12"), {
+      wrapper,
+    });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
     expect(
       client.isMutating({ mutationKey: journalsMutationKey("2026-07-12") }),
     ).toBe(0);
-    act(() => result.current[1].upsertJournal({ prompts: [] }));
+    await act(() => result.current[1].upsertJournal({ prompts: [] }));
     await waitFor(() =>
       expect(
         client.isMutating({ mutationKey: journalsMutationKey("2026-07-12") }),

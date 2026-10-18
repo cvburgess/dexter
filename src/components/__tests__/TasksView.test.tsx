@@ -153,54 +153,54 @@ describe("TasksView", () => {
 
   const date = Temporal.PlainDate.from("2026-07-13");
 
-  it("shows an empty state when there are no tasks for the day", () => {
-    const screen = render(<TasksView date={date} />);
+  it("shows an empty state when there are no tasks for the day", async () => {
+    const screen = await render(<TasksView date={date} />);
     expect(screen.getByText("No tasks scheduled for this day.")).toBeTruthy();
   });
 
-  it("keeps the task list mounted on a day with no tasks (DEX-136)", () => {
+  it("keeps the task list mounted on a day with no tasks (DEX-136)", async () => {
     // UIKit resolves a tab's content scroll view once, at mount; an empty
     // state that replaced the scroller left the tab bar nothing to minimize.
-    const screen = render(<TasksView date={date} />);
+    const screen = await render(<TasksView date={date} />);
     expect(screen.UNSAFE_getByType(ScrollView)).toBeTruthy();
   });
 
-  it("does not show the empty state while tasks are loading", () => {
+  it("does not show the empty state while tasks are loading", async () => {
     mockUseTasks.mockReturnValue(tasksResult([], true));
-    const screen = render(<TasksView date={date} />);
+    const screen = await render(<TasksView date={date} />);
     expect(screen.queryByText("No tasks scheduled for this day.")).toBeNull();
   });
 
-  it("renders a card for every task returned for the day", () => {
+  it("renders a card for every task returned for the day", async () => {
     mockUseTasks.mockReturnValue(tasksResult([task()]));
-    const screen = render(<TasksView date={date} />);
+    const screen = await render(<TasksView date={date} />);
     expect(screen.getByText("Write the report")).toBeTruthy();
     expect(screen.queryByText("No tasks scheduled for this day.")).toBeNull();
   });
 
-  it("shows the habit tracker when habits are enabled", () => {
-    const screen = render(<TasksView date={date} />);
+  it("shows the habit tracker when habits are enabled", async () => {
+    const screen = await render(<TasksView date={date} />);
     expect(screen.getByText("habit-tracker")).toBeTruthy();
   });
 
-  it("hides the habit tracker when habits are disabled", () => {
+  it("hides the habit tracker when habits are disabled", async () => {
     mockUsePreferences.mockReturnValue(preferences({ enableHabits: false }));
-    const screen = render(<TasksView date={date} />);
+    const screen = await render(<TasksView date={date} />);
     expect(screen.queryByText("habit-tracker")).toBeNull();
   });
 
   // The host SafeAreaView omits the bottom edge, so the list must reserve
   // that inset itself or the last card can never clear the tab bar (DEX-91).
-  it("adds the safe-area bottom inset to the list's own bottom padding", () => {
+  it("adds the safe-area bottom inset to the list's own bottom padding", async () => {
     mockUseTasks.mockReturnValue(tasksResult([task()]));
-    const screen = renderWithBottomInset(34, <TasksView date={date} />);
+    const screen = await renderWithBottomInset(34, <TasksView date={date} />);
 
     expect(listContentStyle(screen).paddingBottom).toBe(50);
   });
 
-  it("keeps the list's vertical padding when there is no bottom inset", () => {
+  it("keeps the list's vertical padding when there is no bottom inset", async () => {
     mockUseTasks.mockReturnValue(tasksResult([task()]));
-    const screen = renderWithBottomInset(0, <TasksView date={date} />);
+    const screen = await renderWithBottomInset(0, <TasksView date={date} />);
 
     const style = listContentStyle(screen);
     expect(style.paddingBottom).toBe(16);
@@ -209,9 +209,9 @@ describe("TasksView", () => {
 
   // The side gutter belongs to whoever placed the list (DEX-115) — a gutter
   // here stacked on the caller's, unevenly spacing the Today panes.
-  it("leaves the list's side gutter to its container", () => {
+  it("leaves the list's side gutter to its container", async () => {
     mockUseTasks.mockReturnValue(tasksResult([task()]));
-    const screen = renderWithBottomInset(0, <TasksView date={date} />);
+    const screen = await renderWithBottomInset(0, <TasksView date={date} />);
 
     const style = listContentStyle(screen);
     expect(style.padding).toBeUndefined();
@@ -223,9 +223,9 @@ describe("TasksView", () => {
   it("deletes a one-off task once the confirmation is accepted", async () => {
     confirmAlert();
     mockUseTasks.mockReturnValue(tasksResult([task()]));
-    const screen = render(<TasksView date={date} />);
+    const screen = await render(<TasksView date={date} />);
 
-    fireEvent.press(screen.getByLabelText("delete-task-1"));
+    await fireEvent.press(screen.getByLabelText("delete-task-1"));
 
     await waitFor(() => expect(mockDeleteTask).toHaveBeenCalledWith("task-1"));
     expect(mockDeleteTemplate).not.toHaveBeenCalled();
@@ -234,9 +234,9 @@ describe("TasksView", () => {
   it("does not delete a task when the confirmation is cancelled", async () => {
     cancelAlert();
     mockUseTasks.mockReturnValue(tasksResult([task()]));
-    const screen = render(<TasksView date={date} />);
+    const screen = await render(<TasksView date={date} />);
 
-    fireEvent.press(screen.getByLabelText("delete-task-1"));
+    await fireEvent.press(screen.getByLabelText("delete-task-1"));
 
     await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
     expect(mockDeleteTask).not.toHaveBeenCalled();
@@ -251,9 +251,9 @@ describe("TasksView", () => {
     mockUseTasks.mockReturnValue(
       tasksResult([task({ templateId: "template-1" })]),
     );
-    const screen = render(<TasksView date={date} />);
+    const screen = await render(<TasksView date={date} />);
 
-    fireEvent.press(screen.getByLabelText("delete-task-1"));
+    await fireEvent.press(screen.getByLabelText("delete-task-1"));
 
     await waitFor(() => expect(mockDeleteTask).toHaveBeenCalledWith("task-1"));
     expect(mockDeleteTemplate).toHaveBeenCalledWith("template-1");
@@ -270,9 +270,9 @@ describe("TasksView", () => {
     mockUseTasks.mockReturnValue(
       tasksResult([task({ templateId: "template-1" })]),
     );
-    const screen = render(<TasksView date={date} />);
+    const screen = await render(<TasksView date={date} />);
 
-    fireEvent.press(screen.getByLabelText("delete-task-1"));
+    await fireEvent.press(screen.getByLabelText("delete-task-1"));
 
     await waitFor(() => expect(mockDeleteTask).toHaveBeenCalledWith("task-1"));
     expect(mockDeleteTemplate).not.toHaveBeenCalled();

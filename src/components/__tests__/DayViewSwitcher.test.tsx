@@ -80,8 +80,8 @@ describe("DayViewSwitcher", () => {
     mockIconMenu.mockClear();
   });
 
-  it("shows the current view's icon in the trigger", () => {
-    const screen = render(
+  it("shows the current view's icon in the trigger", async () => {
+    const screen = await render(
       <DayViewSwitcher
         view="notes"
         onChangeView={jest.fn()}
@@ -93,8 +93,8 @@ describe("DayViewSwitcher", () => {
     expect(screen.getByText("note.text")).toBeTruthy();
   });
 
-  it("forwards `attention` to the trigger button as its indicator", () => {
-    render(
+  it("forwards `attention` to the trigger button as its indicator", async () => {
+    await render(
       <DayViewSwitcher
         view="tasks"
         onChangeView={jest.fn()}
@@ -109,8 +109,8 @@ describe("DayViewSwitcher", () => {
     );
   });
 
-  it("leaves the indicator unset when `attention` is omitted", () => {
-    render(
+  it("leaves the indicator unset when `attention` is omitted", async () => {
+    await render(
       <DayViewSwitcher
         view="tasks"
         onChangeView={jest.fn()}
@@ -124,8 +124,8 @@ describe("DayViewSwitcher", () => {
     );
   });
 
-  it("tints the Backlog option warning-yellow when attention is set", () => {
-    render(
+  it("tints the Backlog option warning-yellow when attention is set", async () => {
+    await render(
       <DayViewSwitcher
         view="tasks"
         onChangeView={jest.fn()}
@@ -146,8 +146,8 @@ describe("DayViewSwitcher", () => {
     );
   });
 
-  it("leaves the Backlog option un-tinted when attention is not set", () => {
-    render(
+  it("leaves the Backlog option un-tinted when attention is not set", async () => {
+    await render(
       <DayViewSwitcher
         view="tasks"
         onChangeView={jest.fn()}

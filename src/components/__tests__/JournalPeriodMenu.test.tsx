@@ -55,8 +55,8 @@ describe("journalPeriodSections", () => {
 describe("JournalPeriodMenu", () => {
   // The `MenuView` double drops every prop, so the menu's own props are the
   // seam. This is all a screen reader gets: which prompt, and which ritual.
-  it("names the prompt and its current ritual", () => {
-    const screen = render(
+  it("names the prompt and its current ritual", async () => {
+    const screen = await render(
       <JournalPeriodMenu period="pm" promptNumber={2} onChange={jest.fn()} />,
     );
 
@@ -67,8 +67,8 @@ describe("JournalPeriodMenu", () => {
 
   // Left to flex, the native menu host reports zero height and collapses the
   // row — the note `StatusButton` and `ListButton` both carry.
-  it("pins the menu host to the trigger's exact size", () => {
-    const screen = render(
+  it("pins the menu host to the trigger's exact size", async () => {
+    const screen = await render(
       <JournalPeriodMenu period="am" promptNumber={1} onChange={jest.fn()} />,
     );
 

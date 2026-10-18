@@ -40,10 +40,10 @@ describe("useToday (DEX-161)", () => {
 
   // The bug this hook exists for: the app was open before midnight, the device
   // slept, and the timer fired however late. Foregrounding has to correct it.
-  it("moves to the new day when the app returns to the foreground", () => {
+  it("moves to the new day when the app returns to the foreground", async () => {
     const { result } = renderToday();
 
-    act(() => {
+    await act(() => {
       jest.setSystemTime(localTime(15, 8));
     });
     foreground("active");
@@ -52,23 +52,23 @@ describe("useToday (DEX-161)", () => {
   });
 
   // The other half: nobody backgrounded anything, the app just sat there.
-  it("moves to the new day on its own while the app stays open", () => {
+  it("moves to the new day on its own while the app stays open", async () => {
     const { result } = renderToday();
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(16 * 60 * 60 * 1000);
     });
 
     expect(result.current.toString()).toBe("2026-08-15");
   });
 
-  it("keeps re-arming, day after day", () => {
+  it("keeps re-arming, day after day", async () => {
     const { result } = renderToday();
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(16 * 60 * 60 * 1000);
     });
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(24 * 60 * 60 * 1000);
     });
 
@@ -77,12 +77,12 @@ describe("useToday (DEX-161)", () => {
 
   // usePublishViewedDay keys a focus effect on this value — a fresh PlainDate
   // per render would tear it down and momentarily clear the nav rail's "+".
-  it("hands back the same object until the day actually changes", () => {
+  it("hands back the same object until the day actually changes", async () => {
     const { result, rerender } = renderToday();
     const first = result.current;
 
     rerender(undefined);
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(60 * 60 * 1000);
     });
     foreground("background");
@@ -91,11 +91,11 @@ describe("useToday (DEX-161)", () => {
     expect(result.current).toBe(first);
   });
 
-  it("stops watching once unmounted", () => {
+  it("stops watching once unmounted", async () => {
     const { result, unmount } = renderToday();
     unmount();
 
-    act(() => {
+    await act(() => {
       jest.setSystemTime(localTime(15, 8));
       jest.advanceTimersByTime(24 * 60 * 60 * 1000);
     });

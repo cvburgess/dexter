@@ -42,8 +42,8 @@ describe("SettingsSidebar", () => {
     mockPathname = "/settings/account";
   });
 
-  it("marks the routed destination as selected", () => {
-    render(<SettingsSidebar />);
+  it("marks the routed destination as selected", async () => {
+    await render(<SettingsSidebar />);
 
     expect(
       screen.getByTestId("settings-sidebar-account").props.accessibilityState
@@ -57,25 +57,25 @@ describe("SettingsSidebar", () => {
 
   // DEX-110: the active row sinks into the sidebar rather than a solid
   // primary slab — surfaceSunken is the one step down background allows.
-  it("fills the selected row with the sunken surface, not the primary color", () => {
+  it("fills the selected row with the sunken surface, not the primary color", async () => {
     const colors = themeColors();
-    render(<SettingsSidebar />);
+    await render(<SettingsSidebar />);
 
     expect(rowStyle("account").backgroundColor).toBe(colors.surfaceSunken);
     expect(rowStyle("account").backgroundColor).not.toBe(colors.primary);
   });
 
-  it("leaves an unselected row unfilled", () => {
-    render(<SettingsSidebar />);
+  it("leaves an unselected row unfilled", async () => {
+    await render(<SettingsSidebar />);
 
     expect(rowStyle("appearance").backgroundColor).toBe("transparent");
   });
 
   // Pins both from one contentColor const — primary, not the primaryContent
   // that paired with the old primary fill (DEX-110).
-  it("inks the selected row's icon and label with the primary color", () => {
+  it("inks the selected row's icon and label with the primary color", async () => {
     const colors = themeColors();
-    render(<SettingsSidebar />);
+    await render(<SettingsSidebar />);
 
     const icon = StyleSheet.flatten(
       screen.getByTestId("icon-person-circle-outline").props
@@ -86,17 +86,17 @@ describe("SettingsSidebar", () => {
     expect(labelColor("Account")).toBe(colors.primary);
   });
 
-  it("inks an unselected row with the ordinary text color", () => {
+  it("inks an unselected row with the ordinary text color", async () => {
     const colors = themeColors();
-    render(<SettingsSidebar />);
+    await render(<SettingsSidebar />);
 
     expect(labelColor("Appearance")).toBe(colors.text);
   });
 
   // Asserted against each other, not a literal — alignment is the
   // requirement, whichever token it ends up being.
-  it("lines the heading up with the rows' content, not the pane's edge", () => {
-    render(<SettingsSidebar />);
+  it("lines the heading up with the rows' content, not the pane's edge", async () => {
+    await render(<SettingsSidebar />);
 
     const heading = StyleSheet.flatten(
       screen.getByText("Settings").props.style as TextStyle[],

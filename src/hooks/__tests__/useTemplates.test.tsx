@@ -82,7 +82,7 @@ const createWrapper = () => {
 
 const renderUseTemplates = async () => {
   const { settled, wrapper } = createWrapper();
-  const view = renderHook(() => useTemplates(), { wrapper });
+  const view = await renderHook(() => useTemplates(), { wrapper });
   await waitFor(() => expect(view.result.current[1].isLoading).toBe(false));
   return { ...view, settled };
 };
@@ -105,7 +105,7 @@ describe("useTemplates", () => {
     mockGetTemplates.mockRejectedValue(new Error("network error"));
 
     const { wrapper } = createWrapper();
-    const { result } = renderHook(() => useTemplates(), { wrapper });
+    const { result } = await renderHook(() => useTemplates(), { wrapper });
 
     await waitFor(() => expect(result.current[1].isError).toBe(true));
     expect(result.current[0]).toEqual([]);
@@ -116,12 +116,12 @@ describe("useTemplates", () => {
     mockGetTemplates.mockRejectedValueOnce(new Error("network error"));
 
     const { wrapper } = createWrapper();
-    const { result } = renderHook(() => useTemplates(), { wrapper });
+    const { result } = await renderHook(() => useTemplates(), { wrapper });
     await waitFor(() => expect(result.current[1].isError).toBe(true));
 
     const template = { id: "template-1", title: "Water the plants" };
     mockGetTemplates.mockResolvedValue([template as TTemplate]);
-    act(() => result.current[1].refetch());
+    await act(() => result.current[1].refetch());
 
     await waitFor(() =>
       expect(result.current[1].getTemplateById("template-1")).toEqual(template),
@@ -201,7 +201,7 @@ describe("useTemplates", () => {
         } as TTemplate);
         const view = await renderUseTemplates();
 
-        act(() => {
+        await act(() => {
           view.result.current[1].createTemplate({
             template: { title: "Water the plants", priority: task.priority },
             linkTaskId: task.id,
@@ -234,7 +234,7 @@ describe("useTemplates", () => {
       } as unknown as TTemplate);
       const view = await renderUseTemplates();
 
-      act(() => {
+      await act(() => {
         view.result.current[1].createTemplate({
           template: { title: "Water the plants", priority: task.priority },
         });

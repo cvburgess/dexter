@@ -70,11 +70,11 @@ const baseTask: TTask = {
   url: null,
 };
 
-const renderCard = (
+const renderCard = async (
   task: TTask,
   props: Partial<React.ComponentProps<typeof TaskCard>> = {},
 ) =>
-  render(
+  await render(
     <TaskCard
       task={task}
       onUpdate={jest.fn()}
@@ -137,8 +137,8 @@ describe("TaskCard subtasks", () => {
     mockIconMenu.mockClear();
   });
 
-  it("renders each subtask inside the parent's card, not as its own card", () => {
-    renderCard(baseTask);
+  it("renders each subtask inside the parent's card, not as its own card", async () => {
+    await renderCard(baseTask);
 
     expect(screen.getByTestId("subtask-row-sub-1")).toBeTruthy();
     expect(screen.getByTestId("subtask-row-sub-2")).toBeTruthy();
@@ -147,47 +147,47 @@ describe("TaskCard subtasks", () => {
   });
 
   describe("inline title editing", () => {
-    it("swaps the title to an input when tapped", () => {
-      renderCard(baseTask);
+    it("swaps the title to an input when tapped", async () => {
+      await renderCard(baseTask);
 
       expect(screen.queryByTestId("subtask-title-sub-1-input")).toBeNull();
-      fireEvent.press(screen.getByTestId("subtask-title-sub-1"));
+      await fireEvent.press(screen.getByTestId("subtask-title-sub-1"));
 
       expect(screen.getByTestId("subtask-title-sub-1-input")).toBeTruthy();
     });
 
     // The outgoing input's unmount cleanup commits *after* `editing` moved on,
     // so a commit clearing edit mode outright would cancel the edit just begun.
-    it("hands the edit over when a subtask is tapped mid-rename of the title", () => {
-      renderCard(baseTask);
+    it("hands the edit over when a subtask is tapped mid-rename of the title", async () => {
+      await renderCard(baseTask);
 
-      fireEvent.press(screen.getByTestId("task-title-task-1"));
+      await fireEvent.press(screen.getByTestId("task-title-task-1"));
       expect(screen.getByTestId("task-title-task-1-input")).toBeTruthy();
 
-      fireEvent.press(screen.getByTestId("subtask-title-sub-1"));
+      await fireEvent.press(screen.getByTestId("subtask-title-sub-1"));
 
       expect(screen.getByTestId("subtask-title-sub-1-input")).toBeTruthy();
     });
 
-    it("hands the edit back when the title is tapped mid-rename of a subtask", () => {
-      renderCard(baseTask);
+    it("hands the edit back when the title is tapped mid-rename of a subtask", async () => {
+      await renderCard(baseTask);
 
-      fireEvent.press(screen.getByTestId("subtask-title-sub-1"));
+      await fireEvent.press(screen.getByTestId("subtask-title-sub-1"));
       expect(screen.getByTestId("subtask-title-sub-1-input")).toBeTruthy();
 
-      fireEvent.press(screen.getByTestId("task-title-task-1"));
+      await fireEvent.press(screen.getByTestId("task-title-task-1"));
 
       expect(screen.getByTestId("task-title-task-1-input")).toBeTruthy();
     });
 
-    it("saves an edited subtask title on blur", () => {
+    it("saves an edited subtask title on blur", async () => {
       const onUpdate = jest.fn();
-      renderCard(baseTask, { onUpdate });
+      await renderCard(baseTask, { onUpdate });
 
-      fireEvent.press(screen.getByTestId("subtask-title-sub-1"));
+      await fireEvent.press(screen.getByTestId("subtask-title-sub-1"));
       const input = screen.getByTestId("subtask-title-sub-1-input");
-      fireEvent.changeText(input, "Draft the outline");
-      fireEvent(input, "blur");
+      await fireEvent.changeText(input, "Draft the outline");
+      await fireEvent(input, "blur");
 
       expect(onUpdate).toHaveBeenCalledWith({
         subtasks: [
@@ -197,14 +197,14 @@ describe("TaskCard subtasks", () => {
       });
     });
 
-    it("reverts rather than blanking when an existing title is emptied", () => {
+    it("reverts rather than blanking when an existing title is emptied", async () => {
       const onUpdate = jest.fn();
-      renderCard(baseTask, { onUpdate });
+      await renderCard(baseTask, { onUpdate });
 
-      fireEvent.press(screen.getByTestId("subtask-title-sub-1"));
+      await fireEvent.press(screen.getByTestId("subtask-title-sub-1"));
       const input = screen.getByTestId("subtask-title-sub-1-input");
-      fireEvent.changeText(input, "   ");
-      fireEvent(input, "blur");
+      await fireEvent.changeText(input, "   ");
+      await fireEvent(input, "blur");
 
       // Nothing is written, and the row survives — a titleless subtask would be
       // unidentifiable, which is the opposite of the just-added-row rule below.
@@ -212,79 +212,79 @@ describe("TaskCard subtasks", () => {
       expect(screen.getByTestId("subtask-row-sub-1")).toBeTruthy();
     });
 
-    it("edits the parent task's title too", () => {
+    it("edits the parent task's title too", async () => {
       const onUpdate = jest.fn();
-      renderCard(baseTask, { onUpdate });
+      await renderCard(baseTask, { onUpdate });
 
-      fireEvent.press(screen.getByTestId("task-title-task-1"));
+      await fireEvent.press(screen.getByTestId("task-title-task-1"));
       const input = screen.getByTestId("task-title-task-1-input");
-      fireEvent.changeText(input, "Write the annual report");
-      fireEvent(input, "blur");
+      await fireEvent.changeText(input, "Write the annual report");
+      await fireEvent(input, "blur");
 
       expect(onUpdate).toHaveBeenCalledWith({
         title: "Write the annual report",
       });
     });
 
-    it("reverts rather than blanking when the parent title is emptied", () => {
+    it("reverts rather than blanking when the parent title is emptied", async () => {
       const onUpdate = jest.fn();
-      renderCard(baseTask, { onUpdate });
+      await renderCard(baseTask, { onUpdate });
 
-      fireEvent.press(screen.getByTestId("task-title-task-1"));
+      await fireEvent.press(screen.getByTestId("task-title-task-1"));
       const input = screen.getByTestId("task-title-task-1-input");
-      fireEvent.changeText(input, "");
-      fireEvent(input, "blur");
+      await fireEvent.changeText(input, "");
+      await fireEvent(input, "blur");
 
       expect(onUpdate).not.toHaveBeenCalled();
     });
 
-    it("does not write when a title is committed unchanged", () => {
+    it("does not write when a title is committed unchanged", async () => {
       const onUpdate = jest.fn();
-      renderCard(baseTask, { onUpdate });
+      await renderCard(baseTask, { onUpdate });
 
-      fireEvent.press(screen.getByTestId("task-title-task-1"));
-      fireEvent(screen.getByTestId("task-title-task-1-input"), "blur");
+      await fireEvent.press(screen.getByTestId("task-title-task-1"));
+      await fireEvent(screen.getByTestId("task-title-task-1-input"), "blur");
 
       expect(onUpdate).not.toHaveBeenCalled();
     });
 
     // Leaving edit mode is synchronous, the optimistic write a tick behind —
     // reading `task.title` there blinks the pre-edit title back for a frame.
-    it("shows the committed title before the write lands", () => {
-      renderCard(baseTask);
+    it("shows the committed title before the write lands", async () => {
+      await renderCard(baseTask);
 
-      fireEvent.press(screen.getByTestId("task-title-task-1"));
+      await fireEvent.press(screen.getByTestId("task-title-task-1"));
       const input = screen.getByTestId("task-title-task-1-input");
-      fireEvent.changeText(input, "Write the annual report");
-      fireEvent(input, "blur");
+      await fireEvent.changeText(input, "Write the annual report");
+      await fireEvent(input, "blur");
 
       expect(screen.getByTestId("task-title-task-1")).toHaveTextContent(
         "Write the annual report",
       );
     });
 
-    it("shows a committed subtask title before the write lands", () => {
-      renderCard(baseTask);
+    it("shows a committed subtask title before the write lands", async () => {
+      await renderCard(baseTask);
 
-      fireEvent.press(screen.getByTestId("subtask-title-sub-1"));
+      await fireEvent.press(screen.getByTestId("subtask-title-sub-1"));
       const input = screen.getByTestId("subtask-title-sub-1-input");
-      fireEvent.changeText(input, "Draft the outline");
-      fireEvent(input, "blur");
+      await fireEvent.changeText(input, "Draft the outline");
+      await fireEvent(input, "blur");
 
       expect(screen.getByTestId("subtask-title-sub-1")).toHaveTextContent(
         "Draft the outline",
       );
     });
 
-    it("drops the held title once the task catches up", () => {
+    it("drops the held title once the task catches up", async () => {
       // The held value is not an overlay that lingers: a rename arriving from
       // another device after ours lands must win, not be masked by it.
-      const { rerender } = renderCard(baseTask);
+      const { rerender } = await renderCard(baseTask);
 
-      fireEvent.press(screen.getByTestId("task-title-task-1"));
+      await fireEvent.press(screen.getByTestId("task-title-task-1"));
       const input = screen.getByTestId("task-title-task-1-input");
-      fireEvent.changeText(input, "Write the annual report");
-      fireEvent(input, "blur");
+      await fireEvent.changeText(input, "Write the annual report");
+      await fireEvent(input, "blur");
 
       rerender(
         <TaskCard
@@ -301,22 +301,22 @@ describe("TaskCard subtasks", () => {
       );
     });
 
-    it("is disabled on a completed task", () => {
-      renderCard({ ...baseTask, status: ETaskStatus.DONE });
+    it("is disabled on a completed task", async () => {
+      await renderCard({ ...baseTask, status: ETaskStatus.DONE });
 
-      fireEvent.press(screen.getByTestId("task-title-task-1"));
+      await fireEvent.press(screen.getByTestId("task-title-task-1"));
 
       expect(screen.queryByTestId("task-title-task-1-input")).toBeNull();
     });
 
-    it("commits a half-typed title when the row unmounts mid-edit", () => {
+    it("commits a half-typed title when the row unmounts mid-edit", async () => {
       // FlashList recycles rows as they scroll out; without this the edit
       // would be silently discarded.
       const onUpdate = jest.fn();
-      const { unmount } = renderCard(baseTask, { onUpdate });
+      const { unmount } = await renderCard(baseTask, { onUpdate });
 
-      fireEvent.press(screen.getByTestId("task-title-task-1"));
-      fireEvent.changeText(
+      await fireEvent.press(screen.getByTestId("task-title-task-1"));
+      await fireEvent.changeText(
         screen.getByTestId("task-title-task-1-input"),
         "Half typed",
       );
@@ -327,9 +327,9 @@ describe("TaskCard subtasks", () => {
   });
 
   describe("adding subtasks", () => {
-    it("shows an empty focused row before anything is written", () => {
+    it("shows an empty focused row before anything is written", async () => {
       const onUpdate = jest.fn();
-      renderCard(baseTask, { onUpdate });
+      await renderCard(baseTask, { onUpdate });
 
       addSubtask();
 
@@ -338,14 +338,14 @@ describe("TaskCard subtasks", () => {
       expect(onUpdate).not.toHaveBeenCalled();
     });
 
-    it("persists the new subtask once it has a title", () => {
+    it("persists the new subtask once it has a title", async () => {
       const onUpdate = jest.fn();
-      renderCard(baseTask, { onUpdate });
+      await renderCard(baseTask, { onUpdate });
 
       addSubtask();
       const input = screen.getByPlaceholderText("Subtask");
-      fireEvent.changeText(input, "Proofread");
-      fireEvent(input, "blur");
+      await fireEvent.changeText(input, "Proofread");
+      await fireEvent(input, "blur");
 
       expect(onUpdate).toHaveBeenCalledTimes(1);
       expect(onUpdate).toHaveBeenCalledWith({
@@ -359,61 +359,61 @@ describe("TaskCard subtasks", () => {
 
     // `renderCard` freezes the prop, so dropping the row at commit time would
     // blink it out of the checklist and back in when the write lands.
-    it("keeps a just-added row on screen until the write lands", () => {
-      renderCard(baseTask);
+    it("keeps a just-added row on screen until the write lands", async () => {
+      await renderCard(baseTask);
 
       addSubtask();
       const input = screen.getByPlaceholderText("Subtask");
-      fireEvent.changeText(input, "Proofread");
-      fireEvent(input, "blur");
+      await fireEvent.changeText(input, "Proofread");
+      await fireEvent(input, "blur");
 
       expect(screen.getAllByTestId(/^subtask-row-/)).toHaveLength(3);
       expect(screen.getByText("Proofread")).toBeTruthy();
     });
 
-    it("hands the row over to the cache without doubling it", () => {
+    it("hands the row over to the cache without doubling it", async () => {
       // `LiveCard` writes straight back, so the row arrives from the task prop
       // in the same commit the local copy is still held in.
-      render(<LiveCard initial={baseTask} />);
+      await render(<LiveCard initial={baseTask} />);
 
       addSubtask();
       const input = screen.getByPlaceholderText("Subtask");
-      fireEvent.changeText(input, "Proofread");
-      fireEvent(input, "blur");
+      await fireEvent.changeText(input, "Proofread");
+      await fireEvent(input, "blur");
 
       expect(screen.getAllByTestId(/^subtask-row-/)).toHaveLength(3);
       expect(screen.getAllByText("Proofread")).toHaveLength(1);
     });
 
-    it("discards a just-added row left empty, instead of reverting it", () => {
+    it("discards a just-added row left empty, instead of reverting it", async () => {
       const onUpdate = jest.fn();
-      renderCard(baseTask, { onUpdate });
+      await renderCard(baseTask, { onUpdate });
 
       addSubtask();
-      fireEvent(screen.getByPlaceholderText("Subtask"), "blur");
+      await fireEvent(screen.getByPlaceholderText("Subtask"), "blur");
 
       expect(screen.getAllByTestId(/^subtask-row-/)).toHaveLength(2);
       expect(onUpdate).not.toHaveBeenCalled();
     });
 
-    it("chains another empty row while keeping the title just committed", () => {
+    it("chains another empty row while keeping the title just committed", async () => {
       // Commit and append happen in one event; an append reading pre-commit
       // state would blank the typed title and write it back empty.
       const onWrite = jest.fn<void, [Omit<TUpdateTask, "id">]>();
-      render(<LiveCard initial={baseTask} onWrite={onWrite} />);
+      await render(<LiveCard initial={baseTask} onWrite={onWrite} />);
 
       addSubtask();
       const input = screen.getByPlaceholderText("Subtask");
-      fireEvent.changeText(input, "Proofread");
-      fireEvent(input, "submitEditing");
+      await fireEvent.changeText(input, "Proofread");
+      await fireEvent(input, "submitEditing");
 
       expect(screen.getByText("Proofread")).toBeTruthy();
       expect(screen.getAllByTestId(/^subtask-row-/)).toHaveLength(4);
 
       // And the next row's commit must not carry the blank away with it.
       const next = screen.getByPlaceholderText("Subtask");
-      fireEvent.changeText(next, "Format");
-      fireEvent(next, "blur");
+      await fireEvent.changeText(next, "Format");
+      await fireEvent(next, "blur");
 
       const lastWrite = onWrite.mock.calls.at(-1)?.[0];
       const titles = lastWrite?.subtasks?.map(({ title }) => title);
@@ -425,12 +425,12 @@ describe("TaskCard subtasks", () => {
       ]);
     });
 
-    it("never persists an untitled row", () => {
+    it("never persists an untitled row", async () => {
       const onWrite = jest.fn<void, [Omit<TUpdateTask, "id">]>();
-      render(<LiveCard initial={baseTask} onWrite={onWrite} />);
+      await render(<LiveCard initial={baseTask} onWrite={onWrite} />);
 
       addSubtask();
-      fireEvent(screen.getByPlaceholderText("Subtask"), "blur");
+      await fireEvent(screen.getByPlaceholderText("Subtask"), "blur");
 
       // A title:"" entry would fail the MCP server's validation and silently
       // disable that task's completion sweep from then on.
@@ -441,8 +441,8 @@ describe("TaskCard subtasks", () => {
       }
     });
 
-    it("keeps the second row when Add subtask is tapped twice with nothing typed", () => {
-      render(<LiveCard initial={baseTask} />);
+    it("keeps the second row when Add subtask is tapped twice with nothing typed", async () => {
+      await render(<LiveCard initial={baseTask} />);
 
       addSubtask();
       addSubtask();
@@ -453,20 +453,20 @@ describe("TaskCard subtasks", () => {
       expect(screen.getAllByTestId(/^subtask-row-/)).toHaveLength(3);
     });
 
-    it("ends the chain when return commits an empty row", () => {
-      renderCard(baseTask, { onUpdate: jest.fn() });
+    it("ends the chain when return commits an empty row", async () => {
+      await renderCard(baseTask, { onUpdate: jest.fn() });
 
       addSubtask();
-      fireEvent(screen.getByPlaceholderText("Subtask"), "submitEditing");
+      await fireEvent(screen.getByPlaceholderText("Subtask"), "submitEditing");
 
       expect(screen.getAllByTestId(/^subtask-row-/)).toHaveLength(2);
     });
   });
 
-  it("promotes a subtask to a task and removes it from the parent", () => {
+  it("promotes a subtask to a task and removes it from the parent", async () => {
     const onUpdate = jest.fn();
     const onPromoteSubtask = jest.fn();
-    renderCard(baseTask, { onUpdate, onPromoteSubtask });
+    await renderCard(baseTask, { onUpdate, onPromoteSubtask });
 
     selectOption("Subtask actions", 0, "promote");
 
@@ -486,9 +486,9 @@ describe("TaskCard subtasks", () => {
     });
   });
 
-  it("deletes only the chosen subtask", () => {
+  it("deletes only the chosen subtask", async () => {
     const onUpdate = jest.fn();
-    renderCard(baseTask, { onUpdate });
+    await renderCard(baseTask, { onUpdate });
 
     selectOption("Subtask actions", 1, "delete");
 
@@ -499,11 +499,11 @@ describe("TaskCard subtasks", () => {
 
   // DEX-153: one tap, no menu — and the whole array is rewritten, because that
   // is the unit the jsonb column stores.
-  it("writes the whole array when a subtask is checked off", () => {
+  it("writes the whole array when a subtask is checked off", async () => {
     const onUpdate = jest.fn();
-    renderCard(baseTask, { onUpdate });
+    await renderCard(baseTask, { onUpdate });
 
-    fireEvent.press(screen.getAllByLabelText("Subtask complete")[0]);
+    await fireEvent.press(screen.getAllByLabelText("Subtask complete")[0]);
 
     expect(onUpdate).toHaveBeenCalledWith({
       subtasks: [
@@ -513,11 +513,11 @@ describe("TaskCard subtasks", () => {
     });
   });
 
-  it("unchecks a subtask that was already done", () => {
+  it("unchecks a subtask that was already done", async () => {
     const onUpdate = jest.fn();
-    renderCard(baseTask, { onUpdate });
+    await renderCard(baseTask, { onUpdate });
 
-    fireEvent.press(screen.getAllByLabelText("Subtask complete")[1]);
+    await fireEvent.press(screen.getAllByLabelText("Subtask complete")[1]);
 
     expect(onUpdate).toHaveBeenCalledWith({
       subtasks: [
@@ -530,14 +530,14 @@ describe("TaskCard subtasks", () => {
   describe("a completed parent's checklist is frozen", () => {
     const done: TTask = { ...baseTask, status: ETaskStatus.DONE };
 
-    it("still shows the subtasks", () => {
-      renderCard(done);
+    it("still shows the subtasks", async () => {
+      await renderCard(done);
 
       expect(screen.getByTestId("subtask-row-sub-1")).toBeTruthy();
     });
 
-    it("offers no checkbox or row actions", () => {
-      renderCard(done);
+    it("offers no checkbox or row actions", async () => {
+      await renderCard(done);
 
       // Unchecking a swept subtask would restore the done-parent-with-open-
       // children state the sweep exists to prevent.
@@ -548,10 +548,10 @@ describe("TaskCard subtasks", () => {
       expect(labels).not.toContain("Subtask actions");
     });
 
-    it("does not enter edit mode when a subtask title is tapped", () => {
-      renderCard(done);
+    it("does not enter edit mode when a subtask title is tapped", async () => {
+      await renderCard(done);
 
-      fireEvent.press(screen.getByTestId("subtask-title-sub-1"));
+      await fireEvent.press(screen.getByTestId("subtask-title-sub-1"));
 
       expect(screen.queryByTestId("subtask-title-sub-1-input")).toBeNull();
     });

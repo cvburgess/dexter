@@ -140,8 +140,8 @@ describe("useHoroscopeAudio", () => {
     expect(decodeCallsOnImport).toBe(1);
   });
 
-  it("does nothing at all until enabled", () => {
-    renderHook(() => useHoroscopeAudio(false));
+  it("does nothing at all until enabled", async () => {
+    await renderHook(() => useHoroscopeAudio(false));
 
     expect(mockAudioContext).not.toHaveBeenCalled();
     expect(mockSources).toHaveLength(0);
@@ -149,7 +149,7 @@ describe("useHoroscopeAudio", () => {
 
   // The decode is a module-scope promise; only its settling starts playback.
   it("builds nothing until the decode settles", async () => {
-    renderHook(() => useHoroscopeAudio(true));
+    await renderHook(() => useHoroscopeAudio(true));
 
     await act(async () => {});
 
@@ -161,7 +161,7 @@ describe("useHoroscopeAudio", () => {
   // ramp landing on the end of the buffer, and nothing ticking in between.
   it("starts at its ceiling with the fades scheduled up front", async () => {
     const interval = jest.spyOn(global, "setInterval");
-    renderHook(() => useHoroscopeAudio(true));
+    await renderHook(() => useHoroscopeAudio(true));
     await settleDecode();
 
     expect(mockSources).toHaveLength(1);
@@ -187,10 +187,10 @@ describe("useHoroscopeAudio", () => {
   });
 
   it("fades out on the audio clock rather than cutting, then closes the context", async () => {
-    const { unmount } = renderHook(() => useHoroscopeAudio(true));
+    const { unmount } = await renderHook(() => useHoroscopeAudio(true));
     await settleDecode();
 
-    unmount();
+    await unmount();
 
     const gain = mockGains[0].gain;
     // The hold cancels the still-scheduled tail ramp; the fade rides from
@@ -215,13 +215,13 @@ describe("useHoroscopeAudio", () => {
   // Pins that cleanup is driven by the hook's input, not only teardown; the
   // mock stands focus in as mount, so it can't catch a plain-useEffect regression.
   it("fades when it stops being enabled, not only when it goes away", async () => {
-    const { rerender } = renderHook<void, { enabled: boolean }>(
+    const { rerender } = await renderHook<void, { enabled: boolean }>(
       ({ enabled }) => useHoroscopeAudio(enabled),
       { initialProps: { enabled: true } },
     );
     await settleDecode();
 
-    rerender({ enabled: false });
+    await rerender({ enabled: false });
 
     expect(mockGains[0].gain.cancelAndHoldAtTime).toHaveBeenCalled();
     jest.advanceTimersByTime(EXIT_FADE_MS);
@@ -231,15 +231,15 @@ describe("useHoroscopeAudio", () => {
   // Returning inside the exit fade used to leave the outgoing player running
   // while a new one started — the same track over itself at two positions.
   it("never leaves two tracks audible at once", async () => {
-    const first = renderHook(() => useHoroscopeAudio(true));
+    const first = await renderHook(() => useHoroscopeAudio(true));
     await settleDecode();
-    first.unmount();
+    await first.unmount();
 
     // Half a second into the fade, so the first context is still open.
     jest.advanceTimersByTime(500);
     expect(mockContexts[0].close).not.toHaveBeenCalled();
 
-    renderHook(() => useHoroscopeAudio(true));
+    await renderHook(() => useHoroscopeAudio(true));
     await settleDecode();
 
     // Re-entry cuts the fading context at once rather than layering the same
@@ -256,8 +256,8 @@ describe("useHoroscopeAudio", () => {
   // Cleanup flags the pending continuation since the effect can't await the
   // decode — otherwise a blur during load leaves a source with no cleanup.
   it("does not start playback when the step blurs before the decode settles", async () => {
-    const { unmount } = renderHook(() => useHoroscopeAudio(true));
-    unmount();
+    const { unmount } = await renderHook(() => useHoroscopeAudio(true));
+    await unmount();
 
     await settleDecode();
 

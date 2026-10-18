@@ -126,10 +126,10 @@ describe("useWidgetSync", () => {
     mockDailyHabitsState.isLoading = false;
   });
 
-  it("publishes a snapshot once both queries have settled", () => {
+  it("publishes a snapshot once both queries have settled", async () => {
     mockTasksState.tasks = [task({ scheduledFor: "2026-07-16" })];
 
-    renderHook(() => useWidgetSync());
+    await renderHook(() => useWidgetSync());
 
     expect(mockWidgets.writeWidgetSnapshot).toHaveBeenCalledTimes(1);
     const [snapshot] = mockWidgets.writeWidgetSnapshot.mock.calls[0];
@@ -137,84 +137,84 @@ describe("useWidgetSync", () => {
     expect(snapshot.light.background).toBe("#fffbf4");
   });
 
-  it("publishes nothing while the tasks query is still loading", () => {
+  it("publishes nothing while the tasks query is still loading", async () => {
     // The placeholder is `[]`, which would put an empty "All done!" on the home
     // screen and then spend a second widget reload replacing it.
     mockTasksState.isLoading = true;
 
-    renderHook(() => useWidgetSync());
+    await renderHook(() => useWidgetSync());
 
     expect(mockWidgets.writeWidgetSnapshot).not.toHaveBeenCalled();
   });
 
-  it("publishes nothing while the theme preferences are still loading", () => {
+  it("publishes nothing while the theme preferences are still loading", async () => {
     mockThemeState.isLoading = true;
 
-    renderHook(() => useWidgetSync());
+    await renderHook(() => useWidgetSync());
 
     expect(mockWidgets.writeWidgetSnapshot).not.toHaveBeenCalled();
   });
 
-  it("does not republish when the payload is unchanged", () => {
+  it("does not republish when the payload is unchanged", async () => {
     mockTasksState.tasks = [task({ scheduledFor: "2026-07-16" })];
 
-    const { rerender } = renderHook(() => useWidgetSync());
+    const { rerender } = await renderHook(() => useWidgetSync());
     // A new array with equal contents — what a refetch that changed nothing
     // hands back. Widget reloads are metered, so this must cost nothing.
     mockTasksState.tasks = [task({ scheduledFor: "2026-07-16" })];
-    rerender({});
+    await rerender({});
 
     expect(mockWidgets.writeWidgetSnapshot).toHaveBeenCalledTimes(1);
   });
 
-  it("republishes when the theme changes", () => {
-    const { rerender } = renderHook(() => useWidgetSync());
+  it("republishes when the theme changes", async () => {
+    const { rerender } = await renderHook(() => useWidgetSync());
     mockThemeState.lightTheme = "light";
-    rerender({});
+    await rerender({});
 
     expect(mockWidgets.writeWidgetSnapshot).toHaveBeenCalledTimes(2);
     const [latest] = mockWidgets.writeWidgetSnapshot.mock.calls[1];
     expect(latest.light.background).toBe("#ffffff");
   });
 
-  it("clears the snapshot on sign-out so the next user sees nothing", () => {
+  it("clears the snapshot on sign-out so the next user sees nothing", async () => {
     mockTasksState.tasks = [task({ scheduledFor: "2026-07-16" })];
 
-    const { rerender } = renderHook(() => useWidgetSync());
+    const { rerender } = await renderHook(() => useWidgetSync());
     mockAuthState.session = null;
-    rerender({});
+    await rerender({});
 
     expect(mockWidgets.clearWidgetSnapshot).toHaveBeenCalledTimes(1);
   });
 
-  it("clears a snapshot a previous launch left behind", () => {
+  it("clears a snapshot a previous launch left behind", async () => {
     // A token revoked while the app was closed: this process never published,
     // but the App Group still holds the last session's tasks.
     mockAuthState.session = null;
 
-    renderHook(() => useWidgetSync());
+    await renderHook(() => useWidgetSync());
 
     expect(mockWidgets.clearWidgetSnapshot).toHaveBeenCalledTimes(1);
     expect(mockWidgets.writeWidgetSnapshot).not.toHaveBeenCalled();
   });
 
-  it("clears only once while signed out", () => {
+  it("clears only once while signed out", async () => {
     mockAuthState.session = null;
 
-    const { rerender } = renderHook(() => useWidgetSync());
+    const { rerender } = await renderHook(() => useWidgetSync());
     mockTasksState.tasks = [task({ scheduledFor: "2026-07-16" })];
-    rerender({});
+    await rerender({});
 
     expect(mockWidgets.clearWidgetSnapshot).toHaveBeenCalledTimes(1);
   });
 
-  it("touches nothing while auth is still restoring", () => {
+  it("touches nothing while auth is still restoring", async () => {
     // session is null on every cold start until the stored one loads; clearing
     // here would flash the empty state before repopulating a beat later.
     mockAuthState.session = null;
     mockAuthState.initializing = true;
 
-    renderHook(() => useWidgetSync());
+    await renderHook(() => useWidgetSync());
 
     expect(mockWidgets.clearWidgetSnapshot).not.toHaveBeenCalled();
     expect(mockWidgets.writeWidgetSnapshot).not.toHaveBeenCalled();
@@ -225,10 +225,10 @@ describe("useWidgetSync", () => {
   const TODAY = Temporal.Now.plainDateISO().toString();
 
   describe("habits (DEX-160)", () => {
-    it("publishes the habits payload alongside the tasks one", () => {
+    it("publishes the habits payload alongside the tasks one", async () => {
       mockHabitsState.habits = [habit()];
 
-      renderHook(() => useWidgetSync());
+      await renderHook(() => useWidgetSync());
 
       expect(mockWidgets.writeHabitWidgetSnapshot).toHaveBeenCalledTimes(1);
       const [snapshot] = mockWidgets.writeHabitWidgetSnapshot.mock.calls[0] as [
@@ -238,26 +238,26 @@ describe("useWidgetSync", () => {
       expect(snapshot.days[0].habits.map((h) => h.id)).toEqual(["habit-1"]);
     });
 
-    it("publishes nothing while either habits query is still loading", () => {
+    it("publishes nothing while either habits query is still loading", async () => {
       mockHabitsState.isLoading = true;
 
-      const { rerender } = renderHook(() => useWidgetSync());
+      const { rerender } = await renderHook(() => useWidgetSync());
       expect(mockWidgets.writeHabitWidgetSnapshot).not.toHaveBeenCalled();
 
       mockHabitsState.isLoading = false;
       mockDailyHabitsState.isLoading = true;
-      rerender({});
+      await rerender({});
 
       expect(mockWidgets.writeHabitWidgetSnapshot).not.toHaveBeenCalled();
     });
 
-    it("sends an empty payload when the habits feature is off", () => {
+    it("sends an empty payload when the habits feature is off", async () => {
       // Not a skipped write — the switch can flip off after a snapshot was
       // published, and the widget would otherwise keep showing stale rings.
       mockHabitsEnabledState.enableHabits = false;
       mockHabitsState.habits = [habit()];
 
-      renderHook(() => useWidgetSync());
+      await renderHook(() => useWidgetSync());
 
       const [snapshot] = mockWidgets.writeHabitWidgetSnapshot.mock.calls[0] as [
         { days: { habits: unknown[] }[] },
@@ -265,25 +265,25 @@ describe("useWidgetSync", () => {
       expect(snapshot.days.every((day) => day.habits.length === 0)).toBe(true);
     });
 
-    it("does not republish habits when only the tasks changed", () => {
+    it("does not republish habits when only the tasks changed", async () => {
       // The two payloads meter separately — a task edit must not spend the
       // habit widget's reload budget, and vice versa.
       mockHabitsState.habits = [habit()];
 
-      const { rerender } = renderHook(() => useWidgetSync());
+      const { rerender } = await renderHook(() => useWidgetSync());
       // Dated off the real clock — the payload only carries today +3 days, and
       // a fixed date could fall outside the window and leave it unchanged.
       mockTasksState.tasks = [task({ scheduledFor: TODAY })];
-      rerender({});
+      await rerender({});
 
       expect(mockWidgets.writeWidgetSnapshot).toHaveBeenCalledTimes(2);
       expect(mockWidgets.writeHabitWidgetSnapshot).toHaveBeenCalledTimes(1);
     });
 
-    it("does not republish tasks when only a habit's progress changed", () => {
+    it("does not republish tasks when only a habit's progress changed", async () => {
       mockHabitsState.habits = [habit()];
 
-      const { rerender } = renderHook(() => useWidgetSync());
+      const { rerender } = await renderHook(() => useWidgetSync());
       mockDailyHabitsState.dailyHabits = [
         {
           date: TODAY,
@@ -294,18 +294,18 @@ describe("useWidgetSync", () => {
           stepsComplete: 2,
         },
       ];
-      rerender({});
+      await rerender({});
 
       expect(mockWidgets.writeHabitWidgetSnapshot).toHaveBeenCalledTimes(2);
       expect(mockWidgets.writeWidgetSnapshot).toHaveBeenCalledTimes(1);
     });
 
-    it("clears the habits payload and the pending queue on sign-out", () => {
+    it("clears the habits payload and the pending queue on sign-out", async () => {
       mockHabitsState.habits = [habit()];
 
-      const { rerender } = renderHook(() => useWidgetSync());
+      const { rerender } = await renderHook(() => useWidgetSync());
       mockAuthState.session = null;
-      rerender({});
+      await rerender({});
 
       expect(mockWidgets.clearHabitWidgetSnapshot).toHaveBeenCalledTimes(1);
     });

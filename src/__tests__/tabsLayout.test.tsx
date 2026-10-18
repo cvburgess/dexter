@@ -62,8 +62,8 @@ describe("TabsLayout", () => {
   });
 
   describe("on a phone", () => {
-    it("declares the core destinations in order", () => {
-      const screen = render(<TabsLayout />);
+    it("declares the core destinations in order", async () => {
+      const screen = await render(<TabsLayout />);
 
       const order = screen
         .getAllByText(/^trigger:/)
@@ -78,15 +78,15 @@ describe("TabsLayout", () => {
 
     // DEX-96 + DEX-104: seven columns don't fit a phone, so Week is absent
     // unconditionally rather than gated on window width, which can change mid-session.
-    it("never offers the Week or Lists tab, at any width", () => {
-      const screen = render(<TabsLayout />);
+    it("never offers the Week or Lists tab, at any width", async () => {
+      const screen = await render(<TabsLayout />);
 
       expect(screen.queryByText("trigger:week")).toBeNull();
       expect(screen.queryByText("trigger:lists")).toBeNull();
     });
 
-    it("does not render the rail shell", () => {
-      const screen = render(<TabsLayout />);
+    it("does not render the rail shell", async () => {
+      const screen = await render(<TabsLayout />);
 
       expect(screen.queryByText(/^shell:/)).toBeNull();
     });
@@ -97,14 +97,14 @@ describe("TabsLayout", () => {
       mockIsTablet = true;
     });
 
-    it("renders the shared shell with the rail pinned", () => {
-      const screen = render(<TabsLayout />);
+    it("renders the shared shell with the rail pinned", async () => {
+      const screen = await render(<TabsLayout />);
 
       expect(screen.getByText("shell:rail=true")).toBeTruthy();
     });
 
-    it("declares no native triggers", () => {
-      const screen = render(<TabsLayout />);
+    it("declares no native triggers", async () => {
+      const screen = await render(<TabsLayout />);
 
       expect(screen.queryAllByText(/^trigger:/)).toHaveLength(0);
     });

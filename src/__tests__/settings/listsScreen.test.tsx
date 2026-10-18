@@ -64,7 +64,7 @@ const makeTask = (overrides: Partial<TTask> = {}): TTask => ({
   ...overrides,
 });
 
-const renderWith = ({
+const renderWith = async ({
   lists = [],
   tasks = [],
 }: { lists?: TList[]; tasks?: TTask[] } = {}) => {
@@ -73,14 +73,14 @@ const renderWith = ({
     { updateList: mockUpdateList } as never,
   ]);
   mockUseTasks.mockReturnValue([tasks, {} as never]);
-  return render(<ListsScreen />);
+  return await render(<ListsScreen />);
 };
 
 // The "+" add button lives in the navigation header (set via setOptions), so
 // render the latest headerRight to inspect/press it.
-const renderHeader = () => {
+const renderHeader = async () => {
   const options = mockSetOptions.mock.calls.at(-1)?.[0];
-  return render(options.headerRight());
+  return await render(options.headerRight());
 };
 
 describe("ListsScreen", () => {
@@ -89,14 +89,14 @@ describe("ListsScreen", () => {
     mockUseIsLargeDevice.mockReturnValue(false);
   });
 
-  it("shows the empty state when there are no lists", () => {
-    const screen = renderWith({ lists: [] });
+  it("shows the empty state when there are no lists", async () => {
+    const screen = await renderWith({ lists: [] });
 
     expect(screen.getByText("Tap ＋ to create your first list.")).toBeTruthy();
   });
 
-  it("renders a row per list", () => {
-    const screen = renderWith({
+  it("renders a row per list", async () => {
+    const screen = await renderWith({
       lists: [
         makeList({ id: "list-1", title: "Work" }),
         makeList({ id: "list-2", title: "Home" }),
@@ -107,8 +107,8 @@ describe("ListsScreen", () => {
     expect(screen.getByText("Home")).toBeTruthy();
   });
 
-  it("shows the open-task count in the subtitle, ignoring completed tasks", () => {
-    const screen = renderWith({
+  it("shows the open-task count in the subtitle, ignoring completed tasks", async () => {
+    const screen = await renderWith({
       lists: [makeList({ id: "list-1", title: "Work" })],
       tasks: [
         makeTask({ id: "t1", listId: "list-1", status: ETaskStatus.TODO }),
@@ -125,16 +125,16 @@ describe("ListsScreen", () => {
     expect(screen.getByText("2 open")).toBeTruthy();
   });
 
-  it("always shows the header add button", () => {
-    renderWith();
+  it("always shows the header add button", async () => {
+    await renderWith();
 
-    expect(renderHeader().getByLabelText("New list")).toBeTruthy();
+    expect(await renderHeader().getByLabelText("New list")).toBeTruthy();
   });
 
-  it("opens the new-list modal when the add button is pressed", () => {
-    renderWith();
+  it("opens the new-list modal when the add button is pressed", async () => {
+    await renderWith();
 
-    fireEvent.press(renderHeader().getByLabelText("New list"));
+    await fireEvent.press(await renderHeader().getByLabelText("New list"));
 
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/settings/lists/[id]",
@@ -142,12 +142,12 @@ describe("ListsScreen", () => {
     });
   });
 
-  it("opens the edit modal when a list row is tapped", () => {
-    const screen = renderWith({
+  it("opens the edit modal when a list row is tapped", async () => {
+    const screen = await renderWith({
       lists: [makeList({ id: "list-1", title: "Work" })],
     });
 
-    fireEvent.press(screen.getByLabelText("Edit Work"));
+    await fireEvent.press(screen.getByLabelText("Edit Work"));
 
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/settings/lists/[id]",
@@ -157,11 +157,11 @@ describe("ListsScreen", () => {
 
   it("archives a list once the prompt is confirmed", async () => {
     mockConfirm.mockResolvedValue(true);
-    const screen = renderWith({
+    const screen = await renderWith({
       lists: [makeList({ id: "list-1", title: "Work" })],
     });
 
-    fireEvent.press(screen.getByLabelText("Archive Work"));
+    await fireEvent.press(screen.getByLabelText("Archive Work"));
 
     await waitFor(() =>
       expect(mockUpdateList).toHaveBeenCalledWith(
@@ -176,11 +176,11 @@ describe("ListsScreen", () => {
 
   it("leaves the list alone when the prompt is cancelled", async () => {
     mockConfirm.mockResolvedValue(false);
-    const screen = renderWith({
+    const screen = await renderWith({
       lists: [makeList({ id: "list-1", title: "Work" })],
     });
 
-    fireEvent.press(screen.getByLabelText("Archive Work"));
+    await fireEvent.press(screen.getByLabelText("Archive Work"));
 
     await waitFor(() => expect(mockConfirm).toHaveBeenCalled());
     expect(mockUpdateList).not.toHaveBeenCalled();

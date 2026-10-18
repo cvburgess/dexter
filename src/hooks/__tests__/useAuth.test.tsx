@@ -84,7 +84,7 @@ describe("AuthProvider", () => {
       error: null,
     });
 
-    const { result } = renderHook(() => useAuth(), { wrapper });
+    const { result } = await renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
       expect(result.current.initializing).toBe(false);
@@ -102,7 +102,7 @@ describe("AuthProvider", () => {
       error: new Error("Invalid Refresh Token: Refresh Token Not Found"),
     });
 
-    const { result } = renderHook(() => useAuth(), { wrapper });
+    const { result } = await renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
       expect(result.current.initializing).toBe(false);
@@ -123,14 +123,14 @@ describe("AuthProvider", () => {
       error: null,
     });
 
-    const { result } = renderHook(() => useAuth(), { wrapper });
+    const { result } = await renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
       expect(result.current.initializing).toBe(false);
     });
     expect(result.current.session).toBeNull();
 
-    act(() => {
+    await act(() => {
       authStateCallback?.("SIGNED_IN", validSession);
     });
 

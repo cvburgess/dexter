@@ -72,50 +72,50 @@ afterEach(() => {
 });
 
 describe("the published snapshot", () => {
-  it("is empty until a publisher mounts", () => {
-    const { result } = renderHook(() => useFocusTimer());
+  it("is empty until a publisher mounts", async () => {
+    const { result } = await renderHook(() => useFocusTimer());
 
     expect(result.current.block).toBeNull();
   });
 
-  it("carries the live block while one is published", () => {
+  it("carries the live block while one is published", async () => {
     const live = block();
     setLiveBlock(live);
 
-    renderHook(() => usePublishFocusTimer(confirmStop));
-    const { result } = renderHook(() => useFocusTimer());
+    await renderHook(() => usePublishFocusTimer(confirmStop));
+    const { result } = await renderHook(() => useFocusTimer());
 
     expect(result.current.block).toBe(live);
   });
 
   // Otherwise a signed-out accessory keeps drawing a timer belonging to the
   // account that just left.
-  it("clears when the publisher unmounts", () => {
+  it("clears when the publisher unmounts", async () => {
     setLiveBlock(block());
-    const publisher = renderHook(() => usePublishFocusTimer(confirmStop));
-    const { result } = renderHook(() => useFocusTimer());
+    const publisher = await renderHook(() => usePublishFocusTimer(confirmStop));
+    const { result } = await renderHook(() => useFocusTimer());
 
-    publisher.unmount();
+    await publisher.unmount();
 
     expect(result.current.block).toBeNull();
   });
 
   // useSyncExternalStore compares by identity, so a fresh object every
   // render would re-render every subscriber — the accessory twice over.
-  it("does not re-render a subscriber when the block is unchanged", () => {
+  it("does not re-render a subscriber when the block is unchanged", async () => {
     const live = block();
     setLiveBlock(live);
 
-    const publisher = renderHook(() => usePublishFocusTimer(confirmStop));
+    const publisher = await renderHook(() => usePublishFocusTimer(confirmStop));
     let renders = 0;
-    renderHook(() => {
+    await renderHook(() => {
       renders += 1;
       return useFocusTimer();
     });
 
     const before = renders;
-    publisher.rerender(undefined);
-    publisher.rerender(undefined);
+    await publisher.rerender(undefined);
+    await publisher.rerender(undefined);
 
     expect(renders).toBe(before);
   });
@@ -127,8 +127,8 @@ describe("stopping a block", () => {
   it("asks first, and stops once confirmed", async () => {
     const live = block();
     setLiveBlock(live);
-    renderHook(() => usePublishFocusTimer(confirmStop));
-    const { result } = renderHook(() => useFocusTimer());
+    await renderHook(() => usePublishFocusTimer(confirmStop));
+    const { result } = await renderHook(() => useFocusTimer());
 
     await act(() => {
       result.current.actions.cancelFocusBlock(live);
@@ -143,8 +143,8 @@ describe("stopping a block", () => {
     confirmStop.mockResolvedValue(false);
     const live = block();
     setLiveBlock(live);
-    renderHook(() => usePublishFocusTimer(confirmStop));
-    const { result } = renderHook(() => useFocusTimer());
+    await renderHook(() => usePublishFocusTimer(confirmStop));
+    const { result } = await renderHook(() => useFocusTimer());
 
     await act(() => {
       result.current.actions.cancelFocusBlock(live);
@@ -157,13 +157,13 @@ describe("stopping a block", () => {
 });
 
 describe("completing a block when its time runs out", () => {
-  it("writes complete once the countdown reaches zero", () => {
+  it("writes complete once the countdown reaches zero", async () => {
     setLiveBlock(block({ remainingSeconds: 60 }));
-    renderHook(() => usePublishFocusTimer(confirmStop));
+    await renderHook(() => usePublishFocusTimer(confirmStop));
 
     expect(finishFocusBlock).not.toHaveBeenCalled();
 
-    act(() => {
+    await act(() => {
       jest.setSystemTime(START + 60_000);
       jest.advanceTimersByTime(60_000);
     });
@@ -173,15 +173,15 @@ describe("completing a block when its time runs out", () => {
 
   // Both the timeout and the AppState listener can come due for the same
   // block, and status is no guard — both closures captured it while active.
-  it("writes complete exactly once, not once per due signal", () => {
+  it("writes complete exactly once, not once per due signal", async () => {
     setLiveBlock(block({ remainingSeconds: 60 }));
-    renderHook(() => usePublishFocusTimer(confirmStop));
+    await renderHook(() => usePublishFocusTimer(confirmStop));
 
-    act(() => {
+    await act(() => {
       jest.setSystemTime(START + 60_000);
       jest.advanceTimersByTime(60_000);
     });
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(60_000);
     });
 
@@ -190,24 +190,24 @@ describe("completing a block when its time runs out", () => {
 
   // App closed or force-quit through the end of the block; `date` was
   // stamped at start, so it still counts toward the right day.
-  it("completes a block that was already past due at mount", () => {
+  it("completes a block that was already past due at mount", async () => {
     jest.setSystemTime(START + 3_600_000);
     setLiveBlock(block({ remainingSeconds: 60 }));
 
-    renderHook(() => usePublishFocusTimer(confirmStop));
+    await renderHook(() => usePublishFocusTimer(confirmStop));
 
     expect(finishFocusBlock).toHaveBeenCalledTimes(1);
   });
 
   // A paused block's remaining time cannot move, so no amount of wall-clock
   // time may end it.
-  it("never completes a paused block, however long it sits", () => {
+  it("never completes a paused block, however long it sits", async () => {
     setLiveBlock(
       block({ status: "paused", remainingSeconds: 60, resumedAt: null }),
     );
-    renderHook(() => usePublishFocusTimer(confirmStop));
+    await renderHook(() => usePublishFocusTimer(confirmStop));
 
-    act(() => {
+    await act(() => {
       jest.setSystemTime(START + 86_400_000);
       jest.advanceTimersByTime(86_400_000);
     });
@@ -217,7 +217,7 @@ describe("completing a block when its time runs out", () => {
 
   // Latching the id stops the timeout and AppState listener double-writing,
   // but holding it through a failed write would strand the block active.
-  it("retries after a completion write fails", () => {
+  it("retries after a completion write fails", async () => {
     const foregrounds: ((state: string) => void)[] = [];
     jest
       .spyOn(AppState, "addEventListener")
@@ -229,23 +229,23 @@ describe("completing a block when its time runs out", () => {
       callbacks?.onError?.(new Error("offline")),
     );
     setLiveBlock(block({ remainingSeconds: 60 }));
-    renderHook(() => usePublishFocusTimer(confirmStop));
+    await renderHook(() => usePublishFocusTimer(confirmStop));
 
-    act(() => {
+    await act(() => {
       jest.setSystemTime(START + 60_000);
       jest.advanceTimersByTime(60_000);
     });
     expect(finishFocusBlock).toHaveBeenCalledTimes(1);
 
-    act(() => foregrounds.forEach((handler) => handler("active")));
+    await act(() => foregrounds.forEach((handler) => handler("active")));
 
     expect(finishFocusBlock).toHaveBeenCalledTimes(2);
   });
 
-  it("does nothing at all with no block", () => {
-    renderHook(() => usePublishFocusTimer(confirmStop));
+  it("does nothing at all with no block", async () => {
+    await renderHook(() => usePublishFocusTimer(confirmStop));
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(86_400_000);
     });
 

@@ -90,7 +90,7 @@ describe("useCalendarEvents (web)", () => {
   it("fetches and parses configured feeds", async () => {
     setPreferences({ calendarUrls: ["https://example.com/cal.ics"] });
 
-    const { result } = renderHook(() => useWebCalendarEvents(DAY), {
+    const { result } = await renderHook(() => useWebCalendarEvents(DAY), {
       wrapper: createWrapper(),
     });
 
@@ -115,12 +115,16 @@ describe("useCalendarEvents (web)", () => {
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
     );
 
-    const first = renderHook(() => useWebCalendarEvents(DAY), { wrapper });
+    const first = await renderHook(() => useWebCalendarEvents(DAY), {
+      wrapper,
+    });
     await waitFor(() => expect(first.result.current[0]).toHaveLength(1));
     expect(fetch).toHaveBeenCalledTimes(1);
-    first.unmount();
+    await first.unmount();
 
-    const second = renderHook(() => useWebCalendarEvents(DAY), { wrapper });
+    const second = await renderHook(() => useWebCalendarEvents(DAY), {
+      wrapper,
+    });
     await waitFor(() => expect(second.result.current[0]).toHaveLength(1));
     expect(fetch).toHaveBeenCalledTimes(2);
 
@@ -134,7 +138,7 @@ describe("useCalendarEvents (web)", () => {
 
     // The Week tab mounts seven days at once; each must parse the one
     // download rather than fetch its own.
-    const { result } = renderHook(
+    const { result } = await renderHook(
       () => [DAY, DAY.add({ days: 1 })].map((day) => useWebCalendarEvents(day)),
       { wrapper: createWrapper() },
     );
@@ -144,10 +148,10 @@ describe("useCalendarEvents (web)", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
-  it("stays idle with no feeds configured, and says so", () => {
+  it("stays idle with no feeds configured, and says so", async () => {
     setPreferences({ calendarUrls: [] });
 
-    const { result } = renderHook(() => useWebCalendarEvents(DAY), {
+    const { result } = await renderHook(() => useWebCalendarEvents(DAY), {
       wrapper: createWrapper(),
     });
 
@@ -162,7 +166,7 @@ describe("useCalendarEvents (web)", () => {
   it("reads as configured once a feed exists", async () => {
     setPreferences({ calendarUrls: ["https://example.com/cal.ics"] });
 
-    const { result } = renderHook(() => useWebCalendarEvents(DAY), {
+    const { result } = await renderHook(() => useWebCalendarEvents(DAY), {
       wrapper: createWrapper(),
     });
 
@@ -180,7 +184,7 @@ describe("useCalendarEvents (web)", () => {
       }),
     ) as unknown as typeof fetch;
 
-    const { result } = renderHook(() => useWebCalendarEvents(DAY), {
+    const { result } = await renderHook(() => useWebCalendarEvents(DAY), {
       wrapper: createWrapper(),
     });
 
@@ -214,7 +218,7 @@ describe("useCalendarEvents (native)", () => {
   it("maps device events, carrying the calendar color", async () => {
     setPreferences({});
 
-    const { result } = renderHook(() => useNativeCalendarEvents(DAY), {
+    const { result } = await renderHook(() => useNativeCalendarEvents(DAY), {
       wrapper: createWrapper(),
     });
 
@@ -237,7 +241,7 @@ describe("useCalendarEvents (native)", () => {
       granted: false,
     });
 
-    const { result } = renderHook(() => useNativeCalendarEvents(DAY), {
+    const { result } = await renderHook(() => useNativeCalendarEvents(DAY), {
       wrapper: createWrapper(),
     });
 
@@ -261,7 +265,7 @@ describe("useCalendarEvents (native)", () => {
     setPreferences({});
     arrange();
 
-    const { result } = renderHook(() => useNativeCalendarEvents(DAY), {
+    const { result } = await renderHook(() => useNativeCalendarEvents(DAY), {
       wrapper: createWrapper(),
     });
 

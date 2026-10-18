@@ -8,8 +8,8 @@ import { PriorityControl, prioritySelectedColors } from "../PriorityControl";
 const theme = renderHook(() => useTheme()).result.current;
 
 describe("PriorityControl", () => {
-  it("renders an option for each priority", () => {
-    const screen = render(
+  it("renders an option for each priority", async () => {
+    const screen = await render(
       <PriorityControl
         priority={ETaskPriority.UNPRIORITIZED}
         onChangePriority={jest.fn()}
@@ -26,22 +26,22 @@ describe("PriorityControl", () => {
     }
   });
 
-  it("selects the tapped priority", () => {
+  it("selects the tapped priority", async () => {
     const onChangePriority = jest.fn();
-    const screen = render(
+    const screen = await render(
       <PriorityControl
         priority={ETaskPriority.UNPRIORITIZED}
         onChangePriority={onChangePriority}
       />,
     );
 
-    fireEvent.press(screen.getByLabelText("Urgent"));
+    await fireEvent.press(screen.getByLabelText("Urgent"));
 
     expect(onChangePriority).toHaveBeenCalledWith(ETaskPriority.URGENT);
   });
 
-  it("marks the current priority as selected", () => {
-    const screen = render(
+  it("marks the current priority as selected", async () => {
+    const screen = await render(
       <PriorityControl
         priority={ETaskPriority.IMPORTANT}
         onChangePriority={jest.fn()}
@@ -54,8 +54,8 @@ describe("PriorityControl", () => {
 
   // NEITHER's priority color matches the card's unselected icon color, so
   // drawing it like the other three would look untouched — it inverts instead.
-  it("fills the selected Neither option with a color that isn't the card", () => {
-    const screen = render(
+  it("fills the selected Neither option with a color that isn't the card", async () => {
+    const screen = await render(
       <PriorityControl
         priority={ETaskPriority.NEITHER}
         onChangePriority={jest.fn()}
@@ -66,7 +66,7 @@ describe("PriorityControl", () => {
       backgroundColor: theme.colors.priorityContent[ETaskPriority.NEITHER],
     });
 
-    screen.rerender(
+    await await screen.rerender(
       <PriorityControl
         priority={ETaskPriority.UNPRIORITIZED}
         onChangePriority={jest.fn()}
@@ -89,16 +89,16 @@ describe("PriorityControl", () => {
     });
   });
 
-  it("clears back to unprioritized when the selected option is tapped again", () => {
+  it("clears back to unprioritized when the selected option is tapped again", async () => {
     const onChangePriority = jest.fn();
-    const screen = render(
+    const screen = await render(
       <PriorityControl
         priority={ETaskPriority.NEITHER}
         onChangePriority={onChangePriority}
       />,
     );
 
-    fireEvent.press(screen.getByLabelText("Neither"));
+    await fireEvent.press(screen.getByLabelText("Neither"));
 
     expect(onChangePriority).toHaveBeenCalledWith(ETaskPriority.UNPRIORITIZED);
   });

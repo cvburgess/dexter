@@ -132,8 +132,8 @@ beforeEach(() => {
 });
 
 describe("WeekDayColumn", () => {
-  it("labels the column with the weekday and numeric date", () => {
-    const screen = render(
+  it("labels the column with the weekday and numeric date", async () => {
+    const screen = await render(
       <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
     );
 
@@ -141,7 +141,7 @@ describe("WeekDayColumn", () => {
     expect(screen.getByText("7/29")).toBeTruthy();
   });
 
-  it("renders only the tasks scheduled for its own day", () => {
+  it("renders only the tasks scheduled for its own day", async () => {
     mockUseTasks.mockReturnValue(
       tasksResult([
         task({ id: "1", title: "Mine", scheduledFor: "2026-07-29" }),
@@ -149,7 +149,7 @@ describe("WeekDayColumn", () => {
       ]),
     );
 
-    const screen = render(
+    const screen = await render(
       <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
     );
 
@@ -157,10 +157,10 @@ describe("WeekDayColumn", () => {
     expect(screen.queryByText("Tomorrow's")).toBeNull();
   });
 
-  it("renders no empty-state message when the day has no tasks", () => {
+  it("renders no empty-state message when the day has no tasks", async () => {
     // Seven of them side by side read as noise, and an empty column already
     // says what it needs to.
-    const screen = render(
+    const screen = await render(
       <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
     );
 
@@ -169,9 +169,9 @@ describe("WeekDayColumn", () => {
     expect(screen.getByText("Wednesday")).toBeTruthy();
   });
 
-  it("offers no per-column create affordance", () => {
+  it("offers no per-column create affordance", async () => {
     // Creating goes through the tab's single "+" (see WeekView).
-    const screen = render(
+    const screen = await render(
       <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
     );
 
@@ -179,25 +179,25 @@ describe("WeekDayColumn", () => {
   });
 
   describe("habits", () => {
-    it("renders the tracker when habits are enabled", () => {
-      const screen = render(
+    it("renders the tracker when habits are enabled", async () => {
+      const screen = await render(
         <WeekDayColumn date={date} enableHabits isToday={false} />,
       );
 
       expect(screen.getByText("habit-tracker:nudge=false")).toBeTruthy();
     });
 
-    it("suppresses the create-a-habit nudge", () => {
+    it("suppresses the create-a-habit nudge", async () => {
       // Seven columns would otherwise show seven copies of the same link.
-      render(<WeekDayColumn date={date} enableHabits isToday={false} />);
+      await render(<WeekDayColumn date={date} enableHabits isToday={false} />);
 
       expect(mockHabitTracker).toHaveBeenCalledWith(
         expect.objectContaining({ showCreateNudge: false }),
       );
     });
 
-    it("hides the tracker when habits are disabled", () => {
-      const screen = render(
+    it("hides the tracker when habits are disabled", async () => {
+      const screen = await render(
         <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
       );
 
@@ -206,7 +206,7 @@ describe("WeekDayColumn", () => {
   });
 
   describe("calendar events (DEX-186)", () => {
-    it("lists the day's events, all-day first, when shown", () => {
+    it("lists the day's events, all-day first, when shown", async () => {
       mockUseCalendarEvents.mockReturnValue(
         calendarResult([
           event({ id: "timed", title: "Design review" }),
@@ -214,7 +214,7 @@ describe("WeekDayColumn", () => {
         ]),
       );
 
-      const screen = render(
+      const screen = await render(
         <WeekDayColumn
           date={date}
           enableHabits={false}
@@ -230,20 +230,20 @@ describe("WeekDayColumn", () => {
       expect(labels).toEqual(["all-day Offsite", "4:00-5:00 PM Design review"]);
     });
 
-    it("doesn't read the calendar when hidden", () => {
-      render(
+    it("doesn't read the calendar when hidden", async () => {
+      await render(
         <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
       );
 
       expect(mockUseCalendarEvents).not.toHaveBeenCalled();
     });
 
-    it("shows nothing for a failed read, not an error in every column", () => {
+    it("shows nothing for a failed read, not an error in every column", async () => {
       mockUseCalendarEvents.mockReturnValue(
         calendarResult([], { isError: true }),
       );
 
-      const screen = render(
+      const screen = await render(
         <WeekDayColumn
           date={date}
           enableHabits={false}
@@ -260,8 +260,8 @@ describe("WeekDayColumn", () => {
   describe("today's column", () => {
     const today = Temporal.Now.plainDateISO();
 
-    it("fills the chip with the inverted ink color", () => {
-      const screen = render(
+    it("fills the chip with the inverted ink color", async () => {
+      const screen = await render(
         <WeekDayColumn date={today} enableHabits={false} isToday />,
       );
 
@@ -271,8 +271,8 @@ describe("WeekDayColumn", () => {
       );
     });
 
-    it("draws today's label in the background color so it reads on the fill", () => {
-      const screen = render(
+    it("draws today's label in the background color so it reads on the fill", async () => {
+      const screen = await render(
         <WeekDayColumn date={today} enableHabits={false} isToday />,
       );
 
@@ -283,8 +283,8 @@ describe("WeekDayColumn", () => {
       ).toBe(theme.colors.background);
     });
 
-    it("announces itself as today to assistive tech", () => {
-      const screen = render(
+    it("announces itself as today to assistive tech", async () => {
+      const screen = await render(
         <WeekDayColumn date={today} enableHabits={false} isToday />,
       );
 
@@ -295,8 +295,8 @@ describe("WeekDayColumn", () => {
       ).toBeTruthy();
     });
 
-    it("leaves other days' chips unfilled and unlabelled as today", () => {
-      const screen = render(
+    it("leaves other days' chips unfilled and unlabelled as today", async () => {
+      const screen = await render(
         <WeekDayColumn date={date} enableHabits={false} isToday={false} />,
       );
 

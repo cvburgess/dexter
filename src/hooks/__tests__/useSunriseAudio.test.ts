@@ -135,16 +135,16 @@ describe("useSunriseAudio", () => {
 
   // One null covers all three of the caller's gates: still loading, a blank
   // day with no bands to accompany, and reduced motion.
-  it("makes no sound without a day to sound", () => {
-    renderHook(() => useSunriseAudio(null));
+  it("makes no sound without a day to sound", async () => {
+    await renderHook(() => useSunriseAudio(null));
 
     expect(mockAudioContext).not.toHaveBeenCalled();
   });
 
   // Thin on the sound itself — partials and envelopes are still tuned by ear.
   // What's left is the lifecycle, which isn't in flux.
-  it("opens a note per band and leaves them all silent to start", () => {
-    renderHook(() => useSunriseAudio(DAY));
+  it("opens a note per band and leaves them all silent to start", async () => {
+    await renderHook(() => useSunriseAudio(DAY));
 
     // Two detuned oscillators per note, into one gain each.
     expect(mockOscillators).toHaveLength(noteGains().length * 2);
@@ -167,9 +167,9 @@ describe("useSunriseAudio", () => {
 
   // The whole envelope goes onto the audio clock at once — there is no timer,
   // so nothing can drift away from the bands it is supposed to track.
-  it("schedules against the context clock, wherever it already is", () => {
+  it("schedules against the context clock, wherever it already is", async () => {
     mockContext.currentTime = 40;
-    renderHook(() => useSunriseAudio(DAY));
+    await renderHook(() => useSunriseAudio(DAY));
 
     const starts = noteGains().flatMap((gain) =>
       curvesOn(gain.gain).map((curve) => curve.at),
@@ -180,8 +180,8 @@ describe("useSunriseAudio", () => {
 
   // The point of the feature: a swell that finishes before or with the bands,
   // then a settle that ends by the time the figures have finished arriving.
-  it("swells with the bands and settles with the figures", () => {
-    renderHook(() => useSunriseAudio(DAY));
+  it("swells with the bands and settles with the figures", async () => {
+    await renderHook(() => useSunriseAudio(DAY));
 
     const rangeEnds = LEAD_IN_SECONDS + SUNRISE_MS / 1000;
     for (const { gain } of noteGains()) {
@@ -203,8 +203,8 @@ describe("useSunriseAudio", () => {
 
   // Five notes summing coherently once the chord is complete is the one moment
   // this could clip; each buys only its weighted share of the ceiling.
-  it("never lets the stack sum past its ceiling", () => {
-    renderHook(() => useSunriseAudio(DAY));
+  it("never lets the stack sum past its ceiling", async () => {
+    await renderHook(() => useSunriseAudio(DAY));
 
     const peaks = noteGains().flatMap((gain) =>
       curvesOn(gain.gain).map((curve) => Math.max(...curve.values)),
@@ -221,12 +221,12 @@ describe("useSunriseAudio", () => {
 
   // Scaled by where the envelope has actually got to, or the fade opens by
   // jumping the settle louder than it was playing.
-  it("never fades from louder than it was playing", () => {
+  it("never fades from louder than it was playing", async () => {
     // Well into the settle: the envelope is past its peak by now.
-    const { unmount } = renderHook(() => useSunriseAudio(DAY));
+    const { unmount } = await renderHook(() => useSunriseAudio(DAY));
     mockContext.currentTime = LEAD_IN_SECONDS + (SUNRISE_MS + 900) / 1000;
 
-    unmount();
+    await unmount();
 
     const [[held]] = masterGain().setValueAtTime.mock.calls.slice(-1) as [
       [number, number],
@@ -240,10 +240,10 @@ describe("useSunriseAudio", () => {
     }
   });
 
-  it("fades out through the master and releases the context on the way out", () => {
-    const { unmount } = renderHook(() => useSunriseAudio(DAY));
+  it("fades out through the master and releases the context on the way out", async () => {
+    const { unmount } = await renderHook(() => useSunriseAudio(DAY));
 
-    unmount();
+    await unmount();
 
     // One fade, on the node everything is connected through — fading the
     // partials instead would need five envelopes to land together.
@@ -265,12 +265,12 @@ describe("useSunriseAudio", () => {
 
   // Past the envelope's own end the oscillators have already stopped; asking
   // for a later stop is not the library's happy path.
-  it("does not push a stop past where the sound already ended", () => {
-    const { unmount } = renderHook(() => useSunriseAudio(DAY));
+  it("does not push a stop past where the sound already ended", async () => {
+    const { unmount } = await renderHook(() => useSunriseAudio(DAY));
     const endsAt = LEAD_IN_SECONDS + (SUNRISE_MS + SETTLE_MS) / 1000;
     mockContext.currentTime = endsAt;
 
-    unmount();
+    await unmount();
 
     for (const oscillator of mockOscillators) {
       expect(oscillator.stop).toHaveBeenCalledWith(endsAt);
@@ -279,15 +279,18 @@ describe("useSunriseAudio", () => {
 
   // Only the audio is focus-scoped; SunriseBackground animates on regardless,
   // so a step returned to has a settled sky and nothing left to accompany.
-  it("stays silent rather than replaying a sunrise it comes back to", () => {
-    const { rerender } = renderHook<void, object>(() => useSunriseAudio(DAY), {
-      initialProps: {},
-    });
+  it("stays silent rather than replaying a sunrise it comes back to", async () => {
+    const { rerender } = await renderHook<void, object>(
+      () => useSunriseAudio(DAY),
+      {
+        initialProps: {},
+      },
+    );
     expect(mockAudioContext).toHaveBeenCalledTimes(1);
 
     // Away to another tab and back, mid-sunrise.
     mockFocus.generation += 1;
-    rerender({});
+    await rerender({});
 
     expect(mockAudioContext).toHaveBeenCalledTimes(1);
     // And the departure still silenced it, rather than leaving it playing on.
@@ -296,12 +299,12 @@ describe("useSunriseAudio", () => {
 
   // Swiping away and straight back remounts the step: the second sunrise has
   // to cut the first one's fade rather than sound over it.
-  it("cuts a fade still in flight when a fresh sunrise starts", () => {
-    const first = renderHook(() => useSunriseAudio(DAY));
-    first.unmount();
+  it("cuts a fade still in flight when a fresh sunrise starts", async () => {
+    const first = await renderHook(() => useSunriseAudio(DAY));
+    await first.unmount();
     expect(mockClose).not.toHaveBeenCalled();
 
-    renderHook(() => useSunriseAudio(DAY));
+    await renderHook(() => useSunriseAudio(DAY));
 
     expect(mockClose).toHaveBeenCalledTimes(1);
     expect(mockAudioContext).toHaveBeenCalledTimes(2);

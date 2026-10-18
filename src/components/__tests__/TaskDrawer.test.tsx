@@ -419,8 +419,8 @@ describe("TaskDrawer", () => {
     mockUseTasks.mockReturnValue(tasksResult());
   });
 
-  it("shows an empty state when there are no tasks", () => {
-    const screen = render(<TaskDrawer date={date} />);
+  it("shows an empty state when there are no tasks", async () => {
+    const screen = await render(<TaskDrawer date={date} />);
     expect(
       screen.getByText("Nothing here — you're all caught up."),
     ).toBeTruthy();
@@ -428,8 +428,8 @@ describe("TaskDrawer", () => {
 
   // DEX-106: the menu host measures its RN child, so a heightless trigger
   // collapses to ~2pt in the bottom sheet. DEX-61 restored it on Filter only.
-  it("gives both the Filter and Group triggers the same pinned height", () => {
-    render(<TaskDrawer date={date} />);
+  it("gives both the Filter and Group triggers the same pinned height", async () => {
+    await render(<TaskDrawer date={date} />);
 
     const filter = triggerStyle("Filter");
     const group = triggerStyle("Group");
@@ -452,10 +452,10 @@ describe("TaskDrawer", () => {
       scheduledFor: "2026-08-10",
     });
 
-    it("hides every task scheduled inside the week", () => {
+    it("hides every task scheduled inside the week", async () => {
       mockUseTasks.mockReturnValue(tasksResult([inWeek, outOfWeek]));
 
-      const screen = render(
+      const screen = await render(
         <TaskDrawer date={monday} daysOnScreen={weekDays(monday)} />,
       );
 
@@ -463,24 +463,24 @@ describe("TaskDrawer", () => {
       expect(screen.queryByText("Inside the week")).toBeNull();
     });
 
-    it("still shows a same-week task when no daysOnScreen is given", () => {
+    it("still shows a same-week task when no daysOnScreen is given", async () => {
       // Without the prop the drawer scopes to [date] alone, so a task on another
       // day of that week belongs in the Today backlog.
       mockUseTasks.mockReturnValue(tasksResult([inWeek, outOfWeek]));
 
-      const screen = render(<TaskDrawer date={monday} />);
+      const screen = await render(<TaskDrawer date={monday} />);
 
       expect(screen.getByText("Inside the week")).toBeTruthy();
       expect(screen.getByText("Outside the week")).toBeTruthy();
     });
 
-    it("schedules onto `date`, not every day on screen", () => {
+    it("schedules onto `date`, not every day on screen", async () => {
       mockUseTasks.mockReturnValue(tasksResult([outOfWeek]));
 
-      const screen = render(
+      const screen = await render(
         <TaskDrawer date={monday} daysOnScreen={weekDays(monday)} />,
       );
-      fireEvent.press(
+      await fireEvent.press(
         screen.getByLabelText('Schedule "Outside the week" for Monday, Jul 27'),
       );
 
@@ -491,9 +491,9 @@ describe("TaskDrawer", () => {
     });
   });
 
-  it("shows a loading indicator (not the empty state) while the first fetch is in flight", () => {
+  it("shows a loading indicator (not the empty state) while the first fetch is in flight", async () => {
     mockUseTasks.mockReturnValue(tasksResult([], true));
-    const screen = render(<TaskDrawer date={date} />);
+    const screen = await render(<TaskDrawer date={date} />);
 
     expect(screen.UNSAFE_getByType(ActivityIndicator)).toBeTruthy();
     expect(
@@ -501,9 +501,9 @@ describe("TaskDrawer", () => {
     ).toBeNull();
   });
 
-  it("renders a card for every task returned", () => {
+  it("renders a card for every task returned", async () => {
     mockUseTasks.mockReturnValue(tasksResult([task()]));
-    const screen = render(<TaskDrawer date={date} />);
+    const screen = await render(<TaskDrawer date={date} />);
 
     expect(screen.getByText("Write report")).toBeTruthy();
     expect(
@@ -513,14 +513,14 @@ describe("TaskDrawer", () => {
 
   // The drawer reserves whatever bottom inset its host publishes, so the last
   // row clears the native tab bar in the docked pane (DEX-91).
-  it("reserves the host's bottom inset below the list's last row", () => {
+  it("reserves the host's bottom inset below the list's last row", async () => {
     mockUseTasks.mockReturnValue(tasksResult([task()]));
-    const screen = renderWithBottomInset(34, <TaskDrawer date={date} />);
+    const screen = await renderWithBottomInset(34, <TaskDrawer date={date} />);
 
     expect(listContentStyle(screen).paddingBottom).toBe(34);
   });
 
-  it("renders every row of a multi-task list through the flattened FlashList data", () => {
+  it("renders every row of a multi-task list through the flattened FlashList data", async () => {
     mockUseTasks.mockReturnValue(
       tasksResult([
         task({ id: "1", title: "Write report" }),
@@ -528,20 +528,20 @@ describe("TaskDrawer", () => {
         task({ id: "3", title: "Call dentist" }),
       ]),
     );
-    const screen = render(<TaskDrawer date={date} />);
+    const screen = await render(<TaskDrawer date={date} />);
 
     expect(screen.getByText("Write report")).toBeTruthy();
     expect(screen.getByText("Buy milk")).toBeTruthy();
     expect(screen.getByText("Call dentist")).toBeTruthy();
   });
 
-  it("fetches the canonical task set with no arguments", () => {
-    render(<TaskDrawer date={date} />);
+  it("fetches the canonical task set with no arguments", async () => {
+    await render(<TaskDrawer date={date} />);
 
     expect(mockUseTasks).toHaveBeenCalledWith();
   });
 
-  it("excludes tasks scheduled for the viewed day and completed tasks by default", () => {
+  it("excludes tasks scheduled for the viewed day and completed tasks by default", async () => {
     mockUseTasks.mockReturnValue(
       tasksResult([
         task({ id: "1", title: "Scheduled today", scheduledFor: "2026-07-16" }),
@@ -549,18 +549,18 @@ describe("TaskDrawer", () => {
         task({ id: "3", title: "Backlog item", scheduledFor: null }),
       ]),
     );
-    const screen = render(<TaskDrawer date={date} />);
+    const screen = await render(<TaskDrawer date={date} />);
 
     expect(screen.getByText("Backlog item")).toBeTruthy();
     expect(screen.queryByText("Scheduled today")).toBeNull();
     expect(screen.queryByText("Done elsewhere")).toBeNull();
   });
 
-  it("schedules a task for the viewed day when its schedule button is pressed", () => {
+  it("schedules a task for the viewed day when its schedule button is pressed", async () => {
     mockUseTasks.mockReturnValue(tasksResult([task()]));
-    const screen = render(<TaskDrawer date={date} />);
+    const screen = await render(<TaskDrawer date={date} />);
 
-    fireEvent.press(
+    await fireEvent.press(
       screen.getByLabelText('Schedule "Write report" for Thursday, Jul 16'),
     );
 
@@ -585,16 +585,16 @@ describe("TaskDrawer", () => {
       return call[0].solid;
     };
 
-    it("passes solid down to the row's schedule button when set", () => {
+    it("passes solid down to the row's schedule button when set", async () => {
       mockUseTasks.mockReturnValue(tasksResult([task()]));
-      render(<TaskDrawer date={date} solid />);
+      await render(<TaskDrawer date={date} solid />);
 
       expect(solidOfSchedule()).toBe(true);
     });
 
-    it("leaves it off by default, so a docked drawer keeps its glass", () => {
+    it("leaves it off by default, so a docked drawer keeps its glass", async () => {
       mockUseTasks.mockReturnValue(tasksResult([task()]));
-      render(<TaskDrawer date={date} />);
+      await render(<TaskDrawer date={date} />);
 
       expect(solidOfSchedule()).toBeFalsy();
     });
@@ -675,7 +675,7 @@ describe("TaskDrawer", () => {
     });
   });
 
-  it("applies a controlled filterId from the parent (Overdue)", () => {
+  it("applies a controlled filterId from the parent (Overdue)", async () => {
     // The drawer filters against the real today, so derive the overdue date
     // from it rather than the fixed viewed day.
     const yesterday = Temporal.Now.plainDateISO().subtract({ days: 1 });
@@ -685,7 +685,7 @@ describe("TaskDrawer", () => {
         task({ id: "2", title: "Not overdue", dueOn: null }),
       ]),
     );
-    const screen = render(
+    const screen = await render(
       <TaskDrawer date={date} filterId="overdue" onFilterChange={jest.fn()} />,
     );
 
@@ -693,9 +693,9 @@ describe("TaskDrawer", () => {
     expect(screen.queryByText("Not overdue")).toBeNull();
   });
 
-  it("routes filter selection through onFilterChange when controlled", () => {
+  it("routes filter selection through onFilterChange when controlled", async () => {
     const onFilterChange = jest.fn();
-    render(
+    await render(
       <TaskDrawer
         date={date}
         filterId="none"
@@ -710,8 +710,8 @@ describe("TaskDrawer", () => {
 
   // An applied filter used to be invisible until you opened the menu; only a
   // control off its `"none"` default wears the accent, label and outline together.
-  it("accents a control's label and outline only while it is off its default", () => {
-    const screen = render(
+  it("accents a control's label and outline only while it is off its default", async () => {
+    const screen = await render(
       <TaskDrawer date={date} filterId="overdue" onFilterChange={jest.fn()} />,
     );
     const { colors } = themes.dexter;
@@ -726,22 +726,24 @@ describe("TaskDrawer", () => {
   // The ritual's Backlog step drops the field (DEX-141); every other host keeps
   // it, so the default has to stay on.
   describe("the search field", () => {
-    it("is rendered by default", () => {
-      const screen = render(<TaskDrawer date={date} />);
+    it("is rendered by default", async () => {
+      const screen = await render(<TaskDrawer date={date} />);
 
       expect(screen.getByLabelText("Search")).toBeTruthy();
     });
 
-    it("is dropped when showSearch is false", () => {
-      const screen = render(<TaskDrawer date={date} showSearch={false} />);
+    it("is dropped when showSearch is false", async () => {
+      const screen = await render(
+        <TaskDrawer date={date} showSearch={false} />,
+      );
 
       expect(screen.queryByLabelText("Search")).toBeNull();
     });
 
     // The field's tail holds the list a group step below the controls; hidden,
     // it moves to the controls row rather than disappearing.
-    it("hands its bottom margin to the controls row when hidden", () => {
-      const withSearch = render(<TaskDrawer date={date} />);
+    it("hands its bottom margin to the controls row when hidden", async () => {
+      const withSearch = await render(<TaskDrawer date={date} />);
       // Read off the field rather than a token — what matters is the gap
       // survives, not what it resolves to on this density.
       const tail = StyleSheet.flatten(
@@ -751,7 +753,7 @@ describe("TaskDrawer", () => {
       expect(tail).toBeGreaterThan(0);
       expect(rowMarginBottom(withSearch)).toBeUndefined();
 
-      const withoutSearch = render(
+      const withoutSearch = await render(
         <TaskDrawer date={date} showSearch={false} />,
       );
 
@@ -761,16 +763,16 @@ describe("TaskDrawer", () => {
 
   // A group heading carries the group step above it, on top of the row
   // separator's own `sm`, or sections run together. The first heading excepted.
-  it("separates a group heading from the group above it, but not the first", () => {
+  it("separates a group heading from the group above it, but not the first", async () => {
     mockUseTasks.mockReturnValue(
       tasksResult([
         task({ id: "1", title: "A", priority: ETaskPriority.URGENT }),
         task({ id: "2", title: "B", priority: ETaskPriority.UNPRIORITIZED }),
       ]),
     );
-    const screen = render(<TaskDrawer date={date} />);
+    const screen = await render(<TaskDrawer date={date} />);
 
-    act(() => selectGroupOption("priority"));
+    await act(() => selectGroupOption("priority"));
 
     const marginOf = (heading: string) =>
       StyleSheet.flatten(screen.getByText(heading).props.style as TextStyle[])

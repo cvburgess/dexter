@@ -62,8 +62,8 @@ const mockToggleCalendar = jest.fn();
 const monday = Temporal.PlainDate.from("2026-07-13");
 const thursday = "2026-07-16";
 
-const renderWeek = ({ enableCalendar = false } = {}) =>
-  render(
+const renderWeek = async ({ enableCalendar = false } = {}) =>
+  await render(
     <WeekView
       enableCalendar={enableCalendar}
       monday={monday}
@@ -99,8 +99,8 @@ beforeEach(() => {
 });
 
 describe("WeekView drag-to-schedule", () => {
-  it("makes every day of the week a drop target", () => {
-    const screen = renderWeek();
+  it("makes every day of the week a drop target", async () => {
+    const screen = await renderWeek();
 
     for (let offset = 0; offset < 7; offset += 1) {
       const day = monday.add({ days: offset }).toString();
@@ -108,8 +108,8 @@ describe("WeekView drag-to-schedule", () => {
     }
   });
 
-  it("schedules a task dropped on a column for that column's day", () => {
-    const screen = renderWeek();
+  it("schedules a task dropped on a column for that column's day", async () => {
+    const screen = await renderWeek();
 
     targetProps(screen, `week-drop-${thursday}`).onReceiveDragDrop({
       dragged: { payload: { taskId: "task-1" } },
@@ -121,8 +121,8 @@ describe("WeekView drag-to-schedule", () => {
     });
   });
 
-  it("refuses a task dropped back on the day it is already scheduled for", () => {
-    const screen = renderWeek();
+  it("refuses a task dropped back on the day it is already scheduled for", async () => {
+    const screen = await renderWeek();
 
     expect(
       targetProps(screen, "week-drop-2026-07-13").acceptsDrag({
@@ -133,9 +133,9 @@ describe("WeekView drag-to-schedule", () => {
 
   // The drawer is docked outside the horizontal scroller, so it stays put and
   // reachable while the week scrolls under it.
-  it("unschedules a task dropped on the docked backlog", () => {
-    const screen = renderWeek();
-    fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
+  it("unschedules a task dropped on the docked backlog", async () => {
+    const screen = await renderWeek();
+    await fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
 
     targetProps(screen, "backlog-drop-target").onReceiveDragDrop({
       dragged: { payload: { taskId: "task-1" } },
@@ -147,8 +147,8 @@ describe("WeekView drag-to-schedule", () => {
     });
   });
 
-  it("has no backlog drop target until the drawer is open", () => {
-    const screen = renderWeek();
+  it("has no backlog drop target until the drawer is open", async () => {
+    const screen = await renderWeek();
 
     expect(screen.queryByTestId("backlog-drop-target")).toBeNull();
   });
@@ -157,10 +157,10 @@ describe("WeekView drag-to-schedule", () => {
 describe("WeekView calendar toggle (DEX-186)", () => {
   // The stored toggle outlives the setting: turning the calendar off in
   // Settings must hide both the button and the events.
-  it("ignores a stored toggle while the calendar is disabled", () => {
+  it("ignores a stored toggle while the calendar is disabled", async () => {
     mockUseWeekCalendar.mockReturnValue([true, { toggle: mockToggleCalendar }]);
 
-    const screen = renderWeek({ enableCalendar: false });
+    const screen = await renderWeek({ enableCalendar: false });
 
     expect(screen.queryByLabelText("Toggle calendar events")).toBeNull();
     expect(screen.queryAllByText(/calendar=true/)).toHaveLength(0);

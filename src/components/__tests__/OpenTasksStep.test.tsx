@@ -79,12 +79,14 @@ const tasksResult = (
     },
   ] as never;
 
-const renderStep = (
+const renderStep = async (
   tasks: TTask[] = [],
   { isLoading = false, date = DATE } = {},
 ) => {
   mockUseTasks.mockReturnValue(tasksResult(tasks, isLoading));
-  return render(<OpenTasksStep date={date} onEditingChange={jest.fn()} />);
+  return await render(
+    <OpenTasksStep date={date} onEditingChange={jest.fn()} />,
+  );
 };
 
 /** The color a rendered `<Text>` resolves to, for the hero's ink assertions. */
@@ -101,15 +103,15 @@ beforeEach(() => {
 describe("OpenTasksStep", () => {
   // `useTasks` serves an empty placeholder until the query resolves, so the
   // all-clear would throw confetti at someone whose evening is full.
-  it("renders nothing rather than a premature all-clear", () => {
-    const screen = renderStep([], { isLoading: true });
+  it("renders nothing rather than a premature all-clear", async () => {
+    const screen = await renderStep([], { isLoading: true });
 
     expect(screen.toJSON()).toBeNull();
   });
 
   describe("the day's open tasks", () => {
-    it("counts them and lists them", () => {
-      const screen = renderStep([
+    it("counts them and lists them", async () => {
+      const screen = await renderStep([
         task({ id: "1", title: "Write report" }),
         task({ id: "2", title: "Email the vendor" }),
       ]);
@@ -120,16 +122,16 @@ describe("OpenTasksStep", () => {
       expect(screen.queryByTestId("open-tasks-step-clear")).toBeNull();
     });
 
-    it("says 'task' for one and 'tasks' for the rest", () => {
-      const screen = renderStep([task({ id: "1" })]);
+    it("says 'task' for one and 'tasks' for the rest", async () => {
+      const screen = await renderStep([task({ id: "1" })]);
 
       expect(screen.getByLabelText("1 open task")).toBeTruthy();
     });
 
     // Scope is the ritual's own day and only what is still open — other days
     // are the morning Backlog step's business.
-    it("leaves out closed tasks and other days", () => {
-      const screen = renderStep([
+    it("leaves out closed tasks and other days", async () => {
+      const screen = await renderStep([
         task({ id: "1", title: "Still open" }),
         task({ id: "2", title: "Finished", status: ETaskStatus.DONE }),
         task({ id: "3", title: "Handed off", status: ETaskStatus.DELEGATED }),
@@ -145,8 +147,8 @@ describe("OpenTasksStep", () => {
   });
 
   describe("with the day closed out", () => {
-    it("centers the count and celebrates", () => {
-      const screen = renderStep([]);
+    it("centers the count and celebrates", async () => {
+      const screen = await renderStep([]);
 
       expect(screen.getByTestId("open-tasks-step-clear")).toBeTruthy();
       expect(screen.getByTestId("confetti")).toBeTruthy();
@@ -158,8 +160,8 @@ describe("OpenTasksStep", () => {
 
     // The confetti is the all-clear's, not the step's: a cold cache reaches the
     // `isLoading` guard first, and a day with work left has nothing to celebrate.
-    it("does not celebrate a day with work left in it", () => {
-      const screen = renderStep([task()]);
+    it("does not celebrate a day with work left in it", async () => {
+      const screen = await renderStep([task()]);
 
       expect(screen.queryByTestId("confetti")).toBeNull();
       expect(colorOf(screen.getByTestId("hero-figure-open"))).toBe(
@@ -167,18 +169,18 @@ describe("OpenTasksStep", () => {
       );
     });
 
-    it("does not celebrate a cold cache", () => {
-      const screen = renderStep([], { isLoading: true });
+    it("does not celebrate a cold cache", async () => {
+      const screen = await renderStep([], { isLoading: true });
 
       expect(screen.queryByTestId("confetti")).toBeNull();
     });
   });
 
   describe("the quick actions", () => {
-    it("moves a task to the day after the one being closed out", () => {
-      const screen = renderStep([task()]);
+    it("moves a task to the day after the one being closed out", async () => {
+      const screen = await renderStep([task()]);
 
-      fireEvent.press(
+      await fireEvent.press(
         screen.getByLabelText('Move "Write report" to Monday, Aug 10'),
       );
 
@@ -190,12 +192,12 @@ describe("OpenTasksStep", () => {
 
     // "Tomorrow" is the day after the *ritual's* — an implementation anchored
     // to `Temporal.Now` would pass every test above and move the wrong day.
-    it("follows the ritual's date rather than the real tomorrow", () => {
-      const screen = renderStep([task({ scheduledFor: "2026-01-02" })], {
+    it("follows the ritual's date rather than the real tomorrow", async () => {
+      const screen = await renderStep([task({ scheduledFor: "2026-01-02" })], {
         date: Temporal.PlainDate.from("2026-01-02"),
       });
 
-      fireEvent.press(
+      await fireEvent.press(
         screen.getByLabelText('Move "Write report" to Saturday, Jan 3'),
       );
 
@@ -205,10 +207,10 @@ describe("OpenTasksStep", () => {
       });
     });
 
-    it("unschedules a task off the day", () => {
-      const screen = renderStep([task()]);
+    it("unschedules a task off the day", async () => {
+      const screen = await renderStep([task()]);
 
-      fireEvent.press(screen.getByLabelText('Unschedule "Write report"'));
+      await fireEvent.press(screen.getByLabelText('Unschedule "Write report"'));
 
       expect(mockUpdateTask).toHaveBeenCalledWith({
         id: "task-1",
@@ -247,13 +249,13 @@ describe("OpenTasksStep", () => {
       expect(mockUpdateTask).not.toHaveBeenCalled();
     });
 
-    it("carries the alarm over once the move is confirmed", () => {
+    it("carries the alarm over once the move is confirmed", async () => {
       const { buttons } = pressAndReadPrompt(
         'Move "Write report" to Monday, Aug 10',
       );
       const keep = buttons.find((button) => button.text === "Keep alarm");
 
-      act(() => keep?.onPress?.());
+      await act(() => keep?.onPress?.());
 
       expect(mockUpdateTask).toHaveBeenCalledWith({
         id: "task-1",

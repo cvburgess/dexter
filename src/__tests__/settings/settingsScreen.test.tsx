@@ -29,23 +29,23 @@ describe("SettingsScreen", () => {
     mockUseIsLargeDevice.mockReturnValue(false);
   });
 
-  it("redirects to the first settings item in two-pane mode", () => {
+  it("redirects to the first settings item in two-pane mode", async () => {
     mockUseIsLargeDevice.mockReturnValue(true);
-    const screen = render(<SettingsScreen />);
+    const screen = await render(<SettingsScreen />);
 
     expect(screen.getByText("redirect:/settings/account")).toBeTruthy();
   });
 
-  it("renders the row list instead of redirecting in single-column mode", () => {
+  it("renders the row list instead of redirecting in single-column mode", async () => {
     mockUseIsLargeDevice.mockReturnValue(false);
-    const screen = render(<SettingsScreen />);
+    const screen = await render(<SettingsScreen />);
 
     expect(screen.queryByText(/^redirect:/)).toBeNull();
     expect(screen.getByText("Account")).toBeTruthy();
   });
 
-  it("renders a row for every settings item", () => {
-    const screen = render(<SettingsScreen />);
+  it("renders a row for every settings item", async () => {
+    const screen = await render(<SettingsScreen />);
 
     for (const title of [
       "Account",
@@ -63,8 +63,8 @@ describe("SettingsScreen", () => {
 
   // Bottom edge omitted so rows scroll under the tab bar; content must reserve
   // the inset itself or the last row can never clear it (DEX-91).
-  it("adds the safe-area bottom inset to the list's own padding", () => {
-    const screen = renderWithBottomInset(34, <SettingsScreen />);
+  it("adds the safe-area bottom inset to the list's own padding", async () => {
+    const screen = await renderWithBottomInset(34, <SettingsScreen />);
 
     const style = StyleSheet.flatten(
       screen.UNSAFE_getByType(FlatList).props
@@ -73,13 +73,13 @@ describe("SettingsScreen", () => {
     expect(style.paddingBottom).toBe(Number(style.padding) + 34);
   });
 
-  it("navigates to the matching subview when a row is pressed", () => {
-    const screen = render(<SettingsScreen />);
+  it("navigates to the matching subview when a row is pressed", async () => {
+    const screen = await render(<SettingsScreen />);
 
-    fireEvent.press(screen.getByTestId("settings-row-account"));
+    await fireEvent.press(screen.getByTestId("settings-row-account"));
     expect(mockRouter.push).toHaveBeenCalledWith("/settings/account");
 
-    fireEvent.press(screen.getByTestId("settings-row-licenses"));
+    await fireEvent.press(screen.getByTestId("settings-row-licenses"));
     expect(mockRouter.push).toHaveBeenCalledWith("/settings/licenses");
   });
 });

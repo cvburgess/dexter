@@ -77,7 +77,7 @@ describe("useHabitWidgetDrain", () => {
   it("persists each queued step and clears it", async () => {
     mockWidgets.readPendingHabitSteps.mockReturnValue({ [KEY]: 3 });
 
-    renderHook(() => useHabitWidgetDrain());
+    await renderHook(() => useHabitWidgetDrain());
 
     await waitFor(() => expect(mockUpsertDailyHabit).toHaveBeenCalledTimes(1));
     expect(mockUpsertDailyHabit).toHaveBeenCalledWith(expect.anything(), {
@@ -101,7 +101,7 @@ describe("useHabitWidgetDrain", () => {
     mockHabitsState.habits = [habit({ steps: 2 })];
     mockWidgets.readPendingHabitSteps.mockReturnValue({ [KEY]: 5 });
 
-    renderHook(() => useHabitWidgetDrain());
+    await renderHook(() => useHabitWidgetDrain());
 
     await waitFor(() => expect(mockUpsertDailyHabit).toHaveBeenCalled());
     expect(mockUpsertDailyHabit).toHaveBeenCalledWith(
@@ -117,12 +117,12 @@ describe("useHabitWidgetDrain", () => {
     mockHabitsState.isLoading = true;
     mockWidgets.readPendingHabitSteps.mockReturnValue({ [KEY]: 3 });
 
-    const { rerender } = renderHook(() => useHabitWidgetDrain());
+    const { rerender } = await renderHook(() => useHabitWidgetDrain());
     expect(mockWidgets.readPendingHabitSteps).not.toHaveBeenCalled();
 
     mockHabitsState.habits = [habit()];
     mockHabitsState.isLoading = false;
-    rerender({});
+    await rerender({});
 
     await waitFor(() => expect(mockUpsertDailyHabit).toHaveBeenCalledTimes(1));
   });
@@ -131,7 +131,7 @@ describe("useHabitWidgetDrain", () => {
     mockHabitsState.habits = [habit({ id: "other" })];
     mockWidgets.readPendingHabitSteps.mockReturnValue({ [KEY]: 3 });
 
-    renderHook(() => useHabitWidgetDrain());
+    await renderHook(() => useHabitWidgetDrain());
 
     await waitFor(() =>
       expect(mockWidgets.clearPendingHabitSteps).toHaveBeenCalledWith([KEY]),
@@ -147,7 +147,7 @@ describe("useHabitWidgetDrain", () => {
     mockUpsertDailyHabit.mockRejectedValue(new Error("offline"));
     mockWidgets.readPendingHabitSteps.mockReturnValue({ [KEY]: 3 });
 
-    renderHook(() => useHabitWidgetDrain());
+    await renderHook(() => useHabitWidgetDrain());
 
     await waitFor(() =>
       expect(mockWidgets.clearPendingHabitSteps).toHaveBeenCalledWith([]),
@@ -165,7 +165,7 @@ describe("useHabitWidgetDrain", () => {
       });
 
     mockWidgets.readPendingHabitSteps.mockReturnValue({ [KEY]: 3 });
-    renderHook(() => useHabitWidgetDrain());
+    await renderHook(() => useHabitWidgetDrain());
     await waitFor(() => expect(mockUpsertDailyHabit).toHaveBeenCalledTimes(1));
 
     mockWidgets.readPendingHabitSteps.mockReturnValue({
@@ -176,15 +176,15 @@ describe("useHabitWidgetDrain", () => {
     await waitFor(() => expect(mockUpsertDailyHabit).toHaveBeenCalledTimes(2));
   });
 
-  it("does nothing on an empty queue, or while signed out", () => {
-    renderHook(() => useHabitWidgetDrain());
+  it("does nothing on an empty queue, or while signed out", async () => {
+    await renderHook(() => useHabitWidgetDrain());
 
     expect(mockUpsertDailyHabit).not.toHaveBeenCalled();
     expect(mockWidgets.clearPendingHabitSteps).not.toHaveBeenCalled();
 
     mockAuthState.session = null;
     mockWidgets.readPendingHabitSteps.mockReturnValue({ [KEY]: 3 });
-    renderHook(() => useHabitWidgetDrain());
+    await renderHook(() => useHabitWidgetDrain());
 
     // `useWidgetSync` has already emptied the queue on the way out; reading it
     // here would only race that.

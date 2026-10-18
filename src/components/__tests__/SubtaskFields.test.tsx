@@ -31,67 +31,67 @@ const addRow = () => fireEvent.press(screen.getByTestId("test-add-subtask"));
 const draftInput = () => screen.getByPlaceholderText("Subtask");
 
 describe("SubtaskFields", () => {
-  it("renders no rows until one is added", () => {
-    render(<Host />);
+  it("renders no rows until one is added", async () => {
+    await render(<Host />);
 
     expect(screen.queryByPlaceholderText("Subtask")).toBeNull();
   });
 
-  it("adds an empty focused row", () => {
-    render(<Host />);
+  it("adds an empty focused row", async () => {
+    await render(<Host />);
 
     addRow();
 
     expect(draftInput()).toBeTruthy();
   });
 
-  it("keeps a titled row", () => {
-    render(<Host />);
+  it("keeps a titled row", async () => {
+    await render(<Host />);
 
     addRow();
-    fireEvent.changeText(draftInput(), "Pack bag");
-    fireEvent(draftInput(), "blur");
+    await fireEvent.changeText(draftInput(), "Pack bag");
+    await fireEvent(draftInput(), "blur");
 
     expect(screen.getByText("Pack bag")).toBeTruthy();
   });
 
-  it("discards a row left empty, rather than reverting it", () => {
+  it("discards a row left empty, rather than reverting it", async () => {
     // Nothing here has been saved yet, so there is no stored title to revert
     // to — the opposite of the in-card rule in TaskCard.
-    render(<Host initial={[{ id: "s1", title: "Existing" }]} />);
+    await render(<Host initial={[{ id: "s1", title: "Existing" }]} />);
 
     addRow();
-    fireEvent(draftInput(), "blur");
+    await fireEvent(draftInput(), "blur");
 
     expect(screen.queryByPlaceholderText("Subtask")).toBeNull();
     expect(screen.getByText("Existing")).toBeTruthy();
   });
 
-  it("reverts an existing row whose title is emptied, rather than deleting it", () => {
+  it("reverts an existing row whose title is emptied, rather than deleting it", async () => {
     // The template form seeds this from saved rows, so clearing the text to
     // retype must not silently drop a checklist item from the blueprint.
-    render(<Host initial={[{ id: "s1", title: "Existing" }]} />);
+    await render(<Host initial={[{ id: "s1", title: "Existing" }]} />);
 
-    fireEvent.press(screen.getByTestId("test-subtask-s1"));
-    fireEvent.changeText(screen.getByTestId("test-subtask-s1-input"), "");
-    fireEvent(screen.getByTestId("test-subtask-s1-input"), "blur");
+    await fireEvent.press(screen.getByTestId("test-subtask-s1"));
+    await fireEvent.changeText(screen.getByTestId("test-subtask-s1-input"), "");
+    await fireEvent(screen.getByTestId("test-subtask-s1-input"), "blur");
 
     expect(screen.getByText("Existing")).toBeTruthy();
   });
 
-  it("removes a row through its explicit ✕", () => {
-    render(<Host initial={[{ id: "s1", title: "Existing" }]} />);
+  it("removes a row through its explicit ✕", async () => {
+    await render(<Host initial={[{ id: "s1", title: "Existing" }]} />);
 
-    fireEvent.press(screen.getByTestId("test-remove-subtask-s1"));
+    await fireEvent.press(screen.getByTestId("test-remove-subtask-s1"));
 
     expect(screen.queryByText("Existing")).toBeNull();
   });
 
-  it("mirrors keystrokes into form state before any commit", () => {
+  it("mirrors keystrokes into form state before any commit", async () => {
     // On native, tapping Save does not blur the focused input first, so a row
     // that is only committed on blur would be dropped from the payload.
     const onChange = jest.fn();
-    render(
+    await render(
       <SubtaskFields
         value={[{ id: "s1", title: "" }]}
         onChange={onChange}
@@ -100,18 +100,21 @@ describe("SubtaskFields", () => {
       />,
     );
 
-    fireEvent.press(screen.getByTestId("test-subtask-s1"));
-    fireEvent.changeText(screen.getByTestId("test-subtask-s1-input"), "Pack");
+    await fireEvent.press(screen.getByTestId("test-subtask-s1"));
+    await fireEvent.changeText(
+      screen.getByTestId("test-subtask-s1-input"),
+      "Pack",
+    );
 
     expect(onChange).toHaveBeenCalledWith([{ id: "s1", title: "Pack" }]);
   });
 
-  it("chains another row when return commits a non-empty title", () => {
-    render(<Host />);
+  it("chains another row when return commits a non-empty title", async () => {
+    await render(<Host />);
 
     addRow();
-    fireEvent.changeText(draftInput(), "Pack bag");
-    fireEvent(draftInput(), "submitEditing");
+    await fireEvent.changeText(draftInput(), "Pack bag");
+    await fireEvent(draftInput(), "submitEditing");
 
     // The committed row is now static text and a fresh empty row is focused.
     expect(screen.getByText("Pack bag")).toBeTruthy();
@@ -120,33 +123,33 @@ describe("SubtaskFields", () => {
 
   // A new row autofocuses, so a form whose checklist runs past the keyboard has
   // to scroll it into view — both ways of adding one must announce it.
-  it("announces every added row, from the button and from the chain", () => {
+  it("announces every added row, from the button and from the chain", async () => {
     const onAddRow = jest.fn();
-    render(<Host onAddRow={onAddRow} />);
+    await render(<Host onAddRow={onAddRow} />);
 
     addRow();
     expect(onAddRow).toHaveBeenCalledTimes(1);
 
-    fireEvent.changeText(draftInput(), "Pack bag");
-    fireEvent(draftInput(), "submitEditing");
+    await fireEvent.changeText(draftInput(), "Pack bag");
+    await fireEvent(draftInput(), "submitEditing");
 
     expect(onAddRow).toHaveBeenCalledTimes(2);
   });
 
-  it("ends the chain when return commits an empty row", () => {
-    render(<Host />);
+  it("ends the chain when return commits an empty row", async () => {
+    await render(<Host />);
 
     addRow();
-    fireEvent(draftInput(), "submitEditing");
+    await fireEvent(draftInput(), "submitEditing");
 
     expect(screen.queryByPlaceholderText("Subtask")).toBeNull();
   });
 
-  it("passes the caller's extra fields through on a new row", () => {
+  it("passes the caller's extra fields through on a new row", async () => {
     // The template form's rows carry no status; a task's do. `makeRow` is what
     // keeps one component serving both.
     const onChange = jest.fn();
-    render(
+    await render(
       <SubtaskFields
         value={[]}
         onChange={onChange}

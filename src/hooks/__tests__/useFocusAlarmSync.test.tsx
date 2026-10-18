@@ -78,7 +78,7 @@ describe("useFocusAlarmSync", () => {
   });
 
   it("schedules the countdown for a running block, with the chosen sound", async () => {
-    renderHook(() => useFocusAlarmSync(block()));
+    await renderHook(() => useFocusAlarmSync(block()));
 
     await waitFor(() =>
       expect(mockAlarms.scheduleFocusAlarm).toHaveBeenCalledWith(
@@ -98,13 +98,13 @@ describe("useFocusAlarmSync", () => {
   // A failure retries on every run, so on the Mac app each tick re-alerted (DEX-230).
   it("warns only once per session when scheduling keeps failing", async () => {
     mockAlarms.scheduleFocusAlarm.mockRejectedValue(new Error("rejected"));
-    const { rerender } = renderHook(
+    const { rerender } = await renderHook(
       ({ live }: { live: TFocusBlock | null }) => useFocusAlarmSync(live),
       { initialProps: { live: block() } },
     );
     await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
 
-    rerender({ live: block({ remainingSeconds: 1200 }) });
+    await rerender({ live: block({ remainingSeconds: 1200 }) });
 
     await waitFor(() =>
       expect(mockAlarms.scheduleFocusAlarm).toHaveBeenCalledTimes(2),
@@ -113,7 +113,7 @@ describe("useFocusAlarmSync", () => {
   });
 
   it("schedules nothing at all when no block is running", async () => {
-    renderHook(() => useFocusAlarmSync(null));
+    await renderHook(() => useFocusAlarmSync(null));
 
     await act(async () => {});
     expect(mockAlarms.scheduleFocusAlarm).not.toHaveBeenCalled();
@@ -124,13 +124,13 @@ describe("useFocusAlarmSync", () => {
     // Scheduling against the placeholder would ring the block with the default
     // sound and then immediately reschedule it (DEX-72).
     preferencesState.isLoading = true;
-    const { rerender } = renderHook(() => useFocusAlarmSync(block()));
+    const { rerender } = await renderHook(() => useFocusAlarmSync(block()));
 
     await act(async () => {});
     expect(mockAlarms.scheduleFocusAlarm).not.toHaveBeenCalled();
 
     preferencesState.isLoading = false;
-    rerender({});
+    await rerender({});
 
     await waitFor(() =>
       expect(mockAlarms.scheduleFocusAlarm).toHaveBeenCalledTimes(1),
@@ -140,7 +140,7 @@ describe("useFocusAlarmSync", () => {
   it("does not reschedule a block that is still running unchanged", async () => {
     // A refetch hands back a *new* object carrying the same row; rescheduling
     // on that would blink the lock-screen countdown out and back for nothing.
-    const { rerender } = renderHook(
+    const { rerender } = await renderHook(
       ({ live }: { live: TFocusBlock | null }) => useFocusAlarmSync(live),
       { initialProps: { live: block() } },
     );
@@ -150,7 +150,7 @@ describe("useFocusAlarmSync", () => {
     );
 
     jest.setSystemTime(START + 30_000);
-    rerender({ live: block() });
+    await rerender({ live: block() });
 
     await act(async () => {});
     expect(mockAlarms.scheduleFocusAlarm).toHaveBeenCalledTimes(1);
@@ -158,7 +158,7 @@ describe("useFocusAlarmSync", () => {
   });
 
   it("reschedules when a resume moves the block's end", async () => {
-    const { rerender } = renderHook(
+    const { rerender } = await renderHook(
       ({ live }: { live: TFocusBlock | null }) => useFocusAlarmSync(live),
       { initialProps: { live: block() } },
     );
@@ -170,7 +170,7 @@ describe("useFocusAlarmSync", () => {
     // Paused at 20:00 left, resumed five minutes later: the alarm has to move
     // with the new anchor, not keep the end the first schedule computed.
     jest.setSystemTime(START + 600_000);
-    rerender({
+    await rerender({
       live: block({
         remainingSeconds: 1200,
         resumedAt: new Date(START + 600_000).toISOString(),
@@ -187,7 +187,7 @@ describe("useFocusAlarmSync", () => {
   });
 
   it("cancels the countdown when the block is paused", async () => {
-    const { rerender } = renderHook(
+    const { rerender } = await renderHook(
       ({ live }: { live: TFocusBlock | null }) => useFocusAlarmSync(live),
       { initialProps: { live: block() } },
     );
@@ -196,7 +196,7 @@ describe("useFocusAlarmSync", () => {
       expect(mockAlarms.scheduleFocusAlarm).toHaveBeenCalledTimes(1),
     );
 
-    rerender({
+    await rerender({
       live: block({
         status: "paused",
         resumedAt: null,
@@ -211,7 +211,7 @@ describe("useFocusAlarmSync", () => {
   });
 
   it("cancels the countdown when the block ends", async () => {
-    const { rerender } = renderHook(
+    const { rerender } = await renderHook(
       ({ live }: { live: TFocusBlock | null }) => useFocusAlarmSync(live),
       { initialProps: { live: block() } },
     );
@@ -221,7 +221,7 @@ describe("useFocusAlarmSync", () => {
     );
 
     // Stopping or completing clears the live row outright, so the hook sees null.
-    rerender({ live: null });
+    await rerender({ live: null });
 
     await waitFor(() =>
       expect(mockAlarms.cancelTaskAlarm).toHaveBeenCalledWith("block-1"),
@@ -233,7 +233,7 @@ describe("useFocusAlarmSync", () => {
     // its own sweep — a cancel that missed before close is never cleared.
     mockAlarms.getScheduledAlarmIds.mockReturnValue(["block-1"]);
 
-    renderHook(() =>
+    await renderHook(() =>
       useFocusAlarmSync(
         block({ status: "paused", resumedAt: null, remainingSeconds: 1200 }),
       ),
@@ -250,7 +250,7 @@ describe("useFocusAlarmSync", () => {
     // and the live block's own id — so DEX-48's alarms are out of reach.
     mockAlarms.getScheduledAlarmIds.mockReturnValue(["task-7", "task-8"]);
 
-    renderHook(() => useFocusAlarmSync(null));
+    await renderHook(() => useFocusAlarmSync(null));
 
     await act(async () => {});
     expect(mockAlarms.cancelTaskAlarm).not.toHaveBeenCalled();
@@ -259,7 +259,7 @@ describe("useFocusAlarmSync", () => {
   it("schedules nothing inside the last minute, which AlarmKit won't take", async () => {
     // `scheduleTimerAlarm` throws below 60s rather than returning false, so an
     // unguarded call here would alert the user on every run.
-    renderHook(() => useFocusAlarmSync(block({ remainingSeconds: 45 })));
+    await renderHook(() => useFocusAlarmSync(block({ remainingSeconds: 45 })));
 
     await act(async () => {});
     expect(mockAlarms.scheduleFocusAlarm).not.toHaveBeenCalled();
@@ -268,7 +268,7 @@ describe("useFocusAlarmSync", () => {
   it("tells the user when the countdown could not be set", async () => {
     mockAlarms.scheduleFocusAlarm.mockRejectedValue(new Error("denied"));
 
-    renderHook(() => useFocusAlarmSync(block()));
+    await renderHook(() => useFocusAlarmSync(block()));
 
     await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
     expect(alertSpy.mock.calls[0][0]).toBe("Timer won't ring");
@@ -279,12 +279,12 @@ describe("useFocusAlarmSync", () => {
     // rather than leaving the user trusting a block that won't ring.
     mockAlarms.scheduleFocusAlarm.mockRejectedValueOnce(new Error("denied"));
     const live = block();
-    const { rerender } = renderHook(() => useFocusAlarmSync(live));
+    const { rerender } = await renderHook(() => useFocusAlarmSync(live));
 
     await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
 
     preferencesState.alarmSound = "system";
-    rerender({});
+    await rerender({});
 
     await waitFor(() =>
       expect(mockAlarms.scheduleFocusAlarm).toHaveBeenCalledTimes(2),

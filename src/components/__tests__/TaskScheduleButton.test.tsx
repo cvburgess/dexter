@@ -27,8 +27,8 @@ const task = (overrides: Partial<TTask> = {}): TTask => ({
 
 const onChangeSchedule = jest.fn();
 
-const renderButton = (mode: TScheduleMode, date = DATE) =>
-  render(
+const renderButton = async (mode: TScheduleMode, date = DATE) =>
+  await render(
     <TaskScheduleButton
       date={date}
       mode={mode}
@@ -49,16 +49,16 @@ describe("TaskScheduleButton", () => {
       ["schedule", 'Schedule "Write report" for Sunday, Aug 9'],
       ["defer", 'Move "Write report" to Monday, Aug 10'],
       ["unschedule", 'Unschedule "Write report"'],
-    ] as const)("reads %s as its intent", (mode, label) => {
-      renderButton(mode);
+    ] as const)("reads %s as its intent", async (mode, label) => {
+      await renderButton(mode);
 
       expect(screen.getByLabelText(label)).toBeTruthy();
     });
 
     // The drawer sits beside seven days on Week and DayNav pages the ritual
     // anywhere, so "tomorrow" would lie about where a task went.
-    it("names the day rather than saying today or tomorrow", () => {
-      renderButton("defer", Temporal.PlainDate.from("2026-01-02"));
+    it("names the day rather than saying today or tomorrow", async () => {
+      await renderButton("defer", Temporal.PlainDate.from("2026-01-02"));
 
       expect(
         screen.getByLabelText('Move "Write report" to Saturday, Jan 3'),
@@ -68,10 +68,10 @@ describe("TaskScheduleButton", () => {
   });
 
   describe("the write", () => {
-    it("schedules onto the day the surface is showing", () => {
-      renderButton("schedule");
+    it("schedules onto the day the surface is showing", async () => {
+      await renderButton("schedule");
 
-      fireEvent.press(
+      await fireEvent.press(
         screen.getByLabelText('Schedule "Write report" for Sunday, Aug 9'),
       );
 
@@ -83,10 +83,10 @@ describe("TaskScheduleButton", () => {
 
     // The day after the one on screen, not after *today* — anchoring to
     // `Temporal.Now` would still pass every label assertion above.
-    it("defers to the day after the one on screen", () => {
-      renderButton("defer");
+    it("defers to the day after the one on screen", async () => {
+      await renderButton("defer");
 
-      fireEvent.press(
+      await fireEvent.press(
         screen.getByLabelText('Move "Write report" to Monday, Aug 10'),
       );
 
@@ -96,10 +96,10 @@ describe("TaskScheduleButton", () => {
       );
     });
 
-    it("clears the date rather than writing one", () => {
-      renderButton("unschedule");
+    it("clears the date rather than writing one", async () => {
+      await renderButton("unschedule");
 
-      fireEvent.press(screen.getByLabelText('Unschedule "Write report"'));
+      await fireEvent.press(screen.getByLabelText('Unschedule "Write report"'));
 
       expect(onChangeSchedule).toHaveBeenCalledWith(
         expect.objectContaining({ id: "task-1" }),

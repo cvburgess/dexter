@@ -270,8 +270,8 @@ describe("TodayScreen", () => {
   const lastPublishedDay = () =>
     mockPublishViewedDay.mock.calls.at(-1)?.[0]?.toString();
 
-  it("publishes the viewed day so New Task defaults its schedule to it", () => {
-    render(<TodayScreen />);
+  it("publishes the viewed day so New Task defaults its schedule to it", async () => {
+    await render(<TodayScreen />);
 
     expect(lastPublishedDay()).toBe(Temporal.Now.plainDateISO().toString());
   });
@@ -281,11 +281,11 @@ describe("TodayScreen", () => {
   describe("the day changing underneath the screen", () => {
     const tomorrow = () => Temporal.Now.plainDateISO().add({ days: 1 });
 
-    it("follows the rollover while the screen is showing the day that ended", () => {
-      const screen = render(<TodayScreen />);
+    it("follows the rollover while the screen is showing the day that ended", async () => {
+      const screen = await render(<TodayScreen />);
 
       mockToday.current = tomorrow();
-      screen.rerender(<TodayScreen />);
+      await await screen.rerender(<TodayScreen />);
 
       expect(
         screen.getByText(`tasks-view:${tomorrow().toString()}`),
@@ -293,14 +293,14 @@ describe("TodayScreen", () => {
       expect(lastPublishedDay()).toBe(tomorrow().toString());
     });
 
-    it("leaves a day the user paged to alone", () => {
-      const screen = render(<TodayScreen />);
+    it("leaves a day the user paged to alone", async () => {
+      const screen = await render(<TodayScreen />);
       // Two days out, so the rollover's own +1 can't be mistaken for staying.
-      fireEvent.press(screen.getByLabelText("Next day"));
-      fireEvent.press(screen.getByLabelText("Next day"));
+      await fireEvent.press(screen.getByLabelText("Next day"));
+      await fireEvent.press(screen.getByLabelText("Next day"));
 
       mockToday.current = tomorrow();
-      screen.rerender(<TodayScreen />);
+      await await screen.rerender(<TodayScreen />);
 
       expect(
         screen.getByText(
@@ -310,10 +310,10 @@ describe("TodayScreen", () => {
     });
   });
 
-  it("publishes the new day after navigating a day forward", () => {
-    const screen = render(<TodayScreen />);
+  it("publishes the new day after navigating a day forward", async () => {
+    const screen = await render(<TodayScreen />);
 
-    fireEvent.press(screen.getByLabelText("Next day"));
+    await fireEvent.press(screen.getByLabelText("Next day"));
 
     expect(lastPublishedDay()).toBe(
       Temporal.Now.plainDateISO().add({ days: 1 }).toString(),
@@ -321,8 +321,8 @@ describe("TodayScreen", () => {
   });
 
   describe("small screens", () => {
-    it("mounts the task drawer sheet for the viewed day", () => {
-      const screen = render(<TodayScreen />);
+    it("mounts the task drawer sheet for the viewed day", async () => {
+      const screen = await render(<TodayScreen />);
 
       expect(
         screen.getByText(
@@ -331,27 +331,27 @@ describe("TodayScreen", () => {
       ).toBeTruthy();
     });
 
-    it("opens the task drawer sheet from the view switcher's drawer action", () => {
-      const screen = render(<TodayScreen />);
+    it("opens the task drawer sheet from the view switcher's drawer action", async () => {
+      const screen = await render(<TodayScreen />);
 
-      fireEvent.press(screen.getByLabelText("Open task drawer"));
+      await fireEvent.press(screen.getByLabelText("Open task drawer"));
 
       // Resets a `mode=backlog` link's seeded filter (DEX-47): this means "show
       // my backlog", not a slice still narrowed to Unscheduled.
       expect(mockPresentTaskDrawer).toHaveBeenCalledWith("none", "");
     });
 
-    it("pre-applies the Overdue filter when opening Backlog with an overdue task", () => {
+    it("pre-applies the Overdue filter when opening Backlog with an overdue task", async () => {
       mockUseTasks.mockReturnValue(tasksResult([overdueTask()]));
-      const screen = render(<TodayScreen />);
+      const screen = await render(<TodayScreen />);
 
-      fireEvent.press(screen.getByLabelText("Open task drawer"));
+      await fireEvent.press(screen.getByLabelText("Open task drawer"));
 
       expect(mockPresentTaskDrawer).toHaveBeenCalledWith("overdue", "");
     });
 
-    it("defaults to the Tasks view", () => {
-      const screen = render(<TodayScreen />);
+    it("defaults to the Tasks view", async () => {
+      const screen = await render(<TodayScreen />);
 
       expect(
         screen.getByText(
@@ -360,10 +360,10 @@ describe("TodayScreen", () => {
       ).toBeTruthy();
     });
 
-    it("renders the Calendar view when Calendar is selected", () => {
-      const screen = render(<TodayScreen />);
+    it("renders the Calendar view when Calendar is selected", async () => {
+      const screen = await render(<TodayScreen />);
 
-      fireEvent.press(screen.getByLabelText("view-calendar"));
+      await fireEvent.press(screen.getByLabelText("view-calendar"));
 
       expect(
         screen.getByText(
@@ -373,13 +373,13 @@ describe("TodayScreen", () => {
       expect(screen.queryByText(/^tasks-view:/)).toBeNull();
     });
 
-    it("falls back to Tasks when the selected view is disabled", () => {
+    it("falls back to Tasks when the selected view is disabled", async () => {
       mockUsePreferences.mockReturnValue(
         preferences({ enableCalendar: false }),
       );
-      const screen = render(<TodayScreen />);
+      const screen = await render(<TodayScreen />);
 
-      fireEvent.press(screen.getByLabelText("view-calendar"));
+      await fireEvent.press(screen.getByLabelText("view-calendar"));
 
       expect(screen.queryByText(/^calendar-view:/)).toBeNull();
       expect(
@@ -389,10 +389,10 @@ describe("TodayScreen", () => {
       ).toBeTruthy();
     });
 
-    it("re-renders the Tasks pane for the new date after navigating a day forward", () => {
-      const screen = render(<TodayScreen />);
+    it("re-renders the Tasks pane for the new date after navigating a day forward", async () => {
+      const screen = await render(<TodayScreen />);
 
-      fireEvent.press(screen.getByLabelText("Next day"));
+      await fireEvent.press(screen.getByLabelText("Next day"));
 
       expect(
         screen.getByText(
@@ -403,10 +403,10 @@ describe("TodayScreen", () => {
       ).toBeTruthy();
     });
 
-    it("re-renders the Tasks pane for the next day after swiping left", () => {
-      const screen = render(<TodayScreen />);
+    it("re-renders the Tasks pane for the next day after swiping left", async () => {
+      const screen = await render(<TodayScreen />);
 
-      act(() => {
+      await act(() => {
         fireGestureHandler(getByGestureTestId("page-swipe"), [
           { translationX: -200, velocityX: -900 },
         ]);
@@ -421,10 +421,10 @@ describe("TodayScreen", () => {
       ).toBeTruthy();
     });
 
-    it("re-renders the Tasks pane for the previous day after swiping right", () => {
-      const screen = render(<TodayScreen />);
+    it("re-renders the Tasks pane for the previous day after swiping right", async () => {
+      const screen = await render(<TodayScreen />);
 
-      act(() => {
+      await act(() => {
         fireGestureHandler(getByGestureTestId("page-swipe"), [
           { translationX: 200, velocityX: 900 },
         ]);
@@ -439,10 +439,10 @@ describe("TodayScreen", () => {
       ).toBeTruthy();
     });
 
-    it("advances two days when two swipes fire before a re-render settles", () => {
-      const screen = render(<TodayScreen />);
+    it("advances two days when two swipes fire before a re-render settles", async () => {
+      const screen = await render(<TodayScreen />);
 
-      act(() => {
+      await act(() => {
         fireGestureHandler(getByGestureTestId("page-swipe"), [
           { translationX: -200, velocityX: -900 },
         ]);
@@ -464,8 +464,8 @@ describe("TodayScreen", () => {
   describe("large screens (multi-pane)", () => {
     beforeEach(() => mockUseIsLargeDevice.mockReturnValue(true));
 
-    it("shows the always-visible Tasks pane plus every enabled pane by default", () => {
-      const screen = render(<TodayScreen />);
+    it("shows the always-visible Tasks pane plus every enabled pane by default", async () => {
+      const screen = await render(<TodayScreen />);
       const today = Temporal.Now.plainDateISO().toString();
 
       expect(screen.getByText(`tasks-view:${today}`)).toBeTruthy();
@@ -473,29 +473,29 @@ describe("TodayScreen", () => {
       expect(screen.getByText(`calendar-view:${today}`)).toBeTruthy();
     });
 
-    it("hides the task drawer pane by default", () => {
-      const screen = render(<TodayScreen />);
+    it("hides the task drawer pane by default", async () => {
+      const screen = await render(<TodayScreen />);
 
       expect(screen.queryByText(/^task-drawer:/)).toBeNull();
     });
 
-    it("shows the task drawer pane for the viewed day once opened", () => {
+    it("shows the task drawer pane for the viewed day once opened", async () => {
       mockUseTodayPanes.mockReturnValue(panes({ drawer: true }));
-      const screen = render(<TodayScreen />);
+      const screen = await render(<TodayScreen />);
       const today = Temporal.Now.plainDateISO().toString();
 
       expect(screen.getByText(`task-drawer:${today}`)).toBeTruthy();
     });
 
-    it("toggles the task drawer pane via its header button", () => {
-      const screen = render(<TodayScreen />);
+    it("toggles the task drawer pane via its header button", async () => {
+      const screen = await render(<TodayScreen />);
 
-      fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
+      await fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
 
       expect(mockTogglePane).toHaveBeenCalledWith("drawer");
     });
 
-    it("pre-applies the attention filter to the docked drawer when the toggle opens it", () => {
+    it("pre-applies the attention filter to the docked drawer when the toggle opens it", async () => {
       // Stateful pane mock so pressing the toggle actually opens the pane and
       // the docked TaskDrawer renders.
       let drawerOpen = false;
@@ -512,19 +512,19 @@ describe("TodayScreen", () => {
           ] as never,
       );
       mockUseTasks.mockReturnValue(tasksResult([overdueTask()]));
-      const screen = render(<TodayScreen />);
+      const screen = await render(<TodayScreen />);
 
-      fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
+      await fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
 
       expect(mockTaskDrawer).toHaveBeenLastCalledWith(
         expect.objectContaining({ filterId: "overdue" }),
       );
     });
 
-    it("does not change the drawer filter when the toggle closes the pane", () => {
+    it("does not change the drawer filter when the toggle closes the pane", async () => {
       mockUseTodayPanes.mockReturnValue(panes({ drawer: true }));
       mockUseTasks.mockReturnValue(tasksResult([overdueTask()]));
-      const screen = render(<TodayScreen />);
+      const screen = await render(<TodayScreen />);
 
       // Pane starts open → pressing the toggle closes it; the filter stays at
       // its default rather than jumping to "overdue".
@@ -532,49 +532,49 @@ describe("TodayScreen", () => {
         expect.objectContaining({ filterId: "none" }),
       );
 
-      fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
+      await fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
 
       expect(mockTogglePane).toHaveBeenCalledWith("drawer");
     });
 
-    it("does not render the small-screen view switcher", () => {
-      const screen = render(<TodayScreen />);
+    it("does not render the small-screen view switcher", async () => {
+      const screen = await render(<TodayScreen />);
 
       expect(screen.queryByLabelText("view-tasks")).toBeNull();
     });
 
-    it("hides a pane whose feature is disabled in settings, and hides its toggle", () => {
+    it("hides a pane whose feature is disabled in settings, and hides its toggle", async () => {
       mockUsePreferences.mockReturnValue(
         preferences({ enableCalendar: false }),
       );
-      const screen = render(<TodayScreen />);
+      const screen = await render(<TodayScreen />);
       const today = Temporal.Now.plainDateISO().toString();
 
       expect(screen.queryByText(`calendar-view:${today}`)).toBeNull();
       expect(screen.queryByLabelText("pane-toggle-calendar")).toBeNull();
     });
 
-    it("hides the Notes pane when it is toggled off", () => {
+    it("hides the Notes pane when it is toggled off", async () => {
       mockUseTodayPanes.mockReturnValue(panes({ notes: false }));
-      const screen = render(<TodayScreen />);
+      const screen = await render(<TodayScreen />);
       const today = Temporal.Now.plainDateISO().toString();
 
       expect(screen.queryByText(`notes-view:${today}`)).toBeNull();
       expect(screen.getByText(`calendar-view:${today}`)).toBeTruthy();
     });
 
-    it("toggles a pane via its header button", () => {
-      const screen = render(<TodayScreen />);
+    it("toggles a pane via its header button", async () => {
+      const screen = await render(<TodayScreen />);
 
-      fireEvent.press(screen.getByLabelText("pane-toggle-notes"));
+      await fireEvent.press(screen.getByLabelText("pane-toggle-notes"));
 
       expect(mockTogglePane).toHaveBeenCalledWith("notes");
     });
 
-    it("moves every pane to the next day together via DayNav", () => {
-      const screen = render(<TodayScreen />);
+    it("moves every pane to the next day together via DayNav", async () => {
+      const screen = await render(<TodayScreen />);
 
-      fireEvent.press(screen.getByLabelText("Next day"));
+      await fireEvent.press(screen.getByLabelText("Next day"));
 
       const tomorrow = Temporal.Now.plainDateISO().add({ days: 1 }).toString();
       expect(screen.getByText(`tasks-view:${tomorrow}`)).toBeTruthy();
@@ -582,14 +582,14 @@ describe("TodayScreen", () => {
       expect(screen.getByText(`calendar-view:${tomorrow}`)).toBeTruthy();
     });
 
-    it("remounts Notes and Calendar on a date change, not just re-rendering them", () => {
+    it("remounts Notes and Calendar on a date change, not just re-rendering them", async () => {
       mockNotesViewMount.mockClear();
       mockCalendarViewMount.mockClear();
-      const screen = render(<TodayScreen />);
+      const screen = await render(<TodayScreen />);
       expect(mockNotesViewMount).toHaveBeenCalledTimes(1);
       expect(mockCalendarViewMount).toHaveBeenCalledTimes(1);
 
-      fireEvent.press(screen.getByLabelText("Next day"));
+      await fireEvent.press(screen.getByLabelText("Next day"));
 
       // Both seed one-time state at mount — a re-render with a new `date` but
       // the same instance would leave stale content instead of the new day's.
@@ -597,16 +597,16 @@ describe("TodayScreen", () => {
       expect(mockCalendarViewMount).toHaveBeenCalledTimes(2);
     });
 
-    it("does not wrap panes in a swipeable day gesture", () => {
-      render(<TodayScreen />);
+    it("does not wrap panes in a swipeable day gesture", async () => {
+      await render(<TodayScreen />);
 
       expect(() => getByGestureTestId("page-swipe")).toThrow();
     });
 
-    it("offers no create button of its own in the header", () => {
+    it("offers no create button of its own in the header", async () => {
       // The nav rail (web) and tab-bar accessory (native) both carry a "+", so
       // a third in the header was redundant.
-      const screen = render(<TodayScreen />);
+      const screen = await render(<TodayScreen />);
 
       expect(screen.queryByLabelText("New Task")).toBeNull();
     });
@@ -615,10 +615,10 @@ describe("TodayScreen", () => {
   // DEX-47: the link format is unit-tested in todayRoute.test.ts; these cover
   // what this screen does on arrival.
   describe("search deep links", () => {
-    it("opens the day named by ?date= instead of today", () => {
+    it("opens the day named by ?date= instead of today", async () => {
       mockSearchParams.current = { date: "2026-07-14" };
 
-      const screen = render(<TodayScreen />);
+      const screen = await render(<TodayScreen />);
 
       expect(screen.getByText("tasks-view:2026-07-14")).toBeTruthy();
       // The viewed day drives New Task's default schedule too, so a deep link
@@ -626,12 +626,12 @@ describe("TodayScreen", () => {
       expect(lastPublishedDay()).toBe("2026-07-14");
     });
 
-    it("falls back to today when ?date= is unparseable", () => {
+    it("falls back to today when ?date= is unparseable", async () => {
       // The route is linkable on web, so a hand-edited or stale URL is a real
       // source of garbage — it must not crash the tab.
       mockSearchParams.current = { date: "2026-02-30" };
 
-      const screen = render(<TodayScreen />);
+      const screen = await render(<TodayScreen />);
 
       expect(
         screen.getByText(
@@ -640,38 +640,38 @@ describe("TodayScreen", () => {
       ).toBeTruthy();
     });
 
-    it("selects the view named by ?mode=", () => {
+    it("selects the view named by ?mode=", async () => {
       mockSearchParams.current = { date: "2026-07-14", mode: "notes" };
 
-      const screen = render(<TodayScreen />);
+      const screen = await render(<TodayScreen />);
 
       expect(screen.getByText("notes-view:2026-07-14")).toBeTruthy();
     });
 
-    it("ignores an unrecognized ?mode= rather than blanking the day", () => {
+    it("ignores an unrecognized ?mode= rather than blanking the day", async () => {
       mockSearchParams.current = { date: "2026-07-14", mode: "nonsense" };
 
-      const screen = render(<TodayScreen />);
+      const screen = await render(<TodayScreen />);
 
       expect(screen.getByText("tasks-view:2026-07-14")).toBeTruthy();
     });
 
     // A stale link from before DEX-105, when the journal was a day view. It has
     // to fall through to Tasks rather than select a view that no longer exists.
-    it("ignores a stale ?mode=journal", () => {
+    it("ignores a stale ?mode=journal", async () => {
       mockSearchParams.current = { date: "2026-07-14", mode: "journal" };
 
-      const screen = render(<TodayScreen />);
+      const screen = await render(<TodayScreen />);
 
       expect(screen.getByText("tasks-view:2026-07-14")).toBeTruthy();
     });
 
-    it("opens the backlog sheet pre-filtered and pre-searched", () => {
+    it("opens the backlog sheet pre-filtered and pre-searched", async () => {
       // An unscheduled task has no day to open, so the link points at the
       // drawer instead, seeded so the tapped task is on screen straight away.
       mockSearchParams.current = { mode: "backlog", q: "quarterly" };
 
-      render(<TodayScreen />);
+      await render(<TodayScreen />);
 
       expect(mockPresentTaskDrawer).toHaveBeenCalledWith(
         "unscheduled",
@@ -679,57 +679,57 @@ describe("TodayScreen", () => {
       );
     });
 
-    it("does not touch the drawer without a backlog link", () => {
-      render(<TodayScreen />);
+    it("does not touch the drawer without a backlog link", async () => {
+      await render(<TodayScreen />);
 
       expect(mockPresentTaskDrawer).not.toHaveBeenCalled();
     });
 
-    it("re-applies a link the user has since navigated away from", () => {
+    it("re-applies a link the user has since navigated away from", async () => {
       // Cross-tab navigation reuses this mounted screen and only swaps params,
       // so two taps on the same result produce identical date/mode without `n`.
       mockSearchParams.current = { date: "2026-07-14", mode: "tasks", n: "1" };
-      const screen = render(<TodayScreen />);
+      const screen = await render(<TodayScreen />);
       expect(screen.getByText("tasks-view:2026-07-14")).toBeTruthy();
 
       // The user pages forward a day themselves.
-      fireEvent.press(screen.getByLabelText("Next day"));
+      await fireEvent.press(screen.getByLabelText("Next day"));
       expect(screen.getByText("tasks-view:2026-07-15")).toBeTruthy();
 
       // Same result tapped again — only `n` differs.
       mockSearchParams.current = { date: "2026-07-14", mode: "tasks", n: "2" };
-      screen.rerender(<TodayScreen />);
+      await await screen.rerender(<TodayScreen />);
 
       expect(screen.getByText("tasks-view:2026-07-14")).toBeTruthy();
     });
 
-    it("does not drag the user back to the link's day on an unrelated re-render", () => {
+    it("does not drag the user back to the link's day on an unrelated re-render", async () => {
       mockSearchParams.current = { date: "2026-07-14", mode: "tasks", n: "1" };
-      const screen = render(<TodayScreen />);
-      fireEvent.press(screen.getByLabelText("Next day"));
+      const screen = await render(<TodayScreen />);
+      await fireEvent.press(screen.getByLabelText("Next day"));
 
       // Same params, no new navigation.
-      screen.rerender(<TodayScreen />);
+      await await screen.rerender(<TodayScreen />);
 
       expect(screen.getByText("tasks-view:2026-07-15")).toBeTruthy();
     });
 
-    it("re-presents the backlog sheet when the same result is tapped again", () => {
+    it("re-presents the backlog sheet when the same result is tapped again", async () => {
       mockSearchParams.current = { mode: "backlog", q: "quarterly", n: "1" };
-      const screen = render(<TodayScreen />);
+      const screen = await render(<TodayScreen />);
       expect(mockPresentTaskDrawer).toHaveBeenCalledTimes(1);
 
       // The user dismissed the sheet and tapped the same result again.
       mockSearchParams.current = { mode: "backlog", q: "quarterly", n: "2" };
-      screen.rerender(<TodayScreen />);
+      await await screen.rerender(<TodayScreen />);
 
       expect(mockPresentTaskDrawer).toHaveBeenCalledTimes(2);
     });
 
-    it("still selects the view when the day is left implicit", () => {
+    it("still selects the view when the day is left implicit", async () => {
       mockSearchParams.current = { mode: "notes" };
 
-      const screen = render(<TodayScreen />);
+      const screen = await render(<TodayScreen />);
 
       expect(
         screen.getByText(
@@ -741,10 +741,10 @@ describe("TodayScreen", () => {
     describe("large screens", () => {
       beforeEach(() => mockUseIsLargeDevice.mockReturnValue(true));
 
-      it("opens the pane named by ?mode=", () => {
+      it("opens the pane named by ?mode=", async () => {
         mockSearchParams.current = { date: "2026-07-14", mode: "notes" };
 
-        const screen = render(<TodayScreen />);
+        const screen = await render(<TodayScreen />);
 
         // `openPane`, not `togglePane`: following the link twice, or following
         // it when the pane is already open, must not close it.
@@ -752,11 +752,11 @@ describe("TodayScreen", () => {
         expect(screen.getByText("notes-view:2026-07-14")).toBeTruthy();
       });
 
-      it("opens the docked drawer pre-filtered and pre-searched", () => {
+      it("opens the docked drawer pre-filtered and pre-searched", async () => {
         mockUseTodayPanes.mockReturnValue(panes({ drawer: true }));
         mockSearchParams.current = { mode: "backlog", q: "quarterly" };
 
-        render(<TodayScreen />);
+        await render(<TodayScreen />);
 
         expect(mockOpenPane).toHaveBeenCalledWith("drawer");
         expect(mockTaskDrawer).toHaveBeenCalledWith(
@@ -767,12 +767,12 @@ describe("TodayScreen", () => {
         );
       });
 
-      it("clears a deep link's seeded filter when the header reopens the drawer", () => {
+      it("clears a deep link's seeded filter when the header reopens the drawer", async () => {
         // The header's Backlog action means "show my backlog" — without this
         // it inherited the link's Unscheduled filter, showing only a slice.
         mockUseTodayPanes.mockReturnValue(panes({ drawer: true }));
         mockSearchParams.current = { mode: "backlog", q: "quarterly", n: "1" };
-        const screen = render(<TodayScreen />);
+        const screen = await render(<TodayScreen />);
         expect(mockTaskDrawer).toHaveBeenLastCalledWith(
           expect.objectContaining({
             filterId: "unscheduled",
@@ -781,20 +781,20 @@ describe("TodayScreen", () => {
         );
 
         // Close, then reopen from the header with nothing needing attention.
-        fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
+        await fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
         mockUseTodayPanes.mockReturnValue(panes({ drawer: false }));
-        screen.rerender(<TodayScreen />);
+        await await screen.rerender(<TodayScreen />);
         mockUseTodayPanes.mockReturnValue(panes({ drawer: true }));
-        fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
-        screen.rerender(<TodayScreen />);
+        await fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
+        await await screen.rerender(<TodayScreen />);
 
         expect(mockTaskDrawer).toHaveBeenLastCalledWith(
           expect.objectContaining({ filterId: "none", search: "" }),
         );
       });
 
-      it("leaves the panes and the tab alone without a mode", () => {
-        const screen = render(<TodayScreen />);
+      it("leaves the panes and the tab alone without a mode", async () => {
+        const screen = await render(<TodayScreen />);
 
         expect(mockOpenPane).not.toHaveBeenCalled();
         expect(

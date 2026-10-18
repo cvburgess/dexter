@@ -43,15 +43,15 @@ jest.mock("expo-router", () => {
 });
 
 describe("AppShell", () => {
-  it("mounts the rail, in a row, when told to", () => {
-    const screen = render(<AppShell rail />);
+  it("mounts the rail, in a row, when told to", async () => {
+    const screen = await render(<AppShell rail />);
 
     expect(screen.getByText("nav-rail")).toBeTruthy();
     expect(screen.queryByText("nav-dock")).toBeNull();
   });
 
-  it("mounts the dock, in a column, when told not to", () => {
-    const screen = render(<AppShell rail={false} />);
+  it("mounts the dock, in a column, when told not to", async () => {
+    const screen = await render(<AppShell rail={false} />);
 
     expect(screen.getByText("nav-dock")).toBeTruthy();
     expect(screen.queryByText("nav-rail")).toBeNull();
@@ -62,8 +62,8 @@ describe("AppShell", () => {
   it.each([
     ["rail", true],
     ["dock", false],
-  ])("registers every route behind the %s", (_label, rail) => {
-    const screen = render(<AppShell rail={rail} />);
+  ])("registers every route behind the %s", async (_label, rail) => {
+    const screen = await render(<AppShell rail={rail} />);
 
     expect(screen.getByText("tab-screen:today")).toBeTruthy();
     expect(screen.getByText("tab-screen:ritual")).toBeTruthy();

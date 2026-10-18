@@ -26,17 +26,17 @@ describe("useViewedDay", () => {
     expect(getViewedDay()).toBeNull();
   });
 
-  it("exposes the day a focused screen publishes", () => {
-    render(<Publisher date={day} />);
+  it("exposes the day a focused screen publishes", async () => {
+    await render(<Publisher date={day} />);
 
     expect(getViewedDay()?.toString()).toBe("2026-07-08");
   });
 
-  it("clears the viewed day when the publishing screen blurs", () => {
-    const screen = render(<Publisher date={day} />);
+  it("clears the viewed day when the publishing screen blurs", async () => {
+    const screen = await render(<Publisher date={day} />);
     expect(getViewedDay()?.toString()).toBe("2026-07-08");
 
-    screen.unmount();
+    await await screen.unmount();
 
     expect(getViewedDay()).toBeNull();
   });

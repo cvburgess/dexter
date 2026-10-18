@@ -89,7 +89,7 @@ describe("useAlarmSync", () => {
     });
     mockAlarms.scheduleTaskAlarm.mockRejectedValue(new Error("rejected"));
 
-    renderHook(() => useAlarmSync());
+    await renderHook(() => useAlarmSync());
 
     await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
     expect(alertSpy.mock.calls[0][0]).toBe("Alarm not set");
@@ -103,10 +103,10 @@ describe("useAlarmSync", () => {
     });
     mockAlarms.scheduleTaskAlarm.mockRejectedValue(new Error("rejected"));
 
-    const { rerender } = renderHook(() => useAlarmSync());
+    const { rerender } = await renderHook(() => useAlarmSync());
     await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
 
-    rerender({});
+    await rerender({});
 
     await waitFor(() =>
       expect(mockAlarms.scheduleTaskAlarm).toHaveBeenCalledTimes(2),
@@ -117,7 +117,7 @@ describe("useAlarmSync", () => {
   it("leaves AlarmKit alone where alarms are unsupported", async () => {
     mockAlarms.isAlarmSupported = false;
 
-    renderHook(() => useAlarmSync());
+    await renderHook(() => useAlarmSync());
 
     await act(async () => {});
     expect(mockAlarms.reconcileAlarms).not.toHaveBeenCalled();
@@ -131,7 +131,7 @@ describe("useAlarmSync", () => {
     });
     mockAlarms.scheduleTaskAlarm.mockResolvedValue(undefined);
 
-    renderHook(() => useAlarmSync());
+    await renderHook(() => useAlarmSync());
 
     await waitFor(() =>
       expect(mockAlarms.scheduleTaskAlarm).toHaveBeenCalledTimes(1),
@@ -146,7 +146,7 @@ describe("useAlarmSync", () => {
     });
     mockAlarms.scheduleTaskAlarm.mockResolvedValue(undefined);
 
-    renderHook(() => useAlarmSync());
+    await renderHook(() => useAlarmSync());
 
     // Literal hexes, not expect.any(String) — only exact values catch the two
     // colors being swapped, which would surface as an unreadable lock screen.
@@ -164,7 +164,7 @@ describe("useAlarmSync", () => {
       toCancel: [],
     });
 
-    const { rerender } = renderHook(() => useAlarmSync());
+    const { rerender } = await renderHook(() => useAlarmSync());
     await waitFor(() =>
       expect(mockAlarms.reconcileAlarms).toHaveBeenLastCalledWith(
         [],
@@ -177,7 +177,7 @@ describe("useAlarmSync", () => {
     );
 
     preferencesState.alarmSound = "system";
-    rerender({});
+    await rerender({});
 
     await waitFor(() =>
       expect(mockAlarms.reconcileAlarms).toHaveBeenLastCalledWith(
@@ -200,11 +200,11 @@ describe("useAlarmSync", () => {
       toCancel: [],
     });
 
-    const { rerender } = renderHook(() => useAlarmSync());
+    const { rerender } = await renderHook(() => useAlarmSync());
     expect(mockAlarms.reconcileAlarms).not.toHaveBeenCalled();
 
     preferencesState.isLoading = false;
-    rerender({});
+    await rerender({});
 
     await waitFor(() => expect(mockAlarms.reconcileAlarms).toHaveBeenCalled());
   });
@@ -226,10 +226,10 @@ describe("useAlarmSync", () => {
     );
     mockAlarms.scheduleTaskAlarm.mockResolvedValue(undefined);
 
-    const { rerender } = renderHook(() => useAlarmSync());
+    const { rerender } = await renderHook(() => useAlarmSync());
     await waitFor(() => expect(seen).toEqual([undefined]));
 
-    rerender({});
+    await rerender({});
 
     await waitFor(() => expect(seen).toEqual([undefined, "1|A|echos.wav"]));
   });
@@ -258,11 +258,11 @@ describe("useAlarmSync", () => {
     );
     mockAlarms.scheduleTaskAlarm.mockResolvedValue(undefined);
 
-    const { rerender } = renderHook(() => useAlarmSync());
+    const { rerender } = await renderHook(() => useAlarmSync());
     await waitFor(() => expect(seen).toEqual([undefined]));
 
     // Re-render while the first run's schedule is still pending.
-    rerender({});
+    await rerender({});
     expect(seen).toEqual([undefined]);
 
     release();

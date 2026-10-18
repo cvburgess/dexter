@@ -25,46 +25,52 @@ jest.mock("../DateField", () => ({
 describe("DayNav", () => {
   const date = Temporal.PlainDate.from("2026-07-03"); // a Friday, not today
 
-  it("shows the centered date as weekday, month, day", () => {
-    const screen = render(<DayNav date={date} onChangeDate={jest.fn()} />);
+  it("shows the centered date as weekday, month, day", async () => {
+    const screen = await render(
+      <DayNav date={date} onChangeDate={jest.fn()} />,
+    );
 
     expect(screen.getByText("Friday, Jul 3")).toBeTruthy();
   });
 
-  it("moves the date back one day when the previous arrow is pressed", () => {
+  it("moves the date back one day when the previous arrow is pressed", async () => {
     const onChangeDate = jest.fn();
-    const screen = render(<DayNav date={date} onChangeDate={onChangeDate} />);
+    const screen = await render(
+      <DayNav date={date} onChangeDate={onChangeDate} />,
+    );
 
-    fireEvent.press(screen.getByLabelText("Previous day"));
+    await fireEvent.press(screen.getByLabelText("Previous day"));
 
     expect(onChangeDate).toHaveBeenCalledWith(
       Temporal.PlainDate.from("2026-07-02"),
     );
   });
 
-  it("moves the date forward one day when the next arrow is pressed", () => {
+  it("moves the date forward one day when the next arrow is pressed", async () => {
     const onChangeDate = jest.fn();
-    const screen = render(<DayNav date={date} onChangeDate={onChangeDate} />);
+    const screen = await render(
+      <DayNav date={date} onChangeDate={onChangeDate} />,
+    );
 
-    fireEvent.press(screen.getByLabelText("Next day"));
+    await fireEvent.press(screen.getByLabelText("Next day"));
 
     expect(onChangeDate).toHaveBeenCalledWith(
       Temporal.PlainDate.from("2026-07-04"),
     );
   });
 
-  it("jumps to today when the date is pressed on a non-today day", () => {
+  it("jumps to today when the date is pressed on a non-today day", async () => {
     const onChangeDate = jest.fn();
     // Real "today" so this is never coincidentally today.
     const notToday = Temporal.Now.plainDateISO().add({ days: 10 });
-    const screen = render(
+    const screen = await render(
       <DayNav date={notToday} onChangeDate={onChangeDate} />,
     );
 
     // The center control is the "go to today" shortcut, not the picker.
     expect(screen.queryByLabelText("Open date picker")).toBeNull();
 
-    fireEvent.press(screen.getByLabelText("Go to today"));
+    await fireEvent.press(screen.getByLabelText("Go to today"));
 
     expect(onChangeDate).toHaveBeenCalledWith(Temporal.Now.plainDateISO());
   });
@@ -72,34 +78,38 @@ describe("DayNav", () => {
   describe("when viewing today", () => {
     const today = Temporal.Now.plainDateISO();
 
-    it("renders the date picker instead of the go-to-today shortcut", () => {
-      const screen = render(<DayNav date={today} onChangeDate={jest.fn()} />);
+    it("renders the date picker instead of the go-to-today shortcut", async () => {
+      const screen = await render(
+        <DayNav date={today} onChangeDate={jest.fn()} />,
+      );
 
       expect(screen.getByLabelText("Open date picker")).toBeTruthy();
       expect(screen.queryByLabelText("Go to today")).toBeNull();
     });
 
-    it("does not call onChangeDate just from rendering the picker", () => {
+    it("does not call onChangeDate just from rendering the picker", async () => {
       const onChangeDate = jest.fn();
-      render(<DayNav date={today} onChangeDate={onChangeDate} />);
+      await render(<DayNav date={today} onChangeDate={onChangeDate} />);
 
       expect(onChangeDate).not.toHaveBeenCalled();
     });
 
-    it("passes today to the picker as a native Date", () => {
-      const screen = render(<DayNav date={today} onChangeDate={jest.fn()} />);
+    it("passes today to the picker as a native Date", async () => {
+      const screen = await render(
+        <DayNav date={today} onChangeDate={jest.fn()} />,
+      );
 
       const expected = new Date(today.year, today.month - 1, today.day);
       expect(screen.getByText(expected.toISOString())).toBeTruthy();
     });
 
-    it("calls onChangeDate once with the selected date as a Temporal.PlainDate", () => {
+    it("calls onChangeDate once with the selected date as a Temporal.PlainDate", async () => {
       const onChangeDate = jest.fn();
-      const screen = render(
+      const screen = await render(
         <DayNav date={today} onChangeDate={onChangeDate} />,
       );
 
-      fireEvent.press(screen.getByLabelText("Pick a date"));
+      await fireEvent.press(screen.getByLabelText("Pick a date"));
 
       expect(onChangeDate).toHaveBeenCalledTimes(1);
       expect(onChangeDate).toHaveBeenCalledWith(

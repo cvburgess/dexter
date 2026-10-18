@@ -22,7 +22,7 @@ const createWrapper = () => {
 const NOTHING_SEEN = { date: "", keys: [] };
 
 const renderSeen = async () => {
-  const { result } = renderHook(() => useSeenRitualSteps(), {
+  const { result } = await renderHook(() => useSeenRitualSteps(), {
     wrapper: createWrapper(),
   });
   await waitFor(() => expect(result.current[1].isLoading).toBe(false));

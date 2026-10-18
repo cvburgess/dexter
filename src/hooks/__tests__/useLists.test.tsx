@@ -52,8 +52,8 @@ describe("useLists", () => {
   it("fetches under a single stable query key, not one per caller", async () => {
     const { wrapper, queryClient } = createWrapper();
 
-    const first = renderHook(() => useLists(), { wrapper });
-    const second = renderHook(() => useLists(), { wrapper });
+    const first = await renderHook(() => useLists(), { wrapper });
+    const second = await renderHook(() => useLists(), { wrapper });
 
     // Both callers, not just fetch count — the shared query notifies each on
     // resolve, and returning before that lands outside act() (DEX-130).
@@ -72,7 +72,7 @@ describe("useLists", () => {
     const { wrapper } = createWrapper();
     mockGetLists.mockResolvedValue([makeList()]);
 
-    const { result } = renderHook(() => useLists(), { wrapper });
+    const { result } = await renderHook(() => useLists(), { wrapper });
     await waitFor(() => expect(result.current[0]).toHaveLength(1));
 
     expect(result.current[1].getListById("list-1")?.title).toBe("Work");
@@ -84,10 +84,12 @@ describe("useLists", () => {
     const { wrapper } = createWrapper();
     mockCreateList.mockResolvedValue([makeList()]);
 
-    const { result } = renderHook(() => useLists(), { wrapper });
+    const { result } = await renderHook(() => useLists(), { wrapper });
     await waitFor(() => expect(mockGetLists).toHaveBeenCalledTimes(1));
 
-    act(() => result.current[1].createList({ title: "Work", emoji: "💼" }));
+    await act(() =>
+      result.current[1].createList({ title: "Work", emoji: "💼" }),
+    );
 
     await waitFor(() => expect(mockGetLists).toHaveBeenCalledTimes(2));
   });

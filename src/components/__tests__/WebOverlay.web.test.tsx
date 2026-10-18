@@ -14,8 +14,8 @@ const overlayRoot = (screen: ReturnType<typeof render>) =>
   )[0];
 
 describe("WebOverlay", () => {
-  it("renders its children", () => {
-    const screen = render(
+  it("renders its children", async () => {
+    const screen = await render(
       <WebOverlay>
         <Text>Inside</Text>
       </WebOverlay>,
@@ -26,8 +26,8 @@ describe("WebOverlay", () => {
 
   // Radix sets `pointer-events: none` on the body while open, and it's
   // inherited — a body portal is visible but dead unless it re-declares `auto`.
-  it("declares pointer events on its root so the body's `none` can't reach it", () => {
-    const screen = render(
+  it("declares pointer events on its root so the body's `none` can't reach it", async () => {
+    const screen = await render(
       <WebOverlay>
         <Text>Inside</Text>
       </WebOverlay>,
@@ -38,8 +38,8 @@ describe("WebOverlay", () => {
 
   // The root covers the viewport so children can anchor to `getBoundingClientRect()`
   // coordinates without any containing-block offset math.
-  it("covers the viewport above the modal chrome", () => {
-    const screen = render(
+  it("covers the viewport above the modal chrome", async () => {
+    const screen = await render(
       <WebOverlay>
         <Text>Inside</Text>
       </WebOverlay>,
@@ -53,8 +53,8 @@ describe("WebOverlay", () => {
 
   // Radix reads an outside `pointerdown` as a dismiss; the portal root is a
   // body child, so without this a click inside the overlay closes it.
-  it("stops pointerdown from reaching the dismissable layer on the document", () => {
-    const screen = render(
+  it("stops pointerdown from reaching the dismissable layer on the document", async () => {
+    const screen = await render(
       <WebOverlay>
         <Text>Inside</Text>
       </WebOverlay>,
@@ -70,8 +70,8 @@ describe("WebOverlay", () => {
   // stopping them kills touch for nothing — Radix already read a pointerdown.
   it.each(["onMouseDown", "onTouchStart"] as const)(
     "leaves %s alone, so react-native-web pressables still respond",
-    (handler) => {
-      const screen = render(
+    async (handler) => {
+      const screen = await render(
         <WebOverlay>
           <Text>Inside</Text>
         </WebOverlay>,

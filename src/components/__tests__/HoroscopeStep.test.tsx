@@ -75,7 +75,7 @@ const HOROSCOPE: THoroscope = {
   ratingTravel: 3,
 };
 
-const renderStep = ({
+const renderStep = async ({
   sunSign = "leo",
   isLoadingSign = false,
   horoscope = HOROSCOPE,
@@ -91,7 +91,7 @@ const renderStep = ({
   mockUseSunSign.mockReturnValue({ sunSign, isLoading: isLoadingSign });
   mockUseHoroscope.mockReturnValue([horoscope, { isLoading }]);
   mockUseIsLargeDevice.mockReturnValue(largeScreen);
-  return render(<HoroscopeStep date={DATE} />);
+  return await render(<HoroscopeStep date={DATE} />);
 };
 
 /** The scroller's horizontal padding — the gutter under test below. */
@@ -109,8 +109,8 @@ describe("HoroscopeStep", () => {
   });
 
   describe("with no sign chosen", () => {
-    it("prompts for one instead of querying", () => {
-      const screen = renderStep({ sunSign: null, horoscope: null });
+    it("prompts for one instead of querying", async () => {
+      const screen = await renderStep({ sunSign: null, horoscope: null });
 
       expect(screen.getByText(/Pick your sun sign/)).toBeTruthy();
       // The hook is still called (rules of hooks), but with no sign — which is
@@ -118,10 +118,10 @@ describe("HoroscopeStep", () => {
       expect(mockUseHoroscope).toHaveBeenCalledWith(null, "2026-08-09");
     });
 
-    it("sends the user to the setting that fixes it", () => {
-      const screen = renderStep({ sunSign: null, horoscope: null });
+    it("sends the user to the setting that fixes it", async () => {
+      const screen = await renderStep({ sunSign: null, horoscope: null });
 
-      fireEvent.press(screen.getByText("Choose your sign"));
+      await fireEvent.press(screen.getByText("Choose your sign"));
 
       expect(mockPush).toHaveBeenCalledWith("/settings/ritual");
     });
@@ -129,14 +129,14 @@ describe("HoroscopeStep", () => {
 
   // A day the generator never covered is an empty state, not an error —
   // DayNav can walk to dates before the cron job existed.
-  it("says so when the day has no row", () => {
-    const screen = renderStep({ horoscope: null });
+  it("says so when the day has no row", async () => {
+    const screen = await renderStep({ horoscope: null });
 
     expect(screen.getByText("No horoscope for Aug 9, 2026 yet.")).toBeTruthy();
   });
 
-  it("shows nothing rather than a spinner while loading", () => {
-    const screen = renderStep({ horoscope: null, isLoading: true });
+  it("shows nothing rather than a spinner while loading", async () => {
+    const screen = await renderStep({ horoscope: null, isLoading: true });
 
     expect(screen.queryByText(/No horoscope/)).toBeNull();
     expect(screen.queryByText(/Pick your sun sign/)).toBeNull();
@@ -145,8 +145,8 @@ describe("HoroscopeStep", () => {
 
   // An unread sign is `null`, exactly like a never-picked one — hence
   // `useSunSignPreference`, whose loading flag `usePreferences`' placeholder lacks.
-  it("does not prompt for a sign while the preference is still loading", () => {
-    const screen = renderStep({
+  it("does not prompt for a sign while the preference is still loading", async () => {
+    const screen = await renderStep({
       sunSign: null,
       isLoadingSign: true,
       horoscope: null,
@@ -157,8 +157,8 @@ describe("HoroscopeStep", () => {
   });
 
   describe("with the day's horoscope", () => {
-    it("leads with the sign's glyph and the day's first tip", () => {
-      const screen = renderStep();
+    it("leads with the sign's glyph and the day's first tip", async () => {
+      const screen = await renderStep();
 
       expect(screen.getByText(SUN_SIGNS.leo.glyph)).toBeTruthy();
       expect(screen.getByText(HOROSCOPE.tips[0])).toBeTruthy();
@@ -166,8 +166,8 @@ describe("HoroscopeStep", () => {
 
     // The resets are the real assertion: the loaded file is already bold and
     // italic, so a leftover weight/slant stacks a synthetic one — invisibly.
-    it("sets every tip in the serif, with no synthetic weight or slant", () => {
-      const screen = renderStep();
+    it("sets every tip in the serif, with no synthetic weight or slant", async () => {
+      const screen = await renderStep();
 
       for (const tip of HOROSCOPE.tips) {
         const style = StyleSheet.flatten(screen.getByText(tip).props.style);
@@ -180,47 +180,47 @@ describe("HoroscopeStep", () => {
 
     // The upstream prose stays stored but deliberately off screen; asserted so
     // "keep it in the DB" cannot quietly become "put it back on screen".
-    it("never renders the upstream's own text", () => {
-      const screen = renderStep();
+    it("never renders the upstream's own text", async () => {
+      const screen = await renderStep();
 
       expect(screen.queryByText(HOROSCOPE.text)).toBeNull();
     });
 
     // DEX-138. A comparison, not literals: the point is the roomier screen gets
     // the wider gutter — which a doubled density token got backwards on web.
-    it("keeps a wider gutter on a large screen than on a phone", () => {
-      const phone = gutterOf(renderStep());
-      const large = gutterOf(renderStep({ largeScreen: true }));
+    it("keeps a wider gutter on a large screen than on a phone", async () => {
+      const phone = gutterOf(await renderStep());
+      const large = gutterOf(await renderStep({ largeScreen: true }));
 
       expect(large).toBeGreaterThan(phone);
     });
 
     // The glyph says which sign this is; the name restated the settings row
     // and pushed the summary down the screen to do it.
-    it("does not name the sign", () => {
-      const screen = renderStep();
+    it("does not name the sign", async () => {
+      const screen = await renderStep();
 
       expect(screen.queryByText("Leo")).toBeNull();
     });
 
     // Zodiac code points default to emoji presentation; U+FE0E is what makes
     // the mark take `colors.text` like any other type.
-    it("draws the glyph in text presentation, not as emoji", () => {
-      renderStep();
+    it("draws the glyph in text presentation, not as emoji", async () => {
+      await renderStep();
 
       expect(SUN_SIGNS.leo.glyph).toContain("︎");
     });
 
     // The sky belongs to the horoscope, not the panel: an empty or loading
     // step is a plain surface, not a starfield with nothing on it.
-    it("lays a starfield behind it, and only once there is one", () => {
-      expect(renderStep().getByTestId("horoscope-sky")).toBeTruthy();
+    it("lays a starfield behind it, and only once there is one", async () => {
+      expect(await renderStep().getByTestId("horoscope-sky")).toBeTruthy();
 
       expect(
-        renderStep({ horoscope: null }).queryByTestId("horoscope-sky"),
+        await renderStep({ horoscope: null }).queryByTestId("horoscope-sky"),
       ).toBeNull();
       expect(
-        renderStep({ sunSign: null, horoscope: null }).queryByTestId(
+        await renderStep({ sunSign: null, horoscope: null }).queryByTestId(
           "horoscope-sky",
         ),
       ).toBeNull();
@@ -228,14 +228,14 @@ describe("HoroscopeStep", () => {
 
     // The panel is a night sky on every scheme — the stars used to be
     // dark-scheme only, back when light themes got a pale panel.
-    it("draws stars on a light scheme as well", () => {
+    it("draws stars on a light scheme as well", async () => {
       mockUseColorScheme.mockReturnValue("light");
 
-      expect(renderStep().getByTestId("horoscope-sky")).toBeTruthy();
+      expect(await renderStep().getByTestId("horoscope-sky")).toBeTruthy();
     });
 
-    it("renders the remaining tips below it, and the first one only once", () => {
-      const screen = renderStep();
+    it("renders the remaining tips below it, and the first one only once", async () => {
+      const screen = await renderStep();
 
       for (const tip of HOROSCOPE.tips.slice(1)) {
         expect(screen.getByText(tip)).toBeTruthy();
@@ -244,8 +244,8 @@ describe("HoroscopeStep", () => {
       expect(screen.getAllByText(HOROSCOPE.tips[0])).toHaveLength(1);
     });
 
-    it("draws a mark for each of the three rating bands", () => {
-      const screen = renderStep();
+    it("draws a mark for each of the three rating bands", async () => {
+      const screen = await renderStep();
 
       for (const bucket of RATING_BUCKETS) {
         expect(screen.getByText(bucket.glyph)).toBeTruthy();
@@ -254,8 +254,8 @@ describe("HoroscopeStep", () => {
 
     // Written out rather than derived from `lifeAreasInBucket` (which renders
     // them) — a derived expectation passes when both sides share a mistake.
-    it("files each life area under the mark matching its rating", () => {
-      const screen = renderStep();
+    it("files each life area under the mark matching its rating", async () => {
+      const screen = await renderStep();
 
       // ratingHealth: 1, ratingLove: 2
       expect(screen.getByText("Health, Love")).toBeTruthy();
@@ -271,11 +271,11 @@ describe("HoroscopeStep", () => {
 
     // An empty band still draws its row (the legend keeps its shape), but a
     // mark with nothing beside it reads as a bug rather than an absence.
-    it("shows a dash for a band with no areas in it", () => {
+    it("shows a dash for a band with no areas in it", async () => {
       const allNeutral = Object.fromEntries(
         LIFE_AREAS.map((area) => [area.key, 3]),
       ) as unknown as THoroscope;
-      const screen = renderStep({
+      const screen = await renderStep({
         horoscope: { ...HOROSCOPE, ...allNeutral },
       });
 
@@ -285,10 +285,10 @@ describe("HoroscopeStep", () => {
 
     // The hero is sized to the scroller, not its content — otherwise the
     // scroll-to-reveal reads as a list that merely happens to be long.
-    it("sizes the hero to the measured viewport", () => {
-      const screen = renderStep();
+    it("sizes the hero to the measured viewport", async () => {
+      const screen = await renderStep();
 
-      fireEvent(screen.getByTestId("horoscope-scroll"), "layout", {
+      await fireEvent(screen.getByTestId("horoscope-scroll"), "layout", {
         nativeEvent: { layout: { height: 600 } },
       });
 

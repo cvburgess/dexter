@@ -67,24 +67,24 @@ describe("AccountScreen", () => {
 
   // account.tsx builds its own edges (it claims `bottom`); the shared
   // settingsSafeAreaEdges pair is asserted once, in appearanceScreen.test.tsx.
-  it("skips the left safe-area edge in two-pane mode (sidebar owns it)", () => {
+  it("skips the left safe-area edge in two-pane mode (sidebar owns it)", async () => {
     mockUseIsLargeDevice.mockReturnValue(true);
-    const screen = render(<AccountScreen />);
+    const screen = await render(<AccountScreen />);
 
     expect(screen.getByTestId("safe-area-edges-bottom,right")).toBeTruthy();
   });
 
-  it("includes the left safe-area edge in single-column mode", () => {
+  it("includes the left safe-area edge in single-column mode", async () => {
     mockUseIsLargeDevice.mockReturnValue(false);
-    const screen = render(<AccountScreen />);
+    const screen = await render(<AccountScreen />);
 
     expect(
       screen.getByTestId("safe-area-edges-bottom,left,right"),
     ).toBeTruthy();
   });
 
-  it("renders the signed-in user's name and email", () => {
-    const screen = render(<AccountScreen />);
+  it("renders the signed-in user's name and email", async () => {
+    const screen = await render(<AccountScreen />);
     expect(screen.getByTestId("account-name")).toHaveTextContent(
       "Ada Lovelace",
     );
@@ -95,8 +95,8 @@ describe("AccountScreen", () => {
 
   // Both were full-width `dangerous` buttons, so ending a session looked like
   // destroying the account (DEX-108) — now only one wears the error color.
-  it("draws log out and delete account with different weight", () => {
-    const screen = render(<AccountScreen />);
+  it("draws log out and delete account with different weight", async () => {
+    const screen = await render(<AccountScreen />);
     const { colors } = themes.dexter;
 
     const logOut = screen.getByTestId("settings-log-out-button");
@@ -116,8 +116,8 @@ describe("AccountScreen", () => {
   it("signs out and clears cached data when the log out is confirmed", async () => {
     confirmAlert();
 
-    const screen = render(<AccountScreen />);
-    fireEvent.press(screen.getByTestId("settings-log-out-button"));
+    const screen = await render(<AccountScreen />);
+    await fireEvent.press(screen.getByTestId("settings-log-out-button"));
 
     await waitFor(() => expect(mockSignOut).toHaveBeenCalledTimes(1));
     expect(mockClear).toHaveBeenCalledTimes(1);
@@ -127,8 +127,8 @@ describe("AccountScreen", () => {
   it("does not sign out when the log out is cancelled", async () => {
     cancelAlert();
 
-    const screen = render(<AccountScreen />);
-    fireEvent.press(screen.getByTestId("settings-log-out-button"));
+    const screen = await render(<AccountScreen />);
+    await fireEvent.press(screen.getByTestId("settings-log-out-button"));
 
     await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
     expect(mockSignOut).not.toHaveBeenCalled();
@@ -138,8 +138,8 @@ describe("AccountScreen", () => {
   it("deletes the account and clears cached data when confirmed", async () => {
     confirmAlert();
 
-    const screen = render(<AccountScreen />);
-    fireEvent.press(screen.getByTestId("settings-delete-account-button"));
+    const screen = await render(<AccountScreen />);
+    await fireEvent.press(screen.getByTestId("settings-delete-account-button"));
 
     await waitFor(() => expect(mockDeleteAccount).toHaveBeenCalledTimes(1));
     expect(mockClear).toHaveBeenCalledTimes(1);
@@ -149,8 +149,8 @@ describe("AccountScreen", () => {
   it("does not delete the account when cancelled", async () => {
     cancelAlert();
 
-    const screen = render(<AccountScreen />);
-    fireEvent.press(screen.getByTestId("settings-delete-account-button"));
+    const screen = await render(<AccountScreen />);
+    await fireEvent.press(screen.getByTestId("settings-delete-account-button"));
 
     await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
     expect(mockDeleteAccount).not.toHaveBeenCalled();

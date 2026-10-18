@@ -56,7 +56,7 @@ const pm = (prompt: string): TTemplatePrompt => ({
   period: "pm",
 });
 
-const renderWith = (
+const renderWith = async (
   overrides: {
     enableJournal?: boolean;
     enableHoroscope?: boolean;
@@ -78,14 +78,14 @@ const renderWith = (
     } as never,
     { updatePreferences: mockUpdate },
   ]);
-  return render(<RitualScreen />);
+  return await render(<RitualScreen />);
 };
 
 // "Add prompt" lives in the navigation header, not the screen's own tree;
 // render the latest headerRight to inspect/press it.
-const renderHeader = () => {
+const renderHeader = async () => {
   const options = mockSetOptions.mock.calls.at(-1)?.[0];
-  return render(options.headerRight());
+  return await render(options.headerRight());
 };
 
 describe("RitualScreen", () => {
@@ -96,8 +96,8 @@ describe("RitualScreen", () => {
   });
 
   describe("the sun sign picker", () => {
-    it("offers every sign in astrological order behind an unset option", () => {
-      renderWith();
+    it("offers every sign in astrological order behind an unset option", async () => {
+      await renderWith();
 
       const options = pickerOptionsFor("sun-sign-picker");
 
@@ -113,22 +113,22 @@ describe("RitualScreen", () => {
       expect(options.at(-1)).toEqual({ label: "Pisces", value: "pisces" });
     });
 
-    it("selects the stored sign", () => {
-      renderWith({ sunSign: "leo" });
+    it("selects the stored sign", async () => {
+      await renderWith({ sunSign: "leo" });
 
       expect(pickerPropsFor("sun-sign-picker")?.selectedValue).toBe("leo");
     });
 
     // A Picker given a value none of its items carry renders with nothing
     // selected, so a null sign has to land on the sentinel instead.
-    it("falls back to the unset sentinel when no sign is stored", () => {
-      renderWith({ sunSign: null });
+    it("falls back to the unset sentinel when no sign is stored", async () => {
+      await renderWith({ sunSign: null });
 
       expect(pickerPropsFor("sun-sign-picker")?.selectedValue).toBe("");
     });
 
-    it("saves a chosen sign", () => {
-      renderWith({ sunSign: null });
+    it("saves a chosen sign", async () => {
+      await renderWith({ sunSign: null });
 
       (
         pickerPropsFor("sun-sign-picker")?.onValueChange as (
@@ -141,8 +141,8 @@ describe("RitualScreen", () => {
 
     // The sentinel is a UI-only value: `preferences.sun_sign` is a real enum
     // column, so "" would be rejected by Postgres. Clearing writes null.
-    it("clears the sign back to null when the unset option is chosen", () => {
-      renderWith({ sunSign: "leo" });
+    it("clears the sign back to null when the unset option is chosen", async () => {
+      await renderWith({ sunSign: "leo" });
 
       (
         pickerPropsFor("sun-sign-picker")?.onValueChange as (
@@ -155,56 +155,56 @@ describe("RitualScreen", () => {
 
     // The sign is not part of the Journal, so turning the Journal off must not
     // take it with them — both live on this one screen now.
-    it("stays visible when the Journal is disabled", () => {
-      renderWith({ enableJournal: false, sunSign: "leo" });
+    it("stays visible when the Journal is disabled", async () => {
+      await renderWith({ enableJournal: false, sunSign: "leo" });
 
       expect(pickerPropsFor("sun-sign-picker")?.selectedValue).toBe("leo");
     });
 
     // The sign feeds only the Horoscope step, so with it off the picker would
     // offer a choice that changes nothing (DEX-142).
-    it("hides when the Horoscope is disabled", () => {
-      renderWith({ enableHoroscope: false, sunSign: "leo" });
+    it("hides when the Horoscope is disabled", async () => {
+      await renderWith({ enableHoroscope: false, sunSign: "leo" });
 
       expect(pickerPropsFor("sun-sign-picker")).toBeNull();
     });
 
     // Hiding the picker must not clear the stored sign: turning the Horoscope
     // back on has to restore the horoscope rather than re-ask for a sign.
-    it("comes back with the stored sign when the Horoscope is re-enabled", () => {
-      renderWith({ enableHoroscope: true, sunSign: "leo" });
+    it("comes back with the stored sign when the Horoscope is re-enabled", async () => {
+      await renderWith({ enableHoroscope: true, sunSign: "leo" });
 
       expect(pickerPropsFor("sun-sign-picker")?.selectedValue).toBe("leo");
       expect(mockUpdate).not.toHaveBeenCalled();
     });
   });
 
-  it("reflects the Horoscope enabled state and toggles it", () => {
-    const screen = renderWith({ enableHoroscope: true });
+  it("reflects the Horoscope enabled state and toggles it", async () => {
+    const screen = await renderWith({ enableHoroscope: true });
 
     expect(screen.getByLabelText("Horoscope").props.value).toBe(true);
 
-    fireEvent(screen.getByLabelText("Horoscope"), "valueChange", false);
+    await fireEvent(screen.getByLabelText("Horoscope"), "valueChange", false);
 
     expect(mockUpdate).toHaveBeenCalledWith({ enableHoroscope: false });
   });
 
   // Each toggle owns its own section: turning one off must leave the other's
   // settings on screen, since they are independent steps of the same ritual.
-  it("keeps the Journal prompts when the Horoscope is disabled", () => {
-    const screen = renderWith({
+  it("keeps the Journal prompts when the Horoscope is disabled", async () => {
+    const screen = await renderWith({
       enableHoroscope: false,
       templatePrompts: [am("Highlight")],
     });
 
     expect(screen.getByLabelText("Journal prompt 1")).toBeTruthy();
-    expect(renderHeader().getByLabelText("Add prompt")).toBeTruthy();
+    expect(await renderHeader().getByLabelText("Add prompt")).toBeTruthy();
   });
 
   // Without this a focused prompt stays under the keyboard — the wrapper this
   // replaced padded the frame, which gave room but never moved content (DEX-92).
-  it("lets iOS inset the scroll content by the keyboard", () => {
-    const screen = renderWith({ enableJournal: true });
+  it("lets iOS inset the scroll content by the keyboard", async () => {
+    const screen = await renderWith({ enableJournal: true });
 
     expect(
       screen.UNSAFE_getByType(ScrollView).props
@@ -212,41 +212,41 @@ describe("RitualScreen", () => {
     ).toBe(true);
   });
 
-  it("reflects the enabled state and toggles it", () => {
-    const screen = renderWith({ enableJournal: true });
+  it("reflects the enabled state and toggles it", async () => {
+    const screen = await renderWith({ enableJournal: true });
 
     expect(screen.getByLabelText("Journal").props.value).toBe(true);
 
-    fireEvent(screen.getByLabelText("Journal"), "valueChange", false);
+    await fireEvent(screen.getByLabelText("Journal"), "valueChange", false);
 
     expect(mockUpdate).toHaveBeenCalledWith({ enableJournal: false });
   });
 
-  it("hides the prompts editor and header add button when Journal is disabled", () => {
-    const screen = renderWith({
+  it("hides the prompts editor and header add button when Journal is disabled", async () => {
+    const screen = await renderWith({
       enableJournal: false,
       templatePrompts: [am("Highlight")],
     });
 
     expect(screen.queryByLabelText("Journal prompt 1")).toBeNull();
-    expect(renderHeader().queryByLabelText("Add prompt")).toBeNull();
+    expect(await renderHeader().queryByLabelText("Add prompt")).toBeNull();
   });
 
-  it("shows the header add button when Journal is enabled", () => {
-    renderWith({ enableJournal: true });
+  it("shows the header add button when Journal is enabled", async () => {
+    await renderWith({ enableJournal: true });
 
-    expect(renderHeader().getByLabelText("Add prompt")).toBeTruthy();
+    expect(await renderHeader().getByLabelText("Add prompt")).toBeTruthy();
   });
 
-  it("commits an edited prompt on blur, replacing it by index", () => {
-    const screen = renderWith({
+  it("commits an edited prompt on blur, replacing it by index", async () => {
+    const screen = await renderWith({
       enableJournal: true,
       templatePrompts: [am("Highlight"), am("Grateful for")],
     });
 
     const input = screen.getByLabelText("Journal prompt 1");
-    fireEvent.changeText(input, "What went well?");
-    fireEvent(input, "blur");
+    await fireEvent.changeText(input, "What went well?");
+    await fireEvent(input, "blur");
 
     expect(mockUpdate).toHaveBeenCalledWith({
       templatePrompts: [
@@ -256,24 +256,24 @@ describe("RitualScreen", () => {
     });
   });
 
-  it("does not write a prompt on blur when it is unchanged", () => {
-    const screen = renderWith({
+  it("does not write a prompt on blur when it is unchanged", async () => {
+    const screen = await renderWith({
       enableJournal: true,
       templatePrompts: [am("Highlight")],
     });
 
-    fireEvent(screen.getByLabelText("Journal prompt 1"), "blur");
+    await fireEvent(screen.getByLabelText("Journal prompt 1"), "blur");
 
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  it("appends an empty prompt when the header add button is pressed", () => {
-    renderWith({
+  it("appends an empty prompt when the header add button is pressed", async () => {
+    await renderWith({
       enableJournal: true,
       templatePrompts: [am("Highlight")],
     });
 
-    fireEvent.press(renderHeader().getByLabelText("Add prompt"));
+    await fireEvent.press(await renderHeader().getByLabelText("Add prompt"));
 
     expect(mockUpdate).toHaveBeenCalledWith({
       // The new prompt's id is minted, so it is matched by shape.
@@ -284,20 +284,20 @@ describe("RitualScreen", () => {
     });
   });
 
-  it("preserves an in-progress edit when a prompt is added", () => {
+  it("preserves an in-progress edit when a prompt is added", async () => {
     // Add derives the new array from local drafts, not the (optimistically
     // lagging) stored preference — so a typed-but-not-yet-blurred edit survives.
-    const screen = renderWith({
+    const screen = await renderWith({
       enableJournal: true,
       templatePrompts: [am("Highlight")],
     });
 
-    fireEvent.changeText(
+    await fireEvent.changeText(
       screen.getByLabelText("Journal prompt 1"),
       "What went well?",
     );
     // Re-read the header after the edit so it closes over the latest drafts.
-    fireEvent.press(renderHeader().getByLabelText("Add prompt"));
+    await fireEvent.press(await renderHeader().getByLabelText("Add prompt"));
 
     expect(mockUpdate).toHaveBeenCalledWith({
       templatePrompts: [
@@ -307,13 +307,13 @@ describe("RitualScreen", () => {
     });
   });
 
-  it("removes a prompt by index when its delete control is pressed", () => {
-    const screen = renderWith({
+  it("removes a prompt by index when its delete control is pressed", async () => {
+    const screen = await renderWith({
       enableJournal: true,
       templatePrompts: [am("Highlight"), am("Grateful for")],
     });
 
-    fireEvent.press(screen.getByTestId("delete-prompt-0"));
+    await fireEvent.press(screen.getByTestId("delete-prompt-0"));
 
     expect(mockUpdate).toHaveBeenCalledWith({
       templatePrompts: [am("Grateful for")],
@@ -336,8 +336,8 @@ describe("RitualScreen", () => {
           [row].props.onChange(period);
       });
 
-    it("offers one control per prompt, showing its current ritual", () => {
-      const screen = renderWith({
+    it("offers one control per prompt, showing its current ritual", async () => {
+      const screen = await renderWith({
         templatePrompts: [am("Highlight"), pm("What went well?")],
       });
 
@@ -349,8 +349,8 @@ describe("RitualScreen", () => {
 
     // One field on one element — the rest of the list is copied through
     // untouched, and there is no second column to keep in step.
-    it("moves a prompt to the evening, leaving every other prompt alone", () => {
-      const screen = renderWith({
+    it("moves a prompt to the evening, leaving every other prompt alone", async () => {
+      const screen = await renderWith({
         templatePrompts: [am("Highlight"), am("Grateful for")],
       });
 
@@ -364,8 +364,8 @@ describe("RitualScreen", () => {
       });
     });
 
-    it("moves a prompt back to the morning", () => {
-      const screen = renderWith({
+    it("moves a prompt back to the morning", async () => {
+      const screen = await renderWith({
         templatePrompts: [am("Highlight"), pm("What went well?")],
       });
 
@@ -381,8 +381,8 @@ describe("RitualScreen", () => {
 
     // One order across both rituals, so a prompt that changes ritual stays put.
     // Two columns could not have expressed this.
-    it("leaves the moved prompt in its place in the list", () => {
-      const screen = renderWith({
+    it("leaves the moved prompt in its place in the list", async () => {
+      const screen = await renderWith({
         templatePrompts: [am("Highlight"), am("Grateful for")],
       });
 
@@ -398,12 +398,12 @@ describe("RitualScreen", () => {
       );
     });
 
-    it("appends new prompts to the morning without touching the rest", () => {
-      renderWith({
+    it("appends new prompts to the morning without touching the rest", async () => {
+      await renderWith({
         templatePrompts: [am("Highlight"), pm("What went well?")],
       });
 
-      fireEvent.press(renderHeader().getByLabelText("Add prompt"));
+      await fireEvent.press(await renderHeader().getByLabelText("Add prompt"));
 
       expect(mockUpdate).toHaveBeenCalledWith({
         templatePrompts: [
@@ -416,11 +416,11 @@ describe("RitualScreen", () => {
 
     // Every new prompt needs its own id, or the editor would key two rows the
     // same and hand one row's input state to the other.
-    it("gives each added prompt a distinct id", () => {
-      renderWith({ templatePrompts: [] });
+    it("gives each added prompt a distinct id", async () => {
+      await renderWith({ templatePrompts: [] });
 
-      fireEvent.press(renderHeader().getByLabelText("Add prompt"));
-      fireEvent.press(renderHeader().getByLabelText("Add prompt"));
+      await fireEvent.press(await renderHeader().getByLabelText("Add prompt"));
+      await fireEvent.press(await renderHeader().getByLabelText("Add prompt"));
 
       const [first] = mockUpdate.mock.calls[0][0].templatePrompts;
       const added = mockUpdate.mock.calls[1][0].templatePrompts;
@@ -428,12 +428,12 @@ describe("RitualScreen", () => {
       expect(added[1].id).not.toBe(first.id);
     });
 
-    it("deletes an evening prompt without disturbing the morning's", () => {
-      const screen = renderWith({
+    it("deletes an evening prompt without disturbing the morning's", async () => {
+      const screen = await renderWith({
         templatePrompts: [am("Highlight"), pm("What went well?")],
       });
 
-      fireEvent.press(screen.getByTestId("delete-prompt-1"));
+      await fireEvent.press(screen.getByTestId("delete-prompt-1"));
 
       expect(mockUpdate).toHaveBeenCalledWith({
         templatePrompts: [am("Highlight")],
@@ -442,16 +442,16 @@ describe("RitualScreen", () => {
   });
 
   describe("the Breathe settings", () => {
-    it("offers the three techniques plus shuffle", () => {
-      renderWith();
+    it("offers the three techniques plus shuffle", async () => {
+      await renderWith();
 
       expect(
         pickerOptionsFor("breathing-technique-picker").map((o) => o.value),
       ).toEqual(["simple", "relax", "box", "shuffle"]);
     });
 
-    it("selects the stored technique", () => {
-      renderWith({ breathingTechnique: "box" });
+    it("selects the stored technique", async () => {
+      await renderWith({ breathingTechnique: "box" });
 
       expect(pickerPropsFor("breathing-technique-picker")?.selectedValue).toBe(
         "box",
@@ -460,16 +460,16 @@ describe("RitualScreen", () => {
 
     // The column carries no CHECK, so a technique a later build stored would
     // otherwise leave the picker showing nothing selected.
-    it("falls back to shuffle for a technique this build does not know", () => {
-      renderWith({ breathingTechnique: "coherent" });
+    it("falls back to shuffle for a technique this build does not know", async () => {
+      await renderWith({ breathingTechnique: "coherent" });
 
       expect(pickerPropsFor("breathing-technique-picker")?.selectedValue).toBe(
         "shuffle",
       );
     });
 
-    it("saves a chosen technique", () => {
-      renderWith();
+    it("saves a chosen technique", async () => {
+      await renderWith();
 
       (
         pickerPropsFor("breathing-technique-picker")?.onValueChange as (
@@ -480,8 +480,8 @@ describe("RitualScreen", () => {
       expect(mockUpdate).toHaveBeenCalledWith({ breathingTechnique: "relax" });
     });
 
-    it("offers every count the step can run", () => {
-      renderWith();
+    it("offers every count the step can run", async () => {
+      await renderWith();
 
       expect(
         pickerOptionsFor("breath-count-picker").map((o) => o.value),
@@ -493,22 +493,22 @@ describe("RitualScreen", () => {
       );
     });
 
-    it("selects the stored breath count", () => {
-      renderWith({ breathCount: 6 });
+    it("selects the stored breath count", async () => {
+      await renderWith({ breathCount: 6 });
 
       expect(pickerPropsFor("breath-count-picker")?.selectedValue).toBe("6");
     });
 
     // Clamped rather than defaulted, so a count a later build stored still lands
     // on an option this one lists.
-    it("narrows a stored count outside the range", () => {
-      renderWith({ breathCount: 0 });
+    it("narrows a stored count outside the range", async () => {
+      await renderWith({ breathCount: 0 });
 
       expect(pickerPropsFor("breath-count-picker")?.selectedValue).toBe("1");
     });
 
-    it("saves a chosen breath count as a number", () => {
-      renderWith({ breathCount: 3 });
+    it("saves a chosen breath count as a number", async () => {
+      await renderWith({ breathCount: 3 });
 
       (
         pickerPropsFor("breath-count-picker")?.onValueChange as (
@@ -521,8 +521,8 @@ describe("RitualScreen", () => {
 
     // Breathe is unconditional, unlike the Horoscope and Journal steps — there
     // is no toggle above it and nothing hides it.
-    it("stays visible with both other steps turned off", () => {
-      renderWith({
+    it("stays visible with both other steps turned off", async () => {
+      await renderWith({
         enableHoroscope: false,
         enableJournal: false,
       });

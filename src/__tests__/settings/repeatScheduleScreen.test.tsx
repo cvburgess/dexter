@@ -144,21 +144,21 @@ const templatesResult = (
     },
   ]);
 
-const renderWith = (template: TTemplate) => {
+const renderWith = async (template: TTemplate) => {
   mockParams.current = { id: template.id };
   templatesResult([template]);
-  return render(<RepeatScheduleScreen />);
+  return await render(<RepeatScheduleScreen />);
 };
 
 /** The draft both menu items open: seeded from a task, nothing written yet. */
-const renderDraftFrom = (
+const renderDraftFrom = async (
   task: TTask,
   extraParams: Record<string, string> = {},
 ) => {
   mockParams.current = { id: "new", fromTask: task.id, ...extraParams };
   mockTasks.current = [task];
   templatesResult([]);
-  return render(<RepeatScheduleScreen />);
+  return await render(<RepeatScheduleScreen />);
 };
 
 const save = () => {
@@ -179,25 +179,25 @@ describe("RepeatScheduleScreen", () => {
   // "Save as template" routes here before anything is written, so ✓ is what
   // creates the row and ✕ leaves nothing behind.
   describe("a draft seeded from a task", () => {
-    it("writes nothing until saved", () => {
-      renderDraftFrom(seedTask);
+    it("writes nothing until saved", async () => {
+      await renderDraftFrom(seedTask);
 
       expect(mockCreateTemplate).not.toHaveBeenCalled();
       expect(mockUpdateTemplate).not.toHaveBeenCalled();
     });
 
-    it("abandons the draft when closed", () => {
-      renderDraftFrom(seedTask);
+    it("abandons the draft when closed", async () => {
+      await renderDraftFrom(seedTask);
 
-      const header = render(headerOptions().headerLeft());
-      fireEvent.press(header.getByTestId("modal-close-button"));
+      const header = await render(headerOptions().headerLeft());
+      await fireEvent.press(header.getByTestId("modal-close-button"));
 
       expect(mockCreateTemplate).not.toHaveBeenCalled();
       expect(mockRouter.back).toHaveBeenCalled();
     });
 
-    it("creates the template from the task's fields on save", () => {
-      renderDraftFrom(seedTask);
+    it("creates the template from the task's fields on save", async () => {
+      await renderDraftFrom(seedTask);
 
       save();
 
@@ -222,8 +222,8 @@ describe("RepeatScheduleScreen", () => {
       );
     });
 
-    it("opens on Never with no delete action, since there is nothing to delete", () => {
-      const screen = renderDraftFrom(seedTask);
+    it("opens on Never with no delete action, since there is nothing to delete", async () => {
+      const screen = await renderDraftFrom(seedTask);
 
       expect(mockPickers["Repeats"].selectedValue).toBe("never");
       expect(headerOptions().title).toBe("New Template");
@@ -232,8 +232,8 @@ describe("RepeatScheduleScreen", () => {
 
     // The only difference between the two menu items: Repeat starts the same
     // draft on a daily cadence rather than on Never.
-    it("opens on Daily when Repeat started it, and saves that cron", () => {
-      renderDraftFrom(seedTask, { repeats: "1" });
+    it("opens on Daily when Repeat started it, and saves that cron", async () => {
+      await renderDraftFrom(seedTask, { repeats: "1" });
 
       expect(mockPickers["Repeats"].selectedValue).toBe("daily");
 
@@ -250,8 +250,8 @@ describe("RepeatScheduleScreen", () => {
 
     // Already linked to another repeat: re-pointing `template_id` would leave
     // that schedule with no task to fire from, silently killing it.
-    it("does not offer a task that already belongs to a repeat", () => {
-      renderDraftFrom(
+    it("does not offer a task that already belongs to a repeat", async () => {
+      await renderDraftFrom(
         { ...seedTask, templateId: "template-9" },
         {
           repeats: "1",
@@ -270,11 +270,11 @@ describe("RepeatScheduleScreen", () => {
   describe("closing", () => {
     // Popping, not navigating: replacing would collapse what sits under the
     // already-anchored list, leaving Tasks as settings' root with no back button.
-    it("pops back to the template list after saving", () => {
+    it("pops back to the template list after saving", async () => {
       mockUpdateTemplate.mockImplementation((_diff, { onSuccess }) =>
         onSuccess(),
       );
-      renderWith(makeTemplate());
+      await renderWith(makeTemplate());
 
       save();
 
@@ -287,19 +287,19 @@ describe("RepeatScheduleScreen", () => {
       mockDeleteTemplate.mockImplementation((_id, { onSuccess }) =>
         onSuccess(),
       );
-      const screen = renderWith(makeTemplate());
+      const screen = await renderWith(makeTemplate());
 
-      fireEvent.press(screen.getByText("Delete Template"));
+      await fireEvent.press(screen.getByText("Delete Template"));
       await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
     });
 
     // The one case the anchor can't cover: a cold deep link straight to this URL.
-    it("falls back to the list when there is nothing to pop", () => {
+    it("falls back to the list when there is nothing to pop", async () => {
       mockRouter.canDismiss.mockReturnValue(false);
       mockUpdateTemplate.mockImplementation((_diff, { onSuccess }) =>
         onSuccess(),
       );
-      renderWith(makeTemplate());
+      await renderWith(makeTemplate());
 
       save();
 
@@ -315,22 +315,22 @@ describe("RepeatScheduleScreen", () => {
         templatesResult([], { isLoading: true });
       });
 
-      it("still offers a working close button", () => {
-        render(<RepeatScheduleScreen />);
+      it("still offers a working close button", async () => {
+        await render(<RepeatScheduleScreen />);
 
-        const close = render(headerOptions().headerLeft());
-        fireEvent.press(close.getByTestId("modal-close-button"));
+        const close = await render(headerOptions().headerLeft());
+        await fireEvent.press(close.getByTestId("modal-close-button"));
 
         expect(mockRouter.back).toHaveBeenCalledTimes(1);
         expect(mockUpdateTemplate).not.toHaveBeenCalled();
       });
 
-      it("falls back to the list on a cold deep link", () => {
+      it("falls back to the list on a cold deep link", async () => {
         mockRouter.canDismiss.mockReturnValue(false);
-        render(<RepeatScheduleScreen />);
+        await render(<RepeatScheduleScreen />);
 
-        const close = render(headerOptions().headerLeft());
-        fireEvent.press(close.getByTestId("modal-close-button"));
+        const close = await render(headerOptions().headerLeft());
+        await fireEvent.press(close.getByTestId("modal-close-button"));
 
         expect(mockRouter.back).not.toHaveBeenCalled();
         expect(mockRouter.replace).toHaveBeenCalledWith("/settings/tasks");
@@ -338,8 +338,8 @@ describe("RepeatScheduleScreen", () => {
     });
   });
 
-  it("offers Never alongside the repeat frequencies", () => {
-    renderWith(makeTemplate());
+  it("offers Never alongside the repeat frequencies", async () => {
+    await renderWith(makeTemplate());
 
     expect(mockPickers["Repeats"].options).toEqual([
       { value: "never", label: "Never" },
@@ -351,10 +351,10 @@ describe("RepeatScheduleScreen", () => {
   });
 
   // Choosing Never is what turns a repeat task into a plain task template.
-  it("clears the schedule when Never is chosen", () => {
-    renderWith(makeTemplate());
+  it("clears the schedule when Never is chosen", async () => {
+    await renderWith(makeTemplate());
 
-    act(() => mockPickers["Repeats"].onValueChange("never"));
+    await act(() => mockPickers["Repeats"].onValueChange("never"));
     save();
 
     expect(mockUpdateTemplate).toHaveBeenCalledWith(
@@ -363,10 +363,10 @@ describe("RepeatScheduleScreen", () => {
     );
   });
 
-  it("still writes a cron expression for a real cadence", () => {
-    renderWith(makeTemplate({ schedule: null }));
+  it("still writes a cron expression for a real cadence", async () => {
+    await renderWith(makeTemplate({ schedule: null }));
 
-    act(() => mockPickers["Repeats"].onValueChange("daily"));
+    await act(() => mockPickers["Repeats"].onValueChange("daily"));
     save();
 
     expect(mockUpdateTemplate).toHaveBeenCalledWith(
@@ -377,23 +377,23 @@ describe("RepeatScheduleScreen", () => {
 
   // `parseSchedule` falls back to daily for a null schedule, so reading the
   // frequency off the parse alone would open a template on "Daily".
-  it("opens a scheduleless template on Never, titled as a template", () => {
-    renderWith(makeTemplate({ schedule: null }));
+  it("opens a scheduleless template on Never, titled as a template", async () => {
+    await renderWith(makeTemplate({ schedule: null }));
 
     expect(mockPickers["Repeats"].selectedValue).toBe("never");
     expect(headerOptions().title).toBe("Template");
   });
 
-  it("opens a scheduled row on its cadence, titled as a repeat schedule", () => {
-    renderWith(makeTemplate());
+  it("opens a scheduled row on its cadence, titled as a repeat schedule", async () => {
+    await renderWith(makeTemplate());
 
     expect(mockPickers["Repeats"].selectedValue).toBe("daily");
     expect(headerOptions().title).toBe("Repeat Schedule");
   });
 
   // Day-of-month and month only mean something under a cadence.
-  it("hides the cadence detail pickers on Never", () => {
-    renderWith(makeTemplate({ schedule: null }));
+  it("hides the cadence detail pickers on Never", async () => {
+    await renderWith(makeTemplate({ schedule: null }));
 
     expect(mockPickers["Day of month"]).toBeUndefined();
     expect(mockPickers["Month"]).toBeUndefined();
@@ -401,23 +401,23 @@ describe("RepeatScheduleScreen", () => {
 
   // Never keeps the template while stopping the repeat, so deleting the row is
   // the only destructive action — never "Stop Repeating".
-  it("offers one Delete Template action whether or not the row has a schedule", () => {
-    const template = renderWith(makeTemplate({ schedule: null }));
+  it("offers one Delete Template action whether or not the row has a schedule", async () => {
+    const template = await renderWith(makeTemplate({ schedule: null }));
     expect(template.getByText("Delete Template")).toBeTruthy();
     expect(template.queryByText("Stop Repeating")).toBe(null);
 
-    const repeat = renderWith(makeTemplate());
+    const repeat = await renderWith(makeTemplate());
     expect(repeat.getByText("Delete Template")).toBeTruthy();
     expect(repeat.queryByText("Stop Repeating")).toBe(null);
   });
 
   // The copy has to follow the picker, not the saved row, or a user switching
   // to Never would still be told they are editing a repeat.
-  it("re-titles the screen the moment the frequency changes", () => {
-    renderWith(makeTemplate());
+  it("re-titles the screen the moment the frequency changes", async () => {
+    await renderWith(makeTemplate());
     expect(headerOptions().title).toBe("Repeat Schedule");
 
-    act(() => mockPickers["Repeats"].onValueChange("never"));
+    await act(() => mockPickers["Repeats"].onValueChange("never"));
 
     expect(headerOptions().title).toBe("Template");
   });
@@ -425,10 +425,10 @@ describe("RepeatScheduleScreen", () => {
   // `isLoading ? spinner : <Redirect />` treated a failed fetch as a deleted
   // row — both are `isLoading: false`, so offline silently bounced to the list.
   describe("when the record can't be resolved", () => {
-    it("waits for the template fetch rather than closing", () => {
+    it("waits for the template fetch rather than closing", async () => {
       mockParams.current = { id: "template-1" };
       templatesResult([], { isLoading: true });
-      const screen = render(<RepeatScheduleScreen />);
+      const screen = await render(<RepeatScheduleScreen />);
 
       expect(mockRouter.back).not.toHaveBeenCalled();
       expect(mockRouter.replace).not.toHaveBeenCalled();
@@ -438,28 +438,28 @@ describe("RepeatScheduleScreen", () => {
       expect(mockPickers["Repeats"]).toBeUndefined();
     });
 
-    it("dismisses once the template is known to be gone", () => {
+    it("dismisses once the template is known to be gone", async () => {
       mockParams.current = { id: "template-1" };
       templatesResult([]);
-      render(<RepeatScheduleScreen />);
+      await render(<RepeatScheduleScreen />);
 
       expect(mockRouter.back).toHaveBeenCalled();
       expect(mockRouter.replace).not.toHaveBeenCalled();
     });
 
-    it("replaces to the list when a deleted template was deep-linked cold", () => {
+    it("replaces to the list when a deleted template was deep-linked cold", async () => {
       mockRouter.canDismiss.mockReturnValue(false);
       mockParams.current = { id: "template-1" };
       templatesResult([]);
-      render(<RepeatScheduleScreen />);
+      await render(<RepeatScheduleScreen />);
 
       expect(mockRouter.replace).toHaveBeenCalledWith("/settings/tasks");
     });
 
-    it("reports a failed template fetch and retries it", () => {
+    it("reports a failed template fetch and retries it", async () => {
       mockParams.current = { id: "template-1" };
       templatesResult([], { isError: true });
-      const screen = render(<RepeatScheduleScreen />);
+      const screen = await render(<RepeatScheduleScreen />);
 
       expect(
         screen.getByText(
@@ -468,25 +468,25 @@ describe("RepeatScheduleScreen", () => {
       ).toBeTruthy();
       expect(mockRouter.back).not.toHaveBeenCalled();
 
-      fireEvent.press(screen.getByTestId("modal-error-retry"));
+      await fireEvent.press(screen.getByTestId("modal-error-retry"));
       expect(mockRefetchTemplates).toHaveBeenCalledTimes(1);
     });
 
-    it("dismisses when the task a draft would seed from is gone", () => {
+    it("dismisses when the task a draft would seed from is gone", async () => {
       mockParams.current = { id: "new", fromTask: "task-1" };
       mockTasks.current = [];
       templatesResult([]);
-      render(<RepeatScheduleScreen />);
+      await render(<RepeatScheduleScreen />);
 
       expect(mockRouter.back).toHaveBeenCalled();
     });
 
-    it("reports a failed tasks fetch on the draft path and retries it", () => {
+    it("reports a failed tasks fetch on the draft path and retries it", async () => {
       mockParams.current = { id: "new", fromTask: "task-1" };
       mockTasks.current = [];
       mockTasksQuery.isError = true;
       templatesResult([]);
-      const screen = render(<RepeatScheduleScreen />);
+      const screen = await render(<RepeatScheduleScreen />);
 
       expect(
         screen.getByText(
@@ -495,7 +495,7 @@ describe("RepeatScheduleScreen", () => {
       ).toBeTruthy();
       expect(mockRouter.back).not.toHaveBeenCalled();
 
-      fireEvent.press(screen.getByTestId("modal-error-retry"));
+      await fireEvent.press(screen.getByTestId("modal-error-retry"));
       expect(mockRefetchTasks).toHaveBeenCalledTimes(1);
     });
   });

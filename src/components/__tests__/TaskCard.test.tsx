@@ -192,9 +192,9 @@ describe("TaskCard", () => {
 
   // Hidden, not removed (DEX-113): the task keeps its `listId`, so neither
   // restoring `ListButton` nor prefixing the title may quietly draw an emoji.
-  it("draws no list emoji even when the task has a list", () => {
+  it("draws no list emoji even when the task has a list", async () => {
     const task = { ...baseTask, listId: "list-1" };
-    const screen = render(
+    const screen = await render(
       <TaskCard
         task={task}
         onUpdate={jest.fn()}
@@ -216,14 +216,14 @@ describe("TaskCard", () => {
     ["delegated", ETaskStatus.DELEGATED],
   ])(
     "hides the due date and list button, skips the more menu, and strikes the title for a %s task",
-    (_label, status) => {
+    async (_label, status) => {
       const task = {
         ...baseTask,
         status,
         dueOn: "2026-07-05",
         listId: "list-1",
       };
-      const screen = render(
+      const screen = await render(
         <TaskCard
           task={task}
           onUpdate={jest.fn()}
@@ -248,10 +248,10 @@ describe("TaskCard", () => {
     ["incomplete", ETaskStatus.TODO],
   ])(
     "stretches a %s card to full width with a height floor so async native sizing can't collapse or balloon it",
-    (_label, status) => {
+    async (_label, status) => {
       // The StatusButton's native menu host sizes asynchronously — without
       // alignSelf + minHeight the row can render blank or oversized.
-      const screen = render(
+      const screen = await render(
         <TaskCard
           task={{ ...baseTask, status }}
           onUpdate={jest.fn()}
@@ -268,8 +268,8 @@ describe("TaskCard", () => {
     },
   );
 
-  it("fades the card to a faint tint and mutes the text when done", () => {
-    const incomplete = render(
+  it("fades the card to a faint tint and mutes the text when done", async () => {
+    const incomplete = await render(
       <TaskCard
         task={baseTask}
         onUpdate={jest.fn()}
@@ -278,7 +278,7 @@ describe("TaskCard", () => {
         onDelete={jest.fn()}
       />,
     );
-    const done = render(
+    const done = await render(
       <TaskCard
         task={{ ...baseTask, status: ETaskStatus.DONE }}
         onUpdate={jest.fn()}
@@ -317,21 +317,21 @@ describe("TaskCard", () => {
         />,
       );
 
-    it("calls onPress instead of entering inline edit when given one", () => {
+    it("calls onPress instead of entering inline edit when given one", async () => {
       const onPress = jest.fn();
       const screen = renderWithPress(onPress);
 
-      fireEvent.press(screen.getByTestId("task-title-task-1"));
+      await fireEvent.press(screen.getByTestId("task-title-task-1"));
 
       expect(onPress).toHaveBeenCalledTimes(1);
       // The inline input would have replaced the label; it must not appear.
       expect(screen.queryByTestId("task-title-task-1-input")).toBeNull();
     });
 
-    it("still enters inline edit when no onPress is given", () => {
+    it("still enters inline edit when no onPress is given", async () => {
       const screen = renderWithPress();
 
-      fireEvent.press(screen.getByTestId("task-title-task-1"));
+      await fireEvent.press(screen.getByTestId("task-title-task-1"));
 
       expect(screen.getByTestId("task-title-task-1-input")).toBeTruthy();
     });

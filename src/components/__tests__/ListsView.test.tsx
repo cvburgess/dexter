@@ -76,9 +76,9 @@ beforeEach(() => {
 });
 
 describe("ListsView", () => {
-  it("drops a card onto another list's column to reassign it", () => {
+  it("drops a card onto another list's column to reassign it", async () => {
     mockData([task({ listId: "work" })], [list("work"), list("home")]);
-    const screen = render(<ListsView />);
+    const screen = await render(<ListsView />);
 
     const home = screen.getByTestId("list-drop-home").props as {
       onReceiveDragDrop: (event: { dragged: { payload?: unknown } }) => void;
@@ -91,22 +91,22 @@ describe("ListsView", () => {
     });
   });
 
-  it("offers a No List target only while some open task has no list", () => {
+  it("offers a No List target only while some open task has no list", async () => {
     mockData([task({ listId: null })], [list("work")]);
-    const screen = render(<ListsView />);
+    const screen = await render(<ListsView />);
     expect(screen.getByTestId("list-drop-none")).toBeTruthy();
 
     mockData([task({ listId: "work" })], [list("work")]);
-    screen.rerender(<ListsView />);
+    await await screen.rerender(<ListsView />);
     expect(screen.queryByTestId("list-drop-none")).toBeNull();
   });
 
-  it("invites creating a first list instead of rendering an empty board", () => {
+  it("invites creating a first list instead of rendering an empty board", async () => {
     mockData([task()], []);
-    const screen = render(<ListsView />);
+    const screen = await render(<ListsView />);
 
     expect(screen.queryByTestId("list-drop-none")).toBeNull();
-    fireEvent.press(screen.getByText("Create a list"));
+    await fireEvent.press(screen.getByText("Create a list"));
 
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/settings/lists/[id]",

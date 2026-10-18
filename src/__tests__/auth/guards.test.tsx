@@ -72,22 +72,22 @@ const authStates = {
 
 describe("auth guards", () => {
   describe("Index (app/index.tsx)", () => {
-    it("shows the loading screen while initializing", () => {
+    it("shows the loading screen while initializing", async () => {
       mockUseAuth.mockReturnValue(authStates.initializing);
-      expect(render(<Index />).getByText("loading")).toBeTruthy();
+      expect(await render(<Index />).getByText("loading")).toBeTruthy();
     });
 
-    it("redirects signed-out users to login", () => {
+    it("redirects signed-out users to login", async () => {
       mockUseAuth.mockReturnValue(authStates.signedOut);
       expect(
-        render(<Index />).getByText("redirect:/(auth)/login"),
+        await render(<Index />).getByText("redirect:/(auth)/login"),
       ).toBeTruthy();
     });
 
-    it("redirects signed-in users to today", () => {
+    it("redirects signed-in users to today", async () => {
       mockUseAuth.mockReturnValue(authStates.signedIn);
       expect(
-        render(<Index />).getByText("redirect:/(app)/(tabs)/today"),
+        await render(<Index />).getByText("redirect:/(app)/(tabs)/today"),
       ).toBeTruthy();
     });
   });
@@ -177,7 +177,7 @@ describe("auth guards", () => {
         session: { user: { id: "user-1" } } as Session,
         userId: "user-1",
       });
-      screen.rerender(<AppLayout />);
+      await screen.rerender(<AppLayout />);
       await settleQueries(screen.queryClient);
 
       expect(mockGetLists).toHaveBeenCalledTimes(1);
@@ -197,7 +197,7 @@ describe("auth guards", () => {
       // Revoked token / "sign out everywhere" — not the account log-out, which
       // clears itself. Without this, the next user sees stale data (DEX-36).
       mockUseAuth.mockReturnValue(authStates.signedOut);
-      screen.rerender(<AppLayout />);
+      await screen.rerender(<AppLayout />);
 
       expect(screen.queryClient.getQueryData(["lists"])).toBeUndefined();
       expect(screen.queryClient.getQueryData(["goals"])).toBeUndefined();
@@ -213,7 +213,9 @@ describe("auth guards", () => {
     it("redirects signed-in users into the app", async () => {
       mockUseAuth.mockReturnValue(authStates.signedIn);
       expect(
-        await render(<AuthLayout />).findByText("redirect:/(app)/(tabs)/today"),
+        await await render(<AuthLayout />).findByText(
+          "redirect:/(app)/(tabs)/today",
+        ),
       ).toBeTruthy();
     });
 
@@ -223,20 +225,20 @@ describe("auth guards", () => {
       await setPendingOAuthAuthorizationId("auth-123");
       mockUseAuth.mockReturnValue(authStates.signedIn);
       expect(
-        await render(<AuthLayout />).findByText(
+        await await render(<AuthLayout />).findByText(
           "redirect:/oauth/consent?authorization_id=auth-123",
         ),
       ).toBeTruthy();
     });
 
-    it("renders the auth stack for signed-out users", () => {
+    it("renders the auth stack for signed-out users", async () => {
       mockUseAuth.mockReturnValue(authStates.signedOut);
-      expect(render(<AuthLayout />).getByText("stack")).toBeTruthy();
+      expect(await render(<AuthLayout />).getByText("stack")).toBeTruthy();
     });
 
-    it("renders the auth stack while initializing", () => {
+    it("renders the auth stack while initializing", async () => {
       mockUseAuth.mockReturnValue(authStates.initializing);
-      expect(render(<AuthLayout />).getByText("stack")).toBeTruthy();
+      expect(await render(<AuthLayout />).getByText("stack")).toBeTruthy();
     });
   });
 
@@ -245,15 +247,15 @@ describe("auth guards", () => {
       await AsyncStorage.clear();
     });
 
-    it("shows the loading screen while initializing", () => {
+    it("shows the loading screen while initializing", async () => {
       mockUseAuth.mockReturnValue(authStates.initializing);
-      expect(render(<AuthCallback />).getByText("loading")).toBeTruthy();
+      expect(await render(<AuthCallback />).getByText("loading")).toBeTruthy();
     });
 
     it("redirects signed-in users to today", async () => {
       mockUseAuth.mockReturnValue(authStates.signedIn);
       expect(
-        await render(<AuthCallback />).findByText(
+        await await render(<AuthCallback />).findByText(
           "redirect:/(app)/(tabs)/today",
         ),
       ).toBeTruthy();
@@ -263,7 +265,7 @@ describe("auth guards", () => {
       await setPendingOAuthAuthorizationId("auth-123");
       mockUseAuth.mockReturnValue(authStates.signedIn);
       expect(
-        await render(<AuthCallback />).findByText(
+        await await render(<AuthCallback />).findByText(
           "redirect:/oauth/consent?authorization_id=auth-123",
         ),
       ).toBeTruthy();
@@ -273,10 +275,10 @@ describe("auth guards", () => {
       ).toBeNull();
     });
 
-    it("falls back to login when there is no session", () => {
+    it("falls back to login when there is no session", async () => {
       mockUseAuth.mockReturnValue(authStates.signedOut);
       expect(
-        render(<AuthCallback />).getByText("redirect:/(auth)/login"),
+        await render(<AuthCallback />).getByText("redirect:/(auth)/login"),
       ).toBeTruthy();
     });
   });

@@ -70,7 +70,7 @@ const timed = (
   allDay: false,
 });
 
-const renderStep = ({
+const renderStep = async ({
   events = [],
   meta = {},
 }: {
@@ -78,7 +78,7 @@ const renderStep = ({
   meta?: Partial<typeof READY>;
 } = {}) => {
   mockUseCalendarEvents.mockReturnValue([events, { ...READY, ...meta }]);
-  return render(<CalendarStep date={DATE} />);
+  return await render(<CalendarStep date={DATE} />);
 };
 
 /** The color a rendered `<Text>` resolves to, for the hero's ink assertions. */
@@ -103,8 +103,8 @@ beforeEach(() => {
 describe("CalendarStep", () => {
   // Loading checked first — an unresolved read looks like "no calendars",
   // and the wrong order flashes the setup prompt at a configured user.
-  it("renders nothing at all while the day is still loading", () => {
-    const screen = renderStep({
+  it("renders nothing at all while the day is still loading", async () => {
+    const screen = await renderStep({
       meta: { isLoading: true, notConfigured: true },
     });
 
@@ -114,25 +114,25 @@ describe("CalendarStep", () => {
   });
 
   describe("with no calendar source", () => {
-    it("offers to set one up", () => {
-      const screen = renderStep({ meta: { notConfigured: true } });
+    it("offers to set one up", async () => {
+      const screen = await renderStep({ meta: { notConfigured: true } });
 
       expect(screen.getByText(/No calendars yet/)).toBeTruthy();
       expect(screen.queryByText(/^calendar:/)).toBeNull();
     });
 
-    it("sends the user to the setting that fixes it", () => {
-      const screen = renderStep({ meta: { notConfigured: true } });
+    it("sends the user to the setting that fixes it", async () => {
+      const screen = await renderStep({ meta: { notConfigured: true } });
 
-      fireEvent.press(screen.getByText("Set up calendars"));
+      await fireEvent.press(screen.getByText("Set up calendars"));
 
       expect(mockPush).toHaveBeenCalledWith("/settings/calendars");
     });
 
     // Same dead end from the user's side, so the same screen — with copy
     // that doesn't blame them for a list they never saw.
-    it("treats a denied permission the same way, with its own copy", () => {
-      const screen = renderStep({
+    it("treats a denied permission the same way, with its own copy", async () => {
+      const screen = await renderStep({
         meta: { notConfigured: true, permissionDenied: true },
       });
 
@@ -143,24 +143,24 @@ describe("CalendarStep", () => {
 
   // A dropped connection is not a configuration problem, so it gets no button
   // offering to fix something that isn't broken.
-  it("reports a failed read without offering setup", () => {
-    const screen = renderStep({ meta: { isError: true } });
+  it("reports a failed read without offering setup", async () => {
+    const screen = await renderStep({ meta: { isError: true } });
 
     expect(screen.getByText(/Couldn't load your calendars/)).toBeTruthy();
     expect(screen.queryByText("Set up calendars")).toBeNull();
   });
 
   describe("with an empty day", () => {
-    it("says so in two lines and draws no timeline", () => {
-      const screen = renderStep();
+    it("says so in two lines and draws no timeline", async () => {
+      const screen = await renderStep();
 
       expect(screen.getByText("No events today")).toBeTruthy();
       expect(screen.getByText("Enjoy the space")).toBeTruthy();
       expect(screen.queryByText(/^calendar:/)).toBeNull();
     });
 
-    it("colors the invitation rather than the fact", () => {
-      const screen = renderStep();
+    it("colors the invitation rather than the fact", async () => {
+      const screen = await renderStep();
 
       expect(colorOf(screen.getByText("No events today"))).toBe(colors.text);
       expect(colorOf(screen.getByText("Enjoy the space"))).toBe(colors.success);
@@ -170,8 +170,8 @@ describe("CalendarStep", () => {
   // Same hero as Backlog (`HeroLines`), which covers layout/stagger — these
   // are about the copy and the ink.
   describe("with a day that has events", () => {
-    it("counts the events and splits the window", () => {
-      const screen = renderStep({
+    it("counts the events and splits the window", async () => {
+      const screen = await renderStep({
         events: [timed("a", 9, 11), timed("b", 14, 15), timed("c", 16, 18, 30)],
       });
 
@@ -183,8 +183,8 @@ describe("CalendarStep", () => {
 
     // Pluralizing on wholeness would print "1 hours planned"; exactly sixty
     // minutes is the one span that takes the singular.
-    it("writes the singular for one event and one hour", () => {
-      const screen = renderStep({ events: [timed("a", 9, 10)] });
+    it("writes the singular for one event and one hour", async () => {
+      const screen = await renderStep({ events: [timed("a", 9, 10)] });
 
       expect(screen.getByLabelText("1 event")).toBeTruthy();
       expect(screen.getByLabelText("1 hour planned")).toBeTruthy();
@@ -193,8 +193,8 @@ describe("CalendarStep", () => {
 
     // Figures carry the color, words stay ink; events take the same warning
     // token as backlog's due-soon — a heads-up, not `error` or an all-clear.
-    it("colors the figures rather than the words", () => {
-      const screen = renderStep({ events: [timed("a", 9, 10, 30)] });
+    it("colors the figures rather than the words", async () => {
+      const screen = await renderStep({ events: [timed("a", 9, 10, 30)] });
 
       expect(colorOf(screen.getByTestId("hero-figure-events"))).toBe(
         colors.priority[ETaskPriority.IMPORTANT_AND_URGENT],
@@ -208,8 +208,8 @@ describe("CalendarStep", () => {
     });
 
     // Only all-day events: counted, but nothing on the timeline is spoken for.
-    it("counts an all-day event without booking any time", () => {
-      const screen = renderStep({
+    it("counts an all-day event without booking any time", async () => {
+      const screen = await renderStep({
         events: [
           {
             id: "holiday",
