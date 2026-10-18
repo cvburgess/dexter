@@ -66,14 +66,21 @@
         }
       ],
       [
-        "expo-share-intent",
+        "expo-sharing",
         {
-          "iosActivationRules": {
-            "NSExtensionActivationSupportsWebURLWithMaxCount": 1,
-            "NSExtensionActivationSupportsWebPageWithMaxCount": 1
+          "ios": {
+            "enabled": true,
+            "extensionBundleIdentifier": "com.dexterplanner.share-extension",
+            "appGroupId": "group.com.dexterplanner",
+            "activationRule": {
+              "supportsWebUrlWithMaxCount": 1,
+              "supportsWebPageWithMaxCount": 1
+            }
           },
-          "androidIntentFilters": ["text/*"],
-          "iosAppGroupIdentifier": "group.com.dexterplanner"
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": ["text/*"]
+          }
         }
       ]
     ],

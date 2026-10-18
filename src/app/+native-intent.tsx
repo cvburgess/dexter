@@ -1,5 +1,5 @@
-// A share-extension dataUrl link is a handoff to expo-share-intent, not a
-// route (DEX-66) — swallow it or Router renders "Unmatched Route" under the modal.
+// The share extension's `dexter://expo-sharing` link is a handoff to expo-sharing,
+// not a route (DEX-66) — swallow it or Router renders "Unmatched Route" under the modal.
 export function redirectSystemPath({
   path,
 }: {
@@ -7,7 +7,7 @@ export function redirectSystemPath({
   initial: boolean;
 }): string | null {
   try {
-    if (path?.includes("dataUrl=")) return null;
+    if (path?.includes("expo-sharing")) return null;
     return path;
   } catch {
     // A link we can't classify is better handed to the router unchanged.

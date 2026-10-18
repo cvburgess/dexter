@@ -1,5 +1,5 @@
 import { render } from "@testing-library/react-native";
-import { useShareIntentContext } from "expo-share-intent";
+import { useIncomingShare } from "expo-sharing";
 
 import { ShareIntentRedirect } from "../ShareIntentRedirect";
 
@@ -7,24 +7,25 @@ const mockPush = jest.fn();
 // Reassigned per test, so the factory below reads it lazily rather than
 // capturing a value — `undefined` is the pre-mount root navigation state.
 let mockNavigationState: { key: string } | undefined = { key: "root" };
+const mockRouter = { push: (href: unknown) => mockPush(href) };
 jest.mock("expo-router", () => ({
-  router: { push: (href: unknown) => mockPush(href) },
+  useRouter: () => mockRouter,
   useRootNavigationState: () => mockNavigationState,
 }));
 
 const mockReset = jest.fn();
+const mockRefresh = jest.fn();
 
-/** Stands in for the provider's published state. `expo-share-intent` is mocked
- * globally in jest.setup.js; this points its hook at one payload. */
-const setShareIntent = (shareIntent: {
-  text: string | null;
-  webUrl: string | null;
-}) =>
-  (useShareIntentContext as jest.Mock).mockReturnValue({
-    // What the real hook derives: a share has arrived once anything is in it.
-    hasShareIntent: Boolean(shareIntent.text ?? shareIntent.webUrl),
-    shareIntent,
-    resetShareIntent: mockReset,
+/** Stands in for the hook's published state. `expo-sharing` is mocked
+ * globally in jest.setup.js; this points its hook at one share. */
+const setShareIntent = (share: { text: string | null; webUrl: string | null }) =>
+  (useIncomingShare as jest.Mock).mockReturnValue({
+    sharedPayloads: [
+      ...(share.webUrl ? [{ shareType: "url", value: share.webUrl }] : []),
+      ...(share.text ? [{ shareType: "text", value: share.text }] : []),
+    ],
+    clearSharedPayloads: mockReset,
+    refreshSharePayloads: mockRefresh,
   });
 
 describe("ShareIntentRedirect", () => {
@@ -68,8 +69,8 @@ describe("ShareIntentRedirect", () => {
     expect(mockPush).toHaveBeenCalledWith("/new-task");
   });
 
-  // The provider publishes an empty payload whenever no share is pending, which
-  // is the state every ordinary launch mounts in.
+  // The hook publishes no payloads whenever no share is pending, which is the
+  // state every ordinary launch mounts in.
   it("stays out of the way when no share arrived", () => {
     setShareIntent({ webUrl: null, text: null });
 
@@ -99,7 +100,7 @@ describe("ShareIntentRedirect", () => {
     });
   });
 
-  // Clearing the payload is what flips `hasShareIntent` false, so a re-render
+  // Clearing and refreshing is what empties the payloads, so a re-render
   // can't push a second modal for the same share.
   it("clears the payload so one share opens one modal", () => {
     setShareIntent({ webUrl: "https://example.com", text: null });
@@ -109,6 +110,7 @@ describe("ShareIntentRedirect", () => {
     screen.rerender(<ShareIntentRedirect />);
 
     expect(mockReset).toHaveBeenCalledTimes(1);
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
     expect(mockPush).toHaveBeenCalledTimes(1);
   });
 });

@@ -205,13 +205,12 @@ jest.mock("expo-alarm-kit", () => ({
 }));
 
 // Default to "no share arrived" so mounting the app takes the normal-launch
-// path; a test that cares re-mocks useShareIntentContext with a payload.
-jest.mock("expo-share-intent", () => ({
-  ShareIntentProvider: ({ children }) => children,
-  useShareIntentContext: jest.fn(() => ({
-    hasShareIntent: false,
-    shareIntent: { text: null, webUrl: null, files: null },
-    resetShareIntent: jest.fn(),
+// path; a test that cares re-mocks useIncomingShare with a payload.
+jest.mock("expo-sharing", () => ({
+  useIncomingShare: jest.fn(() => ({
+    sharedPayloads: [],
+    clearSharedPayloads: jest.fn(),
+    refreshSharePayloads: jest.fn(),
   })),
 }));
 
