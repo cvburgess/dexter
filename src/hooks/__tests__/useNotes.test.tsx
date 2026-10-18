@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { ReactNode } from "react";
 
 import * as notesApi from "@/api/notes";
+import { settleQueries } from "@/testUtils/settleQueries";
 
 import { notesMutationKey, useNotes } from "../useNotes";
 
@@ -104,19 +105,21 @@ describe("useNotes", () => {
   });
 
   it("rolls back the optimistic note when the first save fails for a new day", async () => {
+    const { client, wrapper } = createWrapper();
+
     mockGetNote.mockResolvedValue(null);
     mockUpsertNote.mockRejectedValue(new Error("save failed"));
 
     const { result } = await renderHook(() => useNotes("2026-07-12"), {
-      wrapper: createWrapper().wrapper,
+      wrapper,
     });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
     await act(() => result.current[1].upsertNote({ content: "typed" }));
-    await waitFor(() => expect(mockUpsertNote).toHaveBeenCalled());
+    await settleQueries(client);
 
     // The failed save must not leave the never-persisted note in the cache.
-    await waitFor(() => expect(result.current[0].content).toBe(""));
+    expect(result.current[0].content).toBe("");
     expect(result.current[1].exists).toBe(false);
   });
 
@@ -146,11 +149,7 @@ describe("useNotes", () => {
       ).toBe(1),
     );
 
-    resolveUpsert({ date: "2026-07-12", content: "hello" });
-    await waitFor(() =>
-      expect(
-        client.isMutating({ mutationKey: notesMutationKey("2026-07-12") }),
-      ).toBe(0),
-    );
+    await act(() => resolveUpsert({ date: "2026-07-12", content: "hello" }));
+    await settleQueries(client);
   });
 });
