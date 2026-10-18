@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { ReactNode } from "react";
 
 import * as notesApi from "@/api/notes";
+import { settleQueries } from "@/testUtils/settleQueries";
 
 import { notesMutationKey, useNotes } from "../useNotes";
 
@@ -41,7 +42,7 @@ describe("useNotes", () => {
   it("defaults a day with no row to a blank note", async () => {
     mockGetNote.mockResolvedValue(null);
 
-    const { result } = renderHook(() => useNotes("2026-07-12"), {
+    const { result } = await renderHook(() => useNotes("2026-07-12"), {
       wrapper: createWrapper().wrapper,
     });
 
@@ -55,7 +56,7 @@ describe("useNotes", () => {
   it("reports exists=true and the stored note when a row is present", async () => {
     mockGetNote.mockResolvedValue({ date: "2026-07-12", content: "existing" });
 
-    const { result } = renderHook(() => useNotes("2026-07-12"), {
+    const { result } = await renderHook(() => useNotes("2026-07-12"), {
       wrapper: createWrapper().wrapper,
     });
 
@@ -67,12 +68,12 @@ describe("useNotes", () => {
     mockGetNote.mockResolvedValue(null);
     mockUpsertNote.mockResolvedValue({ date: "2026-07-12", content: "hello" });
 
-    const { result } = renderHook(() => useNotes("2026-07-12"), {
+    const { result } = await renderHook(() => useNotes("2026-07-12"), {
       wrapper: createWrapper().wrapper,
     });
 
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
-    act(() => result.current[1].upsertNote({ content: "hello" }));
+    await act(() => result.current[1].upsertNote({ content: "hello" }));
 
     // Only the note's own column travels now — nothing has to be re-sent to
     // protect a sibling journal column (DEX-51).
@@ -90,12 +91,12 @@ describe("useNotes", () => {
       .mockRejectedValueOnce(new Error("blip"))
       .mockResolvedValueOnce({ date: "2026-07-12", content: "typed" });
 
-    const { result } = renderHook(() => useNotes("2026-07-12"), {
+    const { result } = await renderHook(() => useNotes("2026-07-12"), {
       wrapper: createWrapper().wrapper,
     });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
-    act(() => result.current[1].upsertNote({ content: "typed" }));
+    await act(() => result.current[1].upsertNote({ content: "typed" }));
 
     await waitFor(() => expect(mockUpsertNote).toHaveBeenCalledTimes(2));
     // The successful retry's response is written to the cache.
@@ -104,19 +105,21 @@ describe("useNotes", () => {
   });
 
   it("rolls back the optimistic note when the first save fails for a new day", async () => {
+    const { client, wrapper } = createWrapper();
+
     mockGetNote.mockResolvedValue(null);
     mockUpsertNote.mockRejectedValue(new Error("save failed"));
 
-    const { result } = renderHook(() => useNotes("2026-07-12"), {
-      wrapper: createWrapper().wrapper,
+    const { result } = await renderHook(() => useNotes("2026-07-12"), {
+      wrapper,
     });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
-    act(() => result.current[1].upsertNote({ content: "typed" }));
-    await waitFor(() => expect(mockUpsertNote).toHaveBeenCalled());
+    await act(() => result.current[1].upsertNote({ content: "typed" }));
+    await settleQueries(client);
 
     // The failed save must not leave the never-persisted note in the cache.
-    await waitFor(() => expect(result.current[0].content).toBe(""));
+    expect(result.current[0].content).toBe("");
     expect(result.current[1].exists).toBe(false);
   });
 
@@ -131,24 +134,22 @@ describe("useNotes", () => {
       }),
     );
 
-    const { result } = renderHook(() => useNotes("2026-07-12"), { wrapper });
+    const { result } = await renderHook(() => useNotes("2026-07-12"), {
+      wrapper,
+    });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
     expect(
       client.isMutating({ mutationKey: notesMutationKey("2026-07-12") }),
     ).toBe(0);
-    act(() => result.current[1].upsertNote({ content: "hello" }));
+    await act(() => result.current[1].upsertNote({ content: "hello" }));
     await waitFor(() =>
       expect(
         client.isMutating({ mutationKey: notesMutationKey("2026-07-12") }),
       ).toBe(1),
     );
 
-    resolveUpsert({ date: "2026-07-12", content: "hello" });
-    await waitFor(() =>
-      expect(
-        client.isMutating({ mutationKey: notesMutationKey("2026-07-12") }),
-      ).toBe(0),
-    );
+    await act(() => resolveUpsert({ date: "2026-07-12", content: "hello" }));
+    await settleQueries(client);
   });
 });

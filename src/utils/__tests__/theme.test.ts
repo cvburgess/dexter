@@ -58,30 +58,30 @@ describe("useTheme (no provider)", () => {
     mockUseIsLargeDevice.mockReturnValue(false);
   });
 
-  it("returns the default dark theme when the device reports a dark scheme", () => {
+  it("returns the default dark theme when the device reports a dark scheme", async () => {
     mockUseColorScheme.mockReturnValue("dark");
 
-    const { result } = renderHook(() => useTheme());
+    const { result } = await renderHook(() => useTheme());
 
     // `useTheme` composes palette + density, so identity is on `colors`.
     expect(result.current.colors).toBe(themes.dark.colors);
   });
 
-  it("returns the default light (dexter) theme when the device reports a light scheme", () => {
+  it("returns the default light (dexter) theme when the device reports a light scheme", async () => {
     mockUseColorScheme.mockReturnValue("light");
 
-    const { result } = renderHook(() => useTheme());
+    const { result } = await renderHook(() => useTheme());
 
     expect(result.current.colors).toBe(themes.dexter.colors);
   });
 
-  it("switches themes when the device scheme changes", () => {
+  it("switches themes when the device scheme changes", async () => {
     mockUseColorScheme.mockReturnValue("light");
-    const { result, rerender } = renderHook(() => useTheme());
+    const { result, rerender } = await renderHook(() => useTheme());
     expect(result.current.colors).toBe(themes.dexter.colors);
 
     mockUseColorScheme.mockReturnValue("dark");
-    rerender({});
+    await rerender({});
     expect(result.current.colors).toBe(themes.dark.colors);
   });
 });
@@ -97,42 +97,42 @@ describe("density tiers", () => {
     mockUseIsLargeDevice.mockReturnValue(false);
   });
 
-  it("uses the comfortable tier below the large-device breakpoint", () => {
+  it("uses the comfortable tier below the large-device breakpoint", async () => {
     asWeb();
     mockUseIsLargeDevice.mockReturnValue(false);
 
-    const { result } = renderHook(() => useTheme());
+    const { result } = await renderHook(() => useTheme());
 
     expect(result.current.space).toBe(DENSITY.comfortable.space);
   });
 
-  it("uses the compact tier on a wide web viewport", () => {
+  it("uses the compact tier on a wide web viewport", async () => {
     asWeb();
     mockUseIsLargeDevice.mockReturnValue(true);
 
-    const { result } = renderHook(() => useTheme());
+    const { result } = await renderHook(() => useTheme());
 
     expect(result.current.space).toBe(DENSITY.compact.space);
   });
 
   // DEX-61's pointer tier puts `controls.sm` at 26dp — under iOS's 44pt tap
   // target — so native opts out at every width.
-  it("stays comfortable on a large native device", () => {
+  it("stays comfortable on a large native device", async () => {
     mockUseIsLargeDevice.mockReturnValue(true);
 
-    const { result } = renderHook(() => useTheme());
+    const { result } = await renderHook(() => useTheme());
 
     expect(result.current.space).toBe(DENSITY.comfortable.space);
   });
 
-  it("switches tiers when the web window crosses the breakpoint", () => {
+  it("switches tiers when the web window crosses the breakpoint", async () => {
     asWeb();
     mockUseIsLargeDevice.mockReturnValue(false);
-    const { result, rerender } = renderHook(() => useTheme());
+    const { result, rerender } = await renderHook(() => useTheme());
     expect(result.current.space).toBe(DENSITY.comfortable.space);
 
     mockUseIsLargeDevice.mockReturnValue(true);
-    rerender({});
+    await rerender({});
     expect(result.current.space).toBe(DENSITY.compact.space);
   });
 

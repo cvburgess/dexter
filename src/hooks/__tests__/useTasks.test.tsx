@@ -103,9 +103,19 @@ describe("useTasks", () => {
 
   it("fetches under a single stable query key, not one per caller", async () => {
     const { wrapper, queryClient } = createWrapper();
+    // Held open so both callers mount while the fetch is still in flight.
+    let resolveFetch: (tasks: TTask[]) => void = () => {};
+    mockGetTasks.mockReturnValue(
+      new Promise<TTask[]>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
 
-    const first = renderHook(() => useTasks(), { wrapper });
-    const second = renderHook(() => useTasks(), { wrapper });
+    const first = await renderHook(() => useTasks(), { wrapper });
+    const second = await renderHook(() => useTasks(), { wrapper });
+    await act(() => {
+      resolveFetch([]);
+    });
 
     // Both callers, not just fetch count — the shared query notifies each on
     // resolve, and returning before that lands outside act() (DEX-130).
@@ -138,13 +148,13 @@ describe("useTasks", () => {
 
     it("refetches with a wider scope when a screen opens an older day", async () => {
       const { wrapper } = createWrapper();
-      const { result } = renderHook(() => useTasks(), { wrapper });
+      const { result } = await renderHook(() => useTasks(), { wrapper });
 
       await waitFor(() => expect(result.current[1].isLoading).toBe(false));
       expect(mockGetTasks).toHaveBeenCalledTimes(1);
 
       mockGetTasks.mockResolvedValue([olderTask]);
-      act(() => {
+      await act(() => {
         expandTaskReach(Temporal.PlainDate.from("2025-01-15"));
       });
 
@@ -171,7 +181,7 @@ describe("useTasks", () => {
       };
       mockGetTasks.mockResolvedValue([existing]);
 
-      const { result } = renderHook(() => useTasks(), { wrapper });
+      const { result } = await renderHook(() => useTasks(), { wrapper });
       await waitFor(() => expect(result.current[0]).toEqual([existing]));
 
       let resolveFetch: (tasks: TTask[]) => void = () => {};
@@ -181,14 +191,14 @@ describe("useTasks", () => {
         }),
       );
 
-      act(() => {
+      await act(() => {
         expandTaskReach(Temporal.PlainDate.from("2025-01-15"));
       });
 
       await waitFor(() => expect(result.current[1].isLoading).toBe(true));
       expect(result.current[0]).toEqual([existing]);
 
-      act(() => {
+      await act(() => {
         resolveFetch([existing, olderTask]);
       });
       await waitFor(() =>
@@ -198,11 +208,11 @@ describe("useTasks", () => {
 
     it("ignores a day already inside the reach, so ordinary paging refetches nothing", async () => {
       const { wrapper } = createWrapper();
-      const { result } = renderHook(() => useTasks(), { wrapper });
+      const { result } = await renderHook(() => useTasks(), { wrapper });
 
       await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
-      act(() => {
+      await act(() => {
         expandTaskReach(Temporal.Now.plainDateISO().subtract({ days: 1 }));
       });
 
@@ -216,7 +226,7 @@ describe("useTasks", () => {
     const { wrapper } = createWrapper();
     mockGetTasks.mockRejectedValue(new Error("network error"));
 
-    const { result } = renderHook(() => useTasks(), { wrapper });
+    const { result } = await renderHook(() => useTasks(), { wrapper });
 
     await waitFor(() => expect(result.current[1].isError).toBe(true));
     expect(result.current[0]).toEqual([]);
@@ -227,7 +237,7 @@ describe("useTasks", () => {
     const { wrapper } = createWrapper();
     mockGetTasks.mockRejectedValueOnce(new Error("network error"));
 
-    const { result } = renderHook(() => useTasks(), { wrapper });
+    const { result } = await renderHook(() => useTasks(), { wrapper });
     await waitFor(() => expect(result.current[1].isError).toBe(true));
 
     const task: TTask = {
@@ -245,7 +255,7 @@ describe("useTasks", () => {
       url: null,
     };
     mockGetTasks.mockResolvedValue([task]);
-    act(() => result.current[1].refetch());
+    await act(() => result.current[1].refetch());
 
     await waitFor(() => expect(result.current[0]).toEqual([task]));
     expect(result.current[1].isError).toBe(false);
@@ -254,7 +264,7 @@ describe("useTasks", () => {
   it("fetches with the canonical task filters", async () => {
     const { settled, wrapper } = createWrapper();
 
-    renderHook(() => useTasks(), { wrapper });
+    await renderHook(() => useTasks(), { wrapper });
 
     await waitFor(() => expect(mockGetTasks).toHaveBeenCalled());
     await settled();
@@ -281,10 +291,10 @@ describe("useTasks", () => {
     };
     mockCreateTask.mockResolvedValue([task]);
 
-    const { result } = renderHook(() => useTasks(), { wrapper });
+    const { result } = await renderHook(() => useTasks(), { wrapper });
     await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(1));
 
-    act(() => result.current[1].createTask({ title: "New task" }));
+    await act(() => result.current[1].createTask({ title: "New task" }));
 
     await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(2));
     await settled();
@@ -297,10 +307,10 @@ describe("useTasks", () => {
       const { settled, wrapper } = createWrapper();
       mockCreateTask.mockRejectedValue(new Error("offline"));
 
-      const { result } = renderHook(() => useTasks(), { wrapper });
+      const { result } = await renderHook(() => useTasks(), { wrapper });
       await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(1));
 
-      act(() => result.current[1].createTask({ title: "New task" }));
+      await act(() => result.current[1].createTask({ title: "New task" }));
 
       await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(2));
       await settled();
@@ -310,10 +320,10 @@ describe("useTasks", () => {
       const { settled, wrapper } = createWrapper();
       mockDeleteTask.mockRejectedValue(new Error("offline"));
 
-      const { result } = renderHook(() => useTasks(), { wrapper });
+      const { result } = await renderHook(() => useTasks(), { wrapper });
       await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(1));
 
-      act(() => result.current[1].deleteTask("task-1"));
+      await act(() => result.current[1].deleteTask("task-1"));
 
       await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(2));
       await settled();
@@ -357,12 +367,12 @@ describe("useTasks", () => {
       mockGetTasks.mockResolvedValue(cached);
       mockUpdateTasks.mockResolvedValue(cached);
 
-      const { result } = renderHook(() => useTasks(), { wrapper });
+      const { result } = await renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
         expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual(cached),
       );
 
-      act(() => result.current[1].updateTasks(diffs));
+      await act(() => result.current[1].updateTasks(diffs));
       await waitFor(() => expect(mockUpdateTasks).toHaveBeenCalled());
       await settled();
 
@@ -440,12 +450,12 @@ describe("useTasks", () => {
     queryClient.setQueryData(["templates"], [template]);
     mockUpdateTask.mockResolvedValue([{ ...task, status: ETaskStatus.DONE }]);
 
-    const { result } = renderHook(() => useTasks(), { wrapper });
+    const { result } = await renderHook(() => useTasks(), { wrapper });
     await waitFor(() =>
       expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([task]),
     );
 
-    act(() =>
+    await act(() =>
       result.current[1].updateTask({
         id: "task-1",
         status: ETaskStatus.DONE,
@@ -498,12 +508,12 @@ describe("useTasks", () => {
       queryClient.setQueryData(["templates"], [template]);
       mockUpdateTask.mockResolvedValue([{ ...task, status: ETaskStatus.DONE }]);
 
-      const { result } = renderHook(() => useTasks(), { wrapper });
+      const { result } = await renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
         expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([task]),
       );
 
-      act(() =>
+      await act(() =>
         result.current[1].updateTask({
           id: "task-1",
           status: ETaskStatus.DONE,
@@ -560,12 +570,12 @@ describe("useTasks", () => {
       mockGetTasks.mockResolvedValue([task]);
       mockUpdateTask.mockResolvedValue([{ ...task, status }]);
 
-      const { result } = renderHook(() => useTasks(), { wrapper });
+      const { result } = await renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
         expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([task]),
       );
 
-      act(() => result.current[1].updateTask({ id: task.id, status }));
+      await act(() => result.current[1].updateTask({ id: task.id, status }));
       await waitFor(() => expect(mockUpdateTask).toHaveBeenCalled());
       await settled();
 
@@ -619,12 +629,12 @@ describe("useTasks", () => {
       mockGetTasks.mockResolvedValue([task]);
       mockUpdateTask.mockResolvedValue([task]);
 
-      const { result } = renderHook(() => useTasks(), { wrapper });
+      const { result } = await renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
         expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([task]),
       );
 
-      act(() =>
+      await act(() =>
         result.current[1].updateTask({
           id: "task-1",
           status: ETaskStatus.DONE,
@@ -676,12 +686,12 @@ describe("useTasks", () => {
     queryClient.setQueryData(["templates"], [template]);
     mockUpdateTask.mockResolvedValue([{ ...task, status: ETaskStatus.DONE }]);
 
-    const { result } = renderHook(() => useTasks(), { wrapper });
+    const { result } = await renderHook(() => useTasks(), { wrapper });
     await waitFor(() =>
       expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([task]),
     );
 
-    act(() =>
+    await act(() =>
       result.current[1].updateTask({ id: "task-1", status: ETaskStatus.DONE }),
     );
 
@@ -727,12 +737,12 @@ describe("useTasks", () => {
         }),
       );
 
-      const { result } = renderHook(() => useTasks(), { wrapper });
+      const { result } = await renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
         expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([cached]),
       );
 
-      act(() =>
+      await act(() =>
         result.current[1].updateTask({ id: "task-1", title: "Shipped" }),
       );
 
@@ -746,7 +756,7 @@ describe("useTasks", () => {
 
       // Resolve inside `act`: settling drives `onSettled`, which invalidates
       // ["tasks"] and refetches the server's copy on top of the optimistic one.
-      act(() => resolve?.([{ ...cached, title: "Shipped" }]));
+      await act(() => resolve?.([{ ...cached, title: "Shipped" }]));
       await settled();
       expect(result.current[0][0].title).toBe("Ship it");
     });
@@ -756,12 +766,12 @@ describe("useTasks", () => {
       mockGetTasks.mockResolvedValue([cached]);
       mockUpdateTask.mockResolvedValue([cached]);
 
-      const { result } = renderHook(() => useTasks(), { wrapper });
+      const { result } = await renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
         expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([cached]),
       );
 
-      act(() =>
+      await act(() =>
         result.current[1].updateTask({ id: "task-1", title: "Renamed" }),
       );
 
@@ -780,12 +790,12 @@ describe("useTasks", () => {
       mockGetTasks.mockResolvedValue([cached]);
       mockUpdateTask.mockRejectedValue(new Error("offline"));
 
-      const { result } = renderHook(() => useTasks(), { wrapper });
+      const { result } = await renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
         expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([cached]),
       );
 
-      act(() =>
+      await act(() =>
         result.current[1].updateTask({ id: "task-1", title: "Renamed" }),
       );
 
@@ -817,24 +827,24 @@ describe("useTasks", () => {
         }),
       );
 
-      const { result } = renderHook(() => useTasks(), { wrapper });
+      const { result } = await renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
         expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([cached]),
       );
 
       const narrowKey = tasksKey();
-      act(() =>
+      await act(() =>
         result.current[1].updateTask({ id: "task-1", title: "Renamed" }),
       );
 
       // The expansion lands mid-write, and brings the older day with it.
       mockGetTasks.mockResolvedValue([cached, older]);
-      act(() => {
+      await act(() => {
         expandTaskReach(Temporal.PlainDate.from("2025-01-15"));
       });
       await waitFor(() => expect(result.current[0]).toEqual([cached, older]));
 
-      act(() => failUpdate(new Error("offline")));
+      await act(() => failUpdate(new Error("offline")));
 
       // The rollback restored the narrow entry; the widened one — which is what
       // every view is now reading — still has the older day.
@@ -881,14 +891,14 @@ describe("useTasks", () => {
         { ...repeating, status: ETaskStatus.DONE },
       ]);
 
-      const { result } = renderHook(() => useTasks(), { wrapper });
+      const { result } = await renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
         expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([
           repeating,
         ]),
       );
 
-      act(() =>
+      await act(() =>
         result.current[1].updateTask({
           id: "task-1",
           status: ETaskStatus.DONE,

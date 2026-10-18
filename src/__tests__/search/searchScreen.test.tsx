@@ -110,9 +110,9 @@ const mockDeleteTemplate = jest.fn();
 
 // Types then lets the debounce elapse, so the query reaches useSearch rather
 // than staying at its pre-debounce value.
-const typeSearch = (text: string) => {
-  fireEvent.changeText(screen.getByLabelText("Search"), text);
-  act(() => jest.advanceTimersByTime(500));
+const typeSearch = async (text: string) => {
+  await fireEvent.changeText(screen.getByLabelText("Search"), text);
+  await act(() => jest.advanceTimersByTime(500));
 };
 
 const searchResult = (
@@ -175,88 +175,88 @@ describe("SearchScreen", () => {
 
   afterEach(() => jest.useRealTimers());
 
-  it("shows the idle prompt before a query is long enough to search", () => {
+  it("shows the idle prompt before a query is long enough to search", async () => {
     mockUseSearch.mockReturnValue(searchResult([], { enabled: false }));
 
-    render(<SearchScreen />);
+    await render(<SearchScreen />);
 
     expect(
       screen.getByText("Search your tasks, notes, and journal."),
     ).toBeTruthy();
   });
 
-  it("keeps the results list mounted while idle (DEX-136)", () => {
+  it("keeps the results list mounted while idle (DEX-136)", async () => {
     // Not cosmetic: UIKit resolves this tab's scroll view once at mount, always
     // on the idle state — a list appearing only with results breaks tab-bar minimize.
     mockUseSearch.mockReturnValue(searchResult([], { enabled: false }));
 
-    render(<SearchScreen />);
+    await render(<SearchScreen />);
 
     expect(screen.getByTestId("search-results")).toBeTruthy();
   });
 
-  it("passes what the user types to the search hook", () => {
-    render(<SearchScreen />);
+  it("passes what the user types to the search hook", async () => {
+    await render(<SearchScreen />);
 
-    typeSearch("milk");
+    await typeSearch("milk");
 
     expect(mockUseSearch).toHaveBeenLastCalledWith("milk");
   });
 
-  it("debounces, so a burst of typing is one search rather than one per key", () => {
-    render(<SearchScreen />);
+  it("debounces, so a burst of typing is one search rather than one per key", async () => {
+    await render(<SearchScreen />);
     const field = screen.getByLabelText("Search");
 
     // Every search is a full scan of the account's tasks, notes, and journals,
     // so this is about round trips, not render cost.
     for (const text of ["m", "mi", "mil", "milk"]) {
-      fireEvent.changeText(field, text);
-      act(() => jest.advanceTimersByTime(50));
+      await fireEvent.changeText(field, text);
+      await act(() => jest.advanceTimersByTime(50));
     }
     // Nothing but the initial empty query has reached the hook yet.
     expect(mockUseSearch).not.toHaveBeenCalledWith("mil");
 
-    act(() => jest.advanceTimersByTime(500));
+    await act(() => jest.advanceTimersByTime(500));
 
     expect(mockUseSearch).toHaveBeenLastCalledWith("milk");
     expect(mockUseSearch).not.toHaveBeenCalledWith("mi");
   });
 
-  it("does not fall back to the idle prompt during the debounce window", () => {
+  it("does not fall back to the idle prompt during the debounce window", async () => {
     // `enabled` lags the field by up to one debounce; gating idle on it told a
     // user who'd just typed two characters that they hadn't typed anything.
     mockUseSearch.mockReturnValue(searchResult([], { enabled: false }));
-    render(<SearchScreen />);
+    await render(<SearchScreen />);
 
     // Typed, but the debounce hasn't fired — the field is searchable while the
     // hook is still keyed on "".
-    fireEvent.changeText(screen.getByLabelText("Search"), "milk");
+    await fireEvent.changeText(screen.getByLabelText("Search"), "milk");
 
     expect(
       screen.queryByText("Search your tasks, notes, and journal."),
     ).toBeNull();
   });
 
-  it("returns to the idle prompt when the field is cleared", () => {
+  it("returns to the idle prompt when the field is cleared", async () => {
     mockUseSearch.mockReturnValue(searchResult([], { enabled: false }));
-    render(<SearchScreen />);
+    await render(<SearchScreen />);
 
-    typeSearch("");
+    await typeSearch("");
 
     expect(
       screen.getByText("Search your tasks, notes, and journal."),
     ).toBeTruthy();
   });
 
-  it("reports when a searched query matched nothing", () => {
-    render(<SearchScreen />);
-    typeSearch("milk");
+  it("reports when a searched query matched nothing", async () => {
+    await render(<SearchScreen />);
+    await typeSearch("milk");
 
     // Distinct from the prompt state above: this one ran and came back empty.
     expect(screen.getByText("No matches.")).toBeTruthy();
   });
 
-  it("groups results under a heading per kind", () => {
+  it("groups results under a heading per kind", async () => {
     mockUseSearch.mockReturnValue(
       searchResult([
         { kind: "task", task: task() },
@@ -270,8 +270,8 @@ describe("SearchScreen", () => {
       ]),
     );
 
-    render(<SearchScreen />);
-    typeSearch("milk");
+    await render(<SearchScreen />);
+    await typeSearch("milk");
 
     expect(screen.getByText("Tasks")).toBeTruthy();
     expect(screen.getByText("Notes")).toBeTruthy();
@@ -282,29 +282,29 @@ describe("SearchScreen", () => {
     expect(screen.getByText("What went well?")).toBeTruthy();
   });
 
-  it("omits the heading for a kind with no results", () => {
+  it("omits the heading for a kind with no results", async () => {
     mockUseSearch.mockReturnValue(
       searchResult([{ kind: "task", task: task() }]),
     );
 
-    render(<SearchScreen />);
-    typeSearch("milk");
+    await render(<SearchScreen />);
+    await typeSearch("milk");
 
     expect(screen.getByText("Tasks")).toBeTruthy();
     expect(screen.queryByText("Notes")).toBeNull();
     expect(screen.queryByText("Journal")).toBeNull();
   });
 
-  it("removes a repeating task's schedule when the task is deleted", () => {
+  it("removes a repeating task's schedule when the task is deleted", async () => {
     mockUseSearch.mockReturnValue(
       searchResult([
         { kind: "task", task: task({ templateId: "template-1" }) },
       ]),
     );
-    render(<SearchScreen />);
-    typeSearch("milk");
+    await render(<SearchScreen />);
+    await typeSearch("milk");
 
-    fireEvent.press(screen.getByLabelText("delete-Buy milk"));
+    await fireEvent.press(screen.getByLabelText("delete-Buy milk"));
 
     // The task→template FK is ON DELETE SET NULL, so without this the schedule
     // survives and keeps creating occurrences of a deleted task (DEX-21).
@@ -312,29 +312,29 @@ describe("SearchScreen", () => {
     expect(mockDeleteTask).toHaveBeenCalledWith("task-1");
   });
 
-  it("does not touch templates when deleting a one-off task", () => {
+  it("does not touch templates when deleting a one-off task", async () => {
     mockUseSearch.mockReturnValue(
       searchResult([{ kind: "task", task: task({ templateId: null }) }]),
     );
-    render(<SearchScreen />);
-    typeSearch("milk");
+    await render(<SearchScreen />);
+    await typeSearch("milk");
 
-    fireEvent.press(screen.getByLabelText("delete-Buy milk"));
+    await fireEvent.press(screen.getByLabelText("delete-Buy milk"));
 
     expect(mockDeleteTemplate).not.toHaveBeenCalled();
     expect(mockDeleteTask).toHaveBeenCalledWith("task-1");
   });
 
-  it("opens a scheduled task result on its day", () => {
+  it("opens a scheduled task result on its day", async () => {
     mockUseSearch.mockReturnValue(
       searchResult([
         { kind: "task", task: task({ scheduledFor: "2026-07-14" }) },
       ]),
     );
-    render(<SearchScreen />);
-    typeSearch("milk");
+    await render(<SearchScreen />);
+    await typeSearch("milk");
 
-    fireEvent.press(screen.getByLabelText("open-Buy milk"));
+    await fireEvent.press(screen.getByLabelText("open-Buy milk"));
 
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/today",
@@ -342,14 +342,14 @@ describe("SearchScreen", () => {
     });
   });
 
-  it("opens an unscheduled task result in the backlog, carrying the query", () => {
+  it("opens an unscheduled task result in the backlog, carrying the query", async () => {
     mockUseSearch.mockReturnValue(
       searchResult([{ kind: "task", task: task({ scheduledFor: null }) }]),
     );
-    render(<SearchScreen />);
-    typeSearch("milk");
+    await render(<SearchScreen />);
+    await typeSearch("milk");
 
-    fireEvent.press(screen.getByLabelText("open-Buy milk"));
+    await fireEvent.press(screen.getByLabelText("open-Buy milk"));
 
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/today",
@@ -357,7 +357,7 @@ describe("SearchScreen", () => {
     });
   });
 
-  it("does not link a completed, unscheduled task result", () => {
+  it("does not link a completed, unscheduled task result", async () => {
     mockUseSearch.mockReturnValue(
       searchResult([
         {
@@ -366,27 +366,27 @@ describe("SearchScreen", () => {
         },
       ]),
     );
-    render(<SearchScreen />);
-    typeSearch("milk");
+    await render(<SearchScreen />);
+    await typeSearch("milk");
 
     // Nowhere to open: the backlog shows only incomplete tasks. The card still
     // renders — its status button is how the task gets reopened.
-    fireEvent.press(screen.getByLabelText("open-Buy milk"));
+    await fireEvent.press(screen.getByLabelText("open-Buy milk"));
 
     expect(mockPush).not.toHaveBeenCalled();
     expect(screen.getByText("task-card:Buy milk")).toBeTruthy();
   });
 
-  it("opens a note result on its day's notes view", () => {
+  it("opens a note result on its day's notes view", async () => {
     mockUseSearch.mockReturnValue(
       searchResult([
         { kind: "note", date: "2026-07-13", content: "bought the milk" },
       ]),
     );
-    render(<SearchScreen />);
-    typeSearch("milk");
+    await render(<SearchScreen />);
+    await typeSearch("milk");
 
-    fireEvent.press(screen.getByLabelText("Jul 13, 2026"));
+    await fireEvent.press(screen.getByLabelText("Jul 13, 2026"));
 
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/today",
@@ -396,12 +396,14 @@ describe("SearchScreen", () => {
 
   // The journal moved to the Ritual tab (DEX-105) — the one result opening a
   // tab other than Today. The link also names the ritual (DEX-151).
-  it("opens a journal result on its day's ritual journal step", () => {
+  it("opens a journal result on its day's ritual journal step", async () => {
     mockUseSearch.mockReturnValue(searchResult([journalResult]));
-    render(<SearchScreen />);
-    typeSearch("milk");
+    await render(<SearchScreen />);
+    await typeSearch("milk");
 
-    fireEvent.press(screen.getByLabelText("What went well?, Jul 12, 2026"));
+    await fireEvent.press(
+      screen.getByLabelText("What went well?, Jul 12, 2026"),
+    );
 
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/ritual",
@@ -409,21 +411,23 @@ describe("SearchScreen", () => {
     });
   });
 
-  it("does not link a journal result when the journal is disabled", () => {
+  it("does not link a journal result when the journal is disabled", async () => {
     // There is no ritual journal step to land on, so the card stays readable
     // but isn't a link — the same treatment a completed unscheduled task gets.
     mockEnableJournal.value = false;
     mockUseSearch.mockReturnValue(searchResult([journalResult]));
-    render(<SearchScreen />);
-    typeSearch("milk");
+    await render(<SearchScreen />);
+    await typeSearch("milk");
 
-    fireEvent.press(screen.getByLabelText("What went well?, Jul 12, 2026"));
+    await fireEvent.press(
+      screen.getByLabelText("What went well?, Jul 12, 2026"),
+    );
 
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it("frames itself from the screen's safe area, not the tab's (DEX-107)", () => {
-    render(<SearchScreen />);
+  it("frames itself from the screen's safe area, not the tab's (DEX-107)", async () => {
+    await render(<SearchScreen />);
 
     // Jest can't measure an inset, but it can pin which provider the top edge
     // comes from — the stack screen's own view, not the per-tab SafeAreaProvider.

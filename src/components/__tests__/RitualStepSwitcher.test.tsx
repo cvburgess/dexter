@@ -113,8 +113,8 @@ describe("ritualStepOptions", () => {
 });
 
 describe("RitualStepSwitcher (small screens)", () => {
-  it("offers a menu row per step, checking the current one", () => {
-    render(
+  it("offers a menu row per step, checking the current one", async () => {
+    await render(
       <RitualStepSwitcher
         onSelectStep={jest.fn()}
         state={{ ...createRitualState(undefined, "am"), step: 1 }}
@@ -132,9 +132,9 @@ describe("RitualStepSwitcher (small screens)", () => {
     expect(lastOptions()[1].isSelected).toBe(true);
   });
 
-  it("jumps to the picked step", () => {
+  it("jumps to the picked step", async () => {
     const onSelectStep = jest.fn();
-    render(
+    await render(
       <RitualStepSwitcher
         onSelectStep={onSelectStep}
         state={createRitualState(undefined, "am")}
@@ -148,8 +148,8 @@ describe("RitualStepSwitcher (small screens)", () => {
 
   // The trigger doubles as a "you are here" — there is no next button, so this
   // is the only thing on screen naming the step.
-  it("wears the current step's icon on its trigger", () => {
-    const screen = render(
+  it("wears the current step's icon on its trigger", async () => {
+    const screen = await render(
       <RitualStepSwitcher
         onSelectStep={jest.fn()}
         state={{ ...createRitualState(undefined, "am"), step: 2 }}
@@ -160,8 +160,8 @@ describe("RitualStepSwitcher (small screens)", () => {
   });
 
   // A menu is navigation, not progression: swiping is what moves the ritual on.
-  it("offers no next action", () => {
-    render(
+  it("offers no next action", async () => {
+    await render(
       <RitualStepSwitcher
         onSelectStep={jest.fn()}
         state={createRitualState(undefined, "am")}

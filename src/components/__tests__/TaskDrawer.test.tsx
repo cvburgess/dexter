@@ -1,16 +1,9 @@
-import { FlashList } from "@shopify/flash-list";
 import { Temporal } from "@js-temporal/polyfill";
 import { weekDays } from "@/utils/weekStartEnd";
 import { act, fireEvent, render } from "@testing-library/react-native";
+import type { RenderResult } from "@testing-library/react-native";
 import type { ReactNode } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-} from "react-native";
-import type { TextStyle, ViewStyle } from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity } from "react-native";
 
 import { renderWithBottomInset } from "@/testUtils/renderWithBottomInset";
 import { themes } from "@/utils/theme";
@@ -47,7 +40,7 @@ const mockIconMenu = jest.fn(
   (props: {
     accessibilityLabel?: string;
     sections?: TIconMenuSection[];
-    style?: ViewStyle | ViewStyle[];
+    style?: Parameters<typeof StyleSheet.flatten>[0];
     children: ReactNode;
   }) => props.children,
 );
@@ -56,19 +49,17 @@ jest.mock("../IconMenu", () => ({
 }));
 
 /** The resolved color of a control button's label. */
-const labelColor = (screen: ReturnType<typeof render>, label: string) =>
-  StyleSheet.flatten(screen.getByText(label).props.style as TextStyle[]).color;
+const labelColor = (screen: RenderResult, label: string) =>
+  StyleSheet.flatten(screen.getByText(label).props.style)!.color;
 
 /** The resolved border color of the bordered box around a control's label. */
-const outlineColor = (screen: ReturnType<typeof render>, testID: string) =>
-  StyleSheet.flatten(screen.getByTestId(testID).props.style as ViewStyle[])
-    .borderColor;
+const outlineColor = (screen: RenderResult, testID: string) =>
+  StyleSheet.flatten(screen.getByTestId(testID).props.style)!.borderColor;
 
 /** The bottom margin on the Filter/Group row — the cluster's tail when there is no search field below it. */
-const rowMarginBottom = (screen: ReturnType<typeof render>) =>
-  StyleSheet.flatten(
-    screen.getByTestId("drawer-controls").props.style as ViewStyle[],
-  ).marginBottom;
+const rowMarginBottom = (screen: RenderResult) =>
+  StyleSheet.flatten(screen.getByTestId("drawer-controls").props.style)!
+    .marginBottom;
 
 /** The style handed to a captured IconMenu trigger, flattened. */
 const triggerStyle = (label: string) =>
@@ -76,7 +67,7 @@ const triggerStyle = (label: string) =>
     mockIconMenu.mock.calls.find(
       ([props]) => props.accessibilityLabel === label,
     )?.[0].style,
-  );
+  )!;
 
 /** Invokes a filter option's onSelect from the captured Filter IconMenu. */
 const selectFilterOption = (id: string) => {
@@ -168,11 +159,15 @@ const goal = (overrides: Partial<TGoal> = {}): TGoal => ({
   ...overrides,
 });
 
-const listContentStyle = (screen: ReturnType<typeof render>) =>
-  StyleSheet.flatten(
-    screen.UNSAFE_getByType(FlashList).props
-      .contentContainerStyle as ViewStyle[],
+// The FlashList double hosts its content container as the list host's only child.
+const listContentStyle = (screen: RenderResult) => {
+  const [list] = screen.container.queryAll(
+    (node) => "getItemType" in node.props,
   );
+  const [content] = list.children;
+  if (typeof content === "string") throw new Error("Expected a content view");
+  return StyleSheet.flatten(content.props.style)!;
+};
 
 const tasksResult = (
   tasks: TTask[] = [],
@@ -419,8 +414,8 @@ describe("TaskDrawer", () => {
     mockUseTasks.mockReturnValue(tasksResult());
   });
 
-  it("shows an empty state when there are no tasks", () => {
-    const screen = render(<TaskDrawer date={date} />);
+  it("shows an empty state when there are no tasks", async () => {
+    const screen = await render(<TaskDrawer date={date} />);
     expect(
       screen.getByText("Nothing here — you're all caught up."),
     ).toBeTruthy();
@@ -428,8 +423,8 @@ describe("TaskDrawer", () => {
 
   // DEX-106: the menu host measures its RN child, so a heightless trigger
   // collapses to ~2pt in the bottom sheet. DEX-61 restored it on Filter only.
-  it("gives both the Filter and Group triggers the same pinned height", () => {
-    render(<TaskDrawer date={date} />);
+  it("gives both the Filter and Group triggers the same pinned height", async () => {
+    await render(<TaskDrawer date={date} />);
 
     const filter = triggerStyle("Filter");
     const group = triggerStyle("Group");
@@ -452,10 +447,10 @@ describe("TaskDrawer", () => {
       scheduledFor: "2026-08-10",
     });
 
-    it("hides every task scheduled inside the week", () => {
+    it("hides every task scheduled inside the week", async () => {
       mockUseTasks.mockReturnValue(tasksResult([inWeek, outOfWeek]));
 
-      const screen = render(
+      const screen = await render(
         <TaskDrawer date={monday} daysOnScreen={weekDays(monday)} />,
       );
 
@@ -463,24 +458,24 @@ describe("TaskDrawer", () => {
       expect(screen.queryByText("Inside the week")).toBeNull();
     });
 
-    it("still shows a same-week task when no daysOnScreen is given", () => {
+    it("still shows a same-week task when no daysOnScreen is given", async () => {
       // Without the prop the drawer scopes to [date] alone, so a task on another
       // day of that week belongs in the Today backlog.
       mockUseTasks.mockReturnValue(tasksResult([inWeek, outOfWeek]));
 
-      const screen = render(<TaskDrawer date={monday} />);
+      const screen = await render(<TaskDrawer date={monday} />);
 
       expect(screen.getByText("Inside the week")).toBeTruthy();
       expect(screen.getByText("Outside the week")).toBeTruthy();
     });
 
-    it("schedules onto `date`, not every day on screen", () => {
+    it("schedules onto `date`, not every day on screen", async () => {
       mockUseTasks.mockReturnValue(tasksResult([outOfWeek]));
 
-      const screen = render(
+      const screen = await render(
         <TaskDrawer date={monday} daysOnScreen={weekDays(monday)} />,
       );
-      fireEvent.press(
+      await fireEvent.press(
         screen.getByLabelText('Schedule "Outside the week" for Monday, Jul 27'),
       );
 
@@ -491,19 +486,21 @@ describe("TaskDrawer", () => {
     });
   });
 
-  it("shows a loading indicator (not the empty state) while the first fetch is in flight", () => {
+  it("shows a loading indicator (not the empty state) while the first fetch is in flight", async () => {
     mockUseTasks.mockReturnValue(tasksResult([], true));
-    const screen = render(<TaskDrawer date={date} />);
+    const screen = await render(<TaskDrawer date={date} />);
 
-    expect(screen.UNSAFE_getByType(ActivityIndicator)).toBeTruthy();
+    expect(
+      screen.container.queryAll((node) => node.type === "ActivityIndicator"),
+    ).toHaveLength(1);
     expect(
       screen.queryByText("Nothing here — you're all caught up."),
     ).toBeNull();
   });
 
-  it("renders a card for every task returned", () => {
+  it("renders a card for every task returned", async () => {
     mockUseTasks.mockReturnValue(tasksResult([task()]));
-    const screen = render(<TaskDrawer date={date} />);
+    const screen = await render(<TaskDrawer date={date} />);
 
     expect(screen.getByText("Write report")).toBeTruthy();
     expect(
@@ -513,14 +510,14 @@ describe("TaskDrawer", () => {
 
   // The drawer reserves whatever bottom inset its host publishes, so the last
   // row clears the native tab bar in the docked pane (DEX-91).
-  it("reserves the host's bottom inset below the list's last row", () => {
+  it("reserves the host's bottom inset below the list's last row", async () => {
     mockUseTasks.mockReturnValue(tasksResult([task()]));
-    const screen = renderWithBottomInset(34, <TaskDrawer date={date} />);
+    const screen = await renderWithBottomInset(34, <TaskDrawer date={date} />);
 
     expect(listContentStyle(screen).paddingBottom).toBe(34);
   });
 
-  it("renders every row of a multi-task list through the flattened FlashList data", () => {
+  it("renders every row of a multi-task list through the flattened FlashList data", async () => {
     mockUseTasks.mockReturnValue(
       tasksResult([
         task({ id: "1", title: "Write report" }),
@@ -528,20 +525,20 @@ describe("TaskDrawer", () => {
         task({ id: "3", title: "Call dentist" }),
       ]),
     );
-    const screen = render(<TaskDrawer date={date} />);
+    const screen = await render(<TaskDrawer date={date} />);
 
     expect(screen.getByText("Write report")).toBeTruthy();
     expect(screen.getByText("Buy milk")).toBeTruthy();
     expect(screen.getByText("Call dentist")).toBeTruthy();
   });
 
-  it("fetches the canonical task set with no arguments", () => {
-    render(<TaskDrawer date={date} />);
+  it("fetches the canonical task set with no arguments", async () => {
+    await render(<TaskDrawer date={date} />);
 
     expect(mockUseTasks).toHaveBeenCalledWith();
   });
 
-  it("excludes tasks scheduled for the viewed day and completed tasks by default", () => {
+  it("excludes tasks scheduled for the viewed day and completed tasks by default", async () => {
     mockUseTasks.mockReturnValue(
       tasksResult([
         task({ id: "1", title: "Scheduled today", scheduledFor: "2026-07-16" }),
@@ -549,18 +546,18 @@ describe("TaskDrawer", () => {
         task({ id: "3", title: "Backlog item", scheduledFor: null }),
       ]),
     );
-    const screen = render(<TaskDrawer date={date} />);
+    const screen = await render(<TaskDrawer date={date} />);
 
     expect(screen.getByText("Backlog item")).toBeTruthy();
     expect(screen.queryByText("Scheduled today")).toBeNull();
     expect(screen.queryByText("Done elsewhere")).toBeNull();
   });
 
-  it("schedules a task for the viewed day when its schedule button is pressed", () => {
+  it("schedules a task for the viewed day when its schedule button is pressed", async () => {
     mockUseTasks.mockReturnValue(tasksResult([task()]));
-    const screen = render(<TaskDrawer date={date} />);
+    const screen = await render(<TaskDrawer date={date} />);
 
-    fireEvent.press(
+    await fireEvent.press(
       screen.getByLabelText('Schedule "Write report" for Thursday, Jul 16'),
     );
 
@@ -585,16 +582,16 @@ describe("TaskDrawer", () => {
       return call[0].solid;
     };
 
-    it("passes solid down to the row's schedule button when set", () => {
+    it("passes solid down to the row's schedule button when set", async () => {
       mockUseTasks.mockReturnValue(tasksResult([task()]));
-      render(<TaskDrawer date={date} solid />);
+      await render(<TaskDrawer date={date} solid />);
 
       expect(solidOfSchedule()).toBe(true);
     });
 
-    it("leaves it off by default, so a docked drawer keeps its glass", () => {
+    it("leaves it off by default, so a docked drawer keeps its glass", async () => {
       mockUseTasks.mockReturnValue(tasksResult([task()]));
-      render(<TaskDrawer date={date} />);
+      await render(<TaskDrawer date={date} />);
 
       expect(solidOfSchedule()).toBeFalsy();
     });
@@ -608,13 +605,13 @@ describe("TaskDrawer", () => {
     let alertSpy: jest.SpyInstance;
 
     /** Presses the "+" for a task carrying an alarm, and returns the prompt's buttons. */
-    const pressSchedule = () => {
+    const pressSchedule = async () => {
       alertSpy = jest.spyOn(Alert, "alert").mockImplementation(jest.fn());
       mockUseTasks.mockReturnValue(
         tasksResult([task({ alarmTime: "09:00:00" })]),
       );
-      const screen = render(<TaskDrawer date={date} />);
-      fireEvent.press(
+      const screen = await render(<TaskDrawer date={date} />);
+      await fireEvent.press(
         screen.getByLabelText('Schedule "Write report" for Thursday, Jul 16'),
       );
       const [title, , buttons] = alertSpy.mock.calls[0] as [
@@ -625,28 +622,28 @@ describe("TaskDrawer", () => {
       return { title, buttons };
     };
 
-    const press = (
+    const press = async (
       buttons: { text: string; onPress?: () => void }[],
       label: string,
     ) => {
       const button = buttons.find((candidate) => candidate.text === label);
       if (!button) throw new Error(`No prompt button labelled "${label}"`);
-      act(() => button.onPress?.());
+      await act(() => button.onPress?.());
     };
 
     afterEach(() => alertSpy?.mockRestore());
 
-    it("asks before moving it rather than writing straight through", () => {
-      const { title } = pressSchedule();
+    it("asks before moving it rather than writing straight through", async () => {
+      const { title } = await pressSchedule();
 
       expect(title).toBe("Reschedule task?");
       expect(mockUpdateTask).not.toHaveBeenCalled();
     });
 
-    it("carries the alarm over when asked to keep it", () => {
-      const { buttons } = pressSchedule();
+    it("carries the alarm over when asked to keep it", async () => {
+      const { buttons } = await pressSchedule();
 
-      press(buttons, "Keep alarm");
+      await press(buttons, "Keep alarm");
 
       expect(mockUpdateTask).toHaveBeenCalledWith({
         id: "task-1",
@@ -654,10 +651,10 @@ describe("TaskDrawer", () => {
       });
     });
 
-    it("clears the alarm when asked to unset it", () => {
-      const { buttons } = pressSchedule();
+    it("clears the alarm when asked to unset it", async () => {
+      const { buttons } = await pressSchedule();
 
-      press(buttons, "Unset alarm");
+      await press(buttons, "Unset alarm");
 
       expect(mockUpdateTask).toHaveBeenCalledWith({
         id: "task-1",
@@ -666,16 +663,16 @@ describe("TaskDrawer", () => {
       });
     });
 
-    it("leaves the task where it is when cancelled", () => {
-      const { buttons } = pressSchedule();
+    it("leaves the task where it is when cancelled", async () => {
+      const { buttons } = await pressSchedule();
 
-      press(buttons, "Cancel");
+      await press(buttons, "Cancel");
 
       expect(mockUpdateTask).not.toHaveBeenCalled();
     });
   });
 
-  it("applies a controlled filterId from the parent (Overdue)", () => {
+  it("applies a controlled filterId from the parent (Overdue)", async () => {
     // The drawer filters against the real today, so derive the overdue date
     // from it rather than the fixed viewed day.
     const yesterday = Temporal.Now.plainDateISO().subtract({ days: 1 });
@@ -685,7 +682,7 @@ describe("TaskDrawer", () => {
         task({ id: "2", title: "Not overdue", dueOn: null }),
       ]),
     );
-    const screen = render(
+    const screen = await render(
       <TaskDrawer date={date} filterId="overdue" onFilterChange={jest.fn()} />,
     );
 
@@ -693,9 +690,9 @@ describe("TaskDrawer", () => {
     expect(screen.queryByText("Not overdue")).toBeNull();
   });
 
-  it("routes filter selection through onFilterChange when controlled", () => {
+  it("routes filter selection through onFilterChange when controlled", async () => {
     const onFilterChange = jest.fn();
-    render(
+    await render(
       <TaskDrawer
         date={date}
         filterId="none"
@@ -710,8 +707,8 @@ describe("TaskDrawer", () => {
 
   // An applied filter used to be invisible until you opened the menu; only a
   // control off its `"none"` default wears the accent, label and outline together.
-  it("accents a control's label and outline only while it is off its default", () => {
-    const screen = render(
+  it("accents a control's label and outline only while it is off its default", async () => {
+    const screen = await render(
       <TaskDrawer date={date} filterId="overdue" onFilterChange={jest.fn()} />,
     );
     const { colors } = themes.dexter;
@@ -726,32 +723,34 @@ describe("TaskDrawer", () => {
   // The ritual's Backlog step drops the field (DEX-141); every other host keeps
   // it, so the default has to stay on.
   describe("the search field", () => {
-    it("is rendered by default", () => {
-      const screen = render(<TaskDrawer date={date} />);
+    it("is rendered by default", async () => {
+      const screen = await render(<TaskDrawer date={date} />);
 
       expect(screen.getByLabelText("Search")).toBeTruthy();
     });
 
-    it("is dropped when showSearch is false", () => {
-      const screen = render(<TaskDrawer date={date} showSearch={false} />);
+    it("is dropped when showSearch is false", async () => {
+      const screen = await render(
+        <TaskDrawer date={date} showSearch={false} />,
+      );
 
       expect(screen.queryByLabelText("Search")).toBeNull();
     });
 
     // The field's tail holds the list a group step below the controls; hidden,
     // it moves to the controls row rather than disappearing.
-    it("hands its bottom margin to the controls row when hidden", () => {
-      const withSearch = render(<TaskDrawer date={date} />);
+    it("hands its bottom margin to the controls row when hidden", async () => {
+      const withSearch = await render(<TaskDrawer date={date} />);
       // Read off the field rather than a token — what matters is the gap
       // survives, not what it resolves to on this density.
       const tail = StyleSheet.flatten(
-        withSearch.getByLabelText("Search").props.style as ViewStyle,
-      ).marginBottom;
+        withSearch.getByLabelText("Search").props.style,
+      )!.marginBottom;
 
       expect(tail).toBeGreaterThan(0);
       expect(rowMarginBottom(withSearch)).toBeUndefined();
 
-      const withoutSearch = render(
+      const withoutSearch = await render(
         <TaskDrawer date={date} showSearch={false} />,
       );
 
@@ -761,20 +760,19 @@ describe("TaskDrawer", () => {
 
   // A group heading carries the group step above it, on top of the row
   // separator's own `sm`, or sections run together. The first heading excepted.
-  it("separates a group heading from the group above it, but not the first", () => {
+  it("separates a group heading from the group above it, but not the first", async () => {
     mockUseTasks.mockReturnValue(
       tasksResult([
         task({ id: "1", title: "A", priority: ETaskPriority.URGENT }),
         task({ id: "2", title: "B", priority: ETaskPriority.UNPRIORITIZED }),
       ]),
     );
-    const screen = render(<TaskDrawer date={date} />);
+    const screen = await render(<TaskDrawer date={date} />);
 
-    act(() => selectGroupOption("priority"));
+    await act(() => selectGroupOption("priority"));
 
     const marginOf = (heading: string) =>
-      StyleSheet.flatten(screen.getByText(heading).props.style as TextStyle[])
-        .marginTop;
+      StyleSheet.flatten(screen.getByText(heading).props.style)!.marginTop;
 
     // `space.lg - space.sm`: the separator already contributed `sm`.
     expect(marginOf("Urgent")).toBe(0);

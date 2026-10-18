@@ -1,11 +1,10 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
-import type { ReactTestInstance } from "react-test-renderer";
 import {
   TextInput as NativeTextInput,
-  ScrollView,
   StyleSheet,
   type ViewStyle,
 } from "react-native";
+import type { TestInstance } from "test-renderer";
 
 import { TJournalPrompt } from "@/api/journals";
 import { useJournals } from "@/hooks/useJournals";
@@ -21,7 +20,7 @@ const mockUpsertJournalAsync = jest.fn().mockResolvedValue(undefined);
 
 // `mode` and a missing `period` both default to morning, so a case that says
 // nothing about periods exercises exactly what it did before DEX-151.
-const setup = ({
+const setup = async ({
   prompts = [],
   isLoading = false,
   mode = "am",
@@ -45,7 +44,7 @@ const setup = ({
       upsertJournalAsync: mockUpsertJournalAsync,
     },
   ]);
-  return render(
+  return await render(
     <JournalView
       date="2026-07-12"
       mode={mode}
@@ -57,8 +56,8 @@ const setup = ({
 describe("JournalView", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("renders one input per prompt, labelled with the prompt", () => {
-    const screen = setup({
+  it("renders one input per prompt, labelled with the prompt", async () => {
+    const screen = await setup({
       prompts: [
         { prompt: "Highlight", response: "" },
         { prompt: "Grateful for", response: "" },
@@ -73,34 +72,34 @@ describe("JournalView", () => {
 
   // Without this a focused field low on screen stays under the keyboard —
   // the wrapper it replaced padded the frame but never moved content (DEX-92).
-  it("lets iOS inset the scroll content by the keyboard", () => {
-    const screen = setup({
+  it("lets iOS inset the scroll content by the keyboard", async () => {
+    const screen = await setup({
       prompts: [{ prompt: "How was today?", response: "" }],
     });
 
-    expect(
-      screen.UNSAFE_getByType(ScrollView).props
-        .automaticallyAdjustKeyboardInsets,
-    ).toBe(true);
+    const [scrollView] = screen.container.queryAll(
+      (node) => node.type === "RCTScrollView",
+    );
+    expect(scrollView.props.automaticallyAdjustKeyboardInsets).toBe(true);
   });
 
-  it("autosaves a debounced upsert, replacing the edited entry by index", () => {
+  it("autosaves a debounced upsert, replacing the edited entry by index", async () => {
     jest.useFakeTimers();
     try {
-      const screen = setup({
+      const screen = await setup({
         prompts: [
           { prompt: "Highlight", response: "" },
           { prompt: "Grateful for", response: "family" },
         ],
       });
 
-      fireEvent.changeText(
+      await fireEvent.changeText(
         screen.getByTestId("journal-response-0"),
         "Shipped the feature",
       );
       expect(mockUpsertJournalAsync).not.toHaveBeenCalled();
 
-      act(() => jest.advanceTimersByTime(800));
+      await act(() => jest.advanceTimersByTime(800));
 
       // The edited entry is replaced; the other response is left intact.
       expect(mockUpsertJournalAsync).toHaveBeenCalledWith({
@@ -114,10 +113,10 @@ describe("JournalView", () => {
     }
   });
 
-  it("shows the loading screen (no inputs) even when prompts exist", () => {
+  it("shows the loading screen (no inputs) even when prompts exist", async () => {
     // Non-empty prompts + isLoading proves the loading branch suppresses the
     // inputs — distinct from the empty-prompts branch, which also renders none.
-    const screen = setup({
+    const screen = await setup({
       prompts: [{ prompt: "Highlight", response: "" }],
       isLoading: true,
     });
@@ -128,37 +127,37 @@ describe("JournalView", () => {
     ).toBeNull();
   });
 
-  it("seeds each input from its existing response", () => {
-    const screen = setup({
+  it("seeds each input from its existing response", async () => {
+    const screen = await setup({
       prompts: [{ prompt: "Grateful for", response: "family" }],
     });
 
     expect(screen.getByDisplayValue("family")).toBeTruthy();
   });
 
-  it("signals editing on focus/blur and resets it on unmount", () => {
+  it("signals editing on focus/blur and resets it on unmount", async () => {
     const onEditingChange = jest.fn();
-    const screen = setup({
+    const screen = await setup({
       prompts: [{ prompt: "Highlight", response: "" }],
       onEditingChange,
     });
 
     const input = screen.getByTestId("journal-response-0");
-    fireEvent(input, "focus");
+    await fireEvent(input, "focus");
     expect(onEditingChange).toHaveBeenLastCalledWith(true);
 
-    fireEvent(input, "blur");
+    await fireEvent(input, "blur");
     expect(onEditingChange).toHaveBeenLastCalledWith(false);
 
     // Changing date / switching tabs unmounts a possibly-focused field without a
     // reliable blur; the unmount reset must clear the host's swipe-suspend flag.
     onEditingChange.mockClear();
-    act(() => screen.unmount());
+    await screen.unmount();
     expect(onEditingChange).toHaveBeenCalledWith(false);
   });
 
-  it("shows an empty state when no prompts are configured", () => {
-    const screen = setup({ prompts: [] });
+  it("shows an empty state when no prompts are configured", async () => {
+    const screen = await setup({ prompts: [] });
 
     expect(
       screen.getByText("Add a morning prompt in Settings → Ritual"),
@@ -173,8 +172,8 @@ describe("JournalView", () => {
       { prompt: "What went well?", response: "", period: "pm" },
     ];
 
-    it("renders only the prompts belonging to the ritual on screen", () => {
-      const screen = setup({ prompts: DAY, mode: "pm" });
+    it("renders only the prompts belonging to the ritual on screen", async () => {
+      const screen = await setup({ prompts: DAY, mode: "pm" });
 
       expect(screen.getByText("What went well?")).toBeTruthy();
       expect(screen.queryByText("Highlight")).toBeNull();
@@ -183,8 +182,8 @@ describe("JournalView", () => {
 
     // The testID is the entry's position in the **stored** day, not the field's
     // position on screen — the same index the save rebuilds from.
-    it("names each field by its index in the stored day, not on screen", () => {
-      const screen = setup({ prompts: DAY, mode: "pm" });
+    it("names each field by its index in the stored day, not on screen", async () => {
+      const screen = await setup({ prompts: DAY, mode: "pm" });
 
       expect(screen.getByTestId("journal-response-2")).toBeTruthy();
       expect(screen.queryByTestId("journal-response-0")).toBeNull();
@@ -192,16 +191,16 @@ describe("JournalView", () => {
 
     // The regression this design is arranged around: `upsertJournal` replaces
     // the whole column, so a subset rebuild would delete the morning's answers.
-    it("keeps the other ritual's answers when this one saves", () => {
+    it("keeps the other ritual's answers when this one saves", async () => {
       jest.useFakeTimers();
       try {
-        const screen = setup({ prompts: DAY, mode: "pm" });
+        const screen = await setup({ prompts: DAY, mode: "pm" });
 
-        fireEvent.changeText(
+        await fireEvent.changeText(
           screen.getByTestId("journal-response-2"),
           "the redesign landed",
         );
-        act(() => jest.advanceTimersByTime(800));
+        await act(() => jest.advanceTimersByTime(800));
 
         expect(mockUpsertJournalAsync).toHaveBeenCalledWith({
           prompts: [
@@ -221,8 +220,8 @@ describe("JournalView", () => {
 
     // Reachable when a day was started before this ritual had prompts: the
     // template only seeds blank journals, so the step exists but the day is bare.
-    it("explains an already-started day with none of this ritual's prompts", () => {
-      const screen = setup({
+    it("explains an already-started day with none of this ritual's prompts", async () => {
+      const screen = await setup({
         prompts: [
           { prompt: "Highlight", response: "shipped it", period: "am" },
         ],
@@ -238,19 +237,19 @@ describe("JournalView", () => {
     });
   });
 
-  it("flushes a pending edit immediately on unmount", () => {
+  it("flushes a pending edit immediately on unmount", async () => {
     jest.useFakeTimers();
     try {
-      const screen = setup({
+      const screen = await setup({
         prompts: [{ prompt: "Highlight", response: "" }],
       });
 
-      fireEvent.changeText(
+      await fireEvent.changeText(
         screen.getByTestId("journal-response-0"),
         "Half-written",
       );
       // Unmount before the debounce elapses (e.g. tab switch / date change).
-      act(() => screen.unmount());
+      await screen.unmount();
 
       expect(mockUpsertJournalAsync).toHaveBeenCalledWith({
         prompts: [{ prompt: "Highlight", response: "Half-written" }],
@@ -263,14 +262,14 @@ describe("JournalView", () => {
   // The field grows instead of hiding its own content behind a scrollbar;
   // the surrounding ScrollView is what scrolls.
   describe("growing to fit the response", () => {
-    const styleOf = (element: ReactTestInstance): ViewStyle =>
-      StyleSheet.flatten(element.props.style as ViewStyle);
-    const heightOf = (element: ReactTestInstance) => styleOf(element).minHeight;
+    const styleOf = (element: TestInstance): ViewStyle =>
+      StyleSheet.flatten(element.props.style)!;
+    const heightOf = (element: TestInstance) => styleOf(element).minHeight;
 
     // Regression guard: disabling scrollEnabled clamps iOS content size to
     // the view's bounds and silently clips typing (JournalResponseField).
-    it("leaves its own scrolling alone so the content can be measured", () => {
-      const screen = setup({
+    it("leaves its own scrolling alone so the content can be measured", async () => {
+      const screen = await setup({
         prompts: [{ prompt: "How was today?", response: "" }],
       });
       const input = screen.getByTestId("journal-response-0");
@@ -281,8 +280,8 @@ describe("JournalView", () => {
 
     // An explicit height beats intrinsic sizing, pinning the field to its
     // mount-time measurement and scrolling everything typed afterward.
-    it("floors its size without pinning it, so typing can still grow it", () => {
-      const screen = setup({
+    it("floors its size without pinning it, so typing can still grow it", async () => {
+      const screen = await setup({
         prompts: [{ prompt: "How was today?", response: "" }],
       });
 
@@ -293,37 +292,33 @@ describe("JournalView", () => {
 
     // Two bugs at once: newline-counted height stayed one line tall for a
     // wrapped paragraph, and applying it as `height` froze mount-time sizing.
-    it("floors its height at the measured content, not the newline count", () => {
-      const screen = setup({
+    it("floors its height at the measured content, not the newline count", async () => {
+      const screen = await setup({
         prompts: [{ prompt: "How was today?", response: "" }],
       });
       const input = screen.getByTestId("journal-response-0");
 
-      act(() => {
-        fireEvent(input, "contentSizeChange", {
-          nativeEvent: { contentSize: { height: 300, width: 200 } },
-        });
+      await fireEvent(input, "contentSizeChange", {
+        nativeEvent: { contentSize: { height: 300, width: 200 } },
       });
 
       expect(heightOf(screen.getByTestId("journal-response-0"))).toBe(300);
     });
 
-    it("keeps a one-line floor when the content measures smaller", () => {
+    it("keeps a one-line floor when the content measures smaller", async () => {
       // A zero or missing measurement must not collapse the field to nothing.
-      const screen = setup({
+      const screen = await setup({
         prompts: [{ prompt: "How was today?", response: "" }],
       });
       const floor = heightOf(screen.getByTestId("journal-response-0"));
 
-      act(() => {
-        fireEvent(
-          screen.getByTestId("journal-response-0"),
-          "contentSizeChange",
-          {
-            nativeEvent: { contentSize: { height: 0, width: 200 } },
-          },
-        );
-      });
+      await fireEvent(
+        screen.getByTestId("journal-response-0"),
+        "contentSizeChange",
+        {
+          nativeEvent: { contentSize: { height: 0, width: 200 } },
+        },
+      );
 
       expect(heightOf(screen.getByTestId("journal-response-0"))).toBe(floor);
       expect(floor).toBeGreaterThan(0);
@@ -331,20 +326,18 @@ describe("JournalView", () => {
 
     // Uncontrolled input — response never updates after mount, so holding its
     // newline count as a permanent floor would keep a cleared answer's box tall.
-    it("drops the seeded floor once a shorter measurement arrives", () => {
-      const screen = setup({
+    it("drops the seeded floor once a shorter measurement arrives", async () => {
+      const screen = await setup({
         prompts: [{ prompt: "How was today?", response: "one\ntwo\nthree" }],
       });
       const seeded = heightOf(screen.getByTestId("journal-response-0"));
 
       // The user clears the answer; the field remeasures at one line.
-      act(() => {
-        fireEvent(
-          screen.getByTestId("journal-response-0"),
-          "contentSizeChange",
-          { nativeEvent: { contentSize: { height: 20, width: 200 } } },
-        );
-      });
+      await fireEvent(
+        screen.getByTestId("journal-response-0"),
+        "contentSizeChange",
+        { nativeEvent: { contentSize: { height: 20, width: 200 } } },
+      );
 
       const measured = heightOf(screen.getByTestId("journal-response-0"));
       expect(measured).toBeLessThan(seeded as number);
@@ -367,19 +360,19 @@ describe("JournalView", () => {
     });
     const focusedTestIDs = (spy: jest.SpyInstance) =>
       spy.mock.instances.map(
-        (field) => (field as NativeTextInput).props.testID,
+        (field) => (field as { props: { testID?: string } }).props.testID,
       );
 
-    const pressTab = (field: ReactTestInstance) =>
+    const pressTab = (field: TestInstance) =>
       fireEvent(field, "keyPress", { nativeEvent: { key: "Tab" } });
 
     afterEach(() => jest.restoreAllMocks());
 
-    it("focuses the next prompt on screen", () => {
-      const screen = setup({ prompts: TWO });
+    it("focuses the next prompt on screen", async () => {
+      const screen = await setup({ prompts: TWO });
       const spies = spyOnFields();
 
-      pressTab(screen.getByTestId("journal-response-0"));
+      await pressTab(screen.getByTestId("journal-response-0"));
 
       expect(focusedTestIDs(spies.focus)).toEqual(["journal-response-1"]);
       expect(spies.blur).not.toHaveBeenCalled();
@@ -387,26 +380,26 @@ describe("JournalView", () => {
 
     // Nothing left to answer — trapping focus would leave no keyboard-only
     // way out of the step.
-    it("blurs the last prompt instead of wrapping around", () => {
-      const screen = setup({ prompts: TWO });
+    it("blurs the last prompt instead of wrapping around", async () => {
+      const screen = await setup({ prompts: TWO });
       const spies = spyOnFields();
 
-      pressTab(screen.getByTestId("journal-response-1"));
+      await pressTab(screen.getByTestId("journal-response-1"));
 
       expect(focusedTestIDs(spies.blur)).toEqual(["journal-response-1"]);
       expect(spies.focus).not.toHaveBeenCalled();
     });
 
-    it("never saves the tab character iOS inserted", () => {
+    it("never saves the tab character iOS inserted", async () => {
       jest.useFakeTimers();
       try {
-        const screen = setup({ prompts: [TWO[0]] });
+        const screen = await setup({ prompts: [TWO[0]] });
 
-        fireEvent.changeText(
+        await fireEvent.changeText(
           screen.getByTestId("journal-response-0"),
           "one\ttwo",
         );
-        act(() => jest.advanceTimersByTime(800));
+        await act(() => jest.advanceTimersByTime(800));
 
         expect(mockUpsertJournalAsync).toHaveBeenCalledWith({
           prompts: [{ prompt: "Highlight", response: "onetwo" }],
@@ -416,18 +409,21 @@ describe("JournalView", () => {
       }
     });
 
-    it("leaves the pressed field's own text alone", () => {
-      const screen = setup({ prompts: TWO });
+    it("leaves the pressed field's own text alone", async () => {
+      const screen = await setup({ prompts: TWO });
 
-      fireEvent.changeText(screen.getByTestId("journal-response-0"), "kept\t");
+      await fireEvent.changeText(
+        screen.getByTestId("journal-response-0"),
+        "kept\t",
+      );
 
       expect(screen.getByDisplayValue("kept")).toBeTruthy();
     });
   });
 
   describe("mood (DEX-191)", () => {
-    it("offers all five faces above the prompts", () => {
-      const screen = setup({
+    it("offers all five faces above the prompts", async () => {
+      const screen = await setup({
         prompts: [{ prompt: "How was today?", response: "" }],
       });
 
@@ -436,18 +432,18 @@ describe("JournalView", () => {
       );
     });
 
-    it("saves a tapped face immediately, without the response debounce", () => {
-      const screen = setup({
+    it("saves a tapped face immediately, without the response debounce", async () => {
+      const screen = await setup({
         prompts: [{ prompt: "How was today?", response: "" }],
       });
 
-      fireEvent.press(screen.getByTestId("mood-face-4"));
+      await fireEvent.press(screen.getByTestId("mood-face-4"));
 
       expect(mockUpsertJournal).toHaveBeenCalledWith({ mood: 4 });
     });
 
-    it("marks the saved face selected and leaves every face tappable", () => {
-      const screen = setup({
+    it("marks the saved face selected and leaves every face tappable", async () => {
+      const screen = await setup({
         prompts: [{ prompt: "How was today?", response: "" }],
         mood: 2,
       });
@@ -459,21 +455,21 @@ describe("JournalView", () => {
         screen.getByTestId("mood-face-5").props.accessibilityState.selected,
       ).toBe(false);
 
-      fireEvent.press(screen.getByTestId("mood-face-5"));
+      await fireEvent.press(screen.getByTestId("mood-face-5"));
       expect(mockUpsertJournal).toHaveBeenCalledWith({ mood: 5 });
     });
 
     // A day whose stored prompts predate this ritual's is the one place the
     // step renders with nothing to write in — a mood is still recordable.
-    it("still offers the scale when this ritual has no prompts on the day", () => {
-      const screen = setup({
+    it("still offers the scale when this ritual has no prompts on the day", async () => {
+      const screen = await setup({
         prompts: [{ prompt: "Morning only", response: "", period: "am" }],
         mode: "pm",
         exists: true,
       });
 
       expect(screen.queryByTestId("journal-response-0")).toBeNull();
-      fireEvent.press(screen.getByTestId("mood-face-3"));
+      await fireEvent.press(screen.getByTestId("mood-face-3"));
       expect(mockUpsertJournal).toHaveBeenCalledWith({ mood: 3 });
     });
   });

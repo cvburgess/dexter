@@ -375,17 +375,14 @@ lives on the palette (not just `THEMES`) for exactly this.
 - **A patch to a *precompiled* Expo module never reaches the binary** —
   `patch-package` edits source that precompiled linking never compiles, and
   nothing warns. Only packages shipping `prebuilds/*.tar.gz` are actually
-  precompiled (in SDK 57: `expo-modules-core`, `expo-file-system`, `expo-font`);
+  precompiled (in SDK 58: `expo-modules-core`, `expo-modules-jsi`, `expo-file-system`,
+  `expo-font`);
   everything else builds from source, patches included. Set
   `ios.usePrecompiledModules: false` only when patching one of those — check for
   the tarball, not `spm.config.json`.
 - **Patch filenames carry the installed version and it is load-bearing** — after
   any dependency bump, re-run `npx patch-package <name>` so the filename tracks
   it; a mismatch is a warning locally and a hard `npm ci` failure in CI.
-- **`react-native-enriched-markdown` carries upstream #782 (typed `# `/`- `/`1. `
-  shortcuts) ahead of release, iOS only.** The published package ships its
-  codegen output, so the patch edits `ios/generated/**/Props.{h,cpp}` by hand as
-  well as the sources; drop it and bump when the feature lands upstream.
 - **`expo-alarm-kit` is a fork, not a patch** (`cvburgess/expo-alarm-kit`, pinned
   by git ref; DEX-158). A patch could make the timer's pause button optional but
   could not add a field to the metadata struct AlarmKit carries — that meant
@@ -461,14 +458,13 @@ template change fails loudly — expect to re-anchor on SDK upgrades), and
 excludes it and the App Store "Designed for iPad" app (idiom `pad`, so only
 expo-device's `DESKTOP` detects it — DEX-230).
 
-Three native patches exist for this target (the first two compile-time-guarded and
-inert on iOS):
+Two native patches exist for this target (both compile-time-guarded and inert on
+iOS):
 
 | Patch | Why |
 |---|---|
-| `react-native+0.86.2.patch` | `UISwitch` resolves to an AppKit checkbox under the Mac idiom; sets sliding style and makes `RCTSwitchSize()` measure the same style. |
-| `@expo+ui+57.0.8.patch` | SwiftUI resolves `Menu` to an AppKit pull-down, replacing custom `IconMenu` labels. Upstream: expo/expo#48448. |
-| `expo-calendar+57.0.1.patch` | **Not Catalyst-specific** — `EKCalendarItem.calendar` is `null_unspecified` and a force-unwrap traps the JS thread. Upstream: expo/expo#48445. |
+| `react-native+0.88.0.patch` | `UISwitch` resolves to an AppKit checkbox under the Mac idiom; sets sliding style and makes `RCTSwitchSize()` measure the same style. |
+| `@expo+ui+58.0.20.patch` | SwiftUI resolves `Menu` to an AppKit pull-down, replacing custom `IconMenu` labels. Upstream (#48448) shipped it as opt-in `menuStyle`/`menuIndicator` modifiers, which the community `MenuView` can't take. |
 
 Not implemented: menu bar, multi-window, and any distribution path.
 

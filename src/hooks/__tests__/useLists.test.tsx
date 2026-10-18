@@ -52,14 +52,17 @@ describe("useLists", () => {
   it("fetches under a single stable query key, not one per caller", async () => {
     const { wrapper, queryClient } = createWrapper();
 
-    const first = renderHook(() => useLists(), { wrapper });
-    const second = renderHook(() => useLists(), { wrapper });
+    // Mounted in one commit, as sibling callers are: a second async render
+    // lands after the first fetch resolved, and a stale query refetches on mount.
+    const { result } = await renderHook(() => [useLists(), useLists()], {
+      wrapper,
+    });
 
     // Both callers, not just fetch count — the shared query notifies each on
     // resolve, and returning before that lands outside act() (DEX-130).
     await waitFor(() => {
-      expect(first.result.current[1].isLoading).toBe(false);
-      expect(second.result.current[1].isLoading).toBe(false);
+      expect(result.current[0][1].isLoading).toBe(false);
+      expect(result.current[1][1].isLoading).toBe(false);
     });
 
     expect(mockGetLists).toHaveBeenCalledTimes(1);
@@ -72,7 +75,7 @@ describe("useLists", () => {
     const { wrapper } = createWrapper();
     mockGetLists.mockResolvedValue([makeList()]);
 
-    const { result } = renderHook(() => useLists(), { wrapper });
+    const { result } = await renderHook(() => useLists(), { wrapper });
     await waitFor(() => expect(result.current[0]).toHaveLength(1));
 
     expect(result.current[1].getListById("list-1")?.title).toBe("Work");
@@ -84,10 +87,12 @@ describe("useLists", () => {
     const { wrapper } = createWrapper();
     mockCreateList.mockResolvedValue([makeList()]);
 
-    const { result } = renderHook(() => useLists(), { wrapper });
+    const { result } = await renderHook(() => useLists(), { wrapper });
     await waitFor(() => expect(mockGetLists).toHaveBeenCalledTimes(1));
 
-    act(() => result.current[1].createList({ title: "Work", emoji: "💼" }));
+    await act(() =>
+      result.current[1].createList({ title: "Work", emoji: "💼" }),
+    );
 
     await waitFor(() => expect(mockGetLists).toHaveBeenCalledTimes(2));
   });

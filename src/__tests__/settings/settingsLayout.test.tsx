@@ -50,24 +50,24 @@ describe("SettingsLayout", () => {
     mockUseIsLargeDevice.mockReturnValue(false);
   });
 
-  it("mounts the persistent sidebar in two-pane mode", () => {
+  it("mounts the persistent sidebar in two-pane mode", async () => {
     mockUseIsLargeDevice.mockReturnValue(true);
-    const screen = render(<SettingsLayout />);
+    const screen = await render(<SettingsLayout />);
 
     expect(screen.getByText("settings-sidebar")).toBeTruthy();
   });
 
-  it("does not mount the sidebar in single-column mode", () => {
+  it("does not mount the sidebar in single-column mode", async () => {
     mockUseIsLargeDevice.mockReturnValue(false);
-    const screen = render(<SettingsLayout />);
+    const screen = await render(<SettingsLayout />);
 
     expect(screen.queryByText("settings-sidebar")).toBeNull();
   });
 
   // `tasks/index` is a nested stack's root, which gets no native back button
   // regardless of history — hiding it here stranded the list (DEX-93).
-  it("owns the header for the nested tasks stack", () => {
-    const screen = render(<SettingsLayout />);
+  it("owns the header for the nested tasks stack", async () => {
+    const screen = await render(<SettingsLayout />);
 
     expect(
       screen.getByText("screen:tasks|header:shown|back:shown|title:Tasks"),
@@ -76,9 +76,9 @@ describe("SettingsLayout", () => {
 
   // The back item leads to `settings/index`; in two-pane mode the sidebar is
   // that list and never leaves, so the chevron would point at the screen itself.
-  it("hides the back item in two-pane mode, keeping titles", () => {
+  it("hides the back item in two-pane mode, keeping titles", async () => {
     mockUseIsLargeDevice.mockReturnValue(true);
-    const screen = render(<SettingsLayout />);
+    const screen = await render(<SettingsLayout />);
 
     expect(
       screen.getByText("screen:account|header:shown|back:hidden|title:Account"),
@@ -90,16 +90,16 @@ describe("SettingsLayout", () => {
     ).toBeTruthy();
   });
 
-  it("keeps the back item in single-column mode", () => {
-    const screen = render(<SettingsLayout />);
+  it("keeps the back item in single-column mode", async () => {
+    const screen = await render(<SettingsLayout />);
 
     expect(
       screen.getByText("screen:account|header:shown|back:shown|title:Account"),
     ).toBeTruthy();
   });
 
-  it("registers the flat lists and habits editors alongside their lists", () => {
-    const screen = render(<SettingsLayout />);
+  it("registers the flat lists and habits editors alongside their lists", async () => {
+    const screen = await render(<SettingsLayout />);
 
     expect(
       screen.getByText(

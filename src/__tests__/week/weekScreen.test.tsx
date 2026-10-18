@@ -77,16 +77,16 @@ beforeEach(() => {
 });
 
 describe("WeekScreen", () => {
-  it("opens on the week containing today", () => {
-    const screen = render(<WeekScreen />);
+  it("opens on the week containing today", async () => {
+    const screen = await render(<WeekScreen />);
 
     expect(screen.getByText(`week-view:${thisMonday.toString()}`)).toBeTruthy();
   });
 
-  it("pages by whole weeks", () => {
-    const screen = render(<WeekScreen />);
+  it("pages by whole weeks", async () => {
+    const screen = await render(<WeekScreen />);
 
-    fireEvent.press(screen.getByLabelText("next-week"));
+    await fireEvent.press(screen.getByLabelText("next-week"));
 
     expect(
       screen.getByText(`week-view:${thisMonday.add({ weeks: 1 }).toString()}`),
@@ -96,11 +96,11 @@ describe("WeekScreen", () => {
   // DEX-161: `monday` was frozen in a `useState` initializer, so an app open
   // across midnight kept last week once the week itself turned over.
   describe("the day changing underneath the screen", () => {
-    it("follows the rollover into a new week while this week is on screen", () => {
-      const screen = render(<WeekScreen />);
+    it("follows the rollover into a new week while this week is on screen", async () => {
+      const screen = await render(<WeekScreen />);
 
       mockToday.current = thisMonday.add({ weeks: 1 });
-      screen.rerender(<WeekScreen />);
+      await screen.rerender(<WeekScreen />);
 
       expect(
         screen.getByText(
@@ -109,14 +109,14 @@ describe("WeekScreen", () => {
       ).toBeTruthy();
     });
 
-    it("leaves a week the user paged to alone", () => {
-      const screen = render(<WeekScreen />);
+    it("leaves a week the user paged to alone", async () => {
+      const screen = await render(<WeekScreen />);
       // Two weeks out, so the rollover's own +1 can't be mistaken for staying.
-      fireEvent.press(screen.getByLabelText("next-week"));
-      fireEvent.press(screen.getByLabelText("next-week"));
+      await fireEvent.press(screen.getByLabelText("next-week"));
+      await fireEvent.press(screen.getByLabelText("next-week"));
 
       mockToday.current = thisMonday.add({ weeks: 1 });
-      screen.rerender(<WeekScreen />);
+      await screen.rerender(<WeekScreen />);
 
       expect(
         screen.getByText(
@@ -125,13 +125,13 @@ describe("WeekScreen", () => {
       ).toBeTruthy();
     });
 
-    it("moves the today chip within the week it stays in", () => {
+    it("moves the today chip within the week it stays in", async () => {
       // A day change inside the same week moves nothing but the day itself —
       // and it has to move, or the chip marks yesterday.
-      const screen = render(<WeekScreen />);
+      const screen = await render(<WeekScreen />);
 
       mockToday.current = thisMonday.add({ days: 1 });
-      screen.rerender(<WeekScreen />);
+      await screen.rerender(<WeekScreen />);
 
       expect(
         screen.getByText(`today:${thisMonday.add({ days: 1 }).toString()}`),
@@ -142,42 +142,42 @@ describe("WeekScreen", () => {
     });
   });
 
-  it("passes the habits preference through", () => {
+  it("passes the habits preference through", async () => {
     mockUsePreferences.mockReturnValue(preferences({ enableHabits: false }));
-    const screen = render(<WeekScreen />);
+    const screen = await render(<WeekScreen />);
 
     expect(screen.getByText("habits:false")).toBeTruthy();
   });
 
   describe("the day the create-task entry points target", () => {
-    it("is today while today's week is on screen", () => {
-      const screen = render(<WeekScreen />);
+    it("is today while today's week is on screen", async () => {
+      const screen = await render(<WeekScreen />);
 
       expect(screen.getByText(`target:${today.toString()}`)).toBeTruthy();
     });
 
-    it("is the viewed week's Monday once paged away", () => {
+    it("is the viewed week's Monday once paged away", async () => {
       // A task created while looking at another week belongs to the week being
       // looked at, not silently to today.
-      const screen = render(<WeekScreen />);
+      const screen = await render(<WeekScreen />);
 
-      fireEvent.press(screen.getByLabelText("next-week"));
+      await fireEvent.press(screen.getByLabelText("next-week"));
 
       expect(
         screen.getByText(`target:${thisMonday.add({ weeks: 1 }).toString()}`),
       ).toBeTruthy();
     });
 
-    it("publishes that day so the create-task modal defaults to it", () => {
-      render(<WeekScreen />);
+    it("publishes that day so the create-task modal defaults to it", async () => {
+      await render(<WeekScreen />);
 
       expect(mockUsePublishViewedDay).toHaveBeenCalledWith(today);
     });
 
-    it("hands WeekView the same day it derived the target from", () => {
+    it("hands WeekView the same day it derived the target from", async () => {
       // One clock read for the screen — separate reads let an app open across
       // midnight move the today chip while still scheduling onto yesterday.
-      const screen = render(<WeekScreen />);
+      const screen = await render(<WeekScreen />);
 
       expect(screen.getByText(`today:${today.toString()}`)).toBeTruthy();
       expect(screen.getByText(`target:${today.toString()}`)).toBeTruthy();
@@ -189,17 +189,17 @@ describe("WeekScreen", () => {
       mockUseIsLargeDevice.mockReturnValue(false);
     });
 
-    it("explains itself instead of rendering the grid", () => {
-      const screen = render(<WeekScreen />);
+    it("explains itself instead of rendering the grid", async () => {
+      const screen = await render(<WeekScreen />);
 
       expect(screen.queryByText(/^week-view:/)).toBeNull();
       expect(screen.getByText(/needs a wider screen/)).toBeTruthy();
     });
 
-    it("still publishes a viewed day", () => {
+    it("still publishes a viewed day", async () => {
       // The tab-bar "+" is reachable from here, so it must not fall back to
       // whatever day another tab last published.
-      render(<WeekScreen />);
+      await render(<WeekScreen />);
 
       expect(mockUsePublishViewedDay).toHaveBeenCalledWith(today);
     });

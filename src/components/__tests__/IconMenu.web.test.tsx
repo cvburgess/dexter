@@ -1,9 +1,8 @@
 import { fireEvent, render } from "@testing-library/react-native";
-import { StyleSheet, Text, type StyleProp, type ViewStyle } from "react-native";
+import { StyleSheet, Text } from "react-native";
 
 import { IconMenu } from "../IconMenu.web";
 import { TIconMenuSection } from "../IconMenu.types";
-import { WebOverlay } from "../WebOverlay.web";
 
 // WebOverlay portals to document.body at runtime; render inline so
 // react-test-renderer keeps it in the tree for RNTL queries.
@@ -11,18 +10,22 @@ jest.mock("react-dom", () =>
   require("@/testUtils/mockReactDomPortal").mockReactDomPortal(),
 );
 
-// Host, not composite, elements — every element otherwise renders twice.
+type TScreen = Awaited<ReturnType<typeof render>>;
+type TFlatStyle = NonNullable<ReturnType<typeof StyleSheet.flatten>>;
+
+const flatStyle = (style: unknown): TFlatStyle =>
+  StyleSheet.flatten(style as Parameters<typeof StyleSheet.flatten>[0]) ?? {};
+
 const hostsStyled = (
-  screen: ReturnType<typeof render>,
-  matches: (style: ViewStyle) => boolean,
-) =>
-  screen.UNSAFE_root.findAll((node) => {
-    if (typeof node.type !== "string") return false;
-    const style = StyleSheet.flatten(
-      (node.props as { style?: StyleProp<ViewStyle> }).style,
-    );
-    return matches(style ?? {});
-  });
+  screen: TScreen,
+  matches: (style: TFlatStyle) => boolean,
+) => screen.container.queryAll((node) => matches(flatStyle(node.props.style)));
+
+/** WebOverlay's portal root — the only fixed-position `div` in the tree. */
+const overlayRoots = (screen: TScreen) =>
+  screen.container.queryAll(
+    (node) => node.type === "div" && node.props.style?.position === "fixed",
+  );
 
 const sections: TIconMenuSection[] = [
   {
@@ -35,8 +38,8 @@ const sections: TIconMenuSection[] = [
 ];
 
 describe("IconMenu (web)", () => {
-  it("does not show menu options until the trigger is pressed", () => {
-    const screen = render(
+  it("does not show menu options until the trigger is pressed", async () => {
+    const screen = await render(
       <IconMenu
         accessibilityLabel="Status"
         menuTitle="Status"
@@ -49,8 +52,8 @@ describe("IconMenu (web)", () => {
     expect(screen.queryByText("To Do")).toBeNull();
   });
 
-  it("opens the menu and shows every option when the trigger is pressed", () => {
-    const screen = render(
+  it("opens the menu and shows every option when the trigger is pressed", async () => {
+    const screen = await render(
       <IconMenu
         accessibilityLabel="Status"
         menuTitle="Status"
@@ -60,7 +63,7 @@ describe("IconMenu (web)", () => {
       </IconMenu>,
     );
 
-    fireEvent.press(screen.getByLabelText("Status"), {
+    await fireEvent.press(screen.getByLabelText("Status"), {
       nativeEvent: { clientX: 10, clientY: 10 },
     });
 
@@ -70,8 +73,8 @@ describe("IconMenu (web)", () => {
 
   // It used to be an RN Modal, whose body portal inherits Radix's
   // pointer-events: none — dead wherever opened inside a modal (DEX-134).
-  it("renders the menu through WebOverlay", () => {
-    const screen = render(
+  it("renders the menu through WebOverlay", async () => {
+    const screen = await render(
       <IconMenu
         accessibilityLabel="Status"
         menuTitle="Status"
@@ -81,23 +84,23 @@ describe("IconMenu (web)", () => {
       </IconMenu>,
     );
 
-    expect(screen.UNSAFE_root.findAllByType(WebOverlay)).toHaveLength(0);
+    expect(overlayRoots(screen)).toHaveLength(0);
 
-    fireEvent.press(screen.getByLabelText("Status"), {
+    await fireEvent.press(screen.getByLabelText("Status"), {
       nativeEvent: { clientX: 10, clientY: 10 },
     });
 
-    expect(screen.UNSAFE_root.findAllByType(WebOverlay)).toHaveLength(1);
+    expect(overlayRoots(screen)).toHaveLength(1);
   });
 
-  it("calls onSelect and closes the menu when an option is pressed", () => {
+  it("calls onSelect and closes the menu when an option is pressed", async () => {
     const onSelect = jest.fn();
     const sectionsWithSpy: TIconMenuSection[] = [
       {
         options: [{ id: "todo", title: "To Do", isSelected: false, onSelect }],
       },
     ];
-    const screen = render(
+    const screen = await render(
       <IconMenu
         accessibilityLabel="Status"
         menuTitle="Status"
@@ -107,10 +110,10 @@ describe("IconMenu (web)", () => {
       </IconMenu>,
     );
 
-    fireEvent.press(screen.getByLabelText("Status"), {
+    await fireEvent.press(screen.getByLabelText("Status"), {
       nativeEvent: { clientX: 10, clientY: 10 },
     });
-    fireEvent.press(screen.getByText("To Do"));
+    await fireEvent.press(screen.getByText("To Do"));
 
     expect(onSelect).toHaveBeenCalled();
     expect(screen.queryByText("To Do")).toBeNull();
@@ -118,8 +121,8 @@ describe("IconMenu (web)", () => {
 
   // The overlay is invisible (DEX-125), so nothing catches a regression
   // visually — it would render the same if it stopped taking presses.
-  it("closes the menu when the invisible overlay is pressed", () => {
-    const screen = render(
+  it("closes the menu when the invisible overlay is pressed", async () => {
+    const screen = await render(
       <IconMenu
         accessibilityLabel="Status"
         menuTitle="Status"
@@ -129,26 +132,26 @@ describe("IconMenu (web)", () => {
       </IconMenu>,
     );
 
-    fireEvent.press(screen.getByLabelText("Status"), {
+    await fireEvent.press(screen.getByLabelText("Status"), {
       nativeEvent: { clientX: 10, clientY: 10 },
     });
     expect(screen.getByText("To Do")).toBeTruthy();
 
-    fireEvent.press(screen.getByTestId("menu-overlay"));
+    await fireEvent.press(screen.getByTestId("menu-overlay"));
 
     expect(screen.queryByText("To Do")).toBeNull();
   });
 
   // The catcher is a sibling behind the menu, not its parent — nested, a
   // press on the menu's own chrome bubbled up and dismissed it on open.
-  it("keeps the menu open when its own title is pressed", () => {
+  it("keeps the menu open when its own title is pressed", async () => {
     const titled: TIconMenuSection[] = [
       {
         title: "Section Heading",
         options: [{ id: "todo", title: "To Do", onSelect: jest.fn() }],
       },
     ];
-    const screen = render(
+    const screen = await render(
       <IconMenu
         accessibilityLabel="Status"
         menuTitle="Menu Title"
@@ -158,14 +161,14 @@ describe("IconMenu (web)", () => {
       </IconMenu>,
     );
 
-    fireEvent.press(screen.getByLabelText("Status"), {
+    await fireEvent.press(screen.getByLabelText("Status"), {
       nativeEvent: { clientX: 10, clientY: 10 },
     });
 
-    fireEvent.press(screen.getByText("Menu Title"));
+    await fireEvent.press(screen.getByText("Menu Title"));
     expect(screen.getByText("To Do")).toBeTruthy();
 
-    fireEvent.press(screen.getByText("Section Heading"));
+    await fireEvent.press(screen.getByText("Section Heading"));
     expect(screen.getByText("To Do")).toBeTruthy();
   });
 
@@ -173,26 +176,25 @@ describe("IconMenu (web)", () => {
   const VIEWPORT = { width: 750, height: 1334 };
 
   /** The menu's own box — the only element carrying both an edge and a lift. */
-  const menuBox = (screen: ReturnType<typeof render>) =>
+  const menuBox = (screen: TScreen) =>
     hostsStyled(
       screen,
-      (style) => (style.borderWidth ?? 0) > 0 && style.boxShadow !== undefined,
+      (style) =>
+        Number(style.borderWidth ?? 0) > 0 && style.boxShadow !== undefined,
     )[0];
 
-  const openAndMeasure = (
-    screen: ReturnType<typeof render>,
+  const openAndMeasure = async (
+    screen: TScreen,
     at: { x: number; y: number },
     measured: { width: number; height: number },
   ) => {
-    fireEvent.press(screen.getByLabelText("Status"), {
+    await fireEvent.press(screen.getByLabelText("Status"), {
       nativeEvent: { clientX: at.x, clientY: at.y },
     });
-    fireEvent(menuBox(screen), "layout", {
+    await fireEvent(menuBox(screen), "layout", {
       nativeEvent: { layout: { x: 0, y: 0, ...measured } },
     });
-    return StyleSheet.flatten(
-      menuBox(screen).props.style as StyleProp<ViewStyle>,
-    );
+    return flatStyle(menuBox(screen).props.style);
   };
 
   const menu = (
@@ -207,9 +209,9 @@ describe("IconMenu (web)", () => {
 
   // A menu opened near the bottom of the viewport used to run straight off it:
   // `openAt` clamped x and left y alone entirely.
-  it("pulls a menu opened near the bottom edge back on screen", () => {
-    const screen = render(menu);
-    const style = openAndMeasure(
+  it("pulls a menu opened near the bottom edge back on screen", async () => {
+    const screen = await render(menu);
+    const style = await openAndMeasure(
       screen,
       { x: 10, y: 1300 },
       { width: 220, height: 300 },
@@ -220,9 +222,9 @@ describe("IconMenu (web)", () => {
 
   // The x clamp used to assume `MENU_WIDTH`, which is only a `minWidth` — a
   // long option label grows the menu past it and back off the right edge.
-  it("clamps against the menu's measured width, not its minimum", () => {
-    const screen = render(menu);
-    const style = openAndMeasure(
+  it("clamps against the menu's measured width, not its minimum", async () => {
+    const screen = await render(menu);
+    const style = await openAndMeasure(
       screen,
       { x: 700, y: 10 },
       { width: 400, height: 200 },
@@ -231,9 +233,9 @@ describe("IconMenu (web)", () => {
     expect(style.left).toBe(VIEWPORT.width - 400 - 8);
   });
 
-  it("leaves a menu that already fits where it was opened", () => {
-    const screen = render(menu);
-    const style = openAndMeasure(
+  it("leaves a menu that already fits where it was opened", async () => {
+    const screen = await render(menu);
+    const style = await openAndMeasure(
       screen,
       { x: 100, y: 100 },
       { width: 220, height: 200 },
@@ -246,7 +248,7 @@ describe("IconMenu (web)", () => {
 
   // The row holds focus while pressed, so an action focusing its own input
   // must run after the row unmounts or it loses focus again (DEX-70).
-  it("runs the option's action only once the menu has closed", () => {
+  it("runs the option's action only once the menu has closed", async () => {
     let menuStillOpen: boolean | null = null;
     const sectionsWithSpy: TIconMenuSection[] = [
       {
@@ -261,21 +263,21 @@ describe("IconMenu (web)", () => {
         ],
       },
     ];
-    const screen = render(
+    const screen = await render(
       <IconMenu accessibilityLabel="Status" sections={sectionsWithSpy}>
         <Text>Trigger</Text>
       </IconMenu>,
     );
 
-    fireEvent.press(screen.getByLabelText("Status"), {
+    await fireEvent.press(screen.getByLabelText("Status"), {
       nativeEvent: { clientX: 10, clientY: 10 },
     });
-    fireEvent.press(screen.getByText("To Do"));
+    await fireEvent.press(screen.getByText("To Do"));
 
     expect(menuStillOpen).toBe(false);
   });
 
-  it("keeps a submenu section's options collapsed until its header is pressed", () => {
+  it("keeps a submenu section's options collapsed until its header is pressed", async () => {
     const submenuSections: TIconMenuSection[] = [
       {
         title: "Priority",
@@ -290,7 +292,7 @@ describe("IconMenu (web)", () => {
         ],
       },
     ];
-    const screen = render(
+    const screen = await render(
       <IconMenu
         accessibilityLabel="More"
         menuTitle="More"
@@ -300,18 +302,18 @@ describe("IconMenu (web)", () => {
       </IconMenu>,
     );
 
-    fireEvent.press(screen.getByLabelText("More"), {
+    await fireEvent.press(screen.getByLabelText("More"), {
       nativeEvent: { clientX: 10, clientY: 10 },
     });
     expect(screen.getByText("Priority")).toBeTruthy();
     expect(screen.queryByText("Urgent")).toBeNull();
 
-    fireEvent.press(screen.getByText("Priority"));
+    await fireEvent.press(screen.getByText("Priority"));
 
     expect(screen.getByText("Urgent")).toBeTruthy();
   });
 
-  it("calls onSelect for an option inside an expanded submenu", () => {
+  it("calls onSelect for an option inside an expanded submenu", async () => {
     const onSelect = jest.fn();
     const submenuSections: TIconMenuSection[] = [
       {
@@ -322,7 +324,7 @@ describe("IconMenu (web)", () => {
         ],
       },
     ];
-    const screen = render(
+    const screen = await render(
       <IconMenu
         accessibilityLabel="More"
         menuTitle="More"
@@ -332,17 +334,17 @@ describe("IconMenu (web)", () => {
       </IconMenu>,
     );
 
-    fireEvent.press(screen.getByLabelText("More"), {
+    await fireEvent.press(screen.getByLabelText("More"), {
       nativeEvent: { clientX: 10, clientY: 10 },
     });
-    fireEvent.press(screen.getByText("Priority"));
-    fireEvent.press(screen.getByText("Urgent"));
+    await fireEvent.press(screen.getByText("Priority"));
+    await fireEvent.press(screen.getByText("Urgent"));
 
     expect(onSelect).toHaveBeenCalled();
   });
 
-  it("opens a long-press menu on right-click and suppresses the browser menu", () => {
-    const screen = render(
+  it("opens a long-press menu on right-click and suppresses the browser menu", async () => {
+    const screen = await render(
       <IconMenu
         accessibilityLabel="More"
         trigger="longPress"
@@ -354,11 +356,11 @@ describe("IconMenu (web)", () => {
 
     expect(screen.queryByText("To Do")).toBeNull();
 
-    const wrapper = screen.UNSAFE_root.find(
+    const [wrapper] = screen.container.queryAll(
       (node) => typeof node.props.onContextMenu === "function",
     );
     const preventDefault = jest.fn();
-    fireEvent(wrapper, "contextMenu", {
+    await fireEvent(wrapper, "contextMenu", {
       clientX: 10,
       clientY: 10,
       preventDefault,
@@ -368,23 +370,23 @@ describe("IconMenu (web)", () => {
     expect(screen.getByText("To Do")).toBeTruthy();
   });
 
-  it("does not wire right-click for a tap menu, leaving the browser menu intact", () => {
-    const screen = render(
+  it("does not wire right-click for a tap menu, leaving the browser menu intact", async () => {
+    const screen = await render(
       <IconMenu accessibilityLabel="Status" sections={sections}>
         <Text>Trigger</Text>
       </IconMenu>,
     );
 
     expect(
-      screen.UNSAFE_root.findAll(
+      screen.container.queryAll(
         (node) => typeof node.props.onContextMenu === "function",
       ),
     ).toHaveLength(0);
     expect(screen.queryByText("To Do")).toBeNull();
   });
 
-  it("opens on long-press instead of a regular press when configured for it", () => {
-    const screen = render(
+  it("opens on long-press instead of a regular press when configured for it", async () => {
+    const screen = await render(
       <IconMenu
         accessibilityLabel="More"
         trigger="longPress"
@@ -394,12 +396,12 @@ describe("IconMenu (web)", () => {
       </IconMenu>,
     );
 
-    fireEvent.press(screen.getByLabelText("More"), {
+    await fireEvent.press(screen.getByLabelText("More"), {
       nativeEvent: { clientX: 10, clientY: 10 },
     });
     expect(screen.queryByText("To Do")).toBeNull();
 
-    fireEvent(screen.getByLabelText("More"), "longPress", {
+    await fireEvent(screen.getByLabelText("More"), "longPress", {
       nativeEvent: { clientX: 10, clientY: 10 },
     });
     expect(screen.getByText("To Do")).toBeTruthy();

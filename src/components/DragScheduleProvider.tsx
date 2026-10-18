@@ -6,7 +6,7 @@ import {
   useMemo,
   useRef,
 } from "react";
-import { ScrollView, StyleSheet } from "react-native";
+import { ScrollViewInstance, StyleSheet } from "react-native";
 import { DraxProvider } from "react-native-drax";
 import type { AnimatedRef } from "react-native-reanimated";
 
@@ -26,7 +26,7 @@ export type TDragSchedule = {
   /** Moves a task onto `listId` (`null` clears it) — the Lists tab (DEX-221). */
   assignList: (task: TTask, listId: string | null) => void;
   /** A scroller that pauses while a card is pressed; see `DraggableTaskCard`. */
-  pauseScrollRef: AnimatedRef<ScrollView> | null;
+  pauseScrollRef: AnimatedRef<ScrollViewInstance> | null;
 };
 
 const DragScheduleContext = createContext<TDragSchedule | null>(null);
@@ -42,7 +42,7 @@ type TDragScheduleProviderProps = {
   /** Off while a drag has nowhere useful to go — Today without its drawer. */
   enabled?: boolean;
   /** A scroller sharing a card's drag axis — Week's row of days (DEX-207). */
-  pauseScrollRef?: AnimatedRef<ScrollView>;
+  pauseScrollRef?: AnimatedRef<ScrollViewInstance>;
 };
 
 /** Hosts drag-to-schedule per large-screen layout, not the app root (DEX-77) —

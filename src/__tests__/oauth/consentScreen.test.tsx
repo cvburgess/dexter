@@ -62,7 +62,7 @@ describe("OAuthConsentScreen", () => {
       error: null,
     });
 
-    const { findByText } = render(<OAuthConsentScreen />);
+    const { findByText } = await render(<OAuthConsentScreen />);
 
     expect(
       await findByText(
@@ -79,7 +79,7 @@ describe("OAuthConsentScreen", () => {
       error: { code: "oauth_authorization_not_found" },
     });
 
-    const { findByText } = render(<OAuthConsentScreen />);
+    const { findByText } = await render(<OAuthConsentScreen />);
 
     expect(await findByText("Authorized")).toBeTruthy();
   });
@@ -93,7 +93,7 @@ describe("OAuthConsentScreen", () => {
     });
     const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
 
-    const { queryByTestId } = render(<OAuthConsentScreen />);
+    const { queryByTestId } = await render(<OAuthConsentScreen />);
 
     await waitFor(() => {
       expect(openURL).toHaveBeenCalledWith(
@@ -104,11 +104,11 @@ describe("OAuthConsentScreen", () => {
     expect(queryByTestId("oauth-consent-approve-button")).toBeNull();
   });
 
-  it("redirects an authenticated visit with no authorization_id into the app", () => {
+  it("redirects an authenticated visit with no authorization_id into the app", async () => {
     mockParams = {};
     mockUseAuth.mockReturnValue(signedIn);
 
-    const { getByText } = render(<OAuthConsentScreen />);
+    const { getByText } = await render(<OAuthConsentScreen />);
 
     expect(getByText("redirect:/(app)/(tabs)/today")).toBeTruthy();
   });
@@ -117,7 +117,7 @@ describe("OAuthConsentScreen", () => {
     mockParams = { authorization_id: "auth-1" };
     mockUseAuth.mockReturnValue(signedOut);
 
-    render(<OAuthConsentScreen />);
+    await render(<OAuthConsentScreen />);
 
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith("/(auth)/login");
@@ -141,9 +141,9 @@ describe("OAuthConsentScreen", () => {
     });
     const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
 
-    const { findByTestId } = render(<OAuthConsentScreen />);
+    const { findByTestId } = await render(<OAuthConsentScreen />);
 
-    fireEvent.press(await findByTestId("oauth-consent-approve-button"));
+    await fireEvent.press(await findByTestId("oauth-consent-approve-button"));
 
     await waitFor(() => {
       expect(mockApproveAuthorization).toHaveBeenCalledWith("auth-1");
@@ -165,9 +165,9 @@ describe("OAuthConsentScreen", () => {
       error: { message: "denied by policy" },
     });
 
-    const { findByTestId, findByText } = render(<OAuthConsentScreen />);
+    const { findByTestId, findByText } = await render(<OAuthConsentScreen />);
 
-    fireEvent.press(await findByTestId("oauth-consent-approve-button"));
+    await fireEvent.press(await findByTestId("oauth-consent-approve-button"));
 
     expect(await findByText("denied by policy")).toBeTruthy();
   });
@@ -187,9 +187,9 @@ describe("OAuthConsentScreen", () => {
     });
     const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
 
-    const { findByTestId } = render(<OAuthConsentScreen />);
+    const { findByTestId } = await render(<OAuthConsentScreen />);
 
-    fireEvent.press(await findByTestId("oauth-consent-deny-button"));
+    await fireEvent.press(await findByTestId("oauth-consent-deny-button"));
 
     await waitFor(() => {
       expect(mockDenyAuthorization).toHaveBeenCalledWith("auth-1");

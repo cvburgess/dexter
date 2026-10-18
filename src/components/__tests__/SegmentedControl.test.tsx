@@ -9,8 +9,8 @@ const OPTIONS = [
 ];
 
 describe("SegmentedControl", () => {
-  it("renders one segment per option", () => {
-    const screen = render(
+  it("renders one segment per option", async () => {
+    const screen = await render(
       <SegmentedControl options={OPTIONS} value="new" onChange={jest.fn()} />,
     );
 
@@ -19,8 +19,8 @@ describe("SegmentedControl", () => {
     expect(screen.getByText("AI")).toBeTruthy();
   });
 
-  it("marks only the current value selected", () => {
-    const screen = render(
+  it("marks only the current value selected", async () => {
+    const screen = await render(
       <SegmentedControl
         options={OPTIONS}
         testIDPrefix="mode"
@@ -37,9 +37,9 @@ describe("SegmentedControl", () => {
     ).toMatchObject({ selected: false });
   });
 
-  it("reports the pressed option's value", () => {
+  it("reports the pressed option's value", async () => {
     const onChange = jest.fn();
-    const screen = render(
+    const screen = await render(
       <SegmentedControl
         options={OPTIONS}
         testIDPrefix="mode"
@@ -48,15 +48,15 @@ describe("SegmentedControl", () => {
       />,
     );
 
-    fireEvent.press(screen.getByTestId("mode-ai"));
+    await fireEvent.press(screen.getByTestId("mode-ai"));
 
     expect(onChange).toHaveBeenCalledWith("ai");
   });
 
   // testIDs are derived from the label so callers get stable, readable hooks
   // (`appearance-mode-system`) without declaring one per option.
-  it("derives testIDs from the label, and omits them without a prefix", () => {
-    const screen = render(
+  it("derives testIDs from the label, and omits them without a prefix", async () => {
+    const screen = await render(
       <SegmentedControl options={OPTIONS} value="new" onChange={jest.fn()} />,
     );
 
@@ -81,8 +81,8 @@ describe("SegmentedControl", () => {
 
     // An icon segment has no text, so the label has to reach the screen reader
     // some other way or the segment announces nothing.
-    it("names an icon segment with its label", () => {
-      const screen = render(
+    it("names an icon segment with its label", async () => {
+      const screen = await render(
         <SegmentedControl
           options={ICON_OPTIONS}
           value="am"
@@ -94,9 +94,9 @@ describe("SegmentedControl", () => {
       expect(screen.getByLabelText("Morning")).toBeTruthy();
     });
 
-    it("still reports the pressed segment's value", () => {
+    it("still reports the pressed segment's value", async () => {
       const onChange = jest.fn();
-      const screen = render(
+      const screen = await render(
         <SegmentedControl
           options={ICON_OPTIONS}
           value="am"
@@ -104,7 +104,7 @@ describe("SegmentedControl", () => {
         />,
       );
 
-      fireEvent.press(screen.getByLabelText("Evening"));
+      await fireEvent.press(screen.getByLabelText("Evening"));
 
       expect(onChange).toHaveBeenCalledWith("pm");
     });

@@ -53,7 +53,8 @@ const withPreferences = (
     { updatePreferences: mockUpdate },
   ]);
 
-const renderStep = (date = DATE) => render(<BreatheStep date={date} />);
+const renderStep = async (date = DATE) =>
+  await render(<BreatheStep date={date} />);
 
 beforeEach(() => {
   resetPicker();
@@ -62,8 +63,8 @@ beforeEach(() => {
 });
 
 describe("BreatheStep", () => {
-  it("opens on the Begin button with its two controls", () => {
-    renderStep();
+  it("opens on the Begin button with its two controls", async () => {
+    await renderStep();
 
     expect(screen.getByTestId("breathe-begin")).toBeTruthy();
     expect(screen.getByTestId("breathe-count-slider")).toBeTruthy();
@@ -72,9 +73,9 @@ describe("BreatheStep", () => {
     expect(screen.queryByTestId("breathe-stop")).toBeNull();
   });
 
-  it("seeds the count from the stored preference", () => {
+  it("seeds the count from the stored preference", async () => {
     withPreferences({ breathCount: 6 });
-    renderStep();
+    await renderStep();
 
     expect(screen.getByText("6 breaths")).toBeTruthy();
     expect(
@@ -82,53 +83,53 @@ describe("BreatheStep", () => {
     ).toBe(6);
   });
 
-  it("counts one breath in the singular", () => {
+  it("counts one breath in the singular", async () => {
     withPreferences({ breathCount: 1 });
-    renderStep();
+    await renderStep();
 
     expect(screen.getByText("1 breath")).toBeTruthy();
   });
 
-  it("narrows a count no slider could have produced", () => {
+  it("narrows a count no slider could have produced", async () => {
     withPreferences({ breathCount: 40 });
-    renderStep();
+    await renderStep();
 
     expect(screen.getByText("10 breaths")).toBeTruthy();
   });
 
   // The three real techniques and not `shuffle`: choosing "whichever" for a
   // session you are about to start is not a choice. Settings offers the fourth.
-  it("offers the three techniques without shuffle", () => {
-    renderStep();
+  it("offers the three techniques without shuffle", async () => {
+    await renderStep();
 
     expect(
       pickerOptionsFor("breathe-technique-picker").map((o) => o.value),
     ).toEqual(["simple", "relax", "box"]);
   });
 
-  it("seeds the technique from the stored preference", () => {
+  it("seeds the technique from the stored preference", async () => {
     withPreferences({ breathingTechnique: "box" });
-    renderStep();
+    await renderStep();
 
     expect(pickerPropsFor("breathe-technique-picker")?.selectedValue).toBe(
       "box",
     );
   });
 
-  it("resolves a shuffled preference to the technique this day runs", () => {
+  it("resolves a shuffled preference to the technique this day runs", async () => {
     withPreferences({ breathingTechnique: "shuffle" });
-    renderStep();
+    await renderStep();
 
     expect(pickerPropsFor("breathe-technique-picker")?.selectedValue).toBe(
       techniqueForDay("shuffle", DATE),
     );
   });
 
-  it("changes the technique for this sitting", () => {
+  it("changes the technique for this sitting", async () => {
     withPreferences({ breathingTechnique: "simple" });
-    renderStep();
+    await renderStep();
 
-    act(() => {
+    await act(() => {
       (
         pickerPropsFor("breathe-technique-picker")?.onValueChange as (
           value: string,
@@ -143,27 +144,23 @@ describe("BreatheStep", () => {
 
   // The preference seeds the step and nothing writes back to it — the slider
   // changes this sitting only, which `SwipeablePage`'s remount resets.
-  it("changes the count for this sitting without storing it", () => {
-    renderStep();
+  it("changes the count for this sitting without storing it", async () => {
+    await renderStep();
 
-    act(() => {
-      fireEvent(
-        screen.getByTestId("breathe-count-slider"),
-        "accessibilityAction",
-        { nativeEvent: { actionName: "increment" } },
-      );
-    });
+    await fireEvent(
+      screen.getByTestId("breathe-count-slider"),
+      "accessibilityAction",
+      { nativeEvent: { actionName: "increment" } },
+    );
 
     expect(screen.getByText("4 breaths")).toBeTruthy();
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  it("takes the controls out of the way and offers a way out once a run starts", () => {
-    renderStep();
+  it("takes the controls out of the way and offers a way out once a run starts", async () => {
+    await renderStep();
 
-    act(() => {
-      fireEvent.press(screen.getByTestId("breathe-begin"));
-    });
+    await fireEvent.press(screen.getByTestId("breathe-begin"));
 
     expect(screen.getByTestId("breathe-stop")).toBeTruthy();
     // Still mounted so it can fade back in, but untappable meanwhile —
@@ -174,15 +171,11 @@ describe("BreatheStep", () => {
     );
   });
 
-  it("gives the controls back when the run is tapped away", () => {
-    renderStep();
+  it("gives the controls back when the run is tapped away", async () => {
+    await renderStep();
 
-    act(() => {
-      fireEvent.press(screen.getByTestId("breathe-begin"));
-    });
-    act(() => {
-      fireEvent.press(screen.getByTestId("breathe-stop"));
-    });
+    await fireEvent.press(screen.getByTestId("breathe-begin"));
+    await fireEvent.press(screen.getByTestId("breathe-stop"));
 
     expect(screen.queryByTestId("breathe-stop")).toBeNull();
     expect(screen.getByTestId("breathe-begin")).toBeTruthy();

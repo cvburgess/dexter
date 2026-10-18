@@ -155,8 +155,8 @@ jest.mock("@/components/RitualRevealProvider", () => ({
 
 const DATE = Temporal.PlainDate.from("2026-08-09");
 
-const renderStep = (step: TRitualStep, mode: TRitualMode = "am") =>
-  render(
+const renderStep = async (step: TRitualStep, mode: TRitualMode = "am") =>
+  await render(
     <RitualStepView
       date={DATE}
       mode={mode}
@@ -170,29 +170,29 @@ beforeEach(() => {
 });
 
 describe("RitualStepView", () => {
-  it("renders the breathe step for the breathe id", () => {
-    renderStep({ id: "breathe", title: "Breathe" });
+  it("renders the breathe step for the breathe id", async () => {
+    await renderStep({ id: "breathe", title: "Breathe" });
 
     expect(screen.getByText("breathe:2026-08-09")).toBeTruthy();
   });
 
-  it("renders the horoscope for the horoscope id", () => {
-    renderStep({ id: "horoscope", title: "Horoscope" });
+  it("renders the horoscope for the horoscope id", async () => {
+    await renderStep({ id: "horoscope", title: "Horoscope" });
 
     expect(screen.getByText("horoscope:2026-08-09")).toBeTruthy();
   });
 
-  it("renders the journal for the ritual's day", () => {
-    renderStep({ id: "journal", title: "Journal" });
+  it("renders the journal for the ritual's day", async () => {
+    await renderStep({ id: "journal", title: "Journal" });
 
     expect(screen.getByText("journal-view:2026-08-09")).toBeTruthy();
   });
 
-  it("hands the journal the editing callback, unwrapped", () => {
+  it("hands the journal the editing callback, unwrapped", async () => {
     // JournalView's reset-on-unmount effect keys on this callback's identity —
     // wrapping it would clear the editing flag every render.
     const onEditingChange = jest.fn();
-    render(
+    await render(
       <RitualStepView
         date={DATE}
         mode="am"
@@ -208,55 +208,55 @@ describe("RitualStepView", () => {
 
   // Only reachable while the calendar preference is on — `stepsFor` drops the
   // step from the flow entirely otherwise.
-  it("renders the calendar for the ritual's day", () => {
-    renderStep({ id: "calendar", title: "Calendar" });
+  it("renders the calendar for the ritual's day", async () => {
+    await renderStep({ id: "calendar", title: "Calendar" });
 
     expect(screen.getByText("calendar:2026-08-09")).toBeTruthy();
   });
 
   // Unlike the calendar, this one has no preference gating it — every user has
   // a backlog, so the branch is always reachable.
-  it("renders the backlog for the ritual's day", () => {
-    renderStep({ id: "backlog", title: "Backlog" });
+  it("renders the backlog for the ritual's day", async () => {
+    await renderStep({ id: "backlog", title: "Backlog" });
 
     expect(screen.getByText("backlog:2026-08-09")).toBeTruthy();
   });
 
   // The evening ritual's first step, and the only built one it reaches before
   // the journal. Like the backlog, no preference gates it.
-  it("renders the open tasks step for the ritual's day", () => {
-    renderStep({ id: "open-tasks", title: "Open tasks" });
+  it("renders the open tasks step for the ritual's day", async () => {
+    await renderStep({ id: "open-tasks", title: "Open tasks" });
 
     expect(screen.getByText("open-tasks:2026-08-09")).toBeTruthy();
   });
 
   // No onEditingChange — a completed card renames nothing.
-  it("renders the review step for the ritual's day", () => {
-    renderStep({ id: "review", title: "Review" });
+  it("renders the review step for the ritual's day", async () => {
+    await renderStep({ id: "review", title: "Review" });
 
     expect(screen.getByText("review:2026-08-09")).toBeTruthy();
   });
 
   // The one step reading a day other than the ritual's own (date + 1 inside).
-  it("renders the preview tomorrow step with the ritual's own day", () => {
-    renderStep({ id: "preview-tomorrow", title: "Preview tomorrow" });
+  it("renders the preview tomorrow step with the ritual's own day", async () => {
+    await renderStep({ id: "preview-tomorrow", title: "Preview tomorrow" });
 
     expect(screen.getByText("preview-tomorrow:2026-08-09")).toBeTruthy();
   });
 
   // Unlike review, this lists open tasks that rename — unwrapped for the
   // same reason the journal's callback is (DEX-151: journal asks differently per ritual).
-  it("tells the journal which ritual is asking", () => {
-    renderStep({ id: "journal", title: "Journal" }, "pm");
+  it("tells the journal which ritual is asking", async () => {
+    await renderStep({ id: "journal", title: "Journal" }, "pm");
 
     expect(mockJournalView).toHaveBeenCalledWith(
       expect.objectContaining({ mode: "pm" }),
     );
   });
 
-  it("hands the preview tomorrow step the editing callback, unwrapped", () => {
+  it("hands the preview tomorrow step the editing callback, unwrapped", async () => {
     const onEditingChange = jest.fn();
-    render(
+    await render(
       <RitualStepView
         date={DATE}
         mode="am"
@@ -271,16 +271,16 @@ describe("RitualStepView", () => {
   });
 
   // The one built step both rituals reach, and the last of each.
-  it("renders the summary step for the summary id", () => {
-    renderStep({ id: "summary", title: "Summary" });
+  it("renders the summary step for the summary id", async () => {
+    await renderStep({ id: "summary", title: "Summary" });
 
     expect(screen.getByText("summary:2026-08-09")).toBeTruthy();
   });
 
-  it("hands a step the ritual's date rather than today's", () => {
+  it("hands a step the ritual's date rather than today's", async () => {
     const other = Temporal.PlainDate.from("2026-01-02");
 
-    render(
+    await render(
       <RitualStepView
         date={other}
         mode="am"
@@ -296,8 +296,8 @@ describe("RitualStepView", () => {
   // stays as a guard — an unbranched id would render its bare title silently.
   it.each([...RITUAL_STEPS.am, ...RITUAL_STEPS.pm])(
     "renders $title as a built step rather than its own name",
-    (step) => {
-      renderStep(step);
+    async (step) => {
+      await renderStep(step);
 
       expect(screen.queryByText(step.title)).toBeNull();
     },

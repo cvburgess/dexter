@@ -2,13 +2,14 @@ import type { Ref } from "react";
 import {
   TextInput as NativeTextInput,
   StyleSheet,
+  TextInputInstance,
   TextInputProps,
 } from "react-native";
 
 import { NO_FOCUS_RING } from "@/utils/inputStyles";
 import { useTheme } from "@/utils/theme";
 
-type TTextInputProps = TextInputProps & { ref?: Ref<NativeTextInput> };
+type TTextInputProps = TextInputProps & { ref?: Ref<TextInputInstance> };
 
 export function TextInput({ ref, style, ...props }: TTextInputProps) {
   const theme = useTheme();

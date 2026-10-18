@@ -19,11 +19,11 @@ jest.mock("@/hooks/useToday", () => {
   return { useToday: () => mockTemporal.PlainDate.from("2026-09-08") };
 });
 
-const renderReveal = (date = TODAY) => {
+const renderReveal = async (date = TODAY) => {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  const { result } = renderHook(() => useStepReveal(), {
+  const { result } = await renderHook(() => useStepReveal(), {
     wrapper: ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={client}>
         <RitualRevealProvider date={date} mode="am" stepId="calendar">
@@ -41,7 +41,7 @@ describe("RitualRevealProvider", () => {
   });
 
   it("reports the step unseen once the device read settles", async () => {
-    const result = renderReveal();
+    const result = await renderReveal();
 
     await waitFor(() => expect(result.current.seen).toBe(false));
   });
@@ -52,7 +52,7 @@ describe("RitualRevealProvider", () => {
       JSON.stringify({ date: "2026-09-08", keys: ["2026-09-08-am-calendar"] }),
     );
 
-    const result = renderReveal();
+    const result = await renderReveal();
 
     await waitFor(() => expect(result.current.seen).toBe(true));
   });
@@ -60,10 +60,10 @@ describe("RitualRevealProvider", () => {
   // DEX-199: reading our own write back flips `seen` mid-visit, and
   // `useHoroscopeAudio`'s `enabled` is a focus dep — the track fades out.
   it("keeps reporting the step unseen for the rest of the visit after marking", async () => {
-    const result = renderReveal();
+    const result = await renderReveal();
     await waitFor(() => expect(result.current.seen).toBe(false));
 
-    act(() => result.current.markRevealed());
+    await act(() => result.current.markRevealed());
 
     await waitFor(async () =>
       expect(await AsyncStorage.getItem(SEEN_RITUAL_STEPS_KEY)).not.toBeNull(),
@@ -72,19 +72,19 @@ describe("RitualRevealProvider", () => {
   });
 
   it("treats any day but today as already seen, without waiting or recording", async () => {
-    const result = renderReveal(TODAY.subtract({ days: 1 }));
+    const result = await renderReveal(TODAY.subtract({ days: 1 }));
 
     // Never null: a past day must render in its final state on the first frame.
     expect(result.current.seen).toBe(true);
 
-    act(() => result.current.markRevealed());
+    await act(() => result.current.markRevealed());
 
     await waitFor(() => expect(result.current.seen).toBe(true));
     expect(await AsyncStorage.getItem(SEEN_RITUAL_STEPS_KEY)).toBeNull();
   });
 
-  it("leaves a step outside a provider ungated", () => {
-    const { result } = renderHook(() => useStepReveal());
+  it("leaves a step outside a provider ungated", async () => {
+    const { result } = await renderHook(() => useStepReveal());
 
     expect(result.current.seen).toBe(false);
   });

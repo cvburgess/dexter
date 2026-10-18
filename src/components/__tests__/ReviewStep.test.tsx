@@ -156,14 +156,14 @@ beforeEach(() => {
 describe("ReviewStep", () => {
   // Every hook serves an empty placeholder while resolving — without this
   // guard a cold open reads as a day nothing happened on.
-  it("renders nothing rather than a premature quiet day", () => {
+  it("renders nothing rather than a premature quiet day", async () => {
     setDay({ isLoading: true });
 
-    expect(render(<ReviewStep date={DATE} />).toJSON()).toBeNull();
+    expect((await render(<ReviewStep date={DATE} />)).toJSON()).toBeNull();
   });
 
   describe("the hero", () => {
-    it("counts finished habits, closed tasks, the day's events, and focus blocks", () => {
+    it("counts finished habits, closed tasks, the day's events, and focus blocks", async () => {
       setDay({
         habits: [
           dailyHabit({ habitId: "a", steps: 2, stepsComplete: 2 }),
@@ -173,7 +173,7 @@ describe("ReviewStep", () => {
         tasks: [task({ id: "1" }), task({ id: "2" }), task({ id: "3" })],
         focusBlocks: [focusBlock("complete", "a"), focusBlock("complete", "b")],
       });
-      render(<ReviewStep date={DATE} />);
+      await render(<ReviewStep date={DATE} />);
 
       // One accessibility node per line carries the whole phrase, which is what
       // the hero reads as — and pins the pluralization at both ends.
@@ -183,18 +183,18 @@ describe("ReviewStep", () => {
       expect(screen.getByLabelText("2 focus blocks")).toBeTruthy();
     });
 
-    it("says 'tasks' for none of them and 'task' for one", () => {
-      render(<ReviewStep date={DATE} />);
+    it("says 'tasks' for none of them and 'task' for one", async () => {
+      await render(<ReviewStep date={DATE} />);
       expect(screen.getByLabelText("0 tasks done")).toBeTruthy();
 
       setDay({ tasks: [task()] });
-      screen.rerender(<ReviewStep date={DATE} />);
+      await screen.rerender(<ReviewStep date={DATE} />);
       expect(screen.getByLabelText("1 task done")).toBeTruthy();
     });
 
     // A habit edit doesn't invalidate the dailyHabits cache, so the hero
     // could otherwise count a habit the ring row below it no longer draws.
-    it("ignores rows for habits since paused or archived", () => {
+    it("ignores rows for habits since paused or archived", async () => {
       setDay({
         habits: [
           dailyHabit({ habitId: "a" }),
@@ -202,18 +202,18 @@ describe("ReviewStep", () => {
           dailyHabit({ habitId: "c", isArchived: true }),
         ],
       });
-      render(<ReviewStep date={DATE} />);
+      await render(<ReviewStep date={DATE} />);
 
       expect(screen.getByLabelText("1 habit done")).toBeTruthy();
     });
 
     // One line per feature the reader has, not per non-zero count.
-    it("drops the habit and event lines when those features are off", () => {
+    it("drops the habit and event lines when those features are off", async () => {
       mockUsePreferences.mockReturnValue(
         preferences({ enableHabits: false, enableCalendar: false }),
       );
       setDay({ tasks: [task()] });
-      render(<ReviewStep date={DATE} />);
+      await render(<ReviewStep date={DATE} />);
 
       expect(screen.getByLabelText("1 task done")).toBeTruthy();
       expect(screen.getByLabelText("0 focus blocks")).toBeTruthy();
@@ -222,7 +222,7 @@ describe("ReviewStep", () => {
     });
 
     // `cancelled` is its own status, not a deleted row — honest but excluded.
-    it("counts only completed focus blocks, not cancelled or running ones", () => {
+    it("counts only completed focus blocks, not cancelled or running ones", async () => {
       setDay({
         focusBlocks: [
           focusBlock("complete"),
@@ -231,7 +231,7 @@ describe("ReviewStep", () => {
           focusBlock("paused"),
         ],
       });
-      render(<ReviewStep date={DATE} />);
+      await render(<ReviewStep date={DATE} />);
 
       expect(screen.getByLabelText("1 focus block")).toBeTruthy();
     });
@@ -239,7 +239,7 @@ describe("ReviewStep", () => {
 
   describe("the completed list", () => {
     // Exact complement of the open tasks step — no task in both lists.
-    it("lists every terminal status on the day and nothing else", () => {
+    it("lists every terminal status on the day and nothing else", async () => {
       setDay({
         tasks: [
           task({ id: "1", title: "Finished", status: ETaskStatus.DONE }),
@@ -250,7 +250,7 @@ describe("ReviewStep", () => {
           task({ id: "6", title: "Yesterday's", scheduledFor: OTHER_DAY }),
         ],
       });
-      render(<ReviewStep date={DATE} />);
+      await render(<ReviewStep date={DATE} />);
 
       expect(screen.getByLabelText("3 tasks done")).toBeTruthy();
       expect(screen.getByText("card:Finished")).toBeTruthy();
@@ -265,8 +265,8 @@ describe("ReviewStep", () => {
   describe("a day with nothing closed out", () => {
     // Rings are the one interactive thing here, so an unfinished day still
     // draws a body — a habit ticked after dinner is what a review is for.
-    it("keeps the habit row and stays out of the centered branch", () => {
-      render(<ReviewStep date={DATE} />);
+    it("keeps the habit row and stays out of the centered branch", async () => {
+      await render(<ReviewStep date={DATE} />);
 
       expect(screen.getByText("habit-tracker")).toBeTruthy();
       expect(screen.queryByTestId("review-step-quiet")).toBeNull();
@@ -274,9 +274,9 @@ describe("ReviewStep", () => {
 
     // Nothing to list *and* no rings to tap leaves an empty box under the hero,
     // so the figures center in the step instead.
-    it("centers the figures once there are no rings either", () => {
+    it("centers the figures once there are no rings either", async () => {
       mockUsePreferences.mockReturnValue(preferences({ enableHabits: false }));
-      render(<ReviewStep date={DATE} />);
+      await render(<ReviewStep date={DATE} />);
 
       expect(screen.getByTestId("review-step-quiet")).toBeTruthy();
       expect(screen.queryByText("habit-tracker")).toBeNull();

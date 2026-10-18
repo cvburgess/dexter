@@ -42,13 +42,13 @@ describe("LoginScreen", () => {
       ok as Awaited<ReturnType<typeof signInWithEmail>>,
     );
 
-    const screen = render(<LoginScreen />);
+    const screen = await render(<LoginScreen />);
 
-    fireEvent.changeText(
+    await fireEvent.changeText(
       screen.getByTestId("login-email-input"),
       "  user@example.com  ",
     );
-    fireEvent.press(screen.getByTestId("login-email-button"));
+    await fireEvent.press(screen.getByTestId("login-email-button"));
 
     await waitFor(() => {
       expect(screen.getByTestId("login-code-sent-banner")).toBeTruthy();
@@ -62,13 +62,13 @@ describe("LoginScreen", () => {
       error: new Error("Rate limit exceeded"),
     } as unknown as Awaited<ReturnType<typeof signInWithEmail>>);
 
-    const screen = render(<LoginScreen />);
+    const screen = await render(<LoginScreen />);
 
-    fireEvent.changeText(
+    await fireEvent.changeText(
       screen.getByTestId("login-email-input"),
       "user@example.com",
     );
-    fireEvent.press(screen.getByTestId("login-email-button"));
+    await fireEvent.press(screen.getByTestId("login-email-button"));
 
     await waitFor(() => {
       expect(screen.getByText("Rate limit exceeded")).toBeTruthy();
@@ -84,18 +84,21 @@ describe("LoginScreen", () => {
       ok as Awaited<ReturnType<typeof verifyEmailOtp>>,
     );
 
-    const screen = render(<LoginScreen />);
+    const screen = await render(<LoginScreen />);
 
-    fireEvent.changeText(
+    await fireEvent.changeText(
       screen.getByTestId("login-email-input"),
       "user@example.com",
     );
-    fireEvent.press(screen.getByTestId("login-email-button"));
+    await fireEvent.press(screen.getByTestId("login-email-button"));
 
     await waitFor(() => screen.getByTestId("login-code-input"));
 
-    fireEvent.changeText(screen.getByTestId("login-code-input"), "123456");
-    fireEvent.press(screen.getByTestId("login-verify-button"));
+    await fireEvent.changeText(
+      screen.getByTestId("login-code-input"),
+      "123456",
+    );
+    await fireEvent.press(screen.getByTestId("login-verify-button"));
 
     await waitFor(() => {
       expect(mockVerifyEmailOtp).toHaveBeenCalledWith(
@@ -114,18 +117,21 @@ describe("LoginScreen", () => {
       error: new Error("Token has expired"),
     } as unknown as Awaited<ReturnType<typeof verifyEmailOtp>>);
 
-    const screen = render(<LoginScreen />);
+    const screen = await render(<LoginScreen />);
 
-    fireEvent.changeText(
+    await fireEvent.changeText(
       screen.getByTestId("login-email-input"),
       "user@example.com",
     );
-    fireEvent.press(screen.getByTestId("login-email-button"));
+    await fireEvent.press(screen.getByTestId("login-email-button"));
 
     await waitFor(() => screen.getByTestId("login-code-input"));
 
-    fireEvent.changeText(screen.getByTestId("login-code-input"), "000000");
-    fireEvent.press(screen.getByTestId("login-verify-button"));
+    await fireEvent.changeText(
+      screen.getByTestId("login-code-input"),
+      "000000",
+    );
+    await fireEvent.press(screen.getByTestId("login-verify-button"));
 
     await waitFor(() => {
       expect(screen.getByText("Token has expired")).toBeTruthy();
@@ -135,13 +141,13 @@ describe("LoginScreen", () => {
   it("verifies the demo account via verifyDemoOtp without emailing a code", async () => {
     mockVerifyDemoOtp.mockResolvedValue(ok);
 
-    const screen = render(<LoginScreen />);
+    const screen = await render(<LoginScreen />);
 
-    fireEvent.changeText(
+    await fireEvent.changeText(
       screen.getByTestId("login-email-input"),
       "demo@dexterplanner.com",
     );
-    fireEvent.press(screen.getByTestId("login-email-button"));
+    await fireEvent.press(screen.getByTestId("login-email-button"));
 
     await waitFor(() => screen.getByTestId("login-code-input"));
 
@@ -149,8 +155,11 @@ describe("LoginScreen", () => {
     expect(mockSignInWithEmail).not.toHaveBeenCalled();
     expect(screen.queryByTestId("login-code-sent-banner")).toBeNull();
 
-    fireEvent.changeText(screen.getByTestId("login-code-input"), "654321");
-    fireEvent.press(screen.getByTestId("login-verify-button"));
+    await fireEvent.changeText(
+      screen.getByTestId("login-code-input"),
+      "654321",
+    );
+    await fireEvent.press(screen.getByTestId("login-verify-button"));
 
     await waitFor(() => {
       expect(mockVerifyDemoOtp).toHaveBeenCalledWith(
@@ -166,17 +175,19 @@ describe("LoginScreen", () => {
       ok as Awaited<ReturnType<typeof signInWithEmail>>,
     );
 
-    const screen = render(<LoginScreen />);
+    const screen = await render(<LoginScreen />);
 
-    fireEvent.changeText(
+    await fireEvent.changeText(
       screen.getByTestId("login-email-input"),
       "user@example.com",
     );
-    fireEvent.press(screen.getByTestId("login-email-button"));
+    await fireEvent.press(screen.getByTestId("login-email-button"));
 
     await waitFor(() => screen.getByTestId("login-code-input"));
 
-    fireEvent.press(screen.getByTestId("login-use-different-email-button"));
+    await fireEvent.press(
+      screen.getByTestId("login-use-different-email-button"),
+    );
 
     expect(screen.getByTestId("login-email-input")).toBeTruthy();
     expect(screen.queryByTestId("login-code-input")).toBeNull();
@@ -187,9 +198,9 @@ describe("LoginScreen", () => {
       error: new Error("OAuth error"),
     } as unknown as Awaited<ReturnType<typeof signInWithGoogle>>);
 
-    const screen = render(<LoginScreen />);
+    const screen = await render(<LoginScreen />);
 
-    fireEvent.press(screen.getByTestId("login-google-button"));
+    await fireEvent.press(screen.getByTestId("login-google-button"));
 
     await waitFor(() => {
       expect(screen.getByText("OAuth error")).toBeTruthy();

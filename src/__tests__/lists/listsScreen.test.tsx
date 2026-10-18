@@ -16,17 +16,17 @@ const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
 >;
 
 describe("ListsScreen", () => {
-  it("renders the board on a large screen", () => {
+  it("renders the board on a large screen", async () => {
     mockUseIsLargeDevice.mockReturnValue(true);
-    const screen = render(<ListsScreen />);
+    const screen = await render(<ListsScreen />);
 
     expect(screen.getByText("lists-view")).toBeTruthy();
   });
 
   // A deep-linked /lists in a narrow window (or Split View) still resolves.
-  it("explains itself below the breakpoint instead of rendering the board", () => {
+  it("explains itself below the breakpoint instead of rendering the board", async () => {
     mockUseIsLargeDevice.mockReturnValue(false);
-    const screen = render(<ListsScreen />);
+    const screen = await render(<ListsScreen />);
 
     expect(screen.queryByText("lists-view")).toBeNull();
     expect(screen.getByText(/needs a wider screen/)).toBeTruthy();

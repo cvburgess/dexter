@@ -76,8 +76,8 @@ describe("paneToggleOptions", () => {
 });
 
 describe("DayPaneToggles", () => {
-  it("renders a button per enabled pane", () => {
-    const screen = render(
+  it("renders a button per enabled pane", async () => {
+    const screen = await render(
       <DayPaneToggles
         panes={allOpen}
         onTogglePane={jest.fn()}
@@ -90,9 +90,9 @@ describe("DayPaneToggles", () => {
     expect(screen.queryByLabelText("Toggle calendar pane")).toBeNull();
   });
 
-  it("toggles a pane when its button is pressed", () => {
+  it("toggles a pane when its button is pressed", async () => {
     const onTogglePane = jest.fn();
-    const screen = render(
+    const screen = await render(
       <DayPaneToggles
         panes={allOpen}
         onTogglePane={onTogglePane}
@@ -101,15 +101,15 @@ describe("DayPaneToggles", () => {
       />,
     );
 
-    fireEvent.press(screen.getByLabelText("Toggle calendar pane"));
+    await fireEvent.press(screen.getByLabelText("Toggle calendar pane"));
 
     expect(onTogglePane).toHaveBeenCalledWith("calendar");
   });
 
-  it("never renders a toggle for the task drawer pane", () => {
+  it("never renders a toggle for the task drawer pane", async () => {
     // The task drawer (DEX-33) is a standalone header button, not one of
     // this component's Notes/Calendar toggles.
-    const screen = render(
+    const screen = await render(
       <DayPaneToggles
         panes={allOpen}
         onTogglePane={jest.fn()}
@@ -123,8 +123,8 @@ describe("DayPaneToggles", () => {
 
   // The journal left the Today tab for the Ritual tab (DEX-105), so there is no
   // pane of its own to toggle any more.
-  it("never renders a toggle for the journal", () => {
-    const screen = render(
+  it("never renders a toggle for the journal", async () => {
+    const screen = await render(
       <DayPaneToggles
         panes={allOpen}
         onTogglePane={jest.fn()}

@@ -3,10 +3,9 @@ import { Alert } from "react-native";
 
 import { ConfirmationModal as ConfirmationModalNative } from "../ConfirmationModal.native";
 import { ConfirmationModal as ConfirmationModalWeb } from "../ConfirmationModal.web";
-import { WebOverlay } from "../WebOverlay.web";
 
 // WebOverlay portals to document.body at runtime; render inline so
-// react-test-renderer keeps it in the tree for RNTL queries.
+// the test renderer keeps it in the tree for RNTL queries.
 jest.mock("react-dom", () =>
   require("@/testUtils/mockReactDomPortal").mockReactDomPortal(),
 );
@@ -23,8 +22,8 @@ describe("ConfirmationModal", () => {
   });
 
   describe("web", () => {
-    test("renders title, message, and confirm/cancel buttons", () => {
-      const { getByText } = render(
+    test("renders title, message, and confirm/cancel buttons", async () => {
+      const { getByText } = await render(
         <ConfirmationModalWeb
           visible
           title="Delete task"
@@ -43,28 +42,33 @@ describe("ConfirmationModal", () => {
 
     // In-tree used to leave it dead under an open drawer, inheriting the
     // body's `pointer-events: none` (DEX-134).
-    test("renders through WebOverlay only while visible", () => {
+    test("renders through WebOverlay only while visible", async () => {
       const props = {
         title: "Delete task",
         message: "Are you sure?",
         onClose: jest.fn(),
         onConfirm: jest.fn(),
       };
-      const { UNSAFE_root, rerender } = render(
+      const { container, rerender } = await render(
         <ConfirmationModalWeb visible={false} {...props} />,
       );
 
-      expect(UNSAFE_root.findAllByType(WebOverlay)).toHaveLength(0);
+      // WebOverlay's root is the `div` guarding Radix's outside-pointerdown dismiss.
+      const overlayRoots = () =>
+        container.queryAll(
+          (node) => node.type === "div" && "onPointerDown" in node.props,
+        );
+      expect(overlayRoots()).toHaveLength(0);
 
-      rerender(<ConfirmationModalWeb visible {...props} />);
+      await rerender(<ConfirmationModalWeb visible {...props} />);
 
-      expect(UNSAFE_root.findAllByType(WebOverlay)).toHaveLength(1);
+      expect(overlayRoots()).toHaveLength(1);
     });
 
-    test("confirm button fires onConfirm then onClose", () => {
+    test("confirm button fires onConfirm then onClose", async () => {
       const onConfirm = jest.fn();
       const onClose = jest.fn();
-      const { getByText } = render(
+      const { getByText } = await render(
         <ConfirmationModalWeb
           visible
           title="T"
@@ -75,16 +79,16 @@ describe("ConfirmationModal", () => {
         />,
       );
 
-      fireEvent.press(getByText("Delete"));
+      await fireEvent.press(getByText("Delete"));
 
       expect(onConfirm).toHaveBeenCalled();
       expect(onClose).toHaveBeenCalled();
     });
 
-    test("cancel button fires onClose only", () => {
+    test("cancel button fires onClose only", async () => {
       const onConfirm = jest.fn();
       const onClose = jest.fn();
-      const { getByText } = render(
+      const { getByText } = await render(
         <ConfirmationModalWeb
           visible
           title="T"
@@ -94,16 +98,16 @@ describe("ConfirmationModal", () => {
         />,
       );
 
-      fireEvent.press(getByText("Cancel"));
+      await fireEvent.press(getByText("Cancel"));
 
       expect(onConfirm).not.toHaveBeenCalled();
       expect(onClose).toHaveBeenCalled();
     });
 
-    test("renders custom actions and wires their onPress", () => {
+    test("renders custom actions and wires their onPress", async () => {
       const keep = jest.fn();
       const onClose = jest.fn();
-      const { getByText } = render(
+      const { getByText } = await render(
         <ConfirmationModalWeb
           visible
           title="Repeating task"
@@ -118,17 +122,17 @@ describe("ConfirmationModal", () => {
       );
 
       expect(getByText("Keep repeat")).toBeTruthy();
-      fireEvent.press(getByText("Keep repeat"));
+      await fireEvent.press(getByText("Keep repeat"));
       expect(keep).toHaveBeenCalled();
       expect(onClose).toHaveBeenCalled();
     });
   });
 
   describe("native", () => {
-    test("presents Alert.alert with title, message, and synthesized buttons", () => {
+    test("presents Alert.alert with title, message, and synthesized buttons", async () => {
       const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(jest.fn());
 
-      render(
+      await render(
         <ConfirmationModalNative
           visible
           title="Delete task"
@@ -152,10 +156,10 @@ describe("ConfirmationModal", () => {
       );
     });
 
-    test("does not present when not visible", () => {
+    test("does not present when not visible", async () => {
       const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(jest.fn());
 
-      render(
+      await render(
         <ConfirmationModalNative
           visible={false}
           title="T"
@@ -168,7 +172,7 @@ describe("ConfirmationModal", () => {
       expect(alertSpy).not.toHaveBeenCalled();
     });
 
-    test("presents once per visible -> true transition", () => {
+    test("presents once per visible -> true transition", async () => {
       const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(jest.fn());
 
       const props = {
@@ -177,28 +181,28 @@ describe("ConfirmationModal", () => {
         onClose: jest.fn(),
         onConfirm: jest.fn(),
       };
-      const { rerender } = render(
+      const { rerender } = await render(
         <ConfirmationModalNative visible={false} {...props} />,
       );
       expect(alertSpy).not.toHaveBeenCalled();
 
-      rerender(<ConfirmationModalNative visible {...props} />);
+      await rerender(<ConfirmationModalNative visible {...props} />);
       expect(alertSpy).toHaveBeenCalledTimes(1);
 
-      rerender(<ConfirmationModalNative visible {...props} />);
+      await rerender(<ConfirmationModalNative visible {...props} />);
       expect(alertSpy).toHaveBeenCalledTimes(1);
 
-      rerender(<ConfirmationModalNative visible={false} {...props} />);
-      rerender(<ConfirmationModalNative visible {...props} />);
+      await rerender(<ConfirmationModalNative visible={false} {...props} />);
+      await rerender(<ConfirmationModalNative visible {...props} />);
       expect(alertSpy).toHaveBeenCalledTimes(2);
     });
 
-    test("confirm button fires onConfirm and onClose", () => {
+    test("confirm button fires onConfirm and onClose", async () => {
       const onConfirm = jest.fn();
       const onClose = jest.fn();
       const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(jest.fn());
 
-      render(
+      await render(
         <ConfirmationModalNative
           visible
           title="T"
@@ -216,12 +220,12 @@ describe("ConfirmationModal", () => {
       expect(onClose).toHaveBeenCalled();
     });
 
-    test("cancel button fires onClose without onConfirm", () => {
+    test("cancel button fires onClose without onConfirm", async () => {
       const onConfirm = jest.fn();
       const onClose = jest.fn();
       const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(jest.fn());
 
-      render(
+      await render(
         <ConfirmationModalNative
           visible
           title="T"
@@ -238,12 +242,12 @@ describe("ConfirmationModal", () => {
       expect(onClose).toHaveBeenCalled();
     });
 
-    test("supports 3-button custom action sets", () => {
+    test("supports 3-button custom action sets", async () => {
       const keep = jest.fn();
       const onClose = jest.fn();
       const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(jest.fn());
 
-      render(
+      await render(
         <ConfirmationModalNative
           visible
           title="Repeating task"
@@ -278,11 +282,11 @@ describe("ConfirmationModal", () => {
       expect(onClose).toHaveBeenCalled();
     });
 
-    test("dismiss (onDismiss) calls onClose", () => {
+    test("dismiss (onDismiss) calls onClose", async () => {
       const onClose = jest.fn();
       const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(jest.fn());
 
-      render(
+      await render(
         <ConfirmationModalNative
           visible
           title="T"

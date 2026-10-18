@@ -3,8 +3,8 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import { WeekdayPicker } from "../WeekdayPicker";
 
 describe("WeekdayPicker", () => {
-  it("renders one chip per day, Monday-first", () => {
-    render(
+  it("renders one chip per day, Monday-first", async () => {
+    await render(
       <WeekdayPicker valueSource="cron" selected={[]} onToggle={jest.fn()} />,
     );
 
@@ -15,8 +15,8 @@ describe("WeekdayPicker", () => {
     expect(screen.getAllByText("S")).toHaveLength(2); // Saturday + Sunday
   });
 
-  it("labels each chip with the full day name for screen readers", () => {
-    render(
+  it("labels each chip with the full day name for screen readers", async () => {
+    await render(
       <WeekdayPicker valueSource="cron" selected={[]} onToggle={jest.fn()} />,
     );
 
@@ -24,20 +24,20 @@ describe("WeekdayPicker", () => {
     expect(screen.getByLabelText("Sunday")).toBeTruthy();
   });
 
-  it("uses cron day values (Sunday = 0) when valueSource is cron", () => {
+  it("uses cron day values (Sunday = 0) when valueSource is cron", async () => {
     const onToggle = jest.fn();
-    render(
+    await render(
       <WeekdayPicker valueSource="cron" selected={[]} onToggle={onToggle} />,
     );
 
-    fireEvent.press(screen.getByLabelText("Sunday"));
+    await fireEvent.press(screen.getByLabelText("Sunday"));
 
     expect(onToggle).toHaveBeenCalledWith(0);
   });
 
-  it("uses Temporal day values (Sunday = 7) when valueSource is temporal", () => {
+  it("uses Temporal day values (Sunday = 7) when valueSource is temporal", async () => {
     const onToggle = jest.fn();
-    render(
+    await render(
       <WeekdayPicker
         valueSource="temporal"
         selected={[]}
@@ -45,13 +45,13 @@ describe("WeekdayPicker", () => {
       />,
     );
 
-    fireEvent.press(screen.getByLabelText("Sunday"));
+    await fireEvent.press(screen.getByLabelText("Sunday"));
 
     expect(onToggle).toHaveBeenCalledWith(7);
   });
 
-  it("marks only the selected days as selected", () => {
-    render(
+  it("marks only the selected days as selected", async () => {
+    await render(
       <WeekdayPicker
         valueSource="cron"
         selected={[1, 0]}
@@ -70,13 +70,13 @@ describe("WeekdayPicker", () => {
     );
   });
 
-  it("calls onToggle with the pressed day's value", () => {
+  it("calls onToggle with the pressed day's value", async () => {
     const onToggle = jest.fn();
-    render(
+    await render(
       <WeekdayPicker valueSource="cron" selected={[]} onToggle={onToggle} />,
     );
 
-    fireEvent.press(screen.getByLabelText("Tuesday"));
+    await fireEvent.press(screen.getByLabelText("Tuesday"));
 
     expect(onToggle).toHaveBeenCalledWith(2);
   });

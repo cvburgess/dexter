@@ -1,4 +1,4 @@
-import type { NativeStackNavigationOptions } from "expo-router/build/react-navigation/native-stack";
+import type { NativeStackNavigationOptions } from "expo-router";
 
 import { Theme } from "./theme";
 

@@ -48,39 +48,39 @@ beforeEach(() => {
 });
 
 describe("HabitTracker", () => {
-  it("offers the create-a-habit nudge by default", () => {
-    const screen = render(<HabitTracker date={date} />);
+  it("offers the create-a-habit nudge by default", async () => {
+    const screen = await render(<HabitTracker date={date} />);
 
     expect(screen.getByText("Create a habit")).toBeTruthy();
   });
 
   describe("showCreateNudge={false} (DEX-96)", () => {
-    it("suppresses the nudge", () => {
+    it("suppresses the nudge", async () => {
       // The Week tab mounts one tracker per column; seven copies of the same
       // call-to-action reads as noise.
-      const screen = render(
+      const screen = await render(
         <HabitTracker date={date} showCreateNudge={false} />,
       );
 
       expect(screen.queryByText("Create a habit")).toBeNull();
     });
 
-    it("skips the all-habits query that only the nudge reads", () => {
-      render(<HabitTracker date={date} showCreateNudge={false} />);
+    it("skips the all-habits query that only the nudge reads", async () => {
+      await render(<HabitTracker date={date} showCreateNudge={false} />);
 
       expect(mockUseHabits).toHaveBeenCalledWith({ skipQuery: true });
     });
 
-    it("still runs the query when the nudge is enabled", () => {
-      render(<HabitTracker date={date} />);
+    it("still runs the query when the nudge is enabled", async () => {
+      await render(<HabitTracker date={date} />);
 
       expect(mockUseHabits).toHaveBeenCalledWith({ skipQuery: false });
     });
 
-    it("renders the row rather than stalling on the skipped query", () => {
+    it("renders the row rather than stalling on the skipped query", async () => {
       // `isLoading` must not stay true for a query that will never run, or the
       // tracker renders its loading branch forever.
-      const screen = render(
+      const screen = await render(
         <HabitTracker date={date} showCreateNudge={false} />,
       );
 
@@ -92,24 +92,26 @@ describe("HabitTracker", () => {
   // Bootstrapping is a write: old days are routine to visit (DEX-162) and Week
   // mounts seven trackers, so an unbounded bootstrap persists history that never happened.
   describe("bootstrapping a day's rows", () => {
-    const renderOn = (on: Temporal.PlainDate) => {
+    const renderOn = async (on: Temporal.PlainDate) => {
       const createDailyHabits = jest.fn();
       mockUseHabits.mockReturnValue(habitsResult([habit]));
       mockUseDailyHabits.mockReturnValue(dailyHabitsResult(createDailyHabits));
-      render(<HabitTracker date={on} showCreateNudge={false} />);
+      await render(<HabitTracker date={on} showCreateNudge={false} />);
       return createDailyHabits;
     };
 
-    it("creates missing rows for a day inside the window", () => {
-      expect(renderOn(date.subtract({ days: 2 }))).toHaveBeenCalled();
+    it("creates missing rows for a day inside the window", async () => {
+      expect(await renderOn(date.subtract({ days: 2 }))).toHaveBeenCalled();
     });
 
-    it("creates nothing for a long-past day", () => {
-      expect(renderOn(date.subtract({ days: 200 }))).not.toHaveBeenCalled();
+    it("creates nothing for a long-past day", async () => {
+      expect(
+        await renderOn(date.subtract({ days: 200 })),
+      ).not.toHaveBeenCalled();
     });
 
-    it("creates nothing for a future day", () => {
-      expect(renderOn(date.add({ days: 1 }))).not.toHaveBeenCalled();
+    it("creates nothing for a future day", async () => {
+      expect(await renderOn(date.add({ days: 1 }))).not.toHaveBeenCalled();
     });
   });
 });

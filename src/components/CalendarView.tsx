@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutChangeEvent,
   ScrollView,
+  ScrollViewInstance,
   StyleSheet,
   Text,
   View,
@@ -172,7 +173,7 @@ export function CalendarView({ date }: TCalendarViewProps) {
 
   // Anchors the now line in the upper third on first layout; the view remounts
   // per day, so this covers both "view loads" and "day changed" once each.
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const didScrollToNowRef = useRef(false);
   const scrollToNow = (event: LayoutChangeEvent) => {
     if (didScrollToNowRef.current || nowTopPx === null) return;

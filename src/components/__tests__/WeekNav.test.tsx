@@ -8,55 +8,57 @@ describe("WeekNav", () => {
   // 2026-07-27 is a Monday — ISO week 31 of 2026.
   const monday = Temporal.PlainDate.from("2026-07-27");
 
-  it("labels the week by its ISO week number and year", () => {
-    const screen = render(<WeekNav monday={monday} onChangeWeek={jest.fn()} />);
+  it("labels the week by its ISO week number and year", async () => {
+    const screen = await render(
+      <WeekNav monday={monday} onChangeWeek={jest.fn()} />,
+    );
 
     expect(screen.getByText("Week 31, 2026")).toBeTruthy();
   });
 
-  it("moves back a whole week when the previous arrow is pressed", () => {
+  it("moves back a whole week when the previous arrow is pressed", async () => {
     const onChangeWeek = jest.fn();
-    const screen = render(
+    const screen = await render(
       <WeekNav monday={monday} onChangeWeek={onChangeWeek} />,
     );
 
-    fireEvent.press(screen.getByLabelText("Previous week"));
+    await fireEvent.press(screen.getByLabelText("Previous week"));
 
     expect(onChangeWeek).toHaveBeenCalledWith(
       Temporal.PlainDate.from("2026-07-20"),
     );
   });
 
-  it("moves forward a whole week when the next arrow is pressed", () => {
+  it("moves forward a whole week when the next arrow is pressed", async () => {
     const onChangeWeek = jest.fn();
-    const screen = render(
+    const screen = await render(
       <WeekNav monday={monday} onChangeWeek={onChangeWeek} />,
     );
 
-    fireEvent.press(screen.getByLabelText("Next week"));
+    await fireEvent.press(screen.getByLabelText("Next week"));
 
     expect(onChangeWeek).toHaveBeenCalledWith(
       Temporal.PlainDate.from("2026-08-03"),
     );
   });
 
-  it("returns to the current week when the label is pressed", () => {
+  it("returns to the current week when the label is pressed", async () => {
     const onChangeWeek = jest.fn();
-    const screen = render(
+    const screen = await render(
       <WeekNav monday={monday} onChangeWeek={onChangeWeek} />,
     );
 
-    fireEvent.press(screen.getByLabelText("Go to this week"));
+    await fireEvent.press(screen.getByLabelText("Go to this week"));
 
     expect(onChangeWeek).toHaveBeenCalledWith(
       weekOf(Temporal.Now.plainDateISO()).monday,
     );
   });
 
-  it("keeps the label as the reset shortcut even on the current week", () => {
+  it("keeps the label as the reset shortcut even on the current week", async () => {
     // Unlike DayNav, there is no picker branch — the shortcut never swaps out.
     const thisMonday = weekOf(Temporal.Now.plainDateISO()).monday;
-    const screen = render(
+    const screen = await render(
       <WeekNav monday={thisMonday} onChangeWeek={jest.fn()} />,
     );
 
@@ -66,9 +68,9 @@ describe("WeekNav", () => {
   // ISO weeks can belong to the neighbouring calendar year. The legacy app
   // labelled these with `.year` and got both cases wrong.
   describe("ISO year boundaries", () => {
-    it("labels a December week owned by the next year", () => {
+    it("labels a December week owned by the next year", async () => {
       // 2024-12-30 is a Monday in ISO week 1 of 2025.
-      const screen = render(
+      const screen = await render(
         <WeekNav
           monday={Temporal.PlainDate.from("2024-12-30")}
           onChangeWeek={jest.fn()}
@@ -78,9 +80,9 @@ describe("WeekNav", () => {
       expect(screen.getByText("Week 1, 2025")).toBeTruthy();
     });
 
-    it("labels a January week owned by the previous year", () => {
+    it("labels a January week owned by the previous year", async () => {
       // 2026-12-28 is a Monday; its week runs into 2027 as week 53 of 2026.
-      const screen = render(
+      const screen = await render(
         <WeekNav
           monday={Temporal.PlainDate.from("2026-12-28")}
           onChangeWeek={jest.fn()}

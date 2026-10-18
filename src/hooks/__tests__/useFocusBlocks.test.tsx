@@ -65,9 +65,9 @@ const createWrapper = (focusBlockMinutes = 25) => {
   };
 };
 
-const renderLive = (focusBlockMinutes?: number) => {
+const renderLive = async (focusBlockMinutes?: number) => {
   const { wrapper } = createWrapper(focusBlockMinutes);
-  return renderHook(() => useLiveFocusBlock(), { wrapper });
+  return await renderHook(() => useLiveFocusBlock(), { wrapper });
 };
 
 beforeEach(() => {
@@ -89,9 +89,9 @@ describe("startFocusBlock", () => {
   // The placeholder would start a 25-minute block for someone who chose 50
   // and hasn't loaded their row yet — this awaits ensureQueryData instead.
   it("runs for the saved length, not the default", async () => {
-    const { result } = renderLive(50);
+    const { result } = await renderLive(50);
 
-    act(() => result.current[1].startFocusBlock("task-9"));
+    await act(() => result.current[1].startFocusBlock("task-9"));
 
     await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1));
     expect(mockCreate.mock.calls[0][1]).toMatchObject({
@@ -104,9 +104,9 @@ describe("startFocusBlock", () => {
   // The local calendar day, not a UTC instant: a block started late in the
   // evening west of UTC would otherwise be counted by the next day's ritual.
   it("stamps the local day and an anchor to count down from", async () => {
-    const { result } = renderLive();
+    const { result } = await renderLive();
 
-    act(() => result.current[1].startFocusBlock("task-1"));
+    await act(() => result.current[1].startFocusBlock("task-1"));
 
     await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1));
     const created = mockCreate.mock.calls[0][1];
@@ -126,11 +126,11 @@ describe("the transitions", () => {
   // Dropping either half is silent: no snapshot restarts the timer from full
   // on resume; no cleared anchor violates resumed_at_iff_active.
   it("pauses onto a snapshot and clears the anchor", async () => {
-    const { result } = renderLive();
+    const { result } = await renderLive();
     await waitFor(() => expect(result.current[0]).not.toBeNull());
 
     jest.setSystemTime(START + 60_000);
-    act(() => result.current[1].pauseFocusBlock(result.current[0]!));
+    await act(() => result.current[1].pauseFocusBlock(result.current[0]!));
 
     await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
     expect(mockUpdate.mock.calls[0][1]).toEqual({
@@ -147,11 +147,11 @@ describe("the transitions", () => {
     mockGetLive.mockResolvedValue(
       block({ status: "paused", remainingSeconds: 900, resumedAt: null }),
     );
-    const { result } = renderLive();
+    const { result } = await renderLive();
     await waitFor(() => expect(result.current[0]).not.toBeNull());
 
     jest.setSystemTime(START + 120_000);
-    act(() => result.current[1].resumeFocusBlock(result.current[0]!));
+    await act(() => result.current[1].resumeFocusBlock(result.current[0]!));
 
     await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
     expect(mockUpdate.mock.calls[0][1]).toEqual({
@@ -164,20 +164,20 @@ describe("the transitions", () => {
   // The invariant the evening's figure rests on: stopping early is recorded,
   // but never as a completion.
   it("cancels rather than completing when stopped early", async () => {
-    const { result } = renderLive();
+    const { result } = await renderLive();
     await waitFor(() => expect(result.current[0]).not.toBeNull());
 
-    act(() => result.current[1].cancelFocusBlock(result.current[0]!));
+    await act(() => result.current[1].cancelFocusBlock(result.current[0]!));
 
     await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
     expect(mockUpdate.mock.calls[0][1]).toMatchObject({ status: "cancelled" });
   });
 
   it("finishes onto zero", async () => {
-    const { result } = renderLive();
+    const { result } = await renderLive();
     await waitFor(() => expect(result.current[0]).not.toBeNull());
 
-    act(() => result.current[1].finishFocusBlock(result.current[0]!));
+    await act(() => result.current[1].finishFocusBlock(result.current[0]!));
 
     await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
     expect(mockUpdate.mock.calls[0][1]).toEqual({
@@ -191,10 +191,10 @@ describe("the transitions", () => {
   // The timeout and the AppState listener can both come due for the same
   // block; the second must not rewrite a row that has already ended.
   it("ignores a transition on a block that already ended", async () => {
-    const { result } = renderLive();
+    const { result } = await renderLive();
     await waitFor(() => expect(result.current[0]).not.toBeNull());
 
-    act(() =>
+    await act(() =>
       result.current[1].finishFocusBlock(block({ status: "complete" })),
     );
 
@@ -211,10 +211,10 @@ describe("the transitions", () => {
       }),
     );
 
-    const { result } = renderLive();
+    const { result } = await renderLive();
     await waitFor(() => expect(result.current[0]).not.toBeNull());
 
-    act(() => result.current[1].cancelFocusBlock(result.current[0]!));
+    await act(() => result.current[1].cancelFocusBlock(result.current[0]!));
 
     // `onMutate` awaits `cancelQueries` before writing, so the clear lands a
     // microtask after the tap rather than synchronously with it.

@@ -25,9 +25,9 @@ function Harness({ fallback }: { fallback: Href }) {
   );
 }
 
-const dismiss = (fallback: Href) => {
-  const screen = render(<Harness fallback={fallback} />);
-  fireEvent.press(screen.getByTestId("dismiss"));
+const dismiss = async (fallback: Href) => {
+  const screen = await render(<Harness fallback={fallback} />);
+  await fireEvent.press(screen.getByTestId("dismiss"));
 };
 
 describe("useDismissModal", () => {
@@ -36,17 +36,17 @@ describe("useDismissModal", () => {
     mockRouter.canDismiss.mockReturnValue(true);
   });
 
-  it("pops when there is a stack screen underneath", () => {
-    dismiss("/settings/lists");
+  it("pops when there is a stack screen underneath", async () => {
+    await dismiss("/settings/lists");
 
     expect(mockRouter.back).toHaveBeenCalledTimes(1);
     expect(mockRouter.replace).not.toHaveBeenCalled();
   });
 
-  it("falls back when there is nothing to pop", () => {
+  it("falls back when there is nothing to pop", async () => {
     mockRouter.canDismiss.mockReturnValue(false);
 
-    dismiss("/settings/lists");
+    await dismiss("/settings/lists");
 
     expect(mockRouter.replace).toHaveBeenCalledWith("/settings/lists");
     expect(mockRouter.back).not.toHaveBeenCalled();
@@ -54,11 +54,11 @@ describe("useDismissModal", () => {
 
   // `canGoBack` is also true for a tab-jump "back" — popping would throw the
   // user out of Settings instead of landing on `fallback` (DEX-93).
-  it("ignores canGoBack, which cannot tell a stack pop from a tab jump", () => {
+  it("ignores canGoBack, which cannot tell a stack pop from a tab jump", async () => {
     mockRouter.canDismiss.mockReturnValue(false);
     mockRouter.canGoBack.mockReturnValue(true);
 
-    dismiss("/settings/tasks");
+    await dismiss("/settings/tasks");
 
     expect(mockRouter.replace).toHaveBeenCalledWith("/settings/tasks");
     expect(mockRouter.back).not.toHaveBeenCalled();

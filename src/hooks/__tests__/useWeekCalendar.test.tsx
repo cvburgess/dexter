@@ -7,14 +7,17 @@ import { settleQueries } from "@/testUtils/settleQueries";
 
 import { WEEK_CALENDAR_KEY, useWeekCalendar } from "../useWeekCalendar";
 
-const renderWeekCalendar = () => {
+const renderWeekCalendar = async () => {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
-  return { client, ...renderHook(() => useWeekCalendar(), { wrapper }) };
+  return {
+    client,
+    ...(await renderHook(() => useWeekCalendar(), { wrapper })),
+  };
 };
 
 describe("useWeekCalendar", () => {
@@ -23,19 +26,19 @@ describe("useWeekCalendar", () => {
   });
 
   it("restores a toggle on a fresh launch", async () => {
-    const first = renderWeekCalendar();
+    const first = await renderWeekCalendar();
     await act(() => first.result.current[1].toggle());
     await settleQueries(first.client);
     expect(first.result.current[0]).toBe(true);
 
     // A new client stands in for a relaunch: only AsyncStorage carries over.
-    const second = renderWeekCalendar();
+    const second = await renderWeekCalendar();
     await settleQueries(second.client);
     expect(second.result.current[0]).toBe(true);
   });
 
   it("lands off after two quick toggles", async () => {
-    const { client, result } = renderWeekCalendar();
+    const { client, result } = await renderWeekCalendar();
 
     // Both fire before a re-render; closing over `data` would leave it on.
     const { toggle } = result.current[1];

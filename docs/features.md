@@ -99,9 +99,8 @@ only since DEX-105) autosaves `journals.prompts` wholesale; responses are plain
 text; both rituals edit the same per-date entry, each rendering **its own half**
 of it (DEX-151).
 
-The note editor is WYSIWYG, not a markdown-syntax editor. On iOS a typed `# `,
-`- ` or `1. ` converts the line into that block (a patched upstream feature — see
-`docs/frontend.md`); on Android it stays literal until reparsed on reload.
+The note editor is WYSIWYG, not a markdown-syntax editor. A typed `# `, `- ` or
+`1. ` converts the line into that block.
 Headings and lists are also custom items in the native selection menu (DEX-201),
 which the library builds only once text is selected; a keyboard-anchored toolbar
 was rejected because it hides behind the tab bar under a hardware keyboard.
@@ -834,13 +833,12 @@ a write over an optional field. Templates have no counterpart, for the same reas
 they have no `due_on` — a link belongs to the task, not the schedule that mints
 it.
 
-Sharing into Dexter (`expo-share-intent`; native — dev-client rebuild, inert on
-web): `app/+native-intent.tsx` must swallow the extension's `dexter://dataUrl=…`
-redirect or the router lands on Unmatched Route with the modal over it. **Let the
-provider do the listening** — its `useShareIntent` already covers every arrival
-path and publishes `hasShareIntent` only once the payload is populated;
-re-subscribing underneath it re-derives that boolean through a second path that
-drifts (as magic-meal-kit does). The redirect effect must wait on
+Sharing into Dexter (`expo-sharing`; native — dev-client rebuild, inert on web):
+`app/+native-intent.tsx` must swallow the extension's `dexter://expo-sharing`
+redirect or the router lands on Unmatched Route with the modal over it. **Let
+`useIncomingShare` do the listening**; its `clearSharedPayloads` empties only
+native storage, so the redirect also calls `refreshSharePayloads`, or one share
+opens two modals. The redirect effect must wait on
 **`useRootNavigationState()?.key`** — on a cold start the payload can arrive before
 any navigator exists and the push is dropped silently. Known gap: sharing while
 signed out loses the link (route params don't survive the login redirect).

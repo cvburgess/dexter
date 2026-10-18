@@ -34,16 +34,16 @@ describe("TasksSettingsLayout", () => {
 
   // This screen is this stack's root, so a header declared here would render
   // with no back button and no swipe-back regardless of what's underneath (DEX-93).
-  it("leaves the list's header to the parent settings stack", () => {
-    const screen = render(<TasksSettingsLayout />);
+  it("leaves the list's header to the parent settings stack", async () => {
+    const screen = await render(<TasksSettingsLayout />);
 
     expect(
       screen.getByText("screen:index|header:hidden|presentation:card"),
     ).toBeTruthy();
   });
 
-  it("presents the editor as a form sheet with its own header", () => {
-    const screen = render(<TasksSettingsLayout />);
+  it("presents the editor as a form sheet with its own header", async () => {
+    const screen = await render(<TasksSettingsLayout />);
 
     expect(
       screen.getByText("screen:[id]|header:shown|presentation:formSheet"),

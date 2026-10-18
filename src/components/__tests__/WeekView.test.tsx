@@ -62,8 +62,8 @@ const mockToggleCalendar = jest.fn();
 const monday = Temporal.PlainDate.from("2026-07-13");
 const thursday = "2026-07-16";
 
-const renderWeek = ({ enableCalendar = false } = {}) =>
-  render(
+const renderWeek = async ({ enableCalendar = false } = {}) =>
+  await render(
     <WeekView
       enableCalendar={enableCalendar}
       monday={monday}
@@ -75,7 +75,10 @@ const renderWeek = ({ enableCalendar = false } = {}) =>
   );
 
 /** The drop handlers the drax stub passed to a target. */
-const targetProps = (screen: ReturnType<typeof render>, testID: string) =>
+const targetProps = (
+  screen: Awaited<ReturnType<typeof render>>,
+  testID: string,
+) =>
   screen.getByTestId(testID).props as {
     acceptsDrag: (payload: unknown) => boolean;
     onReceiveDragDrop: (event: { dragged: { payload?: unknown } }) => void;
@@ -99,8 +102,8 @@ beforeEach(() => {
 });
 
 describe("WeekView drag-to-schedule", () => {
-  it("makes every day of the week a drop target", () => {
-    const screen = renderWeek();
+  it("makes every day of the week a drop target", async () => {
+    const screen = await renderWeek();
 
     for (let offset = 0; offset < 7; offset += 1) {
       const day = monday.add({ days: offset }).toString();
@@ -108,8 +111,8 @@ describe("WeekView drag-to-schedule", () => {
     }
   });
 
-  it("schedules a task dropped on a column for that column's day", () => {
-    const screen = renderWeek();
+  it("schedules a task dropped on a column for that column's day", async () => {
+    const screen = await renderWeek();
 
     targetProps(screen, `week-drop-${thursday}`).onReceiveDragDrop({
       dragged: { payload: { taskId: "task-1" } },
@@ -121,8 +124,8 @@ describe("WeekView drag-to-schedule", () => {
     });
   });
 
-  it("refuses a task dropped back on the day it is already scheduled for", () => {
-    const screen = renderWeek();
+  it("refuses a task dropped back on the day it is already scheduled for", async () => {
+    const screen = await renderWeek();
 
     expect(
       targetProps(screen, "week-drop-2026-07-13").acceptsDrag({
@@ -133,9 +136,9 @@ describe("WeekView drag-to-schedule", () => {
 
   // The drawer is docked outside the horizontal scroller, so it stays put and
   // reachable while the week scrolls under it.
-  it("unschedules a task dropped on the docked backlog", () => {
-    const screen = renderWeek();
-    fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
+  it("unschedules a task dropped on the docked backlog", async () => {
+    const screen = await renderWeek();
+    await fireEvent.press(screen.getByLabelText("Toggle task drawer pane"));
 
     targetProps(screen, "backlog-drop-target").onReceiveDragDrop({
       dragged: { payload: { taskId: "task-1" } },
@@ -147,8 +150,8 @@ describe("WeekView drag-to-schedule", () => {
     });
   });
 
-  it("has no backlog drop target until the drawer is open", () => {
-    const screen = renderWeek();
+  it("has no backlog drop target until the drawer is open", async () => {
+    const screen = await renderWeek();
 
     expect(screen.queryByTestId("backlog-drop-target")).toBeNull();
   });
@@ -157,10 +160,10 @@ describe("WeekView drag-to-schedule", () => {
 describe("WeekView calendar toggle (DEX-186)", () => {
   // The stored toggle outlives the setting: turning the calendar off in
   // Settings must hide both the button and the events.
-  it("ignores a stored toggle while the calendar is disabled", () => {
+  it("ignores a stored toggle while the calendar is disabled", async () => {
     mockUseWeekCalendar.mockReturnValue([true, { toggle: mockToggleCalendar }]);
 
-    const screen = renderWeek({ enableCalendar: false });
+    const screen = await renderWeek({ enableCalendar: false });
 
     expect(screen.queryByLabelText("Toggle calendar events")).toBeNull();
     expect(screen.queryAllByText(/calendar=true/)).toHaveLength(0);
@@ -168,9 +171,9 @@ describe("WeekView calendar toggle (DEX-186)", () => {
 });
 
 describe("WeekView column width", () => {
-  const columnWidthAfterLayout = (viewportWidth: number) => {
-    const screen = renderWeek();
-    fireEvent(screen.getByTestId("week-scroll"), "layout", {
+  const columnWidthAfterLayout = async (viewportWidth: number) => {
+    const screen = await renderWeek();
+    await fireEvent(screen.getByTestId("week-scroll"), "layout", {
       nativeEvent: {
         layout: { x: 0, y: 0, width: viewportWidth, height: 800 },
       },
@@ -179,20 +182,20 @@ describe("WeekView column width", () => {
       const day = monday.add({ days: offset }).toString();
       return StyleSheet.flatten(
         screen.getByTestId(`week-drop-${day}`).props.style,
-      ).width;
+      )!.width;
     });
   };
 
   // The explicit width is what lets each card's menu host stretch (DEX-222).
-  it("splits a wide viewport evenly across the seven columns", () => {
+  it("splits a wide viewport evenly across the seven columns", async () => {
     const gap = 16;
-    expect(columnWidthAfterLayout(1400)).toEqual(
+    expect(await columnWidthAfterLayout(1400)).toEqual(
       Array(7).fill((1400 - 6 * gap) / 7),
     );
   });
 
-  it("holds columns at their minimum width when the week overflows", () => {
-    expect(columnWidthAfterLayout(600)).toEqual(
+  it("holds columns at their minimum width when the week overflows", async () => {
+    expect(await columnWidthAfterLayout(600)).toEqual(
       Array(7).fill(WEEK_COLUMN_MIN_WIDTH),
     );
   });

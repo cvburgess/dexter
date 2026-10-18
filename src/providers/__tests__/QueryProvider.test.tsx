@@ -24,7 +24,7 @@ describe("QueryProvider error routing", () => {
   it("reports failed queries to Sentry", async () => {
     const error = new Error("query failed");
 
-    const { result } = renderHook(
+    const { result } = await renderHook(
       () =>
         useQuery({
           queryKey: ["sentry-test-query"],
@@ -49,7 +49,7 @@ describe("QueryProvider error routing", () => {
       message: 'duplicate key value violates unique constraint "pkey"',
     };
 
-    const { result } = renderHook(
+    const { result } = await renderHook(
       () =>
         useQuery({
           queryKey: ["sentry-postgrest-query"],
@@ -76,7 +76,7 @@ describe("QueryProvider error routing", () => {
   it("reports failed mutations to Sentry", async () => {
     const error = new Error("mutation failed");
 
-    const { result } = renderHook(
+    const { result } = await renderHook(
       () =>
         useMutation({
           mutationKey: ["sentry-test-mutation"],
@@ -99,8 +99,8 @@ describe("QueryProvider error routing", () => {
 });
 
 describe("QueryProvider freshness defaults", () => {
-  it("gives Supabase-backed queries a shared default staleTime", () => {
-    const { result } = renderHook(() => useQueryClient(), {
+  it("gives Supabase-backed queries a shared default staleTime", async () => {
+    const { result } = await renderHook(() => useQueryClient(), {
       wrapper: QueryProvider,
     });
 
@@ -109,10 +109,10 @@ describe("QueryProvider freshness defaults", () => {
     );
   });
 
-  it("ties focusManager to AppState so foregrounding refetches stale queries", () => {
+  it("ties focusManager to AppState so foregrounding refetches stale queries", async () => {
     const addEventListenerSpy = jest.spyOn(AppState, "addEventListener");
 
-    renderHook(() => null, { wrapper: QueryProvider });
+    await renderHook(() => null, { wrapper: QueryProvider });
 
     expect(addEventListenerSpy).toHaveBeenCalledWith(
       "change",
@@ -120,10 +120,10 @@ describe("QueryProvider freshness defaults", () => {
     );
     const handleChange = addEventListenerSpy.mock.calls[0][1];
 
-    act(() => handleChange("background"));
+    await act(() => handleChange("background"));
     expect(focusManager.isFocused()).toBe(false);
 
-    act(() => handleChange("active"));
+    await act(() => handleChange("active"));
     expect(focusManager.isFocused()).toBe(true);
 
     addEventListenerSpy.mockRestore();

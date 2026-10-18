@@ -36,42 +36,42 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 );
 
 describe("CalendarSourceList (web / .ics feeds)", () => {
-  const renderWith = (calendarUrls: string[]) => {
+  const renderWith = async (calendarUrls: string[]) => {
     mockUsePreferences.mockReturnValue([
       { calendarUrls } as never,
       { updatePreferences: mockUpdate },
     ]);
-    return render(<WebSourceList />);
+    return await render(<WebSourceList />);
   };
 
   beforeEach(() => jest.clearAllMocks());
 
   // "Add feed" lives in the nav header (setOptions), not the list's tree —
   // render the latest headerRight to press it.
-  const renderHeader = () =>
-    render(mockSetOptions.mock.calls.at(-1)?.[0].headerRight());
+  const renderHeader = async () =>
+    await render(mockSetOptions.mock.calls.at(-1)?.[0].headerRight());
 
-  it("appends an empty feed when the header's + is pressed", () => {
-    renderWith([]);
-    const header = renderHeader();
-    fireEvent.press(header.getByTestId("add-feed-button"));
+  it("appends an empty feed when the header's + is pressed", async () => {
+    await renderWith([]);
+    const header = await renderHeader();
+    await fireEvent.press(header.getByTestId("add-feed-button"));
     expect(mockUpdate).toHaveBeenCalledWith({ calendarUrls: [""] });
   });
 
-  it("clears the header's + when the list unmounts", () => {
-    const screen = renderWith([]);
-    screen.unmount();
+  it("clears the header's + when the list unmounts", async () => {
+    const screen = await renderWith([]);
+    await screen.unmount();
     expect(mockSetOptions).toHaveBeenLastCalledWith({ headerRight: undefined });
   });
 
-  it("commits an edited feed on blur, replacing it by index", () => {
-    const screen = renderWith([
+  it("commits an edited feed on blur, replacing it by index", async () => {
+    const screen = await renderWith([
       "https://a.example/one.ics",
       "https://a.example/two.ics",
     ]);
     const input = screen.getByLabelText("Calendar feed 1");
-    fireEvent.changeText(input, "https://a.example/edited.ics");
-    fireEvent(input, "blur");
+    await fireEvent.changeText(input, "https://a.example/edited.ics");
+    await fireEvent(input, "blur");
     expect(mockUpdate).toHaveBeenCalledWith({
       calendarUrls: [
         "https://a.example/edited.ics",
@@ -80,12 +80,12 @@ describe("CalendarSourceList (web / .ics feeds)", () => {
     });
   });
 
-  it("removes a feed by index", () => {
-    const screen = renderWith([
+  it("removes a feed by index", async () => {
+    const screen = await renderWith([
       "https://a.example/one.ics",
       "https://a.example/two.ics",
     ]);
-    fireEvent.press(screen.getByTestId("delete-feed-0"));
+    await fireEvent.press(screen.getByTestId("delete-feed-0"));
     expect(mockUpdate).toHaveBeenCalledWith({
       calendarUrls: ["https://a.example/two.ics"],
     });
@@ -112,16 +112,16 @@ describe("CalendarSourceList (native / device calendars)", () => {
   });
 
   it("lists device calendars, all enabled by default", async () => {
-    const screen = render(<NativeSourceList />, { wrapper });
+    const screen = await render(<NativeSourceList />, { wrapper });
     await waitFor(() => expect(screen.getByLabelText("Work")).toBeTruthy());
     expect(screen.getByLabelText("Work").props.value).toBe(true);
     expect(screen.getByLabelText("Home").props.value).toBe(true);
   });
 
   it("materializes the full set before disabling one calendar", async () => {
-    const screen = render(<NativeSourceList />, { wrapper });
+    const screen = await render(<NativeSourceList />, { wrapper });
     await waitFor(() => expect(screen.getByLabelText("Work")).toBeTruthy());
-    fireEvent(screen.getByLabelText("Work"), "valueChange", false);
+    await fireEvent(screen.getByLabelText("Work"), "valueChange", false);
     // From "all enabled" (null), toggling Work off yields an explicit [home].
     expect(mockSetEnabledIds).toHaveBeenCalledWith(["home"]);
   });
@@ -131,7 +131,7 @@ describe("CalendarSourceList (native / device calendars)", () => {
       status: "denied",
       granted: false,
     });
-    const screen = render(<NativeSourceList />, { wrapper });
+    const screen = await render(<NativeSourceList />, { wrapper });
     await waitFor(() =>
       expect(screen.getByText(/Calendar access is off/)).toBeTruthy(),
     );

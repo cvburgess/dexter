@@ -4,6 +4,18 @@ process.env.EXPO_PUBLIC_SUPABASE_URL ??= "https://test.supabase.co";
 process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??= "test-publishable-key";
 
 require("react-native-gesture-handler/jestSetup");
+// Jest resolves Worklets to its web build, whose getUIRuntimeHolder throws;
+// RNGH's own web variant of this binding is the no-op used here.
+jest.mock(
+  "react-native-gesture-handler/lib/module/handlers/gestures/installUIRuntimeBindings",
+  () => ({ installUIRuntimeBindings: () => {} }),
+);
+// RNGH 3 throws for a GestureDetector outside GestureHandlerRootView; the app
+// mounts one in app/_layout.tsx, so tests start inside it.
+jest.mock(
+  "react-native-gesture-handler/lib/module/GestureHandlerRootViewContext",
+  () => ({ __esModule: true, default: require("react").createContext(true) }),
+);
 
 // Plain pass-through list: FlashList v2 schedules state from rAF/timers that
 // outlive synchronous tests (DEX-130). Not its own jestSetup — docs/testing.md.
@@ -205,13 +217,12 @@ jest.mock("expo-alarm-kit", () => ({
 }));
 
 // Default to "no share arrived" so mounting the app takes the normal-launch
-// path; a test that cares re-mocks useShareIntentContext with a payload.
-jest.mock("expo-share-intent", () => ({
-  ShareIntentProvider: ({ children }) => children,
-  useShareIntentContext: jest.fn(() => ({
-    hasShareIntent: false,
-    shareIntent: { text: null, webUrl: null, files: null },
-    resetShareIntent: jest.fn(),
+// path; a test that cares re-mocks useIncomingShare with a payload.
+jest.mock("expo-sharing", () => ({
+  useIncomingShare: jest.fn(() => ({
+    sharedPayloads: [],
+    clearSharedPayloads: jest.fn(),
+    refreshSharePayloads: jest.fn(),
   })),
 }));
 

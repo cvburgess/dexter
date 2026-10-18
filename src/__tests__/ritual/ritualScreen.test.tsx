@@ -157,17 +157,17 @@ afterEach(() => {
 });
 
 describe("RitualScreen", () => {
-  it("opens on today's first step", () => {
-    const screen = render(<RitualScreen />);
+  it("opens on today's first step", async () => {
+    const screen = await render(<RitualScreen />);
 
     expect(screen.getByText(`small:${TODAY}:am:0:0`)).toBeTruthy();
   });
 
   // The seeding rule itself (noon is the boundary) is pinned in
   // utils/__tests__/ritualSteps.test.ts; this only proves the screen asks.
-  it("opens on the evening ritual after noon", () => {
+  it("opens on the evening ritual after noon", async () => {
     jest.setSystemTime(localTime(15));
-    const screen = render(<RitualScreen />);
+    const screen = await render(<RitualScreen />);
 
     expect(screen.getByText(`small:${TODAY}:pm:0:0`)).toBeTruthy();
   });
@@ -177,71 +177,71 @@ describe("RitualScreen", () => {
   describe("the day changing underneath the screen", () => {
     const TOMORROW = "2026-08-10";
 
-    it("starts the new day's ritual from its first step", () => {
-      const screen = render(<RitualScreen />);
-      fireEvent.press(screen.getByLabelText("swipe-forward"));
+    it("starts the new day's ritual from its first step", async () => {
+      const screen = await render(<RitualScreen />);
+      await fireEvent.press(screen.getByLabelText("swipe-forward"));
 
       mockToday.current = today.add({ days: 1 });
       jest.setSystemTime(localTime(9, 10));
-      screen.rerender(<RitualScreen />);
+      await screen.rerender(<RitualScreen />);
 
       expect(screen.getByText(`small:${TOMORROW}:am:0:0`)).toBeTruthy();
     });
 
-    it("re-derives the mode from the clock rather than carrying it over", () => {
+    it("re-derives the mode from the clock rather than carrying it over", async () => {
       // Left open in the evening ritual; the mode has to come back from the
       // clock on the new day, not ride along with the old state.
       jest.setSystemTime(localTime(20));
-      const screen = render(<RitualScreen />);
+      const screen = await render(<RitualScreen />);
       expect(screen.getByText(`small:${TODAY}:pm:0:0`)).toBeTruthy();
 
       mockToday.current = today.add({ days: 1 });
       jest.setSystemTime(localTime(9, 10));
-      screen.rerender(<RitualScreen />);
+      await screen.rerender(<RitualScreen />);
 
       expect(screen.getByText(`small:${TOMORROW}:am:0:0`)).toBeTruthy();
     });
 
-    it("leaves a day the user paged to alone", () => {
-      const screen = render(<RitualScreen />);
-      fireEvent.press(screen.getByLabelText("jump-forward"));
+    it("leaves a day the user paged to alone", async () => {
+      const screen = await render(<RitualScreen />);
+      await fireEvent.press(screen.getByLabelText("jump-forward"));
 
       mockToday.current = today.add({ days: 1 });
       jest.setSystemTime(localTime(9, 10));
-      screen.rerender(<RitualScreen />);
+      await screen.rerender(<RitualScreen />);
 
       expect(screen.getByText("small:2026-08-12:am:0:1")).toBeTruthy();
     });
   });
 
-  it("publishes the viewed day so the create-task modal defaults to it", () => {
-    render(<RitualScreen />);
+  it("publishes the viewed day so the create-task modal defaults to it", async () => {
+    await render(<RitualScreen />);
 
     expect(mockUsePublishViewedDay).toHaveBeenCalledWith(today);
   });
 
-  it("advances a step, travelling forward", () => {
-    const screen = render(<RitualScreen />);
+  it("advances a step, travelling forward", async () => {
+    const screen = await render(<RitualScreen />);
 
-    fireEvent.press(screen.getByLabelText("swipe-forward"));
+    await fireEvent.press(screen.getByLabelText("swipe-forward"));
 
     expect(screen.getByText(`small:${TODAY}:am:1:1`)).toBeTruthy();
   });
 
-  it("stays put when swiped back from the first step", () => {
-    const screen = render(<RitualScreen />);
+  it("stays put when swiped back from the first step", async () => {
+    const screen = await render(<RitualScreen />);
 
-    fireEvent.press(screen.getByLabelText("swipe-back"));
+    await fireEvent.press(screen.getByLabelText("swipe-back"));
 
     expect(screen.getByText(`small:${TODAY}:am:0:0`)).toBeTruthy();
   });
 
-  it("stops at the last step", () => {
-    const screen = render(<RitualScreen />);
+  it("stops at the last step", async () => {
+    const screen = await render(<RitualScreen />);
 
     // Five morning steps, so the sixth swipe has nowhere to go.
     for (let press = 0; press < 6; press++) {
-      fireEvent.press(screen.getByLabelText("swipe-forward"));
+      await fireEvent.press(screen.getByLabelText("swipe-forward"));
     }
 
     expect(screen.getByText(`small:${TODAY}:am:4:1`)).toBeTruthy();
@@ -249,37 +249,37 @@ describe("RitualScreen", () => {
 
   // The switcher hands back an index, so a jump can skip several steps at once
   // and still animate the way it travelled.
-  it("jumps straight to a picked step", () => {
-    const screen = render(<RitualScreen />);
+  it("jumps straight to a picked step", async () => {
+    const screen = await render(<RitualScreen />);
 
-    fireEvent.press(screen.getByLabelText("pick-last-step"));
+    await fireEvent.press(screen.getByLabelText("pick-last-step"));
 
     expect(screen.getByText(`small:${TODAY}:am:4:1`)).toBeTruthy();
   });
 
   // DEX-138: the day moves under the step rather than restarting the ritual, so
   // the same question can be asked of another day without walking back to it.
-  it("holds the step on another day, animating the way it travelled", () => {
-    const screen = render(<RitualScreen />);
+  it("holds the step on another day, animating the way it travelled", async () => {
+    const screen = await render(<RitualScreen />);
 
-    fireEvent.press(screen.getByLabelText("swipe-forward"));
-    fireEvent.press(screen.getByLabelText("jump-forward"));
+    await fireEvent.press(screen.getByLabelText("swipe-forward"));
+    await fireEvent.press(screen.getByLabelText("jump-forward"));
 
     expect(screen.getByText("small:2026-08-12:am:1:1")).toBeTruthy();
   });
 
-  it("restarts the ritual when the mode is switched", () => {
-    const screen = render(<RitualScreen />);
+  it("restarts the ritual when the mode is switched", async () => {
+    const screen = await render(<RitualScreen />);
 
-    fireEvent.press(screen.getByLabelText("swipe-forward"));
-    fireEvent.press(screen.getByLabelText("toggle-mode"));
+    await fireEvent.press(screen.getByLabelText("swipe-forward"));
+    await fireEvent.press(screen.getByLabelText("toggle-mode"));
 
     expect(screen.getByText(`small:${TODAY}:pm:0:1`)).toBeTruthy();
   });
 
   // DEX-105: a journal search result is the only thing that links here.
   describe("a deep link", () => {
-    it("opens on the linked day and step from a cold mount", () => {
+    it("opens on the linked day and step from a cold mount", async () => {
       // The tab mounts lazily, so the first followed result arrives with
       // params already present — this fails only on the first tap otherwise.
       mockUseLocalSearchParams.mockReturnValue({
@@ -288,15 +288,15 @@ describe("RitualScreen", () => {
         n: "1",
       });
 
-      const screen = render(<RitualScreen />);
+      const screen = await render(<RitualScreen />);
 
       // Direction 1: the day jump travels back, then the step jump forward, and
       // the last transition is what the intro animation plays.
       expect(screen.getByText("small:2026-07-12:am:1:1")).toBeTruthy();
     });
 
-    it("follows a link that arrives after mount", () => {
-      const screen = render(<RitualScreen />);
+    it("follows a link that arrives after mount", async () => {
+      const screen = await render(<RitualScreen />);
       expect(screen.getByText(`small:${TODAY}:am:0:0`)).toBeTruthy();
 
       mockUseLocalSearchParams.mockReturnValue({
@@ -304,12 +304,12 @@ describe("RitualScreen", () => {
         step: "journal",
         n: "1",
       });
-      screen.rerender(<RitualScreen />);
+      await screen.rerender(<RitualScreen />);
 
       expect(screen.getByText("small:2026-07-12:am:1:1")).toBeTruthy();
     });
 
-    it("re-applies the same link when it is followed again", () => {
+    it("re-applies the same link when it is followed again", async () => {
       // The nonce is the only thing separating two taps on one result; without
       // it the second would switch tabs and then do nothing.
       mockUseLocalSearchParams.mockReturnValue({
@@ -317,9 +317,9 @@ describe("RitualScreen", () => {
         step: "journal",
         n: "1",
       });
-      const screen = render(<RitualScreen />);
+      const screen = await render(<RitualScreen />);
 
-      fireEvent.press(screen.getByLabelText("swipe-forward"));
+      await fireEvent.press(screen.getByLabelText("swipe-forward"));
       expect(screen.getByText("small:2026-07-12:am:2:1")).toBeTruthy();
 
       mockUseLocalSearchParams.mockReturnValue({
@@ -327,19 +327,19 @@ describe("RitualScreen", () => {
         step: "journal",
         n: "2",
       });
-      screen.rerender(<RitualScreen />);
+      await screen.rerender(<RitualScreen />);
 
       expect(screen.getByText("small:2026-07-12:am:1:-1")).toBeTruthy();
     });
 
-    it("ignores an unrecognized step rather than blanking the ritual", () => {
+    it("ignores an unrecognized step rather than blanking the ritual", async () => {
       mockUseLocalSearchParams.mockReturnValue({
         date: "2026-07-12",
         step: "not-a-step",
         n: "1",
       });
 
-      const screen = render(<RitualScreen />);
+      const screen = await render(<RitualScreen />);
 
       // The day it named still applies — only the step is dropped.
       expect(screen.getByText("small:2026-07-12:am:0:-1")).toBeTruthy();
@@ -356,73 +356,73 @@ describe("RitualScreen", () => {
       { id: "b", prompt: "What went well?", period: "pm" as const },
     ];
 
-    it("drops the journal from the evening when it has no prompts of its own", () => {
+    it("drops the journal from the evening when it has no prompts of its own", async () => {
       mockUsePreferences.mockReturnValue(
         preferences({ templatePrompts: MORNING_ONLY }),
       );
       // Noon or later, so the screen seeds the evening ritual.
       jest.setSystemTime(localTime(13));
 
-      const screen = render(<RitualScreen />);
+      const screen = await render(<RitualScreen />);
 
       // Evening: breathe, open-tasks, review, [journal], preview-tomorrow — so
       // without the journal the fourth step is the last.
       for (let press = 0; press < 4; press++) {
-        fireEvent.press(screen.getByLabelText("swipe-forward"));
+        await fireEvent.press(screen.getByLabelText("swipe-forward"));
       }
 
       expect(screen.getByText(`small:${TODAY}:pm:3:1`)).toBeTruthy();
     });
 
-    it("keeps the journal in the morning when only the evening is empty", () => {
+    it("keeps the journal in the morning when only the evening is empty", async () => {
       mockUsePreferences.mockReturnValue(
         preferences({ templatePrompts: MORNING_ONLY }),
       );
 
-      const screen = render(<RitualScreen />);
+      const screen = await render(<RitualScreen />);
 
       // Morning: horoscope, journal, calendar, backlog, summary — unchanged, so
       // the fifth step is still reachable.
       for (let press = 0; press < 4; press++) {
-        fireEvent.press(screen.getByLabelText("swipe-forward"));
+        await fireEvent.press(screen.getByLabelText("swipe-forward"));
       }
 
       expect(screen.getByText(`small:${TODAY}:am:4:1`)).toBeTruthy();
     });
 
-    it("drops the journal from the morning when it has no prompts of its own", () => {
+    it("drops the journal from the morning when it has no prompts of its own", async () => {
       mockUsePreferences.mockReturnValue(
         preferences({ templatePrompts: EVENING_ONLY }),
       );
 
-      const screen = render(<RitualScreen />);
+      const screen = await render(<RitualScreen />);
 
       // Same shape as turning the preference off: the second step is Calendar.
-      fireEvent.press(screen.getByLabelText("swipe-forward"));
+      await fireEvent.press(screen.getByLabelText("swipe-forward"));
 
       expect(screen.getByText(`small:${TODAY}:am:1:1`)).toBeTruthy();
     });
 
     // Switching rituals re-asks the question, which is the whole point of
     // deriving the flag from the mode rather than the preference alone.
-    it("adds the step back when the user switches to the ritual that has prompts", () => {
+    it("adds the step back when the user switches to the ritual that has prompts", async () => {
       mockUsePreferences.mockReturnValue(
         preferences({ templatePrompts: EVENING_ONLY }),
       );
 
-      const screen = render(<RitualScreen />);
+      const screen = await render(<RitualScreen />);
 
       // Morning has no journal: four steps, so the fourth press does nothing.
       for (let press = 0; press < 4; press++) {
-        fireEvent.press(screen.getByLabelText("swipe-forward"));
+        await fireEvent.press(screen.getByLabelText("swipe-forward"));
       }
       expect(screen.getByText(`small:${TODAY}:am:3:1`)).toBeTruthy();
 
-      fireEvent.press(screen.getByLabelText("toggle-mode"));
+      await fireEvent.press(screen.getByLabelText("toggle-mode"));
 
       // The evening still has its journal, so its list is the full five.
       for (let press = 0; press < 4; press++) {
-        fireEvent.press(screen.getByLabelText("swipe-forward"));
+        await fireEvent.press(screen.getByLabelText("swipe-forward"));
       }
       expect(screen.getByText(`small:${TODAY}:pm:4:1`)).toBeTruthy();
     });
@@ -433,21 +433,21 @@ describe("RitualScreen", () => {
       mockUsePreferences.mockReturnValue(preferences({ enableJournal: false }));
     });
 
-    it("drops the journal step, so the second step is Calendar", () => {
+    it("drops the journal step, so the second step is Calendar", async () => {
       // The step list is a step shorter, so the same index means a different
       // step — the titles themselves are pinned in the ritualSteps tests.
-      const screen = render(<RitualScreen />);
+      const screen = await render(<RitualScreen />);
 
-      fireEvent.press(screen.getByLabelText("swipe-forward"));
+      await fireEvent.press(screen.getByLabelText("swipe-forward"));
 
       expect(screen.getByText(`small:${TODAY}:am:1:1`)).toBeTruthy();
     });
 
-    it("stops one step earlier", () => {
-      const screen = render(<RitualScreen />);
+    it("stops one step earlier", async () => {
+      const screen = await render(<RitualScreen />);
 
       for (let press = 0; press < 6; press++) {
-        fireEvent.press(screen.getByLabelText("swipe-forward"));
+        await fireEvent.press(screen.getByLabelText("swipe-forward"));
       }
 
       expect(screen.getByText(`small:${TODAY}:am:3:1`)).toBeTruthy();
@@ -455,29 +455,29 @@ describe("RitualScreen", () => {
 
     // `usePreferences` serves defaults (journal on) until the row loads, so
     // this is what a cold launch with it disabled actually does.
-    it("keeps the user on the same step when the preference arrives late", () => {
+    it("keeps the user on the same step when the preference arrives late", async () => {
       mockUsePreferences.mockReturnValue(preferences());
-      const screen = render(<RitualScreen />);
+      const screen = await render(<RitualScreen />);
 
       // Calendar: index 2 with the journal, index 1 without it.
-      fireEvent.press(screen.getByLabelText("swipe-forward"));
-      fireEvent.press(screen.getByLabelText("swipe-forward"));
+      await fireEvent.press(screen.getByLabelText("swipe-forward"));
+      await fireEvent.press(screen.getByLabelText("swipe-forward"));
       expect(screen.getByText(`small:${TODAY}:am:2:1`)).toBeTruthy();
 
       mockUsePreferences.mockReturnValue(preferences({ enableJournal: false }));
-      screen.rerender(<RitualScreen />);
+      await screen.rerender(<RitualScreen />);
 
       expect(screen.getByText(`small:${TODAY}:am:1:0`)).toBeTruthy();
     });
 
-    it("refuses a journal deep link rather than landing somewhere arbitrary", () => {
+    it("refuses a journal deep link rather than landing somewhere arbitrary", async () => {
       mockUseLocalSearchParams.mockReturnValue({
         date: "2026-07-12",
         step: "journal",
         n: "1",
       });
 
-      const screen = render(<RitualScreen />);
+      const screen = await render(<RitualScreen />);
 
       expect(screen.getByText("small:2026-07-12:am:0:-1")).toBeTruthy();
     });
@@ -490,31 +490,31 @@ describe("RitualScreen", () => {
       );
     });
 
-    it("drops the calendar step, so the third step is Backlog", () => {
-      const screen = render(<RitualScreen />);
+    it("drops the calendar step, so the third step is Backlog", async () => {
+      const screen = await render(<RitualScreen />);
 
-      fireEvent.press(screen.getByLabelText("swipe-forward"));
-      fireEvent.press(screen.getByLabelText("swipe-forward"));
+      await fireEvent.press(screen.getByLabelText("swipe-forward"));
+      await fireEvent.press(screen.getByLabelText("swipe-forward"));
 
       expect(screen.getByText(`small:${TODAY}:am:2:1`)).toBeTruthy();
     });
 
-    it("stops one step earlier", () => {
-      const screen = render(<RitualScreen />);
+    it("stops one step earlier", async () => {
+      const screen = await render(<RitualScreen />);
 
       for (let press = 0; press < 6; press++) {
-        fireEvent.press(screen.getByLabelText("swipe-forward"));
+        await fireEvent.press(screen.getByLabelText("swipe-forward"));
       }
 
       expect(screen.getByText(`small:${TODAY}:am:3:1`)).toBeTruthy();
     });
 
-    it("leaves the evening ritual, which has no calendar step, alone", () => {
+    it("leaves the evening ritual, which has no calendar step, alone", async () => {
       jest.setSystemTime(localTime(15));
-      const screen = render(<RitualScreen />);
+      const screen = await render(<RitualScreen />);
 
       for (let press = 0; press < 6; press++) {
-        fireEvent.press(screen.getByLabelText("swipe-forward"));
+        await fireEvent.press(screen.getByLabelText("swipe-forward"));
       }
 
       expect(screen.getByText(`small:${TODAY}:pm:4:1`)).toBeTruthy();
@@ -530,43 +530,43 @@ describe("RitualScreen", () => {
 
     // The horoscope is the morning ritual's first step, so this is the one
     // preference that changes where the ritual opens.
-    it("drops the horoscope step, so the second step is Calendar", () => {
-      const screen = render(<RitualScreen />);
+    it("drops the horoscope step, so the second step is Calendar", async () => {
+      const screen = await render(<RitualScreen />);
 
-      fireEvent.press(screen.getByLabelText("swipe-forward"));
+      await fireEvent.press(screen.getByLabelText("swipe-forward"));
 
       expect(screen.getByText(`small:${TODAY}:am:1:1`)).toBeTruthy();
     });
 
-    it("stops one step earlier", () => {
-      const screen = render(<RitualScreen />);
+    it("stops one step earlier", async () => {
+      const screen = await render(<RitualScreen />);
 
       for (let press = 0; press < 6; press++) {
-        fireEvent.press(screen.getByLabelText("swipe-forward"));
+        await fireEvent.press(screen.getByLabelText("swipe-forward"));
       }
 
       expect(screen.getByText(`small:${TODAY}:am:3:1`)).toBeTruthy();
     });
 
-    it("leaves the evening ritual, which has no horoscope step, alone", () => {
+    it("leaves the evening ritual, which has no horoscope step, alone", async () => {
       jest.setSystemTime(localTime(15));
-      const screen = render(<RitualScreen />);
+      const screen = await render(<RitualScreen />);
 
       for (let press = 0; press < 6; press++) {
-        fireEvent.press(screen.getByLabelText("swipe-forward"));
+        await fireEvent.press(screen.getByLabelText("swipe-forward"));
       }
 
       expect(screen.getByText(`small:${TODAY}:pm:4:1`)).toBeTruthy();
     });
 
-    it("refuses a horoscope deep link rather than landing somewhere arbitrary", () => {
+    it("refuses a horoscope deep link rather than landing somewhere arbitrary", async () => {
       mockUseLocalSearchParams.mockReturnValue({
         date: "2026-07-12",
         step: "horoscope",
         n: "1",
       });
 
-      const screen = render(<RitualScreen />);
+      const screen = await render(<RitualScreen />);
 
       expect(screen.getByText("small:2026-07-12:am:0:-1")).toBeTruthy();
     });
@@ -574,33 +574,33 @@ describe("RitualScreen", () => {
 
   // The horoscope defaults *on*, so its late arrival takes a step away like the
   // journal's rather than adding one like the calendar's.
-  it("keeps the user on the same step when the horoscope preference arrives late", () => {
-    const screen = render(<RitualScreen />);
+  it("keeps the user on the same step when the horoscope preference arrives late", async () => {
+    const screen = await render(<RitualScreen />);
 
     // Calendar: index 2 with the horoscope, index 1 without it.
-    fireEvent.press(screen.getByLabelText("swipe-forward"));
-    fireEvent.press(screen.getByLabelText("swipe-forward"));
+    await fireEvent.press(screen.getByLabelText("swipe-forward"));
+    await fireEvent.press(screen.getByLabelText("swipe-forward"));
     expect(screen.getByText(`small:${TODAY}:am:2:1`)).toBeTruthy();
 
     mockUsePreferences.mockReturnValue(preferences({ enableHoroscope: false }));
-    screen.rerender(<RitualScreen />);
+    await screen.rerender(<RitualScreen />);
 
     expect(screen.getByText(`small:${TODAY}:am:1:0`)).toBeTruthy();
   });
 
   // The calendar preference defaults off, so this runs opposite the journal's
   // late arrival: an enabled user's ritual gains a step after mount.
-  it("adds the calendar step when the preference arrives late", () => {
+  it("adds the calendar step when the preference arrives late", async () => {
     mockUsePreferences.mockReturnValue(preferences({ enableCalendar: false }));
-    const screen = render(<RitualScreen />);
+    const screen = await render(<RitualScreen />);
 
     // Backlog: index 2 without the calendar, index 3 with it.
-    fireEvent.press(screen.getByLabelText("swipe-forward"));
-    fireEvent.press(screen.getByLabelText("swipe-forward"));
+    await fireEvent.press(screen.getByLabelText("swipe-forward"));
+    await fireEvent.press(screen.getByLabelText("swipe-forward"));
     expect(screen.getByText(`small:${TODAY}:am:2:1`)).toBeTruthy();
 
     mockUsePreferences.mockReturnValue(preferences());
-    screen.rerender(<RitualScreen />);
+    await screen.rerender(<RitualScreen />);
 
     expect(screen.getByText(`small:${TODAY}:am:3:0`)).toBeTruthy();
   });
@@ -610,8 +610,8 @@ describe("RitualScreen", () => {
       mockUseIsLargeDevice.mockReturnValue(true);
     });
 
-    it("renders the wide layout instead of the phone one", () => {
-      const screen = render(<RitualScreen />);
+    it("renders the wide layout instead of the phone one", async () => {
+      const screen = await render(<RitualScreen />);
 
       expect(screen.getByText(`large:${TODAY}:am:0`)).toBeTruthy();
       expect(screen.queryByText(/^small:/)).toBeNull();
@@ -619,26 +619,26 @@ describe("RitualScreen", () => {
 
     // One state serves both layouts — the ritual is the same ritual whatever
     // the window size, which is the point of dropping the separate modal.
-    it("drives the same step state as the phone layout", () => {
-      const screen = render(<RitualScreen />);
+    it("drives the same step state as the phone layout", async () => {
+      const screen = await render(<RitualScreen />);
 
-      fireEvent.press(screen.getByLabelText("pick-last-step"));
+      await fireEvent.press(screen.getByLabelText("pick-last-step"));
 
       expect(screen.getByText(`large:${TODAY}:am:4`)).toBeTruthy();
     });
 
     // The swipe is wired on both layouts, unlike Today, where only the phone
     // pages by gesture.
-    it("advances a step when swiped", () => {
-      const screen = render(<RitualScreen />);
+    it("advances a step when swiped", async () => {
+      const screen = await render(<RitualScreen />);
 
-      fireEvent.press(screen.getByLabelText("large-swipe-forward"));
+      await fireEvent.press(screen.getByLabelText("large-swipe-forward"));
 
       expect(screen.getByText(`large:${TODAY}:am:1`)).toBeTruthy();
     });
 
-    it("still publishes the viewed day", () => {
-      render(<RitualScreen />);
+    it("still publishes the viewed day", async () => {
+      await render(<RitualScreen />);
 
       expect(mockUsePublishViewedDay).toHaveBeenCalledWith(today);
     });
