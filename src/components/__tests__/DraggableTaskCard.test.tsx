@@ -1,6 +1,6 @@
 import { act, render } from "@testing-library/react-native";
 import type { ComponentProps, ReactNode } from "react";
-import { ScrollView, Text } from "react-native";
+import { Text, type ScrollViewInstance } from "react-native";
 import { State } from "react-native-gesture-handler";
 import {
   fireGestureHandler,
@@ -67,7 +67,7 @@ const withProvider = (children: ReactNode) => (
 );
 
 /** The props the drax stub received for the drag source. */
-const dragProps = (screen: ReturnType<typeof render>) =>
+const dragProps = (screen: Awaited<ReturnType<typeof render>>) =>
   screen.getByTestId(`task-drag-${task.id}`).props as {
     draggable: boolean;
     receptive: boolean;
@@ -79,9 +79,9 @@ const dragProps = (screen: ReturnType<typeof render>) =>
   };
 
 /** Drives TaskCard's editing callback, which is how the wrapper learns a field is focused. */
-const setEditing = (editing: boolean) => {
+const setEditing = async (editing: boolean) => {
   const last = mockTaskCard.mock.calls.at(-1)?.[0];
-  act(() => last?.onEditingChange?.(editing));
+  await act(() => last?.onEditingChange?.(editing));
 };
 
 beforeEach(() => {
@@ -186,7 +186,7 @@ describe("DraggableTaskCard", () => {
       );
       expect(dragProps(screen).draggable).toBe(true);
 
-      setEditing(true);
+      await setEditing(true);
 
       expect(dragProps(screen).draggable).toBe(false);
     });
@@ -195,9 +195,9 @@ describe("DraggableTaskCard", () => {
       const screen = await render(
         withProvider(<DraggableTaskCard {...cardProps} />),
       );
-      setEditing(true);
+      await setEditing(true);
 
-      setEditing(false);
+      await setEditing(false);
 
       expect(dragProps(screen).draggable).toBe(true);
     });
@@ -206,7 +206,9 @@ describe("DraggableTaskCard", () => {
   // DEX-207: nothing arbitrates Week's native scroll against drax's pan, so a
   // press pauses it — and a release that failed to resume it would freeze the week.
   it("pauses the host scroller while pressed and resumes it on release", async () => {
-    const scrollRef = { current: null } as unknown as AnimatedRef<ScrollView>;
+    const scrollRef = {
+      current: null,
+    } as unknown as AnimatedRef<ScrollViewInstance>;
     await render(
       <DragScheduleProvider pauseScrollRef={scrollRef}>
         <DraggableTaskCard {...cardProps} />

@@ -8,8 +8,8 @@ jest.mock("react-dom", () =>
 );
 
 /** The portal root — the only `div` the component renders itself. */
-const overlayRoot = (screen: ReturnType<typeof render>) =>
-  screen.UNSAFE_root.findAll(
+const overlayRoot = (screen: Awaited<ReturnType<typeof render>>) =>
+  screen.container.queryAll(
     (node) => node.type === "div" && node.props.style?.position === "fixed",
   )[0];
 

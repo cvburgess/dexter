@@ -128,8 +128,8 @@ const selectOption = (label: string, index: number, id: string) => {
 
 // In `act` because it is a captured callback, not a fired event — the state
 // update would otherwise not flush before the assertions run.
-const addSubtask = () =>
-  act(() => mockMoreMenu.mock.calls[0][0].onAddSubtask?.());
+const addSubtask = async () =>
+  await act(() => mockMoreMenu.mock.calls[0][0].onAddSubtask?.());
 
 describe("TaskCard subtasks", () => {
   beforeEach(() => {
@@ -286,7 +286,7 @@ describe("TaskCard subtasks", () => {
       await fireEvent.changeText(input, "Write the annual report");
       await fireEvent(input, "blur");
 
-      rerender(
+      await rerender(
         <TaskCard
           task={{ ...baseTask, title: "Renamed elsewhere" }}
           onUpdate={jest.fn()}
@@ -320,7 +320,7 @@ describe("TaskCard subtasks", () => {
         screen.getByTestId("task-title-task-1-input"),
         "Half typed",
       );
-      unmount();
+      await unmount();
 
       expect(onUpdate).toHaveBeenCalledWith({ title: "Half typed" });
     });
@@ -331,7 +331,7 @@ describe("TaskCard subtasks", () => {
       const onUpdate = jest.fn();
       await renderCard(baseTask, { onUpdate });
 
-      addSubtask();
+      await addSubtask();
 
       expect(screen.getAllByTestId(/^subtask-row-/)).toHaveLength(3);
       // An empty subtask is never persisted.
@@ -342,7 +342,7 @@ describe("TaskCard subtasks", () => {
       const onUpdate = jest.fn();
       await renderCard(baseTask, { onUpdate });
 
-      addSubtask();
+      await addSubtask();
       const input = screen.getByPlaceholderText("Subtask");
       await fireEvent.changeText(input, "Proofread");
       await fireEvent(input, "blur");
@@ -362,7 +362,7 @@ describe("TaskCard subtasks", () => {
     it("keeps a just-added row on screen until the write lands", async () => {
       await renderCard(baseTask);
 
-      addSubtask();
+      await addSubtask();
       const input = screen.getByPlaceholderText("Subtask");
       await fireEvent.changeText(input, "Proofread");
       await fireEvent(input, "blur");
@@ -376,7 +376,7 @@ describe("TaskCard subtasks", () => {
       // in the same commit the local copy is still held in.
       await render(<LiveCard initial={baseTask} />);
 
-      addSubtask();
+      await addSubtask();
       const input = screen.getByPlaceholderText("Subtask");
       await fireEvent.changeText(input, "Proofread");
       await fireEvent(input, "blur");
@@ -389,7 +389,7 @@ describe("TaskCard subtasks", () => {
       const onUpdate = jest.fn();
       await renderCard(baseTask, { onUpdate });
 
-      addSubtask();
+      await addSubtask();
       await fireEvent(screen.getByPlaceholderText("Subtask"), "blur");
 
       expect(screen.getAllByTestId(/^subtask-row-/)).toHaveLength(2);
@@ -402,7 +402,7 @@ describe("TaskCard subtasks", () => {
       const onWrite = jest.fn<void, [Omit<TUpdateTask, "id">]>();
       await render(<LiveCard initial={baseTask} onWrite={onWrite} />);
 
-      addSubtask();
+      await addSubtask();
       const input = screen.getByPlaceholderText("Subtask");
       await fireEvent.changeText(input, "Proofread");
       await fireEvent(input, "submitEditing");
@@ -429,7 +429,7 @@ describe("TaskCard subtasks", () => {
       const onWrite = jest.fn<void, [Omit<TUpdateTask, "id">]>();
       await render(<LiveCard initial={baseTask} onWrite={onWrite} />);
 
-      addSubtask();
+      await addSubtask();
       await fireEvent(screen.getByPlaceholderText("Subtask"), "blur");
 
       // A title:"" entry would fail the MCP server's validation and silently
@@ -444,8 +444,8 @@ describe("TaskCard subtasks", () => {
     it("keeps the second row when Add subtask is tapped twice with nothing typed", async () => {
       await render(<LiveCard initial={baseTask} />);
 
-      addSubtask();
-      addSubtask();
+      await addSubtask();
+      await addSubtask();
 
       // The first row's unmount-commit must not delete the row that replaced it
       // or cancel its edit.
@@ -456,7 +456,7 @@ describe("TaskCard subtasks", () => {
     it("ends the chain when return commits an empty row", async () => {
       await renderCard(baseTask, { onUpdate: jest.fn() });
 
-      addSubtask();
+      await addSubtask();
       await fireEvent(screen.getByPlaceholderText("Subtask"), "submitEditing");
 
       expect(screen.getAllByTestId(/^subtask-row-/)).toHaveLength(2);

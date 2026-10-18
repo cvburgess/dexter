@@ -1,6 +1,5 @@
 import { fireEvent, render } from "@testing-library/react-native";
-import { FlatList, StyleSheet } from "react-native";
-import type { ViewStyle } from "react-native";
+import { StyleSheet } from "react-native";
 
 import SettingsScreen from "@/app/(app)/(tabs)/settings";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
@@ -66,10 +65,10 @@ describe("SettingsScreen", () => {
   it("adds the safe-area bottom inset to the list's own padding", async () => {
     const screen = await renderWithBottomInset(34, <SettingsScreen />);
 
-    const style = StyleSheet.flatten(
-      screen.UNSAFE_getByType(FlatList).props
-        .contentContainerStyle as ViewStyle[],
+    const [list] = screen.container.queryAll(
+      (node) => node.type === "RCTScrollView",
     );
+    const style = StyleSheet.flatten(list.props.contentContainerStyle);
     expect(style.paddingBottom).toBe(Number(style.padding) + 34);
   });
 

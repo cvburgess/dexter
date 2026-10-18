@@ -1,6 +1,5 @@
 import { fireEvent, render } from "@testing-library/react-native";
-import { ScrollView, StyleSheet } from "react-native";
-import type { ViewStyle } from "react-native";
+import { StyleSheet } from "react-native";
 
 import AppearanceScreen from "@/app/(app)/(tabs)/settings/appearance";
 import { EThemeMode } from "@/api/preferences";
@@ -41,6 +40,9 @@ const mockPreferences = (
   ]);
 };
 
+const flatStyle = (style: unknown) =>
+  StyleSheet.flatten(style as Parameters<typeof StyleSheet.flatten>[0])!;
+
 const renderWith = async (overrides = {}) => {
   mockPreferences(overrides);
   return await render(<AppearanceScreen />);
@@ -73,10 +75,10 @@ describe("AppearanceScreen", () => {
     mockPreferences();
     const screen = await renderWithBottomInset(34, <AppearanceScreen />);
 
-    const style = StyleSheet.flatten(
-      screen.UNSAFE_getByType(ScrollView).props
-        .contentContainerStyle as ViewStyle[],
+    const [scrollView] = screen.container.queryAll(
+      (node) => node.type === "RCTScrollView",
     );
+    const style = flatStyle(scrollView.props.contentContainerStyle);
     expect(style.paddingBottom).toBe(Number(style.padding) + 34);
   });
 
@@ -85,8 +87,8 @@ describe("AppearanceScreen", () => {
   it("gives a theme card's swatches and title the same air as the card's inset", async () => {
     const screen = await renderWith();
 
-    const style = StyleSheet.flatten(
-      screen.getByTestId("appearance-theme-dexter").props.style as ViewStyle[],
+    const style = flatStyle(
+      screen.getByTestId("appearance-theme-dexter").props.style,
     );
     expect(style.gap).toBe(style.padding);
   });
@@ -98,7 +100,7 @@ describe("AppearanceScreen", () => {
 
     const swatches = screen.getByTestId("appearance-swatches-dexter");
     for (const swatch of swatches.props.children) {
-      const style = StyleSheet.flatten(swatch.props.style as ViewStyle);
+      const style = flatStyle(swatch.props.style);
       expect(style.width).toBe(style.height);
       expect(style.borderRadius).toBe(999);
     }

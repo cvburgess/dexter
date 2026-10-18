@@ -1,7 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render } from "@testing-library/react-native";
-import { StyleSheet, TextStyle } from "react-native";
-import type { ReactTestInstance } from "react-test-renderer";
+import { StyleSheet } from "react-native";
+import type { TestInstance } from "test-renderer";
 
 import { ETaskPriority } from "@/api/tasks";
 import { CalendarStep } from "@/components/CalendarStep";
@@ -82,8 +82,8 @@ const renderStep = async ({
 };
 
 /** The color a rendered `<Text>` resolves to, for the hero's ink assertions. */
-const colorOf = (node: ReactTestInstance) =>
-  StyleSheet.flatten(node.props.style as TextStyle).color;
+const colorOf = (node: TestInstance) =>
+  StyleSheet.flatten(node.props.style).color;
 
 beforeEach(() => {
   jest.clearAllMocks();

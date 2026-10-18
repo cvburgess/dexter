@@ -74,20 +74,20 @@ describe("auth guards", () => {
   describe("Index (app/index.tsx)", () => {
     it("shows the loading screen while initializing", async () => {
       mockUseAuth.mockReturnValue(authStates.initializing);
-      expect(await render(<Index />).getByText("loading")).toBeTruthy();
+      expect((await render(<Index />)).getByText("loading")).toBeTruthy();
     });
 
     it("redirects signed-out users to login", async () => {
       mockUseAuth.mockReturnValue(authStates.signedOut);
       expect(
-        await render(<Index />).getByText("redirect:/(auth)/login"),
+        (await render(<Index />)).getByText("redirect:/(auth)/login"),
       ).toBeTruthy();
     });
 
     it("redirects signed-in users to today", async () => {
       mockUseAuth.mockReturnValue(authStates.signedIn);
       expect(
-        await render(<Index />).getByText("redirect:/(app)/(tabs)/today"),
+        (await render(<Index />)).getByText("redirect:/(app)/(tabs)/today"),
       ).toBeTruthy();
     });
   });
@@ -103,14 +103,14 @@ describe("auth guards", () => {
 
     // AppLayout's prefetch needs a real provider; rerender reuses the SAME
     // client so auth transitions can be observed against it.
-    const renderWithQueryClient = (ui: ReactNode) => {
+    const renderWithQueryClient = async (ui: ReactNode) => {
       const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false } },
       });
       const wrap = (inner: ReactNode) => (
         <QueryClientProvider client={queryClient}>{inner}</QueryClientProvider>
       );
-      const result = render(wrap(ui));
+      const result = await render(wrap(ui));
       return {
         ...result,
         queryClient,
@@ -118,17 +118,17 @@ describe("auth guards", () => {
       };
     };
 
-    it("shows the loading screen while initializing", () => {
+    it("shows the loading screen while initializing", async () => {
       mockUseAuth.mockReturnValue(authStates.initializing);
       expect(
-        renderWithQueryClient(<AppLayout />).getByText("loading"),
+        (await renderWithQueryClient(<AppLayout />)).getByText("loading"),
       ).toBeTruthy();
     });
 
-    it("redirects signed-out users to login", () => {
+    it("redirects signed-out users to login", async () => {
       mockUseAuth.mockReturnValue(authStates.signedOut);
       expect(
-        renderWithQueryClient(<AppLayout />).getByText(
+        (await renderWithQueryClient(<AppLayout />)).getByText(
           "redirect:/(auth)/login",
         ),
       ).toBeTruthy();
@@ -136,7 +136,7 @@ describe("auth guards", () => {
 
     it("renders the authenticated stack for signed-in users", async () => {
       mockUseAuth.mockReturnValue(authStates.signedIn);
-      const screen = renderWithQueryClient(<AppLayout />);
+      const screen = await renderWithQueryClient(<AppLayout />);
 
       expect(screen.getByText("stack")).toBeTruthy();
       // A signed-in mount also kicks off the prefetch below, which this test
@@ -147,7 +147,7 @@ describe("auth guards", () => {
     it("prefetches lists and goals once a session exists", async () => {
       mockUseAuth.mockReturnValue(authStates.signedIn);
 
-      const screen = renderWithQueryClient(<AppLayout />);
+      const screen = await renderWithQueryClient(<AppLayout />);
 
       await waitFor(() => expect(mockGetLists).toHaveBeenCalled());
       await waitFor(() => expect(mockGetGoals).toHaveBeenCalled());
@@ -156,10 +156,10 @@ describe("auth guards", () => {
       await settleQueries(screen.queryClient);
     });
 
-    it("does not prefetch while signed out", () => {
+    it("does not prefetch while signed out", async () => {
       mockUseAuth.mockReturnValue(authStates.signedOut);
 
-      renderWithQueryClient(<AppLayout />);
+      await renderWithQueryClient(<AppLayout />);
 
       expect(mockGetLists).not.toHaveBeenCalled();
       expect(mockGetGoals).not.toHaveBeenCalled();
@@ -167,7 +167,7 @@ describe("auth guards", () => {
 
     it("does not re-prefetch for a new session object belonging to the same user", async () => {
       mockUseAuth.mockReturnValue(authStates.signedIn);
-      const screen = renderWithQueryClient(<AppLayout />);
+      const screen = await renderWithQueryClient(<AppLayout />);
       await waitFor(() => expect(mockGetLists).toHaveBeenCalledTimes(1));
 
       // A token refresh reissues a new Session object for the same user; the
@@ -186,7 +186,7 @@ describe("auth guards", () => {
 
     it("clears the whole cache when a session ends outside the explicit log-out flow", async () => {
       mockUseAuth.mockReturnValue(authStates.signedIn);
-      const screen = renderWithQueryClient(<AppLayout />);
+      const screen = await renderWithQueryClient(<AppLayout />);
       await waitFor(() =>
         expect(screen.queryClient.getQueryData(["lists"])).toEqual([]),
       );
@@ -213,9 +213,9 @@ describe("auth guards", () => {
     it("redirects signed-in users into the app", async () => {
       mockUseAuth.mockReturnValue(authStates.signedIn);
       expect(
-        await await render(<AuthLayout />).findByText(
-          "redirect:/(app)/(tabs)/today",
-        ),
+        await (
+          await render(<AuthLayout />)
+        ).findByText("redirect:/(app)/(tabs)/today"),
       ).toBeTruthy();
     });
 
@@ -225,20 +225,20 @@ describe("auth guards", () => {
       await setPendingOAuthAuthorizationId("auth-123");
       mockUseAuth.mockReturnValue(authStates.signedIn);
       expect(
-        await await render(<AuthLayout />).findByText(
-          "redirect:/oauth/consent?authorization_id=auth-123",
-        ),
+        await (
+          await render(<AuthLayout />)
+        ).findByText("redirect:/oauth/consent?authorization_id=auth-123"),
       ).toBeTruthy();
     });
 
     it("renders the auth stack for signed-out users", async () => {
       mockUseAuth.mockReturnValue(authStates.signedOut);
-      expect(await render(<AuthLayout />).getByText("stack")).toBeTruthy();
+      expect((await render(<AuthLayout />)).getByText("stack")).toBeTruthy();
     });
 
     it("renders the auth stack while initializing", async () => {
       mockUseAuth.mockReturnValue(authStates.initializing);
-      expect(await render(<AuthLayout />).getByText("stack")).toBeTruthy();
+      expect((await render(<AuthLayout />)).getByText("stack")).toBeTruthy();
     });
   });
 
@@ -249,15 +249,17 @@ describe("auth guards", () => {
 
     it("shows the loading screen while initializing", async () => {
       mockUseAuth.mockReturnValue(authStates.initializing);
-      expect(await render(<AuthCallback />).getByText("loading")).toBeTruthy();
+      expect(
+        (await render(<AuthCallback />)).getByText("loading"),
+      ).toBeTruthy();
     });
 
     it("redirects signed-in users to today", async () => {
       mockUseAuth.mockReturnValue(authStates.signedIn);
       expect(
-        await await render(<AuthCallback />).findByText(
-          "redirect:/(app)/(tabs)/today",
-        ),
+        await (
+          await render(<AuthCallback />)
+        ).findByText("redirect:/(app)/(tabs)/today"),
       ).toBeTruthy();
     });
 
@@ -265,9 +267,9 @@ describe("auth guards", () => {
       await setPendingOAuthAuthorizationId("auth-123");
       mockUseAuth.mockReturnValue(authStates.signedIn);
       expect(
-        await await render(<AuthCallback />).findByText(
-          "redirect:/oauth/consent?authorization_id=auth-123",
-        ),
+        await (
+          await render(<AuthCallback />)
+        ).findByText("redirect:/oauth/consent?authorization_id=auth-123"),
       ).toBeTruthy();
       // Consumed once, so a later sign-in is not hijacked by the stale id.
       expect(
@@ -278,7 +280,7 @@ describe("auth guards", () => {
     it("falls back to login when there is no session", async () => {
       mockUseAuth.mockReturnValue(authStates.signedOut);
       expect(
-        await render(<AuthCallback />).getByText("redirect:/(auth)/login"),
+        (await render(<AuthCallback />)).getByText("redirect:/(auth)/login"),
       ).toBeTruthy();
     });
   });

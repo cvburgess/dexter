@@ -159,7 +159,7 @@ describe("ReviewStep", () => {
   it("renders nothing rather than a premature quiet day", async () => {
     setDay({ isLoading: true });
 
-    expect(await render(<ReviewStep date={DATE} />).toJSON()).toBeNull();
+    expect((await render(<ReviewStep date={DATE} />)).toJSON()).toBeNull();
   });
 
   describe("the hero", () => {

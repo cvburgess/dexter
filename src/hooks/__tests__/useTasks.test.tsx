@@ -103,9 +103,19 @@ describe("useTasks", () => {
 
   it("fetches under a single stable query key, not one per caller", async () => {
     const { wrapper, queryClient } = createWrapper();
+    // Held open so both callers mount while the fetch is still in flight.
+    let resolveFetch: (tasks: TTask[]) => void = () => {};
+    mockGetTasks.mockReturnValue(
+      new Promise<TTask[]>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
 
     const first = await renderHook(() => useTasks(), { wrapper });
     const second = await renderHook(() => useTasks(), { wrapper });
+    await act(() => {
+      resolveFetch([]);
+    });
 
     // Both callers, not just fetch count — the shared query notifies each on
     // resolve, and returning before that lands outside act() (DEX-130).
@@ -357,12 +367,12 @@ describe("useTasks", () => {
       mockGetTasks.mockResolvedValue(cached);
       mockUpdateTasks.mockResolvedValue(cached);
 
-      const { result } = renderHook(() => useTasks(), { wrapper });
+      const { result } = await renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
         expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual(cached),
       );
 
-      act(() => result.current[1].updateTasks(diffs));
+      await act(() => result.current[1].updateTasks(diffs));
       await waitFor(() => expect(mockUpdateTasks).toHaveBeenCalled());
       await settled();
 
@@ -498,12 +508,12 @@ describe("useTasks", () => {
       queryClient.setQueryData(["templates"], [template]);
       mockUpdateTask.mockResolvedValue([{ ...task, status: ETaskStatus.DONE }]);
 
-      const { result } = renderHook(() => useTasks(), { wrapper });
+      const { result } = await renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
         expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([task]),
       );
 
-      act(() =>
+      await act(() =>
         result.current[1].updateTask({
           id: "task-1",
           status: ETaskStatus.DONE,
@@ -560,12 +570,12 @@ describe("useTasks", () => {
       mockGetTasks.mockResolvedValue([task]);
       mockUpdateTask.mockResolvedValue([{ ...task, status }]);
 
-      const { result } = renderHook(() => useTasks(), { wrapper });
+      const { result } = await renderHook(() => useTasks(), { wrapper });
       await waitFor(() =>
         expect(queryClient.getQueryData<TTask[]>(tasksKey())).toEqual([task]),
       );
 
-      act(() => result.current[1].updateTask({ id: task.id, status }));
+      await act(() => result.current[1].updateTask({ id: task.id, status }));
       await waitFor(() => expect(mockUpdateTask).toHaveBeenCalled());
       await settled();
 

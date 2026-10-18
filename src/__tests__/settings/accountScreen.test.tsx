@@ -1,10 +1,5 @@
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
-import {
-  Alert,
-  StyleSheet,
-  type TextStyle,
-  type ViewStyle,
-} from "react-native";
+import { Alert, StyleSheet } from "react-native";
 
 import AccountScreen from "@/app/(app)/(tabs)/settings/account";
 import { deleteAccount, signOut } from "@/hooks/useAuth";
@@ -12,8 +7,10 @@ import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { themes } from "@/utils/theme";
 
 /** The resolved color of a button's label, for comparing the two variants. */
-const labelColor = (screen: ReturnType<typeof render>, label: string) =>
-  StyleSheet.flatten(screen.getByText(label).props.style as TextStyle[]).color;
+const labelColor = (
+  screen: Awaited<ReturnType<typeof render>>,
+  label: string,
+) => StyleSheet.flatten(screen.getByText(label).props.style).color;
 
 jest.mock("@/hooks/useAuth", () => ({
   signOut: jest.fn(),
@@ -107,9 +104,9 @@ describe("AccountScreen", () => {
     expect(labelColor(screen, "Log Out")).toBe(colors.text);
     expect(labelColor(screen, "Delete Account")).toBe(colors.error);
 
-    expect(StyleSheet.flatten(logOut.props.style as ViewStyle[]).flex).toBe(1);
+    expect(StyleSheet.flatten(logOut.props.style).flex).toBe(1);
     expect(
-      StyleSheet.flatten(deleteAccountButton.props.style as ViewStyle[]).flex,
+      StyleSheet.flatten(deleteAccountButton.props.style).flex,
     ).toBeUndefined();
   });
 
@@ -125,12 +122,12 @@ describe("AccountScreen", () => {
   });
 
   it("does not sign out when the log out is cancelled", async () => {
-    cancelAlert();
+    const alert = cancelAlert();
 
     const screen = await render(<AccountScreen />);
     await fireEvent.press(screen.getByTestId("settings-log-out-button"));
 
-    await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
+    await waitFor(() => expect(alert).toHaveBeenCalled());
     expect(mockSignOut).not.toHaveBeenCalled();
     expect(mockClear).not.toHaveBeenCalled();
   });
@@ -147,12 +144,12 @@ describe("AccountScreen", () => {
   });
 
   it("does not delete the account when cancelled", async () => {
-    cancelAlert();
+    const alert = cancelAlert();
 
     const screen = await render(<AccountScreen />);
     await fireEvent.press(screen.getByTestId("settings-delete-account-button"));
 
-    await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
+    await waitFor(() => expect(alert).toHaveBeenCalled());
     expect(mockDeleteAccount).not.toHaveBeenCalled();
     expect(mockClear).not.toHaveBeenCalled();
   });

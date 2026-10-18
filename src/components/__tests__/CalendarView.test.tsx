@@ -44,8 +44,8 @@ const READY = {
 const setEvents = (date: Temporal.PlainDate) =>
   mockUseCalendarEvents.mockReturnValue([[eventOn(date)], READY]);
 
-const fireLayout = (node: unknown, height: number) =>
-  fireEvent(node as never, "layout", {
+const fireLayout = async (node: unknown, height: number) =>
+  await fireEvent(node as never, "layout", {
     nativeEvent: { layout: { x: 0, y: 0, width: 300, height } },
   });
 
@@ -71,7 +71,7 @@ beforeEach(() => {
 describe("CalendarView auto-scroll to now", () => {
   it("scrolls the now line into the viewport on first layout", async () => {
     const { getByTestId } = await render(<CalendarView date={TODAY} />);
-    fireLayout(getByTestId("calendar-scroll"), 600);
+    await fireLayout(getByTestId("calendar-scroll"), 600);
 
     expect(scrollToSpy).toHaveBeenCalledTimes(1);
     const [arg] = scrollToSpy.mock.calls[0] as [
@@ -86,7 +86,7 @@ describe("CalendarView auto-scroll to now", () => {
     setEvents(TOMORROW);
 
     const { getByTestId } = await render(<CalendarView date={TOMORROW} />);
-    fireLayout(getByTestId("calendar-scroll"), 600);
+    await fireLayout(getByTestId("calendar-scroll"), 600);
 
     expect(scrollToSpy).not.toHaveBeenCalled();
   });
@@ -94,9 +94,9 @@ describe("CalendarView auto-scroll to now", () => {
   it("scrolls only once even if layout fires repeatedly", async () => {
     const { getByTestId } = await render(<CalendarView date={TODAY} />);
     const scroll = getByTestId("calendar-scroll");
-    fireLayout(scroll, 600);
-    fireLayout(scroll, 500);
-    fireLayout(scroll, 700);
+    await fireLayout(scroll, 600);
+    await fireLayout(scroll, 500);
+    await fireLayout(scroll, 700);
 
     expect(scrollToSpy).toHaveBeenCalledTimes(1);
   });

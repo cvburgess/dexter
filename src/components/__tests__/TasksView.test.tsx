@@ -1,13 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
-import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-} from "react-native";
-import type { ViewStyle } from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity } from "react-native";
 
 import { renderWithBottomInset } from "@/testUtils/renderWithBottomInset";
 
@@ -114,11 +107,15 @@ const task = (overrides: Partial<TTask> = {}): TTask => ({
   ...overrides,
 });
 
-const listContentStyle = (screen: ReturnType<typeof render>) =>
-  StyleSheet.flatten(
-    screen.UNSAFE_getByType(ScrollView).props
-      .contentContainerStyle as ViewStyle[],
-  );
+type TScreen = Awaited<ReturnType<typeof render>>;
+
+const scrollViews = (screen: TScreen) =>
+  screen.container.queryAll((node) => node.type === "RCTScrollView");
+
+const listContentStyle = (screen: TScreen) => {
+  const [list] = scrollViews(screen);
+  return StyleSheet.flatten(list.props.contentContainerStyle);
+};
 
 const confirmAlert = () =>
   jest.spyOn(Alert, "alert").mockImplementation((_title, _message, buttons) => {
@@ -162,7 +159,7 @@ describe("TasksView", () => {
     // UIKit resolves a tab's content scroll view once, at mount; an empty
     // state that replaced the scroller left the tab bar nothing to minimize.
     const screen = await render(<TasksView date={date} />);
-    expect(screen.UNSAFE_getByType(ScrollView)).toBeTruthy();
+    expect(scrollViews(screen)).toHaveLength(1);
   });
 
   it("does not show the empty state while tasks are loading", async () => {
@@ -232,13 +229,13 @@ describe("TasksView", () => {
   });
 
   it("does not delete a task when the confirmation is cancelled", async () => {
-    cancelAlert();
+    const alert = cancelAlert();
     mockUseTasks.mockReturnValue(tasksResult([task()]));
     const screen = await render(<TasksView date={date} />);
 
     await fireEvent.press(screen.getByLabelText("delete-task-1"));
 
-    await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
+    await waitFor(() => expect(alert).toHaveBeenCalled());
     expect(mockDeleteTask).not.toHaveBeenCalled();
   });
 

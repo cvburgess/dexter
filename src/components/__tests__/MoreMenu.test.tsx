@@ -5,7 +5,7 @@ import { Text } from "react-native";
 
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import { PRIORITY_OPTIONS } from "@/components/PriorityControl";
-import { useTheme } from "@/utils/theme";
+import { type Theme, useTheme } from "@/utils/theme";
 import { weekStartEnd } from "@/utils/weekStartEnd";
 
 import type { TIconMenuSection } from "../IconMenu.types";
@@ -18,7 +18,10 @@ import {
   type TTemplateMenuAction,
 } from "../MoreMenu";
 
-const theme = renderHook(() => useTheme()).result.current;
+let theme: Theme;
+beforeAll(async () => {
+  theme = (await renderHook(() => useTheme())).result.current;
+});
 
 const makeTask = (overrides: Partial<TTask> = {}): TTask => ({
   id: "task-1",

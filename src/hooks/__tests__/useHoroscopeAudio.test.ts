@@ -157,6 +157,18 @@ describe("useHoroscopeAudio", () => {
     expect(mockSources).toHaveLength(0);
   });
 
+  // Cleanup flags the pending continuation since the effect can't await it.
+  // Must precede every settleDecode(): the decode settles once per file.
+  it("does not start playback when the step blurs before the decode settles", async () => {
+    const { unmount } = await renderHook(() => useHoroscopeAudio(true));
+    await unmount();
+
+    await settleDecode();
+
+    expect(mockAudioContext).not.toHaveBeenCalled();
+    expect(mockSources).toHaveLength(0);
+  });
+
   // The whole run goes onto the audio clock at focus: a held ceiling, a tail
   // ramp landing on the end of the buffer, and nothing ticking in between.
   it("starts at its ceiling with the fades scheduled up front", async () => {
@@ -251,17 +263,5 @@ describe("useHoroscopeAudio", () => {
     // track has taken over the slot.
     jest.advanceTimersByTime(EXIT_FADE_MS * 2);
     expect(mockContexts[0].close).toHaveBeenCalledTimes(1);
-  });
-
-  // Cleanup flags the pending continuation since the effect can't await the
-  // decode — otherwise a blur during load leaves a source with no cleanup.
-  it("does not start playback when the step blurs before the decode settles", async () => {
-    const { unmount } = await renderHook(() => useHoroscopeAudio(true));
-    await unmount();
-
-    await settleDecode();
-
-    expect(mockAudioContext).not.toHaveBeenCalled();
-    expect(mockSources).toHaveLength(0);
   });
 });

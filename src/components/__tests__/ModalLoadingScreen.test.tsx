@@ -1,5 +1,4 @@
 import { fireEvent, render } from "@testing-library/react-native";
-import { ActivityIndicator } from "react-native";
 
 import { ModalLoadingScreen } from "../ModalLoadingScreen";
 
@@ -25,7 +24,9 @@ describe("ModalLoadingScreen", () => {
   it("shows a spinner", async () => {
     const screen = await render(<ModalLoadingScreen fallback="/" />);
 
-    expect(screen.UNSAFE_getByType(ActivityIndicator)).toBeTruthy();
+    expect(
+      screen.container.queryAll((node) => node.type === "ActivityIndicator"),
+    ).toHaveLength(1);
   });
 
   // The whole point of the component: a gate that renders a bare LoadingScreen

@@ -95,7 +95,7 @@ const renderStep = async ({
 };
 
 /** The scroller's horizontal padding — the gutter under test below. */
-const gutterOf = (screen: ReturnType<typeof renderStep>) =>
+const gutterOf = (screen: Awaited<ReturnType<typeof renderStep>>) =>
   StyleSheet.flatten(
     screen.getByTestId("horoscope-scroll").props.contentContainerStyle,
   ).paddingHorizontal;
@@ -214,13 +214,13 @@ describe("HoroscopeStep", () => {
     // The sky belongs to the horoscope, not the panel: an empty or loading
     // step is a plain surface, not a starfield with nothing on it.
     it("lays a starfield behind it, and only once there is one", async () => {
-      expect(await renderStep().getByTestId("horoscope-sky")).toBeTruthy();
+      expect((await renderStep()).getByTestId("horoscope-sky")).toBeTruthy();
 
       expect(
-        await renderStep({ horoscope: null }).queryByTestId("horoscope-sky"),
+        (await renderStep({ horoscope: null })).queryByTestId("horoscope-sky"),
       ).toBeNull();
       expect(
-        await renderStep({ sunSign: null, horoscope: null }).queryByTestId(
+        (await renderStep({ sunSign: null, horoscope: null })).queryByTestId(
           "horoscope-sky",
         ),
       ).toBeNull();
@@ -231,7 +231,7 @@ describe("HoroscopeStep", () => {
     it("draws stars on a light scheme as well", async () => {
       mockUseColorScheme.mockReturnValue("light");
 
-      expect(await renderStep().getByTestId("horoscope-sky")).toBeTruthy();
+      expect((await renderStep()).getByTestId("horoscope-sky")).toBeTruthy();
     });
 
     it("renders the remaining tips below it, and the first one only once", async () => {
@@ -293,7 +293,7 @@ describe("HoroscopeStep", () => {
       });
 
       expect(
-        screen.UNSAFE_root.findAll(
+        screen.container.queryAll(
           (node) =>
             Array.isArray(node.props.style) &&
             node.props.style.some(

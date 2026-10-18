@@ -5,7 +5,11 @@ import { useTheme } from "@/utils/theme";
 
 import { PriorityControl, prioritySelectedColors } from "../PriorityControl";
 
-const theme = renderHook(() => useTheme()).result.current;
+let theme: ReturnType<typeof useTheme>;
+
+beforeAll(async () => {
+  theme = (await renderHook(() => useTheme())).result.current;
+});
 
 describe("PriorityControl", () => {
   it("renders an option for each priority", async () => {
@@ -66,7 +70,7 @@ describe("PriorityControl", () => {
       backgroundColor: theme.colors.priorityContent[ETaskPriority.NEITHER],
     });
 
-    await await screen.rerender(
+    await screen.rerender(
       <PriorityControl
         priority={ETaskPriority.UNPRIORITIZED}
         onChangePriority={jest.fn()}

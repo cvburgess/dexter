@@ -1,9 +1,8 @@
 import { fireEvent, render } from "@testing-library/react-native";
-import { StyleSheet, Text, type StyleProp, type ViewStyle } from "react-native";
+import { StyleSheet, Text } from "react-native";
 
 import { IconMenu } from "../IconMenu.web";
 import { TIconMenuSection } from "../IconMenu.types";
-import { WebOverlay } from "../WebOverlay.web";
 
 // WebOverlay portals to document.body at runtime; render inline so
 // react-test-renderer keeps it in the tree for RNTL queries.
@@ -11,18 +10,22 @@ jest.mock("react-dom", () =>
   require("@/testUtils/mockReactDomPortal").mockReactDomPortal(),
 );
 
-// Host, not composite, elements — every element otherwise renders twice.
+type TScreen = Awaited<ReturnType<typeof render>>;
+type TFlatStyle = NonNullable<ReturnType<typeof StyleSheet.flatten>>;
+
+const flatStyle = (style: unknown): TFlatStyle =>
+  StyleSheet.flatten(style as Parameters<typeof StyleSheet.flatten>[0]) ?? {};
+
 const hostsStyled = (
-  screen: ReturnType<typeof render>,
-  matches: (style: ViewStyle) => boolean,
-) =>
-  screen.UNSAFE_root.findAll((node) => {
-    if (typeof node.type !== "string") return false;
-    const style = StyleSheet.flatten(
-      (node.props as { style?: StyleProp<ViewStyle> }).style,
-    );
-    return matches(style ?? {});
-  });
+  screen: TScreen,
+  matches: (style: TFlatStyle) => boolean,
+) => screen.container.queryAll((node) => matches(flatStyle(node.props.style)));
+
+/** WebOverlay's portal root — the only fixed-position `div` in the tree. */
+const overlayRoots = (screen: TScreen) =>
+  screen.container.queryAll(
+    (node) => node.type === "div" && node.props.style?.position === "fixed",
+  );
 
 const sections: TIconMenuSection[] = [
   {
@@ -81,13 +84,13 @@ describe("IconMenu (web)", () => {
       </IconMenu>,
     );
 
-    expect(screen.UNSAFE_root.findAllByType(WebOverlay)).toHaveLength(0);
+    expect(overlayRoots(screen)).toHaveLength(0);
 
     await fireEvent.press(screen.getByLabelText("Status"), {
       nativeEvent: { clientX: 10, clientY: 10 },
     });
 
-    expect(screen.UNSAFE_root.findAllByType(WebOverlay)).toHaveLength(1);
+    expect(overlayRoots(screen)).toHaveLength(1);
   });
 
   it("calls onSelect and closes the menu when an option is pressed", async () => {
@@ -173,26 +176,25 @@ describe("IconMenu (web)", () => {
   const VIEWPORT = { width: 750, height: 1334 };
 
   /** The menu's own box — the only element carrying both an edge and a lift. */
-  const menuBox = (screen: ReturnType<typeof render>) =>
+  const menuBox = (screen: TScreen) =>
     hostsStyled(
       screen,
-      (style) => (style.borderWidth ?? 0) > 0 && style.boxShadow !== undefined,
+      (style) =>
+        Number(style.borderWidth ?? 0) > 0 && style.boxShadow !== undefined,
     )[0];
 
-  const openAndMeasure = (
-    screen: ReturnType<typeof render>,
+  const openAndMeasure = async (
+    screen: TScreen,
     at: { x: number; y: number },
     measured: { width: number; height: number },
   ) => {
-    fireEvent.press(screen.getByLabelText("Status"), {
+    await fireEvent.press(screen.getByLabelText("Status"), {
       nativeEvent: { clientX: at.x, clientY: at.y },
     });
-    fireEvent(menuBox(screen), "layout", {
+    await fireEvent(menuBox(screen), "layout", {
       nativeEvent: { layout: { x: 0, y: 0, ...measured } },
     });
-    return StyleSheet.flatten(
-      menuBox(screen).props.style as StyleProp<ViewStyle>,
-    );
+    return flatStyle(menuBox(screen).props.style);
   };
 
   const menu = (
@@ -209,7 +211,7 @@ describe("IconMenu (web)", () => {
   // `openAt` clamped x and left y alone entirely.
   it("pulls a menu opened near the bottom edge back on screen", async () => {
     const screen = await render(menu);
-    const style = openAndMeasure(
+    const style = await openAndMeasure(
       screen,
       { x: 10, y: 1300 },
       { width: 220, height: 300 },
@@ -222,7 +224,7 @@ describe("IconMenu (web)", () => {
   // long option label grows the menu past it and back off the right edge.
   it("clamps against the menu's measured width, not its minimum", async () => {
     const screen = await render(menu);
-    const style = openAndMeasure(
+    const style = await openAndMeasure(
       screen,
       { x: 700, y: 10 },
       { width: 400, height: 200 },
@@ -233,7 +235,7 @@ describe("IconMenu (web)", () => {
 
   it("leaves a menu that already fits where it was opened", async () => {
     const screen = await render(menu);
-    const style = openAndMeasure(
+    const style = await openAndMeasure(
       screen,
       { x: 100, y: 100 },
       { width: 220, height: 200 },
@@ -354,7 +356,7 @@ describe("IconMenu (web)", () => {
 
     expect(screen.queryByText("To Do")).toBeNull();
 
-    const wrapper = screen.UNSAFE_root.find(
+    const [wrapper] = screen.container.queryAll(
       (node) => typeof node.props.onContextMenu === "function",
     );
     const preventDefault = jest.fn();
@@ -376,7 +378,7 @@ describe("IconMenu (web)", () => {
     );
 
     expect(
-      screen.UNSAFE_root.findAll(
+      screen.container.queryAll(
         (node) => typeof node.props.onContextMenu === "function",
       ),
     ).toHaveLength(0);

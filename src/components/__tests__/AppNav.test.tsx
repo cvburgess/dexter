@@ -178,7 +178,7 @@ describe("NavRail safe-area insets", () => {
     mockUseIsLargeDevice.mockReturnValue(true);
   });
 
-  const railStyle = (screen: ReturnType<typeof render>) =>
+  const railStyle = (screen: Awaited<ReturnType<typeof render>>) =>
     StyleSheet.flatten(screen.getByLabelText("Main navigation").props.style);
 
   it("absorbs the top, bottom and left insets", async () => {

@@ -1,6 +1,6 @@
 import { fireEvent, render } from "@testing-library/react-native";
 import type { ReactNode } from "react";
-import { StyleSheet, type TextStyle, type ViewStyle } from "react-native";
+import { StyleSheet } from "react-native";
 
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import { themes } from "@/utils/theme";
@@ -91,8 +91,8 @@ describe("TaskCard", () => {
     mockConfirm.mockReset();
   });
 
-  const scheduleVia = (task: TTask, onUpdate: jest.Mock) => {
-    render(
+  const scheduleVia = async (task: TTask, onUpdate: jest.Mock) => {
+    await render(
       <TaskCard
         task={task}
         onUpdate={onUpdate}
@@ -112,7 +112,7 @@ describe("TaskCard", () => {
 
   it("reschedules directly, without confirming, when the task has no alarm", async () => {
     const onUpdate = jest.fn();
-    const onChangeSchedule = scheduleVia(baseTask, onUpdate);
+    const onChangeSchedule = await scheduleVia(baseTask, onUpdate);
 
     await onChangeSchedule("2026-07-20");
 
@@ -123,7 +123,7 @@ describe("TaskCard", () => {
   it("offers to keep the alarm on a reschedule, moving it to the new day", async () => {
     tapAction("Keep alarm");
     const onUpdate = jest.fn();
-    const onChangeSchedule = scheduleVia(alarmTask, onUpdate);
+    const onChangeSchedule = await scheduleVia(alarmTask, onUpdate);
 
     await onChangeSchedule("2026-07-20");
 
@@ -135,7 +135,7 @@ describe("TaskCard", () => {
   it("offers to unset the alarm on a reschedule, clearing it alongside the date", async () => {
     tapAction("Unset alarm");
     const onUpdate = jest.fn();
-    const onChangeSchedule = scheduleVia(alarmTask, onUpdate);
+    const onChangeSchedule = await scheduleVia(alarmTask, onUpdate);
 
     await onChangeSchedule("2026-07-20");
 
@@ -148,7 +148,7 @@ describe("TaskCard", () => {
   it("leaves the task untouched when the reschedule prompt is cancelled", async () => {
     tapAction("Cancel");
     const onUpdate = jest.fn();
-    const onChangeSchedule = scheduleVia(alarmTask, onUpdate);
+    const onChangeSchedule = await scheduleVia(alarmTask, onUpdate);
 
     await onChangeSchedule("2026-07-20");
 
@@ -159,7 +159,7 @@ describe("TaskCard", () => {
   it("unsets the alarm when unscheduling a task that has one (no keep option)", async () => {
     acceptPrompt();
     const onUpdate = jest.fn();
-    const onChangeSchedule = scheduleVia(alarmTask, onUpdate);
+    const onChangeSchedule = await scheduleVia(alarmTask, onUpdate);
 
     await onChangeSchedule(null);
 
@@ -173,7 +173,7 @@ describe("TaskCard", () => {
   it("leaves the task untouched when the unschedule prompt is declined", async () => {
     cancelPrompt();
     const onUpdate = jest.fn();
-    const onChangeSchedule = scheduleVia(alarmTask, onUpdate);
+    const onChangeSchedule = await scheduleVia(alarmTask, onUpdate);
 
     await onChangeSchedule(null);
 
@@ -182,7 +182,7 @@ describe("TaskCard", () => {
 
   it("does not prompt or clear the alarm when re-selecting the current day", async () => {
     const onUpdate = jest.fn();
-    const onChangeSchedule = scheduleVia(alarmTask, onUpdate);
+    const onChangeSchedule = await scheduleVia(alarmTask, onUpdate);
 
     await onChangeSchedule("2026-07-03");
 
@@ -238,7 +238,7 @@ describe("TaskCard", () => {
       expect(mockMoreMenu).not.toHaveBeenCalled();
 
       const title = screen.getByText("Write the report");
-      const flatStyle = StyleSheet.flatten(title.props.style as TextStyle[]);
+      const flatStyle = StyleSheet.flatten(title.props.style);
       expect(flatStyle.textDecorationLine).toBe("line-through");
     },
   );
@@ -262,7 +262,7 @@ describe("TaskCard", () => {
       );
 
       const card = screen.getByTestId("task-card-task-1");
-      const flatStyle = StyleSheet.flatten(card.props.style as ViewStyle[]);
+      const flatStyle = StyleSheet.flatten(card.props.style);
       expect(flatStyle.alignSelf).toBe("stretch");
       expect(flatStyle.minHeight).toBe(64);
     },
@@ -288,10 +288,9 @@ describe("TaskCard", () => {
       />,
     );
 
-    const background = (screen: ReturnType<typeof render>) =>
-      StyleSheet.flatten(
-        screen.getByTestId("task-card-task-1").props.style as ViewStyle[],
-      ).backgroundColor as string;
+    const background = (screen: Awaited<ReturnType<typeof render>>) =>
+      StyleSheet.flatten(screen.getByTestId("task-card-task-1").props.style)
+        .backgroundColor as string;
 
     // DEX-61: incomplete is the solid pre-blended fill; complete fades the raw
     // priority color to a faint tint, so it reads as the fainter of the two.
@@ -305,8 +304,8 @@ describe("TaskCard", () => {
   // DEX-47: the Search tab renders these same cards, but there a tap should
   // open the task rather than start renaming it in place.
   describe("onPress", () => {
-    const renderWithPress = (onPress?: () => void) =>
-      render(
+    const renderWithPress = async (onPress?: () => void) =>
+      await render(
         <TaskCard
           task={baseTask}
           onUpdate={jest.fn()}
@@ -319,7 +318,7 @@ describe("TaskCard", () => {
 
     it("calls onPress instead of entering inline edit when given one", async () => {
       const onPress = jest.fn();
-      const screen = renderWithPress(onPress);
+      const screen = await renderWithPress(onPress);
 
       await fireEvent.press(screen.getByTestId("task-title-task-1"));
 
@@ -329,7 +328,7 @@ describe("TaskCard", () => {
     });
 
     it("still enters inline edit when no onPress is given", async () => {
-      const screen = renderWithPress();
+      const screen = await renderWithPress();
 
       await fireEvent.press(screen.getByTestId("task-title-task-1"));
 

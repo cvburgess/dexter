@@ -76,14 +76,14 @@ const renderWith = async (existing?: TList) => {
   return await render(<ListScreen />);
 };
 
-const close = () => {
-  const header = render(headerOptions().headerLeft());
-  fireEvent.press(header.getByTestId("modal-close-button"));
+const close = async () => {
+  const header = await render(headerOptions().headerLeft());
+  await fireEvent.press(header.getByTestId("modal-close-button"));
 };
 
-const save = () => {
-  const header = render(headerOptions().headerRight());
-  fireEvent.press(header.getByTestId("modal-done-button"));
+const save = async () => {
+  const header = await render(headerOptions().headerRight());
+  await fireEvent.press(header.getByTestId("modal-done-button"));
 };
 
 describe("ListScreen", () => {
@@ -98,7 +98,7 @@ describe("ListScreen", () => {
   it("pops when closed", async () => {
     await renderWith(makeList());
 
-    close();
+    await close();
 
     expect(mockRouter.back).toHaveBeenCalled();
     expect(mockRouter.replace).not.toHaveBeenCalled();
@@ -108,7 +108,7 @@ describe("ListScreen", () => {
     mockUpdateList.mockImplementation((_diff, { onSuccess }) => onSuccess());
     await renderWith(makeList());
 
-    save();
+    await save();
 
     expect(mockRouter.back).toHaveBeenCalled();
     expect(mockRouter.replace).not.toHaveBeenCalled();
@@ -129,7 +129,7 @@ describe("ListScreen", () => {
     mockRouter.canDismiss.mockReturnValue(false);
     await renderWith(makeList());
 
-    close();
+    await close();
 
     expect(mockRouter.back).not.toHaveBeenCalled();
     expect(mockRouter.replace).toHaveBeenCalledWith("/settings/lists");

@@ -128,13 +128,13 @@ describe("ListsScreen", () => {
   it("always shows the header add button", async () => {
     await renderWith();
 
-    expect(await renderHeader().getByLabelText("New list")).toBeTruthy();
+    expect((await renderHeader()).getByLabelText("New list")).toBeTruthy();
   });
 
   it("opens the new-list modal when the add button is pressed", async () => {
     await renderWith();
 
-    await fireEvent.press(await renderHeader().getByLabelText("New list"));
+    await fireEvent.press((await renderHeader()).getByLabelText("New list"));
 
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/settings/lists/[id]",

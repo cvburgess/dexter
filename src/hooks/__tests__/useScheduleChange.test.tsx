@@ -128,9 +128,9 @@ describe("useScheduleChange", () => {
   });
 
   describe("moving a task with an alarm to another day", () => {
-    const move = () => {
-      const { onUpdate, result } = setup();
-      act(() => {
+    const move = async () => {
+      const { onUpdate, result } = await setup();
+      await act(() => {
         void result.current.changeSchedule(
           task({ alarmTime: "09:00:00" }),
           "2026-07-20",
@@ -140,7 +140,7 @@ describe("useScheduleChange", () => {
     };
 
     it("carries the alarm to the new day", async () => {
-      const { onUpdate, result } = move();
+      const { onUpdate, result } = await move();
       expect(result.current.confirmationProps.title).toBe("Reschedule task?");
 
       await press(result, "Keep alarm");
@@ -152,7 +152,7 @@ describe("useScheduleChange", () => {
     });
 
     it("drops the alarm when asked to", async () => {
-      const { onUpdate, result } = move();
+      const { onUpdate, result } = await move();
 
       await press(result, "Unset alarm");
 
@@ -164,7 +164,7 @@ describe("useScheduleChange", () => {
     });
 
     it("leaves the task alone when cancelled", async () => {
-      const { onUpdate, result } = move();
+      const { onUpdate, result } = await move();
 
       await press(result, "Cancel");
 
