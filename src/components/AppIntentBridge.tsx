@@ -67,7 +67,7 @@ export function AppIntentBridge() {
   // Publish the catalogs no earlier than the data backing them has loaded —
   // an empty catalog published during that window would wipe the native one,
   // which the next same-data publish treats as unchanged and does not restore.
-  const catalogPublished = useRef(false);
+  // (`dataReady` above is the guard; this comment records why.)
 
   const applyInvocation = useCallback(
     async (invocation: AppIntentInvocation) => {
@@ -210,7 +210,6 @@ export function AppIntentBridge() {
     // Wait for the first real load before touching the native catalogs; after
     // that, publish every time the data changes (or is refetched).
     if (!isSignedIn || !dataReady) return;
-    catalogPublished.current = true;
     publishCatalogs();
   }, [dataReady, isSignedIn, publishCatalogs]);
 
@@ -230,7 +229,6 @@ export function AppIntentBridge() {
 
     if (isSignedIn) {
       cleanedUpSignedOut.current = false;
-      catalogPublished.current = false;
       return;
     }
     if (cleanedUpSignedOut.current) return;
