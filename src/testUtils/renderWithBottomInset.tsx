@@ -5,11 +5,11 @@ import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 
 // Supplies insets via context rather than re-mocking per file. Passed as
 // RTL's `wrapper`, not around `ui` directly, so rerender() keeps the provider.
-export const renderWithInsets = async (
+export const renderWithInsets = (
   insets: Partial<EdgeInsets>,
   ui: ReactElement,
 ) =>
-  await render(ui, {
+  render(ui, {
     wrapper: ({ children }: { children: ReactNode }) => (
       <SafeAreaInsetsContext.Provider
         value={{ top: 0, right: 0, bottom: 0, left: 0, ...insets }}
