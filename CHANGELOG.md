@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.4.0
+
+- Notes on Android now turn a typed `# `, `- ` or `1. ` into a heading or list, just like on iPhone
+- Fixed bugs and improved the user experience
+
+---
+
+- DEX-233: Upgrade to Expo SDK 58 (RN 0.88, React 19.3)
+- DEX-228: Point pi's dexter MCP server at the new endpoint (#206)
+- DEX-228: Replace legacy MCP server with official Supabase block (#205)
+- DEX-227: Adopt Declarative Schemas 2.0 (pg-delta) as the migration workflow (#204)
+- DEX-226: start the local stack via get-local-stack.sh (#203)
+- DEX-226: Adopt Supabase's Docker-free, per-worktree local stack (#202)
+
 ## v2.3.1
 
 - Dexter on Mac no longer interrupts you about alarms it can't set
