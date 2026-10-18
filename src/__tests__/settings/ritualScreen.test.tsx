@@ -1,8 +1,6 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
-import { ScrollView } from "react-native";
 
 import RitualScreen from "@/app/(app)/(tabs)/settings/ritual";
-import { JournalPeriodMenu } from "@/components/JournalPeriodMenu";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { usePreferences } from "@/hooks/usePreferences";
 import type { TTemplatePrompt } from "@/utils/journalPrompts";
@@ -15,6 +13,18 @@ import {
 
 jest.mock("@/hooks/usePreferences", () => ({ usePreferences: jest.fn() }));
 jest.mock("@/hooks/useIsLargeDevice", () => ({ useIsLargeDevice: jest.fn() }));
+
+// The menu's MenuView double renders only its trigger; a host stand-in keeps
+// the period and onChange props queryable.
+jest.mock("@/components/JournalPeriodMenu", () => {
+  const { createElement } = jest.requireActual<typeof import("react")>("react");
+  const { View } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+  return {
+    JournalPeriodMenu: (props: object) =>
+      createElement(View, { testID: "journal-period-menu", ...props }),
+  };
+});
 
 jest.mock("react-native-safe-area-context", () =>
   require("@/testUtils/mockSafeAreaEdges").mockSafeAreaContext(),
@@ -198,7 +208,7 @@ describe("RitualScreen", () => {
     });
 
     expect(screen.getByLabelText("Journal prompt 1")).toBeTruthy();
-    expect(await renderHeader().getByLabelText("Add prompt")).toBeTruthy();
+    expect((await renderHeader()).getByLabelText("Add prompt")).toBeTruthy();
   });
 
   // Without this a focused prompt stays under the keyboard — the wrapper this
@@ -206,10 +216,10 @@ describe("RitualScreen", () => {
   it("lets iOS inset the scroll content by the keyboard", async () => {
     const screen = await renderWith({ enableJournal: true });
 
-    expect(
-      screen.UNSAFE_getByType(ScrollView).props
-        .automaticallyAdjustKeyboardInsets,
-    ).toBe(true);
+    const [scrollView] = screen.container.queryAll(
+      (node) => node.type === "RCTScrollView",
+    );
+    expect(scrollView.props.automaticallyAdjustKeyboardInsets).toBe(true);
   });
 
   it("reflects the enabled state and toggles it", async () => {
@@ -229,13 +239,13 @@ describe("RitualScreen", () => {
     });
 
     expect(screen.queryByLabelText("Journal prompt 1")).toBeNull();
-    expect(await renderHeader().queryByLabelText("Add prompt")).toBeNull();
+    expect((await renderHeader()).queryByLabelText("Add prompt")).toBeNull();
   });
 
   it("shows the header add button when Journal is enabled", async () => {
     await renderWith({ enableJournal: true });
 
-    expect(await renderHeader().getByLabelText("Add prompt")).toBeTruthy();
+    expect((await renderHeader()).getByLabelText("Add prompt")).toBeTruthy();
   });
 
   it("commits an edited prompt on blur, replacing it by index", async () => {
@@ -273,7 +283,7 @@ describe("RitualScreen", () => {
       templatePrompts: [am("Highlight")],
     });
 
-    await fireEvent.press(await renderHeader().getByLabelText("Add prompt"));
+    await fireEvent.press((await renderHeader()).getByLabelText("Add prompt"));
 
     expect(mockUpdate).toHaveBeenCalledWith({
       // The new prompt's id is minted, so it is matched by shape.
@@ -297,7 +307,7 @@ describe("RitualScreen", () => {
       "What went well?",
     );
     // Re-read the header after the edit so it closes over the latest drafts.
-    await fireEvent.press(await renderHeader().getByLabelText("Add prompt"));
+    await fireEvent.press((await renderHeader()).getByLabelText("Add prompt"));
 
     expect(mockUpdate).toHaveBeenCalledWith({
       templatePrompts: [
@@ -324,15 +334,13 @@ describe("RitualScreen", () => {
     // The `MenuView` double renders only its trigger, so the write is driven
     // through the control's prop — the seam every icon menu here is tested at.
     const changePeriod = (
-      screen: ReturnType<typeof renderWith>,
+      screen: Awaited<ReturnType<typeof renderWith>>,
       row: number,
       period: TRitualMode,
     ) =>
-      // A block body: UNSAFE-queried props are `any`, so returning the call
-      // picks `act`'s async overload and leaves a floating promise.
       act(() => {
         screen
-          .UNSAFE_getAllByType(JournalPeriodMenu)
+          .getAllByTestId("journal-period-menu")
           [row].props.onChange(period);
       });
 
@@ -341,7 +349,7 @@ describe("RitualScreen", () => {
         templatePrompts: [am("Highlight"), pm("What went well?")],
       });
 
-      const menus = screen.UNSAFE_getAllByType(JournalPeriodMenu);
+      const menus = screen.getAllByTestId("journal-period-menu");
       expect(menus).toHaveLength(2);
       expect(menus[0].props.period).toBe("am");
       expect(menus[1].props.period).toBe("pm");
@@ -354,7 +362,7 @@ describe("RitualScreen", () => {
         templatePrompts: [am("Highlight"), am("Grateful for")],
       });
 
-      changePeriod(screen, 0, "pm");
+      await changePeriod(screen, 0, "pm");
 
       expect(mockUpdate).toHaveBeenCalledWith({
         templatePrompts: [
@@ -369,7 +377,7 @@ describe("RitualScreen", () => {
         templatePrompts: [am("Highlight"), pm("What went well?")],
       });
 
-      changePeriod(screen, 1, "am");
+      await changePeriod(screen, 1, "am");
 
       expect(mockUpdate).toHaveBeenCalledWith({
         templatePrompts: [
@@ -386,9 +394,9 @@ describe("RitualScreen", () => {
         templatePrompts: [am("Highlight"), am("Grateful for")],
       });
 
-      changePeriod(screen, 0, "pm");
+      await changePeriod(screen, 0, "pm");
 
-      const menus = screen.UNSAFE_getAllByType(JournalPeriodMenu);
+      const menus = screen.getAllByTestId("journal-period-menu");
       expect(menus.map((menu) => menu.props.period)).toEqual(["pm", "am"]);
       expect(screen.getByLabelText("Journal prompt 1").props.value).toBe(
         "Highlight",
@@ -403,7 +411,9 @@ describe("RitualScreen", () => {
         templatePrompts: [am("Highlight"), pm("What went well?")],
       });
 
-      await fireEvent.press(await renderHeader().getByLabelText("Add prompt"));
+      await fireEvent.press(
+        (await renderHeader()).getByLabelText("Add prompt"),
+      );
 
       expect(mockUpdate).toHaveBeenCalledWith({
         templatePrompts: [
@@ -419,8 +429,12 @@ describe("RitualScreen", () => {
     it("gives each added prompt a distinct id", async () => {
       await renderWith({ templatePrompts: [] });
 
-      await fireEvent.press(await renderHeader().getByLabelText("Add prompt"));
-      await fireEvent.press(await renderHeader().getByLabelText("Add prompt"));
+      await fireEvent.press(
+        (await renderHeader()).getByLabelText("Add prompt"),
+      );
+      await fireEvent.press(
+        (await renderHeader()).getByLabelText("Add prompt"),
+      );
 
       const [first] = mockUpdate.mock.calls[0][0].templatePrompts;
       const added = mockUpdate.mock.calls[1][0].templatePrompts;

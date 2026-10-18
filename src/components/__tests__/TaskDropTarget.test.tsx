@@ -48,7 +48,10 @@ const mockTasks = (tasks: TTask[]) => {
 
 // The props the drax stub passed to the drop target — real drax calls these
 // off its own registry, which is why tests invoke them directly.
-const targetProps = (screen: ReturnType<typeof render>, testID: string) =>
+const targetProps = (
+  screen: Awaited<ReturnType<typeof render>>,
+  testID: string,
+) =>
   screen.getByTestId(testID).props as {
     acceptsDrag: (payload: unknown) => boolean;
     onReceiveDragDrop: (event: { dragged: { payload?: unknown } }) => void;
@@ -177,8 +180,8 @@ describe("TaskDropTarget", () => {
 
   // The Lists tab's columns (DEX-221): same target, keyed on a list instead.
   describe("with a list destination", () => {
-    const renderListTarget = (listId: string | null) =>
-      render(
+    const renderListTarget = async (listId: string | null) =>
+      await render(
         <DragScheduleProvider>
           <TaskDropTarget listId={listId} testID="target">
             <Text>Work</Text>
@@ -186,9 +189,9 @@ describe("TaskDropTarget", () => {
         </DragScheduleProvider>,
       );
 
-    it("assigns a dropped task to the list without touching its date", () => {
+    it("assigns a dropped task to the list without touching its date", async () => {
       mockTasks([task({ scheduledFor: "2026-07-16" })]);
-      const screen = renderListTarget("work");
+      const screen = await renderListTarget("work");
 
       targetProps(screen, "target").onReceiveDragDrop({
         dragged: { payload: { taskId: "task-1" } },
@@ -200,9 +203,9 @@ describe("TaskDropTarget", () => {
       });
     });
 
-    it("clears the list of a task dropped on No List", () => {
+    it("clears the list of a task dropped on No List", async () => {
       mockTasks([task({ listId: "work" })]);
-      const screen = renderListTarget(null);
+      const screen = await renderListTarget(null);
 
       targetProps(screen, "target").onReceiveDragDrop({
         dragged: { payload: { taskId: "task-1" } },
@@ -216,13 +219,13 @@ describe("TaskDropTarget", () => {
 
     it("rejects a task already on this list and accepts one from another", async () => {
       mockTasks([task({ listId: "work" })]);
-      const screen = renderListTarget("work");
+      const screen = await renderListTarget("work");
       const { acceptsDrag } = targetProps(screen, "target");
 
       expect(acceptsDrag({ taskId: "task-1" })).toBe(false);
 
       mockTasks([task({ listId: "home" })]);
-      await await screen.rerender(
+      await screen.rerender(
         <DragScheduleProvider>
           <TaskDropTarget listId="work" testID="target">
             <Text>Work</Text>
@@ -234,10 +237,10 @@ describe("TaskDropTarget", () => {
     });
 
     it("assigns to the target's current list, not the one it mounted with", async () => {
-      const screen = renderListTarget("work");
+      const screen = await renderListTarget("work");
       const captured = targetProps(screen, "target").onReceiveDragDrop;
 
-      await await screen.rerender(
+      await screen.rerender(
         <DragScheduleProvider>
           <TaskDropTarget listId="home" testID="target">
             <Text>Home</Text>
@@ -260,7 +263,7 @@ describe("TaskDropTarget", () => {
       const screen = await renderTarget("2026-07-16");
       const captured = targetProps(screen, "target").onReceiveDragDrop;
 
-      await await screen.rerender(
+      await screen.rerender(
         <DragScheduleProvider>
           <TaskDropTarget scheduledFor="2026-07-20" testID="target">
             <Text>Monday</Text>
@@ -284,7 +287,7 @@ describe("TaskDropTarget", () => {
       // The task moved off this day while the card stayed mounted, so it is a
       // valid drop here again.
       mockTasks([task({ scheduledFor: "2026-07-14" })]);
-      await await screen.rerender(
+      await screen.rerender(
         <DragScheduleProvider>
           <TaskDropTarget scheduledFor="2026-07-16" testID="target">
             <Text>Thursday</Text>

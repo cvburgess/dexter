@@ -1,7 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render } from "@testing-library/react-native";
 import { StyleSheet, Text, TextStyle, ViewStyle } from "react-native";
-import type { ReactTestInstance } from "react-test-renderer";
+import type { TestInstance } from "test-renderer";
 
 import { DayNav } from "../DayNav";
 import { PeriodNav, PeriodNavLabel } from "../PeriodNav";
@@ -16,8 +16,8 @@ jest.mock("../DateField", () => ({ DateField: () => null }));
 // same x only because the slot is this wide regardless of the label.
 const CENTER_SLOT_WIDTH = 160;
 
-const styleOf = (node: ReactTestInstance) =>
-  StyleSheet.flatten<TextStyle & ViewStyle>(node.props.style);
+const styleOf = (node: TestInstance): TextStyle & ViewStyle =>
+  StyleSheet.flatten(node.props.style)!;
 
 describe("PeriodNav", () => {
   const renderNav = (overrides: Partial<typeof props> = {}) =>
@@ -38,7 +38,7 @@ describe("PeriodNav", () => {
     const onPrev = jest.fn();
 
     await fireEvent.press(
-      renderNav({ onPrev }).getByLabelText("Previous thing"),
+      (await renderNav({ onPrev })).getByLabelText("Previous thing"),
     );
 
     expect(onPrev).toHaveBeenCalledTimes(1);
@@ -47,15 +47,17 @@ describe("PeriodNav", () => {
   it("calls onNext when the next chevron is pressed", async () => {
     const onNext = jest.fn();
 
-    await fireEvent.press(renderNav({ onNext }).getByLabelText("Next thing"));
+    await fireEvent.press(
+      (await renderNav({ onNext })).getByLabelText("Next thing"),
+    );
 
     expect(onNext).toHaveBeenCalledTimes(1);
   });
 
   // The slot, not the label, carries the width — so `DayNav`'s calendar picker
   // gets it too, without restating the number.
-  it("sizes the center slot rather than its contents", () => {
-    const screen = renderNav();
+  it("sizes the center slot rather than its contents", async () => {
+    const screen = await renderNav();
 
     expect(styleOf(screen.getByTestId("period-nav-center")).minWidth).toBe(
       CENTER_SLOT_WIDTH,

@@ -52,14 +52,17 @@ describe("useLists", () => {
   it("fetches under a single stable query key, not one per caller", async () => {
     const { wrapper, queryClient } = createWrapper();
 
-    const first = await renderHook(() => useLists(), { wrapper });
-    const second = await renderHook(() => useLists(), { wrapper });
+    // Mounted in one commit, as sibling callers are: a second async render
+    // lands after the first fetch resolved, and a stale query refetches on mount.
+    const { result } = await renderHook(() => [useLists(), useLists()], {
+      wrapper,
+    });
 
     // Both callers, not just fetch count — the shared query notifies each on
     // resolve, and returning before that lands outside act() (DEX-130).
     await waitFor(() => {
-      expect(first.result.current[1].isLoading).toBe(false);
-      expect(second.result.current[1].isLoading).toBe(false);
+      expect(result.current[0][1].isLoading).toBe(false);
+      expect(result.current[1][1].isLoading).toBe(false);
     });
 
     expect(mockGetLists).toHaveBeenCalledTimes(1);

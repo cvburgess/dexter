@@ -1,4 +1,4 @@
-import { act, fireEvent, render } from "@testing-library/react-native";
+import { fireEvent, render } from "@testing-library/react-native";
 import { StyleSheet, TextStyle } from "react-native";
 import { useSharedValue } from "react-native-reanimated";
 
@@ -28,24 +28,23 @@ function Host({ lines = LINES }: { lines?: THeroLine[] }) {
   return <HeroLines lines={lines} reveal={reveal} testID="hero-block" />;
 }
 
-const figure = (screen: ReturnType<typeof render>, key: string) =>
+const figure = (screen: Awaited<ReturnType<typeof render>>, key: string) =>
   screen.getByTestId(`hero-figure-${key}`);
 
-const minWidthOf = (screen: ReturnType<typeof render>, key: string) =>
-  StyleSheet.flatten(figure(screen, key).props.style as TextStyle).minWidth;
+const minWidthOf = (screen: Awaited<ReturnType<typeof render>>, key: string) =>
+  StyleSheet.flatten(figure(screen, key).props.style as TextStyle)!.minWidth;
 
 /** Reports a measured width for a figure, as layout would. */
-const layOut = (
-  screen: ReturnType<typeof render>,
+const layOut = async (
+  screen: Awaited<ReturnType<typeof render>>,
   widths: Record<string, number>,
-) =>
-  act(() => {
-    for (const [key, width] of Object.entries(widths)) {
-      fireEvent(figure(screen, key), "layout", {
-        nativeEvent: { layout: { width, height: 30, x: 0, y: 0 } },
-      });
-    }
-  });
+) => {
+  for (const [key, width] of Object.entries(widths)) {
+    await fireEvent(figure(screen, key), "layout", {
+      nativeEvent: { layout: { width, height: 30, x: 0, y: 0 } },
+    });
+  }
+};
 
 beforeEach(() => {
   mockUseIsLargeDevice.mockReturnValue(false);
@@ -76,7 +75,7 @@ describe("HeroLines", () => {
     it("gives every figure the widest figure's width", async () => {
       const screen = await render(<Host />);
 
-      layOut(screen, { events: 11, planned: 64, free: 58 });
+      await layOut(screen, { events: 11, planned: 64, free: 58 });
 
       for (const key of ["events", "planned", "free"]) {
         expect(minWidthOf(screen, key)).toBe(64);
@@ -88,8 +87,8 @@ describe("HeroLines", () => {
     it("settles rather than oscillating as the narrower figures re-measure", async () => {
       const screen = await render(<Host />);
 
-      layOut(screen, { events: 11, planned: 64, free: 58 });
-      layOut(screen, { events: 64, planned: 64, free: 64 });
+      await layOut(screen, { events: 11, planned: 64, free: 58 });
+      await layOut(screen, { events: 64, planned: 64, free: 64 });
 
       expect(minWidthOf(screen, "events")).toBe(64);
     });
@@ -99,8 +98,8 @@ describe("HeroLines", () => {
     it("does not narrow when a figure gets shorter", async () => {
       const screen = await render(<Host />);
 
-      layOut(screen, { planned: 64 });
-      layOut(screen, { planned: 20 });
+      await layOut(screen, { planned: 64 });
+      await layOut(screen, { planned: 20 });
 
       expect(minWidthOf(screen, "planned")).toBe(64);
     });

@@ -1,11 +1,10 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
-import type { ReactTestInstance } from "react-test-renderer";
 import {
   TextInput as NativeTextInput,
-  ScrollView,
   StyleSheet,
   type ViewStyle,
 } from "react-native";
+import type { TestInstance } from "test-renderer";
 
 import { TJournalPrompt } from "@/api/journals";
 import { useJournals } from "@/hooks/useJournals";
@@ -78,10 +77,10 @@ describe("JournalView", () => {
       prompts: [{ prompt: "How was today?", response: "" }],
     });
 
-    expect(
-      screen.UNSAFE_getByType(ScrollView).props
-        .automaticallyAdjustKeyboardInsets,
-    ).toBe(true);
+    const [scrollView] = screen.container.queryAll(
+      (node) => node.type === "RCTScrollView",
+    );
+    expect(scrollView.props.automaticallyAdjustKeyboardInsets).toBe(true);
   });
 
   it("autosaves a debounced upsert, replacing the edited entry by index", async () => {
@@ -153,7 +152,7 @@ describe("JournalView", () => {
     // Changing date / switching tabs unmounts a possibly-focused field without a
     // reliable blur; the unmount reset must clear the host's swipe-suspend flag.
     onEditingChange.mockClear();
-    await act(() => await screen.unmount());
+    await screen.unmount();
     expect(onEditingChange).toHaveBeenCalledWith(false);
   });
 
@@ -250,7 +249,7 @@ describe("JournalView", () => {
         "Half-written",
       );
       // Unmount before the debounce elapses (e.g. tab switch / date change).
-      await act(() => await screen.unmount());
+      await screen.unmount();
 
       expect(mockUpsertJournalAsync).toHaveBeenCalledWith({
         prompts: [{ prompt: "Highlight", response: "Half-written" }],
@@ -263,9 +262,9 @@ describe("JournalView", () => {
   // The field grows instead of hiding its own content behind a scrollbar;
   // the surrounding ScrollView is what scrolls.
   describe("growing to fit the response", () => {
-    const styleOf = (element: ReactTestInstance): ViewStyle =>
-      StyleSheet.flatten(element.props.style as ViewStyle);
-    const heightOf = (element: ReactTestInstance) => styleOf(element).minHeight;
+    const styleOf = (element: TestInstance): ViewStyle =>
+      StyleSheet.flatten(element.props.style)!;
+    const heightOf = (element: TestInstance) => styleOf(element).minHeight;
 
     // Regression guard: disabling scrollEnabled clamps iOS content size to
     // the view's bounds and silently clips typing (JournalResponseField).
@@ -299,10 +298,8 @@ describe("JournalView", () => {
       });
       const input = screen.getByTestId("journal-response-0");
 
-      await act(() => {
-        await fireEvent(input, "contentSizeChange", {
-          nativeEvent: { contentSize: { height: 300, width: 200 } },
-        });
+      await fireEvent(input, "contentSizeChange", {
+        nativeEvent: { contentSize: { height: 300, width: 200 } },
       });
 
       expect(heightOf(screen.getByTestId("journal-response-0"))).toBe(300);
@@ -315,15 +312,13 @@ describe("JournalView", () => {
       });
       const floor = heightOf(screen.getByTestId("journal-response-0"));
 
-      await act(() => {
-        await fireEvent(
-          screen.getByTestId("journal-response-0"),
-          "contentSizeChange",
-          {
-            nativeEvent: { contentSize: { height: 0, width: 200 } },
-          },
-        );
-      });
+      await fireEvent(
+        screen.getByTestId("journal-response-0"),
+        "contentSizeChange",
+        {
+          nativeEvent: { contentSize: { height: 0, width: 200 } },
+        },
+      );
 
       expect(heightOf(screen.getByTestId("journal-response-0"))).toBe(floor);
       expect(floor).toBeGreaterThan(0);
@@ -338,13 +333,11 @@ describe("JournalView", () => {
       const seeded = heightOf(screen.getByTestId("journal-response-0"));
 
       // The user clears the answer; the field remeasures at one line.
-      await act(() => {
-        await fireEvent(
-          screen.getByTestId("journal-response-0"),
-          "contentSizeChange",
-          { nativeEvent: { contentSize: { height: 20, width: 200 } } },
-        );
-      });
+      await fireEvent(
+        screen.getByTestId("journal-response-0"),
+        "contentSizeChange",
+        { nativeEvent: { contentSize: { height: 20, width: 200 } } },
+      );
 
       const measured = heightOf(screen.getByTestId("journal-response-0"));
       expect(measured).toBeLessThan(seeded as number);
@@ -367,10 +360,10 @@ describe("JournalView", () => {
     });
     const focusedTestIDs = (spy: jest.SpyInstance) =>
       spy.mock.instances.map(
-        (field) => (field as NativeTextInput).props.testID,
+        (field) => (field as { props: { testID?: string } }).props.testID,
       );
 
-    const pressTab = (field: ReactTestInstance) =>
+    const pressTab = (field: TestInstance) =>
       fireEvent(field, "keyPress", { nativeEvent: { key: "Tab" } });
 
     afterEach(() => jest.restoreAllMocks());
@@ -379,7 +372,7 @@ describe("JournalView", () => {
       const screen = await setup({ prompts: TWO });
       const spies = spyOnFields();
 
-      pressTab(screen.getByTestId("journal-response-0"));
+      await pressTab(screen.getByTestId("journal-response-0"));
 
       expect(focusedTestIDs(spies.focus)).toEqual(["journal-response-1"]);
       expect(spies.blur).not.toHaveBeenCalled();
@@ -391,7 +384,7 @@ describe("JournalView", () => {
       const screen = await setup({ prompts: TWO });
       const spies = spyOnFields();
 
-      pressTab(screen.getByTestId("journal-response-1"));
+      await pressTab(screen.getByTestId("journal-response-1"));
 
       expect(focusedTestIDs(spies.blur)).toEqual(["journal-response-1"]);
       expect(spies.focus).not.toHaveBeenCalled();

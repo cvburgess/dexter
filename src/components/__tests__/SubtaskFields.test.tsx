@@ -40,7 +40,7 @@ describe("SubtaskFields", () => {
   it("adds an empty focused row", async () => {
     await render(<Host />);
 
-    addRow();
+    await addRow();
 
     expect(draftInput()).toBeTruthy();
   });
@@ -48,7 +48,7 @@ describe("SubtaskFields", () => {
   it("keeps a titled row", async () => {
     await render(<Host />);
 
-    addRow();
+    await addRow();
     await fireEvent.changeText(draftInput(), "Pack bag");
     await fireEvent(draftInput(), "blur");
 
@@ -60,7 +60,7 @@ describe("SubtaskFields", () => {
     // to — the opposite of the in-card rule in TaskCard.
     await render(<Host initial={[{ id: "s1", title: "Existing" }]} />);
 
-    addRow();
+    await addRow();
     await fireEvent(draftInput(), "blur");
 
     expect(screen.queryByPlaceholderText("Subtask")).toBeNull();
@@ -112,7 +112,7 @@ describe("SubtaskFields", () => {
   it("chains another row when return commits a non-empty title", async () => {
     await render(<Host />);
 
-    addRow();
+    await addRow();
     await fireEvent.changeText(draftInput(), "Pack bag");
     await fireEvent(draftInput(), "submitEditing");
 
@@ -127,7 +127,7 @@ describe("SubtaskFields", () => {
     const onAddRow = jest.fn();
     await render(<Host onAddRow={onAddRow} />);
 
-    addRow();
+    await addRow();
     expect(onAddRow).toHaveBeenCalledTimes(1);
 
     await fireEvent.changeText(draftInput(), "Pack bag");
@@ -139,7 +139,7 @@ describe("SubtaskFields", () => {
   it("ends the chain when return commits an empty row", async () => {
     await render(<Host />);
 
-    addRow();
+    await addRow();
     await fireEvent(draftInput(), "submitEditing");
 
     expect(screen.queryByPlaceholderText("Subtask")).toBeNull();
@@ -158,7 +158,7 @@ describe("SubtaskFields", () => {
       />,
     );
 
-    addRow();
+    await addRow();
 
     expect(onChange).toHaveBeenCalledWith([
       expect.objectContaining({ title: "", status: 1 }),

@@ -147,13 +147,11 @@ describe("BreatheStep", () => {
   it("changes the count for this sitting without storing it", async () => {
     await renderStep();
 
-    await act(() => {
-      await fireEvent(
-        screen.getByTestId("breathe-count-slider"),
-        "accessibilityAction",
-        { nativeEvent: { actionName: "increment" } },
-      );
-    });
+    await fireEvent(
+      screen.getByTestId("breathe-count-slider"),
+      "accessibilityAction",
+      { nativeEvent: { actionName: "increment" } },
+    );
 
     expect(screen.getByText("4 breaths")).toBeTruthy();
     expect(mockUpdate).not.toHaveBeenCalled();
@@ -162,9 +160,7 @@ describe("BreatheStep", () => {
   it("takes the controls out of the way and offers a way out once a run starts", async () => {
     await renderStep();
 
-    await act(() => {
-      await fireEvent.press(screen.getByTestId("breathe-begin"));
-    });
+    await fireEvent.press(screen.getByTestId("breathe-begin"));
 
     expect(screen.getByTestId("breathe-stop")).toBeTruthy();
     // Still mounted so it can fade back in, but untappable meanwhile —
@@ -178,12 +174,8 @@ describe("BreatheStep", () => {
   it("gives the controls back when the run is tapped away", async () => {
     await renderStep();
 
-    await act(() => {
-      await fireEvent.press(screen.getByTestId("breathe-begin"));
-    });
-    await act(() => {
-      await fireEvent.press(screen.getByTestId("breathe-stop"));
-    });
+    await fireEvent.press(screen.getByTestId("breathe-begin"));
+    await fireEvent.press(screen.getByTestId("breathe-stop"));
 
     expect(screen.queryByTestId("breathe-stop")).toBeNull();
     expect(screen.getByTestId("breathe-begin")).toBeTruthy();

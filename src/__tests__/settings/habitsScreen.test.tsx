@@ -54,19 +54,19 @@ describe("HabitsScreen", () => {
   it("shows the header add button when habit tracking is enabled", async () => {
     await renderWith({ enableHabits: true });
 
-    expect(await renderHeader().getByLabelText("New habit")).toBeTruthy();
+    expect((await renderHeader()).getByLabelText("New habit")).toBeTruthy();
   });
 
   it("hides the header add button when habit tracking is disabled", async () => {
     await renderWith({ enableHabits: false });
 
-    expect(await renderHeader().queryByLabelText("New habit")).toBeNull();
+    expect((await renderHeader()).queryByLabelText("New habit")).toBeNull();
   });
 
   it("opens the new-habit modal when the add button is pressed", async () => {
     await renderWith({ enableHabits: true });
 
-    await fireEvent.press(await renderHeader().getByLabelText("New habit"));
+    await fireEvent.press((await renderHeader()).getByLabelText("New habit"));
 
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/settings/habits/[id]",

@@ -110,9 +110,9 @@ const mockDeleteTemplate = jest.fn();
 
 // Types then lets the debounce elapse, so the query reaches useSearch rather
 // than staying at its pre-debounce value.
-const typeSearch = (text: string) => {
-  fireEvent.changeText(screen.getByLabelText("Search"), text);
-  act(() => jest.advanceTimersByTime(500));
+const typeSearch = async (text: string) => {
+  await fireEvent.changeText(screen.getByLabelText("Search"), text);
+  await act(() => jest.advanceTimersByTime(500));
 };
 
 const searchResult = (
@@ -198,7 +198,7 @@ describe("SearchScreen", () => {
   it("passes what the user types to the search hook", async () => {
     await render(<SearchScreen />);
 
-    typeSearch("milk");
+    await typeSearch("milk");
 
     expect(mockUseSearch).toHaveBeenLastCalledWith("milk");
   });
@@ -241,7 +241,7 @@ describe("SearchScreen", () => {
     mockUseSearch.mockReturnValue(searchResult([], { enabled: false }));
     await render(<SearchScreen />);
 
-    typeSearch("");
+    await typeSearch("");
 
     expect(
       screen.getByText("Search your tasks, notes, and journal."),
@@ -250,7 +250,7 @@ describe("SearchScreen", () => {
 
   it("reports when a searched query matched nothing", async () => {
     await render(<SearchScreen />);
-    typeSearch("milk");
+    await typeSearch("milk");
 
     // Distinct from the prompt state above: this one ran and came back empty.
     expect(screen.getByText("No matches.")).toBeTruthy();
@@ -271,7 +271,7 @@ describe("SearchScreen", () => {
     );
 
     await render(<SearchScreen />);
-    typeSearch("milk");
+    await typeSearch("milk");
 
     expect(screen.getByText("Tasks")).toBeTruthy();
     expect(screen.getByText("Notes")).toBeTruthy();
@@ -288,7 +288,7 @@ describe("SearchScreen", () => {
     );
 
     await render(<SearchScreen />);
-    typeSearch("milk");
+    await typeSearch("milk");
 
     expect(screen.getByText("Tasks")).toBeTruthy();
     expect(screen.queryByText("Notes")).toBeNull();
@@ -302,7 +302,7 @@ describe("SearchScreen", () => {
       ]),
     );
     await render(<SearchScreen />);
-    typeSearch("milk");
+    await typeSearch("milk");
 
     await fireEvent.press(screen.getByLabelText("delete-Buy milk"));
 
@@ -317,7 +317,7 @@ describe("SearchScreen", () => {
       searchResult([{ kind: "task", task: task({ templateId: null }) }]),
     );
     await render(<SearchScreen />);
-    typeSearch("milk");
+    await typeSearch("milk");
 
     await fireEvent.press(screen.getByLabelText("delete-Buy milk"));
 
@@ -332,7 +332,7 @@ describe("SearchScreen", () => {
       ]),
     );
     await render(<SearchScreen />);
-    typeSearch("milk");
+    await typeSearch("milk");
 
     await fireEvent.press(screen.getByLabelText("open-Buy milk"));
 
@@ -347,7 +347,7 @@ describe("SearchScreen", () => {
       searchResult([{ kind: "task", task: task({ scheduledFor: null }) }]),
     );
     await render(<SearchScreen />);
-    typeSearch("milk");
+    await typeSearch("milk");
 
     await fireEvent.press(screen.getByLabelText("open-Buy milk"));
 
@@ -367,7 +367,7 @@ describe("SearchScreen", () => {
       ]),
     );
     await render(<SearchScreen />);
-    typeSearch("milk");
+    await typeSearch("milk");
 
     // Nowhere to open: the backlog shows only incomplete tasks. The card still
     // renders — its status button is how the task gets reopened.
@@ -384,7 +384,7 @@ describe("SearchScreen", () => {
       ]),
     );
     await render(<SearchScreen />);
-    typeSearch("milk");
+    await typeSearch("milk");
 
     await fireEvent.press(screen.getByLabelText("Jul 13, 2026"));
 
@@ -399,7 +399,7 @@ describe("SearchScreen", () => {
   it("opens a journal result on its day's ritual journal step", async () => {
     mockUseSearch.mockReturnValue(searchResult([journalResult]));
     await render(<SearchScreen />);
-    typeSearch("milk");
+    await typeSearch("milk");
 
     await fireEvent.press(
       screen.getByLabelText("What went well?, Jul 12, 2026"),
@@ -417,7 +417,7 @@ describe("SearchScreen", () => {
     mockEnableJournal.value = false;
     mockUseSearch.mockReturnValue(searchResult([journalResult]));
     await render(<SearchScreen />);
-    typeSearch("milk");
+    await typeSearch("milk");
 
     await fireEvent.press(
       screen.getByLabelText("What went well?, Jul 12, 2026"),

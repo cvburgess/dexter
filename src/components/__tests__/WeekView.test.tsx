@@ -75,7 +75,10 @@ const renderWeek = async ({ enableCalendar = false } = {}) =>
   );
 
 /** The drop handlers the drax stub passed to a target. */
-const targetProps = (screen: ReturnType<typeof render>, testID: string) =>
+const targetProps = (
+  screen: Awaited<ReturnType<typeof render>>,
+  testID: string,
+) =>
   screen.getByTestId(testID).props as {
     acceptsDrag: (payload: unknown) => boolean;
     onReceiveDragDrop: (event: { dragged: { payload?: unknown } }) => void;
@@ -168,9 +171,9 @@ describe("WeekView calendar toggle (DEX-186)", () => {
 });
 
 describe("WeekView column width", () => {
-  const columnWidthAfterLayout = (viewportWidth: number) => {
-    const screen = renderWeek();
-    fireEvent(screen.getByTestId("week-scroll"), "layout", {
+  const columnWidthAfterLayout = async (viewportWidth: number) => {
+    const screen = await renderWeek();
+    await fireEvent(screen.getByTestId("week-scroll"), "layout", {
       nativeEvent: {
         layout: { x: 0, y: 0, width: viewportWidth, height: 800 },
       },
@@ -179,20 +182,20 @@ describe("WeekView column width", () => {
       const day = monday.add({ days: offset }).toString();
       return StyleSheet.flatten(
         screen.getByTestId(`week-drop-${day}`).props.style,
-      ).width;
+      )!.width;
     });
   };
 
   // The explicit width is what lets each card's menu host stretch (DEX-222).
-  it("splits a wide viewport evenly across the seven columns", () => {
+  it("splits a wide viewport evenly across the seven columns", async () => {
     const gap = 16;
-    expect(columnWidthAfterLayout(1400)).toEqual(
+    expect(await columnWidthAfterLayout(1400)).toEqual(
       Array(7).fill((1400 - 6 * gap) / 7),
     );
   });
 
-  it("holds columns at their minimum width when the week overflows", () => {
-    expect(columnWidthAfterLayout(600)).toEqual(
+  it("holds columns at their minimum width when the week overflows", async () => {
+    expect(await columnWidthAfterLayout(600)).toEqual(
       Array(7).fill(WEEK_COLUMN_MIN_WIDTH),
     );
   });
