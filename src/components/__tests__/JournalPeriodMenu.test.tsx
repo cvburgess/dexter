@@ -1,9 +1,24 @@
 import { render } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 
-import { IconMenu } from "@/components/IconMenu";
+import type { IconMenuProps } from "@/components/IconMenu";
 import { MODE_META } from "@/components/RitualModeButton";
 
 import { JournalPeriodMenu, journalPeriodSections } from "../JournalPeriodMenu";
+
+// The renderer keeps only host elements, so stand the menu in as a View that
+// carries the props the real one hands its native host.
+jest.mock("@/components/IconMenu", () => {
+  const { View } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+  return {
+    IconMenu: ({ accessibilityLabel, style, children }: IconMenuProps) => (
+      <View accessibilityLabel={accessibilityLabel} style={style}>
+        {children}
+      </View>
+    ),
+  };
+});
 
 describe("journalPeriodSections", () => {
   it("offers the two rituals, in the order the day runs", () => {
@@ -60,9 +75,9 @@ describe("JournalPeriodMenu", () => {
       <JournalPeriodMenu period="pm" promptNumber={2} onChange={jest.fn()} />,
     );
 
-    expect(screen.UNSAFE_getByType(IconMenu).props.accessibilityLabel).toBe(
-      "Journal prompt 2 ritual: evening",
-    );
+    expect(
+      screen.getByLabelText("Journal prompt 2 ritual: evening"),
+    ).toBeOnTheScreen();
   });
 
   // Left to flex, the native menu host reports zero height and collapses the
@@ -72,8 +87,10 @@ describe("JournalPeriodMenu", () => {
       <JournalPeriodMenu period="am" promptNumber={1} onChange={jest.fn()} />,
     );
 
-    const { style } = screen.UNSAFE_getByType(IconMenu).props;
-    expect(style.height).toBeGreaterThan(0);
-    expect(style.width).toBe(style.height);
+    const style = StyleSheet.flatten(
+      screen.getByLabelText("Journal prompt 1 ritual: morning").props.style,
+    );
+    expect(style?.height).toBeGreaterThan(0);
+    expect(style?.width).toBe(style?.height);
   });
 });

@@ -3,10 +3,9 @@ import { Alert } from "react-native";
 
 import { ConfirmationModal as ConfirmationModalNative } from "../ConfirmationModal.native";
 import { ConfirmationModal as ConfirmationModalWeb } from "../ConfirmationModal.web";
-import { WebOverlay } from "../WebOverlay.web";
 
 // WebOverlay portals to document.body at runtime; render inline so
-// react-test-renderer keeps it in the tree for RNTL queries.
+// the test renderer keeps it in the tree for RNTL queries.
 jest.mock("react-dom", () =>
   require("@/testUtils/mockReactDomPortal").mockReactDomPortal(),
 );
@@ -50,15 +49,20 @@ describe("ConfirmationModal", () => {
         onClose: jest.fn(),
         onConfirm: jest.fn(),
       };
-      const { UNSAFE_root, rerender } = await render(
+      const { container, rerender } = await render(
         <ConfirmationModalWeb visible={false} {...props} />,
       );
 
-      expect(UNSAFE_root.findAllByType(WebOverlay)).toHaveLength(0);
+      // WebOverlay's root is the `div` guarding Radix's outside-pointerdown dismiss.
+      const overlayRoots = () =>
+        container.queryAll(
+          (node) => node.type === "div" && "onPointerDown" in node.props,
+        );
+      expect(overlayRoots()).toHaveLength(0);
 
       await rerender(<ConfirmationModalWeb visible {...props} />);
 
-      expect(UNSAFE_root.findAllByType(WebOverlay)).toHaveLength(1);
+      expect(overlayRoots()).toHaveLength(1);
     });
 
     test("confirm button fires onConfirm then onClose", async () => {

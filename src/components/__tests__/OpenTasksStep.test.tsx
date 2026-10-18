@@ -1,7 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { act, fireEvent, render } from "@testing-library/react-native";
-import { Alert, StyleSheet, TextStyle } from "react-native";
-import type { ReactTestInstance } from "react-test-renderer";
+import { Alert, StyleSheet } from "react-native";
+import type { TestInstance } from "test-renderer";
 
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import { OpenTasksStep } from "@/components/OpenTasksStep";
@@ -90,8 +90,8 @@ const renderStep = async (
 };
 
 /** The color a rendered `<Text>` resolves to, for the hero's ink assertions. */
-const colorOf = (node: ReactTestInstance) =>
-  StyleSheet.flatten(node.props.style as TextStyle).color;
+const colorOf = (node: TestInstance) =>
+  StyleSheet.flatten(node.props.style)!.color;
 
 // The palette `useTheme` falls back to outside a provider on a light scheme.
 const { colors } = themes.dexter;
@@ -226,10 +226,10 @@ describe("OpenTasksStep", () => {
     // spy, restored in afterEach so it can't leak into later tests.
     let alertSpy: jest.SpyInstance;
 
-    const pressAndReadPrompt = (label: string) => {
+    const pressAndReadPrompt = async (label: string) => {
       alertSpy = jest.spyOn(Alert, "alert").mockImplementation(jest.fn());
-      const screen = renderStep([task({ alarmTime: "09:00:00" })]);
-      fireEvent.press(screen.getByLabelText(label));
+      const screen = await renderStep([task({ alarmTime: "09:00:00" })]);
+      await fireEvent.press(screen.getByLabelText(label));
       const [title, , buttons] = alertSpy.mock.calls[0] as [
         string,
         string,
@@ -240,8 +240,8 @@ describe("OpenTasksStep", () => {
 
     afterEach(() => alertSpy?.mockRestore());
 
-    it("asks before moving it to tomorrow", () => {
-      const { title } = pressAndReadPrompt(
+    it("asks before moving it to tomorrow", async () => {
+      const { title } = await pressAndReadPrompt(
         'Move "Write report" to Monday, Aug 10',
       );
 
@@ -250,7 +250,7 @@ describe("OpenTasksStep", () => {
     });
 
     it("carries the alarm over once the move is confirmed", async () => {
-      const { buttons } = pressAndReadPrompt(
+      const { buttons } = await pressAndReadPrompt(
         'Move "Write report" to Monday, Aug 10',
       );
       const keep = buttons.find((button) => button.text === "Keep alarm");
@@ -266,7 +266,7 @@ describe("OpenTasksStep", () => {
     // Unscheduling removes the date the alarm fires on, so it is unset-or-
     // cancel; awaited because the write lands when the confirm promise resolves.
     it("warns that unscheduling unsets the alarm, then clears both", async () => {
-      const { title, buttons } = pressAndReadPrompt(
+      const { title, buttons } = await pressAndReadPrompt(
         'Unschedule "Write report"',
       );
       expect(title).toBe("Unschedule task?");

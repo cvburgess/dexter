@@ -80,14 +80,14 @@ const renderWith = async (existing?: THabit) => {
   return await render(<HabitScreen />);
 };
 
-const close = () => {
-  const header = render(headerOptions().headerLeft());
-  fireEvent.press(header.getByTestId("modal-close-button"));
+const close = async () => {
+  const header = await render(headerOptions().headerLeft());
+  await fireEvent.press(header.getByTestId("modal-close-button"));
 };
 
-const save = () => {
-  const header = render(headerOptions().headerRight());
-  fireEvent.press(header.getByTestId("modal-done-button"));
+const save = async () => {
+  const header = await render(headerOptions().headerRight());
+  await fireEvent.press(header.getByTestId("modal-done-button"));
 };
 
 describe("HabitScreen", () => {
@@ -102,7 +102,7 @@ describe("HabitScreen", () => {
   it("pops when closed", async () => {
     await renderWith(makeHabit());
 
-    close();
+    await close();
 
     expect(mockRouter.back).toHaveBeenCalled();
     expect(mockRouter.replace).not.toHaveBeenCalled();
@@ -112,7 +112,7 @@ describe("HabitScreen", () => {
     mockUpdateHabit.mockImplementation((_diff, { onSuccess }) => onSuccess());
     await renderWith(makeHabit());
 
-    save();
+    await save();
 
     expect(mockRouter.back).toHaveBeenCalled();
     expect(mockRouter.replace).not.toHaveBeenCalled();
@@ -143,7 +143,7 @@ describe("HabitScreen", () => {
     mockRouter.canDismiss.mockReturnValue(false);
     await renderWith(makeHabit());
 
-    close();
+    await close();
 
     expect(mockRouter.back).not.toHaveBeenCalled();
     expect(mockRouter.replace).toHaveBeenCalledWith("/settings/habits");

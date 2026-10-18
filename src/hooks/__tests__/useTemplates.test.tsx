@@ -145,7 +145,7 @@ describe("useTemplates", () => {
       } as TTemplate);
       const view = await renderUseTemplates();
 
-      act(() => {
+      await act(() => {
         view.result.current[1].updateTemplate({ id: "template-1", schedule });
       });
 
@@ -269,7 +269,7 @@ describe("useTemplates", () => {
 
     const createNext = async (template: TTemplate) => {
       const view = await renderUseTemplates();
-      act(() => {
+      await act(() => {
         view.result.current[1].createNextOccurrence(template);
       });
       await view.settled();

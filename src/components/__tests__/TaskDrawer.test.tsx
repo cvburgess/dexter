@@ -1,16 +1,9 @@
-import { FlashList } from "@shopify/flash-list";
 import { Temporal } from "@js-temporal/polyfill";
 import { weekDays } from "@/utils/weekStartEnd";
 import { act, fireEvent, render } from "@testing-library/react-native";
+import type { RenderResult } from "@testing-library/react-native";
 import type { ReactNode } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-} from "react-native";
-import type { TextStyle, ViewStyle } from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity } from "react-native";
 
 import { renderWithBottomInset } from "@/testUtils/renderWithBottomInset";
 import { themes } from "@/utils/theme";
@@ -47,7 +40,7 @@ const mockIconMenu = jest.fn(
   (props: {
     accessibilityLabel?: string;
     sections?: TIconMenuSection[];
-    style?: ViewStyle | ViewStyle[];
+    style?: Parameters<typeof StyleSheet.flatten>[0];
     children: ReactNode;
   }) => props.children,
 );
@@ -56,19 +49,17 @@ jest.mock("../IconMenu", () => ({
 }));
 
 /** The resolved color of a control button's label. */
-const labelColor = (screen: ReturnType<typeof render>, label: string) =>
-  StyleSheet.flatten(screen.getByText(label).props.style as TextStyle[]).color;
+const labelColor = (screen: RenderResult, label: string) =>
+  StyleSheet.flatten(screen.getByText(label).props.style)!.color;
 
 /** The resolved border color of the bordered box around a control's label. */
-const outlineColor = (screen: ReturnType<typeof render>, testID: string) =>
-  StyleSheet.flatten(screen.getByTestId(testID).props.style as ViewStyle[])
-    .borderColor;
+const outlineColor = (screen: RenderResult, testID: string) =>
+  StyleSheet.flatten(screen.getByTestId(testID).props.style)!.borderColor;
 
 /** The bottom margin on the Filter/Group row — the cluster's tail when there is no search field below it. */
-const rowMarginBottom = (screen: ReturnType<typeof render>) =>
-  StyleSheet.flatten(
-    screen.getByTestId("drawer-controls").props.style as ViewStyle[],
-  ).marginBottom;
+const rowMarginBottom = (screen: RenderResult) =>
+  StyleSheet.flatten(screen.getByTestId("drawer-controls").props.style)!
+    .marginBottom;
 
 /** The style handed to a captured IconMenu trigger, flattened. */
 const triggerStyle = (label: string) =>
@@ -76,7 +67,7 @@ const triggerStyle = (label: string) =>
     mockIconMenu.mock.calls.find(
       ([props]) => props.accessibilityLabel === label,
     )?.[0].style,
-  );
+  )!;
 
 /** Invokes a filter option's onSelect from the captured Filter IconMenu. */
 const selectFilterOption = (id: string) => {
@@ -168,11 +159,15 @@ const goal = (overrides: Partial<TGoal> = {}): TGoal => ({
   ...overrides,
 });
 
-const listContentStyle = (screen: ReturnType<typeof render>) =>
-  StyleSheet.flatten(
-    screen.UNSAFE_getByType(FlashList).props
-      .contentContainerStyle as ViewStyle[],
+// The FlashList double hosts its content container as the list host's only child.
+const listContentStyle = (screen: RenderResult) => {
+  const [list] = screen.container.queryAll(
+    (node) => "getItemType" in node.props,
   );
+  const [content] = list.children;
+  if (typeof content === "string") throw new Error("Expected a content view");
+  return StyleSheet.flatten(content.props.style)!;
+};
 
 const tasksResult = (
   tasks: TTask[] = [],
@@ -495,7 +490,9 @@ describe("TaskDrawer", () => {
     mockUseTasks.mockReturnValue(tasksResult([], true));
     const screen = await render(<TaskDrawer date={date} />);
 
-    expect(screen.UNSAFE_getByType(ActivityIndicator)).toBeTruthy();
+    expect(
+      screen.container.queryAll((node) => node.type === "ActivityIndicator"),
+    ).toHaveLength(1);
     expect(
       screen.queryByText("Nothing here — you're all caught up."),
     ).toBeNull();
@@ -608,13 +605,13 @@ describe("TaskDrawer", () => {
     let alertSpy: jest.SpyInstance;
 
     /** Presses the "+" for a task carrying an alarm, and returns the prompt's buttons. */
-    const pressSchedule = () => {
+    const pressSchedule = async () => {
       alertSpy = jest.spyOn(Alert, "alert").mockImplementation(jest.fn());
       mockUseTasks.mockReturnValue(
         tasksResult([task({ alarmTime: "09:00:00" })]),
       );
-      const screen = render(<TaskDrawer date={date} />);
-      fireEvent.press(
+      const screen = await render(<TaskDrawer date={date} />);
+      await fireEvent.press(
         screen.getByLabelText('Schedule "Write report" for Thursday, Jul 16'),
       );
       const [title, , buttons] = alertSpy.mock.calls[0] as [
@@ -625,28 +622,28 @@ describe("TaskDrawer", () => {
       return { title, buttons };
     };
 
-    const press = (
+    const press = async (
       buttons: { text: string; onPress?: () => void }[],
       label: string,
     ) => {
       const button = buttons.find((candidate) => candidate.text === label);
       if (!button) throw new Error(`No prompt button labelled "${label}"`);
-      act(() => button.onPress?.());
+      await act(() => button.onPress?.());
     };
 
     afterEach(() => alertSpy?.mockRestore());
 
-    it("asks before moving it rather than writing straight through", () => {
-      const { title } = pressSchedule();
+    it("asks before moving it rather than writing straight through", async () => {
+      const { title } = await pressSchedule();
 
       expect(title).toBe("Reschedule task?");
       expect(mockUpdateTask).not.toHaveBeenCalled();
     });
 
-    it("carries the alarm over when asked to keep it", () => {
-      const { buttons } = pressSchedule();
+    it("carries the alarm over when asked to keep it", async () => {
+      const { buttons } = await pressSchedule();
 
-      press(buttons, "Keep alarm");
+      await press(buttons, "Keep alarm");
 
       expect(mockUpdateTask).toHaveBeenCalledWith({
         id: "task-1",
@@ -654,10 +651,10 @@ describe("TaskDrawer", () => {
       });
     });
 
-    it("clears the alarm when asked to unset it", () => {
-      const { buttons } = pressSchedule();
+    it("clears the alarm when asked to unset it", async () => {
+      const { buttons } = await pressSchedule();
 
-      press(buttons, "Unset alarm");
+      await press(buttons, "Unset alarm");
 
       expect(mockUpdateTask).toHaveBeenCalledWith({
         id: "task-1",
@@ -666,10 +663,10 @@ describe("TaskDrawer", () => {
       });
     });
 
-    it("leaves the task where it is when cancelled", () => {
-      const { buttons } = pressSchedule();
+    it("leaves the task where it is when cancelled", async () => {
+      const { buttons } = await pressSchedule();
 
-      press(buttons, "Cancel");
+      await press(buttons, "Cancel");
 
       expect(mockUpdateTask).not.toHaveBeenCalled();
     });
@@ -747,8 +744,8 @@ describe("TaskDrawer", () => {
       // Read off the field rather than a token — what matters is the gap
       // survives, not what it resolves to on this density.
       const tail = StyleSheet.flatten(
-        withSearch.getByLabelText("Search").props.style as ViewStyle,
-      ).marginBottom;
+        withSearch.getByLabelText("Search").props.style,
+      )!.marginBottom;
 
       expect(tail).toBeGreaterThan(0);
       expect(rowMarginBottom(withSearch)).toBeUndefined();
@@ -775,8 +772,7 @@ describe("TaskDrawer", () => {
     await act(() => selectGroupOption("priority"));
 
     const marginOf = (heading: string) =>
-      StyleSheet.flatten(screen.getByText(heading).props.style as TextStyle[])
-        .marginTop;
+      StyleSheet.flatten(screen.getByText(heading).props.style)!.marginTop;
 
     // `space.lg - space.sm`: the separator already contributed `sm`.
     expect(marginOf("Urgent")).toBe(0);

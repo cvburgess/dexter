@@ -161,9 +161,9 @@ const renderDraftFrom = async (
   return await render(<RepeatScheduleScreen />);
 };
 
-const save = () => {
-  const header = render(headerOptions().headerRight());
-  fireEvent.press(header.getByTestId("modal-done-button"));
+const save = async () => {
+  const header = await render(headerOptions().headerRight());
+  await fireEvent.press(header.getByTestId("modal-done-button"));
 };
 
 describe("RepeatScheduleScreen", () => {
@@ -199,7 +199,7 @@ describe("RepeatScheduleScreen", () => {
     it("creates the template from the task's fields on save", async () => {
       await renderDraftFrom(seedTask);
 
-      save();
+      await save();
 
       expect(mockUpdateTemplate).not.toHaveBeenCalled();
       expect(mockCreateTemplate).toHaveBeenCalledWith(
@@ -237,7 +237,7 @@ describe("RepeatScheduleScreen", () => {
 
       expect(mockPickers["Repeats"].selectedValue).toBe("daily");
 
-      save();
+      await save();
 
       expect(mockCreateTemplate).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -258,7 +258,7 @@ describe("RepeatScheduleScreen", () => {
         },
       );
 
-      save();
+      await save();
 
       expect(mockCreateTemplate).toHaveBeenCalledWith(
         expect.objectContaining({ linkTaskId: undefined }),
@@ -276,7 +276,7 @@ describe("RepeatScheduleScreen", () => {
       );
       await renderWith(makeTemplate());
 
-      save();
+      await save();
 
       expect(mockRouter.back).toHaveBeenCalled();
       expect(mockRouter.replace).not.toHaveBeenCalled();
@@ -301,7 +301,7 @@ describe("RepeatScheduleScreen", () => {
       );
       await renderWith(makeTemplate());
 
-      save();
+      await save();
 
       expect(mockRouter.back).not.toHaveBeenCalled();
       expect(mockRouter.replace).toHaveBeenCalledWith("/settings/tasks");
@@ -355,7 +355,7 @@ describe("RepeatScheduleScreen", () => {
     await renderWith(makeTemplate());
 
     await act(() => mockPickers["Repeats"].onValueChange("never"));
-    save();
+    await save();
 
     expect(mockUpdateTemplate).toHaveBeenCalledWith(
       expect.objectContaining({ id: "template-1", schedule: null }),
@@ -367,7 +367,7 @@ describe("RepeatScheduleScreen", () => {
     await renderWith(makeTemplate({ schedule: null }));
 
     await act(() => mockPickers["Repeats"].onValueChange("daily"));
-    save();
+    await save();
 
     expect(mockUpdateTemplate).toHaveBeenCalledWith(
       expect.objectContaining({ schedule: "0 0 * * *" }),

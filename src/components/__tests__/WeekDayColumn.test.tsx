@@ -1,7 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { render, renderHook } from "@testing-library/react-native";
+import type { RenderResult } from "@testing-library/react-native";
 import { StyleSheet, Text } from "react-native";
-import type { TextStyle, ViewStyle } from "react-native";
 
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
@@ -109,18 +109,17 @@ const event = (overrides: Partial<TCalendarEvent> = {}): TCalendarEvent => ({
 // 2026-07-29 is a Wednesday, and deliberately not today.
 const date = Temporal.PlainDate.from("2026-07-29");
 
-const chipStyle = (
-  screen: ReturnType<typeof render>,
-  day: Temporal.PlainDate,
-) =>
+const chipStyle = (screen: RenderResult, day: Temporal.PlainDate) =>
   StyleSheet.flatten(
-    screen.getByTestId(`week-chip-${day.toString()}`).props
-      .style as ViewStyle[],
-  );
+    screen.getByTestId(`week-chip-${day.toString()}`).props.style,
+  )!;
 
 // Resolved through the same hook the component uses rather than hardcoded, so
 // these assertions keep holding if the no-provider fallback theme changes.
-const theme = renderHook(() => useTheme()).result.current;
+let theme: ReturnType<typeof useTheme>;
+beforeAll(async () => {
+  theme = (await renderHook(() => useTheme())).result.current;
+});
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -277,9 +276,8 @@ describe("WeekDayColumn", () => {
       );
 
       expect(
-        StyleSheet.flatten(
-          screen.getByText(formatWeekday(today)).props.style as TextStyle[],
-        ).color,
+        StyleSheet.flatten(screen.getByText(formatWeekday(today)).props.style)!
+          .color,
       ).toBe(theme.colors.background);
     });
 

@@ -4,6 +4,7 @@ import { ReactNode } from "react";
 
 import * as journalsApi from "@/api/journals";
 import { usePreferences } from "@/hooks/usePreferences";
+import { settleQueries } from "@/testUtils/settleQueries";
 
 import { journalsMutationKey, useJournals } from "../useJournals";
 
@@ -129,8 +130,10 @@ describe("useJournals", () => {
         mood: 4,
       });
 
+      const { client, wrapper } = createWrapper();
+
       const { result } = await renderHook(() => useJournals("2026-07-12"), {
-        wrapper: createWrapper().wrapper,
+        wrapper,
       });
       await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
@@ -143,6 +146,8 @@ describe("useJournals", () => {
           prompts: [{ prompt: "Highlight", response: "", period: "am" }],
         }),
       );
+
+      await settleQueries(client);
     });
 
     it("leaves the stored prompts alone once the day has a row", async () => {
@@ -158,8 +163,10 @@ describe("useJournals", () => {
         mood: 2,
       });
 
+      const { client, wrapper } = createWrapper();
+
       const { result } = await renderHook(() => useJournals("2026-07-12"), {
-        wrapper: createWrapper().wrapper,
+        wrapper,
       });
       await waitFor(() => expect(result.current[1].exists).toBe(true));
 
@@ -171,6 +178,8 @@ describe("useJournals", () => {
           mood: 2,
         }),
       );
+
+      await settleQueries(client);
     });
 
     it("defaults an unwritten day's mood to null", async () => {
@@ -194,8 +203,10 @@ describe("useJournals", () => {
       mood: null,
     });
 
+    const { client, wrapper } = createWrapper();
+
     const { result } = await renderHook(() => useJournals("2026-07-12"), {
-      wrapper: createWrapper().wrapper,
+      wrapper,
     });
 
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
@@ -209,6 +220,7 @@ describe("useJournals", () => {
         { prompts, date: "2026-07-12" },
       ),
     );
+    await settleQueries(client);
   });
 
   it("retries a failed save and persists once it succeeds", async () => {
@@ -218,8 +230,10 @@ describe("useJournals", () => {
       .mockRejectedValueOnce(new Error("blip"))
       .mockResolvedValueOnce({ date: "2026-07-12", prompts, mood: null });
 
+    const { client, wrapper } = createWrapper();
+
     const { result } = await renderHook(() => useJournals("2026-07-12"), {
-      wrapper: createWrapper().wrapper,
+      wrapper,
     });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
@@ -229,15 +243,17 @@ describe("useJournals", () => {
     // The successful retry's response is written to the cache.
     await waitFor(() => expect(result.current[0].prompts).toEqual(prompts));
     expect(result.current[1].exists).toBe(true);
+    await settleQueries(client);
   });
 
   it("rolls back the optimistic responses when the first save fails", async () => {
     setTemplatePrompts([amPrompt("Highlight")]);
     mockGetJournal.mockResolvedValue(null);
     mockUpsertJournal.mockRejectedValue(new Error("save failed"));
+    const { client, wrapper } = createWrapper();
 
     const { result } = await renderHook(() => useJournals("2026-07-12"), {
-      wrapper: createWrapper().wrapper,
+      wrapper,
     });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
@@ -246,7 +262,10 @@ describe("useJournals", () => {
         prompts: [{ prompt: "Highlight", response: "typed" }],
       }),
     );
-    await waitFor(() => expect(mockUpsertJournal).toHaveBeenCalled());
+    // Until the retries exhaust, the pre-optimistic render also reads as seeded.
+    await waitFor(() =>
+      expect(client.getMutationCache().getAll()[0]?.state.status).toBe("error"),
+    );
 
     // The failed save must not leave never-persisted responses in the cache —
     // it falls back to the template-seeded default.
@@ -256,6 +275,7 @@ describe("useJournals", () => {
       ]),
     );
     expect(result.current[1].exists).toBe(false);
+    await settleQueries(client);
   });
 
   it("tags the upsert with journalsMutationKey while it is in flight", async () => {
@@ -290,5 +310,6 @@ describe("useJournals", () => {
         client.isMutating({ mutationKey: journalsMutationKey("2026-07-12") }),
       ).toBe(0),
     );
+    await settleQueries(client);
   });
 });

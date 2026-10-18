@@ -92,24 +92,26 @@ describe("HabitTracker", () => {
   // Bootstrapping is a write: old days are routine to visit (DEX-162) and Week
   // mounts seven trackers, so an unbounded bootstrap persists history that never happened.
   describe("bootstrapping a day's rows", () => {
-    const renderOn = (on: Temporal.PlainDate) => {
+    const renderOn = async (on: Temporal.PlainDate) => {
       const createDailyHabits = jest.fn();
       mockUseHabits.mockReturnValue(habitsResult([habit]));
       mockUseDailyHabits.mockReturnValue(dailyHabitsResult(createDailyHabits));
-      render(<HabitTracker date={on} showCreateNudge={false} />);
+      await render(<HabitTracker date={on} showCreateNudge={false} />);
       return createDailyHabits;
     };
 
-    it("creates missing rows for a day inside the window", () => {
-      expect(renderOn(date.subtract({ days: 2 }))).toHaveBeenCalled();
+    it("creates missing rows for a day inside the window", async () => {
+      expect(await renderOn(date.subtract({ days: 2 }))).toHaveBeenCalled();
     });
 
-    it("creates nothing for a long-past day", () => {
-      expect(renderOn(date.subtract({ days: 200 }))).not.toHaveBeenCalled();
+    it("creates nothing for a long-past day", async () => {
+      expect(
+        await renderOn(date.subtract({ days: 200 })),
+      ).not.toHaveBeenCalled();
     });
 
-    it("creates nothing for a future day", () => {
-      expect(renderOn(date.add({ days: 1 }))).not.toHaveBeenCalled();
+    it("creates nothing for a future day", async () => {
+      expect(await renderOn(date.add({ days: 1 }))).not.toHaveBeenCalled();
     });
   });
 });

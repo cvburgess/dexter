@@ -73,9 +73,9 @@ jest.mock("@expo/ui/swift-ui", () => ({
 // grab the latest options to interact with them like the header would.
 const headerOptions = () => mockNavigation.setOptions.mock.calls.at(-1)?.[0];
 
-const pressSave = () => {
-  const save = render(headerOptions().headerRight());
-  fireEvent.press(save.getByTestId("modal-done-button"));
+const pressSave = async () => {
+  const save = await render(headerOptions().headerRight());
+  await fireEvent.press(save.getByTestId("modal-done-button"));
   return save;
 };
 
@@ -151,7 +151,7 @@ describe("EditTaskScreen", () => {
       screen.getByTestId("edit-task-title"),
       "Ship the deck",
     );
-    pressSave();
+    await pressSave();
 
     expect(mockUpdateTask).toHaveBeenCalledWith(
       {
@@ -181,7 +181,7 @@ describe("EditTaskScreen", () => {
       "Ship it!! #home due:3",
     );
 
-    pressSave();
+    await pressSave();
 
     expect(mockUpdateTask).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -206,7 +206,7 @@ describe("EditTaskScreen", () => {
       screen.getByTestId("edit-task-url"),
       "https://example.com/new",
     );
-    pressSave();
+    await pressSave();
 
     expect(mockUpdateTask).toHaveBeenCalledWith(
       expect.objectContaining({ url: "https://example.com/new" }),
@@ -220,7 +220,7 @@ describe("EditTaskScreen", () => {
     const screen = await render(<EditTaskScreen />);
 
     await fireEvent.changeText(screen.getByTestId("edit-task-url"), "");
-    pressSave();
+    await pressSave();
 
     expect(mockUpdateTask).toHaveBeenCalledWith(
       expect.objectContaining({ url: null }),
@@ -232,7 +232,7 @@ describe("EditTaskScreen", () => {
     const screen = await render(<EditTaskScreen />);
 
     await fireEvent.changeText(screen.getByTestId("edit-task-title"), "   ");
-    pressSave();
+    await pressSave();
 
     expect(mockUpdateTask).not.toHaveBeenCalled();
     expect(headerOptions().unstable_headerRightItems()[0].disabled).toBe(true);
@@ -310,7 +310,7 @@ describe("EditTaskScreen", () => {
     expect(screen.queryByTestId("edit-task-clear-alarm")).toBeNull();
     expect(screen.getByTestId("edit-task-add-alarm")).toBeTruthy();
 
-    pressSave();
+    await pressSave();
 
     expect(mockUpdateTask).toHaveBeenCalledWith(
       expect.objectContaining({ scheduledFor: null, alarmTime: null }),
@@ -324,7 +324,7 @@ describe("EditTaskScreen", () => {
     beforeEach(() => jest.useFakeTimers({ now: new Date(2026, 6, 29, 12, 0) }));
     afterEach(() => jest.useRealTimers());
 
-    const scheduledToday = (alarmTime: string) => {
+    const scheduledToday = async (alarmTime: string) => {
       setTasks([
         {
           ...savedTask,
@@ -332,16 +332,16 @@ describe("EditTaskScreen", () => {
           alarmTime,
         },
       ]);
-      render(<EditTaskScreen />);
+      await render(<EditTaskScreen />);
       return datePickerProps["edit-task-alarm"]?.range;
     };
 
-    it("does not bound the picker below an alarm already in the past", () => {
-      expect(scheduledToday("08:00")).toBeUndefined();
+    it("does not bound the picker below an alarm already in the past", async () => {
+      expect(await scheduledToday("08:00")).toBeUndefined();
     });
 
-    it("still bounds the picker to now for an alarm later today", () => {
-      expect(scheduledToday("23:59")).toBeDefined();
+    it("still bounds the picker to now for an alarm later today", async () => {
+      expect(await scheduledToday("23:59")).toBeDefined();
     });
   });
 
@@ -352,7 +352,7 @@ describe("EditTaskScreen", () => {
     await fireEvent.press(screen.getByTestId("edit-task-add-alarm"));
     await screen.findByTestId("edit-task-clear-alarm");
 
-    pressSave();
+    await pressSave();
 
     expect(mockUpdateTask).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -369,7 +369,7 @@ describe("EditTaskScreen", () => {
     setTasks([{ ...savedTask, templateId: "template-1" }]);
     await render(<EditTaskScreen />);
 
-    pressSave();
+    await pressSave();
 
     expect(mockUpdateTask).toHaveBeenCalledWith(
       expect.objectContaining({ templateId: "template-1" }),
@@ -385,7 +385,7 @@ describe("EditTaskScreen", () => {
     ]);
     await render(<EditTaskScreen />);
 
-    pressSave();
+    await pressSave();
 
     const [diff] = mockUpdateTask.mock.calls[0];
     expect(diff).not.toHaveProperty("goalId");
@@ -409,7 +409,7 @@ describe("EditTaskScreen", () => {
     mockRouter.canDismiss.mockReturnValue(false);
     await render(<EditTaskScreen />);
 
-    pressSave();
+    await pressSave();
 
     expect(mockUpdateTask).toHaveBeenCalledTimes(1);
     expect(mockRouter.replace).toHaveBeenCalledWith("/");
@@ -459,7 +459,7 @@ describe("EditTaskScreen", () => {
       );
 
       setTasks([savedTask]);
-      await await screen.rerender(<EditTaskScreen />);
+      await screen.rerender(<EditTaskScreen />);
 
       expect(headerOptions().unstable_headerRightItems()[0].disabled).toBe(
         false,
@@ -484,7 +484,7 @@ describe("EditTaskScreen", () => {
     setTasks([]);
     const screen = await render(<EditTaskScreen />);
 
-    await await screen.rerender(<EditTaskScreen />);
+    await screen.rerender(<EditTaskScreen />);
 
     expect(mockRouter.back).toHaveBeenCalledTimes(1);
   });
@@ -533,7 +533,7 @@ describe("EditTaskScreen", () => {
       expect(mockRefetch).toHaveBeenCalledTimes(1);
 
       setTasks([savedTask]);
-      await await screen.rerender(<EditTaskScreen />);
+      await screen.rerender(<EditTaskScreen />);
 
       expect(screen.getByTestId("edit-task-title").props.value).toBe(
         "Write the report",

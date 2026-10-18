@@ -1,7 +1,8 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { act, render } from "@testing-library/react-native";
-import { StyleSheet, TextStyle } from "react-native";
-import type { ReactTestInstance } from "react-test-renderer";
+import type { RenderResult } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
+import type { TestInstance } from "test-renderer";
 
 import { ETaskPriority, ETaskStatus, TTask } from "@/api/tasks";
 import { BacklogStep } from "@/components/BacklogStep";
@@ -85,8 +86,8 @@ const renderStep = async (tasks: TTask[] = [], isLoading = false) => {
 };
 
 /** The color a rendered `<Text>` resolves to, for the hero's ink assertions. */
-const colorOf = (node: ReactTestInstance) =>
-  StyleSheet.flatten(node.props.style as TextStyle).color;
+const colorOf = (node: TestInstance) =>
+  StyleSheet.flatten(node.props.style)!.color;
 
 /** The props the drawer was last rendered with. */
 const drawerProps = () =>
@@ -251,16 +252,16 @@ describe("BacklogStep", () => {
   // hands the reader the next rather than leaving them looking at nothing.
   describe("as a bucket is cleared out", () => {
     /** Re-renders with a new set of tasks, as a schedule change would. */
-    const withTasks = (screen: ReturnType<typeof render>, tasks: TTask[]) => {
+    const withTasks = async (screen: RenderResult, tasks: TTask[]) => {
       mockUseTasks.mockReturnValue(tasksResult(tasks));
-      screen.rerender(<BacklogStep date={TODAY} />);
+      await screen.rerender(<BacklogStep date={TODAY} />);
     };
 
     it("moves on to the next bucket that still has tasks", async () => {
       const screen = await renderStep([leftBehind("1"), dueSoon("2")]);
       expect(drawerProps().filterId).toBe("leftBehind");
 
-      withTasks(screen, [dueSoon("2")]);
+      await withTasks(screen, [dueSoon("2")]);
 
       expect(screen.getByLabelText("0 tasks left behind")).toBeTruthy();
       expect(drawerProps().filterId).toBe("dueSoon");
@@ -273,7 +274,7 @@ describe("BacklogStep", () => {
         dueSoon("3"),
       ]);
 
-      withTasks(screen, [overdue("2"), dueSoon("3")]);
+      await withTasks(screen, [overdue("2"), dueSoon("3")]);
 
       expect(drawerProps().filterId).toBe("overdue");
     });
@@ -288,7 +289,7 @@ describe("BacklogStep", () => {
       ]);
       expect(drawerProps().filterId).toBe("leftBehind");
 
-      withTasks(screen, [leftBehind("2")]);
+      await withTasks(screen, [leftBehind("2")]);
 
       expect(screen.getByLabelText("1 task left behind")).toBeTruthy();
       expect(drawerProps().filterId).toBe("leftBehind");
@@ -300,10 +301,10 @@ describe("BacklogStep", () => {
       const screen = await renderStep([leftBehind("1"), overdue("2")]);
       expect(drawerProps().filterId).toBe("leftBehind");
 
-      withTasks(screen, [overdue("2")]);
+      await withTasks(screen, [overdue("2")]);
       expect(drawerProps().filterId).toBe("overdue");
 
-      withTasks(screen, [leftBehind("3"), overdue("2")]);
+      await withTasks(screen, [leftBehind("3"), overdue("2")]);
 
       expect(screen.getByLabelText("1 task left behind")).toBeTruthy();
       expect(drawerProps().filterId).toBe("overdue");
@@ -315,7 +316,7 @@ describe("BacklogStep", () => {
       const screen = await renderStep([leftBehind("1"), overdue("2")]);
       await act(() => drawerProps().onFilterChange?.("unscheduled"));
 
-      withTasks(screen, [overdue("2")]);
+      await withTasks(screen, [overdue("2")]);
 
       expect(drawerProps().filterId).toBe("unscheduled");
     });
