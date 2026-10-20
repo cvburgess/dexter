@@ -30,6 +30,11 @@ const tasksKey = () =>
 // useTasks imports the supabase client from useAuth, which reads the app's
 // URI scheme at module scope — not available under Jest.
 jest.mock("@/hooks/useAuth", () => ({ supabase: {} }));
+// The DEX-235 donation calls are fire-and-forget; the native module is absent
+// under Jest, so a call would resolve outside act() and fail the suite.
+jest.mock("expo-app-intents", () => ({
+  donateIntentAsync: jest.fn().mockResolvedValue(undefined),
+}));
 jest.mock("@/api/tasks", () => ({
   ...jest.requireActual<typeof import("@/api/tasks")>("@/api/tasks"),
   getTasks: jest.fn(),

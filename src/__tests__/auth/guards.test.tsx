@@ -39,6 +39,13 @@ jest.mock("@/components/LoadingScreen", () => {
   };
 });
 
+// The App Intents bridge needs a native module and its own data-hook mocks;
+// those are exercised in components/__tests__/AppIntentBridge.test.tsx, so
+// auth-gating tests only need the component to be inert.
+jest.mock("@/components/AppIntentBridge", () => ({
+  AppIntentBridge: () => null,
+}));
+
 type Href =
   string | { pathname: string; params?: Record<string, string | undefined> };
 

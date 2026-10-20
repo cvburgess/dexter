@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { ReactNode } from "react";
 
 import { createList, getLists, TList } from "@/api/lists";
+import { settleQueries } from "@/testUtils/settleQueries";
 
 import { listsQueryOptions, useLists } from "../useLists";
 
@@ -84,7 +85,7 @@ describe("useLists", () => {
   });
 
   it("refetches the lists query after a create mutation", async () => {
-    const { wrapper } = createWrapper();
+    const { queryClient, wrapper } = createWrapper();
     mockCreateList.mockResolvedValue([makeList()]);
 
     const { result } = await renderHook(() => useLists(), { wrapper });
@@ -94,6 +95,8 @@ describe("useLists", () => {
       result.current[1].createList({ title: "Work", emoji: "💼" }),
     );
 
-    await waitFor(() => expect(mockGetLists).toHaveBeenCalledTimes(2));
+    await settleQueries(queryClient);
+
+    expect(mockGetLists).toHaveBeenCalledTimes(2);
   });
 });

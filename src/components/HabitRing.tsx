@@ -59,23 +59,29 @@ export function HabitRing({
   // Seeded at the current offset so an already-partway-done ring doesn't
   // sweep in on first render.
   const [arc] = useState(() => new Animated.Value(dashoffset));
+  // Stopped on unmount: a running timing keeps scheduling frames after the
+  // ring is gone (and past Jest's teardown).
   useEffect(() => {
-    Animated.timing(arc, {
+    const fill = Animated.timing(arc, {
       toValue: dashoffset,
       duration: FILL_DURATION_MS,
       useNativeDriver: false,
-    }).start();
+    });
+    fill.start();
+    return () => fill.stop();
   }, [arc, dashoffset]);
 
   // Cross-fade the completed state (solid fill + checkmark) in and out so
   // finishing the last step doesn't pop. Opacity supports the native driver.
   const [complete] = useState(() => new Animated.Value(isComplete ? 1 : 0));
   useEffect(() => {
-    Animated.timing(complete, {
+    const fade = Animated.timing(complete, {
       toValue: isComplete ? 1 : 0,
       duration: FILL_DURATION_MS,
       useNativeDriver: true,
-    }).start();
+    });
+    fade.start();
+    return () => fade.stop();
   }, [complete, isComplete]);
   const emojiOpacity = complete.interpolate({
     inputRange: [0, 1],

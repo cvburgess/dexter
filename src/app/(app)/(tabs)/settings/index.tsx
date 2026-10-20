@@ -31,6 +31,7 @@ export default function SettingsScreen() {
       style={[styles.screen, { backgroundColor: theme.colors.background }]}
     >
       <FlatList
+        contentInsetAdjustmentBehavior="automatic"
         // Ungrouped cards; edges omit `bottom` so this padding lets the
         // last row clear the translucent tab bar (DEX-91).
         contentContainerStyle={{

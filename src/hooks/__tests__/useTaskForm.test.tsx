@@ -137,6 +137,32 @@ describe("useTaskForm", () => {
     expect(result.current.canSave).toBe(false);
   });
 
+  // tasks.title is varchar(100); an over-long title would fail server-side and
+  // lose the edit, so the form refuses to save before it ever reaches the API.
+  it("cannot save a title longer than 100 characters", async () => {
+    const { result } = await renderHook(() => useTaskForm([]));
+
+    await act(() => result.current.setTitle("a".repeat(101)));
+
+    expect(result.current.canSave).toBe(false);
+  });
+
+  it("can save a title of exactly 100 characters", async () => {
+    const { result } = await renderHook(() => useTaskForm([]));
+
+    await act(() => result.current.setTitle("a".repeat(100)));
+
+    expect(result.current.canSave).toBe(true);
+  });
+
+  it("cannot save an over-long title in edit mode, so a pasted title can't be lost", async () => {
+    const { result } = await renderHook(() =>
+      useTaskForm([], { task: makeTask({ title: "a".repeat(120) }) }),
+    );
+
+    expect(result.current.canSave).toBe(false);
+  });
+
   it("live-updates priority, list, and deadline from shorthand tokens", async () => {
     const { result } = await renderHook(() => useTaskForm([homeList]));
 

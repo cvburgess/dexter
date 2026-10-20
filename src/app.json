@@ -52,6 +52,7 @@
         }
       ],
       "expo-font",
+      "expo-app-intents",
       [
         "expo-calendar",
         {
@@ -86,7 +87,10 @@
     ],
     "experiments": {
       "typedRoutes": true,
-      "reactCompiler": true
+      "reactCompiler": true,
+      "inlineModules": {
+        "watchedDirectories": ["app-intents"]
+      }
     },
     "runtimeVersion": {
       "policy": "appVersion"

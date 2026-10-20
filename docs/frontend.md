@@ -215,10 +215,13 @@ Plumbing:
   `useResolvedColorScheme` renders light then resolves in a layout effect (before
   paint).
 - **Navigation surfaces must be themed explicitly** — a bare `<Stack>` renders a
-  light header in dark mode; layouts pass screens through
+  light header in dark mode on Android/web; layouts pass screens through
   `createListScreenOptions`/`createModalScreenOptions` (`utils/stackOptions.ts`),
   and the root Stack sets a themed `contentStyle` so pre-paint gaps match the
-  scheme.
+  scheme. iOS 26+ headers are native Liquid Glass instead (unset
+  `headerStyle.backgroundColor`), and a header screen's root scroller needs
+  `contentInsetAdjustmentBehavior="automatic"` (or the top safe-area edge when
+  not scrolling) or its first row hides under the glass (DEX-236).
 - **Density is a pointer tier, not a multiplier** — compact on web ≥768px only;
   see `docs/design.md`.
 
@@ -435,6 +438,10 @@ lives on the palette (not just `THEMES`) for exactly this.
 - Web renders as a SPA (`web.output: "single"`) so `AuthProvider` doesn't run under
   Node SSR. React Compiler is on (`experiments.reactCompiler`). iOS deployment
   target is 26.1 (accessory, glass, AlarmKit).
+- **App-target Swift gets a whole-module check, not per-file.** `src/app-intents/`
+  is compiled inside the app target (DEX-235): iOS 26 renamed `When`'s
+  `.hasValue` to `.hasAnyValue`, and its metadata processor rejects App Shortcut
+  phrases that interpolate anything but entity/enum parameters.
 - App icons: iOS uses an Icon Composer `.icon` bundle (own light/dark/tinted
   variants); Android adaptive icon PNGs are rasterized from the same
   `assets/app.icon/Assets/Vector.svg` source of truth.

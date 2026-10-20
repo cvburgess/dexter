@@ -45,6 +45,7 @@ import {
   parseSchedule,
   TRepeatFrequency,
 } from "@/utils/repeatSchedule";
+import { TASK_TITLE_MAX_LENGTH } from "@/utils/subtasks";
 import { showSaveError } from "@/utils/showSaveError";
 import { useTheme } from "@/utils/theme";
 
@@ -342,6 +343,7 @@ function RepeatScheduleForm({
           accessibilityLabel="Task title"
           placeholder="What needs to be done?"
           returnKeyType="done"
+          maxLength={TASK_TITLE_MAX_LENGTH}
           value={title}
           onChangeText={setTitle}
           onSubmitEditing={handleSave}

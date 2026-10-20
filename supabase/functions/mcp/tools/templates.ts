@@ -86,7 +86,7 @@ export function registerTemplateTools(
         "items — no status, since each generated occurrence starts its own " +
         "copy fresh and open.",
       inputSchema: {
-        title: z.string().min(1),
+        title: z.string().min(1).max(100),
         priority: taskPrioritySchema.optional(),
         // Nullable, mirroring `update_template`: null means "task template",
         // so a caller stating it explicitly must not be rejected.
@@ -139,7 +139,7 @@ export function registerTemplateTools(
         "tasks are independent copies and are left alone.",
       inputSchema: {
         templateId: uuidSchema,
-        title: z.string().min(1).optional(),
+        title: z.string().min(1).max(100).optional(),
         priority: taskPrioritySchema.optional(),
         // Nullable so a repeat can be cleared back to a template. `compactUpdate`
         // drops only `undefined`, so an explicit null reaches the column.
