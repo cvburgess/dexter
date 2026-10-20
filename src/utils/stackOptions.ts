@@ -1,9 +1,16 @@
+import { Platform } from "react-native";
 import type { NativeStackNavigationOptions } from "expo-router";
 
 import { Theme } from "./theme";
 
-// A bare Stack renders a light header in dark mode without this; `background`
-// so it sits flush beside the settings sidebar on large screens (DEX-61).
+// A bare Android header renders light in dark mode without `background`
+// (DEX-61); iOS 26+ keeps it unset for native Liquid Glass (SDK 58, DEX-236).
+const headerStyle = (theme: Theme) =>
+  Platform.select({
+    android: { backgroundColor: theme.colors.background },
+    ios: undefined,
+  });
+
 export function createListScreenOptions(
   theme: Theme,
   title: string,
@@ -11,7 +18,7 @@ export function createListScreenOptions(
   return {
     title,
     headerTintColor: theme.colors.text,
-    headerStyle: { backgroundColor: theme.colors.background },
+    headerStyle: headerStyle(theme),
     contentStyle: { backgroundColor: theme.colors.background },
   };
 }
@@ -26,7 +33,7 @@ export function createModalScreenOptions(
     presentation: "formSheet",
     headerShown: true,
     headerTintColor: theme.colors.text,
-    headerStyle: { backgroundColor: theme.colors.background },
+    headerStyle: headerStyle(theme),
     contentStyle: { backgroundColor: theme.colors.background },
   };
 }

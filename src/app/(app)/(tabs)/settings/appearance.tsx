@@ -51,6 +51,7 @@ export default function AppearanceScreen() {
       style={[styles.screen, { backgroundColor: theme.colors.background }]}
     >
       <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
         // Edges omit `bottom`; the content padding lets the last theme card
         // clear the translucent tab bar (DEX-91).
         contentContainerStyle={[

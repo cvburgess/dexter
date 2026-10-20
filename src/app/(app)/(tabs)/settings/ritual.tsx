@@ -110,6 +110,7 @@ export default function RitualScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
         // Scrolls a focused prompt clear of the keyboard on iOS (DEX-92); don't
         // pair with a frame-padding wrapper, which never moves content.
         automaticallyAdjustKeyboardInsets
