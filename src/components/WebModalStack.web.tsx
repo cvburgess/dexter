@@ -22,15 +22,13 @@ type StackViewProps = ComponentProps<typeof NativeStackView>;
 
 // The navigator renders the stack up to the last non-modal route with
 // `NativeStackView`, then layers each modal route on top in a `WebOverlay`.
-// Runtime only branches on `isPreloaded` — `emit`/`pop` are no-ops here (their
-// events are native-stack-only, and the guide's own example passes neither).
+// Runtime only branches on `isPreloaded`; `emit`/`pop` are native-stack-only.
 const noopEmit = (() => {}) as StackViewProps["emit"];
 const noopPop = (() => {}) as StackViewProps["pop"];
 const neverRemovalPrevented = (_key: string) => false;
 
-/** True for the routes that must render as centered dialogs instead of stack
- * screens — matches the old bundle-wide experimental behavior, where every
- * `formSheet`/`modal` presentation became a dialog. */
+/** True for routes that must render as centered dialogs — every `formSheet`/
+ * `modal` presentation (the old bundle-wide experimental behavior). */
 export function isModalRoute(options: Options): boolean {
   return (
     options.modal === true ||
@@ -169,10 +167,8 @@ function ModalStackContent({
 
 const MODAL_MAX_WIDTH = 680;
 
-// `WebOverlay`'s root is a plain fixed-position div, so the viewport cannot
-// rely on `flex: 1` (nothing there is a flex container) — it fills via
-// absolute positioning inside the fixed root, and owns the same dim the old
-// experimental `.modal` backdrop used to.
+// `WebOverlay`'s root is a plain fixed div, so the viewport fills by absolute
+// positioning (no flex container to stretch in) and owns the dimmed backdrop.
 const styles = StyleSheet.create({
   base: {
     flex: 1,

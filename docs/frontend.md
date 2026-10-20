@@ -76,13 +76,11 @@ row; `useLiveFocusBlock` is for the handful of surfaces that own the timer.
 ## Modal screens
 
 - Web form sheets render through `components/WebModalStack.web.tsx` — the
-  custom navigator that replaced Expo Router's experimental web modal stack
-  (which read `EXPO_UNSTABLE_WEB_MODAL=1` from the `start`/`web`/`export:web`
-  scripts; SDK 58 removed it). **A `formSheet`/`modal` presentation layers as a
-  centered dialog over the *live* base stack** (`NativeStackView` up to the last
-  non-modal route): the screen underneath stays mounted (scroll position
-  survives), and the dialog closes on backdrop click, Esc, and browser back.
-  Native keeps the plain `Stack` via `WebModalStack.tsx`.
+  custom navigator that replaced the experimental web modal stack (SDK 58
+  removed it, with `EXPO_UNSTABLE_WEB_MODAL=1`). A `formSheet`/`modal`
+  presentation renders as a centered dialog over the *live* base stack (screen
+  underneath stays mounted, scroll survives), closing on backdrop click, Esc,
+  and browser back. Native keeps the plain `Stack` via `WebModalStack.tsx`.
 - **Every modal screen's contents must sit in one flex column —
   `components/ModalScreen.*`.** `WebModalStack.web`'s dialog is a flex column;
   a screen returning a fragment still renders empty apart from a stray ✕/✓.

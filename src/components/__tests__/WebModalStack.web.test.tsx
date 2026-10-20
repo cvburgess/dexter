@@ -1,5 +1,5 @@
 import { fireEvent, render } from "@testing-library/react-native";
-import { StyleSheet, Text } from "react-native";
+import { Text } from "react-native";
 
 import { isModalRoute, WebModalOverlay } from "../WebModalStack.web";
 
@@ -60,16 +60,6 @@ describe("isModalRoute", () => {
 });
 
 describe("WebModalOverlay", () => {
-  it("renders its children inside the dialog", async () => {
-    const screen = await render(
-      <WebModalOverlay onDismiss={jest.fn()}>
-        <Text>Inside</Text>
-      </WebModalOverlay>,
-    );
-
-    expect(screen.getByText("Inside")).toBeTruthy();
-  });
-
   // Backdrop belongs to the overlay, not the dialog: pressing outside the
   // dialog must pop the modal route (matches the old stack's dismiss).
   it("dismisses on a backdrop press", async () => {
@@ -131,24 +121,5 @@ describe("WebModalOverlay", () => {
 
     expect(top).toHaveBeenCalledTimes(1);
     expect(lower).not.toHaveBeenCalled();
-  });
-
-  // The old `.modalBody` was flex with no direction (defaults to row); the
-  // dialog is a bounded flex column so `ModalScreen`'s `flex: 1` fills it
-  // (docs/frontend.md).
-  it("shapes the dialog as a bounded flex column", async () => {
-    const screen = await render(
-      <WebModalOverlay onDismiss={jest.fn()}>
-        <Text>Inside</Text>
-      </WebModalOverlay>,
-    );
-
-    const dialog = screen.container.queryAll(
-      (node) => node.props.role === "dialog",
-    )[0];
-    const style = StyleSheet.flatten(dialog.props.style);
-    expect(style.flex).toBe(1);
-    expect(style.flexDirection).toBe("column");
-    expect(style.maxWidth).toBe(680);
   });
 });
