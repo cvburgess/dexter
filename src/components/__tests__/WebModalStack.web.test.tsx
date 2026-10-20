@@ -111,6 +111,28 @@ describe("WebModalOverlay", () => {
     expect(onDismiss).not.toHaveBeenCalled();
   });
 
+  // Stacked modals each render an overlay; only the focused (top) one may own
+  // the window listener, or one Esc press would close the whole pile.
+  it("leaves Esc to the topmost dialog only", async () => {
+    const lower = jest.fn();
+    const top = jest.fn();
+    await render(
+      <>
+        <WebModalOverlay onDismiss={lower} topmost={false}>
+          <Text>Lower</Text>
+        </WebModalOverlay>
+        <WebModalOverlay onDismiss={top} topmost>
+          <Text>Top</Text>
+        </WebModalOverlay>
+      </>,
+    );
+
+    keyHandlers.keydown({ key: "Escape" });
+
+    expect(top).toHaveBeenCalledTimes(1);
+    expect(lower).not.toHaveBeenCalled();
+  });
+
   // The old `.modalBody` was flex with no direction (defaults to row); the
   // dialog is a bounded flex column so `ModalScreen`'s `flex: 1` fills it
   // (docs/frontend.md).

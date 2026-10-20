@@ -43,21 +43,26 @@ export function isModalRoute(options: Options): boolean {
 export function WebModalOverlay({
   children,
   onDismiss,
+  topmost = true,
 }: {
   children: ReactNode;
   onDismiss: () => void;
+  /** Only the focused (top) dialog answers Esc — a stacked lower one must
+   * keep its listener off so one press closes one dialog, not the whole pile. */
+  topmost?: boolean;
 }) {
   const theme = useTheme();
 
   // Esc closes the dialog like the backdrop does (the old stack did too).
   useEffect(() => {
+    if (!topmost) return;
     if (typeof window?.addEventListener !== "function") return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onDismiss();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onDismiss]);
+  }, [onDismiss, topmost]);
 
   return (
     <WebOverlay>
@@ -149,8 +154,12 @@ function ModalStackContent({
         isRemovalPrevented={neverRemovalPrevented}
         pop={noopPop}
       />
-      {modalRoutes.map((route) => (
-        <WebModalOverlay key={route.key} onDismiss={() => actions.back()}>
+      {modalRoutes.map((route, index) => (
+        <WebModalOverlay
+          key={route.key}
+          onDismiss={() => actions.back()}
+          topmost={index === modalRoutes.length - 1}
+        >
           {descriptors[route.key].render()}
         </WebModalOverlay>
       ))}
