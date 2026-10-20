@@ -1,17 +1,23 @@
 import { fireEvent, render } from "@testing-library/react-native";
-import { Text } from "react-native";
+import { StyleSheet, Text } from "react-native";
+
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 
 import { isModalRoute, WebModalOverlay } from "../WebModalStack.web";
 
 // The navigator factory pulls expo-router's whole module graph, which jest's
-// ESM loader can't run; only `WebModalOverlay` and `isModalRoute` are under
-// test here (the route-splitting is a thin port of the guide's tested code).
+// ESM loader can't run — so only the overlay and `isModalRoute` are tested.
 jest.mock("expo-router", () => ({
   NativeStackView: jest.fn(() => null),
   StackRouter: {},
   createStandardRouterNavigator: (Content: React.ComponentType<object>) =>
     Content,
 }));
+
+jest.mock("@/hooks/useIsLargeDevice", () => ({ useIsLargeDevice: jest.fn() }));
+const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
+  typeof useIsLargeDevice
+>;
 
 jest.mock("react-dom", () =>
   require("@/testUtils/mockReactDomPortal").mockReactDomPortal(),
@@ -24,6 +30,7 @@ const keyHandlers: Record<string, TKeyHandler> = {};
 let windowAddEventListener: jest.Mock;
 
 beforeEach(() => {
+  mockUseIsLargeDevice.mockReturnValue(true);
   keyHandlers.keydown = jest.fn((_event: Partial<KeyboardEvent>) => {});
   windowAddEventListener = jest.fn(
     (type: string, handler: TKeyHandler) => (keyHandlers[type] = handler),
@@ -37,9 +44,8 @@ afterEach(() => {
 });
 
 describe("isModalRoute", () => {
-  // The web navigator's whole strategy: `formSheet`/`modal` presentations (what
-  // `createModalScreenOptions` emits) and the guide's own `modal` flag render
-  // as dialogs; everything else stays a stack screen.
+  // `formSheet`/`modal` (what `createModalScreenOptions` emits) and the guide's
+  // `modal` flag render as dialogs; everything else stays a stack screen.
   it.each(["formSheet", "modal"] as const)(
     "treats the %s presentation as a dialog",
     (presentation) => {
@@ -121,5 +127,24 @@ describe("WebModalOverlay", () => {
 
     expect(top).toHaveBeenCalledTimes(1);
     expect(lower).not.toHaveBeenCalled();
+  });
+
+  // Large screens get a capped, centered card; small ones fill the window.
+  it.each([
+    [true, 680],
+    [false, undefined],
+  ])("sizes the dialog for a large device: %s", async (isLarge, maxWidth) => {
+    mockUseIsLargeDevice.mockReturnValue(isLarge);
+    const screen = await render(
+      <WebModalOverlay onDismiss={jest.fn()}>
+        <Text>Inside</Text>
+      </WebModalOverlay>,
+    );
+
+    const dialog = screen.getByText("Inside").parent;
+    expect(dialog?.props.role).toBe("dialog");
+    const style = StyleSheet.flatten(dialog?.props.style);
+    expect(style.maxWidth).toBe(maxWidth);
+    expect(style.width).toBe("100%");
   });
 });

@@ -10,6 +10,7 @@ import {
 import { useEffect, type ComponentProps, type ReactNode } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
+import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import { SHADOW_LG, useTheme } from "@/utils/theme";
 
 import { WebOverlay } from "./WebOverlay.web";
@@ -49,6 +50,7 @@ export function WebModalOverlay({
   topmost?: boolean;
 }) {
   const theme = useTheme();
+  const isLargeDevice = useIsLargeDevice();
 
   // Esc closes the dialog like the backdrop does (the old stack did too).
   useEffect(() => {
@@ -63,24 +65,26 @@ export function WebModalOverlay({
 
   return (
     <WebOverlay>
-      <View style={styles.viewport}>
+      <View style={[styles.viewport, isLargeDevice && styles.viewportPadded]}>
         <Pressable
           accessibilityLabel="Dismiss modal"
           onPress={onDismiss}
           style={StyleSheet.absoluteFill}
         />
-        {/* `.modalBody` was flex with no direction — keep the body a flex column
-            so `ModalScreen`'s `flex: 1` fills it (docs/frontend.md). */}
+        {/* A flex column, so `ModalScreen`'s `flex: 1` fills it. */}
         <View
           role="dialog"
           style={[
             styles.dialog,
-            {
-              backgroundColor: theme.colors.background,
-              borderColor: theme.colors.border,
-              borderRadius: theme.radii.md,
-              boxShadow: SHADOW_LG,
-            },
+            { backgroundColor: theme.colors.background },
+            isLargeDevice && [
+              styles.dialogCard,
+              {
+                borderColor: theme.colors.border,
+                borderRadius: theme.radii.md,
+                boxShadow: SHADOW_LG,
+              },
+            ],
           ]}
         >
           {children}
@@ -144,6 +148,7 @@ function ModalStackContent({
 }
 
 const MODAL_MAX_WIDTH = 680;
+const MODAL_MAX_HEIGHT = 800;
 
 // `WebOverlay`'s root is a plain fixed div, so the viewport fills by absolute
 // positioning (no flex container to stretch in) and owns the dimmed backdrop.
@@ -160,14 +165,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.4)",
     justifyContent: "center",
+  },
+  viewportPadded: {
     padding: 24,
   },
+  // Full-bleed on small screens; a capped, centered card on large ones.
   dialog: {
-    flex: 1,
     flexDirection: "column",
-    maxWidth: MODAL_MAX_WIDTH,
+    height: "100%",
     overflow: "hidden",
     width: "100%",
+  },
+  dialogCard: {
+    maxHeight: MODAL_MAX_HEIGHT,
+    maxWidth: MODAL_MAX_WIDTH,
   },
 });
 
