@@ -39,6 +39,15 @@ export default function AccountScreen() {
   // In two-pane mode the sidebar absorbs the left inset — SafeAreaView would
   // otherwise apply it regardless of position and indent content on a notch.
   const twoPane = useIsLargeDevice();
+  // iOS 26+ glass headers overlay content, so this non-scrolling screen claims
+  // the top inset itself; Android's opaque header already absorbs it (DEX-236).
+  const edges = twoPane
+    ? Platform.OS === "ios"
+      ? (["top", "bottom", "right"] as const)
+      : (["bottom", "right"] as const)
+    : Platform.OS === "ios"
+      ? (["top", "bottom", "left", "right"] as const)
+      : (["bottom", "left", "right"] as const);
 
   const handleLogOut = async () => {
     const confirmed = await confirm(
@@ -81,7 +90,7 @@ export default function AccountScreen() {
     // The one settings screen claiming the bottom edge (DEX-91) — no
     // scroller here, so nothing could hide under the tab bar.
     <SafeAreaView
-      edges={twoPane ? ["bottom", "right"] : ["bottom", "left", "right"]}
+      edges={edges}
       style={[
         styles.container,
         {

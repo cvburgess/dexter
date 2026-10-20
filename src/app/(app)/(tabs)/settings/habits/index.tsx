@@ -55,6 +55,7 @@ export default function HabitsScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
         // Edges omit `bottom`; the content padding lets the last row clear
         // the translucent tab bar (DEX-91).
         contentContainerStyle={[

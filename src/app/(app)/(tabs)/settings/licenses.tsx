@@ -85,6 +85,7 @@ export default function LicensesScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <FlatList
+        contentInsetAdjustmentBehavior="automatic"
         data={sortedDependencies}
         renderItem={renderItem}
         keyExtractor={(item) => item.name}
