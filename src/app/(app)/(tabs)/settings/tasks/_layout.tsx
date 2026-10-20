@@ -1,4 +1,4 @@
-import { Stack } from "expo-router";
+import { WebModalStack } from "@/components/WebModalStack";
 
 import { createModalScreenOptions } from "@/utils/stackOptions";
 import { useTheme } from "@/utils/theme";
@@ -11,19 +11,19 @@ export default function TasksSettingsLayout() {
   const theme = useTheme();
 
   return (
-    <Stack>
+    <WebModalStack>
       {/* Header hidden; only the transition background matters here. */}
-      <Stack.Screen
+      <WebModalStack.Screen
         name="index"
         options={{
           headerShown: false,
           contentStyle: { backgroundColor: theme.colors.background },
         }}
       />
-      <Stack.Screen
+      <WebModalStack.Screen
         name="[id]"
         options={createModalScreenOptions(theme, "Repeat Schedule")}
       />
-    </Stack>
+    </WebModalStack>
   );
 }
