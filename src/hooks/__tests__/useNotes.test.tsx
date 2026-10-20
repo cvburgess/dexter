@@ -68,20 +68,20 @@ describe("useNotes", () => {
     mockGetNote.mockResolvedValue(null);
     mockUpsertNote.mockResolvedValue({ date: "2026-07-12", content: "hello" });
 
+    const { client, wrapper } = createWrapper();
     const { result } = await renderHook(() => useNotes("2026-07-12"), {
-      wrapper: createWrapper().wrapper,
+      wrapper,
     });
 
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
     await act(() => result.current[1].upsertNote({ content: "hello" }));
+    await settleQueries(client);
 
     // Only the note's own column travels now — nothing has to be re-sent to
     // protect a sibling journal column (DEX-51).
-    await waitFor(() =>
-      expect(mockUpsertNote).toHaveBeenCalledWith(
-        {},
-        { content: "hello", date: "2026-07-12" },
-      ),
+    expect(mockUpsertNote).toHaveBeenCalledWith(
+      {},
+      { content: "hello", date: "2026-07-12" },
     );
   });
 
@@ -91,16 +91,18 @@ describe("useNotes", () => {
       .mockRejectedValueOnce(new Error("blip"))
       .mockResolvedValueOnce({ date: "2026-07-12", content: "typed" });
 
+    const { client, wrapper } = createWrapper();
     const { result } = await renderHook(() => useNotes("2026-07-12"), {
-      wrapper: createWrapper().wrapper,
+      wrapper,
     });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
 
     await act(() => result.current[1].upsertNote({ content: "typed" }));
+    await settleQueries(client);
 
-    await waitFor(() => expect(mockUpsertNote).toHaveBeenCalledTimes(2));
+    expect(mockUpsertNote).toHaveBeenCalledTimes(2);
     // The successful retry's response is written to the cache.
-    await waitFor(() => expect(result.current[0].content).toBe("typed"));
+    expect(result.current[0].content).toBe("typed");
     expect(result.current[1].exists).toBe(true);
   });
 
