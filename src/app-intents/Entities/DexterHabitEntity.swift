@@ -3,7 +3,7 @@ internal import ExpoAppIntents
 
 /// A habit, the "Log habit step" parameter. Values come from the `habit`
 /// catalog; the subtitle carries the emoji for spoken disambiguation.
-struct DexterHabitEntity: AppEntity {
+struct DexterHabitEntity: AppEntity, DexterCatalogEntity {
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "Habit"
     static let defaultQuery = DexterHabitEntityQuery()
 
@@ -22,18 +22,5 @@ struct DexterHabitEntity: AppEntity {
         id = record.id
         displayTitle = record.title
         subtitle = record.subtitle
-    }
-
-    func matches(_ searchText: String) -> Bool {
-        let normalized = dexterIntentNormalize(searchText)
-        guard !normalized.isEmpty else { return false }
-        let terms = ([id, displayTitle] + (subtitle.map { [$0] } ?? [])).map(
-            dexterIntentNormalize
-        )
-        return terms.contains { term in
-            normalized == term
-                || normalized.contains(term)
-                || term.contains(normalized)
-        }
     }
 }

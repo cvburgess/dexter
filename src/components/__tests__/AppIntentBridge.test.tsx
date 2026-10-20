@@ -207,7 +207,7 @@ describe("AppIntentBridge", () => {
     expect(removeSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("leaves an unknown intent queued as a no-op", async () => {
+  it("drops an unknown intent from the queue", async () => {
     await render(<AppIntentBridge />);
 
     await deliver([invocation({ name: "mysteryIntent" })]);

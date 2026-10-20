@@ -26,6 +26,36 @@ func dexterIntentNormalize(_ value: String) -> String {
         .trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
+/// The task/habit/list entities: a spoken value fuzzy-matches id/title/subtitle.
+protocol DexterCatalogEntity {
+    var id: String { get }
+    var displayTitle: String { get }
+    var subtitle: String? { get }
+}
+
+extension DexterCatalogEntity {
+    func matches(_ searchText: String) -> Bool {
+        let normalized = dexterIntentNormalize(searchText)
+        guard !normalized.isEmpty else { return false }
+        let terms = ([id, displayTitle] + (subtitle.map { [$0] } ?? [])).map(
+            dexterIntentNormalize
+        )
+        return terms.contains { term in
+            normalized == term
+                || normalized.contains(term)
+                || term.contains(normalized)
+        }
+    }
+}
+
+enum DexterIntentError: Error, CustomLocalizedStringResourceConvertible {
+    case habitNotLogged
+
+    var localizedStringResource: LocalizedStringResource {
+        "Couldn't log that habit for that day. Open Dexter and try again."
+    }
+}
+
 /// The subset of the habits snapshot the app-target habit intent needs.
 private struct DexterHabitSnapshotDecoded: Decodable {
     let days: [DexterHabitDayDecoded]
@@ -45,7 +75,8 @@ private struct DexterHabitDecoded: Decodable {
 /// `date|habitId` → absolute stepsComplete on the widget's App Group key.
 /// Either target may write; the app drains on the next foreground.
 enum DexterAppHabitSteps {
-    static func advance(habitId: String, on date: String) {
+    /// False when the habit isn't in that day's snapshot (or the write failed).
+    static func advance(habitId: String, on date: String) -> Bool {
         guard let defaults = UserDefaults(suiteName: dexterAppGroup),
               let json = defaults.string(forKey: dexterHabitSnapshotKey),
               let data = json.data(using: .utf8),
@@ -55,18 +86,20 @@ enum DexterAppHabitSteps {
               ),
               let habit = snapshot.days.first(where: { $0.date == date })?
                   .habits.first(where: { $0.id == habitId })
-        else { return }
+        else { return false }
 
         let key = "\(date)|\(habitId)"
         var pending = load(from: defaults)
-        // Mirrors the widget's wrap: tapping a finished ring steps back to 0.
+        // Clamps, unlike the widget's tap-to-wrap: "log a step" must never erase
+        // a finished habit's progress.
         let current = pending[key] ?? habit.stepsComplete
-        pending[key] = current >= habit.steps ? 0 : current + 1
+        pending[key] = min(current + 1, habit.steps)
 
         guard let next = try? JSONEncoder().encode(pending),
               let nextJson = String(data: next, encoding: .utf8)
-        else { return }
+        else { return false }
         defaults.set(nextJson, forKey: dexterPendingHabitStepsKey)
+        return true
     }
 
     private static func load(from defaults: UserDefaults) -> [String: Int] {

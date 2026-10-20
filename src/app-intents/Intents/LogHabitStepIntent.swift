@@ -19,12 +19,13 @@ struct LogHabitStepIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult {
-        DexterAppHabitSteps.advance(
+        let logged = DexterAppHabitSteps.advance(
             habitId: habit.id,
             // Defaults to today; an explicit date lands on that day's row the
             // way a 23:59 widget tap lands on the day the widget showed.
             on: dexterIntentDateFormatter.string(from: date ?? Date())
         )
+        guard logged else { throw DexterIntentError.habitNotLogged }
         return .result()
     }
 }
