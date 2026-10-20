@@ -57,32 +57,46 @@ export default function AppLayout() {
     void queryClient.prefetchQuery(goalsQueryOptions);
   }, [userId, queryClient]);
 
+  // The bridge keeps one tree position across the gates: its sign-out cleanup
+  // must see the signed-out render, which an early-return unmount would skip.
   if (initializing) {
-    return <LoadingScreen />;
+    return (
+      <>
+        <LoadingScreen />
+        <AppIntentBridge />
+      </>
+    );
   }
 
   if (!session) {
-    return <Redirect href="/(auth)/login" />;
+    return (
+      <>
+        <Redirect href="/(auth)/login" />
+        <AppIntentBridge />
+      </>
+    );
   }
 
   return (
-    <View style={styles.root}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen
-          name="new-task"
-          options={createModalScreenOptions(theme, "New Task")}
-        />
-        <Stack.Screen
-          name="edit-task/[id]"
-          options={createModalScreenOptions(theme, "Edit Task")}
-        />
-      </Stack>
-      {/* Publishes the running focus block, completes it on timeout, hosts
+    <>
+      <View style={styles.root}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen
+            name="new-task"
+            options={createModalScreenOptions(theme, "New Task")}
+          />
+          <Stack.Screen
+            name="edit-task/[id]"
+            options={createModalScreenOptions(theme, "Edit Task")}
+          />
+        </Stack>
+        {/* Publishes the running focus block, completes it on timeout, hosts
           the stop confirmation — alive on every tab, outside any one (DEX-49). */}
-      <FocusTimerHost />
+        <FocusTimerHost />
+      </View>
       <AppIntentBridge />
-    </View>
+    </>
   );
 }
 

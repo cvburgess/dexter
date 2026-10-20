@@ -2,7 +2,7 @@ import AppIntents
 internal import ExpoAppIntents
 
 /// An optional "Add task" destination, resolved from the `list` catalog.
-struct DexterListEntity: AppEntity {
+struct DexterListEntity: AppEntity, DexterCatalogEntity {
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "List"
     static let defaultQuery = DexterListEntityQuery()
 
@@ -21,18 +21,5 @@ struct DexterListEntity: AppEntity {
         id = record.id
         displayTitle = record.title
         subtitle = record.subtitle
-    }
-
-    func matches(_ searchText: String) -> Bool {
-        let normalized = dexterIntentNormalize(searchText)
-        guard !normalized.isEmpty else { return false }
-        let terms = ([id, displayTitle] + (subtitle.map { [$0] } ?? [])).map(
-            dexterIntentNormalize
-        )
-        return terms.contains { term in
-            normalized == term
-                || normalized.contains(term)
-                || term.contains(normalized)
-        }
     }
 }
