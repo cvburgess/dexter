@@ -218,10 +218,13 @@ Plumbing:
   `useResolvedColorScheme` renders light then resolves in a layout effect (before
   paint).
 - **Navigation surfaces must be themed explicitly** — a bare `<Stack>` renders a
-  light header in dark mode; layouts pass screens through
+  light header in dark mode on Android/web; layouts pass screens through
   `createListScreenOptions`/`createModalScreenOptions` (`utils/stackOptions.ts`),
   and the root Stack sets a themed `contentStyle` so pre-paint gaps match the
-  scheme.
+  scheme. iOS 26+ headers are native Liquid Glass instead (unset
+  `headerStyle.backgroundColor`), and a header screen's root scroller needs
+  `contentInsetAdjustmentBehavior="automatic"` (or the top safe-area edge when
+  not scrolling) or its first row hides under the glass (DEX-236).
 - **Density is a pointer tier, not a multiplier** — compact on web ≥768px only;
   see `docs/design.md`.
 
