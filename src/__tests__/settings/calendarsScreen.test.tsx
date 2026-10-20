@@ -31,7 +31,7 @@ const mockUseIsLargeDevice = useIsLargeDevice as jest.MockedFunction<
 >;
 const mockUpdate = jest.fn();
 
-const renderWith = (overrides: Record<string, unknown> = {}) => {
+const renderWith = async (overrides: Record<string, unknown> = {}) => {
   mockUsePreferences.mockReturnValue([
     {
       enableCalendar: true,
@@ -42,7 +42,7 @@ const renderWith = (overrides: Record<string, unknown> = {}) => {
     } as never,
     { updatePreferences: mockUpdate },
   ]);
-  return render(<CalendarsScreen />);
+  return await render(<CalendarsScreen />);
 };
 
 describe("CalendarsScreen", () => {
@@ -51,21 +51,21 @@ describe("CalendarsScreen", () => {
     mockUseIsLargeDevice.mockReturnValue(false);
   });
 
-  it("reflects the enabled state and toggles it", () => {
-    const screen = renderWith({ enableCalendar: true });
+  it("reflects the enabled state and toggles it", async () => {
+    const screen = await renderWith({ enableCalendar: true });
     expect(screen.getByLabelText("Calendar").props.value).toBe(true);
-    fireEvent(screen.getByLabelText("Calendar"), "valueChange", false);
+    await fireEvent(screen.getByLabelText("Calendar"), "valueChange", false);
     expect(mockUpdate).toHaveBeenCalledWith({ enableCalendar: false });
   });
 
-  it("shows the timeline window controls when enabled", () => {
-    const screen = renderWith({ enableCalendar: true });
+  it("shows the timeline window controls when enabled", async () => {
+    const screen = await renderWith({ enableCalendar: true });
     expect(screen.getByText("Start time")).toBeTruthy();
     expect(screen.getByText("End time")).toBeTruthy();
   });
 
-  it("hides the settings body when the calendar is disabled", () => {
-    const screen = renderWith({ enableCalendar: false });
+  it("hides the settings body when the calendar is disabled", async () => {
+    const screen = await renderWith({ enableCalendar: false });
     expect(screen.queryByText("Start time")).toBeNull();
     expect(screen.queryByText("Daily timeline")).toBeNull();
   });

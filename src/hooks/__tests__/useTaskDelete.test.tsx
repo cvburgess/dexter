@@ -44,7 +44,7 @@ const template = (schedule: string | null): TTemplate =>
   ({ id: "template-1", schedule }) as TTemplate;
 
 /** Seeds the template the task's `templateId` resolves to; `null` = unknown. */
-const setup = (linked: TTemplate | null) => {
+const setup = async (linked: TTemplate | null) => {
   mockUseTasks.mockReturnValue([[], { deleteTask: mockDeleteTask }] as never);
   mockUseTemplates.mockReturnValue([
     [],
@@ -53,7 +53,7 @@ const setup = (linked: TTemplate | null) => {
       getTemplateById: () => linked ?? undefined,
     },
   ] as never);
-  return renderHook(() => useTaskDelete());
+  return await renderHook(() => useTaskDelete());
 };
 
 /** Answers the open prompt by pressing one of its buttons. */
@@ -76,9 +76,9 @@ beforeEach(() => {
 
 describe("useTaskDelete", () => {
   it("deletes a plain task once confirmed, touching no template", async () => {
-    const { result } = setup(null);
+    const { result } = await setup(null);
 
-    act(() => void result.current.confirmDelete(task()));
+    await act(() => void result.current.confirmDelete(task()));
     expect(result.current.confirmationProps.title).toBe("Delete Task");
 
     await press(result, "Delete");
@@ -88,9 +88,9 @@ describe("useTaskDelete", () => {
   });
 
   it("leaves the task alone when cancelled", async () => {
-    const { result } = setup(null);
+    const { result } = await setup(null);
 
-    act(() => void result.current.confirmDelete(task()));
+    await act(() => void result.current.confirmDelete(task()));
     await press(result, "Cancel");
 
     expect(mockDeleteTask).not.toHaveBeenCalled();
@@ -99,9 +99,9 @@ describe("useTaskDelete", () => {
   // The task→template FK is ON DELETE SET NULL, so the schedule has to go
   // explicitly or the task reappears tomorrow (DEX-21).
   it("removes a repeating task's schedule alongside it", async () => {
-    const { result } = setup(template("0 0 * * *"));
+    const { result } = await setup(template("0 0 * * *"));
 
-    act(
+    await act(
       () =>
         void result.current.confirmDelete(task({ templateId: "template-1" })),
     );
@@ -118,9 +118,9 @@ describe("useTaskDelete", () => {
   // A template without a schedule is one the user saved for themselves
   // (DEX-65); it is not this task's, and must outlive it.
   it("spares a saved task template", async () => {
-    const { result } = setup(template(null));
+    const { result } = await setup(template(null));
 
-    act(
+    await act(
       () =>
         void result.current.confirmDelete(task({ templateId: "template-1" })),
     );
@@ -133,9 +133,9 @@ describe("useTaskDelete", () => {
   // Unknown (loading, or a stale id) counts as "not a repeat" — leaving a
   // schedule behind is visible and undoable; deleting a saved template isn't.
   it("keeps an unresolvable template rather than guessing", async () => {
-    const { result } = setup(null);
+    const { result } = await setup(null);
 
-    act(
+    await act(
       () =>
         void result.current.confirmDelete(task({ templateId: "template-1" })),
     );

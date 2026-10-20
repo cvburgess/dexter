@@ -42,8 +42,8 @@ describe("getSwipeCommitDirection", () => {
 describe("SwipeablePage", () => {
   // DEX-138: `width: "100%"` is half the pair — without it the centering stage
   // would shrink the page to its content instead of capping it.
-  it("caps and centers the page at a tablet-portrait width", () => {
-    const screen = render(
+  it("caps and centers the page at a tablet-portrait width", async () => {
+    const screen = await render(
       <SwipeablePage pageKey="horoscope" direction={0} onSwipe={jest.fn()}>
         <Text>Horoscope</Text>
       </SwipeablePage>,
@@ -54,9 +54,9 @@ describe("SwipeablePage", () => {
     ).toMatchObject({ maxWidth: SWIPEABLE_PAGE_MAX_WIDTH, width: "100%" });
   });
 
-  it("commits forward when swiped left past the threshold", () => {
+  it("commits forward when swiped left past the threshold", async () => {
     const onSwipe = jest.fn();
-    render(
+    await render(
       <SwipeablePage pageKey="2026-07-06" direction={0} onSwipe={onSwipe}>
         <Text>Task A</Text>
       </SwipeablePage>,
@@ -69,9 +69,9 @@ describe("SwipeablePage", () => {
     expect(onSwipe).toHaveBeenCalledWith(1);
   });
 
-  it("commits backward when swiped right past the threshold", () => {
+  it("commits backward when swiped right past the threshold", async () => {
     const onSwipe = jest.fn();
-    render(
+    await render(
       <SwipeablePage pageKey="2026-07-06" direction={0} onSwipe={onSwipe}>
         <Text>Task A</Text>
       </SwipeablePage>,
@@ -84,9 +84,9 @@ describe("SwipeablePage", () => {
     expect(onSwipe).toHaveBeenCalledWith(-1);
   });
 
-  it("does not commit a sub-threshold pan", () => {
+  it("does not commit a sub-threshold pan", async () => {
     const onSwipe = jest.fn();
-    render(
+    await render(
       <SwipeablePage pageKey="2026-07-06" direction={0} onSwipe={onSwipe}>
         <Text>Task A</Text>
       </SwipeablePage>,
@@ -99,9 +99,9 @@ describe("SwipeablePage", () => {
     expect(onSwipe).not.toHaveBeenCalled();
   });
 
-  it("does not commit a past-threshold swipe when disabled", () => {
+  it("does not commit a past-threshold swipe when disabled", async () => {
     const onSwipe = jest.fn();
-    render(
+    await render(
       <SwipeablePage
         pageKey="2026-07-06"
         direction={0}
@@ -121,9 +121,9 @@ describe("SwipeablePage", () => {
 
   // Declining inside the component is what un-strands the drag offset: only a
   // `pageKey` change resets it, and a host with nowhere to go keeps its key.
-  it("does not commit forward past the last page", () => {
+  it("does not commit forward past the last page", async () => {
     const onSwipe = jest.fn();
-    render(
+    await render(
       <SwipeablePage
         pageKey="congrats"
         canNext={false}
@@ -141,9 +141,9 @@ describe("SwipeablePage", () => {
     expect(onSwipe).not.toHaveBeenCalled();
   });
 
-  it("does not commit backward before the first page", () => {
+  it("does not commit backward before the first page", async () => {
     const onSwipe = jest.fn();
-    render(
+    await render(
       <SwipeablePage
         pageKey="horoscope"
         canPrev={false}
@@ -161,9 +161,9 @@ describe("SwipeablePage", () => {
     expect(onSwipe).not.toHaveBeenCalled();
   });
 
-  it("still commits the direction that is available at a boundary", () => {
+  it("still commits the direction that is available at a boundary", async () => {
     const onSwipe = jest.fn();
-    render(
+    await render(
       <SwipeablePage
         pageKey="horoscope"
         canPrev={false}

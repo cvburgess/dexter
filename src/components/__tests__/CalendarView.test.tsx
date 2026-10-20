@@ -44,8 +44,8 @@ const READY = {
 const setEvents = (date: Temporal.PlainDate) =>
   mockUseCalendarEvents.mockReturnValue([[eventOn(date)], READY]);
 
-const fireLayout = (node: unknown, height: number) =>
-  fireEvent(node as never, "layout", {
+const fireLayout = async (node: unknown, height: number) =>
+  await fireEvent(node as never, "layout", {
     nativeEvent: { layout: { x: 0, y: 0, width: 300, height } },
   });
 
@@ -69,9 +69,9 @@ beforeEach(() => {
 });
 
 describe("CalendarView auto-scroll to now", () => {
-  it("scrolls the now line into the viewport on first layout", () => {
-    const { getByTestId } = render(<CalendarView date={TODAY} />);
-    fireLayout(getByTestId("calendar-scroll"), 600);
+  it("scrolls the now line into the viewport on first layout", async () => {
+    const { getByTestId } = await render(<CalendarView date={TODAY} />);
+    await fireLayout(getByTestId("calendar-scroll"), 600);
 
     expect(scrollToSpy).toHaveBeenCalledTimes(1);
     const [arg] = scrollToSpy.mock.calls[0] as [
@@ -82,21 +82,21 @@ describe("CalendarView auto-scroll to now", () => {
     expect(arg.y).toBeGreaterThanOrEqual(0);
   });
 
-  it("does not scroll on a future day (no now line)", () => {
+  it("does not scroll on a future day (no now line)", async () => {
     setEvents(TOMORROW);
 
-    const { getByTestId } = render(<CalendarView date={TOMORROW} />);
-    fireLayout(getByTestId("calendar-scroll"), 600);
+    const { getByTestId } = await render(<CalendarView date={TOMORROW} />);
+    await fireLayout(getByTestId("calendar-scroll"), 600);
 
     expect(scrollToSpy).not.toHaveBeenCalled();
   });
 
-  it("scrolls only once even if layout fires repeatedly", () => {
-    const { getByTestId } = render(<CalendarView date={TODAY} />);
+  it("scrolls only once even if layout fires repeatedly", async () => {
+    const { getByTestId } = await render(<CalendarView date={TODAY} />);
     const scroll = getByTestId("calendar-scroll");
-    fireLayout(scroll, 600);
-    fireLayout(scroll, 500);
-    fireLayout(scroll, 700);
+    await fireLayout(scroll, 600);
+    await fireLayout(scroll, 500);
+    await fireLayout(scroll, 700);
 
     expect(scrollToSpy).toHaveBeenCalledTimes(1);
   });
@@ -118,10 +118,10 @@ describe("CalendarView empty states", () => {
     ],
     ["a failed read", { ...READY, isError: true }, /Couldn't load/],
     ["a genuinely clear day", READY, /No events scheduled/],
-  ])("says %s", (_label, meta, message) => {
+  ])("says %s", async (_label, meta, message) => {
     mockUseCalendarEvents.mockReturnValue([[], meta]);
 
-    const { getByText } = render(<CalendarView date={TODAY} />);
+    const { getByText } = await render(<CalendarView date={TODAY} />);
 
     expect(getByText(message)).toBeTruthy();
   });

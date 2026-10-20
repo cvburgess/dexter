@@ -1,6 +1,5 @@
 import { fireEvent, render } from "@testing-library/react-native";
-import { ScrollView, StyleSheet } from "react-native";
-import type { ViewStyle } from "react-native";
+import { StyleSheet } from "react-native";
 
 import AppearanceScreen from "@/app/(app)/(tabs)/settings/appearance";
 import { EThemeMode } from "@/api/preferences";
@@ -41,9 +40,12 @@ const mockPreferences = (
   ]);
 };
 
-const renderWith = (overrides = {}) => {
+const flatStyle = (style: unknown) =>
+  StyleSheet.flatten(style as Parameters<typeof StyleSheet.flatten>[0])!;
+
+const renderWith = async (overrides = {}) => {
   mockPreferences(overrides);
-  return render(<AppearanceScreen />);
+  return await render(<AppearanceScreen />);
 };
 
 describe("AppearanceScreen", () => {
@@ -54,58 +56,58 @@ describe("AppearanceScreen", () => {
 
   // Every scrolling settings screen shares these edges via
   // settingsSafeAreaEdges.ts; asserted once, here (account.tsx is the exception).
-  it("skips the left safe-area edge in two-pane mode (sidebar owns it)", () => {
+  it("skips the left safe-area edge in two-pane mode (sidebar owns it)", async () => {
     mockUseIsLargeDevice.mockReturnValue(true);
-    const screen = renderWith();
+    const screen = await renderWith();
 
     expect(screen.getByTestId("safe-area-edges-right")).toBeTruthy();
   });
 
-  it("includes the left safe-area edge in single-column mode", () => {
-    const screen = renderWith();
+  it("includes the left safe-area edge in single-column mode", async () => {
+    const screen = await renderWith();
 
     expect(screen.getByTestId("safe-area-edges-left,right")).toBeTruthy();
   });
 
   // Edges omit `bottom` so cards scroll under the tab bar; content must reserve
   // the inset itself or the last card can never clear it (DEX-91).
-  it("adds the safe-area bottom inset to the scroll content's own padding", () => {
+  it("adds the safe-area bottom inset to the scroll content's own padding", async () => {
     mockPreferences();
-    const screen = renderWithBottomInset(34, <AppearanceScreen />);
+    const screen = await renderWithBottomInset(34, <AppearanceScreen />);
 
-    const style = StyleSheet.flatten(
-      screen.UNSAFE_getByType(ScrollView).props
-        .contentContainerStyle as ViewStyle[],
+    const [scrollView] = screen.container.queryAll(
+      (node) => node.type === "RCTScrollView",
     );
+    const style = flatStyle(scrollView.props.contentContainerStyle);
     expect(style.paddingBottom).toBe(Number(style.padding) + 34);
   });
 
   // DEX-109: the card's single `gap` is the space between swatches and name.
   // Asserted against the card's own padding, not a literal, to pin the intent.
-  it("gives a theme card's swatches and title the same air as the card's inset", () => {
-    const screen = renderWith();
+  it("gives a theme card's swatches and title the same air as the card's inset", async () => {
+    const screen = await renderWith();
 
-    const style = StyleSheet.flatten(
-      screen.getByTestId("appearance-theme-dexter").props.style as ViewStyle[],
+    const style = flatStyle(
+      screen.getByTestId("appearance-theme-dexter").props.style,
     );
     expect(style.gap).toBe(style.padding);
   });
 
   // The swatches used to take `flex: 1` against a fixed height, which drew them
   // as tall ovals. They are circles: a square box at `radii.full`.
-  it("draws a theme card's color swatches as circles", () => {
-    const screen = renderWith();
+  it("draws a theme card's color swatches as circles", async () => {
+    const screen = await renderWith();
 
     const swatches = screen.getByTestId("appearance-swatches-dexter");
     for (const swatch of swatches.props.children) {
-      const style = StyleSheet.flatten(swatch.props.style as ViewStyle);
+      const style = flatStyle(swatch.props.style);
       expect(style.width).toBe(style.height);
       expect(style.borderRadius).toBe(999);
     }
   });
 
-  it("renders the mode control and both theme sections in SYSTEM mode", () => {
-    const screen = renderWith();
+  it("renders the mode control and both theme sections in SYSTEM mode", async () => {
+    const screen = await renderWith();
 
     expect(screen.getByTestId("appearance-mode-system")).toBeTruthy();
     // Light themes
@@ -117,39 +119,39 @@ describe("AppearanceScreen", () => {
     expect(screen.getByTestId("appearance-theme-abyss")).toBeTruthy();
   });
 
-  it("saves the mode when a mode pill is pressed", () => {
-    const screen = renderWith();
+  it("saves the mode when a mode pill is pressed", async () => {
+    const screen = await renderWith();
 
-    fireEvent.press(screen.getByTestId("appearance-mode-dark"));
+    await fireEvent.press(screen.getByTestId("appearance-mode-dark"));
 
     expect(mockUpdate).toHaveBeenCalledWith({ themeMode: EThemeMode.DARK });
   });
 
-  it("saves the light theme when a light card is pressed", () => {
-    const screen = renderWith();
+  it("saves the light theme when a light card is pressed", async () => {
+    const screen = await renderWith();
 
-    fireEvent.press(screen.getByTestId("appearance-theme-light"));
+    await fireEvent.press(screen.getByTestId("appearance-theme-light"));
 
     expect(mockUpdate).toHaveBeenCalledWith({ lightTheme: "light" });
   });
 
-  it("saves the dark theme when a dark card is pressed", () => {
-    const screen = renderWith();
+  it("saves the dark theme when a dark card is pressed", async () => {
+    const screen = await renderWith();
 
-    fireEvent.press(screen.getByTestId("appearance-theme-abyss"));
+    await fireEvent.press(screen.getByTestId("appearance-theme-abyss"));
 
     expect(mockUpdate).toHaveBeenCalledWith({ darkTheme: "abyss" });
   });
 
-  it("hides the dark section when the mode is forced to LIGHT", () => {
-    const screen = renderWith({ themeMode: EThemeMode.LIGHT });
+  it("hides the dark section when the mode is forced to LIGHT", async () => {
+    const screen = await renderWith({ themeMode: EThemeMode.LIGHT });
 
     expect(screen.getByTestId("appearance-theme-dexter")).toBeTruthy();
     expect(screen.queryByTestId("appearance-theme-abyss")).toBeNull();
   });
 
-  it("hides the light section when the mode is forced to DARK", () => {
-    const screen = renderWith({ themeMode: EThemeMode.DARK });
+  it("hides the light section when the mode is forced to DARK", async () => {
+    const screen = await renderWith({ themeMode: EThemeMode.DARK });
 
     expect(screen.getByTestId("appearance-theme-abyss")).toBeTruthy();
     expect(screen.queryByTestId("appearance-theme-dexter")).toBeNull();

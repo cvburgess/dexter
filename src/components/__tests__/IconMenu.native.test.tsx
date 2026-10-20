@@ -33,8 +33,8 @@ const sections: TIconMenuSection[] = [
 ];
 
 describe("IconMenu (native)", () => {
-  it("opens on tap by default, with the given menu title", () => {
-    render(
+  it("opens on tap by default, with the given menu title", async () => {
+    await render(
       <IconMenu
         accessibilityLabel="Status"
         menuTitle="Status"
@@ -52,8 +52,8 @@ describe("IconMenu (native)", () => {
     );
   });
 
-  it("opens on long-press with no title when configured for it", () => {
-    render(
+  it("opens on long-press with no title when configured for it", async () => {
+    await render(
       <IconMenu
         accessibilityLabel="More"
         trigger="longPress"
@@ -71,7 +71,7 @@ describe("IconMenu (native)", () => {
     );
   });
 
-  it("emits `state` only for checkable options, so action items stay buttons", () => {
+  it("emits `state` only for checkable options, so action items stay buttons", async () => {
     const mixedSections: TIconMenuSection[] = [
       {
         options: [
@@ -84,7 +84,7 @@ describe("IconMenu (native)", () => {
       },
     ];
 
-    render(
+    await render(
       <IconMenu accessibilityLabel="Menu" sections={mixedSections}>
         <Text>Trigger</Text>
       </IconMenu>,
@@ -102,7 +102,7 @@ describe("IconMenu (native)", () => {
 
   // The system draws a separator around every inline group, so a section that
   // continues the one before it can't be one — its options go up a level.
-  it("flattens a continuing section into bare top-level actions", () => {
+  it("flattens a continuing section into bare top-level actions", async () => {
     const continuing: TIconMenuSection[] = [
       {
         title: "Priority",
@@ -116,7 +116,7 @@ describe("IconMenu (native)", () => {
       { options: [{ id: "delete", title: "Delete", onSelect: jest.fn() }] },
     ];
 
-    render(
+    await render(
       <IconMenu accessibilityLabel="More" sections={continuing}>
         <Text>Trigger</Text>
       </IconMenu>,
@@ -144,7 +144,7 @@ describe("IconMenu (native)", () => {
     expect(actions[2].displayInline).toBe(true);
   });
 
-  it("forwards a colored action item's icon tint without making it a toggle", () => {
+  it("forwards a colored action item's icon tint without making it a toggle", async () => {
     // The colored Backlog action stays a plain button (no `state`); its icon is
     // tinted natively via `.tint` in @expo/ui >= 57.0.8.
     const coloredSections: TIconMenuSection[] = [
@@ -161,7 +161,7 @@ describe("IconMenu (native)", () => {
       },
     ];
 
-    render(
+    await render(
       <IconMenu accessibilityLabel="Menu" sections={coloredSections}>
         <Text>Trigger</Text>
       </IconMenu>,
@@ -183,14 +183,14 @@ describe("IconMenu (native)", () => {
   describe("colorScheme", () => {
     // `palette` omitted renders with no provider, the case `useTheme` serves
     // from the device scheme.
-    const renderWith = (palette?: TThemePalette) => {
+    const renderWith = async (palette?: TThemePalette) => {
       const menu = (
         <IconMenu accessibilityLabel="Status" sections={sections}>
           <Text>Trigger</Text>
         </IconMenu>
       );
 
-      render(
+      await render(
         palette ? (
           <ThemeContext.Provider value={palette}>{menu}</ThemeContext.Provider>
         ) : (
@@ -205,22 +205,22 @@ describe("IconMenu (native)", () => {
       return colorScheme;
     };
 
-    it("follows a dark palette even when the device is light", () => {
+    it("follows a dark palette even when the device is light", async () => {
       jest.mocked(useColorScheme).mockReturnValue("light");
 
-      expect(renderWith(themes.abyss)).toBe("dark");
+      expect(await renderWith(themes.abyss)).toBe("dark");
     });
 
-    it("follows a light palette even when the device is dark", () => {
+    it("follows a light palette even when the device is dark", async () => {
       jest.mocked(useColorScheme).mockReturnValue("dark");
 
-      expect(renderWith(themes.dexter)).toBe("light");
+      expect(await renderWith(themes.dexter)).toBe("light");
     });
 
-    it("falls back to the device scheme with no theme provider", () => {
+    it("falls back to the device scheme with no theme provider", async () => {
       jest.mocked(useColorScheme).mockReturnValue("dark");
 
-      expect(renderWith()).toBe("dark");
+      expect(await renderWith()).toBe("dark");
     });
   });
 });

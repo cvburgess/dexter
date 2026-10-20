@@ -73,9 +73,9 @@ jest.mock("@expo/ui/swift-ui", () => ({
 // grab the latest options to interact with them like the header would.
 const headerOptions = () => mockNavigation.setOptions.mock.calls.at(-1)?.[0];
 
-const pressSave = () => {
-  const save = render(headerOptions().headerRight());
-  fireEvent.press(save.getByTestId("modal-done-button"));
+const pressSave = async () => {
+  const save = await render(headerOptions().headerRight());
+  await fireEvent.press(save.getByTestId("modal-done-button"));
   return save;
 };
 
@@ -128,8 +128,8 @@ describe("EditTaskScreen", () => {
     setTasks([savedTask]);
   });
 
-  it("seeds the form from the saved task", () => {
-    const screen = render(<EditTaskScreen />);
+  it("seeds the form from the saved task", async () => {
+    const screen = await render(<EditTaskScreen />);
 
     expect(screen.getByTestId("edit-task-title").props.value).toBe(
       "Write the report",
@@ -138,20 +138,20 @@ describe("EditTaskScreen", () => {
 
   // The create modal autofocuses because the title is empty; here the form
   // opens filled, and raising the keyboard would cover the fields below it.
-  it("does not autofocus the title", () => {
-    const screen = render(<EditTaskScreen />);
+  it("does not autofocus the title", async () => {
+    const screen = await render(<EditTaskScreen />);
 
     expect(screen.getByTestId("edit-task-title").props.autoFocus).toBeFalsy();
   });
 
-  it("saves the whole field set against the task's id and dismisses", () => {
-    const screen = render(<EditTaskScreen />);
+  it("saves the whole field set against the task's id and dismisses", async () => {
+    const screen = await render(<EditTaskScreen />);
 
-    fireEvent.changeText(
+    await fireEvent.changeText(
       screen.getByTestId("edit-task-title"),
       "Ship the deck",
     );
-    pressSave();
+    await pressSave();
 
     expect(mockUpdateTask).toHaveBeenCalledWith(
       {
@@ -173,15 +173,15 @@ describe("EditTaskScreen", () => {
 
   // Shorthand is create-only: a saved title is text the user already committed
   // to, not input waiting to be parsed (DEX-98).
-  it("keeps shorthand characters in the title instead of parsing them", () => {
+  it("keeps shorthand characters in the title instead of parsing them", async () => {
     setTasks([{ ...savedTask, title: "Ship it!! #home due:3" }]);
-    const screen = render(<EditTaskScreen />);
+    const screen = await render(<EditTaskScreen />);
 
     expect(screen.getByTestId("edit-task-title").props.value).toBe(
       "Ship it!! #home due:3",
     );
 
-    pressSave();
+    await pressSave();
 
     expect(mockUpdateTask).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -194,19 +194,19 @@ describe("EditTaskScreen", () => {
     );
   });
 
-  it("seeds the link from the saved task and writes an edit back", () => {
+  it("seeds the link from the saved task and writes an edit back", async () => {
     setTasks([{ ...savedTask, url: "https://example.com/old" }]);
-    const screen = render(<EditTaskScreen />);
+    const screen = await render(<EditTaskScreen />);
 
     expect(screen.getByTestId("edit-task-url").props.value).toBe(
       "https://example.com/old",
     );
 
-    fireEvent.changeText(
+    await fireEvent.changeText(
       screen.getByTestId("edit-task-url"),
       "https://example.com/new",
     );
-    pressSave();
+    await pressSave();
 
     expect(mockUpdateTask).toHaveBeenCalledWith(
       expect.objectContaining({ url: "https://example.com/new" }),
@@ -215,12 +215,12 @@ describe("EditTaskScreen", () => {
   });
 
   // Clearing the field removes the link rather than storing an empty one.
-  it("clears a saved link back to null", () => {
+  it("clears a saved link back to null", async () => {
     setTasks([{ ...savedTask, url: "https://example.com/old" }]);
-    const screen = render(<EditTaskScreen />);
+    const screen = await render(<EditTaskScreen />);
 
-    fireEvent.changeText(screen.getByTestId("edit-task-url"), "");
-    pressSave();
+    await fireEvent.changeText(screen.getByTestId("edit-task-url"), "");
+    await pressSave();
 
     expect(mockUpdateTask).toHaveBeenCalledWith(
       expect.objectContaining({ url: null }),
@@ -228,33 +228,33 @@ describe("EditTaskScreen", () => {
     );
   });
 
-  it("disables save while the title is empty", () => {
-    const screen = render(<EditTaskScreen />);
+  it("disables save while the title is empty", async () => {
+    const screen = await render(<EditTaskScreen />);
 
-    fireEvent.changeText(screen.getByTestId("edit-task-title"), "   ");
-    pressSave();
+    await fireEvent.changeText(screen.getByTestId("edit-task-title"), "   ");
+    await pressSave();
 
     expect(mockUpdateTask).not.toHaveBeenCalled();
     expect(headerOptions().unstable_headerRightItems()[0].disabled).toBe(true);
   });
 
-  it("cancels from the header close button without writing", () => {
-    render(<EditTaskScreen />);
+  it("cancels from the header close button without writing", async () => {
+    await render(<EditTaskScreen />);
 
-    const close = render(headerOptions().headerLeft());
-    fireEvent.press(close.getByTestId("modal-close-button"));
+    const close = await render(headerOptions().headerLeft());
+    await fireEvent.press(close.getByTestId("modal-close-button"));
 
     expect(mockRouter.back).toHaveBeenCalled();
     expect(mockUpdateTask).not.toHaveBeenCalled();
   });
 
-  it("only writes once when save is pressed twice", () => {
-    const screen = render(<EditTaskScreen />);
+  it("only writes once when save is pressed twice", async () => {
+    const screen = await render(<EditTaskScreen />);
 
-    const save = render(headerOptions().headerRight());
-    fireEvent.press(save.getByTestId("modal-done-button"));
-    fireEvent.press(save.getByTestId("modal-done-button"));
-    fireEvent(screen.getByTestId("edit-task-title"), "submitEditing");
+    const save = await render(headerOptions().headerRight());
+    await fireEvent.press(save.getByTestId("modal-done-button"));
+    await fireEvent.press(save.getByTestId("modal-done-button"));
+    await fireEvent(screen.getByTestId("edit-task-title"), "submitEditing");
 
     expect(mockUpdateTask).toHaveBeenCalledTimes(1);
     expect(mockRouter.back).toHaveBeenCalledTimes(1);
@@ -262,28 +262,34 @@ describe("EditTaskScreen", () => {
 
   // The write is optimistic, so a failure rolls the cache back — closing over
   // it would lose the user's edits with nothing to show for them.
-  it("stays open and allows retrying when the save fails", () => {
+  it("stays open and allows retrying when the save fails", async () => {
     mockUpdateTask.mockImplementation((_diff, callbacks) => {
       callbacks?.onError?.(new Error("network error"));
     });
-    const screen = render(<EditTaskScreen />);
+    const screen = await render(<EditTaskScreen />);
 
-    fireEvent.changeText(screen.getByTestId("edit-task-title"), "Renamed");
-    const save = render(headerOptions().headerRight());
-    fireEvent.press(save.getByTestId("modal-done-button"));
+    await fireEvent.changeText(
+      screen.getByTestId("edit-task-title"),
+      "Renamed",
+    );
+    const save = await render(headerOptions().headerRight());
+    await fireEvent.press(save.getByTestId("modal-done-button"));
 
     expect(mockUpdateTask).toHaveBeenCalledTimes(1);
     expect(mockRouter.back).not.toHaveBeenCalled();
 
-    fireEvent.press(save.getByTestId("modal-done-button"));
+    await fireEvent.press(save.getByTestId("modal-done-button"));
     expect(mockUpdateTask).toHaveBeenCalledTimes(2);
   });
 
-  it("saves when the title input is submitted from the keyboard", () => {
-    const screen = render(<EditTaskScreen />);
+  it("saves when the title input is submitted from the keyboard", async () => {
+    const screen = await render(<EditTaskScreen />);
 
-    fireEvent.changeText(screen.getByTestId("edit-task-title"), "Renamed");
-    fireEvent(screen.getByTestId("edit-task-title"), "submitEditing");
+    await fireEvent.changeText(
+      screen.getByTestId("edit-task-title"),
+      "Renamed",
+    );
+    await fireEvent(screen.getByTestId("edit-task-title"), "submitEditing");
 
     expect(mockUpdateTask).toHaveBeenCalledWith(
       expect.objectContaining({ id: "task-1", title: "Renamed" }),
@@ -291,20 +297,20 @@ describe("EditTaskScreen", () => {
     );
   });
 
-  it("clears a set alarm when the schedule is cleared", () => {
+  it("clears a set alarm when the schedule is cleared", async () => {
     setTasks([{ ...savedTask, alarmTime: "07:15" }]);
-    const screen = render(<EditTaskScreen />);
+    const screen = await render(<EditTaskScreen />);
 
     expect(screen.getByTestId("edit-task-clear-alarm")).toBeTruthy();
 
-    fireEvent.press(screen.getByTestId("edit-task-clear-schedule"));
+    await fireEvent.press(screen.getByTestId("edit-task-clear-schedule"));
 
     // No confirmation: nothing is written until ✓, and the Alarm row reverting
     // to "Add alarm" is the feedback.
     expect(screen.queryByTestId("edit-task-clear-alarm")).toBeNull();
     expect(screen.getByTestId("edit-task-add-alarm")).toBeTruthy();
 
-    pressSave();
+    await pressSave();
 
     expect(mockUpdateTask).toHaveBeenCalledWith(
       expect.objectContaining({ scheduledFor: null, alarmTime: null }),
@@ -318,7 +324,7 @@ describe("EditTaskScreen", () => {
     beforeEach(() => jest.useFakeTimers({ now: new Date(2026, 6, 29, 12, 0) }));
     afterEach(() => jest.useRealTimers());
 
-    const scheduledToday = (alarmTime: string) => {
+    const scheduledToday = async (alarmTime: string) => {
       setTasks([
         {
           ...savedTask,
@@ -326,27 +332,27 @@ describe("EditTaskScreen", () => {
           alarmTime,
         },
       ]);
-      render(<EditTaskScreen />);
+      await render(<EditTaskScreen />);
       return datePickerProps["edit-task-alarm"]?.range;
     };
 
-    it("does not bound the picker below an alarm already in the past", () => {
-      expect(scheduledToday("08:00")).toBeUndefined();
+    it("does not bound the picker below an alarm already in the past", async () => {
+      expect(await scheduledToday("08:00")).toBeUndefined();
     });
 
-    it("still bounds the picker to now for an alarm later today", () => {
-      expect(scheduledToday("23:59")).toBeDefined();
+    it("still bounds the picker to now for an alarm later today", async () => {
+      expect(await scheduledToday("23:59")).toBeDefined();
     });
   });
 
   it("pulls an unscheduled task onto today when an alarm is added", async () => {
     setTasks([{ ...savedTask, scheduledFor: null }]);
-    const screen = render(<EditTaskScreen />);
+    const screen = await render(<EditTaskScreen />);
 
-    fireEvent.press(screen.getByTestId("edit-task-add-alarm"));
+    await fireEvent.press(screen.getByTestId("edit-task-add-alarm"));
     await screen.findByTestId("edit-task-clear-alarm");
 
-    pressSave();
+    await pressSave();
 
     expect(mockUpdateTask).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -359,11 +365,11 @@ describe("EditTaskScreen", () => {
 
   // Provenance belongs to the row, not the form — writing the payload back
   // must leave `template_id` pointing where it already pointed.
-  it("carries the task's template link through a save", () => {
+  it("carries the task's template link through a save", async () => {
     setTasks([{ ...savedTask, templateId: "template-1" }]);
-    render(<EditTaskScreen />);
+    await render(<EditTaskScreen />);
 
-    pressSave();
+    await pressSave();
 
     expect(mockUpdateTask).toHaveBeenCalledWith(
       expect.objectContaining({ templateId: "template-1" }),
@@ -373,13 +379,13 @@ describe("EditTaskScreen", () => {
 
   // `goalId` and `status` have no control on this form, so they must stay out
   // of the payload rather than ride along as stale values.
-  it("never writes fields the form does not own", () => {
+  it("never writes fields the form does not own", async () => {
     setTasks([
       { ...savedTask, goalId: "goal-1", status: ETaskStatus.IN_PROGRESS },
     ]);
-    render(<EditTaskScreen />);
+    await render(<EditTaskScreen />);
 
-    pressSave();
+    await pressSave();
 
     const [diff] = mockUpdateTask.mock.calls[0];
     expect(diff).not.toHaveProperty("goalId");
@@ -388,30 +394,30 @@ describe("EditTaskScreen", () => {
 
   // A cold deep link leaves the stack holding only this modal, where `back()`
   // is an unhandled GO_BACK: ✕ looks dead and ✓ never closes.
-  it("replaces rather than popping when there is nothing beneath it", () => {
+  it("replaces rather than popping when there is nothing beneath it", async () => {
     mockRouter.canDismiss.mockReturnValue(false);
-    render(<EditTaskScreen />);
+    await render(<EditTaskScreen />);
 
-    const close = render(headerOptions().headerLeft());
-    fireEvent.press(close.getByTestId("modal-close-button"));
+    const close = await render(headerOptions().headerLeft());
+    await fireEvent.press(close.getByTestId("modal-close-button"));
 
     expect(mockRouter.back).not.toHaveBeenCalled();
     expect(mockRouter.replace).toHaveBeenCalledWith("/");
   });
 
-  it("closes after a save reached from a cold deep link", () => {
+  it("closes after a save reached from a cold deep link", async () => {
     mockRouter.canDismiss.mockReturnValue(false);
-    render(<EditTaskScreen />);
+    await render(<EditTaskScreen />);
 
-    pressSave();
+    await pressSave();
 
     expect(mockUpdateTask).toHaveBeenCalledTimes(1);
     expect(mockRouter.replace).toHaveBeenCalledWith("/");
   });
 
-  it("waits for the fetch rather than dismissing on a cold load", () => {
+  it("waits for the fetch rather than dismissing on a cold load", async () => {
     setTasks([], { isLoading: true });
-    render(<EditTaskScreen />);
+    await render(<EditTaskScreen />);
 
     expect(mockRouter.back).not.toHaveBeenCalled();
     expect(mockRouter.replace).not.toHaveBeenCalled();
@@ -422,11 +428,11 @@ describe("EditTaskScreen", () => {
   describe("while the task is still loading", () => {
     beforeEach(() => setTasks([], { isLoading: true }));
 
-    it("still offers a working close button", () => {
-      render(<EditTaskScreen />);
+    it("still offers a working close button", async () => {
+      await render(<EditTaskScreen />);
 
-      const close = render(headerOptions().headerLeft());
-      fireEvent.press(close.getByTestId("modal-close-button"));
+      const close = await render(headerOptions().headerLeft());
+      await fireEvent.press(close.getByTestId("modal-close-button"));
 
       expect(mockRouter.back).toHaveBeenCalledTimes(1);
       expect(mockUpdateTask).not.toHaveBeenCalled();
@@ -434,9 +440,9 @@ describe("EditTaskScreen", () => {
 
     // The case the guard exists for: closing before the fetch lands has to
     // behave the same as closing after it.
-    it("replaces rather than popping on a cold deep link", () => {
+    it("replaces rather than popping on a cold deep link", async () => {
       mockRouter.canDismiss.mockReturnValue(false);
-      render(<EditTaskScreen />);
+      await render(<EditTaskScreen />);
 
       headerOptions().unstable_headerLeftItems()[0].onPress();
 
@@ -446,14 +452,14 @@ describe("EditTaskScreen", () => {
 
     // The resolved form re-wires the header on mount, so the disabled ✓ from
     // the loading state must not survive the swap.
-    it("hands the header over to the form once the task lands", () => {
-      const screen = render(<EditTaskScreen />);
+    it("hands the header over to the form once the task lands", async () => {
+      const screen = await render(<EditTaskScreen />);
       expect(headerOptions().unstable_headerRightItems()[0].disabled).toBe(
         true,
       );
 
       setTasks([savedTask]);
-      screen.rerender(<EditTaskScreen />);
+      await screen.rerender(<EditTaskScreen />);
 
       expect(headerOptions().unstable_headerRightItems()[0].disabled).toBe(
         false,
@@ -466,27 +472,27 @@ describe("EditTaskScreen", () => {
 
   // Closes the modal rather than navigating the app, so the screen it was
   // opened over is still there (DEX-100).
-  it("dismisses the modal once the task is known to be gone", () => {
+  it("dismisses the modal once the task is known to be gone", async () => {
     setTasks([]);
-    render(<EditTaskScreen />);
+    await render(<EditTaskScreen />);
 
     expect(mockRouter.back).toHaveBeenCalled();
     expect(mockRouter.replace).not.toHaveBeenCalled();
   });
 
-  it("only dismisses once when the absent state re-renders", () => {
+  it("only dismisses once when the absent state re-renders", async () => {
     setTasks([]);
-    const screen = render(<EditTaskScreen />);
+    const screen = await render(<EditTaskScreen />);
 
-    screen.rerender(<EditTaskScreen />);
+    await screen.rerender(<EditTaskScreen />);
 
     expect(mockRouter.back).toHaveBeenCalledTimes(1);
   });
 
-  it("replaces to the root when a deleted task was deep-linked cold", () => {
+  it("replaces to the root when a deleted task was deep-linked cold", async () => {
     mockRouter.canDismiss.mockReturnValue(false);
     setTasks([]);
-    render(<EditTaskScreen />);
+    await render(<EditTaskScreen />);
 
     expect(mockRouter.back).not.toHaveBeenCalled();
     expect(mockRouter.replace).toHaveBeenCalledWith("/");
@@ -494,10 +500,10 @@ describe("EditTaskScreen", () => {
 
   // `back()` pops whichever navigator is focused, so a background-tab refetch
   // that drops the task must not pop the screen the user is looking at.
-  it("waits for focus before dismissing a backgrounded screen", () => {
+  it("waits for focus before dismissing a backgrounded screen", async () => {
     mockIsFocused.current = false;
     setTasks([]);
-    render(<EditTaskScreen />);
+    await render(<EditTaskScreen />);
 
     expect(mockRouter.back).not.toHaveBeenCalled();
     expect(mockRouter.replace).not.toHaveBeenCalled();
@@ -508,8 +514,8 @@ describe("EditTaskScreen", () => {
   describe("when the tasks query fails", () => {
     beforeEach(() => setTasks([], { isError: true }));
 
-    it("reports the failure instead of dismissing", () => {
-      const screen = render(<EditTaskScreen />);
+    it("reports the failure instead of dismissing", async () => {
+      const screen = await render(<EditTaskScreen />);
 
       expect(
         screen.getByText(
@@ -520,25 +526,25 @@ describe("EditTaskScreen", () => {
       expect(mockRouter.replace).not.toHaveBeenCalled();
     });
 
-    it("retries the fetch and shows the form once it succeeds", () => {
-      const screen = render(<EditTaskScreen />);
+    it("retries the fetch and shows the form once it succeeds", async () => {
+      const screen = await render(<EditTaskScreen />);
 
-      fireEvent.press(screen.getByTestId("modal-error-retry"));
+      await fireEvent.press(screen.getByTestId("modal-error-retry"));
       expect(mockRefetch).toHaveBeenCalledTimes(1);
 
       setTasks([savedTask]);
-      screen.rerender(<EditTaskScreen />);
+      await screen.rerender(<EditTaskScreen />);
 
       expect(screen.getByTestId("edit-task-title").props.value).toBe(
         "Write the report",
       );
     });
 
-    it("closes from the header without a live save action", () => {
-      render(<EditTaskScreen />);
+    it("closes from the header without a live save action", async () => {
+      await render(<EditTaskScreen />);
 
-      const close = render(headerOptions().headerLeft());
-      fireEvent.press(close.getByTestId("modal-close-button"));
+      const close = await render(headerOptions().headerLeft());
+      await fireEvent.press(close.getByTestId("modal-close-button"));
 
       expect(mockRouter.back).toHaveBeenCalled();
       expect(headerOptions().unstable_headerRightItems()[0].disabled).toBe(
@@ -549,9 +555,9 @@ describe("EditTaskScreen", () => {
 
   // A background refetch can fail after first load; the cache still holds the
   // task, so the form being typed into must survive it.
-  it("keeps the form mounted when a refetch fails after the task resolved", () => {
+  it("keeps the form mounted when a refetch fails after the task resolved", async () => {
     setTasks([savedTask], { isError: true });
-    const screen = render(<EditTaskScreen />);
+    const screen = await render(<EditTaskScreen />);
 
     expect(screen.getByTestId("edit-task-title").props.value).toBe(
       "Write the report",

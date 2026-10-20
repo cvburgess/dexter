@@ -1,7 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { fireEvent, render } from "@testing-library/react-native";
 import { StyleSheet, Text, TextStyle, ViewStyle } from "react-native";
-import type { ReactTestInstance } from "react-test-renderer";
+import type { TestInstance } from "test-renderer";
 
 import { DayNav } from "../DayNav";
 import { PeriodNav, PeriodNavLabel } from "../PeriodNav";
@@ -16,8 +16,8 @@ jest.mock("../DateField", () => ({ DateField: () => null }));
 // same x only because the slot is this wide regardless of the label.
 const CENTER_SLOT_WIDTH = 160;
 
-const styleOf = (node: ReactTestInstance) =>
-  StyleSheet.flatten<TextStyle & ViewStyle>(node.props.style);
+const styleOf = (node: TestInstance): TextStyle & ViewStyle =>
+  StyleSheet.flatten(node.props.style)!;
 
 describe("PeriodNav", () => {
   const renderNav = (overrides: Partial<typeof props> = {}) =>
@@ -34,26 +34,30 @@ describe("PeriodNav", () => {
     prevLabel: "Previous thing",
   };
 
-  it("calls onPrev when the previous chevron is pressed", () => {
+  it("calls onPrev when the previous chevron is pressed", async () => {
     const onPrev = jest.fn();
 
-    fireEvent.press(renderNav({ onPrev }).getByLabelText("Previous thing"));
+    await fireEvent.press(
+      (await renderNav({ onPrev })).getByLabelText("Previous thing"),
+    );
 
     expect(onPrev).toHaveBeenCalledTimes(1);
   });
 
-  it("calls onNext when the next chevron is pressed", () => {
+  it("calls onNext when the next chevron is pressed", async () => {
     const onNext = jest.fn();
 
-    fireEvent.press(renderNav({ onNext }).getByLabelText("Next thing"));
+    await fireEvent.press(
+      (await renderNav({ onNext })).getByLabelText("Next thing"),
+    );
 
     expect(onNext).toHaveBeenCalledTimes(1);
   });
 
   // The slot, not the label, carries the width — so `DayNav`'s calendar picker
   // gets it too, without restating the number.
-  it("sizes the center slot rather than its contents", () => {
-    const screen = renderNav();
+  it("sizes the center slot rather than its contents", async () => {
+    const screen = await renderNav();
 
     expect(styleOf(screen.getByTestId("period-nav-center")).minWidth).toBe(
       CENTER_SLOT_WIDTH,
@@ -62,8 +66,8 @@ describe("PeriodNav", () => {
 });
 
 describe("PeriodNavLabel", () => {
-  it("centers its text at the shared type metrics", () => {
-    const screen = render(<PeriodNavLabel>Friday, Jul 3</PeriodNavLabel>);
+  it("centers its text at the shared type metrics", async () => {
+    const screen = await render(<PeriodNavLabel>Friday, Jul 3</PeriodNavLabel>);
 
     const style = styleOf(screen.getByText("Friday, Jul 3"));
 
@@ -81,18 +85,26 @@ describe("shared metrics between DayNav and WeekNav", () => {
   // A Monday — ISO week 31 of 2026, which is what `WeekNav` renders.
   const monday = Temporal.PlainDate.from("2026-07-27");
 
-  it("renders both center labels at identical metrics", () => {
-    const day = render(<DayNav date={notToday} onChangeDate={jest.fn()} />);
-    const week = render(<WeekNav monday={monday} onChangeWeek={jest.fn()} />);
+  it("renders both center labels at identical metrics", async () => {
+    const day = await render(
+      <DayNav date={notToday} onChangeDate={jest.fn()} />,
+    );
+    const week = await render(
+      <WeekNav monday={monday} onChangeWeek={jest.fn()} />,
+    );
 
     expect(styleOf(week.getByText("Week 31, 2026"))).toEqual(
       styleOf(day.getByText(formatWeekdayMonthDay(notToday))),
     );
   });
 
-  it("gives both navs the same center slot width", () => {
-    const day = render(<DayNav date={notToday} onChangeDate={jest.fn()} />);
-    const week = render(<WeekNav monday={monday} onChangeWeek={jest.fn()} />);
+  it("gives both navs the same center slot width", async () => {
+    const day = await render(
+      <DayNav date={notToday} onChangeDate={jest.fn()} />,
+    );
+    const week = await render(
+      <WeekNav monday={monday} onChangeWeek={jest.fn()} />,
+    );
 
     const slotWidth = (screen: typeof day) =>
       styleOf(screen.getByTestId("period-nav-center")).minWidth;

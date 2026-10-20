@@ -1,6 +1,6 @@
 module.exports = {
   preset: "jest-expo",
-  resolver: "react-native-worklets/jest/resolver",
+  resolver: "react-native-reanimated/jest/resolver",
   setupFiles: ["<rootDir>/jest.setup.js"],
   setupFilesAfterEnv: ["<rootDir>/jest.setupAfterEnv.js"],
   testPathIgnorePatterns: ["/node_modules/", "/app/"],
@@ -8,6 +8,6 @@ module.exports = {
     "^@/(.*)$": "<rootDir>/$1",
   },
   transformIgnorePatterns: [
-    "node_modules/(?!((jest-)?react-native(-.*)?|@react-native|react-clone-referenced-element|@react-navigation|expo|expo-.+|@expo(nent)?/.*|@expo-google-fonts/.*|@shopify/flash-list|camelcase|camelcase-keys|decamelize|decamelize-keys|map-obj|quick-lru)/)",
+    "node_modules/(?!((jest-)?react-native(-.*)?|@react-native|react-clone-referenced-element|expo|expo-.+|@expo(nent)?/.*|@expo-google-fonts/.*|@shopify/flash-list|camelcase|camelcase-keys|decamelize|decamelize-keys|map-obj|quick-lru)/)",
   ],
 };

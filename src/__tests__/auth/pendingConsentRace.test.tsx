@@ -62,7 +62,7 @@ describe("pending OAuth consent survives the initializing→signed-in transition
 
       // First render mid-bootstrap: the session has not landed yet.
       mockUseAuth.mockReturnValue({ initializing: true, session: null });
-      const { rerender, findByText } = render(<Component />);
+      const { rerender, findByText } = await render(<Component />);
 
       // The session lands on a later render (e.g. native Google completing the
       // exchange in place).
@@ -71,7 +71,7 @@ describe("pending OAuth consent survives the initializing→signed-in transition
         session,
         userId: "user-1",
       });
-      rerender(<Component />);
+      await rerender(<Component />);
 
       expect(
         await findByText("redirect:/oauth/consent?authorization_id=auth-1"),

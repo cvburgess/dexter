@@ -1,6 +1,6 @@
 import { act, render } from "@testing-library/react-native";
 import type { ComponentProps, ReactNode } from "react";
-import { ScrollView, Text } from "react-native";
+import { Text, type ScrollViewInstance } from "react-native";
 import { State } from "react-native-gesture-handler";
 import {
   fireGestureHandler,
@@ -67,7 +67,7 @@ const withProvider = (children: ReactNode) => (
 );
 
 /** The props the drax stub received for the drag source. */
-const dragProps = (screen: ReturnType<typeof render>) =>
+const dragProps = (screen: Awaited<ReturnType<typeof render>>) =>
   screen.getByTestId(`task-drag-${task.id}`).props as {
     draggable: boolean;
     receptive: boolean;
@@ -79,9 +79,9 @@ const dragProps = (screen: ReturnType<typeof render>) =>
   };
 
 /** Drives TaskCard's editing callback, which is how the wrapper learns a field is focused. */
-const setEditing = (editing: boolean) => {
+const setEditing = async (editing: boolean) => {
   const last = mockTaskCard.mock.calls.at(-1)?.[0];
-  act(() => last?.onEditingChange?.(editing));
+  await act(() => last?.onEditingChange?.(editing));
 };
 
 beforeEach(() => {
@@ -103,31 +103,35 @@ beforeEach(() => {
 describe("DraggableTaskCard", () => {
   // The small-screen layouts, the backlog sheet, and Search all render this
   // without a provider. A DraxView mounted there would throw.
-  it("is an ordinary card outside a provider", () => {
-    const screen = render(<DraggableTaskCard {...cardProps} />);
+  it("is an ordinary card outside a provider", async () => {
+    const screen = await render(<DraggableTaskCard {...cardProps} />);
 
     expect(screen.getByText("Write report")).toBeTruthy();
     expect(screen.queryByTestId(`task-drag-${task.id}`)).toBeNull();
   });
 
-  it("becomes a drag source inside a provider", () => {
-    const screen = render(withProvider(<DraggableTaskCard {...cardProps} />));
+  it("becomes a drag source inside a provider", async () => {
+    const screen = await render(
+      withProvider(<DraggableTaskCard {...cardProps} />),
+    );
 
     expect(screen.getByTestId(`task-drag-${task.id}`)).toBeTruthy();
   });
 
   // An id, not the task: drax caches a view's props when it registers, so a
   // whole-task payload would freeze at whatever the task was then.
-  it("carries only the task's id as its payload", () => {
-    const screen = render(withProvider(<DraggableTaskCard {...cardProps} />));
+  it("carries only the task's id as its payload", async () => {
+    const screen = await render(
+      withProvider(<DraggableTaskCard {...cardProps} />),
+    );
 
     expect(dragProps(screen).payload).toEqual({ taskId: "task-1" });
   });
 
   // Today's only other target is the card's own day, so with the drawer closed
   // a drag could only snap back — and its pan would still swallow presses.
-  it("is not draggable while the provider is disabled", () => {
-    const screen = render(
+  it("is not draggable while the provider is disabled", async () => {
+    const screen = await render(
       <DragScheduleProvider enabled={false}>
         <DraggableTaskCard {...cardProps} />
       </DragScheduleProvider>,
@@ -136,18 +140,22 @@ describe("DraggableTaskCard", () => {
     expect(dragProps(screen).draggable).toBe(false);
   });
 
-  it("never receives a drop itself", () => {
-    const screen = render(withProvider(<DraggableTaskCard {...cardProps} />));
+  it("never receives a drop itself", async () => {
+    const screen = await render(
+      withProvider(<DraggableTaskCard {...cardProps} />),
+    );
 
     expect(dragProps(screen).receptive).toBe(false);
   });
 
   // Drax's default hover would re-render this card's children into the overlay,
   // mounting a second set of native menu hosts that paint nothing on device.
-  it("previews with a static shell rather than the card itself", () => {
-    const screen = render(withProvider(<DraggableTaskCard {...cardProps} />));
+  it("previews with a static shell rather than the card itself", async () => {
+    const screen = await render(
+      withProvider(<DraggableTaskCard {...cardProps} />),
+    );
 
-    const preview = render(
+    const preview = await render(
       dragProps(screen).renderHoverContent({ dimensions: { width: 240 } }),
     );
 
@@ -159,8 +167,8 @@ describe("DraggableTaskCard", () => {
   it.each([
     ["done", ETaskStatus.DONE],
     ["won't do", ETaskStatus.WONT_DO],
-  ])("does not let a %s task be dragged", (_label, status) => {
-    const screen = render(
+  ])("does not let a %s task be dragged", async (_label, status) => {
+    const screen = await render(
       withProvider(
         <DraggableTaskCard {...cardProps} task={{ ...task, status }} />,
       ),
@@ -172,20 +180,24 @@ describe("DraggableTaskCard", () => {
   describe("while a field on the card is being edited", () => {
     // No-hold activation means selecting title text would pick the card up
     // instead — same fix as SwipeablePage's `enabled={!editing}`.
-    it("suspends the drag", () => {
-      const screen = render(withProvider(<DraggableTaskCard {...cardProps} />));
+    it("suspends the drag", async () => {
+      const screen = await render(
+        withProvider(<DraggableTaskCard {...cardProps} />),
+      );
       expect(dragProps(screen).draggable).toBe(true);
 
-      setEditing(true);
+      await setEditing(true);
 
       expect(dragProps(screen).draggable).toBe(false);
     });
 
-    it("restores it once editing ends", () => {
-      const screen = render(withProvider(<DraggableTaskCard {...cardProps} />));
-      setEditing(true);
+    it("restores it once editing ends", async () => {
+      const screen = await render(
+        withProvider(<DraggableTaskCard {...cardProps} />),
+      );
+      await setEditing(true);
 
-      setEditing(false);
+      await setEditing(false);
 
       expect(dragProps(screen).draggable).toBe(true);
     });
@@ -193,9 +205,11 @@ describe("DraggableTaskCard", () => {
 
   // DEX-207: nothing arbitrates Week's native scroll against drax's pan, so a
   // press pauses it — and a release that failed to resume it would freeze the week.
-  it("pauses the host scroller while pressed and resumes it on release", () => {
-    const scrollRef = { current: null } as unknown as AnimatedRef<ScrollView>;
-    render(
+  it("pauses the host scroller while pressed and resumes it on release", async () => {
+    const scrollRef = {
+      current: null,
+    } as unknown as AnimatedRef<ScrollViewInstance>;
+    await render(
       <DragScheduleProvider pauseScrollRef={scrollRef}>
         <DraggableTaskCard {...cardProps} />
       </DragScheduleProvider>,

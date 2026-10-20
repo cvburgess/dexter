@@ -43,9 +43,9 @@ describe("valueAtPosition", () => {
 });
 
 describe("Slider", () => {
-  const setup = (value = 3) => {
+  const setup = async (value = 3) => {
     const onValueChange = jest.fn();
-    render(
+    await render(
       <Slider
         accessibilityLabel="Breaths"
         max={10}
@@ -62,8 +62,8 @@ describe("Slider", () => {
     };
   };
 
-  it("reports its range and current value to a screen reader", () => {
-    const { slider } = setup(4);
+  it("reports its range and current value to a screen reader", async () => {
+    const { slider } = await setup(4);
     expect(slider.props.accessibilityRole).toBe("adjustable");
     expect(slider.props.accessibilityValue).toEqual({
       max: 10,
@@ -72,23 +72,23 @@ describe("Slider", () => {
     });
   });
 
-  it("steps up and down through the accessibility actions", () => {
-    const { onValueChange, slider } = setup(4);
+  it("steps up and down through the accessibility actions", async () => {
+    const { onValueChange, slider } = await setup(4);
 
-    fireEvent(slider, "accessibilityAction", {
+    await fireEvent(slider, "accessibilityAction", {
       nativeEvent: { actionName: "increment" },
     });
     expect(onValueChange).toHaveBeenCalledWith(5);
 
-    fireEvent(slider, "accessibilityAction", {
+    await fireEvent(slider, "accessibilityAction", {
       nativeEvent: { actionName: "decrement" },
     });
     expect(onValueChange).toHaveBeenCalledWith(3);
   });
 
-  it("does not step past either end", () => {
-    const { onValueChange, slider } = setup(10);
-    fireEvent(slider, "accessibilityAction", {
+  it("does not step past either end", async () => {
+    const { onValueChange, slider } = await setup(10);
+    await fireEvent(slider, "accessibilityAction", {
       nativeEvent: { actionName: "increment" },
     });
     // Already at the maximum, so the value is unchanged and nothing is written.

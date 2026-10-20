@@ -5,7 +5,6 @@ import {
 import * as Sentry from "@sentry/react-native";
 import { Stack, useNavigationContainerRef } from "expo-router";
 import type { ErrorBoundaryProps } from "expo-router";
-import { ShareIntentProvider } from "expo-share-intent";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
@@ -89,18 +88,14 @@ function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
-      {/* Outside the providers: a share can launch the app cold, and the
-          payload has to be readable before anything below has mounted. */}
-      <ShareIntentProvider>
-        <QueryProvider>
-          <AuthProvider>
-            <ThemeProvider>
-              <ShareIntentRedirect />
-              <ThemedStack />
-            </ThemeProvider>
-          </AuthProvider>
-        </QueryProvider>
-      </ShareIntentProvider>
+      <QueryProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            <ShareIntentRedirect />
+            <ThemedStack />
+          </ThemeProvider>
+        </AuthProvider>
+      </QueryProvider>
     </GestureHandlerRootView>
   );
 }

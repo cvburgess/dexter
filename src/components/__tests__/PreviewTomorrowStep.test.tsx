@@ -119,7 +119,7 @@ const READY = {
 
 // The step calls `useCalendarEvents` once for tomorrow and once per history
 // day, so the mock answers by date rather than returning one array.
-const renderStep = ({
+const renderStep = async ({
   events = [] as TCalendarEvent[],
   history = {},
   tasks = [] as TTask[],
@@ -150,7 +150,7 @@ const renderStep = ({
     { updatePreferences: jest.fn() },
   ] as never);
 
-  return render(
+  return await render(
     <PreviewTomorrowStep date={DATE} onEditingChange={jest.fn()} />,
   );
 };
@@ -166,22 +166,25 @@ beforeEach(() => {
 describe("PreviewTomorrowStep", () => {
   // Order is load-bearing: unresolved hooks serve empty placeholders, which
   // the empty-history rule reads as a confident "typical" that then rewrites.
-  it("renders nothing at all while any of the five days is still loading", () => {
-    renderStep({ meta: { isLoading: true }, tasks: tasksOn(TOMORROW, 3) });
+  it("renders nothing at all while any of the five days is still loading", async () => {
+    await renderStep({
+      meta: { isLoading: true },
+      tasks: tasksOn(TOMORROW, 3),
+    });
 
     expect(screen.queryByTestId("preview-tomorrow-sentence")).toBeNull();
     expect(screen.queryByText(/^card:/)).toBeNull();
   });
 
   describe("the sentence", () => {
-    it("names tomorrow's own weekday, not the ritual's", () => {
-      renderStep();
+    it("names tomorrow's own weekday, not the ritual's", async () => {
+      await renderStep();
 
       expect(sentence()).toContain("Thursday");
     });
 
-    it("invites a typical day to be more than that", () => {
-      renderStep({
+    it("invites a typical day to be more than that", async () => {
+      await renderStep({
         tasks: [
           ...tasksOn(TOMORROW, 2),
           ...HISTORY.flatMap((d) => tasksOn(d, 2)),
@@ -194,8 +197,8 @@ describe("PreviewTomorrowStep", () => {
       ).toBeTruthy();
     });
 
-    it("calls a day heavier on both axes busier", () => {
-      renderStep({
+    it("calls a day heavier on both axes busier", async () => {
+      await renderStep({
         tasks: [
           ...tasksOn(TOMORROW, 9),
           ...HISTORY.flatMap((d) => tasksOn(d, 2)),
@@ -208,8 +211,8 @@ describe("PreviewTomorrowStep", () => {
       expect(screen.getByText("Don't forget to eat.")).toBeTruthy();
     });
 
-    it("calls a day lighter on both axes calmer", () => {
-      renderStep({
+    it("calls a day lighter on both axes calmer", async () => {
+      await renderStep({
         tasks: [
           ...tasksOn(TOMORROW, 1),
           ...HISTORY.flatMap((d) => tasksOn(d, 6)),
@@ -221,8 +224,8 @@ describe("PreviewTomorrowStep", () => {
       expect(screen.getByText("Enjoy the extra space.")).toBeTruthy();
     });
 
-    it("names both axes when they disagree", () => {
-      renderStep({
+    it("names both axes when they disagree", async () => {
+      await renderStep({
         tasks: [
           ...tasksOn(TOMORROW, 1),
           ...HISTORY.flatMap((d) => tasksOn(d, 6)),
@@ -238,8 +241,8 @@ describe("PreviewTomorrowStep", () => {
 
     // The guard that stops a first-time reader being told tomorrow is busier
     // than a Thursday the app has never seen.
-    it("reads a day with no history at all as typical", () => {
-      renderStep({
+    it("reads a day with no history at all as typical", async () => {
+      await renderStep({
         tasks: tasksOn(TOMORROW, 9),
         events: [timed("all morning", 9, 13)],
       });
@@ -249,15 +252,15 @@ describe("PreviewTomorrowStep", () => {
   });
 
   describe("the agenda", () => {
-    it("lists each event with its span and its title", () => {
-      renderStep({ events: [timed("Daily Standup", 16, 17, 15)] });
+    it("lists each event with its span and its title", async () => {
+      await renderStep({ events: [timed("Daily Standup", 16, 17, 15)] });
 
       expect(screen.getByLabelText("4:00-5:15 PM Daily Standup")).toBeTruthy();
       expect(screen.getByText("Daily Standup")).toBeTruthy();
     });
 
-    it("labels an all-day event rather than timing it", () => {
-      renderStep({
+    it("labels an all-day event rather than timing it", async () => {
+      await renderStep({
         events: [
           {
             id: "birthday",
@@ -272,8 +275,8 @@ describe("PreviewTomorrowStep", () => {
       expect(screen.getByLabelText("all-day Tanya's Birthday")).toBeTruthy();
     });
 
-    it("puts the all-day event above the timed ones", () => {
-      renderStep({
+    it("puts the all-day event above the timed ones", async () => {
+      await renderStep({
         events: [
           timed("Daily Standup", 9, 10),
           {
@@ -292,37 +295,37 @@ describe("PreviewTomorrowStep", () => {
       expect(times).toEqual(["all-day", "9:00-10:00 AM"]);
     });
 
-    it("says so when tomorrow holds no events", () => {
-      renderStep();
+    it("says so when tomorrow holds no events", async () => {
+      await renderStep();
 
       expect(screen.getByText("No events tomorrow")).toBeTruthy();
     });
 
-    it("is absent entirely when the calendar is off", () => {
-      renderStep({ enableCalendar: false, tasks: tasksOn(TOMORROW, 1) });
+    it("is absent entirely when the calendar is off", async () => {
+      await renderStep({ enableCalendar: false, tasks: tasksOn(TOMORROW, 1) });
 
       expect(screen.queryByText("No events tomorrow")).toBeNull();
     });
 
     // A calendar with no source takes the same path as one switched off, not
     // an inline setup prompt stranded below the fold.
-    it("is absent when the calendar has no source behind it", () => {
-      renderStep({ meta: { notConfigured: true } });
+    it("is absent when the calendar has no source behind it", async () => {
+      await renderStep({ meta: { notConfigured: true } });
 
       expect(screen.queryByText("No events tomorrow")).toBeNull();
     });
 
     // A failed read hands back an empty array — indistinguishable from a clear
     // day, which would read as "calmer" because the wifi dropped.
-    it("says a read failed rather than claiming the day is empty", () => {
-      renderStep({ meta: { isError: true } });
+    it("says a read failed rather than claiming the day is empty", async () => {
+      await renderStep({ meta: { isError: true } });
 
       expect(screen.getByText("Couldn't load your calendars")).toBeTruthy();
       expect(screen.queryByText("No events tomorrow")).toBeNull();
     });
 
-    it("drops the meetings axis when any of the five reads failed", () => {
-      renderStep({
+    it("drops the meetings axis when any of the five reads failed", async () => {
+      await renderStep({
         meta: { isError: true },
         tasks: [
           ...tasksOn(TOMORROW, 2),
@@ -334,8 +337,8 @@ describe("PreviewTomorrowStep", () => {
       expect(sentence()).toBe("Tomorrow might be a typical Thursday,");
     });
 
-    it("never mentions meetings when the calendar is off", () => {
-      renderStep({
+    it("never mentions meetings when the calendar is off", async () => {
+      await renderStep({
         enableCalendar: false,
         tasks: [
           ...tasksOn(TOMORROW, 9),
@@ -350,8 +353,8 @@ describe("PreviewTomorrowStep", () => {
   });
 
   describe("the task list", () => {
-    it("draws a card per task scheduled for tomorrow", () => {
-      renderStep({
+    it("draws a card per task scheduled for tomorrow", async () => {
+      await renderStep({
         tasks: [
           task({ id: "a", title: "Write report" }),
           task({ id: "b", title: "Call the vet" }),
@@ -364,8 +367,8 @@ describe("PreviewTomorrowStep", () => {
 
     // The step previews `date + 1`, so the ritual's own day must not leak into
     // it — that would make it a second copy of the step two swipes back.
-    it("leaves the ritual's own day out of it", () => {
-      renderStep({
+    it("leaves the ritual's own day out of it", async () => {
+      await renderStep({
         tasks: [
           task({
             id: "today",
@@ -380,15 +383,15 @@ describe("PreviewTomorrowStep", () => {
       expect(screen.queryByText("card:Today's")).toBeNull();
     });
 
-    it("says so when tomorrow holds no tasks", () => {
-      renderStep();
+    it("says so when tomorrow holds no tasks", async () => {
+      await renderStep();
 
       expect(screen.getByText("No tasks tomorrow")).toBeTruthy();
     });
 
     // Open cards rename, so a drag across a live field would page the ritual;
     // unwrapped because `TaskCard` notifies from an effect keyed on identity.
-    it("hands each card the editing callback, unwrapped", () => {
+    it("hands each card the editing callback, unwrapped", async () => {
       const onEditingChange = jest.fn();
       mockUseCalendarEvents.mockReturnValue([[], READY]);
       mockUseTasks.mockReturnValue([[task()], { isLoading: false }] as never);
@@ -401,7 +404,7 @@ describe("PreviewTomorrowStep", () => {
         { updatePreferences: jest.fn() },
       ] as never);
 
-      render(
+      await render(
         <PreviewTomorrowStep date={DATE} onEditingChange={onEditingChange} />,
       );
 

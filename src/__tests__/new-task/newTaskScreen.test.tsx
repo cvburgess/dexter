@@ -117,22 +117,22 @@ describe("NewTaskScreen", () => {
     ]);
   });
 
-  it("disables the header save button while the title is empty", () => {
-    render(<NewTaskScreen />);
+  it("disables the header save button while the title is empty", async () => {
+    await render(<NewTaskScreen />);
 
-    const save = render(headerOptions().headerRight());
-    fireEvent.press(save.getByTestId("modal-done-button"));
+    const save = await render(headerOptions().headerRight());
+    await fireEvent.press(save.getByTestId("modal-done-button"));
 
     expect(mockCreateTask).not.toHaveBeenCalled();
     expect(mockRouter.back).not.toHaveBeenCalled();
     expect(headerOptions().unstable_headerRightItems()[0].disabled).toBe(true);
   });
 
-  it("cancels from the header close button without creating a task", () => {
-    render(<NewTaskScreen />);
+  it("cancels from the header close button without creating a task", async () => {
+    await render(<NewTaskScreen />);
 
-    const close = render(headerOptions().headerLeft());
-    fireEvent.press(close.getByTestId("modal-close-button"));
+    const close = await render(headerOptions().headerLeft());
+    await fireEvent.press(close.getByTestId("modal-close-button"));
 
     expect(mockRouter.back).toHaveBeenCalled();
     expect(mockCreateTask).not.toHaveBeenCalled();
@@ -140,27 +140,27 @@ describe("NewTaskScreen", () => {
 
   // A cold deep link leaves the stack holding only this modal, where `back()`
   // is an unhandled GO_BACK: ✕ looks dead and ✓ never closes.
-  it("replaces rather than popping when there is nothing beneath it", () => {
+  it("replaces rather than popping when there is nothing beneath it", async () => {
     mockRouter.canDismiss.mockReturnValue(false);
-    render(<NewTaskScreen />);
+    await render(<NewTaskScreen />);
 
-    const close = render(headerOptions().headerLeft());
-    fireEvent.press(close.getByTestId("modal-close-button"));
+    const close = await render(headerOptions().headerLeft());
+    await fireEvent.press(close.getByTestId("modal-close-button"));
 
     expect(mockRouter.back).not.toHaveBeenCalled();
     expect(mockRouter.replace).toHaveBeenCalledWith("/");
   });
 
-  it("creates a task from the parsed title and dismisses the modal", () => {
+  it("creates a task from the parsed title and dismisses the modal", async () => {
     const today = Temporal.Now.plainDateISO();
-    const screen = render(<NewTaskScreen />);
+    const screen = await render(<NewTaskScreen />);
 
-    fireEvent.changeText(
+    await fireEvent.changeText(
       screen.getByTestId("new-task-title"),
       "!! Write the spec #home due:2",
     );
-    const save = render(headerOptions().headerRight());
-    fireEvent.press(save.getByTestId("modal-done-button"));
+    const save = await render(headerOptions().headerRight());
+    await fireEvent.press(save.getByTestId("modal-done-button"));
 
     expect(mockCreateTask).toHaveBeenCalledWith(
       {
@@ -180,13 +180,16 @@ describe("NewTaskScreen", () => {
     expect(mockRouter.back).toHaveBeenCalled();
   });
 
-  it("schedules the task for the viewed day passed as a route param", () => {
+  it("schedules the task for the viewed day passed as a route param", async () => {
     mockSearchParams.current = { scheduledFor: "2026-07-08" };
-    const screen = render(<NewTaskScreen />);
+    const screen = await render(<NewTaskScreen />);
 
-    fireEvent.changeText(screen.getByTestId("new-task-title"), "Plan the week");
-    const save = render(headerOptions().headerRight());
-    fireEvent.press(save.getByTestId("modal-done-button"));
+    await fireEvent.changeText(
+      screen.getByTestId("new-task-title"),
+      "Plan the week",
+    );
+    const save = await render(headerOptions().headerRight());
+    await fireEvent.press(save.getByTestId("modal-done-button"));
 
     expect(mockCreateTask).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -199,14 +202,17 @@ describe("NewTaskScreen", () => {
 
   // The deadline row starts empty, so "Add deadline" is what picks its date —
   // and it has to pick the viewed day, not today (DEX-165).
-  it("deadlines the task to the viewed day, not today", () => {
+  it("deadlines the task to the viewed day, not today", async () => {
     mockSearchParams.current = { scheduledFor: "2026-07-08" };
-    const screen = render(<NewTaskScreen />);
+    const screen = await render(<NewTaskScreen />);
 
-    fireEvent.changeText(screen.getByTestId("new-task-title"), "Plan the week");
-    fireEvent.press(screen.getByTestId("new-task-add-deadline"));
-    const save = render(headerOptions().headerRight());
-    fireEvent.press(save.getByTestId("modal-done-button"));
+    await fireEvent.changeText(
+      screen.getByTestId("new-task-title"),
+      "Plan the week",
+    );
+    await fireEvent.press(screen.getByTestId("new-task-add-deadline"));
+    const save = await render(headerOptions().headerRight());
+    await fireEvent.press(save.getByTestId("modal-done-button"));
 
     expect(mockCreateTask).toHaveBeenCalledWith(
       expect.objectContaining({ dueOn: "2026-07-08" }),
@@ -216,17 +222,20 @@ describe("NewTaskScreen", () => {
 
   // How a shared link reaches the form: `ShareIntentRedirect` pushes this
   // route with the link as a param (DEX-66).
-  it("pre-fills the link passed as a route param", () => {
+  it("pre-fills the link passed as a route param", async () => {
     mockSearchParams.current = { url: "https://example.com/article" };
-    const screen = render(<NewTaskScreen />);
+    const screen = await render(<NewTaskScreen />);
 
     expect(screen.getByTestId("new-task-url").props.value).toBe(
       "https://example.com/article",
     );
 
-    fireEvent.changeText(screen.getByTestId("new-task-title"), "Read this");
-    const save = render(headerOptions().headerRight());
-    fireEvent.press(save.getByTestId("modal-done-button"));
+    await fireEvent.changeText(
+      screen.getByTestId("new-task-title"),
+      "Read this",
+    );
+    const save = await render(headerOptions().headerRight());
+    await fireEvent.press(save.getByTestId("modal-done-button"));
 
     expect(mockCreateTask).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -237,16 +246,19 @@ describe("NewTaskScreen", () => {
     );
   });
 
-  it("completes a typed bare host to an openable link", () => {
-    const screen = render(<NewTaskScreen />);
+  it("completes a typed bare host to an openable link", async () => {
+    const screen = await render(<NewTaskScreen />);
 
-    fireEvent.changeText(screen.getByTestId("new-task-title"), "Read the docs");
-    fireEvent.changeText(
+    await fireEvent.changeText(
+      screen.getByTestId("new-task-title"),
+      "Read the docs",
+    );
+    await fireEvent.changeText(
       screen.getByTestId("new-task-url"),
       "dexterplanner.com",
     );
-    const save = render(headerOptions().headerRight());
-    fireEvent.press(save.getByTestId("modal-done-button"));
+    const save = await render(headerOptions().headerRight());
+    await fireEvent.press(save.getByTestId("modal-done-button"));
 
     expect(mockCreateTask).toHaveBeenCalledWith(
       expect.objectContaining({ url: "https://dexterplanner.com" }),
@@ -254,13 +266,16 @@ describe("NewTaskScreen", () => {
     );
   });
 
-  it("saves a manually selected priority over a typed token", () => {
-    const screen = render(<NewTaskScreen />);
+  it("saves a manually selected priority over a typed token", async () => {
+    const screen = await render(<NewTaskScreen />);
 
-    fireEvent.changeText(screen.getByTestId("new-task-title"), "! Pay bills");
-    fireEvent.press(screen.getByLabelText("Important"));
-    const save = render(headerOptions().headerRight());
-    fireEvent.press(save.getByTestId("modal-done-button"));
+    await fireEvent.changeText(
+      screen.getByTestId("new-task-title"),
+      "! Pay bills",
+    );
+    await fireEvent.press(screen.getByLabelText("Important"));
+    const save = await render(headerOptions().headerRight());
+    await fireEvent.press(save.getByTestId("modal-done-button"));
 
     expect(mockCreateTask).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -271,53 +286,65 @@ describe("NewTaskScreen", () => {
     );
   });
 
-  it("keeps the modal open and allows retrying when the save fails", () => {
+  it("keeps the modal open and allows retrying when the save fails", async () => {
     mockCreateTask.mockImplementation((_task, callbacks) => {
       callbacks?.onError?.(new Error("network error"));
     });
-    const screen = render(<NewTaskScreen />);
+    const screen = await render(<NewTaskScreen />);
 
-    fireEvent.changeText(screen.getByTestId("new-task-title"), "Pay bills");
-    const save = render(headerOptions().headerRight());
-    fireEvent.press(save.getByTestId("modal-done-button"));
+    await fireEvent.changeText(
+      screen.getByTestId("new-task-title"),
+      "Pay bills",
+    );
+    const save = await render(headerOptions().headerRight());
+    await fireEvent.press(save.getByTestId("modal-done-button"));
 
     expect(mockCreateTask).toHaveBeenCalledTimes(1);
     expect(mockRouter.back).not.toHaveBeenCalled();
 
-    fireEvent.press(save.getByTestId("modal-done-button"));
+    await fireEvent.press(save.getByTestId("modal-done-button"));
     expect(mockCreateTask).toHaveBeenCalledTimes(2);
   });
 
-  it("only creates one task when save is pressed twice", () => {
-    const screen = render(<NewTaskScreen />);
+  it("only creates one task when save is pressed twice", async () => {
+    const screen = await render(<NewTaskScreen />);
 
-    fireEvent.changeText(screen.getByTestId("new-task-title"), "Pay bills");
-    const save = render(headerOptions().headerRight());
-    fireEvent.press(save.getByTestId("modal-done-button"));
-    fireEvent.press(save.getByTestId("modal-done-button"));
-    fireEvent(screen.getByTestId("new-task-title"), "submitEditing");
+    await fireEvent.changeText(
+      screen.getByTestId("new-task-title"),
+      "Pay bills",
+    );
+    const save = await render(headerOptions().headerRight());
+    await fireEvent.press(save.getByTestId("modal-done-button"));
+    await fireEvent.press(save.getByTestId("modal-done-button"));
+    await fireEvent(screen.getByTestId("new-task-title"), "submitEditing");
 
     expect(mockCreateTask).toHaveBeenCalledTimes(1);
     expect(mockRouter.back).toHaveBeenCalledTimes(1);
   });
 
-  it("does not save while lists are still loading", () => {
+  it("does not save while lists are still loading", async () => {
     listsState.isLoading = true;
-    const screen = render(<NewTaskScreen />);
+    const screen = await render(<NewTaskScreen />);
 
-    fireEvent.changeText(screen.getByTestId("new-task-title"), "Pay #home");
-    const save = render(headerOptions().headerRight());
-    fireEvent.press(save.getByTestId("modal-done-button"));
+    await fireEvent.changeText(
+      screen.getByTestId("new-task-title"),
+      "Pay #home",
+    );
+    const save = await render(headerOptions().headerRight());
+    await fireEvent.press(save.getByTestId("modal-done-button"));
 
     expect(mockCreateTask).not.toHaveBeenCalled();
     expect(headerOptions().unstable_headerRightItems()[0].disabled).toBe(true);
   });
 
-  it("saves when the title input is submitted from the keyboard", () => {
-    const screen = render(<NewTaskScreen />);
+  it("saves when the title input is submitted from the keyboard", async () => {
+    const screen = await render(<NewTaskScreen />);
 
-    fireEvent.changeText(screen.getByTestId("new-task-title"), "Pay bills");
-    fireEvent(screen.getByTestId("new-task-title"), "submitEditing");
+    await fireEvent.changeText(
+      screen.getByTestId("new-task-title"),
+      "Pay bills",
+    );
+    await fireEvent(screen.getByTestId("new-task-title"), "submitEditing");
 
     expect(mockCreateTask).toHaveBeenCalledWith(
       expect.objectContaining({ title: "Pay bills" }),
@@ -326,23 +353,23 @@ describe("NewTaskScreen", () => {
     expect(mockRouter.back).toHaveBeenCalled();
   });
 
-  it("skips query fetching for the task list", () => {
-    render(<NewTaskScreen />);
+  it("skips query fetching for the task list", async () => {
+    await render(<NewTaskScreen />);
 
     expect(mockUseTasks).toHaveBeenCalledWith({ skipQuery: true });
   });
 
   it("adds an alarm (seeded to the default time) to the created task", async () => {
-    const screen = render(<NewTaskScreen />);
+    const screen = await render(<NewTaskScreen />);
 
-    fireEvent.changeText(screen.getByTestId("new-task-title"), "Wake up");
+    await fireEvent.changeText(screen.getByTestId("new-task-title"), "Wake up");
     // Enabling the alarm awaits AlarmKit authorization (granted in the mock),
     // then swaps the "Add alarm" affordance for the time + Clear controls.
-    fireEvent.press(screen.getByTestId("new-task-add-alarm"));
+    await fireEvent.press(screen.getByTestId("new-task-add-alarm"));
     await screen.findByTestId("new-task-clear-alarm");
 
-    const save = render(headerOptions().headerRight());
-    fireEvent.press(save.getByTestId("modal-done-button"));
+    const save = await render(headerOptions().headerRight());
+    await fireEvent.press(save.getByTestId("modal-done-button"));
 
     // Seeded to a "now"-based default (a few minutes out) rather than a fixed
     // time, so assert the shape rather than an exact value.
@@ -355,13 +382,13 @@ describe("NewTaskScreen", () => {
     );
   });
 
-  it("creates an unscheduled task when the schedule is cleared", () => {
-    const screen = render(<NewTaskScreen />);
+  it("creates an unscheduled task when the schedule is cleared", async () => {
+    const screen = await render(<NewTaskScreen />);
 
-    fireEvent.changeText(screen.getByTestId("new-task-title"), "Someday");
-    fireEvent.press(screen.getByTestId("new-task-clear-schedule"));
-    const save = render(headerOptions().headerRight());
-    fireEvent.press(save.getByTestId("modal-done-button"));
+    await fireEvent.changeText(screen.getByTestId("new-task-title"), "Someday");
+    await fireEvent.press(screen.getByTestId("new-task-clear-schedule"));
+    const save = await render(headerOptions().headerRight());
+    await fireEvent.press(save.getByTestId("modal-done-button"));
 
     expect(mockCreateTask).toHaveBeenCalledWith(
       expect.objectContaining({ title: "Someday", scheduledFor: null }),
@@ -371,13 +398,13 @@ describe("NewTaskScreen", () => {
 
   // An alarm fires on the scheduled day, so the two can't disagree.
   it("drops a set alarm when the schedule is cleared", async () => {
-    const screen = render(<NewTaskScreen />);
+    const screen = await render(<NewTaskScreen />);
 
-    fireEvent.changeText(screen.getByTestId("new-task-title"), "Someday");
-    fireEvent.press(screen.getByTestId("new-task-add-alarm"));
+    await fireEvent.changeText(screen.getByTestId("new-task-title"), "Someday");
+    await fireEvent.press(screen.getByTestId("new-task-add-alarm"));
     await screen.findByTestId("new-task-clear-alarm");
 
-    fireEvent.press(screen.getByTestId("new-task-clear-schedule"));
+    await fireEvent.press(screen.getByTestId("new-task-clear-schedule"));
 
     expect(screen.queryByTestId("new-task-clear-alarm")).toBeNull();
     expect(screen.getByTestId("new-task-add-alarm")).toBeTruthy();
@@ -385,15 +412,15 @@ describe("NewTaskScreen", () => {
 
   it("pulls an unscheduled task onto today when an alarm is added", async () => {
     const today = Temporal.Now.plainDateISO();
-    const screen = render(<NewTaskScreen />);
+    const screen = await render(<NewTaskScreen />);
 
-    fireEvent.changeText(screen.getByTestId("new-task-title"), "Wake up");
-    fireEvent.press(screen.getByTestId("new-task-clear-schedule"));
-    fireEvent.press(screen.getByTestId("new-task-add-alarm"));
+    await fireEvent.changeText(screen.getByTestId("new-task-title"), "Wake up");
+    await fireEvent.press(screen.getByTestId("new-task-clear-schedule"));
+    await fireEvent.press(screen.getByTestId("new-task-add-alarm"));
     await screen.findByTestId("new-task-clear-alarm");
 
-    const save = render(headerOptions().headerRight());
-    fireEvent.press(save.getByTestId("modal-done-button"));
+    const save = await render(headerOptions().headerRight());
+    await fireEvent.press(save.getByTestId("modal-done-button"));
 
     expect(mockCreateTask).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -405,15 +432,18 @@ describe("NewTaskScreen", () => {
     );
   });
 
-  it("restores today when the schedule is added back", () => {
+  it("restores today when the schedule is added back", async () => {
     const today = Temporal.Now.plainDateISO();
-    const screen = render(<NewTaskScreen />);
+    const screen = await render(<NewTaskScreen />);
 
-    fireEvent.changeText(screen.getByTestId("new-task-title"), "Pay bills");
-    fireEvent.press(screen.getByTestId("new-task-clear-schedule"));
-    fireEvent.press(screen.getByTestId("new-task-add-schedule"));
-    const save = render(headerOptions().headerRight());
-    fireEvent.press(save.getByTestId("modal-done-button"));
+    await fireEvent.changeText(
+      screen.getByTestId("new-task-title"),
+      "Pay bills",
+    );
+    await fireEvent.press(screen.getByTestId("new-task-clear-schedule"));
+    await fireEvent.press(screen.getByTestId("new-task-add-schedule"));
+    const save = await render(headerOptions().headerRight());
+    await fireEvent.press(save.getByTestId("modal-done-button"));
 
     expect(mockCreateTask).toHaveBeenCalledWith(
       expect.objectContaining({ scheduledFor: today.toString() }),
@@ -423,15 +453,18 @@ describe("NewTaskScreen", () => {
 
   // Clearing the schedule keeps the day the form opened on, so adding it back
   // returns to the viewed day rather than snapping to today (DEX-165).
-  it("restores the viewed day when the schedule is added back", () => {
+  it("restores the viewed day when the schedule is added back", async () => {
     mockSearchParams.current = { scheduledFor: "2026-07-08" };
-    const screen = render(<NewTaskScreen />);
+    const screen = await render(<NewTaskScreen />);
 
-    fireEvent.changeText(screen.getByTestId("new-task-title"), "Pay bills");
-    fireEvent.press(screen.getByTestId("new-task-clear-schedule"));
-    fireEvent.press(screen.getByTestId("new-task-add-schedule"));
-    const save = render(headerOptions().headerRight());
-    fireEvent.press(save.getByTestId("modal-done-button"));
+    await fireEvent.changeText(
+      screen.getByTestId("new-task-title"),
+      "Pay bills",
+    );
+    await fireEvent.press(screen.getByTestId("new-task-clear-schedule"));
+    await fireEvent.press(screen.getByTestId("new-task-add-schedule"));
+    const save = await render(headerOptions().headerRight());
+    await fireEvent.press(save.getByTestId("modal-done-button"));
 
     expect(mockCreateTask).toHaveBeenCalledWith(
       expect.objectContaining({ scheduledFor: "2026-07-08" }),
@@ -440,9 +473,9 @@ describe("NewTaskScreen", () => {
   });
 
   describe("modes", () => {
-    it("starts on New, showing the form and no template list", () => {
+    it("starts on New, showing the form and no template list", async () => {
       templatesState.current = [packingTemplate];
-      const screen = render(<NewTaskScreen />);
+      const screen = await render(<NewTaskScreen />);
 
       expect(screen.getByTestId("new-task-title")).toBeTruthy();
       expect(screen.queryByTestId("template-option-template-packing")).toBe(
@@ -452,11 +485,11 @@ describe("NewTaskScreen", () => {
 
     // A repeat task is a row in the same table, but it is a schedule, not a
     // blueprint — offering it here would create a task that silently recurs.
-    it("lists only scheduleless templates in Template mode", () => {
+    it("lists only scheduleless templates in Template mode", async () => {
       templatesState.current = [packingTemplate, standupTemplate];
-      const screen = render(<NewTaskScreen />);
+      const screen = await render(<NewTaskScreen />);
 
-      fireEvent.press(screen.getByTestId("new-task-mode-template"));
+      await fireEvent.press(screen.getByTestId("new-task-mode-template"));
 
       expect(
         screen.getByTestId("template-option-template-packing"),
@@ -466,23 +499,25 @@ describe("NewTaskScreen", () => {
       );
     });
 
-    it("explains how to make one when there are no templates yet", () => {
+    it("explains how to make one when there are no templates yet", async () => {
       templatesState.current = [standupTemplate];
-      const screen = render(<NewTaskScreen />);
+      const screen = await render(<NewTaskScreen />);
 
-      fireEvent.press(screen.getByTestId("new-task-mode-template"));
+      await fireEvent.press(screen.getByTestId("new-task-mode-template"));
 
       expect(screen.getByTestId("template-picker-empty")).toBeTruthy();
     });
 
     // Selecting seeds the form rather than saving, so the form stays visible
     // and everything it filled in is still editable.
-    it("marks the chosen template selected and fills the form from it", () => {
+    it("marks the chosen template selected and fills the form from it", async () => {
       templatesState.current = [packingTemplate];
-      const screen = render(<NewTaskScreen />);
+      const screen = await render(<NewTaskScreen />);
 
-      fireEvent.press(screen.getByTestId("new-task-mode-template"));
-      fireEvent.press(screen.getByTestId("template-option-template-packing"));
+      await fireEvent.press(screen.getByTestId("new-task-mode-template"));
+      await fireEvent.press(
+        screen.getByTestId("template-option-template-packing"),
+      );
 
       expect(
         screen.getByTestId("template-option-template-packing").props
@@ -493,15 +528,17 @@ describe("NewTaskScreen", () => {
       );
     });
 
-    it("creates a plain task from the selected template, checklist and all", () => {
+    it("creates a plain task from the selected template, checklist and all", async () => {
       const today = Temporal.Now.plainDateISO();
       templatesState.current = [packingTemplate];
-      const screen = render(<NewTaskScreen />);
+      const screen = await render(<NewTaskScreen />);
 
-      fireEvent.press(screen.getByTestId("new-task-mode-template"));
-      fireEvent.press(screen.getByTestId("template-option-template-packing"));
-      const save = render(headerOptions().headerRight());
-      fireEvent.press(save.getByTestId("modal-done-button"));
+      await fireEvent.press(screen.getByTestId("new-task-mode-template"));
+      await fireEvent.press(
+        screen.getByTestId("template-option-template-packing"),
+      );
+      const save = await render(headerOptions().headerRight());
+      await fireEvent.press(save.getByTestId("modal-done-button"));
 
       expect(mockCreateTask).toHaveBeenCalledWith(
         {
@@ -527,17 +564,20 @@ describe("NewTaskScreen", () => {
       );
     });
 
-    it("shows the AI placeholder and refuses to save from it", () => {
-      const screen = render(<NewTaskScreen />);
+    it("shows the AI placeholder and refuses to save from it", async () => {
+      const screen = await render(<NewTaskScreen />);
 
-      fireEvent.changeText(screen.getByTestId("new-task-title"), "Pay bills");
-      fireEvent.press(screen.getByTestId("new-task-mode-ai"));
+      await fireEvent.changeText(
+        screen.getByTestId("new-task-title"),
+        "Pay bills",
+      );
+      await fireEvent.press(screen.getByTestId("new-task-mode-ai"));
 
       expect(screen.getByTestId("new-task-ai-placeholder")).toBeTruthy();
       expect(screen.queryByTestId("new-task-title")).toBe(null);
 
-      const save = render(headerOptions().headerRight());
-      fireEvent.press(save.getByTestId("modal-done-button"));
+      const save = await render(headerOptions().headerRight());
+      await fireEvent.press(save.getByTestId("modal-done-button"));
 
       expect(mockCreateTask).not.toHaveBeenCalled();
       expect(headerOptions().unstable_headerRightItems()[0].disabled).toBe(

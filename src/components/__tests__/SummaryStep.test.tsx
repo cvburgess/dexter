@@ -108,13 +108,13 @@ beforeEach(() => {
 
 describe("SummaryStep", () => {
   describe("with something on the day", () => {
-    it("counts habits, events and tasks", () => {
+    it("counts habits, events and tasks", async () => {
       setDay({
         habits: [{}, {}],
         events: [event("standup")],
         tasks: [task("a"), task("b"), task("c")],
       });
-      render(<SummaryStep date={DATE} />);
+      await render(<SummaryStep date={DATE} />);
 
       // One accessibility node per line carries the whole phrase, which is what
       // the hero reads as — and pins the pluralization at both ends.
@@ -126,9 +126,9 @@ describe("SummaryStep", () => {
 
     // A zero is a reading worth stating — it is *why* the button is there — so
     // only an entirely empty day drops the figures.
-    it("still counts a day whose only entry is a habit", () => {
+    it("still counts a day whose only entry is a habit", async () => {
       setDay({ habits: [{}] });
-      render(<SummaryStep date={DATE} />);
+      await render(<SummaryStep date={DATE} />);
 
       expect(screen.getByLabelText("1 habit")).toBeTruthy();
       expect(screen.getByLabelText("0 tasks")).toBeTruthy();
@@ -137,12 +137,12 @@ describe("SummaryStep", () => {
   });
 
   // Features the reader has decide which lines exist; counts decide what they say.
-  it("omits the lines for features the user has turned off", () => {
+  it("omits the lines for features the user has turned off", async () => {
     mockUsePreferences.mockReturnValue(
       preferences({ enableHabits: false, enableCalendar: false }),
     );
     setDay({ tasks: [task("a")] });
-    render(<SummaryStep date={DATE} />);
+    await render(<SummaryStep date={DATE} />);
 
     expect(screen.getByLabelText("1 task")).toBeTruthy();
     expect(screen.queryByLabelText(/habit/)).toBeNull();
@@ -150,25 +150,25 @@ describe("SummaryStep", () => {
   });
 
   describe("with an empty day", () => {
-    it("replaces the figures with the blank-canvas line", () => {
-      render(<SummaryStep date={DATE} />);
+    it("replaces the figures with the blank-canvas line", async () => {
+      await render(<SummaryStep date={DATE} />);
 
       expect(screen.getByText(BLANK)).toBeTruthy();
       expect(screen.queryByLabelText("0 tasks")).toBeNull();
     });
 
-    it("still offers the way in", () => {
-      render(<SummaryStep date={DATE} />);
+    it("still offers the way in", async () => {
+      await render(<SummaryStep date={DATE} />);
 
       expect(screen.getByText("Start Your Day")).toBeTruthy();
     });
 
     // A disabled query keeps serving its last cache, so summing raw hooks
     // would count hidden rows and block the blank-canvas state from showing.
-    it("ignores rows cached behind a feature the user turned off", () => {
+    it("ignores rows cached behind a feature the user turned off", async () => {
       mockUsePreferences.mockReturnValue(preferences({ enableHabits: false }));
       setDay({ habits: [{}, {}] });
-      render(<SummaryStep date={DATE} />);
+      await render(<SummaryStep date={DATE} />);
 
       expect(screen.getByText(BLANK)).toBeTruthy();
       expect(screen.queryByLabelText("0 tasks")).toBeNull();
@@ -177,19 +177,19 @@ describe("SummaryStep", () => {
 
   // Every source serves an empty placeholder while resolving — a cold open
   // otherwise looks like a genuinely blank day.
-  it("renders nothing at all while the counts are still loading", () => {
+  it("renders nothing at all while the counts are still loading", async () => {
     setDay({ isLoading: true });
-    const { toJSON } = render(<SummaryStep date={DATE} />);
+    const { toJSON } = await render(<SummaryStep date={DATE} />);
 
     expect(toJSON()).toBeNull();
   });
 
   describe("the button", () => {
-    it("opens the ritual's day rather than today", () => {
+    it("opens the ritual's day rather than today", async () => {
       setDay({ tasks: [task("a")] });
-      render(<SummaryStep date={DATE} />);
+      await render(<SummaryStep date={DATE} />);
 
-      fireEvent.press(screen.getByText("Start Your Day"));
+      await fireEvent.press(screen.getByText("Start Your Day"));
 
       expect(mockPush).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -204,13 +204,13 @@ describe("SummaryStep", () => {
 
     // Cross-tab nav reuses the mounted Today screen — without a changing
     // nonce, the second press is identical and Today just switches tabs.
-    it("varies the link on every press", () => {
+    it("varies the link on every press", async () => {
       setDay({ tasks: [task("a")] });
-      render(<SummaryStep date={DATE} />);
+      await render(<SummaryStep date={DATE} />);
       const button = screen.getByText("Start Your Day");
 
-      fireEvent.press(button);
-      fireEvent.press(button);
+      await fireEvent.press(button);
+      await fireEvent.press(button);
 
       const [first] = mockPush.mock.calls[0] as [{ params: { n: string } }];
       const [second] = mockPush.mock.calls[1] as [{ params: { n: string } }];

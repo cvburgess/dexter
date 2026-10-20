@@ -64,7 +64,7 @@ const makeHabit = (overrides: Partial<THabit> = {}): THabit => ({
   ...overrides,
 });
 
-const renderWith = (existing?: THabit) => {
+const renderWith = async (existing?: THabit) => {
   mockParams.current = { id: existing?.id ?? "new" };
   mockUseHabits.mockReturnValue([
     existing ? [existing] : [],
@@ -77,17 +77,17 @@ const renderWith = (existing?: THabit) => {
       deleteHabit: mockDeleteHabit,
     },
   ] as never);
-  return render(<HabitScreen />);
+  return await render(<HabitScreen />);
 };
 
-const close = () => {
-  const header = render(headerOptions().headerLeft());
-  fireEvent.press(header.getByTestId("modal-close-button"));
+const close = async () => {
+  const header = await render(headerOptions().headerLeft());
+  await fireEvent.press(header.getByTestId("modal-close-button"));
 };
 
-const save = () => {
-  const header = render(headerOptions().headerRight());
-  fireEvent.press(header.getByTestId("modal-done-button"));
+const save = async () => {
+  const header = await render(headerOptions().headerRight());
+  await fireEvent.press(header.getByTestId("modal-done-button"));
 };
 
 describe("HabitScreen", () => {
@@ -99,20 +99,20 @@ describe("HabitScreen", () => {
 
   // Popping, not navigating: replacing would collapse whatever sits under this
   // screen, which is what left Tasks as the root of the settings tab (DEX-93).
-  it("pops when closed", () => {
-    renderWith(makeHabit());
+  it("pops when closed", async () => {
+    await renderWith(makeHabit());
 
-    close();
+    await close();
 
     expect(mockRouter.back).toHaveBeenCalled();
     expect(mockRouter.replace).not.toHaveBeenCalled();
   });
 
-  it("pops after saving", () => {
+  it("pops after saving", async () => {
     mockUpdateHabit.mockImplementation((_diff, { onSuccess }) => onSuccess());
-    renderWith(makeHabit());
+    await renderWith(makeHabit());
 
-    save();
+    await save();
 
     expect(mockRouter.back).toHaveBeenCalled();
     expect(mockRouter.replace).not.toHaveBeenCalled();
@@ -120,17 +120,17 @@ describe("HabitScreen", () => {
 
   it("pops after archiving", async () => {
     mockUpdateHabit.mockImplementation((_diff, { onSuccess }) => onSuccess());
-    const screen = renderWith(makeHabit());
+    const screen = await renderWith(makeHabit());
 
-    fireEvent.press(screen.getByText("Archive"));
+    await fireEvent.press(screen.getByText("Archive"));
 
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
   });
 
   // Archive is the only way out (DEX-108) — a habit's history is the point of
   // tracking it. `deleteHabit` exists on the hook but nothing in the UI calls it.
-  it("offers archive and no delete", () => {
-    const screen = renderWith(makeHabit());
+  it("offers archive and no delete", async () => {
+    const screen = await renderWith(makeHabit());
 
     expect(screen.getByText("Archive")).toBeTruthy();
     expect(screen.queryByText("Delete")).toBeNull();
@@ -139,11 +139,11 @@ describe("HabitScreen", () => {
 
   // A cold deep link to this URL: an unguarded pop is an unhandled GO_BACK and
   // both header buttons look dead.
-  it("falls back to the list when there is nothing to pop", () => {
+  it("falls back to the list when there is nothing to pop", async () => {
     mockRouter.canDismiss.mockReturnValue(false);
-    renderWith(makeHabit());
+    await renderWith(makeHabit());
 
-    close();
+    await close();
 
     expect(mockRouter.back).not.toHaveBeenCalled();
     expect(mockRouter.replace).toHaveBeenCalledWith("/settings/habits");

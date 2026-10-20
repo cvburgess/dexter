@@ -1,6 +1,12 @@
 import { useRouter } from "expo-router";
 import { useMemo } from "react";
-import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Platform,
+  ScrollViewInstance,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { DraxScrollView } from "react-native-drax";
 import { useAnimatedRef } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -36,7 +42,7 @@ export function ListsView() {
   const columns = useMemo(() => listColumns(tasks, lists), [tasks, lists]);
 
   // Animated so a pressed card can pause it from the UI thread (DEX-207).
-  const scrollRef = useAnimatedRef<ScrollView>();
+  const scrollRef = useAnimatedRef<ScrollViewInstance>();
   const openNewList = () => router.push(NEW_LIST);
 
   return (

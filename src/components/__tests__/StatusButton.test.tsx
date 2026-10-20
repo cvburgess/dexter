@@ -81,8 +81,8 @@ describe("StatusButton", () => {
     [ETaskStatus.DONE, "✓"],
     [ETaskStatus.WONT_DO, "✕"],
     [ETaskStatus.DELEGATED, "→"],
-  ])("renders status %i as %s", (status, glyph) => {
-    const screen = render(
+  ])("renders status %i as %s", async (status, glyph) => {
+    const screen = await render(
       <StatusButton
         status={status}
         contentColor="#000000"
@@ -93,9 +93,9 @@ describe("StatusButton", () => {
     expect(screen.getByText(glyph)).toBeTruthy();
   });
 
-  it("pins the menu trigger to the button's 32×32 size", () => {
+  it("pins the menu trigger to the button's 32×32 size", async () => {
     // The trigger wrapper must never influence the task card row's height.
-    render(
+    await render(
       <StatusButton
         status={ETaskStatus.TODO}
         contentColor="#000000"

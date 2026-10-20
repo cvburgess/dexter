@@ -22,7 +22,7 @@ describe("useTodayPanes", () => {
   });
 
   it("defaults every pane to open, except the task drawer, when nothing is stored", async () => {
-    const { result } = renderHook(() => useTodayPanes(), {
+    const { result } = await renderHook(() => useTodayPanes(), {
       wrapper: createWrapper(),
     });
 
@@ -37,7 +37,7 @@ describe("useTodayPanes", () => {
   it("defaults to open when the stored value is corrupt JSON", async () => {
     await AsyncStorage.setItem(TODAY_PANES_KEY, "{not json");
 
-    const { result } = renderHook(() => useTodayPanes(), {
+    const { result } = await renderHook(() => useTodayPanes(), {
       wrapper: createWrapper(),
     });
 
@@ -55,7 +55,7 @@ describe("useTodayPanes", () => {
       JSON.stringify({ notes: "yes" }),
     );
 
-    const { result } = renderHook(() => useTodayPanes(), {
+    const { result } = await renderHook(() => useTodayPanes(), {
       wrapper: createWrapper(),
     });
 
@@ -75,7 +75,7 @@ describe("useTodayPanes", () => {
       JSON.stringify({ notes: false, journal: true, calendar: false }),
     );
 
-    const { result } = renderHook(() => useTodayPanes(), {
+    const { result } = await renderHook(() => useTodayPanes(), {
       wrapper: createWrapper(),
     });
 
@@ -88,7 +88,7 @@ describe("useTodayPanes", () => {
   });
 
   it("toggles a single pane and persists the change", async () => {
-    const { result } = renderHook(() => useTodayPanes(), {
+    const { result } = await renderHook(() => useTodayPanes(), {
       wrapper: createWrapper(),
     });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
@@ -111,7 +111,7 @@ describe("useTodayPanes", () => {
   });
 
   it("toggles the task drawer pane independently of the others", async () => {
-    const { result } = renderHook(() => useTodayPanes(), {
+    const { result } = await renderHook(() => useTodayPanes(), {
       wrapper: createWrapper(),
     });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
@@ -126,7 +126,7 @@ describe("useTodayPanes", () => {
   });
 
   it("toggling a pane twice returns it to open", async () => {
-    const { result } = renderHook(() => useTodayPanes(), {
+    const { result } = await renderHook(() => useTodayPanes(), {
       wrapper: createWrapper(),
     });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
@@ -139,7 +139,7 @@ describe("useTodayPanes", () => {
   });
 
   it("applies two toggles fired before either resolves, without losing one", async () => {
-    const { result } = renderHook(() => useTodayPanes(), {
+    const { result } = await renderHook(() => useTodayPanes(), {
       wrapper: createWrapper(),
     });
     await waitFor(() => expect(result.current[1].isLoading).toBe(false));
