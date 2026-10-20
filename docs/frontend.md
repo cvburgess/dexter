@@ -75,17 +75,14 @@ row; `useLiveFocusBlock` is for the handful of surfaces that own the timer.
 
 ## Modal screens
 
-- Web form sheets render through Expo Router's experimental modal stack, enabled
-  by `EXPO_UNSTABLE_WEB_MODAL=1` — read by Expo CLI at Metro-resolver time, so it
-  lives in the `start`/`web`/`export:web` scripts, not `app.json`. It is
-  **bundle-wide**: every screen expo-router counts as a modal presentation
-  renders as a centered dialog dismissible by backdrop click.
+- Web form sheets render through `components/WebModalStack.web.tsx`, a custom
+  navigator (SDK 58 removed the experimental web modal stack): every
+  `formSheet`/`modal` route becomes a dialog over the still-mounted base stack.
 - **Every modal screen's contents must sit in one flex column —
-  `components/ModalScreen.*`.** The stack's `.modalBody` is `display: flex` with
-  no `flex-direction`, so it defaults to `row`; a screen returning a fragment
-  renders empty apart from a stray ✕/✓. `ModalScreen` is a `flex: 1` View on web
-  and a passthrough on native (a wrapper would break iOS's keyboard/content
-  insetting under the form-sheet header).
+  `components/ModalScreen.*`.** A screen returning a fragment renders empty apart
+  from a stray ✕/✓. `ModalScreen` is a `flex: 1` View on web and a passthrough on
+  native (a wrapper would break iOS's keyboard/content insetting under the
+  form-sheet header).
 - **Render `components/ModalLoadingScreen.tsx` from an async modal gate, never a
   bare `LoadingScreen`** (DEX-101) — the header buttons live in the form, so a
   bare loading gate leaves the modal with no ✕. On web there is no header slot at
@@ -131,11 +128,11 @@ row; `useLiveFocusBlock` is for the handful of surfaces that own the timer.
 
 **Every web overlay goes through `components/WebOverlay.web.tsx` — never React
 Native's `Modal`.** The cause is **inherited `pointer-events`**: while any Radix
-dismissable layer is open (the modal stack renders through vaul, and so does
-`TaskDrawerSheet`), `@radix-ui/react-dismissable-layer` sets
-`pointer-events: none` on `document.body` and re-enables it on its own layer only
-— anything outside still paints on top but silently swallows every click. Fixing
-this one component at a time kept producing new instances (DEX-134).
+dismissable layer is open (`TaskDrawerSheet` renders through vaul),
+`@radix-ui/react-dismissable-layer` sets `pointer-events: none` on `document.body`
+and re-enables it on its own layer only — anything outside still paints on top but
+silently swallows every click. Fixing this one component at a time kept producing
+new instances (DEX-134).
 
 `WebOverlay` portals into `document.body` (in-tree `position: fixed` resolves
 against `.modal`'s `will-change: transform` containing block, which breaks

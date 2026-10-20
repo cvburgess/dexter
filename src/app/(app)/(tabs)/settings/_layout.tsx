@@ -1,7 +1,7 @@
-import { Stack } from "expo-router";
 import { View } from "react-native";
 
 import { SettingsSidebar } from "@/components/SettingsSidebar";
+import { WebModalStack } from "@/components/WebModalStack";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import {
   createListScreenOptions,
@@ -25,28 +25,37 @@ export default function SettingsLayout() {
   });
 
   const stack = (
-    <Stack>
-      <Stack.Screen name="index" options={listOptions("Settings")} />
-      <Stack.Screen name="account" options={listOptions("Account")} />
-      <Stack.Screen name="appearance" options={listOptions("Appearance")} />
+    <WebModalStack>
+      <WebModalStack.Screen name="index" options={listOptions("Settings")} />
+      <WebModalStack.Screen name="account" options={listOptions("Account")} />
+      <WebModalStack.Screen
+        name="appearance"
+        options={listOptions("Appearance")}
+      />
       {/* Header stays here, not in tasks/_layout.tsx's nested stack: a stack's
           root screen gets no native back button (DEX-93). */}
-      <Stack.Screen name="tasks" options={listOptions("Tasks")} />
-      <Stack.Screen name="lists/index" options={listOptions("Lists")} />
-      <Stack.Screen
+      <WebModalStack.Screen name="tasks" options={listOptions("Tasks")} />
+      <WebModalStack.Screen name="lists/index" options={listOptions("Lists")} />
+      <WebModalStack.Screen
         name="lists/[id]"
         options={createModalScreenOptions(theme, "List")}
       />
-      <Stack.Screen name="calendars" options={listOptions("Calendars")} />
-      <Stack.Screen name="habits/index" options={listOptions("Habits")} />
-      <Stack.Screen
+      <WebModalStack.Screen
+        name="calendars"
+        options={listOptions("Calendars")}
+      />
+      <WebModalStack.Screen
+        name="habits/index"
+        options={listOptions("Habits")}
+      />
+      <WebModalStack.Screen
         name="habits/[id]"
         options={createModalScreenOptions(theme, "Habit")}
       />
-      <Stack.Screen name="ritual" options={listOptions("Ritual")} />
-      <Stack.Screen name="notes" options={listOptions("Notes")} />
-      <Stack.Screen name="licenses" options={listOptions("Licenses")} />
-    </Stack>
+      <WebModalStack.Screen name="ritual" options={listOptions("Ritual")} />
+      <WebModalStack.Screen name="notes" options={listOptions("Notes")} />
+      <WebModalStack.Screen name="licenses" options={listOptions("Licenses")} />
+    </WebModalStack>
   );
 
   // Wrapper structure is identical in both modes (only the sidebar toggles)

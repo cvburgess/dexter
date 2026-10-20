@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Redirect, Stack } from "expo-router";
+import { Redirect } from "expo-router";
 import { useEffect } from "react";
 
 import { StyleSheet, View } from "react-native";
@@ -7,6 +7,7 @@ import { StyleSheet, View } from "react-native";
 import { FocusTimerHost } from "@/components/FocusTimerHost";
 import { AppIntentBridge } from "@/components/AppIntentBridge";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { WebModalStack } from "@/components/WebModalStack";
 import { useAlarmSync } from "@/hooks/useAlarmSync";
 import { useAuth } from "@/hooks/useAuth";
 import { goalsQueryOptions } from "@/hooks/useGoals";
@@ -80,17 +81,17 @@ export default function AppLayout() {
   return (
     <>
       <View style={styles.root}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen
+        <WebModalStack screenOptions={{ headerShown: false }}>
+          <WebModalStack.Screen name="(tabs)" />
+          <WebModalStack.Screen
             name="new-task"
             options={createModalScreenOptions(theme, "New Task")}
           />
-          <Stack.Screen
+          <WebModalStack.Screen
             name="edit-task/[id]"
             options={createModalScreenOptions(theme, "Edit Task")}
           />
-        </Stack>
+        </WebModalStack>
         {/* Publishes the running focus block, completes it on timeout, hosts
           the stop confirmation — alive on every tab, outside any one (DEX-49). */}
         <FocusTimerHost />
