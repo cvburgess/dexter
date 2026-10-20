@@ -20,9 +20,8 @@ type Options = NativeStackNavigationOptions & { modal?: boolean };
 
 type StackViewProps = ComponentProps<typeof NativeStackView>;
 
-// The navigator renders the stack up to the last non-modal route with
-// `NativeStackView`, then layers each modal route on top in a `WebOverlay`.
-// Runtime only branches on `isPreloaded`; `emit`/`pop` are native-stack-only.
+// `NativeStackView` on web only branches on `isPreloaded`; `emit`/`pop` are
+// native-stack-only.
 const noopEmit = (() => {}) as StackViewProps["emit"];
 const noopPop = (() => {}) as StackViewProps["pop"];
 const neverRemovalPrevented = (_key: string) => false;
@@ -101,35 +100,14 @@ function ModalStackContent({
   const lastNonModalRouteIndex = activeRoutes.findLastIndex(
     (route) => !isModalRoute(descriptors[route.key].options),
   );
-  const hasModals = lastNonModalRouteIndex < state.index;
 
-  // Standard navigation descriptors have the same runtime shape as the native
-  // stack's, despite the narrower type (the guide's own cast).
-  // SAFETY: `NavigatorDescriptor` and `NativeStackDescriptorMap` differ only in
-  // optional/extra fields (`navigation`, `route`) that this consumer never reads;
-  // expo-router's guide ships this exact cast for the same purpose.
+  // SAFETY: same runtime shape; the types differ only in fields this consumer
+  // never reads (expo-router's guide ships this exact cast).
   const nativeStackDescriptors =
     descriptors as unknown as NativeStackDescriptorMap;
 
-  if (!hasModals) {
-    return (
-      // Routes after the focused one are preloaded: render them hidden.
-      <NativeStackView
-        state={state}
-        descriptors={nativeStackDescriptors}
-        emit={noopEmit}
-        isPreloaded={(key) =>
-          state.routes.findIndex((route) => route.key === key) > state.index
-        }
-        isRemovalPrevented={neverRemovalPrevented}
-        pop={noopPop}
-      />
-    );
-  }
-
-  // The base stack keeps every route up to the last non-modal one, so the
-  // screen underneath stays mounted (and keeps its scroll position) while a
-  // dialog floats above it.
+  // The base stack keeps the screen beneath mounted (scroll survives); routes
+  // past its index are preloaded and render hidden.
   const baseStackRoutes = activeRoutes.slice(0, lastNonModalRouteIndex + 1);
   const baseStackPreloadedRoutes = state.routes.slice(state.index + 1);
   const baseStackState = {

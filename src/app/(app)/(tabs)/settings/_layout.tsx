@@ -1,7 +1,7 @@
-import { WebModalStack } from "@/components/WebModalStack";
 import { View } from "react-native";
 
 import { SettingsSidebar } from "@/components/SettingsSidebar";
+import { WebModalStack } from "@/components/WebModalStack";
 import { useIsLargeDevice } from "@/hooks/useIsLargeDevice";
 import {
   createListScreenOptions,

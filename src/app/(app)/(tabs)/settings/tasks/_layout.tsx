@@ -1,5 +1,4 @@
 import { WebModalStack } from "@/components/WebModalStack";
-
 import { createModalScreenOptions } from "@/utils/stackOptions";
 import { useTheme } from "@/utils/theme";
 
