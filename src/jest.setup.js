@@ -259,3 +259,16 @@ jest.mock("@expo/ui/swift-ui/modifiers", () => ({
   tag: () => ({}),
   tint: () => ({}),
 }));
+
+// No test clears its QueryClient, so gc timers (5 min) would hold each worker
+// open past the run; unref'd, they still fire but no longer block exit.
+const unref = (id) => {
+  id?.unref?.();
+  return id;
+};
+require("@tanstack/react-query").timeoutManager.setTimeoutProvider({
+  setTimeout: (callback, delay) => unref(setTimeout(callback, delay)),
+  clearTimeout: (id) => clearTimeout(id),
+  setInterval: (callback, delay) => unref(setInterval(callback, delay)),
+  clearInterval: (id) => clearInterval(id),
+});
