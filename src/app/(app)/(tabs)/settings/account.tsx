@@ -41,13 +41,14 @@ export default function AccountScreen() {
   const twoPane = useIsLargeDevice();
   // iOS 26+ glass headers overlay content, so this non-scrolling screen claims
   // the top inset itself; Android's opaque header already absorbs it (DEX-236).
-  const edges = twoPane
-    ? Platform.OS === "ios"
-      ? (["top", "bottom", "right"] as const)
-      : (["bottom", "right"] as const)
-    : Platform.OS === "ios"
-      ? (["top", "bottom", "left", "right"] as const)
-      : (["bottom", "left", "right"] as const);
+  const edges: ("top" | "bottom" | "left" | "right")[] =
+    Platform.OS === "ios"
+      ? twoPane
+        ? ["top", "bottom", "right"]
+        : ["top", "bottom", "left", "right"]
+      : twoPane
+        ? ["bottom", "right"]
+        : ["bottom", "left", "right"];
 
   const handleLogOut = async () => {
     const confirmed = await confirm(
