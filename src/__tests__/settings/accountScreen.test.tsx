@@ -62,9 +62,8 @@ describe("AccountScreen", () => {
     mockUseIsLargeDevice.mockReturnValue(false);
   });
 
-  // account.tsx builds its own edges (it claims `bottom`, and `top` since the
-  // iOS 26+ glass header overlays content — DEX-236); the shared
-  // settingsSafeAreaEdges pair is asserted once, in appearanceScreen.test.tsx.
+  // account.tsx builds its own edges (it claims `bottom`, and `top` on iOS —
+  // DEX-236); the shared settingsSafeAreaEdges pair is asserted once elsewhere.
   it("skips the left safe-area edge in two-pane mode (sidebar owns it)", async () => {
     mockUseIsLargeDevice.mockReturnValue(true);
     const screen = await render(<AccountScreen />);
