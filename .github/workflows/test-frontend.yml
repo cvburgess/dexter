@@ -39,4 +39,6 @@ jobs:
 
       # No EXPO_PUBLIC_* secrets are wired in — `jest.setup.js` defaults them.
       - name: Test
+        # No --forceExit (DEX-241): a leaked handle hangs Jest, so fail fast.
+        timeout-minutes: 5
         run: npm test
