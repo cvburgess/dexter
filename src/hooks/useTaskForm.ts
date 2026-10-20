@@ -6,7 +6,7 @@ import { ETaskPriority, TCreateTask, TSubtask, TTask } from "@/api/tasks";
 import { TTemplate } from "@/api/templates";
 import { withTitledRows } from "@/components/SubtaskFields";
 import { parseTaskShorthand } from "@/utils/parseTaskShorthand";
-import { subtasksFromTemplate } from "@/utils/subtasks";
+import { subtasksFromTemplate, TASK_TITLE_MAX_LENGTH } from "@/utils/subtasks";
 import { normalizeTaskUrl } from "@/utils/taskUrl";
 
 export type TTaskForm = {
@@ -182,6 +182,7 @@ export const useTaskForm = (
       // A task and its checklist are written in one statement.
       subtasks: savedSubtasks,
     },
-    canSave: cleanTitle.length > 0,
+    canSave:
+      cleanTitle.length > 0 && cleanTitle.length <= TASK_TITLE_MAX_LENGTH,
   };
 };

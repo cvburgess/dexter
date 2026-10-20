@@ -17,6 +17,7 @@ import {
   requestAlarmAuthorization,
 } from "@/utils/alarms";
 import { dateToPlainDateISO, plainDateISOToDate } from "@/utils/plainDate";
+import { TASK_TITLE_MAX_LENGTH } from "@/utils/subtasks";
 import { useTheme } from "@/utils/theme";
 
 // The universal Picker's item values cannot be null, so "no list" gets a
@@ -95,6 +96,7 @@ export function TaskForm({
         placeholder="What needs to be done?"
         returnKeyType="done"
         testID={`${testIDPrefix}-title`}
+        maxLength={TASK_TITLE_MAX_LENGTH}
         value={form.title}
         onChangeText={form.setTitle}
         onSubmitEditing={onSubmit}

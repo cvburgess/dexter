@@ -5,6 +5,10 @@
 // reads stored rows, and an over-long title there would skip the sweep.
 export const SUBTASK_TITLE_MAX_LENGTH = 100;
 
+// The tasks.title column is varchar(100); the app must match it (MCP and
+// subtasks already do) or an over-long save fails server-side (DEX-238).
+export const TASK_TITLE_MAX_LENGTH = 100;
+
 let counter = 0;
 
 // Ids need only be unique within one task's array (not database keys), so this
