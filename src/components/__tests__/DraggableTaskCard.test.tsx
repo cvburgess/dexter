@@ -118,6 +118,16 @@ describe("DraggableTaskCard", () => {
     expect(screen.getByTestId(`task-drag-${task.id}`)).toBeTruthy();
   });
 
+  it("stretches the drag wrapper so the card spans its column", async () => {
+    const screen = await render(
+      withProvider(<DraggableTaskCard {...cardProps} />),
+    );
+
+    expect(screen.getByTestId(`task-drag-${task.id}`).props.style).toEqual(
+      expect.objectContaining({ alignSelf: "stretch" }),
+    );
+  });
+
   // An id, not the task: drax caches a view's props when it registers, so a
   // whole-task payload would freeze at whatever the task was then.
   it("carries only the task's id as its payload", async () => {
