@@ -91,7 +91,6 @@ export function DraggableTaskCard(props: TDraggableTaskCardProps) {
       longPressDelay={DRAG_ACTIVATION.longPressDelay}
       dragActivationOffsetX={DRAG_ACTIVATION.dragActivationOffsetX}
       dragActivationFailOffsetY={DRAG_ACTIVATION.dragActivationFailOffsetY}
-      style={styles.fill}
       draggingStyle={styles.dragging}
       // Default hover would re-render this card's children into the overlay,
       // mounting a second set of native menu hosts (TaskCardPreview).
@@ -99,7 +98,7 @@ export function DraggableTaskCard(props: TDraggableTaskCardProps) {
     >
       {pressGesture ? (
         <GestureDetector gesture={pressGesture}>
-          <View style={styles.fill}>{card}</View>
+          <View>{card}</View>
         </GestureDetector>
       ) : (
         card
@@ -109,10 +108,6 @@ export function DraggableTaskCard(props: TDraggableTaskCardProps) {
 }
 
 const styles = StyleSheet.create({
-  // Native wrappers shrink-wrap the card unless told to stretch; web doesn't.
-  fill: {
-    alignSelf: "stretch",
-  },
   // The card left behind fades while its preview travels, so the row it came
   // from still holds its place in the list rather than collapsing.
   dragging: {
