@@ -84,6 +84,9 @@ export function TaskCard({
   const [unconfirmed, setUnconfirmed] = useState<TSubtask[]>([]);
 
   const [renamed, setRenamed] = useState<TRenamed | null>(null);
+  // MoreMenu's native host shrink-wraps its child and ignores stretch, so the
+  // card needs an explicit width — measured from a wrapper that does stretch.
+  const [columnWidth, setColumnWidth] = useState<number>();
   if (renamed !== null) {
     const current =
       renamed.kind === "title"
@@ -200,6 +203,7 @@ export function TaskCard({
           // child is StatusButton's async-sizing menu host, which can report 0.
           minHeight: theme.space.md * 2 + theme.controls.sm,
           padding: theme.space.md,
+          width: columnWidth,
         },
       ]}
       testID={`task-card-${task.id}`}
@@ -305,17 +309,23 @@ export function TaskCard({
 
   return (
     <>
-      <MoreMenu
-        task={task}
-        onChangePriority={(priority) => onUpdate({ priority })}
-        onChangeSchedule={(scheduledFor) => changeSchedule(task, scheduledFor)}
-        onAddSubtask={addSubtask}
-        onDuplicate={onDuplicate}
-        onDelete={onDelete}
+      <View
+        onLayout={(event) => setColumnWidth(event.nativeEvent.layout.width)}
         style={styles.moreMenuWrapper}
       >
-        {card}
-      </MoreMenu>
+        <MoreMenu
+          task={task}
+          onChangePriority={(priority) => onUpdate({ priority })}
+          onChangeSchedule={(scheduledFor) =>
+            changeSchedule(task, scheduledFor)
+          }
+          onAddSubtask={addSubtask}
+          onDuplicate={onDuplicate}
+          onDelete={onDelete}
+        >
+          {card}
+        </MoreMenu>
+      </View>
       <ConfirmationModal {...confirmationProps} />
     </>
   );

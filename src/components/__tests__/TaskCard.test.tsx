@@ -110,6 +110,30 @@ describe("TaskCard", () => {
     scheduledFor: "2026-07-03",
   };
 
+  // MoreMenu's native host shrink-wraps its child, so the card is only
+  // column-wide when it is handed the width its stretching wrapper measured.
+  it("fills the width its wrapper measures", async () => {
+    const screen = await render(
+      <TaskCard
+        task={baseTask}
+        onUpdate={jest.fn()}
+        onDuplicate={jest.fn()}
+        onPromoteSubtask={jest.fn()}
+        onDelete={jest.fn()}
+      />,
+    );
+    const card = screen.getByTestId("task-card-task-1");
+
+    await fireEvent(card, "layout", {
+      nativeEvent: { layout: { width: 320, height: 60, x: 0, y: 0 } },
+    });
+
+    expect(
+      StyleSheet.flatten(screen.getByTestId("task-card-task-1").props.style)
+        .width,
+    ).toBe(320);
+  });
+
   it("reschedules directly, without confirming, when the task has no alarm", async () => {
     const onUpdate = jest.fn();
     const onChangeSchedule = await scheduleVia(baseTask, onUpdate);
